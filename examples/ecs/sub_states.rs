@@ -9,6 +9,8 @@
 
 use bevy::prelude::*;
 
+use ui::*;
+
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 enum AppState {
     #[default]
@@ -61,62 +63,6 @@ fn main() {
         .run();
 }
 
-#[derive(Resource)]
-struct MenuData {
-    button_entity: Entity,
-}
-
-const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
-const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
-const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
-
-fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
-}
-
-fn setup_menu(mut commands: Commands) {
-    let button_entity = commands
-        .spawn(NodeBundle {
-            style: Style {
-                // center button
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            ..default()
-        })
-        .with_children(|parent| {
-            parent
-                .spawn(ButtonBundle {
-                    style: Style {
-                        width: Val::Px(150.),
-                        height: Val::Px(65.),
-                        // horizontally center child text
-                        justify_content: JustifyContent::Center,
-                        // vertically center child text
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    image: UiImage::default().with_color(NORMAL_BUTTON),
-                    ..default()
-                })
-                .with_children(|parent| {
-                    parent.spawn(TextBundle::from_section(
-                        "Play",
-                        TextStyle {
-                            font_size: 40.0,
-                            color: Color::srgb(0.9, 0.9, 0.9),
-                            ..default()
-                        },
-                    ));
-                });
-        })
-        .id();
-    commands.insert_resource(MenuData { button_entity });
-}
-
 fn menu(
     mut next_state: ResMut<NextState<AppState>>,
     mut interaction_query: Query<
@@ -143,13 +89,6 @@ fn menu(
 
 fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
     commands.entity(menu_data.button_entity).despawn_recursive();
-}
-
-fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(SpriteBundle {
-        texture: asset_server.load("branding/icon.png"),
-        ..default()
-    });
 }
 
 const SPEED: f32 = 100.0;
@@ -218,52 +157,6 @@ fn clear_state_bound_entities<S: States>(
     }
 }
 
-fn setup_paused_screen(mut commands: Commands) {
-    commands
-        .spawn((
-            StateBound(IsPaused::Paused),
-            NodeBundle {
-                style: Style {
-                    // center button
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    flex_direction: FlexDirection::Column,
-                    row_gap: Val::Px(10.),
-                    ..default()
-                },
-                ..default()
-            },
-        ))
-        .with_children(|parent| {
-            parent
-                .spawn(NodeBundle {
-                    style: Style {
-                        width: Val::Px(400.),
-                        height: Val::Px(400.),
-                        // horizontally center child text
-                        justify_content: JustifyContent::Center,
-                        // vertically center child text
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    background_color: NORMAL_BUTTON.into(),
-                    ..default()
-                })
-                .with_children(|parent| {
-                    parent.spawn(TextBundle::from_section(
-                        "Paused",
-                        TextStyle {
-                            font_size: 40.0,
-                            color: Color::srgb(0.9, 0.9, 0.9),
-                            ..default()
-                        },
-                    ));
-                });
-        });
-}
-
 /// print when an `AppState` transition happens
 fn log_transitions(mut transitions: EventReader<StateTransitionEvent<AppState>>) {
     for transition in transitions.read() {
@@ -271,5 +164,118 @@ fn log_transitions(mut transitions: EventReader<StateTransitionEvent<AppState>>)
             "transition: {:?} => {:?}",
             transition.before, transition.after
         );
+    }
+}
+
+mod ui {
+    use crate::*;
+
+    #[derive(Resource)]
+    pub struct MenuData {
+        pub button_entity: Entity,
+    }
+
+    pub const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+    pub const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
+    pub const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
+
+    pub fn setup(mut commands: Commands) {
+        commands.spawn(Camera2dBundle::default());
+    }
+
+    pub fn setup_menu(mut commands: Commands) {
+        let button_entity = commands
+            .spawn(NodeBundle {
+                style: Style {
+                    // center button
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                ..default()
+            })
+            .with_children(|parent| {
+                parent
+                    .spawn(ButtonBundle {
+                        style: Style {
+                            width: Val::Px(150.),
+                            height: Val::Px(65.),
+                            // horizontally center child text
+                            justify_content: JustifyContent::Center,
+                            // vertically center child text
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        image: UiImage::default().with_color(NORMAL_BUTTON),
+                        ..default()
+                    })
+                    .with_children(|parent| {
+                        parent.spawn(TextBundle::from_section(
+                            "Play",
+                            TextStyle {
+                                font_size: 40.0,
+                                color: Color::srgb(0.9, 0.9, 0.9),
+                                ..default()
+                            },
+                        ));
+                    });
+            })
+            .id();
+        commands.insert_resource(MenuData { button_entity });
+    }
+
+    pub fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
+        commands.spawn(SpriteBundle {
+            texture: asset_server.load("branding/icon.png"),
+            ..default()
+        });
+    }
+
+    pub fn setup_paused_screen(mut commands: Commands) {
+        commands
+            .spawn((
+                StateBound(IsPaused::Paused),
+                NodeBundle {
+                    style: Style {
+                        // center button
+                        width: Val::Percent(100.),
+                        height: Val::Percent(100.),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(10.),
+                        ..default()
+                    },
+                    ..default()
+                },
+            ))
+            .with_children(|parent| {
+                parent
+                    .spawn(NodeBundle {
+                        style: Style {
+                            width: Val::Px(400.),
+                            height: Val::Px(400.),
+                            // horizontally center child text
+                            justify_content: JustifyContent::Center,
+                            // vertically center child text
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        background_color: NORMAL_BUTTON.into(),
+                        ..default()
+                    })
+                    .with_children(|parent| {
+                        parent.spawn(TextBundle::from_section(
+                            "Paused",
+                            TextStyle {
+                                font_size: 40.0,
+                                color: Color::srgb(0.9, 0.9, 0.9),
+                                ..default()
+                            },
+                        ));
+                    });
+            });
     }
 }
