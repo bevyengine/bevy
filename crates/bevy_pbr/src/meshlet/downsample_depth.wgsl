@@ -14,7 +14,7 @@
 @group(0) @binding(13) var samplr: sampler;
 var<push_constant> max_mip_level: u32;
 
-/// Generates a hierarchal depth buffer.
+/// Generates a hierarchical depth buffer.
 /// Based on FidelityFX SPD v2.1 https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/d7531ae47d8b36a5d4025663e731a47a38be882f/sdk/include/FidelityFX/gpu/spd/ffx_spd.h#L528
 
 var<workgroup> intermediate_memory: array<array<f32, 16>, 16>;
