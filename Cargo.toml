@@ -17,7 +17,7 @@ exclude = [
   "benches",
   "crates/bevy_ecs/compile_fail",
   "crates/bevy_derive/compile_fail",
-  "crates/bevy_reflect_compile_fail_tests",
+  "crates/bevy_reflect/compile_fail",
 ]
 members = [
   "crates/*",

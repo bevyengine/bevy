@@ -32,10 +32,10 @@ impl Prepare for CompileFailCommand {
         // - See crates/bevy_reflect_compile_fail_tests/README.md
         commands.push(
             PreparedCommand::new::<Self>(
-                cmd!(sh, "cargo test --target-dir ../../target {no_fail_fast}"),
+                cmd!(sh, "cargo test --target-dir ../../../target {no_fail_fast}"),
                 "Compiler errors of the Reflect compile fail tests seem to be different than expected! Check locally and compare rust versions.",
             )
-            .with_subdir("crates/bevy_reflect_compile_fail_tests"),
+            .with_subdir("crates/bevy_reflect/compile_fail"),
         );
 
         // Macro Compile Fail Tests
