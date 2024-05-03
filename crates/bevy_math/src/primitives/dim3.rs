@@ -753,7 +753,7 @@ impl Ramp {
     /// Get the volume of the ramp.
     #[inline(always)]
     pub fn volume(&self) -> f32 {
-        4.0 * self.half_size.x * self.half_size.y * self.half_size.z
+        4.0 * self.half_size.element_product()
     }
 
     /// Get the incline of the ramp.
