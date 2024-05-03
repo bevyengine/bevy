@@ -3,13 +3,14 @@ use bevy_utils::warn_once;
 
 use crate::state::{State, States};
 
-/// A [`Condition`](super::Condition)-satisfying system that returns `true`
+/// A [`Condition`](bevy_ecs::prelude::Condition)-satisfying system that returns `true`
 /// if the state machine exists.
 ///
 /// # Example
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// # use bevy_state::prelude::*;
 /// # #[derive(Resource, Default)]
 /// # struct Counter(u8);
 /// # let mut app = Schedule::default();
@@ -46,7 +47,7 @@ pub fn state_exists<S: States>(current_state: Option<Res<State<S>>>) -> bool {
     current_state.is_some()
 }
 
-/// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+/// Generates a [`Condition`](bevy_ecs::prelude::Condition)-satisfying closure that returns `true`
 /// if the state machine is currently in `state`.
 ///
 /// Will return `false` if the state does not exist or if not in `state`.
@@ -55,6 +56,7 @@ pub fn state_exists<S: States>(current_state: Option<Res<State<S>>>) -> bool {
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// # use bevy_state::prelude::*;
 /// # #[derive(Resource, Default)]
 /// # struct Counter(u8);
 /// # let mut app = Schedule::default();
@@ -112,7 +114,7 @@ pub fn in_state<S: States>(state: S) -> impl FnMut(Option<Res<State<S>>>) -> boo
     }
 }
 
-/// A [`Condition`](super::Condition)-satisfying system that returns `true`
+/// A [`Condition`](bevy_ecs::prelude::Condition)-satisfying system that returns `true`
 /// if the state machine changed state.
 ///
 /// To do things on transitions to/from specific states, use their respective OnEnter/OnExit
@@ -124,6 +126,7 @@ pub fn in_state<S: States>(state: S) -> impl FnMut(Option<Res<State<S>>>) -> boo
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// # use bevy_state::prelude::*;
 /// # #[derive(Resource, Default)]
 /// # struct Counter(u8);
 /// # let mut app = Schedule::default();

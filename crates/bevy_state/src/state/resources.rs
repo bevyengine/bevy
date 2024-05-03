@@ -8,15 +8,16 @@ use bevy_ecs::{
 use super::{freely_mutable_state::FreelyMutableState, states::States};
 
 /// A finite-state machine whose transitions have associated schedules
-/// ([`OnEnter(state)`] and [`OnExit(state)`]).
+/// ([`OnEnter(state)`](crate::state::OnEnter) and [`OnExit(state)`](crate::state::OnExit)).
 ///
 /// The current state value can be accessed through this resource. To *change* the state,
 /// queue a transition in the [`NextState<S>`] resource, and it will be applied by the next
-/// [`apply_state_transition::<S>`] system.
+/// [`apply_state_transition::<S>`](crate::state::apply_state_transition) system.
 ///
 /// The starting state is defined via the [`Default`] implementation for `S`.
 ///
 /// ```
+/// use bevy_state::prelude::*;
 /// use bevy_ecs::prelude::*;
 ///
 /// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
@@ -81,10 +82,12 @@ impl<S: States> Deref for State<S> {
 /// The next state of [`State<S>`].
 ///
 /// To queue a transition, just set the contained value to `Some(next_state)`.
+///
 /// Note that these transitions can be overridden by other systems:
-/// only the actual value of this resource at the time of [`apply_state_transition`] matters.
+/// only the actual value of this resource at the time of [`apply_state_transition`](crate::state::apply_state_transition) matters.
 ///
 /// ```
+/// use bevy_state::prelude::*;
 /// use bevy_ecs::prelude::*;
 ///
 /// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]

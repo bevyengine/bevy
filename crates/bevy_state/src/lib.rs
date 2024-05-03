@@ -1,15 +1,15 @@
 //! In Bevy, states are app-wide interdependent, finite state machines that are generally used to model the large scale structure of your program: whether a game is paused, if the player is in combat, if assets are loaded and so on.
 //!
-//! This module provides 3 distinct types of state, all of which implement the [`States`] trait:
+//! This module provides 3 distinct types of state, all of which implement the [`States`](state::States) trait:
 //!
-//! - Standard [`States`] can only be changed by manually setting the [`NextState<S>`] resource.
+//! - Standard [`States`](state::States) can only be changed by manually setting the [`NextState<S>`](state::NextState) resource.
 //!   These states are the baseline on which the other state types are built, and can be used on
 //!   their own for many simple patterns. See the [state example](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/state.rs)
 //!   for a simple use case.
-//! - [`SubStates`] are children of other states - they can be changed manually using [`NextState<S>`],
-//!   but are removed from the [`World`] if the source states aren't in the right state. See the [sub_states example](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/sub_states.rs)
+//! - [`SubStates`](state::SubStates) are children of other states - they can be changed manually using [`NextState<S>`](state::NextState),
+//!   but are removed from the [`World`](bevy_ecs::prelude::World) if the source states aren't in the right state. See the [sub_states example](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/sub_states.rs)
 //!   for a simple use case based on the derive macro, or read the trait docs for more complex scenarios.
-//! - [`ComputedStates`] are fully derived from other states - they provide a [`compute`](ComputedStates::compute) method
+//! - [`ComputedStates`](state::ComputedStates) are fully derived from other states - they provide a [`compute`](state::ComputedStates::compute) method
 //!   that takes in the source states and returns their derived value. They are particularly useful for situations
 //!   where a simplified view of the source states is necessary - such as having an `InAMenu` computed state, derived
 //!   from a source state that defines multiple distinct menus. See the [computed state example](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/computed_states.rs)

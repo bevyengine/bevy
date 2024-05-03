@@ -172,18 +172,14 @@ pub fn setup_state_transitions_in_world(
     }
 }
 
-/// If a new state is queued in [`NextState<S>`], this system:
-/// - Takes the new state value from [`NextState<S>`] and updates [`State<S>`].
-/// - Sends a relevant [`StateTransitionEvent`]
-/// - Runs the [`OnExit(exited_state)`] schedule, if it exists.
-/// - Runs the [`OnTransition { from: exited_state, to: entered_state }`](OnTransition), if it exists.
-/// - Derive any dependent states through the [`ComputeDependantStates::<S>`] schedule, if it exists.
-/// - Runs the [`OnEnter(entered_state)`] schedule, if it exists.
+/// If a new state is queued in [`NextState<S>`], this system
+/// takes the new state value from [`NextState<S>`] and updates [`State<S>`], as well as
+/// sending the relevant [`StateTransitionEvent`].
 ///
 /// If the [`State<S>`] resource does not exist, it does nothing. Removing or adding states
 /// should be done at App creation or at your own risk.
 ///
-/// For [`SubStates`] - it only applies the state if the `SubState` currently exists. Otherwise, it is wiped.
+/// For [`SubStates`](crate::state::SubStates) - it only applies the state if the `SubState` currently exists. Otherwise, it is wiped.
 /// When a `SubState` is re-created, it will use the result of it's `should_exist` method.
 pub fn apply_state_transition<S: FreelyMutableState>(
     event: EventWriter<StateTransitionEvent<S>>,

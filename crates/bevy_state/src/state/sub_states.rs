@@ -4,13 +4,14 @@ use super::{freely_mutable_state::FreelyMutableState, state_set::StateSet, state
 pub use bevy_state_macros::SubStates;
 
 /// A sub-state is a state that exists only when the source state meet certain conditions,
-/// but unlike [`ComputedStates`] - while they exist they can be manually modified.
+/// but unlike [`ComputedStates`](crate::state::ComputedStates) - while they exist they can be manually modified.
 ///
 /// The default approach to creating [`SubStates`] is using the derive macro, and defining a single source state
 /// and value to determine it's existence.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// # use bevy_state::prelude::*;
 ///
 /// #[derive(States, Clone, PartialEq, Eq, Hash, Debug, Default)]
 /// enum AppState {
@@ -34,6 +35,7 @@ pub use bevy_state_macros::SubStates;
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// # use bevy_state::prelude::*;
 ///
 /// # struct App;
 /// # impl App {
@@ -53,6 +55,7 @@ pub use bevy_state_macros::SubStates;
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// # use bevy_state::prelude::*;
 ///
 /// /// Computed States require some state to derive from
 /// #[derive(States, Clone, PartialEq, Eq, Hash, Debug, Default)]
@@ -98,7 +101,8 @@ pub use bevy_state_macros::SubStates;
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::schedule::FreelyMutableState;
+/// # use bevy_state::prelude::*;
+/// # use bevy_state::state::FreelyMutableState;
 ///
 /// /// Computed States require some state to derive from
 /// #[derive(States, Clone, PartialEq, Eq, Hash, Debug, Default)]
@@ -148,10 +152,10 @@ pub trait SubStates: States + FreelyMutableState {
     type SourceStates: StateSet;
 
     /// This function gets called whenever one of the [`SourceStates`](Self::SourceStates) changes.
-    /// The result is used to determine the existence of [`State<Self>`].
+    /// The result is used to determine the existence of [`State<Self>`](crate::state::State).
     ///
-    /// If the result is [`None`], the [`State<Self>`] resource will be removed from the world, otherwise
-    /// if the [`State<Self>`] resource doesn't exist - it will be created with the [`Some`] value.
+    /// If the result is [`None`], the [`State<Self>`](crate::state::State) resource will be removed from the world, otherwise
+    /// if the [`State<Self>`](crate::state::State) resource doesn't exist - it will be created with the [`Some`] value.
     fn should_exist(sources: Self::SourceStates) -> Option<Self>;
 
     /// This function sets up systems that compute the state whenever one of the [`SourceStates`](Self::SourceStates)
