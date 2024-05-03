@@ -91,8 +91,8 @@ where
 
 #[derive(Resource)]
 pub struct UiMaterialMeta<M: UiMaterial> {
-    vertices: BufferVec<UiMaterialVertex>,
-    view_bind_group: Option<BindGroup>,
+    pub vertices: BufferVec<UiMaterialVertex>,
+    pub view_bind_group: Option<BindGroup>,
     marker: PhantomData<M>,
 }
 
@@ -640,7 +640,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    let draw_function = draw_functions.read().id::<DrawUiMaterial<M>>();
+    let draw_function = M::draw_function_id(draw_functions.into_inner());
 
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
         let Some(material) = render_materials.get(extracted_uinode.material) else {
