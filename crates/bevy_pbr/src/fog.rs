@@ -1,4 +1,4 @@
-use bevy_color::{Color, LinearRgba};
+use bevy_color::LinearRgba;
 use bevy_ecs::prelude::*;
 use bevy_math::Vec3;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -35,7 +35,7 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 ///     },
 ///     // Add fog to the same entity
 ///     FogSettings {
-///         color: Color::WHITE,
+///         color: LinearRgba::WHITE,
 ///         falloff: FogFalloff::Exponential { density: 1e-3 },
 ///         ..Default::default()
 ///     },
@@ -287,7 +287,7 @@ pub enum FogFalloff {
         /// falloff calculation) for that specific channel.
         ///
         /// **Note:**
-        /// This value is not a `Color`, since it affects the channels exponentially in a non-intuitive way.
+        /// This value is not a color, since it affects the channels exponentially in a non-intuitive way.
         /// For artistic control, use the [`FogFalloff::from_visibility_colors()`] convenience method.
         extinction: Vec3,
 
@@ -298,7 +298,7 @@ pub enum FogFalloff {
         /// falloff calculation) for that specific channel.
         ///
         /// **Note:**
-        /// This value is not a `Color`, since it affects the channels exponentially in a non-intuitive way.
+        /// This value is not a color, since it affects the channels exponentially in a non-intuitive way.
         /// For artistic control, use the [`FogFalloff::from_visibility_colors()`] convenience method.
         inscattering: Vec3,
     },
@@ -347,7 +347,7 @@ impl FogFalloff {
     /// [`FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD`].
     pub fn from_visibility_color(
         visibility: f32,
-        extinction_inscattering_color: Color,
+        extinction_inscattering_color: impl Into<LinearRgba> + Copy,
     ) -> FogFalloff {
         FogFalloff::from_visibility_contrast_colors(
             visibility,
@@ -363,12 +363,12 @@ impl FogFalloff {
     ///
     /// ## Tips
     /// - Alpha values of the provided colors can modulate the `extinction` and `inscattering` effects;
-    /// - Using an `extinction_color` of [`Color::WHITE`] or [`Color::NONE`] disables the extinction effect;
-    /// - Using an `inscattering_color` of [`Color::BLACK`] or [`Color::NONE`] disables the inscattering effect.
+    /// - Using an `extinction_color` of [`LinearRgba::WHITE`] or [`LinearRgba::NONE`] disables the extinction effect;
+    /// - Using an `inscattering_color` of [`LinearRgba::BLACK`] or [`LinearRgba::NONE`] disables the inscattering effect.
     pub fn from_visibility_colors(
         visibility: f32,
-        extinction_color: Color,
-        inscattering_color: Color,
+        extinction_color: impl Into<LinearRgba>,
+        inscattering_color: impl Into<LinearRgba>,
     ) -> FogFalloff {
         FogFalloff::from_visibility_contrast_colors(
             visibility,
@@ -383,7 +383,7 @@ impl FogFalloff {
     pub fn from_visibility_contrast_color(
         visibility: f32,
         contrast_threshold: f32,
-        extinction_inscattering_color: Color,
+        extinction_inscattering_color: impl Into<LinearRgba> + Copy,
     ) -> FogFalloff {
         FogFalloff::from_visibility_contrast_colors(
             visibility,
@@ -398,18 +398,18 @@ impl FogFalloff {
     ///
     /// ## Tips
     /// - Alpha values of the provided colors can modulate the `extinction` and `inscattering` effects;
-    /// - Using an `extinction_color` of [`Color::WHITE`] or [`Color::NONE`] disables the extinction effect;
-    /// - Using an `inscattering_color` of [`Color::BLACK`] or [`Color::NONE`] disables the inscattering effect.
+    /// - Using an `extinction_color` of [`LinearRgba::WHITE`] or [`LinearRgba::NONE`] disables the extinction effect;
+    /// - Using an `inscattering_color` of [`LinearRgba::BLACK`] or [`LinearRgba::NONE`] disables the inscattering effect.
     pub fn from_visibility_contrast_colors(
         visibility: f32,
         contrast_threshold: f32,
-        extinction_color: Color,
-        inscattering_color: Color,
+        extinction_color: impl Into<LinearRgba>,
+        inscattering_color: impl Into<LinearRgba>,
     ) -> FogFalloff {
         use std::f32::consts::E;
 
-        let [r_e, g_e, b_e, a_e] = LinearRgba::from(extinction_color).to_f32_array();
-        let [r_i, g_i, b_i, a_i] = LinearRgba::from(inscattering_color).to_f32_array();
+        let [r_e, g_e, b_e, a_e] = extinction_color.into().to_f32_array();
+        let [r_i, g_i, b_i, a_i] = inscattering_color.into().to_f32_array();
 
         FogFalloff::Atmospheric {
             extinction: Vec3::new(
