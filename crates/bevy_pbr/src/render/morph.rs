@@ -53,14 +53,14 @@ const fn can_align(step: usize, target: usize) -> bool {
 
 const WGPU_MIN_ALIGN: usize = 256;
 
-/// Align a [`BufferVec`] to `N` bytes by padding the end with `T::default()` values.
+/// Align a [`RawBufferVec`] to `N` bytes by padding the end with `T::default()` values.
 fn add_to_alignment<T: Pod + Default>(buffer: &mut RawBufferVec<T>) {
     let n = WGPU_MIN_ALIGN;
     let t_size = mem::size_of::<T>();
     if !can_align(n, t_size) {
         // This panic is stripped at compile time, due to n, t_size and can_align being const
         panic!(
-            "BufferVec should contain only types with a size multiple or divisible by {n}, \
+            "RawBufferVec should contain only types with a size multiple or divisible by {n}, \
             {} has a size of {t_size}, which is neither multiple or divisible by {n}",
             std::any::type_name::<T>()
         );
