@@ -8,7 +8,6 @@
 //! a substate called `IsPaused` to track whether the game is paused or not.
 
 use bevy::prelude::*;
-use bevy::state::state::StateTransitionEvent;
 
 use ui::*;
 
