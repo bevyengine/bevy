@@ -1,5 +1,5 @@
 [package]
-name = "bevy_ecs_compile_fail_tests"
+name = "bevy_ecs_compile_fail"
 edition = "2021"
 description = "Compile fail tests for Bevy Engine's entity component system"
 homepage = "https://bevyengine.org"
@@ -9,10 +9,10 @@ publish = false
 
 [dependencies]
 # ui_test dies if we don't specify the version. See oli-obk/ui_test#211
-bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
+bevy_ecs = { path = "../", version = "0.14.0-dev" }
 
 [dev-dependencies]
-bevy_compile_test_utils = { path = "../../tools/bevy_compile_test_utils" }
+bevy_compile_test_utils = { path = "../../../tools/bevy_compile_test_utils" }
 
 [[test]]
 name = "ui"
