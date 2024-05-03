@@ -52,5 +52,5 @@ jobs:
           base: "main"
           title: "Preparing Next Release"
           body: |
-            Preparing next release
-            This PR has been auto-generated
+            Preparing next release. This PR has been auto-generated.
+            UI tests have not been automatically bumped to the latest version, please fix them manually.

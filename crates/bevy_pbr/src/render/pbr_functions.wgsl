@@ -21,6 +21,55 @@
 
 #import bevy_core_pipeline::tonemapping::{screen_space_dither, powsafe, tone_mapping}
 
+// This is the standard 4x4 ordered dithering pattern from [1].
+//
+// We can't use `array<vec4<u32>, 4>` because they can't be indexed dynamically
+// due to Naga limitations. So instead we pack into a single `vec4` and extract
+// individual bytes.
+//
+// [1]: https://en.wikipedia.org/wiki/Ordered_dithering#Threshold_map
+const DITHER_THRESHOLD_MAP: vec4<u32> = vec4(
+    0x0a020800,
+    0x060e040c,
+    0x09010b03,
+    0x050d070f
+);
+
+// Processes a visibility range dither value and discards the fragment if
+// needed.
+//
+// Visibility ranges, also known as HLODs, are crossfades between different
+// levels of detail.
+//
+// The `dither` value ranges from [-16, 16]. When zooming out, positive values
+// are used for meshes that are in the process of disappearing, while negative
+// values are used for meshes that are in the process of appearing. In other
+// words, when the camera is moving backwards, the `dither` value counts up from
+// -16 to 0 when the object is fading in, stays at 0 while the object is
+// visible, and then counts up to 16 while the object is fading out.
+// Distinguishing between negative and positive values allows the dither
+// patterns for different LOD levels of a single mesh to mesh together properly.
+#ifdef VISIBILITY_RANGE_DITHER
+fn visibility_range_dither(frag_coord: vec4<f32>, dither: i32) {
+    // If `dither` is 0, the object is visible.
+    if (dither == 0) {
+        return;
+    }
+
+    // If `dither` is less than -15 or greater than 15, the object is culled.
+    if (dither <= -16 || dither >= 16) {
+        discard;
+    }
+
+    // Otherwise, check the dither pattern.
+    let coords = vec2<u32>(floor(frag_coord.xy)) % 4u;
+    let threshold = i32((DITHER_THRESHOLD_MAP[coords.y] >> (coords.x * 8)) & 0xff);
+    if ((dither >= 0 && dither + threshold >= 16) || (dither < 0 && 1 + dither + threshold <= 0)) {
+        discard;
+    }
+}
+#endif
+
 fn alpha_discard(material: pbr_types::StandardMaterial, output_color: vec4<f32>) -> vec4<f32> {
     var color = output_color;
     let alpha_mode = material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
@@ -30,7 +79,11 @@ fn alpha_discard(material: pbr_types::StandardMaterial, output_color: vec4<f32>)
     }
 
 #ifdef MAY_DISCARD
-    else if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
+    // NOTE: `MAY_DISCARD` is only defined in the alpha to coverage case if MSAA
+    // was off. This special situation causes alpha to coverage to fall back to
+    // alpha mask.
+    else if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK ||
+            alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ALPHA_TO_COVERAGE {
         if color.a >= material.alpha_cutoff {
             // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
             color.a = 1.0;

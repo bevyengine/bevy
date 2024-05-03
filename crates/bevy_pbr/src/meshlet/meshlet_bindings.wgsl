@@ -2,6 +2,7 @@
 
 #import bevy_pbr::mesh_types::Mesh
 #import bevy_render::view::View
+#import bevy_pbr::prepass_bindings::PreviousViewUniforms
 
 struct PackedMeshletVertex {
     a: vec4<f32>,
@@ -32,6 +33,12 @@ struct Meshlet {
     triangle_count: u32,
 }
 
+struct MeshletBoundingSpheres {
+    self_culling: MeshletBoundingSphere,
+    self_lod: MeshletBoundingSphere,
+    parent_lod: MeshletBoundingSphere,
+}
+
 struct MeshletBoundingSphere {
     center: vec3<f32>,
     radius: f32,
@@ -46,15 +53,17 @@ struct DrawIndirectArgs {
 
 #ifdef MESHLET_CULLING_PASS
 @group(0) @binding(0) var<storage, read> meshlet_thread_meshlet_ids: array<u32>; // Per cluster (instance of a meshlet)
-@group(0) @binding(1) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSphere>; // Per asset meshlet
+@group(0) @binding(1) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSpheres>; // Per asset meshlet
 @group(0) @binding(2) var<storage, read> meshlet_thread_instance_ids: array<u32>; // Per cluster (instance of a meshlet)
 @group(0) @binding(3) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
 @group(0) @binding(4) var<storage, read> meshlet_view_instance_visibility: array<u32>; // 1 bit per entity instance, packed as a bitmask
-@group(0) @binding(5) var<storage, read_write> meshlet_occlusion: array<atomic<u32>>; // 1 bit per cluster (instance of a meshlet), packed as a bitmask
-@group(0) @binding(6) var<storage, read> meshlet_previous_cluster_ids: array<u32>; // Per cluster (instance of a meshlet)
-@group(0) @binding(7) var<storage, read> meshlet_previous_occlusion: array<u32>; // 1 bit per cluster (instance of a meshlet), packed as a bitmask
-@group(0) @binding(8) var<uniform> view: View;
-@group(0) @binding(9) var depth_pyramid: texture_2d<f32>; // Generated from the first raster pass (unused in the first pass but still bound)
+@group(0) @binding(5) var<storage, read_write> meshlet_second_pass_candidates: array<atomic<u32>>; // 1 bit per cluster (instance of a meshlet), packed as a bitmask
+@group(0) @binding(6) var<storage, read> meshlets: array<Meshlet>; // Per asset meshlet
+@group(0) @binding(7) var<storage, read_write> draw_indirect_args: DrawIndirectArgs; // Single object shared between all workgroups/meshlets/triangles
+@group(0) @binding(8) var<storage, read_write> draw_triangle_buffer: array<u32>; // Single object shared between all workgroups/meshlets/triangles
+@group(0) @binding(9) var depth_pyramid: texture_2d<f32>; // From the end of the last frame for the first culling pass, and from the first raster pass for the second culling pass
+@group(0) @binding(10) var<uniform> view: View;
+@group(0) @binding(11) var<uniform> previous_view: PreviousViewUniforms;
 
 fn should_cull_instance(instance_id: u32) -> bool {
     let bit_offset = instance_id % 32u;
@@ -62,34 +71,10 @@ fn should_cull_instance(instance_id: u32) -> bool {
     return bool(extractBits(packed_visibility, bit_offset, 1u));
 }
 
-fn get_meshlet_previous_occlusion(cluster_id: u32) -> bool {
-    let previous_cluster_id = meshlet_previous_cluster_ids[cluster_id];
-    let packed_occlusion = meshlet_previous_occlusion[previous_cluster_id / 32u];
-    let bit_offset = previous_cluster_id % 32u;
-    return bool(extractBits(packed_occlusion, bit_offset, 1u));
-}
-#endif
-
-#ifdef MESHLET_WRITE_INDEX_BUFFER_PASS
-@group(0) @binding(0) var<storage, read> meshlet_occlusion: array<u32>; // 1 bit per cluster (instance of a meshlet), packed as a bitmask
-@group(0) @binding(1) var<storage, read> meshlet_thread_meshlet_ids: array<u32>; // Per cluster (instance of a meshlet)
-@group(0) @binding(2) var<storage, read> meshlet_previous_cluster_ids: array<u32>; // Per cluster (instance of a meshlet)
-@group(0) @binding(3) var<storage, read> meshlet_previous_occlusion: array<u32>; // 1 bit per cluster (instance of a meshlet), packed as a bitmask
-@group(0) @binding(4) var<storage, read> meshlets: array<Meshlet>; // Per asset meshlet
-@group(0) @binding(5) var<storage, read_write> draw_indirect_args: DrawIndirectArgs; // Single object shared between all workgroups/meshlets/triangles
-@group(0) @binding(6) var<storage, read_write> draw_index_buffer: array<u32>; // Single object shared between all workgroups/meshlets/triangles
-
-fn get_meshlet_occlusion(cluster_id: u32) -> bool {
-    let packed_occlusion = meshlet_occlusion[cluster_id / 32u];
+fn meshlet_is_second_pass_candidate(cluster_id: u32) -> bool {
+    let packed_candidates = meshlet_second_pass_candidates[cluster_id / 32u];
     let bit_offset = cluster_id % 32u;
-    return bool(extractBits(packed_occlusion, bit_offset, 1u));
-}
-
-fn get_meshlet_previous_occlusion(cluster_id: u32) -> bool {
-    let previous_cluster_id = meshlet_previous_cluster_ids[cluster_id];
-    let packed_occlusion = meshlet_previous_occlusion[previous_cluster_id / 32u];
-    let bit_offset = previous_cluster_id % 32u;
-    return bool(extractBits(packed_occlusion, bit_offset, 1u));
+    return bool(extractBits(packed_candidates, bit_offset, 1u));
 }
 #endif
 
@@ -102,7 +87,7 @@ fn get_meshlet_previous_occlusion(cluster_id: u32) -> bool {
 @group(0) @binding(5) var<storage, read> meshlet_thread_instance_ids: array<u32>; // Per cluster (instance of a meshlet)
 @group(0) @binding(6) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
 @group(0) @binding(7) var<storage, read> meshlet_instance_material_ids: array<u32>; // Per entity instance
-@group(0) @binding(8) var<storage, read> draw_index_buffer: array<u32>; // Single object shared between all workgroups/meshlets/triangles
+@group(0) @binding(8) var<storage, read> draw_triangle_buffer: array<u32>; // Single object shared between all workgroups/meshlets/triangles
 @group(0) @binding(9) var<uniform> view: View;
 
 fn get_meshlet_index(index_id: u32) -> u32 {

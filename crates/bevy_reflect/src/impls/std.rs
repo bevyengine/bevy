@@ -96,13 +96,9 @@ impl_reflect_value!(::std::path::PathBuf(
     Default
 ));
 impl_reflect_value!(::std::any::TypeId(Debug, Hash, PartialEq,));
-impl_reflect_value!(
-    ::core::result::Result < T: Clone + Reflect + TypePath,
-    E: Clone + Reflect + TypePath > ()
-);
 impl_reflect_value!(::std::collections::BTreeSet<T: Ord + Eq + Clone + Send + Sync>());
 impl_reflect_value!(::std::collections::HashSet<T: Hash + Eq + Clone + Send + Sync, S: TypePath + Clone + Send + Sync>());
-impl_reflect_value!(::bevy_utils::HashSet<T: Hash + Eq + Clone + Send + Sync>());
+impl_reflect_value!(::bevy_utils::hashbrown::HashSet<T: Hash + Eq + Clone + Send + Sync, S: TypePath + Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::Range<T: Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::RangeInclusive<T: Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::RangeFrom<T: Clone + Send + Sync>());
@@ -219,6 +215,10 @@ impl_reflect_value!(::std::ffi::OsString(
 #[cfg(not(any(unix, windows)))]
 impl_reflect_value!(::std::ffi::OsString(Debug, Hash, PartialEq));
 impl_reflect_value!(::alloc::collections::BinaryHeap<T: Clone>);
+
+impl_type_path!(::bevy_utils::NoOpHash);
+impl_type_path!(::bevy_utils::EntityHash);
+impl_type_path!(::bevy_utils::FixedState);
 
 macro_rules! impl_reflect_for_veclike {
     ($ty:path, $insert:expr, $remove:expr, $push:expr, $pop:expr, $sub:ty) => {
@@ -629,7 +629,6 @@ impl_type_path!(::std::collections::HashMap<K, V, S>);
 
 impl_reflect_for_hashmap!(bevy_utils::hashbrown::HashMap<K, V, S>);
 impl_type_path!(::bevy_utils::hashbrown::hash_map::DefaultHashBuilder);
-impl_type_path!(::bevy_utils::NoOpHash);
 impl_type_path!(::bevy_utils::hashbrown::HashMap<K, V, S>);
 
 impl<K, V> Map for ::std::collections::BTreeMap<K, V>
@@ -1000,6 +999,14 @@ impl_reflect! {
     enum Option<T> {
         None,
         Some(T),
+    }
+}
+
+impl_reflect! {
+    #[type_path = "core::result"]
+    enum Result<T, E> {
+        Ok(T),
+        Err(E),
     }
 }
 

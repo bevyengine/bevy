@@ -8,7 +8,6 @@ exclude = ["assets/", "tools/", ".github/", "crates/", "examples/wasm/assets/"]
 homepage = "https://bevyengine.org"
 keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
-readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
 rust-version = "1.77.0"
@@ -19,6 +18,7 @@ exclude = [
   "crates/bevy_ecs_compile_fail_tests",
   "crates/bevy_macros_compile_fail_tests",
   "crates/bevy_reflect_compile_fail_tests",
+  "crates/bevy_compile_test_utils",
 ]
 members = [
   "crates/*",
@@ -330,8 +330,11 @@ meshlet_processor = ["bevy_internal/meshlet_processor"]
 ios_simulator = ["bevy_internal/ios_simulator"]
 
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.14.0-dev", default-features = false, optional = true }
 bevy_internal = { path = "crates/bevy_internal", version = "0.14.0-dev", default-features = false }
+
+# WASM does not support dynamic linking.
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.14.0-dev", default-features = false, optional = true }
 
 [dev-dependencies]
 rand = "0.8.0"
@@ -380,6 +383,7 @@ wasm = true
 [[example]]
 name = "2d_viewport_to_world"
 path = "examples/2d/2d_viewport_to_world.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.2d_viewport_to_world]
 name = "2D Viewport To World"
@@ -465,6 +469,17 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "sprite_animation"
+path = "examples/2d/sprite_animation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sprite_animation]
+name = "Sprite Animation"
+description = "Animates a sprite in response to an event"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "sprite_flipping"
 path = "examples/2d/sprite_flipping.rs"
 doc-scrape-examples = true
@@ -489,6 +504,7 @@ wasm = true
 [[example]]
 name = "sprite_tile"
 path = "examples/2d/sprite_tile.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.sprite_tile]
 name = "Sprite Tile"
@@ -499,6 +515,7 @@ wasm = true
 [[example]]
 name = "sprite_slice"
 path = "examples/2d/sprite_slice.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.sprite_slice]
 name = "Sprite Slice"
@@ -542,6 +559,7 @@ wasm = true
 [[example]]
 name = "pixel_grid_snap"
 path = "examples/2d/pixel_grid_snap.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.pixel_grid_snap]
 name = "Pixel Grid Snapping"
@@ -729,6 +747,7 @@ wasm = true
 [[example]]
 name = "deferred_rendering"
 path = "examples/3d/deferred_rendering.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.deferred_rendering]
 name = "Deferred Rendering"
@@ -746,6 +765,17 @@ name = "Load glTF"
 description = "Loads and renders a glTF file as a scene"
 category = "3D Rendering"
 wasm = true
+
+[[example]]
+name = "motion_blur"
+path = "examples/3d/motion_blur.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.motion_blur]
+name = "Motion Blur"
+description = "Demonstrates per-pixel motion blur"
+category = "3D Rendering"
+wasm = false
 
 [[example]]
 name = "tonemapping"
@@ -893,6 +923,7 @@ wasm = true
 [[example]]
 name = "transmission"
 path = "examples/3d/transmission.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.transmission]
 name = "Transmission"
@@ -966,6 +997,14 @@ name = "Meshlet"
 description = "Meshlet rendering for dense high-poly scenes (experimental)"
 category = "3D Rendering"
 wasm = false
+setup = [
+  [
+    "curl",
+    "-o",
+    "assets/models/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/bd869887bc5c9c6e74e353f657d342bef84bacd8/bunny.meshlet_mesh",
+  ],
+]
 
 [[example]]
 name = "lightmaps"
@@ -1145,6 +1184,7 @@ wasm = true
 [[example]]
 name = "log_layers"
 path = "examples/app/log_layers.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.log_layers]
 name = "Log layers"
@@ -1155,6 +1195,7 @@ wasm = false
 [[example]]
 name = "log_layers_ecs"
 path = "examples/app/log_layers_ecs.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.log_layers_ecs]
 name = "Advanced log layers"
@@ -1423,6 +1464,7 @@ wasm = true
 [[example]]
 name = "pitch"
 path = "examples/audio/pitch.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.pitch]
 name = "Pitch"
@@ -1595,6 +1637,7 @@ wasm = true
 [[example]]
 name = "one_shot_systems"
 path = "examples/ecs/one_shot_systems.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.one_shot_systems]
 name = "One Shot Systems"
@@ -1658,6 +1701,28 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "sub_states"
+path = "examples/ecs/sub_states.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sub_states]
+name = "Sub States"
+description = "Using Sub States for hierarchical state handling."
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "computed_states"
+path = "examples/ecs/computed_states.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.computed_states]
+name = "Computed States"
+description = "Advanced state patterns using Computed States"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "system_piping"
 path = "examples/ecs/system_piping.rs"
 doc-scrape-examples = true
@@ -1706,6 +1771,7 @@ wasm = false
 [[example]]
 name = "time"
 path = "examples/time/time.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.time]
 name = "Time handling"
@@ -1716,6 +1782,7 @@ wasm = false
 [[example]]
 name = "virtual_time"
 path = "examples/time/virtual_time.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.virtual_time]
 name = "Virtual time"
@@ -2072,6 +2139,7 @@ wasm = true
 [[example]]
 name = "extended_material"
 path = "examples/shader/extended_material.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.extended_material]
 name = "Extended Material"
@@ -2869,6 +2937,28 @@ required-features = ["bevy_dev_tools"]
 name = "FPS overlay"
 description = "Demonstrates FPS overlay"
 category = "Dev tools"
+wasm = true
+
+[[example]]
+name = "visibility_range"
+path = "examples/3d/visibility_range.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.visibility_range]
+name = "Visibility range"
+description = "Demonstrates visibility ranges"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "color_grading"
+path = "examples/3d/color_grading.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.color_grading]
+name = "Color grading"
+description = "Demonstrates color grading"
+category = "3D Rendering"
 wasm = true
 
 [profile.wasm-release]
