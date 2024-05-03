@@ -12,7 +12,7 @@ publish = false
 bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
 
 [dev-dependencies]
-bevy_compile_test_utils = { path = "../bevy_compile_test_utils" }
+bevy_compile_test_utils = { path = "../../tools/bevy_compile_test_utils" }
 
 [[test]]
 name = "ui"
