@@ -35,10 +35,12 @@
 @group(0) @binding(10) var<uniform> fog: types::Fog;
 @group(0) @binding(11) var<uniform> light_probes: types::LightProbes;
 
+// NB: If you change this `#if`, make sure to update the corresponding `#if` in
+// `mesh_functions.wgsl` too.
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 6
 @group(0) @binding(12) var<storage> visibility_ranges: array<vec4<f32>>;
 #else
-@group(0) @binding(12) var<uniform> visibility_ranges: array<vec4<f32>, 1024u>;
+@group(0) @binding(12) var<uniform> visibility_ranges: array<vec4<f32>, 64u>;
 #endif
 
 @group(0) @binding(13) var screen_space_ambient_occlusion_texture: texture_2d<f32>;
