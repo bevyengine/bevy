@@ -182,8 +182,8 @@ impl Luminance for Oklcha {
 }
 
 impl Gray for Oklcha {
-    fn gray(intensity: f32) -> Self {
-        Self::new(intensity, 0., 0., 1.)
+    fn gray(lightness: f32) -> Self {
+        Self::new(lightness, 0., 0., 1.)
     }
 }
 

@@ -333,8 +333,8 @@ impl ClampColor for Srgba {
 }
 
 impl Gray for Srgba {
-    fn gray(intensity: f32) -> Self {
-        Self::new(intensity, intensity, intensity, 1.)
+    fn gray(lightness: f32) -> Self {
+        Self::new(lightness, lightness, lightness, 1.)
     }
 }
 

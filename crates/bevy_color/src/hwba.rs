@@ -143,8 +143,8 @@ impl ClampColor for Hwba {
 }
 
 impl Gray for Hwba {
-    fn gray(intensity: f32) -> Self {
-        Self::new(0., intensity, 1. - intensity, 1.)
+    fn gray(lightness: f32) -> Self {
+        Self::new(0., lightness, 1. - lightness, 1.)
     }
 }
 

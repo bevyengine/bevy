@@ -165,8 +165,8 @@ impl Luminance for Laba {
 }
 
 impl Gray for Laba {
-    fn gray(intensity: f32) -> Self {
-        Self::new(intensity * 1.5, 0., 0., 1.)
+    fn gray(lightness: f32) -> Self {
+        Self::new(lightness * 1.5, 0., 0., 1.)
     }
 }
 

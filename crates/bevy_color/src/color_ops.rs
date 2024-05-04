@@ -80,10 +80,10 @@ pub trait Hue: Sized {
     }
 }
 
-/// Trait for returning a grayscale color of a provided intensity.
+/// Trait for returning a grayscale color of a provided lightness.
 pub trait Gray: Sized {
-    /// Returns a grey color with the provided intensity from (0.0 - 1.0).
-    fn gray(intensity: f32) -> Self;
+    /// Returns a grey color with the provided lightness from (0.0 - 1.0). 0 is black, 1 is white.
+    fn gray(lightness: f32) -> Self;
 }
 
 /// Trait with methods for asserting a colorspace is within bounds.
