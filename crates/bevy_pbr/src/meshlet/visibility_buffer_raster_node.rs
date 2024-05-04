@@ -387,8 +387,6 @@ fn downsample_depth(
     downsample_depth_first_pipeline: &ComputePipeline,
     downsample_depth_second_pipeline: &ComputePipeline,
 ) {
-    let downsample_depth_workgroups = meshlet_view_resources.view_size.x.div_ceil(64);
-
     let command_encoder = render_context.command_encoder();
     let mut downsample_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
         label: Some("downsample_depth"),
@@ -401,16 +399,16 @@ fn downsample_depth(
     );
     downsample_pass.set_bind_group(0, &meshlet_view_bind_groups.downsample_depth, &[]);
     downsample_pass.dispatch_workgroups(
-        downsample_depth_workgroups,
-        downsample_depth_workgroups,
+        meshlet_view_resources.view_size.x.div_ceil(64),
+        meshlet_view_resources.view_size.y.div_ceil(64),
         1,
     );
 
     if meshlet_view_resources.depth_pyramid_mip_count >= 7 {
         downsample_pass.set_pipeline(downsample_depth_second_pipeline);
         downsample_pass.dispatch_workgroups(
-            downsample_depth_workgroups,
-            downsample_depth_workgroups,
+            meshlet_view_resources.view_size.x.div_ceil(64),
+            meshlet_view_resources.view_size.y.div_ceil(64),
             1,
         );
     }
