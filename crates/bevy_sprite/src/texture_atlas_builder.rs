@@ -86,8 +86,9 @@ impl<'a> TextureAtlasBuilder<'a> {
     ///
     /// Optionally an asset id can be passed that can later be used with the texture layout to retrieve the index of this texture.
     /// The insertion order will reflect the index of the added texture in the finished texture atlas.
-    pub fn add_texture(&mut self, image_id: Option<AssetId<Image>>, texture: &'a Image) {
+    pub fn with_texture(mut self, image_id: Option<AssetId<Image>>, texture: &'a Image) -> Self {
         self.textures_to_place.push((image_id, texture));
+        self
     }
 
     /// Sets the amount of padding in pixels to add between the textures in the texture atlas.
@@ -169,7 +170,7 @@ impl<'a> TextureAtlasBuilder<'a> {
     ///     // Customize it
     ///     // ...
     ///     // Build your texture and the atlas layout
-    ///     let (atlas_layout, texture) = builder.finish().unwrap();
+    ///     let (atlas_layout, texture) = builder.build().unwrap();
     ///     let texture = textures.add(texture);
     ///     let layout = layouts.add(atlas_layout);
     ///     // Spawn your sprite
@@ -184,7 +185,7 @@ impl<'a> TextureAtlasBuilder<'a> {
     ///
     /// If there is not enough space in the atlas texture, an error will
     /// be returned. It is then recommended to make a larger sprite sheet.
-    pub fn finish(self) -> Result<(TextureAtlasLayout, Image), TextureAtlasBuilderError> {
+    pub fn build(self) -> Result<(TextureAtlasLayout, Image), TextureAtlasBuilderError> {
         let max_width = self.max_size.x;
         let max_height = self.max_size.y;
 
