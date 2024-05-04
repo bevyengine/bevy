@@ -776,6 +776,11 @@ fn handle_winit_event(
     }
 
     if let Some(app_exit) = app.should_exit() {
+        // The event loop is in the process of exiting, but we might still be processing events.
+        if event_loop.exiting() {
+            return;
+        }
+
         if let Err(err) = exit_notify.try_send(app_exit) {
             error!("Failed to send a app exit notification! This is a bug. Reason: {err}");
         };
