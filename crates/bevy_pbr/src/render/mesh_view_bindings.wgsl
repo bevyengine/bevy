@@ -35,12 +35,10 @@
 @group(0) @binding(10) var<uniform> fog: types::Fog;
 @group(0) @binding(11) var<uniform> light_probes: types::LightProbes;
 
-// NB: If you change this `#if`, make sure to update the corresponding `#if` in
-// `mesh_functions.wgsl` too.
+const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 6
 @group(0) @binding(12) var<storage> visibility_ranges: array<vec4<f32>>;
 #else
-const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @group(0) @binding(12) var<uniform> visibility_ranges: array<vec4<f32>, VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE>;
 #endif
 
