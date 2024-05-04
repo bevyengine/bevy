@@ -1,0 +1,8 @@
+(
+    textures: [
+        "textures/rpg/props/generic-rpg-treasure-open.png",
+        "textures/rpg/props/generic-rpg-treasure-closed.png",
+    ],
+    padding: Some((6, 6)),
+    max_atlas_size: Some((500, 500)),
+)

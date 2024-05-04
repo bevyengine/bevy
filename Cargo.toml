@@ -1370,6 +1370,17 @@ category = "Assets"
 wasm = false
 
 [[example]]
+name = "texture_atlas_loading"
+path = "examples/asset/texture_atlas_loading.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.texture_atlas_loading]
+name = "Loading of TextureAtlasLayouts"
+description = "Demonstrates various methods of loading TextureAtlasLayouts"
+category = "Assets"
+wasm = false
+
+[[example]]
 name = "asset_processing"
 path = "examples/asset/processing/asset_processing.rs"
 doc-scrape-examples = true
