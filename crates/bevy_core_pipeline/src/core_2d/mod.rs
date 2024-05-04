@@ -20,6 +20,7 @@ pub mod graph {
         Bloom,
         Tonemapping,
         Fxaa,
+        Smaa,
         Upscaling,
         ContrastAdaptiveSharpening,
         EndMainPassPostProcessing,
