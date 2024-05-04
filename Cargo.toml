@@ -29,6 +29,14 @@ members = [
   "errors",
 ]
 
+[workspace.package]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+rust-version = "1.77.0"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+documentation = "https://docs.rs/bevy"
+
 [workspace.lints.clippy]
 type_complexity = "allow"
 doc_markdown = "warn"
