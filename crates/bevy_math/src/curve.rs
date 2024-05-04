@@ -231,8 +231,8 @@ where
             return Err(ResamplingError::NotEnoughSamples(times.len()));
         }
         times.sort_by(|t1, t2| t1.partial_cmp(t2).unwrap());
-        let timed_samples = times.into_iter().map(|t| (t, self.sample(t))).collect();
-        Ok(UnevenSampleCurve { timed_samples })
+        let samples = times.iter().copied().map(|t| self.sample(t)).collect();
+        Ok(UnevenSampleCurve { times, samples })
     }
 
     /// Create a new curve by mapping the values of this curve via a function `f`; i.e., if the
@@ -455,7 +455,8 @@ impl<T> SampleCurve<T>
 where
     T: Interpolable,
 {
-    /// Like [`Curve::map`], but with a concrete return type.
+    /// Like [`Curve::map`], but with a concrete return type. Unlike that function, this one is
+    /// not lazy, and `f` is evaluated immediately on samples to produce the result.
     pub fn map_concrete<S>(self, f: impl Fn(T) -> S) -> SampleCurve<S>
     where
         S: Interpolable,
@@ -501,21 +502,6 @@ where
         let f = (t_shifted / step).fract();
         self.samples[lower_index].interpolate(&self.samples[upper_index], f)
     }
-
-    fn map<S>(self, f: impl Fn(T) -> S) -> impl Curve<S>
-    where
-        Self: Sized,
-        S: Interpolable,
-    {
-        self.map_concrete(f)
-    }
-
-    fn graph(self) -> impl Curve<(f32, T)>
-    where
-        Self: Sized,
-    {
-        self.graph_concrete()
-    }
 }
 
 /// A [`Curve`] that is defined by interpolation over unevenly spaced samples.
@@ -523,41 +509,42 @@ pub struct UnevenSampleCurve<T>
 where
     T: Interpolable,
 {
-    /// The timed that make up this [`UnevenSampleCurve`] by interpolation.
+    /// The times for the samples of this curve.
     ///
-    /// Invariants: this must always have a length of at least 2, be sorted by time, and have no
+    /// Invariants: This must always have a length of at least 2, be sorted, and have no
     /// duplicated or non-finite times.
-    timed_samples: Vec<(f32, T)>,
+    times: Vec<f32>,
+
+    /// The samples corresponding to the times for this curve.
+    ///
+    /// Invariants: This must always have the same length as `times`.
+    samples: Vec<T>,
+    //timed_samples: Vec<(f32, T)>,
 }
 
 impl<T> UnevenSampleCurve<T>
 where
     T: Interpolable,
 {
-    /// Like [`Curve::map`], but with a concrete return type..
+    /// Like [`Curve::map`], but with a concrete return type. Unlike that function, this one is
+    /// not lazy, and `f` is evaluated immediately on samples to produce the result.
     pub fn map_concrete<S>(self, f: impl Fn(T) -> S) -> UnevenSampleCurve<S>
     where
         S: Interpolable,
     {
-        let new_samples: Vec<(f32, S)> = self
-            .timed_samples
-            .into_iter()
-            .map(|(t, x)| (t, f(x)))
-            .collect();
+        let new_samples: Vec<S> = self.samples.into_iter().map(|x| f(x)).collect();
         UnevenSampleCurve {
-            timed_samples: new_samples,
+            times: self.times,
+            samples: new_samples,
         }
     }
 
     /// Like [`Curve::graph`], but with a concrete return type.
     pub fn graph_concrete(self) -> UnevenSampleCurve<(f32, T)> {
-        let new_samples: Vec<(f32, (f32, T))> = self
-            .timed_samples
-            .into_iter()
-            .map(|(t, x)| (t, (t, x)))
-            .collect();
+        let new_samples = self.times.iter().copied().zip(self.samples).collect();
         UnevenSampleCurve {
-            timed_samples: new_samples,
+            times: self.times,
+            samples: new_samples,
         }
     }
 
@@ -568,10 +555,16 @@ where
     /// The samples are resorted by time after mapping and deduplicated by output time, so
     /// the function `f` should generally be injective over the sample times of the curve.
     pub fn map_sample_times(mut self, f: impl Fn(f32) -> f32) -> UnevenSampleCurve<T> {
-        self.timed_samples.iter_mut().for_each(|(t, _)| *t = f(*t));
-        self.timed_samples.dedup_by(|(t1, _), (t2, _)| (*t1).eq(t2));
-        self.timed_samples
-            .sort_by(|(t1, _), (t2, _)| t1.partial_cmp(t2).unwrap());
+        let mut timed_samples: Vec<(f32, T)> = self
+            .times
+            .into_iter()
+            .map(|t| f(t))
+            .zip(self.samples)
+            .collect();
+        timed_samples.dedup_by(|(t1, _), (t2, _)| (*t1).eq(t2));
+        timed_samples.sort_by(|(t1, _), (t2, _)| t1.partial_cmp(t2).unwrap());
+        self.times = timed_samples.iter().map(|(t, _)| t).copied().collect();
+        self.samples = timed_samples.into_iter().map(|(_, x)| x).collect();
         self
     }
 }
@@ -582,46 +575,33 @@ where
 {
     #[inline]
     fn domain(&self) -> Interval {
-        let start = self.timed_samples.first().unwrap().0;
-        let end = self.timed_samples.last().unwrap().0;
-        Interval::new(start, end).unwrap()
+        let start = self.times.first().unwrap();
+        let end = self.times.last().unwrap();
+        Interval::new(*start, *end).unwrap()
     }
 
     #[inline]
     fn sample(&self, t: f32) -> T {
         match self
-            .timed_samples
-            .binary_search_by(|(pt, _)| pt.partial_cmp(&t).unwrap())
+            .times
+            .binary_search_by(|pt| pt.partial_cmp(&t).unwrap())
         {
-            Ok(index) => self.timed_samples[index].1.clone(),
+            Ok(index) => self.samples[index].clone(),
             Err(index) => {
                 if index == 0 {
-                    self.timed_samples.first().unwrap().1.clone()
-                } else if index == self.timed_samples.len() {
-                    self.timed_samples.last().unwrap().1.clone()
+                    self.samples.first().unwrap().clone()
+                } else if index == self.times.len() {
+                    self.samples.last().unwrap().clone()
                 } else {
-                    let (t_lower, v_lower) = self.timed_samples.get(index - 1).unwrap();
-                    let (t_upper, v_upper) = self.timed_samples.get(index).unwrap();
+                    let t_lower = self.times[index - 1];
+                    let v_lower = self.samples.get(index - 1).unwrap();
+                    let t_upper = self.times[index];
+                    let v_upper = self.samples.get(index).unwrap();
                     let s = (t - t_lower) / (t_upper - t_lower);
-                    v_lower.interpolate(v_upper, s)
+                    v_lower.interpolate(&v_upper, s)
                 }
             }
         }
-    }
-
-    fn map<S>(self, f: impl Fn(T) -> S) -> impl Curve<S>
-    where
-        Self: Sized,
-        S: Interpolable,
-    {
-        self.map_concrete(f)
-    }
-
-    fn graph(self) -> impl Curve<(f32, T)>
-    where
-        Self: Sized,
-    {
-        self.graph_concrete()
     }
 }
 
@@ -656,7 +636,7 @@ where
         (self.f)(self.preimage.sample(t))
     }
 
-    // Specialized implementation of [`Curve::map`] that reuses data.
+    #[inline]
     fn map<R>(self, g: impl Fn(T) -> R) -> impl Curve<R>
     where
         Self: Sized,
@@ -670,6 +650,7 @@ where
         }
     }
 
+    #[inline]
     fn reparametrize(self, domain: Interval, g: impl Fn(f32) -> f32) -> impl Curve<T>
     where
         Self: Sized,
@@ -713,7 +694,7 @@ where
         self.base.sample((self.f)(t))
     }
 
-    // Specialized implementation of [`Curve::reparametrize`] that reuses data.
+    #[inline]
     fn reparametrize(self, domain: Interval, g: impl Fn(f32) -> f32) -> impl Curve<T>
     where
         Self: Sized,
@@ -727,6 +708,7 @@ where
         }
     }
 
+    #[inline]
     fn map<S>(self, g: impl Fn(T) -> S) -> impl Curve<S>
     where
         Self: Sized,
@@ -780,6 +762,7 @@ where
         (self.forward_map)(self.base.sample((self.reparam_map)(t)))
     }
 
+    #[inline]
     fn map<R>(self, g: impl Fn(T) -> R) -> impl Curve<R>
     where
         Self: Sized,
@@ -795,6 +778,7 @@ where
         }
     }
 
+    #[inline]
     fn reparametrize(self, domain: Interval, g: impl Fn(f32) -> f32) -> impl Curve<T>
     where
         Self: Sized,
