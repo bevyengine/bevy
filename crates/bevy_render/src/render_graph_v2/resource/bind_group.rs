@@ -1,13 +1,18 @@
+use std::borrow::Borrow;
+
+use bevy_ecs::world::{EntityRef, World};
+use bevy_utils::HashMap;
 use wgpu::{BindGroupEntry, BindGroupLayoutEntry, Label};
 
 use crate::{
     render_graph_v2::{NodeContext, RenderGraph, RenderGraphBuilder},
     render_resource::{AsBindGroup, BindGroup, BindGroupLayout},
+    renderer::RenderDevice,
 };
 
 use super::{
     ref_eq::RefEq, DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource,
-    RenderDependencies, RenderHandle, RenderResource,
+    RenderDependencies, RenderHandle, RenderResource, RenderResourceId, ResourceTracker,
 };
 
 impl RenderResource for BindGroupLayout {
@@ -54,14 +59,120 @@ impl FromDescriptorRenderResource for BindGroupLayout {
     }
 }
 
-pub struct RenderGraphBindGroups {}
+#[derive(Default)]
+pub struct RenderGraphBindGroups<'g> {
+    bind_groups: HashMap<RenderResourceId, RefEq<'g, BindGroup>>,
+    existing_borrows: HashMap<*const BindGroup, RenderResourceId>,
+    queued_bind_groups: HashMap<RenderResourceId, QueuedBindGroup<'g>>,
+}
+
+struct QueuedBindGroup<'g> {
+    dependencies: RenderDependencies<'g>,
+    label: Label<'g>,
+    layout: RenderHandle<'g, BindGroupLayout>,
+    factory: Box<dyn FnOnce(NodeContext) -> &[BindGroupEntry] + 'g>,
+}
+
+impl<'g> RenderGraphBindGroups<'g> {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn new_direct(
+        &mut self,
+        tracker: &mut ResourceTracker<'g>,
+        dependencies: Option<RenderDependencies<'g>>,
+        bind_group: RefEq<'g, BindGroup>,
+    ) -> RenderResourceId {
+        match bind_group {
+            RefEq::Borrowed(bind_group) => {
+                if let Some(id) = self.existing_borrows.get(&(bind_group as *const BindGroup)) {
+                    *id
+                } else {
+                    let id = tracker.new_resource(dependencies);
+                    self.bind_groups.insert(id, RefEq::Borrowed(bind_group));
+                    self.existing_borrows
+                        .insert(bind_group as *const BindGroup, id);
+                    id
+                }
+            }
+            RefEq::Owned(_) => {
+                let id = tracker.new_resource(dependencies);
+                self.bind_groups.insert(id, bind_group);
+                id
+            }
+        }
+    }
+
+    pub fn new_from_dependencies(
+        &mut self,
+        tracker: &mut ResourceTracker<'g>,
+        mut dependencies: RenderDependencies<'g>,
+        label: Label<'g>,
+        layout: RenderHandle<'g, BindGroupLayout>,
+        bind_group: impl FnOnce(NodeContext) -> &[BindGroupEntry] + 'g,
+    ) -> RenderResourceId {
+        let id = tracker.new_resource(Some(dependencies.clone()));
+        dependencies.add(&layout);
+        self.queued_bind_groups.insert(
+            id,
+            QueuedBindGroup {
+                dependencies,
+                label,
+                layout,
+                factory: Box::new(bind_group),
+            },
+        );
+        id
+    }
+
+    pub fn create_queued_bind_groups(
+        &mut self,
+        graph: &RenderGraph,
+        world: &World,
+        render_device: &RenderDevice,
+        view_entity: EntityRef<'g>,
+    ) {
+        let mut bind_group_cache = HashMap::new();
+        for (
+            id,
+            QueuedBindGroup {
+                dependencies,
+                label,
+                layout,
+                factory,
+            },
+        ) in self.queued_bind_groups.drain()
+        {
+            let context = NodeContext {
+                graph,
+                world,
+                dependencies,
+                view_entity,
+            };
+            let bind_group_entries = (factory)(context);
+            let layout = context.get(layout);
+            let bind_group = bind_group_cache
+                .entry(bind_group_entries)
+                .or_insert_with_key(|entries| {
+                    render_device.create_bind_group(label, layout, entries)
+                });
+            self.bind_groups
+                .insert(id, RefEq::Owned(bind_group.clone()));
+        }
+    }
+
+    pub fn get(&self, id: RenderResourceId) -> Option<&BindGroup> {
+        self.bind_groups.get(&id).map(Borrow::borrow)
+    }
+}
 
 impl RenderResource for BindGroup {
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,
         resource: RefEq<'g, Self>,
     ) -> RenderHandle<'g, Self> {
-        graph.new_bind_group_direct(RenderDependencies::new(), resource)
+        graph.new_bind_group_direct(Default::default(), resource)
     }
 
     fn get_from_store<'a>(

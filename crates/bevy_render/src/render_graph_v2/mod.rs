@@ -24,6 +24,7 @@ use wgpu::{
 };
 
 use self::resource::{
+    bind_group::RenderGraphBindGroups,
     pipeline::{CachedRenderGraphPipelines, RenderGraphPipelines},
     ref_eq::RefEq,
     texture::RenderGraphSamplerDescriptor,
@@ -51,7 +52,7 @@ pub struct RenderGraphPersistentResources {
 pub struct RenderGraph<'g> {
     resources: ResourceTracker<'g>,
     bind_group_layouts: RenderResources<'g, BindGroupLayout>,
-    // bind_groups: RenderBindGroups,
+    bind_groups: RenderGraphBindGroups<'g>,
     textures: RenderResources<'g, Texture>,
     // texture_views: SimpleRenderResourceStore<'g, TextureView>,
     samplers: RenderResources<'g, Sampler>,
@@ -69,6 +70,7 @@ impl<'g> RenderGraph<'g> {
                     device.create_bind_group_layout(None, &desc)
                 },
             ),
+            bind_groups: RenderGraphBindGroups::new(),
             textures: RenderResources::new(RenderDevice::create_texture),
             samplers: RenderResources::new(|device, RenderGraphSamplerDescriptor(desc)| {
                 device.create_sampler(desc)
@@ -107,92 +109,6 @@ impl<'g> RenderGraph<'g> {
             .create_queued_resources_cached(&mut cache.samplers, render_device);
         self.buffers.create_queued_resources(render_device);
         //bind groups here
-    }
-}
-
-impl<'g> RenderGraph<'g> {
-    #[inline]
-    fn get_bind_group_layout_descriptor(
-        &self,
-        bind_group_layout: RenderHandle<'g, BindGroupLayout>,
-    ) -> Option<&Box<[BindGroupLayoutEntry]>> {
-        self.bind_group_layouts
-            .get_descriptor(bind_group_layout.id())
-    }
-
-    #[inline]
-    fn get_texture_descriptor(
-        &self,
-        texture: RenderHandle<'g, Texture>,
-    ) -> Option<&TextureDescriptor<'static>> {
-        self.textures.get_descriptor(texture.id())
-    }
-
-    #[inline]
-    fn get_texture_descriptor_mut(
-        &mut self,
-        texture: RenderHandle<'g, Texture>,
-    ) -> Option<&mut TextureDescriptor<'static>> {
-        self.textures.get_descriptor_mut(texture.id())
-    }
-
-    #[inline]
-    fn get_texture_view_descriptor(
-        &self,
-        texture_view: RenderHandle<'g, TextureView>,
-    ) -> Option<&TextureViewDescriptor<'static>> {
-        todo!()
-        // self.texture_views.get_descriptor(texture_view.id())
-    }
-
-    #[inline]
-    fn get_sampler_descriptor(
-        &self,
-        sampler: RenderHandle<'g, Sampler>,
-    ) -> Option<&RenderGraphSamplerDescriptor> {
-        self.samplers.get_descriptor(sampler.id())
-    }
-
-    #[inline]
-    fn get_buffer_descriptor(
-        &self,
-        buffer: RenderHandle<'g, Buffer>,
-    ) -> Option<&BufferDescriptor<'static>> {
-        self.buffers.get_descriptor(buffer.id())
-    }
-
-    #[inline]
-    fn get_buffer_descriptor_mut(
-        &mut self,
-        buffer: RenderHandle<'g, Buffer>,
-    ) -> Option<&mut BufferDescriptor<'static>> {
-        self.buffers.get_descriptor_mut(buffer.id())
-    }
-
-    #[inline]
-    fn get_render_pipeline_descriptor<'a>(
-        &'a self,
-        render_pipeline: RenderHandle<'g, RenderPipeline>,
-        pipeline_cache: &'a PipelineCache,
-    ) -> Option<&'a RenderPipelineDescriptor>
-    where
-        'g: 'a,
-    {
-        self.pipelines
-            .get_render_pipeline_descriptor(pipeline_cache, render_pipeline.id())
-    }
-
-    #[inline]
-    fn get_compute_pipeline_descriptor<'a>(
-        &'a self,
-        compute_pipeline: RenderHandle<'g, ComputePipeline>,
-        pipeline_cache: &'a PipelineCache,
-    ) -> Option<&'a ComputePipelineDescriptor>
-    where
-        'g: 'a,
-    {
-        self.pipelines
-            .get_compute_pipeline_descriptor(pipeline_cache, compute_pipeline.id())
     }
 }
 
@@ -258,6 +174,8 @@ impl<'g> RenderGraphBuilder<'g> {
         dependencies: RenderDependencies<'g>,
         node: impl FnOnce(NodeContext, &RenderDevice, &RenderQueue, &mut CommandEncoder) + 'g,
     ) -> &mut Self {
+        //get + save dependency generations here, since they're not stored in RenderDependencies.
+        //This is to make creating a RenderDependencies (and cloning!) a pure operation.
         self.graph.write_resources(&dependencies);
         todo!();
         self
@@ -269,14 +187,6 @@ impl<'g> RenderGraphBuilder<'g> {
 
     pub fn limits(&self) -> wgpu::Limits {
         self.render_device.limits()
-    }
-
-    fn node_context(&'g self) -> NodeContext<'g> {
-        NodeContext {
-            graph: self.graph,
-            world: self.world,
-            view_entity: self.view_entity,
-        }
     }
 }
 
@@ -480,10 +390,97 @@ impl<'g> RenderGraphBuilder<'g> {
     }
 }
 
-#[derive(Copy, Clone)]
+impl<'g> RenderGraph<'g> {
+    #[inline]
+    fn get_bind_group_layout_descriptor(
+        &self,
+        bind_group_layout: RenderHandle<'g, BindGroupLayout>,
+    ) -> Option<&Box<[BindGroupLayoutEntry]>> {
+        self.bind_group_layouts
+            .get_descriptor(bind_group_layout.id())
+    }
+
+    #[inline]
+    fn get_texture_descriptor(
+        &self,
+        texture: RenderHandle<'g, Texture>,
+    ) -> Option<&TextureDescriptor<'static>> {
+        self.textures.get_descriptor(texture.id())
+    }
+
+    #[inline]
+    fn get_texture_descriptor_mut(
+        &mut self,
+        texture: RenderHandle<'g, Texture>,
+    ) -> Option<&mut TextureDescriptor<'static>> {
+        self.textures.get_descriptor_mut(texture.id())
+    }
+
+    #[inline]
+    fn get_texture_view_descriptor(
+        &self,
+        texture_view: RenderHandle<'g, TextureView>,
+    ) -> Option<&TextureViewDescriptor<'static>> {
+        todo!()
+        // self.texture_views.get_descriptor(texture_view.id())
+    }
+
+    #[inline]
+    fn get_sampler_descriptor(
+        &self,
+        sampler: RenderHandle<'g, Sampler>,
+    ) -> Option<&RenderGraphSamplerDescriptor> {
+        self.samplers.get_descriptor(sampler.id())
+    }
+
+    #[inline]
+    fn get_buffer_descriptor(
+        &self,
+        buffer: RenderHandle<'g, Buffer>,
+    ) -> Option<&BufferDescriptor<'static>> {
+        self.buffers.get_descriptor(buffer.id())
+    }
+
+    #[inline]
+    fn get_buffer_descriptor_mut(
+        &mut self,
+        buffer: RenderHandle<'g, Buffer>,
+    ) -> Option<&mut BufferDescriptor<'static>> {
+        self.buffers.get_descriptor_mut(buffer.id())
+    }
+
+    #[inline]
+    fn get_render_pipeline_descriptor<'a>(
+        &'a self,
+        render_pipeline: RenderHandle<'g, RenderPipeline>,
+        pipeline_cache: &'a PipelineCache,
+    ) -> Option<&'a RenderPipelineDescriptor>
+    where
+        'g: 'a,
+    {
+        self.pipelines
+            .get_render_pipeline_descriptor(pipeline_cache, render_pipeline.id())
+    }
+
+    #[inline]
+    fn get_compute_pipeline_descriptor<'a>(
+        &'a self,
+        compute_pipeline: RenderHandle<'g, ComputePipeline>,
+        pipeline_cache: &'a PipelineCache,
+    ) -> Option<&'a ComputePipelineDescriptor>
+    where
+        'g: 'a,
+    {
+        self.pipelines
+            .get_compute_pipeline_descriptor(pipeline_cache, compute_pipeline.id())
+    }
+}
+
+#[derive(Clone)]
 pub struct NodeContext<'g> {
     graph: &'g RenderGraph<'g>,
     world: &'g World,
+    dependencies: RenderDependencies<'g>,
     view_entity: EntityRef<'g>,
 }
 
@@ -508,7 +505,7 @@ impl<'g> NodeContext<'g> {
     }
 
     fn get_texture(&self, texture: RenderHandle<'g, Texture>) -> Option<&Texture> {
-        todo!()
+        self.graph.textures.get(texture.id())
     }
 
     fn get_texture_view(
@@ -519,25 +516,31 @@ impl<'g> NodeContext<'g> {
     }
 
     fn get_sampler(&self, sampler: RenderHandle<'g, Sampler>) -> Option<&Sampler> {
-        todo!()
+        self.graph.samplers.get(sampler.id())
     }
 
     fn get_buffer(&self, buffer: RenderHandle<'g, Buffer>) -> Option<&Buffer> {
-        todo!()
+        self.graph.buffers.get(buffer.id())
     }
 
     fn get_render_pipeline(
         &self,
         render_pipeline: RenderHandle<'g, RenderPipeline>,
     ) -> Option<&RenderPipeline> {
-        todo!()
+        let pipeline_cache = self.world.resource::<PipelineCache>();
+        self.graph
+            .pipelines
+            .get_render_pipeline(pipeline_cache, render_pipeline.id())
     }
 
     fn get_compute_pipeline(
         &self,
         compute_pipeline: RenderHandle<'g, ComputePipeline>,
     ) -> Option<&ComputePipeline> {
-        todo!()
+        let pipeline_cache = self.world.resource::<PipelineCache>();
+        self.graph
+            .pipelines
+            .get_compute_pipeline(pipeline_cache, compute_pipeline.id())
     }
 
     fn get_bind_group_layout(
@@ -548,7 +551,7 @@ impl<'g> NodeContext<'g> {
     }
 
     fn get_bind_group(&self, bind_group: RenderHandle<'g, BindGroup>) -> Option<&BindGroup> {
-        todo!()
+        self.graph.bind_groups.get(bind_group.id())
     }
 }
 
