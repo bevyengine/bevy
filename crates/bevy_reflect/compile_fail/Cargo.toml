@@ -1,10 +1,10 @@
 [package]
 name = "bevy_reflect_compile_fail"
-edition = "2021"
+edition.workspace = true
 description = "Compile fail tests for Bevy Engine's reflection system"
-homepage = "https://bevyengine.org"
-repository = "https://github.com/bevyengine/bevy"
-license = "MIT OR Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
 publish = false
 
 [dependencies]
