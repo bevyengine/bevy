@@ -13,6 +13,7 @@ homepage.workspace = true
 repository.workspace = true
 license = "Zlib AND (MIT OR Apache-2.0)"
 keywords = ["bevy", "3D", "graphics", "algorithm", "tangent"]
+rust-version.workspace = true
 
 [dependencies]
 glam = "0.27"
