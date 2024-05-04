@@ -1,15 +1,15 @@
 [package]
 name = "bevy_core_pipeline"
 version = "0.14.0-dev"
-edition = "2021"
+edition.workspace = true
 authors = [
   "Bevy Contributors <bevyengine@gmail.com>",
   "Carter Anderson <mcanders1@gmail.com>",
 ]
 description = "Provides a core render pipeline for Bevy Engine."
-homepage = "https://bevyengine.org"
-repository = "https://github.com/bevyengine/bevy"
-license = "MIT OR Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
 keywords = ["bevy"]
 
 [features]

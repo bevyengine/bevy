@@ -2,9 +2,9 @@
 name = "bevy_utils_proc_macros"
 version = "0.14.0-dev"
 description = "Bevy Utils Proc Macros"
-edition = "2021"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/bevyengine/bevy"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [lib]
 proc-macro = true
