@@ -375,22 +375,9 @@ pub fn setup_state_transitions_in_world(
     schedules.insert(schedule);
 
     if let Some(startup) = startup_label {
-        match schedules.get_mut(startup) {
-            Some(schedule) => {
-                schedule.add_systems(|world: &mut World| {
-                    let _ = world.try_run_schedule(StateTransition);
-                });
-            }
-            None => {
-                let mut schedule = Schedule::new(startup);
-
-                schedule.add_systems(|world: &mut World| {
-                    let _ = world.try_run_schedule(StateTransition);
-                });
-
-                schedules.insert(schedule);
-            }
-        }
+        schedules.add_systems(startup, |world: &mut World| {
+            let _ = world.try_run_schedule(StateTransition);
+        });
     }
 }
 

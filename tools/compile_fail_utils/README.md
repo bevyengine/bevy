@@ -29,12 +29,13 @@ An example of an error annotation would be `//~v ERROR: missing trait`. This err
 
 This will be a rather involved process. You'll have to:
 
-- Create an empty library crate in the [`crates`](..) directory.
-- Add this crate as a `dev-dependency`.
+- Create a subdirectory named `compile_fail` within the crate you are testing. (E.g. `bevy_ecs/compile_fail` for `bevy_ecs`.)
+- Add `compile_fail_utils` as a `dev-dependency`.
 - Create a folder called `tests` within the new crate.
 - Add a test runner file to this folder. The file should contain a main function calling one of the test functions defined in this crate.
 - Add a `[[test]]` table to the `Cargo.toml`. This table will need to contain `harness = false` and `name = <name of the test runner file you defined>`.
-- Modify the [`Ci`](../../tools/ci/) tool to run `cargo test` on this crate.
+- Add the path of the new crate under `[workspace].exclude` in the root [`Cargo.toml`](../../Cargo.toml).
+- Modify the [`CI`](../../tools/ci/) tool to run `cargo test` on this crate.
 - And finally, write your compile tests.
 
 If you have any questions, don't be scared to ask for help.
