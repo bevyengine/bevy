@@ -1,7 +1,10 @@
 #define_import_path bevy_core_pipeline::tonemapping
 
-#import bevy_render::view::ColorGrading
-#import bevy_pbr::utils::{PI_2, hsv_to_rgb, rgb_to_hsv};
+#import bevy_render::{
+    view::ColorGrading,
+    color_operations::{hsv_to_rgb, rgb_to_hsv},
+    maths::PI_2
+}
 
 // hack !! not sure what to do with this
 #ifdef TONEMAPPING_PASS

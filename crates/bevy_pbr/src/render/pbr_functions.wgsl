@@ -12,8 +12,9 @@
     ambient,
     irradiance_volume,
     mesh_types::{MESH_FLAGS_SHADOW_RECEIVER_BIT, MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT},
-    utils::E,
 }
+
+#import bevy_render::maths::E
 
 #ifdef ENVIRONMENT_MAP
 #import bevy_pbr::environment_map
