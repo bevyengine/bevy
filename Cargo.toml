@@ -2040,6 +2040,17 @@ category = "Reflection"
 wasm = false
 
 [[example]]
+name = "dynamic_types"
+path = "examples/reflection/dynamic_types.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.dynamic_types]
+name = "Dynamic Types"
+description = "How dynamic types are used with reflection"
+category = "Reflection"
+wasm = false
+
+[[example]]
 name = "generic_reflection"
 path = "examples/reflection/generic_reflection.rs"
 doc-scrape-examples = true

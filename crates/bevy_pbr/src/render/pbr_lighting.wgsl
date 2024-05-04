@@ -1,10 +1,11 @@
 #define_import_path bevy_pbr::lighting
 
 #import bevy_pbr::{
-    utils::PI,
     mesh_view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
     mesh_view_bindings as view_bindings,
 }
+
+#import bevy_render::maths::PI
 
 // From the Filament design doc
 // https://google.github.io/filament/Filament.html#table_symbols
