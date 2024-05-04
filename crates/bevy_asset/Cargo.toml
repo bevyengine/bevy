@@ -7,8 +7,7 @@ homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords = ["bevy"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+rust-version.workspace = true
 
 [features]
 file_watcher = ["notify-debouncer-full", "watch"]

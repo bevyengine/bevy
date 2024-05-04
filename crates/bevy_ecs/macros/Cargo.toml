@@ -4,6 +4,7 @@ version = "0.14.0-dev"
 description = "Bevy ECS Macros"
 edition.workspace = true
 license.workspace = true
+rust-version.workspace = true
 
 [lib]
 proc-macro = true

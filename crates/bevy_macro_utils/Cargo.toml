@@ -7,6 +7,7 @@ homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords = ["bevy"]
+rust-version.workspace = true
 
 [dependencies]
 toml_edit = { version = "0.22.7", default-features = false, features = [

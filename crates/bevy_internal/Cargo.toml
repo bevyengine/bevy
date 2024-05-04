@@ -8,6 +8,7 @@ repository.workspace = true
 license.workspace = true
 keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 categories = ["game-engines", "graphics", "gui", "rendering"]
+rust-version.workspace = true
 
 [features]
 trace = [

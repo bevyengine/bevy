@@ -7,6 +7,7 @@ homepage.workspace = true
 repository.workspace = true
 license.workspace = true
 keywords = ["bevy"]
+rust-version.workspace = true
 
 [features]
 default = ["bevy_app"]

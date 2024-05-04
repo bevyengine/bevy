@@ -5,6 +5,7 @@ description = "Bevy Utils Proc Macros"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+rust-version.workspace = true
 
 [lib]
 proc-macro = true

@@ -8,6 +8,7 @@ repository.workspace = true
 license.workspace = true
 keywords = ["ecs", "game", "bevy"]
 categories = ["game-engines", "data-structures"]
+rust-version.workspace = true
 
 [features]
 trace = []
