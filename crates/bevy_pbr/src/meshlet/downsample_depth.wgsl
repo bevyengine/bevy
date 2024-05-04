@@ -37,11 +37,7 @@ fn downsample_depth_first(
 
 @compute
 @workgroup_size(256, 1, 1)
-fn downsample_depth_second(
-    @builtin(num_workgroups) num_workgroups: vec3u,
-    @builtin(workgroup_id) workgroup_id: vec3u,
-    @builtin(local_invocation_index) local_invocation_index: u32,
-) {
+fn downsample_depth_second(@builtin(local_invocation_index) local_invocation_index: u32) {
     let sub_xy = remap_for_wave_reduction(local_invocation_index % 64u);
     let x = sub_xy.x + 8u * ((local_invocation_index >> 6u) % 2u);
     let y = sub_xy.y + 8u * (local_invocation_index >> 7u);

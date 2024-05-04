@@ -406,11 +406,7 @@ fn downsample_depth(
 
     if meshlet_view_resources.depth_pyramid_mip_count >= 7 {
         downsample_pass.set_pipeline(downsample_depth_second_pipeline);
-        downsample_pass.dispatch_workgroups(
-            meshlet_view_resources.view_size.x.div_ceil(64),
-            meshlet_view_resources.view_size.y.div_ceil(64),
-            1,
-        );
+        downsample_pass.dispatch_workgroups(1, 1, 1);
     }
 }
 
