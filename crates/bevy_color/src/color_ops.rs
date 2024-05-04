@@ -80,6 +80,12 @@ pub trait Hue: Sized {
     }
 }
 
+/// Trait for returning a grayscale color of a provided intensity.
+pub trait Gray: Sized {
+    /// Returns a grey color with the provided intensity from (0.0 - 1.0).
+    fn gray(intensity: f32) -> Self;
+}
+
 /// Trait with methods for asserting a colorspace is within bounds.
 ///
 /// During ordinary usage (e.g. reading images from disk, rendering images, picking colors for UI), colors should always be within their ordinary bounds (such as 0 to 1 for RGB colors).

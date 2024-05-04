@@ -1,6 +1,6 @@
 use crate::{
-    Alpha, ClampColor, Hsva, Hue, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor,
-    Xyza,
+    Alpha, ClampColor, Gray, Hsva, Hue, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba,
+    StandardColor, Xyza,
 };
 use bevy_reflect::prelude::*;
 
@@ -192,6 +192,12 @@ impl ClampColor for Hsla {
             && (0. ..=1.).contains(&self.saturation)
             && (0. ..=1.).contains(&self.lightness)
             && (0. ..=1.).contains(&self.alpha)
+    }
+}
+
+impl Gray for Hsla {
+    fn gray(intensity: f32) -> Self {
+        Self::new(0., 0., intensity, 1.)
     }
 }
 

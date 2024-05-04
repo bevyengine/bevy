@@ -1,6 +1,6 @@
 use crate::{
-    impl_componentwise_vector_space, Alpha, ClampColor, Hsla, Hsva, Hwba, LinearRgba, Luminance,
-    Mix, Oklaba, Srgba, StandardColor, Xyza,
+    impl_componentwise_vector_space, Alpha, ClampColor, Gray, Hsla, Hsva, Hwba, LinearRgba,
+    Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::prelude::*;
 
@@ -161,6 +161,12 @@ impl Luminance for Laba {
             self.b,
             self.alpha,
         )
+    }
+}
+
+impl Gray for Laba {
+    fn gray(intensity: f32) -> Self {
+        Self::new(intensity * 1.5, 0., 0., 1.)
     }
 }
 

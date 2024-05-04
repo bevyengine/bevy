@@ -1,6 +1,6 @@
 use crate::{
-    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ClampColor, Hsla,
-    Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
+    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ClampColor, Gray,
+    Hsla, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::prelude::*;
 
@@ -170,6 +170,12 @@ impl ClampColor for Oklaba {
             && (-1. ..=1.).contains(&self.a)
             && (-1. ..=1.).contains(&self.b)
             && (0. ..=1.).contains(&self.alpha)
+    }
+}
+
+impl Gray for Oklaba {
+    fn gray(intensity: f32) -> Self {
+        Self::new(intensity, 0., 0., 1.)
     }
 }
 
