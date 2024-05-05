@@ -39,7 +39,7 @@ pub struct WinitActionHandler(pub Arc<Mutex<VecDeque<ActionRequest>>>);
 
 impl ActionHandler for WinitActionHandler {
     fn do_action(&mut self, request: ActionRequest) {
-        let mut requests = self.0.lock().expect("value is poisoned");
+        let mut requests = self.0.lock().expect("ActionHandler lock is poisoned");
         requests.push_back(request);
     }
 }
