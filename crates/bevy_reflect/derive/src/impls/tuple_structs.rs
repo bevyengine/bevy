@@ -134,6 +134,11 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
             }
 
             #[inline]
+            fn diff<'new>(&self, other: &'new dyn #bevy_reflect_path::Reflect) -> #bevy_reflect_path::diff::DiffResult<'_, 'new> {
+                #bevy_reflect_path::diff::diff_tuple_struct(self, other)
+            }
+
+            #[inline]
             fn set(&mut self, value: #FQBox<dyn #bevy_reflect_path::Reflect>) -> #FQResult<(), #FQBox<dyn #bevy_reflect_path::Reflect>> {
                 *self = <dyn #bevy_reflect_path::Reflect>::take(value)?;
                 #FQResult::Ok(())

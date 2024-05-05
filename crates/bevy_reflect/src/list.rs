@@ -4,6 +4,7 @@ use std::hash::{Hash, Hasher};
 
 use bevy_reflect_derive::impl_type_path;
 
+use crate::diff::{diff_list, DiffResult};
 use crate::utility::reflect_hasher;
 use crate::{
     self as bevy_reflect, ApplyError, FromReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
@@ -345,6 +346,11 @@ impl Reflect for DynamicList {
     #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone_dynamic())
+    }
+
+    #[inline]
+    fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+        diff_list(self, other)
     }
 
     #[inline]

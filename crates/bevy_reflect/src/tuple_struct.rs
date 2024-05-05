@@ -1,6 +1,7 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
+use crate::diff::{diff_tuple_struct, DiffResult};
 use crate::{
     self as bevy_reflect, ApplyError, DynamicTuple, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, Tuple, TypeInfo, TypePath, TypePathTable, UnnamedField,
@@ -388,6 +389,11 @@ impl Reflect for DynamicTupleStruct {
     #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone_dynamic())
+    }
+
+    #[inline]
+    fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+        diff_tuple_struct(self, other)
     }
 
     #[inline]

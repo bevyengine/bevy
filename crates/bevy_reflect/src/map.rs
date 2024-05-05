@@ -4,6 +4,7 @@ use std::fmt::{Debug, Formatter};
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
+use crate::diff::{diff_map, DiffResult};
 use crate::{
     self as bevy_reflect, ApplyError, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
     TypeInfo, TypePath, TypePathTable,
@@ -372,6 +373,10 @@ impl Reflect for DynamicMap {
 
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone_dynamic())
+    }
+
+    fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+        diff_map(self, other)
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {

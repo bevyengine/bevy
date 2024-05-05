@@ -1,3 +1,4 @@
+use crate::diff::{diff_tuple, DiffResult};
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::all_tuples;
 
@@ -373,6 +374,11 @@ impl Reflect for DynamicTuple {
         tuple_try_apply(self, value)
     }
 
+    #[inline]
+    fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+        diff_tuple(self, other)
+    }
+
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         tuple_partial_eq(self, value)
     }
@@ -594,6 +600,10 @@ macro_rules! impl_reflect_tuple {
 
             fn clone_value(&self) -> Box<dyn Reflect> {
                 Box::new(self.clone_dynamic())
+            }
+
+            fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+                diff_tuple(self, other)
             }
 
             fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {

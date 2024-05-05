@@ -1,3 +1,4 @@
+use crate::diff::{diff_array, DiffResult};
 use crate::{
     self as bevy_reflect, utility::reflect_hasher, ApplyError, Reflect, ReflectKind, ReflectMut,
     ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable,
@@ -295,6 +296,11 @@ impl Reflect for DynamicArray {
     #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone_dynamic())
+    }
+
+    #[inline]
+    fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+        diff_array(self, other)
     }
 
     #[inline]

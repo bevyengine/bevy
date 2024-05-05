@@ -204,6 +204,11 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             }
 
             #[inline]
+            fn diff<'new>(&self, other: &'new dyn #bevy_reflect_path::Reflect) -> #bevy_reflect_path::diff::DiffResult<'_, 'new> {
+                #bevy_reflect_path::diff::diff_enum(self, other)
+            }
+
+            #[inline]
             fn set(&mut self, #ref_value: #FQBox<dyn #bevy_reflect_path::Reflect>) -> #FQResult<(), #FQBox<dyn #bevy_reflect_path::Reflect>> {
                 *self = <dyn #bevy_reflect_path::Reflect>::take(#ref_value)?;
                 #FQResult::Ok(())

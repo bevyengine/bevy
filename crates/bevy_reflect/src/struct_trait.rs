@@ -1,4 +1,5 @@
 use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
+use crate::diff::{diff_struct, DiffResult};
 use crate::{
     self as bevy_reflect, ApplyError, NamedField, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, TypeInfo, TypePath, TypePathTable,
@@ -480,6 +481,11 @@ impl Reflect for DynamicStruct {
     #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone_dynamic())
+    }
+
+    #[inline]
+    fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+        diff_struct(self, other)
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {

@@ -1,3 +1,4 @@
+use crate::diff::{diff_array, diff_list, diff_map, DiffResult};
 use crate::std_traits::ReflectDefault;
 use crate::utility::{
     reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell,
@@ -343,6 +344,10 @@ macro_rules! impl_reflect_for_veclike {
                 Box::new(self.clone_dynamic())
             }
 
+            fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+                diff_list(self, other)
+            }
+
             fn reflect_hash(&self) -> Option<u64> {
                 crate::list_hash(self)
             }
@@ -571,6 +576,10 @@ macro_rules! impl_reflect_for_hashmap {
 
             fn clone_value(&self) -> Box<dyn Reflect> {
                 Box::new(self.clone_dynamic())
+            }
+
+            fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+                diff_map(self, other)
             }
 
             fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
@@ -802,6 +811,10 @@ where
         Box::new(self.clone_dynamic())
     }
 
+    fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+        diff_map(self, other)
+    }
+
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         map_partial_eq(self, value)
     }
@@ -955,6 +968,11 @@ impl<T: Reflect + TypePath + GetTypeRegistration, const N: usize> Reflect for [T
     #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone_dynamic())
+    }
+
+    #[inline]
+    fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+        diff_array(self, other)
     }
 
     #[inline]

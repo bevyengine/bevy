@@ -3,6 +3,7 @@ use smallvec::SmallVec;
 
 use std::any::Any;
 
+use crate::diff::{diff_list, DiffResult};
 use crate::utility::GenericTypeInfoCell;
 use crate::{
     self as bevy_reflect, ApplyError, FromReflect, FromType, GetTypeRegistration, List, ListInfo,
@@ -140,6 +141,10 @@ where
 
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone_dynamic())
+    }
+
+    fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+        diff_list(self, other)
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {

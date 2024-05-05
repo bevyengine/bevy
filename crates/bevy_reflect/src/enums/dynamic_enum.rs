@@ -1,3 +1,4 @@
+use crate::diff::{diff_enum, DiffResult};
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
@@ -406,6 +407,11 @@ impl Reflect for DynamicEnum {
     #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone_dynamic())
+    }
+
+    #[inline]
+    fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+        diff_enum(self, other)
     }
 
     #[inline]
