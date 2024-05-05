@@ -68,7 +68,7 @@ jobs:
         run: ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME cargo apk build --package bevy_mobile_example
 
   run-examples-linux-vulkan:
-    if: ${{ github.event_name == 'merge_group' }}
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -125,8 +125,19 @@ jobs:
           name: example-run-linux
           path: example-run/
 
+  compare-linux-screenshots:
+    name: Compare Linux screenshots
+    needs: [run-examples-linux-vulkan]
+    uses: ./.github/workflows/send-screenshots-to-pixeleagle.yml
+    with:
+      commit: ${{ github.sha }}
+      branch: ${{ github.ref_name }}
+      artifact: screenshots-linux
+      os: linux
+    secrets: inherit
+
   run-examples-on-windows-dx12:
-    if: ${{ github.event_name == 'merge_group' }}
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -168,6 +179,17 @@ jobs:
         with:
           name: example-run-windows
           path: example-run/
+
+  compare-windows-screenshots:
+    name: Compare Windows screenshots
+    needs: [run-examples-on-windows-dx12]
+    uses: ./.github/workflows/send-screenshots-to-pixeleagle.yml
+    with:
+      commit: ${{ github.sha }}
+      branch: ${{ github.ref_name }}
+      artifact: screenshots-windows
+      os: windows
+    secrets: inherit
 
   run-examples-on-wasm:
     if: ${{ github.event_name == 'merge_group' }}

@@ -274,6 +274,17 @@ jobs:
           name: example-run-macos
           path: example-run/
 
+  compare-macos-screenshots:
+    name: Compare macOS screenshots
+    needs: [run-examples-macos-metal]
+    uses: ./.github/workflows/send-screenshots-to-pixeleagle.yml
+    with:
+      commit: ${{ github.sha }}
+      branch: ${{ github.ref_name }}
+      artifact: screenshots-macos
+      os: macos
+    secrets: inherit
+
   check-doc:
     runs-on: ubuntu-latest
     timeout-minutes: 30
