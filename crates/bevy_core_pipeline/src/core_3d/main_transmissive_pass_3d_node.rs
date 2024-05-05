@@ -106,9 +106,9 @@ impl ViewNode for MainTransmissivePass3dNode {
                     render_pass.set_camera_viewport(viewport);
                 }
 
-                transmissive_phase
-                    .render(&mut render_pass, world, view_entity)
-                    .expect("Error encountered while rendering the transmissive phase");
+                if let Err(err) = transmissive_phase.render(&mut render_pass, world, view_entity) {
+                    error!("Error encountered while rendering the transmissive phase {err:?}");
+                }
             }
         }
 
