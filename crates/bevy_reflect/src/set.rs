@@ -74,13 +74,13 @@ pub trait Set: Reflect {
     ///
     /// If the set did not have this value present, `true` is returned.
     /// If the set did have this value present, `false` is returned.
-    fn insert_boxed(&mut self, value: Box<dyn Reflect>) -> Box<dyn Reflect>;
+    fn insert_boxed(&mut self, value: Box<dyn Reflect>) -> bool;
 
     /// Removes a value from the set.
     ///
     /// If the set did not have this value present, `true` is returned.
     /// If the set did have this value present, `false` is returned.
-    fn remove(&mut self, key: &dyn Reflect) -> Box<dyn Reflect>;
+    fn remove(&mut self, key: &dyn Reflect) -> bool;
 }
 
 /// A container for compile-time set info.
@@ -240,7 +240,7 @@ impl Set for DynamicSet {
         }
     }
 
-    fn insert_boxed(&mut self, mut value: Box<dyn Reflect>) -> Box<dyn Reflect> {
+    fn insert_boxed(&mut self, mut value: Box<dyn Reflect>) -> bool {
         match self
             .indices
             .entry(value.reflect_hash().expect(hash_error!(value)))
@@ -248,26 +248,24 @@ impl Set for DynamicSet {
             Entry::Occupied(entry) => {
                 let old_value = self.values.get_mut(*entry.get()).unwrap();
                 std::mem::swap(old_value, &mut value);
-                Box::new(false) as Box<dyn Reflect>
+                false
             }
             Entry::Vacant(entry) => {
                 entry.insert(self.values.len());
                 self.values.push(value);
-                Box::new(true) as Box<dyn Reflect>
+                true
             }
         }
     }
 
-    fn remove(&mut self, value: &dyn Reflect) -> Box<dyn Reflect> {
-        let res = self
-            .indices
+    fn remove(&mut self, value: &dyn Reflect) -> bool {
+        self.indices
             .remove(&value.reflect_hash().expect(hash_error!(value)))
             .map(|index| {
                 self.values.remove(index);
                 true
             })
-            .unwrap_or(false);
-        Box::new(res) as Box<dyn Reflect>
+            .unwrap_or(false)
     }
 }
 

@@ -704,27 +704,26 @@ macro_rules! impl_reflect_for_hashset {
                 dynamic_set
             }
 
-            fn insert_boxed(&mut self, value: Box<dyn Reflect>) -> Box<dyn Reflect> {
+            fn insert_boxed(&mut self, value: Box<dyn Reflect>) -> bool {
                 let value = V::take_from_reflect(value).unwrap_or_else(|value| {
                     panic!(
                         "Attempted to insert invalid value of type {}.",
                         value.reflect_type_path()
                     )
                 });
-                Box::new(self.insert(value)) as Box<dyn Reflect>
+                self.insert(value)
             }
 
-            fn remove(&mut self, value: &dyn Reflect) -> Box<dyn Reflect> {
+            fn remove(&mut self, value: &dyn Reflect) -> bool {
                 let mut from_reflect = None;
-                let result = value
+                value
                     .downcast_ref::<V>()
                     .or_else(|| {
                         from_reflect = V::from_reflect(value);
                         from_reflect.as_ref()
                     })
                     .map(|value| self.remove(value))
-                    .unwrap_or(false);
-                Box::new(result) as Box<dyn Reflect>
+                    .unwrap_or(false)
             }
         }
 
