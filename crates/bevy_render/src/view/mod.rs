@@ -429,6 +429,7 @@ pub struct ViewUniforms {
 impl FromWorld for ViewUniforms {
     fn from_world(world: &mut World) -> Self {
         let mut uniforms = DynamicUniformBuffer::default();
+        uniforms.set_label(Some("view_uniforms_buffer"));
 
         let render_device = world.resource::<RenderDevice>();
         if render_device.limits().max_storage_buffers_per_shader_stage > 0 {

@@ -250,7 +250,7 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
         let capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
         let size = self.scratch.as_ref().len() as u64;
 
-        if capacity < size || self.changed {
+        if capacity < size || (self.changed && size > 0) {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
                 usage: self.buffer_usage,
