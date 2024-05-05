@@ -1191,7 +1191,7 @@ impl AnimationTargetId {
         }
         let hash = blake3.finalize().as_bytes()[0..16]
             .try_into()
-            .expect("failed to convert name into into hash");
+            .expect("failed to convert name into hash");
         Self(*uuid::Builder::from_sha1_bytes(hash).as_uuid())
     }
 
