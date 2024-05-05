@@ -286,9 +286,20 @@ pub fn get_fitting_videomode(
     monitor
         .video_modes()
         .min_by(|a, b| {
-            a.size().width.abs_diff(width).cmp(&b.size().width.abs_diff(width))
-            .then_with(|| a.size().height.abs_diff(height).cmp(&b.size().height.abs_diff(height)))
-            .then_with(|| b.refresh_rate_millihertz().cmp(&a.refresh_rate_millihertz()))
+            a.size()
+                .width
+                .abs_diff(width)
+                .cmp(&b.size().width.abs_diff(width))
+                .then_with(|| {
+                    a.size()
+                        .height
+                        .abs_diff(height)
+                        .cmp(&b.size().height.abs_diff(height))
+                })
+                .then_with(|| {
+                    b.refresh_rate_millihertz()
+                        .cmp(&a.refresh_rate_millihertz())
+                })
         })
         .expect("no video modes found for monitor")
         .clone()
@@ -301,9 +312,14 @@ pub fn get_best_videomode(monitor: &MonitorHandle) -> winit::monitor::VideoMode 
     monitor
         .video_modes()
         .min_by(|a, b| {
-            b.size().width.cmp(&a.size().width)
-            .then_with(||b.size().height.cmp(&a.size().height))
-            .then_with(|| b.refresh_rate_millihertz().cmp(&a.refresh_rate_millihertz()))
+            b.size()
+                .width
+                .cmp(&a.size().width)
+                .then_with(|| b.size().height.cmp(&a.size().height))
+                .then_with(|| {
+                    b.refresh_rate_millihertz()
+                        .cmp(&a.refresh_rate_millihertz())
+                })
         })
         .expect("no video modes found for monitor")
         .clone()
