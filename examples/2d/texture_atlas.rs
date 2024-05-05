@@ -219,7 +219,7 @@ fn create_texture_atlas(
             continue;
         };
 
-        texture_atlas_builder = texture_atlas_builder.with_texture(Some(id), texture);
+        texture_atlas_builder = texture_atlas_builder.add_texture(Some(id), texture);
     }
 
     let (texture_atlas_layout, texture) = texture_atlas_builder.build().unwrap();

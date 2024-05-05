@@ -86,7 +86,7 @@ impl<'a> TextureAtlasBuilder<'a> {
     ///
     /// Optionally an asset id can be passed that can later be used with the texture layout to retrieve the index of this texture.
     /// The insertion order will reflect the index of the added texture in the finished texture atlas.
-    pub fn with_texture(mut self, image_id: Option<AssetId<Image>>, texture: &'a Image) -> Self {
+    pub fn add_texture(mut self, image_id: Option<AssetId<Image>>, texture: &'a Image) -> Self {
         self.textures_to_place.push((image_id, texture));
         self
     }
