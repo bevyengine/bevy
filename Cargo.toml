@@ -18,6 +18,7 @@ exclude = [
   "crates/bevy_derive/compile_fail",
   "crates/bevy_ecs/compile_fail",
   "crates/bevy_reflect/compile_fail",
+  "tools/compile_fail_utils",
 ]
 members = [
   "crates/*",
@@ -1380,6 +1381,17 @@ name = "Asset Processing"
 description = "Demonstrates how to process and load custom assets"
 category = "Assets"
 wasm = false
+
+[[example]]
+name = "repeated_texture"
+path = "examples/asset/repeated_texture.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.repeated_texture]
+name = "Repeated texture configuration"
+description = "How to configure the texture to repeat instead of the default clamp to edges"
+category = "Assets"
+wasm = true
 
 # Async Tasks
 [[example]]

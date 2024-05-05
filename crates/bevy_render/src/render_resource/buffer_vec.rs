@@ -43,7 +43,7 @@ pub struct RawBufferVec<T: NoUninit> {
     item_size: usize,
     buffer_usage: BufferUsages,
     label: Option<String>,
-    label_changed: bool,
+    changed: bool,
 }
 
 impl<T: NoUninit> RawBufferVec<T> {
@@ -55,7 +55,7 @@ impl<T: NoUninit> RawBufferVec<T> {
             item_size: std::mem::size_of::<T>(),
             buffer_usage,
             label: None,
-            label_changed: false,
+            changed: false,
         }
     }
 
@@ -93,7 +93,7 @@ impl<T: NoUninit> RawBufferVec<T> {
         let label = label.map(str::to_string);
 
         if label != self.label {
-            self.label_changed = true;
+            self.changed = true;
         }
 
         self.label = label;
@@ -115,16 +115,16 @@ impl<T: NoUninit> RawBufferVec<T> {
     /// the `RawBufferVec` was created, the buffer on the [`RenderDevice`]
     /// is marked as [`BufferUsages::COPY_DST`](BufferUsages).
     pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {
-        if capacity > self.capacity || self.label_changed {
+        let size = self.item_size * capacity;
+        if capacity > self.capacity || (self.changed && size > 0) {
             self.capacity = capacity;
-            let size = self.item_size * capacity;
             self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
                 label: self.label.as_deref(),
                 size: size as BufferAddress,
                 usage: BufferUsages::COPY_DST | self.buffer_usage,
                 mapped_at_creation: false,
             }));
-            self.label_changed = false;
+            self.changed = false;
         }
     }
 
