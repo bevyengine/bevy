@@ -208,7 +208,7 @@ impl WinitWindows {
             winit_window_builder = winit_window_builder.with_append(true);
         }
 
-        let winit_window = winit_window_builder.build(event_loop).unwrap();
+        let winit_window = winit_window_builder.build(event_loop).expect("unable to create winit window");
         let name = window.title.clone();
         prepare_accessibility_for_window(
             &winit_window,
@@ -281,7 +281,6 @@ pub fn get_fitting_videomode(
     width: u32,
     height: u32,
 ) -> winit::monitor::VideoMode {
-    let mut modes = monitor.video_modes().collect::<Vec<_>>();
 
     fn abs_diff(a: u32, b: u32) -> u32 {
         if a > b {
@@ -290,7 +289,7 @@ pub fn get_fitting_videomode(
         b - a
     }
 
-    modes.sort_by(|a, b| {
+    monitor.video_modes().min_by(|a, b| {
         use std::cmp::Ordering::*;
         match abs_diff(a.size().width, width).cmp(&abs_diff(b.size().width, width)) {
             Equal => {
@@ -303,17 +302,16 @@ pub fn get_fitting_videomode(
             }
             default => default,
         }
-    });
+    }).expect("no video modes found for monitor").clone()
 
-    modes.first().unwrap().clone()
+    
 }
 
 /// Gets the "best" videomode from a monitor.
 ///
 /// The heuristic for "best" prioritizes width, height, and refresh rate in that order.
 pub fn get_best_videomode(monitor: &MonitorHandle) -> winit::monitor::VideoMode {
-    let mut modes = monitor.video_modes().collect::<Vec<_>>();
-    modes.sort_by(|a, b| {
+    monitor.video_modes().min_by(|a, b| {
         use std::cmp::Ordering::*;
         match b.size().width.cmp(&a.size().width) {
             Equal => match b.size().height.cmp(&a.size().height) {
@@ -324,9 +322,7 @@ pub fn get_best_videomode(monitor: &MonitorHandle) -> winit::monitor::VideoMode 
             },
             default => default,
         }
-    });
-
-    modes.first().unwrap().clone()
+    }).expect("no video modes found for monitor").clone()
 }
 
 pub(crate) fn attempt_grab(winit_window: &winit::window::Window, grab_mode: CursorGrabMode) {

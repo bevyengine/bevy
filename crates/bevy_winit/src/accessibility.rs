@@ -39,7 +39,7 @@ pub struct WinitActionHandler(pub Arc<Mutex<VecDeque<ActionRequest>>>);
 
 impl ActionHandler for WinitActionHandler {
     fn do_action(&mut self, request: ActionRequest) {
-        let mut requests = self.0.lock().unwrap();
+        let mut requests = self.0.lock().expect("value is poisoned");
         requests.push_back(request);
     }
 }
@@ -91,7 +91,7 @@ fn poll_receivers(
     mut actions: EventWriter<ActionRequestWrapper>,
 ) {
     for (_id, handler) in handlers.iter() {
-        let mut handler = handler.lock().unwrap();
+        let mut handler = handler.lock().expect("value is poisoned");
         while let Some(event) = handler.pop_front() {
             actions.send(ActionRequestWrapper(event));
         }

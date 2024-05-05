@@ -330,7 +330,7 @@ impl<A: Asset> Assets<A> {
     pub fn insert(&mut self, id: impl Into<AssetId<A>>, asset: A) {
         match id.into() {
             AssetId::Index { index, .. } => {
-                self.insert_with_index(index, asset).unwrap();
+                self.insert_with_index(index, asset).expect("invalid generation error when inserting asset by id");
             }
             AssetId::Uuid { uuid } => {
                 self.insert_with_uuid(uuid, asset);

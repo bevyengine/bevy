@@ -125,7 +125,7 @@ impl VariableCurve {
         // PERF: finding the current keyframe can be optimised
         let search_result = self
             .keyframe_timestamps
-            .binary_search_by(|probe| probe.partial_cmp(&seek_time).unwrap());
+            .binary_search_by(|probe| probe.partial_cmp(&seek_time).expect("provided floats can't be compared"));
 
         // Subtract one for zero indexing!
         let last_keyframe = self.keyframe_timestamps.len() - 1;
@@ -1187,7 +1187,7 @@ impl AnimationTargetId {
         for name in names {
             blake3.update(name.as_bytes());
         }
-        let hash = blake3.finalize().as_bytes()[0..16].try_into().unwrap();
+        let hash = blake3.finalize().as_bytes()[0..16].try_into().expect("failed to convert name into into hash");
         Self(*uuid::Builder::from_sha1_bytes(hash).as_uuid())
     }
 
