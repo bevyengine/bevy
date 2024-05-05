@@ -91,7 +91,7 @@ fn poll_receivers(
     mut actions: EventWriter<ActionRequestWrapper>,
 ) {
     for (_id, handler) in handlers.iter() {
-        let mut handler = handler.lock().expect("value is poisoned");
+        let mut handler = handler.lock().expect("ActionHandlers lock is poisoned");
         while let Some(event) = handler.pop_front() {
             actions.send(ActionRequestWrapper(event));
         }
