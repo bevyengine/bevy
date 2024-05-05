@@ -21,7 +21,8 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Without any .meta file specifying settings, the default sampler [ImagePlugin::default()] is used for loading images.
     // If you are using a very small image and rendering it larger like seen here, the default linear filtering will result in a blurry image.
-    // Useful note: The default sampler specified by the ImagePlugin is *not* the
+    // Useful note: The default sampler specified by the ImagePlugin is *not* the same as the default implementation of sampler. This is why 
+    // everything uses linear by default but if you look at the default of sampler, it uses nearest. 
     commands.spawn(SpriteBundle {
         texture: asset_server.load("bevy_pixel_dark.png"),
         sprite: Sprite {
