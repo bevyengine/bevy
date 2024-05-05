@@ -538,7 +538,7 @@ where
     where
         S: Interpolable,
     {
-        let new_samples: Vec<S> = self.samples.into_iter().map(|x| f(x)).collect();
+        let new_samples: Vec<S> = self.samples.into_iter().map(f).collect();
         UnevenSampleCurve {
             times: self.times,
             samples: new_samples,
@@ -561,12 +561,8 @@ where
     /// The samples are resorted by time after mapping and deduplicated by output time, so
     /// the function `f` should generally be injective over the sample times of the curve.
     pub fn map_sample_times(mut self, f: impl Fn(f32) -> f32) -> UnevenSampleCurve<T> {
-        let mut timed_samples: Vec<(f32, T)> = self
-            .times
-            .into_iter()
-            .map(|t| f(t))
-            .zip(self.samples)
-            .collect();
+        let mut timed_samples: Vec<(f32, T)> =
+            self.times.into_iter().map(f).zip(self.samples).collect();
         timed_samples.dedup_by(|(t1, _), (t2, _)| (*t1).eq(t2));
         timed_samples.sort_by(|(t1, _), (t2, _)| t1.partial_cmp(t2).unwrap());
         self.times = timed_samples.iter().map(|(t, _)| t).copied().collect();
@@ -604,7 +600,7 @@ where
                     let t_upper = self.times[index];
                     let v_upper = self.samples.get(index).unwrap();
                     let s = (t - t_lower) / (t_upper - t_lower);
-                    v_lower.interpolate(&v_upper, s)
+                    v_lower.interpolate(v_upper, s)
                 }
             }
         }
