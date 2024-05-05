@@ -725,6 +725,18 @@ macro_rules! impl_reflect_for_hashset {
                     .map(|value| self.remove(value))
                     .unwrap_or(false)
             }
+
+            fn contains(&self, value: &dyn Reflect) -> bool {
+                let mut from_reflect = None;
+                value
+                    .downcast_ref::<V>()
+                    .or_else(|| {
+                        from_reflect = V::from_reflect(value);
+                        from_reflect.as_ref()
+                    })
+                    .map(|value| self.contains(value))
+                    .unwrap_or(false)
+            }
         }
 
         impl<V, S> Reflect for $ty

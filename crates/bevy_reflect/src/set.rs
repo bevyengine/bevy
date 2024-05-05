@@ -81,6 +81,9 @@ pub trait Set: Reflect {
     /// If the set did not have this value present, `true` is returned.
     /// If the set did have this value present, `false` is returned.
     fn remove(&mut self, value: &dyn Reflect) -> bool;
+
+    /// Checks if the given value is contained in the set
+    fn contains(&self, value: &dyn Reflect) -> bool;
 }
 
 /// A container for compile-time set info.
@@ -266,6 +269,11 @@ impl Set for DynamicSet {
                 true
             })
             .unwrap_or(false)
+    }
+
+    fn contains(&self, value: &dyn Reflect) -> bool {
+        self.indices
+            .contains_key(&value.reflect_hash().expect(HASH_ERROR))
     }
 }
 
