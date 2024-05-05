@@ -113,6 +113,7 @@ pub struct World {
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
     pub(crate) command_queue: CommandQueue,
+    pub(crate) swap_queue: CommandQueue,
 }
 
 impl Default for World {
@@ -131,6 +132,7 @@ impl Default for World {
             last_change_tick: Tick::new(0),
             last_check_tick: Tick::new(0),
             command_queue: CommandQueue::default(),
+            swap_queue: CommandQueue::default(),
         }
     }
 }

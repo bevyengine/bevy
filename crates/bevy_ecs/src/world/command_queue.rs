@@ -120,20 +120,24 @@ impl CommandQueue {
         // flush the previously queued entities
         world.flush_entities();
 
-        // If the world's command queue is empty replace it with our queue
+        // Append our commands to the swap queue
+        world.swap_queue.append(self);
+
+        // If the world's command queue is empty replace it with the swap queue
         if world.command_queue.is_empty() {
-            std::mem::swap(self, &mut world.command_queue);
+            std::mem::swap(&mut world.swap_queue, &mut world.command_queue);
         }
 
         // Apply any commands in the world's internal queue first.
         while !world.command_queue.is_empty() {
+            // Put our empty queue into the `swap_queue`
+            std::mem::swap(self, &mut world.swap_queue);
+            // Take the full queue from the world and replace it with the `swap_queue`
             std::mem::swap(self, &mut world.command_queue);
+            // Apply the queue
             self.apply_or_drop_queued(Some(world));
-        }
-
-        // Return the larger buffer to the world to be re-used
-        if self.bytes.capacity() > world.command_queue.bytes.capacity() {
-            std::mem::swap(self, &mut world.command_queue);
+            // Get our original queue back
+            std::mem::swap(self, &mut world.swap_queue);
         }
     }
 
