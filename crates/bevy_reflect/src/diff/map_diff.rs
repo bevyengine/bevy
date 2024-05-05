@@ -1,32 +1,31 @@
-use crate::diff::{Diff, DiffError, DiffResult, DiffType};
-use crate::{Map, Reflect, ReflectKind, ReflectRef};
+use crate::diff::{Diff, DiffError, DiffResult, DiffType, ValueDiff};
+use crate::{Map, Reflect, ReflectKind, ReflectRef, TypeInfo};
 use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
 
 /// Indicates the difference between two [`Map`] entries.
 ///
 /// See the [module-level docs](crate::diff) for more details.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum MapDiff<'old, 'new> {
     /// An entry with the given key was removed.
-    Deleted(&'old dyn Reflect),
+    Deleted(ValueDiff<'old>),
     /// An entry with the given key and value was added.
-    Inserted(&'new dyn Reflect, &'new dyn Reflect),
+    Inserted(ValueDiff<'new>, ValueDiff<'new>),
     /// The entry with the given key was modified.
-    Modified(&'old dyn Reflect, Diff<'old, 'new>),
+    Modified(ValueDiff<'old>, Diff<'old, 'new>),
 }
 
 /// Diff object for [maps](Map).
-#[derive(Clone)]
 pub struct DiffedMap<'old, 'new> {
-    new_value: &'new dyn Map,
+    type_info: &'static TypeInfo,
     changes: Vec<MapDiff<'old, 'new>>,
 }
 
 impl<'old, 'new> DiffedMap<'old, 'new> {
-    /// Returns the "new" map value.
-    pub fn new_value(&self) -> &'new dyn Map {
-        self.new_value
+    /// Returns the [`TypeInfo`] of the reflected value currently being diffed.
+    pub fn type_info(&self) -> &TypeInfo {
+        self.type_info
     }
 
     /// Returns the number of _changes_ made to the map.
@@ -70,11 +69,11 @@ pub fn diff_map<'old, 'new, T: Map>(
         .ok_or(DiffError::MissingInfo)?;
 
     if old_info.type_id() != new_info.type_id() {
-        return Ok(Diff::Replaced(new.as_reflect()));
+        return Ok(Diff::Replaced(ValueDiff::Borrowed(new.as_reflect())));
     }
 
     let mut diff = DiffedMap::<'old, 'new> {
-        new_value: new,
+        type_info: old_info,
         changes: Vec::with_capacity(new.len()),
     };
 
@@ -84,18 +83,23 @@ pub fn diff_map<'old, 'new, T: Map>(
             let value_diff = old_value.diff(new_value)?;
             if !matches!(value_diff, Diff::NoChange(_)) {
                 was_modified = true;
-                diff.changes.push(MapDiff::Modified(old_key, value_diff));
+                diff.changes
+                    .push(MapDiff::Modified(ValueDiff::Borrowed(old_key), value_diff));
             }
         } else {
             was_modified = true;
-            diff.changes.push(MapDiff::Deleted(old_key));
+            diff.changes
+                .push(MapDiff::Deleted(ValueDiff::Borrowed(old_key)));
         }
     }
 
     for (new_key, new_value) in new.iter() {
         if matches!(old.get(new_key), None) {
             was_modified = true;
-            diff.changes.push(MapDiff::Inserted(new_key, new_value));
+            diff.changes.push(MapDiff::Inserted(
+                ValueDiff::Borrowed(new_key),
+                ValueDiff::Borrowed(new_value),
+            ));
         }
     }
 

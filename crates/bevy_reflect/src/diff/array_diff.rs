@@ -1,19 +1,18 @@
-use crate::diff::{Diff, DiffError, DiffResult, DiffType};
-use crate::{Array, Reflect, ReflectKind, ReflectRef};
+use crate::diff::{Diff, DiffError, DiffResult, DiffType, ValueDiff};
+use crate::{Array, Reflect, ReflectKind, ReflectRef, TypeInfo};
 use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
 
 /// Diff object for [arrays](Array).
-#[derive(Clone)]
 pub struct DiffedArray<'old, 'new> {
-    new_value: &'new dyn Array,
+    type_info: &'static TypeInfo,
     elements: Vec<Diff<'old, 'new>>,
 }
 
 impl<'old, 'new> DiffedArray<'old, 'new> {
-    /// Returns the "new" array value.
-    pub fn new_value(&self) -> &'new dyn Array {
-        self.new_value
+    /// Returns the [`TypeInfo`] of the reflected value currently being diffed.
+    pub fn type_info(&self) -> &TypeInfo {
+        self.type_info
     }
 
     /// Returns the [`Diff`] for the field at the given index.
@@ -66,11 +65,11 @@ pub fn diff_array<'old, 'new, T: Array>(
         .ok_or(DiffError::MissingInfo)?;
 
     if old.len() != new.len() || old_info.type_id() != new_info.type_id() {
-        return Ok(Diff::Replaced(new.as_reflect()));
+        return Ok(Diff::Replaced(ValueDiff::Borrowed(new.as_reflect())));
     }
 
     let mut diff = DiffedArray {
-        new_value: new,
+        type_info: old_info,
         elements: Vec::with_capacity(old.len()),
     };
 

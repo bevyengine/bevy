@@ -1,30 +1,29 @@
-use crate::diff::{Diff, DiffError, DiffResult, DiffType};
-use crate::{List, Reflect, ReflectKind, ReflectRef};
+use crate::diff::{Diff, DiffError, DiffResult, DiffType, ValueDiff};
+use crate::{List, Reflect, ReflectKind, ReflectRef, TypeInfo};
 use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
 
 /// Indicates the difference between two [`List`] elements.
 ///
 /// See the [module-level docs](crate::diff) for more details.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum ListDiff<'new> {
     /// The element at the given index was deleted.
     Deleted(usize),
     /// An element was inserted _before_ the given index.
-    Inserted(usize, &'new dyn Reflect),
+    Inserted(usize, ValueDiff<'new>),
 }
 
 /// Diff object for [lists](List).
-#[derive(Clone)]
 pub struct DiffedList<'new> {
-    new_value: &'new dyn List,
+    type_info: &'static TypeInfo,
     changes: Vec<ListDiff<'new>>,
 }
 
 impl<'new> DiffedList<'new> {
-    /// Returns the "new" list value.
-    pub fn new_value(&self) -> &'new dyn List {
-        self.new_value
+    /// Returns the [`TypeInfo`] of the reflected value currently being diffed.
+    pub fn type_info(&self) -> &TypeInfo {
+        self.type_info
     }
 
     /// Returns the number of _changes_ made to the list.
@@ -68,14 +67,14 @@ pub fn diff_list<'old, 'new, T: List>(
         .ok_or(DiffError::MissingInfo)?;
 
     if old_info.type_id() != new_info.type_id() {
-        return Ok(Diff::Replaced(new.as_reflect()));
+        return Ok(Diff::Replaced(ValueDiff::Borrowed(new.as_reflect())));
     }
 
     let changes = ListDiffer::new(old, new).diff()?;
 
     if let Some(changes) = changes {
         Ok(Diff::Modified(DiffType::List(DiffedList {
-            new_value: new,
+            type_info: old_info,
             changes,
         })))
     } else {
@@ -124,13 +123,15 @@ impl<'old, 'new> ListDiffer<'old, 'new> {
             return Ok(Some(
                 self.new
                     .iter()
-                    .map(|value| ListDiff::Inserted(0, value))
+                    .map(|value| ListDiff::Inserted(0, ValueDiff::Borrowed(value)))
                     .collect(),
             ));
         }
 
         if self.old.len() > 0 && self.new.len() == 0 {
-            return Ok(Some(vec![ListDiff::Deleted(0); self.new.len()]));
+            let mut vec = Vec::with_capacity(self.new.len());
+            vec.fill_with(|| ListDiff::Deleted(0));
+            return Ok(Some(vec));
         }
 
         let ses = self.find_shortest_edit_script()?;
@@ -162,7 +163,10 @@ impl<'old, 'new> ListDiffer<'old, 'new> {
             let (prev_x, prev_y, diff) = if k == -d || (k != d && x_insert > x_delete) {
                 // Insertion was performed
                 let prev_y = x_insert - (k + 1);
-                let diff = ListDiff::Inserted(x_insert as usize, self.new_value(prev_y as usize));
+                let diff = ListDiff::Inserted(
+                    x_insert as usize,
+                    ValueDiff::Borrowed(self.new_value(prev_y as usize)),
+                );
                 (x_insert, prev_y, diff)
             } else {
                 // Deletion was performed

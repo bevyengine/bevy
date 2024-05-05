@@ -1,19 +1,18 @@
-use crate::diff::{Diff, DiffError, DiffResult, DiffType};
-use crate::{Reflect, ReflectKind, ReflectRef, Tuple};
+use crate::diff::{Diff, DiffError, DiffResult, DiffType, ValueDiff};
+use crate::{Reflect, ReflectKind, ReflectRef, Tuple, TypeInfo};
 use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
 
 /// Diff object for (tuples)[Tuple].
-#[derive(Clone)]
 pub struct DiffedTuple<'old, 'new> {
-    new_value: &'new dyn Tuple,
+    type_info: &'static TypeInfo,
     fields: Vec<Diff<'old, 'new>>,
 }
 
 impl<'old, 'new> DiffedTuple<'old, 'new> {
-    /// Returns the "new" tuple value.
-    pub fn new_value(&self) -> &'new dyn Tuple {
-        self.new_value
+    /// Returns the [`TypeInfo`] of the reflected value currently being diffed.
+    pub fn type_info(&self) -> &TypeInfo {
+        self.type_info
     }
 
     /// Returns the [`Diff`] for the field at the given index.
@@ -61,11 +60,11 @@ pub fn diff_tuple<'old, 'new, T: Tuple>(
         .ok_or(DiffError::MissingInfo)?;
 
     if old.field_len() != new.field_len() || old_info.type_id() != new_info.type_id() {
-        return Ok(Diff::Replaced(new.as_reflect()));
+        return Ok(Diff::Replaced(ValueDiff::Borrowed(new.as_reflect())));
     }
 
     let mut diff = DiffedTuple {
-        new_value: new,
+        type_info: old_info,
         fields: Vec::with_capacity(old.field_len()),
     };
 
