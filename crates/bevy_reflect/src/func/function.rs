@@ -100,7 +100,8 @@ impl<'env> Function<'env> {
 
     /// Call the function with the given arguments and consume the function.
     ///
-    /// This is useful for closures that capture their environment.
+    /// This is useful for closures that capture their environment because otherwise
+    /// any captured variables would still be borrowed by this function.
     ///
     /// # Example
     ///
@@ -112,6 +113,8 @@ impl<'env> Function<'env> {
     /// };
     /// let increment_function = increment.into_function();
     /// let args = ArgList::new().push_owned(5_i32);
+    /// // We need to drop `increment_function` here so that we
+    /// // can regain access to `count`.
     /// increment_function.call_once(args).unwrap();
     /// assert_eq!(count, 5);
     /// ```

@@ -38,6 +38,7 @@ use bevy_utils::all_tuples;
 ///   // ...
 /// }
 ///
+/// // This will fail to compile:
 /// too_many_args.into_function();
 /// ```
 ///
@@ -53,9 +54,13 @@ use bevy_utils::all_tuples;
 /// - If the first argument is an owned type,
 /// then the return type may be either an owned type or a static reference type.
 ///
-/// If the return type is either an owned type or a static reference type,
-/// then it must implement [`IntoReturn`].
-/// Otherwise, it must implement [`GetOwnership`], [`TypePath`], and [`Reflect`].
+/// The return type must always implement [`GetOwnership`] and [`TypePath`].
+/// If it is either an owned type or a static reference type,
+/// then it must also implement [`IntoReturn`].
+/// Otherwise, it must also implement [`Reflect`].
+///
+/// Note that both `GetOwnership`, `TypePath`, and `IntoReturn` are automatically implemented
+/// when [deriving `Reflect`].
 ///
 /// ```
 /// # use bevy_reflect::func::IntoFunction;
@@ -75,6 +80,7 @@ use bevy_utils::all_tuples;
 /// [`TypePath`]: crate::TypePath
 /// [`IntoReturn`]: crate::func::IntoReturn
 /// [`Reflect`]: crate::Reflect
+/// [deriving `Reflect`]: derive@crate::Reflect
 pub trait IntoFunction<'env, T> {
     /// Converts [`Self`] into a [`Function`].
     fn into_function(self) -> Function<'env>;

@@ -16,6 +16,7 @@
 //! # Example
 //!
 //! ```
+//! # use bevy_reflect::Reflect;
 //! # use bevy_reflect::func::args::ArgList;
 //! # use bevy_reflect::func::{Function, FunctionResult, IntoFunction, Return};
 //! fn add(a: i32, b: i32) -> i32 {
@@ -23,7 +24,11 @@
 //! }
 //!
 //! let mut func: Function = add.into_function();
-//! let args: ArgList = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+//! let args: ArgList = ArgList::default()
+//!   // Pushing a known type with owned ownership
+//!   .push_owned(25_i32)
+//!   // Pushing a reflected type with owned ownership
+//!   .push_boxed(Box::new(75_i32) as Box<dyn Reflect>);
 //! let result: FunctionResult = func.call(args);
 //! let value: Return = result.unwrap();
 //! assert_eq!(value.unwrap_owned().downcast_ref::<i32>(), Some(&100));
