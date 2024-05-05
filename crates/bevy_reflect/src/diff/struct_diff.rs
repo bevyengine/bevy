@@ -5,13 +5,13 @@ use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 
 /// Diff object for (structs)[Struct].
-pub struct DiffedStruct<'old, 'new> {
+pub struct StructDiff<'old, 'new> {
     type_info: &'static TypeInfo,
     fields: HashMap<Cow<'old, str>, Diff<'old, 'new>>,
     field_order: Vec<Cow<'old, str>>,
 }
 
-impl<'old, 'new> DiffedStruct<'old, 'new> {
+impl<'old, 'new> StructDiff<'old, 'new> {
     pub(crate) fn new(type_info: &'static TypeInfo, field_len: usize) -> Self {
         Self {
             type_info,
@@ -55,9 +55,9 @@ impl<'old, 'new> DiffedStruct<'old, 'new> {
     }
 }
 
-impl<'old, 'new> Debug for DiffedStruct<'old, 'new> {
+impl<'old, 'new> Debug for StructDiff<'old, 'new> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DiffedStruct")
+        f.debug_struct("StructDiff")
             .field("fields", &self.fields)
             .finish()
     }
@@ -87,7 +87,7 @@ pub fn diff_struct<'old, 'new, T: Struct>(
         return Ok(Diff::Replaced(ValueDiff::Borrowed(new.as_reflect())));
     }
 
-    let mut diff = DiffedStruct::new(old_info, new.field_len());
+    let mut diff = StructDiff::new(old_info, new.field_len());
 
     let mut was_modified = false;
     for (field_idx, old_field) in old.iter_fields().enumerate() {

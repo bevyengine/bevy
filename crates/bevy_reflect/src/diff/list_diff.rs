@@ -7,7 +7,7 @@ use std::slice::Iter;
 ///
 /// See the [module-level docs](crate::diff) for more details.
 #[derive(Debug)]
-pub enum ListDiff<'new> {
+pub enum ElementDiff<'new> {
     /// The element at the given index was deleted.
     Deleted(usize),
     /// An element was inserted _before_ the given index.
@@ -15,12 +15,12 @@ pub enum ListDiff<'new> {
 }
 
 /// Diff object for [lists](List).
-pub struct DiffedList<'new> {
+pub struct ListDiff<'new> {
     type_info: &'static TypeInfo,
-    changes: Vec<ListDiff<'new>>,
+    changes: Vec<ElementDiff<'new>>,
 }
 
-impl<'new> DiffedList<'new> {
+impl<'new> ListDiff<'new> {
     /// Returns the [`TypeInfo`] of the reflected value currently being diffed.
     pub fn type_info(&self) -> &TypeInfo {
         self.type_info
@@ -33,14 +33,14 @@ impl<'new> DiffedList<'new> {
 
     /// Returns an iterator over the sequence of edits needed to transform
     /// the "old" list into the "new" one.
-    pub fn iter_changes(&self) -> Iter<'_, ListDiff<'new>> {
+    pub fn iter_changes(&self) -> Iter<'_, ElementDiff<'new>> {
         self.changes.iter()
     }
 }
 
-impl<'new> Debug for DiffedList<'new> {
+impl<'new> Debug for ListDiff<'new> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DiffedList")
+        f.debug_struct("ListDiff")
             .field("changes", &self.changes)
             .finish()
     }
@@ -73,7 +73,7 @@ pub fn diff_list<'old, 'new, T: List>(
     let changes = ListDiffer::new(old, new).diff()?;
 
     if let Some(changes) = changes {
-        Ok(Diff::Modified(DiffType::List(DiffedList {
+        Ok(Diff::Modified(DiffType::List(ListDiff {
             type_info: old_info,
             changes,
         })))
@@ -114,7 +114,7 @@ impl<'old, 'new> ListDiffer<'old, 'new> {
     /// Perform the diff computation.
     ///
     /// Returns `None` if there was no change or `Some(changes)` if there was.
-    pub fn diff(mut self) -> Result<Option<Vec<ListDiff<'new>>>, DiffError> {
+    pub fn diff(mut self) -> Result<Option<Vec<ElementDiff<'new>>>, DiffError> {
         if self.old.is_empty() && self.new.is_empty() {
             return Ok(None);
         }
@@ -123,14 +123,14 @@ impl<'old, 'new> ListDiffer<'old, 'new> {
             return Ok(Some(
                 self.new
                     .iter()
-                    .map(|value| ListDiff::Inserted(0, ValueDiff::Borrowed(value)))
+                    .map(|value| ElementDiff::Inserted(0, ValueDiff::Borrowed(value)))
                     .collect(),
             ));
         }
 
         if !self.old.is_empty() && self.new.is_empty() {
             let mut vec = Vec::with_capacity(self.new.len());
-            vec.fill_with(|| ListDiff::Deleted(0));
+            vec.fill_with(|| ElementDiff::Deleted(0));
             return Ok(Some(vec));
         }
 
@@ -146,11 +146,11 @@ impl<'old, 'new> ListDiffer<'old, 'new> {
     ///
     /// [old]: Self::old
     /// [new]: Self::new
-    fn create_change_list(&self, ses: i32) -> Result<Vec<ListDiff<'new>>, DiffError> {
+    fn create_change_list(&self, ses: i32) -> Result<Vec<ElementDiff<'new>>, DiffError> {
         let mut x = self.old.len() as i32;
         let mut y = self.new.len() as i32;
 
-        let mut changes = Vec::<ListDiff<'new>>::with_capacity(ses as usize);
+        let mut changes = Vec::<ElementDiff<'new>>::with_capacity(ses as usize);
 
         // Start at end and work backwards to d = 0 (exclusive)
         for d in (1..=ses).rev() {
@@ -163,7 +163,7 @@ impl<'old, 'new> ListDiffer<'old, 'new> {
             let (prev_x, prev_y, diff) = if k == -d || (k != d && x_insert > x_delete) {
                 // Insertion was performed
                 let prev_y = x_insert - (k + 1);
-                let diff = ListDiff::Inserted(
+                let diff = ElementDiff::Inserted(
                     x_insert as usize,
                     ValueDiff::Borrowed(self.new_value(prev_y as usize)),
                 );
@@ -171,7 +171,7 @@ impl<'old, 'new> ListDiffer<'old, 'new> {
             } else {
                 // Deletion was performed
                 let prev_y = x_delete - (k - 1);
-                let diff = ListDiff::Deleted(x_delete as usize);
+                let diff = ElementDiff::Deleted(x_delete as usize);
                 (x_delete, prev_y, diff)
             };
 

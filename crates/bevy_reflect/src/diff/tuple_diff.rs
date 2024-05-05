@@ -4,12 +4,12 @@ use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
 
 /// Diff object for (tuples)[Tuple].
-pub struct DiffedTuple<'old, 'new> {
+pub struct TupleDiff<'old, 'new> {
     type_info: &'static TypeInfo,
     fields: Vec<Diff<'old, 'new>>,
 }
 
-impl<'old, 'new> DiffedTuple<'old, 'new> {
+impl<'old, 'new> TupleDiff<'old, 'new> {
     pub(crate) fn new(type_info: &'static TypeInfo, field_len: usize) -> Self {
         Self {
             type_info,
@@ -42,9 +42,9 @@ impl<'old, 'new> DiffedTuple<'old, 'new> {
     }
 }
 
-impl<'old, 'new> Debug for DiffedTuple<'old, 'new> {
+impl<'old, 'new> Debug for TupleDiff<'old, 'new> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DiffedTuple")
+        f.debug_struct("TupleDiff")
             .field("fields", &self.fields)
             .finish()
     }
@@ -74,7 +74,7 @@ pub fn diff_tuple<'old, 'new, T: Tuple>(
         return Ok(Diff::Replaced(ValueDiff::Borrowed(new.as_reflect())));
     }
 
-    let mut diff = DiffedTuple::new(old_info, new.field_len());
+    let mut diff = TupleDiff::new(old_info, new.field_len());
 
     let mut was_modified = false;
     for (old_field, new_field) in old.iter_fields().zip(new.iter_fields()) {

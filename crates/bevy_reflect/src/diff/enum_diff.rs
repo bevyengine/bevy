@@ -1,4 +1,4 @@
-use crate::diff::{Diff, DiffError, DiffResult, DiffType, DiffedStruct, DiffedTuple, ValueDiff};
+use crate::diff::{Diff, DiffError, DiffResult, DiffType, StructDiff, TupleDiff, ValueDiff};
 use crate::{Enum, Reflect, ReflectKind, ReflectRef, TypeInfo, VariantType};
 use std::borrow::Cow;
 use std::fmt::Debug;
@@ -20,8 +20,8 @@ pub enum EnumDiff<'old, 'new> {
     /// ```
     ///
     Swapped(ValueDiff<'new>),
-    Tuple(DiffedTuple<'old, 'new>),
-    Struct(DiffedStruct<'old, 'new>),
+    Tuple(TupleDiff<'old, 'new>),
+    Struct(StructDiff<'old, 'new>),
 }
 
 impl<'old, 'new> EnumDiff<'old, 'new> {
@@ -67,7 +67,7 @@ pub fn diff_enum<'old, 'new, T: Enum>(
 
     let diff = match old.variant_type() {
         VariantType::Struct => {
-            let mut diff = DiffedStruct::new(old_info, new.field_len());
+            let mut diff = StructDiff::new(old_info, new.field_len());
 
             let mut was_modified = false;
             for old_field in old.iter_fields() {
@@ -85,7 +85,7 @@ pub fn diff_enum<'old, 'new, T: Enum>(
             }
         }
         VariantType::Tuple => {
-            let mut diff = DiffedTuple::new(old_info, new.field_len());
+            let mut diff = TupleDiff::new(old_info, new.field_len());
 
             let mut was_modified = false;
             for (old_field, new_field) in old.iter_fields().zip(new.iter_fields()) {

@@ -4,12 +4,12 @@ use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
 
 /// Diff object for [tuple structs](TupleStruct).
-pub struct DiffedTupleStruct<'old, 'new> {
+pub struct TupleStructDiff<'old, 'new> {
     type_info: &'static TypeInfo,
     fields: Vec<Diff<'old, 'new>>,
 }
 
-impl<'old, 'new> DiffedTupleStruct<'old, 'new> {
+impl<'old, 'new> TupleStructDiff<'old, 'new> {
     /// Returns the [`TypeInfo`] of the reflected value currently being diffed.
     pub fn type_info(&self) -> &TypeInfo {
         self.type_info
@@ -31,9 +31,9 @@ impl<'old, 'new> DiffedTupleStruct<'old, 'new> {
     }
 }
 
-impl<'old, 'new> Debug for DiffedTupleStruct<'old, 'new> {
+impl<'old, 'new> Debug for TupleStructDiff<'old, 'new> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DiffedTupleStruct")
+        f.debug_struct("TupleStructDiff")
             .field("fields", &self.fields)
             .finish()
     }
@@ -63,7 +63,7 @@ pub fn diff_tuple_struct<'old, 'new, T: TupleStruct>(
         return Ok(Diff::Replaced(ValueDiff::Borrowed(new.as_reflect())));
     }
 
-    let mut diff = DiffedTupleStruct {
+    let mut diff = TupleStructDiff {
         type_info: old_info,
         fields: Vec::with_capacity(old.field_len()),
     };

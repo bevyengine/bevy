@@ -1,6 +1,6 @@
 use crate::diff::{
-    DiffError, DiffedArray, DiffedList, DiffedMap, DiffedStruct, DiffedTuple, DiffedTupleStruct,
-    EnumDiff, ValueDiff,
+    ArrayDiff, DiffError, EnumDiff, ListDiff, MapDiff, StructDiff, TupleDiff, TupleStructDiff,
+    ValueDiff,
 };
 use crate::{Reflect, TypeInfo};
 
@@ -63,12 +63,12 @@ pub enum Diff<'old, 'new> {
 #[derive(Debug)]
 pub enum DiffType<'old, 'new> {
     Value(ValueDiff<'new>),
-    Tuple(DiffedTuple<'old, 'new>),
-    Array(DiffedArray<'old, 'new>),
-    List(DiffedList<'new>),
-    Map(DiffedMap<'old, 'new>),
-    TupleStruct(DiffedTupleStruct<'old, 'new>),
-    Struct(DiffedStruct<'old, 'new>),
+    Tuple(TupleDiff<'old, 'new>),
+    Array(ArrayDiff<'old, 'new>),
+    List(ListDiff<'new>),
+    Map(MapDiff<'old, 'new>),
+    TupleStruct(TupleStructDiff<'old, 'new>),
+    Struct(StructDiff<'old, 'new>),
     Enum(EnumDiff<'old, 'new>),
 }
 

@@ -4,12 +4,12 @@ use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
 
 /// Diff object for [arrays](Array).
-pub struct DiffedArray<'old, 'new> {
+pub struct ArrayDiff<'old, 'new> {
     type_info: &'static TypeInfo,
     elements: Vec<Diff<'old, 'new>>,
 }
 
-impl<'old, 'new> DiffedArray<'old, 'new> {
+impl<'old, 'new> ArrayDiff<'old, 'new> {
     /// Returns the [`TypeInfo`] of the reflected value currently being diffed.
     pub fn type_info(&self) -> &TypeInfo {
         self.type_info
@@ -36,9 +36,9 @@ impl<'old, 'new> DiffedArray<'old, 'new> {
     }
 }
 
-impl<'old, 'new> Debug for DiffedArray<'old, 'new> {
+impl<'old, 'new> Debug for ArrayDiff<'old, 'new> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DiffedArray")
+        f.debug_struct("ArrayDiff")
             .field("elements", &self.elements)
             .finish()
     }
@@ -68,7 +68,7 @@ pub fn diff_array<'old, 'new, T: Array>(
         return Ok(Diff::Replaced(ValueDiff::Borrowed(new.as_reflect())));
     }
 
-    let mut diff = DiffedArray {
+    let mut diff = ArrayDiff {
         type_info: old_info,
         elements: Vec::with_capacity(old.len()),
     };

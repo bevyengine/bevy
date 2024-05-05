@@ -7,7 +7,7 @@ use std::slice::Iter;
 ///
 /// See the [module-level docs](crate::diff) for more details.
 #[derive(Debug)]
-pub enum MapDiff<'old, 'new> {
+pub enum EntryDiff<'old, 'new> {
     /// An entry with the given key was removed.
     Deleted(ValueDiff<'old>),
     /// An entry with the given key and value was added.
@@ -17,12 +17,12 @@ pub enum MapDiff<'old, 'new> {
 }
 
 /// Diff object for [maps](Map).
-pub struct DiffedMap<'old, 'new> {
+pub struct MapDiff<'old, 'new> {
     type_info: &'static TypeInfo,
-    changes: Vec<MapDiff<'old, 'new>>,
+    changes: Vec<EntryDiff<'old, 'new>>,
 }
 
-impl<'old, 'new> DiffedMap<'old, 'new> {
+impl<'old, 'new> MapDiff<'old, 'new> {
     /// Returns the [`TypeInfo`] of the reflected value currently being diffed.
     pub fn type_info(&self) -> &TypeInfo {
         self.type_info
@@ -35,14 +35,14 @@ impl<'old, 'new> DiffedMap<'old, 'new> {
 
     /// Returns an iterator over the unordered sequence of edits needed to transform
     /// the "old" map into the "new" one.
-    pub fn iter_changes(&self) -> Iter<'_, MapDiff<'old, 'new>> {
+    pub fn iter_changes(&self) -> Iter<'_, EntryDiff<'old, 'new>> {
         self.changes.iter()
     }
 }
 
-impl<'old, 'new> Debug for DiffedMap<'old, 'new> {
+impl<'old, 'new> Debug for MapDiff<'old, 'new> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DiffedMap")
+        f.debug_struct("MapDiff")
             .field("changes", &self.changes)
             .finish()
     }
@@ -72,7 +72,7 @@ pub fn diff_map<'old, 'new, T: Map>(
         return Ok(Diff::Replaced(ValueDiff::Borrowed(new.as_reflect())));
     }
 
-    let mut diff = DiffedMap::<'old, 'new> {
+    let mut diff = MapDiff::<'old, 'new> {
         type_info: old_info,
         changes: Vec::with_capacity(new.len()),
     };
@@ -83,20 +83,22 @@ pub fn diff_map<'old, 'new, T: Map>(
             let value_diff = old_value.diff(new_value)?;
             if !matches!(value_diff, Diff::NoChange(_)) {
                 was_modified = true;
-                diff.changes
-                    .push(MapDiff::Modified(ValueDiff::Borrowed(old_key), value_diff));
+                diff.changes.push(EntryDiff::Modified(
+                    ValueDiff::Borrowed(old_key),
+                    value_diff,
+                ));
             }
         } else {
             was_modified = true;
             diff.changes
-                .push(MapDiff::Deleted(ValueDiff::Borrowed(old_key)));
+                .push(EntryDiff::Deleted(ValueDiff::Borrowed(old_key)));
         }
     }
 
     for (new_key, new_value) in new.iter() {
         if old.get(new_key).is_none() {
             was_modified = true;
-            diff.changes.push(MapDiff::Inserted(
+            diff.changes.push(EntryDiff::Inserted(
                 ValueDiff::Borrowed(new_key),
                 ValueDiff::Borrowed(new_value),
             ));

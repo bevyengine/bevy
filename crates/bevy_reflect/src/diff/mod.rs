@@ -33,11 +33,11 @@
 //! Instead of diffing elements individually in sequence, we try to find the minimum number of edits
 //! to transform the "old" list into the "new" one.
 //!
-//! The available edits are [`ListDiff::Inserted`] and [`ListDiff::Deleted`].
-//! When calling [`DiffedList::iter_changes`], we iterate over a collection of these edits.
+//! The available edits are [`ElementDiff::Inserted`] and [`ElementDiff::Deleted`].
+//! When calling [`ListDiff::iter_changes`], we iterate over a collection of these edits.
 //! Each edit is given an index to determine where the transformation should take place in the "old" list.
-//! [`ListDiff::Deleted`] edits are given the index of the element to delete,
-//! while [`ListDiff::Inserted`] edits are given both the index of the element they should appear _before_
+//! [`ElementDiff::Deleted`] edits are given the index of the element to delete,
+//! while [`ElementDiff::Inserted`] edits are given both the index of the element they should appear _before_
 //! as well as the actual data to insert.
 //!
 //! Note: Multiple inserts may share the same index.
@@ -45,7 +45,7 @@
 //! "old" list at that index.
 //!
 //! ```
-//! # use bevy_reflect::{Reflect, diff::{Diff, DiffType, ListDiff}};
+//! # use bevy_reflect::{Reflect, diff::{Diff, DiffType, ElementDiff}};
 //! let old = vec![8, -1, 5];
 //! let new = vec![9, 8, 7, 6, 5];
 //!
@@ -54,25 +54,25 @@
 //! if let Diff::Modified(DiffType::List(list_diff)) = diff {
 //!   let mut changes = list_diff.iter_changes();
 //!
-//!   assert!(matches!(changes.next(), Some(ListDiff::Inserted(0, _))));
-//!   assert!(matches!(changes.next(), Some(ListDiff::Deleted(1))));
-//!   assert!(matches!(changes.next(), Some(ListDiff::Inserted(2, _))));
-//!   assert!(matches!(changes.next(), Some(ListDiff::Inserted(2, _))));
+//!   assert!(matches!(changes.next(), Some(ElementDiff::Inserted(0, _))));
+//!   assert!(matches!(changes.next(), Some(ElementDiff::Deleted(1))));
+//!   assert!(matches!(changes.next(), Some(ElementDiff::Inserted(2, _))));
+//!   assert!(matches!(changes.next(), Some(ElementDiff::Inserted(2, _))));
 //!   assert!(matches!(changes.next(), None));
 //! }
 //! ```
 //!
 //! ## Maps
 //!
-//! [Maps](crate::Map) also include edits for [insertion](`MapDiff::Inserted`) and [deletion](MapDiff::Deleted),
-//! but contain a third option: [`MapDiff::Modified`].
+//! [Maps](crate::Map) also include edits for [insertion](EntryDiff::Inserted) and [deletion](EntryDiff::Deleted),
+//! but contain a third option: [`EntryDiff::Modified`].
 //! Unlike lists, these edits are unordered and do not make use of the [Myers Diffing Algorithm].
-//! Instead, the [`MapDiff::Inserted`] and [`MapDiff::Deleted`] edits simply indicate whether an entry with a given
+//! Instead, the [`EntryDiff::Inserted`] and [`EntryDiff::Deleted`] edits simply indicate whether an entry with a given
 //! key was inserted or deleted,
-//! while the [`MapDiff::Modified`] edit indicates that the _value_ of an entry was edited.
+//! while the [`EntryDiff::Modified`] edit indicates that the _value_ of an entry was edited.
 //!
 //! ```
-//! # use bevy_reflect::{Reflect, diff::{Diff, DiffType, MapDiff}};
+//! # use bevy_reflect::{Reflect, diff::{Diff, DiffType, EntryDiff}};
 //! # use bevy_utils::HashMap;
 //! let old = HashMap::from([(1, 111), (2, 222), (3, 333)]);
 //! let new = HashMap::from([(2, 999), (3, 333), (4, 444)]);
@@ -82,16 +82,16 @@
 //! if let Diff::Modified(DiffType::Map(map_diff)) = diff {
 //!   for change in map_diff.iter_changes() {
 //!     match change {
-//!       MapDiff::Deleted(key) => {
+//!       EntryDiff::Deleted(key) => {
 //!         assert!(key.reflect_partial_eq(&1).unwrap(), "expected key 1 to be deleted");
 //!       }
-//!       MapDiff::Inserted(key, value) => {
+//!       EntryDiff::Inserted(key, value) => {
 //!         assert!(
 //!           key.reflect_partial_eq(&4).unwrap() && value.reflect_partial_eq(&444).unwrap(),
 //!           "expected key 4 to be inserted with value 444"
 //!         );
 //!       }
-//!       MapDiff::Modified(key, value_diff) => {
+//!       EntryDiff::Modified(key, value_diff) => {
 //!         assert!(
 //!           key.reflect_partial_eq(&2).unwrap() && matches!(value_diff, Diff::Modified(..)),
 //!           "expected key 2 to be modified"
@@ -137,7 +137,7 @@ pub use value_diff::*;
 #[cfg(test)]
 mod tests {
     use crate as bevy_reflect;
-    use crate::diff::{Diff, DiffType, EnumDiff, ListDiff, MapDiff};
+    use crate::diff::{Diff, DiffType, ElementDiff, EntryDiff, EnumDiff};
     use crate::Reflect;
     use bevy_utils::HashMap;
 
@@ -260,7 +260,7 @@ mod tests {
 
                 assert!(matches!(
                     changes.next(),
-                    Some(ListDiff::Inserted(0, _ /* 9 */))
+                    Some(ElementDiff::Inserted(0, _ /* 9 */))
                 ));
                 assert!(changes.next().is_none());
             } else {
@@ -280,15 +280,15 @@ mod tests {
 
                 assert!(matches!(
                     changes.next(),
-                    Some(ListDiff::Inserted(0, _ /* 1 */))
+                    Some(ElementDiff::Inserted(0, _ /* 1 */))
                 ));
                 assert!(matches!(
                     changes.next(),
-                    Some(ListDiff::Inserted(0, _ /* 2 */))
+                    Some(ElementDiff::Inserted(0, _ /* 2 */))
                 ));
                 assert!(matches!(
                     changes.next(),
-                    Some(ListDiff::Inserted(0, _ /* 3 */))
+                    Some(ElementDiff::Inserted(0, _ /* 3 */))
                 ));
                 assert!(changes.next().is_none());
             } else {
@@ -306,23 +306,29 @@ mod tests {
             if let DiffType::List(list_diff) = modified {
                 let mut changes = list_diff.iter_changes();
 
-                assert!(matches!(changes.next(), Some(ListDiff::Deleted(1 /* 2 */))));
                 assert!(matches!(
                     changes.next(),
-                    Some(ListDiff::Inserted(2, _ /* 0 */))
+                    Some(ElementDiff::Deleted(1 /* 2 */))
                 ));
                 assert!(matches!(
                     changes.next(),
-                    Some(ListDiff::Inserted(3, _ /* 6 */))
+                    Some(ElementDiff::Inserted(2, _ /* 0 */))
                 ));
                 assert!(matches!(
                     changes.next(),
-                    Some(ListDiff::Inserted(3, _ /* 8 */))
+                    Some(ElementDiff::Inserted(3, _ /* 6 */))
                 ));
-                assert!(matches!(changes.next(), Some(ListDiff::Deleted(4 /* 5 */))));
                 assert!(matches!(
                     changes.next(),
-                    Some(ListDiff::Inserted(5, _ /* 7 */))
+                    Some(ElementDiff::Inserted(3, _ /* 8 */))
+                ));
+                assert!(matches!(
+                    changes.next(),
+                    Some(ElementDiff::Deleted(4 /* 5 */))
+                ));
+                assert!(matches!(
+                    changes.next(),
+                    Some(ElementDiff::Inserted(5, _ /* 7 */))
                 ));
                 assert!(changes.next().is_none());
             } else {
@@ -361,7 +367,10 @@ mod tests {
             if let DiffType::Map(map_diff) = modified {
                 let mut changes = map_diff.iter_changes();
 
-                assert!(matches!(changes.next(), Some(MapDiff::Deleted(_ /* 2 */))));
+                assert!(matches!(
+                    changes.next(),
+                    Some(EntryDiff::Deleted(_ /* 2 */))
+                ));
                 assert!(changes.next().is_none());
             } else {
                 panic!("expected `DiffType::Map`");
@@ -380,7 +389,7 @@ mod tests {
 
                 assert!(matches!(
                     changes.next(),
-                    Some(MapDiff::Inserted(_ /* 4 */, _ /* 444 */))
+                    Some(EntryDiff::Inserted(_ /* 4 */, _ /* 444 */))
                 ));
                 assert!(changes.next().is_none());
             } else {
@@ -400,7 +409,7 @@ mod tests {
 
                 assert!(matches!(
                     changes.next(),
-                    Some(MapDiff::Modified(_ /* 2 */, _ /* 999 */))
+                    Some(EntryDiff::Modified(_ /* 2 */, _ /* 999 */))
                 ));
                 assert!(changes.next().is_none());
             } else {
