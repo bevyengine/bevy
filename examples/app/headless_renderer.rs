@@ -495,25 +495,33 @@ mod frame_capture {
                     }
                     if !image_data.is_empty() {
                         for image in images_to_save.iter() {
+                            // Fill correct data from channel to image
                             let img_bytes = images.get_mut(image.id()).unwrap();
                             img_bytes.data.clone_from(&image_data);
 
+                            // Create RGBA Image Buffer
                             let img = match img_bytes.clone().try_into_dynamic() {
                                 Ok(img) => img.to_rgba8(),
                                 Err(e) => panic!("Failed to create image buffer {e:?}"),
                             };
 
+                            // Prepare directory for images, test_images in bevy folder is used here for example
+                            // You should choose the path depending on your needs
                             let images_dir =
                                 PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_images");
                             info!("Saving image to: {images_dir:?}");
                             std::fs::create_dir_all(&images_dir).unwrap();
 
+                            // Search for the first unoccupied number
                             let mut number = 0;
                             let mut image_path = images_dir.join(format!("{number:03}.png"));
                             while image_path.exists() {
                                 number += 1;
                                 image_path = images_dir.join(format!("{number:03}.png"));
                             }
+
+                            // Finally saving image to file, this heavy blocking operation is kept here
+                            // for example simplicity, but in real app you should move it to a separate task
                             if let Err(e) = img.save(image_path) {
                                 panic!("Failed to save image: {}", e);
                             };
