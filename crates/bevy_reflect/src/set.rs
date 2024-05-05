@@ -264,16 +264,15 @@ impl Set for DynamicSet {
     fn remove(&mut self, value: &dyn Reflect) -> bool {
         self.indices
             .remove(&value.reflect_hash().expect(hash_error!(value)))
-            .map(|index| {
+            .map_or(false, |index| {
                 self.values.remove(index);
                 true
             })
-            .unwrap_or(false)
     }
 
     fn contains(&self, value: &dyn Reflect) -> bool {
         self.indices
-            .contains_key(&value.reflect_hash().expect(HASH_ERROR))
+            .contains_key(&value.reflect_hash().expect(hash_error!(value)))
     }
 }
 
