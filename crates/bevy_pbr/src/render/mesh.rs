@@ -2008,12 +2008,11 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 
         let Some(bind_group) = bind_groups.get(mesh_asset_id, lightmap, is_skinned, is_morphed)
         else {
-            error!(
+            return RenderCommandResult::Failure(
                 "The MeshBindGroups resource wasn't set in the render phase. \
                 It should be set by the prepare_mesh_bind_group system.\n\
-                This is a bevy bug! Please open an issue."
+                This is a bevy bug! Please open an issue.",
             );
-            return RenderCommandResult::Skip;
         };
 
         let mut dynamic_offsets: [u32; 3] = Default::default();
