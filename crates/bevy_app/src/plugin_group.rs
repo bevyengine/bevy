@@ -140,7 +140,9 @@ impl PluginGroupBuilder {
         for plugin_id in order {
             self.upsert_plugin_entry_state(
                 plugin_id,
-                plugins.remove(&plugin_id).expect("plugin with provided id not found in group"),
+                plugins
+                    .remove(&plugin_id)
+                    .expect("plugin with provided id not found in group"),
                 self.order.len(),
             );
 

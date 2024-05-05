@@ -246,7 +246,9 @@ impl SubApp {
             schedules.insert(Schedule::new(label));
         }
 
-        let schedule = schedules.get_mut(label).expect("could not get mutable reference to the schedule");
+        let schedule = schedules
+            .get_mut(label)
+            .expect("could not get mutable reference to the schedule");
         f(schedule);
 
         self
