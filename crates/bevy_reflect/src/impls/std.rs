@@ -857,14 +857,6 @@ impl_type_path!(::std::collections::HashSet<V, S>);
 impl_reflect_for_hashset!(::bevy_utils::hashbrown::HashSet<V,S>);
 impl_type_path!(::bevy_utils::hashbrown::HashSet<V, S>);
 
-// impl_reflect_for_hashmap!(::std::collections::HashMap<K, V, S>);
-// impl_type_path!(::std::collections::hash_map::RandomState);
-// impl_type_path!(::std::collections::HashMap<K, V, S>);
-//
-// impl_reflect_for_hashmap!(bevy_utils::hashbrown::HashMap<K, V, S>);
-// impl_type_path!(::bevy_utils::hashbrown::hash_map::DefaultHashBuilder);
-// impl_type_path!(::bevy_utils::hashbrown::HashMap<K, V, S>);
-
 impl<K, V> Map for ::std::collections::BTreeMap<K, V>
 where
     K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
