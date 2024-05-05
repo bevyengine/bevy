@@ -7,6 +7,7 @@ use std::{
     marker::PhantomData,
     ops::{Deref, RangeInclusive},
 };
+use thiserror::Error;
 
 /// A nonempty closed interval, possibly infinite in either direction.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
@@ -16,11 +17,13 @@ pub struct Interval {
 }
 
 /// An error that indicates that an operation would have returned an invalid [`Interval`].
-#[derive(Debug)]
+#[derive(Debug, Error)]
+#[error("The resulting interval would be invalid (empty or with a NaN endpoint)")]
 pub struct InvalidIntervalError;
 
 /// An error indicating that an infinite interval was used where it was inappropriate.
-#[derive(Debug)]
+#[derive(Debug, Error)]
+#[error("This operation does not make sense in the context of an infinite interval")]
 pub struct InfiniteIntervalError;
 
 impl Interval {
@@ -88,7 +91,7 @@ impl Interval {
         Ok(move |x| (x - self.start) * scale + other.start)
     }
 
-    /// Get an iterator over `points` equally-spaced points from this interval in increasing order.
+    /// Get an iterator over equally-spaced points from this interval in increasing order.
     /// Returns `None` if `points` is less than 2; the spaced points always include the endpoints.
     pub fn spaced_points(self, points: usize) -> Option<impl Iterator<Item = f32>> {
         if points < 2 {
@@ -144,11 +147,14 @@ impl Interpolable for Quat {
 
 /// An error indicating that a resampling operation could not be performed because of
 /// malformed inputs.
-#[derive(Debug)] // TODO: Make this an actual Error.
+#[derive(Debug, Error)]
+#[error("Could not resample from this curve because of bad inputs")]
 pub enum ResamplingError {
     /// This resampling operation was not provided with enough samples to have well-formed output.
+    #[error("Not enough samples to construct resampled curve")]
     NotEnoughSamples(usize),
     /// This resampling operation failed because of an unbounded interval.
+    #[error("Could not resample because this curve has unbounded domain")]
     InfiniteInterval(InfiniteIntervalError),
 }
 
