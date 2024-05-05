@@ -375,10 +375,10 @@ mod frame_capture {
             prelude::*,
             render::{
                 camera::RenderTarget,
-                render_resource::{
-                    Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-                },
+                render_asset::RenderAssetUsages,
+                render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
                 renderer::RenderDevice,
+                texture::BevyDefault,
             },
         };
         use std::path::PathBuf;
@@ -440,40 +440,26 @@ mod frame_capture {
             };
 
             // This is the texture that will be rendered to.
-            let mut render_target_image = Image {
-                texture_descriptor: TextureDescriptor {
-                    label: None,
-                    size,
-                    dimension: TextureDimension::D2,
-                    format: TextureFormat::Rgba8UnormSrgb,
-                    mip_level_count: 1,
-                    sample_count: 1,
-                    usage: TextureUsages::COPY_SRC
-                        | TextureUsages::COPY_DST
-                        | TextureUsages::TEXTURE_BINDING
-                        | TextureUsages::RENDER_ATTACHMENT,
-                    view_formats: &[],
-                },
-                ..Default::default()
-            };
-            render_target_image.resize(size);
+            let mut render_target_image = Image::new_fill(
+                size,
+                TextureDimension::D2,
+                &[0; 4],
+                TextureFormat::bevy_default(),
+                RenderAssetUsages::default(),
+            );
+            render_target_image.texture_descriptor.usage |= TextureUsages::COPY_SRC
+                | TextureUsages::RENDER_ATTACHMENT
+                | TextureUsages::TEXTURE_BINDING;
             let render_target_image_handle = images.add(render_target_image);
 
             // This is the texture that will be copied to.
-            let mut cpu_image = Image {
-                texture_descriptor: TextureDescriptor {
-                    label: None,
-                    size,
-                    dimension: TextureDimension::D2,
-                    format: TextureFormat::Rgba8UnormSrgb,
-                    mip_level_count: 1,
-                    sample_count: 1,
-                    usage: TextureUsages::COPY_DST | TextureUsages::TEXTURE_BINDING,
-                    view_formats: &[],
-                },
-                ..Default::default()
-            };
-            cpu_image.resize(size);
+            let cpu_image = Image::new_fill(
+                size,
+                TextureDimension::D2,
+                &[0; 4],
+                TextureFormat::bevy_default(),
+                RenderAssetUsages::default(),
+            );
             let cpu_image_handle = images.add(cpu_image);
 
             commands.spawn(ImageCopier::new(
@@ -510,7 +496,7 @@ mod frame_capture {
                     if !image_data.is_empty() {
                         for image in images_to_save.iter() {
                             let img_bytes = images.get_mut(image.id()).unwrap();
-                            img_bytes.data = image_data.clone();
+                            img_bytes.data.clone_from(&image_data);
 
                             let img = match img_bytes.clone().try_into_dynamic() {
                                 Ok(img) => img.to_rgba8(),
