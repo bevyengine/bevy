@@ -43,7 +43,7 @@ use self::resource::{
 // 8. Documentation, write an example, and cleanup
 
 #[derive(Resource, Default)]
-pub struct RenderGraphPersistentResources {
+pub struct CachedRenderGraphResources {
     bind_group_layouts: CachedResources<BindGroupLayout>,
     samplers: CachedResources<Sampler>,
     pipelines: CachedRenderGraphPipelines,
@@ -98,21 +98,22 @@ impl<'g> RenderGraph<'g> {
 
     fn create_queued_resources(
         &mut self,
-        cache: &'g mut RenderGraphPersistentResources,
+        resource_cache: &'g mut CachedRenderGraphResources,
         render_device: &RenderDevice,
         world: &World,
         view_entity: EntityRef<'g>,
     ) {
         self.bind_group_layouts
-            .create_queued_resources_cached(&mut cache.bind_group_layouts, render_device);
-        //todo: borrow bind gropus
-        //pipelines here
+            .create_queued_resources_cached(&mut resource_cache.bind_group_layouts, render_device);
+        self.pipelines.create_queued_pipelines(world.resource::<PipelineCache>())
         self.textures.create_queued_resources(render_device);
 
         let mut texture_views = std::mem::take(&mut self.texture_views);
         texture_views.create_queued_resources(self, world, view_entity);
         self.texture_views = texture_views;
 
+        self.samplers
+            .create_queued_resources_cached(&mut resource_cache.samplers, render_device);
         self.buffers.create_queued_resources(render_device);
 
         let mut bind_groups = std::mem::take(&mut self.bind_groups);
@@ -123,7 +124,7 @@ impl<'g> RenderGraph<'g> {
 
 pub struct RenderGraphBuilder<'g> {
     graph: &'g mut RenderGraph<'g>,
-    persistent_resources: &'g mut RenderGraphPersistentResources,
+    persistent_resources: &'g mut CachedRenderGraphResources,
     world: &'g World,
     view_entity: EntityRef<'g>,
     render_device: &'g RenderDevice,

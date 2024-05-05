@@ -1,4 +1,4 @@
-use super::{RenderGraph, RenderGraphBuilder, RenderGraphPersistentResources};
+use super::{CachedRenderGraphResources, RenderGraph, RenderGraphBuilder};
 use bevy_ecs::{component::Component, entity::Entity, world::World};
 
 /// Component for automatically configuring the [`RenderGraph`] each frame for an entity.

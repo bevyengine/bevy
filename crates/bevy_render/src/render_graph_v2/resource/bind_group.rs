@@ -1,8 +1,9 @@
-use std::borrow::Borrow;
+use std::{borrow::Borrow, hash::Hash};
 
 use bevy_ecs::world::{EntityRef, World};
 use bevy_utils::HashMap;
-use wgpu::{BindGroupEntry, BindGroupLayoutEntry, Label};
+use encase::rts_array::Length;
+use wgpu::{BindGroupEntry, BindGroupLayoutEntry, BufferBinding, Label};
 
 use crate::{
     render_graph_v2::{NodeContext, RenderGraph, RenderGraphBuilder},
@@ -133,33 +134,33 @@ impl<'g> RenderGraphBindGroups<'g> {
         render_device: &RenderDevice,
         view_entity: EntityRef<'g>,
     ) {
-        //let mut bind_group_cache = HashMap::new();
-        // for (
-        //     id,
-        //     QueuedBindGroup {
-        //         dependencies,
-        //         label,
-        //         layout,
-        //         factory,
-        //     },
-        // ) in self.queued_bind_groups.drain()
-        // {
-        //     let context = NodeContext {
-        //         graph,
-        //         world,
-        //         dependencies,
-        //         view_entity,
-        //     };
-        //     let bind_group_entries = (factory)(context);
-        //     let layout = context.get(layout);
-        // let bind_group = bind_group_cache
-        //     .entry(bind_group_entries)
-        //     .or_insert_with_key(|entries| {
-        //         render_device.create_bind_group(label, layout, entries)
-        //     });
-        // self.bind_groups
-        //     .insert(id, RefEq::Owned(bind_group.clone()));
-        //}
+        let mut bind_group_cache = HashMap::new();
+        for (
+            id,
+            QueuedBindGroup {
+                dependencies,
+                label,
+                layout,
+                factory,
+            },
+        ) in self.queued_bind_groups.drain()
+        {
+            let context = NodeContext {
+                graph,
+                world,
+                dependencies,
+                view_entity,
+            };
+            let bind_group_entries = (factory)(context);
+            let layout = context.get(layout);
+            let bind_group = bind_group_cache
+                .entry(BindGroupEntriesHash(bind_group_entries))
+                .or_insert_with_key(|BindGroupEntriesHash(entries)| {
+                    render_device.create_bind_group(label, layout, *entries)
+                });
+            self.bind_groups
+                .insert(id, RefEq::Owned(bind_group.clone()));
+        }
         todo!()
     }
 
@@ -167,6 +168,50 @@ impl<'g> RenderGraphBindGroups<'g> {
         self.bind_groups.get(&id).map(Borrow::borrow)
     }
 }
+
+struct BindGroupEntriesHash<'a>(&'a [BindGroupEntry<'a>]);
+
+impl<'a> Hash for BindGroupEntriesHash<'a> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        for entry in self.0 {
+            entry.binding.hash(state);
+            match entry.resource {
+                wgpu::BindingResource::Buffer(BufferBinding {
+                    buffer,
+                    offset,
+                    size,
+                }) => {
+                    buffer.global_id().hash(state);
+                    offset.hash(state);
+                    size.hash(state);
+                }
+                wgpu::BindingResource::BufferArray(_) => todo!(),
+                wgpu::BindingResource::Sampler(sampler) => sampler.global_id().hash(state),
+                wgpu::BindingResource::SamplerArray(_) => todo!(),
+                wgpu::BindingResource::TextureView(texture_view) => {
+                    texture_view.global_id().hash(state)
+                }
+                wgpu::BindingResource::TextureViewArray(_) => todo!(),
+                _ => todo!(),
+            }
+        }
+    }
+}
+
+impl<'a> PartialEq for BindGroupEntriesHash<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        if self.0.length() != other.0.length() {
+            return false;
+        }
+        use wgpu::BindingResource as BR;
+        for (e1, e2) in std::iter::zip(self.0, other.0) {
+            match (e1, e2) {}
+        }
+        true
+    }
+}
+
+impl<'a> Eq for BindGroupEntriesHash<'a> {}
 
 impl RenderResource for BindGroup {
     fn new_direct<'g>(
