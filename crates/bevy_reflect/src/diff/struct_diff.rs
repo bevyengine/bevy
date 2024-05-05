@@ -12,6 +12,14 @@ pub struct DiffedStruct<'old, 'new> {
 }
 
 impl<'old, 'new> DiffedStruct<'old, 'new> {
+    pub(crate) fn new(type_info: &'static TypeInfo, field_len: usize) -> Self {
+        Self {
+            type_info,
+            fields: HashMap::with_capacity(field_len),
+            field_order: Vec::with_capacity(field_len),
+        }
+    }
+
     /// Returns the [`TypeInfo`] of the reflected value currently being diffed.
     pub fn type_info(&self) -> &TypeInfo {
         self.type_info
@@ -39,6 +47,11 @@ impl<'old, 'new> DiffedStruct<'old, 'new> {
         self.field_order
             .iter()
             .map(|name| (name.as_ref(), self.fields.get(name).unwrap()))
+    }
+
+    pub(crate) fn push(&mut self, field_name: Cow<'old, str>, field_diff: Diff<'old, 'new>) {
+        self.fields.insert(field_name.clone(), field_diff);
+        self.field_order.push(field_name);
     }
 }
 
@@ -74,11 +87,7 @@ pub fn diff_struct<'old, 'new, T: Struct>(
         return Ok(Diff::Replaced(ValueDiff::Borrowed(new.as_reflect())));
     }
 
-    let mut diff = DiffedStruct {
-        type_info: old_info,
-        fields: HashMap::with_capacity(new.field_len()),
-        field_order: Vec::with_capacity(new.field_len()),
-    };
+    let mut diff = DiffedStruct::new(old_info, new.field_len());
 
     let mut was_modified = false;
     for (field_idx, old_field) in old.iter_fields().enumerate() {
@@ -86,8 +95,7 @@ pub fn diff_struct<'old, 'new, T: Struct>(
         let new_field = new.field(field_name).ok_or(DiffError::MissingField)?;
         let field_diff = old_field.diff(new_field)?;
         was_modified |= !matches!(field_diff, Diff::NoChange(_));
-        diff.fields.insert(Cow::Borrowed(field_name), field_diff);
-        diff.field_order.push(Cow::Borrowed(field_name));
+        diff.push(Cow::Borrowed(field_name), field_diff);
     }
 
     if was_modified {

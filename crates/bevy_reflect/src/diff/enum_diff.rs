@@ -1,110 +1,37 @@
-use crate::diff::{Diff, DiffError, DiffResult, DiffType, ValueDiff};
+use crate::diff::{Diff, DiffError, DiffResult, DiffType, DiffedStruct, DiffedTuple, ValueDiff};
 use crate::{Enum, Reflect, ReflectKind, ReflectRef, TypeInfo, VariantType};
-use bevy_utils::HashMap;
 use std::borrow::Cow;
-use std::fmt::{Debug, Formatter};
-use std::slice::Iter;
+use std::fmt::Debug;
 
-/// Contains diffing details for [tuple](crate::VariantType::Tuple)
-/// and [struct](crate::VariantType::Struct) enum variants.
-///
-/// This does not contain details for [unit](crate::VariantType::Unit) variants as those are completely
-/// handled by both [`Diff::NoChange`] and [`Diff::Replaced`].
+/// Contains diffing details for [enums](crate::Enum).
 #[derive(Debug)]
 pub enum EnumDiff<'old, 'new> {
-    Tuple(DiffedTupleVariant<'old, 'new>),
-    Struct(DiffedStructVariant<'old, 'new>),
+    /// Functionally similar to [`Diff::Replaced`], but for variants within the same enum.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::{Reflect, diff::{Diff, DiffType, EnumDiff}};
+    /// let old: Option<i32> = Some(123);
+    /// let new: Option<i32> = None;
+    ///
+    /// let diff = old.diff(&new).unwrap();
+    /// assert!(matches!(diff, Diff::Modified(DiffType::Enum(EnumDiff::Swapped(..)))));
+    /// ```
+    ///
+    Swapped(ValueDiff<'new>),
+    Tuple(DiffedTuple<'old, 'new>),
+    Struct(DiffedStruct<'old, 'new>),
 }
 
 impl<'old, 'new> EnumDiff<'old, 'new> {
     /// Returns the [`TypeInfo`] of the reflected value currently being diffed.
     pub fn type_info(&self) -> &TypeInfo {
         match self {
-            EnumDiff::Tuple(tuple_variant_diff) => tuple_variant_diff.type_info(),
-            EnumDiff::Struct(struct_variant_diff) => struct_variant_diff.type_info(),
+            Self::Swapped(value_diff) => value_diff.type_info(),
+            Self::Tuple(tuple_diff) => tuple_diff.type_info(),
+            Self::Struct(struct_diff) => struct_diff.type_info(),
         }
-    }
-}
-
-/// Diff object for [tuple variants](crate::VariantType::Tuple).
-pub struct DiffedTupleVariant<'old, 'new> {
-    type_info: &'static TypeInfo,
-    fields: Vec<Diff<'old, 'new>>,
-}
-
-impl<'old, 'new> DiffedTupleVariant<'old, 'new> {
-    /// Returns the [`TypeInfo`] of the reflected value currently being diffed.
-    pub fn type_info(&self) -> &TypeInfo {
-        self.type_info
-    }
-
-    /// Returns the [`Diff`] for the field at the given index.
-    pub fn field(&self, index: usize) -> Option<&Diff<'old, 'new>> {
-        self.fields.get(index)
-    }
-
-    /// Returns the number of fields in the tuple variant.
-    pub fn field_len(&self) -> usize {
-        self.fields.len()
-    }
-
-    /// Returns an iterator over the [`Diff`] for _every_ field.
-    pub fn field_iter(&self) -> Iter<'_, Diff<'old, 'new>> {
-        self.fields.iter()
-    }
-}
-
-impl<'old, 'new> Debug for DiffedTupleVariant<'old, 'new> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DiffedTupleVariant")
-            .field("fields", &self.fields)
-            .finish()
-    }
-}
-
-/// Diff object for [struct variants](crate::VariantType::Struct).
-pub struct DiffedStructVariant<'old, 'new> {
-    type_info: &'static TypeInfo,
-    fields: HashMap<Cow<'old, str>, Diff<'old, 'new>>,
-    field_order: Vec<Cow<'old, str>>,
-}
-
-impl<'old, 'new> DiffedStructVariant<'old, 'new> {
-    /// Returns the [`TypeInfo`] of the reflected value currently being diffed.
-    pub fn type_info(&self) -> &TypeInfo {
-        self.type_info
-    }
-
-    /// Returns the [`Diff`] for the field with the given name.
-    pub fn field(&self, name: &str) -> Option<&Diff<'old, 'new>> {
-        self.fields.get(name)
-    }
-
-    /// Returns the [`Diff`] for the field at the given index.
-    pub fn field_at(&self, index: usize) -> Option<&Diff<'old, 'new>> {
-        self.field_order
-            .get(index)
-            .and_then(|name| self.fields.get(name))
-    }
-
-    /// Returns the number of fields in the struct variant.
-    pub fn field_len(&self) -> usize {
-        self.fields.len()
-    }
-
-    /// Returns an iterator over the name and [`Diff`] for _every_ field.
-    pub fn field_iter(&self) -> impl Iterator<Item = (&'_ str, &'_ Diff<'old, 'new>)> {
-        self.field_order
-            .iter()
-            .map(|name| (name.as_ref(), self.fields.get(name).unwrap()))
-    }
-}
-
-impl<'old, 'new> Debug for DiffedStructVariant<'old, 'new> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DiffedStructVariant")
-            .field("fields", &self.fields)
-            .finish()
     }
 }
 
@@ -128,20 +55,19 @@ pub fn diff_enum<'old, 'new, T: Enum>(
         .zip(new.get_represented_type_info())
         .ok_or(DiffError::MissingInfo)?;
 
-    if old.variant_type() != new.variant_type()
-        || old.variant_name() != new.variant_name()
-        || old_info.type_id() != new_info.type_id()
-    {
+    if old_info.type_id() != new_info.type_id() {
         return Ok(Diff::Replaced(ValueDiff::Borrowed(new.as_reflect())));
+    }
+
+    if old.variant_type() != new.variant_type() || old.variant_name() != new.variant_name() {
+        return Ok(Diff::Modified(DiffType::Enum(EnumDiff::Swapped(
+            ValueDiff::Borrowed(new.as_reflect()),
+        ))));
     }
 
     let diff = match old.variant_type() {
         VariantType::Struct => {
-            let mut diff = DiffedStructVariant {
-                type_info: old_info,
-                fields: HashMap::with_capacity(new.field_len()),
-                field_order: Vec::with_capacity(new.field_len()),
-            };
+            let mut diff = DiffedStruct::new(old_info, new.field_len());
 
             let mut was_modified = false;
             for old_field in old.iter_fields() {
@@ -149,8 +75,7 @@ pub fn diff_enum<'old, 'new, T: Enum>(
                 let new_field = new.field(field_name).ok_or(DiffError::MissingField)?;
                 let field_diff = old_field.value().diff(new_field)?;
                 was_modified |= !matches!(field_diff, Diff::NoChange(_));
-                diff.fields.insert(Cow::Borrowed(field_name), field_diff);
-                diff.field_order.push(Cow::Borrowed(field_name));
+                diff.push(Cow::Borrowed(field_name), field_diff);
             }
 
             if was_modified {
@@ -160,16 +85,13 @@ pub fn diff_enum<'old, 'new, T: Enum>(
             }
         }
         VariantType::Tuple => {
-            let mut diff = DiffedTupleVariant {
-                type_info: old_info,
-                fields: Vec::with_capacity(old.field_len()),
-            };
+            let mut diff = DiffedTuple::new(old_info, new.field_len());
 
             let mut was_modified = false;
             for (old_field, new_field) in old.iter_fields().zip(new.iter_fields()) {
                 let field_diff = old_field.value().diff(new_field.value())?;
                 was_modified |= !matches!(field_diff, Diff::NoChange(_));
-                diff.fields.push(field_diff);
+                diff.push(field_diff);
             }
 
             if was_modified {

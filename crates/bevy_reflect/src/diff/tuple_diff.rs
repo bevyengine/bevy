@@ -10,6 +10,13 @@ pub struct DiffedTuple<'old, 'new> {
 }
 
 impl<'old, 'new> DiffedTuple<'old, 'new> {
+    pub(crate) fn new(type_info: &'static TypeInfo, field_len: usize) -> Self {
+        Self {
+            type_info,
+            fields: Vec::with_capacity(field_len),
+        }
+    }
+
     /// Returns the [`TypeInfo`] of the reflected value currently being diffed.
     pub fn type_info(&self) -> &TypeInfo {
         self.type_info
@@ -28,6 +35,10 @@ impl<'old, 'new> DiffedTuple<'old, 'new> {
     /// Returns an iterator over the [`Diff`] for _every_ field.
     pub fn field_iter(&self) -> Iter<'_, Diff<'old, 'new>> {
         self.fields.iter()
+    }
+
+    pub(crate) fn push(&mut self, field_diff: Diff<'old, 'new>) {
+        self.fields.push(field_diff);
     }
 }
 
@@ -63,16 +74,13 @@ pub fn diff_tuple<'old, 'new, T: Tuple>(
         return Ok(Diff::Replaced(ValueDiff::Borrowed(new.as_reflect())));
     }
 
-    let mut diff = DiffedTuple {
-        type_info: old_info,
-        fields: Vec::with_capacity(old.field_len()),
-    };
+    let mut diff = DiffedTuple::new(old_info, new.field_len());
 
     let mut was_modified = false;
     for (old_field, new_field) in old.iter_fields().zip(new.iter_fields()) {
         let field_diff = old_field.diff(new_field)?;
         was_modified |= !matches!(field_diff, Diff::NoChange(_));
-        diff.fields.push(field_diff);
+        diff.push(field_diff);
     }
 
     if was_modified {
