@@ -82,7 +82,7 @@ pub fn diff_map<'old, 'new, T: Map>(
     for (old_key, old_value) in old.iter() {
         if let Some(new_value) = new.get(old_key) {
             let value_diff = old_value.diff(new_value)?;
-            if !matches!(value_diff, Diff::NoChange) {
+            if !matches!(value_diff, Diff::NoChange(_)) {
                 was_modified = true;
                 diff.changes.push(MapDiff::Modified(old_key, value_diff));
             }
@@ -102,6 +102,6 @@ pub fn diff_map<'old, 'new, T: Map>(
     if was_modified {
         Ok(Diff::Modified(DiffType::Map(diff)))
     } else {
-        Ok(Diff::NoChange)
+        Ok(Diff::NoChange(old))
     }
 }

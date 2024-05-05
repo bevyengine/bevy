@@ -86,7 +86,7 @@ pub fn diff_struct<'old, 'new, T: Struct>(
         let field_name = old.name_at(field_idx).unwrap();
         let new_field = new.field(field_name).ok_or(DiffError::MissingField)?;
         let field_diff = old_field.diff(new_field)?;
-        was_modified |= !matches!(field_diff, Diff::NoChange);
+        was_modified |= !matches!(field_diff, Diff::NoChange(_));
         diff.fields.insert(field_name, field_diff);
         diff.field_order.push(field_name);
     }
@@ -94,6 +94,6 @@ pub fn diff_struct<'old, 'new, T: Struct>(
     if was_modified {
         Ok(Diff::Modified(DiffType::Struct(diff)))
     } else {
-        Ok(Diff::NoChange)
+        Ok(Diff::NoChange(old))
     }
 }

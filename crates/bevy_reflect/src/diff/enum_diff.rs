@@ -144,7 +144,7 @@ pub fn diff_enum<'old, 'new, T: Enum>(
                 let field_name = old_field.name().unwrap();
                 let new_field = new.field(field_name).ok_or(DiffError::MissingField)?;
                 let field_diff = old_field.value().diff(new_field)?;
-                was_modified |= !matches!(field_diff, Diff::NoChange);
+                was_modified |= !matches!(field_diff, Diff::NoChange(_));
                 diff.fields.insert(field_name, field_diff);
                 diff.field_order.push(field_name);
             }
@@ -152,7 +152,7 @@ pub fn diff_enum<'old, 'new, T: Enum>(
             if was_modified {
                 Diff::Modified(DiffType::Enum(EnumDiff::Struct(diff)))
             } else {
-                Diff::NoChange
+                Diff::NoChange(old)
             }
         }
         VariantType::Tuple => {
@@ -164,17 +164,17 @@ pub fn diff_enum<'old, 'new, T: Enum>(
             let mut was_modified = false;
             for (old_field, new_field) in old.iter_fields().zip(new.iter_fields()) {
                 let field_diff = old_field.value().diff(new_field.value())?;
-                was_modified |= !matches!(field_diff, Diff::NoChange);
+                was_modified |= !matches!(field_diff, Diff::NoChange(_));
                 diff.fields.push(field_diff);
             }
 
             if was_modified {
                 Diff::Modified(DiffType::Enum(EnumDiff::Tuple(diff)))
             } else {
-                Diff::NoChange
+                Diff::NoChange(old)
             }
         }
-        VariantType::Unit => Diff::NoChange,
+        VariantType::Unit => Diff::NoChange(old),
     };
 
     Ok(diff)

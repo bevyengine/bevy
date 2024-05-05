@@ -77,13 +77,13 @@ pub fn diff_array<'old, 'new, T: Array>(
     let mut was_modified = false;
     for (old_field, new_field) in old.iter().zip(new.iter()) {
         let field_diff = old_field.diff(new_field)?;
-        was_modified |= !matches!(field_diff, Diff::NoChange);
+        was_modified |= !matches!(field_diff, Diff::NoChange(_));
         diff.elements.push(field_diff);
     }
 
     if was_modified {
         Ok(Diff::Modified(DiffType::Array(diff)))
     } else {
-        Ok(Diff::NoChange)
+        Ok(Diff::NoChange(old))
     }
 }

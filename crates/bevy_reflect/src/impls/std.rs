@@ -1,4 +1,4 @@
-use crate::diff::{diff_array, diff_list, diff_map, DiffResult};
+use crate::diff::{diff_array, diff_list, diff_map, diff_value, DiffResult};
 use crate::std_traits::ReflectDefault;
 use crate::utility::{
     reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell,
@@ -1137,6 +1137,10 @@ impl Reflect for Cow<'static, str> {
         Box::new(self.clone())
     }
 
+    fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+        diff_value(self, other)
+    }
+
     fn reflect_hash(&self) -> Option<u64> {
         let mut hasher = reflect_hasher();
         Hash::hash(&std::any::Any::type_id(self), &mut hasher);
@@ -1322,6 +1326,10 @@ impl<T: FromReflect + Clone + TypePath + GetTypeRegistration> Reflect for Cow<'s
         Box::new(List::clone_dynamic(self))
     }
 
+    fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+        diff_list(self, other)
+    }
+
     fn reflect_hash(&self) -> Option<u64> {
         crate::list_hash(self)
     }
@@ -1425,6 +1433,10 @@ impl Reflect for &'static str {
 
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(*self)
+    }
+
+    fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+        diff_value(self, other)
     }
 
     fn reflect_hash(&self) -> Option<u64> {
@@ -1537,6 +1549,10 @@ impl Reflect for &'static Path {
         Box::new(*self)
     }
 
+    fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+        diff_value(self, other)
+    }
+
     fn reflect_hash(&self) -> Option<u64> {
         let mut hasher = reflect_hasher();
         Hash::hash(&std::any::Any::type_id(self), &mut hasher);
@@ -1640,6 +1656,10 @@ impl Reflect for Cow<'static, Path> {
 
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone())
+    }
+
+    fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+        diff_value(self, other)
     }
 
     fn reflect_hash(&self) -> Option<u64> {

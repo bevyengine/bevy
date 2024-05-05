@@ -72,13 +72,13 @@ pub fn diff_tuple_struct<'old, 'new, T: TupleStruct>(
     let mut was_modified = false;
     for (old_field, new_field) in old.iter_fields().zip(new.iter_fields()) {
         let field_diff = old_field.diff(new_field)?;
-        was_modified |= !matches!(field_diff, Diff::NoChange);
+        was_modified |= !matches!(field_diff, Diff::NoChange(_));
         diff.fields.push(field_diff);
     }
 
     if was_modified {
         Ok(Diff::Modified(DiffType::TupleStruct(diff)))
     } else {
-        Ok(Diff::NoChange)
+        Ok(Diff::NoChange(old))
     }
 }

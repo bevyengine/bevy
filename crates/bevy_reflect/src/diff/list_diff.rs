@@ -79,7 +79,7 @@ pub fn diff_list<'old, 'new, T: List>(
             changes,
         })))
     } else {
-        Ok(Diff::NoChange)
+        Ok(Diff::NoChange(old))
     }
 }
 
