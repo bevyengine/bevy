@@ -13,7 +13,7 @@ use crate::Reflect;
 /// let args = ArgList::new()
 ///   // Push an owned argument
 ///   .push_owned(foo)
-///    // Push an owned and boxed argument
+///   // Push an owned and boxed argument
 ///   .push_boxed(Box::new(foo))
 ///   // Push a reference argument
 ///   .push_ref(&bar)

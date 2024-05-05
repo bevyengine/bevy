@@ -3,7 +3,7 @@ use alloc::borrow::Cow;
 use crate::func::args::{GetOwnership, Ownership};
 use crate::TypePath;
 
-/// Type information for an [`Arg`].
+/// Type information for an [`Arg`] used in a [`Function`](super::function::Function)
 ///
 /// [`Arg`]: crate::func::args::Arg
 #[derive(Debug, Clone, PartialEq, Eq)]
