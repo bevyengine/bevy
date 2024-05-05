@@ -11,7 +11,7 @@ use crate::{
 
 /// A trait used to power [set-like] operations via [reflection].
 ///
-/// Set contain zero or more entries of a value, and correspond to types like [`HashSet`]. The
+/// Sets contain zero or more entries of a value, and correspond to types like [`HashSet`]. The
 /// order of these entries is not guaranteed by this trait.
 ///
 /// # Hashing
@@ -76,7 +76,7 @@ pub trait Set: Reflect {
     /// If the set did have this value present, `false` is returned.
     fn insert_boxed(&mut self, value: Box<dyn Reflect>) -> Box<dyn Reflect>;
 
-    /// Removes an value from the set.
+    /// Removes a value from the set.
     ///
     /// If the set did not have this value present, `true` is returned.
     /// If the set did have this value present, `false` is returned.
@@ -421,7 +421,6 @@ pub fn set_partial_eq<M: Set>(a: &M, b: &dyn Reflect) -> Option<bool> {
     }
 
     for value in a.iter() {
-        // REVIEW: just trying to do minimal adjustments here. Does this even make sense?
         if let Some(set_value) = set.get(value) {
             let eq_result = value.reflect_partial_eq(set_value);
             if let failed @ (Some(false) | None) = eq_result {
