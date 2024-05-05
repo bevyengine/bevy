@@ -1,20 +1,9 @@
-use std::{
-    borrow::{Borrow, Cow},
-    collections::VecDeque,
-    fmt::Debug,
-    marker::PhantomData,
-};
+use std::{borrow::Borrow, fmt::Debug, marker::PhantomData};
 
-use bevy_ecs::world::World;
 use bevy_utils::{all_tuples, HashMap, HashSet};
 use std::hash::Hash;
 
-use crate::{
-    render_resource::{
-        BindGroup, BindGroupLayout, ComputePipeline, RenderPipeline, Sampler, Texture, TextureView,
-    },
-    renderer::RenderDevice,
-};
+use crate::renderer::RenderDevice;
 
 use self::ref_eq::RefEq;
 
@@ -112,7 +101,7 @@ pub trait DescribedRenderResource: RenderResource {
     ) -> RenderHandle<'g, Self>;
 
     fn get_descriptor<'a, 'g: 'a>(
-        graph: &'a RenderGraph<'g>,
+        graph: &'a RenderGraphBuilder<'g>,
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'a Self::Descriptor>;
 }
@@ -128,7 +117,7 @@ pub trait UsagesRenderResource: DescribedRenderResource {
     type Usages: Send + Sync + Debug + 'static;
 
     fn get_descriptor_mut<'a, 'g: 'a>(
-        graph: &'a mut RenderGraph<'g>,
+        graph: &'a mut RenderGraphBuilder<'g>,
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'a mut Self::Descriptor>;
 
@@ -278,21 +267,6 @@ impl<'g, R: DescribedRenderResource> RenderResources<'g, R> {
 
     pub fn get(&self, id: RenderResourceId) -> Option<&R> {
         self.resources.get(&id).map(|meta| meta.resource.borrow())
-    }
-
-    pub fn drain_to_cache(self, cache: &mut CachedResources<R>)
-    where
-        R::Descriptor: Clone + Hash + Eq,
-    {
-        for (_, meta) in self.resources {
-            if let RenderResourceMeta {
-                descriptor: Some(descriptor),
-                resource: RefEq::Owned(resource),
-            } = meta
-            {
-                cache.cached_resources.insert(descriptor, resource);
-            }
-        }
     }
 }
 

@@ -43,7 +43,7 @@ impl DescribedRenderResource for BindGroupLayout {
     }
 
     fn get_descriptor<'a, 'g: 'a>(
-        graph: &'a RenderGraph<'g>,
+        graph: &'a RenderGraphBuilder<'g>,
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'a Self::Descriptor> {
         graph.get_bind_group_layout_descriptor(resource)
@@ -67,9 +67,9 @@ pub struct RenderGraphBindGroups<'g> {
 }
 
 struct QueuedBindGroup<'g> {
-    dependencies: RenderDependencies<'g>,
     label: Label<'g>,
     layout: RenderHandle<'g, BindGroupLayout>,
+    dependencies: RenderDependencies<'g>,
     factory: Box<dyn FnOnce(NodeContext) -> &[BindGroupEntry] + 'g>,
 }
 
@@ -104,22 +104,22 @@ impl<'g> RenderGraphBindGroups<'g> {
         }
     }
 
-    pub fn new_from_dependencies(
+    pub fn new_from_descriptor(
         &mut self,
         tracker: &mut ResourceTracker<'g>,
-        mut dependencies: RenderDependencies<'g>,
         label: Label<'g>,
         layout: RenderHandle<'g, BindGroupLayout>,
+        mut dependencies: RenderDependencies<'g>,
         bind_group: impl FnOnce(NodeContext) -> &[BindGroupEntry] + 'g,
     ) -> RenderResourceId {
-        let id = tracker.new_resource(Some(dependencies.clone()));
         dependencies.add(&layout);
+        let id = tracker.new_resource(Some(dependencies.clone()));
         self.queued_bind_groups.insert(
             id,
             QueuedBindGroup {
-                dependencies,
                 label,
                 layout,
+                dependencies,
                 factory: Box::new(bind_group),
             },
         );
@@ -133,33 +133,34 @@ impl<'g> RenderGraphBindGroups<'g> {
         render_device: &RenderDevice,
         view_entity: EntityRef<'g>,
     ) {
-        let mut bind_group_cache = HashMap::new();
-        for (
-            id,
-            QueuedBindGroup {
-                dependencies,
-                label,
-                layout,
-                factory,
-            },
-        ) in self.queued_bind_groups.drain()
-        {
-            let context = NodeContext {
-                graph,
-                world,
-                dependencies,
-                view_entity,
-            };
-            let bind_group_entries = (factory)(context);
-            let layout = context.get(layout);
-            let bind_group = bind_group_cache
-                .entry(bind_group_entries)
-                .or_insert_with_key(|entries| {
-                    render_device.create_bind_group(label, layout, entries)
-                });
-            self.bind_groups
-                .insert(id, RefEq::Owned(bind_group.clone()));
-        }
+        //let mut bind_group_cache = HashMap::new();
+        // for (
+        //     id,
+        //     QueuedBindGroup {
+        //         dependencies,
+        //         label,
+        //         layout,
+        //         factory,
+        //     },
+        // ) in self.queued_bind_groups.drain()
+        // {
+        //     let context = NodeContext {
+        //         graph,
+        //         world,
+        //         dependencies,
+        //         view_entity,
+        //     };
+        //     let bind_group_entries = (factory)(context);
+        //     let layout = context.get(layout);
+        // let bind_group = bind_group_cache
+        //     .entry(bind_group_entries)
+        //     .or_insert_with_key(|entries| {
+        //         render_device.create_bind_group(label, layout, entries)
+        //     });
+        // self.bind_groups
+        //     .insert(id, RefEq::Owned(bind_group.clone()));
+        //}
+        todo!()
     }
 
     pub fn get(&self, id: RenderResourceId) -> Option<&BindGroup> {

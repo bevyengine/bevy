@@ -1,4 +1,7 @@
+use bevy_ecs::world::{EntityRef, World};
 use bevy_math::FloatOrd;
+use bevy_utils::HashMap;
+use std::borrow::Borrow;
 use std::hash::Hash;
 use wgpu::{TextureUsages, TextureViewDescriptor};
 
@@ -9,7 +12,8 @@ use crate::{
 
 use super::{
     ref_eq::RefEq, DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource,
-    NewRenderResource, RenderHandle, RenderResource, UsagesRenderResource, WriteRenderResource,
+    NewRenderResource, RenderDependencies, RenderHandle, RenderResource, RenderResourceId,
+    RenderResourceMeta, ResourceTracker, UsagesRenderResource, WriteRenderResource,
 };
 
 impl RenderResource for Texture {
@@ -45,7 +49,7 @@ impl DescribedRenderResource for Texture {
     }
 
     fn get_descriptor<'a, 'g: 'a>(
-        graph: &'a RenderGraph<'g>,
+        graph: &'a RenderGraphBuilder<'g>,
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'a Self::Descriptor> {
         graph.get_texture_descriptor(resource)
@@ -67,7 +71,7 @@ impl UsagesRenderResource for Texture {
 
     #[inline]
     fn get_descriptor_mut<'a, 'g: 'a>(
-        graph: &'a mut RenderGraph<'g>,
+        graph: &'a mut RenderGraphBuilder<'g>,
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'a mut Self::Descriptor> {
         graph.get_texture_descriptor_mut(resource)
@@ -96,13 +100,127 @@ impl<'g> IntoRenderResource<'g> for TextureDescriptor<'static> {
     }
 }
 
+pub struct RenderGraphTextureView<'g> {
+    texture: RenderHandle<'g, Texture>,
+    descriptor: TextureViewDescriptor<'static>,
+}
+
+#[derive(Default)]
+pub struct RenderGraphTextureViews<'g> {
+    texture_views: HashMap<RenderResourceId, RenderResourceMeta<'g, TextureView>>,
+    queued_texture_views: HashMap<RenderResourceId, RenderGraphTextureView<'g>>,
+    existing_borrows: HashMap<*const TextureView, RenderResourceId>,
+}
+
+impl<'g> RenderGraphTextureViews<'g> {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn new_direct(
+        &mut self,
+        tracker: &mut ResourceTracker,
+        descriptor: Option<TextureViewDescriptor<'static>>,
+        resource: RefEq<'g, TextureView>,
+    ) -> RenderResourceId {
+        match resource {
+            RefEq::Borrowed(texture_view) => {
+                if let Some(id) = self
+                    .existing_borrows
+                    .get(&(texture_view as *const TextureView))
+                {
+                    *id
+                } else {
+                    let id = tracker.new_resource(None);
+                    self.texture_views.insert(
+                        id,
+                        RenderResourceMeta {
+                            descriptor,
+                            resource: RefEq::Borrowed(texture_view),
+                        },
+                    );
+                    self.existing_borrows
+                        .insert(texture_view as *const TextureView, id);
+                    id
+                }
+            }
+            RefEq::Owned(texture_view) => {
+                let id = tracker.new_resource(None);
+                self.texture_views.insert(
+                    id,
+                    RenderResourceMeta {
+                        descriptor,
+                        resource: RefEq::Owned(texture_view),
+                    },
+                );
+                id
+            }
+        }
+    }
+
+    pub fn new_from_descriptor(
+        &mut self,
+        tracker: &mut ResourceTracker<'g>,
+        descriptor: RenderGraphTextureView<'g>,
+    ) -> RenderResourceId {
+        let id = tracker.new_resource(Some(RenderDependencies::of(&descriptor.texture)));
+        self.queued_texture_views.insert(id, descriptor);
+        id
+    }
+
+    pub fn create_queued_resources(
+        &mut self,
+        graph: &RenderGraph,
+        world: &World,
+        view_entity: EntityRef,
+    ) {
+        for (id, queued_view) in self.queued_texture_views.drain() {
+            let dependencies = RenderDependencies::of(&queued_view.texture);
+            let context = NodeContext {
+                graph,
+                world,
+                dependencies,
+                view_entity,
+            };
+            let texture_view = context
+                .get(queued_view.texture)
+                .create_view(&queued_view.descriptor);
+            self.texture_views.insert(
+                id,
+                RenderResourceMeta {
+                    descriptor: Some(queued_view.descriptor),
+                    resource: RefEq::Owned(texture_view),
+                },
+            );
+        }
+    }
+
+    pub fn get_descriptor(&self, id: RenderResourceId) -> Option<&TextureViewDescriptor<'static>> {
+        let check_normal = self
+            .texture_views
+            .get(&id)
+            .and_then(|meta| meta.descriptor.as_ref());
+        let check_queued = self
+            .queued_texture_views
+            .get(&id)
+            .map(|queued_view| &queued_view.descriptor);
+        check_normal.or(check_queued)
+    }
+
+    pub fn get(&self, id: RenderResourceId) -> Option<&TextureView> {
+        self.texture_views
+            .get(&id)
+            .map(|meta| meta.resource.borrow())
+    }
+}
+
 impl RenderResource for TextureView {
     #[inline]
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,
         resource: RefEq<'g, Self>,
     ) -> RenderHandle<'g, Self> {
-        graph.new_texture_view_direct(None, None, resource)
+        graph.new_texture_view_direct(None, resource)
     }
 
     #[inline]
@@ -119,19 +237,32 @@ impl WriteRenderResource for TextureView {}
 impl DescribedRenderResource for TextureView {
     type Descriptor = TextureViewDescriptor<'static>;
 
+    #[inline]
     fn new_with_descriptor<'g>(
         graph: &mut RenderGraphBuilder<'g>,
         descriptor: Self::Descriptor,
         resource: RefEq<'g, Self>,
     ) -> RenderHandle<'g, Self> {
-        graph.new_texture_view_direct(None, Some(descriptor), resource)
+        graph.new_texture_view_direct(Some(descriptor), resource)
     }
 
+    #[inline]
     fn get_descriptor<'a, 'g: 'a>(
-        graph: &'a RenderGraph<'g>,
+        graph: &'a RenderGraphBuilder<'g>,
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'a Self::Descriptor> {
         graph.get_texture_view_descriptor(resource)
+    }
+}
+
+impl<'g> IntoRenderResource<'g> for RenderGraphTextureView<'g> {
+    type Resource = TextureView;
+
+    fn into_render_resource(
+        self,
+        graph: &mut RenderGraphBuilder<'g>,
+    ) -> RenderHandle<'g, Self::Resource> {
+        graph.new_texture_view_descriptor(self)
     }
 }
 
@@ -166,7 +297,7 @@ impl DescribedRenderResource for Sampler {
     }
 
     fn get_descriptor<'a, 'g: 'a>(
-        graph: &'a RenderGraph<'g>,
+        graph: &'a RenderGraphBuilder<'g>,
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'a Self::Descriptor> {
         graph.get_sampler_descriptor(resource)

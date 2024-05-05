@@ -41,7 +41,7 @@ impl DescribedRenderResource for Buffer {
     }
 
     fn get_descriptor<'a, 'g: 'a>(
-        graph: &'a RenderGraph<'g>,
+        graph: &'a RenderGraphBuilder<'g>,
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'a Self::Descriptor> {
         graph.get_buffer_descriptor(resource)
@@ -61,7 +61,7 @@ impl UsagesRenderResource for Buffer {
     type Usages = BufferUsages;
 
     fn get_descriptor_mut<'a, 'g: 'a>(
-        graph: &'a mut RenderGraph<'g>,
+        graph: &'a mut RenderGraphBuilder<'g>,
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'a mut Self::Descriptor> {
         graph.get_buffer_descriptor_mut(resource)

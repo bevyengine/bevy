@@ -191,7 +191,7 @@ impl DescribedRenderResource for RenderPipeline {
     }
 
     fn get_descriptor<'a, 'g: 'a>(
-        graph: &'a RenderGraph<'g>,
+        graph: &'a RenderGraphBuilder<'g>,
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'a Self::Descriptor> {
         todo!()
@@ -242,11 +242,10 @@ impl DescribedRenderResource for ComputePipeline {
 
     #[inline]
     fn get_descriptor<'a, 'g: 'a>(
-        graph: &'a RenderGraph<'g>,
+        graph: &'a RenderGraphBuilder<'g>,
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'a Self::Descriptor> {
-        todo!()
-        // graph.get_compute_pipeline_descriptor(compute_pipeline, pipeline_cache)
+        graph.get_compute_pipeline_descriptor(resource)
     }
 }
 
@@ -295,9 +294,9 @@ impl<'g, P: SpecializedComputePipeline + Resource> IntoRenderResource<'g>
     }
 }
 
-pub struct SpecializeMeshPipeline<P: SpecializedMeshPipeline + Resource + 'static>(
-    pub MeshVertexBufferLayoutRef,
+pub struct SpecializeMeshPipeline<P: SpecializedMeshPipeline + Resource>(
     pub P::Key,
+    pub MeshVertexBufferLayoutRef,
 );
 
 impl<'g, P: SpecializedMeshPipeline + Resource> IntoRenderResource<'g>
@@ -310,7 +309,7 @@ impl<'g, P: SpecializedMeshPipeline + Resource> IntoRenderResource<'g>
         graph: &mut RenderGraphBuilder<'g>,
     ) -> RenderHandle<'g, Self::Resource> {
         let layout = graph.world_resource::<P>();
-        let descriptor = layout.specialize(self.1, &self.0).unwrap();
+        let descriptor = layout.specialize(self.0, &self.1).unwrap();
         graph.new_resource(descriptor)
     }
 }
