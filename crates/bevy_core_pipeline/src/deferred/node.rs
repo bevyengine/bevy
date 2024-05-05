@@ -11,6 +11,7 @@ use bevy_render::{
     renderer::RenderContext,
     view::ViewDepthTexture,
 };
+use bevy_utils::tracing::error;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
@@ -142,18 +143,23 @@ impl ViewNode for DeferredGBufferPrepassNode {
             {
                 #[cfg(feature = "trace")]
                 let _opaque_prepass_span = info_span!("opaque_deferred").entered();
-                opaque_deferred_phase
-                    .render(&mut render_pass, world, view_entity)
-                    .expect("Error encountered while rendering the opaque deferred phase");
+                if let Err(err) = opaque_deferred_phase.render(&mut render_pass, world, view_entity)
+                {
+                    error!("Error encountered while rendering the opaque deferred phase {err:?}");
+                }
             }
 
             // Alpha masked draws
             if !alpha_mask_deferred_phase.is_empty() {
                 #[cfg(feature = "trace")]
                 let _alpha_mask_deferred_span = info_span!("alpha_mask_deferred").entered();
-                alpha_mask_deferred_phase
-                    .render(&mut render_pass, world, view_entity)
-                    .expect("Error encountered while rendering the alpha mask deferred phase");
+                if let Err(err) =
+                    alpha_mask_deferred_phase.render(&mut render_pass, world, view_entity)
+                {
+                    error!(
+                        "Error encountered while rendering the alpha mask deferred phase {err:?}"
+                    );
+                }
             }
 
             drop(render_pass);

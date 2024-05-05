@@ -1867,9 +1867,11 @@ impl Node for ShadowPassNode {
                     let pass_span =
                         diagnostics.pass_span(&mut render_pass, view_light.pass_name.clone());
 
-                    shadow_phase
-                        .render(&mut render_pass, world, view_light_entity)
-                        .expect("Error encountered while rendering the shadow phase");
+                    if let Err(err) =
+                        shadow_phase.render(&mut render_pass, world, view_light_entity)
+                    {
+                        error!("Error encountered while rendering the shadow phase {err:?}");
+                    }
 
                     pass_span.end(&mut render_pass);
                     drop(render_pass);

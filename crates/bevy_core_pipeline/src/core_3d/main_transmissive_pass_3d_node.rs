@@ -9,6 +9,7 @@ use bevy_render::{
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget},
 };
+use bevy_utils::tracing::error;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use std::ops::Range;
@@ -91,9 +92,11 @@ impl ViewNode for MainTransmissivePass3dNode {
                     }
 
                     // render items in range
-                    transmissive_phase
-                        .render_range(&mut render_pass, world, view_entity, range)
-                        .expect("Error encountered while rendering the transmissive phase");
+                    if let Err(err) =
+                        transmissive_phase.render_range(&mut render_pass, world, view_entity, range)
+                    {
+                        error!("Error encountered while rendering the transmissive phase {err:?}");
+                    }
                 }
             } else {
                 let mut render_pass =
