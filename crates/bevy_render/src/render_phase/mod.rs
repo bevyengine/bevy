@@ -897,7 +897,7 @@ impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
             pass.set_render_pipeline(pipeline);
             RenderCommandResult::Success
         } else {
-            RenderCommandResult::Failure
+            RenderCommandResult::Skip
         }
     }
 }

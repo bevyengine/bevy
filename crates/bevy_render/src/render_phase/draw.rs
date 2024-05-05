@@ -40,8 +40,8 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
 
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum DrawError {
-    #[error("Failed to execute render command")]
-    RenderCommandFailure,
+    #[error("Failed to execute render command {0:?}")]
+    RenderCommandFailure(&'static str),
     #[error("Failed to get execute view query")]
     InvalidViewQuery,
     #[error("View entity not found")]
@@ -223,7 +223,8 @@ pub trait RenderCommand<P: PhaseItem> {
 #[derive(Debug)]
 pub enum RenderCommandResult {
     Success,
-    Failure,
+    Skip,
+    Failure(&'static str),
 }
 
 macro_rules! render_command_tuple_impl {
@@ -243,14 +244,22 @@ macro_rules! render_command_tuple_impl {
             ) -> RenderCommandResult {
                 match maybe_entities {
                     None => {
-                        $(if let RenderCommandResult::Failure = $name::render(_item, $view, None, $name, _pass) {
-                            return RenderCommandResult::Failure;
-                        })*
+                        $(
+                            match $name::render(_item, $view, None, $name, _pass) {
+                                RenderCommandResult::Skip => return RenderCommandResult::Skip,
+                                RenderCommandResult::Failure(reason) => return RenderCommandResult::Failure(reason),
+                                _ => {},
+                            }
+                        )*
                     }
                     Some(($($entity,)*)) => {
-                        $(if let RenderCommandResult::Failure = $name::render(_item, $view, Some($entity), $name, _pass) {
-                            return RenderCommandResult::Failure;
-                        })*
+                        $(
+                            match $name::render(_item, $view, Some($entity), $name, _pass) {
+                                RenderCommandResult::Skip => return RenderCommandResult::Skip,
+                                RenderCommandResult::Failure(reason) => return RenderCommandResult::Failure(reason),
+                                _ => {},
+                            }
+                        )*
                     }
                 }
                 RenderCommandResult::Success
@@ -315,8 +324,8 @@ where
 
         let entity = self.entity.get_manual(world, item.entity()).ok();
         match C::render(item, view, entity, param, pass) {
-            RenderCommandResult::Success => Ok(()),
-            RenderCommandResult::Failure => Err(DrawError::RenderCommandFailure),
+            RenderCommandResult::Success | RenderCommandResult::Skip => Ok(()),
+            RenderCommandResult::Failure(reason) => Err(DrawError::RenderCommandFailure(reason)),
         }
     }
 }

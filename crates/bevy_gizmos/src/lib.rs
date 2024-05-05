@@ -537,7 +537,7 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(uniform_index) = uniform_index else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         pass.set_bind_group(
             I,
@@ -563,10 +563,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(handle) = handle else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
 
         if line_gizmo.vertex_count < 2 {
@@ -609,10 +609,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(handle) = handle else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
 
         if line_gizmo.vertex_count <= 2 || !line_gizmo.strip {

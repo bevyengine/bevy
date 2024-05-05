@@ -679,10 +679,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
         let Some(RenderMesh2dInstance { mesh_asset_id, .. }) =
             render_mesh2d_instances.get(&item.entity())
         else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         let Some(gpu_mesh) = meshes.get(*mesh_asset_id) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
 
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
