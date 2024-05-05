@@ -91,7 +91,9 @@ impl ViewNode for MainTransmissivePass3dNode {
                     }
 
                     // render items in range
-                    transmissive_phase.render_range(&mut render_pass, world, view_entity, range);
+                    transmissive_phase
+                        .render_range(&mut render_pass, world, view_entity, range)
+                        .expect("Error encountered while rendering the transmissive phase");
                 }
             } else {
                 let mut render_pass =
@@ -101,7 +103,9 @@ impl ViewNode for MainTransmissivePass3dNode {
                     render_pass.set_camera_viewport(viewport);
                 }
 
-                transmissive_phase.render(&mut render_pass, world, view_entity);
+                transmissive_phase
+                    .render(&mut render_pass, world, view_entity)
+                    .expect("Error encountered while rendering the transmissive phase");
             }
         }
 

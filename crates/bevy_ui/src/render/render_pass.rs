@@ -79,7 +79,9 @@ impl Node for UiPassNode {
         if let Some(viewport) = camera.viewport.as_ref() {
             render_pass.set_camera_viewport(viewport);
         }
-        transparent_phase.render(&mut render_pass, world, view_entity);
+        transparent_phase
+            .render(&mut render_pass, world, view_entity)
+            .expect("Error encountered while rendering the ui phase");
 
         Ok(())
     }

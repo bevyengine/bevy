@@ -61,7 +61,9 @@ impl ViewNode for MainTransparentPass3dNode {
                 render_pass.set_camera_viewport(viewport);
             }
 
-            transparent_phase.render(&mut render_pass, world, view_entity);
+            transparent_phase
+                .render(&mut render_pass, world, view_entity)
+                .expect("Error encountered while rendering the transparent phase");
 
             pass_span.end(&mut render_pass);
         }

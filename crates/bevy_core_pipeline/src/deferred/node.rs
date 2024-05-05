@@ -142,14 +142,18 @@ impl ViewNode for DeferredGBufferPrepassNode {
             {
                 #[cfg(feature = "trace")]
                 let _opaque_prepass_span = info_span!("opaque_deferred").entered();
-                opaque_deferred_phase.render(&mut render_pass, world, view_entity);
+                opaque_deferred_phase
+                    .render(&mut render_pass, world, view_entity)
+                    .expect("Error encountered while rendering the opaque deferred phase");
             }
 
             // Alpha masked draws
             if !alpha_mask_deferred_phase.is_empty() {
                 #[cfg(feature = "trace")]
                 let _alpha_mask_deferred_span = info_span!("alpha_mask_deferred").entered();
-                alpha_mask_deferred_phase.render(&mut render_pass, world, view_entity);
+                alpha_mask_deferred_phase
+                    .render(&mut render_pass, world, view_entity)
+                    .expect("Error encountered while rendering the alpha mask deferred phase");
             }
 
             drop(render_pass);

@@ -2,7 +2,7 @@ use crate::render_phase::{PhaseItem, TrackedRenderPass};
 use bevy_app::{App, SubApp};
 use bevy_ecs::{
     entity::Entity,
-    query::{QueryState, ROQueryItem, ReadOnlyQueryData},
+    query::{QueryEntityError, QueryState, ROQueryItem, ReadOnlyQueryData},
     system::{ReadOnlySystemParam, Resource, SystemParam, SystemParamItem, SystemState},
     world::World,
 };
@@ -13,6 +13,7 @@ use std::{
     hash::Hash,
     sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
+use thiserror::Error;
 
 /// A draw function used to draw [`PhaseItem`]s.
 ///
@@ -34,7 +35,17 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
         pass: &mut TrackedRenderPass<'w>,
         view: Entity,
         item: &P,
-    );
+    ) -> Result<(), DrawError>;
+}
+
+#[derive(Error, Debug, PartialEq, Eq)]
+pub enum DrawError {
+    #[error("Failed to execute render command")]
+    RenderCommandFailure,
+    #[error("Failed to get execute view query")]
+    InvalidViewQuery,
+    #[error("View entity not found")]
+    ViewEntityNotFound,
 }
 
 // TODO: make this generic?
@@ -290,12 +301,23 @@ where
         pass: &mut TrackedRenderPass<'w>,
         view: Entity,
         item: &P,
-    ) {
+    ) -> Result<(), DrawError> {
         let param = self.state.get_manual(world);
-        let view = self.view.get_manual(world, view).unwrap();
+        let view = match self.view.get_manual(world, view) {
+            Ok(view) => view,
+            Err(err) => match err {
+                QueryEntityError::NoSuchEntity(_) => return Err(DrawError::ViewEntityNotFound),
+                QueryEntityError::QueryDoesNotMatch(_) | QueryEntityError::AliasedMutability(_) => {
+                    return Err(DrawError::InvalidViewQuery)
+                }
+            },
+        };
+
         let entity = self.entity.get_manual(world, item.entity()).ok();
-        // TODO: handle/log `RenderCommand` failure
-        C::render(item, view, entity, param, pass);
+        match C::render(item, view, entity, param, pass) {
+            RenderCommandResult::Success => Ok(()),
+            RenderCommandResult::Failure => Err(DrawError::RenderCommandFailure),
+        }
     }
 }
 

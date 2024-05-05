@@ -237,7 +237,7 @@ where
         render_pass: &mut TrackedRenderPass<'w>,
         world: &'w World,
         view: Entity,
-    ) {
+    ) -> Result<(), DrawError> {
         let draw_functions = world.resource::<DrawFunctions<BPI>>();
         let mut draw_functions = draw_functions.write();
         draw_functions.prepare(world);
@@ -259,7 +259,7 @@ where
                     continue;
                 };
 
-                draw_function.draw(world, render_pass, view, &binned_phase_item);
+                draw_function.draw(world, render_pass, view, &binned_phase_item)?;
             }
         }
 
@@ -307,9 +307,10 @@ where
                     continue;
                 };
 
-                draw_function.draw(world, render_pass, view, &binned_phase_item);
+                draw_function.draw(world, render_pass, view, &binned_phase_item)?;
             }
         }
+        Ok(())
     }
 
     pub fn is_empty(&self) -> bool {
@@ -583,8 +584,8 @@ where
         render_pass: &mut TrackedRenderPass<'w>,
         world: &'w World,
         view: Entity,
-    ) {
-        self.render_range(render_pass, world, view, ..);
+    ) -> Result<(), DrawError> {
+        self.render_range(render_pass, world, view, ..)
     }
 
     /// Renders all [`PhaseItem`]s in the provided `range` (based on their index in `self.items`) using their corresponding draw functions.
@@ -594,7 +595,7 @@ where
         world: &'w World,
         view: Entity,
         range: impl SliceIndex<[I], Output = [I]>,
-    ) {
+    ) -> Result<(), DrawError> {
         let items = self
             .items
             .get(range)
@@ -612,10 +613,11 @@ where
                 index += 1;
             } else {
                 let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
-                draw_function.draw(world, render_pass, view, item);
+                draw_function.draw(world, render_pass, view, item)?;
                 index += batch_range.len();
             }
         }
+        Ok(())
     }
 }
 

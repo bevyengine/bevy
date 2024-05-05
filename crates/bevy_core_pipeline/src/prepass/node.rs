@@ -100,14 +100,18 @@ impl ViewNode for PrepassNode {
             {
                 #[cfg(feature = "trace")]
                 let _opaque_prepass_span = info_span!("opaque_prepass").entered();
-                opaque_prepass_phase.render(&mut render_pass, world, view_entity);
+                opaque_prepass_phase
+                    .render(&mut render_pass, world, view_entity)
+                    .expect("Error encountered while rendering the opaque prepass phase");
             }
 
             // Alpha masked draws
             if !alpha_mask_prepass_phase.is_empty() {
                 #[cfg(feature = "trace")]
                 let _alpha_mask_prepass_span = info_span!("alpha_mask_prepass").entered();
-                alpha_mask_prepass_phase.render(&mut render_pass, world, view_entity);
+                alpha_mask_prepass_phase
+                    .render(&mut render_pass, world, view_entity)
+                    .expect("Error encountered while rendering the alpha mask prepass phase");
             }
 
             pass_span.end(&mut render_pass);
