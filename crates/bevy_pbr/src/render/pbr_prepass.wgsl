@@ -29,6 +29,11 @@ fn fragment(
 #endif
 
     var out: prepass_io::FragmentOutput;
+    
+#ifdef VERTEX_UVS
+    let uv_transform = material.uv_transform;
+    let uv = (uv_transform * vec3(in.uv, 1.0)).xy;
+#endif
 
 #ifdef DEPTH_CLAMP_ORTHO
     out.frag_depth = in.clip_position_unclamped.z;
@@ -56,7 +61,7 @@ fn fragment(
 #endif // STANDARD_MATERIAL_NORMAL_MAP
 #endif // VERTEX_TANGENTS
 #ifdef VERTEX_UVS
-            in.uv,
+            uv,
 #endif // VERTEX_UVS
             view.mip_bias,
 #ifdef MESHLET_MESH_MATERIAL_PASS
