@@ -16,7 +16,7 @@ use crate::{
 ///
 /// # Hashing
 ///
-/// All keys are expected to return a valid hash value from [`Reflect::reflect_hash`].
+/// All values are expected to return a valid hash value from [`Reflect::reflect_hash`].
 /// If using the [`#[derive(Reflect)]`](derive@crate::Reflect) macro, this can be done by adding `#[reflect(Hash)]`
 /// to the entire struct or enum.
 /// This is true even for manual implementors who do not use the hashed value,
@@ -43,7 +43,7 @@ pub trait Set: Reflect {
     /// Returns a reference to the value.
     ///
     /// If no value is contained, returns `None`.
-    fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect>;
+    fn get(&self, value: &dyn Reflect) -> Option<&dyn Reflect>;
 
     /// Returns the value at `index` by reference, or `None` if out of bounds.
     fn get_at(&self, index: usize) -> Option<&dyn Reflect>;
@@ -75,7 +75,7 @@ pub trait Set: Reflect {
     ///
     /// If the set did not have this value present, `true` is returned.
     /// If the set did have this value present, `false` is returned.
-    fn remove(&mut self, key: &dyn Reflect) -> bool;
+    fn remove(&mut self, value: &dyn Reflect) -> bool;
 }
 
 /// A container for compile-time set info.
@@ -159,7 +159,7 @@ impl SetInfo {
     }
 }
 
-const HASH_ERROR: &str = "the given key does not support hashing";
+const HASH_ERROR: &str = "the given value does not support hashing";
 
 /// An ordered mapping between reflected values.
 #[derive(Default)]
