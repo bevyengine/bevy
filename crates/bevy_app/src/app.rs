@@ -7,7 +7,7 @@ use bevy_ecs::{
     event::{event_update_system, ManualEventReader},
     intern::Interned,
     prelude::*,
-    schedule::{ScheduleBuildSettings, ScheduleLabel},
+    schedule::{FreelyMutableState, ScheduleBuildSettings, ScheduleLabel},
     system::SystemId,
 };
 #[cfg(feature = "trace")]
@@ -266,26 +266,17 @@ impl App {
 
     /// Initializes a [`State`] with standard starting values.
     ///
-    /// If the [`State`] already exists, nothing happens.
+    /// This method is idempotent: it has no effect when called again using the same generic type.
     ///
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules for
-    /// each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`]
-    /// in [`StateTransition`] so that transitions happen before [`Update`] and an instance of
-    /// [`run_enter_schedule::<S>`] in [`StateTransition`] with a [`run_once`] condition to run the
-    /// on enter schedule of the initial state.
+    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`], [`OnTransition`] and [`OnExit`] schedules.
+    /// These schedules are triggered before [`Update`](crate::Update) and at startup.
     ///
     /// If you would like to control how other systems run based on the current state, you can
     /// emulate this behavior using the [`in_state`] [`Condition`].
     ///
-    /// Note that you can also apply state transitions at other points in the schedule by adding
-    /// the [`apply_state_transition::<S>`] system manually.
-    ///
-    /// [`StateTransition`]: crate::StateTransition
-    /// [`Update`]: crate::Update
-    /// [`run_once`]: bevy_ecs::schedule::common_conditions::run_once
-    /// [`run_enter_schedule::<S>`]: bevy_ecs::schedule::run_enter_schedule
-    /// [`apply_state_transition::<S>`]: bevy_ecs::schedule::apply_state_transition
-    pub fn init_state<S: States + FromWorld>(&mut self) -> &mut Self {
+    /// Note that you can also apply state transitions at other points in the schedule
+    /// by triggering the [`StateTransition`](`bevy_ecs::schedule::StateTransition`) schedule manually.
+    pub fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
         self.main_mut().init_state::<S>();
         self
     }
@@ -293,29 +284,42 @@ impl App {
     /// Inserts a specific [`State`] to the current [`App`] and overrides any [`State`] previously
     /// added of the same type.
     ///
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules for
-    /// each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`]
-    /// in [`StateTransition`] so that transitions happen before [`Update`](crate::Update) and an
-    /// instance of [`run_enter_schedule::<S>`] in [`StateTransition`] with a [`run_once`]
-    /// condition to run the on enter schedule of the initial state.
+    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`], [`OnTransition`] and [`OnExit`] schedules.
+    /// These schedules are triggered before [`Update`](crate::Update) and at startup.
     ///
     /// If you would like to control how other systems run based on the current state, you can
     /// emulate this behavior using the [`in_state`] [`Condition`].
     ///
-    /// Note that you can also apply state transitions at other points in the schedule by adding
-    /// the [`apply_state_transition::<S>`] system manually.
-    ///
-    /// [`StateTransition`]: crate::StateTransition
-    /// [`Update`]: crate::Update
-    /// [`run_once`]: bevy_ecs::schedule::common_conditions::run_once
-    /// [`run_enter_schedule::<S>`]: bevy_ecs::schedule::run_enter_schedule
-    /// [`apply_state_transition::<S>`]: bevy_ecs::schedule::apply_state_transition
-    pub fn insert_state<S: States>(&mut self, state: S) -> &mut Self {
-        self.main_mut().insert_state(state);
+    /// Note that you can also apply state transitions at other points in the schedule
+    /// by triggering the [`StateTransition`](`bevy_ecs::schedule::StateTransition`) schedule manually.
+    pub fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
+        self.main_mut().insert_state::<S>(state);
         self
     }
 
-    /// Adds a collection of systems to `schedule` (stored in the main world's [`Schedules`]).
+    /// Sets up a type implementing [`ComputedStates`].
+    ///
+    /// This method is idempotent: it has no effect when called again using the same generic type.
+    ///
+    /// For each source state the derived state depends on, it adds this state's derivation
+    /// to it's [`ComputeDependantStates<Source>`](bevy_ecs::schedule::ComputeDependantStates<S>) schedule.
+    pub fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
+        self.main_mut().add_computed_state::<S>();
+        self
+    }
+
+    /// Sets up a type implementing [`SubStates`].
+    ///
+    /// This method is idempotent: it has no effect when called again using the same generic type.
+    ///
+    /// For each source state the derived state depends on, it adds this state's existence check
+    /// to it's [`ComputeDependantStates<Source>`](bevy_ecs::schedule::ComputeDependantStates<S>) schedule.
+    pub fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
+        self.main_mut().add_sub_state::<S>();
+        self
+    }
+
+    /// Adds one or more systems to the given schedule in this app's [`Schedules`].
     ///
     /// # Examples
     ///

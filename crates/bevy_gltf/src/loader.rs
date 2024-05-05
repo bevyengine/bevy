@@ -626,7 +626,9 @@ async fn load_gltf<'a, 'b, 'c>(
                         &mut entity_to_skin_index_map,
                         &mut active_camera_found,
                         &Transform::default(),
+                        #[cfg(feature = "bevy_animation")]
                         &animation_roots,
+                        #[cfg(feature = "bevy_animation")]
                         None,
                         &gltf.document,
                     );
@@ -1047,8 +1049,8 @@ fn load_node(
     entity_to_skin_index_map: &mut EntityHashMap<usize>,
     active_camera_found: &mut bool,
     parent_transform: &Transform,
-    animation_roots: &HashSet<usize>,
-    mut animation_context: Option<AnimationContext>,
+    #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
+    #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
     document: &Document,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
@@ -1298,7 +1300,9 @@ fn load_node(
                 entity_to_skin_index_map,
                 active_camera_found,
                 &world_transform,
+                #[cfg(feature = "bevy_animation")]
                 animation_roots,
+                #[cfg(feature = "bevy_animation")]
                 animation_context.clone(),
                 document,
             ) {
@@ -1687,10 +1691,6 @@ struct AnimationContext {
     // animation target UUIDs.
     path: SmallVec<[Name; 8]>,
 }
-
-#[cfg(not(feature = "bevy_animation"))]
-#[derive(Clone)]
-struct AnimationContext;
 
 /// Parsed data from the `KHR_materials_clearcoat` extension.
 ///

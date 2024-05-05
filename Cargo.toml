@@ -8,7 +8,6 @@ exclude = ["assets/", "tools/", ".github/", "crates/", "examples/wasm/assets/"]
 homepage = "https://bevyengine.org"
 keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
-readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
 rust-version = "1.77.0"
@@ -16,10 +15,10 @@ rust-version = "1.77.0"
 [workspace]
 exclude = [
   "benches",
-  "crates/bevy_ecs_compile_fail_tests",
-  "crates/bevy_macros_compile_fail_tests",
-  "crates/bevy_reflect_compile_fail_tests",
-  "crates/bevy_compile_test_utils",
+  "crates/bevy_derive/compile_fail",
+  "crates/bevy_ecs/compile_fail",
+  "crates/bevy_reflect/compile_fail",
+  "tools/compile_fail_utils",
 ]
 members = [
   "crates/*",
@@ -685,6 +684,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "auto_exposure"
+path = "examples/3d/auto_exposure.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.auto_exposure]
+name = "Auto Exposure"
+description = "A scene showcasing auto exposure"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "blend_modes"
 path = "examples/3d/blend_modes.rs"
 doc-scrape-examples = true
@@ -1003,6 +1013,14 @@ name = "Meshlet"
 description = "Meshlet rendering for dense high-poly scenes (experimental)"
 category = "3D Rendering"
 wasm = false
+setup = [
+  [
+    "curl",
+    "-o",
+    "assets/models/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/bd869887bc5c9c6e74e353f657d342bef84bacd8/bunny.meshlet_mesh",
+  ],
+]
 
 [[example]]
 name = "lightmaps"
@@ -1369,6 +1387,17 @@ description = "Demonstrates how to process and load custom assets"
 category = "Assets"
 wasm = false
 
+[[example]]
+name = "repeated_texture"
+path = "examples/asset/repeated_texture.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.repeated_texture]
+name = "Repeated texture configuration"
+description = "How to configure the texture to repeat instead of the default clamp to edges"
+category = "Assets"
+wasm = true
+
 # Async Tasks
 [[example]]
 name = "async_compute"
@@ -1699,6 +1728,28 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "sub_states"
+path = "examples/ecs/sub_states.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sub_states]
+name = "Sub States"
+description = "Using Sub States for hierarchical state handling."
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "computed_states"
+path = "examples/ecs/computed_states.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.computed_states]
+name = "Computed States"
+description = "Advanced state patterns using Computed States"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "system_piping"
 path = "examples/ecs/system_piping.rs"
 doc-scrape-examples = true
@@ -1998,6 +2049,17 @@ doc-scrape-examples = true
 [package.metadata.example.reflection]
 name = "Reflection"
 description = "Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types"
+category = "Reflection"
+wasm = false
+
+[[example]]
+name = "dynamic_types"
+path = "examples/reflection/dynamic_types.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.dynamic_types]
+name = "Dynamic Types"
+description = "How dynamic types are used with reflection"
 category = "Reflection"
 wasm = false
 
@@ -2913,6 +2975,17 @@ required-features = ["bevy_dev_tools"]
 name = "FPS overlay"
 description = "Demonstrates FPS overlay"
 category = "Dev tools"
+wasm = true
+
+[[example]]
+name = "visibility_range"
+path = "examples/3d/visibility_range.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.visibility_range]
+name = "Visibility range"
+description = "Demonstrates visibility ranges"
+category = "3D Rendering"
 wasm = true
 
 [[example]]
