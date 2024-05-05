@@ -113,10 +113,14 @@ pub struct LogPlugin {
 
     /// Optionally add an extra [`Layer`] to the tracing subscriber
     ///
-    /// (`Vec<Layer>` is also accepted, as it implements [`Layer`]).
+    /// This function is only called once, when the plugin is built.
+    ///
+    /// Because [`BoxedLayer`] takes a `dyn Layer`, `Vec<Layer>` is also an acceptable return value.
     ///
     /// Access to [`App`] is also provided to allow for communication between the [`Subscriber`]
     /// and the [`App`].
+    ///
+    /// Please see the `examples/log_layers.rs` for a complete example.
     pub custom_layer: fn(app: &mut App) -> Option<BoxedLayer>,
 }
 
