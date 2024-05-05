@@ -295,7 +295,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
             .checked_mul(max_count as u64)
             .unwrap();
 
-        if capacity < size || self.changed {
+        if capacity < size || (self.changed && self.buffer.is_some()) {
             let buffer = device.create_buffer(&BufferDescriptor {
                 label: self.label.as_deref(),
                 usage: self.buffer_usage,
@@ -336,7 +336,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         let capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
         let size = self.scratch.as_ref().len() as u64;
 
-        if capacity < size || self.changed {
+        if capacity < size || (self.changed && self.buffer.is_some()) {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
                 usage: self.buffer_usage,
