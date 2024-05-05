@@ -112,6 +112,8 @@
 //! [Myers Diffing Algorithm]: http://www.xmailserver.org/diff2.pdf
 
 mod array_diff;
+#[allow(clippy::module_inception)]
+mod diff;
 mod enum_diff;
 mod error;
 mod list_diff;
@@ -122,6 +124,7 @@ mod tuple_struct_diff;
 mod value_diff;
 
 pub use array_diff::*;
+pub use diff::*;
 pub use enum_diff::*;
 pub use error::*;
 pub use list_diff::*;
@@ -130,100 +133,6 @@ pub use struct_diff::*;
 pub use tuple_diff::*;
 pub use tuple_struct_diff::*;
 pub use value_diff::*;
-
-/// Indicates the difference between two [`Reflect`] objects.
-///
-/// [`Reflect`]: crate::Reflect
-#[derive(Debug)]
-pub enum Diff<'old, 'new> {
-    /// Indicates no change.
-    ///
-    /// Contains the "old" value.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_reflect::{Reflect, diff::Diff};
-    /// let old = 123;
-    /// let new = 123;
-    ///
-    /// let diff = old.diff(&new).unwrap();
-    /// assert!(matches!(diff, Diff::NoChange(_)));
-    /// ```
-    ///
-    NoChange(&'old dyn crate::Reflect),
-    /// Indicates that the type has been changed.
-    ///
-    /// Contains the "new" value.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_reflect::{Reflect, diff::Diff};
-    /// let old: bool = true;
-    /// let new: i32 = 123;
-    ///
-    /// let diff = old.diff(&new).unwrap();
-    /// assert!(matches!(diff, Diff::Replaced(..)));
-    /// ```
-    ///
-    Replaced(ValueDiff<'new>),
-    /// Indicates that the value has been modified.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_reflect::{Reflect, diff::Diff};
-    /// let old: i32 = 123;
-    /// let new: i32 = 456;
-    ///
-    /// let diff = old.diff(&new).unwrap();
-    /// assert!(matches!(diff, Diff::Modified(..)));
-    /// ```
-    ///
-    Modified(DiffType<'old, 'new>),
-}
-
-/// Contains diffing details for each [reflection type].
-///
-/// [reflection type]: crate::ReflectRef
-#[derive(Debug)]
-pub enum DiffType<'old, 'new> {
-    Value(ValueDiff<'new>),
-    Tuple(DiffedTuple<'old, 'new>),
-    Array(DiffedArray<'old, 'new>),
-    List(DiffedList<'new>),
-    Map(DiffedMap<'old, 'new>),
-    TupleStruct(DiffedTupleStruct<'old, 'new>),
-    Struct(DiffedStruct<'old, 'new>),
-    Enum(EnumDiff<'old, 'new>),
-}
-
-impl<'old, 'new> DiffType<'old, 'new> {
-    /// Returns the [`TypeInfo`] of the reflected value currently being diffed.
-    ///
-    /// [`TypeInfo`]: crate::TypeInfo
-    pub fn type_info(&self) -> &crate::TypeInfo {
-        match self {
-            DiffType::Value(value_diff) => value_diff.type_info(),
-            DiffType::Tuple(tuple_diff) => tuple_diff.type_info(),
-            DiffType::Array(array_diff) => array_diff.type_info(),
-            DiffType::List(list_diff) => list_diff.type_info(),
-            DiffType::Map(map_diff) => map_diff.type_info(),
-            DiffType::TupleStruct(tuple_struct_diff) => tuple_struct_diff.type_info(),
-            DiffType::Struct(struct_diff) => struct_diff.type_info(),
-            DiffType::Enum(enum_diff) => enum_diff.type_info(),
-        }
-    }
-}
-
-/// Alias for a `Result` that returns either [`Ok(Diff)`](Diff) or [`Err(DiffError)`](DiffError).
-///
-/// This is most commonly used by the [`Reflect::diff`] method as well as the utility functions
-/// provided in this module.
-///
-/// [`Reflect::diff`]: crate::Reflect::diff
-pub type DiffResult<'old, 'new> = Result<Diff<'old, 'new>, DiffError>;
 
 #[cfg(test)]
 mod tests {
@@ -281,7 +190,7 @@ mod tests {
                     Some(Diff::Modified(DiffType::Value(..)))
                 ));
                 assert!(matches!(fields.next(), Some(Diff::NoChange(_))));
-                assert!(matches!(fields.next(), None));
+                assert!(fields.next().is_none());
             } else {
                 panic!("expected `DiffType::Tuple`");
             }
@@ -318,7 +227,7 @@ mod tests {
                     Some(Diff::Modified(DiffType::Value(..)))
                 ));
                 assert!(matches!(fields.next(), Some(Diff::NoChange(_))));
-                assert!(matches!(fields.next(), None));
+                assert!(fields.next().is_none());
             } else {
                 panic!("expected `DiffType::Array`");
             }
@@ -353,7 +262,7 @@ mod tests {
                     changes.next(),
                     Some(ListDiff::Inserted(0, _ /* 9 */))
                 ));
-                assert!(matches!(changes.next(), None));
+                assert!(changes.next().is_none());
             } else {
                 panic!("expected `DiffType::List`");
             }
@@ -381,7 +290,7 @@ mod tests {
                     changes.next(),
                     Some(ListDiff::Inserted(0, _ /* 3 */))
                 ));
-                assert!(matches!(changes.next(), None));
+                assert!(changes.next().is_none());
             } else {
                 panic!("expected `DiffType::List`");
             }
@@ -415,7 +324,7 @@ mod tests {
                     changes.next(),
                     Some(ListDiff::Inserted(5, _ /* 7 */))
                 ));
-                assert!(matches!(changes.next(), None));
+                assert!(changes.next().is_none());
             } else {
                 panic!("expected `DiffType::List`");
             }
@@ -453,7 +362,7 @@ mod tests {
                 let mut changes = map_diff.iter_changes();
 
                 assert!(matches!(changes.next(), Some(MapDiff::Deleted(_ /* 2 */))));
-                assert!(matches!(changes.next(), None));
+                assert!(changes.next().is_none());
             } else {
                 panic!("expected `DiffType::Map`");
             }
@@ -473,7 +382,7 @@ mod tests {
                     changes.next(),
                     Some(MapDiff::Inserted(_ /* 4 */, _ /* 444 */))
                 ));
-                assert!(matches!(changes.next(), None));
+                assert!(changes.next().is_none());
             } else {
                 panic!("expected `DiffType::Map`");
             }
@@ -493,7 +402,7 @@ mod tests {
                     changes.next(),
                     Some(MapDiff::Modified(_ /* 2 */, _ /* 999 */))
                 ));
-                assert!(matches!(changes.next(), None));
+                assert!(changes.next().is_none());
             } else {
                 panic!("expected `DiffType::Map`");
             }
@@ -535,7 +444,7 @@ mod tests {
                     Some(Diff::Modified(DiffType::Value(..)))
                 ));
                 assert!(matches!(fields.next(), Some(Diff::NoChange(_))));
-                assert!(matches!(fields.next(), None));
+                assert!(fields.next().is_none());
             } else {
                 panic!("expected `DiffType::TupleStruct`");
             }
@@ -587,7 +496,7 @@ mod tests {
                     fields.next(),
                     Some(("b", Diff::Modified(DiffType::Value(..))))
                 ));
-                assert!(matches!(fields.next(), None));
+                assert!(fields.next().is_none());
             } else {
                 panic!("expected `DiffType::Struct`");
             }
@@ -682,7 +591,7 @@ mod tests {
                             Some(Diff::Modified(DiffType::Value(..)))
                         ));
                         assert!(matches!(fields.next(), Some(Diff::NoChange(_))));
-                        assert!(matches!(fields.next(), None));
+                        assert!(fields.next().is_none());
                     } else {
                         panic!("expected `EnumDiff::Tuple`");
                     }
@@ -742,7 +651,7 @@ mod tests {
                             fields.next(),
                             Some(("y", Diff::Modified(DiffType::Value(..))))
                         ));
-                        assert!(matches!(fields.next(), None));
+                        assert!(fields.next().is_none());
                     } else {
                         panic!("expected `EnumDiff::Struct`");
                     }

@@ -115,11 +115,11 @@ impl<'old, 'new> ListDiffer<'old, 'new> {
     ///
     /// Returns `None` if there was no change or `Some(changes)` if there was.
     pub fn diff(mut self) -> Result<Option<Vec<ListDiff<'new>>>, DiffError> {
-        if self.old.len() == 0 && self.new.len() == 0 {
+        if self.old.is_empty() && self.new.is_empty() {
             return Ok(None);
         }
 
-        if self.old.len() == 0 && self.new.len() > 0 {
+        if self.old.is_empty() && !self.new.is_empty() {
             return Ok(Some(
                 self.new
                     .iter()
@@ -128,7 +128,7 @@ impl<'old, 'new> ListDiffer<'old, 'new> {
             ));
         }
 
-        if self.old.len() > 0 && self.new.len() == 0 {
+        if !self.old.is_empty() && self.new.is_empty() {
             let mut vec = Vec::with_capacity(self.new.len());
             vec.fill_with(|| ListDiff::Deleted(0));
             return Ok(Some(vec));

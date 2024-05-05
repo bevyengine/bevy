@@ -94,7 +94,7 @@ pub fn diff_map<'old, 'new, T: Map>(
     }
 
     for (new_key, new_value) in new.iter() {
-        if matches!(old.get(new_key), None) {
+        if old.get(new_key).is_none() {
             was_modified = true;
             diff.changes.push(MapDiff::Inserted(
                 ValueDiff::Borrowed(new_key),
