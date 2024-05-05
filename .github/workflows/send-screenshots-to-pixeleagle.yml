@@ -34,7 +34,7 @@ jobs:
 
           # Create a new run with its associated metadata
           metadata='{"os":"${{ inputs.os }}", "commit": "${{ inputs.commit }}", "branch": "${{ inputs.branch }}"}'
-          run=`curl https://pixel-eagle.vleue.com/$project/runs --json $metadata | jq '.id'`
+          run=`curl https://pixel-eagle.vleue.com/$project/runs --json "$metadata" | jq '.id'`
           
           SAVEIFS=$IFS
           
