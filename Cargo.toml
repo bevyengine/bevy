@@ -18,6 +18,7 @@ exclude = [
   "crates/bevy_derive/compile_fail",
   "crates/bevy_ecs/compile_fail",
   "crates/bevy_reflect/compile_fail",
+  "tools/compile_fail_utils",
 ]
 members = [
   "crates/*",
@@ -300,6 +301,11 @@ shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 
 # Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
+
+# Enable support for multi-layer material textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
+pbr_multi_layer_material_textures = [
+  "bevy_internal/pbr_multi_layer_material_textures",
+]
 
 # Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
 webgl2 = ["bevy_internal/webgl"]
@@ -2992,6 +2998,18 @@ name = "Color grading"
 description = "Demonstrates color grading"
 category = "3D Rendering"
 wasm = true
+
+[[example]]
+name = "clearcoat"
+path = "examples/3d/clearcoat.rs"
+doc-scrape-examples = true
+required-features = ["pbr_multi_layer_material_textures"]
+
+[package.metadata.example.clearcoat]
+name = "Clearcoat"
+description = "Demonstrates the clearcoat PBR feature"
+category = "3D Rendering"
+wasm = false
 
 [profile.wasm-release]
 inherits = "release"
