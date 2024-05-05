@@ -1,13 +1,13 @@
 #import bevy_pbr::{
     meshlet_bindings::{
-        meshlet_thread_meshlet_ids,
+        meshlet_cluster_meshlet_ids,
         meshlets,
         meshlet_vertex_ids,
         meshlet_vertex_data,
-        meshlet_thread_instance_ids,
+        meshlet_cluster_instance_ids,
         meshlet_instance_uniforms,
         meshlet_instance_material_ids,
-        draw_index_buffer,
+        draw_triangle_buffer,
         view,
         get_meshlet_index,
         unpack_meshlet_vertex,
@@ -38,16 +38,16 @@ struct FragmentOutput {
 
 @vertex
 fn vertex(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
-    let packed_ids = draw_index_buffer[vertex_index / 3u];
-    let cluster_id = packed_ids >> 8u;
-    let triangle_id = extractBits(packed_ids, 0u, 8u);
+    let packed_ids = draw_triangle_buffer[vertex_index / 3u];
+    let cluster_id = packed_ids >> 6u;
+    let triangle_id = extractBits(packed_ids, 0u, 6u);
     let index_id = (triangle_id * 3u) + (vertex_index % 3u);
-    let meshlet_id = meshlet_thread_meshlet_ids[cluster_id];
+    let meshlet_id = meshlet_cluster_meshlet_ids[cluster_id];
     let meshlet = meshlets[meshlet_id];
     let index = get_meshlet_index(meshlet.start_index_id + index_id);
     let vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + index];
     let vertex = unpack_meshlet_vertex(meshlet_vertex_data[vertex_id]);
-    let instance_id = meshlet_thread_instance_ids[cluster_id];
+    let instance_id = meshlet_cluster_instance_ids[cluster_id];
     let instance_uniform = meshlet_instance_uniforms[instance_id];
 
     let model = affine3_to_square(instance_uniform.model);

@@ -7,7 +7,7 @@ use bevy_ecs::{
     event::{event_update_system, ManualEventReader},
     intern::Interned,
     prelude::*,
-    schedule::{ScheduleBuildSettings, ScheduleLabel},
+    schedule::{FreelyMutableState, ScheduleBuildSettings, ScheduleLabel},
     system::SystemId,
 };
 #[cfg(feature = "trace")]
@@ -209,15 +209,15 @@ impl App {
         let mut overall_plugins_state = match self.main_mut().plugins_state {
             PluginsState::Adding => {
                 let mut state = PluginsState::Ready;
-                let plugins = std::mem::take(&mut self.main_mut().plugins);
-                for plugin in &plugins.registry {
+                let plugins = std::mem::take(&mut self.main_mut().plugin_registry);
+                for plugin in &plugins {
                     // plugins installed to main need to see all sub-apps
                     if !plugin.ready(self) {
                         state = PluginsState::Adding;
                         break;
                     }
                 }
-                self.main_mut().plugins = plugins;
+                self.main_mut().plugin_registry = plugins;
                 state
             }
             state => state,
@@ -235,12 +235,12 @@ impl App {
     /// plugins are ready, but can be useful for situations where you want to use [`App::update`].
     pub fn finish(&mut self) {
         // plugins installed to main should see all sub-apps
-        let plugins = std::mem::take(&mut self.main_mut().plugins);
-        for plugin in &plugins.registry {
+        let plugins = std::mem::take(&mut self.main_mut().plugin_registry);
+        for plugin in &plugins {
             plugin.finish(self);
         }
         let main = self.main_mut();
-        main.plugins = plugins;
+        main.plugin_registry = plugins;
         main.plugins_state = PluginsState::Finished;
         self.sub_apps.iter_mut().skip(1).for_each(|s| s.finish());
     }
@@ -249,12 +249,12 @@ impl App {
     /// [`App::finish`], but can be useful for situations where you want to use [`App::update`].
     pub fn cleanup(&mut self) {
         // plugins installed to main should see all sub-apps
-        let plugins = std::mem::take(&mut self.main_mut().plugins);
-        for plugin in &plugins.registry {
+        let plugins = std::mem::take(&mut self.main_mut().plugin_registry);
+        for plugin in &plugins {
             plugin.cleanup(self);
         }
         let main = self.main_mut();
-        main.plugins = plugins;
+        main.plugin_registry = plugins;
         main.plugins_state = PluginsState::Cleaned;
         self.sub_apps.iter_mut().skip(1).for_each(|s| s.cleanup());
     }
@@ -266,26 +266,17 @@ impl App {
 
     /// Initializes a [`State`] with standard starting values.
     ///
-    /// If the [`State`] already exists, nothing happens.
+    /// This method is idempotent: it has no effect when called again using the same generic type.
     ///
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules for
-    /// each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`]
-    /// in [`StateTransition`] so that transitions happen before [`Update`] and an instance of
-    /// [`run_enter_schedule::<S>`] in [`StateTransition`] with a [`run_once`] condition to run the
-    /// on enter schedule of the initial state.
+    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`], [`OnTransition`] and [`OnExit`] schedules.
+    /// These schedules are triggered before [`Update`](crate::Update) and at startup.
     ///
     /// If you would like to control how other systems run based on the current state, you can
     /// emulate this behavior using the [`in_state`] [`Condition`].
     ///
-    /// Note that you can also apply state transitions at other points in the schedule by adding
-    /// the [`apply_state_transition::<S>`] system manually.
-    ///
-    /// [`StateTransition`]: crate::StateTransition
-    /// [`Update`]: crate::Update
-    /// [`run_once`]: bevy_ecs::schedule::common_conditions::run_once
-    /// [`run_enter_schedule::<S>`]: bevy_ecs::schedule::run_enter_schedule
-    /// [`apply_state_transition::<S>`]: bevy_ecs::schedule::apply_state_transition
-    pub fn init_state<S: States + FromWorld>(&mut self) -> &mut Self {
+    /// Note that you can also apply state transitions at other points in the schedule
+    /// by triggering the [`StateTransition`](`bevy_ecs::schedule::StateTransition`) schedule manually.
+    pub fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
         self.main_mut().init_state::<S>();
         self
     }
@@ -293,29 +284,42 @@ impl App {
     /// Inserts a specific [`State`] to the current [`App`] and overrides any [`State`] previously
     /// added of the same type.
     ///
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules for
-    /// each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`]
-    /// in [`StateTransition`] so that transitions happen before [`Update`](crate::Update) and an
-    /// instance of [`run_enter_schedule::<S>`] in [`StateTransition`] with a [`run_once`]
-    /// condition to run the on enter schedule of the initial state.
+    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`], [`OnTransition`] and [`OnExit`] schedules.
+    /// These schedules are triggered before [`Update`](crate::Update) and at startup.
     ///
     /// If you would like to control how other systems run based on the current state, you can
     /// emulate this behavior using the [`in_state`] [`Condition`].
     ///
-    /// Note that you can also apply state transitions at other points in the schedule by adding
-    /// the [`apply_state_transition::<S>`] system manually.
-    ///
-    /// [`StateTransition`]: crate::StateTransition
-    /// [`Update`]: crate::Update
-    /// [`run_once`]: bevy_ecs::schedule::common_conditions::run_once
-    /// [`run_enter_schedule::<S>`]: bevy_ecs::schedule::run_enter_schedule
-    /// [`apply_state_transition::<S>`]: bevy_ecs::schedule::apply_state_transition
-    pub fn insert_state<S: States>(&mut self, state: S) -> &mut Self {
-        self.main_mut().insert_state(state);
+    /// Note that you can also apply state transitions at other points in the schedule
+    /// by triggering the [`StateTransition`](`bevy_ecs::schedule::StateTransition`) schedule manually.
+    pub fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
+        self.main_mut().insert_state::<S>(state);
         self
     }
 
-    /// Adds a collection of systems to `schedule` (stored in the main world's [`Schedules`]).
+    /// Sets up a type implementing [`ComputedStates`].
+    ///
+    /// This method is idempotent: it has no effect when called again using the same generic type.
+    ///
+    /// For each source state the derived state depends on, it adds this state's derivation
+    /// to it's [`ComputeDependantStates<Source>`](bevy_ecs::schedule::ComputeDependantStates<S>) schedule.
+    pub fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
+        self.main_mut().add_computed_state::<S>();
+        self
+    }
+
+    /// Sets up a type implementing [`SubStates`].
+    ///
+    /// This method is idempotent: it has no effect when called again using the same generic type.
+    ///
+    /// For each source state the derived state depends on, it adds this state's existence check
+    /// to it's [`ComputeDependantStates<Source>`](bevy_ecs::schedule::ComputeDependantStates<S>) schedule.
+    pub fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
+        self.main_mut().add_sub_state::<S>();
+        self
+    }
+
+    /// Adds one or more systems to the given schedule in this app's [`Schedules`].
     ///
     /// # Examples
     ///
@@ -490,8 +494,7 @@ impl App {
         if plugin.is_unique()
             && !self
                 .main_mut()
-                .plugins
-                .names
+                .plugin_names
                 .insert(plugin.name().to_string())
         {
             Err(AppError::DuplicatePlugin {
@@ -501,10 +504,9 @@ impl App {
 
         // Reserve position in the plugin registry. If the plugin adds more plugins,
         // they'll all end up in insertion order.
-        let index = self.main().plugins.registry.len();
+        let index = self.main().plugin_registry.len();
         self.main_mut()
-            .plugins
-            .registry
+            .plugin_registry
             .push(Box::new(PlaceholderPlugin));
 
         self.main_mut().plugin_build_depth += 1;
@@ -515,7 +517,7 @@ impl App {
             resume_unwind(payload);
         }
 
-        self.main_mut().plugins.registry[index] = plugin;
+        self.main_mut().plugin_registry[index] = plugin;
         Ok(self)
     }
 
@@ -1008,6 +1010,18 @@ mod tests {
         }
     }
 
+    struct PluginE;
+
+    impl Plugin for PluginE {
+        fn build(&self, _app: &mut App) {}
+
+        fn finish(&self, app: &mut App) {
+            if app.is_plugin_added::<PluginA>() {
+                panic!("cannot run if PluginA is already registered");
+            }
+        }
+    }
+
     #[test]
     fn can_add_two_plugins() {
         App::new().add_plugins((PluginA, PluginB));
@@ -1076,6 +1090,15 @@ mod tests {
 
         app.world_mut().run_schedule(OnEnter(AppState::MainMenu));
         assert_eq!(app.world().entities().len(), 2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_is_plugin_added_works_during_finish() {
+        let mut app = App::new();
+        app.add_plugins(PluginA);
+        app.add_plugins(PluginE);
+        app.finish();
     }
 
     #[test]

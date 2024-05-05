@@ -1,0 +1,19 @@
+[package]
+name = "bevy_reflect_compile_fail"
+edition = "2021"
+description = "Compile fail tests for Bevy Engine's reflection system"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+# ui_test dies if we don't specify the version. See oli-obk/ui_test#211
+bevy_reflect = { path = "../", version = "0.14.0-dev" }
+
+[dev-dependencies]
+compile_fail_utils = { path = "../../../tools/compile_fail_utils" }
+
+[[test]]
+name = "derive"
+harness = false
