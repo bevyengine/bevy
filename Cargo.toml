@@ -1381,6 +1381,17 @@ description = "Demonstrates how to process and load custom assets"
 category = "Assets"
 wasm = false
 
+[[example]]
+name = "repeated_texture"
+path = "examples/asset/repeated_texture.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.repeated_texture]
+name = "Repeated texture configuration"
+description = "How to configure the texture to repeat instead of the default clamp to edges"
+category = "Assets"
+wasm = true
+
 # Async Tasks
 [[example]]
 name = "async_compute"
