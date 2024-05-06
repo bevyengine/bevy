@@ -34,7 +34,7 @@ fn fragment(
     out.frag_depth = in.clip_position_unclamped.z;
 #endif // DEPTH_CLAMP_ORTHO
 
-#ifdef NORMAL_PREPASS    
+#ifdef NORMAL_PREPASS
 #ifdef VERTEX_UVS
     let uv_transform = material.uv_transform;
     let uv = (uv_transform * vec3(in.uv, 1.0)).xy;
