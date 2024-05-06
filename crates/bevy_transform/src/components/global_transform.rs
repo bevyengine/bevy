@@ -43,7 +43,7 @@ macro_rules! impl_local_axis {
         #[doc=std::concat!("Return the local ", std::stringify!($pos_name), " vector (", std::stringify!($axis) ,").")]
         #[inline]
         pub fn $pos_name(&self) -> Dir3 {
-            Dir3::new((self.0.matrix3 * Vec3::$axis).normalize()).unwrap()
+            Dir3::new_unchecked((self.0.matrix3 * Vec3::$axis).normalize())
         }
 
         #[doc=std::concat!("Return the local ", std::stringify!($neg_name), " vector (-", std::stringify!($axis) ,").")]

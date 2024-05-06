@@ -39,7 +39,7 @@ fn draw_cursor(
     // Draw a circle just above the ground plane at that position.
     gizmos.circle(
         point + ground.up() * 0.01,
-        Dir3::new_unchecked(ground.up()), // Up vector is already normalized.
+        ground.up(),
         0.2,
         Color::WHITE,
     );
