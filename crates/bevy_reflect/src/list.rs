@@ -4,7 +4,9 @@ use std::hash::{Hash, Hasher};
 
 use bevy_reflect_derive::impl_type_path;
 
-use crate::diff::{diff_list, DiffResult};
+use crate::diff::{
+    diff_list, DiffApplyError, DiffApplyResult, DiffResult, ElementDiff, ListDiff, ValueDiff,
+};
 use crate::utility::reflect_hasher;
 use crate::{
     self as bevy_reflect, ApplyError, FromReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
@@ -104,6 +106,9 @@ pub trait List: Reflect {
             values: self.iter().map(|value| value.clone_value()).collect(),
         }
     }
+
+    /// Apply the given [`ListDiff`] to this value.
+    fn apply_list_diff(&mut self, diff: ListDiff) -> DiffApplyResult;
 }
 
 /// A container for compile-time list info.
@@ -270,6 +275,65 @@ impl List for DynamicList {
                 .map(|value| value.clone_value())
                 .collect(),
         }
+    }
+
+    fn apply_list_diff(&mut self, diff: ListDiff) -> DiffApplyResult {
+        let Some(info) = self.get_represented_type_info() else {
+            return Err(DiffApplyError::MissingTypeInfo);
+        };
+
+        if info.type_id() != diff.type_info().type_id() {
+            return Err(DiffApplyError::TypeMismatch);
+        }
+
+        let new_len = (self.len() + diff.total_insertions()) - diff.total_deletions();
+        let mut new = Vec::with_capacity(new_len);
+
+        let mut changes = diff.take_changes();
+        changes.reverse();
+
+        fn has_change(changes: &[ElementDiff], index: usize) -> bool {
+            changes
+                .last()
+                .map(|change| change.index() == index)
+                .unwrap_or_default()
+        }
+
+        fn insert(
+            value: ValueDiff,
+            list: &mut Vec<Box<dyn Reflect>>,
+        ) -> Result<(), DiffApplyError> {
+            match value {
+                ValueDiff::Borrowed(value) => list.push(value.clone_value()),
+                ValueDiff::Owned(value) => list.push(value),
+            }
+
+            Ok(())
+        }
+
+        'outer: for (curr_index, element) in self.values.drain(..).enumerate() {
+            while has_change(&changes, curr_index) {
+                match changes.pop().unwrap() {
+                    ElementDiff::Deleted(_) => {
+                        continue 'outer;
+                    }
+                    ElementDiff::Inserted(_, value) => {
+                        insert(value, &mut new)?;
+                    }
+                }
+            }
+
+            new.push(element);
+        }
+
+        // Insert any remaining elements
+        while let Some(ElementDiff::Inserted(_, value)) = changes.pop() {
+            insert(value, &mut new)?;
+        }
+
+        self.values = new;
+
+        Ok(())
     }
 }
 

@@ -160,6 +160,66 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             fn clone_dynamic(&self) -> #bevy_reflect_path::DynamicEnum {
                 #bevy_reflect_path::DynamicEnum::from_ref::<Self>(self)
             }
+
+            fn apply_enum_diff(&mut self, diff: #bevy_reflect_path::diff::EnumDiff) -> #bevy_reflect_path::diff::DiffApplyResult {
+                let info = <Self as #bevy_reflect_path::Typed>::type_info();
+
+                if info.type_id() != diff.type_info().type_id() {
+                    return #FQResult::Err(#bevy_reflect_path::diff::DiffApplyError::TypeMismatch);
+                }
+
+                match diff {
+                    #bevy_reflect_path::diff::EnumDiff::Swapped(value_diff) => {
+                        #bevy_reflect_path::Reflect::try_apply(
+                            self,
+                            #bevy_reflect_path::Reflect::as_reflect(::core::ops::Deref::deref(&value_diff))
+                        )
+                        .map_err(::core::convert::Into::into)
+                    },
+                    #bevy_reflect_path::diff::EnumDiff::Tuple(diff) => {
+                        let variant_type = #bevy_reflect_path::Enum::variant_type(self);
+                        if !matches!(variant_type, #bevy_reflect_path::VariantType::Tuple) {
+                            return #FQResult::Err(#bevy_reflect_path::diff::DiffApplyError::VariantMismatch {
+                                expected: #bevy_reflect_path::VariantType::Tuple,
+                                received: variant_type,
+                            });
+                        }
+
+                        let mut diffs = ::core::iter::IntoIterator::into_iter(diff.take_changes());
+
+                        for index in 0..#bevy_reflect_path::Enum::field_len(self) {
+                            #bevy_reflect_path::Reflect::apply_diff(
+                                #bevy_reflect_path::Enum::field_at_mut(self, index).unwrap(),
+                                diffs.next().ok_or(#bevy_reflect_path::diff::DiffApplyError::MissingField)?
+                            )?;
+                        }
+
+                        #FQResult::Ok(())
+                    },
+                    #bevy_reflect_path::diff::EnumDiff::Struct(diff) => {
+                        let variant_type = #bevy_reflect_path::Enum::variant_type(self);
+                        if !matches!(variant_type, #bevy_reflect_path::VariantType::Struct) {
+                            return #FQResult::Err(#bevy_reflect_path::diff::DiffApplyError::VariantMismatch {
+                                expected: #bevy_reflect_path::VariantType::Struct,
+                                received: variant_type,
+                            });
+                        }
+
+                        let mut diffs = diff.take_changes();
+
+                        for index in 0..#bevy_reflect_path::Enum::field_len(self) {
+                            let name = #bevy_reflect_path::Enum::name_at(self, index).unwrap();
+                            let diff = diffs.remove(name).ok_or(#bevy_reflect_path::diff::DiffApplyError::MissingField)?;
+                            #bevy_reflect_path::Reflect::apply_diff(
+                                #bevy_reflect_path::Enum::field_at_mut(self, index).unwrap(),
+                                diff
+                            )?;
+                        }
+
+                        #FQResult::Ok(())
+                    },
+                }
+            }
         }
 
         impl #impl_generics #bevy_reflect_path::Reflect for #enum_path #ty_generics #where_reflect_clause {

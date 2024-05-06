@@ -1,5 +1,5 @@
 use crate::diff::{Diff, DiffError, DiffResult, DiffType};
-use crate::{Reflect, ReflectKind, TypeInfo};
+use crate::{FromReflect, Reflect, ReflectKind, TypeInfo};
 
 use std::ops::Deref;
 
@@ -17,6 +17,13 @@ impl<'a> ValueDiff<'a> {
     pub fn type_info(&self) -> &TypeInfo {
         self.get_represented_type_info()
             .expect("reflected value type should have TypeInfo")
+    }
+
+    pub(crate) fn take_from_reflect<T: FromReflect>(self) -> Option<T> {
+        match self {
+            Self::Borrowed(value) => T::from_reflect(value),
+            Self::Owned(value) => T::take_from_reflect(value).ok(),
+        }
     }
 }
 

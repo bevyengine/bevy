@@ -1,6 +1,7 @@
 use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
 use crate::{NamedField, UnnamedField};
 use bevy_utils::HashMap;
+use core::fmt::{Display, Formatter};
 use std::slice::Iter;
 use std::sync::Arc;
 
@@ -33,6 +34,16 @@ pub enum VariantType {
     /// }
     /// ```
     Unit,
+}
+
+impl Display for VariantType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        match self {
+            VariantType::Struct => f.pad("struct"),
+            VariantType::Tuple => f.pad("tuple"),
+            VariantType::Unit => f.pad("unit"),
+        }
+    }
 }
 
 /// A container for compile-time enum variant info.

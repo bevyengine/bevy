@@ -14,13 +14,35 @@ pub enum ElementDiff<'new> {
     Inserted(usize, ValueDiff<'new>),
 }
 
+impl<'new> ElementDiff<'new> {
+    pub fn index(&self) -> usize {
+        match self {
+            Self::Deleted(index) | Self::Inserted(index, _) => *index,
+        }
+    }
+}
+
 /// Diff object for [lists](List).
 pub struct ListDiff<'new> {
     type_info: &'static TypeInfo,
     changes: Vec<ElementDiff<'new>>,
+    total_insertions: usize,
 }
 
 impl<'new> ListDiff<'new> {
+    pub(crate) fn new(type_info: &'static TypeInfo, changes: Vec<ElementDiff<'new>>) -> Self {
+        let total_insertions = changes
+            .iter()
+            .filter(|change| matches!(change, ElementDiff::Inserted(..)))
+            .count();
+
+        Self {
+            type_info,
+            changes,
+            total_insertions,
+        }
+    }
+
     /// Returns the [`TypeInfo`] of the reflected value currently being diffed.
     pub fn type_info(&self) -> &TypeInfo {
         self.type_info
@@ -35,6 +57,21 @@ impl<'new> ListDiff<'new> {
     /// the "old" list into the "new" one.
     pub fn iter_changes(&self) -> Iter<'_, ElementDiff<'new>> {
         self.changes.iter()
+    }
+
+    /// The total number of inserted elements.
+    pub fn total_insertions(&self) -> usize {
+        self.total_insertions
+    }
+
+    /// The total number of deleted elements.
+    pub fn total_deletions(&self) -> usize {
+        self.changes.len() - self.total_insertions
+    }
+
+    /// Take the changes contained in this diff.
+    pub fn take_changes(self) -> Vec<ElementDiff<'new>> {
+        self.changes
     }
 }
 
@@ -73,10 +110,9 @@ pub fn diff_list<'old, 'new, T: List>(
     let changes = ListDiffer::new(old, new).diff()?;
 
     if let Some(changes) = changes {
-        Ok(Diff::Modified(DiffType::List(ListDiff {
-            type_info: old_info,
-            changes,
-        })))
+        Ok(Diff::Modified(DiffType::List(ListDiff::new(
+            new_info, changes,
+        ))))
     } else {
         Ok(Diff::NoChange(old))
     }

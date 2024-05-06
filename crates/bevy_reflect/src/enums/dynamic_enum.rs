@@ -1,4 +1,4 @@
-use crate::diff::{diff_enum, DiffResult};
+use crate::diff::{diff_enum, DiffApplyError, DiffApplyResult, DiffResult, EnumDiff};
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
@@ -284,6 +284,42 @@ impl Enum for DynamicEnum {
             variant_index: self.variant_index,
             variant_name: self.variant_name.clone(),
             variant: self.variant.clone(),
+        }
+    }
+
+    fn apply_enum_diff(&mut self, diff: EnumDiff) -> DiffApplyResult {
+        let Some(info) = self.get_represented_type_info() else {
+            return Err(DiffApplyError::MissingTypeInfo);
+        };
+
+        if info.type_id() != diff.type_info().type_id() {
+            return Err(DiffApplyError::TypeMismatch);
+        }
+
+        match diff {
+            EnumDiff::Swapped(value_diff) => {
+                self.try_apply(value_diff.as_reflect()).map_err(Into::into)
+            }
+            EnumDiff::Tuple(tuple_diff) => {
+                if let DynamicVariant::Tuple(base) = &mut self.variant {
+                    base.apply_tuple_diff(tuple_diff)
+                } else {
+                    Err(DiffApplyError::VariantMismatch {
+                        expected: VariantType::Tuple,
+                        received: self.variant_type(),
+                    })
+                }
+            }
+            EnumDiff::Struct(struct_diff) => {
+                if let DynamicVariant::Struct(base) = &mut self.variant {
+                    base.apply_struct_diff(struct_diff)
+                } else {
+                    Err(DiffApplyError::VariantMismatch {
+                        expected: VariantType::Tuple,
+                        received: self.variant_type(),
+                    })
+                }
+            }
         }
     }
 }

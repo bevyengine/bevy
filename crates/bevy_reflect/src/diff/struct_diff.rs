@@ -53,6 +53,11 @@ impl<'old, 'new> StructDiff<'old, 'new> {
         self.fields.insert(field_name.clone(), field_diff);
         self.field_order.push(field_name);
     }
+
+    /// Take the changes contained in this diff.
+    pub fn take_changes(self) -> HashMap<Cow<'old, str>, Diff<'old, 'new>> {
+        self.fields
+    }
 }
 
 impl<'old, 'new> Debug for StructDiff<'old, 'new> {

@@ -1,4 +1,7 @@
-use crate::diff::{diff_array, diff_list, diff_map, diff_value, DiffResult};
+use crate::diff::{
+    diff_array, diff_list, diff_map, diff_value, ArrayDiff, DiffApplyError, DiffApplyResult,
+    DiffResult, ElementDiff, EntryDiff, ListDiff, MapDiff, ValueDiff,
+};
 use crate::std_traits::ReflectDefault;
 use crate::utility::{
     reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell,
@@ -280,6 +283,58 @@ macro_rules! impl_reflect_for_veclike {
                     .map(|value| Box::new(value) as Box<dyn Reflect>)
                     .collect()
             }
+
+            fn apply_list_diff(&mut self, diff: ListDiff) -> DiffApplyResult {
+                let info = <Self as Typed>::type_info();
+
+                if info.type_id() != diff.type_info().type_id() {
+                    return Err(DiffApplyError::TypeMismatch);
+                }
+
+                let new_len = (self.len() + diff.total_insertions()) - diff.total_deletions();
+                let mut new = Self::with_capacity(new_len);
+
+                let mut changes = diff.take_changes();
+                changes.reverse();
+
+                fn has_change(changes: &[ElementDiff], index: usize) -> bool {
+                    changes
+                        .last()
+                        .map(|change| change.index() == index)
+                        .unwrap_or_default()
+                }
+
+                let insert = |value: ValueDiff, list: &mut Self| -> Result<(), DiffApplyError> {
+                    Ok($push(
+                        list,
+                        <T as FromReflect>::from_reflect(value.as_reflect())
+                            .ok_or(DiffApplyError::TypeMismatch)?,
+                    ))
+                };
+
+                'outer: for (curr_index, element) in self.drain(..).enumerate() {
+                    while has_change(&changes, curr_index) {
+                        match changes.pop().unwrap() {
+                            ElementDiff::Deleted(_) => {
+                                continue 'outer;
+                            }
+                            ElementDiff::Inserted(_, value) => {
+                                insert(value, &mut new)?;
+                            }
+                        }
+                    }
+
+                    $push(&mut new, element);
+                }
+
+                // Insert any remaining elements
+                while let Some(ElementDiff::Inserted(_, value)) = changes.pop() {
+                    insert(value, &mut new)?;
+                }
+
+                *self = new;
+                Ok(())
+            }
         }
 
         impl<T: FromReflect + TypePath + GetTypeRegistration> Reflect for $ty {
@@ -507,6 +562,38 @@ macro_rules! impl_reflect_for_hashmap {
                     })
                     .and_then(|key| self.remove(key))
                     .map(|value| Box::new(value) as Box<dyn Reflect>)
+            }
+
+            fn apply_map_diff(&mut self, diff: MapDiff) -> DiffApplyResult {
+                let info = <Self as Typed>::type_info();
+
+                if info.type_id() != diff.type_info().type_id() {
+                    return Err(DiffApplyError::TypeMismatch);
+                }
+
+                for change in diff.take_changes() {
+                    match change {
+                        EntryDiff::Deleted(key) => {
+                            Map::remove(self, key.as_reflect());
+                        }
+                        EntryDiff::Inserted(key, value) => {
+                            let key = key
+                                .take_from_reflect()
+                                .ok_or(DiffApplyError::TypeMismatch)?;
+                            let value = value
+                                .take_from_reflect()
+                                .ok_or(DiffApplyError::TypeMismatch)?;
+                            self.insert(key, value);
+                        }
+                        EntryDiff::Modified(key, diff) => {
+                            if let Some(value) = Map::get_mut(self, key.as_reflect()) {
+                                value.apply_diff(diff)?;
+                            }
+                        }
+                    }
+                }
+
+                Ok(())
             }
         }
 
@@ -742,6 +829,38 @@ where
             .and_then(|key| self.remove(key))
             .map(|value| Box::new(value) as Box<dyn Reflect>)
     }
+
+    fn apply_map_diff(&mut self, diff: MapDiff) -> DiffApplyResult {
+        let info = <Self as Typed>::type_info();
+
+        if info.type_id() != diff.type_info().type_id() {
+            return Err(DiffApplyError::TypeMismatch);
+        }
+
+        for change in diff.take_changes() {
+            match change {
+                EntryDiff::Deleted(key) => {
+                    Map::remove(self, key.as_reflect());
+                }
+                EntryDiff::Inserted(key, value) => {
+                    let key = key
+                        .take_from_reflect()
+                        .ok_or(DiffApplyError::TypeMismatch)?;
+                    let value = value
+                        .take_from_reflect()
+                        .ok_or(DiffApplyError::TypeMismatch)?;
+                    self.insert(key, value);
+                }
+                EntryDiff::Modified(key, diff) => {
+                    if let Some(value) = Map::get_mut(self, key.as_reflect()) {
+                        value.apply_diff(diff)?;
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl<K, V> Reflect for ::std::collections::BTreeMap<K, V>
@@ -891,6 +1010,13 @@ impl<T: Reflect + TypePath + GetTypeRegistration, const N: usize> Array for [T; 
         self.into_iter()
             .map(|value| Box::new(value) as Box<dyn Reflect>)
             .collect()
+    }
+
+    fn apply_array_diff(&mut self, diff: ArrayDiff) -> DiffApplyResult {
+        for (index, diff) in diff.take_changes().into_iter().enumerate() {
+            self[index].apply_diff(diff)?;
+        }
+        Ok(())
     }
 }
 
@@ -1261,6 +1387,58 @@ impl<T: FromReflect + Clone + TypePath + GetTypeRegistration> List for Cow<'stat
             .into_iter()
             .map(|value| value.clone_value())
             .collect()
+    }
+
+    fn apply_list_diff(&mut self, diff: ListDiff) -> DiffApplyResult {
+        let info = <Self as Typed>::type_info();
+
+        if info.type_id() != diff.type_info().type_id() {
+            return Err(DiffApplyError::TypeMismatch);
+        }
+
+        let new_len = (self.len() + diff.total_insertions()) - diff.total_deletions();
+        let mut new = Vec::<T>::with_capacity(new_len);
+
+        let mut changes = diff.take_changes();
+        changes.reverse();
+
+        fn has_change(changes: &[ElementDiff], index: usize) -> bool {
+            changes
+                .last()
+                .map(|change| change.index() == index)
+                .unwrap_or_default()
+        }
+
+        let insert = |value: ValueDiff, list: &mut Vec<T>| -> Result<(), DiffApplyError> {
+            list.push(
+                <T as FromReflect>::from_reflect(value.as_reflect())
+                    .ok_or(DiffApplyError::TypeMismatch)?,
+            );
+            Ok(())
+        };
+
+        'outer: for (curr_index, element) in self.to_mut().drain(..).enumerate() {
+            while has_change(&changes, curr_index) {
+                match changes.pop().unwrap() {
+                    ElementDiff::Deleted(_) => {
+                        continue 'outer;
+                    }
+                    ElementDiff::Inserted(_, value) => {
+                        insert(value, &mut new)?;
+                    }
+                }
+            }
+
+            new.push(element);
+        }
+
+        // Insert any remaining elements
+        while let Some(ElementDiff::Inserted(_, value)) = changes.pop() {
+            insert(value, &mut new)?;
+        }
+
+        *self = new.into();
+        Ok(())
     }
 }
 

@@ -4,7 +4,9 @@ use std::fmt::{Debug, Formatter};
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
-use crate::diff::{diff_map, DiffResult};
+use crate::diff::{
+    diff_map, DiffApplyError, DiffApplyResult, DiffResult, EntryDiff, MapDiff, ValueDiff,
+};
 use crate::{
     self as bevy_reflect, ApplyError, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
     TypeInfo, TypePath, TypePathTable,
@@ -90,6 +92,9 @@ pub trait Map: Reflect {
     /// If the map did not have this key present, `None` is returned.
     /// If the map did have this key present, the removed value is returned.
     fn remove(&mut self, key: &dyn Reflect) -> Option<Box<dyn Reflect>>;
+
+    /// Apply the given [`MapDiff`] to this value.
+    fn apply_map_diff(&mut self, diff: MapDiff) -> DiffApplyResult;
 }
 
 /// A container for compile-time map info.
@@ -306,6 +311,66 @@ impl Map for DynamicMap {
             .remove(&key.reflect_hash().expect(HASH_ERROR))?;
         let (_key, value) = self.values.remove(index);
         Some(value)
+    }
+
+    fn apply_map_diff(&mut self, diff: MapDiff) -> DiffApplyResult {
+        let Some(info) = self.get_represented_type_info() else {
+            return Err(DiffApplyError::MissingTypeInfo);
+        };
+
+        if info.type_id() != diff.type_info().type_id() {
+            return Err(DiffApplyError::TypeMismatch);
+        }
+
+        for change in diff.take_changes() {
+            match change {
+                EntryDiff::Deleted(key) => {
+                    let hash = match key {
+                        ValueDiff::Borrowed(key) => key.reflect_hash().expect(HASH_ERROR),
+                        ValueDiff::Owned(key) => key.reflect_hash().expect(HASH_ERROR),
+                    };
+                    if let Some(index) = self.indices.remove(&hash) {
+                        self.values.remove(index);
+                    }
+                }
+                EntryDiff::Inserted(key, value) => {
+                    let key = match key {
+                        ValueDiff::Borrowed(key) => key.clone_value(),
+                        ValueDiff::Owned(key) => key,
+                    };
+                    let mut value = match value {
+                        ValueDiff::Borrowed(value) => value.clone_value(),
+                        ValueDiff::Owned(value) => value,
+                    };
+
+                    match self.indices.entry(key.reflect_hash().expect(HASH_ERROR)) {
+                        Entry::Occupied(entry) => {
+                            let (_old_key, old_value) = self.values.get_mut(*entry.get()).unwrap();
+                            std::mem::swap(old_value, &mut value);
+                        }
+                        Entry::Vacant(entry) => {
+                            entry.insert(self.values.len());
+                            self.values.push((key, value));
+                        }
+                    }
+                }
+                EntryDiff::Modified(key, diff) => {
+                    let hash = match key {
+                        ValueDiff::Borrowed(key) => key.reflect_hash().expect(HASH_ERROR),
+                        ValueDiff::Owned(key) => key.reflect_hash().expect(HASH_ERROR),
+                    };
+                    if let Some(index) = self.indices.remove(&hash) {
+                        let (key, mut value) = self.values.swap_remove(index);
+                        value.apply_diff(diff)?;
+                        self.values.push((key, value));
+                        let end = self.values.len() - 1;
+                        self.values.swap(index, end);
+                    }
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 

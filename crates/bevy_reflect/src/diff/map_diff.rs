@@ -38,6 +38,11 @@ impl<'old, 'new> MapDiff<'old, 'new> {
     pub fn iter_changes(&self) -> Iter<'_, EntryDiff<'old, 'new>> {
         self.changes.iter()
     }
+
+    /// Take the changes contained in this diff.
+    pub fn take_changes(self) -> Vec<EntryDiff<'old, 'new>> {
+        self.changes
+    }
 }
 
 impl<'old, 'new> Debug for MapDiff<'old, 'new> {

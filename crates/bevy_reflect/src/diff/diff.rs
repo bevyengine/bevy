@@ -1,8 +1,9 @@
 use crate::diff::{
-    ArrayDiff, DiffError, EnumDiff, ListDiff, MapDiff, StructDiff, TupleDiff, TupleStructDiff,
-    ValueDiff,
+    ArrayDiff, DiffApplyError, DiffError, EnumDiff, ListDiff, MapDiff, StructDiff, TupleDiff,
+    TupleStructDiff, ValueDiff,
 };
-use crate::{Reflect, TypeInfo};
+use crate::{Reflect, ReflectKind, ReflectMut, TypeInfo};
+use std::ops::Deref;
 
 /// Indicates the difference between two [`Reflect`] objects.
 ///
@@ -57,6 +58,59 @@ pub enum Diff<'old, 'new> {
     Modified(DiffType<'old, 'new>),
 }
 
+impl<'old, 'new> Diff<'old, 'new> {
+    /// Apply this `Diff` to the given [`Reflect`] object.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the diff cannot be applied to the given object.
+    ///
+    /// Note that this may leave the object in an invalid state.
+    /// If a possible error is expected, it is recommended to keep a copy of the original object,
+    /// such that it can be restored if necessary.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::Reflect;
+    /// let old = vec![1, 2, 3];
+    /// let new = vec![0, 2, 4];
+    ///
+    /// let diff = old.diff(&new).unwrap();
+    ///
+    /// let mut value = vec![1, 2, 3];
+    /// diff.apply(&mut value).unwrap();
+    /// ```
+    pub fn apply(self, onto: &mut dyn Reflect) -> DiffApplyResult {
+        let diff = match self {
+            Self::NoChange(_) => return Ok(()),
+            Self::Replaced(_) => return Err(DiffApplyError::TypeMismatch),
+            Self::Modified(diff_type) => diff_type,
+        };
+
+        let onto = onto.reflect_mut();
+
+        return match (onto, diff) {
+            (ReflectMut::Value(value), DiffType::Value(diff)) => {
+                value.try_apply(diff.deref()).map_err(Into::into)
+            }
+            (ReflectMut::Tuple(value), DiffType::Tuple(diff)) => value.apply_tuple_diff(diff),
+            (ReflectMut::Array(value), DiffType::Array(diff)) => value.apply_array_diff(diff),
+            (ReflectMut::List(value), DiffType::List(diff)) => value.apply_list_diff(diff),
+            (ReflectMut::Map(value), DiffType::Map(diff)) => value.apply_map_diff(diff),
+            (ReflectMut::TupleStruct(value), DiffType::TupleStruct(diff)) => {
+                value.apply_tuple_struct_diff(diff)
+            }
+            (ReflectMut::Struct(value), DiffType::Struct(diff)) => value.apply_struct_diff(diff),
+            (ReflectMut::Enum(value), DiffType::Enum(diff)) => value.apply_enum_diff(diff),
+            (onto, diff) => Err(DiffApplyError::KindMismatch {
+                expected: diff.kind(),
+                received: onto.kind(),
+            }),
+        };
+    }
+}
+
 /// Contains diffing details for each [reflection type].
 ///
 /// [reflection type]: crate::ReflectRef
@@ -86,12 +140,32 @@ impl<'old, 'new> DiffType<'old, 'new> {
             DiffType::Enum(enum_diff) => enum_diff.type_info(),
         }
     }
+
+    /// Returns the [kind] of this diff.
+    ///
+    /// [kind]: ReflectKind
+    pub fn kind(&self) -> ReflectKind {
+        match self {
+            DiffType::Value(_) => ReflectKind::Value,
+            DiffType::Tuple(_) => ReflectKind::Tuple,
+            DiffType::Array(_) => ReflectKind::Array,
+            DiffType::List(_) => ReflectKind::List,
+            DiffType::Map(_) => ReflectKind::Map,
+            DiffType::TupleStruct(_) => ReflectKind::TupleStruct,
+            DiffType::Struct(_) => ReflectKind::Struct,
+            DiffType::Enum(_) => ReflectKind::Enum,
+        }
+    }
 }
 
 /// Alias for a `Result` that returns either [`Ok(Diff)`](Diff) or [`Err(DiffError)`](DiffError).
 ///
 /// This is most commonly used by the [`Reflect::diff`] method as well as the utility functions
 /// provided in this module.
-///
-/// [`Reflect::diff`]: crate::Reflect::diff
 pub type DiffResult<'old, 'new> = Result<Diff<'old, 'new>, DiffError>;
+
+/// Alias for a `Result` that returns either `Ok(())` or [`Err(DiffApplyError)`](DiffApplyError).
+///
+/// This is most commonly used by the [`Reflect::apply_diff`] method as well as the utility functions
+/// provided in this module.
+pub type DiffApplyResult = Result<(), DiffApplyError>;

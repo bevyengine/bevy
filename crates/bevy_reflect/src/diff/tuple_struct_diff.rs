@@ -29,6 +29,11 @@ impl<'old, 'new> TupleStructDiff<'old, 'new> {
     pub fn field_iter(&self) -> Iter<'_, Diff<'old, 'new>> {
         self.fields.iter()
     }
+
+    /// Take the changes contained in this diff.
+    pub fn take_changes(self) -> Vec<Diff<'old, 'new>> {
+        self.fields
+    }
 }
 
 impl<'old, 'new> Debug for TupleStructDiff<'old, 'new> {

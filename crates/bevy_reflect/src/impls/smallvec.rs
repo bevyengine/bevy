@@ -3,7 +3,9 @@ use smallvec::SmallVec;
 
 use std::any::Any;
 
-use crate::diff::{diff_list, DiffResult};
+use crate::diff::{
+    diff_list, DiffApplyError, DiffApplyResult, DiffResult, ElementDiff, ListDiff, ValueDiff,
+};
 use crate::utility::GenericTypeInfoCell;
 use crate::{
     self as bevy_reflect, ApplyError, FromReflect, FromType, GetTypeRegistration, List, ListInfo,
@@ -75,6 +77,58 @@ where
         self.into_iter()
             .map(|value| Box::new(value) as Box<dyn Reflect>)
             .collect()
+    }
+
+    fn apply_list_diff(&mut self, diff: ListDiff) -> DiffApplyResult {
+        let info = <Self as Typed>::type_info();
+
+        if info.type_id() != diff.type_info().type_id() {
+            return Err(DiffApplyError::TypeMismatch);
+        }
+
+        let new_len = (self.len() + diff.total_insertions()) - diff.total_deletions();
+        let mut new = Self::with_capacity(new_len);
+
+        let mut changes = diff.take_changes();
+        changes.reverse();
+
+        fn has_change(changes: &[ElementDiff], index: usize) -> bool {
+            changes
+                .last()
+                .map(|change| change.index() == index)
+                .unwrap_or_default()
+        }
+
+        let insert = |value: ValueDiff, list: &mut Self| -> Result<(), DiffApplyError> {
+            list.push(
+                <T::Item as FromReflect>::from_reflect(value.as_reflect())
+                    .ok_or(DiffApplyError::TypeMismatch)?,
+            );
+            Ok(())
+        };
+
+        'outer: for (curr_index, element) in self.drain(..).enumerate() {
+            while has_change(&changes, curr_index) {
+                match changes.pop().unwrap() {
+                    ElementDiff::Deleted(_) => {
+                        continue 'outer;
+                    }
+                    ElementDiff::Inserted(_, value) => {
+                        insert(value, &mut new)?;
+                    }
+                }
+            }
+
+            new.push(element);
+        }
+
+        // Insert any remaining elements
+        while let Some(ElementDiff::Inserted(_, value)) = changes.pop() {
+            insert(value, &mut new)?;
+        }
+
+        *self = new;
+        Ok(())
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::diff::{diff_tuple, DiffResult};
+use crate::diff::{diff_tuple, DiffApplyError, DiffApplyResult, DiffResult, TupleDiff};
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::all_tuples;
 
@@ -54,6 +54,9 @@ pub trait Tuple: Reflect {
 
     /// Clones the struct into a [`DynamicTuple`].
     fn clone_dynamic(&self) -> DynamicTuple;
+
+    /// Apply the given [`TupleDiff`] to this value.
+    fn apply_tuple_diff(&mut self, diff: TupleDiff) -> DiffApplyResult;
 }
 
 /// An iterator over the field values of a tuple.
@@ -298,6 +301,24 @@ impl Tuple for DynamicTuple {
                 .collect(),
         }
     }
+
+    fn apply_tuple_diff(&mut self, diff: TupleDiff) -> DiffApplyResult {
+        let Some(info) = self.get_represented_type_info() else {
+            return Err(DiffApplyError::MissingTypeInfo);
+        };
+
+        if info.type_id() != diff.type_info().type_id() || self.field_len() != diff.field_len() {
+            return Err(DiffApplyError::TypeMismatch);
+        }
+
+        for (index, diff) in diff.take_changes().into_iter().enumerate() {
+            self.field_mut(index)
+                .ok_or(DiffApplyError::MissingField)?
+                .apply_diff(diff)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl Reflect for DynamicTuple {
@@ -537,6 +558,26 @@ macro_rules! impl_reflect_tuple {
                         .map(|value| value.clone_value())
                         .collect(),
                 }
+            }
+
+            fn apply_tuple_diff(&mut self, diff: TupleDiff) -> DiffApplyResult {
+                let Some(info) = self.get_represented_type_info() else {
+                    return Err(DiffApplyError::MissingTypeInfo);
+                };
+
+                if info.type_id() != diff.type_info().type_id() || self.field_len() != diff.field_len() {
+                     return Err(DiffApplyError::TypeMismatch);
+                 }
+
+                let mut _diffs = diff.take_changes();
+                 _diffs.reverse();
+
+                $(
+                    self.$index.apply_diff(
+                        _diffs.pop().ok_or(DiffApplyError::MissingDiff)?
+                    )?;
+                )*
+                Ok(())
             }
         }
 

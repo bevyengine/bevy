@@ -40,6 +40,11 @@ impl<'old, 'new> TupleDiff<'old, 'new> {
     pub(crate) fn push(&mut self, field_diff: Diff<'old, 'new>) {
         self.fields.push(field_diff);
     }
+
+    /// Take the changes contained in this diff.
+    pub fn take_changes(self) -> Vec<Diff<'old, 'new>> {
+        self.fields
+    }
 }
 
 impl<'old, 'new> Debug for TupleDiff<'old, 'new> {
