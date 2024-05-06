@@ -23,7 +23,7 @@ use bevy_render::{
     view::{InheritedVisibility, NoFrustumCulling, ViewVisibility, Visibility},
     Extract,
 };
-use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlasLayout};
+use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, SpriteSource, TextureAtlasLayout};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
@@ -78,6 +78,10 @@ pub struct Text2dBundle {
     pub view_visibility: ViewVisibility,
     /// Contains the size of the text and its glyph's position and scale data. Generated via [`TextPipeline::queue_text`]
     pub text_layout_info: TextLayoutInfo,
+    /// Marks that this is a [`SpriteSource`].
+    ///
+    /// This is needed for visibility computation to work properly.
+    pub sprite_source: SpriteSource,
 }
 
 /// This system extracts the sprites from the 2D text components and adds them to the
@@ -301,7 +305,7 @@ mod tests {
         );
 
         let entity = app
-            .world
+            .world_mut()
             .spawn((Text2dBundle {
                 text: Text::from_section(FIRST_TEXT, default()),
                 ..default()
@@ -316,7 +320,7 @@ mod tests {
         let (mut app, entity) = setup();
 
         assert!(!app
-            .world
+            .world()
             .get_entity(entity)
             .expect("Could not find entity")
             .contains::<Aabb>());
@@ -325,7 +329,7 @@ mod tests {
         app.update();
 
         let aabb = app
-            .world
+            .world()
             .get_entity(entity)
             .expect("Could not find entity")
             .get::<Aabb>()
@@ -347,14 +351,14 @@ mod tests {
         app.update();
 
         let first_aabb = *app
-            .world
+            .world()
             .get_entity(entity)
             .expect("Could not find entity")
             .get::<Aabb>()
             .expect("Could not find initial AABB");
 
         let mut entity_ref = app
-            .world
+            .world_mut()
             .get_entity_mut(entity)
             .expect("Could not find entity");
         *entity_ref
@@ -365,7 +369,7 @@ mod tests {
         app.update();
 
         let second_aabb = *app
-            .world
+            .world()
             .get_entity(entity)
             .expect("Could not find entity")
             .get::<Aabb>()

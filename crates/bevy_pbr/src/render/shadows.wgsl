@@ -3,8 +3,12 @@
 #import bevy_pbr::{
     mesh_view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
     mesh_view_bindings as view_bindings,
-    utils::hsv2rgb,
-    shadow_sampling::sample_shadow_map
+    shadow_sampling::{SPOT_SHADOW_TEXEL_SIZE, sample_shadow_cubemap, sample_shadow_map}
+}
+
+#import bevy_render::{
+    color_operations::hsv_to_rgb,
+    maths::PI_2
 }
 
 const flip_z: vec3<f32> = vec3<f32>(1.0, 1.0, -1.0);
@@ -39,16 +43,7 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
 
     // Do the lookup, using HW PCF and comparison. Cubemaps assume a left-handed coordinate space,
     // so we have to flip the z-axis when sampling.
-    // NOTE: Due to the non-uniform control flow above, we must use the Level variant of
-    // textureSampleCompare to avoid undefined behavior due to some of the fragments in
-    // a quad (2x2 fragments) being processed not being sampled, and this messing with
-    // mip-mapping functionality. The shadow maps have no mipmaps so Level just samples
-    // from LOD 0.
-#ifdef NO_CUBE_ARRAY_TEXTURES_SUPPORT
-    return textureSampleCompare(view_bindings::point_shadow_textures, view_bindings::point_shadow_textures_sampler, frag_ls * flip_z, depth);
-#else
-    return textureSampleCompareLevel(view_bindings::point_shadow_textures, view_bindings::point_shadow_textures_sampler, frag_ls * flip_z, i32(light_id), depth);
-#endif
+    return sample_shadow_cubemap(frag_ls * flip_z, distance_to_light, depth, light_id);
 }
 
 fn fetch_spot_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
@@ -99,9 +94,12 @@ fn fetch_spot_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: ve
     // 0.1 must match POINT_LIGHT_NEAR_Z
     let depth = 0.1 / -projected_position.z;
 
-     // Number determined by trial and error that gave nice results.
-     let texel_size = 0.0134277345;
-    return sample_shadow_map(shadow_uv, depth, i32(light_id) + view_bindings::lights.spot_light_shadowmap_offset, texel_size);
+    return sample_shadow_map(
+        shadow_uv,
+        depth,
+        i32(light_id) + view_bindings::lights.spot_light_shadowmap_offset,
+        SPOT_SHADOW_TEXEL_SIZE
+    );
 }
 
 fn get_cascade_index(light_id: u32, view_z: f32) -> u32 {
@@ -176,7 +174,11 @@ fn cascade_debug_visualization(
 ) -> vec3<f32> {
     let overlay_alpha = 0.95;
     let cascade_index = get_cascade_index(light_id, view_z);
-    let cascade_color = hsv2rgb(f32(cascade_index) / f32(#{MAX_CASCADES_PER_LIGHT}u + 1u), 1.0, 0.5);
+    let cascade_color = hsv_to_rgb(
+        f32(cascade_index) / f32(#{MAX_CASCADES_PER_LIGHT}u + 1u) * PI_2,
+        1.0,
+        0.5
+    );
     return vec3<f32>(
         (1.0 - overlay_alpha) * output_color.rgb + overlay_alpha * cascade_color
     );

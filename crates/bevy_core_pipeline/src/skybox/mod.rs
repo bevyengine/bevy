@@ -18,7 +18,7 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
-    texture::{BevyDefault, Image},
+    texture::{BevyDefault, GpuImage, Image},
     view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
@@ -38,10 +38,9 @@ impl Plugin for SkyboxPlugin {
             UniformComponentPlugin::<SkyboxUniforms>::default(),
         ));
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-
         render_app
             .init_resource::<SpecializedRenderPipelines<SkyboxPipeline>>()
             .add_systems(
@@ -54,12 +53,10 @@ impl Plugin for SkyboxPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-
-        let render_device = render_app.world.resource::<RenderDevice>().clone();
-
+        let render_device = render_app.world().resource::<RenderDevice>().clone();
         render_app.insert_resource(SkyboxPipeline::new(&render_device));
     }
 }
@@ -239,7 +236,7 @@ fn prepare_skybox_bind_groups(
     pipeline: Res<SkyboxPipeline>,
     view_uniforms: Res<ViewUniforms>,
     skybox_uniforms: Res<ComponentUniforms<SkyboxUniforms>>,
-    images: Res<RenderAssets<Image>>,
+    images: Res<RenderAssets<GpuImage>>,
     render_device: Res<RenderDevice>,
     views: Query<(Entity, &Skybox, &DynamicUniformIndex<SkyboxUniforms>)>,
 ) {

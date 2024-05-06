@@ -1,8 +1,9 @@
 use crate::{
-    config::{GizmoLineJoint, GizmoMeshConfig},
+    config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
     line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
-    DrawLineJointGizmo, GizmoRenderSystem, LineGizmo, LineGizmoUniformBindgroupLayout,
-    SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE, LINE_SHADER_HANDLE,
+    DrawLineJointGizmo, GizmoRenderSystem, GpuLineGizmo, LineGizmo,
+    LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE,
+    LINE_SHADER_HANDLE,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
@@ -14,9 +15,12 @@ use bevy_ecs::{
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_math::FloatOrd;
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
-    render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
+    render_phase::{
+        AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline, SortedRenderPhase,
+    },
     render_resource::*,
     texture::BevyDefault,
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
@@ -24,13 +28,12 @@ use bevy_render::{
 };
 use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
 use bevy_utils::tracing::error;
-use bevy_utils::FloatOrd;
 
 pub struct LineGizmo2dPlugin;
 
 impl Plugin for LineGizmo2dPlugin {
     fn build(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
@@ -41,18 +44,23 @@ impl Plugin for LineGizmo2dPlugin {
             .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
             .configure_sets(
                 Render,
-                GizmoRenderSystem::QueueLineGizmos2d.in_set(RenderSet::Queue),
+                GizmoRenderSystem::QueueLineGizmos2d
+                    .in_set(RenderSet::Queue)
+                    .ambiguous_with(bevy_sprite::queue_sprites)
+                    .ambiguous_with(
+                        bevy_sprite::queue_material2d_meshes::<bevy_sprite::ColorMaterial>,
+                    ),
             )
             .add_systems(
                 Render,
                 (queue_line_gizmos_2d, queue_line_joint_gizmos_2d)
                     .in_set(GizmoRenderSystem::QueueLineGizmos2d)
-                    .after(prepare_assets::<LineGizmo>),
+                    .after(prepare_assets::<GpuLineGizmo>),
             );
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
@@ -83,6 +91,7 @@ impl FromWorld for LineGizmoPipeline {
 struct LineGizmoPipelineKey {
     mesh_key: Mesh2dPipelineKey,
     strip: bool,
+    line_style: GizmoLineStyle,
 }
 
 impl SpecializedRenderPipeline for LineGizmoPipeline {
@@ -105,6 +114,11 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             self.uniform_layout.clone(),
         ];
 
+        let fragment_entry_point = match key.line_style {
+            GizmoLineStyle::Solid => "fragment_solid",
+            GizmoLineStyle::Dotted => "fragment_dotted",
+        };
+
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: LINE_SHADER_HANDLE,
@@ -115,7 +129,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             fragment: Some(FragmentState {
                 shader: LINE_SHADER_HANDLE,
                 shader_defs,
-                entry_point: "fragment".into(),
+                entry_point: fragment_entry_point.into(),
                 targets: vec![Some(ColorTargetState {
                     format,
                     blend: Some(BlendState::ALPHA_BLENDING),
@@ -242,10 +256,10 @@ fn queue_line_gizmos_2d(
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoMeshConfig)>,
-    line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
+    line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut views: Query<(
         &ExtractedView,
-        &mut RenderPhase<Transparent2d>,
+        &mut SortedRenderPhase<Transparent2d>,
         Option<&RenderLayers>,
     )>,
 ) {
@@ -271,6 +285,7 @@ fn queue_line_gizmos_2d(
                 LineGizmoPipelineKey {
                     mesh_key,
                     strip: line_gizmo.strip,
+                    line_style: config.line_style,
                 },
             );
 
@@ -280,7 +295,7 @@ fn queue_line_gizmos_2d(
                 pipeline,
                 sort_key: FloatOrd(f32::INFINITY),
                 batch_range: 0..1,
-                dynamic_offset: None,
+                extra_index: PhaseItemExtraIndex::NONE,
             });
         }
     }
@@ -294,10 +309,10 @@ fn queue_line_joint_gizmos_2d(
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoMeshConfig)>,
-    line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
+    line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut views: Query<(
         &ExtractedView,
-        &mut RenderPhase<Transparent2d>,
+        &mut SortedRenderPhase<Transparent2d>,
         Option<&RenderLayers>,
     )>,
 ) {
@@ -338,7 +353,7 @@ fn queue_line_joint_gizmos_2d(
                 pipeline,
                 sort_key: FloatOrd(f32::INFINITY),
                 batch_range: 0..1,
-                dynamic_offset: None,
+                extra_index: PhaseItemExtraIndex::NONE,
             });
         }
     }

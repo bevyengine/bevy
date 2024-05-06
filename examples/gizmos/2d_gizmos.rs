@@ -24,7 +24,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         "Hold 'Left' or 'Right' to change the line width of straight gizmos\n\
         Hold 'Up' or 'Down' to change the line width of round gizmos\n\
         Press '1' or '2' to toggle the visibility of straight gizmos or round gizmos\n\
-        Press 'J' or 'K' to cycle through line joints for straight or round gizmos",
+        Press 'U' or 'I' to cycle through line styles for straight or round gizmos\n\
+        Press 'J' or 'K' to cycle through line joins for straight or round gizmos",
         TextStyle {
             font: asset_server.load("fonts/FiraMono-Medium.ttf"),
             font_size: 24.,
@@ -88,6 +89,12 @@ fn draw_example_collection(
         Vec2::from_angle(sin / -10. + PI / 2.) * 50.,
         YELLOW,
     );
+
+    // You can create more complex arrows using the arrow builder.
+    gizmos
+        .arrow_2d(Vec2::ZERO, Vec2::from_angle(sin / -10.) * 50., GREEN)
+        .with_double_end()
+        .with_tip_length(10.);
 }
 
 fn update_config(
@@ -106,6 +113,12 @@ fn update_config(
     }
     if keyboard.just_pressed(KeyCode::Digit1) {
         config.enabled ^= true;
+    }
+    if keyboard.just_pressed(KeyCode::KeyU) {
+        config.line_style = match config.line_style {
+            GizmoLineStyle::Solid => GizmoLineStyle::Dotted,
+            _ => GizmoLineStyle::Solid,
+        };
     }
     if keyboard.just_pressed(KeyCode::KeyJ) {
         config.line_joints = match config.line_joints {
@@ -127,6 +140,12 @@ fn update_config(
     }
     if keyboard.just_pressed(KeyCode::Digit2) {
         my_config.enabled ^= true;
+    }
+    if keyboard.just_pressed(KeyCode::KeyI) {
+        my_config.line_style = match my_config.line_style {
+            GizmoLineStyle::Solid => GizmoLineStyle::Dotted,
+            _ => GizmoLineStyle::Solid,
+        };
     }
     if keyboard.just_pressed(KeyCode::KeyK) {
         my_config.line_joints = match my_config.line_joints {

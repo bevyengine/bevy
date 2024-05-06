@@ -110,6 +110,12 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
     }
 }
 
+impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// A container for [`TypedProperty`] over generic types, allowing instances to be stored statically.
 ///
 /// This is specifically meant for use with generic types. If your type isn't generic,
@@ -242,6 +248,12 @@ impl<T: TypedProperty> GenericTypeCell<T> {
                 Box::leak(Box::new(value))
             })
             .get()
+    }
+}
+
+impl<T: TypedProperty> Default for GenericTypeCell<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

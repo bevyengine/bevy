@@ -106,15 +106,27 @@ impl Ellipse {
         }
     }
 
+    #[inline(always)]
+    /// Returns the [eccentricity](https://en.wikipedia.org/wiki/Eccentricity_(mathematics)) of the ellipse.
+    /// It can be thought of as a measure of how "stretched" or elongated the ellipse is.
+    ///
+    /// The value should be in the range [0, 1), where 0 represents a circle, and 1 represents a parabola.
+    pub fn eccentricity(&self) -> f32 {
+        let a = self.semi_major();
+        let b = self.semi_minor();
+
+        (a * a - b * b).sqrt() / a
+    }
+
     /// Returns the length of the semi-major axis. This corresponds to the longest radius of the ellipse.
     #[inline(always)]
-    pub fn semi_major(self) -> f32 {
+    pub fn semi_major(&self) -> f32 {
         self.half_size.max_element()
     }
 
     /// Returns the length of the semi-minor axis. This corresponds to the shortest radius of the ellipse.
     #[inline(always)]
-    pub fn semi_minor(self) -> f32 {
+    pub fn semi_minor(&self) -> f32 {
         self.half_size.min_element()
     }
 
@@ -122,6 +134,92 @@ impl Ellipse {
     #[inline(always)]
     pub fn area(&self) -> f32 {
         PI * self.half_size.x * self.half_size.y
+    }
+}
+
+/// A primitive shape formed by the region between two circles, also known as a ring.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[doc(alias = "Ring")]
+pub struct Annulus {
+    /// The inner circle of the annulus
+    pub inner_circle: Circle,
+    /// The outer circle of the annulus
+    pub outer_circle: Circle,
+}
+impl Primitive2d for Annulus {}
+
+impl Default for Annulus {
+    /// Returns the default [`Annulus`] with radii of `0.5` and `1.0`.
+    fn default() -> Self {
+        Self {
+            inner_circle: Circle::new(0.5),
+            outer_circle: Circle::new(1.0),
+        }
+    }
+}
+
+impl Annulus {
+    /// Create a new [`Annulus`] from the radii of the inner and outer circle
+    #[inline(always)]
+    pub const fn new(inner_radius: f32, outer_radius: f32) -> Self {
+        Self {
+            inner_circle: Circle::new(inner_radius),
+            outer_circle: Circle::new(outer_radius),
+        }
+    }
+
+    /// Get the diameter of the annulus
+    #[inline(always)]
+    pub fn diameter(&self) -> f32 {
+        self.outer_circle.diameter()
+    }
+
+    /// Get the thickness of the annulus
+    #[inline(always)]
+    pub fn thickness(&self) -> f32 {
+        self.outer_circle.radius - self.inner_circle.radius
+    }
+
+    /// Get the area of the annulus
+    #[inline(always)]
+    pub fn area(&self) -> f32 {
+        PI * (self.outer_circle.radius.powi(2) - self.inner_circle.radius.powi(2))
+    }
+
+    /// Get the perimeter or circumference of the annulus,
+    /// which is the sum of the perimeters of the inner and outer circles.
+    #[inline(always)]
+    #[doc(alias = "circumference")]
+    pub fn perimeter(&self) -> f32 {
+        2.0 * PI * (self.outer_circle.radius + self.inner_circle.radius)
+    }
+
+    /// Finds the point on the annulus that is closest to the given `point`:
+    ///
+    /// - If the point is outside of the annulus completely, the returned point will be on the outer perimeter.
+    /// - If the point is inside of the inner circle (hole) of the annulus, the returned point will be on the inner perimeter.
+    /// - Otherwise, the returned point is overlapping the annulus and returned as is.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec2) -> Vec2 {
+        let distance_squared = point.length_squared();
+
+        if self.inner_circle.radius.powi(2) <= distance_squared {
+            if distance_squared <= self.outer_circle.radius.powi(2) {
+                // The point is inside the annulus.
+                point
+            } else {
+                // The point is outside the annulus and closer to the outer perimeter.
+                // Find the closest point on the perimeter of the annulus.
+                let dir_to_point = point / distance_squared.sqrt();
+                self.outer_circle.radius * dir_to_point
+            }
+        } else {
+            // The point is outside the annulus and closer to the inner perimeter.
+            // Find the closest point on the perimeter of the annulus.
+            let dir_to_point = point / distance_squared.sqrt();
+            self.inner_circle.radius * dir_to_point
+        }
     }
 }
 
@@ -719,6 +817,20 @@ mod tests {
     }
 
     #[test]
+    fn annulus_closest_point() {
+        let annulus = Annulus::new(1.5, 2.0);
+        assert_eq!(annulus.closest_point(Vec2::X * 10.0), Vec2::X * 2.0);
+        assert_eq!(
+            annulus.closest_point(Vec2::NEG_ONE),
+            Vec2::NEG_ONE.normalize() * 1.5
+        );
+        assert_eq!(
+            annulus.closest_point(Vec2::new(1.55, 0.85)),
+            Vec2::new(1.55, 0.85)
+        );
+    }
+
+    #[test]
     fn circle_math() {
         let circle = Circle { radius: 3.0 };
         assert_eq!(circle.diameter(), 6.0, "incorrect diameter");
@@ -727,9 +839,26 @@ mod tests {
     }
 
     #[test]
+    fn annulus_math() {
+        let annulus = Annulus::new(2.5, 3.5);
+        assert_eq!(annulus.diameter(), 7.0, "incorrect diameter");
+        assert_eq!(annulus.thickness(), 1.0, "incorrect thickness");
+        assert_eq!(annulus.area(), 18.849556, "incorrect area");
+        assert_eq!(annulus.perimeter(), 37.699112, "incorrect perimeter");
+    }
+
+    #[test]
     fn ellipse_math() {
         let ellipse = Ellipse::new(3.0, 1.0);
         assert_eq!(ellipse.area(), 9.424778, "incorrect area");
+
+        assert_eq!(ellipse.eccentricity(), 0.94280905, "incorrect eccentricity");
+
+        let line = Ellipse::new(1., 0.);
+        assert_eq!(line.eccentricity(), 1., "incorrect line eccentricity");
+
+        let circle = Ellipse::new(2., 2.);
+        assert_eq!(circle.eccentricity(), 0., "incorrect circle eccentricity");
     }
 
     #[test]

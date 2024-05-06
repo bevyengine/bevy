@@ -469,6 +469,12 @@ impl<'w> EntityMut<'w> {
     }
 }
 
+impl<'w> From<&'w mut EntityMut<'_>> for EntityMut<'w> {
+    fn from(value: &'w mut EntityMut<'_>) -> Self {
+        value.reborrow()
+    }
+}
+
 impl<'w> From<EntityWorldMut<'w>> for EntityMut<'w> {
     fn from(value: EntityWorldMut<'w>) -> Self {
         // SAFETY: `EntityWorldMut` guarantees exclusive access to the entire world.
@@ -1031,22 +1037,25 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Remove the components of `bundle` from `entity`.
     ///
-    /// SAFETY: The components in `bundle_info` must exist.
+    /// SAFETY:
+    /// - A `BundleInfo` with the corresponding `BundleId` must have been initialized.
     #[allow(clippy::too_many_arguments)]
     unsafe fn remove_bundle(&mut self, bundle: BundleId) -> EntityLocation {
         let entity = self.entity;
         let world = &mut self.world;
         let location = self.location;
+        // SAFETY: the caller guarantees that the BundleInfo for this id has been initialized.
         let bundle_info = world.bundles.get_unchecked(bundle);
 
         // SAFETY: `archetype_id` exists because it is referenced in `location` which is valid
-        // and components in `bundle_info` must exist due to this functions safety invariants.
+        // and components in `bundle_info` must exist due to this function's safety invariants.
         let new_archetype_id = remove_bundle_from_archetype(
             &mut world.archetypes,
             &mut world.storages,
             &world.components,
             location.archetype_id,
             bundle_info,
+            // components from the bundle that are not present on the entity are ignored
             true,
         )
         .expect("intersections should always return a result");
@@ -1117,8 +1126,7 @@ impl<'w> EntityWorldMut<'w> {
         let components = &mut self.world.components;
         let bundle_info = self.world.bundles.init_info::<T>(components, storages);
 
-        // SAFETY: Components exist in `bundle_info` because `Bundles::init_info`
-        // initializes a: EntityLocation `BundleInfo` containing all components of the bundle type `T`.
+        // SAFETY: the `BundleInfo` is initialized above
         self.location = unsafe { self.remove_bundle(bundle_info) };
 
         self
@@ -1144,9 +1152,29 @@ impl<'w> EntityWorldMut<'w> {
             .collect::<Vec<_>>();
         let remove_bundle = self.world.bundles.init_dynamic_info(components, to_remove);
 
-        // SAFETY: Components exist in `remove_bundle` because `Bundles::init_dynamic_info`
-        // initializes a `BundleInfo` containing all components in the to_remove Bundle.
+        // SAFETY: the `BundleInfo` for the components to remove is initialized above
         self.location = unsafe { self.remove_bundle(remove_bundle) };
+        self
+    }
+
+    /// Removes a dynamic [`Component`] from the entity if it exists.
+    ///
+    /// You should prefer to use the typed API [`EntityWorldMut::remove`] where possible.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the provided [`ComponentId`] does not exist in the [`World`].
+    pub fn remove_by_id(&mut self, component_id: ComponentId) -> &mut Self {
+        let components = &mut self.world.components;
+
+        let bundle_id = self
+            .world
+            .bundles
+            .init_component_info(components, component_id);
+
+        // SAFETY: the `BundleInfo` for this `component_id` is initialized above
+        self.location = unsafe { self.remove_bundle(bundle_id) };
+
         self
     }
 
@@ -2764,6 +2792,22 @@ mod tests {
             .collect();
 
         assert_eq!(dynamic_components, static_components);
+    }
+
+    #[test]
+    fn entity_mut_remove_by_id() {
+        let mut world = World::new();
+        let test_component_id = world.init_component::<TestComponent>();
+
+        let mut entity = world.spawn(TestComponent(42));
+        entity.remove_by_id(test_component_id);
+
+        let components: Vec<_> = world.query::<&TestComponent>().iter(&world).collect();
+
+        assert_eq!(components, vec![] as Vec<&TestComponent>);
+
+        // remove non-existent component does not panic
+        world.spawn_empty().remove_by_id(test_component_id);
     }
 
     #[derive(Component)]

@@ -2,7 +2,6 @@ use crate::{
     Alpha, Hsla, Hsva, Hwba, Laba, Lcha, LinearRgba, Oklaba, Oklcha, Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::prelude::*;
-use serde::{Deserialize, Serialize};
 
 /// An enumerated type that can represent any of the color types in this crate.
 ///
@@ -12,8 +11,13 @@ use serde::{Deserialize, Serialize};
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum Color {
     /// A color in the sRGB color space with alpha.
     Srgba(Srgba),
