@@ -15,7 +15,7 @@ use crate::{
 
 use super::{
     ref_eq::RefEq, DescribedRenderResource, IntoRenderResource, NewRenderResource, RenderHandle,
-    RenderResource, RenderResourceId, ResourceTracker,
+    RenderResource, RenderResourceId, ResourceTracker, ResourceType,
 };
 
 #[derive(Default)]
@@ -55,7 +55,8 @@ impl<'g> RenderGraphPipelines<'g> {
         descriptor: Option<RenderPipelineDescriptor>,
         pipeline: RefEq<'g, RenderPipeline>,
     ) -> RenderResourceId {
-        let id = tracker.new_resource(None);
+        let id = tracker.new_resource(ResourceType::RenderPipeline, None); //todo: add layout
+                                                                           //dependencies
         self.render_pipelines
             .insert(id, RenderPipelineMeta::Direct(descriptor, pipeline));
         id
@@ -67,7 +68,7 @@ impl<'g> RenderGraphPipelines<'g> {
         descriptor: Option<ComputePipelineDescriptor>,
         pipeline: RefEq<'g, ComputePipeline>,
     ) -> RenderResourceId {
-        let id = tracker.new_resource(None);
+        let id = tracker.new_resource(ResourceType::ComputePipeline, None);
         self.compute_pipelines
             .insert(id, ComputePipelineMeta::Direct(descriptor, pipeline));
         id
@@ -80,7 +81,7 @@ impl<'g> RenderGraphPipelines<'g> {
         pipeline_cache: &PipelineCache,
         descriptor: RenderPipelineDescriptor,
     ) -> RenderResourceId {
-        let id = tracker.new_resource(None);
+        let id = tracker.new_resource(ResourceType::RenderPipeline, None);
         let render_pipeline_id = cache
             .cached_render_pipelines
             .entry(descriptor.clone())
@@ -97,7 +98,7 @@ impl<'g> RenderGraphPipelines<'g> {
         pipeline_cache: &PipelineCache,
         descriptor: ComputePipelineDescriptor,
     ) -> RenderResourceId {
-        let id = tracker.new_resource(None);
+        let id = tracker.new_resource(ResourceType::ComputePipeline, None);
         let compute_pipeline_id = cache
             .cached_compute_pipelines
             .entry(descriptor.clone())
@@ -161,6 +162,8 @@ impl<'g> RenderGraphPipelines<'g> {
 }
 
 impl RenderResource for RenderPipeline {
+    const RESOURCE_TYPE: ResourceType = ResourceType::RenderPipeline;
+
     #[inline]
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,
@@ -211,6 +214,8 @@ impl<'g> IntoRenderResource<'g> for RenderPipelineDescriptor {
 }
 
 impl RenderResource for ComputePipeline {
+    const RESOURCE_TYPE: ResourceType = ResourceType::ComputePipeline;
+
     #[inline]
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,

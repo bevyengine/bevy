@@ -8,10 +8,12 @@ use crate::{
 
 use super::{
     ref_eq::RefEq, DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource,
-    NewRenderResource, RenderHandle, RenderResource, UsagesRenderResource, WriteRenderResource,
+    NewRenderResource, RenderHandle, RenderResource, ResourceType, UsagesRenderResource,
+    WriteRenderResource,
 };
 
 impl RenderResource for Buffer {
+    const RESOURCE_TYPE: ResourceType = ResourceType::Buffer;
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,
         resource: RefEq<'g, Self>,

@@ -3,11 +3,11 @@ use std::{borrow::Borrow, fmt::Debug, marker::PhantomData};
 use bevy_utils::{all_tuples, HashMap, HashSet};
 use std::hash::Hash;
 
-use crate::renderer::RenderDevice;
+use crate::{render_resource::PipelineCache, renderer::RenderDevice};
 
 use self::ref_eq::RefEq;
 
-use super::{NodeContext, RenderGraph, RenderGraphBuilder};
+use super::{NodeContext, RenderGraphBuilder, RenderGraphExecution};
 
 pub mod bind_group;
 pub mod buffer;
@@ -18,10 +18,22 @@ pub mod texture;
 #[derive(Default)]
 pub struct ResourceTracker<'g> {
     next_id: u32,
-    generations: Vec<GenerationInfo<'g>>,
+    resources: Vec<ResourceInfo<'g>>,
 }
 
-struct GenerationInfo<'g> {
+pub enum ResourceType {
+    BindGroupLayout,
+    BindGroup,
+    Texture,
+    TextureView,
+    Sampler,
+    Buffer,
+    RenderPipeline,
+    ComputePipeline,
+}
+
+struct ResourceInfo<'g> {
+    resource_type: ResourceType,
     generation: RenderResourceGeneration,
     dependencies: Option<RenderDependencies<'g>>,
 }
@@ -29,11 +41,12 @@ struct GenerationInfo<'g> {
 impl<'g> ResourceTracker<'g> {
     pub(super) fn clear(&mut self) {
         self.next_id = 0;
-        self.generations.clear();
+        self.resources.clear();
     }
 
     pub(super) fn new_resource(
         &mut self,
+        resource_type: ResourceType,
         dependencies: Option<RenderDependencies<'g>>,
     ) -> RenderResourceId {
         //TODO: IMPORTANT: debug check for dependency cycles
@@ -45,14 +58,15 @@ impl<'g> ResourceTracker<'g> {
         }
         let id = self.next_id;
         self.next_id += 1;
-        self.generations.push(GenerationInfo {
+        self.resources.push(ResourceInfo {
+            resource_type,
             generation: 0,
             dependencies,
         });
         RenderResourceId { id }
     }
 
-    pub(super) fn write_dependencies(&mut self, dependencies: RenderDependencies) {
+    pub(super) fn write_dependencies(&mut self, dependencies: RenderDependencies<'g>) {
         //NOTE: takes dependencies instead of single resource in order to deduplicate writes in
         //same "set"
         // self.collect_dependencies(id)
@@ -64,22 +78,58 @@ impl<'g> ResourceTracker<'g> {
     pub(super) fn generation(&self, id: RenderResourceId) -> RenderResourceGeneration {
         self.collect_dependencies(id)
             .iter()
-            .map(|id| self.generations[id.id as usize].generation)
+            .map(|id| self.resources[id.id as usize].generation)
             .sum()
     }
 
+    pub(super) fn dependencies_ready(
+        &self,
+        graph: &RenderGraphExecution<'g>,
+        pipeline_cache: &PipelineCache,
+        dependencies: RenderDependencies<'g>,
+    ) -> bool {
+        let dependencies = self.collect_many_dependencies(dependencies);
+        let mut render_dependencies = dependencies.iter();
+        render_dependencies.all(|dep| match self.resources[dep.id as usize].resource_type {
+            ResourceType::BindGroupLayout => graph.bind_group_layouts.get(dep).is_some(),
+            ResourceType::BindGroup => graph.bind_groups.get(dep).is_some(),
+            ResourceType::Texture => graph.textures.get(dep).is_some(),
+            ResourceType::TextureView => graph.texture_views.get(dep).is_some(),
+            ResourceType::Sampler => graph.samplers.get(dep).is_some(),
+            ResourceType::Buffer => graph.buffers.get(dep).is_some(),
+            ResourceType::RenderPipeline => graph
+                .pipelines
+                .get_render_pipeline(pipeline_cache, dep)
+                .is_some(),
+            ResourceType::ComputePipeline => graph
+                .pipelines
+                .get_compute_pipeline(pipeline_cache, dep)
+                .is_some(),
+        })
+    }
+
+    fn collect_many_dependencies(
+        &self,
+        dependencies: RenderDependencies<'g>,
+    ) -> RenderDependencies<'g> {
+        // let mut dependencies = self.generations[id.id as usize]
+        //     .dependencies
+        //     .clone()
+        //     .unwrap_or_default();
+        // //TODO: THIS IS IMPORTANT
+        // todo!();
+        // dependencies
+        todo!()
+    }
+
     fn collect_dependencies(&self, id: RenderResourceId) -> RenderDependencies<'g> {
-        let mut dependencies = self.generations[id.id as usize]
-            .dependencies
-            .clone()
-            .unwrap_or_default();
-        //TODO: THIS IS IMPORTANT
-        todo!();
-        dependencies
+        todo!()
     }
 }
 
 pub trait RenderResource: Sized + Send + Sync + 'static {
+    const RESOURCE_TYPE: ResourceType;
+
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,
         resource: RefEq<'g, Self>,
@@ -177,7 +227,7 @@ impl<'g, R: DescribedRenderResource> RenderResources<'g, R> {
                 if let Some(id) = self.existing_borrows.get(&(resource as *const R)) {
                     *id
                 } else {
-                    let id = tracker.new_resource(None);
+                    let id = tracker.new_resource(R::RESOURCE_TYPE, None);
                     self.resources.insert(
                         id,
                         RenderResourceMeta {
@@ -190,7 +240,7 @@ impl<'g, R: DescribedRenderResource> RenderResources<'g, R> {
                 }
             }
             RefEq::Owned(resource) => {
-                let id = tracker.new_resource(None);
+                let id = tracker.new_resource(R::RESOURCE_TYPE, None);
                 self.resources.insert(
                     id,
                     RenderResourceMeta {
@@ -208,7 +258,7 @@ impl<'g, R: DescribedRenderResource> RenderResources<'g, R> {
         tracker: &mut ResourceTracker,
         descriptor: R::Descriptor,
     ) -> RenderResourceId {
-        let id = tracker.new_resource(None);
+        let id = tracker.new_resource(R::RESOURCE_TYPE, None);
         self.queued_resources.insert(id, descriptor);
         id
     }
@@ -400,7 +450,7 @@ impl<'g, R: RenderResource> RenderHandle<'g, R> {
 pub struct RenderDependencies<'g> {
     reads: HashSet<RenderResourceId>,
     writes: HashSet<RenderResourceId>,
-    data: PhantomData<RenderGraph<'g>>,
+    data: PhantomData<RenderGraphExecution<'g>>,
 }
 
 impl<'g> RenderDependencies<'g> {

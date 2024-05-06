@@ -6,7 +6,7 @@ use encase::rts_array::Length;
 use wgpu::{BindGroupEntry, BindGroupLayoutEntry, BufferBinding, Label};
 
 use crate::{
-    render_graph_v2::{NodeContext, RenderGraph, RenderGraphBuilder},
+    render_graph_v2::{NodeContext, RenderGraphBuilder, RenderGraphExecution},
     render_resource::{AsBindGroup, BindGroup, BindGroupLayout},
     renderer::RenderDevice,
 };
@@ -14,9 +14,12 @@ use crate::{
 use super::{
     ref_eq::RefEq, DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource,
     RenderDependencies, RenderHandle, RenderResource, RenderResourceId, ResourceTracker,
+    ResourceType,
 };
 
 impl RenderResource for BindGroupLayout {
+    const RESOURCE_TYPE: ResourceType = ResourceType::BindGroupLayout;
+
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,
         resource: RefEq<'g, Self>,
@@ -90,7 +93,7 @@ impl<'g> RenderGraphBindGroups<'g> {
                 if let Some(id) = self.existing_borrows.get(&(bind_group as *const BindGroup)) {
                     *id
                 } else {
-                    let id = tracker.new_resource(dependencies);
+                    let id = tracker.new_resource(ResourceType::BindGroup, dependencies);
                     self.bind_groups.insert(id, RefEq::Borrowed(bind_group));
                     self.existing_borrows
                         .insert(bind_group as *const BindGroup, id);
@@ -98,7 +101,7 @@ impl<'g> RenderGraphBindGroups<'g> {
                 }
             }
             RefEq::Owned(_) => {
-                let id = tracker.new_resource(dependencies);
+                let id = tracker.new_resource(ResourceType::BindGroup, dependencies);
                 self.bind_groups.insert(id, bind_group);
                 id
             }
@@ -114,7 +117,7 @@ impl<'g> RenderGraphBindGroups<'g> {
         bind_group: impl FnOnce(NodeContext) -> &[BindGroupEntry] + 'g,
     ) -> RenderResourceId {
         dependencies.read(&layout);
-        let id = tracker.new_resource(Some(dependencies.clone()));
+        let id = tracker.new_resource(ResourceType::BindGroup, Some(dependencies.clone()));
         self.queued_bind_groups.insert(
             id,
             QueuedBindGroup {
@@ -129,7 +132,7 @@ impl<'g> RenderGraphBindGroups<'g> {
 
     pub fn create_queued_bind_groups(
         &mut self,
-        graph: &RenderGraph,
+        graph: &RenderGraphExecution,
         world: &World,
         render_device: &RenderDevice,
         view_entity: EntityRef<'g>,
@@ -256,6 +259,8 @@ impl<'a> PartialEq for BindGroupEntriesHash<'a> {
 impl<'a> Eq for BindGroupEntriesHash<'a> {}
 
 impl RenderResource for BindGroup {
+    const RESOURCE_TYPE: ResourceType = ResourceType::BindGroup;
+
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,
         resource: RefEq<'g, Self>,

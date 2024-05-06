@@ -6,17 +6,19 @@ use std::hash::Hash;
 use wgpu::{TextureUsages, TextureViewDescriptor};
 
 use crate::{
-    render_graph_v2::{NodeContext, RenderGraph, RenderGraphBuilder},
+    render_graph_v2::{NodeContext, RenderGraphBuilder, RenderGraphExecution},
     render_resource::{Sampler, SamplerDescriptor, Texture, TextureDescriptor, TextureView},
 };
 
 use super::{
     ref_eq::RefEq, DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource,
     NewRenderResource, RenderDependencies, RenderHandle, RenderResource, RenderResourceId,
-    RenderResourceMeta, ResourceTracker, UsagesRenderResource, WriteRenderResource,
+    RenderResourceMeta, ResourceTracker, ResourceType, UsagesRenderResource, WriteRenderResource,
 };
 
 impl RenderResource for Texture {
+    const RESOURCE_TYPE: ResourceType = ResourceType::Texture;
+
     #[inline]
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,
@@ -131,7 +133,7 @@ impl<'g> RenderGraphTextureViews<'g> {
                 {
                     *id
                 } else {
-                    let id = tracker.new_resource(None);
+                    let id = tracker.new_resource(ResourceType::TextureView, None);
                     self.texture_views.insert(
                         id,
                         RenderResourceMeta {
@@ -145,7 +147,7 @@ impl<'g> RenderGraphTextureViews<'g> {
                 }
             }
             RefEq::Owned(texture_view) => {
-                let id = tracker.new_resource(None);
+                let id = tracker.new_resource(ResourceType::TextureView, None);
                 self.texture_views.insert(
                     id,
                     RenderResourceMeta {
@@ -163,14 +165,17 @@ impl<'g> RenderGraphTextureViews<'g> {
         tracker: &mut ResourceTracker<'g>,
         descriptor: RenderGraphTextureView<'g>,
     ) -> RenderResourceId {
-        let id = tracker.new_resource(Some(RenderDependencies::of(&descriptor.texture)));
+        let id = tracker.new_resource(
+            ResourceType::TextureView,
+            Some(RenderDependencies::of(&descriptor.texture)),
+        );
         self.queued_texture_views.insert(id, descriptor);
         id
     }
 
     pub fn create_queued_resources(
         &mut self,
-        graph: &RenderGraph,
+        graph: &RenderGraphExecution<'g>,
         world: &World,
         view_entity: EntityRef,
     ) {
@@ -215,6 +220,8 @@ impl<'g> RenderGraphTextureViews<'g> {
 }
 
 impl RenderResource for TextureView {
+    const RESOURCE_TYPE: ResourceType = ResourceType::TextureView;
+
     #[inline]
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,
@@ -267,6 +274,8 @@ impl<'g> IntoRenderResource<'g> for RenderGraphTextureView<'g> {
 }
 
 impl RenderResource for Sampler {
+    const RESOURCE_TYPE: ResourceType = ResourceType::Sampler;
+
     #[inline]
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,
