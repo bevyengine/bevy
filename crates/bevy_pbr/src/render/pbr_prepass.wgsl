@@ -53,15 +53,10 @@ fn fragment(
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARD_MATERIAL_NORMAL_MAP
 
-#ifdef VERTEX_UVS_A
-        var uv = in.uv;
+#ifdef STANDARD_MATERIAL_NORMAL_MAP_UV_B
+        let uv = in.uv_b;
 #else
-        var uv = in.uv_b;
-#endif
-#ifdef VERTEX_UVS_B
-        if ((material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_NORMAL_MAP_UV_BIT) != 0u) {
-            uv = in.uv_b;
-        }
+        let uv = in.uv;
 #endif
 
     // Fill in the sample bias so we can sample from textures.

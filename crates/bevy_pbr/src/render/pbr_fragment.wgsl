@@ -97,9 +97,6 @@ fn pbr_input_from_standard_material(
 
 #ifdef VERTEX_UVS_B
     var uv_b = (uv_transform * vec3(in.uv_b, 1.0)).xy;
-#ifndef VERTEX_UVS_A
-    var uv = uv_b;
-#endif
 #else
     var uv_b = uv;
 #endif
@@ -112,6 +109,7 @@ fn pbr_input_from_standard_material(
         let B = in.world_tangent.w * cross(N, T);
         // Transform V from fragment to camera in world space to tangent space.
         let Vt = vec3(dot(V, T), dot(V, B), dot(V, N));
+#ifdef VERTEX_UVS_A
         uv = parallaxed_uv(
             pbr_bindings::material.parallax_depth_scale,
             pbr_bindings::material.max_parallax_layer_count,
@@ -122,6 +120,9 @@ fn pbr_input_from_standard_material(
             // about.
             -Vt,
         );
+#endif
+
+#ifdef VERTEX_UVS_B
         uv_b = parallaxed_uv(
             pbr_bindings::material.parallax_depth_scale,
             pbr_bindings::material.max_parallax_layer_count,
@@ -132,18 +133,21 @@ fn pbr_input_from_standard_material(
             // about.
             -Vt,
         );
+#else
+        uv_b = uv;
+#endif
     }
 #endif // VERTEX_TANGENTS
 
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
-        var base_color_uv = uv;
-        if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_UV_BIT) != 0u) {
-            base_color_uv = uv_b;
-        }
         pbr_input.material.base_color *= pbr_functions::sample_texture(
             pbr_bindings::base_color_texture,
             pbr_bindings::base_color_sampler,
-            base_color_uv,
+#ifdef STANDARD_MATERIAL_BASE_COLOR_UV_B
+            uv_b,
+#else
+            uv,
+#endif
             bias,
         );
 
@@ -178,14 +182,14 @@ fn pbr_input_from_standard_material(
         var emissive: vec4<f32> = pbr_bindings::material.emissive;
 #ifdef VERTEX_UVS
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
-            var emissive_uv = uv;
-            if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_EMISSIVE_UV_BIT) != 0u) {
-                emissive_uv = uv_b;
-            }
             emissive = vec4<f32>(pbr_functions::sample_texture(
                 pbr_bindings::emissive_texture,
                 pbr_bindings::emissive_sampler,
-                emissive_uv,
+#ifdef STANDARD_MATERIAL_EMISSIVE_UV_B
+                uv_b,
+#else
+                uv,
+#endif
                 bias,
             ).rgb, 1.0);
         }
@@ -198,14 +202,14 @@ fn pbr_input_from_standard_material(
         let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
 #ifdef VERTEX_UVS
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
-            var metallic_roughness_uv = uv;
-            if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_UV_BIT) != 0u) {
-                metallic_roughness_uv = uv_b;
-            }
             let metallic_roughness = pbr_functions::sample_texture(
                 pbr_bindings::metallic_roughness_texture,
                 pbr_bindings::metallic_roughness_sampler,
-                metallic_roughness_uv,
+#ifdef STANDARD_MATERIAL_METALLIC_ROUGHNESS_UV_B
+                uv_b,
+#else
+                uv,
+#endif
                 bias,
             );
             // Sampling from GLTF standard channels for now
@@ -221,14 +225,14 @@ fn pbr_input_from_standard_material(
 #ifdef VERTEX_UVS
 #ifdef PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_CLEARCOAT_TEXTURE_BIT) != 0u) {
-            var clearcoat_uv = uv;
-            if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_CLEARCOAT_UV_BIT) != 0u) {
-                clearcoat_uv = uv_b;
-            }
             pbr_input.material.clearcoat *= pbr_functions::sample_texture(
                 pbr_bindings::clearcoat_texture,
                 pbr_bindings::clearcoat_sampler,
-                clearcoat_uv,
+#ifdef STANDARD_MATERIAL_CLEARCOAT_UV_B
+                uv_b,
+#else
+                uv,
+#endif
                 bias,
             ).r;
         }
@@ -240,14 +244,14 @@ fn pbr_input_from_standard_material(
 #ifdef VERTEX_UVS
 #ifdef PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_CLEARCOAT_ROUGHNESS_TEXTURE_BIT) != 0u) {
-            var clearcoat_roughness_uv = uv;
-            if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_CLEARCOAT_ROUGHNESS_UV_BIT) != 0u) {
-                clearcoat_roughness_uv = uv_b;
-            }
             pbr_input.material.clearcoat_perceptual_roughness *= pbr_functions::sample_texture(
                 pbr_bindings::clearcoat_roughness_texture,
                 pbr_bindings::clearcoat_roughness_sampler,
-                clearcoat_roughness_uv,
+#ifdef STANDARD_MATERIAL_CLEARCOAT_ROUGHNESS_UV_B
+                uv_b,
+#else
+                uv,
+#endif
                 bias,
             ).g;
         }
@@ -258,14 +262,14 @@ fn pbr_input_from_standard_material(
 #ifdef VERTEX_UVS
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_SPECULAR_TRANSMISSION_TEXTURE_BIT) != 0u) {
-            var specular_transmission_uv = uv;
-            if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_SPECULAR_TRANSMISSION_UV_BIT) != 0u) {
-                specular_transmission_uv = uv_b;
-            }
             specular_transmission *= pbr_functions::sample_texture(
                 pbr_bindings::specular_transmission_texture,
                 pbr_bindings::specular_transmission_sampler,
-                specular_transmission_uv,
+#ifdef STANDARD_MATERIAL_SPECULAR_TRANSMISSION_UV_B
+                uv_b,
+#else
+                uv,
+#endif
                 bias,
             ).r;
         }
@@ -277,14 +281,14 @@ fn pbr_input_from_standard_material(
 #ifdef VERTEX_UVS
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_THICKNESS_TEXTURE_BIT) != 0u) {
-            var thickness_uv = uv;
-            if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_THICKNESS_UV_BIT) != 0u) {
-                thickness_uv = uv_b;
-            }
             thickness *= pbr_functions::sample_texture(
                 pbr_bindings::thickness_texture,
                 pbr_bindings::thickness_sampler,
-                thickness_uv,
+#ifdef STANDARD_MATERIAL_THICKNESS_UV_B
+                uv_b,
+#else
+                uv,
+#endif
                 bias,
             ).g;
         }
@@ -303,14 +307,14 @@ fn pbr_input_from_standard_material(
 #ifdef VERTEX_UVS
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DIFFUSE_TRANSMISSION_TEXTURE_BIT) != 0u) {
-            var diffuse_transmission_uv = uv;
-            if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DIFFUSE_TRANSMISSION_UV_BIT) != 0u) {
-                diffuse_transmission_uv = uv_b;
-            }
             diffuse_transmission *= pbr_functions::sample_texture(
                 pbr_bindings::diffuse_transmission_texture,
                 pbr_bindings::diffuse_transmission_sampler,
-                diffuse_transmission_uv,
+#ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION_UV_B
+                uv_b,
+#else
+                uv,
+#endif
                 bias,
             ).a;
         }
@@ -322,14 +326,14 @@ fn pbr_input_from_standard_material(
         var specular_occlusion: f32 = 1.0;
 #ifdef VERTEX_UVS
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
-            var occlusion_uv = uv;
-            if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_OCCLUSION_UV_BIT) != 0u) {
-                occlusion_uv = uv_b;
-            }
             diffuse_occlusion *= pbr_functions::sample_texture(
                 pbr_bindings::occlusion_texture,
                 pbr_bindings::occlusion_sampler,
-                occlusion_uv,
+#ifdef STANDARD_MATERIAL_OCCLUSION_UV_B
+                uv_b,
+#else
+                uv,
+#endif
                 bias,
             ).r;
         }
@@ -355,15 +359,15 @@ fn pbr_input_from_standard_material(
 #ifdef VERTEX_TANGENTS
 
 #ifdef STANDARD_MATERIAL_NORMAL_MAP
-        var normal_map_uv = uv;
-        if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_NORMAL_MAP_UV_BIT) != 0u) {
-            normal_map_uv = uv_b;
-        }
 
         let Nt = pbr_functions::sample_texture(
             pbr_bindings::normal_map_texture,
             pbr_bindings::normal_map_sampler,
-            normal_map_uv,
+#ifdef STANDARD_MATERIAL_NORMAL_MAP_UV_B
+                uv_b,
+#else
+                uv,
+#endif
             bias,
         ).rgb;
 
@@ -387,15 +391,14 @@ fn pbr_input_from_standard_material(
 
 #ifdef STANDARD_MATERIAL_CLEARCOAT_NORMAL_MAP
 
-        var clearcoat_normal_uv = uv;
-        if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_CLEARCOAT_NORMAL_UV_BIT) != 0u) {
-            clearcoat_normal_uv = uv_b;
-        }
-
         let clearcoat_Nt = pbr_functions::sample_texture(
             pbr_bindings::clearcoat_normal_texture,
             pbr_bindings::clearcoat_normal_sampler,
-            clearcoat_normal_uv,
+#ifdef STANDARD_MATERIAL_CLEARCOAT_NORMAL_UV_B
+                uv_b,
+#else
+                uv,
+#endif
             bias,
         ).rgb;
 

@@ -796,17 +796,6 @@ bitflags::bitflags! {
         const CLEARCOAT_TEXTURE          = 1 << 14;
         const CLEARCOAT_ROUGHNESS_TEXTURE = 1 << 15;
         const CLEARCOAT_NORMAL_TEXTURE   = 1 << 16;
-        const BASE_COLOR_UV              = 1 << 17;
-        const EMISSIVE_UV                = 1 << 18;
-        const METALLIC_ROUGHNESS_UV      = 1 << 19;
-        const OCCLUSION_UV               = 1 << 20;
-        const SPECULAR_TRANSMISSION_UV   = 1 << 21;
-        const THICKNESS_UV               = 1 << 22;
-        const DIFFUSE_TRANSMISSION_UV    = 1 << 23;
-        const NORMAL_MAP_UV              = 1 << 24;
-        const CLEARCOAT_UV               = 1 << 25;
-        const CLEARCOAT_ROUGHNESS_UV     = 1 << 26;
-        const CLEARCOAT_NORMAL_UV        = 1 << 27;
         const ALPHA_MODE_RESERVED_BITS   = Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS; // ← Bitmask reserving bits for the `AlphaMode`
         const ALPHA_MODE_OPAQUE          = 0 << Self::ALPHA_MODE_SHIFT_BITS;                          // ← Values are just sequential values bitshifted into
         const ALPHA_MODE_MASK            = 1 << Self::ALPHA_MODE_SHIFT_BITS;                          //   the bitmask, and can range from 0 to 7.
@@ -887,27 +876,15 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         let mut flags = StandardMaterialFlags::NONE;
         if self.base_color_texture.is_some() {
             flags |= StandardMaterialFlags::BASE_COLOR_TEXTURE;
-            if self.base_color_channel != UvChannel::Uv0 {
-                flags |= StandardMaterialFlags::BASE_COLOR_UV;
-            }
         }
         if self.emissive_texture.is_some() {
             flags |= StandardMaterialFlags::EMISSIVE_TEXTURE;
-            if self.emissive_channel != UvChannel::Uv0 {
-                flags |= StandardMaterialFlags::EMISSIVE_UV;
-            }
         }
         if self.metallic_roughness_texture.is_some() {
             flags |= StandardMaterialFlags::METALLIC_ROUGHNESS_TEXTURE;
-            if self.metallic_roughness_channel != UvChannel::Uv0 {
-                flags |= StandardMaterialFlags::METALLIC_ROUGHNESS_UV;
-            }
         }
         if self.occlusion_texture.is_some() {
             flags |= StandardMaterialFlags::OCCLUSION_TEXTURE;
-            if self.occlusion_channel != UvChannel::Uv0 {
-                flags |= StandardMaterialFlags::OCCLUSION_UV;
-            }
         }
         if self.double_sided {
             flags |= StandardMaterialFlags::DOUBLE_SIDED;
@@ -925,21 +902,12 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         {
             if self.specular_transmission_texture.is_some() {
                 flags |= StandardMaterialFlags::SPECULAR_TRANSMISSION_TEXTURE;
-                if self.specular_transmission_channel != UvChannel::Uv0 {
-                    flags |= StandardMaterialFlags::SPECULAR_TRANSMISSION_UV;
-                }
             }
             if self.thickness_texture.is_some() {
                 flags |= StandardMaterialFlags::THICKNESS_TEXTURE;
-                if self.thickness_channel != UvChannel::Uv0 {
-                    flags |= StandardMaterialFlags::THICKNESS_UV;
-                }
             }
             if self.diffuse_transmission_texture.is_some() {
                 flags |= StandardMaterialFlags::DIFFUSE_TRANSMISSION_TEXTURE;
-                if self.diffuse_transmission_channel != UvChannel::Uv0 {
-                    flags |= StandardMaterialFlags::DIFFUSE_TRANSMISSION_UV;
-                }
             }
         }
 
@@ -947,21 +915,12 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         {
             if self.clearcoat_texture.is_some() {
                 flags |= StandardMaterialFlags::CLEARCOAT_TEXTURE;
-                if self.clearcoat_channel != UvChannel::Uv0 {
-                    flags |= StandardMaterialFlags::CLEARCOAT_UV;
-                }
             }
             if self.clearcoat_roughness_texture.is_some() {
                 flags |= StandardMaterialFlags::CLEARCOAT_ROUGHNESS_TEXTURE;
-                if self.clearcoat_roughness_channel != UvChannel::Uv0 {
-                    flags |= StandardMaterialFlags::CLEARCOAT_ROUGHNESS_UV;
-                }
             }
             if self.clearcoat_normal_texture.is_some() {
                 flags |= StandardMaterialFlags::CLEARCOAT_NORMAL_TEXTURE;
-                if self.clearcoat_normal_channel != UvChannel::Uv0 {
-                    flags |= StandardMaterialFlags::CLEARCOAT_NORMAL_UV;
-                }
             }
         }
 
@@ -982,9 +941,6 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             }
             if self.flip_normal_map_y {
                 flags |= StandardMaterialFlags::FLIP_NORMAL_MAP_Y;
-            }
-            if self.normal_map_channel != UvChannel::Uv0 {
-                flags |= StandardMaterialFlags::NORMAL_MAP_UV;
             }
         }
         // NOTE: 0.5 is from the glTF default - do we want this?
@@ -1048,6 +1004,17 @@ bitflags! {
         const SPECULAR_TRANSMISSION = 0x20;
         const CLEARCOAT             = 0x40;
         const CLEARCOAT_NORMAL_MAP  = 0x80;
+        const BASE_COLOR_UV            = 0x00100;
+        const EMISSIVE_UV              = 0x00200;
+        const METALLIC_ROUGHNESS_UV    = 0x00400;
+        const OCCLUSION_UV             = 0x00800;
+        const SPECULAR_TRANSMISSION_UV = 0x01000;
+        const THICKNESS_UV             = 0x02000;
+        const DIFFUSE_TRANSMISSION_UV  = 0x04000;
+        const NORMAL_MAP_UV            = 0x08000;
+        const CLEARCOAT_UV             = 0x10000;
+        const CLEARCOAT_ROUGHNESS_UV   = 0x20000;
+        const CLEARCOAT_NORMAL_UV      = 0x40000;
         const DEPTH_BIAS            = 0xffffffff_00000000;
     }
 }
@@ -1092,6 +1059,58 @@ impl From<&StandardMaterial> for StandardMaterialKey {
             StandardMaterialKey::CLEARCOAT_NORMAL_MAP,
             material.clearcoat > 0.0 && material.clearcoat_normal_texture.is_some(),
         );
+
+        key.set(
+            StandardMaterialKey::BASE_COLOR_UV,
+            material.base_color_channel != UvChannel::Uv0,
+        );
+
+        key.set(
+            StandardMaterialKey::EMISSIVE_UV,
+            material.emissive_channel != UvChannel::Uv0,
+        );
+        key.set(
+            StandardMaterialKey::METALLIC_ROUGHNESS_UV,
+            material.metallic_roughness_channel != UvChannel::Uv0,
+        );
+        key.set(
+            StandardMaterialKey::OCCLUSION_UV,
+            material.occlusion_channel != UvChannel::Uv0,
+        );
+        #[cfg(feature = "pbr_transmission_textures")]
+        {
+            key.set(
+                StandardMaterialKey::SPECULAR_TRANSMISSION_UV,
+                material.specular_transmission_channel != UvChannel::Uv0,
+            );
+            key.set(
+                StandardMaterialKey::THICKNESS_UV,
+                material.thickness_channel != UvChannel::Uv0,
+            );
+            key.set(
+                StandardMaterialKey::DIFFUSE_TRANSMISSION_UV,
+                material.diffuse_transmission_channel != UvChannel::Uv0,
+            );
+        }
+        key.set(
+            StandardMaterialKey::NORMAL_MAP_UV,
+            material.normal_map_channel != UvChannel::Uv0,
+        );
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        {
+            key.set(
+                StandardMaterialKey::CLEARCOAT_UV,
+                material.clearcoat_channel != UvChannel::Uv0,
+            );
+            key.set(
+                StandardMaterialKey::CLEARCOAT_ROUGHNESS_UV,
+                material.clearcoat_roughness_channel != UvChannel::Uv0,
+            );
+            key.set(
+                StandardMaterialKey::CLEARCOAT_NORMAL_UV,
+                material.clearcoat_normal_channel != UvChannel::Uv0,
+            );
+        }
 
         key.insert(StandardMaterialKey::from_bits_retain(
             (material.depth_bias as u64) << STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT,
@@ -1195,6 +1214,50 @@ impl Material for StandardMaterial {
                 (
                     StandardMaterialKey::CLEARCOAT_NORMAL_MAP,
                     "STANDARD_MATERIAL_CLEARCOAT_NORMAL_MAP",
+                ),
+                (
+                    StandardMaterialKey::BASE_COLOR_UV,
+                    "STANDARD_MATERIAL_BASE_COLOR_UV_B",
+                ),
+                (
+                    StandardMaterialKey::EMISSIVE_UV,
+                    "STANDARD_MATERIAL_EMISSIVE_UV_B",
+                ),
+                (
+                    StandardMaterialKey::METALLIC_ROUGHNESS_UV,
+                    "STANDARD_MATERIAL_METALLIC_ROUGHNESS_UV_B",
+                ),
+                (
+                    StandardMaterialKey::OCCLUSION_UV,
+                    "STANDARD_MATERIAL_OCCLUSION_UV_B",
+                ),
+                (
+                    StandardMaterialKey::SPECULAR_TRANSMISSION_UV,
+                    "STANDARD_MATERIAL_SPECULAR_TRANSMISSION_UV_B",
+                ),
+                (
+                    StandardMaterialKey::THICKNESS_UV,
+                    "STANDARD_MATERIAL_THICKNESS_UV_B",
+                ),
+                (
+                    StandardMaterialKey::DIFFUSE_TRANSMISSION_UV,
+                    "STANDARD_MATERIAL_DIFFUSE_TRANSMISSION_UV_B",
+                ),
+                (
+                    StandardMaterialKey::NORMAL_MAP_UV,
+                    "STANDARD_MATERIAL_NORMAL_MAP_UV_B",
+                ),
+                (
+                    StandardMaterialKey::CLEARCOAT_UV,
+                    "STANDARD_MATERIAL_CLEARCOAT_UV_B",
+                ),
+                (
+                    StandardMaterialKey::CLEARCOAT_ROUGHNESS_UV,
+                    "STANDARD_MATERIAL_CLEARCOAT_ROUGHNESS_UV_B",
+                ),
+                (
+                    StandardMaterialKey::CLEARCOAT_NORMAL_UV,
+                    "STANDARD_MATERIAL_CLEARCOAT_NORMAL_UV_B",
                 ),
             ] {
                 if key.bind_group_data.intersects(flags) {
