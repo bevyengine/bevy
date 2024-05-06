@@ -288,13 +288,11 @@ impl Enum for DynamicEnum {
     }
 
     fn apply_enum_diff(&mut self, diff: EnumDiff) -> DiffApplyResult {
-        let Some(info) = self.get_represented_type_info() else {
-            return Err(DiffApplyError::MissingTypeInfo);
+        if let Some(info) = self.get_represented_type_info() {
+            if info.type_id() != diff.type_info().type_id() {
+                return Err(DiffApplyError::TypeMismatch);
+            }
         };
-
-        if info.type_id() != diff.type_info().type_id() {
-            return Err(DiffApplyError::TypeMismatch);
-        }
 
         match diff {
             EnumDiff::Swapped(value_diff) => {

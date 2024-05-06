@@ -278,13 +278,11 @@ impl List for DynamicList {
     }
 
     fn apply_list_diff(&mut self, diff: ListDiff) -> DiffApplyResult {
-        let Some(info) = self.get_represented_type_info() else {
-            return Err(DiffApplyError::MissingTypeInfo);
+        if let Some(info) = self.get_represented_type_info() {
+            if info.type_id() != diff.type_info().type_id() {
+                return Err(DiffApplyError::TypeMismatch);
+            }
         };
-
-        if info.type_id() != diff.type_info().type_id() {
-            return Err(DiffApplyError::TypeMismatch);
-        }
 
         let new_len = (self.len() + diff.total_insertions()) - diff.total_deletions();
         let mut new = Vec::with_capacity(new_len);

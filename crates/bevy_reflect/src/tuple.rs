@@ -303,12 +303,14 @@ impl Tuple for DynamicTuple {
     }
 
     fn apply_tuple_diff(&mut self, diff: TupleDiff) -> DiffApplyResult {
-        let Some(info) = self.get_represented_type_info() else {
-            return Err(DiffApplyError::MissingTypeInfo);
-        };
-
-        if info.type_id() != diff.type_info().type_id() || self.field_len() != diff.field_len() {
+        if self.field_len() != diff.field_len() {
             return Err(DiffApplyError::TypeMismatch);
+        }
+
+        if let Some(info) = self.get_represented_type_info() {
+            if info.type_id() != diff.type_info().type_id() {
+                return Err(DiffApplyError::TypeMismatch);
+            }
         }
 
         for (index, diff) in diff.take_changes().into_iter().enumerate() {

@@ -366,13 +366,15 @@ impl Array for DynamicArray {
     }
 
     fn apply_array_diff(&mut self, diff: ArrayDiff) -> DiffApplyResult {
-        let Some(info) = self.get_represented_type_info() else {
-            return Err(DiffApplyError::MissingTypeInfo);
-        };
-
-        if info.type_id() != diff.type_info().type_id() || self.len() != diff.len() {
+        if self.len() != diff.len() {
             return Err(DiffApplyError::TypeMismatch);
         }
+
+        if let Some(info) = self.get_represented_type_info() {
+            if info.type_id() != diff.type_info().type_id() {
+                return Err(DiffApplyError::TypeMismatch);
+            }
+        };
 
         for (index, diff) in diff.take_changes().into_iter().enumerate() {
             self.get_mut(index)

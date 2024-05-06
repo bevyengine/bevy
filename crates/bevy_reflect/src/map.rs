@@ -314,13 +314,11 @@ impl Map for DynamicMap {
     }
 
     fn apply_map_diff(&mut self, diff: MapDiff) -> DiffApplyResult {
-        let Some(info) = self.get_represented_type_info() else {
-            return Err(DiffApplyError::MissingTypeInfo);
+        if let Some(info) = self.get_represented_type_info() {
+            if info.type_id() != diff.type_info().type_id() {
+                return Err(DiffApplyError::TypeMismatch);
+            }
         };
-
-        if info.type_id() != diff.type_info().type_id() {
-            return Err(DiffApplyError::TypeMismatch);
-        }
 
         for change in diff.take_changes() {
             match change {

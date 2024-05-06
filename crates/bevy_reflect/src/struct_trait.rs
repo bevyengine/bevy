@@ -402,12 +402,10 @@ impl Struct for DynamicStruct {
     }
 
     fn apply_struct_diff(&mut self, diff: StructDiff) -> DiffApplyResult {
-        let Some(info) = self.get_represented_type_info() else {
-            return Err(DiffApplyError::MissingTypeInfo);
-        };
-
-        if info.type_id() != diff.type_info().type_id() {
-            return Err(DiffApplyError::TypeMismatch);
+        if let Some(info) = self.get_represented_type_info() {
+            if info.type_id() != diff.type_info().type_id() {
+                return Err(DiffApplyError::TypeMismatch);
+            }
         }
 
         for (field_name, field_diff) in diff.take_changes() {

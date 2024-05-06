@@ -160,38 +160,41 @@ pub use value_diff::*;
 #[cfg(test)]
 mod tests {
     use crate as bevy_reflect;
-    use crate::diff::{Diff, DiffApplyError, DiffType, ElementDiff, EntryDiff, EnumDiff};
+    use crate::diff::{
+        Diff, DiffApplyError, DiffResult, DiffType, ElementDiff, EntryDiff, EnumDiff,
+    };
     use crate::Reflect;
     use bevy_utils::HashMap;
 
     /// Generates assertions for applying a diff to a value.
     ///
+    /// Note that this macro will modify `$old`.
+    ///
     /// # Cases
     ///
     /// * [`Diff::NoChange`] - Asserts that applying the diff should result in no change.
     /// * [`Diff::Replaced`] - Asserts that applying the diff should result in a type mismatch error.
-    /// * [`Diff::Modified`] - Asserts that applying the diff should result in a conversion from `old` to `new`.
+    /// * [`Diff::Modified`] - Asserts that applying the diff should result in a conversion from `$old` to `$new`.
     macro_rules! assert_apply_diff {
-        ($old: ident, $new: ident) => {{
-            let mut _old = $old.clone();
-            let diff = Reflect::diff(&$old, $new.as_reflect()).unwrap();
+        ($old: expr, $new: expr, $diff: expr) => {{
+            let mut old = $old;
+            let new = $new;
+            let diff = $diff;
 
             match &diff {
                 Diff::NoChange => {
                     assert!(
-                        _old.reflect_partial_eq($new.as_reflect())
-                            .unwrap_or_default(),
+                        old.reflect_partial_eq(new.as_reflect()).unwrap_or_default(),
                         "old should be the same as new when diff is `Diff::NoChange`"
                     );
-                    diff.apply(_old.as_reflect_mut()).unwrap();
+                    diff.apply(old.as_reflect_mut()).unwrap();
                     assert!(
-                        _old.reflect_partial_eq($new.as_reflect())
-                            .unwrap_or_default(),
+                        old.reflect_partial_eq(new.as_reflect()).unwrap_or_default(),
                         "applying `Diff::NoChange` should result in no change"
                     );
                 }
                 Diff::Replaced(..) => {
-                    let result = diff.apply(_old.as_reflect_mut());
+                    let result = diff.apply(old.as_reflect_mut());
                     assert_eq!(
                         result,
                         Err(DiffApplyError::TypeMismatch),
@@ -199,15 +202,51 @@ mod tests {
                     );
                 }
                 Diff::Modified(..) => {
-                    diff.apply(_old.as_reflect_mut()).unwrap();
+                    diff.apply(old.as_reflect_mut()).unwrap();
                     assert!(
-                        _old.reflect_partial_eq($new.as_reflect())
-                            .unwrap_or_default(),
+                        old.reflect_partial_eq(new.as_reflect()).unwrap_or_default(),
                         "applying `Diff::Modified` should result in a modified value"
                     );
                 }
             };
         }};
+    }
+
+    /// Runs a series of tests for diffing two values using the given callback.
+    ///
+    /// This function will generate four tests:
+    /// * diff(concrete, concrete)
+    /// * diff(concrete, dynamic)
+    /// * diff(dynamic, concrete)
+    /// * diff(dynamic, dynamic)
+    ///
+    /// The callback will be given the results of each diff operation.
+    ///
+    /// This is useful for testing the consistency of diffing both concrete and dynamic values.
+    fn test_diff<T1: Reflect + Clone, T2: Reflect + Clone>(
+        old: T1,
+        new: T2,
+        callback: impl Fn(Box<dyn Reflect>, &dyn Reflect, DiffResult),
+    ) {
+        // 1. diff(concrete, concrete)
+        let diff = old.diff(new.as_reflect());
+        callback(Box::new(old.clone()), new.as_reflect(), diff);
+
+        // 2. diff(concrete, dynamic)
+        let new_dynamic = new.clone_value();
+        let diff = old.diff(new_dynamic.as_reflect());
+        callback(Box::new(old.clone()), new_dynamic.as_reflect(), diff);
+
+        // 3. diff(dynamic, concrete)
+        let old_dynamic = old.clone_value();
+        let diff = old_dynamic.diff(new.as_reflect());
+        callback(old_dynamic.clone_value(), new.as_reflect(), diff);
+
+        // 4. diff(dynamic, dynamic)
+        let old_dynamic = old.clone_value();
+        let new_dynamic = new.clone_value();
+        let diff = old_dynamic.diff(new_dynamic.as_reflect());
+        callback(old_dynamic.clone_value(), new_dynamic.as_reflect(), diff);
     }
 
     #[test]
@@ -217,209 +256,199 @@ mod tests {
 
         let diff = old.diff(&new).unwrap();
         assert!(matches!(diff, Diff::NoChange));
-        assert_apply_diff!(old, new);
+        assert_apply_diff!(old, new, diff);
 
         let old = 123_i32;
         let new = 321_i32;
 
         let diff = old.diff(&new).unwrap();
         assert!(matches!(diff, Diff::Modified(..)));
-        assert_apply_diff!(old, new);
+        assert_apply_diff!(old, new, diff);
 
         let old = 123_i32;
         let new = 123_u32;
 
         let diff = old.diff(&new).unwrap();
         assert!(matches!(diff, Diff::Replaced(..)));
-        assert_apply_diff!(old, new);
+        assert_apply_diff!(old, new, diff);
     }
 
     #[test]
     fn should_diff_tuple() {
-        let old = (1, 2, 3);
-        let new = (1, 2, 3);
+        test_diff((1, 2, 3), (1, 2, 3), |old, new, diff| {
+            assert!(matches!(diff, Ok(Diff::NoChange)));
+            assert_apply_diff!(old, new, diff.unwrap());
+        });
 
-        let diff = old.diff(&new).unwrap();
-        assert!(matches!(diff, Diff::NoChange));
-        assert_apply_diff!(old, new);
+        test_diff((1, 2, 3), (1, 2, 3, 4), |old, new, diff| {
+            assert!(matches!(diff, Ok(Diff::Replaced(..))));
+            assert_apply_diff!(old, new, diff.unwrap());
+        });
 
-        let old = (1, 2, 3);
-        let new = (1, 2, 3, 4);
+        test_diff((1, 2, 3), (1, 0, 3), |old, new, diff| {
+            if let Ok(Diff::Modified(modified)) = &diff {
+                if let DiffType::Tuple(tuple_diff) = modified {
+                    let mut fields = tuple_diff.field_iter();
 
-        let diff = old.diff(&new).unwrap();
-        assert!(matches!(diff, Diff::Replaced(..)));
-        assert_apply_diff!(old, new);
-
-        let old = (1, 2, 3);
-        let new = (1, 0, 3);
-
-        let diff = old.diff(&new).unwrap();
-        if let Diff::Modified(modified) = diff {
-            if let DiffType::Tuple(tuple_diff) = modified {
-                let mut fields = tuple_diff.field_iter();
-
-                assert!(matches!(fields.next(), Some(Diff::NoChange)));
-                assert!(matches!(
-                    fields.next(),
-                    Some(Diff::Modified(DiffType::Value(..)))
-                ));
-                assert!(matches!(fields.next(), Some(Diff::NoChange)));
-                assert!(fields.next().is_none());
+                    assert!(matches!(fields.next(), Some(Diff::NoChange)));
+                    assert!(matches!(
+                        fields.next(),
+                        Some(Diff::Modified(DiffType::Value(..)))
+                    ));
+                    assert!(matches!(fields.next(), Some(Diff::NoChange)));
+                    assert!(fields.next().is_none());
+                } else {
+                    panic!("expected `DiffType::Tuple`");
+                }
             } else {
-                panic!("expected `DiffType::Tuple`");
+                panic!("expected `Diff::Modified`");
             }
-        } else {
-            panic!("expected `Diff::Modified`");
-        }
-        assert_apply_diff!(old, new);
+            assert_apply_diff!(old, new, diff.unwrap());
+        });
     }
 
     #[test]
     fn should_diff_array() {
-        let old = [1, 2, 3];
-        let new = [1, 2, 3];
+        test_diff([1, 2, 3], [1, 2, 3], |old, new, diff| {
+            assert!(matches!(diff, Ok(Diff::NoChange)));
+            assert_apply_diff!(old, new, diff.unwrap());
+        });
 
-        let diff = old.diff(&new).unwrap();
-        assert!(matches!(diff, Diff::NoChange));
-        assert_apply_diff!(old, new);
+        test_diff([1, 2, 3], [1, 2, 3, 4], |old, new, diff| {
+            assert!(matches!(diff, Ok(Diff::Replaced(..))));
+            assert_apply_diff!(old, new, diff.unwrap());
+        });
 
-        let old = [1, 2, 3];
-        let new = [1, 2, 3, 4];
+        test_diff([1, 2, 3], [1, 0, 3], |old, new, diff| {
+            if let Ok(Diff::Modified(modified)) = &diff {
+                if let DiffType::Array(array_diff) = modified {
+                    let mut fields = array_diff.iter();
 
-        let diff = old.diff(&new).unwrap();
-        assert!(matches!(diff, Diff::Replaced(..)));
-        assert_apply_diff!(old, new);
-
-        let old = [1, 2, 3];
-        let new = [1, 0, 3];
-
-        let diff = old.diff(&new).unwrap();
-        if let Diff::Modified(modified) = diff {
-            if let DiffType::Array(array_diff) = modified {
-                let mut fields = array_diff.iter();
-
-                assert!(matches!(fields.next(), Some(Diff::NoChange)));
-                assert!(matches!(
-                    fields.next(),
-                    Some(Diff::Modified(DiffType::Value(..)))
-                ));
-                assert!(matches!(fields.next(), Some(Diff::NoChange)));
-                assert!(fields.next().is_none());
+                    assert!(matches!(fields.next(), Some(Diff::NoChange)));
+                    assert!(matches!(
+                        fields.next(),
+                        Some(Diff::Modified(DiffType::Value(..)))
+                    ));
+                    assert!(matches!(fields.next(), Some(Diff::NoChange)));
+                    assert!(fields.next().is_none());
+                } else {
+                    panic!("expected `DiffType::Array`");
+                }
             } else {
-                panic!("expected `DiffType::Array`");
+                panic!("expected `Diff::Modified`");
             }
-        } else {
-            panic!("expected `Diff::Modified`");
-        }
-        assert_apply_diff!(old, new);
+            assert_apply_diff!(old, new, diff.unwrap());
+        });
     }
 
     #[test]
     fn should_diff_list() {
-        let old = vec![1, 2, 3];
-        let new = vec![1, 2, 3];
+        test_diff(vec![1, 2, 3], vec![1, 2, 3], |old, new, diff| {
+            assert!(matches!(diff, Ok(Diff::NoChange)));
+            assert_apply_diff!(old, new, diff.unwrap());
+        });
 
-        let diff = old.diff(&new).unwrap();
-        assert!(matches!(diff, Diff::NoChange));
-        assert_apply_diff!(old, new);
+        test_diff(
+            vec![1, 2, 3] as Vec<i32>,
+            vec![1u32, 2, 3] as Vec<u32>,
+            |old, new, diff| {
+                assert!(matches!(diff, Ok(Diff::Replaced(..))));
+                assert_apply_diff!(old, new, diff.unwrap());
+            },
+        );
 
-        let old: Vec<i32> = vec![1, 2, 3];
-        let new: Vec<u32> = vec![1, 2, 3];
+        test_diff(vec![1, 2, 3], vec![9, 1, 2, 3], |old, new, diff| {
+            if let Ok(Diff::Modified(modified)) = &diff {
+                if let DiffType::List(list_diff) = modified {
+                    let mut changes = list_diff.iter_changes();
 
-        let diff = old.diff(&new).unwrap();
-        assert!(matches!(diff, Diff::Replaced(_)));
-        assert_apply_diff!(old, new);
-
-        let old = vec![1, 2, 3];
-        let new = vec![9, 1, 2, 3];
-
-        let diff = old.diff(&new).unwrap();
-        if let Diff::Modified(modified) = diff {
-            if let DiffType::List(list_diff) = modified {
-                let mut changes = list_diff.iter_changes();
-
-                assert!(matches!(
-                    changes.next(),
-                    Some(ElementDiff::Inserted(0, _ /* 9 */))
-                ));
-                assert!(changes.next().is_none());
+                    assert!(matches!(
+                        changes.next(),
+                        Some(ElementDiff::Inserted(0, _ /* 9 */))
+                    ));
+                    assert!(changes.next().is_none());
+                } else {
+                    panic!("expected `DiffType::List`");
+                }
             } else {
-                panic!("expected `DiffType::List`");
+                panic!("expected `Diff::Modified`");
             }
-        } else {
-            panic!("expected `Diff::Modified`");
-        }
-        assert_apply_diff!(old, new);
+            assert_apply_diff!(old, new, diff.unwrap());
+        });
 
-        let old: Vec<i32> = vec![];
-        let new: Vec<i32> = vec![1, 2, 3];
+        test_diff(
+            vec![] as Vec<i32>,
+            vec![1, 2, 3] as Vec<i32>,
+            |old, new, diff| {
+                if let Ok(Diff::Modified(modified)) = &diff {
+                    if let DiffType::List(list_diff) = modified {
+                        let mut changes = list_diff.iter_changes();
 
-        let diff = old.diff(&new).unwrap();
-        if let Diff::Modified(modified) = diff {
-            if let DiffType::List(list_diff) = modified {
-                let mut changes = list_diff.iter_changes();
+                        assert!(matches!(
+                            changes.next(),
+                            Some(ElementDiff::Inserted(0, _ /* 1 */))
+                        ));
+                        assert!(matches!(
+                            changes.next(),
+                            Some(ElementDiff::Inserted(0, _ /* 2 */))
+                        ));
+                        assert!(matches!(
+                            changes.next(),
+                            Some(ElementDiff::Inserted(0, _ /* 3 */))
+                        ));
+                        assert!(changes.next().is_none());
+                    } else {
+                        panic!("expected `DiffType::List`");
+                    }
+                } else {
+                    panic!("expected `Diff::Modified`");
+                }
+                assert_apply_diff!(old, new, diff.unwrap());
+            },
+        );
 
-                assert!(matches!(
-                    changes.next(),
-                    Some(ElementDiff::Inserted(0, _ /* 1 */))
-                ));
-                assert!(matches!(
-                    changes.next(),
-                    Some(ElementDiff::Inserted(0, _ /* 2 */))
-                ));
-                assert!(matches!(
-                    changes.next(),
-                    Some(ElementDiff::Inserted(0, _ /* 3 */))
-                ));
-                assert!(changes.next().is_none());
-            } else {
-                panic!("expected `DiffType::List`");
-            }
-        } else {
-            panic!("expected `Diff::Modified`");
-        }
-        assert_apply_diff!(old, new);
+        test_diff(
+            vec![1, 2, 3, 4, 5],
+            vec![1, 0, 3, 6, 8, 4, 7],
+            |old, new, diff| {
+                if let Ok(Diff::Modified(modified)) = &diff {
+                    if let DiffType::List(list_diff) = modified {
+                        let mut changes = list_diff.iter_changes();
 
-        let old = vec![1, 2, 3, 4, 5];
-        let new = vec![1, 0, 3, 6, 8, 4, 7];
-
-        let diff = old.diff(&new).unwrap();
-        if let Diff::Modified(modified) = diff {
-            if let DiffType::List(list_diff) = modified {
-                let mut changes = list_diff.iter_changes();
-
-                assert!(matches!(
-                    changes.next(),
-                    Some(ElementDiff::Deleted(1 /* 2 */))
-                ));
-                assert!(matches!(
-                    changes.next(),
-                    Some(ElementDiff::Inserted(2, _ /* 0 */))
-                ));
-                assert!(matches!(
-                    changes.next(),
-                    Some(ElementDiff::Inserted(3, _ /* 6 */))
-                ));
-                assert!(matches!(
-                    changes.next(),
-                    Some(ElementDiff::Inserted(3, _ /* 8 */))
-                ));
-                assert!(matches!(
-                    changes.next(),
-                    Some(ElementDiff::Deleted(4 /* 5 */))
-                ));
-                assert!(matches!(
-                    changes.next(),
-                    Some(ElementDiff::Inserted(5, _ /* 7 */))
-                ));
-                assert!(changes.next().is_none());
-            } else {
-                panic!("expected `DiffType::List`");
-            }
-        } else {
-            panic!("expected `Diff::Modified`");
-        }
-        assert_apply_diff!(old, new);
+                        assert!(matches!(
+                            changes.next(),
+                            Some(ElementDiff::Deleted(1 /* 2 */))
+                        ));
+                        assert!(matches!(
+                            changes.next(),
+                            Some(ElementDiff::Inserted(2, _ /* 0 */))
+                        ));
+                        assert!(matches!(
+                            changes.next(),
+                            Some(ElementDiff::Inserted(3, _ /* 6 */))
+                        ));
+                        assert!(matches!(
+                            changes.next(),
+                            Some(ElementDiff::Inserted(3, _ /* 8 */))
+                        ));
+                        assert!(matches!(
+                            changes.next(),
+                            Some(ElementDiff::Deleted(4 /* 5 */))
+                        ));
+                        assert!(matches!(
+                            changes.next(),
+                            Some(ElementDiff::Inserted(5, _ /* 7 */))
+                        ));
+                        assert!(changes.next().is_none());
+                    } else {
+                        panic!("expected `DiffType::List`");
+                    }
+                } else {
+                    panic!("expected `Diff::Modified`");
+                }
+                assert_apply_diff!(old, new, diff.unwrap());
+            },
+        );
     }
 
     #[test]
@@ -430,82 +459,92 @@ mod tests {
             };
         }
 
-        let old = map! {1: 111, 2: 222, 3: 333};
-        let new = map! {3: 333, 1: 111, 2: 222};
+        test_diff(
+            map! {1: 111, 2: 222, 3: 333},
+            map! {1: 111, 2: 222, 3: 333},
+            |old, new, diff| {
+                assert!(matches!(diff, Ok(Diff::NoChange)));
+                assert_apply_diff!(old, new, diff.unwrap());
+            },
+        );
 
-        let diff = old.diff(&new).unwrap();
-        assert!(matches!(diff, Diff::NoChange));
-        assert_apply_diff!(old, new);
+        test_diff(
+            map! {1: 111, 2: 222, 3: 333} as HashMap<i32, i32>,
+            map! {1: 111u32, 2: 222, 3: 333} as HashMap<i32, u32>,
+            |old, new, diff| {
+                assert!(matches!(diff, Ok(Diff::Replaced(..))));
+                assert_apply_diff!(old, new, diff.unwrap());
+            },
+        );
 
-        let old: HashMap<i32, i32> = map! {1: 111, 2: 222, 3: 333};
-        let new: HashMap<i32, u32> = map! {1: 111, 2: 222, 3: 333};
+        test_diff(
+            map! {1: 111, 2: 222, 3: 333},
+            map! {1: 111, 3: 333},
+            |old, new, diff| {
+                if let Ok(Diff::Modified(modified)) = &diff {
+                    if let DiffType::Map(map_diff) = modified {
+                        let mut changes = map_diff.iter_changes();
 
-        let diff = old.diff(&new).unwrap();
-        assert!(matches!(diff, Diff::Replaced(_)));
-        assert_apply_diff!(old, new);
+                        assert!(matches!(
+                            changes.next(),
+                            Some(EntryDiff::Deleted(_ /* 2 */))
+                        ));
+                        assert!(changes.next().is_none());
+                    } else {
+                        panic!("expected `DiffType::Map`");
+                    }
+                } else {
+                    panic!("expected `Diff::Modified`");
+                }
+                assert_apply_diff!(old, new, diff.unwrap());
+            },
+        );
 
-        let old = map! {1: 111, 2: 222, 3: 333};
-        let new = map! {1: 111, 3: 333};
+        test_diff(
+            map! {1: 111, 2: 222, 3: 333},
+            map! {1: 111, 2: 222, 3: 333, 4: 444},
+            |old, new, diff| {
+                if let Ok(Diff::Modified(modified)) = &diff {
+                    if let DiffType::Map(map_diff) = modified {
+                        let mut changes = map_diff.iter_changes();
 
-        let diff = old.diff(&new).unwrap();
-        if let Diff::Modified(modified) = diff {
-            if let DiffType::Map(map_diff) = modified {
-                let mut changes = map_diff.iter_changes();
+                        assert!(matches!(
+                            changes.next(),
+                            Some(EntryDiff::Inserted(_ /* 4 */, _ /* 444 */))
+                        ));
+                        assert!(changes.next().is_none());
+                    } else {
+                        panic!("expected `DiffType::Map`");
+                    }
+                } else {
+                    panic!("expected `Diff::Modified`");
+                }
+                assert_apply_diff!(old, new, diff.unwrap());
+            },
+        );
 
-                assert!(matches!(
-                    changes.next(),
-                    Some(EntryDiff::Deleted(_ /* 2 */))
-                ));
-                assert!(changes.next().is_none());
-            } else {
-                panic!("expected `DiffType::Map`");
-            }
-        } else {
-            panic!("expected `Diff::Modified`");
-        }
-        assert_apply_diff!(old, new);
+        test_diff(
+            map! {1: 111, 2: 222, 3: 333},
+            map! {1: 111, 2: 999, 3: 333},
+            |old, new, diff| {
+                if let Ok(Diff::Modified(modified)) = &diff {
+                    if let DiffType::Map(map_diff) = modified {
+                        let mut changes = map_diff.iter_changes();
 
-        let old = map! {1: 111, 2: 222, 3: 333};
-        let new = map! {1: 111, 2: 222, 3: 333, 4: 444};
-
-        let diff = old.diff(&new).unwrap();
-        if let Diff::Modified(modified) = diff {
-            if let DiffType::Map(map_diff) = modified {
-                let mut changes = map_diff.iter_changes();
-
-                assert!(matches!(
-                    changes.next(),
-                    Some(EntryDiff::Inserted(_ /* 4 */, _ /* 444 */))
-                ));
-                assert!(changes.next().is_none());
-            } else {
-                panic!("expected `DiffType::Map`");
-            }
-        } else {
-            panic!("expected `Diff::Modified`");
-        }
-        assert_apply_diff!(old, new);
-
-        let old = map! {1: 111, 2: 222, 3: 333};
-        let new = map! {1: 111, 2: 999, 3: 333};
-
-        let diff = old.diff(&new).unwrap();
-        if let Diff::Modified(modified) = diff {
-            if let DiffType::Map(map_diff) = modified {
-                let mut changes = map_diff.iter_changes();
-
-                assert!(matches!(
-                    changes.next(),
-                    Some(EntryDiff::Modified(_ /* 2 */, _ /* 999 */))
-                ));
-                assert!(changes.next().is_none());
-            } else {
-                panic!("expected `DiffType::Map`");
-            }
-        } else {
-            panic!("expected `Diff::Modified`");
-        }
-        assert_apply_diff!(old, new);
+                        assert!(matches!(
+                            changes.next(),
+                            Some(EntryDiff::Modified(_ /* 2 */, _ /* 999 */))
+                        ));
+                        assert!(changes.next().is_none());
+                    } else {
+                        panic!("expected `DiffType::Map`");
+                    }
+                } else {
+                    panic!("expected `Diff::Modified`");
+                }
+                assert_apply_diff!(old, new, diff.unwrap());
+            },
+        );
     }
 
     #[test]
@@ -515,42 +554,36 @@ mod tests {
         #[derive(Reflect, Clone)]
         struct Bar(i32, i32, i32, i32);
 
-        let old = Foo(1, 2, 3);
-        let new = Foo(1, 2, 3);
+        test_diff(Foo(1, 2, 3), Foo(1, 2, 3), |old, new, diff| {
+            assert!(matches!(diff, Ok(Diff::NoChange)));
+            assert_apply_diff!(old, new, diff.unwrap());
+        });
 
-        let diff = old.diff(&new).unwrap();
-        assert!(matches!(diff, Diff::NoChange));
-        assert_apply_diff!(old, new);
+        test_diff(Foo(1, 2, 3), Bar(1, 2, 3, 4), |old, new, diff| {
+            assert!(matches!(diff, Ok(Diff::Replaced(..))));
+            assert_apply_diff!(old, new, diff.unwrap());
+        });
 
-        let old = Foo(1, 2, 3);
-        let new = Bar(1, 2, 3, 4);
+        test_diff(Foo(1, 2, 3), Foo(1, 0, 3), |old, new, diff| {
+            if let Ok(Diff::Modified(modified)) = &diff {
+                if let DiffType::TupleStruct(tuple_struct_diff) = modified {
+                    let mut fields = tuple_struct_diff.field_iter();
 
-        let diff = old.diff(&new).unwrap();
-        assert!(matches!(diff, Diff::Replaced(..)));
-        assert_apply_diff!(old, new);
-
-        let old = Foo(1, 2, 3);
-        let new = Foo(1, 0, 3);
-
-        let diff = old.diff(&new).unwrap();
-        if let Diff::Modified(modified) = diff {
-            if let DiffType::TupleStruct(tuple_struct_diff) = modified {
-                let mut fields = tuple_struct_diff.field_iter();
-
-                assert!(matches!(fields.next(), Some(Diff::NoChange)));
-                assert!(matches!(
-                    fields.next(),
-                    Some(Diff::Modified(DiffType::Value(..)))
-                ));
-                assert!(matches!(fields.next(), Some(Diff::NoChange)));
-                assert!(fields.next().is_none());
+                    assert!(matches!(fields.next(), Some(Diff::NoChange)));
+                    assert!(matches!(
+                        fields.next(),
+                        Some(Diff::Modified(DiffType::Value(..)))
+                    ));
+                    assert!(matches!(fields.next(), Some(Diff::NoChange)));
+                    assert!(fields.next().is_none());
+                } else {
+                    panic!("expected `DiffType::TupleStruct`");
+                }
             } else {
-                panic!("expected `DiffType::TupleStruct`");
+                panic!("expected `Diff::Modified`");
             }
-        } else {
-            panic!("expected `Diff::Modified`");
-        }
-        assert_apply_diff!(old, new);
+            assert_apply_diff!(old, new, diff.unwrap());
+        });
     }
 
     #[test]
@@ -567,45 +600,51 @@ mod tests {
             c: usize,
         }
 
-        let old = Foo { a: 123, b: 1.23 };
-        let new = Foo { a: 123, b: 1.23 };
+        test_diff(
+            Foo { a: 123, b: 1.23 },
+            Foo { a: 123, b: 1.23 },
+            |old, new, diff| {
+                assert!(matches!(diff, Ok(Diff::NoChange)));
+                assert_apply_diff!(old, new, diff.unwrap());
+            },
+        );
 
-        let diff = old.diff(&new).unwrap();
-        assert!(matches!(diff, Diff::NoChange));
-        assert_apply_diff!(old, new);
+        test_diff(
+            Foo { a: 123, b: 1.23 },
+            Bar {
+                a: 123,
+                b: 1.23,
+                c: 123,
+            },
+            |old, new, diff| {
+                assert!(matches!(diff, Ok(Diff::Replaced(..))));
+                assert_apply_diff!(old, new, diff.unwrap());
+            },
+        );
 
-        let old = Foo { a: 123, b: 1.23 };
-        let new = Bar {
-            a: 123,
-            b: 1.23,
-            c: 123,
-        };
+        test_diff(
+            Foo { a: 123, b: 1.23 },
+            Foo { a: 123, b: 3.21 },
+            |old, new, diff| {
+                if let Ok(Diff::Modified(modified)) = &diff {
+                    if let DiffType::Struct(struct_diff) = modified {
+                        let mut fields = struct_diff.field_iter();
 
-        let diff = old.diff(&new).unwrap();
-        assert!(matches!(diff, Diff::Replaced(..)));
-        assert_apply_diff!(old, new);
-
-        let old = Foo { a: 123, b: 1.23 };
-        let new = Foo { a: 123, b: 3.21 };
-
-        let diff = old.diff(&new).unwrap();
-        if let Diff::Modified(modified) = diff {
-            if let DiffType::Struct(struct_diff) = modified {
-                let mut fields = struct_diff.field_iter();
-
-                assert!(matches!(fields.next(), Some(("a", Diff::NoChange))));
-                assert!(matches!(
-                    fields.next(),
-                    Some(("b", Diff::Modified(DiffType::Value(..))))
-                ));
-                assert!(fields.next().is_none());
-            } else {
-                panic!("expected `DiffType::Struct`");
-            }
-        } else {
-            panic!("expected `Diff::Modified`");
-        }
-        assert_apply_diff!(old, new);
+                        assert!(matches!(fields.next(), Some(("a", Diff::NoChange))));
+                        assert!(matches!(
+                            fields.next(),
+                            Some(("b", Diff::Modified(DiffType::Value(..))))
+                        ));
+                        assert!(fields.next().is_none());
+                    } else {
+                        panic!("expected `DiffType::Struct`");
+                    }
+                } else {
+                    panic!("expected `Diff::Modified`");
+                }
+                assert_apply_diff!(old, new, diff.unwrap());
+            },
+        );
     }
 
     mod enums {
@@ -624,29 +663,23 @@ mod tests {
                 B,
             }
 
-            let old = Foo::A;
-            let new = Foo::A;
+            test_diff(Foo::A, Foo::A, |old, new, diff| {
+                assert!(matches!(diff, Ok(Diff::NoChange)));
+                assert_apply_diff!(old, new, diff.unwrap());
+            });
 
-            let diff = old.diff(&new).unwrap();
-            assert!(matches!(diff, Diff::NoChange));
-            assert_apply_diff!(old, new);
+            test_diff(Foo::A, Foo::B, |old, new, diff| {
+                assert!(matches!(
+                    diff,
+                    Ok(Diff::Modified(DiffType::Enum(EnumDiff::Swapped(..))))
+                ));
+                assert_apply_diff!(old, new, diff.unwrap());
+            });
 
-            let old = Foo::A;
-            let new = Foo::B;
-
-            let diff = old.diff(&new).unwrap();
-            assert!(matches!(
-                diff,
-                Diff::Modified(DiffType::Enum(EnumDiff::Swapped(..)))
-            ));
-            assert_apply_diff!(old, new);
-
-            let old = Foo::A;
-            let new = Bar::A;
-
-            let diff = old.diff(&new).unwrap();
-            assert!(matches!(diff, Diff::Replaced(..)));
-            assert_apply_diff!(old, new);
+            test_diff(Foo::A, Bar::A, |old, new, diff| {
+                assert!(matches!(diff, Ok(Diff::Replaced(..))));
+                assert_apply_diff!(old, new, diff.unwrap());
+            });
         }
 
         #[test]
@@ -662,56 +695,48 @@ mod tests {
                 B(i32, i32, i32),
             }
 
-            let old = Foo::A(1, 2, 3);
-            let new = Foo::A(1, 2, 3);
+            test_diff(Foo::A(1, 2, 3), Foo::A(1, 2, 3), |old, new, diff| {
+                assert!(matches!(diff, Ok(Diff::NoChange)));
+                assert_apply_diff!(old, new, diff.unwrap());
+            });
 
-            let diff = old.diff(&new).unwrap();
-            assert!(matches!(diff, Diff::NoChange));
-            assert_apply_diff!(old, new);
+            test_diff(Foo::A(1, 2, 3), Foo::B(1, 2, 3), |old, new, diff| {
+                assert!(matches!(
+                    diff,
+                    Ok(Diff::Modified(DiffType::Enum(EnumDiff::Swapped(..))))
+                ));
+                assert_apply_diff!(old, new, diff.unwrap());
+            });
 
-            let old = Foo::A(1, 2, 3);
-            let new = Foo::B(1, 2, 3);
+            test_diff(Foo::A(1, 2, 3), Bar::A(1, 2, 3), |old, new, diff| {
+                assert!(matches!(diff, Ok(Diff::Replaced(..))));
+                assert_apply_diff!(old, new, diff.unwrap());
+            });
 
-            let diff = old.diff(&new).unwrap();
-            assert!(matches!(
-                diff,
-                Diff::Modified(DiffType::Enum(EnumDiff::Swapped(..)))
-            ));
-            assert_apply_diff!(old, new);
+            test_diff(Foo::A(1, 2, 3), Foo::A(1, 0, 3), |old, new, diff| {
+                if let Ok(Diff::Modified(modified)) = &diff {
+                    if let DiffType::Enum(enum_diff) = modified {
+                        if let EnumDiff::Tuple(tuple_diff) = enum_diff {
+                            let mut fields = tuple_diff.field_iter();
 
-            let old = Foo::A(1, 2, 3);
-            let new = Bar::A(1, 2, 3);
-
-            let diff = old.diff(&new).unwrap();
-            assert!(matches!(diff, Diff::Replaced(..)));
-            assert_apply_diff!(old, new);
-
-            let old = Foo::A(1, 2, 3);
-            let new = Foo::A(1, 0, 3);
-
-            let diff = old.diff(&new).unwrap();
-            if let Diff::Modified(modified) = diff {
-                if let DiffType::Enum(enum_diff) = modified {
-                    if let EnumDiff::Tuple(tuple_diff) = enum_diff {
-                        let mut fields = tuple_diff.field_iter();
-
-                        assert!(matches!(fields.next(), Some(Diff::NoChange)));
-                        assert!(matches!(
-                            fields.next(),
-                            Some(Diff::Modified(DiffType::Value(..)))
-                        ));
-                        assert!(matches!(fields.next(), Some(Diff::NoChange)));
-                        assert!(fields.next().is_none());
+                            assert!(matches!(fields.next(), Some(Diff::NoChange)));
+                            assert!(matches!(
+                                fields.next(),
+                                Some(Diff::Modified(DiffType::Value(..)))
+                            ));
+                            assert!(matches!(fields.next(), Some(Diff::NoChange)));
+                            assert!(fields.next().is_none());
+                        } else {
+                            panic!("expected `EnumDiff::Tuple`");
+                        }
                     } else {
-                        panic!("expected `EnumDiff::Tuple`");
+                        panic!("expected `DiffType::Enum`");
                     }
                 } else {
-                    panic!("expected `DiffType::Enum`");
+                    panic!("expected `Diff::Modified`");
                 }
-            } else {
-                panic!("expected `Diff::Modified`");
-            }
-            assert_apply_diff!(old, new);
+                assert_apply_diff!(old, new, diff.unwrap());
+            });
         }
 
         #[test]
@@ -727,55 +752,63 @@ mod tests {
                 B { x: f32, y: f32 },
             }
 
-            let old = Foo::A { x: 1.23, y: 4.56 };
-            let new = Foo::A { x: 1.23, y: 4.56 };
+            test_diff(
+                Foo::A { x: 1.23, y: 4.56 },
+                Foo::A { x: 1.23, y: 4.56 },
+                |old, new, diff| {
+                    assert!(matches!(diff, Ok(Diff::NoChange)));
+                    assert_apply_diff!(old, new, diff.unwrap());
+                },
+            );
 
-            let diff = old.diff(&new).unwrap();
-            assert!(matches!(diff, Diff::NoChange));
-            assert_apply_diff!(old, new);
+            test_diff(
+                Foo::A { x: 1.23, y: 4.56 },
+                Foo::B { x: 1.23, y: 4.56 },
+                |old, new, diff| {
+                    assert!(matches!(
+                        diff,
+                        Ok(Diff::Modified(DiffType::Enum(EnumDiff::Swapped(..))))
+                    ));
+                    assert_apply_diff!(old, new, diff.unwrap());
+                },
+            );
 
-            let old = Foo::A { x: 1.23, y: 4.56 };
-            let new = Foo::B { x: 1.23, y: 4.56 };
+            test_diff(
+                Foo::A { x: 1.23, y: 4.56 },
+                Bar::A { x: 1.23, y: 4.56 },
+                |old, new, diff| {
+                    assert!(matches!(diff, Ok(Diff::Replaced(..))));
+                    assert_apply_diff!(old, new, diff.unwrap());
+                },
+            );
 
-            let diff = old.diff(&new).unwrap();
-            assert!(matches!(
-                diff,
-                Diff::Modified(DiffType::Enum(EnumDiff::Swapped(..)))
-            ));
-            assert_apply_diff!(old, new);
+            test_diff(
+                Foo::A { x: 1.23, y: 4.56 },
+                Foo::A { x: 1.23, y: 7.89 },
+                |old, new, diff| {
+                    if let Ok(Diff::Modified(modified)) = &diff {
+                        if let DiffType::Enum(enum_diff) = modified {
+                            if let EnumDiff::Struct(struct_diff) = enum_diff {
+                                let mut fields = struct_diff.field_iter();
 
-            let old = Foo::A { x: 1.23, y: 4.56 };
-            let new = Bar::A { x: 1.23, y: 4.56 };
-
-            let diff = old.diff(&new).unwrap();
-            assert!(matches!(diff, Diff::Replaced(..)));
-            assert_apply_diff!(old, new);
-
-            let old = Foo::A { x: 1.23, y: 4.56 };
-            let new = Foo::A { x: 1.23, y: 7.89 };
-
-            let diff = old.diff(&new).unwrap();
-            if let Diff::Modified(modified) = diff {
-                if let DiffType::Enum(enum_diff) = modified {
-                    if let EnumDiff::Struct(struct_diff) = enum_diff {
-                        let mut fields = struct_diff.field_iter();
-
-                        assert!(matches!(fields.next(), Some(("x", Diff::NoChange))));
-                        assert!(matches!(
-                            fields.next(),
-                            Some(("y", Diff::Modified(DiffType::Value(..))))
-                        ));
-                        assert!(fields.next().is_none());
+                                assert!(matches!(fields.next(), Some(("x", Diff::NoChange))));
+                                assert!(matches!(
+                                    fields.next(),
+                                    Some(("y", Diff::Modified(DiffType::Value(..))))
+                                ));
+                                assert!(fields.next().is_none());
+                            } else {
+                                panic!("expected `EnumDiff::Struct`");
+                            }
+                        } else {
+                            panic!("expected `DiffType::Enum`");
+                        }
                     } else {
-                        panic!("expected `EnumDiff::Struct`");
+                        panic!("expected `Diff::Modified`");
                     }
-                } else {
-                    panic!("expected `DiffType::Enum`");
-                }
-            } else {
-                panic!("expected `Diff::Modified`");
-            }
-            assert_apply_diff!(old, new);
+                    assert_apply_diff!(old, new, diff.unwrap());
+                },
+            );
         }
     }
 

@@ -313,13 +313,11 @@ impl TupleStruct for DynamicTupleStruct {
     }
 
     fn apply_tuple_struct_diff(&mut self, diff: TupleStructDiff) -> DiffApplyResult {
-        let Some(info) = self.get_represented_type_info() else {
-            return Err(DiffApplyError::MissingTypeInfo);
+        if let Some(info) = self.get_represented_type_info() {
+            if info.type_id() != diff.type_info().type_id() {
+                return Err(DiffApplyError::TypeMismatch);
+            }
         };
-
-        if info.type_id() != diff.type_info().type_id() {
-            return Err(DiffApplyError::TypeMismatch);
-        }
 
         for (index, diff) in diff.take_changes().into_iter().enumerate() {
             self.fields

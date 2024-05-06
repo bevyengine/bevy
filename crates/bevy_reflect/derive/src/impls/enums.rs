@@ -162,6 +162,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             }
 
             fn apply_enum_diff(&mut self, diff: #bevy_reflect_path::diff::EnumDiff) -> #bevy_reflect_path::diff::DiffApplyResult {
+                println!("Diffing... {}", #bevy_reflect_path::DynamicTypePath::reflect_type_path(self));
                 let info = <Self as #bevy_reflect_path::Typed>::type_info();
 
                 if info.type_id() != diff.type_info().type_id() {
