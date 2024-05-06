@@ -47,9 +47,7 @@ use gltf::{
 };
 use gltf::{json, Document};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "pbr_multi_layer_material_textures")]
-use serde_json::value;
-use serde_json::Value;
+use serde_json::{value, Value};
 #[cfg(feature = "bevy_animation")]
 use smallvec::SmallVec;
 use std::io::Error;
@@ -218,6 +216,13 @@ async fn load_gltf<'a, 'b, 'c>(
             .metallic_roughness_texture()
         {
             linear_textures.insert(texture.texture().index());
+        }
+        if let Some(texture_index) = material_extension_texture_index(
+            &material,
+            "KHR_materials_anisotropy",
+            "anisotropyTexture",
+        ) {
+            linear_textures.insert(texture_index);
         }
 
         // None of the clearcoat maps should be loaded as sRGB.
@@ -992,6 +997,10 @@ fn load_material(
         let clearcoat =
             ClearcoatExtension::parse(load_context, document, material).unwrap_or_default();
 
+        // Parse the `KHR_materials_anisotropy` extension data if necessary.
+        let anisotropy =
+            AnisotropyExtension::parse(load_context, document, material).unwrap_or_default();
+
         // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
         let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
         let scaled_emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
@@ -1055,6 +1064,10 @@ fn load_material(
             clearcoat_normal_channel: clearcoat.clearcoat_normal_channel,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_normal_texture: clearcoat.clearcoat_normal_texture,
+            anisotropy_strength: anisotropy.anisotropy_strength.unwrap_or_default() as f32,
+            anisotropy_rotation: anisotropy.anisotropy_rotation.unwrap_or_default() as f32,
+            anisotropy_channel: anisotropy.anisotropy_channel,
+            anisotropy_texture: anisotropy.anisotropy_texture,
             ..Default::default()
         }
     })
@@ -1868,10 +1881,52 @@ impl ClearcoatExtension {
     }
 }
 
+/// Parsed data from the `KHR_materials_anisotropy` extension.
+///
+/// See the specification:
+/// <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_anisotropy/README.md>
+#[derive(Default)]
+struct AnisotropyExtension {
+    anisotropy_strength: Option<f64>,
+    anisotropy_rotation: Option<f64>,
+    anisotropy_channel: UvChannel,
+    anisotropy_texture: Option<Handle<Image>>,
+}
+
+impl AnisotropyExtension {
+    fn parse(
+        load_context: &mut LoadContext,
+        document: &Document,
+        material: &Material,
+    ) -> Option<AnisotropyExtension> {
+        let extension = material
+            .extensions()?
+            .get("KHR_materials_anisotropy")?
+            .as_object()?;
+
+        let (anisotropy_channel, anisotropy_texture) = extension
+            .get("anisotropyTexture")
+            .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
+            .map(|json_info| {
+                (
+                    get_uv_channel(material, "anisotropy", json_info.tex_coord),
+                    texture_handle_from_info(load_context, document, &json_info),
+                )
+            })
+            .unzip();
+
+        Some(AnisotropyExtension {
+            anisotropy_strength: extension.get("anisotropyStrength").and_then(Value::as_f64),
+            anisotropy_rotation: extension.get("anisotropyRotation").and_then(Value::as_f64),
+            anisotropy_channel: anisotropy_channel.unwrap_or_default(),
+            anisotropy_texture,
+        })
+    }
+}
+
 /// Returns the index (within the `textures` array) of the texture with the
 /// given field name in the data for the material extension with the given name,
 /// if there is one.
-#[cfg(feature = "pbr_multi_layer_material_textures")]
 fn material_extension_texture_index(
     material: &Material,
     extension_name: &str,

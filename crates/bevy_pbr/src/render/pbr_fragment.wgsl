@@ -357,6 +357,8 @@ fn pbr_input_from_standard_material(
 #ifdef VERTEX_UVS
 #ifdef VERTEX_TANGENTS
 
+        let TBN = pbr_functions::calculate_tbn_mikktspace(pbr_input.world_normal, in.world_tangent);
+
 #ifdef STANDARD_MATERIAL_NORMAL_MAP
 
         let Nt = pbr_functions::sample_texture(
@@ -372,10 +374,9 @@ fn pbr_input_from_standard_material(
 
         pbr_input.N = pbr_functions::apply_normal_mapping(
             pbr_bindings::material.flags,
-            pbr_input.world_normal,
+            TBN,
             double_sided,
             is_front,
-            in.world_tangent,
             Nt,
             view.mip_bias,
         );
@@ -403,10 +404,9 @@ fn pbr_input_from_standard_material(
 
         pbr_input.clearcoat_N = pbr_functions::apply_normal_mapping(
             pbr_bindings::material.flags,
-            pbr_input.world_normal,
+            TBN,
             double_sided,
             is_front,
-            in.world_tangent,
             clearcoat_Nt,
             view.mip_bias,
         );
@@ -417,6 +417,43 @@ fn pbr_input_from_standard_material(
 
 #endif  // VERTEX_TANGENTS
 #endif  // VERTEX_UVS
+
+        // Take anisotropy into account.
+#ifdef VERTEX_TANGENTS
+#ifdef STANDARD_MATERIAL_ANISOTROPY
+
+        var anisotropy_strength = pbr_bindings::material.anisotropy_strength;
+        var anisotropy_direction = pbr_bindings::material.anisotropy_rotation;
+
+        // Adjust based on the anisotropy map if there is one.
+        if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ANISOTROPY_TEXTURE_BIT) != 0u) {
+            let anisotropy_texel = pbr_functions::sample_texture(
+                pbr_bindings::anisotropy_texture,
+                pbr_bindings::anisotropy_sampler,
+#ifdef STANDARD_MATERIAL_ANISOTROPY_UV_B
+                uv_b,
+#else   // STANDARD_MATERIAL_ANISOTROPY_UV_B
+                uv,
+#endif  // STANDARD_MATERIAL_ANISOTROPY_UV_B
+                bias,
+            ).rgb;
+
+            let anisotropy_direction_from_texture = normalize(anisotropy_texel.rg * 2.0 - 1.0);
+            anisotropy_direction =
+                mat2x2(anisotropy_direction.xy, anisotropy_direction.yx * vec2(-1.0, 1.0)) *
+                anisotropy_direction_from_texture;
+            anisotropy_strength *= anisotropy_texel.b;
+        }
+
+        pbr_input.anisotropy_strength = anisotropy_strength;
+
+        let anisotropy_T = normalize(TBN * vec3(anisotropy_direction, 0.0));
+        let anisotropy_B = normalize(cross(pbr_input.world_normal, anisotropy_T));
+        pbr_input.anisotropy_T = anisotropy_T;
+        pbr_input.anisotropy_B = anisotropy_B;
+
+#endif  // STANDARD_MATERIAL_ANISOTROPY
+#endif  // VERTEX_TANGENTS
 
 #endif  // LOAD_PREPASS_NORMALS
 
