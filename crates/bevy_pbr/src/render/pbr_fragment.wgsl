@@ -221,10 +221,14 @@ fn pbr_input_from_standard_material(
 #ifdef VERTEX_UVS
 #ifdef PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_CLEARCOAT_TEXTURE_BIT) != 0u) {
+            var clearcoat_uv = uv;
+            if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_CLEARCOAT_UV_BIT) != 0u) {
+                clearcoat_uv = uv_b;
+            }
             pbr_input.material.clearcoat *= pbr_functions::sample_texture(
                 pbr_bindings::clearcoat_texture,
                 pbr_bindings::clearcoat_sampler,
-                uv,
+                clearcoat_uv,
                 bias,
             ).r;
         }
@@ -236,10 +240,14 @@ fn pbr_input_from_standard_material(
 #ifdef VERTEX_UVS
 #ifdef PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_CLEARCOAT_ROUGHNESS_TEXTURE_BIT) != 0u) {
+            var clearcoat_roughness_uv = uv;
+            if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_CLEARCOAT_ROUGHNESS_UV_BIT) != 0u) {
+                clearcoat_roughness_uv = uv_b;
+            }
             pbr_input.material.clearcoat_perceptual_roughness *= pbr_functions::sample_texture(
                 pbr_bindings::clearcoat_roughness_texture,
                 pbr_bindings::clearcoat_roughness_sampler,
-                uv,
+                clearcoat_roughness_uv,
                 bias,
             ).g;
         }
@@ -379,10 +387,15 @@ fn pbr_input_from_standard_material(
 
 #ifdef STANDARD_MATERIAL_CLEARCOAT_NORMAL_MAP
 
+        var clearcoat_normal_uv = uv;
+        if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_CLEARCOAT_NORMAL_UV_BIT) != 0u) {
+            clearcoat_normal_uv = uv_b;
+        }
+
         let clearcoat_Nt = pbr_functions::sample_texture(
             pbr_bindings::clearcoat_normal_texture,
             pbr_bindings::clearcoat_normal_sampler,
-            uv,
+            clearcoat_normal_uv,
             bias,
         ).rgb;
 

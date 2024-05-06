@@ -398,6 +398,12 @@ pub struct StandardMaterial {
     /// Defaults to zero, specifying no clearcoat layer.
     pub clearcoat: f32,
 
+    /// The UV channel to use for the [`StandardMaterial::clearcoat_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
+    pub clearcoat_channel: UvChannel,
+
     /// An image texture that specifies the strength of the clearcoat layer in
     /// the red channel. Values sampled from this texture are multiplied by the
     /// main [`StandardMaterial::clearcoat`] factor.
@@ -417,6 +423,12 @@ pub struct StandardMaterial {
     /// Defaults to 0.5.
     pub clearcoat_perceptual_roughness: f32,
 
+    /// The UV channel to use for the [`StandardMaterial::clearcoat_roughness_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
+    pub clearcoat_roughness_channel: UvChannel,
+
     /// An image texture that specifies the roughness of the clearcoat level in
     /// the green channel. Values from this texture are multiplied by the main
     /// [`StandardMaterial::clearcoat_perceptual_roughness`] factor.
@@ -426,6 +438,12 @@ pub struct StandardMaterial {
     #[sampler(22)]
     #[cfg(feature = "pbr_multi_layer_material_textures")]
     pub clearcoat_roughness_texture: Option<Handle<Image>>,
+
+    /// The UV channel to use for the [`StandardMaterial::clearcoat_normal_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
+    pub clearcoat_normal_channel: UvChannel,
 
     /// An image texture that specifies a normal map that is to be applied to
     /// the clearcoat layer. This can be used to simulate, for example,
@@ -698,9 +716,15 @@ impl Default for StandardMaterial {
             clearcoat: 0.0,
             clearcoat_perceptual_roughness: 0.5,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_channel: UvChannel::Uv0,
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_texture: None,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_roughness_channel: UvChannel::Uv0,
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_roughness_texture: None,
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_normal_channel: UvChannel::Uv0,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_normal_texture: None,
             flip_normal_map_y: false,
@@ -776,6 +800,9 @@ bitflags::bitflags! {
         const THICKNESS_UV               = 1 << 22;
         const DIFFUSE_TRANSMISSION_UV    = 1 << 23;
         const NORMAL_MAP_UV              = 1 << 24;
+        const CLEARCOAT_UV               = 1 << 25;
+        const CLEARCOAT_ROUGHNESS_UV     = 1 << 26;
+        const CLEARCOAT_NORMAL_UV        = 1 << 27;
         const ALPHA_MODE_RESERVED_BITS   = Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS; // ← Bitmask reserving bits for the `AlphaMode`
         const ALPHA_MODE_OPAQUE          = 0 << Self::ALPHA_MODE_SHIFT_BITS;                          // ← Values are just sequential values bitshifted into
         const ALPHA_MODE_MASK            = 1 << Self::ALPHA_MODE_SHIFT_BITS;                          //   the bitmask, and can range from 0 to 7.
@@ -916,12 +943,21 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         {
             if self.clearcoat_texture.is_some() {
                 flags |= StandardMaterialFlags::CLEARCOAT_TEXTURE;
+                if self.clearcoat_channel != UvChannel::Uv0 {
+                    flags |= StandardMaterialFlags::CLEARCOAT_UV;
+                }
             }
             if self.clearcoat_roughness_texture.is_some() {
                 flags |= StandardMaterialFlags::CLEARCOAT_ROUGHNESS_TEXTURE;
+                if self.clearcoat_roughness_channel != UvChannel::Uv0 {
+                    flags |= StandardMaterialFlags::CLEARCOAT_ROUGHNESS_UV;
+                }
             }
             if self.clearcoat_normal_texture.is_some() {
                 flags |= StandardMaterialFlags::CLEARCOAT_NORMAL_TEXTURE;
+                if self.clearcoat_normal_channel != UvChannel::Uv0 {
+                    flags |= StandardMaterialFlags::CLEARCOAT_NORMAL_UV;
+                }
             }
         }
 

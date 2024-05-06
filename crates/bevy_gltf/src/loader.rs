@@ -49,7 +49,7 @@ use gltf::{json, Document};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "pbr_multi_layer_material_textures")]
 use serde_json::value;
-use serde_json::{Map, Value};
+use serde_json::Value;
 #[cfg(feature = "bevy_animation")]
 use smallvec::SmallVec;
 use std::io::Error;
@@ -833,29 +833,6 @@ async fn load_image<'a, 'b>(
     }
 }
 
-fn get_uv_channel(material: &Material, texture_kind: &str, tex_coord: u32) -> UvChannel {
-    match tex_coord {
-        0 => UvChannel::Uv0,
-        1 => UvChannel::Uv1,
-        _ => {
-            let material_name = material
-                .name()
-                .map(|n| format!("the material \"{n}\""))
-                .unwrap_or_else(|| "an unnamed material".to_string());
-            let material_index = material
-                .index()
-                .map(|i| format!("index {i}"))
-                .unwrap_or_else(|| "default".to_string());
-            warn!(
-                "Only 2 UV Channels are supported, but {material_name} ({material_index}) \
-                has the TEXCOORD attribute {} on texture kind {texture_kind}, which will fallback to 0.",
-                tex_coord,
-            );
-            UvChannel::Uv0
-        }
-    }
-}
-
 /// Loads a glTF material as a bevy [`StandardMaterial`] and returns it.
 fn load_material(
     material: &Material,
@@ -1002,8 +979,8 @@ fn load_material(
         let ior = material.ior().unwrap_or(1.5);
 
         // Parse the `KHR_materials_clearcoat` extension data if necessary.
-        let clearcoat = ClearcoatExtension::parse(load_context, document, material.extensions())
-            .unwrap_or_default();
+        let clearcoat =
+            ClearcoatExtension::parse(load_context, document, material).unwrap_or_default();
 
         // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
         let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
@@ -1057,14 +1034,43 @@ fn load_material(
             clearcoat_perceptual_roughness: clearcoat.clearcoat_roughness_factor.unwrap_or_default()
                 as f32,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_channel: clearcoat.clearcoat_channel,
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_texture: clearcoat.clearcoat_texture,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_roughness_channel: clearcoat.clearcoat_roughness_channel,
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_roughness_texture: clearcoat.clearcoat_roughness_texture,
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_normal_channel: clearcoat.clearcoat_normal_channel,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_normal_texture: clearcoat.clearcoat_normal_texture,
             ..Default::default()
         }
     })
+}
+
+fn get_uv_channel(material: &Material, texture_kind: &str, tex_coord: u32) -> UvChannel {
+    match tex_coord {
+        0 => UvChannel::Uv0,
+        1 => UvChannel::Uv1,
+        _ => {
+            let material_name = material
+                .name()
+                .map(|n| format!("the material \"{n}\""))
+                .unwrap_or_else(|| "an unnamed material".to_string());
+            let material_index = material
+                .index()
+                .map(|i| format!("index {i}"))
+                .unwrap_or_else(|| "default".to_string());
+            warn!(
+                "Only 2 UV Channels are supported, but {material_name} ({material_index}) \
+                has the TEXCOORD attribute {} on texture kind {texture_kind}, which will fallback to 0.",
+                tex_coord,
+            );
+            UvChannel::Uv0
+        }
+    }
 }
 
 fn convert_texture_transform_to_affine2(texture_transform: TextureTransform) -> Affine2 {
@@ -1769,10 +1775,16 @@ struct AnimationContext {
 struct ClearcoatExtension {
     clearcoat_factor: Option<f64>,
     #[cfg(feature = "pbr_multi_layer_material_textures")]
+    clearcoat_channel: UvChannel,
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
     clearcoat_texture: Option<Handle<Image>>,
     clearcoat_roughness_factor: Option<f64>,
     #[cfg(feature = "pbr_multi_layer_material_textures")]
+    clearcoat_roughness_channel: UvChannel,
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
     clearcoat_roughness_texture: Option<Handle<Image>>,
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
+    clearcoat_normal_channel: UvChannel,
     #[cfg(feature = "pbr_multi_layer_material_textures")]
     clearcoat_normal_texture: Option<Handle<Image>>,
 }
@@ -1782,11 +1794,48 @@ impl ClearcoatExtension {
     fn parse(
         load_context: &mut LoadContext,
         document: &Document,
-        material_extensions: Option<&Map<String, Value>>,
+        material: &Material,
     ) -> Option<ClearcoatExtension> {
-        let extension = material_extensions?
+        let extension = material
+            .extensions()?
             .get("KHR_materials_clearcoat")?
             .as_object()?;
+
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        let (clearcoat_channel, clearcoat_texture) = extension
+            .get("clearcoatTexture")
+            .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
+            .map(|json_info| {
+                (
+                    get_uv_channel(material, "clearcoat", json_info.tex_coord),
+                    texture_handle_from_info(load_context, document, &json_info),
+                )
+            })
+            .unzip();
+
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        let (clearcoat_roughness_channel, clearcoat_roughness_texture) = extension
+            .get("clearcoatRoughnessTexture")
+            .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
+            .map(|json_info| {
+                (
+                    get_uv_channel(material, "clearcoat roughness", json_info.tex_coord),
+                    texture_handle_from_info(load_context, document, &json_info),
+                )
+            })
+            .unzip();
+
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        let (clearcoat_normal_channel, clearcoat_normal_texture) = extension
+            .get("clearcoatNormalTexture")
+            .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
+            .map(|json_info| {
+                (
+                    get_uv_channel(material, "clearcoat normal", json_info.tex_coord),
+                    texture_handle_from_info(load_context, document, &json_info),
+                )
+            })
+            .unzip();
 
         Some(ClearcoatExtension {
             clearcoat_factor: extension.get("clearcoatFactor").and_then(Value::as_f64),
@@ -1794,20 +1843,17 @@ impl ClearcoatExtension {
                 .get("clearcoatRoughnessFactor")
                 .and_then(Value::as_f64),
             #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_texture: extension
-                .get("clearcoatTexture")
-                .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
-                .map(|json_info| texture_handle_from_info(load_context, document, &json_info)),
+            clearcoat_channel: clearcoat_channel.unwrap_or_default(),
             #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_roughness_texture: extension
-                .get("clearcoatRoughnessTexture")
-                .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
-                .map(|json_info| texture_handle_from_info(load_context, document, &json_info)),
+            clearcoat_texture,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_normal_texture: extension
-                .get("clearcoatNormalTexture")
-                .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
-                .map(|json_info| texture_handle_from_info(load_context, document, &json_info)),
+            clearcoat_roughness_channel: clearcoat_roughness_channel.unwrap_or_default(),
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_roughness_texture,
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_normal_channel: clearcoat_normal_channel.unwrap_or_default(),
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_normal_texture,
         })
     }
 }
