@@ -330,7 +330,7 @@ pub struct MeshCullingData {
 /// To avoid wasting CPU time in the CPU culling case, this buffer will be empty
 /// if GPU culling isn't in use.
 #[derive(Resource, Deref, DerefMut)]
-pub struct MeshCullingDataBuffer(BufferVec<MeshCullingData>);
+pub struct MeshCullingDataBuffer(RawBufferVec<MeshCullingData>);
 
 impl MeshUniform {
     pub fn new(mesh_transforms: &MeshTransforms, maybe_lightmap_uv_rect: Option<Rect>) -> Self {
@@ -684,7 +684,7 @@ impl RenderMeshInstanceGpuBuilder {
         self,
         entity: Entity,
         render_mesh_instances: &mut EntityHashMap<RenderMeshInstanceGpu>,
-        current_input_buffer: &mut BufferVec<MeshInputUniform>,
+        current_input_buffer: &mut RawBufferVec<MeshInputUniform>,
     ) -> usize {
         // Push the mesh input uniform.
         let current_uniform_index = current_input_buffer.push(MeshInputUniform {
@@ -741,7 +741,7 @@ impl MeshCullingData {
 impl Default for MeshCullingDataBuffer {
     #[inline]
     fn default() -> Self {
-        Self(BufferVec::new(BufferUsages::STORAGE))
+        Self(RawBufferVec::new(BufferUsages::STORAGE))
     }
 }
 
@@ -1547,6 +1547,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if cfg!(feature = "pbr_transmission_textures") {
             shader_defs.push("PBR_TRANSMISSION_TEXTURES_SUPPORTED".into());
+        }
+        if cfg!(feature = "pbr_multi_layer_material_textures") {
+            shader_defs.push("PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED".into());
         }
 
         let mut bind_group_layout = vec![self.view_layouts.get_view_layout(key.into()).clone()];

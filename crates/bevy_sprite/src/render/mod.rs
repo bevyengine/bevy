@@ -413,16 +413,16 @@ impl SpriteInstance {
 #[derive(Resource)]
 pub struct SpriteMeta {
     view_bind_group: Option<BindGroup>,
-    sprite_index_buffer: BufferVec<u32>,
-    sprite_instance_buffer: BufferVec<SpriteInstance>,
+    sprite_index_buffer: RawBufferVec<u32>,
+    sprite_instance_buffer: RawBufferVec<SpriteInstance>,
 }
 
 impl Default for SpriteMeta {
     fn default() -> Self {
         Self {
             view_bind_group: None,
-            sprite_index_buffer: BufferVec::<u32>::new(BufferUsages::INDEX),
-            sprite_instance_buffer: BufferVec::<SpriteInstance>::new(BufferUsages::VERTEX),
+            sprite_index_buffer: RawBufferVec::<u32>::new(BufferUsages::INDEX),
+            sprite_instance_buffer: RawBufferVec::<SpriteInstance>::new(BufferUsages::VERTEX),
         }
     }
 }
