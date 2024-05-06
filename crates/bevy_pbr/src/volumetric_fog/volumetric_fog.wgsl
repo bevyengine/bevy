@@ -61,9 +61,9 @@ const FRAC_4_PI: f32 = 0.07957747154594767;
 // [1]: https://www.scratchapixel.com/lessons/3d-basic-rendering/volume-rendering-for-developers/ray-marching-get-it-right.html
 //
 // [2]: https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions#TheHenyeyndashGreensteinPhaseFunction
-fn henyey_greenstein(LdotV: f32) -> f32 {
+fn henyey_greenstein(neg_LdotV: f32) -> f32 {
     let g = volumetric_fog.scattering_asymmetry;
-    let denom = 1.0 + g * g - 2.0 * g * LdotV;
+    let denom = 1.0 + g * g - 2.0 * g * neg_LdotV;
     return FRAC_4_PI * (1.0 - g * g) / (denom * sqrt(denom));
 }
 
@@ -155,8 +155,8 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
         // Compute phase, which determines the fraction of light that's
         // scattered toward the camera instead of away from it.
-        let LdotV = dot(normalize((*light).direction_to_light.xyz), Rd_world);
-        let phase = henyey_greenstein(LdotV);
+        let neg_LdotV = dot(normalize((*light).direction_to_light.xyz), Rd_world);
+        let phase = henyey_greenstein(neg_LdotV);
 
         // Modulate the factor we calculated above by the phase, fog color,
         // light color, light tint.
