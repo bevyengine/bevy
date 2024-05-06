@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use super::{Primitive2d, WindingOrder};
+use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{Dir2, Vec2};
 
 /// A circle primitive
@@ -32,19 +32,6 @@ impl Circle {
         2.0 * self.radius
     }
 
-    /// Get the area of the circle
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        PI * self.radius.powi(2)
-    }
-
-    /// Get the perimeter or circumference of the circle
-    #[inline(always)]
-    #[doc(alias = "circumference")]
-    pub fn perimeter(&self) -> f32 {
-        2.0 * PI * self.radius
-    }
-
     /// Finds the point on the circle that is closest to the given `point`.
     ///
     /// If the point is outside the circle, the returned point will be on the perimeter of the circle.
@@ -62,6 +49,21 @@ impl Circle {
             let dir_to_point = point / distance_squared.sqrt();
             self.radius * dir_to_point
         }
+    }
+}
+
+impl Measured2d for Circle {
+    /// Get the area of the circle
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        PI * self.radius.powi(2)
+    }
+
+    /// Get the perimeter or circumference of the circle
+    #[inline(always)]
+    #[doc(alias = "circumference")]
+    fn perimeter(&self) -> f32 {
+        2.0 * PI * self.radius
     }
 }
 
@@ -181,20 +183,6 @@ impl Annulus {
         self.outer_circle.radius - self.inner_circle.radius
     }
 
-    /// Get the area of the annulus
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        PI * (self.outer_circle.radius.powi(2) - self.inner_circle.radius.powi(2))
-    }
-
-    /// Get the perimeter or circumference of the annulus,
-    /// which is the sum of the perimeters of the inner and outer circles.
-    #[inline(always)]
-    #[doc(alias = "circumference")]
-    pub fn perimeter(&self) -> f32 {
-        2.0 * PI * (self.outer_circle.radius + self.inner_circle.radius)
-    }
-
     /// Finds the point on the annulus that is closest to the given `point`:
     ///
     /// - If the point is outside of the annulus completely, the returned point will be on the outer perimeter.
@@ -220,6 +208,22 @@ impl Annulus {
             let dir_to_point = point / distance_squared.sqrt();
             self.inner_circle.radius * dir_to_point
         }
+    }
+}
+
+impl Measured2d for Annulus {
+    /// Get the area of the annulus
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        PI * (self.outer_circle.radius.powi(2) - self.inner_circle.radius.powi(2))
+    }
+
+    /// Get the perimeter or circumference of the annulus,
+    /// which is the sum of the perimeters of the inner and outer circles.
+    #[inline(always)]
+    #[doc(alias = "circumference")]
+    fn perimeter(&self) -> f32 {
+        2.0 * PI * (self.outer_circle.radius + self.inner_circle.radius)
     }
 }
 
@@ -404,25 +408,6 @@ impl Triangle2d {
         }
     }
 
-    /// Get the area of the triangle
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        let [a, b, c] = self.vertices;
-        (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y)).abs() / 2.0
-    }
-
-    /// Get the perimeter of the triangle
-    #[inline(always)]
-    pub fn perimeter(&self) -> f32 {
-        let [a, b, c] = self.vertices;
-
-        let ab = a.distance(b);
-        let bc = b.distance(c);
-        let ca = c.distance(a);
-
-        ab + bc + ca
-    }
-
     /// Get the [`WindingOrder`] of the triangle
     #[inline(always)]
     #[doc(alias = "orientation")]
@@ -478,6 +463,27 @@ impl Triangle2d {
     #[inline(always)]
     pub fn reverse(&mut self) {
         self.vertices.swap(0, 2);
+    }
+}
+
+impl Measured2d for Triangle2d {
+    /// Get the area of the triangle
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        let [a, b, c] = self.vertices;
+        (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y)).abs() / 2.0
+    }
+
+    /// Get the perimeter of the triangle
+    #[inline(always)]
+    fn perimeter(&self) -> f32 {
+        let [a, b, c] = self.vertices;
+
+        let ab = a.distance(b);
+        let bc = b.distance(c);
+        let ca = c.distance(a);
+
+        ab + bc + ca
     }
 }
 
@@ -538,18 +544,6 @@ impl Rectangle {
         2.0 * self.half_size
     }
 
-    /// Get the area of the rectangle
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        4.0 * self.half_size.x * self.half_size.y
-    }
-
-    /// Get the perimeter of the rectangle
-    #[inline(always)]
-    pub fn perimeter(&self) -> f32 {
-        4.0 * (self.half_size.x + self.half_size.y)
-    }
-
     /// Finds the point on the rectangle that is closest to the given `point`.
     ///
     /// If the point is outside the rectangle, the returned point will be on the perimeter of the rectangle.
@@ -558,6 +552,20 @@ impl Rectangle {
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         // Clamp point coordinates to the rectangle
         point.clamp(-self.half_size, self.half_size)
+    }
+}
+
+impl Measured2d for Rectangle {
+    /// Get the area of the rectangle
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        4.0 * self.half_size.x * self.half_size.y
+    }
+
+    /// Get the perimeter of the rectangle
+    #[inline(always)]
+    fn perimeter(&self) -> f32 {
+        4.0 * (self.half_size.x + self.half_size.y)
     }
 }
 
@@ -682,20 +690,6 @@ impl RegularPolygon {
         2.0 * self.circumradius() * (PI / self.sides as f32).sin()
     }
 
-    /// Get the area of the regular polygon
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        let angle: f32 = 2.0 * PI / (self.sides as f32);
-        (self.sides as f32) * self.circumradius().powi(2) * angle.sin() / 2.0
-    }
-
-    /// Get the perimeter of the regular polygon.
-    /// This is the sum of its sides
-    #[inline(always)]
-    pub fn perimeter(&self) -> f32 {
-        self.sides as f32 * self.side_length()
-    }
-
     /// Get the internal angle of the regular polygon in degrees.
     ///
     /// This is the angle formed by two adjacent sides with points
@@ -746,6 +740,22 @@ impl RegularPolygon {
             let (sin, cos) = theta.sin_cos();
             Vec2::new(cos, sin) * self.circumcircle.radius
         })
+    }
+}
+
+impl Measured2d for RegularPolygon {
+    /// Get the area of the regular polygon
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        let angle: f32 = 2.0 * PI / (self.sides as f32);
+        (self.sides as f32) * self.circumradius().powi(2) * angle.sin() / 2.0
+    }
+
+    /// Get the perimeter of the regular polygon.
+    /// This is the sum of its sides
+    #[inline(always)]
+    fn perimeter(&self) -> f32 {
+        self.sides as f32 * self.side_length()
     }
 }
 
