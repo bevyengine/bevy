@@ -381,7 +381,10 @@ mod frame_capture {
                 texture::BevyDefault,
             },
         };
-        use std::path::PathBuf;
+        use std::{
+            ops::{Deref, DerefMut},
+            path::PathBuf,
+        };
 
         #[derive(Component, Default)]
         pub struct CaptureCamera;
@@ -482,6 +485,7 @@ mod frame_capture {
             mut images: ResMut<Assets<Image>>,
             mut scene_controller: ResMut<SceneController>,
             mut app_exit_writer: EventWriter<AppExit>,
+            mut file_number: Local<u32>,
         ) {
             if let SceneState::Render(n) = scene_controller.state {
                 if n < 1 {
@@ -512,13 +516,10 @@ mod frame_capture {
                             info!("Saving image to: {images_dir:?}");
                             std::fs::create_dir_all(&images_dir).unwrap();
 
-                            // Search for the first unoccupied number
-                            let mut number = 0;
-                            let mut image_path = images_dir.join(format!("{number:03}.png"));
-                            while image_path.exists() {
-                                number += 1;
-                                image_path = images_dir.join(format!("{number:03}.png"));
-                            }
+                            // Choose filename starting from 000.png
+                            let image_path =
+                                images_dir.join(format!("{:03}.png", file_number.deref()));
+                            *file_number.deref_mut() += 1;
 
                             // Finally saving image to file, this heavy blocking operation is kept here
                             // for example simplicity, but in real app you should move it to a separate task
