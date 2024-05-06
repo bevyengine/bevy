@@ -132,9 +132,10 @@ impl CommandQueue {
             std::mem::swap(self, &mut world.swap_queue);
         }
 
+        // Apply our queue
         self.apply_or_drop_queued(Some(world));
 
-        // Apply our queue and any subsequent commands
+        // Apply any resulting commands from the world's internal queue
         while !world.command_queue.is_empty() {
             // Put our empty queue into the `swap_queue`
             std::mem::swap(self, &mut world.swap_queue);
