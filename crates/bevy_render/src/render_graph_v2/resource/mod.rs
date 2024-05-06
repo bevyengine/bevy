@@ -52,11 +52,13 @@ impl<'g> ResourceTracker<'g> {
         RenderResourceId { id }
     }
 
-    pub(super) fn write(&mut self, id: RenderResourceId) {
-        self.collect_dependencies(id)
-            .writes
-            .into_iter()
-            .for_each(|id| self.generations[id.id as usize].generation += 1);
+    pub(super) fn write_dependencies(&mut self, dependencies: RenderDependencies) {
+        //NOTE: takes dependencies instead of single resource in order to deduplicate writes in
+        //same "set"
+        // self.collect_dependencies(id)
+        //     .writes
+        //     .into_iter()
+        //     .for_each(|id| self.generations[id.id as usize].generation += 1);
     }
 
     pub(super) fn generation(&self, id: RenderResourceId) -> RenderResourceGeneration {

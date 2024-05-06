@@ -89,13 +89,6 @@ impl<'g> RenderGraph<'g> {
         self.resources.generation(id)
     }
 
-    fn write_resources(&mut self, dependencies: &RenderDependencies<'g>) -> &mut Self {
-        dependencies
-            .iter_writes()
-            .for_each(|id| self.resources.write(id));
-        self
-    }
-
     fn create_queued_resources(
         &mut self,
         resource_cache: &'g mut CachedRenderGraphResources,
@@ -105,7 +98,8 @@ impl<'g> RenderGraph<'g> {
     ) {
         self.bind_group_layouts
             .create_queued_resources_cached(&mut resource_cache.bind_group_layouts, render_device);
-        self.pipelines.create_queued_pipelines(world.resource::<PipelineCache>())
+        // self.pipelines
+        // .create_queued_pipelines(world.resource::<PipelineCache>());
         self.textures.create_queued_resources(render_device);
 
         let mut texture_views = std::mem::take(&mut self.texture_views);
@@ -186,7 +180,7 @@ impl<'g> RenderGraphBuilder<'g> {
     ) -> &mut Self {
         //get + save dependency generations here, since they're not stored in RenderDependencies.
         //This is to make creating a RenderDependencies (and cloning!) a pure operation.
-        self.graph.write_resources(&dependencies);
+        self.graph.resources.write_dependencies(dependencies);
         todo!();
         self
     }

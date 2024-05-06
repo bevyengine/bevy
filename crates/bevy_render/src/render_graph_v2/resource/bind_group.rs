@@ -173,25 +173,37 @@ struct BindGroupEntriesHash<'a>(&'a [BindGroupEntry<'a>]);
 
 impl<'a> Hash for BindGroupEntriesHash<'a> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        let mut bindings = Vec::from(self.0);
+        bindings.sort_unstable_by_key(|e| e.binding);
         for entry in self.0 {
             entry.binding.hash(state);
             match entry.resource {
-                wgpu::BindingResource::Buffer(BufferBinding {
-                    buffer,
-                    offset,
-                    size,
-                }) => {
-                    buffer.global_id().hash(state);
-                    offset.hash(state);
-                    size.hash(state);
+                wgpu::BindingResource::Buffer(buffer) => {
+                    buffer.buffer.global_id().hash(state);
+                    buffer.offset.hash(state);
+                    buffer.size.hash(state);
                 }
-                wgpu::BindingResource::BufferArray(_) => todo!(),
+                wgpu::BindingResource::BufferArray(buffers) => {
+                    for buffer in buffers {
+                        buffer.buffer.global_id().hash(state);
+                        buffer.offset.hash(state);
+                        buffer.size.hash(state);
+                    }
+                }
                 wgpu::BindingResource::Sampler(sampler) => sampler.global_id().hash(state),
-                wgpu::BindingResource::SamplerArray(_) => todo!(),
+                wgpu::BindingResource::SamplerArray(samplers) => {
+                    for sampler in samplers {
+                        sampler.global_id().hash(state)
+                    }
+                }
                 wgpu::BindingResource::TextureView(texture_view) => {
                     texture_view.global_id().hash(state)
                 }
-                wgpu::BindingResource::TextureViewArray(_) => todo!(),
+                wgpu::BindingResource::TextureViewArray(texture_views) => {
+                    for texture_view in texture_views {
+                        texture_view.global_id().hash(state)
+                    }
+                }
                 _ => todo!(),
             }
         }
@@ -200,14 +212,45 @@ impl<'a> Hash for BindGroupEntriesHash<'a> {
 
 impl<'a> PartialEq for BindGroupEntriesHash<'a> {
     fn eq(&self, other: &Self) -> bool {
-        if self.0.length() != other.0.length() {
-            return false;
+        let mut bindings1 = Vec::from(self.0);
+        let mut bindings2 = Vec::from(other.0);
+
+        bindings1.sort_unstable_by_key(|e| e.binding);
+        bindings2.sort_unstable_by_key(|e| e.binding);
+
+        //hacky, since std::iter::eq_by is unstable
+        fn slice_eq_by<A, B>(a: &[A], b: &[B], mut f: impl FnMut(&A, &B) -> bool) -> bool {
+            a.length() == b.length()
+                && std::iter::zip(a.into_iter(), b.into_iter()).all(|(ai, bi)| f(ai, bi))
         }
-        use wgpu::BindingResource as BR;
-        for (e1, e2) in std::iter::zip(self.0, other.0) {
-            match (e1, e2) {}
-        }
-        true
+
+        slice_eq_by(self.0, other.0, |e1, e2| {
+            use wgpu::BindingResource as BR;
+            e1.binding == e2.binding
+                && match (e1.resource, e2.resource) {
+                    (BR::Buffer(b1), BR::Buffer(b2)) => {
+                        b1.buffer.global_id() == b2.buffer.global_id()
+                            && b1.offset == b2.offset
+                            && b1.size == b2.size
+                    }
+                    (BR::BufferArray(b1s), BR::BufferArray(b2s)) => {
+                        slice_eq_by(b1s, b2s, |b1, b2| {
+                            b1.buffer.global_id() == b2.buffer.global_id()
+                                && b1.offset == b2.offset
+                                && b1.size == b2.size
+                        })
+                    }
+                    (BR::Sampler(s1), BR::Sampler(s2)) => s1.global_id() == s2.global_id(),
+                    (BR::SamplerArray(s1s), BR::SamplerArray(s2s)) => {
+                        slice_eq_by(s1s, s2s, |s1, s2| s1.global_id() == s2.global_id())
+                    }
+                    (BR::TextureView(t1), BR::TextureView(t2)) => t1.global_id() == t2.global_id(),
+                    (BR::TextureViewArray(t1s), BR::TextureViewArray(t2s)) => {
+                        slice_eq_by(t1s, t2s, |t1, t2| t1.global_id() == t2.global_id())
+                    }
+                    _ => false,
+                }
+        })
     }
 }
 
