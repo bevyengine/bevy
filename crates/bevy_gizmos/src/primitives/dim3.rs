@@ -1,7 +1,7 @@
 //! A module for rendering each of the 3D [`bevy_math::primitives`] with [`Gizmos`].
 
 use super::helpers::*;
-use std::f32::consts::TAU;
+use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 use bevy_color::Color;
 use bevy_math::primitives::{
@@ -577,26 +577,57 @@ where
             segments,
         } = self;
 
-        let normal = *rotation * Vec3::Y;
+        // Draw the circles at the top and bottom of the cylinder
+        let y_offset = *rotation * Vec3::Y;
+        gizmos
+            .circle(
+                *position + y_offset * *half_length,
+                Dir3::new_unchecked(y_offset),
+                *radius,
+                *color,
+            )
+            .segments(*segments);
+        gizmos
+            .circle(
+                *position - y_offset * *half_length,
+                Dir3::new_unchecked(y_offset),
+                *radius,
+                *color,
+            )
+            .segments(*segments);
+        let y_offset = y_offset * *half_length;
 
-        // draw two semi spheres for the capsule
-        [1.0, -1.0].into_iter().for_each(|sign| {
-            let center = *position + sign * *half_length * normal;
-            let top = center + sign * *radius * normal;
-            draw_semi_sphere(gizmos, *radius, *segments, *rotation, center, top, *color);
-            draw_circle_3d(gizmos, *radius, *segments, *rotation, center, *color);
+        // Draw the vertical lines and the cap semicircles
+        [Vec3::X, Vec3::Z].into_iter().for_each(|axis| {
+            let normal = *rotation * axis;
+
+            gizmos.line(
+                *position + normal * *radius + y_offset,
+                *position + normal * *radius - y_offset,
+                *color,
+            );
+            gizmos.line(
+                *position - normal * *radius + y_offset,
+                *position - normal * *radius - y_offset,
+                *color,
+            );
+
+            let rotation = *rotation
+                * Quat::from_euler(bevy_math::EulerRot::ZYX, 0., axis.z * FRAC_PI_2, FRAC_PI_2);
+
+            gizmos
+                .arc_3d(PI, *radius, *position + y_offset, rotation, *color)
+                .segments(*segments / 2);
+            gizmos
+                .arc_3d(
+                    PI,
+                    *radius,
+                    *position - y_offset,
+                    rotation * Quat::from_rotation_y(PI),
+                    *color,
+                )
+                .segments(*segments / 2);
         });
-
-        // connect the two semi spheres with lines
-        draw_cylinder_vertical_lines(
-            gizmos,
-            *radius,
-            *segments,
-            *half_length,
-            *rotation,
-            *position,
-            *color,
-        );
     }
 }
 
