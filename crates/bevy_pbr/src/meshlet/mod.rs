@@ -49,7 +49,8 @@ use self::{
     },
     pipelines::{
         MeshletPipelines, MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE, MESHLET_CULLING_SHADER_HANDLE,
-        MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE, MESHLET_VISIBILITY_BUFFER_RASTER_SHADER_HANDLE,
+        MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE, MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE,
+        MESHLET_VISIBILITY_BUFFER_RASTER_SHADER_HANDLE,
     },
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
@@ -74,6 +75,8 @@ use bevy_ecs::{
 use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{Shader, TextureUsages},
+    renderer::RenderDevice,
+    settings::WgpuFeatures,
     view::{
         check_visibility, prepare_view_targets, InheritedVisibility, Msaa, ViewVisibility,
         Visibility, VisibilitySystems,
@@ -105,7 +108,7 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 ///
 /// This plugin is not compatible with [`Msaa`], and adding this plugin will disable it.
 ///
-/// This plugin does not work on the WebGL2 backend.
+/// This plugin does not work on WASM.
 ///
 /// ![A render of the Stanford dragon as a `MeshletMesh`](https://raw.githubusercontent.com/bevyengine/bevy/main/crates/bevy_pbr/src/meshlet/meshlet_preview.png)
 pub struct MeshletPlugin;
@@ -122,6 +125,12 @@ impl Plugin for MeshletPlugin {
             app,
             super::MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE,
             "visibility_buffer_resolve.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE,
+            "fill_cluster_buffers.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
@@ -168,6 +177,15 @@ impl Plugin for MeshletPlugin {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+
+        if !render_app
+            .world()
+            .resource::<RenderDevice>()
+            .features()
+            .contains(WgpuFeatures::PUSH_CONSTANTS)
+        {
+            panic!("MeshletPlugin can't be used. GPU lacks support: WgpuFeatures::PUSH_CONSTANTS is not supported.");
+        }
 
         render_app
             .add_render_graph_node::<MeshletVisibilityBufferRasterPassNode>(

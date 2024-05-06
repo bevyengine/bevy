@@ -28,6 +28,7 @@ pub mod graph {
         Taa,
         MotionBlur,
         Bloom,
+        AutoExposure,
         DepthOfField,
         Tonemapping,
         Fxaa,

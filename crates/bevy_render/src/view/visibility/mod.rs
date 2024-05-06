@@ -1,14 +1,15 @@
+mod range;
 mod render_layers;
 
 use std::any::TypeId;
 
-use bevy_derive::Deref;
-use bevy_ecs::query::QueryFilter;
+pub use range::*;
 pub use render_layers::*;
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::prelude::*;
+use bevy_derive::Deref;
+use bevy_ecs::{prelude::*, query::QueryFilter};
 use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystem};
@@ -395,6 +396,7 @@ fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
 pub fn check_visibility<QF>(
     mut thread_queues: Local<Parallel<Vec<Entity>>>,
     mut view_query: Query<(
+        Entity,
         &mut VisibleEntities,
         &Frustum,
         Option<&RenderLayers>,
@@ -410,13 +412,18 @@ pub fn check_visibility<QF>(
             Option<&Aabb>,
             &GlobalTransform,
             Has<NoFrustumCulling>,
+            Has<VisibilityRange>,
         ),
         QF,
     >,
+    visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
 ) where
     QF: QueryFilter + 'static,
 {
-    for (mut visible_entities, frustum, maybe_view_mask, camera, no_cpu_culling) in &mut view_query
+    let visible_entity_ranges = visible_entity_ranges.as_deref();
+
+    for (view, mut visible_entities, frustum, maybe_view_mask, camera, no_cpu_culling) in
+        &mut view_query
     {
         if !camera.is_active {
             continue;
@@ -435,6 +442,7 @@ pub fn check_visibility<QF>(
                     maybe_model_aabb,
                     transform,
                     no_frustum_culling,
+                    has_visibility_range,
                 ) = query_item;
 
                 // Skip computing visibility for entities that are configured to be hidden.
@@ -445,6 +453,15 @@ pub fn check_visibility<QF>(
 
                 let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
                 if !view_mask.intersects(&entity_mask) {
+                    return;
+                }
+
+                // If outside of the visibility range, cull.
+                if has_visibility_range
+                    && visible_entity_ranges.is_some_and(|visible_entity_ranges| {
+                        !visible_entity_ranges.entity_is_in_range_of_view(entity, view)
+                    })
+                {
                     return;
                 }
 
