@@ -15,7 +15,7 @@ use bevy::{
         render_asset::{RenderAssetUsages, RenderAssets},
         render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline,
-            SortedRenderPhase,
+            ViewSortedRenderPhases,
         },
         render_resource::{
             BlendState, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
@@ -354,17 +354,18 @@ pub fn queue_colored_mesh2d(
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<GpuMesh>>,
     render_mesh_instances: Res<RenderColoredMesh2dInstances>,
-    mut views: Query<(
-        &VisibleEntities,
-        &mut SortedRenderPhase<Transparent2d>,
-        &ExtractedView,
-    )>,
+    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
+    mut views: Query<(Entity, &VisibleEntities, &ExtractedView)>,
 ) {
     if render_mesh_instances.is_empty() {
         return;
     }
     // Iterate each view (a camera is a view)
-    for (visible_entities, mut transparent_phase, view) in &mut views {
+    for (view_entity, visible_entities, view) in &mut views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+            continue;
+        };
+
         let draw_colored_mesh2d = transparent_draw_functions.read().id::<DrawColoredMesh2d>();
 
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())

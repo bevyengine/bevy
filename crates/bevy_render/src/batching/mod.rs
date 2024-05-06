@@ -1,15 +1,15 @@
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    system::{Query, SystemParam, SystemParamItem},
+    system::{ResMut, SystemParam, SystemParamItem},
 };
 use bytemuck::Pod;
 use nonmax::NonMaxU32;
 
 use crate::{
     render_phase::{
-        BinnedPhaseItem, BinnedRenderPhase, CachedRenderPipelinePhaseItem, DrawFunctionId,
-        SortedPhaseItem, SortedRenderPhase,
+        BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, SortedPhaseItem,
+        SortedRenderPhase, ViewBinnedRenderPhases,
     },
     render_resource::{CachedRenderPipelineId, GpuArrayBufferable},
 };
@@ -151,11 +151,11 @@ pub trait GetFullBatchData: GetBatchData {
 }
 
 /// Sorts a render phase that uses bins.
-pub fn sort_binned_render_phase<BPI>(mut views: Query<&mut BinnedRenderPhase<BPI>>)
+pub fn sort_binned_render_phase<BPI>(mut phases: ResMut<ViewBinnedRenderPhases<BPI>>)
 where
     BPI: BinnedPhaseItem,
 {
-    for mut phase in &mut views {
+    for phase in phases.values_mut() {
         phase.batchable_keys.sort_unstable();
         phase.unbatchable_keys.sort_unstable();
     }

@@ -29,6 +29,7 @@ mod draw_state;
 mod rangefinder;
 
 use bevy_app::{App, Plugin};
+use bevy_derive::{Deref, DerefMut};
 use bevy_utils::{default, hashbrown::hash_map::Entry, HashMap};
 pub use draw::*;
 pub use draw_state::*;
@@ -47,6 +48,7 @@ use crate::{
     Render, RenderApp, RenderSet,
 };
 use bevy_ecs::{
+    entity::EntityHashMap,
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
@@ -59,6 +61,16 @@ use std::{
     ops::Range,
     slice::SliceIndex,
 };
+
+/// Stores the rendering instructions for a single phase that uses bins in all
+/// views.
+///
+/// They're cleared out every frame, but storing them in a resource like this
+/// allows us to reuse allocations.
+#[derive(Resource, Deref, DerefMut)]
+pub struct ViewBinnedRenderPhases<BPI>(pub EntityHashMap<BinnedRenderPhase<BPI>>)
+where
+    BPI: BinnedPhaseItem;
 
 /// A collection of all rendering instructions, that will be executed by the GPU, for a
 /// single render phase for a single view.
@@ -74,7 +86,6 @@ use std::{
 /// This flavor of render phase is used for phases in which the ordering is less
 /// critical: for example, `Opaque3d`. It's generally faster than the
 /// alternative [`SortedRenderPhase`].
-#[derive(Component)]
 pub struct BinnedRenderPhase<BPI>
 where
     BPI: BinnedPhaseItem,
@@ -200,6 +211,29 @@ where
     }
 }
 
+impl<BPI> Default for ViewBinnedRenderPhases<BPI>
+where
+    BPI: BinnedPhaseItem,
+{
+    fn default() -> Self {
+        Self(default())
+    }
+}
+
+impl<BPI> ViewBinnedRenderPhases<BPI>
+where
+    BPI: BinnedPhaseItem,
+{
+    pub fn insert_or_clear(&mut self, entity: Entity) {
+        match self.entry(entity) {
+            Entry::Occupied(mut entry) => entry.get_mut().clear(),
+            Entry::Vacant(entry) => {
+                entry.insert(default());
+            }
+        }
+    }
+}
+
 impl<BPI> BinnedRenderPhase<BPI>
 where
     BPI: BinnedPhaseItem,
@@ -315,6 +349,14 @@ where
     pub fn is_empty(&self) -> bool {
         self.batchable_keys.is_empty() && self.unbatchable_keys.is_empty()
     }
+
+    pub fn clear(&mut self) {
+        self.batchable_keys.clear();
+        self.batchable_values.clear();
+        self.unbatchable_keys.clear();
+        self.unbatchable_values.clear();
+        self.batch_sets.clear();
+    }
 }
 
 impl<BPI> Default for BinnedRenderPhase<BPI>
@@ -398,22 +440,58 @@ where
             return;
         };
 
-        render_app.add_systems(
-            Render,
-            (
-                batching::sort_binned_render_phase::<BPI>.in_set(RenderSet::PhaseSort),
+        render_app
+            .init_resource::<ViewBinnedRenderPhases<BPI>>()
+            .add_systems(
+                Render,
                 (
-                    no_gpu_preprocessing::batch_and_prepare_binned_render_phase::<BPI, GFBD>
-                        .run_if(resource_exists::<BatchedInstanceBuffer<GFBD::BufferData>>),
-                    gpu_preprocessing::batch_and_prepare_binned_render_phase::<BPI, GFBD>.run_if(
-                        resource_exists::<
-                            BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
-                        >,
-                    ),
-                )
-                    .in_set(RenderSet::PrepareResources),
-            ),
-        );
+                    batching::sort_binned_render_phase::<BPI>.in_set(RenderSet::PhaseSort),
+                    (
+                        no_gpu_preprocessing::batch_and_prepare_binned_render_phase::<BPI, GFBD>
+                            .run_if(resource_exists::<BatchedInstanceBuffer<GFBD::BufferData>>),
+                        gpu_preprocessing::batch_and_prepare_binned_render_phase::<BPI, GFBD>
+                            .run_if(
+                                resource_exists::<
+                                    BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
+                                >,
+                            ),
+                    )
+                        .in_set(RenderSet::PrepareResources),
+                ),
+            );
+    }
+}
+
+/// Stores the rendering instructions for a single phase that sorts items in all
+/// views.
+///
+/// They're cleared out every frame, but storing them in a resource like this
+/// allows us to reuse allocations.
+#[derive(Resource, Deref, DerefMut)]
+pub struct ViewSortedRenderPhases<SPI>(pub EntityHashMap<SortedRenderPhase<SPI>>)
+where
+    SPI: SortedPhaseItem;
+
+impl<SPI> Default for ViewSortedRenderPhases<SPI>
+where
+    SPI: SortedPhaseItem,
+{
+    fn default() -> Self {
+        Self(default())
+    }
+}
+
+impl<SPI> ViewSortedRenderPhases<SPI>
+where
+    SPI: SortedPhaseItem,
+{
+    pub fn insert_or_clear(&mut self, entity: Entity) {
+        match self.entry(entity) {
+            Entry::Occupied(mut entry) => entry.get_mut().clear(),
+            Entry::Vacant(entry) => {
+                entry.insert(default());
+            }
+        }
     }
 }
 
@@ -447,19 +525,21 @@ where
             return;
         };
 
-        render_app.add_systems(
-            Render,
-            (
-                no_gpu_preprocessing::batch_and_prepare_sorted_render_phase::<SPI, GFBD>
-                    .run_if(resource_exists::<BatchedInstanceBuffer<GFBD::BufferData>>),
-                gpu_preprocessing::batch_and_prepare_sorted_render_phase::<SPI, GFBD>.run_if(
-                    resource_exists::<
-                        BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
-                    >,
-                ),
-            )
-                .in_set(RenderSet::PrepareResources),
-        );
+        render_app
+            .init_resource::<ViewSortedRenderPhases<SPI>>()
+            .add_systems(
+                Render,
+                (
+                    no_gpu_preprocessing::batch_and_prepare_sorted_render_phase::<SPI, GFBD>
+                        .run_if(resource_exists::<BatchedInstanceBuffer<GFBD::BufferData>>),
+                    gpu_preprocessing::batch_and_prepare_sorted_render_phase::<SPI, GFBD>.run_if(
+                        resource_exists::<
+                            BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
+                        >,
+                    ),
+                )
+                    .in_set(RenderSet::PrepareResources),
+            );
     }
 }
 
@@ -538,7 +618,6 @@ impl UnbatchableBinnedEntityIndexSet {
 /// This flavor of render phase is used only for meshes that need to be sorted
 /// back-to-front, such as transparent meshes. For items that don't need strict
 /// sorting, [`BinnedRenderPhase`] is preferred, for performance.
-#[derive(Component)]
 pub struct SortedRenderPhase<I>
 where
     I: SortedPhaseItem,
@@ -564,6 +643,12 @@ where
     #[inline]
     pub fn add(&mut self, item: I) {
         self.items.push(item);
+    }
+
+    /// Removes all [`PhaseItem`]s from this render phase.
+    #[inline]
+    pub fn clear(&mut self) {
+        self.items.clear();
     }
 
     /// Sorts all of its [`PhaseItem`]s.
@@ -902,11 +987,11 @@ impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
 
 /// This system sorts the [`PhaseItem`]s of all [`SortedRenderPhase`]s of this
 /// type.
-pub fn sort_phase_system<I>(mut render_phases: Query<&mut SortedRenderPhase<I>>)
+pub fn sort_phase_system<I>(mut render_phases: ResMut<ViewSortedRenderPhases<I>>)
 where
     I: SortedPhaseItem,
 {
-    for mut phase in &mut render_phases {
+    for phase in render_phases.values_mut() {
         phase.sort();
     }
 }

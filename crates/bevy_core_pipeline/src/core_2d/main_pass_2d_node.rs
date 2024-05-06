@@ -4,7 +4,7 @@ use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{Node, NodeRunError, RenderGraphContext},
-    render_phase::SortedRenderPhase,
+    render_phase::ViewSortedRenderPhases,
     render_resource::RenderPassDescriptor,
     renderer::RenderContext,
     view::{ExtractedView, ViewTarget},
@@ -13,14 +13,7 @@ use bevy_render::{
 use bevy_utils::tracing::info_span;
 
 pub struct MainPass2dNode {
-    query: QueryState<
-        (
-            &'static ExtractedCamera,
-            &'static SortedRenderPhase<Transparent2d>,
-            &'static ViewTarget,
-        ),
-        With<ExtractedView>,
-    >,
+    query: QueryState<(&'static ExtractedCamera, &'static ViewTarget), With<ExtractedView>>,
 }
 
 impl FromWorld for MainPass2dNode {
@@ -43,9 +36,18 @@ impl Node for MainPass2dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
-        let Ok((camera, transparent_phase, target)) = self.query.get_manual(world, view_entity)
-        else {
+        let Ok((camera, target)) = self.query.get_manual(world, view_entity) else {
             // no target
+            return Ok(());
+        };
+
+        let Some(transparent_phases) =
+            world.get_resource::<ViewSortedRenderPhases<Transparent2d>>()
+        else {
+            return Ok(());
+        };
+
+        let Some(transparent_phase) = transparent_phases.get(&view_entity) else {
             return Ok(());
         };
 

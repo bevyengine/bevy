@@ -18,7 +18,7 @@ use bevy_render::{
     },
     render_phase::{
         AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand,
-        RenderCommandResult, SetItemPipeline, SortedRenderPhase, TrackedRenderPass,
+        RenderCommandResult, SetItemPipeline, TrackedRenderPass, ViewSortedRenderPhases,
     },
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout,
@@ -374,12 +374,13 @@ pub fn queue_material2d_meshes<M: Material2d>(
     render_materials: Res<RenderAssets<PreparedMaterial2d<M>>>,
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
     render_material_instances: Res<RenderMaterial2dInstances<M>>,
+    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut views: Query<(
+        Entity,
         &ExtractedView,
         &VisibleEntities,
         Option<&Tonemapping>,
         Option<&DebandDither>,
-        &mut SortedRenderPhase<Transparent2d>,
     )>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -388,7 +389,11 @@ pub fn queue_material2d_meshes<M: Material2d>(
         return;
     }
 
-    for (view, visible_entities, tonemapping, dither, mut transparent_phase) in &mut views {
+    for (view_entity, view, visible_entities, tonemapping, dither) in &mut views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+            continue;
+        };
+
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial2d<M>>();
 
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())

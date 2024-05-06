@@ -20,7 +20,7 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
         DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
-        SetItemPipeline, SortedRenderPhase, TrackedRenderPass,
+        SetItemPipeline, TrackedRenderPass, ViewSortedRenderPhases,
     },
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
@@ -447,8 +447,9 @@ pub fn queue_sprites(
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     extracted_sprites: Res<ExtractedSprites>,
+    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut views: Query<(
-        &mut SortedRenderPhase<Transparent2d>,
+        Entity,
         &VisibleEntities,
         &ExtractedView,
         Option<&Tonemapping>,
@@ -459,7 +460,11 @@ pub fn queue_sprites(
 
     let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
-    for (mut transparent_phase, visible_entities, view, tonemapping, dither) in &mut views {
+    for (view_entity, visible_entities, view, tonemapping, dither) in &mut views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+            continue;
+        };
+
         let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
 
         if !view.hdr {
@@ -534,7 +539,7 @@ pub fn prepare_sprites(
     mut image_bind_groups: ResMut<ImageBindGroups>,
     gpu_images: Res<RenderAssets<GpuImage>>,
     extracted_sprites: Res<ExtractedSprites>,
-    mut phases: Query<&mut SortedRenderPhase<Transparent2d>>,
+    mut phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     events: Res<SpriteAssetEvents>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
@@ -567,7 +572,7 @@ pub fn prepare_sprites(
 
         let image_bind_groups = &mut *image_bind_groups;
 
-        for mut transparent_phase in &mut phases {
+        for transparent_phase in phases.values_mut() {
             let mut batch_item_index = 0;
             let mut batch_image_size = Vec2::ZERO;
             let mut batch_image_handle = AssetId::invalid();

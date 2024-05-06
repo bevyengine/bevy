@@ -1,5 +1,6 @@
 use bevy_asset::AssetId;
-use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
+use bevy_core_pipeline::core_3d::CORE_3D_DEPTH_FORMAT;
+use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
@@ -683,13 +684,11 @@ pub fn prepare_lights(
     render_queue: Res<RenderQueue>,
     mut global_light_meta: ResMut<GlobalLightMeta>,
     mut light_meta: ResMut<LightMeta>,
-    views: Query<
-        (Entity, &ExtractedView, &ExtractedClusterConfig),
-        With<SortedRenderPhase<Transparent3d>>,
-    >,
+    views: Query<(Entity, &ExtractedView, &ExtractedClusterConfig)>,
     ambient_light: Res<AmbientLight>,
     point_light_shadow_map: Res<PointLightShadowMap>,
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
+    mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
     mut max_directional_lights_warning_emitted: Local<bool>,
     mut max_cascades_per_light_warning_emitted: Local<bool>,
     point_lights: Query<(
@@ -929,6 +928,8 @@ pub fn prepare_lights(
         .gpu_point_lights
         .write_buffer(&render_device, &render_queue);
 
+    let mut live_shadow_mapping_lights = EntityHashSet::default();
+
     // set up light data for each view
     for (entity, extracted_view, clusters) in &views {
         let point_light_depth_texture = texture_cache.get(
@@ -1059,7 +1060,6 @@ pub fn prepare_lights(
                             color_grading: Default::default(),
                         },
                         *frustum,
-                        BinnedRenderPhase::<Shadow>::default(),
                         LightEntity::Point {
                             light_entity,
                             face_index,
@@ -1067,6 +1067,9 @@ pub fn prepare_lights(
                     ))
                     .id();
                 view_lights.push(view_light_entity);
+
+                shadow_render_phases.insert_or_clear(view_light_entity);
+                live_shadow_mapping_lights.insert(view_light_entity);
             }
         }
 
@@ -1118,12 +1121,14 @@ pub fn prepare_lights(
                         color_grading: Default::default(),
                     },
                     *spot_light_frustum.unwrap(),
-                    BinnedRenderPhase::<Shadow>::default(),
                     LightEntity::Spot { light_entity },
                 ))
                 .id();
 
             view_lights.push(view_light_entity);
+
+            shadow_render_phases.insert_or_clear(view_light_entity);
+            live_shadow_mapping_lights.insert(view_light_entity);
         }
 
         // directional lights
@@ -1198,7 +1203,6 @@ pub fn prepare_lights(
                             color_grading: Default::default(),
                         },
                         frustum,
-                        BinnedRenderPhase::<Shadow>::default(),
                         LightEntity::Directional {
                             light_entity,
                             cascade_index,
@@ -1206,6 +1210,9 @@ pub fn prepare_lights(
                     ))
                     .id();
                 view_lights.push(view_light_entity);
+
+                shadow_render_phases.insert_or_clear(view_light_entity);
+                live_shadow_mapping_lights.insert(view_light_entity);
             }
         }
 
@@ -1272,6 +1279,8 @@ pub fn prepare_lights(
             },
         ));
     }
+
+    shadow_render_phases.retain(|entity, _| live_shadow_mapping_lights.contains(entity));
 }
 
 // this must match CLUSTER_COUNT_SIZE in pbr.wgsl
@@ -1550,7 +1559,7 @@ pub fn prepare_clusters(
     render_queue: Res<RenderQueue>,
     mesh_pipeline: Res<MeshPipeline>,
     global_light_meta: Res<GlobalLightMeta>,
-    views: Query<(Entity, &ExtractedClustersPointLights), With<SortedRenderPhase<Transparent3d>>>,
+    views: Query<(Entity, &ExtractedClustersPointLights)>,
 ) {
     let render_device = render_device.into_inner();
     let supports_storage_buffers = matches!(
@@ -1606,11 +1615,12 @@ pub fn queue_shadows<M: Material>(
     render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
+    mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     render_lightmaps: Res<RenderLightmaps>,
     view_lights: Query<(Entity, &ViewLightEntities)>,
-    mut view_light_shadow_phases: Query<(&LightEntity, &mut BinnedRenderPhase<Shadow>)>,
+    mut view_light_entities: Query<&LightEntity>,
     point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
     directional_light_entities: Query<&CascadesVisibleEntities, With<ExtractedDirectionalLight>>,
     spot_light_entities: Query<&VisibleEntities, With<ExtractedPointLight>>,
@@ -1620,8 +1630,13 @@ pub fn queue_shadows<M: Material>(
     for (entity, view_lights) in &view_lights {
         let draw_shadow_mesh = shadow_draw_functions.read().id::<DrawPrepass<M>>();
         for view_light_entity in view_lights.lights.iter().copied() {
-            let (light_entity, mut shadow_phase) =
-                view_light_shadow_phases.get_mut(view_light_entity).unwrap();
+            let Ok(light_entity) = view_light_entities.get_mut(view_light_entity) else {
+                continue;
+            };
+            let Some(shadow_phase) = shadow_render_phases.get_mut(&view_light_entity) else {
+                continue;
+            };
+
             let is_directional_light = matches!(light_entity, LightEntity::Directional { .. });
             let visible_entities = match light_entity {
                 LightEntity::Directional {
@@ -1808,7 +1823,7 @@ impl CachedRenderPipelinePhaseItem for Shadow {
 
 pub struct ShadowPassNode {
     main_view_query: QueryState<Read<ViewLightEntities>>,
-    view_light_query: QueryState<(Read<ShadowView>, Read<BinnedRenderPhase<Shadow>>)>,
+    view_light_query: QueryState<Read<ShadowView>>,
 }
 
 impl ShadowPassNode {
@@ -1833,12 +1848,23 @@ impl Node for ShadowPassNode {
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let diagnostics = render_context.diagnostic_recorder();
-        let time_span = diagnostics.time_span(render_context.command_encoder(), "shadows");
 
         let view_entity = graph.view_entity();
+
+        let Some(shadow_render_phases) = world.get_resource::<ViewBinnedRenderPhases<Shadow>>()
+        else {
+            return Ok(());
+        };
+
+        let time_span = diagnostics.time_span(render_context.command_encoder(), "shadows");
+
         if let Ok(view_lights) = self.main_view_query.get_manual(world, view_entity) {
             for view_light_entity in view_lights.lights.iter().copied() {
-                let (view_light, shadow_phase) = self
+                let Some(shadow_phase) = shadow_render_phases.get(&view_light_entity) else {
+                    continue;
+                };
+
+                let view_light = self
                     .view_light_query
                     .get_manual(world, view_light_entity)
                     .unwrap();

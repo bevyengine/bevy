@@ -1,14 +1,14 @@
 //! Batching functionality when GPU preprocessing isn't in use.
 
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::system::{Query, Res, ResMut, Resource, StaticSystemParam};
+use bevy_ecs::system::{Res, ResMut, Resource, StaticSystemParam};
 use smallvec::{smallvec, SmallVec};
 use wgpu::BindingResource;
 
 use crate::{
     render_phase::{
-        BinnedPhaseItem, BinnedRenderPhase, BinnedRenderPhaseBatch, CachedRenderPipelinePhaseItem,
-        PhaseItemExtraIndex, SortedPhaseItem, SortedRenderPhase,
+        BinnedPhaseItem, BinnedRenderPhaseBatch, CachedRenderPipelinePhaseItem,
+        PhaseItemExtraIndex, SortedPhaseItem, ViewBinnedRenderPhases, ViewSortedRenderPhases,
     },
     render_resource::{GpuArrayBuffer, GpuArrayBufferable},
     renderer::{RenderDevice, RenderQueue},
@@ -61,7 +61,7 @@ pub fn clear_batched_cpu_instance_buffers<GBD>(
 /// and trying to combine the draws into a batch.
 pub fn batch_and_prepare_sorted_render_phase<I, GBD>(
     batched_instance_buffer: ResMut<BatchedInstanceBuffer<GBD::BufferData>>,
-    mut views: Query<&mut SortedRenderPhase<I>>,
+    mut phases: ResMut<ViewSortedRenderPhases<I>>,
     param: StaticSystemParam<GBD::Param>,
 ) where
     I: CachedRenderPipelinePhaseItem + SortedPhaseItem,
@@ -72,8 +72,8 @@ pub fn batch_and_prepare_sorted_render_phase<I, GBD>(
     // We only process CPU-built batch data in this function.
     let batched_instance_buffer = batched_instance_buffer.into_inner();
 
-    for mut phase in &mut views {
-        super::batch_and_prepare_sorted_render_phase::<I, GBD>(&mut phase, |item| {
+    for phase in phases.values_mut() {
+        super::batch_and_prepare_sorted_render_phase::<I, GBD>(phase, |item| {
             let (buffer_data, compare_data) =
                 GBD::get_batch_data(&system_param_item, item.entity())?;
             let buffer_index = batched_instance_buffer.push(buffer_data);
@@ -92,7 +92,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GBD>(
 /// building isn't in use.
 pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
     gpu_array_buffer: ResMut<BatchedInstanceBuffer<GFBD::BufferData>>,
-    mut views: Query<&mut BinnedRenderPhase<BPI>>,
+    mut phases: ResMut<ViewBinnedRenderPhases<BPI>>,
     param: StaticSystemParam<GFBD::Param>,
 ) where
     BPI: BinnedPhaseItem,
@@ -101,9 +101,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
     let gpu_array_buffer = gpu_array_buffer.into_inner();
     let system_param_item = param.into_inner();
 
-    for mut phase in &mut views {
-        let phase = &mut *phase; // Borrow checker.
-
+    for phase in phases.values_mut() {
         // Prepare batchables.
 
         for key in &phase.batchable_keys {
