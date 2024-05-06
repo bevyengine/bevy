@@ -9,9 +9,9 @@ use bevy_ecs::{
 };
 use bevy_render::render_resource::*;
 
-pub const MESHLET_CULLING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4325134235233421);
-pub const MESHLET_WRITE_INDEX_BUFFER_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(5325134235233421);
+pub const MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(4325134235233421);
+pub const MESHLET_CULLING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(5325134235233421);
 pub const MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(6325134235233421);
 pub const MESHLET_VISIBILITY_BUFFER_RASTER_SHADER_HANDLE: Handle<Shader> =
@@ -21,10 +21,9 @@ pub const MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE: Handle<Shader> =
 
 #[derive(Resource)]
 pub struct MeshletPipelines {
+    fill_cluster_buffers: CachedComputePipelineId,
     cull_first: CachedComputePipelineId,
     cull_second: CachedComputePipelineId,
-    write_index_buffer_first: CachedComputePipelineId,
-    write_index_buffer_second: CachedComputePipelineId,
     downsample_depth: CachedRenderPipelineId,
     visibility_buffer_raster: CachedRenderPipelineId,
     visibility_buffer_raster_depth_only: CachedRenderPipelineId,
@@ -35,20 +34,38 @@ pub struct MeshletPipelines {
 impl FromWorld for MeshletPipelines {
     fn from_world(world: &mut World) -> Self {
         let gpu_scene = world.resource::<MeshletGpuScene>();
+        let fill_cluster_buffers_bind_group_layout =
+            gpu_scene.fill_cluster_buffers_bind_group_layout();
         let cull_layout = gpu_scene.culling_bind_group_layout();
-        let write_index_buffer_layout = gpu_scene.write_index_buffer_bind_group_layout();
         let downsample_depth_layout = gpu_scene.downsample_depth_bind_group_layout();
         let visibility_buffer_layout = gpu_scene.visibility_buffer_raster_bind_group_layout();
         let copy_material_depth_layout = gpu_scene.copy_material_depth_bind_group_layout();
         let pipeline_cache = world.resource_mut::<PipelineCache>();
 
         Self {
+            fill_cluster_buffers: pipeline_cache.queue_compute_pipeline(
+                ComputePipelineDescriptor {
+                    label: Some("meshlet_fill_cluster_buffers_pipeline".into()),
+                    layout: vec![fill_cluster_buffers_bind_group_layout.clone()],
+                    push_constant_ranges: vec![PushConstantRange {
+                        stages: ShaderStages::COMPUTE,
+                        range: 0..4,
+                    }],
+                    shader: MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE,
+                    shader_defs: vec!["MESHLET_FILL_CLUSTER_BUFFERS_PASS".into()],
+                    entry_point: "fill_cluster_buffers".into(),
+                },
+            ),
+
             cull_first: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                 label: Some("meshlet_culling_first_pipeline".into()),
                 layout: vec![cull_layout.clone()],
                 push_constant_ranges: vec![],
                 shader: MESHLET_CULLING_SHADER_HANDLE,
-                shader_defs: vec!["MESHLET_CULLING_PASS".into()],
+                shader_defs: vec![
+                    "MESHLET_CULLING_PASS".into(),
+                    "MESHLET_FIRST_CULLING_PASS".into(),
+                ],
                 entry_point: "cull_meshlets".into(),
             }),
 
@@ -63,31 +80,6 @@ impl FromWorld for MeshletPipelines {
                 ],
                 entry_point: "cull_meshlets".into(),
             }),
-
-            write_index_buffer_first: pipeline_cache.queue_compute_pipeline(
-                ComputePipelineDescriptor {
-                    label: Some("meshlet_write_index_buffer_first_pipeline".into()),
-                    layout: vec![write_index_buffer_layout.clone()],
-                    push_constant_ranges: vec![],
-                    shader: MESHLET_WRITE_INDEX_BUFFER_SHADER_HANDLE,
-                    shader_defs: vec!["MESHLET_WRITE_INDEX_BUFFER_PASS".into()],
-                    entry_point: "write_index_buffer".into(),
-                },
-            ),
-
-            write_index_buffer_second: pipeline_cache.queue_compute_pipeline(
-                ComputePipelineDescriptor {
-                    label: Some("meshlet_write_index_buffer_second_pipeline".into()),
-                    layout: vec![write_index_buffer_layout],
-                    push_constant_ranges: vec![],
-                    shader: MESHLET_WRITE_INDEX_BUFFER_SHADER_HANDLE,
-                    shader_defs: vec![
-                        "MESHLET_WRITE_INDEX_BUFFER_PASS".into(),
-                        "MESHLET_SECOND_WRITE_INDEX_BUFFER_PASS".into(),
-                    ],
-                    entry_point: "write_index_buffer".into(),
-                },
-            ),
 
             downsample_depth: pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
                 label: Some("meshlet_downsample_depth".into()),
@@ -197,7 +189,9 @@ impl FromWorld for MeshletPipelines {
 
             visibility_buffer_raster_depth_only_clamp_ortho: pipeline_cache.queue_render_pipeline(
                 RenderPipelineDescriptor {
-                    label: Some("visibility_buffer_raster_depth_only_clamp_ortho_pipeline".into()),
+                    label: Some(
+                        "meshlet_visibility_buffer_raster_depth_only_clamp_ortho_pipeline".into(),
+                    ),
                     layout: vec![visibility_buffer_layout],
                     push_constant_ranges: vec![],
                     vertex: VertexState {
@@ -270,7 +264,6 @@ impl MeshletPipelines {
         &ComputePipeline,
         &ComputePipeline,
         &ComputePipeline,
-        &ComputePipeline,
         &RenderPipeline,
         &RenderPipeline,
         &RenderPipeline,
@@ -280,10 +273,9 @@ impl MeshletPipelines {
         let pipeline_cache = world.get_resource::<PipelineCache>()?;
         let pipeline = world.get_resource::<Self>()?;
         Some((
+            pipeline_cache.get_compute_pipeline(pipeline.fill_cluster_buffers)?,
             pipeline_cache.get_compute_pipeline(pipeline.cull_first)?,
             pipeline_cache.get_compute_pipeline(pipeline.cull_second)?,
-            pipeline_cache.get_compute_pipeline(pipeline.write_index_buffer_first)?,
-            pipeline_cache.get_compute_pipeline(pipeline.write_index_buffer_second)?,
             pipeline_cache.get_render_pipeline(pipeline.downsample_depth)?,
             pipeline_cache.get_render_pipeline(pipeline.visibility_buffer_raster)?,
             pipeline_cache.get_render_pipeline(pipeline.visibility_buffer_raster_depth_only)?,

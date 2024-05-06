@@ -19,8 +19,8 @@ use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
-        DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, SetItemPipeline,
-        SortedRenderPhase, TrackedRenderPass,
+        DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
+        SetItemPipeline, SortedRenderPhase, TrackedRenderPass,
     },
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
@@ -413,16 +413,16 @@ impl SpriteInstance {
 #[derive(Resource)]
 pub struct SpriteMeta {
     view_bind_group: Option<BindGroup>,
-    sprite_index_buffer: BufferVec<u32>,
-    sprite_instance_buffer: BufferVec<SpriteInstance>,
+    sprite_index_buffer: RawBufferVec<u32>,
+    sprite_instance_buffer: RawBufferVec<SpriteInstance>,
 }
 
 impl Default for SpriteMeta {
     fn default() -> Self {
         Self {
             view_bind_group: None,
-            sprite_index_buffer: BufferVec::<u32>::new(BufferUsages::INDEX),
-            sprite_instance_buffer: BufferVec::<SpriteInstance>::new(BufferUsages::VERTEX),
+            sprite_index_buffer: RawBufferVec::<u32>::new(BufferUsages::INDEX),
+            sprite_instance_buffer: RawBufferVec::<SpriteInstance>::new(BufferUsages::VERTEX),
         }
     }
 }
@@ -516,7 +516,7 @@ pub fn queue_sprites(
                 sort_key,
                 // batch_range and dynamic_offset will be calculated in prepare_sprites
                 batch_range: 0..0,
-                dynamic_offset: None,
+                extra_index: PhaseItemExtraIndex::NONE,
             });
         }
     }
