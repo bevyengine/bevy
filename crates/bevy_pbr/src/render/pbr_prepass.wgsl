@@ -29,17 +29,17 @@ fn fragment(
 #endif
 
     var out: prepass_io::FragmentOutput;
-    
-#ifdef VERTEX_UVS
-    let uv_transform = material.uv_transform;
-    let uv = (uv_transform * vec3(in.uv, 1.0)).xy;
-#endif
 
 #ifdef DEPTH_CLAMP_ORTHO
     out.frag_depth = in.clip_position_unclamped.z;
 #endif // DEPTH_CLAMP_ORTHO
 
-#ifdef NORMAL_PREPASS
+#ifdef NORMAL_PREPASS    
+#ifdef VERTEX_UVS
+    let uv_transform = material.uv_transform;
+    let uv = (uv_transform * vec3(in.uv, 1.0)).xy;
+#endif // VERTEX_UVS
+
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if (material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
         let double_sided = (material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u;
