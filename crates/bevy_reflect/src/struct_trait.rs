@@ -429,10 +429,10 @@ impl Reflect for DynamicStruct {
                 }
             }
         } else {
-            return Err(ApplyError::MismatchedKinds(
-                value.reflect_kind(),
-                ReflectKind::Struct,
-            ));
+            return Err(ApplyError::MismatchedKinds {
+                from_kind: value.reflect_kind(),
+                to_kind: ReflectKind::Struct,
+            });
         }
         Ok(())
     }

@@ -260,20 +260,20 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                             })*
                             name => {
                                 return #FQResult::Err(
-                                    #bevy_reflect_path::ApplyError::UnknownVariant(
-                                        name.into(),
-                                        #bevy_reflect_path::DynamicTypePath::reflect_type_path(self).into(),
-                                    )
+                                    #bevy_reflect_path::ApplyError::UnknownVariant {
+                                        enum_name: ::core::convert::Into::into(#bevy_reflect_path::DynamicTypePath::reflect_type_path(self)),
+                                        variant_name: ::core::convert::Into::into(name),
+                                    }
                                 );
                             }
                         }
                     }
                 } else {
                     return #FQResult::Err(
-                        #bevy_reflect_path::ApplyError::MismatchedKinds(
-                            #bevy_reflect_path::Reflect::reflect_kind(#ref_value),
-                            #bevy_reflect_path::ReflectKind::Enum,
-                        )
+                        #bevy_reflect_path::ApplyError::MismatchedKinds {
+                            from_kind: #bevy_reflect_path::Reflect::reflect_kind(#ref_value),
+                            to_kind: #bevy_reflect_path::ReflectKind::Enum,
+                        }
                     );
                 }
                 #FQResult::Ok(())

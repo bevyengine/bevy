@@ -453,7 +453,8 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
 ///
 /// # Errors
 ///
-/// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a list.
+/// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a list or if
+/// applying elements to each other fails.
 #[inline]
 pub fn list_try_apply<L: List>(a: &mut L, b: &dyn Reflect) -> Result<(), ApplyError> {
     if let ReflectRef::List(list_value) = b.reflect_ref() {
@@ -467,10 +468,10 @@ pub fn list_try_apply<L: List>(a: &mut L, b: &dyn Reflect) -> Result<(), ApplyEr
             }
         }
     } else {
-        return Err(ApplyError::MismatchedKinds(
-            b.reflect_kind(),
-            ReflectKind::List,
-        ));
+        return Err(ApplyError::MismatchedKinds {
+            from_kind: b.reflect_kind(),
+            to_kind: ReflectKind::List,
+        });
     }
     Ok(())
 }

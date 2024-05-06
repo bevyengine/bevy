@@ -636,10 +636,10 @@ mod tests {
         assert!(
             matches!(
                 result,
-                Err(ApplyError::MismatchedKinds(
-                    ReflectKind::Enum,
-                    ReflectKind::Struct
-                ))
+                Err(ApplyError::MismatchedKinds {
+                    from_kind: ReflectKind::Enum,
+                    to_kind: ReflectKind::Struct
+                })
             ),
             "result was {result:?}"
         );
@@ -648,10 +648,10 @@ mod tests {
         assert!(
             matches!(
                 result,
-                Err(ApplyError::MismatchedKinds(
-                    ReflectKind::Array,
-                    ReflectKind::Enum
-                ))
+                Err(ApplyError::MismatchedKinds {
+                    from_kind: ReflectKind::Array,
+                    to_kind: ReflectKind::Enum
+                })
             ),
             "result was {result:?}"
         );

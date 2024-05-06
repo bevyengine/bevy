@@ -408,7 +408,8 @@ pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) {
 ///
 /// # Errors
 ///
-/// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a tuple.
+/// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a tuple or if
+/// applying elements to each other fails.
 #[inline]
 pub fn tuple_try_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) -> Result<(), ApplyError> {
     if let ReflectRef::Tuple(tuple) = b.reflect_ref() {
@@ -418,10 +419,10 @@ pub fn tuple_try_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) -> Result<(), Apply
             }
         }
     } else {
-        return Err(ApplyError::MismatchedKinds(
-            b.reflect_kind(),
-            ReflectKind::Tuple,
-        ));
+        return Err(ApplyError::MismatchedKinds {
+            from_kind: b.reflect_kind(),
+            to_kind: ReflectKind::Tuple,
+        });
     }
     Ok(())
 }

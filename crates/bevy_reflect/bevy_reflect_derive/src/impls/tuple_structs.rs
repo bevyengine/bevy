@@ -185,10 +185,12 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
                         }
                     }
                 } else {
-                    return #FQResult::Err(#bevy_reflect_path::ApplyError::MismatchedKinds(
-                        #bevy_reflect_path::Reflect::reflect_kind(value),
-                        #bevy_reflect_path::ReflectKind::TupleStruct
-                    ));
+                    return #FQResult::Err(
+                        #bevy_reflect_path::ApplyError::MismatchedKinds {
+                            from_kind: #bevy_reflect_path::Reflect::reflect_kind(value),
+                            to_kind: #bevy_reflect_path::ReflectKind::TupleStruct,
+                        }
+                    );
                 }
                #FQResult::Ok(())
             }

@@ -1078,11 +1078,11 @@ impl Reflect for Cow<'static, str> {
         if let Some(value) = any.downcast_ref::<Self>() {
             *self = value.clone();
         } else {
-            return Err(ApplyError::MismatchedTypes(
-                value.reflect_type_path().into(),
+            return Err(ApplyError::MismatchedTypes {
+                from_type: value.reflect_type_path().into(),
                 // If we invoke the reflect_type_path on self directly the borrow checker complains that the lifetime of self must outlive 'static
-                <Self as DynamicTypePath>::reflect_type_path(self).into(),
-            ));
+                to_type: Self::type_path().into(),
+            });
         }
         Ok(())
     }
@@ -1373,10 +1373,10 @@ impl Reflect for &'static str {
         if let Some(&value) = any.downcast_ref::<Self>() {
             *self = value;
         } else {
-            return Err(ApplyError::MismatchedTypes(
-                value.reflect_type_path().into(),
-                <Self as DynamicTypePath>::reflect_type_path(self).into(),
-            ));
+            return Err(ApplyError::MismatchedTypes {
+                from_type: value.reflect_type_path().into(),
+                to_type: Self::type_path().into(),
+            });
         }
         Ok(())
     }
@@ -1480,10 +1480,10 @@ impl Reflect for &'static Path {
             *self = value;
             Ok(())
         } else {
-            Err(ApplyError::MismatchedTypes(
-                value.reflect_type_path().into(),
-                <Self as DynamicTypePath>::reflect_type_path(self).into(),
-            ))
+            Err(ApplyError::MismatchedTypes {
+                from_type: value.reflect_type_path().into(),
+                to_type: <Self as DynamicTypePath>::reflect_type_path(self).into(),
+            })
         }
     }
 
@@ -1585,10 +1585,10 @@ impl Reflect for Cow<'static, Path> {
             *self = value.clone();
             Ok(())
         } else {
-            Err(ApplyError::MismatchedTypes(
-                value.reflect_type_path().into(),
-                <Self as DynamicTypePath>::reflect_type_path(self).into(),
-            ))
+            Err(ApplyError::MismatchedTypes {
+                from_type: value.reflect_type_path().into(),
+                to_type: <Self as DynamicTypePath>::reflect_type_path(self).into(),
+            })
         }
     }
 

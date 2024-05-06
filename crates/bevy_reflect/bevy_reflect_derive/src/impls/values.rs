@@ -92,10 +92,10 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
                     *self = #FQClone::clone(value);
                 } else {
                     return #FQResult::Err(
-                        #bevy_reflect_path::ApplyError::MismatchedTypes(
-                            #bevy_reflect_path::DynamicTypePath::reflect_type_path(value).into(),
-                            <Self as #bevy_reflect_path::TypePath>::type_path().into()
-                        )
+                        #bevy_reflect_path::ApplyError::MismatchedTypes {
+                            from_type: ::core::convert::Into::into(#bevy_reflect_path::DynamicTypePath::reflect_type_path(value)),
+                            to_type: ::core::convert::Into::into(<Self as #bevy_reflect_path::TypePath>::type_path()),
+                        }
                     );
                 }
                 #FQResult::Ok(())

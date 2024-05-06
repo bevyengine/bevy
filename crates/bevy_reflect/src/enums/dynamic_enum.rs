@@ -369,10 +369,10 @@ impl Reflect for DynamicEnum {
                 self.set_variant(value.variant_name(), dyn_variant);
             }
         } else {
-            return Err(ApplyError::MismatchedKinds(
-                value.reflect_kind(),
-                ReflectKind::Enum,
-            ));
+            return Err(ApplyError::MismatchedKinds {
+                from_kind: value.reflect_kind(),
+                to_kind: ReflectKind::Enum,
+            });
         }
         Ok(())
     }

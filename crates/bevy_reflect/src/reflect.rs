@@ -101,18 +101,40 @@ pub enum ReflectOwned {
 }
 impl_reflect_enum!(ReflectOwned);
 
+/// A enumeration of all error outcomes that might happen when running [`try_apply`](Reflect::try_apply).
 #[derive(Error, Debug)]
 pub enum ApplyError {
-    #[error("Attempted to apply a `{0}` to a `{1}`")]
-    MismatchedKinds(ReflectKind, ReflectKind),
-    #[error("Enum variant `{0}` doesn't have a field named `{1}`")]
-    MissingEnumField(Box<str>, Box<str>),
-    #[error("`{0}` is not a `{1}`")]
-    MismatchedTypes(Box<str>, Box<str>),
-    #[error("Attempted to apply type with {0} size to a type with {1} size")]
-    DifferentSize(usize, usize),
-    #[error("Variant with name `{0}` does not exist on enum `{1}`")]
-    UnknownVariant(Box<str>, Box<str>),
+    #[error("attempted to apply `{from_kind}` to `{to_kind}`")]
+    /// Attempted to apply the wrong [kind](ReflectKind) to a type, e.g. a struct to a enum.
+    MismatchedKinds {
+        from_kind: ReflectKind,
+        to_kind: ReflectKind,
+    },
+
+    #[error("enum variant `{variant_name}` doesn't have a field named `{field_name}`")]
+    /// Enum variant that we tried to apply to was missing a field.
+    MissingEnumField {
+        variant_name: Box<str>,
+        field_name: Box<str>,
+    },
+
+    #[error("`{from_type}` is not `{to_type}`")]
+    /// Tried to apply incompatible types.
+    MismatchedTypes {
+        from_type: Box<str>,
+        to_type: Box<str>,
+    },
+
+    #[error("attempted to apply type with {from_size} size to a type with {to_size} size")]
+    /// Attempted to apply to types with mismatched sizez, e.g. a [u8; 4] to [u8; 3].
+    DifferentSize { from_size: usize, to_size: usize },
+
+    #[error("variant with name `{variant_name}` does not exist on enum `{enum_name}`")]
+    /// The enum we tried to apply to didn't contain a variant with the give name.
+    UnknownVariant {
+        enum_name: Box<str>,
+        variant_name: Box<str>,
+    },
 }
 
 /// A zero-sized enumuration of the "kinds" of a reflected type.
@@ -234,58 +256,18 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     ///   `self` and `value` are not of the same type.
     /// - If `T` is a value type and `self` cannot be downcast to `T`
     fn apply(&mut self, value: &dyn Reflect) {
-        if let Err(err) = Reflect::try_apply(self, value) {
-            panic!("{err}");
-        }
+        Reflect::try_apply(self, value).unwrap();
     }
 
-    /// Tries to apply a reflected value to this value and returns a result.
+    /// Tries to [`apply`](Reflect::apply) a reflected value to this value.
     ///
-    /// Functions the same as the `apply` function but returns an error instead of
+    /// Functions the same as the [`apply`](Reflect::apply) function but returns an error instead of
     /// panicking.
     ///
-    /// Note: the value you call this function on will end up being partially mutated
-    /// if this function runs into an error along the way (i.e. types with nested values like lists).
+    /// # Handling Errors
     ///
-    /// If a type implements a subtrait of `Reflect`, then the semantics of this
-    /// method are as follows:
-    /// - If `T` is a [`Struct`], then the value of each named field of `value` is
-    ///   applied to the corresponding named field of `self`. Fields which are
-    ///   not present in both structs are ignored.
-    /// - If `T` is a [`TupleStruct`] or [`Tuple`], then the value of each
-    ///   numbered field is applied to the corresponding numbered field of
-    ///   `self.` Fields which are not present in both values are ignored.
-    /// - If `T` is an [`Enum`], then the variant of `self` is `updated` to match
-    ///   the variant of `value`. The corresponding fields of that variant are
-    ///   applied from `value` onto `self`. Fields which are not present in both
-    ///   values are ignored.
-    /// - If `T` is a [`List`] or [`Array`], then each element of `value` is applied
-    ///   to the corresponding element of `self`. Up to `self.len()` items are applied,
-    ///   and excess elements in `value` are appended to `self`.
-    /// - If `T` is a [`Map`], then for each key in `value`, the associated
-    ///   value is applied to the value associated with the same key in `self`.
-    ///   Keys which are not present in `self` are inserted.
-    /// - If `T` is none of these, then `value` is downcast to `T`, cloned, and
-    ///   assigned to `self`.
-    ///
-    /// Note that `Reflect` must be implemented manually for [`List`]s and
-    /// [`Map`]s in order to achieve the correct semantics, as derived
-    /// implementations will have the semantics for [`Struct`], [`TupleStruct`], [`Enum`]
-    /// or none of the above depending on the kind of type. For lists and maps, use the
-    /// [`list_try_apply`] and [`map_try_apply`] helper functions when implementing this method.
-    ///
-    /// [`list_try_apply`]: crate::list_try_apply
-    /// [`map_try_apply`]: crate::map_try_apply
-    ///
-    /// # Errors
-    ///
-    /// Derived implementations of this method will return an [`ApplyError`]:
-    /// - If the type of `value` is not of the same kind as `T` (e.g. if `T` is
-    ///   a `List`, while `value` is a `Struct`).
-    /// - If `T` is any complex type and the corresponding fields or elements of
-    ///   `self` and `value` are not of the same type.
-    /// - If `T` is a value type and `self` cannot be downcast to `T`
-
+    /// This function may leave `self` in a partially mutated state if a error was encountered on the way.
+    /// consider maintaining a cloned instance of this data you can switch to if a error is encountered.
     fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError>;
 
     /// Performs a type-checked assignment of a reflected value to this value.
