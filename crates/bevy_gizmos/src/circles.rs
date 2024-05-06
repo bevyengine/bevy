@@ -362,7 +362,7 @@ where
         // draws one great circle around each of the local axes
         let rotation = rotation.normalize();
         Vec3::AXES.into_iter().for_each(|axis| {
-            let normal = *center + (rotation * axis) * *radius;
+            let normal = rotation * axis;
             self.gizmos
                 .circle(*center, Dir3::new_unchecked(normal), *radius, *color)
                 .segments(*segments);

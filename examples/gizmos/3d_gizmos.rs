@@ -134,7 +134,7 @@ fn draw_example_collection(
         .segments(64);
     my_gizmos
         .sphere(Vec3::ZERO, Quat::IDENTITY, 3.2, BLACK)
-        .circle_segments(64);
+        .segments(64);
 
     gizmos.arrow(Vec3::ZERO, Vec3::ONE * 1.5, YELLOW);
 
