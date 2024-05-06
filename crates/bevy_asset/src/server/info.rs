@@ -191,10 +191,10 @@ impl AssetInfos {
         if should_load {
             let task = IoTaskPool::get().spawn(load_fn(handle.clone()));
 
-            #[cfg(not(any(target_arch = "wasm32", not(feature = "multi-threaded"))))]
+            #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
             self.pending_load_tasks.insert(handle.id().untyped(), task);
 
-            #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
+            #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
             task.detach();
         }
 
