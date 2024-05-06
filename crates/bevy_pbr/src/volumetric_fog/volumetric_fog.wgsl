@@ -30,7 +30,7 @@ struct VolumetricFog {
     light_tint: vec3<f32>,
     ambient_color: vec3<f32>,
     ambient_intensity: f32,
-    step_count: i32,
+    step_count: u32,
     max_depth: f32,
     absorption: f32,
     scattering: f32,
@@ -166,7 +166,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         background_alpha = 1.0;
 
         // Start raymarching.
-        for (var step = 0; step < step_count; step += 1) {
+        for (var step = 0u; step < step_count; step += 1u) {
             // As an optimization, break if we've gotten too dark.
             if (background_alpha < 0.001) {
                 break;

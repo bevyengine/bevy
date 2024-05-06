@@ -33,7 +33,7 @@ use bevy_render::{
     texture::{BevyDefault, DefaultImageSampler, ImageSampler, TextureFormatPixelInfo},
     view::{
         prepare_view_targets, GpuCulling, RenderVisibilityRanges, ViewTarget, ViewUniformOffset,
-        ViewVisibility, VisibilityRange, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
+        ViewVisibility, VisibilityRange,
     },
     Extract,
 };

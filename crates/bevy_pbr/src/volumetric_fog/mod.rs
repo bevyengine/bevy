@@ -124,7 +124,7 @@ pub struct VolumetricFogSettings {
     /// reduce performance.
     ///
     /// The default value is 64.
-    pub step_count: i32,
+    pub step_count: u32,
 
     /// The maximum distance that Bevy will trace a ray for, in world space.
     ///
@@ -218,7 +218,7 @@ pub struct VolumetricFogUniform {
     light_tint: Vec3,
     ambient_color: Vec3,
     ambient_intensity: f32,
-    step_count: i32,
+    step_count: u32,
     max_depth: f32,
     absorption: f32,
     scattering: f32,
@@ -318,7 +318,7 @@ impl FromWorld for VolumetricFogPipeline {
                 uniform_buffer::<VolumetricFogUniform>(true),
                 // `color_texture`
                 texture_2d(TextureSampleType::Float { filterable: true }),
-                // `color_sampler``
+                // `color_sampler`
                 sampler(SamplerBindingType::Filtering),
             ),
         );
