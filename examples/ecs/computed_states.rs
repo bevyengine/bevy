@@ -18,6 +18,8 @@
 
 use bevy::prelude::*;
 
+use ui::*;
+
 // To begin, we want to define our state objects.
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 enum AppState {
@@ -221,110 +223,6 @@ fn main() {
         .run();
 }
 
-#[derive(Resource)]
-struct MenuData {
-    root_entity: Entity,
-}
-
-#[derive(Component, PartialEq, Eq)]
-enum MenuButton {
-    Play,
-    Tutorial,
-}
-
-const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
-const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
-const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
-
-const ACTIVE_BUTTON: Color = Color::srgb(0.15, 0.85, 0.15);
-const HOVERED_ACTIVE_BUTTON: Color = Color::srgb(0.25, 0.55, 0.25);
-const PRESSED_ACTIVE_BUTTON: Color = Color::srgb(0.35, 0.95, 0.35);
-
-fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
-}
-
-fn setup_menu(mut commands: Commands, tutorial_state: Res<State<TutorialState>>) {
-    let button_entity = commands
-        .spawn(NodeBundle {
-            style: Style {
-                // center button
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(10.),
-                ..default()
-            },
-            ..default()
-        })
-        .with_children(|parent| {
-            parent
-                .spawn((
-                    ButtonBundle {
-                        style: Style {
-                            width: Val::Px(200.),
-                            height: Val::Px(65.),
-                            // horizontally center child text
-                            justify_content: JustifyContent::Center,
-                            // vertically center child text
-                            align_items: AlignItems::Center,
-                            ..default()
-                        },
-                        image: UiImage::default().with_color(NORMAL_BUTTON),
-                        ..default()
-                    },
-                    MenuButton::Play,
-                ))
-                .with_children(|parent| {
-                    parent.spawn(TextBundle::from_section(
-                        "Play",
-                        TextStyle {
-                            font_size: 40.0,
-                            color: Color::srgb(0.9, 0.9, 0.9),
-                            ..default()
-                        },
-                    ));
-                });
-
-            parent
-                .spawn((
-                    ButtonBundle {
-                        style: Style {
-                            width: Val::Px(200.),
-                            height: Val::Px(65.),
-                            // horizontally center child text
-                            justify_content: JustifyContent::Center,
-                            // vertically center child text
-                            align_items: AlignItems::Center,
-                            ..default()
-                        },
-                        image: UiImage::default().with_color(match tutorial_state.get() {
-                            TutorialState::Active => ACTIVE_BUTTON,
-                            TutorialState::Inactive => NORMAL_BUTTON,
-                        }),
-                        ..default()
-                    },
-                    MenuButton::Tutorial,
-                ))
-                .with_children(|parent| {
-                    parent.spawn(TextBundle::from_section(
-                        "Tutorial",
-                        TextStyle {
-                            font_size: 40.0,
-                            color: Color::srgb(0.9, 0.9, 0.9),
-                            ..default()
-                        },
-                    ));
-                });
-        })
-        .id();
-    commands.insert_resource(MenuData {
-        root_entity: button_entity,
-    });
-}
-
 fn menu(
     mut next_state: ResMut<NextState<AppState>>,
     tutorial_state: Res<State<TutorialState>>,
@@ -379,22 +277,8 @@ fn menu(
     }
 }
 
-fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
-    commands.entity(menu_data.root_entity).despawn_recursive();
-}
-
 #[derive(Component)]
 struct StateBound<S: States>(S);
-
-fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn((
-        StateBound(InGame),
-        SpriteBundle {
-            texture: asset_server.load("branding/icon.png"),
-            ..default()
-        },
-    ));
-}
 
 fn clear_state_bound_entities<S: States>(
     state: S,
@@ -405,37 +289,6 @@ fn clear_state_bound_entities<S: States>(
             if bound.0 == state {
                 commands.entity(entity).despawn_recursive();
             }
-        }
-    }
-}
-
-const SPEED: f32 = 100.0;
-const TURBO_SPEED: f32 = 300.0;
-fn movement(
-    time: Res<Time>,
-    input: Res<ButtonInput<KeyCode>>,
-    turbo: Option<Res<State<TurboMode>>>,
-    mut query: Query<&mut Transform, With<Sprite>>,
-) {
-    for mut transform in &mut query {
-        let mut direction = Vec3::ZERO;
-        if input.pressed(KeyCode::ArrowLeft) {
-            direction.x -= 1.0;
-        }
-        if input.pressed(KeyCode::ArrowRight) {
-            direction.x += 1.0;
-        }
-        if input.pressed(KeyCode::ArrowUp) {
-            direction.y += 1.0;
-        }
-        if input.pressed(KeyCode::ArrowDown) {
-            direction.y -= 1.0;
-        }
-
-        if direction != Vec3::ZERO {
-            transform.translation += direction.normalize()
-                * if turbo.is_some() { TURBO_SPEED } else { SPEED }
-                * time.delta_seconds();
         }
     }
 }
@@ -455,57 +308,6 @@ fn toggle_pause(
     }
 }
 
-fn setup_paused_screen(mut commands: Commands) {
-    info!("Printing Pause");
-    commands
-        .spawn((
-            StateBound(IsPaused::Paused),
-            NodeBundle {
-                style: Style {
-                    // center button
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    flex_direction: FlexDirection::Column,
-                    row_gap: Val::Px(10.),
-                    position_type: PositionType::Absolute,
-                    ..default()
-                },
-                ..default()
-            },
-        ))
-        .with_children(|parent| {
-            parent
-                .spawn((
-                    NodeBundle {
-                        style: Style {
-                            width: Val::Px(400.),
-                            height: Val::Px(400.),
-                            // horizontally center child text
-                            justify_content: JustifyContent::Center,
-                            // vertically center child text
-                            align_items: AlignItems::Center,
-                            ..default()
-                        },
-                        background_color: NORMAL_BUTTON.into(),
-                        ..default()
-                    },
-                    MenuButton::Play,
-                ))
-                .with_children(|parent| {
-                    parent.spawn(TextBundle::from_section(
-                        "Paused",
-                        TextStyle {
-                            font_size: 40.0,
-                            color: Color::srgb(0.9, 0.9, 0.9),
-                            ..default()
-                        },
-                    ));
-                });
-        });
-}
-
 fn toggle_turbo(
     input: Res<ButtonInput<KeyCode>>,
     current_state: Res<State<AppState>>,
@@ -521,149 +323,10 @@ fn toggle_turbo(
     }
 }
 
-fn setup_turbo_text(mut commands: Commands) {
-    commands
-        .spawn((
-            StateBound(TurboMode),
-            NodeBundle {
-                style: Style {
-                    // center button
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    justify_content: JustifyContent::Start,
-                    align_items: AlignItems::Center,
-                    flex_direction: FlexDirection::Column,
-                    row_gap: Val::Px(10.),
-                    position_type: PositionType::Absolute,
-                    ..default()
-                },
-                ..default()
-            },
-        ))
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "TURBO MODE",
-                TextStyle {
-                    font_size: 40.0,
-                    color: Color::srgb(0.9, 0.3, 0.1),
-                    ..default()
-                },
-            ));
-        });
-}
-
 fn quit_to_menu(input: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
     if input.just_pressed(KeyCode::Escape) {
         next_state.set(AppState::Menu);
     }
-}
-
-fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
-    for mut sprite in &mut query {
-        let new_color = LinearRgba {
-            blue: (time.elapsed_seconds() * 0.5).sin() + 2.0,
-            ..LinearRgba::from(sprite.color)
-        };
-
-        sprite.color = new_color.into();
-    }
-}
-
-fn movement_instructions(mut commands: Commands) {
-    commands
-        .spawn((
-            StateBound(Tutorial::MovementInstructions),
-            NodeBundle {
-                style: Style {
-                    // center button
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    justify_content: JustifyContent::End,
-                    align_items: AlignItems::Center,
-                    flex_direction: FlexDirection::Column,
-                    row_gap: Val::Px(10.),
-                    position_type: PositionType::Absolute,
-                    ..default()
-                },
-                ..default()
-            },
-        ))
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Move the bevy logo with the arrow keys",
-                TextStyle {
-                    font_size: 40.0,
-                    color: Color::srgb(0.3, 0.3, 0.7),
-                    ..default()
-                },
-            ));
-            parent.spawn(TextBundle::from_section(
-                "Press T to enter TURBO MODE",
-                TextStyle {
-                    font_size: 40.0,
-                    color: Color::srgb(0.3, 0.3, 0.7),
-                    ..default()
-                },
-            ));
-
-            parent.spawn(TextBundle::from_section(
-                "Press SPACE to pause",
-                TextStyle {
-                    font_size: 40.0,
-                    color: Color::srgb(0.3, 0.3, 0.7),
-                    ..default()
-                },
-            ));
-
-            parent.spawn(TextBundle::from_section(
-                "Press ESCAPE to return to the menu",
-                TextStyle {
-                    font_size: 40.0,
-                    color: Color::srgb(0.3, 0.3, 0.7),
-                    ..default()
-                },
-            ));
-        });
-}
-
-fn pause_instructions(mut commands: Commands) {
-    commands
-        .spawn((
-            StateBound(Tutorial::PauseInstructions),
-            NodeBundle {
-                style: Style {
-                    // center button
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    justify_content: JustifyContent::End,
-                    align_items: AlignItems::Center,
-                    flex_direction: FlexDirection::Column,
-                    row_gap: Val::Px(10.),
-                    position_type: PositionType::Absolute,
-                    ..default()
-                },
-                ..default()
-            },
-        ))
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Press SPACE to resume",
-                TextStyle {
-                    font_size: 40.0,
-                    color: Color::srgb(0.3, 0.3, 0.7),
-                    ..default()
-                },
-            ));
-
-            parent.spawn(TextBundle::from_section(
-                "Press ESCAPE to return to the menu",
-                TextStyle {
-                    font_size: 40.0,
-                    color: Color::srgb(0.3, 0.3, 0.7),
-                    ..default()
-                },
-            ));
-        });
 }
 
 /// print when either an `AppState` transition or a `TutorialState` transition happens
@@ -682,5 +345,349 @@ fn log_transitions(
             "tutorial transition: {:?} => {:?}",
             transition.before, transition.after
         );
+    }
+}
+
+mod ui {
+    use crate::*;
+
+    #[derive(Resource)]
+    pub struct MenuData {
+        pub root_entity: Entity,
+    }
+
+    #[derive(Component, PartialEq, Eq)]
+    pub enum MenuButton {
+        Play,
+        Tutorial,
+    }
+
+    pub const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+    pub const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
+    pub const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
+
+    pub const ACTIVE_BUTTON: Color = Color::srgb(0.15, 0.85, 0.15);
+    pub const HOVERED_ACTIVE_BUTTON: Color = Color::srgb(0.25, 0.55, 0.25);
+    pub const PRESSED_ACTIVE_BUTTON: Color = Color::srgb(0.35, 0.95, 0.35);
+
+    pub fn setup(mut commands: Commands) {
+        commands.spawn(Camera2dBundle::default());
+    }
+
+    pub fn setup_menu(mut commands: Commands, tutorial_state: Res<State<TutorialState>>) {
+        let button_entity = commands
+            .spawn(NodeBundle {
+                style: Style {
+                    // center button
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(10.),
+                    ..default()
+                },
+                ..default()
+            })
+            .with_children(|parent| {
+                parent
+                    .spawn((
+                        ButtonBundle {
+                            style: Style {
+                                width: Val::Px(200.),
+                                height: Val::Px(65.),
+                                // horizontally center child text
+                                justify_content: JustifyContent::Center,
+                                // vertically center child text
+                                align_items: AlignItems::Center,
+                                ..default()
+                            },
+                            image: UiImage::default().with_color(NORMAL_BUTTON),
+                            ..default()
+                        },
+                        MenuButton::Play,
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn(TextBundle::from_section(
+                            "Play",
+                            TextStyle {
+                                font_size: 40.0,
+                                color: Color::srgb(0.9, 0.9, 0.9),
+                                ..default()
+                            },
+                        ));
+                    });
+
+                parent
+                    .spawn((
+                        ButtonBundle {
+                            style: Style {
+                                width: Val::Px(200.),
+                                height: Val::Px(65.),
+                                // horizontally center child text
+                                justify_content: JustifyContent::Center,
+                                // vertically center child text
+                                align_items: AlignItems::Center,
+                                ..default()
+                            },
+                            image: UiImage::default().with_color(match tutorial_state.get() {
+                                TutorialState::Active => ACTIVE_BUTTON,
+                                TutorialState::Inactive => NORMAL_BUTTON,
+                            }),
+                            ..default()
+                        },
+                        MenuButton::Tutorial,
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn(TextBundle::from_section(
+                            "Tutorial",
+                            TextStyle {
+                                font_size: 40.0,
+                                color: Color::srgb(0.9, 0.9, 0.9),
+                                ..default()
+                            },
+                        ));
+                    });
+            })
+            .id();
+        commands.insert_resource(MenuData {
+            root_entity: button_entity,
+        });
+    }
+
+    pub fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
+        commands.entity(menu_data.root_entity).despawn_recursive();
+    }
+
+    pub fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
+        commands.spawn((
+            StateBound(InGame),
+            SpriteBundle {
+                texture: asset_server.load("branding/icon.png"),
+                ..default()
+            },
+        ));
+    }
+
+    const SPEED: f32 = 100.0;
+    const TURBO_SPEED: f32 = 300.0;
+
+    pub fn movement(
+        time: Res<Time>,
+        input: Res<ButtonInput<KeyCode>>,
+        turbo: Option<Res<State<TurboMode>>>,
+        mut query: Query<&mut Transform, With<Sprite>>,
+    ) {
+        for mut transform in &mut query {
+            let mut direction = Vec3::ZERO;
+            if input.pressed(KeyCode::ArrowLeft) {
+                direction.x -= 1.0;
+            }
+            if input.pressed(KeyCode::ArrowRight) {
+                direction.x += 1.0;
+            }
+            if input.pressed(KeyCode::ArrowUp) {
+                direction.y += 1.0;
+            }
+            if input.pressed(KeyCode::ArrowDown) {
+                direction.y -= 1.0;
+            }
+
+            if direction != Vec3::ZERO {
+                transform.translation += direction.normalize()
+                    * if turbo.is_some() { TURBO_SPEED } else { SPEED }
+                    * time.delta_seconds();
+            }
+        }
+    }
+
+    pub fn setup_paused_screen(mut commands: Commands) {
+        info!("Printing Pause");
+        commands
+            .spawn((
+                StateBound(IsPaused::Paused),
+                NodeBundle {
+                    style: Style {
+                        // center button
+                        width: Val::Percent(100.),
+                        height: Val::Percent(100.),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(10.),
+                        position_type: PositionType::Absolute,
+                        ..default()
+                    },
+                    ..default()
+                },
+            ))
+            .with_children(|parent| {
+                parent
+                    .spawn((
+                        NodeBundle {
+                            style: Style {
+                                width: Val::Px(400.),
+                                height: Val::Px(400.),
+                                // horizontally center child text
+                                justify_content: JustifyContent::Center,
+                                // vertically center child text
+                                align_items: AlignItems::Center,
+                                ..default()
+                            },
+                            background_color: NORMAL_BUTTON.into(),
+                            ..default()
+                        },
+                        MenuButton::Play,
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn(TextBundle::from_section(
+                            "Paused",
+                            TextStyle {
+                                font_size: 40.0,
+                                color: Color::srgb(0.9, 0.9, 0.9),
+                                ..default()
+                            },
+                        ));
+                    });
+            });
+    }
+
+    pub fn setup_turbo_text(mut commands: Commands) {
+        commands
+            .spawn((
+                StateBound(TurboMode),
+                NodeBundle {
+                    style: Style {
+                        // center button
+                        width: Val::Percent(100.),
+                        height: Val::Percent(100.),
+                        justify_content: JustifyContent::Start,
+                        align_items: AlignItems::Center,
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(10.),
+                        position_type: PositionType::Absolute,
+                        ..default()
+                    },
+                    ..default()
+                },
+            ))
+            .with_children(|parent| {
+                parent.spawn(TextBundle::from_section(
+                    "TURBO MODE",
+                    TextStyle {
+                        font_size: 40.0,
+                        color: Color::srgb(0.9, 0.3, 0.1),
+                        ..default()
+                    },
+                ));
+            });
+    }
+
+    pub fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
+        for mut sprite in &mut query {
+            let new_color = LinearRgba {
+                blue: (time.elapsed_seconds() * 0.5).sin() + 2.0,
+                ..LinearRgba::from(sprite.color)
+            };
+
+            sprite.color = new_color.into();
+        }
+    }
+
+    pub fn movement_instructions(mut commands: Commands) {
+        commands
+            .spawn((
+                StateBound(Tutorial::MovementInstructions),
+                NodeBundle {
+                    style: Style {
+                        // center button
+                        width: Val::Percent(100.),
+                        height: Val::Percent(100.),
+                        justify_content: JustifyContent::End,
+                        align_items: AlignItems::Center,
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(10.),
+                        position_type: PositionType::Absolute,
+                        ..default()
+                    },
+                    ..default()
+                },
+            ))
+            .with_children(|parent| {
+                parent.spawn(TextBundle::from_section(
+                    "Move the bevy logo with the arrow keys",
+                    TextStyle {
+                        font_size: 40.0,
+                        color: Color::srgb(0.3, 0.3, 0.7),
+                        ..default()
+                    },
+                ));
+                parent.spawn(TextBundle::from_section(
+                    "Press T to enter TURBO MODE",
+                    TextStyle {
+                        font_size: 40.0,
+                        color: Color::srgb(0.3, 0.3, 0.7),
+                        ..default()
+                    },
+                ));
+
+                parent.spawn(TextBundle::from_section(
+                    "Press SPACE to pause",
+                    TextStyle {
+                        font_size: 40.0,
+                        color: Color::srgb(0.3, 0.3, 0.7),
+                        ..default()
+                    },
+                ));
+
+                parent.spawn(TextBundle::from_section(
+                    "Press ESCAPE to return to the menu",
+                    TextStyle {
+                        font_size: 40.0,
+                        color: Color::srgb(0.3, 0.3, 0.7),
+                        ..default()
+                    },
+                ));
+            });
+    }
+
+    pub fn pause_instructions(mut commands: Commands) {
+        commands
+            .spawn((
+                StateBound(Tutorial::PauseInstructions),
+                NodeBundle {
+                    style: Style {
+                        // center button
+                        width: Val::Percent(100.),
+                        height: Val::Percent(100.),
+                        justify_content: JustifyContent::End,
+                        align_items: AlignItems::Center,
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(10.),
+                        position_type: PositionType::Absolute,
+                        ..default()
+                    },
+                    ..default()
+                },
+            ))
+            .with_children(|parent| {
+                parent.spawn(TextBundle::from_section(
+                    "Press SPACE to resume",
+                    TextStyle {
+                        font_size: 40.0,
+                        color: Color::srgb(0.3, 0.3, 0.7),
+                        ..default()
+                    },
+                ));
+
+                parent.spawn(TextBundle::from_section(
+                    "Press ESCAPE to return to the menu",
+                    TextStyle {
+                        font_size: 40.0,
+                        color: Color::srgb(0.3, 0.3, 0.7),
+                        ..default()
+                    },
+                ));
+            });
     }
 }
