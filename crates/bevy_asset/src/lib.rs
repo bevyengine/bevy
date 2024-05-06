@@ -1143,8 +1143,10 @@ mod tests {
             assert_eq!(c_deps, DependencyLoadState::Failed);
             assert_eq!(c_rec_deps, RecursiveDependencyLoadState::Failed);
 
+            bevy_log::error!("failure_load_states all good");
             Some(())
         });
+        bevy_log::error!("failure_load_states now leaving the function, bye");
     }
 
     const SIMPLE_TEXT: &str = r#"
