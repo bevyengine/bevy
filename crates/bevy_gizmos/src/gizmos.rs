@@ -2,14 +2,14 @@
 
 use std::{iter, marker::PhantomData, mem};
 
-use crate::circles::DEFAULT_CIRCLE_SEGMENTS;
+use crate::primitives::dim3::{GizmoPrimitive3d, SphereBuilder};
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
     component::Tick,
     system::{Deferred, ReadOnlySystemParam, Res, Resource, SystemBuffer, SystemMeta, SystemParam},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_math::{Dir3, Quat, Rotation2d, Vec2, Vec3};
+use bevy_math::{primitives::Sphere, Quat, Rotation2d, Vec2, Vec3};
 use bevy_transform::TransformPoint;
 use bevy_utils::default;
 
@@ -488,14 +488,7 @@ where
         radius: f32,
         color: impl Into<Color>,
     ) -> SphereBuilder<'_, 'w, 's, Config, Clear> {
-        SphereBuilder {
-            gizmos: self,
-            position,
-            rotation: rotation.normalize(),
-            radius,
-            color: color.into(),
-            circle_segments: DEFAULT_CIRCLE_SEGMENTS,
-        }
+        self.primitive_3d(Sphere { radius }, position, rotation, color)
     }
 
     /// Draw a wireframe rectangle in 3D.
@@ -787,54 +780,6 @@ where
     fn extend_strip_positions(&mut self, positions: impl IntoIterator<Item = Vec3>) {
         self.buffer.strip_positions.extend(positions);
         self.buffer.strip_positions.push(Vec3::NAN);
-    }
-}
-
-/// A builder returned by [`Gizmos::sphere`].
-pub struct SphereBuilder<'a, 'w, 's, Config, Clear = ()>
-where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
-    position: Vec3,
-    rotation: Quat,
-    radius: f32,
-    color: Color,
-    circle_segments: usize,
-}
-
-impl<Config, Clear> SphereBuilder<'_, '_, '_, Config, Clear>
-where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    /// Set the number of line-segments per circle for this sphere.
-    pub fn circle_segments(mut self, segments: usize) -> Self {
-        self.circle_segments = segments;
-        self
-    }
-}
-
-impl<Config, Clear> Drop for SphereBuilder<'_, '_, '_, Config, Clear>
-where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    fn drop(&mut self) {
-        if !self.gizmos.enabled {
-            return;
-        }
-        for axis in Vec3::AXES {
-            self.gizmos
-                .circle(
-                    self.position,
-                    Dir3::new_unchecked(self.rotation * axis),
-                    self.radius,
-                    self.color,
-                )
-                .segments(self.circle_segments);
-        }
     }
 }
 
