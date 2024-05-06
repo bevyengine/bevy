@@ -1,5 +1,5 @@
 use crate::{
-    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ClampColor, Gray,
+    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ClampColor,
     Luminance, Mix, StandardColor,
 };
 use bevy_math::Vec4;
@@ -278,12 +278,6 @@ impl ClampColor for LinearRgba {
             && (0. ..=1.).contains(&self.green)
             && (0. ..=1.).contains(&self.blue)
             && (0. ..=1.).contains(&self.alpha)
-    }
-}
-
-impl Gray for LinearRgba {
-    fn gray(lightness: f32) -> Self {
-        Self::new(lightness, lightness, lightness, 1.)
     }
 }
 

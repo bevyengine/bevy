@@ -1,3 +1,5 @@
+use crate::Srgba;
+
 /// Methods for changing the luminance of a color. Note that these methods are not
 /// guaranteed to produce consistent results across color spaces,
 /// but will be within a given space.
@@ -84,6 +86,12 @@ pub trait Hue: Sized {
 pub trait Gray: Sized {
     /// Returns a grey color with the provided lightness from (0.0 - 1.0). 0 is black, 1 is white.
     fn gray(lightness: f32) -> Self;
+}
+
+impl<T: Mix + From<Srgba>> Gray for T {
+    fn gray(lightness: f32) -> Self {
+        Into::<T>::into(Srgba::BLACK).mix(&Srgba::WHITE.into(), lightness)
+    }
 }
 
 /// Trait with methods for asserting a colorspace is within bounds.

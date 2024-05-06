@@ -1,6 +1,6 @@
 use crate::{
-    color_difference::EuclideanDistance, Alpha, ClampColor, Gray, Hsla, Hsva, Hue, Hwba, Laba,
-    Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
+    color_difference::EuclideanDistance, Alpha, ClampColor, Hsla, Hsva, Hue, Hwba, Laba, Lcha,
+    LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::prelude::*;
 
@@ -178,12 +178,6 @@ impl Luminance for Oklcha {
             self.hue,
             self.alpha,
         )
-    }
-}
-
-impl Gray for Oklcha {
-    fn gray(lightness: f32) -> Self {
-        Self::new(lightness, 0., 0., 1.)
     }
 }
 

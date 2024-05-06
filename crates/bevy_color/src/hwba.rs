@@ -2,7 +2,7 @@
 //! in [_HWB - A More Intuitive Hue-Based Color Model_] by _Smith et al_.
 //!
 //! [_HWB - A More Intuitive Hue-Based Color Model_]: https://web.archive.org/web/20240226005220/http://alvyray.com/Papers/CG/HWB_JGTv208.pdf
-use crate::{Alpha, ClampColor, Gray, Hue, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza};
+use crate::{Alpha, ClampColor, Hue, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza};
 use bevy_reflect::prelude::*;
 
 /// Color in Hue-Whiteness-Blackness (HWB) color space with alpha.
@@ -139,12 +139,6 @@ impl ClampColor for Hwba {
             && (0. ..=1.).contains(&self.whiteness)
             && (0. ..=1.).contains(&self.blackness)
             && (0. ..=1.).contains(&self.alpha)
-    }
-}
-
-impl Gray for Hwba {
-    fn gray(lightness: f32) -> Self {
-        Self::new(0., lightness, 1. - lightness, 1.)
     }
 }
 

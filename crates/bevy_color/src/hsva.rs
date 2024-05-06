@@ -1,6 +1,4 @@
-use crate::{
-    Alpha, ClampColor, Gray, Hue, Hwba, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza,
-};
+use crate::{Alpha, ClampColor, Hue, Hwba, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza};
 use bevy_reflect::prelude::*;
 
 /// Color in Hue-Saturation-Value (HSV) color space with alpha.
@@ -137,12 +135,6 @@ impl ClampColor for Hsva {
             && (0. ..=1.).contains(&self.saturation)
             && (0. ..=1.).contains(&self.value)
             && (0. ..=1.).contains(&self.alpha)
-    }
-}
-
-impl Gray for Hsva {
-    fn gray(lightness: f32) -> Self {
-        Self::new(0., 0., lightness, 1.)
     }
 }
 
