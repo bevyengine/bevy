@@ -464,30 +464,27 @@ where
             segments,
         } = self;
 
-        let normal = *rotation * Vec3::Y;
+        let normal = Dir3::new_unchecked(*rotation * Vec3::Y);
+        let up = normal.as_vec3() * *half_height;
 
         // draw upper and lower circle of the cylinder
         [-1.0, 1.0].into_iter().for_each(|sign| {
-            draw_circle_3d(
-                gizmos,
-                *radius,
-                *segments,
-                *rotation,
-                *position + sign * *half_height * normal,
-                *color,
-            );
+            gizmos
+                .circle(*position + sign * up, normal, *radius, *color)
+                .segments(*segments);
         });
 
         // draw lines connecting the two cylinder circles
-        draw_cylinder_vertical_lines(
-            gizmos,
-            *radius,
-            *segments,
-            *half_height,
-            *rotation,
-            *position,
-            *color,
-        );
+        [Vec3::NEG_X, Vec3::NEG_Z, Vec3::X, Vec3::Z]
+            .into_iter()
+            .for_each(|axis| {
+                let axis = *rotation * axis;
+                gizmos.line(
+                    *position + up + axis * *radius,
+                    *position - up + axis * *radius,
+                    *color,
+                );
+            });
     }
 }
 
