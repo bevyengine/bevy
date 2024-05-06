@@ -1071,7 +1071,7 @@ mod tests {
                 .checked_duration_since(start_time)
                 .map_or(false, |elapsed| elapsed > Duration::from_secs(10))
             {
-                assert!(false);
+                panic!();
             }
 
             let a_text = get::<CoolText>(world, a_id)?;
