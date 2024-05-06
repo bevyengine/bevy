@@ -153,7 +153,7 @@ fn pbr_input_from_standard_material(
         var emissive: vec4<f32> = pbr_bindings::material.emissive;
 #ifdef VERTEX_UVS
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
-            emissive = vec4<f32>(pbr_functions::sample_texture(
+            emissive = vec4<f32>(emissive.rgb * pbr_functions::sample_texture(
                 pbr_bindings::emissive_texture,
                 pbr_bindings::emissive_sampler,
                 uv,
