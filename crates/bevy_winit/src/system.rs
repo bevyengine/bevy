@@ -72,12 +72,14 @@ pub fn create_windows<F: QueryFilter + 'static>(
         window
             .resolution
             .set_scale_factor(winit_window.scale_factor() as f32);
-        commands
-            .entity(entity)
-            .insert(RawHandleWrapper::new(winit_window).unwrap())
-            .insert(CachedWindow {
-                window: window.clone(),
-            });
+
+        commands.entity(entity).insert(CachedWindow {
+            window: window.clone(),
+        });
+
+        if let Ok(handle_wrapper) = RawHandleWrapper::new(winit_window) {
+            commands.entity(entity).insert(handle_wrapper);
+        }
 
         #[cfg(target_arch = "wasm32")]
         {

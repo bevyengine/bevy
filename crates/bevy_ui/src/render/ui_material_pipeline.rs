@@ -91,7 +91,7 @@ where
 
 #[derive(Resource)]
 pub struct UiMaterialMeta<M: UiMaterial> {
-    vertices: BufferVec<UiMaterialVertex>,
+    vertices: RawBufferVec<UiMaterialVertex>,
     view_bind_group: Option<BindGroup>,
     marker: PhantomData<M>,
 }
@@ -99,7 +99,7 @@ pub struct UiMaterialMeta<M: UiMaterial> {
 impl<M: UiMaterial> Default for UiMaterialMeta<M> {
     fn default() -> Self {
         Self {
-            vertices: BufferVec::new(BufferUsages::VERTEX),
+            vertices: RawBufferVec::new(BufferUsages::VERTEX),
             view_bind_group: Default::default(),
             marker: PhantomData,
         }

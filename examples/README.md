@@ -128,7 +128,9 @@ Example | Description
 [Animated Material](../examples/3d/animated_material.rs) | Shows how to animate material properties
 [Anti-aliasing](../examples/3d/anti_aliasing.rs) | Compares different anti-aliasing methods
 [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
+[Auto Exposure](../examples/3d/auto_exposure.rs) | A scene showcasing auto exposure
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
+[Clearcoat](../examples/3d/clearcoat.rs) | Demonstrates the clearcoat PBR feature
 [Color grading](../examples/3d/color_grading.rs) | Demonstrates color grading
 [Deferred Rendering](../examples/3d/deferred_rendering.rs) | Renders meshes with both forward and deferred pipelines
 [Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
@@ -160,6 +162,7 @@ Example | Description
 [Two Passes](../examples/3d/two_passes.rs) | Renders two 3d passes to the same window from different perspectives
 [Update glTF Scene](../examples/3d/update_gltf_scene.rs) | Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 [Vertex Colors](../examples/3d/vertex_colors.rs) | Shows the use of vertex colors
+[Visibility range](../examples/3d/visibility_range.rs) | Demonstrates visibility ranges
 [Volumetric fog](../examples/3d/volumetric_fog.rs) | Demonstrates volumetric fog and lighting
 [Wireframe](../examples/3d/wireframe.rs) | Showcases wireframe rendering
 
@@ -208,6 +211,7 @@ Example | Description
 [Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
 [Extra asset source](../examples/asset/extra_source.rs) | Load an asset from a non-standard asset source
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
+[Repeated texture configuration](../examples/asset/repeated_texture.rs) | How to configure the texture to repeat instead of the default clamp to edges
 
 ## Async Tasks
 
@@ -247,6 +251,7 @@ Example | Description
 --- | ---
 [Component Change Detection](../examples/ecs/component_change_detection.rs) | Change detection on components
 [Component Hooks](../examples/ecs/component_hooks.rs) | Define component hooks to manage component lifecycle events
+[Computed States](../examples/ecs/computed_states.rs) | Advanced state patterns using Computed States
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 [Custom Schedule](../examples/ecs/custom_schedule.rs) | Demonstrates how to add custom schedules
 [Dynamic ECS](../examples/ecs/dynamic.rs) | Dynamically create components, spawn entities with those components and query those components
@@ -264,6 +269,7 @@ Example | Description
 [Send and receive events](../examples/ecs/send_and_receive_events.rs) | Demonstrates how to send and receive events of the same type in a single system
 [Startup System](../examples/ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
 [State](../examples/ecs/state.rs) | Illustrates how to use States to control transitioning from a Menu state to an InGame state
+[Sub States](../examples/ecs/sub_states.rs) | Using Sub States for hierarchical state handling.
 [System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
 [System Parameter](../examples/ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
 [System Piping](../examples/ecs/system_piping.rs) | Pipe the output of one system into a second, allowing you to handle any errors gracefully
@@ -317,6 +323,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Dynamic Types](../examples/reflection/dynamic_types.rs) | How dynamic types are used with reflection
 [Generic Reflection](../examples/reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection
 [Reflection](../examples/reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
 [Reflection Types](../examples/reflection/reflection_types.rs) | Illustrates the various reflection types available
