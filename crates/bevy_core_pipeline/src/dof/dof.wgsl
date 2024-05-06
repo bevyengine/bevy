@@ -152,9 +152,9 @@ fn gaussian_blur(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec
     // half the CoC. So we multiply by 0.25.
     let sigma = coc * 0.25;
 
-    // 3σ is a good conservative default for support—the number of texels on
-    // each side of the center that we process.
-    let support = i32(ceil(sigma * 3.0));
+    // 1.5σ is a good, somewhat aggressive default for support—the number of
+    // texels on each side of the center that we process.
+    let support = i32(ceil(sigma * 1.5));
     let uv = frag_coord.xy / vec2<f32>(textureDimensions(color_texture_a));
     let offset = frag_offset / vec2<f32>(textureDimensions(color_texture_a));
 
@@ -163,20 +163,34 @@ fn gaussian_blur(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec
     // calculate it in the inner loop.
     let exp_factor = -1.0 / (2.0 * sigma * sigma);
 
-    // Accumulate samples on both sides of the current texel.
-    //
-    // TODO: We could take better advantage of the texture filtering hardware
-    // here in order to effectively process two texels at once, by sampling in
-    // between texels at exactly the right position.
+    // Accumulate samples on both sides of the current texel. Go two at a time,
+    // taking advantage of bilinear filtering.
     var sum = textureSampleLevel(color_texture_a, color_texture_sampler, uv, 0.0).rgb;
     var weight_sum = 1.0;
-    for (var i = 1; i <= support; i += 1) {
-        let weight = exp(exp_factor * f32(i) * f32(i));
-        sum += (textureSampleLevel(
-                    color_texture_a, color_texture_sampler, uv + offset * f32(i), 0.0).rgb +
-                textureSampleLevel(
-                    color_texture_a, color_texture_sampler, uv - offset * f32(i), 0.0).rgb) *
-                weight;
+    for (var i = 1; i <= support; i += 2) {
+        // This is a well-known trick to reduce the number of needed texture
+        // samples by a factor of two. We seek to accumulate two adjacent
+        // samples c₀ and c₁ with weights w₀ and w₁ respectively, with a single
+        // texture sample at a carefully chosen location. Observe that:
+        //
+        //     k ⋅ lerp(c₀, c₁, t) = w₀⋅c₀ + w₁⋅c₁
+        //
+        //                              w₁
+        //     if k = w₀ + w₁ and t = ───────
+        //                            w₀ + w₁
+        //
+        // Therefore, if we sample at a distance of t = w₁ / (w₀ + w₁) texels in
+        // between the two texel centers and scale by k = w₀ + w₁ afterward, we
+        // effectively evaluate w₀⋅c₀ + w₁⋅c₁ with a single texture lookup.
+        let w0 = exp(exp_factor * f32(i) * f32(i));
+        let w1 = exp(exp_factor * f32(i + 1) * f32(i + 1));
+        let uv_offset = offset * (f32(i) + w1 / (w0 + w1));
+        let weight = w0 + w1;
+
+        sum += (
+            textureSampleLevel(color_texture_a, color_texture_sampler, uv + uv_offset, 0.0).rgb +
+            textureSampleLevel(color_texture_a, color_texture_sampler, uv - uv_offset, 0.0).rgb
+        ) * weight;
         weight_sum += weight * 2.0;
     }
 
