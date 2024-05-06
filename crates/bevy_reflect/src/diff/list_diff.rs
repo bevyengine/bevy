@@ -20,6 +20,15 @@ impl<'new> ElementDiff<'new> {
             Self::Deleted(index) | Self::Inserted(index, _) => *index,
         }
     }
+
+    pub fn clone_diff(&self) -> ElementDiff<'static> {
+        match self {
+            Self::Deleted(index) => ElementDiff::Deleted(*index),
+            Self::Inserted(index, value_diff) => {
+                ElementDiff::Inserted(*index, value_diff.clone_diff())
+            }
+        }
+    }
 }
 
 /// Diff object for [lists](List).
@@ -73,6 +82,14 @@ impl<'new> ListDiff<'new> {
     pub fn take_changes(self) -> Vec<ElementDiff<'new>> {
         self.changes
     }
+
+    pub fn clone_diff(&self) -> ListDiff<'static> {
+        ListDiff {
+            type_info: self.type_info,
+            changes: self.changes.iter().map(ElementDiff::clone_diff).collect(),
+            total_insertions: self.total_insertions,
+        }
+    }
 }
 
 impl<'new> Debug for ListDiff<'new> {
@@ -114,7 +131,7 @@ pub fn diff_list<'old, 'new, T: List>(
             new_info, changes,
         ))))
     } else {
-        Ok(Diff::NoChange(old))
+        Ok(Diff::NoChange)
     }
 }
 

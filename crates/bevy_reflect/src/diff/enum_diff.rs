@@ -33,6 +33,14 @@ impl<'old, 'new> EnumDiff<'old, 'new> {
             Self::Struct(struct_diff) => struct_diff.type_info(),
         }
     }
+
+    pub fn clone_diff(&self) -> EnumDiff<'static, 'static> {
+        match self {
+            Self::Swapped(value_diff) => EnumDiff::Swapped(value_diff.clone_diff()),
+            Self::Tuple(tuple_diff) => EnumDiff::Tuple(tuple_diff.clone_diff()),
+            Self::Struct(struct_diff) => EnumDiff::Struct(struct_diff.clone_diff()),
+        }
+    }
 }
 
 /// Utility function for diffing two [`Enum`] objects.
@@ -74,14 +82,14 @@ pub fn diff_enum<'old, 'new, T: Enum>(
                 let field_name = old_field.name().unwrap();
                 let new_field = new.field(field_name).ok_or(DiffError::MissingField)?;
                 let field_diff = old_field.value().diff(new_field)?;
-                was_modified |= !matches!(field_diff, Diff::NoChange(_));
+                was_modified |= !matches!(field_diff, Diff::NoChange);
                 diff.push(Cow::Borrowed(field_name), field_diff);
             }
 
             if was_modified {
                 Diff::Modified(DiffType::Enum(EnumDiff::Struct(diff)))
             } else {
-                Diff::NoChange(old)
+                Diff::NoChange
             }
         }
         VariantType::Tuple => {
@@ -90,17 +98,17 @@ pub fn diff_enum<'old, 'new, T: Enum>(
             let mut was_modified = false;
             for (old_field, new_field) in old.iter_fields().zip(new.iter_fields()) {
                 let field_diff = old_field.value().diff(new_field.value())?;
-                was_modified |= !matches!(field_diff, Diff::NoChange(_));
+                was_modified |= !matches!(field_diff, Diff::NoChange);
                 diff.push(field_diff);
             }
 
             if was_modified {
                 Diff::Modified(DiffType::Enum(EnumDiff::Tuple(diff)))
             } else {
-                Diff::NoChange(old)
+                Diff::NoChange
             }
         }
-        VariantType::Unit => Diff::NoChange(old),
+        VariantType::Unit => Diff::NoChange,
     };
 
     Ok(diff)

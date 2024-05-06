@@ -25,6 +25,13 @@ impl<'a> ValueDiff<'a> {
             Self::Owned(value) => T::take_from_reflect(value).ok(),
         }
     }
+
+    pub fn clone_diff(&self) -> ValueDiff<'static> {
+        match self {
+            Self::Borrowed(value) => ValueDiff::Owned(value.clone_value()),
+            Self::Owned(value) => ValueDiff::Owned(value.clone_value()),
+        }
+    }
 }
 
 impl<'a> Deref for ValueDiff<'a> {
@@ -68,7 +75,7 @@ pub fn diff_value<'old, 'new>(
             }
 
             match old.reflect_partial_eq(new) {
-                Some(true) => Ok(Diff::NoChange(old)),
+                Some(true) => Ok(Diff::NoChange),
                 Some(false) => Ok(Diff::Modified(DiffType::Value(ValueDiff::Borrowed(new)))),
                 None => Err(DiffError::Incomparable),
             }

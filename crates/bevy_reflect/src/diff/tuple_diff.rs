@@ -45,6 +45,13 @@ impl<'old, 'new> TupleDiff<'old, 'new> {
     pub fn take_changes(self) -> Vec<Diff<'old, 'new>> {
         self.fields
     }
+
+    pub fn clone_diff(&self) -> TupleDiff<'static, 'static> {
+        TupleDiff {
+            type_info: self.type_info,
+            fields: self.fields.iter().map(Diff::clone_diff).collect(),
+        }
+    }
 }
 
 impl<'old, 'new> Debug for TupleDiff<'old, 'new> {
@@ -84,13 +91,13 @@ pub fn diff_tuple<'old, 'new, T: Tuple>(
     let mut was_modified = false;
     for (old_field, new_field) in old.iter_fields().zip(new.iter_fields()) {
         let field_diff = old_field.diff(new_field)?;
-        was_modified |= !matches!(field_diff, Diff::NoChange(_));
+        was_modified |= !matches!(field_diff, Diff::NoChange);
         diff.push(field_diff);
     }
 
     if was_modified {
         Ok(Diff::Modified(DiffType::Tuple(diff)))
     } else {
-        Ok(Diff::NoChange(old))
+        Ok(Diff::NoChange)
     }
 }

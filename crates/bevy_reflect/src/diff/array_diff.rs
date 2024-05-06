@@ -39,6 +39,13 @@ impl<'old, 'new> ArrayDiff<'old, 'new> {
     pub fn take_changes(self) -> Vec<Diff<'old, 'new>> {
         self.elements
     }
+
+    pub fn clone_diff(&self) -> ArrayDiff<'static, 'static> {
+        ArrayDiff {
+            type_info: self.type_info,
+            elements: self.elements.iter().map(Diff::clone_diff).collect(),
+        }
+    }
 }
 
 impl<'old, 'new> Debug for ArrayDiff<'old, 'new> {
@@ -81,13 +88,13 @@ pub fn diff_array<'old, 'new, T: Array>(
     let mut was_modified = false;
     for (old_field, new_field) in old.iter().zip(new.iter()) {
         let field_diff = old_field.diff(new_field)?;
-        was_modified |= !matches!(field_diff, Diff::NoChange(_));
+        was_modified |= !matches!(field_diff, Diff::NoChange);
         diff.elements.push(field_diff);
     }
 
     if was_modified {
         Ok(Diff::Modified(DiffType::Array(diff)))
     } else {
-        Ok(Diff::NoChange(old))
+        Ok(Diff::NoChange)
     }
 }

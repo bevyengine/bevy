@@ -58,6 +58,22 @@ impl<'old, 'new> StructDiff<'old, 'new> {
     pub fn take_changes(self) -> HashMap<Cow<'old, str>, Diff<'old, 'new>> {
         self.fields
     }
+
+    pub fn clone_diff(&self) -> StructDiff<'static, 'static> {
+        StructDiff {
+            type_info: self.type_info,
+            fields: self
+                .fields
+                .iter()
+                .map(|(name, diff)| (Cow::Owned(name.to_string()), diff.clone_diff()))
+                .collect(),
+            field_order: self
+                .field_order
+                .iter()
+                .map(|name| Cow::Owned(name.to_string()))
+                .collect(),
+        }
+    }
 }
 
 impl<'old, 'new> Debug for StructDiff<'old, 'new> {
@@ -99,13 +115,13 @@ pub fn diff_struct<'old, 'new, T: Struct>(
         let field_name = old.name_at(field_idx).unwrap();
         let new_field = new.field(field_name).ok_or(DiffError::MissingField)?;
         let field_diff = old_field.diff(new_field)?;
-        was_modified |= !matches!(field_diff, Diff::NoChange(_));
+        was_modified |= !matches!(field_diff, Diff::NoChange);
         diff.push(Cow::Borrowed(field_name), field_diff);
     }
 
     if was_modified {
         Ok(Diff::Modified(DiffType::Struct(diff)))
     } else {
-        Ok(Diff::NoChange(old))
+        Ok(Diff::NoChange)
     }
 }

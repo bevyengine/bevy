@@ -16,6 +16,20 @@ pub enum EntryDiff<'old, 'new> {
     Modified(ValueDiff<'old>, Diff<'old, 'new>),
 }
 
+impl<'old, 'new> EntryDiff<'old, 'new> {
+    pub fn clone_diff(&self) -> EntryDiff<'static, 'static> {
+        match self {
+            Self::Deleted(value_diff) => EntryDiff::Deleted(value_diff.clone_diff()),
+            Self::Inserted(key_diff, value_diff) => {
+                EntryDiff::Inserted(key_diff.clone_diff(), value_diff.clone_diff())
+            }
+            Self::Modified(key_diff, value_diff) => {
+                EntryDiff::Modified(key_diff.clone_diff(), value_diff.clone_diff())
+            }
+        }
+    }
+}
+
 /// Diff object for [maps](Map).
 pub struct MapDiff<'old, 'new> {
     type_info: &'static TypeInfo,
@@ -42,6 +56,13 @@ impl<'old, 'new> MapDiff<'old, 'new> {
     /// Take the changes contained in this diff.
     pub fn take_changes(self) -> Vec<EntryDiff<'old, 'new>> {
         self.changes
+    }
+
+    pub fn clone_diff(&self) -> MapDiff<'static, 'static> {
+        MapDiff {
+            type_info: self.type_info,
+            changes: self.changes.iter().map(EntryDiff::clone_diff).collect(),
+        }
     }
 }
 
@@ -86,7 +107,7 @@ pub fn diff_map<'old, 'new, T: Map>(
     for (old_key, old_value) in old.iter() {
         if let Some(new_value) = new.get(old_key) {
             let value_diff = old_value.diff(new_value)?;
-            if !matches!(value_diff, Diff::NoChange(_)) {
+            if !matches!(value_diff, Diff::NoChange) {
                 was_modified = true;
                 diff.changes.push(EntryDiff::Modified(
                     ValueDiff::Borrowed(old_key),
@@ -113,6 +134,6 @@ pub fn diff_map<'old, 'new, T: Map>(
     if was_modified {
         Ok(Diff::Modified(DiffType::Map(diff)))
     } else {
-        Ok(Diff::NoChange(old))
+        Ok(Diff::NoChange)
     }
 }

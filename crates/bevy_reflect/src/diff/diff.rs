@@ -12,8 +12,6 @@ use std::ops::Deref;
 pub enum Diff<'old, 'new> {
     /// Indicates no change.
     ///
-    /// Contains the "old" value.
-    ///
     /// # Example
     ///
     /// ```
@@ -22,10 +20,10 @@ pub enum Diff<'old, 'new> {
     /// let new = 123;
     ///
     /// let diff = old.diff(&new).unwrap();
-    /// assert!(matches!(diff, Diff::NoChange(_)));
+    /// assert!(matches!(diff, Diff::NoChange));
     /// ```
     ///
-    NoChange(&'old dyn Reflect),
+    NoChange,
     /// Indicates that the type has been changed.
     ///
     /// Contains the "new" value.
@@ -83,7 +81,7 @@ impl<'old, 'new> Diff<'old, 'new> {
     /// ```
     pub fn apply(self, onto: &mut dyn Reflect) -> DiffApplyResult {
         let diff = match self {
-            Self::NoChange(_) => return Ok(()),
+            Self::NoChange => return Ok(()),
             Self::Replaced(_) => return Err(DiffApplyError::TypeMismatch),
             Self::Modified(diff_type) => diff_type,
         };
@@ -108,6 +106,14 @@ impl<'old, 'new> Diff<'old, 'new> {
                 received: onto.kind(),
             }),
         };
+    }
+
+    pub fn clone_diff(&self) -> Diff<'static, 'static> {
+        match self {
+            Self::NoChange => Diff::NoChange,
+            Self::Replaced(value_diff) => Diff::Replaced(value_diff.clone_diff()),
+            Self::Modified(diff_type) => Diff::Modified(diff_type.clone_diff()),
+        }
     }
 }
 
@@ -138,6 +144,21 @@ impl<'old, 'new> DiffType<'old, 'new> {
             DiffType::TupleStruct(tuple_struct_diff) => tuple_struct_diff.type_info(),
             DiffType::Struct(struct_diff) => struct_diff.type_info(),
             DiffType::Enum(enum_diff) => enum_diff.type_info(),
+        }
+    }
+
+    pub fn clone_diff(&self) -> DiffType<'static, 'static> {
+        match self {
+            DiffType::Value(value_diff) => DiffType::Value(value_diff.clone_diff()),
+            DiffType::Tuple(tuple_diff) => DiffType::Tuple(tuple_diff.clone_diff()),
+            DiffType::Array(array_diff) => DiffType::Array(array_diff.clone_diff()),
+            DiffType::List(list_diff) => DiffType::List(list_diff.clone_diff()),
+            DiffType::Map(map_diff) => DiffType::Map(map_diff.clone_diff()),
+            DiffType::TupleStruct(tuple_struct_diff) => {
+                DiffType::TupleStruct(tuple_struct_diff.clone_diff())
+            }
+            DiffType::Struct(struct_diff) => DiffType::Struct(struct_diff.clone_diff()),
+            DiffType::Enum(enum_diff) => DiffType::Enum(enum_diff.clone_diff()),
         }
     }
 
