@@ -42,7 +42,7 @@ use bevy_input::{
 use bevy_math::{ivec2, DVec2, Vec2};
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
-use bevy_utils::tracing::{error, debug, trace, warn};
+use bevy_utils::tracing::{debug, error, trace, warn};
 #[allow(deprecated)]
 use bevy_window::{
     exit_on_all_closed, ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved,
@@ -283,7 +283,6 @@ pub fn winit_runner(mut app: App) -> AppExit {
 
     // Create a channel with a size of 1, since ideally only one exit code will be sent before exiting the app.
     let (exit_sender, exit_receiver) = sync_channel(1);
-    let mut exit_happened = None;
 
     // prepare structures to access data in the world
     let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
@@ -312,7 +311,6 @@ pub fn winit_runner(mut app: App) -> AppExit {
             &mut redraw_event_reader,
             &mut winit_events,
             &exit_sender,
-            &mut exit_happened,
             event,
             event_loop,
         );
@@ -346,7 +344,6 @@ fn handle_winit_event(
     redraw_event_reader: &mut ManualEventReader<RequestRedraw>,
     winit_events: &mut Vec<WinitEvent>,
     exit_notify: &SyncSender<AppExit>,
-    exit_happened: &mut Option<AppExit>,
     event: Event<UserEvent>,
     event_loop: &EventLoopWindowTarget<UserEvent>,
 ) {
@@ -361,7 +358,7 @@ fn handle_winit_event(
     //       which winit events we need to handle after the app exited and letting
     //       those through. The non-send PR (#9122) will be replacing all of this so
     //       we'll likely fix this then or a bit after.
-    if exit_happened.is_some() && event != Event::LoopExiting {
+    if event_loop.exiting() {
         debug!("App is exiting. Dropping event: {event:?}");
         return;
     }
@@ -788,28 +785,13 @@ fn handle_winit_event(
         Event::UserEvent(RequestRedraw) => {
             runner_state.redraw_requested = true;
         }
-        Event::LoopExiting => {
-            let exit = exit_happened.clone().unwrap_or_else(|| {
-                error!("App exited without raising a `AppExit`!");
-                // Even though an error occurred, we still want to return an `AppExit` because it is preferable to panicking.
-                AppExit::error()
-            });
-
-            if let Err(err) = exit_notify.send(exit) {
-                error!("Failed to send a app exit notification! This is a bug. Reason: {err:?}");
-            }
-
-            // The app is exiting there's no reason to forward_winit_events after this.
-            return;
-        }
         _ => (),
     }
 
     if let Some(app_exit) = app.should_exit() {
-        match exit_happened {
-            Some(_) => error!("Unreachable! Tried to trigger a second exit while app was exiting."),
-            None => *exit_happened = Some(app_exit),
-        }
+        if let Err(err) = exit_notify.try_send(app_exit) {
+            error!("Failed to send a app exit notification! This is a bug. Reason: {err}");
+        };
         event_loop.exit();
         return;
     }
