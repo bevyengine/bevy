@@ -71,7 +71,7 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a> = crate::circles::Ellipse2dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
 
     fn primitive_2d(
         &mut self,
@@ -80,11 +80,7 @@ where
         _angle: f32,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
-        if !self.enabled {
-            return;
-        }
-
-        self.circle_2d(position, primitive.radius, color);
+        self.circle_2d(position, primitive.radius, color)
     }
 }
 
@@ -95,20 +91,16 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a> = crate::circles::Ellipse2dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
 
-    fn primitive_2d(
+    fn primitive_2d<'a>(
         &mut self,
         primitive: Ellipse,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
-        if !self.enabled {
-            return;
-        }
-
-        self.ellipse_2d(position, angle, primitive.half_size, color);
+        self.ellipse_2d(position, angle, primitive.half_size, color)
     }
 }
 

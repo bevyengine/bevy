@@ -2,14 +2,13 @@
 
 use std::{iter, marker::PhantomData, mem};
 
-use crate::primitives::dim3::{GizmoPrimitive3d, SphereBuilder};
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
     component::Tick,
     system::{Deferred, ReadOnlySystemParam, Res, Resource, SystemBuffer, SystemMeta, SystemParam},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_math::{primitives::Sphere, Quat, Rotation2d, Vec2, Vec3};
+use bevy_math::{Quat, Rotation2d, Vec2, Vec3};
 use bevy_transform::TransformPoint;
 use bevy_utils::default;
 
@@ -457,38 +456,6 @@ where
 
         strip_positions.push(Vec3::NAN);
         strip_colors.push(LinearRgba::NAN);
-    }
-
-    /// Draw a wireframe sphere in 3D made out of 3 circles around the axes.
-    ///
-    /// This should be called for each frame the sphere needs to be rendered.
-    ///
-    /// # Example
-    /// ```
-    /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
-    /// # use bevy_math::prelude::*;
-    /// # use bevy_color::Color;
-    /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.sphere(Vec3::ZERO, Quat::IDENTITY, 1., Color::BLACK);
-    ///
-    ///     // Each circle has 32 line-segments by default.
-    ///     // You may want to increase this for larger spheres.
-    ///     gizmos
-    ///         .sphere(Vec3::ZERO, Quat::IDENTITY, 5., Color::BLACK)
-    ///         .circle_segments(64);
-    /// }
-    /// # bevy_ecs::system::assert_is_system(system);
-    /// ```
-    #[inline]
-    pub fn sphere(
-        &mut self,
-        position: Vec3,
-        rotation: Quat,
-        radius: f32,
-        color: impl Into<Color>,
-    ) -> SphereBuilder<'_, 'w, 's, Config, Clear> {
-        self.primitive_3d(Sphere { radius }, position, rotation, color)
     }
 
     /// Draw a wireframe rectangle in 3D.

@@ -10,6 +10,7 @@ use bevy_math::primitives::{
 };
 use bevy_math::{Dir3, Quat, Vec3};
 
+use crate::circles::SphereBuilder;
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 
 const DEFAULT_NUMBER_SEGMENTS: usize = 5;
@@ -55,40 +56,6 @@ where
 
 // sphere
 
-/// Builder for configuring the drawing options of [`Sphere`].
-pub struct SphereBuilder<'a, 'w, 's, Config, Clear>
-where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
-
-    // Radius of the sphere
-    radius: f32,
-
-    // Rotation of the sphere around the origin in 3D space
-    rotation: Quat,
-    // Center position of the sphere in 3D space
-    position: Vec3,
-    // Color of the sphere
-    color: Color,
-
-    // Number of segments used to approximate the sphere geometry
-    segments: usize,
-}
-
-impl<Config, Clear> SphereBuilder<'_, '_, '_, Config, Clear>
-where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    /// Set the number of segments used to approximate the sphere geometry.
-    pub fn segments(mut self, segments: usize) -> Self {
-        self.segments = segments;
-        self
-    }
-}
-
 impl<'w, 's, Config, Clear> GizmoPrimitive3d<Sphere> for Gizmos<'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
@@ -103,52 +70,7 @@ where
         rotation: Quat,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
-        SphereBuilder {
-            gizmos: self,
-            radius: primitive.radius,
-            position,
-            rotation,
-            color: color.into(),
-            segments: DEFAULT_NUMBER_SEGMENTS,
-        }
-    }
-}
-
-impl<Config, Clear> Drop for SphereBuilder<'_, '_, '_, Config, Clear>
-where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    fn drop(&mut self) {
-        if !self.gizmos.enabled {
-            return;
-        }
-
-        let SphereBuilder {
-            radius,
-            position: center,
-            rotation,
-            color,
-            segments,
-            ..
-        } = self;
-
-        // draws the upper and lower semi spheres
-        [-1.0, 1.0].into_iter().for_each(|sign| {
-            let top = *center + (*rotation * Vec3::Y) * sign * *radius;
-            draw_semi_sphere(
-                self.gizmos,
-                *radius,
-                *segments,
-                *rotation,
-                *center,
-                top,
-                *color,
-            );
-        });
-
-        // draws one great circle of the sphere
-        draw_circle_3d(self.gizmos, *radius, *segments, *rotation, *center, *color);
+        self.sphere(position, rotation, primitive.radius, color)
     }
 }
 
