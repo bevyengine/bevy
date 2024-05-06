@@ -98,6 +98,12 @@ pbr_transmission_textures = [
   "bevy_gltf?/pbr_transmission_textures",
 ]
 
+# Multi-layer material textures in `StandardMaterial`:
+pbr_multi_layer_material_textures = [
+  "bevy_pbr?/pbr_multi_layer_material_textures",
+  "bevy_gltf?/pbr_multi_layer_material_textures",
+]
+
 # Optimise for WebGL2
 webgl = [
   "bevy_core_pipeline?/webgl",
