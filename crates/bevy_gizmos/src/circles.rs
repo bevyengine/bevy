@@ -196,7 +196,7 @@ where
     ///     // You may want to increase this for larger spheres.
     ///     gizmos
     ///         .sphere(Vec3::ZERO, Quat::IDENTITY, 5., Color::BLACK)
-    ///         .circle_segments(64);
+    ///         .segments(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
