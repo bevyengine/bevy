@@ -40,7 +40,6 @@ impl ViewNode for MainTransparentPass2dNode {
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_transparent_pass_2d"),
                 color_attachments: &[Some(target.get_color_attachment())],
-                // TODO 2d depth buffer
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
                 occlusion_query_set: None,
