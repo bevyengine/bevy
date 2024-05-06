@@ -2,6 +2,9 @@ use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 
 use bevy_core_pipeline::core_2d::Transparent2d;
+use bevy_core_pipeline::tonemapping::{
+    get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
+};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
@@ -16,6 +19,7 @@ use bevy_render::batching::no_gpu_preprocessing::{
     BatchedInstanceBuffer,
 };
 use bevy_render::mesh::{GpuMesh, MeshVertexBufferLayoutRef};
+use bevy_render::texture::FallbackImage;
 use bevy_render::{
     batching::{GetBatchData, NoAutomaticBatching},
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -263,14 +267,22 @@ impl FromWorld for Mesh2dPipeline {
         )> = SystemState::new(world);
         let (render_device, render_queue, default_sampler) = system_state.get_mut(world);
         let render_device = render_device.into_inner();
+        let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
         let view_layout = render_device.create_bind_group_layout(
             "mesh2d_view_layout",
-            &BindGroupLayoutEntries::sequential(
+            &BindGroupLayoutEntries::with_indices(
                 ShaderStages::VERTEX_FRAGMENT,
                 (
-                    // View
-                    uniform_buffer::<ViewUniform>(true),
-                    uniform_buffer::<GlobalsUniform>(false),
+                    (0, uniform_buffer::<ViewUniform>(true)),
+                    (1, uniform_buffer::<GlobalsUniform>(false)),
+                    (
+                        2,
+                        tonemapping_lut_entries[0].visibility(ShaderStages::FRAGMENT),
+                    ),
+                    (
+                        3,
+                        tonemapping_lut_entries[1].visibility(ShaderStages::FRAGMENT),
+                    ),
                 ),
             ),
         );
@@ -475,6 +487,14 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
 
         if key.contains(Mesh2dPipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());
+            shader_defs.push(ShaderDefVal::UInt(
+                "TONEMAPPING_LUT_TEXTURE_BINDING_INDEX".into(),
+                2,
+            ));
+            shader_defs.push(ShaderDefVal::UInt(
+                "TONEMAPPING_LUT_SAMPLER_BINDING_INDEX".into(),
+                3,
+            ));
 
             let method = key.intersection(Mesh2dPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
@@ -584,29 +604,42 @@ pub struct Mesh2dViewBindGroup {
     pub value: BindGroup,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn prepare_mesh2d_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     view_uniforms: Res<ViewUniforms>,
-    views: Query<Entity, With<ExtractedView>>,
+    views: Query<(Entity, &Tonemapping), With<ExtractedView>>,
     globals_buffer: Res<GlobalsBuffer>,
+    tonemapping_luts: Res<TonemappingLuts>,
+    images: Res<RenderAssets<GpuImage>>,
+    fallback_image: Res<FallbackImage>,
 ) {
-    if let (Some(view_binding), Some(globals)) = (
+    let (Some(view_binding), Some(globals)) = (
         view_uniforms.uniforms.binding(),
         globals_buffer.buffer.binding(),
-    ) {
-        for entity in &views {
-            let view_bind_group = render_device.create_bind_group(
-                "mesh2d_view_bind_group",
-                &mesh2d_pipeline.view_layout,
-                &BindGroupEntries::sequential((view_binding.clone(), globals.clone())),
-            );
+    ) else {
+        return;
+    };
 
-            commands.entity(entity).insert(Mesh2dViewBindGroup {
-                value: view_bind_group,
-            });
-        }
+    for (entity, tonemapping) in &views {
+        let lut_bindings =
+            get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
+        let view_bind_group = render_device.create_bind_group(
+            "mesh2d_view_bind_group",
+            &mesh2d_pipeline.view_layout,
+            &BindGroupEntries::with_indices((
+                (0, view_binding.clone()),
+                (1, globals.clone()),
+                (2, lut_bindings.0),
+                (3, lut_bindings.1),
+            )),
+        );
+
+        commands.entity(entity).insert(Mesh2dViewBindGroup {
+            value: view_bind_group,
+        });
     }
 }
 
