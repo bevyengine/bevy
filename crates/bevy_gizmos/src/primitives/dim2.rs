@@ -117,7 +117,8 @@ where
     inner_radius: f32,
     outer_radius: f32,
     color: Color,
-    segments: usize,
+    inner_segments: usize,
+    outer_segments: usize,
 }
 
 impl<Config, Clear> Annulus2dBuilder<'_, '_, '_, Config, Clear>
@@ -127,7 +128,20 @@ where
 {
     /// Set the number of line-segments for each circle of the annulus.
     pub fn segments(mut self, segments: usize) -> Self {
-        self.segments = segments;
+        self.outer_segments = segments;
+        self.inner_segments = segments;
+        self
+    }
+
+    /// Set the number of line-segments for the outer circle of the annulus.
+    pub fn outer_segments(mut self, segments: usize) -> Self {
+        self.outer_segments = segments;
+        self
+    }
+
+    /// Set the number of line-segments for the inner circle of the annulus.
+    pub fn inner_segments(mut self, segments: usize) -> Self {
+        self.inner_segments = segments;
         self
     }
 }
@@ -152,7 +166,8 @@ where
             inner_radius: primitive.inner_circle.radius,
             outer_radius: primitive.outer_circle.radius,
             color: color.into(),
-            segments: crate::circles::DEFAULT_CIRCLE_SEGMENTS,
+            inner_segments: crate::circles::DEFAULT_CIRCLE_SEGMENTS,
+            outer_segments: crate::circles::DEFAULT_CIRCLE_SEGMENTS,
         }
     }
 }
@@ -172,17 +187,18 @@ where
             position,
             inner_radius,
             outer_radius,
-            segments,
+            inner_segments,
+            outer_segments,
             color,
             ..
         } = self;
 
         gizmos
             .circle_2d(*position, *outer_radius, *color)
-            .segments(*segments);
+            .segments(*outer_segments);
         gizmos
             .circle_2d(*position, *inner_radius, *color)
-            .segments(*segments);
+            .segments(*inner_segments);
     }
 }
 
