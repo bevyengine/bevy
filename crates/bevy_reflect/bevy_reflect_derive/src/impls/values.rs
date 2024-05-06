@@ -86,19 +86,19 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
             }
 
              #[inline]
-            fn try_apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) -> Result<(), #bevy_reflect_path::ApplyError> {
+            fn try_apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) -> #FQResult<(), #bevy_reflect_path::ApplyError> {
                 let any = #bevy_reflect_path::Reflect::as_any(value);
                 if let #FQOption::Some(value) = <dyn #FQAny>::downcast_ref::<Self>(any) {
                     *self = #FQClone::clone(value);
                 } else {
-                    return Err(
+                    return #FQResult::Err(
                         #bevy_reflect_path::ApplyError::MismatchedTypes(
                             #bevy_reflect_path::DynamicTypePath::reflect_type_path(value).into(),
                             <Self as #bevy_reflect_path::TypePath>::type_path().into()
                         )
                     );
                 }
-                Ok(())
+                #FQResult::Ok(())
             }
 
             #[inline]

@@ -208,21 +208,21 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
             }
 
             #[inline]
-            fn try_apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) -> Result<(), #bevy_reflect_path::ApplyError> {
+            fn try_apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) -> #FQResult<(), #bevy_reflect_path::ApplyError> {
                 if let #bevy_reflect_path::ReflectRef::Struct(struct_value) = #bevy_reflect_path::Reflect::reflect_ref(value) {
                     for (i, value) in ::core::iter::Iterator::enumerate(#bevy_reflect_path::Struct::iter_fields(struct_value)) {
                         let name = #bevy_reflect_path::Struct::name_at(struct_value, i).unwrap();
                         if let #FQOption::Some(v) = #bevy_reflect_path::Struct::field_mut(self, name) {
-                           v.try_apply(value)?;
+                           #bevy_reflect_path::Reflect::try_apply(v, value)?;
                         }
                     }
                 } else {
-                    return Err(#bevy_reflect_path::ApplyError::MismatchedKinds(
+                    return #FQResult::Err(#bevy_reflect_path::ApplyError::MismatchedKinds(
                         #bevy_reflect_path::Reflect::reflect_kind(value),
                         #bevy_reflect_path::ReflectKind::Struct
                     ));
                 }
-                Ok(())
+                #FQResult::Ok(())
             }
             #[inline]
             fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {

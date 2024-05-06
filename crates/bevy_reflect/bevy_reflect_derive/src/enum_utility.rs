@@ -59,12 +59,12 @@ pub(crate) fn get_variant_constructors(
 
                     (
                         quote!(.ok_or(#bevy_reflect_path::ApplyError::MismatchedTypes(
-                            #field_ref_str.into(),
-                            <#ty as #bevy_reflect_path::TypePath>::type_path().into()
+                            ::core::convert::Into::into(#field_ref_str),
+                            ::core::convert::Into::into(<#ty as #bevy_reflect_path::TypePath>::type_path())
                         ))?),
                         quote!(.ok_or(#bevy_reflect_path::ApplyError::MissingEnumField(
-                                #name.into(),
-                                #field_ref_str.into()
+                                ::core::convert::Into::into(#name),
+                                ::core::convert::Into::into(#field_ref_str)
                             ))?)
                     )
                 } else {
