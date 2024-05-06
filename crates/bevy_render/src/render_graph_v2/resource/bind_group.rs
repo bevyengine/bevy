@@ -151,12 +151,12 @@ impl<'g> RenderGraphBindGroups<'g> {
                 dependencies,
                 view_entity,
             };
-            let bind_group_entries = (factory)(context);
+            let bind_group_entries = (factory)(context.clone());
             let layout = context.get(layout);
             let bind_group = bind_group_cache
                 .entry(BindGroupEntriesHash(bind_group_entries))
                 .or_insert_with_key(|BindGroupEntriesHash(entries)| {
-                    render_device.create_bind_group(label, layout, *entries)
+                    render_device.create_bind_group(label, layout, entries)
                 });
             self.bind_groups
                 .insert(id, RefEq::Owned(bind_group.clone()));
@@ -177,14 +177,14 @@ impl<'a> Hash for BindGroupEntriesHash<'a> {
         bindings.sort_unstable_by_key(|e| e.binding);
         for entry in self.0 {
             entry.binding.hash(state);
-            match entry.resource {
+            match &entry.resource {
                 wgpu::BindingResource::Buffer(buffer) => {
                     buffer.buffer.global_id().hash(state);
                     buffer.offset.hash(state);
                     buffer.size.hash(state);
                 }
                 wgpu::BindingResource::BufferArray(buffers) => {
-                    for buffer in buffers {
+                    for buffer in *buffers {
                         buffer.buffer.global_id().hash(state);
                         buffer.offset.hash(state);
                         buffer.size.hash(state);
@@ -192,19 +192,19 @@ impl<'a> Hash for BindGroupEntriesHash<'a> {
                 }
                 wgpu::BindingResource::Sampler(sampler) => sampler.global_id().hash(state),
                 wgpu::BindingResource::SamplerArray(samplers) => {
-                    for sampler in samplers {
-                        sampler.global_id().hash(state)
+                    for sampler in *samplers {
+                        sampler.global_id().hash(state);
                     }
                 }
                 wgpu::BindingResource::TextureView(texture_view) => {
-                    texture_view.global_id().hash(state)
+                    texture_view.global_id().hash(state);
                 }
                 wgpu::BindingResource::TextureViewArray(texture_views) => {
-                    for texture_view in texture_views {
-                        texture_view.global_id().hash(state)
+                    for texture_view in *texture_views {
+                        texture_view.global_id().hash(state);
                     }
                 }
-                _ => todo!(),
+                _ => {}
             }
         }
     }
@@ -220,14 +220,13 @@ impl<'a> PartialEq for BindGroupEntriesHash<'a> {
 
         //hacky, since std::iter::eq_by is unstable
         fn slice_eq_by<A, B>(a: &[A], b: &[B], mut f: impl FnMut(&A, &B) -> bool) -> bool {
-            a.length() == b.length()
-                && std::iter::zip(a.into_iter(), b.into_iter()).all(|(ai, bi)| f(ai, bi))
+            a.length() == b.length() && std::iter::zip(a, b).all(|(ai, bi)| f(ai, bi))
         }
 
         slice_eq_by(self.0, other.0, |e1, e2| {
             use wgpu::BindingResource as BR;
             e1.binding == e2.binding
-                && match (e1.resource, e2.resource) {
+                && match (&e1.resource, &e2.resource) {
                     (BR::Buffer(b1), BR::Buffer(b2)) => {
                         b1.buffer.global_id() == b2.buffer.global_id()
                             && b1.offset == b2.offset
