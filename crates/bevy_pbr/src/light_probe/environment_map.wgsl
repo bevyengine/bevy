@@ -3,6 +3,9 @@
 #import bevy_pbr::light_probe::query_light_probe
 #import bevy_pbr::mesh_view_bindings as bindings
 #import bevy_pbr::mesh_view_bindings::light_probes
+#import bevy_pbr::lighting::{
+    F_Schlick_vec, LayerLightingInput, LightingInput, LAYER_BASE, LAYER_CLEARCOAT
+}
 
 struct EnvironmentMapLight {
     diffuse: vec3<f32>,
@@ -21,12 +24,16 @@ struct EnvironmentMapRadiances {
 #ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
 
 fn compute_radiances(
-    perceptual_roughness: f32,
-    N: vec3<f32>,
-    R: vec3<f32>,
+    input: ptr<function, LightingInput>,
+    layer: u32,
     world_position: vec3<f32>,
     found_diffuse_indirect: bool,
 ) -> EnvironmentMapRadiances {
+    // Unpack.
+    let perceptual_roughness = (*input).layers[layer].perceptual_roughness;
+    let N = (*input).layers[layer].N;
+    let R = (*input).layers[layer].R;
+
     var radiances: EnvironmentMapRadiances;
 
     // Search for a reflection probe that contains the fragment.
@@ -69,12 +76,16 @@ fn compute_radiances(
 #else   // MULTIPLE_LIGHT_PROBES_IN_ARRAY
 
 fn compute_radiances(
-    perceptual_roughness: f32,
-    N: vec3<f32>,
-    R: vec3<f32>,
+    input: ptr<function, LightingInput>,
+    layer: u32,
     world_position: vec3<f32>,
     found_diffuse_indirect: bool,
 ) -> EnvironmentMapRadiances {
+    // Unpack.
+    let perceptual_roughness = (*input).layers[layer].perceptual_roughness;
+    let N = (*input).layers[layer].N;
+    let R = (*input).layers[layer].R;
+
     var radiances: EnvironmentMapRadiances;
 
     if (light_probes.view_cubemap_index < 0) {
@@ -109,26 +120,53 @@ fn compute_radiances(
 
 #endif  // MULTIPLE_LIGHT_PROBES_IN_ARRAY
 
+#ifdef STANDARD_MATERIAL_CLEARCOAT
+
+// Adds the environment map light from the clearcoat layer to that of the base
+// layer.
+fn environment_map_light_clearcoat(
+    out: ptr<function, EnvironmentMapLight>,
+    input: ptr<function, LightingInput>,
+    found_diffuse_indirect: bool,
+) {
+    // Unpack.
+    let world_position = (*input).P;
+    let clearcoat_NdotV = (*input).layers[LAYER_CLEARCOAT].NdotV;
+    let clearcoat_strength = (*input).clearcoat_strength;
+
+    // Calculate the Fresnel term `Fc` for the clearcoat layer.
+    // 0.04 is a hardcoded value for F0 from the Filament spec.
+    let clearcoat_F0 = vec3<f32>(0.04);
+    let Fc = F_Schlick_vec(clearcoat_F0, 1.0, clearcoat_NdotV) * clearcoat_strength;
+    let inv_Fc = 1.0 - Fc;
+
+    let clearcoat_radiances = compute_radiances(
+        input, LAYER_CLEARCOAT, world_position, found_diffuse_indirect);
+
+    // Composite the clearcoat layer on top of the existing one.
+    // These formulas are from Filament:
+    // <https://google.github.io/filament/Filament.md.html#lighting/imagebasedlights/clearcoat>
+    (*out).diffuse *= inv_Fc;
+    (*out).specular = (*out).specular * inv_Fc * inv_Fc + clearcoat_radiances.radiance * Fc;
+}
+
+#endif  // STANDARD_MATERIAL_CLEARCOAT
+
 fn environment_map_light(
-    perceptual_roughness: f32,
-    roughness: f32,
-    diffuse_color: vec3<f32>,
-    NdotV: f32,
-    f_ab: vec2<f32>,
-    N: vec3<f32>,
-    R: vec3<f32>,
-    F0: vec3<f32>,
-    world_position: vec3<f32>,
+    input: ptr<function, LightingInput>,
     found_diffuse_indirect: bool,
 ) -> EnvironmentMapLight {
+    // Unpack.
+    let roughness = (*input).layers[LAYER_BASE].roughness;
+    let diffuse_color = (*input).diffuse_color;
+    let NdotV = (*input).layers[LAYER_BASE].NdotV;
+    let F_ab = (*input).F_ab;
+    let F0 = (*input).F0_;
+    let world_position = (*input).P;
+
     var out: EnvironmentMapLight;
 
-    let radiances = compute_radiances(
-        perceptual_roughness,
-        N,
-        R,
-        world_position,
-        found_diffuse_indirect);
+    let radiances = compute_radiances(input, LAYER_BASE, world_position, found_diffuse_indirect);
     if (all(radiances.irradiance == vec3(0.0)) && all(radiances.radiance == vec3(0.0))) {
         out.diffuse = vec3(0.0);
         out.specular = vec3(0.0);
@@ -144,7 +182,7 @@ fn environment_map_light(
     // Useful reference: https://bruop.github.io/ibl
     let Fr = max(vec3(1.0 - roughness), F0) - F0;
     let kS = F0 + Fr * pow(1.0 - NdotV, 5.0);
-    let Ess = f_ab.x + f_ab.y;
+    let Ess = F_ab.x + F_ab.y;
     let FssEss = kS * Ess * specular_occlusion;
     let Ems = 1.0 - Ess;
     let Favg = F0 + (1.0 - F0) / 21.0;
@@ -153,7 +191,6 @@ fn environment_map_light(
     let Edss = 1.0 - (FssEss + FmsEms);
     let kD = diffuse_color * Edss;
 
-
     if (!found_diffuse_indirect) {
         out.diffuse = (FmsEms + kD) * radiances.irradiance;
     } else {
@@ -161,5 +198,10 @@ fn environment_map_light(
     }
 
     out.specular = FssEss * radiances.radiance;
+
+#ifdef STANDARD_MATERIAL_CLEARCOAT
+    environment_map_light_clearcoat(&out, input, found_diffuse_indirect);
+#endif  // STANDARD_MATERIAL_CLEARCOAT
+
     return out;
 }

@@ -7,6 +7,7 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
+pub mod auto_exposure;
 pub mod blit;
 pub mod bloom;
 pub mod contrast_adaptive_sharpening;

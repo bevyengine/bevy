@@ -408,6 +408,15 @@ pub mod binding_types {
         .into_bind_group_layout_entry_builder()
     }
 
+    pub fn texture_1d(sample_type: TextureSampleType) -> BindGroupLayoutEntryBuilder {
+        BindingType::Texture {
+            sample_type,
+            view_dimension: TextureViewDimension::D1,
+            multisampled: false,
+        }
+        .into_bind_group_layout_entry_builder()
+    }
+
     pub fn texture_2d(sample_type: TextureSampleType) -> BindGroupLayoutEntryBuilder {
         BindingType::Texture {
             sample_type,

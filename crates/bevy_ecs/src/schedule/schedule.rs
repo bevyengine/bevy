@@ -1419,7 +1419,7 @@ impl ScheduleGraph {
         let hg_node_count = self.hierarchy.graph.node_count();
 
         // get the number of dependencies and the immediate dependents of each system
-        // (needed by multi-threaded executor to run systems in the correct order)
+        // (needed by multi_threaded executor to run systems in the correct order)
         let mut system_dependencies = Vec::with_capacity(sys_count);
         let mut system_dependents = Vec::with_capacity(sys_count);
         for &sys_id in &dg_system_ids {
