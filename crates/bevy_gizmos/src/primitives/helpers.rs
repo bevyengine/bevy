@@ -46,33 +46,6 @@ pub(crate) fn circle_coordinates(radius: f32, segments: usize) -> impl Iterator<
         .take(segments)
 }
 
-/// Draws a semi-sphere.
-///
-/// This function draws a semi-sphere at the specified `center` point with the given `rotation`,
-/// `radius`, and `color`. The `segments` parameter determines the level of detail, and the `top`
-/// argument specifies the shape of the semi-sphere's tip.
-pub(crate) fn draw_semi_sphere<Config, Clear>(
-    gizmos: &mut Gizmos<'_, '_, Config, Clear>,
-    radius: f32,
-    segments: usize,
-    rotation: Quat,
-    center: Vec3,
-    top: Vec3,
-    color: Color,
-) where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    circle_coordinates(radius, segments)
-        .map(|p| Vec3::new(p.x, 0.0, p.y))
-        .map(rotate_then_translate_3d(rotation, center))
-        .for_each(|from| {
-            gizmos
-                .short_arc_3d_between(center, from, top, color)
-                .segments(segments / 2);
-        });
-}
-
 /// Draws a circle in 3D space.
 ///
 /// # Note
