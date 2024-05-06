@@ -11,6 +11,7 @@ crates=(
     bevy_reflect
     bevy_ecs/macros
     bevy_ecs
+    bevy_state
     bevy_app
     bevy_time
     bevy_log
