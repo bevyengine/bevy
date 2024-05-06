@@ -113,7 +113,7 @@ impl<'g> RenderGraphBindGroups<'g> {
         mut dependencies: RenderDependencies<'g>,
         bind_group: impl FnOnce(NodeContext) -> &[BindGroupEntry] + 'g,
     ) -> RenderResourceId {
-        dependencies.add(&layout);
+        dependencies.read(&layout);
         let id = tracker.new_resource(Some(dependencies.clone()));
         self.queued_bind_groups.insert(
             id,

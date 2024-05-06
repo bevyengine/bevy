@@ -404,26 +404,36 @@ pub struct RenderDependencies<'g> {
 }
 
 impl<'g> RenderDependencies<'g> {
+    #[inline]
     pub fn new() -> Self {
         Default::default()
     }
 
-    pub fn add(&mut self, dependency: impl Into<RenderDependency<'g>>) -> &mut Self {
-        let dep: RenderDependency = dependency.into();
-        match dep.usage {
-            RenderResourceUsage::Read => {
-                self.reads.insert(dep.id);
-            }
-            RenderResourceUsage::Write => {
-                self.writes.insert(dep.id);
-            }
-        }
+    #[inline]
+    pub fn read<R: RenderResource>(&mut self, resource: &RenderHandle<'g, R>) -> &mut Self {
+        self.reads.insert(resource.id());
         self
     }
 
-    fn of(dependencies: impl IntoRenderDependencies<'g>) -> Self {
+    #[inline]
+    pub fn write<R: WriteRenderResource>(
+        &mut self,
+        resource: &mut RenderHandle<'g, R>,
+    ) -> &mut Self {
+        self.writes.insert(resource.id());
+        self
+    }
+
+    #[inline]
+    pub fn add(&mut self, dependencies: impl IntoRenderDependencies<'g>) -> &mut Self {
+        dependencies.into_render_dependencies(self);
+        self
+    }
+
+    #[inline]
+    pub fn of(dependencies: impl IntoRenderDependencies<'g>) -> Self {
         let mut new = Self::default();
-        dependencies.into_render_dependencies(&mut new);
+        new.add(dependencies);
         new
     }
 
@@ -444,47 +454,22 @@ pub fn render_deps<'g>(dependencies: impl IntoRenderDependencies<'g>) -> RenderD
     RenderDependencies::of(dependencies)
 }
 
-pub struct RenderDependency<'g> {
-    id: RenderResourceId,
-    //TODO:: add generation here. How have I not done this already?
-    usage: RenderResourceUsage,
-    data: PhantomData<RenderGraph<'g>>,
-}
-
-#[derive(Copy, Clone)]
-enum RenderResourceUsage {
-    Read,
-    Write,
-}
-
-impl<'g, R: RenderResource> From<&RenderHandle<'g, R>> for RenderDependency<'g> {
-    fn from(value: &RenderHandle<'g, R>) -> Self {
-        RenderDependency {
-            id: value.id(),
-            usage: RenderResourceUsage::Read,
-            data: PhantomData,
-        }
+impl<'g, R: RenderResource> IntoRenderDependencies<'g> for &RenderHandle<'g, R> {
+    #[inline]
+    fn into_render_dependencies(self, dependencies: &mut RenderDependencies<'g>) {
+        dependencies.read(self);
     }
 }
 
-impl<'g, R: WriteRenderResource> From<&mut RenderHandle<'g, R>> for RenderDependency<'g> {
-    fn from(value: &mut RenderHandle<'g, R>) -> Self {
-        RenderDependency {
-            id: value.id(),
-            usage: RenderResourceUsage::Write,
-            data: PhantomData,
-        }
+impl<'g, R: WriteRenderResource> IntoRenderDependencies<'g> for &mut RenderHandle<'g, R> {
+    #[inline]
+    fn into_render_dependencies(self, dependencies: &mut RenderDependencies<'g>) {
+        dependencies.write(self);
     }
 }
 
 pub trait IntoRenderDependencies<'g> {
     fn into_render_dependencies(self, dependencies: &mut RenderDependencies<'g>);
-}
-
-impl<'g, T: Into<RenderDependency<'g>>> IntoRenderDependencies<'g> for T {
-    fn into_render_dependencies(self, dependencies: &mut RenderDependencies<'g>) {
-        dependencies.add(self);
-    }
 }
 
 macro_rules! impl_into_render_dependencies {
