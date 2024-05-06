@@ -17,6 +17,28 @@
 //! When a value is [modified], it contains data related to the modification,
 //! which may recursively contain more [`Diff`] objects.
 //!
+//! # Applying Diffs
+//!
+//! Diffs store the changes between two values, but they also allow for these changes to be applied to a value.
+//!
+//! To apply a diff, you can use either the [`Reflect::apply_diff`] method or the [`Diff::apply`] method.
+//!
+//! Note that diff's hold on to references to both the "old" and "new" values.
+//! This means you won't be able to apply a diff to the "old" value unless you clone the diff
+//! with [`Diff::clone_diff`] first.
+//!
+//! ```
+//! # use bevy_reflect::Reflect;
+//! let old = (1, 2, 3);
+//! let new = (0, 2, 4);
+//!
+//! let diff = old.diff(&new).unwrap();
+//!
+//! let mut value = (1, 2, 3);
+//! diff.apply(&mut value).unwrap();
+//! assert_eq!(value, new);
+//! ```
+//!
 //! # Lists & Maps
 //!
 //! It's important to note that both [List](crate::List) and [Map](crate::Map) types work a bit differently
@@ -109,6 +131,7 @@
 //! [modified]: Diff::Modified
 //! [replaced]: Diff::Replaced
 //! [no change]: Diff::NoChange
+//! [`Reflect::apply_diff`]: crate::Reflect::apply_diff
 //! [Myers Diffing Algorithm]: http://www.xmailserver.org/diff2.pdf
 
 mod array_diff;

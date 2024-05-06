@@ -50,6 +50,7 @@ mod sealed {
 /// ```
 /// # use std::any::Any;
 /// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, Typed, TypeInfo, TypePath, ApplyError};
+/// # use bevy_reflect::diff::DiffResult;
 /// use bevy_reflect::utility::NonGenericTypeInfoCell;
 ///
 /// struct Foo {
@@ -84,6 +85,7 @@ mod sealed {
 /// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
 /// #     fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
+/// #     fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> { todo!() }
 /// # }
 /// ```
 ///
@@ -131,6 +133,7 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 /// ```
 /// # use std::any::Any;
 /// # use bevy_reflect::{DynamicTypePath, Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, TypePath, UnnamedField, ApplyError};
+/// # use bevy_reflect::diff::DiffResult;
 /// use bevy_reflect::utility::GenericTypeInfoCell;
 ///
 /// struct Foo<T>(T);
@@ -163,6 +166,7 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 /// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
 /// #     fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
+/// #     fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> { todo!() }
 /// # }
 /// ```
 ///
