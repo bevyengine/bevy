@@ -1,6 +1,6 @@
 use std::f32::consts::{FRAC_PI_3, PI};
 
-use super::{Circle, Primitive3d};
+use super::{Circle, Measured2d, Measured3d, Primitive3d};
 use crate::{Dir3, InvalidDirectionError, Mat3, Vec2, Vec3};
 
 /// A sphere primitive
@@ -32,18 +32,6 @@ impl Sphere {
         2.0 * self.radius
     }
 
-    /// Get the surface area of the sphere
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        4.0 * PI * self.radius.powi(2)
-    }
-
-    /// Get the volume of the sphere
-    #[inline(always)]
-    pub fn volume(&self) -> f32 {
-        4.0 * FRAC_PI_3 * self.radius.powi(3)
-    }
-
     /// Finds the point on the sphere that is closest to the given `point`.
     ///
     /// If the point is outside the sphere, the returned point will be on the surface of the sphere.
@@ -61,6 +49,20 @@ impl Sphere {
             let dir_to_point = point / distance_squared.sqrt();
             self.radius * dir_to_point
         }
+    }
+}
+
+impl Measured3d for Sphere {
+    /// Get the surface area of the sphere
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        4.0 * PI * self.radius.powi(2)
+    }
+
+    /// Get the volume of the sphere
+    #[inline(always)]
+    fn volume(&self) -> f32 {
+        4.0 * FRAC_PI_3 * self.radius.powi(3)
     }
 }
 
@@ -360,20 +362,6 @@ impl Cuboid {
         2.0 * self.half_size
     }
 
-    /// Get the surface area of the cuboid
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        8.0 * (self.half_size.x * self.half_size.y
-            + self.half_size.y * self.half_size.z
-            + self.half_size.x * self.half_size.z)
-    }
-
-    /// Get the volume of the cuboid
-    #[inline(always)]
-    pub fn volume(&self) -> f32 {
-        8.0 * self.half_size.x * self.half_size.y * self.half_size.z
-    }
-
     /// Finds the point on the cuboid that is closest to the given `point`.
     ///
     /// If the point is outside the cuboid, the returned point will be on the surface of the cuboid.
@@ -382,6 +370,22 @@ impl Cuboid {
     pub fn closest_point(&self, point: Vec3) -> Vec3 {
         // Clamp point coordinates to the cuboid
         point.clamp(-self.half_size, self.half_size)
+    }
+}
+
+impl Measured3d for Cuboid {
+    /// Get the surface area of the cuboid
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        8.0 * (self.half_size.x * self.half_size.y
+            + self.half_size.y * self.half_size.z
+            + self.half_size.x * self.half_size.z)
+    }
+
+    /// Get the volume of the cuboid
+    #[inline(always)]
+    fn volume(&self) -> f32 {
+        8.0 * self.half_size.x * self.half_size.y * self.half_size.z
     }
 }
 
@@ -437,16 +441,18 @@ impl Cylinder {
     pub fn base_area(&self) -> f32 {
         PI * self.radius.powi(2)
     }
+}
 
+impl Measured3d for Cylinder {
     /// Get the total surface area of the cylinder
     #[inline(always)]
-    pub fn area(&self) -> f32 {
+    fn area(&self) -> f32 {
         2.0 * PI * self.radius * (self.radius + 2.0 * self.half_height)
     }
 
     /// Get the volume of the cylinder
     #[inline(always)]
-    pub fn volume(&self) -> f32 {
+    fn volume(&self) -> f32 {
         self.base_area() * 2.0 * self.half_height
     }
 }
@@ -492,17 +498,19 @@ impl Capsule3d {
             half_height: self.half_length,
         }
     }
+}
 
+impl Measured3d for Capsule3d {
     /// Get the surface area of the capsule
     #[inline(always)]
-    pub fn area(&self) -> f32 {
+    fn area(&self) -> f32 {
         // Modified version of 2pi * r * (2r + h)
         4.0 * PI * self.radius * (self.radius + self.half_length)
     }
 
     /// Get the volume of the capsule
     #[inline(always)]
-    pub fn volume(&self) -> f32 {
+    fn volume(&self) -> f32 {
         // Modified version of pi * r^2 * (4/3 * r + a)
         let diameter = self.radius * 2.0;
         PI * self.radius * diameter * (diameter / 3.0 + self.half_length)
@@ -550,16 +558,18 @@ impl Cone {
     pub fn base_area(&self) -> f32 {
         PI * self.radius.powi(2)
     }
+}
 
+impl Measured3d for Cone {
     /// Get the total surface area of the cone
     #[inline(always)]
-    pub fn area(&self) -> f32 {
+    fn area(&self) -> f32 {
         self.base_area() + self.lateral_area()
     }
 
     /// Get the volume of the cone
     #[inline(always)]
-    pub fn volume(&self) -> f32 {
+    fn volume(&self) -> f32 {
         (self.base_area() * self.height) / 3.0
     }
 }
@@ -681,18 +691,20 @@ impl Torus {
             std::cmp::Ordering::Less => TorusKind::Spindle,
         }
     }
+}
 
+impl Measured3d for Torus {
     /// Get the surface area of the torus. Note that this only produces
     /// the expected result when the torus has a ring and isn't self-intersecting
     #[inline(always)]
-    pub fn area(&self) -> f32 {
+    fn area(&self) -> f32 {
         4.0 * PI.powi(2) * self.major_radius * self.minor_radius
     }
 
     /// Get the volume of the torus. Note that this only produces
     /// the expected result when the torus has a ring and isn't self-intersecting
     #[inline(always)]
-    pub fn volume(&self) -> f32 {
+    fn volume(&self) -> f32 {
         2.0 * PI.powi(2) * self.major_radius * self.minor_radius.powi(2)
     }
 }
@@ -727,22 +739,6 @@ impl Triangle3d {
         Self {
             vertices: [a, b, c],
         }
-    }
-
-    /// Get the area of the triangle.
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        let [a, b, c] = self.vertices;
-        let ab = b - a;
-        let ac = c - a;
-        ab.cross(ac).length() / 2.0
-    }
-
-    /// Get the perimeter of the triangle.
-    #[inline(always)]
-    pub fn perimeter(&self) -> f32 {
-        let [a, b, c] = self.vertices;
-        a.distance(b) + b.distance(c) + c.distance(a)
     }
 
     /// Get the normal of the triangle in the direction of the right-hand rule, assuming
@@ -835,6 +831,24 @@ impl Triangle3d {
     }
 }
 
+impl Measured2d for Triangle3d {
+    /// Get the area of the triangle.
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        ab.cross(ac).length() / 2.0
+    }
+
+    /// Get the perimeter of the triangle.
+    #[inline(always)]
+    fn perimeter(&self) -> f32 {
+        let [a, b, c] = self.vertices;
+        a.distance(b) + b.distance(c) + c.distance(a)
+    }
+}
+
 /// A tetrahedron primitive.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -868,28 +882,6 @@ impl Tetrahedron {
         }
     }
 
-    /// Get the surface area of the tetrahedron.
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        let [a, b, c, d] = self.vertices;
-        let ab = b - a;
-        let ac = c - a;
-        let ad = d - a;
-        let bc = c - b;
-        let bd = d - b;
-        (ab.cross(ac).length()
-            + ab.cross(ad).length()
-            + ac.cross(ad).length()
-            + bc.cross(bd).length())
-            / 2.0
-    }
-
-    /// Get the volume of the tetrahedron.
-    #[inline(always)]
-    pub fn volume(&self) -> f32 {
-        self.signed_volume().abs()
-    }
-
     /// Get the signed volume of the tetrahedron.
     ///
     /// If it's negative, the normal vector of the face defined by
@@ -912,6 +904,30 @@ impl Tetrahedron {
     #[inline(always)]
     pub fn centroid(&self) -> Vec3 {
         (self.vertices[0] + self.vertices[1] + self.vertices[2] + self.vertices[3]) / 4.0
+    }
+}
+
+impl Measured3d for Tetrahedron {
+    /// Get the surface area of the tetrahedron.
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        let [a, b, c, d] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        let ad = d - a;
+        let bc = c - b;
+        let bd = d - b;
+        (ab.cross(ac).length()
+            + ab.cross(ad).length()
+            + ac.cross(ad).length()
+            + bc.cross(bd).length())
+            / 2.0
+    }
+
+    /// Get the volume of the tetrahedron.
+    #[inline(always)]
+    fn volume(&self) -> f32 {
+        self.signed_volume().abs()
     }
 }
 
