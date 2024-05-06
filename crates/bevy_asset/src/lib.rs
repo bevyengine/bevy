@@ -454,11 +454,16 @@ mod tests {
     };
     use bevy_log::LogPlugin;
     use bevy_reflect::TypePath;
-    use bevy_utils::{Duration, HashMap};
+    use bevy_utils::{Duration, HashMap, Instant};
     use futures_lite::AsyncReadExt;
     use serde::{Deserialize, Serialize};
-    use std::{path::Path, sync::Arc};
+    use std::{
+        path::Path,
+        sync::{Arc, Mutex},
+    };
     use thiserror::Error;
+
+    static LOCK: Mutex<()> = Mutex::new(());
 
     #[derive(Asset, TypePath, Debug, Default)]
     pub struct CoolText {
@@ -614,9 +619,12 @@ mod tests {
         }
     }
 
-    fn test_app(dir: Dir) -> (App, GateOpener) {
+    fn test_app(dir: Dir) -> (App, GateOpener, std::sync::MutexGuard<'static, ()>) {
+        let guard = LOCK.lock().unwrap();
+
         let mut app = App::new();
         let (gated_memory_reader, gate_opener) = GatedReader::new(MemoryAssetReader { root: dir });
+
         app.register_asset_source(
             AssetSourceId::Default,
             AssetSource::build().with_reader(move || Box::new(gated_memory_reader.clone())),
@@ -626,7 +634,7 @@ mod tests {
             LogPlugin::default(),
             AssetPlugin::default(),
         ));
-        (app, gate_opener)
+        (app, gate_opener, guard)
     }
 
     pub fn run_app_until(app: &mut App, mut predicate: impl FnMut(&mut World) -> Option<()>) {
@@ -716,7 +724,7 @@ mod tests {
             d_id: AssetId<CoolText>,
         }
 
-        let (mut app, gate_opener) = test_app(dir);
+        let (mut app, gate_opener, _guard) = test_app(dir);
         app.init_asset::<CoolText>()
             .init_asset::<SubText>()
             .init_resource::<StoredEvents>()
@@ -979,6 +987,7 @@ mod tests {
 
     #[test]
     fn failure_load_states() {
+        let start_time = Instant::now();
         // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
         #[cfg(not(feature = "multi-threaded"))]
         panic!("This test requires the \"multi-threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi-threaded");
@@ -1031,7 +1040,8 @@ mod tests {
         dir.insert_asset_text(Path::new(c_path), c_ron);
         dir.insert_asset_text(Path::new(d_path), d_ron);
 
-        let (mut app, gate_opener) = test_app(dir);
+        let (mut app, gate_opener, _guard) = test_app(dir);
+
         app.init_asset::<CoolText>()
             .register_asset_loader(CoolTextLoader);
         let asset_server = app.world().resource::<AssetServer>().clone();
@@ -1057,25 +1067,62 @@ mod tests {
         gate_opener.open(d_path);
 
         run_app_until(&mut app, |world| {
+            if Instant::now()
+                .checked_duration_since(start_time)
+                .map_or(false, |elapsed| elapsed > Duration::from_secs(10))
+            {
+                assert!(false);
+            }
+
             let a_text = get::<CoolText>(world, a_id)?;
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
+            bevy_log::error!(
+                "a: {:?}, {:?}, {:?}, {:?}",
+                a_text,
+                a_load,
+                a_deps,
+                a_rec_deps
+            );
 
             let b_id = a_text.dependencies[0].id();
             let b_text = get::<CoolText>(world, b_id)?;
             let (b_load, b_deps, b_rec_deps) = asset_server.get_load_states(b_id).unwrap();
+            bevy_log::error!(
+                "b: {:?}, {:?}, {:?}, {:?}",
+                b_text,
+                b_load,
+                b_deps,
+                b_rec_deps
+            );
 
             let c_id = a_text.dependencies[1].id();
             let c_text = get::<CoolText>(world, c_id)?;
             let (c_load, c_deps, c_rec_deps) = asset_server.get_load_states(c_id).unwrap();
+            bevy_log::error!(
+                "c: {:?}, {:?}, {:?}, {:?}",
+                c_text,
+                c_load,
+                c_deps,
+                c_rec_deps
+            );
 
             let d_id = c_text.dependencies[0].id();
             let d_text = get::<CoolText>(world, d_id);
             let (d_load, d_deps, d_rec_deps) = asset_server.get_load_states(d_id).unwrap();
+            bevy_log::error!(
+                "d: {:?}, {:?}, {:?}, {:?}",
+                d_text,
+                d_load,
+                d_deps,
+                d_rec_deps
+            );
             if !matches!(d_load, LoadState::Failed(_)) {
+                bevy_log::error!("no match, looping");
                 // wait until d has exited the loading state
                 return None;
             }
 
+            bevy_log::error!("loaded, running asserts");
             assert!(d_text.is_none());
             assert!(matches!(d_load, LoadState::Failed(_)));
             assert_eq!(d_deps, DependencyLoadState::Failed);
@@ -1112,7 +1159,7 @@ mod tests {
         let dir = Dir::default();
         dir.insert_asset_text(Path::new("dep.cool.ron"), SIMPLE_TEXT);
 
-        let (mut app, _) = test_app(dir);
+        let (mut app, _, _guard) = test_app(dir);
         app.init_asset::<CoolText>()
             .init_asset::<SubText>()
             .init_resource::<StoredEvents>()
@@ -1153,7 +1200,7 @@ mod tests {
 
         dir.insert_asset_text(Path::new(dep_path), SIMPLE_TEXT);
 
-        let (mut app, gate_opener) = test_app(dir);
+        let (mut app, gate_opener, _guard) = test_app(dir);
         app.init_asset::<CoolText>()
             .init_asset::<SubText>()
             .init_resource::<StoredEvents>()
@@ -1283,7 +1330,7 @@ mod tests {
         dir.insert_asset_text(Path::new(b_path), b_ron);
         dir.insert_asset_text(Path::new(c_path), c_ron);
 
-        let (mut app, gate_opener) = test_app(dir);
+        let (mut app, gate_opener, _guard) = test_app(dir);
         app.init_asset::<CoolText>()
             .init_asset::<SubText>()
             .register_asset_loader(CoolTextLoader);
