@@ -1,6 +1,6 @@
 use std::f32::consts::{FRAC_PI_3, PI};
 
-use super::{Circle, Measured2d, Measured3d, Primitive3d};
+use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
 use crate::{Dir3, InvalidDirectionError, Mat3, Vec2, Vec3};
 
 /// A sphere primitive
@@ -928,6 +928,42 @@ impl Measured3d for Tetrahedron {
     #[inline(always)]
     fn volume(&self) -> f32 {
         self.signed_volume().abs()
+    }
+}
+
+/// A shape representiing an extruded `base_shape`.
+///
+/// The resulting volumes are prisms.
+#[doc(alias = "Prism")]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct Extrusion<T: Primitive2d> {
+    /// The base shape of the extrusion
+    pub base_shape: T,
+    /// Half of the depth of the extrusion
+    pub half_depth: f32,
+}
+impl<T: Primitive2d> Primitive3d for Extrusion<T> {}
+
+impl<T: Primitive2d> Extrusion<T> {
+    /// Create a new `Extrusion<T>` from a given `base_shape` and `depth`
+    pub fn new(base_shape: T, depth: f32) -> Self {
+        Self {
+            base_shape,
+            half_depth: depth / 2.,
+        }
+    }
+}
+
+impl<T: Primitive2d + Measured2d> Measured3d for Extrusion<T> {
+    /// Get the surface area of the extrusion
+    fn area(&self) -> f32 {
+        2. * (self.base_shape.area() + self.half_depth * self.base_shape.perimeter())
+    }
+
+    /// Get the volume of the extrusion
+    fn volume(&self) -> f32 {
+        2. * self.base_shape.area() * self.half_depth
     }
 }
 
