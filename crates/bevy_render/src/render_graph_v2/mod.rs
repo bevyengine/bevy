@@ -1,6 +1,8 @@
 pub mod resource;
 mod setup;
 
+use std::mem;
+
 use crate::{
     render_resource::{
         BindGroup, BindGroupLayout, BindGroupLayoutEntries, Buffer, ComputePipeline,
@@ -16,12 +18,13 @@ use bevy_ecs::{
     world::{EntityRef, Ref, World},
 };
 
-use bevy_utils::EntityHashMap;
+use bevy_utils::{EntityHashMap, HashMap};
 use resource::{IntoRenderResource, RenderHandle, RenderResource, RenderResources};
 
 use wgpu::{
     BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BufferDescriptor,
-    CommandEncoder, Label, SamplerDescriptor, TextureDescriptor, TextureViewDescriptor,
+    CommandEncoder, CommandEncoderDescriptor, Label, SamplerDescriptor, TextureDescriptor,
+    TextureViewDescriptor,
 };
 
 use self::resource::{
@@ -38,14 +41,22 @@ pub struct RenderGraph {
     bind_group_layouts: CachedResources<BindGroupLayout>,
     samplers: CachedResources<Sampler>,
     pipelines: CachedRenderGraphPipelines,
-    queued_sub_graphs: Vec<(
-        Entity,
-        Box<dyn FnOnce(&mut RenderGraphBuilder) + Send + Sync + 'static>,
-    )>,
+    queued_sub_graphs:
+        EntityHashMap<Entity, Box<dyn FnOnce(&mut RenderGraphBuilder) + Send + Sync + 'static>>,
 }
 
 impl RenderGraph {
-    pub fn reset(&mut self) {}
+    pub fn reset(&mut self) {
+        self.queued_sub_graphs.clear();
+    }
+
+    pub fn add_graph(
+        &mut self,
+        entity: Entity,
+        graph: impl FnOnce(&mut RenderGraphBuilder) + Send + Sync + 'static,
+    ) {
+        self.queued_sub_graphs.insert(entity, Box::new(graph));
+    }
 }
 
 struct RenderGraphExecution<'g> {
@@ -62,8 +73,9 @@ struct RenderGraphExecution<'g> {
 }
 
 struct Node<'g> {
+    label: Label<'g>,
     dependencies: RenderDependencies<'g>,
-    runner: Box<dyn FnOnce(NodeContext, &RenderDevice, &RenderQueue, &mut CommandEncoder)>,
+    runner: Box<dyn FnOnce(NodeContext, &RenderDevice, &RenderQueue, &mut CommandEncoder) + 'g>,
 }
 
 impl<'g> RenderGraphExecution<'g> {
@@ -87,8 +99,35 @@ impl<'g> RenderGraphExecution<'g> {
         }
     }
 
-    fn run(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
-        // TODO
+    fn run(mut self, world: &World, render_device: &RenderDevice, render_queue: &RenderQueue) {
+        for (entity, nodes) in mem::take(&mut self.sub_graphs) {
+            let mut encoder = render_device.create_command_encoder(&CommandEncoderDescriptor {
+                label: Some("render_graph_command_encoder"),
+            });
+            let entity_ref = world.entity(entity);
+            for node in nodes {
+                //todo: profiling
+                if self.resources.dependencies_ready(
+                    &self,
+                    world.resource::<PipelineCache>(),
+                    &node.dependencies,
+                ) {
+                    let Node {
+                        dependencies,
+                        runner,
+                        ..
+                    } = node;
+                    let context = NodeContext {
+                        graph: &self,
+                        world,
+                        dependencies,
+                        entity: entity_ref,
+                    };
+                    (runner)(context, render_device, render_queue, &mut encoder);
+                }
+            }
+            render_queue.submit([encoder.finish()]);
+        }
     }
 
     fn generation(&self, id: RenderResourceId) -> RenderResourceGeneration {
@@ -181,13 +220,23 @@ impl<'g> RenderGraphBuilder<'g> {
 
     pub fn add_node(
         &mut self,
+        label: Label<'g>,
         dependencies: RenderDependencies<'g>,
         node: impl FnOnce(NodeContext, &RenderDevice, &RenderQueue, &mut CommandEncoder) + 'g,
     ) -> &mut Self {
         //get + save dependency generations here, since they're not stored in RenderDependencies.
         //This is to make creating a RenderDependencies (and cloning!) a pure operation.
-        self.graph.resources.write_dependencies(dependencies);
-        todo!();
+        self.graph.resources.write_dependencies(&dependencies);
+        self.graph
+            .sub_graphs
+            .get_mut(&self.view_entity.id())
+            .unwrap()
+            .push(Node {
+                label,
+                dependencies,
+                runner: Box::new(node),
+            });
+
         self
     }
 
@@ -500,7 +549,7 @@ pub struct NodeContext<'g> {
     graph: &'g RenderGraphExecution<'g>,
     world: &'g World,
     dependencies: RenderDependencies<'g>,
-    view_entity: EntityRef<'g>,
+    entity: EntityRef<'g>,
 }
 
 impl<'g> NodeContext<'g> {
@@ -569,23 +618,23 @@ impl<'g> NodeContext<'g> {
     }
 
     pub fn view_id(&self) -> Entity {
-        self.view_entity.id()
+        self.entity.id()
     }
 
     pub fn view_contains<C: Component>(&self) -> bool {
-        self.view_entity.contains::<C>()
+        self.entity.contains::<C>()
     }
 
     pub fn view_get<C: Component>(&self) -> Option<&'g C> {
-        self.view_entity.get()
+        self.entity.get()
     }
 
     pub fn view_get_ref<C: Component>(&self) -> Option<Ref<'g, C>> {
-        self.view_entity.get_ref()
+        self.entity.get_ref()
     }
 
     pub fn view_entity(&'g self) -> EntityRef<'g> {
-        self.view_entity
+        self.entity
     }
 
     pub fn world(&'g self) -> &'g World {

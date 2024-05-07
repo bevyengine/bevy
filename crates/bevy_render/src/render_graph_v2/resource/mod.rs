@@ -66,7 +66,7 @@ impl<'g> ResourceTracker<'g> {
         RenderResourceId { id }
     }
 
-    pub(super) fn write_dependencies(&mut self, dependencies: RenderDependencies<'g>) {
+    pub(super) fn write_dependencies(&mut self, dependencies: &RenderDependencies<'g>) {
         //NOTE: takes dependencies instead of single resource in order to deduplicate writes in
         //same "set"
         // self.collect_dependencies(id)
@@ -86,7 +86,7 @@ impl<'g> ResourceTracker<'g> {
         &self,
         graph: &RenderGraphExecution<'g>,
         pipeline_cache: &PipelineCache,
-        dependencies: RenderDependencies<'g>,
+        dependencies: &RenderDependencies<'g>,
     ) -> bool {
         let dependencies = self.collect_many_dependencies(dependencies);
         let mut render_dependencies = dependencies.iter();
@@ -110,7 +110,7 @@ impl<'g> ResourceTracker<'g> {
 
     fn collect_many_dependencies(
         &self,
-        dependencies: RenderDependencies<'g>,
+        dependencies: &RenderDependencies<'g>,
     ) -> RenderDependencies<'g> {
         // let mut dependencies = self.generations[id.id as usize]
         //     .dependencies

@@ -152,7 +152,7 @@ impl<'g> RenderGraphBindGroups<'g> {
                 graph,
                 world,
                 dependencies,
-                view_entity,
+                entity: view_entity,
             };
             let bind_group_entries = (factory)(context.clone());
             let layout = context.get(layout);

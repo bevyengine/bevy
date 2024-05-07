@@ -185,7 +185,7 @@ impl<'g> RenderGraphTextureViews<'g> {
                 graph,
                 world,
                 dependencies,
-                view_entity,
+                entity: view_entity,
             };
             let texture_view = context
                 .get(queued_view.texture)
