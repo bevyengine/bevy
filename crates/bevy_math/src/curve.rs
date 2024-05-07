@@ -161,10 +161,7 @@ pub enum ResamplingError {
 /// A trait for a type that can represent values of type `T` parametrized over a fixed interval.
 /// Typical examples of this are actual geometric curves where `T: VectorSpace`, but other kinds
 /// of interpolable data can be represented instead (or in addition).
-pub trait Curve<T>
-where
-    T: Interpolable,
-{
+pub trait Curve<T> {
     /// The interval over which this curve is parametrized.
     fn domain(&self) -> Interval;
 
@@ -191,7 +188,10 @@ where
     /// spaced values. A total of `samples` samples are used, although at least two samples are
     /// required in order to produce well-formed output. If fewer than two samples are provided,
     /// or if this curve has an unbounded domain, then a [`ResamplingError`] is returned.
-    fn resample(&self, samples: usize) -> Result<SampleCurve<T>, ResamplingError> {
+    fn resample(&self, samples: usize) -> Result<SampleCurve<T>, ResamplingError>
+    where
+        T: Interpolable,
+    {
         if samples < 2 {
             return Err(ResamplingError::NotEnoughSamples(samples));
         }
@@ -227,6 +227,7 @@ where
     ) -> Result<UnevenSampleCurve<T>, ResamplingError>
     where
         Self: Sized,
+        T: Interpolable,
     {
         let mut times: Vec<f32> = sample_times
             .into_iter()
@@ -247,7 +248,6 @@ where
     fn map<S>(self, f: impl Fn(T) -> S) -> impl Curve<S>
     where
         Self: Sized,
-        S: Interpolable,
     {
         MapCurve {
             preimage: self,
@@ -346,7 +346,6 @@ where
     fn zip<S, C>(self, other: C) -> Result<impl Curve<(T, S)>, InvalidIntervalError>
     where
         Self: Sized,
-        S: Interpolable,
         C: Curve<S> + Sized,
     {
         let domain = self.domain().intersect(other.domain())?;
@@ -382,7 +381,6 @@ where
 
 impl<T, C, D> Curve<T> for D
 where
-    T: Interpolable,
     C: Curve<T> + ?Sized,
     D: Deref<Target = C>,
 {
@@ -398,7 +396,7 @@ where
 /// A [`Curve`] which takes a constant value over its domain.
 pub struct ConstantCurve<T>
 where
-    T: Interpolable,
+    T: Clone,
 {
     domain: Interval,
     value: T,
@@ -406,7 +404,7 @@ where
 
 impl<T> Curve<T> for ConstantCurve<T>
 where
-    T: Interpolable,
+    T: Clone,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -422,7 +420,6 @@ where
 /// A [`Curve`] defined by a function.
 pub struct FunctionCurve<T, F>
 where
-    T: Interpolable,
     F: Fn(f32) -> T,
 {
     domain: Interval,
@@ -431,7 +428,6 @@ where
 
 impl<T, F> Curve<T> for FunctionCurve<T, F>
 where
-    T: Interpolable,
     F: Fn(f32) -> T,
 {
     #[inline]
@@ -525,7 +521,6 @@ where
     ///
     /// Invariants: This must always have the same length as `times`.
     samples: Vec<T>,
-    //timed_samples: Vec<(f32, T)>,
 }
 
 impl<T> UnevenSampleCurve<T>
@@ -611,8 +606,6 @@ where
 /// given function.
 pub struct MapCurve<S, T, C, F>
 where
-    S: Interpolable,
-    T: Interpolable,
     C: Curve<S>,
     F: Fn(S) -> T,
 {
@@ -623,8 +616,6 @@ where
 
 impl<S, T, C, F> Curve<T> for MapCurve<S, T, C, F>
 where
-    S: Interpolable,
-    T: Interpolable,
     C: Curve<S>,
     F: Fn(S) -> T,
 {
@@ -642,7 +633,6 @@ where
     fn map<R>(self, g: impl Fn(T) -> R) -> impl Curve<R>
     where
         Self: Sized,
-        R: Interpolable,
     {
         let gf = move |x| g((self.f)(x));
         MapCurve {
@@ -670,7 +660,6 @@ where
 /// A [`Curve`] whose sample space is mapped onto that of some base curve's before sampling.
 pub struct ReparamCurve<T, C, F>
 where
-    T: Interpolable,
     C: Curve<T>,
     F: Fn(f32) -> f32,
 {
@@ -682,7 +671,6 @@ where
 
 impl<T, C, F> Curve<T> for ReparamCurve<T, C, F>
 where
-    T: Interpolable,
     C: Curve<T>,
     F: Fn(f32) -> f32,
 {
@@ -714,7 +702,6 @@ where
     fn map<S>(self, g: impl Fn(T) -> S) -> impl Curve<S>
     where
         Self: Sized,
-        S: Interpolable,
     {
         MapReparamCurve {
             reparam_domain: self.domain,
@@ -733,8 +720,6 @@ where
 /// itself inside new structs.
 pub struct MapReparamCurve<S, T, C, F, G>
 where
-    S: Interpolable,
-    T: Interpolable,
     C: Curve<S>,
     F: Fn(S) -> T,
     G: Fn(f32) -> f32,
@@ -748,8 +733,6 @@ where
 
 impl<S, T, C, F, G> Curve<T> for MapReparamCurve<S, T, C, F, G>
 where
-    S: Interpolable,
-    T: Interpolable,
     C: Curve<S>,
     F: Fn(S) -> T,
     G: Fn(f32) -> f32,
@@ -768,7 +751,6 @@ where
     fn map<R>(self, g: impl Fn(T) -> R) -> impl Curve<R>
     where
         Self: Sized,
-        R: Interpolable,
     {
         let gf = move |x| g((self.forward_map)(x));
         MapReparamCurve {
@@ -799,7 +781,6 @@ where
 /// A [`Curve`] that is the graph of another curve over its parameter space.
 pub struct GraphCurve<T, C>
 where
-    T: Interpolable,
     C: Curve<T>,
 {
     base: C,
@@ -808,7 +789,6 @@ where
 
 impl<T, C> Curve<(f32, T)> for GraphCurve<T, C>
 where
-    T: Interpolable,
     C: Curve<T>,
 {
     #[inline]
@@ -825,8 +805,6 @@ where
 /// A [`Curve`] that combines the data from two constituent curves into a tuple output type.
 pub struct ProductCurve<S, T, C, D>
 where
-    S: Interpolable,
-    T: Interpolable,
     C: Curve<S>,
     D: Curve<T>,
 {
@@ -838,8 +816,6 @@ where
 
 impl<S, T, C, D> Curve<(S, T)> for ProductCurve<S, T, C, D>
 where
-    S: Interpolable,
-    T: Interpolable,
     C: Curve<S>,
     D: Curve<T>,
 {
@@ -867,7 +843,7 @@ pub fn everywhere() -> Interval {
 }
 
 /// Create a [`Curve`] that constantly takes the given `value` over the given `domain`.
-pub fn constant_curve<T: Interpolable>(domain: Interval, value: T) -> impl Curve<T> {
+pub fn constant_curve<T: Clone>(domain: Interval, value: T) -> impl Curve<T> {
     ConstantCurve { domain, value }
 }
 
@@ -875,17 +851,12 @@ pub fn constant_curve<T: Interpolable>(domain: Interval, value: T) -> impl Curve
 /// evaluating the function.
 pub fn function_curve<T, F>(domain: Interval, f: F) -> impl Curve<T>
 where
-    T: Interpolable,
     F: Fn(f32) -> T,
 {
     FunctionCurve { domain, f }
 }
 
 /// Flip a curve that outputs tuples so that the tuples are arranged the other way.
-pub fn flip<S, T>(curve: impl Curve<(S, T)>) -> impl Curve<(T, S)>
-where
-    S: Interpolable,
-    T: Interpolable,
-{
+pub fn flip<S, T>(curve: impl Curve<(S, T)>) -> impl Curve<(T, S)> {
     curve.map(|(s, t)| (t, s))
 }
