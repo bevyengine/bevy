@@ -97,6 +97,24 @@ impl Oklcha {
         let hue = index.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO) as f32 * RATIO_360;
         Self::lch(0.75, 0.1, hue)
     }
+
+    /// Converts the color into a [f32; 4] array in LCHA order.
+    ///
+    /// This is useful for passing the color to a shader.
+    pub fn to_f32_array(&self) -> [f32; 4] {
+        [self.lightness, self.chroma, self.hue, self.alpha]
+    }
+}
+
+impl From<[f32; 4]> for Oklcha {
+    fn from(value: [f32; 4]) -> Self {
+        Self {
+            lightness: value[0],
+            chroma: value[1],
+            hue: value[2],
+            alpha: value[3],
+        }
+    }
 }
 
 impl Default for Oklcha {
