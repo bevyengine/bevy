@@ -434,10 +434,11 @@ impl AssetProcessor {
     async fn finish_processing_assets(&self) {
         self.try_reprocessing_queued().await;
         // clean up metadata in asset server
-        self.server.data.infos.write().consume_handle_drop_events(
-            &self.server.data.asset_event_sender,
-            &self.server.data.asset_event_sender_lock,
-        );
+        self.server
+            .data
+            .infos
+            .write()
+            .consume_handle_drop_events(&self.server.data.asset_event_sender);
         self.set_state(ProcessorState::Finished).await;
     }
 

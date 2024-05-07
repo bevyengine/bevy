@@ -1,8 +1,8 @@
 use crate::{
     meta::{AssetHash, MetaTransform},
     Asset, AssetHandleProvider, AssetLoadError, AssetPath, DependencyLoadState, ErasedLoadedAsset,
-    Handle, InternalAssetEvent, LoadState, RecursiveDependencyLoadState, StrongHandle,
-    UntypedAssetId, UntypedHandle,
+    Handle, InternalAssetEvent, InternalAssetEventSender, LoadState, RecursiveDependencyLoadState,
+    StrongHandle, UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::world::World;
 use bevy_tasks::{IoTaskPool, Task};
@@ -11,7 +11,6 @@ use bevy_utils::{
     ConditionalSendFuture,
 };
 use bevy_utils::{Entry, HashMap, HashSet, TypeIdMap};
-use crossbeam_channel::Sender;
 use std::{
     any::TypeId,
     sync::{Arc, Weak},
@@ -401,8 +400,7 @@ impl AssetInfos {
     pub(crate) fn process_handle_drop(
         &mut self,
         id: UntypedAssetId,
-        sender: &Sender<InternalAssetEvent>,
-        sender_lock: &async_lock::Semaphore,
+        sender: &InternalAssetEventSender,
     ) -> HandleDropResult {
         Self::process_handle_drop_internal(
             &mut self.infos,
@@ -411,7 +409,6 @@ impl AssetInfos {
             &mut self.living_labeled_assets,
             &mut self.pending_load_tasks,
             sender,
-            sender_lock,
             self.watching_for_changes,
             id,
         )
@@ -423,7 +420,7 @@ impl AssetInfos {
         loaded_asset_id: UntypedAssetId,
         loaded_asset: ErasedLoadedAsset,
         world: &mut World,
-        sender: &Sender<InternalAssetEvent>,
+        sender: &InternalAssetEventSender,
     ) {
         loaded_asset.value.insert(loaded_asset_id, world);
         let mut loading_deps = loaded_asset.dependencies;
@@ -483,6 +480,7 @@ impl AssetInfos {
         let rec_dep_load_state = match (loading_rec_deps.len(), failed_rec_deps.len()) {
             (0, 0) => {
                 sender
+                    .lock_blocking()
                     .send(InternalAssetEvent::LoadedWithDependencies {
                         id: loaded_asset_id,
                     })
@@ -579,7 +577,7 @@ impl AssetInfos {
         infos: &mut AssetInfos,
         loaded_id: UntypedAssetId,
         waiting_id: UntypedAssetId,
-        sender: &Sender<InternalAssetEvent>,
+        sender: &InternalAssetEventSender,
     ) {
         let dependants_waiting_on_rec_load = if let Some(info) = infos.get_mut(waiting_id) {
             info.loading_rec_dependencies.remove(&loaded_id);
@@ -587,6 +585,7 @@ impl AssetInfos {
                 info.rec_dep_load_state = RecursiveDependencyLoadState::Loaded;
                 if info.load_state == LoadState::Loaded {
                     sender
+                        .lock_blocking()
                         .send(InternalAssetEvent::LoadedWithDependencies { id: waiting_id })
                         .unwrap();
                 }
@@ -696,8 +695,7 @@ impl AssetInfos {
         loader_dependants: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
         living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<Box<str>>>,
         pending_load_tasks: &mut HashMap<UntypedAssetId, Task<()>>,
-        sender: &Sender<InternalAssetEvent>,
-        sender_lock: &async_lock::Semaphore,
+        sender: &InternalAssetEventSender,
         watching_for_changes: bool,
         id: UntypedAssetId,
     ) -> HandleDropResult {
@@ -719,8 +717,7 @@ impl AssetInfos {
                 // drop the task and send a cancel error to move this asset out of Loading state
 
                 // we need to ensure load tasks do not send results after we send the cancel (except on wasm where they cannot)
-                #[cfg(not(target_arch = "wasm32"))]
-                let _permit = sender_lock.acquire_blocking();
+                let sender = sender.lock_blocking();
 
                 drop(task);
                 let path = entry.get().path.clone().unwrap_or_default();
@@ -766,11 +763,7 @@ impl AssetInfos {
     /// This should only be called if `Assets` storage isn't being used (such as in [`AssetProcessor`](crate::processor::AssetProcessor))
     ///
     /// [`Assets`]: crate::Assets
-    pub(crate) fn consume_handle_drop_events(
-        &mut self,
-        sender: &Sender<InternalAssetEvent>,
-        sender_lock: &async_lock::Semaphore,
-    ) {
+    pub(crate) fn consume_handle_drop_events(&mut self, sender: &InternalAssetEventSender) {
         for provider in self.handle_providers.values() {
             while let Ok(drop_event) = provider.drop_receiver.try_recv() {
                 let id = drop_event.id;
@@ -782,7 +775,6 @@ impl AssetInfos {
                         &mut self.living_labeled_assets,
                         &mut self.pending_load_tasks,
                         sender,
-                        sender_lock,
                         self.watching_for_changes,
                         id.untyped(provider.type_id),
                     );

@@ -1261,32 +1261,32 @@ mod tests {
 
         let a_path = "text/a.cool.ron";
         let a_ron = r#"
-    (
-        text: "a",
-        dependencies: [
-            "b.cool.ron",
-        ],
-        embedded_dependencies: [],
-        sub_texts: [],
-    )"#;
+(
+    text: "a",
+    dependencies: [
+        "b.cool.ron",
+    ],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#;
         let b_path = "b.cool.ron";
         let b_ron = r#"
-    (
-        text: "b",
-        dependencies: [],
-        embedded_dependencies: [],
-        sub_texts: [],
-    )"#;
+(
+    text: "b",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#;
 
         let c_path = "text/c.cool.ron";
         let c_ron = r#"
-    (
-        text: "c",
-        dependencies: [
-        ],
-        embedded_dependencies: [],
-        sub_texts: [],
-    )"#;
+(
+    text: "c",
+    dependencies: [
+    ],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#;
         dir.insert_asset_text(Path::new(a_path), a_ron);
         dir.insert_asset_text(Path::new(b_path), b_ron);
         dir.insert_asset_text(Path::new(c_path), c_ron);

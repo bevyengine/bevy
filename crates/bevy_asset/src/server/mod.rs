@@ -14,12 +14,15 @@ use crate::{
     },
     path::AssetPath,
     Asset, AssetEvent, AssetHandleProvider, AssetId, AssetLoadFailedEvent, AssetMetaCheck, Assets,
-    DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset, UntypedAssetId,
-    UntypedAssetLoadFailedEvent, UntypedHandle,
+    DeserializeMetaError, ErasedLoadedAsset, Handle, LabeledAsset, LoadedUntypedAsset,
+    UntypedAssetId, UntypedAssetLoadFailedEvent, UntypedHandle,
 };
 use bevy_ecs::prelude::*;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::tracing::{error, info};
+use bevy_utils::{
+    tracing::{error, info},
+    HashMap,
+};
 use bevy_utils::{CowArc, HashSet};
 use crossbeam_channel::{Receiver, Sender};
 use futures_lite::{FutureExt, StreamExt};
@@ -54,12 +57,50 @@ pub struct AssetServer {
     pub(crate) data: Arc<AssetServerData>,
 }
 
+pub struct InternalAssetEventSender {
+    #[cfg(not(target_arch = "wasm32"))]
+    sender: async_lock::Mutex<Sender<InternalAssetEvent>>,
+
+    #[cfg(target_arch = "wasm32")]
+    sender: Sender<InternalAssetEvent>,
+}
+
+impl InternalAssetEventSender {
+    fn new(sender: Sender<InternalAssetEvent>) -> InternalAssetEventSender {
+        Self {
+            #[cfg(not(target_arch = "wasm32"))]
+            sender: async_lock::Mutex::new(sender),
+            #[cfg(target_arch = "wasm32")]
+            sender,
+        }
+    }
+
+    pub(crate) fn lock_blocking(
+        &self,
+    ) -> impl std::ops::Deref<Target = Sender<InternalAssetEvent>> + '_ {
+        #[cfg(not(target_arch = "wasm32"))]
+        return self.sender.lock_blocking();
+
+        #[cfg(target_arch = "wasm32")]
+        &self.sender
+    }
+
+    pub(crate) async fn lock_async(
+        &self,
+    ) -> impl std::ops::Deref<Target = Sender<InternalAssetEvent>> + '_ {
+        #[cfg(not(target_arch = "wasm32"))]
+        return self.sender.lock().await;
+
+        #[cfg(target_arch = "wasm32")]
+        &self.sender
+    }
+}
+
 /// Internal data used by [`AssetServer`]. This is intended to be used from within an [`Arc`].
 pub(crate) struct AssetServerData {
     pub(crate) infos: RwLock<AssetInfos>,
     pub(crate) loaders: Arc<RwLock<AssetLoaders>>,
-    pub(crate) asset_event_sender: Sender<InternalAssetEvent>,
-    pub(crate) asset_event_sender_lock: async_lock::Semaphore,
+    pub(crate) asset_event_sender: InternalAssetEventSender,
     asset_event_receiver: Receiver<InternalAssetEvent>,
     sources: AssetSources,
     mode: AssetServerMode,
@@ -120,8 +161,7 @@ impl AssetServer {
                 sources,
                 mode,
                 meta_check,
-                asset_event_sender,
-                asset_event_sender_lock: async_lock::Semaphore::new(1),
+                asset_event_sender: InternalAssetEventSender::new(asset_event_sender),
                 asset_event_receiver,
                 loaders,
                 infos: RwLock::new(infos),
@@ -510,32 +550,48 @@ impl AssetServer {
                     handle.unwrap()
                 };
 
-                // yield to prevent sending events if this task has been dropped
-                let _permit = self.data.asset_event_sender_lock.acquire().await;
-                self.send_loaded_asset(base_handle.id(), loaded_asset);
+                self.send_loaded_asset_async(base_handle.id(), loaded_asset)
+                    .await;
                 Ok(final_handle)
             }
             Err(err) => {
-                // yield to prevent sending events if this task has been dropped
-                let _permit = self.data.asset_event_sender_lock.acquire().await;
-                self.send_asset_event(InternalAssetEvent::Failed {
+                self.send_asset_event_async(InternalAssetEvent::Failed {
                     id: base_handle.id(),
                     error: err.clone(),
                     path: path.into_owned(),
-                });
+                })
+                .await;
                 Err(err)
             }
         }
     }
 
-    /// Sends a load event for the given `loaded_asset` and does the same recursively for all
-    /// labeled assets.
-    fn send_loaded_asset(&self, id: UntypedAssetId, mut loaded_asset: ErasedLoadedAsset) {
-        for (_, labeled_asset) in loaded_asset.labeled_assets.drain() {
-            self.send_loaded_asset(labeled_asset.handle.id(), labeled_asset.asset);
+    async fn send_loaded_asset_async(
+        &self,
+        id: UntypedAssetId,
+        mut loaded_asset: ErasedLoadedAsset,
+    ) {
+        let sender = self.data.asset_event_sender.lock_async().await;
+
+        fn send_labelled_assets(
+            sender: &Sender<InternalAssetEvent>,
+            labeled_assets: &mut HashMap<CowArc<'static, str>, LabeledAsset>,
+        ) {
+            for (_, mut labelled_asset) in labeled_assets.drain() {
+                send_labelled_assets(sender, &mut labelled_asset.asset.labeled_assets);
+                sender
+                    .send(InternalAssetEvent::Loaded {
+                        id: labelled_asset.handle.id(),
+                        loaded_asset: labelled_asset.asset,
+                    })
+                    .unwrap();
+            }
         }
 
-        self.send_asset_event(InternalAssetEvent::Loaded { id, loaded_asset });
+        send_labelled_assets(&sender, &mut loaded_asset.labeled_assets);
+        sender
+            .send(InternalAssetEvent::Loaded { id, loaded_asset })
+            .unwrap();
     }
 
     /// Kicks off a reload of the asset stored at the given path. This will only reload the asset if it currently loaded.
@@ -729,7 +785,20 @@ impl AssetServer {
     }
 
     fn send_asset_event(&self, event: InternalAssetEvent) {
-        self.data.asset_event_sender.send(event).unwrap();
+        self.data
+            .asset_event_sender
+            .lock_blocking()
+            .send(event)
+            .unwrap();
+    }
+
+    async fn send_asset_event_async(&self, event: InternalAssetEvent) {
+        self.data
+            .asset_event_sender
+            .lock_async()
+            .await
+            .send(event)
+            .unwrap();
     }
 
     /// Retrieves all loads states for the given asset id.
