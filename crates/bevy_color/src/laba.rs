@@ -80,7 +80,6 @@ impl Laba {
     /// See [Continuity (16) (17)](http://brucelindbloom.com/index.html?LContinuity.html)
     pub const CIE_KAPPA: f32 = 24389.0 / 27.0;
 
-
     /// Converts the color into a [f32; 4] array in LABA order.
     ///
     /// This is useful for passing the color to a shader.
