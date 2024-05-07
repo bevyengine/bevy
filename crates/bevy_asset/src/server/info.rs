@@ -732,7 +732,11 @@ impl AssetInfos {
         if matches!(entry.get().load_state, LoadState::Loading) {
             if let Some(task) = pending_load_tasks.remove(&id) {
                 // drop the task and send a cancel error to move this asset out of Loading state
+
+                // we need to ensure load tasks do not send results after we send the cancel (except on wasm where they cannot)
+                #[cfg(not(target_arch = "wasm32"))]
                 let _permit = sender_lock.acquire_blocking();
+
                 drop(task);
                 let path = entry.get().path.clone().unwrap_or_default();
                 sender
