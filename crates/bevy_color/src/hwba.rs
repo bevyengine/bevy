@@ -3,8 +3,8 @@
 //!
 //! [_HWB - A More Intuitive Hue-Based Color Model_]: https://web.archive.org/web/20240226005220/http://alvyray.com/Papers/CG/HWB_JGTv208.pdf
 use crate::{Alpha, ClampColor, Hue, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza};
+use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
-use bevy_math::{Vec4, Vec3};
 
 /// Color in Hue-Whiteness-Blackness (HWB) color space with alpha.
 /// Further information on this color model can be found on [Wikipedia](https://en.wikipedia.org/wiki/HWB_color_model).
@@ -210,7 +210,6 @@ impl From<Hwba> for Vec3 {
         Vec3::new(color.hue, color.whiteness, color.blackness)
     }
 }
-
 
 impl From<Srgba> for Hwba {
     fn from(

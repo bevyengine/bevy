@@ -1,8 +1,8 @@
 use crate::{
     impl_componentwise_vector_space, Alpha, ClampColor, LinearRgba, Luminance, Mix, StandardColor,
 };
+use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
-use bevy_math::{Vec4, Vec3};
 
 /// [CIE 1931](https://en.wikipedia.org/wiki/CIE_1931_color_space) color space, also known as XYZ, with an alpha channel.
 #[doc = include_str!("../docs/conversion.md")]

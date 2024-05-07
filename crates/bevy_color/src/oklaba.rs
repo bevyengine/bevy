@@ -2,8 +2,8 @@ use crate::{
     color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ClampColor, Hsla,
     Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
 };
+use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
-use bevy_math::{Vec4, Vec3};
 
 /// Color in Oklab color space, with alpha
 #[doc = include_str!("../docs/conversion.md")]
@@ -241,7 +241,6 @@ impl From<Oklaba> for Vec3 {
         Vec3::new(color.lightness, color.a, color.b)
     }
 }
-
 
 #[allow(clippy::excessive_precision)]
 impl From<LinearRgba> for Oklaba {

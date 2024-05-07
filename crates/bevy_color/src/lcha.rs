@@ -1,6 +1,6 @@
 use crate::{Alpha, ClampColor, Hue, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
+use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
-use bevy_math::{Vec4, Vec3};
 
 /// Color in LCH color space, with alpha
 #[doc = include_str!("../docs/conversion.md")]

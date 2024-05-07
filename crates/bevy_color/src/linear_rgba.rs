@@ -2,7 +2,7 @@ use crate::{
     color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ClampColor,
     Luminance, Mix, StandardColor,
 };
-use bevy_math::{Vec4, Vec3};
+use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
 

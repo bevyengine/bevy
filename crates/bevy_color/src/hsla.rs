@@ -2,8 +2,8 @@ use crate::{
     Alpha, ClampColor, Hsva, Hue, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor,
     Xyza,
 };
+use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
-use bevy_math::{Vec4, Vec3};
 
 /// Color in Hue-Saturation-Lightness (HSL) color space with alpha.
 /// Further information on this color model can be found on [Wikipedia](https://en.wikipedia.org/wiki/HSL_and_HSV).
@@ -263,7 +263,6 @@ impl From<Hsla> for Vec3 {
         Vec3::new(color.hue, color.saturation, color.lightness)
     }
 }
-
 
 impl From<Hsla> for Hsva {
     fn from(

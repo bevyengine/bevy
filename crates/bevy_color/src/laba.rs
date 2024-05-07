@@ -2,8 +2,8 @@ use crate::{
     impl_componentwise_vector_space, Alpha, ClampColor, Hsla, Hsva, Hwba, LinearRgba, Luminance,
     Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
+use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
-use bevy_math::{Vec4, Vec3};
 
 /// Color in LAB color space, with alpha
 #[doc = include_str!("../docs/conversion.md")]

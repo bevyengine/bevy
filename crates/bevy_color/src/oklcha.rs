@@ -2,8 +2,8 @@ use crate::{
     color_difference::EuclideanDistance, Alpha, ClampColor, Hsla, Hsva, Hue, Hwba, Laba, Lcha,
     LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
+use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
-use bevy_math::{Vec4, Vec3};
 
 /// Color in Oklch color space, with alpha
 #[doc = include_str!("../docs/conversion.md")]

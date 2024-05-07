@@ -3,7 +3,7 @@ use crate::{
     impl_componentwise_vector_space, Alpha, ClampColor, LinearRgba, Luminance, Mix, StandardColor,
     Xyza,
 };
-use bevy_math::{Vec4, Vec3};
+use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
 use thiserror::Error;
 
