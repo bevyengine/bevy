@@ -29,5 +29,6 @@ getrandom = { version = "0.2.0", features = ["js"] }
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
 all-features = true
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
