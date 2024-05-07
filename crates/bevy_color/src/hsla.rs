@@ -97,6 +97,24 @@ impl Hsla {
         let hue = index.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO) as f32 * RATIO_360;
         Self::hsl(hue, 1., 0.5)
     }
+
+    /// Converts the color into a [f32; 4] array in HSLA order.
+    ///
+    /// This is useful for passing the color to a shader.
+    pub fn to_f32_array(&self) -> [f32; 4] {
+        [self.hue, self.saturation, self.lightness, self.alpha]
+    }
+}
+
+impl From<[f32; 4]> for Hsla {
+    fn from(value: [f32; 4]) -> Self {
+        Self {
+            hue: value[0],
+            saturation: value[1],
+            lightness: value[2],
+            alpha: value[3],
+        }
+    }
 }
 
 impl Default for Hsla {
