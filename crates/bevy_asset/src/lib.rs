@@ -763,6 +763,12 @@ mod tests {
         // Dependencies are still gated so they should not be loaded yet
         gate_opener.open(a_path);
         run_app_until(&mut app, |world| {
+            let asset_server = world.resource::<AssetServer>();
+            let state = asset_server.load_state(a_id);
+            error!("a state: {state:?}");
+            let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
+            error!("a states: {:?}", (a_load, a_deps, a_rec_deps));
+
             let a_text = get::<CoolText>(world, a_id)?;
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
             assert_eq!(a_text.text, "a");
