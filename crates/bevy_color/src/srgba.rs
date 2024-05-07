@@ -258,6 +258,17 @@ impl From<[f32; 4]> for Srgba {
     }
 }
 
+impl From<[f32; 3]> for Srgba {
+    fn from(value: [f32; 3]) -> Self {
+        Self {
+            red: value[0],
+            green: value[1],
+            blue: value[2],
+            alpha: 1.0,
+        }
+    }
+}
+
 impl Default for Srgba {
     fn default() -> Self {
         Self::WHITE

@@ -117,6 +117,17 @@ impl From<[f32; 4]> for Hsla {
     }
 }
 
+impl From<[f32; 3]> for Hsla {
+    fn from(value: [f32; 3]) -> Self {
+        Self {
+            hue: value[0],
+            saturation: value[1],
+            lightness: value[2],
+            alpha: 1.0,
+        }
+    }
+}
+
 impl Default for Hsla {
     fn default() -> Self {
         Self::new(0., 0., 1., 1.)

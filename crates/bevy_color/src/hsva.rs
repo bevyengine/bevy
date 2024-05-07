@@ -85,6 +85,17 @@ impl From<[f32; 4]> for Hsva {
     }
 }
 
+impl From<[f32; 3]> for Hsva {
+    fn from(value: [f32; 3]) -> Self {
+        Self {
+            hue: value[0],
+            saturation: value[1],
+            value: value[2],
+            alpha: 1.0,
+        }
+    }
+}
+
 impl Default for Hsva {
     fn default() -> Self {
         Self::new(0., 0., 1., 1.)

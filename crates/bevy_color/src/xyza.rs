@@ -96,6 +96,17 @@ impl From<[f32; 4]> for Xyza {
     }
 }
 
+impl From<[f32; 3]> for Xyza {
+    fn from(value: [f32; 3]) -> Self {
+        Self {
+            x: value[0],
+            y: value[1],
+            z: value[2],
+            alpha: 1.0,
+        }
+    }
+}
+
 impl Default for Xyza {
     fn default() -> Self {
         Self::new(0., 0., 0., 1.)

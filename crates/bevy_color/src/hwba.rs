@@ -89,6 +89,17 @@ impl From<[f32; 4]> for Hwba {
     }
 }
 
+impl From<[f32; 3]> for Hwba {
+    fn from(value: [f32; 3]) -> Self {
+        Self {
+            hue: value[0],
+            whiteness: value[1],
+            blackness: value[2],
+            alpha: 1.0,
+        }
+    }
+}
+
 impl Default for Hwba {
     fn default() -> Self {
         Self::new(0., 0., 1., 1.)

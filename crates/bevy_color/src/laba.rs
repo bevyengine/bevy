@@ -100,6 +100,17 @@ impl From<[f32; 4]> for Laba {
     }
 }
 
+impl From<[f32; 3]> for Laba {
+    fn from(value: [f32; 3]) -> Self {
+        Self {
+            lightness: value[0],
+            a: value[1],
+            b: value[2],
+            alpha: 1.0,
+        }
+    }
+}
+
 impl Default for Laba {
     fn default() -> Self {
         Self::new(1., 0., 0., 1.)
