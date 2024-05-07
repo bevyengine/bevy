@@ -113,7 +113,6 @@ pub struct World {
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
     pub(crate) command_queue: CommandQueue,
-    pub(crate) swap_queue: CommandQueue,
 }
 
 impl Default for World {
@@ -132,7 +131,6 @@ impl Default for World {
             last_change_tick: Tick::new(0),
             last_check_tick: Tick::new(0),
             command_queue: CommandQueue::default(),
-            swap_queue: CommandQueue::default(),
         }
     }
 }
@@ -1874,8 +1872,8 @@ impl World {
     #[inline]
     pub fn flush_commands(&mut self) {
         if !self.command_queue.is_empty() {
-            // `CommandQueue` application always applies commands from the world queue first so this will apply all stored commands
-            CommandQueue::default().apply(self);
+            // SAFETY: A reference is always a valid pointer
+            unsafe { CommandQueue::apply_or_drop_queued(&mut self.command_queue, Some(self)) };
         }
     }
 
