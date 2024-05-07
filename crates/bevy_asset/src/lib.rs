@@ -1395,7 +1395,7 @@ mod tests {
     /// Tests that `AssetLoadFailedEvent<A>` events are emitted and can be used to retry failed assets.
     #[test]
     fn load_error_events() {
-/*        
+        /*
         #[derive(Resource, Default)]
         struct ErrorTracker {
             tick: u64,
