@@ -131,11 +131,31 @@ impl Ellipse {
         (a * a - b * b).sqrt()
     }
 
+    /// Returns the length of the semi-major axis. This corresponds to the longest radius of the ellipse.
+    #[inline(always)]
+    pub fn semi_major(&self) -> f32 {
+        self.half_size.max_element()
+    }
+
+    /// Returns the length of the semi-minor axis. This corresponds to the shortest radius of the ellipse.
+    #[inline(always)]
+    pub fn semi_minor(&self) -> f32 {
+        self.half_size.min_element()
+    }
+}
+
+impl Measured2d for Ellipse {
+    /// Get the area of the ellipse
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        PI * self.half_size.x * self.half_size.y
+    }
+
     #[inline(always)]
     /// Get an approximation for the perimeter or circumference of the ellipse.
     ///
     /// The approximation is reasonably precise with a relative error less than 0.007%, getting more precise as the eccentricity of the ellipse decreases.
-    pub fn perimeter(&self) -> f32 {
+    fn perimeter(&self) -> f32 {
         let a = self.semi_major();
         let b = self.semi_minor();
 
@@ -185,24 +205,6 @@ impl Ellipse {
             * (0..=20)
                 .map(|i| BINOMIAL_COEFFICIENTS[i] * h.powi(i as i32))
                 .sum::<f32>()
-    }
-
-    /// Returns the length of the semi-major axis. This corresponds to the longest radius of the ellipse.
-    #[inline(always)]
-    pub fn semi_major(&self) -> f32 {
-        self.half_size.max_element()
-    }
-
-    /// Returns the length of the semi-minor axis. This corresponds to the shortest radius of the ellipse.
-    #[inline(always)]
-    pub fn semi_minor(&self) -> f32 {
-        self.half_size.min_element()
-    }
-
-    /// Get the area of the ellipse
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        PI * self.half_size.x * self.half_size.y
     }
 }
 
