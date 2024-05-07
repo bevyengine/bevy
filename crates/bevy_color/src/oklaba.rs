@@ -1,7 +1,9 @@
 use crate::{
-    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ClampColor, Hsla,
-    Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
+    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ColorToComponents,
+    Gray, Hsla, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
 };
+use bevy_math::{ops, FloatPow, Vec3, Vec4};
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
 /// Color in Oklab color space, with alpha
@@ -9,11 +11,11 @@ use bevy_reflect::prelude::*;
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(PartialEq, Default))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Oklaba {
@@ -100,6 +102,11 @@ impl Mix for Oklaba {
     }
 }
 
+impl Gray for Oklaba {
+    const BLACK: Self = Self::new(0., 0., 0., 1.);
+    const WHITE: Self = Self::new(1.0, 0.0, 0.000000059604645, 1.0);
+}
+
 impl Alpha for Oklaba {
     #[inline]
     fn with_alpha(&self, alpha: f32) -> Self {
@@ -149,27 +156,63 @@ impl Luminance for Oklaba {
 impl EuclideanDistance for Oklaba {
     #[inline]
     fn distance_squared(&self, other: &Self) -> f32 {
-        (self.lightness - other.lightness).powi(2)
-            + (self.a - other.a).powi(2)
-            + (self.b - other.b).powi(2)
+        (self.lightness - other.lightness).squared()
+            + (self.a - other.a).squared()
+            + (self.b - other.b).squared()
     }
 }
 
-impl ClampColor for Oklaba {
-    fn clamped(&self) -> Self {
+impl ColorToComponents for Oklaba {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.lightness, self.a, self.b, self.alpha]
+    }
+
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
+        [self.lightness, self.a, self.b]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.lightness, self.a, self.b, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.lightness, self.a, self.b)
+    }
+
+    fn from_f32_array(color: [f32; 4]) -> Self {
         Self {
-            lightness: self.lightness.clamp(0., 1.),
-            a: self.a.clamp(-1., 1.),
-            b: self.b.clamp(-1., 1.),
-            alpha: self.alpha.clamp(0., 1.),
+            lightness: color[0],
+            a: color[1],
+            b: color[2],
+            alpha: color[3],
         }
     }
 
-    fn is_within_bounds(&self) -> bool {
-        (0. ..=1.).contains(&self.lightness)
-            && (-1. ..=1.).contains(&self.a)
-            && (-1. ..=1.).contains(&self.b)
-            && (0. ..=1.).contains(&self.alpha)
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
+        Self {
+            lightness: color[0],
+            a: color[1],
+            b: color[2],
+            alpha: 1.0,
+        }
+    }
+
+    fn from_vec4(color: Vec4) -> Self {
+        Self {
+            lightness: color[0],
+            a: color[1],
+            b: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_vec3(color: Vec3) -> Self {
+        Self {
+            lightness: color[0],
+            a: color[1],
+            b: color[2],
+            alpha: 1.0,
+        }
     }
 }
 
@@ -186,9 +229,9 @@ impl From<LinearRgba> for Oklaba {
         let l = 0.4122214708 * red + 0.5363325363 * green + 0.0514459929 * blue;
         let m = 0.2119034982 * red + 0.6806995451 * green + 0.1073969566 * blue;
         let s = 0.0883024619 * red + 0.2817188376 * green + 0.6299787005 * blue;
-        let l_ = l.cbrt();
-        let m_ = m.cbrt();
-        let s_ = s.cbrt();
+        let l_ = ops::cbrt(l);
+        let m_ = ops::cbrt(m);
+        let s_ = ops::cbrt(s);
         let l = 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_;
         let a = 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_;
         let b = 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_;
@@ -349,22 +392,5 @@ mod tests {
         assert_approx_eq!(oklaba.a, oklaba2.a, 0.001);
         assert_approx_eq!(oklaba.b, oklaba2.b, 0.001);
         assert_approx_eq!(oklaba.alpha, oklaba2.alpha, 0.001);
-    }
-
-    #[test]
-    fn test_clamp() {
-        let color_1 = Oklaba::lab(-1., 2., -2.);
-        let color_2 = Oklaba::lab(1., 0.42, -0.4);
-        let mut color_3 = Oklaba::lab(-0.4, 1., 1.);
-
-        assert!(!color_1.is_within_bounds());
-        assert_eq!(color_1.clamped(), Oklaba::lab(0., 1., -1.));
-
-        assert!(color_2.is_within_bounds());
-        assert_eq!(color_2, color_2.clamped());
-
-        color_3.clamp();
-        assert!(color_3.is_within_bounds());
-        assert_eq!(color_3, Oklaba::lab(0., 1., 1.));
     }
 }

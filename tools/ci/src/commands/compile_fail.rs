@@ -1,54 +1,56 @@
-use crate::{Flag, Prepare, PreparedCommand};
+use std::env::{self, set_current_dir};
+
 use argh::FromArgs;
-use xshell::cmd;
+
+use super::{run_cargo_command, RustChannel};
 
 /// Runs the compile-fail tests.
 #[derive(FromArgs, Default)]
 #[argh(subcommand, name = "compile-fail")]
 pub struct CompileFailCommand {}
 
-impl Prepare for CompileFailCommand {
-    fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {
-        let no_fail_fast = flags
-            .contains(Flag::KEEP_GOING)
-            .then_some("--no-fail-fast")
-            .unwrap_or_default();
+impl CompileFailCommand {}
 
-        let mut commands = vec![];
+impl CompileFailCommand {
+    const FLAGS: &'static [&'static str] = &["--target-dir", "../../../target"];
+    const ENV_VARS: &'static [(&'static str, &'static str)] = &[];
 
-        // Macro Compile Fail Tests
-        // Run tests (they do not get executed with the workspace tests)
-        // - See crates/bevy_macros_compile_fail_tests/README.md
-        commands.push(
-            PreparedCommand::new::<Self>(
-                cmd!(sh, "cargo test --target-dir ../../../target {no_fail_fast}"),
-                "Compiler errors of the macros compile fail tests seem to be different than expected! Check locally and compare rust versions.",
-            )
-            .with_subdir("crates/bevy_derive/compile_fail"),
-        );
+    /// Runs this command.
+    ///
+    /// For use in aliases.
+    pub fn run_with_intermediate(no_fail_fast: bool) -> Result<(), ()> {
+        let base_dir = env::current_dir().map_err(|err| eprintln!("{err}"))?;
 
-        // ECS Compile Fail Tests
-        // Run UI tests (they do not get executed with the workspace tests)
-        // - See crates/bevy_ecs_compile_fail_tests/README.md
-        commands.push(
-            PreparedCommand::new::<Self>(
-                cmd!(sh, "cargo test --target-dir ../../../target {no_fail_fast}"),
-                "Compiler errors of the ECS compile fail tests seem to be different than expected! Check locally and compare rust versions.",
-            )
-            .with_subdir("crates/bevy_ecs/compile_fail"),
-        );
+        let mut flags = Self::FLAGS.to_vec();
+        if no_fail_fast {
+            flags.push("--no-fail-fast");
+        }
 
-        // Reflect Compile Fail Tests
-        // Run tests (they do not get executed with the workspace tests)
-        // - See crates/bevy_reflect_compile_fail_tests/README.md
-        commands.push(
-            PreparedCommand::new::<Self>(
-                cmd!(sh, "cargo test --target-dir ../../../target {no_fail_fast}"),
-                "Compiler errors of the Reflect compile fail tests seem to be different than expected! Check locally and compare rust versions.",
-            )
-            .with_subdir("crates/bevy_reflect/compile_fail"),
-        );
+        set_current_dir("crates/bevy_derive/compile_fail").map_err(|err| eprintln!("{err}"))?;
+        let compile_fail_result =
+            run_cargo_command("test", RustChannel::Stable, &flags, Self::ENV_VARS);
+        set_current_dir(&base_dir).map_err(|err| eprintln!("{err}"))?;
+        if !no_fail_fast && compile_fail_result.is_err() {
+            return compile_fail_result;
+        }
 
-        commands
+        set_current_dir("crates/bevy_ecs/compile_fail").map_err(|err| eprintln!("{err}"))?;
+        let compile_fail_result =
+            run_cargo_command("test", RustChannel::Stable, &flags, Self::ENV_VARS);
+        set_current_dir(&base_dir).map_err(|err| eprintln!("{err}"))?;
+        if !no_fail_fast && compile_fail_result.is_err() {
+            return compile_fail_result;
+        }
+
+        set_current_dir("crates/bevy_reflect/compile_fail").map_err(|err| eprintln!("{err}"))?;
+        let compile_fail_result =
+            run_cargo_command("test", RustChannel::Stable, &flags, Self::ENV_VARS);
+        set_current_dir(&base_dir).map_err(|err| eprintln!("{err}"))?;
+        compile_fail_result
+    }
+
+    /// Runs this command.
+    pub fn run(self, no_fail_fast: bool) -> Result<(), ()> {
+        Self::run_with_intermediate(no_fail_fast)
     }
 }

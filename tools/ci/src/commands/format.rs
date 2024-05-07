@@ -1,17 +1,25 @@
-use crate::{Flag, Prepare, PreparedCommand};
 use argh::FromArgs;
-use xshell::cmd;
+
+use super::{run_cargo_command, RustChannel};
 
 /// Check code formatting.
 #[derive(FromArgs, Default)]
 #[argh(subcommand, name = "format")]
 pub struct FormatCommand {}
 
-impl Prepare for FormatCommand {
-    fn prepare<'a>(&self, sh: &'a xshell::Shell, _flags: Flag) -> Vec<PreparedCommand<'a>> {
-        vec![PreparedCommand::new::<Self>(
-            cmd!(sh, "cargo fmt --all -- --check"),
-            "Please run 'cargo fmt --all' to format your code.",
-        )]
+impl FormatCommand {
+    const FLAGS: &'static [&'static str] = &["--all", "--", "--check"];
+    const ENV_VARS: &'static [(&'static str, &'static str)] = &[];
+
+    /// Runs this command.
+    ///
+    /// For use in aliases.
+    pub fn run_with_intermediate() -> Result<(), ()> {
+        run_cargo_command("fmt", RustChannel::Stable, Self::FLAGS, Self::ENV_VARS)
+    }
+
+    /// Runs this command.
+    pub fn run(self) -> Result<(), ()> {
+        Self::run_with_intermediate()
     }
 }

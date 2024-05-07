@@ -1,5 +1,7 @@
+use alloc::borrow::Cow;
 use bevy_ecs::entity::Entity;
-use std::{borrow::Cow, fmt};
+use core::fmt;
+use derive_more::derive::From;
 
 use crate::render_resource::{Buffer, Sampler, TextureView};
 
@@ -10,7 +12,7 @@ use crate::render_resource::{Buffer, Sampler, TextureView};
 /// [`Buffer`], [`TextureView`], [`Sampler`] and [`Entity`].
 ///
 /// These values do not contain the actual render data, but only the ids to retrieve them.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, From)]
 pub enum SlotValue {
     /// A GPU-accessible [`Buffer`].
     Buffer(Buffer),
@@ -31,30 +33,6 @@ impl SlotValue {
             SlotValue::Sampler(_) => SlotType::Sampler,
             SlotValue::Entity(_) => SlotType::Entity,
         }
-    }
-}
-
-impl From<Buffer> for SlotValue {
-    fn from(value: Buffer) -> Self {
-        SlotValue::Buffer(value)
-    }
-}
-
-impl From<TextureView> for SlotValue {
-    fn from(value: TextureView) -> Self {
-        SlotValue::TextureView(value)
-    }
-}
-
-impl From<Sampler> for SlotValue {
-    fn from(value: Sampler) -> Self {
-        SlotValue::Sampler(value)
-    }
-}
-
-impl From<Entity> for SlotValue {
-    fn from(value: Entity) -> Self {
-        SlotValue::Entity(value)
     }
 }
 
@@ -89,7 +67,7 @@ impl fmt::Display for SlotType {
 
 /// A [`SlotLabel`] is used to reference a slot by either its name or index
 /// inside the [`RenderGraph`](super::RenderGraph).
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, From)]
 pub enum SlotLabel {
     Index(usize),
     Name(Cow<'static, str>),
@@ -110,18 +88,6 @@ impl From<String> for SlotLabel {
 impl From<&'static str> for SlotLabel {
     fn from(value: &'static str) -> Self {
         SlotLabel::Name(value.into())
-    }
-}
-
-impl From<Cow<'static, str>> for SlotLabel {
-    fn from(value: Cow<'static, str>) -> Self {
-        SlotLabel::Name(value)
-    }
-}
-
-impl From<usize> for SlotLabel {
-    fn from(value: usize) -> Self {
-        SlotLabel::Index(value)
     }
 }
 

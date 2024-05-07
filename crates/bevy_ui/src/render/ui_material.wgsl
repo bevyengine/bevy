@@ -18,7 +18,7 @@ fn vertex(
 ) -> UiVertexOutput {
     var out: UiVertexOutput;
     out.uv = vertex_uv;
-    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    out.position = view.clip_from_world * vec4<f32>(vertex_position, 1.0);
     out.size = size;
     out.border_widths = border_widths;
     return out;

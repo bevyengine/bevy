@@ -1,10 +1,11 @@
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
+use core::panic::AssertUnwindSafe;
 use fixedbitset::FixedBitSet;
-use std::panic::AssertUnwindSafe;
+#[cfg(feature = "trace")]
+use tracing::info_span;
 
 use crate::{
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
+    system::System,
     world::World,
 };
 
@@ -85,6 +86,12 @@ impl SystemExecutor for SingleThreadedExecutor {
 
             should_run &= system_conditions_met;
 
+            let system = &mut schedule.systems[system_index];
+            if should_run {
+                let valid_params = system.validate_param(world);
+                should_run &= valid_params;
+            }
+
             #[cfg(feature = "trace")]
             should_run_span.exit();
 
@@ -95,28 +102,41 @@ impl SystemExecutor for SingleThreadedExecutor {
                 continue;
             }
 
-            let system = &mut schedule.systems[system_index];
             if is_apply_deferred(system) {
                 self.apply_deferred(schedule, world);
                 continue;
             }
 
-            let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            let f = AssertUnwindSafe(|| {
                 if system.is_exclusive() {
-                    __rust_begin_short_backtrace::run(&mut **system, world);
+                    // TODO: implement an error-handling API instead of suppressing a possible failure.
+                    let _ = __rust_begin_short_backtrace::run(system, world);
                 } else {
                     // Use run_unsafe to avoid immediately applying deferred buffers
                     let world = world.as_unsafe_world_cell();
                     system.update_archetype_component_access(world);
                     // SAFETY: We have exclusive, single-threaded access to the world and
                     // update_archetype_component_access is being called immediately before this.
-                    unsafe { __rust_begin_short_backtrace::run_unsafe(&mut **system, world) };
+                    unsafe {
+                        // TODO: implement an error-handling API instead of suppressing a possible failure.
+                        let _ = __rust_begin_short_backtrace::run_unsafe(system, world);
+                    };
                 }
-            }));
-            if let Err(payload) = res {
-                eprintln!("Encountered a panic in system `{}`!", &*system.name());
-                std::panic::resume_unwind(payload);
+            });
+
+            #[cfg(feature = "std")]
+            {
+                if let Err(payload) = std::panic::catch_unwind(f) {
+                    eprintln!("Encountered a panic in system `{}`!", &*system.name());
+                    std::panic::resume_unwind(payload);
+                }
             }
+
+            #[cfg(not(feature = "std"))]
+            {
+                (f)();
+            }
+
             self.unapplied_systems.insert(system_index);
         }
 
@@ -160,6 +180,11 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
     #[allow(clippy::unnecessary_fold)]
     conditions
         .iter_mut()
-        .map(|condition| __rust_begin_short_backtrace::readonly_run(&mut **condition, world))
+        .map(|condition| {
+            if !condition.validate_param(world) {
+                return false;
+            }
+            __rust_begin_short_backtrace::readonly_run(&mut **condition, world)
+        })
         .fold(true, |acc, res| acc && res)
 }

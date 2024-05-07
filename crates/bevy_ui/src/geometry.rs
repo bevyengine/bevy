@@ -1,8 +1,6 @@
 use bevy_math::Vec2;
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
-use std::ops::Neg;
-use std::ops::{Div, DivAssign, Mul, MulAssign};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use core::ops::{Div, DivAssign, Mul, MulAssign, Neg};
 use thiserror::Error;
 
 #[cfg(feature = "serialize")]
@@ -10,18 +8,17 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// Represents the possible value types for layout properties.
 ///
-/// This enum allows specifying values for various [`Style`](crate::Style) properties in different units,
+/// This enum allows specifying values for various [`Node`](crate::Node) properties in different units,
 /// such as logical pixels, percentages, or automatically determined values.
-
 #[derive(Copy, Clone, Debug, Reflect)]
-#[reflect(Default, PartialEq)]
+#[reflect(Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub enum Val {
-    /// Automatically determine the value based on the context and other [`Style`](crate::Style) properties.
+    /// Automatically determine the value based on the context and other [`Node`](crate::Node) properties.
     Auto,
     /// Set this value in logical pixels.
     Px(f32),
@@ -30,7 +27,7 @@ pub enum Val {
     /// If the UI node has no parent, the percentage is calculated based on the window's length
     /// along the corresponding axis.
     ///
-    /// The chosen axis depends on the [`Style`](crate::Style) field set:
+    /// The chosen axis depends on the [`Node`](crate::Node) field set:
     /// * For `flex_basis`, the percentage is relative to the main-axis length determined by the `flex_direction`.
     /// * For `gap`, `min_size`, `size`, and `max_size`:
     ///   - `width` is relative to the parent's width.
@@ -206,7 +203,6 @@ impl Val {
 /// A type which is commonly used to define margins, paddings and borders.
 ///
 /// # Examples
-
 ///
 /// ## Margin
 ///
@@ -247,9 +243,8 @@ impl Val {
 ///     bottom: Val::Px(40.0),
 /// };
 /// ```
-
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(Default, PartialEq)]
+#[reflect(Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -395,11 +390,11 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub fn horizontal(value: Val) -> Self {
-        UiRect {
+    pub const fn horizontal(value: Val) -> Self {
+        Self {
             left: value,
             right: value,
-            ..Default::default()
+            ..Self::DEFAULT
         }
     }
 
@@ -418,11 +413,11 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub fn vertical(value: Val) -> Self {
-        UiRect {
+    pub const fn vertical(value: Val) -> Self {
+        Self {
             top: value,
             bottom: value,
-            ..Default::default()
+            ..Self::DEFAULT
         }
     }
 
@@ -440,8 +435,8 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Percent(15.0));
     /// assert_eq!(ui_rect.bottom, Val::Percent(15.0));
     /// ```
-    pub fn axes(horizontal: Val, vertical: Val) -> Self {
-        UiRect {
+    pub const fn axes(horizontal: Val, vertical: Val) -> Self {
+        Self {
             left: horizontal,
             right: horizontal,
             top: vertical,
@@ -464,10 +459,10 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub fn left(value: Val) -> Self {
-        UiRect {
-            left: value,
-            ..Default::default()
+    pub const fn left(left: Val) -> Self {
+        Self {
+            left,
+            ..Self::DEFAULT
         }
     }
 
@@ -486,10 +481,10 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub fn right(value: Val) -> Self {
-        UiRect {
-            right: value,
-            ..Default::default()
+    pub const fn right(right: Val) -> Self {
+        Self {
+            right,
+            ..Self::DEFAULT
         }
     }
 
@@ -508,10 +503,10 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub fn top(value: Val) -> Self {
-        UiRect {
-            top: value,
-            ..Default::default()
+    pub const fn top(top: Val) -> Self {
+        Self {
+            top,
+            ..Self::DEFAULT
         }
     }
 
@@ -530,10 +525,10 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub fn bottom(value: Val) -> Self {
-        UiRect {
-            bottom: value,
-            ..Default::default()
+    pub const fn bottom(bottom: Val) -> Self {
+        Self {
+            bottom,
+            ..Self::DEFAULT
         }
     }
 
@@ -551,7 +546,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(20.0));
     /// ```
     #[inline]
-    pub fn with_left(mut self, left: Val) -> Self {
+    pub const fn with_left(mut self, left: Val) -> Self {
         self.left = left;
         self
     }
@@ -570,7 +565,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(20.0));
     /// ```
     #[inline]
-    pub fn with_right(mut self, right: Val) -> Self {
+    pub const fn with_right(mut self, right: Val) -> Self {
         self.right = right;
         self
     }
@@ -589,7 +584,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(20.0));
     /// ```
     #[inline]
-    pub fn with_top(mut self, top: Val) -> Self {
+    pub const fn with_top(mut self, top: Val) -> Self {
         self.top = top;
         self
     }
@@ -608,7 +603,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
     #[inline]
-    pub fn with_bottom(mut self, bottom: Val) -> Self {
+    pub const fn with_bottom(mut self, bottom: Val) -> Self {
         self.bottom = bottom;
         self
     }

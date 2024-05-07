@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => {
 
 const MAX_TIMEOUT_FOR_TEST = 300_000;
 
-test.describe('WASM example', () => {
+test.describe('Wasm example', () => {
   test('Wait for success', async ({ page }, testInfo) => {
     let start = new Date().getTime();
 

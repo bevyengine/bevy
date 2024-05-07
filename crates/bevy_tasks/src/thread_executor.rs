@@ -1,9 +1,7 @@
-use std::{
-    marker::PhantomData,
-    thread::{self, ThreadId},
-};
+use core::marker::PhantomData;
+use std::thread::{self, ThreadId};
 
-use async_executor::{Executor, Task};
+use crate::executor::{Executor, Task};
 use futures_lite::Future;
 
 /// An executor that can only be ticked on the thread it was instantiated on. But
@@ -86,7 +84,7 @@ impl<'task> ThreadExecutor<'task> {
 
     /// Returns true if `self` and `other`'s executor is same
     pub fn is_same(&self, other: &Self) -> bool {
-        std::ptr::eq(self, other)
+        core::ptr::eq(self, other)
     }
 }
 
@@ -115,7 +113,7 @@ impl<'task, 'ticker> ThreadExecutorTicker<'task, 'ticker> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     #[test]
     fn test_ticker() {

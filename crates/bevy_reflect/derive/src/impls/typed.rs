@@ -1,17 +1,18 @@
-use crate::utility::{StringExpr, WhereClauseOptions};
-use quote::{quote, ToTokens};
-
 use crate::{
     derive_data::{ReflectMeta, ReflectTypePath},
-    utility::wrap_in_option,
+    string_expr::StringExpr,
+    where_clause_options::WhereClauseOptions,
 };
+use bevy_macro_utils::fq_std::FQOption;
+use proc_macro2::TokenStream;
+use quote::{quote, ToTokens};
 
 /// Returns an expression for a `NonGenericTypeCell` or `GenericTypeCell`  to generate `'static` references.
 fn static_type_cell(
     meta: &ReflectMeta,
     property: TypedProperty,
-    generator: proc_macro2::TokenStream,
-) -> proc_macro2::TokenStream {
+    generator: TokenStream,
+) -> TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
     if meta.type_path().impl_is_generic() {
         let cell_type = match property {
@@ -48,11 +49,11 @@ pub(crate) enum TypedProperty {
     TypePath,
 }
 
-pub(crate) fn impl_type_path(meta: &ReflectMeta) -> proc_macro2::TokenStream {
+pub(crate) fn impl_type_path(meta: &ReflectMeta) -> TokenStream {
     let where_clause_options = WhereClauseOptions::new(meta);
 
     if !meta.attrs().type_path_attrs().should_auto_derive() {
-        return proc_macro2::TokenStream::new();
+        return TokenStream::new();
     }
 
     let type_path = meta.type_path();
@@ -105,35 +106,42 @@ pub(crate) fn impl_type_path(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     quote! {
         #primitive_assert
 
-        impl #impl_generics #bevy_reflect_path::TypePath for #type_path #ty_generics #where_reflect_clause {
-            fn type_path() -> &'static str {
-                #long_type_path
-            }
+        // To ensure alloc is available, but also prevent its name from clashing, we place the implementation inside an anonymous constant
+        const _: () = {
+            extern crate alloc;
 
-            fn short_type_path() -> &'static str {
-                #short_type_path
-            }
+            use alloc::string::ToString;
 
-            fn type_ident() -> Option<&'static str> {
-                #type_ident
-            }
+            impl #impl_generics #bevy_reflect_path::TypePath for #type_path #ty_generics #where_reflect_clause {
+                fn type_path() -> &'static str {
+                    #long_type_path
+                }
 
-            fn crate_name() -> Option<&'static str> {
-                #crate_name
-            }
+                fn short_type_path() -> &'static str {
+                    #short_type_path
+                }
 
-            fn module_path() -> Option<&'static str> {
-                #module_path
+                fn type_ident() -> Option<&'static str> {
+                    #type_ident
+                }
+
+                fn crate_name() -> Option<&'static str> {
+                    #crate_name
+                }
+
+                fn module_path() -> Option<&'static str> {
+                    #module_path
+                }
             }
-        }
+        };
     }
 }
 
 pub(crate) fn impl_typed(
     meta: &ReflectMeta,
     where_clause_options: &WhereClauseOptions,
-    type_info_generator: proc_macro2::TokenStream,
-) -> proc_macro2::TokenStream {
+    type_info_generator: TokenStream,
+) -> TokenStream {
     let type_path = meta.type_path();
     let bevy_reflect_path = meta.bevy_reflect_path();
 
@@ -145,9 +153,22 @@ pub(crate) fn impl_typed(
 
     quote! {
         impl #impl_generics #bevy_reflect_path::Typed for #type_path #ty_generics #where_reflect_clause {
+            #[inline]
             fn type_info() -> &'static #bevy_reflect_path::TypeInfo {
                 #type_info_cell
             }
         }
+    }
+}
+
+/// Turns an `Option<TokenStream>` into a `TokenStream` for an `Option`.
+fn wrap_in_option(tokens: Option<TokenStream>) -> TokenStream {
+    match tokens {
+        Some(tokens) => quote! {
+            #FQOption::Some(#tokens)
+        },
+        None => quote! {
+            #FQOption::None
+        },
     }
 }

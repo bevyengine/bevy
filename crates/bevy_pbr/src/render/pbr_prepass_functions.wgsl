@@ -3,6 +3,7 @@
 #import bevy_pbr::{
     prepass_io::VertexOutput,
     prepass_bindings::previous_view_uniforms,
+    mesh_bindings::mesh,
     mesh_view_bindings::view,
     pbr_bindings,
     pbr_types,
@@ -15,19 +16,52 @@ const PREMULTIPLIED_ALPHA_CUTOFF = 0.05;
 fn prepass_alpha_discard(in: VertexOutput) {
 
 #ifdef MAY_DISCARD
+#ifdef BINDLESS
+    let slot = mesh[in.instance_index].material_and_lightmap_bind_group_slot & 0xffffu;
+    var output_color: vec4<f32> = pbr_bindings::material[slot].base_color;
+#else   // BINDLESS
     var output_color: vec4<f32> = pbr_bindings::material.base_color;
+#endif  // BINDLESS
 
 #ifdef VERTEX_UVS
+#ifdef STANDARD_MATERIAL_BASE_COLOR_UV_B
+    var uv = in.uv_b;
+#else   // STANDARD_MATERIAL_BASE_COLOR_UV_B
+    var uv = in.uv;
+#endif  // STANDARD_MATERIAL_BASE_COLOR_UV_B
+
+#ifdef BINDLESS
+    let uv_transform = pbr_bindings::material[slot].uv_transform;
+    let flags = pbr_bindings::material[slot].flags;
+#else   // BINDLESS
     let uv_transform = pbr_bindings::material.uv_transform;
-    let uv = (uv_transform * vec3(in.uv, 1.0)).xy;
-    if (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
-        output_color = output_color * textureSampleBias(pbr_bindings::base_color_texture, pbr_bindings::base_color_sampler, uv, view.mip_bias);
+    let flags = pbr_bindings::material.flags;
+#endif  // BINDLESS
+
+    uv = (uv_transform * vec3(uv, 1.0)).xy;
+    if (flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
+        output_color = output_color * textureSampleBias(
+#ifdef BINDLESS
+            pbr_bindings::base_color_texture[slot],
+            pbr_bindings::base_color_sampler[slot],
+#else   // BINDLESS
+            pbr_bindings::base_color_texture,
+            pbr_bindings::base_color_sampler,
+#endif  // BINDLESS
+            uv,
+            view.mip_bias
+        );
     }
 #endif // VERTEX_UVS
 
-    let alpha_mode = pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
+    let alpha_mode = flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
     if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
-        if output_color.a < pbr_bindings::material.alpha_cutoff {
+#ifdef BINDLESS
+        let alpha_cutoff = pbr_bindings::material[slot].alpha_cutoff;
+#else   // BINDLESS
+        let alpha_cutoff = pbr_bindings::material.alpha_cutoff;
+#endif  // BINDLESS
+        if output_color.a < alpha_cutoff {
             discard;
         }
     } else if (alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND ||
@@ -47,9 +81,9 @@ fn prepass_alpha_discard(in: VertexOutput) {
 
 #ifdef MOTION_VECTOR_PREPASS
 fn calculate_motion_vector(world_position: vec4<f32>, previous_world_position: vec4<f32>) -> vec2<f32> {
-    let clip_position_t = view.unjittered_view_proj * world_position;
+    let clip_position_t = view.unjittered_clip_from_world * world_position;
     let clip_position = clip_position_t.xy / clip_position_t.w;
-    let previous_clip_position_t = previous_view_uniforms.view_proj * previous_world_position;
+    let previous_clip_position_t = previous_view_uniforms.clip_from_world * previous_world_position;
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;
     // These motion vectors are used as offsets to UV positions and are stored
     // in the range -1,1 to allow offsetting from the one corner to the

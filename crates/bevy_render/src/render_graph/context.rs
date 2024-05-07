@@ -2,8 +2,8 @@ use crate::{
     render_graph::{NodeState, RenderGraph, SlotInfos, SlotLabel, SlotType, SlotValue},
     render_resource::{Buffer, Sampler, TextureView},
 };
+use alloc::borrow::Cow;
 use bevy_ecs::entity::Entity;
-use std::borrow::Cow;
 use thiserror::Error;
 
 use super::{InternedRenderSubGraph, RenderSubGraph};
@@ -17,7 +17,7 @@ pub struct RunSubGraph {
 }
 
 /// The context with all graph information required to run a [`Node`](super::Node).
-/// This context is created for each node by the `RenderGraphRunner`.
+/// This context is created for each node by the render graph runner.
 ///
 /// The slot input can be read from here and the outputs must be written back to the context for
 /// passing them onto the next node.

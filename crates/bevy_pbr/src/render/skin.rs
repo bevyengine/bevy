@@ -1,8 +1,10 @@
+use core::mem::{self, size_of};
+use std::sync::OnceLock;
+
 use bevy_asset::Assets;
-use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
+use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::{
     batching::NoAutomaticBatching,
     mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
@@ -14,51 +16,111 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 
 /// Maximum number of joints supported for skinned meshes.
+///
+/// It is used to allocate buffers.
+/// The correctness of the value depends on the GPU/platform.
+/// The current value is chosen because it is guaranteed to work everywhere.
+/// To allow for bigger values, a check must be made for the limits
+/// of the GPU at runtime, which would mean not using consts anymore.
 pub const MAX_JOINTS: usize = 256;
 
+/// The location of the first joint matrix in the skin uniform buffer.
 #[derive(Component)]
 pub struct SkinIndex {
-    pub index: u32,
+    /// The byte offset of the first joint matrix.
+    pub byte_offset: u32,
 }
 
 impl SkinIndex {
-    /// Index to be in address space based on [`SkinUniform`] size.
+    /// Index to be in address space based on the size of a skin uniform.
     const fn new(start: usize) -> Self {
         SkinIndex {
-            index: (start * std::mem::size_of::<Mat4>()) as u32,
+            byte_offset: (start * size_of::<Mat4>()) as u32,
         }
+    }
+
+    /// Returns this skin index in elements (not bytes).
+    ///
+    /// Each element is a 4x4 matrix.
+    pub fn index(&self) -> u32 {
+        self.byte_offset / size_of::<Mat4>() as u32
     }
 }
 
-#[derive(Default, Resource, Deref, DerefMut)]
-pub struct SkinIndices(EntityHashMap<SkinIndex>);
+/// Maps each skinned mesh to the applicable offset within the [`SkinUniforms`]
+/// buffer.
+///
+/// We store both the current frame's joint matrices and the previous frame's
+/// joint matrices for the purposes of motion vector calculation.
+#[derive(Default, Resource)]
+pub struct SkinIndices {
+    /// Maps each skinned mesh to the applicable offset within
+    /// [`SkinUniforms::current_buffer`].
+    pub current: MainEntityHashMap<SkinIndex>,
 
-// Notes on implementation: see comment on top of the `extract_skins` system.
+    /// Maps each skinned mesh to the applicable offset within
+    /// [`SkinUniforms::prev_buffer`].
+    pub prev: MainEntityHashMap<SkinIndex>,
+}
+
+/// The GPU buffers containing joint matrices for all skinned meshes.
+///
+/// This is double-buffered: we store the joint matrices of each mesh for the
+/// previous frame in addition to those of each mesh for the current frame. This
+/// is for motion vector calculation. Every frame, we swap buffers and overwrite
+/// the joint matrix buffer from two frames ago with the data for the current
+/// frame.
+///
+/// Notes on implementation: see comment on top of the `extract_skins` system.
 #[derive(Resource)]
-pub struct SkinUniform {
-    pub buffer: RawBufferVec<Mat4>,
+pub struct SkinUniforms {
+    /// Stores all the joint matrices for skinned meshes in the current frame.
+    pub current_buffer: RawBufferVec<Mat4>,
+    /// Stores all the joint matrices for skinned meshes in the previous frame.
+    pub prev_buffer: RawBufferVec<Mat4>,
 }
 
-impl Default for SkinUniform {
-    fn default() -> Self {
+impl FromWorld for SkinUniforms {
+    fn from_world(world: &mut World) -> Self {
+        let device = world.resource::<RenderDevice>();
+        let buffer_usages = if skins_use_uniform_buffers(device) {
+            BufferUsages::UNIFORM
+        } else {
+            BufferUsages::STORAGE
+        };
+
         Self {
-            buffer: RawBufferVec::new(BufferUsages::UNIFORM),
+            current_buffer: RawBufferVec::new(buffer_usages),
+            prev_buffer: RawBufferVec::new(buffer_usages),
         }
     }
+}
+
+/// Returns true if skinning must use uniforms (and dynamic offsets) because
+/// storage buffers aren't supported on the current platform.
+pub fn skins_use_uniform_buffers(render_device: &RenderDevice) -> bool {
+    static SKINS_USE_UNIFORM_BUFFERS: OnceLock<bool> = OnceLock::new();
+    *SKINS_USE_UNIFORM_BUFFERS
+        .get_or_init(|| render_device.limits().max_storage_buffers_per_shader_stage == 0)
 }
 
 pub fn prepare_skins(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    mut uniform: ResMut<SkinUniform>,
+    mut uniform: ResMut<SkinUniforms>,
 ) {
-    if uniform.buffer.is_empty() {
+    if uniform.current_buffer.is_empty() {
         return;
     }
 
-    let len = uniform.buffer.len();
-    uniform.buffer.reserve(len, &render_device);
-    uniform.buffer.write_buffer(&render_device, &render_queue);
+    let len = uniform.current_buffer.len();
+    uniform.current_buffer.reserve(len, &render_device);
+    uniform
+        .current_buffer
+        .write_buffer(&render_device, &render_queue);
+
+    // We don't need to write `uniform.prev_buffer` because we already wrote it
+    // last frame, and the data should still be on the GPU.
 }
 
 // Notes on implementation:
@@ -88,14 +150,25 @@ pub fn prepare_skins(
 // which normally only support fixed size arrays. You just have to make sure
 // in the shader that you only read the values that are valid for that binding.
 pub fn extract_skins(
-    mut skin_indices: ResMut<SkinIndices>,
-    mut uniform: ResMut<SkinUniform>,
+    skin_indices: ResMut<SkinIndices>,
+    uniform: ResMut<SkinUniforms>,
     query: Extract<Query<(Entity, &ViewVisibility, &SkinnedMesh)>>,
     inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
     joints: Extract<Query<&GlobalTransform>>,
+    render_device: Res<RenderDevice>,
 ) {
-    uniform.buffer.clear();
-    skin_indices.clear();
+    let skins_use_uniform_buffers = skins_use_uniform_buffers(&render_device);
+
+    // Borrow check workaround.
+    let (skin_indices, uniform) = (skin_indices.into_inner(), uniform.into_inner());
+
+    // Swap buffers. We need to keep the previous frame's buffer around for the
+    // purposes of motion vector computation.
+    mem::swap(&mut skin_indices.current, &mut skin_indices.prev);
+    mem::swap(&mut uniform.current_buffer, &mut uniform.prev_buffer);
+    skin_indices.current.clear();
+    uniform.current_buffer.clear();
+
     let mut last_start = 0;
 
     // PERF: This can be expensive, can we move this to prepare?
@@ -103,7 +176,7 @@ pub fn extract_skins(
         if !view_visibility.get() {
             continue;
         }
-        let buffer = &mut uniform.buffer;
+        let buffer = &mut uniform.current_buffer;
         let Some(inverse_bindposes) = inverse_bindposes.get(&skin.inverse_bindposes) else {
             continue;
         };
@@ -125,26 +198,36 @@ pub fn extract_skins(
         }
         last_start = last_start.max(start);
 
-        // Pad to 256 byte alignment
-        while buffer.len() % 4 != 0 {
-            buffer.push(Mat4::ZERO);
+        // Pad to 256 byte alignment if we're using a uniform buffer.
+        // There's no need to do this if we're using storage buffers, though.
+        if skins_use_uniform_buffers {
+            while buffer.len() % 4 != 0 {
+                buffer.push(Mat4::ZERO);
+            }
         }
 
-        skin_indices.insert(entity, SkinIndex::new(start));
+        skin_indices
+            .current
+            .insert(entity.into(), SkinIndex::new(start));
     }
 
     // Pad out the buffer to ensure that there's enough space for bindings
-    while uniform.buffer.len() - last_start < MAX_JOINTS {
-        uniform.buffer.push(Mat4::ZERO);
+    while uniform.current_buffer.len() - last_start < MAX_JOINTS {
+        uniform.current_buffer.push(Mat4::ZERO);
     }
 }
 
 // NOTE: The skinned joints uniform buffer has to be bound at a dynamic offset per
-// entity and so cannot currently be batched.
+// entity and so cannot currently be batched on WebGL 2.
 pub fn no_automatic_skin_batching(
     mut commands: Commands,
     query: Query<Entity, (With<SkinnedMesh>, Without<NoAutomaticBatching>)>,
+    render_device: Res<RenderDevice>,
 ) {
+    if !skins_use_uniform_buffers(&render_device) {
+        return;
+    }
+
     for entity in &query {
         commands.entity(entity).try_insert(NoAutomaticBatching);
     }

@@ -70,7 +70,7 @@ struct LightingInput {
 
     // The world-space position.
     P: vec3<f32>,
-    // The vector to the light.
+    // The vector to the view.
     V: vec3<f32>,
 
     // The diffuse color of the material.
@@ -91,6 +91,18 @@ struct LightingInput {
     // The strength of the clearcoat layer.
     clearcoat_strength: f32,
 #endif  // STANDARD_MATERIAL_CLEARCOAT
+
+#ifdef STANDARD_MATERIAL_ANISOTROPY
+    // The anisotropy strength, reflecting the amount of increased roughness in
+    // the tangent direction.
+    anisotropy: f32,
+    // The tangent direction for anisotropy: i.e. the direction in which
+    // roughness increases.
+    Ta: vec3<f32>,
+    // The bitangent direction, which is the cross product of the normal with
+    // the tangent direction.
+    Ba: vec3<f32>,
+#endif  // STANDARD_MATERIAL_ANISOTROPY
 }
 
 // Values derived from the `LightingInput` for both diffuse and specular lights.
@@ -133,6 +145,30 @@ fn D_GGX(roughness: f32, NdotH: f32, h: vec3<f32>) -> f32 {
     return d;
 }
 
+// An approximation of the anisotropic GGX distribution function.
+//
+//                                     1
+//     D(𝐡) = ───────────────────────────────────────────────────
+//            παₜα_b((𝐡 ⋅ 𝐭)² / αₜ²) + (𝐡 ⋅ 𝐛)² / α_b² + (𝐡 ⋅ 𝐧)²)²
+//
+// * `T` = 𝐭 = the tangent direction = the direction of increased roughness.
+//
+// * `B` = 𝐛 = the bitangent direction = the direction of decreased roughness.
+//
+// * `at` = αₜ = the alpha-roughness in the tangent direction.
+//
+// * `ab` = α_b = the alpha-roughness in the bitangent direction.
+//
+// This is from the `KHR_materials_anisotropy` spec:
+// <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_anisotropy/README.md#individual-lights>
+fn D_GGX_anisotropic(at: f32, ab: f32, NdotH: f32, TdotH: f32, BdotH: f32) -> f32 {
+    let a2 = at * ab;
+    let f = vec3(ab * TdotH, at * BdotH, a2 * NdotH);
+    let w2 = a2 / dot(f, f);
+    let d = a2 * w2 * w2 * (1.0 / PI);
+    return d;
+}
+
 // Visibility function (Specular G)
 // V(v,l,a) = G(v,l,α) / { 4 (n⋅v) (n⋅l) }
 // such that f_r becomes
@@ -146,6 +182,23 @@ fn V_SmithGGXCorrelated(roughness: f32, NdotV: f32, NdotL: f32) -> f32 {
     let lambdaL = NdotV * sqrt((NdotL - a2 * NdotL) * NdotL + a2);
     let v = 0.5 / (lambdaV + lambdaL);
     return v;
+}
+
+// The visibility function, anisotropic variant.
+fn V_GGX_anisotropic(
+    at: f32,
+    ab: f32,
+    NdotL: f32,
+    NdotV: f32,
+    BdotV: f32,
+    TdotV: f32,
+    TdotL: f32,
+    BdotL: f32,
+) -> f32 {
+    let GGX_V = NdotL * length(vec3(at * TdotV, ab * BdotV, NdotV));
+    let GGX_L = NdotV * length(vec3(at * TdotL, ab * BdotL, NdotL));
+    let v = 0.5 / (GGX_V + GGX_L);
+    return saturate(v);
 }
 
 // A simpler, but nonphysical, alternative to Smith-GGX. We use this for
@@ -174,6 +227,27 @@ fn fresnel(f0: vec3<f32>, LdotH: f32) -> vec3<f32> {
     // see https://google.github.io/filament/Filament.html#lighting/occlusion
     let f90 = saturate(dot(f0, vec3<f32>(50.0 * 0.33)));
     return F_Schlick_vec(f0, f90, LdotH);
+}
+
+// Given distribution, visibility, and Fresnel term, calculates the final
+// specular light.
+//
+// Multiscattering approximation:
+// <https://google.github.io/filament/Filament.html#listing_energycompensationimpl>
+fn specular_multiscatter(
+    input: ptr<function, LightingInput>,
+    D: f32,
+    V: f32,
+    F: vec3<f32>,
+    specular_intensity: f32,
+) -> vec3<f32> {
+    // Unpack.
+    let F0 = (*input).F0_;
+    let F_ab = (*input).F_ab;
+
+    var Fr = (specular_intensity * D * V) * F;
+    Fr *= 1.0 + F0 * (1.0 / F_ab.x - 1.0);
+    return Fr;
 }
 
 // Specular BRDF
@@ -226,7 +300,6 @@ fn specular(
     let roughness = (*input).layers[LAYER_BASE].roughness;
     let NdotV = (*input).layers[LAYER_BASE].NdotV;
     let F0 = (*input).F0_;
-    let F_ab = (*input).F_ab;
     let H = (*derived_input).H;
     let NdotL = (*derived_input).NdotL;
     let NdotH = (*derived_input).NdotH;
@@ -240,10 +313,7 @@ fn specular(
     let F = fresnel(F0, LdotH);
 
     // Calculate the specular light.
-    // Multiscattering approximation:
-    // <https://google.github.io/filament/Filament.html#listing_energycompensationimpl>
-    var Fr = (specular_intensity * D * V) * F;
-    Fr *= 1.0 + F0 * (1.0 / F_ab.x - 1.0);
+    let Fr = specular_multiscatter(input, D, V, F, specular_intensity);
     return Fr;
 }
 
@@ -275,6 +345,48 @@ fn specular_clearcoat(
     return vec2(Fc, Frc);
 }
 
+#ifdef STANDARD_MATERIAL_ANISOTROPY
+
+fn specular_anisotropy(
+    input: ptr<function, LightingInput>,
+    derived_input: ptr<function, DerivedLightingInput>,
+    L: vec3<f32>,
+    specular_intensity: f32,
+) -> vec3<f32> {
+    // Unpack.
+    let roughness = (*input).layers[LAYER_BASE].roughness;
+    let NdotV = (*input).layers[LAYER_BASE].NdotV;
+    let V = (*input).V;
+    let F0 = (*input).F0_;
+    let anisotropy = (*input).anisotropy;
+    let Ta = (*input).Ta;
+    let Ba = (*input).Ba;
+    let H = (*derived_input).H;
+    let NdotL = (*derived_input).NdotL;
+    let NdotH = (*derived_input).NdotH;
+    let LdotH = (*derived_input).LdotH;
+
+    let TdotL = dot(Ta, L);
+    let BdotL = dot(Ba, L);
+    let TdotH = dot(Ta, H);
+    let BdotH = dot(Ba, H);
+    let TdotV = dot(Ta, V);
+    let BdotV = dot(Ba, V);
+
+    let ab = roughness * roughness;
+    let at = mix(ab, 1.0, anisotropy * anisotropy);
+
+    let Da = D_GGX_anisotropic(at, ab, NdotH, TdotH, BdotH);
+    let Va = V_GGX_anisotropic(at, ab, NdotL, NdotV, BdotV, TdotV, TdotL, BdotL);
+    let Fa = fresnel(F0, LdotH);
+
+    // Calculate the specular light.
+    let Fr = specular_multiscatter(input, Da, Va, Fa, specular_intensity);
+    return Fr;
+}
+
+#endif  // STANDARD_MATERIAL_ANISOTROPY
+
 // Diffuse BRDF
 // https://google.github.io/filament/Filament.html#materialsystem/diffusebrdf
 // fd(v,l) = σ/π * 1 / { |n⋅v||n⋅l| } ∫Ω D(m,α) G(v,l,m) (v⋅m) (l⋅m) dm
@@ -305,12 +417,6 @@ fn Fd_Burley(
     return lightScatter * viewScatter * (1.0 / PI);
 }
 
-// Remapping [0,1] reflectance to F0
-// See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
-fn F0(reflectance: f32, metallic: f32, color: vec3<f32>) -> vec3<f32> {
-    return 0.16 * reflectance * reflectance * (1.0 - metallic) + color * metallic;
-}
-
 // Scale/bias approximation
 // https://www.unrealengine.com/en-US/blog/physically-based-shading-on-mobile
 // TODO: Use a LUT (more accurate)
@@ -334,15 +440,20 @@ fn perceptualRoughnessToRoughness(perceptualRoughness: f32) -> f32 {
     return clampedPerceptualRoughness * clampedPerceptualRoughness;
 }
 
-fn point_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> {
+fn point_light(
+    light_id: u32,
+    input: ptr<function, LightingInput>,
+    enable_diffuse: bool
+) -> vec3<f32> {
     // Unpack.
     let diffuse_color = (*input).diffuse_color;
     let P = (*input).P;
     let N = (*input).layers[LAYER_BASE].N;
     let V = (*input).V;
 
-    let light = &view_bindings::point_lights.data[light_id];
+    let light = &view_bindings::clusterable_objects.data[light_id];
     let light_to_frag = (*light).position_radius.xyz - P;
+    let L = normalize(light_to_frag);
     let distance_square = dot(light_to_frag, light_to_frag);
     let rangeAttenuation = getDistanceAttenuation(distance_square, (*light).color_inverse_square_range.w);
 
@@ -358,7 +469,12 @@ fn point_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> 
     var specular_derived_input = derive_lighting_input(N, V, specular_L_intensity.xyz);
 
     let specular_intensity = specular_L_intensity.w;
+
+#ifdef STANDARD_MATERIAL_ANISOTROPY
+    let specular_light = specular_anisotropy(input, &specular_derived_input, L, specular_intensity);
+#else   // STANDARD_MATERIAL_ANISOTROPY
     let specular_light = specular(input, &specular_derived_input, specular_intensity);
+#endif  // STANDARD_MATERIAL_ANISOTROPY
 
     // Clearcoat
 
@@ -394,9 +510,11 @@ fn point_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> 
 
     // Diffuse.
     // Comes after specular since its N⋅L is used in the lighting equation.
-    let L = normalize(light_to_frag);
     var derived_input = derive_lighting_input(N, V, L);
-    let diffuse = diffuse_color * Fd_Burley(input, &derived_input);
+    var diffuse = vec3(0.0);
+    if (enable_diffuse) {
+        diffuse = diffuse_color * Fd_Burley(input, &derived_input);
+    }
 
     // See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminanceEquation
     // Lout = f(v,l) Φ / { 4 π d^2 }⟨n⋅l⟩
@@ -425,11 +543,15 @@ fn point_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> 
         (rangeAttenuation * derived_input.NdotL);
 }
 
-fn spot_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> {
+fn spot_light(
+    light_id: u32,
+    input: ptr<function, LightingInput>,
+    enable_diffuse: bool
+) -> vec3<f32> {
     // reuse the point light calculations
-    let point_light = point_light(light_id, input);
+    let point_light = point_light(light_id, input, enable_diffuse);
 
-    let light = &view_bindings::point_lights.data[light_id];
+    let light = &view_bindings::clusterable_objects.data[light_id];
 
     // reconstruct spot dir from x/z and y-direction flag
     var spot_dir = vec3<f32>((*light).light_custom_data.x, 0.0, (*light).light_custom_data.y);
@@ -449,7 +571,11 @@ fn spot_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> {
     return point_light * spot_attenuation;
 }
 
-fn directional_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> {
+fn directional_light(
+    light_id: u32,
+    input: ptr<function, LightingInput>,
+    enable_diffuse: bool
+) -> vec3<f32> {
     // Unpack.
     let diffuse_color = (*input).diffuse_color;
     let NdotV = (*input).layers[LAYER_BASE].NdotV;
@@ -459,12 +585,19 @@ fn directional_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3
 
     let light = &view_bindings::lights.directional_lights[light_id];
 
-    let incident_light = (*light).direction_to_light.xyz;
-    var derived_input = derive_lighting_input(N, V, incident_light);
+    let L = (*light).direction_to_light.xyz;
+    var derived_input = derive_lighting_input(N, V, L);
 
-    let diffuse = diffuse_color * Fd_Burley(input, &derived_input);
+    var diffuse = vec3(0.0);
+    if (enable_diffuse) {
+        diffuse = diffuse_color * Fd_Burley(input, &derived_input);
+    }
 
+#ifdef STANDARD_MATERIAL_ANISOTROPY
+    let specular_light = specular_anisotropy(input, &derived_input, L, 1.0);
+#else   // STANDARD_MATERIAL_ANISOTROPY
     let specular_light = specular(input, &derived_input, 1.0);
+#endif  // STANDARD_MATERIAL_ANISOTROPY
 
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     let clearcoat_N = (*input).layers[LAYER_CLEARCOAT].N;
@@ -473,7 +606,7 @@ fn directional_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3
     // Perform specular input calculations again for the clearcoat layer. We
     // can't reuse the above because the clearcoat normal might be different
     // from the main layer normal.
-    var derived_clearcoat_input = derive_lighting_input(clearcoat_N, V, incident_light);
+    var derived_clearcoat_input = derive_lighting_input(clearcoat_N, V, L);
 
     let Fc_Frc =
         specular_clearcoat(input, &derived_clearcoat_input, clearcoat_strength, 1.0);

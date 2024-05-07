@@ -1,10 +1,11 @@
-use crate::derive_data::StructField;
-use crate::field_attributes::{DefaultBehavior, ReflectIgnoreBehavior};
-use bevy_macro_utils::fq_std::{FQBox, FQDefault};
+use crate::{
+    derive_data::StructField,
+    field_attributes::{DefaultBehavior, ReflectIgnoreBehavior},
+};
+use bevy_macro_utils::fq_std::FQDefault;
 use quote::quote;
 use std::collections::HashMap;
-use syn::spanned::Spanned;
-use syn::Path;
+use syn::{spanned::Spanned, Path};
 
 type ReflectionIndex = usize;
 
@@ -19,8 +20,11 @@ impl SerializationDataDef {
     ///
     /// Returns `Ok(Some(data))` if there are any fields needing to be skipped during serialization.
     /// Otherwise, returns `Ok(None)`.
-    pub fn new(fields: &[StructField<'_>]) -> Result<Option<Self>, syn::Error> {
-        let mut skipped = HashMap::default();
+    pub fn new(
+        fields: &[StructField<'_>],
+        bevy_reflect_path: &Path,
+    ) -> Result<Option<Self>, syn::Error> {
+        let mut skipped = <HashMap<_, _>>::default();
 
         for field in fields {
             match field.attrs.ignore {
@@ -32,7 +36,7 @@ impl SerializationDataDef {
                                 "internal error: field is missing a reflection index",
                             )
                         })?,
-                        SkippedFieldDef::new(field)?,
+                        SkippedFieldDef::new(field, bevy_reflect_path)?,
                     );
                 }
                 _ => continue,
@@ -74,15 +78,15 @@ pub(crate) struct SkippedFieldDef {
 }
 
 impl SkippedFieldDef {
-    pub fn new(field: &StructField<'_>) -> Result<Self, syn::Error> {
+    pub fn new(field: &StructField<'_>, bevy_reflect_path: &Path) -> Result<Self, syn::Error> {
         let ty = &field.data.ty;
 
         let default_fn = match &field.attrs.default {
             DefaultBehavior::Func(func) => quote! {
-              || { #FQBox::new(#func()) }
+              || { #bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#func()) }
             },
             _ => quote! {
-              || { #FQBox::new(<#ty as #FQDefault>::default()) }
+              || { #bevy_reflect_path::__macro_exports::alloc_utils::Box::new(<#ty as #FQDefault>::default()) }
             },
         };
 

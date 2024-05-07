@@ -6,15 +6,14 @@
 //! [`MeshInputUniform`]s instead and use the GPU to calculate the remaining
 //! derived fields in [`MeshUniform`].
 
-use std::num::NonZeroU64;
+use core::num::NonZero;
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
-use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{Has, QueryState},
+    query::{Has, QueryState, Without},
     schedule::{common_conditions::resource_exists, IntoSystemConfigs as _},
     system::{lifetimeless::Read, Commands, Res, ResMut, Resource},
     world::{FromWorld, World},
@@ -24,7 +23,8 @@ use bevy_render::{
         BatchedInstanceBuffers, GpuPreprocessingSupport, IndirectParameters,
         IndirectParametersBuffer, PreprocessWorkItem,
     },
-    render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
+    graph::CameraDriverLabel,
+    render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext},
     render_resource::{
         binding_types::{storage_buffer, storage_buffer_read_only, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayout, BindingResource, BufferBinding,
@@ -33,7 +33,7 @@ use bevy_render::{
         SpecializedComputePipeline, SpecializedComputePipelines,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
-    view::{GpuCulling, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{NoIndirectDrawing, ViewUniform, ViewUniformOffset, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
 use bevy_utils::tracing::warn;
@@ -65,12 +65,15 @@ pub struct GpuMeshPreprocessPlugin {
 
 /// The render node for the mesh uniform building pass.
 pub struct GpuPreprocessNode {
-    view_query: QueryState<(
-        Entity,
-        Read<PreprocessBindGroup>,
-        Read<ViewUniformOffset>,
-        Has<GpuCulling>,
-    )>,
+    view_query: QueryState<
+        (
+            Entity,
+            Read<PreprocessBindGroup>,
+            Read<ViewUniformOffset>,
+            Has<NoIndirectDrawing>,
+        ),
+        Without<SkipGpuPreprocess>,
+    >,
 }
 
 /// The compute shader pipelines for the mesh uniform building pass.
@@ -90,7 +93,7 @@ pub struct PreprocessPipeline {
     pub bind_group_layout: BindGroupLayout,
     /// The pipeline ID for the compute shader.
     ///
-    /// This gets filled in in `prepare_preprocess_pipelines`.
+    /// This gets filled in `prepare_preprocess_pipelines`.
     pub pipeline_id: Option<CachedComputePipelineId>,
 }
 
@@ -108,8 +111,13 @@ bitflags! {
 /// The compute shader bind group for the mesh uniform building pass.
 ///
 /// This goes on the view.
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct PreprocessBindGroup(BindGroup);
+
+/// Stops the `GpuPreprocessNode` attempting to generate the buffer for this view
+/// useful to avoid duplicating effort if the bind group is shared between views
+#[derive(Component)]
+pub struct SkipGpuPreprocess;
 
 impl Plugin for GpuMeshPreprocessPlugin {
     fn build(&self, app: &mut App) {
@@ -129,17 +137,17 @@ impl Plugin for GpuMeshPreprocessPlugin {
         // This plugin does nothing if GPU instance buffer building isn't in
         // use.
         let gpu_preprocessing_support = render_app.world().resource::<GpuPreprocessingSupport>();
-        if !self.use_gpu_instance_buffer_builder
-            || *gpu_preprocessing_support == GpuPreprocessingSupport::None
-        {
+        if !self.use_gpu_instance_buffer_builder || !gpu_preprocessing_support.is_available() {
             return;
         }
 
         // Stitch the node in.
+        let gpu_preprocess_node = GpuPreprocessNode::from_world(render_app.world_mut());
+        let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
+        render_graph.add_node(NodePbr::GpuPreprocess, gpu_preprocess_node);
+        render_graph.add_node_edge(NodePbr::GpuPreprocess, CameraDriverLabel);
+
         render_app
-            .add_render_graph_node::<GpuPreprocessNode>(Core3d, NodePbr::GpuPreprocess)
-            .add_render_graph_edges(Core3d, (NodePbr::GpuPreprocess, Node3d::Prepass))
-            .add_render_graph_edges(Core3d, (NodePbr::GpuPreprocess, NodePbr::ShadowPass))
             .init_resource::<PreprocessPipelines>()
             .init_resource::<SpecializedComputePipelines<PreprocessPipeline>>()
             .add_systems(
@@ -194,18 +202,18 @@ impl Node for GpuPreprocessNode {
                 });
 
         // Run the compute passes.
-        for (view, bind_group, view_uniform_offset, gpu_culling) in
+        for (view, bind_group, view_uniform_offset, no_indirect_drawing) in
             self.view_query.iter_manual(world)
         {
             // Grab the index buffer for this view.
             let Some(index_buffer) = index_buffers.get(&view) else {
                 warn!("The preprocessing index buffer wasn't present");
-                return Ok(());
+                continue;
             };
 
             // Select the right pipeline, depending on whether GPU culling is in
             // use.
-            let maybe_pipeline_id = if gpu_culling {
+            let maybe_pipeline_id = if !no_indirect_drawing {
                 preprocess_pipelines.gpu_culling.pipeline_id
             } else {
                 preprocess_pipelines.direct.pipeline_id
@@ -227,7 +235,7 @@ impl Node for GpuPreprocessNode {
             compute_pass.set_pipeline(preprocess_pipeline);
 
             let mut dynamic_offsets: SmallVec<[u32; 1]> = smallvec![];
-            if gpu_culling {
+            if !no_indirect_drawing {
                 dynamic_offsets.push(view_uniform_offset.offset);
             }
             compute_pass.set_bind_group(0, &bind_group.0, &dynamic_offsets);
@@ -280,6 +288,7 @@ impl SpecializedComputePipeline for PreprocessPipeline {
             shader: MESH_PREPROCESS_SHADER_HANDLE,
             shader_defs,
             entry_point: "main".into(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -294,11 +303,11 @@ impl FromWorld for PreprocessPipelines {
         let gpu_culling_bind_group_layout_entries = preprocess_direct_bind_group_layout_entries()
             .extend_sequential((
                 // `indirect_parameters`
-                storage_buffer::<IndirectParameters>(/*has_dynamic_offset=*/ false),
+                storage_buffer::<IndirectParameters>(/* has_dynamic_offset= */ false),
                 // `mesh_culling_data`
-                storage_buffer_read_only::<MeshCullingData>(/*has_dynamic_offset=*/ false),
+                storage_buffer_read_only::<MeshCullingData>(/* has_dynamic_offset= */ false),
                 // `view`
-                uniform_buffer::<ViewUniform>(/*has_dynamic_offset=*/ true),
+                uniform_buffer::<ViewUniform>(/* has_dynamic_offset= */ true),
             ));
 
         let direct_bind_group_layout = render_device.create_bind_group_layout(
@@ -393,8 +402,8 @@ pub fn prepare_preprocess_bind_groups(
     } = batched_instance_buffers.into_inner();
 
     let (Some(current_input_buffer), Some(previous_input_buffer), Some(data_buffer)) = (
-        current_input_buffer_vec.buffer(),
-        previous_input_buffer_vec.buffer(),
+        current_input_buffer_vec.buffer().buffer(),
+        previous_input_buffer_vec.buffer().buffer(),
         data_buffer_vec.buffer(),
     ) else {
         return;
@@ -408,12 +417,12 @@ pub fn prepare_preprocess_bind_groups(
         // Don't use `as_entire_binding()` here; the shader reads the array
         // length and the underlying buffer may be longer than the actual size
         // of the vector.
-        let index_buffer_size = NonZeroU64::try_from(
+        let index_buffer_size = NonZero::<u64>::try_from(
             index_buffer_vec.buffer.len() as u64 * u64::from(PreprocessWorkItem::min_size()),
         )
         .ok();
 
-        let bind_group = if index_buffer_vec.gpu_culling {
+        let bind_group = if !index_buffer_vec.no_indirect_drawing {
             let (
                 Some(indirect_parameters_buffer),
                 Some(mesh_culling_data_buffer),
@@ -472,5 +481,4 @@ pub fn write_mesh_culling_data_buffer(
     mut mesh_culling_data_buffer: ResMut<MeshCullingDataBuffer>,
 ) {
     mesh_culling_data_buffer.write_buffer(&render_device, &render_queue);
-    mesh_culling_data_buffer.clear();
 }

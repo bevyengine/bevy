@@ -134,7 +134,7 @@ pub fn once_after_delay(duration: Duration) -> impl FnMut(Res<Time>) -> bool + C
 /// }
 /// ```
 pub fn once_after_real_delay(duration: Duration) -> impl FnMut(Res<Time<Real>>) -> bool + Clone {
-    let mut timer = Timer::new(duration, crate::TimerMode::Once);
+    let mut timer = Timer::new(duration, TimerMode::Once);
     move |time: Res<Time<Real>>| {
         timer.tick(time.delta());
         timer.just_finished()

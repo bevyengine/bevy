@@ -1,4 +1,4 @@
-error[E0277]: the trait bound `NoReflect: Reflect` is not satisfied
+error[E0277]: `NoReflect` can not be reflected
    --> tests/reflect_derive/generics_fail.rs:18:21
     |
 18  |     foo.get_field::<NoReflect>("a").unwrap();
@@ -6,6 +6,7 @@ error[E0277]: the trait bound `NoReflect: Reflect` is not satisfied
     |         |
     |         required by a bound introduced by this call
     |
+    = note: Try using `#[derive(Reflect)]`
     = help: the following other types implement trait `Reflect`:
               bool
               char
@@ -17,17 +18,19 @@ error[E0277]: the trait bound `NoReflect: Reflect` is not satisfied
               i128
             and 74 others
 note: required by a bound in `bevy_reflect::GetField::get_field`
-   --> $BEVY_ROOT/crates/bevy_reflect/src/struct_trait.rs:242:21
+   --> $BEVY_ROOT/crates/bevy_reflect/src/struct_trait.rs:244:21
     |
-242 |     fn get_field<T: Reflect>(&self, name: &str) -> Option<&T>;
+244 |     fn get_field<T: Reflect>(&self, name: &str) -> Option<&T>;
     |                     ^^^^^^^ required by this bound in `GetField::get_field`
 
-error[E0277]: the trait bound `NoReflect: GetTypeRegistration` is not satisfied
+error[E0277]: `NoReflect` does not provide type registration information
   --> tests/reflect_derive/generics_fail.rs:14:36
    |
 14 |     let mut foo: Box<dyn Struct> = Box::new(Foo::<NoReflect> { a: NoReflect(42.0) });
-   |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `GetTypeRegistration` is not implemented for `NoReflect`, which is required by `Foo<NoReflect>: bevy_reflect::Struct`
+   |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Invalid Type
    |
+   = help: the trait `GetTypeRegistration` is not implemented for `NoReflect`, which is required by `Foo<NoReflect>: bevy_reflect::Struct`
+   = note: Try using `#[derive(Reflect)]`
    = help: the following other types implement trait `GetTypeRegistration`:
              bool
              char

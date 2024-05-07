@@ -1,3 +1,4 @@
+#![expect(deprecated)]
 use bevy_ecs::prelude::Bundle;
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
@@ -16,6 +17,12 @@ use crate::view::{InheritedVisibility, ViewVisibility, Visibility};
 ///
 /// [`Component`]: bevy_ecs::component::Component
 #[derive(Bundle, Clone, Debug, Default)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `Transform` and `Visibility` components instead.
+        Inserting `Transform` will now also insert a `GlobalTransform` automatically.
+        Inserting 'Visibility' will now also insert `InheritedVisibility` and `ViewVisibility` automatically."
+)]
 pub struct SpatialBundle {
     /// The visibility of the entity.
     pub visibility: Visibility,
@@ -41,7 +48,7 @@ impl SpatialBundle {
         }
     }
 
-    /// A visible [`SpatialBundle`], with no translation, rotation, and a scale of 1 on all axes.
+    /// A [`SpatialBundle`] with inherited visibility and identity transform.
     pub const INHERITED_IDENTITY: Self = SpatialBundle {
         visibility: Visibility::Inherited,
         inherited_visibility: InheritedVisibility::HIDDEN,
@@ -50,7 +57,7 @@ impl SpatialBundle {
         global_transform: GlobalTransform::IDENTITY,
     };
 
-    /// An invisible [`SpatialBundle`], with no translation, rotation, and a scale of 1 on all axes.
+    /// An invisible [`SpatialBundle`] with identity transform.
     pub const HIDDEN_IDENTITY: Self = SpatialBundle {
         visibility: Visibility::Hidden,
         ..Self::INHERITED_IDENTITY

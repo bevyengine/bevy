@@ -1,9 +1,7 @@
-use std::time::Duration;
+use core::time::Duration;
 
-use bevy_reflect::{DynamicStruct, GetField, Reflect, Struct};
-use criterion::{
-    black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, Throughput,
-};
+use bevy_reflect::{DynamicStruct, GetField, PartialReflect, Reflect, Struct};
+use criterion::{black_box, criterion_group, BatchSize, BenchmarkId, Criterion, Throughput};
 
 criterion_group!(
     benches,
@@ -16,7 +14,6 @@ criterion_group!(
     dynamic_struct_get_field,
     dynamic_struct_insert,
 );
-criterion_main!(benches);
 
 const WARM_UP_TIME: Duration = Duration::from_millis(500);
 const MEASUREMENT_TIME: Duration = Duration::from_secs(4);
@@ -62,7 +59,7 @@ fn concrete_struct_apply(criterion: &mut Criterion) {
 
     // Use functions that produce trait objects of varying concrete types as the
     // input to the benchmark.
-    let inputs: &[fn() -> (Box<dyn Struct>, Box<dyn Reflect>)] = &[
+    let inputs: &[fn() -> (Box<dyn Struct>, Box<dyn PartialReflect>)] = &[
         || (Box::new(Struct16::default()), Box::new(Struct16::default())),
         || (Box::new(Struct32::default()), Box::new(Struct32::default())),
         || (Box::new(Struct64::default()), Box::new(Struct64::default())),
@@ -240,7 +237,7 @@ fn dynamic_struct_apply(criterion: &mut Criterion) {
     group.warm_up_time(WARM_UP_TIME);
     group.measurement_time(MEASUREMENT_TIME);
 
-    let patches: &[(fn() -> Box<dyn Reflect>, usize)] = &[
+    let patches: &[(fn() -> Box<dyn PartialReflect>, usize)] = &[
         (|| Box::new(Struct16::default()), 16),
         (|| Box::new(Struct32::default()), 32),
         (|| Box::new(Struct64::default()), 64),
@@ -316,7 +313,7 @@ fn dynamic_struct_insert(criterion: &mut Criterion) {
                 bencher.iter_batched(
                     || s.clone_dynamic(),
                     |mut s| {
-                        black_box(s.insert(black_box(&field), ()));
+                        s.insert(black_box(&field), ());
                     },
                     BatchSize::SmallInput,
                 );

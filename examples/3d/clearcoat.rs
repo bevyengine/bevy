@@ -22,10 +22,9 @@ use std::f32::consts::PI;
 use bevy::{
     color::palettes::css::{BLUE, GOLD, WHITE},
     core_pipeline::{tonemapping::Tonemapping::AcesFitted, Skybox},
+    image::ImageLoaderSettings,
     math::vec3,
-    pbr::{CascadeShadowConfig, Cascades, CascadesVisibleEntities},
     prelude::*,
-    render::{primitives::CascadesFrusta, texture::ImageLoaderSettings},
 };
 
 /// The size of each sphere.
@@ -74,7 +73,7 @@ fn setup(
 
     spawn_light(&mut commands);
     spawn_camera(&mut commands, &asset_server);
-    spawn_text(&mut commands, &asset_server, &light_mode);
+    spawn_text(&mut commands, &light_mode);
 }
 
 /// Generates a sphere.
@@ -97,9 +96,9 @@ fn spawn_car_paint_sphere(
     sphere: &Handle<Mesh>,
 ) {
     commands
-        .spawn(PbrBundle {
-            mesh: sphere.clone(),
-            material: materials.add(StandardMaterial {
+        .spawn((
+            Mesh3d(sphere.clone()),
+            MeshMaterial3d(materials.add(StandardMaterial {
                 clearcoat: 1.0,
                 clearcoat_perceptual_roughness: 0.1,
                 normal_map_texture: Some(asset_server.load_with_settings(
@@ -110,10 +109,9 @@ fn spawn_car_paint_sphere(
                 perceptual_roughness: 0.5,
                 base_color: BLUE.into(),
                 ..default()
-            }),
-            transform: Transform::from_xyz(-1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
-            ..default()
-        })
+            })),
+            Transform::from_xyz(-1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
+        ))
         .insert(ExampleSphere);
 }
 
@@ -124,9 +122,9 @@ fn spawn_coated_glass_bubble_sphere(
     sphere: &Handle<Mesh>,
 ) {
     commands
-        .spawn(PbrBundle {
-            mesh: sphere.clone(),
-            material: materials.add(StandardMaterial {
+        .spawn((
+            Mesh3d(sphere.clone()),
+            MeshMaterial3d(materials.add(StandardMaterial {
                 clearcoat: 1.0,
                 clearcoat_perceptual_roughness: 0.1,
                 metallic: 0.5,
@@ -134,10 +132,9 @@ fn spawn_coated_glass_bubble_sphere(
                 base_color: Color::srgba(0.9, 0.9, 0.9, 0.3),
                 alpha_mode: AlphaMode::Blend,
                 ..default()
-            }),
-            transform: Transform::from_xyz(-1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
-            ..default()
-        })
+            })),
+            Transform::from_xyz(-1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
+        ))
         .insert(ExampleSphere);
 }
 
@@ -147,13 +144,13 @@ fn spawn_coated_glass_bubble_sphere(
 /// This object is in glTF format, using the `KHR_materials_clearcoat`
 /// extension.
 fn spawn_golf_ball(commands: &mut Commands, asset_server: &AssetServer) {
-    commands
-        .spawn(SceneBundle {
-            scene: asset_server.load("models/GolfBall/GolfBall.glb#Scene0"),
-            transform: Transform::from_xyz(1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
-            ..default()
-        })
-        .insert(ExampleSphere);
+    commands.spawn((
+        SceneRoot(
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/GolfBall/GolfBall.glb")),
+        ),
+        Transform::from_xyz(1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
+        ExampleSphere,
+    ));
 }
 
 /// Spawns an object with only a clearcoat normal map (a scratch pattern) and no
@@ -165,9 +162,9 @@ fn spawn_scratched_gold_ball(
     sphere: &Handle<Mesh>,
 ) {
     commands
-        .spawn(PbrBundle {
-            mesh: sphere.clone(),
-            material: materials.add(StandardMaterial {
+        .spawn((
+            Mesh3d(sphere.clone()),
+            MeshMaterial3d(materials.add(StandardMaterial {
                 clearcoat: 1.0,
                 clearcoat_perceptual_roughness: 0.3,
                 clearcoat_normal_texture: Some(asset_server.load_with_settings(
@@ -178,73 +175,57 @@ fn spawn_scratched_gold_ball(
                 perceptual_roughness: 0.1,
                 base_color: GOLD.into(),
                 ..default()
-            }),
-            transform: Transform::from_xyz(1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
-            ..default()
-        })
+            })),
+            Transform::from_xyz(1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
+        ))
         .insert(ExampleSphere);
 }
 
 /// Spawns a light.
 fn spawn_light(commands: &mut Commands) {
-    // Add the cascades objects used by the `DirectionalLightBundle`, since the
-    // user can toggle between a point light and a directional light.
-    commands
-        .spawn(PointLightBundle {
-            point_light: PointLight {
-                color: WHITE.into(),
-                intensity: 100000.0,
-                ..default()
-            },
-            ..default()
-        })
-        .insert(CascadesFrusta::default())
-        .insert(Cascades::default())
-        .insert(CascadeShadowConfig::default())
-        .insert(CascadesVisibleEntities::default());
+    commands.spawn(create_point_light());
 }
 
 /// Spawns a camera with associated skybox and environment map.
 fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
     commands
-        .spawn(Camera3dBundle {
-            camera: Camera {
+        .spawn((
+            Camera3d::default(),
+            Camera {
                 hdr: true,
                 ..default()
             },
-            projection: Projection::Perspective(PerspectiveProjection {
+            Projection::Perspective(PerspectiveProjection {
                 fov: 27.0 / 180.0 * PI,
                 ..default()
             }),
-            transform: Transform::from_xyz(0.0, 0.0, 10.0),
-            tonemapping: AcesFitted,
-            ..default()
-        })
+            Transform::from_xyz(0.0, 0.0, 10.0),
+            AcesFitted,
+        ))
         .insert(Skybox {
             brightness: 5000.0,
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            ..default()
         })
         .insert(EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2000.0,
+            ..default()
         });
 }
 
 /// Spawns the help text.
-fn spawn_text(commands: &mut Commands, asset_server: &AssetServer, light_mode: &LightMode) {
-    commands.spawn(
-        TextBundle {
-            text: light_mode.create_help_text(asset_server),
-            ..TextBundle::default()
-        }
-        .with_style(Style {
+fn spawn_text(commands: &mut Commands, light_mode: &LightMode) {
+    commands.spawn((
+        light_mode.create_help_text(),
+        Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(10.0),
-            left: Val::Px(10.0),
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 /// Moves the light around.
@@ -252,12 +233,12 @@ fn animate_light(
     mut lights: Query<&mut Transform, Or<(With<PointLight>, With<DirectionalLight>)>>,
     time: Res<Time>,
 ) {
-    let now = time.elapsed_seconds();
+    let now = time.elapsed_secs();
     for mut transform in lights.iter_mut() {
         transform.translation = vec3(
-            f32::sin(now * 1.4),
-            f32::cos(now * 1.0),
-            f32::cos(now * 0.6),
+            ops::sin(now * 1.4),
+            ops::cos(now * 1.0),
+            ops::cos(now * 0.6),
         ) * vec3(3.0, 4.0, 3.0);
         transform.look_at(Vec3::ZERO, Vec3::Y);
     }
@@ -265,7 +246,7 @@ fn animate_light(
 
 /// Rotates the spheres.
 fn animate_spheres(mut spheres: Query<&mut Transform, With<ExampleSphere>>, time: Res<Time>) {
-    let now = time.elapsed_seconds();
+    let now = time.elapsed_secs();
     for mut transform in spheres.iter_mut() {
         transform.rotation = Quat::from_rotation_y(SPHERE_ROTATION_SPEED * now);
     }
@@ -304,13 +285,9 @@ fn handle_input(
 }
 
 /// Updates the help text at the bottom of the screen.
-fn update_help_text(
-    mut text_query: Query<&mut Text>,
-    light_mode: Res<LightMode>,
-    asset_server: Res<AssetServer>,
-) {
+fn update_help_text(mut text_query: Query<&mut Text>, light_mode: Res<LightMode>) {
     for mut text in text_query.iter_mut() {
-        *text = light_mode.create_help_text(&asset_server);
+        *text = light_mode.create_help_text();
     }
 }
 
@@ -334,19 +311,12 @@ fn create_directional_light() -> DirectionalLight {
 
 impl LightMode {
     /// Creates the help text at the bottom of the screen.
-    fn create_help_text(&self, asset_server: &AssetServer) -> Text {
+    fn create_help_text(&self) -> Text {
         let help_text = match *self {
             LightMode::Point => "Press Space to switch to a directional light",
             LightMode::Directional => "Press Space to switch to a point light",
         };
 
-        Text::from_section(
-            help_text,
-            TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 24.0,
-                ..default()
-            },
-        )
+        Text::new(help_text)
     }
 }

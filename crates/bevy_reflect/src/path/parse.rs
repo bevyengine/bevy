@@ -1,9 +1,8 @@
-use std::{
+use core::{
     fmt::{self, Write},
     num::ParseIntError,
     str::from_utf8_unchecked,
 };
-
 use thiserror::Error;
 
 use super::{Access, ReflectPathError};

@@ -1,25 +1,53 @@
-use crate::{Flag, Prepare, PreparedCommand};
+use crate::json::JsonCommandOutput;
 use argh::FromArgs;
-use xshell::cmd;
+
+use super::{run_cargo_command, run_cargo_command_with_json, RustChannel};
 
 /// Runs all tests (except for doc tests).
 #[derive(FromArgs, Default)]
 #[argh(subcommand, name = "test")]
-pub struct TestCommand {}
+pub struct TestCommand {
+    #[argh(switch)]
+    /// emit errors as json
+    emit_json: bool,
+}
 
-impl Prepare for TestCommand {
-    fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {
-        let no_fail_fast = flags
-            .contains(Flag::KEEP_GOING)
-            .then_some("--no-fail-fast")
-            .unwrap_or_default();
+impl TestCommand {
+    const FLAGS: &'static [&'static str] = &["--workspace", "--lib", "--bins", "--tests"];
+    const ENV_VARS: &'static [(&'static str, &'static str)] = &[];
 
-        vec![PreparedCommand::new::<Self>(
-            cmd!(
-                sh,
-                "cargo test --workspace --lib --bins --tests --benches {no_fail_fast}"
-            ),
-            "Please fix failing tests in output above.",
-        )]
+    /// Runs this command.
+    ///
+    /// For use in aliases.
+    pub fn run_with_intermediate(no_fail_fast: bool) -> Result<(), ()> {
+        let mut flags = Self::FLAGS.to_vec();
+        if no_fail_fast {
+            flags.push("--no-fail-fast");
+        }
+
+        run_cargo_command("test", RustChannel::Stable, &flags, Self::ENV_VARS)
+    }
+
+    /// Runs this command with json output.
+    ///
+    /// For use in aliases.
+    pub fn run_with_intermediate_json(no_fail_fast: bool) -> Result<JsonCommandOutput, ()> {
+        let mut flags = Self::FLAGS.to_vec();
+        if no_fail_fast {
+            flags.push("--no-fail-fast");
+        }
+
+        run_cargo_command_with_json("test", "test", RustChannel::Stable, &flags, Self::ENV_VARS)
+    }
+
+    /// Runs this command.
+    pub fn run(self, no_fail_fast: bool) -> Result<(), ()> {
+        if self.emit_json {
+            Self::run_with_intermediate_json(no_fail_fast).map(|json| {
+                println!("[{}]", json.as_json_string());
+            })
+        } else {
+            Self::run_with_intermediate(no_fail_fast)
+        }
     }
 }

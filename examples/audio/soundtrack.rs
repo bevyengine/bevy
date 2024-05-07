@@ -72,33 +72,29 @@ fn change_track(
             commands.entity(track).insert(FadeOut);
         }
 
-        // Spawn a new `AudioBundle` with the appropriate soundtrack based on
+        // Spawn a new `AudioPlayer` with the appropriate soundtrack based on
         // the game state.
         //
         // Volume is set to start at zero and is then increased by the fade_in system.
         match game_state.as_ref() {
             GameState::Peaceful => {
                 commands.spawn((
-                    AudioBundle {
-                        source: soundtrack_player.track_list.first().unwrap().clone(),
-                        settings: PlaybackSettings {
-                            mode: bevy::audio::PlaybackMode::Loop,
-                            volume: bevy::audio::Volume::ZERO,
-                            ..default()
-                        },
+                    AudioPlayer(soundtrack_player.track_list.first().unwrap().clone()),
+                    PlaybackSettings {
+                        mode: bevy::audio::PlaybackMode::Loop,
+                        volume: bevy::audio::Volume::ZERO,
+                        ..default()
                     },
                     FadeIn,
                 ));
             }
             GameState::Battle => {
                 commands.spawn((
-                    AudioBundle {
-                        source: soundtrack_player.track_list.get(1).unwrap().clone(),
-                        settings: PlaybackSettings {
-                            mode: bevy::audio::PlaybackMode::Loop,
-                            volume: bevy::audio::Volume::ZERO,
-                            ..default()
-                        },
+                    AudioPlayer(soundtrack_player.track_list.get(1).unwrap().clone()),
+                    PlaybackSettings {
+                        mode: bevy::audio::PlaybackMode::Loop,
+                        volume: bevy::audio::Volume::ZERO,
+                        ..default()
                     },
                     FadeIn,
                 ));
@@ -117,8 +113,9 @@ fn fade_in(
     mut audio_sink: Query<(&mut AudioSink, Entity), With<FadeIn>>,
     time: Res<Time>,
 ) {
-    for (audio, entity) in audio_sink.iter_mut() {
-        audio.set_volume(audio.volume() + time.delta_seconds() / FADE_TIME);
+    for (mut audio, entity) in audio_sink.iter_mut() {
+        let current_volume = audio.volume();
+        audio.set_volume(current_volume + time.delta_secs() / FADE_TIME);
         if audio.volume() >= 1.0 {
             audio.set_volume(1.0);
             commands.entity(entity).remove::<FadeIn>();
@@ -133,8 +130,9 @@ fn fade_out(
     mut audio_sink: Query<(&mut AudioSink, Entity), With<FadeOut>>,
     time: Res<Time>,
 ) {
-    for (audio, entity) in audio_sink.iter_mut() {
-        audio.set_volume(audio.volume() - time.delta_seconds() / FADE_TIME);
+    for (mut audio, entity) in audio_sink.iter_mut() {
+        let current_volume = audio.volume();
+        audio.set_volume(current_volume - time.delta_secs() / FADE_TIME);
         if audio.volume() <= 0.0 {
             commands.entity(entity).despawn_recursive();
         }

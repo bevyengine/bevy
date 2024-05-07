@@ -1,12 +1,17 @@
+#![allow(clippy::result_unit_err)]
+
 //! CI script used for Bevy.
 
 mod ci;
 mod commands;
-mod prepare;
+mod json;
 
 pub use self::ci::*;
-pub use self::prepare::*;
+use std::process::ExitCode;
 
-fn main() {
-    argh::from_env::<CI>().run();
+fn main() -> ExitCode {
+    match argh::from_env::<CI>().run() {
+        Ok(_) => ExitCode::SUCCESS,
+        Err(_) => ExitCode::FAILURE,
+    }
 }

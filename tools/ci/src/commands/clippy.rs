@@ -1,20 +1,55 @@
-use crate::{Flag, Prepare, PreparedCommand};
+use crate::json::JsonCommandOutput;
 use argh::FromArgs;
-use xshell::cmd;
+
+use super::{run_cargo_command, run_cargo_command_with_json, RustChannel};
 
 /// Check for clippy warnings and errors.
 #[derive(FromArgs, Default)]
 #[argh(subcommand, name = "clippy")]
-pub struct ClippyCommand {}
+pub struct ClippyCommand {
+    #[argh(switch)]
+    /// emit errors as json
+    emit_json: bool,
+}
 
-impl Prepare for ClippyCommand {
-    fn prepare<'a>(&self, sh: &'a xshell::Shell, _flags: Flag) -> Vec<PreparedCommand<'a>> {
-        vec![PreparedCommand::new::<Self>(
-            cmd!(
-                sh,
-                "cargo clippy --workspace --all-targets --all-features -- -Dwarnings"
-            ),
-            "Please fix clippy errors in output above.",
-        )]
+impl ClippyCommand {
+    const FLAGS: &'static [&'static str] = &[
+        "--workspace",
+        "--all-targets",
+        "--all-features",
+        "--",
+        "-Dwarnings",
+    ];
+    const ENV_VARS: &'static [(&'static str, &'static str)] = &[];
+
+    /// Runs this command.
+    ///
+    /// For use in aliases.
+    pub fn run_with_intermediate() -> Result<(), ()> {
+        run_cargo_command("clippy", RustChannel::Stable, Self::FLAGS, Self::ENV_VARS)
+    }
+
+    /// Runs this command with json output.
+    ///
+    /// For use in aliases.
+    pub fn run_with_intermediate_json() -> Result<JsonCommandOutput, ()> {
+        run_cargo_command_with_json(
+            "clippy",
+            "clippy",
+            RustChannel::Stable,
+            Self::FLAGS,
+            Self::ENV_VARS,
+        )
+    }
+
+    /// Runs this command.
+    pub fn run(self) -> Result<(), ()> {
+        if self.emit_json {
+            Self::run_with_intermediate_json().map(|json| {
+                println!("[{}]", json.as_json_string());
+            })
+        } else {
+            Self::run_with_intermediate()
+        }
     }
 }

@@ -1,8 +1,12 @@
 use glam::{Affine3A, Mat3, Vec3, Vec3Swizzles, Vec4};
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
+
 /// Reduced-size version of `glam::Affine3A` for use when storage has
 /// significant performance impact. Convert to `glam::Affine3A` to do
 /// non-trivial calculations.
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct Affine3 {
     /// Scaling, rotation, shears, and other non-translation affine transforms
     pub matrix3: Mat3,

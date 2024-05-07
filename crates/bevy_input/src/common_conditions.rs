@@ -1,6 +1,6 @@
 use crate::ButtonInput;
 use bevy_ecs::system::Res;
-use std::hash::Hash;
+use core::hash::Hash;
 
 /// Stateful run condition that can be toggled via a input press using [`ButtonInput::just_pressed`].
 ///
@@ -47,7 +47,6 @@ use std::hash::Hash;
 /// fn pause_menu() {
 ///     println!("in pause menu");
 /// }
-///
 /// ```
 pub fn input_toggle_active<T>(
     default: bool,

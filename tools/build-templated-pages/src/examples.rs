@@ -1,9 +1,10 @@
-use std::{cmp::Ordering, fs::File};
+use core::cmp::Ordering;
+use std::fs::File;
 
 use hashbrown::HashMap;
 use serde::Serialize;
 use tera::{Context, Tera};
-use toml_edit::DocumentMut;
+use toml_edit::{DocumentMut, Item};
 
 use crate::Command;
 
@@ -65,7 +66,7 @@ fn parse_examples(panic_on_missing: bool) -> Vec<Example> {
             if metadatas
                 .get(&technical_name)
                 .and_then(|metadata| metadata.get("hidden"))
-                .and_then(|hidden| hidden.as_bool())
+                .and_then(Item::as_bool)
                 .and_then(|hidden| hidden.then_some(()))
                 .is_some()
             {

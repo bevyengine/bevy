@@ -1,9 +1,9 @@
-use std::hash::{Hash, Hasher};
-use std::{borrow::Cow, collections::VecDeque};
+use alloc::{borrow::Cow, collections::VecDeque};
+use core::hash::{Hash, Hasher};
 
 use bevy_app::{App, SubApp};
 use bevy_ecs::system::{Deferred, Res, Resource, SystemBuffer, SystemParam};
-use bevy_utils::{hashbrown::HashMap, Duration, Instant, PassHash};
+use bevy_utils::{Duration, HashMap, Instant, PassHash};
 use const_fnv1a_hash::fnv1a_hash_str_64;
 
 use crate::DEFAULT_MAX_HISTORY_LENGTH;
@@ -100,8 +100,8 @@ impl Hash for DiagnosticPath {
     }
 }
 
-impl std::fmt::Display for DiagnosticPath {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for DiagnosticPath {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.path.fmt(f)
     }
 }
