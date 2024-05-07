@@ -5,6 +5,7 @@ use crate::{
     UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::world::World;
+use bevy_log::error;
 use bevy_tasks::{IoTaskPool, Task};
 use bevy_utils::{tracing::warn, ConditionalSendFuture};
 use bevy_utils::{Entry, HashMap, HashSet, TypeIdMap};
@@ -192,10 +193,18 @@ impl AssetInfos {
             let task = IoTaskPool::get().spawn(load_fn(handle.clone()));
 
             #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
-            self.pending_load_tasks.insert(handle.id().untyped(), task);
+            {
+                error!("tracking load task");
+                self.pending_load_tasks.insert(handle.id().untyped(), task);
+            }
 
             #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-            task.detach();
+            {
+                error!("not tracking load task");
+                task.detach();
+            }
+        } else {
+            error!("should_load: false");
         }
 
         handle
