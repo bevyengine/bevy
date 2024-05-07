@@ -931,9 +931,13 @@ impl Measured3d for Tetrahedron {
     }
 }
 
-/// A shape representiing an extruded `base_shape`.
+/// A 3D shape representing an extruded 2D `base_shape`.
+///
+/// Extruding a shape effectively "thickens" a 2D shapes,
+/// creating a shape with the same cross-section over the entire depth.
 ///
 /// The resulting volumes are prisms.
+/// For example, a triangle becomes a triangular prism, while a circle becomes a cylinder.
 #[doc(alias = "Prism")]
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
