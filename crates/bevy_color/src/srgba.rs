@@ -3,7 +3,7 @@ use crate::{
     impl_componentwise_vector_space, Alpha, ClampColor, LinearRgba, Luminance, Mix, StandardColor,
     Xyza,
 };
-use bevy_math::Vec4;
+use bevy_math::{Vec4, Vec3};
 use bevy_reflect::prelude::*;
 use thiserror::Error;
 
@@ -238,35 +238,6 @@ impl Srgba {
             (1.055 * value.powf(1.0 / 2.4)) - 0.055 // gamma curve in other area
         }
     }
-
-    /// Converts the color into a [f32; 4] array in RGBA order.
-    ///
-    /// This is useful for passing the color to a shader.
-    pub fn to_f32_array(&self) -> [f32; 4] {
-        [self.red, self.green, self.blue, self.alpha]
-    }
-}
-
-impl From<[f32; 4]> for Srgba {
-    fn from(value: [f32; 4]) -> Self {
-        Self {
-            red: value[0],
-            green: value[1],
-            blue: value[2],
-            alpha: value[3],
-        }
-    }
-}
-
-impl From<[f32; 3]> for Srgba {
-    fn from(value: [f32; 3]) -> Self {
-        Self {
-            red: value[0],
-            green: value[1],
-            blue: value[2],
-            alpha: 1.0,
-        }
-    }
 }
 
 impl Default for Srgba {
@@ -385,15 +356,71 @@ impl From<Srgba> for LinearRgba {
     }
 }
 
+impl From<[f32; 4]> for Srgba {
+    fn from(color: [f32; 4]) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: color[3],
+        }
+    }
+}
+
 impl From<Srgba> for [f32; 4] {
     fn from(color: Srgba) -> Self {
         [color.red, color.green, color.blue, color.alpha]
     }
 }
 
+impl From<[f32; 3]> for Srgba {
+    fn from(color: [f32; 3]) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: 1.0,
+        }
+    }
+}
+
+impl From<Srgba> for [f32; 3] {
+    fn from(color: Srgba) -> Self {
+        [color.red, color.green, color.blue]
+    }
+}
+
+impl From<Vec4> for Srgba {
+    fn from(color: Vec4) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: color[3],
+        }
+    }
+}
+
 impl From<Srgba> for Vec4 {
     fn from(color: Srgba) -> Self {
         Vec4::new(color.red, color.green, color.blue, color.alpha)
+    }
+}
+
+impl From<Vec3> for Srgba {
+    fn from(color: Vec3) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: 1.0,
+        }
+    }
+}
+
+impl From<Srgba> for Vec3 {
+    fn from(color: Srgba) -> Self {
+        Vec3::new(color.red, color.green, color.blue)
     }
 }
 

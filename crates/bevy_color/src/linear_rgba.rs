@@ -2,7 +2,7 @@ use crate::{
     color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ClampColor,
     Luminance, Mix, StandardColor,
 };
-use bevy_math::Vec4;
+use bevy_math::{Vec4, Vec3};
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
 
@@ -182,28 +182,6 @@ impl LinearRgba {
     }
 }
 
-impl From<[f32; 4]> for LinearRgba {
-    fn from(value: [f32; 4]) -> Self {
-        Self {
-            red: value[0],
-            green: value[1],
-            blue: value[2],
-            alpha: value[3],
-        }
-    }
-}
-
-impl From<[f32; 3]> for LinearRgba {
-    fn from(value: [f32; 3]) -> Self {
-        Self {
-            red: value[0],
-            green: value[1],
-            blue: value[2],
-            alpha: 1.0,
-        }
-    }
-}
-
 impl Default for LinearRgba {
     /// Construct a new [`LinearRgba`] color with the default values (white with full alpha).
     fn default() -> Self {
@@ -303,15 +281,71 @@ impl ClampColor for LinearRgba {
     }
 }
 
+impl From<[f32; 4]> for LinearRgba {
+    fn from(color: [f32; 4]) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: color[3],
+        }
+    }
+}
+
 impl From<LinearRgba> for [f32; 4] {
     fn from(color: LinearRgba) -> Self {
         [color.red, color.green, color.blue, color.alpha]
     }
 }
 
+impl From<[f32; 3]> for LinearRgba {
+    fn from(color: [f32; 3]) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: 1.0,
+        }
+    }
+}
+
+impl From<LinearRgba> for [f32; 3] {
+    fn from(color: LinearRgba) -> Self {
+        [color.red, color.green, color.blue]
+    }
+}
+
+impl From<Vec4> for LinearRgba {
+    fn from(color: Vec4) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: color[3],
+        }
+    }
+}
+
 impl From<LinearRgba> for Vec4 {
     fn from(color: LinearRgba) -> Self {
         Vec4::new(color.red, color.green, color.blue, color.alpha)
+    }
+}
+
+impl From<Vec3> for LinearRgba {
+    fn from(color: Vec3) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: 1.0,
+        }
+    }
+}
+
+impl From<LinearRgba> for Vec3 {
+    fn from(color: LinearRgba) -> Self {
+        Vec3::new(color.red, color.green, color.blue)
     }
 }
 

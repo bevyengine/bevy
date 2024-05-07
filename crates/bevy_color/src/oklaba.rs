@@ -3,6 +3,7 @@ use crate::{
     Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::prelude::*;
+use bevy_math::{Vec4, Vec3};
 
 /// Color in Oklab color space, with alpha
 #[doc = include_str!("../docs/conversion.md")]
@@ -78,35 +79,6 @@ impl Oklaba {
     /// Return a copy of this color with the 'b' channel set to the given value.
     pub const fn with_b(self, b: f32) -> Self {
         Self { b, ..self }
-    }
-
-    /// Converts the color into a [f32; 4] array in LABA order.
-    ///
-    /// This is useful for passing the color to a shader.
-    pub fn to_f32_array(&self) -> [f32; 4] {
-        [self.lightness, self.a, self.b, self.alpha]
-    }
-}
-
-impl From<[f32; 4]> for Oklaba {
-    fn from(value: [f32; 4]) -> Self {
-        Self {
-            lightness: value[0],
-            a: value[1],
-            b: value[2],
-            alpha: value[3],
-        }
-    }
-}
-
-impl From<[f32; 3]> for Oklaba {
-    fn from(value: [f32; 3]) -> Self {
-        Self {
-            lightness: value[0],
-            a: value[1],
-            b: value[2],
-            alpha: 1.0,
-        }
     }
 }
 
@@ -201,6 +173,75 @@ impl ClampColor for Oklaba {
             && (0. ..=1.).contains(&self.alpha)
     }
 }
+
+impl From<[f32; 4]> for Oklaba {
+    fn from(color: [f32; 4]) -> Self {
+        Self {
+            lightness: color[0],
+            a: color[1],
+            b: color[2],
+            alpha: color[3],
+        }
+    }
+}
+
+impl From<Oklaba> for [f32; 4] {
+    fn from(color: Oklaba) -> Self {
+        [color.lightness, color.a, color.b, color.alpha]
+    }
+}
+
+impl From<[f32; 3]> for Oklaba {
+    fn from(color: [f32; 3]) -> Self {
+        Self {
+            lightness: color[0],
+            a: color[1],
+            b: color[2],
+            alpha: 1.0,
+        }
+    }
+}
+
+impl From<Oklaba> for [f32; 3] {
+    fn from(color: Oklaba) -> Self {
+        [color.lightness, color.a, color.b]
+    }
+}
+
+impl From<Vec4> for Oklaba {
+    fn from(color: Vec4) -> Self {
+        Self {
+            lightness: color[0],
+            a: color[1],
+            b: color[2],
+            alpha: color[3],
+        }
+    }
+}
+
+impl From<Oklaba> for Vec4 {
+    fn from(color: Oklaba) -> Self {
+        Vec4::new(color.lightness, color.a, color.b, color.alpha)
+    }
+}
+
+impl From<Vec3> for Oklaba {
+    fn from(color: Vec3) -> Self {
+        Self {
+            lightness: color[0],
+            a: color[1],
+            b: color[2],
+            alpha: 1.0,
+        }
+    }
+}
+
+impl From<Oklaba> for Vec3 {
+    fn from(color: Oklaba) -> Self {
+        Vec3::new(color.lightness, color.a, color.b)
+    }
+}
+
 
 #[allow(clippy::excessive_precision)]
 impl From<LinearRgba> for Oklaba {

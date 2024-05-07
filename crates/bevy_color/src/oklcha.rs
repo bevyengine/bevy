@@ -3,6 +3,7 @@ use crate::{
     LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::prelude::*;
+use bevy_math::{Vec4, Vec3};
 
 /// Color in Oklch color space, with alpha
 #[doc = include_str!("../docs/conversion.md")]
@@ -97,35 +98,6 @@ impl Oklcha {
         let hue = index.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO) as f32 * RATIO_360;
         Self::lch(0.75, 0.1, hue)
     }
-
-    /// Converts the color into a [f32; 4] array in LCHA order.
-    ///
-    /// This is useful for passing the color to a shader.
-    pub fn to_f32_array(&self) -> [f32; 4] {
-        [self.lightness, self.chroma, self.hue, self.alpha]
-    }
-}
-
-impl From<[f32; 4]> for Oklcha {
-    fn from(value: [f32; 4]) -> Self {
-        Self {
-            lightness: value[0],
-            chroma: value[1],
-            hue: value[2],
-            alpha: value[3],
-        }
-    }
-}
-
-impl From<[f32; 3]> for Oklcha {
-    fn from(value: [f32; 3]) -> Self {
-        Self {
-            lightness: value[0],
-            chroma: value[1],
-            hue: value[2],
-            alpha: 1.0,
-        }
-    }
 }
 
 impl Default for Oklcha {
@@ -216,6 +188,74 @@ impl EuclideanDistance for Oklcha {
         (self.lightness - other.lightness).powi(2)
             + (self.chroma - other.chroma).powi(2)
             + (self.hue - other.hue).powi(2)
+    }
+}
+
+impl From<[f32; 4]> for Oklcha {
+    fn from(color: [f32; 4]) -> Self {
+        Self {
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: color[3],
+        }
+    }
+}
+
+impl From<Oklcha> for [f32; 4] {
+    fn from(color: Oklcha) -> Self {
+        [color.lightness, color.chroma, color.hue, color.alpha]
+    }
+}
+
+impl From<[f32; 3]> for Oklcha {
+    fn from(color: [f32; 3]) -> Self {
+        Self {
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: 1.0,
+        }
+    }
+}
+
+impl From<Oklcha> for [f32; 3] {
+    fn from(color: Oklcha) -> Self {
+        [color.lightness, color.chroma, color.hue]
+    }
+}
+
+impl From<Vec4> for Oklcha {
+    fn from(color: Vec4) -> Self {
+        Self {
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: color[3],
+        }
+    }
+}
+
+impl From<Oklcha> for Vec4 {
+    fn from(color: Oklcha) -> Self {
+        Vec4::new(color.lightness, color.chroma, color.hue, color.alpha)
+    }
+}
+
+impl From<Vec3> for Oklcha {
+    fn from(color: Vec3) -> Self {
+        Self {
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: 1.0,
+        }
+    }
+}
+
+impl From<Oklcha> for Vec3 {
+    fn from(color: Oklcha) -> Self {
+        Vec3::new(color.lightness, color.chroma, color.hue)
     }
 }
 

@@ -3,6 +3,7 @@ use crate::{
     Xyza,
 };
 use bevy_reflect::prelude::*;
+use bevy_math::{Vec4, Vec3};
 
 /// Color in Hue-Saturation-Lightness (HSL) color space with alpha.
 /// Further information on this color model can be found on [Wikipedia](https://en.wikipedia.org/wiki/HSL_and_HSV).
@@ -96,35 +97,6 @@ impl Hsla {
         // so that the closer the numbers are, the larger the difference of their image.
         let hue = index.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO) as f32 * RATIO_360;
         Self::hsl(hue, 1., 0.5)
-    }
-
-    /// Converts the color into a [f32; 4] array in HSLA order.
-    ///
-    /// This is useful for passing the color to a shader.
-    pub fn to_f32_array(&self) -> [f32; 4] {
-        [self.hue, self.saturation, self.lightness, self.alpha]
-    }
-}
-
-impl From<[f32; 4]> for Hsla {
-    fn from(value: [f32; 4]) -> Self {
-        Self {
-            hue: value[0],
-            saturation: value[1],
-            lightness: value[2],
-            alpha: value[3],
-        }
-    }
-}
-
-impl From<[f32; 3]> for Hsla {
-    fn from(value: [f32; 3]) -> Self {
-        Self {
-            hue: value[0],
-            saturation: value[1],
-            lightness: value[2],
-            alpha: 1.0,
-        }
     }
 }
 
@@ -223,6 +195,75 @@ impl ClampColor for Hsla {
             && (0. ..=1.).contains(&self.alpha)
     }
 }
+
+impl From<[f32; 4]> for Hsla {
+    fn from(color: [f32; 4]) -> Self {
+        Self {
+            hue: color[0],
+            saturation: color[1],
+            lightness: color[2],
+            alpha: color[3],
+        }
+    }
+}
+
+impl From<Hsla> for [f32; 4] {
+    fn from(color: Hsla) -> Self {
+        [color.hue, color.saturation, color.lightness, color.alpha]
+    }
+}
+
+impl From<[f32; 3]> for Hsla {
+    fn from(color: [f32; 3]) -> Self {
+        Self {
+            hue: color[0],
+            saturation: color[1],
+            lightness: color[2],
+            alpha: 1.0,
+        }
+    }
+}
+
+impl From<Hsla> for [f32; 3] {
+    fn from(color: Hsla) -> Self {
+        [color.hue, color.saturation, color.lightness]
+    }
+}
+
+impl From<Vec4> for Hsla {
+    fn from(color: Vec4) -> Self {
+        Self {
+            hue: color[0],
+            saturation: color[1],
+            lightness: color[2],
+            alpha: color[3],
+        }
+    }
+}
+
+impl From<Hsla> for Vec4 {
+    fn from(color: Hsla) -> Self {
+        Vec4::new(color.hue, color.saturation, color.lightness, color.alpha)
+    }
+}
+
+impl From<Vec3> for Hsla {
+    fn from(color: Vec3) -> Self {
+        Self {
+            hue: color[0],
+            saturation: color[1],
+            lightness: color[2],
+            alpha: 1.0,
+        }
+    }
+}
+
+impl From<Hsla> for Vec3 {
+    fn from(color: Hsla) -> Self {
+        Vec3::new(color.hue, color.saturation, color.lightness)
+    }
+}
+
 
 impl From<Hsla> for Hsva {
     fn from(

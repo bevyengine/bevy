@@ -4,6 +4,7 @@
 //! [_HWB - A More Intuitive Hue-Based Color Model_]: https://web.archive.org/web/20240226005220/http://alvyray.com/Papers/CG/HWB_JGTv208.pdf
 use crate::{Alpha, ClampColor, Hue, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza};
 use bevy_reflect::prelude::*;
+use bevy_math::{Vec4, Vec3};
 
 /// Color in Hue-Whiteness-Blackness (HWB) color space with alpha.
 /// Further information on this color model can be found on [Wikipedia](https://en.wikipedia.org/wiki/HWB_color_model).
@@ -68,35 +69,6 @@ impl Hwba {
     /// Return a copy of this color with the blackness channel set to the given value.
     pub const fn with_blackness(self, blackness: f32) -> Self {
         Self { blackness, ..self }
-    }
-
-    /// Converts the color into a [f32; 4] array in HWBA order.
-    ///
-    /// This is useful for passing the color to a shader.
-    pub fn to_f32_array(&self) -> [f32; 4] {
-        [self.hue, self.whiteness, self.blackness, self.alpha]
-    }
-}
-
-impl From<[f32; 4]> for Hwba {
-    fn from(value: [f32; 4]) -> Self {
-        Self {
-            hue: value[0],
-            whiteness: value[1],
-            blackness: value[2],
-            alpha: value[3],
-        }
-    }
-}
-
-impl From<[f32; 3]> for Hwba {
-    fn from(value: [f32; 3]) -> Self {
-        Self {
-            hue: value[0],
-            whiteness: value[1],
-            blackness: value[2],
-            alpha: 1.0,
-        }
     }
 }
 
@@ -170,6 +142,75 @@ impl ClampColor for Hwba {
             && (0. ..=1.).contains(&self.alpha)
     }
 }
+
+impl From<[f32; 4]> for Hwba {
+    fn from(color: [f32; 4]) -> Self {
+        Self {
+            hue: color[0],
+            whiteness: color[1],
+            blackness: color[2],
+            alpha: color[3],
+        }
+    }
+}
+
+impl From<Hwba> for [f32; 4] {
+    fn from(color: Hwba) -> Self {
+        [color.hue, color.whiteness, color.blackness, color.alpha]
+    }
+}
+
+impl From<[f32; 3]> for Hwba {
+    fn from(color: [f32; 3]) -> Self {
+        Self {
+            hue: color[0],
+            whiteness: color[1],
+            blackness: color[2],
+            alpha: 1.0,
+        }
+    }
+}
+
+impl From<Hwba> for [f32; 3] {
+    fn from(color: Hwba) -> Self {
+        [color.hue, color.whiteness, color.blackness]
+    }
+}
+
+impl From<Vec4> for Hwba {
+    fn from(color: Vec4) -> Self {
+        Self {
+            hue: color[0],
+            whiteness: color[1],
+            blackness: color[2],
+            alpha: color[3],
+        }
+    }
+}
+
+impl From<Hwba> for Vec4 {
+    fn from(color: Hwba) -> Self {
+        Vec4::new(color.hue, color.whiteness, color.blackness, color.alpha)
+    }
+}
+
+impl From<Vec3> for Hwba {
+    fn from(color: Vec3) -> Self {
+        Self {
+            hue: color[0],
+            whiteness: color[1],
+            blackness: color[2],
+            alpha: 1.0,
+        }
+    }
+}
+
+impl From<Hwba> for Vec3 {
+    fn from(color: Hwba) -> Self {
+        Vec3::new(color.hue, color.whiteness, color.blackness)
+    }
+}
+
 
 impl From<Srgba> for Hwba {
     fn from(

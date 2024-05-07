@@ -1,5 +1,6 @@
 use crate::{Alpha, ClampColor, Hue, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
 use bevy_reflect::prelude::*;
+use bevy_math::{Vec4, Vec3};
 
 /// Color in LCH color space, with alpha
 #[doc = include_str!("../docs/conversion.md")]
@@ -97,35 +98,6 @@ impl Lcha {
         // so that the closer the numbers are, the larger the difference of their image.
         let hue = index.wrapping_mul(FRAC_U32MAX_GOLDEN_RATIO) as f32 * RATIO_360;
         Self::lch(0.75, 0.35, hue)
-    }
-
-    /// Converts the color into a [f32; 4] array in LCHA order.
-    ///
-    /// This is useful for passing the color to a shader.
-    pub fn to_f32_array(&self) -> [f32; 4] {
-        [self.lightness, self.chroma, self.hue, self.alpha]
-    }
-}
-
-impl From<[f32; 4]> for Lcha {
-    fn from(value: [f32; 4]) -> Self {
-        Self {
-            lightness: value[0],
-            chroma: value[1],
-            hue: value[2],
-            alpha: value[3],
-        }
-    }
-}
-
-impl From<[f32; 3]> for Lcha {
-    fn from(value: [f32; 3]) -> Self {
-        Self {
-            lightness: value[0],
-            chroma: value[1],
-            hue: value[2],
-            alpha: 1.0,
-        }
     }
 }
 
@@ -226,6 +198,74 @@ impl ClampColor for Lcha {
             && (0. ..=1.5).contains(&self.chroma)
             && (0. ..=360.).contains(&self.hue)
             && (0. ..=1.).contains(&self.alpha)
+    }
+}
+
+impl From<[f32; 4]> for Lcha {
+    fn from(color: [f32; 4]) -> Self {
+        Self {
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: color[3],
+        }
+    }
+}
+
+impl From<Lcha> for [f32; 4] {
+    fn from(color: Lcha) -> Self {
+        [color.lightness, color.chroma, color.hue, color.alpha]
+    }
+}
+
+impl From<[f32; 3]> for Lcha {
+    fn from(color: [f32; 3]) -> Self {
+        Self {
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: 1.0,
+        }
+    }
+}
+
+impl From<Lcha> for [f32; 3] {
+    fn from(color: Lcha) -> Self {
+        [color.lightness, color.chroma, color.hue]
+    }
+}
+
+impl From<Vec4> for Lcha {
+    fn from(color: Vec4) -> Self {
+        Self {
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: color[3],
+        }
+    }
+}
+
+impl From<Lcha> for Vec4 {
+    fn from(color: Lcha) -> Self {
+        Vec4::new(color.lightness, color.chroma, color.hue, color.alpha)
+    }
+}
+
+impl From<Vec3> for Lcha {
+    fn from(color: Vec3) -> Self {
+        Self {
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: 1.0,
+        }
+    }
+}
+
+impl From<Lcha> for Vec3 {
+    fn from(color: Lcha) -> Self {
+        Vec3::new(color.lightness, color.chroma, color.hue)
     }
 }
 
