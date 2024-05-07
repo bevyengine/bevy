@@ -8,7 +8,7 @@ mod spawn_batch;
 pub mod unsafe_world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
-pub use crate::world::command_queue::CommandQueue;
+pub use crate::world::command_queue::{CommandQueue, RawCommandQueue};
 pub use deferred_world::DeferredWorld;
 pub use entity_ref::{
     EntityMut, EntityRef, EntityWorldMut, Entry, FilteredEntityMut, FilteredEntityRef,
@@ -112,7 +112,7 @@ pub struct World {
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
-    pub(crate) command_queue: CommandQueue,
+    pub(crate) command_queue: Box<CommandQueue>,
 }
 
 impl Default for World {
@@ -130,7 +130,7 @@ impl Default for World {
             change_tick: AtomicU32::new(1),
             last_change_tick: Tick::new(0),
             last_check_tick: Tick::new(0),
-            command_queue: CommandQueue::default(),
+            command_queue: Box::new(CommandQueue::default()),
         }
     }
 }
@@ -1873,7 +1873,11 @@ impl World {
     pub fn flush_commands(&mut self) {
         if !self.command_queue.is_empty() {
             // SAFETY: A reference is always a valid pointer
-            unsafe { CommandQueue::apply_or_drop_queued(&mut self.command_queue, Some(self)) };
+            unsafe {
+                self.command_queue
+                    .get_raw()
+                    .apply_or_drop_queued(Some(self))
+            };
         }
     }
 
