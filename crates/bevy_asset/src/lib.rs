@@ -452,7 +452,7 @@ mod tests {
         event::ManualEventReader,
         schedule::{LogLevel, ScheduleBuildSettings},
     };
-    use bevy_log::LogPlugin;
+    use bevy_log::{error, LogPlugin};
     use bevy_reflect::TypePath;
     use bevy_utils::{Duration, HashMap, Instant};
     use futures_lite::AsyncReadExt;
@@ -1402,6 +1402,8 @@ mod tests {
             mut tracker: ResMut<ErrorTracker>,
         ) {
             for event in events.read() {
+                error!("[load_error_events] event: {event:?}");
+
                 if let AssetEvent::LoadedWithDependencies { id } = event {
                     tracker.finished_asset = Some(*id);
                 }
@@ -1422,10 +1424,18 @@ mod tests {
                 .queued_retries
                 .retain(|(path, old_id, retry_after)| {
                     if now > *retry_after {
+                        error!(
+                            "[load_error_events ~ {now}] retrying {old_id:?} after {}",
+                            *retry_after
+                        );
                         let new_handle = server.load::<CoolText>(path);
                         assert_eq!(&new_handle.id(), old_id);
                         false
                     } else {
+                        error!(
+                            "[load_error_events ~ {now}] not retrying {old_id:?} after {}",
+                            *retry_after
+                        );
                         true
                     }
                 });
@@ -1438,6 +1448,10 @@ mod tests {
                 match &error.error {
                     AssetLoadError::AssetReaderError(read_error) => match read_error {
                         AssetReaderError::Io(_) => {
+                            error!(
+                                "[load_error_events] {:?} failed, failures: {} + 1",
+                                error.id, tracker.failures
+                            );
                             tracker.failures += 1;
                             if tracker.failures <= 2 {
                                 // Retry in 10 ticks
@@ -1499,6 +1513,8 @@ mod tests {
         app.world_mut().spawn(a_handle);
 
         run_app_until(&mut app, |world| {
+            error!("[load_error_events] loop");
+
             let tracker = world.resource::<ErrorTracker>();
             match tracker.finished_asset {
                 Some(asset_id) => {
