@@ -18,7 +18,7 @@ bmp = ["image/bmp"]
 webp = ["image/webp"]
 dds = ["ddsfile"]
 pnm = ["image/pnm"]
-multi-threaded = ["bevy_tasks/multi-threaded"]
+multi_threaded = ["bevy_tasks/multi_threaded"]
 
 shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out", "naga_oil/glsl"]
 shader_format_spirv = ["wgpu/spirv", "naga/spv-in", "naga/spv-out"]

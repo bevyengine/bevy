@@ -77,11 +77,11 @@ serialize = [
   "bevy_ui?/serialize",
   "bevy_color?/serialize",
 ]
-multi-threaded = [
-  "bevy_asset?/multi-threaded",
-  "bevy_ecs/multi-threaded",
-  "bevy_render?/multi-threaded",
-  "bevy_tasks/multi-threaded",
+multi_threaded = [
+  "bevy_asset?/multi_threaded",
+  "bevy_ecs/multi_threaded",
+  "bevy_render?/multi_threaded",
+  "bevy_tasks/multi_threaded",
 ]
 async-io = ["bevy_tasks/async-io"]
 
