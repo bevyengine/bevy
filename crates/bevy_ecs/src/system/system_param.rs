@@ -134,18 +134,6 @@ pub unsafe trait SystemParam: Sized {
     /// You could think of `SystemParam::Item<'w, 's>` as being an *operation* that changes the lifetimes bound to `Self`.
     type Item<'world, 'state>: SystemParam<State = Self::State>;
 
-    /// Associated builder type for this parameter if any
-    type Builder<'world>;
-
-    /// Builds this system parameter given a builder function, the default implementation should be overwritten if `Self::Builder` is set
-    fn build(
-        world: &mut World,
-        system_meta: &mut SystemMeta,
-        _build: impl FnMut(&mut Self::Builder<'_>),
-    ) -> Self::State {
-        Self::init_state(world, system_meta)
-    }
-
     /// Registers any [`World`] access used by this [`SystemParam`]
     /// and creates a new instance of this param's [`State`](Self::State).
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
@@ -188,6 +176,19 @@ pub unsafe trait SystemParam: Sized {
     ) -> Self::Item<'world, 'state>;
 }
 
+/// A parameter that can be built with [`SystemBuilder`](crate::system::builder::SystemBuilder)
+pub trait BuildableSystemParam: SystemParam {
+    /// A mutable reference to this type will be passed to the builder function
+    type Builder<'b>;
+
+    /// Constructs [`SystemParam::State`] for `Self` using a given builder function
+    fn build(
+        world: &mut World,
+        meta: &mut SystemMeta,
+        func: impl FnOnce(&mut Self::Builder<'_>),
+    ) -> Self::State;
+}
+
 /// A [`SystemParam`] that only reads a given [`World`].
 ///
 /// # Safety
@@ -208,29 +209,6 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Query<'_, '_, D, F> {
     type State = QueryState<D, F>;
     type Item<'w, 's> = Query<'w, 's, D, F>;
-    type Builder<'w> = QueryBuilder<'w, D, F>;
-
-    fn build(
-        world: &mut World,
-        system_meta: &mut SystemMeta,
-        build: impl FnOnce(&mut Self::Builder<'_>),
-    ) -> Self::State {
-        let mut builder = QueryBuilder::new(world);
-        build(&mut builder);
-        let state = builder.build();
-        assert_component_access_compatibility(
-            &system_meta.name,
-            std::any::type_name::<D>(),
-            std::any::type_name::<F>(),
-            &system_meta.component_access_set,
-            &state.component_access,
-            world,
-        );
-        system_meta
-            .component_access_set
-            .add(state.component_access.clone());
-        state
-    }
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let state = QueryState::new_with_access(world, &mut system_meta.archetype_component_access);
@@ -267,6 +245,35 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         // so the caller ensures that `world` has permission to access any
         // world data that the query needs.
         unsafe { Query::new(world, state, system_meta.last_run, change_tick) }
+    }
+}
+
+impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static> BuildableSystemParam
+    for Query<'w, 's, D, F>
+{
+    type Builder<'b> = QueryBuilder<'b, D, F>;
+
+    #[inline]
+    fn build(
+        world: &mut World,
+        system_meta: &mut SystemMeta,
+        build: impl FnOnce(&mut Self::Builder<'_>),
+    ) -> Self::State {
+        let mut builder = QueryBuilder::new(world);
+        build(&mut builder);
+        let state = builder.build();
+        assert_component_access_compatibility(
+            &system_meta.name,
+            std::any::type_name::<D>(),
+            std::any::type_name::<F>(),
+            &system_meta.component_access_set,
+            &state.component_access,
+            world,
+        );
+        system_meta
+            .component_access_set
+            .add(state.component_access.clone());
+        state
     }
 }
 
@@ -478,7 +485,6 @@ unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
 unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = Res<'w, T>;
-    type Builder<'w> = ();
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let component_id = world.components.init_resource::<T>();
@@ -540,7 +546,6 @@ unsafe impl<'a, T: Resource> ReadOnlySystemParam for Option<Res<'a, T>> {}
 unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
     type State = ComponentId;
     type Item<'w, 's> = Option<Res<'w, T>>;
-    type Builder<'w> = ();
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         Res::<T>::init_state(world, system_meta)
@@ -572,7 +577,6 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
 unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = ResMut<'w, T>;
-    type Builder<'w> = ();
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let component_id = world.components.init_resource::<T>();
@@ -634,7 +638,6 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
 unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
     type State = ComponentId;
     type Item<'w, 's> = Option<ResMut<'w, T>>;
-    type Builder<'w> = ();
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         ResMut::<T>::init_state(world, system_meta)
@@ -668,7 +671,6 @@ unsafe impl<'w> ReadOnlySystemParam for &'w World {}
 unsafe impl SystemParam for &'_ World {
     type State = ();
     type Item<'w, 's> = &'w World;
-    type Builder<'w> = ();
 
     fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let mut access = Access::default();
@@ -802,17 +804,6 @@ where
 unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
     type State = SyncCell<T>;
     type Item<'w, 's> = Local<'s, T>;
-    type Builder<'w> = T;
-
-    fn build(
-        world: &mut World,
-        _system_meta: &mut SystemMeta,
-        build: impl FnOnce(&mut Self::Builder<'_>),
-    ) -> Self::State {
-        let mut value = T::from_world(world);
-        build(&mut value);
-        SyncCell::new(value)
-    }
 
     fn init_state(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
         SyncCell::new(T::from_world(world))
@@ -826,6 +817,20 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         Local(state.get())
+    }
+}
+
+impl<'w, T: FromWorld + Send + 'static> BuildableSystemParam for Local<'w, T> {
+    type Builder<'b> = T;
+
+    fn build(
+        world: &mut World,
+        _meta: &mut SystemMeta,
+        func: impl FnOnce(&mut Self::Builder<'_>),
+    ) -> Self::State {
+        let mut value = T::from_world(world);
+        func(&mut value);
+        SyncCell::new(value)
     }
 }
 
@@ -992,7 +997,6 @@ unsafe impl<T: SystemBuffer> ReadOnlySystemParam for Deferred<'_, T> {}
 unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     type State = SyncCell<T>;
     type Item<'w, 's> = Deferred<'s, T>;
-    type Builder<'w> = ();
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_has_deferred();
@@ -1082,7 +1086,6 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
 unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = NonSend<'w, T>;
-    type Builder<'w> = ();
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
@@ -1144,7 +1147,6 @@ unsafe impl<T: 'static> ReadOnlySystemParam for Option<NonSend<'_, T>> {}
 unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
     type State = ComponentId;
     type Item<'w, 's> = Option<NonSend<'w, T>>;
-    type Builder<'w> = ();
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         NonSend::<T>::init_state(world, system_meta)
@@ -1173,7 +1175,6 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
 unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = NonSendMut<'w, T>;
-    type Builder<'w> = ();
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
@@ -1232,7 +1233,6 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
 unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
     type State = ComponentId;
     type Item<'w, 's> = Option<NonSendMut<'w, T>>;
-    type Builder<'w> = ();
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         NonSendMut::<T>::init_state(world, system_meta)
@@ -1261,7 +1261,6 @@ unsafe impl<'a> ReadOnlySystemParam for &'a Archetypes {}
 unsafe impl<'a> SystemParam for &'a Archetypes {
     type State = ();
     type Item<'w, 's> = &'w Archetypes;
-    type Builder<'w> = ();
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
@@ -1283,7 +1282,6 @@ unsafe impl<'a> ReadOnlySystemParam for &'a Components {}
 unsafe impl<'a> SystemParam for &'a Components {
     type State = ();
     type Item<'w, 's> = &'w Components;
-    type Builder<'w> = ();
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
@@ -1305,7 +1303,6 @@ unsafe impl<'a> ReadOnlySystemParam for &'a Entities {}
 unsafe impl<'a> SystemParam for &'a Entities {
     type State = ();
     type Item<'w, 's> = &'w Entities;
-    type Builder<'w> = ();
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
@@ -1327,7 +1324,6 @@ unsafe impl<'a> ReadOnlySystemParam for &'a Bundles {}
 unsafe impl<'a> SystemParam for &'a Bundles {
     type State = ();
     type Item<'w, 's> = &'w Bundles;
-    type Builder<'w> = ();
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
@@ -1378,7 +1374,6 @@ unsafe impl ReadOnlySystemParam for SystemChangeTick {}
 unsafe impl SystemParam for SystemChangeTick {
     type State = ();
     type Item<'w, 's> = SystemChangeTick;
-    type Builder<'w> = ();
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
@@ -1406,7 +1401,7 @@ macro_rules! impl_system_param_tuple {
         unsafe impl<$($param: SystemParam),*> SystemParam for ($($param,)*) {
             type State = ($($param::State,)*);
             type Item<'w, 's> = ($($param::Item::<'w, 's>,)*);
-            type Builder<'w> = ();
+
 
             #[inline]
             fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
@@ -1555,7 +1550,6 @@ unsafe impl<'w, 's, P: ReadOnlySystemParam + 'static> ReadOnlySystemParam
 unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, P> {
     type State = P::State;
     type Item<'world, 'state> = StaticSystemParam<'world, 'state, P>;
-    type Builder<'w> = ();
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         P::init_state(world, system_meta)
@@ -1589,7 +1583,6 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
 unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
     type State = ();
     type Item<'world, 'state> = Self;
-    type Builder<'w> = ();
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 

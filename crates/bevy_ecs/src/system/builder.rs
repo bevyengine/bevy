@@ -1,59 +1,38 @@
 use std::marker::PhantomData;
 
-use bevy_utils::{all_tuples, index_tuple};
+use bevy_utils::all_tuples;
 
 use crate::{archetype::ArchetypeGeneration, prelude::World};
 
-use super::{FunctionSystem, IntoSystem, SystemMeta, SystemParam, SystemParamFunction};
+use super::{BuildableSystemParam, FunctionSystem, SystemMeta, SystemParam, SystemParamFunction};
 
-pub struct SystemBuilder<'w, Marker, F: SystemParamFunction<Marker>>
-where
-    Self: SystemParamBuilder<F::Param>,
-{
-    func: Option<F>,
-    builders: <Self as SystemParamBuilder<F::Param>>::Builders,
+/// Builder struct used to construct state for [`SystemParam`] passed to a system.
+pub struct SystemBuilder<'w, T: SystemParam = ()> {
+    meta: SystemMeta,
+    state: T::State,
     world: &'w mut World,
 }
 
-impl<'w, Marker: 'static, F: SystemParamFunction<Marker>> SystemBuilder<'w, Marker, F>
-where
-    Self: SystemParamBuilder<F::Param>,
-{
-    pub fn new(world: &'w mut World, func: F) -> Self {
+impl<'w, T: SystemParam> SystemBuilder<'w, T> {
+    /// Construct a new builder with the default state for `T`
+    pub fn new(world: &'w mut World) -> Self {
+        let mut meta = SystemMeta::new::<T>();
         Self {
-            func: Some(func),
-            builders: <Self as SystemParamBuilder<F::Param>>::Builders::default(),
+            state: T::init_state(world, &mut meta),
+            meta,
             world,
         }
     }
 
-    pub fn param<const I: usize>(
-        &mut self,
-        build: impl FnMut(&mut <Self as SystemParamBuilderIndex<F::Param, Self, I>>::Builder<'_>)
-            + 'static,
-    ) -> &mut Self
+    /// Construct the final system with the built params
+    pub fn build<F, Marker>(self, func: F) -> FunctionSystem<Marker, F>
     where
-        Self: SystemParamBuilderIndex<F::Param, Self, I>,
+        F: SystemParamFunction<Marker, Param = T>,
     {
-        <Self as SystemParamBuilderIndex<F::Param, Self, I>>::set_builder(
-            &mut self.builders,
-            build,
-        );
-        self
-    }
-
-    pub fn build(&mut self) -> FunctionSystem<Marker, F> {
-        let mut system_meta = SystemMeta::new::<F>();
-        let param_state = Some(<Self as SystemParamBuilder<F::Param>>::build(
-            self.world,
-            &mut system_meta,
-            &mut self.builders,
-        ));
-        let system = std::mem::take(&mut self.func);
         FunctionSystem {
-            func: system.expect("Tried to build system from a SystemBuilder twice."),
-            param_state,
-            system_meta,
+            func,
+            param_state: Some(self.state),
+            system_meta: self.meta,
             world_id: Some(self.world.id()),
             archetype_generation: ArchetypeGeneration::initial(),
             marker: PhantomData,
@@ -61,82 +40,38 @@ where
     }
 }
 
-#[doc(hidden)]
-pub struct IsBuiltSystem;
+macro_rules! impl_system_builder {
+    ($($curr: ident),*) => {
+        impl<'w, $($curr: SystemParam,)*> SystemBuilder<'w, ($($curr,)*)> {
+            /// Add `T` as a parameter built from the world
+            pub fn param<T: SystemParam>(mut self) -> SystemBuilder<'w, ($($curr,)* T,)> {
+                #[allow(non_snake_case)]
+                let ($($curr,)*) = self.state;
+                SystemBuilder {
+                    state: ($($curr,)* T::init_state(self.world, &mut self.meta),),
+                    meta: self.meta,
+                    world: self.world,
+                }
+            }
 
-impl<'w, Marker: 'static, F: SystemParamFunction<Marker>>
-    IntoSystem<F::In, F::Out, (IsBuiltSystem, Marker)> for SystemBuilder<'w, Marker, F>
-where
-    Self: SystemParamBuilder<F::Param>,
-{
-    type System = FunctionSystem<Marker, F>;
-    fn into_system(mut builder: Self) -> Self::System {
-        builder.build()
-    }
-}
-
-#[doc(hidden)]
-pub trait SystemParamBuilder<P: SystemParam> {
-    type Builders: Default;
-
-    fn build(
-        world: &mut World,
-        system_meta: &mut SystemMeta,
-        builders: &mut Self::Builders,
-    ) -> P::State;
-}
-
-#[doc(hidden)]
-pub trait SystemParamBuilderIndex<P: SystemParam, B: SystemParamBuilder<P>, const I: usize> {
-    type Param: SystemParam;
-    type Builder<'b>;
-
-    fn set_builder(builders: &mut B::Builders, build: impl FnMut(&mut Self::Builder<'_>) + 'static);
-}
-
-macro_rules! expr {
-    ($x:expr) => {
-        $x
-    };
-}
-
-macro_rules! impl_system_param_builder_index {
-    ($idx:tt, $param:ident, $($all:ident),*) => {
-        impl<'w, Marker: 'static, $($all: SystemParam + 'static,)* F: SystemParamFunction<Marker, Param = ($($all,)*)>>
-            SystemParamBuilderIndex<($($all,)*), SystemBuilder<'w, Marker, F>, { $idx }> for SystemBuilder<'w, Marker, F>
-        {
-            type Param = $param;
-            type Builder<'b> = $param::Builder<'b>;
-
-            fn set_builder(builders: &mut <SystemBuilder<'w, Marker, F> as SystemParamBuilder<($($all,)*)>>::Builders, build: impl FnMut(&mut Self::Builder<'_>) + 'static) {
-                expr!(builders.$idx) = Some(Box::new(build));
+            /// Add `T` as a parameter built with the `func`
+            pub fn builder<T: BuildableSystemParam>(
+                mut self,
+                func: impl FnOnce(&mut T::Builder<'_>),
+            ) -> SystemBuilder<'w, ($($curr,)* T,)> {
+                #[allow(non_snake_case)]
+                let ($($curr,)*) = self.state;
+                SystemBuilder {
+                    state: ($($curr,)* T::build(self.world, &mut self.meta, func),),
+                    meta: self.meta,
+                    world: self.world,
+                }
             }
         }
     };
 }
 
-macro_rules! impl_system_param_builder {
-    ($(($param: tt, $builder: ident)),*) => {
-        impl<'w, Marker: 'static, $($param: SystemParam + 'static,)* F: SystemParamFunction<Marker, Param = ($($param,)*)>>
-            SystemParamBuilder<($($param,)*)> for SystemBuilder<'w, Marker, F>
-        {
-            type Builders = ($(Option<Box<dyn FnMut(&mut $param::Builder<'_>)>>,)*);
-
-            #[allow(non_snake_case)]
-            fn build(_world: &mut World, _system_meta: &mut SystemMeta, _builders: &mut Self::Builders) -> <($($param,)*) as SystemParam>::State {
-                let ($($builder,)*) = _builders;
-                ($(
-                    $builder.as_mut().map(|b| $param::build(_world, _system_meta, b))
-                        .unwrap_or_else(|| $param::init_state(_world, _system_meta)),
-                )*)
-            }
-        }
-
-        index_tuple!(impl_system_param_builder_index, $($param),*);
-    }
-}
-
-all_tuples!(impl_system_param_builder, 1, 12, P, B);
+all_tuples!(impl_system_builder, 0, 15, P);
 
 #[cfg(test)]
 mod tests {
@@ -157,13 +92,17 @@ mod tests {
         query.iter().count()
     }
 
+    fn multi_param_system(a: Local<u64>, b: Local<u64>) -> u64 {
+        *a + *b + 1
+    }
+
     #[test]
     fn local_builder() {
         let mut world = World::new();
 
-        let system = SystemBuilder::new(&mut world, local_system)
-            .param::<0>(|local| *local = 10)
-            .build();
+        let system = SystemBuilder::<()>::new(&mut world)
+            .builder::<Local<u64>>(|x| *x = 10)
+            .build(local_system);
 
         let result = world.run_system_once(system);
         assert_eq!(result, 10);
@@ -176,11 +115,27 @@ mod tests {
         world.spawn(A);
         world.spawn_empty();
 
-        let system = SystemBuilder::new(&mut world, query_system)
-            .param::<0>(|query| {
+        let system = SystemBuilder::<()>::new(&mut world)
+            .builder::<Query<()>>(|query| {
                 query.with::<A>();
             })
-            .build();
+            .build(query_system);
+
+        let result = world.run_system_once(system);
+        assert_eq!(result, 1);
+    }
+
+    #[test]
+    fn multi_param_builder() {
+        let mut world = World::new();
+
+        world.spawn(A);
+        world.spawn_empty();
+
+        let system = SystemBuilder::<()>::new(&mut world)
+            .param::<Local<u64>>()
+            .param::<Local<u64>>()
+            .build(multi_param_system);
 
         let result = world.run_system_once(system);
         assert_eq!(result, 1);

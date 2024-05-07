@@ -51,7 +51,6 @@ unsafe impl ReadOnlySystemParam for WorldId {}
 // SAFETY: No world data is accessed.
 unsafe impl SystemParam for WorldId {
     type State = ();
-    type Builder<'w> = ();
 
     type Item<'world, 'state> = WorldId;
 

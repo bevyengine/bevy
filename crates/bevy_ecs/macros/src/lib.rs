@@ -211,7 +211,6 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
             {
                 type State = (#(#param::State,)*);
                 type Item<'w, 's> = ParamSet<'w, 's, (#(#param,)*)>;
-                type Builder<'w> = ();
 
                 // Note: We allow non snake case so the compiler don't complain about the creation of non_snake_case variables
                 #[allow(non_snake_case)]
@@ -420,7 +419,6 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             {
                 type State = #state_struct_name<#punctuated_generic_idents>;
                 type Item<'w, 's> = #struct_name #ty_generics;
-                type Builder<'w> = ();
 
                 fn init_state(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
                     #state_struct_name {

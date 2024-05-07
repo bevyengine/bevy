@@ -3,7 +3,6 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 use proc_macro::TokenStream;
-use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
     parse::{Parse, ParseStream},
@@ -168,47 +167,6 @@ pub fn all_tuples_with_size(input: TokenStream) -> TokenStream {
         let ident_tuples = &ident_tuples[..i];
         quote! {
             #macro_ident!(#i, #(#ident_tuples),*);
-        }
-    });
-    TokenStream::from(quote! {
-        #(
-            #invocations
-        )*
-    })
-}
-
-struct TupleIndex {
-    macro_ident: Ident,
-    idents: Vec<Ident>,
-}
-
-impl Parse for TupleIndex {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let macro_ident = input.parse::<Ident>()?;
-        input.parse::<Comma>()?;
-        let mut idents = vec![input.parse::<Ident>()?];
-        while input.parse::<Comma>().is_ok() {
-            idents.push(input.parse::<Ident>()?);
-        }
-
-        Ok(TupleIndex {
-            macro_ident,
-            idents,
-        })
-    }
-}
-
-#[proc_macro]
-pub fn index_tuple(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as TupleIndex);
-    let macro_ident = &input.macro_ident;
-    let invocations = (0..input.idents.len()).map(|i| {
-        let string = i.to_string();
-        let index = LitInt::new(&string, Span::call_site());
-        let idents = &input.idents[..];
-        let param = &idents[i];
-        quote! {
-            #macro_ident!(#index, #param, #(#idents),*);
         }
     });
     TokenStream::from(quote! {

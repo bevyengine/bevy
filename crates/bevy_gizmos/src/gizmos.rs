@@ -166,7 +166,6 @@ where
 {
     type State = GizmosFetchState<Config, Clear>;
     type Item<'w, 's> = Gizmos<'w, 's, Config, Clear>;
-    type Builder<'w> = ();
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         GizmosFetchState {
