@@ -317,7 +317,7 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
 }
 
 impl MultiThreadedExecutor {
-    /// Creates a new multi-threaded executor for use with a [`Schedule`].
+    /// Creates a new `multi_threaded` executor for use with a [`Schedule`].
     ///
     /// [`Schedule`]: crate::schedule::Schedule
     pub fn new() -> Self {

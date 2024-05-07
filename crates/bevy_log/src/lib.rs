@@ -53,6 +53,15 @@ use tracing_log::LogTracer;
 #[cfg(feature = "tracing-chrome")]
 use tracing_subscriber::fmt::{format::DefaultFields, FormattedFields};
 use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter, Layer};
+#[cfg(feature = "tracing-chrome")]
+use {bevy_ecs::system::Resource, bevy_utils::synccell::SyncCell};
+
+/// Wrapper resource for `tracing-chrome`'s flush guard.
+/// When the guard is dropped the chrome log is written to file.
+#[cfg(feature = "tracing-chrome")]
+#[allow(dead_code)]
+#[derive(Resource)]
+pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 
 /// Adds logging to Apps. This plugin is part of the `DefaultPlugins`. Adding
 /// this plugin will setup a collector appropriate to your target platform:
@@ -186,7 +195,7 @@ impl Plugin for LogPlugin {
                         }
                     }))
                     .build();
-                app.insert_non_send_resource(guard);
+                app.insert_resource(FlushGuard(SyncCell::new(guard)));
                 chrome_layer
             };
 
