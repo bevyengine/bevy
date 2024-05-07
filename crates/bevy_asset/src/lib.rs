@@ -1517,7 +1517,11 @@ mod tests {
         app.world_mut().spawn(a_handle);
 
         run_app_until(&mut app, |world| {
-            error!("[load_error_events] loop");
+            let mut q_h = world.query::<&Handle<CoolText>>();
+            let id = q_h.iter(&world).next().unwrap().id();
+            let asset_server = world.resource::<AssetServer>();
+            let state = asset_server.load_state(id);
+            error!("[load_error_events] loop {id}:{state:?}");
 
             let tracker = world.resource::<ErrorTracker>();
             match tracker.finished_asset {
