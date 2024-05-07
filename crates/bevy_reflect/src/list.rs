@@ -508,6 +508,7 @@ pub fn list_debug(dyn_list: &dyn List, f: &mut Formatter<'_>) -> std::fmt::Resul
 #[cfg(test)]
 mod tests {
     use super::DynamicList;
+    #[cfg(not(debug_assertions))]
     use crate::{Reflect, ReflectRef};
     use std::assert_eq;
 
@@ -524,8 +525,7 @@ mod tests {
         }
     }
 
-    // This test needs to be run in release mode
-    #[ignore]
+    #[cfg(not(debug_assertions))]
     #[test]
     fn list_avoid_wrap_in_release() {
         let b = Box::new(vec![(); usize::MAX]).into_reflect();
