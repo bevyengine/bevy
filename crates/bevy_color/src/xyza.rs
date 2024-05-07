@@ -76,6 +76,24 @@ impl Xyza {
 
     /// [D65 White Point](https://en.wikipedia.org/wiki/Illuminant_D65#Definition)
     pub const D65_WHITE: Self = Self::xyz(0.95047, 1.0, 1.08883);
+
+    /// Converts the color into a [f32; 4] array in XYZA order.
+    ///
+    /// This is useful for passing the color to a shader.
+    pub fn to_f32_array(&self) -> [f32; 4] {
+        [self.x, self.y, self.z, self.alpha]
+    }
+}
+
+impl From<[f32; 4]> for Xyza {
+    fn from(value: [f32; 4]) -> Self {
+        Self {
+            x: value[0],
+            y: value[1],
+            z: value[2],
+            alpha: value[3],
+        }
+    }
 }
 
 impl Default for Xyza {
