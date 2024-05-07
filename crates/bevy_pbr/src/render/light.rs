@@ -910,7 +910,7 @@ pub fn prepare_lights(
             // we don't use the alpha at all, so no reason to multiply only [0..3]
             color: Vec4::from_slice(&light.color.to_f32_array()) * light.illuminance,
             // direction is negated to be ready for N.L
-            dir_to_light: light.transform.back(),
+            dir_to_light: light.transform.back().into(),
             flags: flags.bits(),
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,

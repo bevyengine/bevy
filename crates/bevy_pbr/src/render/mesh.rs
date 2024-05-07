@@ -34,15 +34,13 @@ use bevy_render::{
     texture::{BevyDefault, DefaultImageSampler, ImageSampler, TextureFormatPixelInfo},
     view::{
         prepare_view_targets, GpuCulling, RenderVisibilityRanges, ViewTarget, ViewUniformOffset,
-        ViewVisibility, VisibilityRange, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
+        ViewVisibility, VisibilityRange,
     },
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, tracing::warn, Entry, HashMap, Parallel};
 
-#[cfg(debug_assertions)]
-use bevy_utils::warn_once;
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
 use static_assertions::const_assert_eq;
@@ -235,6 +233,7 @@ impl Plugin for MeshRenderPlugin {
 
             render_app
                 .insert_resource(indirect_parameters_buffer)
+                .init_resource::<MeshPipelineViewLayouts>()
                 .init_resource::<MeshPipeline>();
         }
 
@@ -332,7 +331,7 @@ pub struct MeshCullingData {
 /// To avoid wasting CPU time in the CPU culling case, this buffer will be empty
 /// if GPU culling isn't in use.
 #[derive(Resource, Deref, DerefMut)]
-pub struct MeshCullingDataBuffer(BufferVec<MeshCullingData>);
+pub struct MeshCullingDataBuffer(RawBufferVec<MeshCullingData>);
 
 impl MeshUniform {
     pub fn new(mesh_transforms: &MeshTransforms, maybe_lightmap_uv_rect: Option<Rect>) -> Self {
@@ -686,7 +685,7 @@ impl RenderMeshInstanceGpuBuilder {
         self,
         entity: Entity,
         render_mesh_instances: &mut EntityHashMap<RenderMeshInstanceGpu>,
-        current_input_buffer: &mut BufferVec<MeshInputUniform>,
+        current_input_buffer: &mut RawBufferVec<MeshInputUniform>,
     ) -> usize {
         // Push the mesh input uniform.
         let current_uniform_index = current_input_buffer.push(MeshInputUniform {
@@ -743,7 +742,7 @@ impl MeshCullingData {
 impl Default for MeshCullingDataBuffer {
     #[inline]
     fn default() -> Self {
-        Self(BufferVec::new(BufferUsages::STORAGE))
+        Self(RawBufferVec::new(BufferUsages::STORAGE))
     }
 }
 
@@ -1035,7 +1034,8 @@ fn collect_meshes_for_gpu_building(
 
 #[derive(Resource, Clone)]
 pub struct MeshPipeline {
-    view_layouts: [MeshPipelineViewLayout; MeshPipelineViewLayoutKey::COUNT],
+    /// A reference to all the mesh pipeline view layouts.
+    pub view_layouts: MeshPipelineViewLayouts,
     // This dummy white texture is to be used in place of optional StandardMaterial textures
     pub dummy_white_gpu_image: GpuImage,
     pub clustered_forward_buffer_binding_type: BufferBindingType,
@@ -1066,18 +1066,12 @@ impl FromWorld for MeshPipeline {
             Res<RenderDevice>,
             Res<DefaultImageSampler>,
             Res<RenderQueue>,
+            Res<MeshPipelineViewLayouts>,
         )> = SystemState::new(world);
-        let (render_device, default_sampler, render_queue) = system_state.get_mut(world);
+        let (render_device, default_sampler, render_queue, view_layouts) =
+            system_state.get_mut(world);
         let clustered_forward_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
-        let visibility_ranges_buffer_binding_type = render_device
-            .get_supported_read_only_binding_type(VISIBILITY_RANGES_STORAGE_BUFFER_COUNT);
-
-        let view_layouts = generate_view_layouts(
-            &render_device,
-            clustered_forward_buffer_binding_type,
-            visibility_ranges_buffer_binding_type,
-        );
 
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
         let dummy_white_gpu_image = {
@@ -1114,7 +1108,7 @@ impl FromWorld for MeshPipeline {
         };
 
         MeshPipeline {
-            view_layouts,
+            view_layouts: view_layouts.clone(),
             clustered_forward_buffer_binding_type,
             dummy_white_gpu_image,
             mesh_layouts: MeshLayouts::new(&render_device),
@@ -1142,16 +1136,7 @@ impl MeshPipeline {
     }
 
     pub fn get_view_layout(&self, layout_key: MeshPipelineViewLayoutKey) -> &BindGroupLayout {
-        let index = layout_key.bits() as usize;
-        let layout = &self.view_layouts[index];
-
-        #[cfg(debug_assertions)]
-        if layout.texture_count > MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES {
-            // Issue our own warning here because Naga's error message is a bit cryptic in this situation
-            warn_once!("Too many textures in mesh pipeline view layout, this might cause us to hit `wgpu::Limits::max_sampled_textures_per_shader_stage` in some environments.");
-        }
-
-        &layout.bind_group_layout
+        self.view_layouts.get_view_layout(layout_key)
     }
 }
 
@@ -1571,6 +1556,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if cfg!(feature = "pbr_transmission_textures") {
             shader_defs.push("PBR_TRANSMISSION_TEXTURES_SUPPORTED".into());
+        }
+        if cfg!(feature = "pbr_multi_layer_material_textures") {
+            shader_defs.push("PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED".into());
         }
 
         let mut bind_group_layout = vec![self.get_view_layout(key.into()).clone()];

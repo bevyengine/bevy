@@ -47,7 +47,7 @@ pub mod prelude {
         mesh::{morph::MorphWeights, primitives::Meshable, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
-        texture::{Image, ImagePlugin},
+        texture::{image_texture_conversion::IntoDynamicImageError, Image, ImagePlugin},
         view::{InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibilityBundle},
         ExtractSchedule,
     };
@@ -98,7 +98,7 @@ use std::{
 pub struct RenderPlugin {
     pub render_creation: RenderCreation,
     /// If `true`, disables asynchronous pipeline compilation.
-    /// This has no effect on macOS, Wasm, iOS, or without the `multi-threaded` feature.
+    /// This has no effect on macOS, Wasm, iOS, or without the `multi_threaded` feature.
     pub synchronous_pipeline_compilation: bool,
 }
 
@@ -238,6 +238,8 @@ pub struct RenderApp;
 pub const INSTANCE_INDEX_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(10313207077636615845);
 pub const MATHS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10665356303104593376);
+pub const COLOR_OPERATIONS_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(1844674407370955161);
 
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
@@ -362,6 +364,12 @@ impl Plugin for RenderPlugin {
 
     fn finish(&self, app: &mut App) {
         load_internal_asset!(app, MATHS_SHADER_HANDLE, "maths.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            COLOR_OPERATIONS_SHADER_HANDLE,
+            "color_operations.wgsl",
+            Shader::from_wgsl
+        );
         if let Some(future_renderer_resources) =
             app.world_mut().remove_resource::<FutureRendererResources>()
         {
