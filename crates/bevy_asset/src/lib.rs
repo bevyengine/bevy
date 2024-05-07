@@ -517,18 +517,24 @@ mod tests {
         ) -> Result<Self::Asset, Self::Error> {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
+            error!("CoolText loader {:?} begin", load_context.path());
             let mut ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
             let mut embedded = String::new();
             for dep in ron.embedded_dependencies {
+                error!("CoolText loader {:?} load_direct", load_context.path());
                 let loaded = load_context.load_direct(&dep).await.map_err(|_| {
                     Self::Error::CannotLoadDependency {
                         dependency: dep.into(),
                     }
                 })?;
+                error!(
+                    "CoolText loader {:?} load_direct finished",
+                    load_context.path()
+                );
                 let cool = loaded.get::<CoolText>().unwrap();
                 embedded.push_str(&cool.text);
             }
-            Ok(CoolText {
+            let res = Ok(CoolText {
                 text: ron.text,
                 embedded,
                 dependencies: ron
@@ -541,7 +547,9 @@ mod tests {
                     .drain(..)
                     .map(|text| load_context.add_labeled_asset(text.clone(), SubText { text }))
                     .collect(),
-            })
+            });
+            error!("CoolText loader {:?} end", load_context.path());
+            res
         }
 
         fn extensions(&self) -> &[&str] {
