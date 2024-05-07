@@ -238,6 +238,24 @@ impl Srgba {
             (1.055 * value.powf(1.0 / 2.4)) - 0.055 // gamma curve in other area
         }
     }
+
+    /// Converts the color into a [f32; 4] array in RGBA order.
+    ///
+    /// This is useful for passing the color to a shader.
+    pub fn to_f32_array(&self) -> [f32; 4] {
+        [self.red, self.green, self.blue, self.alpha]
+    }
+}
+
+impl From<[f32; 4]> for Srgba {
+    fn from(value: [f32; 4]) -> Self {
+        Self {
+            red: value[0],
+            green: value[1],
+            blue: value[2],
+            alpha: value[3],
+        }
+    }
 }
 
 impl Default for Srgba {
