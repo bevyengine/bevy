@@ -453,18 +453,13 @@ mod tests {
         event::ManualEventReader,
         schedule::{LogLevel, ScheduleBuildSettings},
     };
-    use bevy_log::{error, LogPlugin};
+    use bevy_log::LogPlugin;
     use bevy_reflect::TypePath;
-    use bevy_utils::{Duration, HashMap, Instant};
+    use bevy_utils::{Duration, HashMap};
     use futures_lite::AsyncReadExt;
     use serde::{Deserialize, Serialize};
-    use std::{
-        path::Path,
-        sync::{Arc, Mutex},
-    };
+    use std::{path::Path, sync::Arc};
     use thiserror::Error;
-
-    static LOCK: Mutex<()> = Mutex::new(());
 
     #[derive(Asset, TypePath, Debug, Default)]
     pub struct CoolText {
@@ -623,7 +618,6 @@ mod tests {
     fn test_app(dir: Dir) -> (App, GateOpener) {
         let mut app = App::new();
         let (gated_memory_reader, gate_opener) = GatedReader::new(MemoryAssetReader { root: dir });
-
         app.register_asset_source(
             AssetSourceId::Default,
             AssetSource::build().with_reader(move || Box::new(gated_memory_reader.clone())),
@@ -1039,7 +1033,6 @@ mod tests {
         dir.insert_asset_text(Path::new(d_path), d_ron);
 
         let (mut app, gate_opener) = test_app(dir);
-
         app.init_asset::<CoolText>()
             .register_asset_loader(CoolTextLoader);
         let asset_server = app.world().resource::<AssetServer>().clone();
@@ -1421,12 +1414,12 @@ mod tests {
 
         let a_path = "text/a.cool.ron";
         let a_ron = r#"
-    (
-        text: "a",
-        dependencies: [],
-        embedded_dependencies: [],
-        sub_texts: [],
-    )"#;
+(
+    text: "a",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#;
 
         let dir = Dir::default();
         dir.insert_asset_text(Path::new(a_path), a_ron);
