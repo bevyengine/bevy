@@ -79,6 +79,24 @@ impl Oklaba {
     pub const fn with_b(self, b: f32) -> Self {
         Self { b, ..self }
     }
+
+    /// Converts the color into a [f32; 4] array in LABA order.
+    ///
+    /// This is useful for passing the color to a shader.
+    pub fn to_f32_array(&self) -> [f32; 4] {
+        [self.lightness, self.a, self.b, self.alpha]
+    }
+}
+
+impl From<[f32; 4]> for Oklaba {
+    fn from(value: [f32; 4]) -> Self {
+        Self {
+            lightness: value[0],
+            a: value[1],
+            b: value[2],
+            alpha: value[3],
+        }
+    }
 }
 
 impl Default for Oklaba {
