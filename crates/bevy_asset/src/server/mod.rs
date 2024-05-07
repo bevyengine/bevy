@@ -752,6 +752,7 @@ impl AssetServer {
     }
 
     fn send_asset_event(&self, event: InternalAssetEvent) {
+        error!("asset server send asset event {:?}", event);
         self.data.asset_event_sender.send(event).unwrap();
     }
 
@@ -1195,6 +1196,7 @@ pub fn handle_internal_asset_events(world: &mut World) {
 
 /// Internal events for asset load results
 #[allow(clippy::large_enum_variant)]
+#[derive(Debug)]
 pub(crate) enum InternalAssetEvent {
     Loaded {
         id: UntypedAssetId,
