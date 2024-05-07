@@ -6,10 +6,7 @@ use crate::{
 };
 use bevy_ecs::world::World;
 use bevy_tasks::{IoTaskPool, Task};
-use bevy_utils::{
-    tracing::{error, warn},
-    ConditionalSendFuture,
-};
+use bevy_utils::{tracing::warn, ConditionalSendFuture};
 use bevy_utils::{Entry, HashMap, HashSet, TypeIdMap};
 use std::{
     any::TypeId,
@@ -79,7 +76,7 @@ pub(crate) struct AssetInfos {
     pub(crate) dependency_loaded_event_sender: TypeIdMap<fn(&mut World, UntypedAssetId)>,
     pub(crate) dependency_failed_event_sender:
         TypeIdMap<fn(&mut World, UntypedAssetId, AssetPath<'static>, AssetLoadError)>,
-    pub pending_load_tasks: HashMap<UntypedAssetId, Task<()>>,
+    pending_load_tasks: HashMap<UntypedAssetId, Task<()>>,
 }
 
 pub(crate) enum HandleDropResult {

@@ -431,7 +431,6 @@ pub struct AssetEvents;
 
 #[cfg(test)]
 mod tests {
-    #![allow(dead_code, unused_imports)]
     use crate::{
         self as bevy_asset,
         folder::LoadedFolder,
