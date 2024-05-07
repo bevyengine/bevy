@@ -435,6 +435,7 @@ jobs:
               echo " Example: 'use bevy::sprite::MaterialMesh2dBundle;' instead of 'bevy_internal::sprite::MaterialMesh2dBundle;'"
               exit 1
           fi
+
   check-cfg:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -460,3 +461,16 @@ jobs:
       - name: Build and check cfg typos
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- cfg-check
+
+  check-docsrs-config:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check for inconsistent docs.rs config in Cargo.toml
+        run: ./tools/check_docsrs_metadata.sh
