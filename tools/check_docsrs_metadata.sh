@@ -53,7 +53,7 @@ else
     # Log how many crates are invalid.
     echo $INVALID_CRATES_LEN crates are invalid \(out of $PUBLIC_CRATES_LEN\):
 
-    # Interate over each crate, splitting them up.
+    # Iterate over each crate, splitting them up.
     for CRATE in $(echo $INVALID_CRATES | jq -c '.[]'); do
         # Format crate info to be "CRATE_NAME: CRATE_PATH"
         CRATE_NAME_PATH=$(echo $CRATE | jq '[.name, .manifest_path] | join(": ")')
