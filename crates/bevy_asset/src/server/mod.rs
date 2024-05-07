@@ -534,7 +534,9 @@ impl AssetServer {
                 };
 
                 // yield to prevent sending events if this task has been dropped
+                error!("load_internal about to yield");
                 futures_lite::future::yield_now().await;
+                error!("load_internal back from yield");
                 self.send_loaded_asset(base_handle.id(), loaded_asset);
                 Ok(final_handle)
             }
