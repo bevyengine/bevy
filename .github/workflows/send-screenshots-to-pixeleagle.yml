@@ -34,7 +34,7 @@ jobs:
 
           # Create a new run with its associated metadata
           metadata='{"os":"${{ inputs.os }}", "commit": "${{ inputs.commit }}", "branch": "${{ inputs.branch }}"}'
-          run=`curl https://pixel-eagle.vleue.com/$project/runs --json "$metadata" | jq '.id'`
+          run=`curl https://pixel-eagle.vleue.com/$project/runs --json "$metadata" --oauth2-bearer ${{ secrets.PIXELEAGLE_TOKEN }} | jq '.id'`
           
           SAVEIFS=$IFS
           
@@ -57,7 +57,7 @@ jobs:
           IFS=$SAVEIFS          
 
           # Upload screenshots with unknown hashes
-          curl https://pixel-eagle.vleue.com/$project/runs/$run/hashes --json "$hashes" | jq '.[]|[.name] | @tsv' |
+          curl https://pixel-eagle.vleue.com/$project/runs/$run/hashes --json "$hashes" --oauth2-bearer ${{ secrets.PIXELEAGLE_TOKEN }} | jq '.[]|[.name] | @tsv' |
             while IFS=$'\t' read -r name; do
               name=`echo $name | tr -d '"'`
               echo "Uploading $name"
@@ -70,7 +70,7 @@ jobs:
           cd ..
 
           # Trigger comparison with the main branch on the same os
-          curl https://pixel-eagle.vleue.com/$project/runs/$run/compare/auto --json '{"os":"<equal>", "branch": "main"}' > pixeleagle.json
+          curl https://pixel-eagle.vleue.com/$project/runs/$run/compare/auto --json '{"os":"<equal>", "branch": "main"}' --oauth2-bearer ${{ secrets.PIXELEAGLE_TOKEN }} > pixeleagle.json
 
           # Log results
           compared_with=`cat pixeleagle.json | jq '.to'`
