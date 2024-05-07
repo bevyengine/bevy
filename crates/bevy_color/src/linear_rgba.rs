@@ -182,6 +182,18 @@ impl LinearRgba {
     }
 }
 
+impl From<[f32; 4]> for LinearRgba {
+    fn from(value: [f32; 4]) -> Self {
+        Self { red: value[0], green: value[1], blue: value[2], alpha: value[3] }
+    }
+}
+
+impl From<[f32; 3]> for LinearRgba {
+    fn from(value: [f32; 3]) -> Self {
+        Self { red: value[0], green: value[1], blue: value[2], alpha: 1.0 }
+    }
+}
+
 impl Default for LinearRgba {
     /// Construct a new [`LinearRgba`] color with the default values (white with full alpha).
     fn default() -> Self {
