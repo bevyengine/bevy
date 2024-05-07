@@ -1302,15 +1302,14 @@ mod tests {
 
     #[test]
     fn load_folder() {
-        /*
-                // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-                #[cfg(not(feature = "multi_threaded"))]
-                panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
+        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
+        #[cfg(not(feature = "multi_threaded"))]
+        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
 
-                let dir = Dir::default();
+        let dir = Dir::default();
 
-                let a_path = "text/a.cool.ron";
-                let a_ron = r#"
+        let a_path = "text/a.cool.ron";
+        let a_ron = r#"
         (
             text: "a",
             dependencies: [
@@ -1319,8 +1318,8 @@ mod tests {
             embedded_dependencies: [],
             sub_texts: [],
         )"#;
-                let b_path = "b.cool.ron";
-                let b_ron = r#"
+        let b_path = "b.cool.ron";
+        let b_ron = r#"
         (
             text: "b",
             dependencies: [],
@@ -1328,8 +1327,8 @@ mod tests {
             sub_texts: [],
         )"#;
 
-                let c_path = "text/c.cool.ron";
-                let c_ron = r#"
+        let c_path = "text/c.cool.ron";
+        let c_ron = r#"
         (
             text: "c",
             dependencies: [
@@ -1337,154 +1336,154 @@ mod tests {
             embedded_dependencies: [],
             sub_texts: [],
         )"#;
-                dir.insert_asset_text(Path::new(a_path), a_ron);
-                dir.insert_asset_text(Path::new(b_path), b_ron);
-                dir.insert_asset_text(Path::new(c_path), c_ron);
+        dir.insert_asset_text(Path::new(a_path), a_ron);
+        dir.insert_asset_text(Path::new(b_path), b_ron);
+        dir.insert_asset_text(Path::new(c_path), c_ron);
 
-                let (mut app, gate_opener, _guard) = test_app(dir);
-                app.init_asset::<CoolText>()
-                    .init_asset::<SubText>()
-                    .register_asset_loader(CoolTextLoader);
-                let asset_server = app.world().resource::<AssetServer>().clone();
-                let handle: Handle<LoadedFolder> = asset_server.load_folder("text");
-                gate_opener.open(a_path);
-                gate_opener.open(b_path);
-                gate_opener.open(c_path);
+        let (mut app, gate_opener, _guard) = test_app(dir);
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .register_asset_loader(CoolTextLoader);
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle: Handle<LoadedFolder> = asset_server.load_folder("text");
+        gate_opener.open(a_path);
+        gate_opener.open(b_path);
+        gate_opener.open(c_path);
 
-                let mut reader = ManualEventReader::default();
-                run_app_until(&mut app, |world| {
-                    let events = world.resource::<Events<AssetEvent<LoadedFolder>>>();
-                    let asset_server = world.resource::<AssetServer>();
-                    let loaded_folders = world.resource::<Assets<LoadedFolder>>();
-                    let cool_texts = world.resource::<Assets<CoolText>>();
-                    for event in reader.read(events) {
-                        if let AssetEvent::LoadedWithDependencies { id } = event {
-                            if *id == handle.id() {
-                                let loaded_folder = loaded_folders.get(&handle).unwrap();
-                                let a_handle: Handle<CoolText> =
-                                    asset_server.get_handle("text/a.cool.ron").unwrap();
-                                let c_handle: Handle<CoolText> =
-                                    asset_server.get_handle("text/c.cool.ron").unwrap();
+        let mut reader = ManualEventReader::default();
+        run_app_until(&mut app, |world| {
+            let events = world.resource::<Events<AssetEvent<LoadedFolder>>>();
+            let asset_server = world.resource::<AssetServer>();
+            let loaded_folders = world.resource::<Assets<LoadedFolder>>();
+            let cool_texts = world.resource::<Assets<CoolText>>();
+            for event in reader.read(events) {
+                if let AssetEvent::LoadedWithDependencies { id } = event {
+                    if *id == handle.id() {
+                        let loaded_folder = loaded_folders.get(&handle).unwrap();
+                        let a_handle: Handle<CoolText> =
+                            asset_server.get_handle("text/a.cool.ron").unwrap();
+                        let c_handle: Handle<CoolText> =
+                            asset_server.get_handle("text/c.cool.ron").unwrap();
 
-                                let mut found_a = false;
-                                let mut found_c = false;
-                                for asset_handle in &loaded_folder.handles {
-                                    if asset_handle.id() == a_handle.id().untyped() {
-                                        found_a = true;
-                                    } else if asset_handle.id() == c_handle.id().untyped() {
-                                        found_c = true;
-                                    }
-                                }
-                                assert!(found_a);
-                                assert!(found_c);
-                                assert_eq!(loaded_folder.handles.len(), 2);
-
-                                let a_text = cool_texts.get(&a_handle).unwrap();
-                                let b_text = cool_texts.get(&a_text.dependencies[0]).unwrap();
-                                let c_text = cool_texts.get(&c_handle).unwrap();
-
-                                assert_eq!("a", a_text.text);
-                                assert_eq!("b", b_text.text);
-                                assert_eq!("c", c_text.text);
-
-                                return Some(());
+                        let mut found_a = false;
+                        let mut found_c = false;
+                        for asset_handle in &loaded_folder.handles {
+                            if asset_handle.id() == a_handle.id().untyped() {
+                                found_a = true;
+                            } else if asset_handle.id() == c_handle.id().untyped() {
+                                found_c = true;
                             }
                         }
+                        assert!(found_a);
+                        assert!(found_c);
+                        assert_eq!(loaded_folder.handles.len(), 2);
+
+                        let a_text = cool_texts.get(&a_handle).unwrap();
+                        let b_text = cool_texts.get(&a_text.dependencies[0]).unwrap();
+                        let c_text = cool_texts.get(&c_handle).unwrap();
+
+                        assert_eq!("a", a_text.text);
+                        assert_eq!("b", b_text.text);
+                        assert_eq!("c", c_text.text);
+
+                        return Some(());
                     }
-                    None
-                });
+                }
             }
+            None
+        });
+    }
 
-            /// Tests that `AssetLoadFailedEvent<A>` events are emitted and can be used to retry failed assets.
-            #[test]
-            fn load_error_events() {
-                #[derive(Resource, Default)]
-                struct ErrorTracker {
-                    tick: u64,
-                    failures: usize,
-                    queued_retries: Vec<(AssetPath<'static>, AssetId<CoolText>, u64)>,
-                    finished_asset: Option<AssetId<CoolText>>,
+    /// Tests that `AssetLoadFailedEvent<A>` events are emitted and can be used to retry failed assets.
+    #[test]
+    fn load_error_events() {
+        #[derive(Resource, Default)]
+        struct ErrorTracker {
+            tick: u64,
+            failures: usize,
+            queued_retries: Vec<(AssetPath<'static>, AssetId<CoolText>, u64)>,
+            finished_asset: Option<AssetId<CoolText>>,
+        }
+
+        fn asset_event_handler(
+            mut events: EventReader<AssetEvent<CoolText>>,
+            mut tracker: ResMut<ErrorTracker>,
+        ) {
+            for event in events.read() {
+                error!("[load_error_events] event: {event:?}");
+
+                if let AssetEvent::LoadedWithDependencies { id } = event {
+                    tracker.finished_asset = Some(*id);
                 }
+            }
+        }
 
-                fn asset_event_handler(
-                    mut events: EventReader<AssetEvent<CoolText>>,
-                    mut tracker: ResMut<ErrorTracker>,
-                ) {
-                    for event in events.read() {
-                        error!("[load_error_events] event: {event:?}");
+        fn asset_load_error_event_handler(
+            server: Res<AssetServer>,
+            mut errors: EventReader<AssetLoadFailedEvent<CoolText>>,
+            mut tracker: ResMut<ErrorTracker>,
+        ) {
+            // In the real world, this would refer to time (not ticks)
+            tracker.tick += 1;
 
-                        if let AssetEvent::LoadedWithDependencies { id } = event {
-                            tracker.finished_asset = Some(*id);
-                        }
+            // Retry loading past failed items
+            let now = tracker.tick;
+            tracker
+                .queued_retries
+                .retain(|(path, old_id, retry_after)| {
+                    if now > *retry_after {
+                        error!(
+                            "[load_error_events ~ {now}] retrying {old_id:?} after {}",
+                            *retry_after
+                        );
+                        let new_handle = server.load::<CoolText>(path);
+                        assert_eq!(&new_handle.id(), old_id);
+                        false
+                    } else {
+                        error!(
+                            "[load_error_events ~ {now}] not retrying {old_id:?} after {}",
+                            *retry_after
+                        );
+                        true
                     }
-                }
+                });
 
-                fn asset_load_error_event_handler(
-                    server: Res<AssetServer>,
-                    mut errors: EventReader<AssetLoadFailedEvent<CoolText>>,
-                    mut tracker: ResMut<ErrorTracker>,
-                ) {
-                    // In the real world, this would refer to time (not ticks)
-                    tracker.tick += 1;
-
-                    // Retry loading past failed items
-                    let now = tracker.tick;
-                    tracker
-                        .queued_retries
-                        .retain(|(path, old_id, retry_after)| {
-                            if now > *retry_after {
-                                error!(
-                                    "[load_error_events ~ {now}] retrying {old_id:?} after {}",
-                                    *retry_after
-                                );
-                                let new_handle = server.load::<CoolText>(path);
-                                assert_eq!(&new_handle.id(), old_id);
-                                false
+            // Check what just failed
+            for error in errors.read() {
+                let (load_state, _, _) = server.get_load_states(error.id).unwrap();
+                assert!(matches!(load_state, LoadState::Failed(_)));
+                assert_eq!(*error.path.source(), AssetSourceId::Name("unstable".into()));
+                match &error.error {
+                    AssetLoadError::AssetReaderError(read_error) => match read_error {
+                        AssetReaderError::Io(_) => {
+                            error!(
+                                "[load_error_events] {:?} failed, failures: {} + 1",
+                                error.id, tracker.failures
+                            );
+                            tracker.failures += 1;
+                            if tracker.failures <= 2 {
+                                // Retry in 10 ticks
+                                tracker.queued_retries.push((
+                                    error.path.clone(),
+                                    error.id,
+                                    now + 10,
+                                ));
                             } else {
-                                error!(
-                                    "[load_error_events ~ {now}] not retrying {old_id:?} after {}",
-                                    *retry_after
+                                panic!(
+                                    "Unexpected failure #{} (expected only 2)",
+                                    tracker.failures
                                 );
-                                true
                             }
-                        });
-
-                    // Check what just failed
-                    for error in errors.read() {
-                        let (load_state, _, _) = server.get_load_states(error.id).unwrap();
-                        assert!(matches!(load_state, LoadState::Failed(_)));
-                        assert_eq!(*error.path.source(), AssetSourceId::Name("unstable".into()));
-                        match &error.error {
-                            AssetLoadError::AssetReaderError(read_error) => match read_error {
-                                AssetReaderError::Io(_) => {
-                                    error!(
-                                        "[load_error_events] {:?} failed, failures: {} + 1",
-                                        error.id, tracker.failures
-                                    );
-                                    tracker.failures += 1;
-                                    if tracker.failures <= 2 {
-                                        // Retry in 10 ticks
-                                        tracker.queued_retries.push((
-                                            error.path.clone(),
-                                            error.id,
-                                            now + 10,
-                                        ));
-                                    } else {
-                                        panic!(
-                                            "Unexpected failure #{} (expected only 2)",
-                                            tracker.failures
-                                        );
-                                    }
-                                }
-                                _ => panic!("Unexpected error type {:?}", read_error),
-                            },
-                            _ => panic!("Unexpected error type {:?}", error.error),
                         }
-                    }
+                        _ => panic!("Unexpected error type {:?}", read_error),
+                    },
+                    _ => panic!("Unexpected error type {:?}", error.error),
                 }
+            }
+        }
 
-                let a_path = "text/a.cool.ron";
-                let a_ron = r#"
+        let a_path = "text/a.cool.ron";
+        let a_ron = r#"
         (
             text: "a",
             dependencies: [],
@@ -1492,55 +1491,54 @@ mod tests {
             sub_texts: [],
         )"#;
 
-                let dir = Dir::default();
-                dir.insert_asset_text(Path::new(a_path), a_ron);
-                let unstable_reader = UnstableMemoryAssetReader::new(dir, 2);
+        let dir = Dir::default();
+        dir.insert_asset_text(Path::new(a_path), a_ron);
+        let unstable_reader = UnstableMemoryAssetReader::new(dir, 2);
 
-                let mut app = App::new();
-                app.register_asset_source(
-                    "unstable",
-                    AssetSource::build().with_reader(move || Box::new(unstable_reader.clone())),
-                )
-                .add_plugins((
-                    TaskPoolPlugin::default(),
-                    LogPlugin::default(),
-                    AssetPlugin::default(),
-                ))
-                .init_asset::<CoolText>()
-                .register_asset_loader(CoolTextLoader)
-                .init_resource::<ErrorTracker>()
-                .add_systems(
-                    Update,
-                    (asset_event_handler, asset_load_error_event_handler).chain(),
-                );
+        let mut app = App::new();
+        app.register_asset_source(
+            "unstable",
+            AssetSource::build().with_reader(move || Box::new(unstable_reader.clone())),
+        )
+        .add_plugins((
+            TaskPoolPlugin::default(),
+            LogPlugin::default(),
+            AssetPlugin::default(),
+        ))
+        .init_asset::<CoolText>()
+        .register_asset_loader(CoolTextLoader)
+        .init_resource::<ErrorTracker>()
+        .add_systems(
+            Update,
+            (asset_event_handler, asset_load_error_event_handler).chain(),
+        );
 
-                let asset_server = app.world().resource::<AssetServer>().clone();
-                let a_path = format!("unstable://{a_path}");
-                let a_handle: Handle<CoolText> = asset_server.load(a_path);
-                let a_id = a_handle.id();
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let a_path = format!("unstable://{a_path}");
+        let a_handle: Handle<CoolText> = asset_server.load(a_path);
+        let a_id = a_handle.id();
 
-                app.world_mut().spawn(a_handle);
+        app.world_mut().spawn(a_handle);
 
-                run_app_until(&mut app, |world| {
-                    let mut q_h = world.query::<&Handle<CoolText>>();
-                    let id = q_h.iter(world).next().unwrap().id();
-                    let asset_server = world.resource::<AssetServer>();
-                    let state = asset_server.load_state(id);
-                    error!("[load_error_events] loop {id}:{state:?}");
+        run_app_until(&mut app, |world| {
+            let mut q_h = world.query::<&Handle<CoolText>>();
+            let id = q_h.iter(world).next().unwrap().id();
+            let asset_server = world.resource::<AssetServer>();
+            let state = asset_server.load_state(id);
+            error!("[load_error_events] loop {id}:{state:?}");
 
-                    let tracker = world.resource::<ErrorTracker>();
-                    match tracker.finished_asset {
-                        Some(asset_id) => {
-                            assert_eq!(asset_id, a_id);
-                            let assets = world.resource::<Assets<CoolText>>();
-                            let result = assets.get(asset_id).unwrap();
-                            assert_eq!(result.text, "a");
-                            Some(())
-                        }
-                        None => None,
-                    }
-                });
-                */
+            let tracker = world.resource::<ErrorTracker>();
+            match tracker.finished_asset {
+                Some(asset_id) => {
+                    assert_eq!(asset_id, a_id);
+                    let assets = world.resource::<Assets<CoolText>>();
+                    let result = assets.get(asset_id).unwrap();
+                    assert_eq!(result.text, "a");
+                    Some(())
+                }
+                None => None,
+            }
+        });
     }
 
     #[test]
