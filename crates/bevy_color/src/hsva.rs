@@ -1,4 +1,6 @@
-use crate::{Alpha, ClampColor, Gray, Hue, Hwba, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza};
+use crate::{
+    Alpha, ClampColor, Gray, Hue, Hwba, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza,
+};
 use bevy_reflect::prelude::*;
 
 /// Color in Hue-Saturation-Value (HSV) color space with alpha.

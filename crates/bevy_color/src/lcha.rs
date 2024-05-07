@@ -1,4 +1,6 @@
-use crate::{Alpha, ClampColor, Gray, Hue, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
+use crate::{
+    Alpha, ClampColor, Gray, Hue, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
+};
 use bevy_reflect::prelude::*;
 
 /// Color in LCH color space, with alpha

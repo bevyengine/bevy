@@ -1,5 +1,6 @@
 use crate::{
-    impl_componentwise_vector_space, Alpha, ClampColor, Gray, Hsla, Hsva, Hwba, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza
+    impl_componentwise_vector_space, Alpha, ClampColor, Gray, Hsla, Hsva, Hwba, LinearRgba,
+    Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
 use bevy_reflect::prelude::*;
 
