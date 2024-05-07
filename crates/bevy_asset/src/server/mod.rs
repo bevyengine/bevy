@@ -59,6 +59,7 @@ pub(crate) struct AssetServerData {
     pub(crate) infos: RwLock<AssetInfos>,
     pub(crate) loaders: Arc<RwLock<AssetLoaders>>,
     pub(crate) asset_event_sender: Sender<InternalAssetEvent>,
+    pub(crate) asset_event_sender_lock: async_lock::Semaphore,
     asset_event_receiver: Receiver<InternalAssetEvent>,
     sources: AssetSources,
     mode: AssetServerMode,
@@ -120,6 +121,7 @@ impl AssetServer {
                 mode,
                 meta_check,
                 asset_event_sender,
+                asset_event_sender_lock: async_lock::Semaphore::new(1),
                 asset_event_receiver,
                 loaders,
                 infos: RwLock::new(infos),
@@ -364,33 +366,8 @@ impl AssetServer {
                 HandleLoadingMode::Request,
                 None,
                 |handle| async move {
-                    let id = handle.id().untyped();
                     drop(handle);
-                    let path_clone = path.clone();
-                    match server.load_untyped_async(path).await {
-                        Ok(handle) => {
-                            // yield to prevent sending events if this task has been dropped
-                            futures_lite::future::yield_now().await;
-                            server.send_asset_event(InternalAssetEvent::Loaded {
-                                id,
-                                loaded_asset: LoadedAsset::new_with_dependencies(
-                                    LoadedUntypedAsset { handle },
-                                    None,
-                                )
-                                .into(),
-                            });
-                        }
-                        Err(err) => {
-                            error!("{err}");
-                            // yield to prevent sending events if this task has been dropped
-                            futures_lite::future::yield_now().await;
-                            server.send_asset_event(InternalAssetEvent::Failed {
-                                id,
-                                path: path_clone,
-                                error: err,
-                            });
-                        }
-                    }
+                    let _ = server.load_untyped_async(path).await;
                 },
             );
 
@@ -535,14 +512,16 @@ impl AssetServer {
 
                 // yield to prevent sending events if this task has been dropped
                 error!("load_internal about to yield");
-                futures_lite::future::yield_now().await;
+                let _permit = self.data.asset_event_sender_lock.acquire().await;
                 error!("load_internal back from yield");
                 self.send_loaded_asset(base_handle.id(), loaded_asset);
                 Ok(final_handle)
             }
             Err(err) => {
                 // yield to prevent sending events if this task has been dropped
-                futures_lite::future::yield_now().await;
+                error!("load_internal about to yield");
+                let _permit = self.data.asset_event_sender_lock.acquire().await;
+                error!("load_internal back from yield");
                 self.send_asset_event(InternalAssetEvent::Failed {
                     id: base_handle.id(),
                     error: err.clone(),

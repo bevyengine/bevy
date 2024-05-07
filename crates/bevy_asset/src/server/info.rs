@@ -417,6 +417,7 @@ impl AssetInfos {
         &mut self,
         id: UntypedAssetId,
         sender: &Sender<InternalAssetEvent>,
+        sender_lock: &async_lock::Semaphore,
     ) -> HandleDropResult {
         Self::process_handle_drop_internal(
             &mut self.infos,
@@ -425,6 +426,7 @@ impl AssetInfos {
             &mut self.living_labeled_assets,
             &mut self.pending_load_tasks,
             sender,
+            sender_lock,
             self.watching_for_changes,
             id,
         )
@@ -710,6 +712,7 @@ impl AssetInfos {
         living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<Box<str>>>,
         pending_load_tasks: &mut HashMap<UntypedAssetId, Task<()>>,
         sender: &Sender<InternalAssetEvent>,
+        sender_lock: &async_lock::Semaphore,
         watching_for_changes: bool,
         id: UntypedAssetId,
     ) -> HandleDropResult {
@@ -727,8 +730,10 @@ impl AssetInfos {
         let type_id = entry.key().type_id();
 
         if matches!(entry.get().load_state, LoadState::Loading) {
-            if pending_load_tasks.remove(&id).is_some() {
+            if let Some(task) = pending_load_tasks.remove(&id) {
                 // drop the task and send a cancel error to move this asset out of Loading state
+                let _permit = sender_lock.acquire_blocking();
+                drop(task);
                 let path = entry.get().path.clone().unwrap_or_default();
                 sender
                     .send(InternalAssetEvent::Failed {
@@ -772,7 +777,11 @@ impl AssetInfos {
     /// This should only be called if `Assets` storage isn't being used (such as in [`AssetProcessor`](crate::processor::AssetProcessor))
     ///
     /// [`Assets`]: crate::Assets
-    pub(crate) fn consume_handle_drop_events(&mut self, sender: &Sender<InternalAssetEvent>) {
+    pub(crate) fn consume_handle_drop_events(
+        &mut self,
+        sender: &Sender<InternalAssetEvent>,
+        sender_lock: &async_lock::Semaphore,
+    ) {
         for provider in self.handle_providers.values() {
             while let Ok(drop_event) = provider.drop_receiver.try_recv() {
                 let id = drop_event.id;
@@ -784,6 +793,7 @@ impl AssetInfos {
                         &mut self.living_labeled_assets,
                         &mut self.pending_load_tasks,
                         sender,
+                        sender_lock,
                         self.watching_for_changes,
                         id.untyped(provider.type_id),
                     );

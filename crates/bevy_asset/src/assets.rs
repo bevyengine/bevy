@@ -552,8 +552,11 @@ impl<A: Asset> Assets<A> {
 
             if drop_event.asset_server_managed {
                 // the process_handle_drop call checks whether new handles have been created since the drop event was fired, before removing the asset
-                match infos.process_handle_drop(id.untyped(), &asset_server.data.asset_event_sender)
-                {
+                match infos.process_handle_drop(
+                    id.untyped(),
+                    &asset_server.data.asset_event_sender,
+                    &asset_server.data.asset_event_sender_lock,
+                ) {
                     // a new handle has been created, or the asset doesn't exist
                     HandleDropResult::NotDropped => continue,
                     // an load is in progress, refire the event for next frame
