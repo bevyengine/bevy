@@ -240,6 +240,11 @@ const CONICAL_FRUSTUM: ConicalFrustum = ConicalFrustum {
     height: BIG_3D,
 };
 
+const ANNULUS: Annulus = Annulus {
+    inner_circle: Circle { radius: SMALL_2D },
+    outer_circle: Circle { radius: BIG_2D },
+};
+
 const TORUS: Torus = Torus {
     minor_radius: SMALL_3D / 2.0,
     major_radius: SMALL_3D * 1.5,
@@ -428,7 +433,7 @@ fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         PrimitiveSelected::Cylinder => {}
         PrimitiveSelected::Cone => {}
         PrimitiveSelected::ConicalFrustum => {}
-        PrimitiveSelected::Torus => {}
+        PrimitiveSelected::Torus => gizmos.primitive_2d(ANNULUS, POSITION, angle, color),
     }
 }
 
@@ -470,7 +475,7 @@ fn spawn_primitive_2d(
         None, // cylinder
         None, // cone
         None, // conical frustum
-        None, // torus
+        Some(ANNULUS.mesh().build()),
     ]
     .into_iter()
     .zip(PrimitiveSelected::ALL)
