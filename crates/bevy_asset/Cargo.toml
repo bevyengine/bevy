@@ -13,9 +13,10 @@ keywords = ["bevy"]
 [features]
 file_watcher = ["notify-debouncer-full", "watch"]
 embedded_watcher = ["file_watcher"]
-multi-threaded = ["bevy_tasks/multi-threaded"]
+multi_threaded = ["bevy_tasks/multi_threaded"]
 asset_processor = []
 watch = []
+trace = []
 
 [dependencies]
 bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }

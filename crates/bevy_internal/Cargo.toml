@@ -12,9 +12,11 @@ categories = ["game-engines", "graphics", "gui", "rendering"]
 [features]
 trace = [
   "bevy_app/trace",
+  "bevy_asset?/trace",
   "bevy_core_pipeline?/trace",
   "bevy_ecs/trace",
   "bevy_log/trace",
+  "bevy_pbr?/trace",
   "bevy_render?/trace",
   "bevy_hierarchy/trace",
   "bevy_winit?/trace",
@@ -75,11 +77,11 @@ serialize = [
   "bevy_ui?/serialize",
   "bevy_color?/serialize",
 ]
-multi-threaded = [
-  "bevy_asset?/multi-threaded",
-  "bevy_ecs/multi-threaded",
-  "bevy_render?/multi-threaded",
-  "bevy_tasks/multi-threaded",
+multi_threaded = [
+  "bevy_asset?/multi_threaded",
+  "bevy_ecs/multi_threaded",
+  "bevy_render?/multi_threaded",
+  "bevy_tasks/multi_threaded",
 ]
 async-io = ["bevy_tasks/async-io"]
 
@@ -94,6 +96,12 @@ subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas"]
 pbr_transmission_textures = [
   "bevy_pbr?/pbr_transmission_textures",
   "bevy_gltf?/pbr_transmission_textures",
+]
+
+# Multi-layer material textures in `StandardMaterial`:
+pbr_multi_layer_material_textures = [
+  "bevy_pbr?/pbr_multi_layer_material_textures",
+  "bevy_gltf?/pbr_multi_layer_material_textures",
 ]
 
 # Optimise for WebGL2
@@ -182,7 +190,6 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
 bevy_input = { path = "../bevy_input", version = "0.14.0-dev" }
 bevy_log = { path = "../bevy_log", version = "0.14.0-dev" }
-bevy_panic_handler = { path = "../bevy_panic_handler", version = "0.14.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
 bevy_ptr = { path = "../bevy_ptr", version = "0.14.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [

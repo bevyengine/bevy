@@ -72,5 +72,6 @@ fn skybox_fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let ray_direction = coords_to_ray_direction(in.position.xy, view.viewport);
 
     // Cube maps are left-handed so we negate the z coordinate.
-    return textureSample(skybox, skybox_sampler, ray_direction * vec3(1.0, 1.0, -1.0)) * uniforms.brightness;
+    let out = textureSample(skybox, skybox_sampler, ray_direction * vec3(1.0, 1.0, -1.0));
+    return vec4(out.rgb * uniforms.brightness, out.a);
 }

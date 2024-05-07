@@ -1,16 +1,13 @@
 //! Utilities for testing in CI environments.
 
 use bevy_app::{App, AppExit, Update};
-use bevy_ecs::{
-    entity::Entity,
-    prelude::{resource_exists, Resource},
-    query::With,
-    schedule::IntoSystemConfigs,
-    system::{Local, Query, Res, ResMut},
-};
+use bevy_ecs::prelude::*;
 use bevy_render::view::screenshot::ScreenshotManager;
 use bevy_time::TimeUpdateStrategy;
-use bevy_utils::{tracing::info, Duration};
+use bevy_utils::{
+    tracing::{debug, info, warn},
+    Duration,
+};
 use bevy_window::PrimaryWindow;
 use serde::Deserialize;
 
@@ -20,29 +17,38 @@ use serde::Deserialize;
 /// exit a Bevy app when run through the CI. This is needed because otherwise
 /// Bevy apps would be stuck in the game loop and wouldn't allow the CI to progress.
 #[derive(Deserialize, Resource)]
-pub struct CiTestingConfig {
-    /// The number of frames after which Bevy should exit.
-    pub exit_after: Option<u32>,
-    /// The time in seconds to update for each frame.
-    pub frame_time: Option<f32>,
-    /// Frames at which to capture a screenshot.
+struct CiTestingConfig {
+    /// The setup for this test.
     #[serde(default)]
-    pub screenshot_frames: Vec<u32>,
+    setup: CiTestingSetup,
+    /// Events to send, with their associated frame.
+    #[serde(default)]
+    events: Vec<CiTestingEventOnFrame>,
 }
 
-fn ci_testing_exit_after(
-    mut current_frame: bevy_ecs::prelude::Local<u32>,
-    ci_testing_config: bevy_ecs::prelude::Res<CiTestingConfig>,
-    mut app_exit_events: bevy_ecs::event::EventWriter<AppExit>,
-) {
-    if let Some(exit_after) = ci_testing_config.exit_after {
-        if *current_frame > exit_after {
-            app_exit_events.send(AppExit);
-            info!("Exiting after {} frames. Test successful!", exit_after);
-        }
-    }
-    *current_frame += 1;
+/// Setup for a test.
+#[derive(Deserialize, Default)]
+struct CiTestingSetup {
+    /// The time in seconds to update for each frame.
+    /// Set with the `TimeUpdateStrategy::ManualDuration(f32)` resource.
+    pub fixed_frame_time: Option<f32>,
 }
+
+/// An event to send at a given frame, used for CI testing.
+#[derive(Deserialize)]
+pub struct CiTestingEventOnFrame(u32, CiTestingEvent);
+
+/// An event to send, used for CI testing.
+#[derive(Deserialize, Debug)]
+enum CiTestingEvent {
+    Screenshot,
+    AppExit,
+    Custom(String),
+}
+
+/// A custom event that can be configured from a configuration file for CI testing.
+#[derive(Event)]
+pub struct CiTestingCustomEvent(pub String);
 
 pub(crate) fn setup_app(app: &mut App) -> &mut App {
     #[cfg(not(target_arch = "wasm32"))]
@@ -61,39 +67,60 @@ pub(crate) fn setup_app(app: &mut App) -> &mut App {
         ron::from_str(config).expect("error deserializing CI testing configuration file")
     };
 
-    if let Some(frame_time) = config.frame_time {
-        app.world
+    if let Some(fixed_frame_time) = config.setup.fixed_frame_time {
+        app.world_mut()
             .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f32(
-                frame_time,
+                fixed_frame_time,
             )));
     }
 
-    app.insert_resource(config).add_systems(
-        Update,
-        (
-            ci_testing_exit_after,
-            ci_testing_screenshot_at.run_if(resource_exists::<ScreenshotManager>),
-        ),
-    );
+    app.add_event::<CiTestingCustomEvent>()
+        .insert_resource(config)
+        .add_systems(Update, send_events);
 
     app
 }
 
-fn ci_testing_screenshot_at(
-    mut current_frame: Local<u32>,
-    ci_testing_config: Res<CiTestingConfig>,
-    mut screenshot_manager: ResMut<ScreenshotManager>,
-    main_window: Query<Entity, With<PrimaryWindow>>,
-) {
-    if ci_testing_config
-        .screenshot_frames
-        .contains(&*current_frame)
-    {
-        info!("Taking a screenshot at frame {}.", *current_frame);
-        let path = format!("./screenshot-{}.png", *current_frame);
-        screenshot_manager
-            .save_screenshot_to_disk(main_window.single(), path)
-            .unwrap();
+fn send_events(world: &mut World, mut current_frame: Local<u32>) {
+    let mut config = world.resource_mut::<CiTestingConfig>();
+
+    let events = std::mem::take(&mut config.events);
+    let (to_run, remaining): (Vec<_>, _) = events
+        .into_iter()
+        .partition(|event| event.0 == *current_frame);
+    config.events = remaining;
+
+    for CiTestingEventOnFrame(_, event) in to_run {
+        debug!("Handling event: {:?}", event);
+        match event {
+            CiTestingEvent::AppExit => {
+                world.send_event(AppExit::Success);
+                info!("Exiting after {} frames. Test successful!", *current_frame);
+            }
+            CiTestingEvent::Screenshot => {
+                let mut primary_window_query =
+                    world.query_filtered::<Entity, With<PrimaryWindow>>();
+                let Ok(main_window) = primary_window_query.get_single(world) else {
+                    warn!("Requesting screenshot, but PrimaryWindow is not available");
+                    continue;
+                };
+                let Some(mut screenshot_manager) = world.get_resource_mut::<ScreenshotManager>()
+                else {
+                    warn!("Requesting screenshot, but ScreenshotManager is not available");
+                    continue;
+                };
+                let path = format!("./screenshot-{}.png", *current_frame);
+                screenshot_manager
+                    .save_screenshot_to_disk(main_window, path)
+                    .unwrap();
+                info!("Took a screenshot at frame {}.", *current_frame);
+            }
+            // Custom events are forwarded to the world.
+            CiTestingEvent::Custom(event_string) => {
+                world.send_event(CiTestingCustomEvent(event_string));
+            }
+        }
     }
+
     *current_frame += 1;
 }

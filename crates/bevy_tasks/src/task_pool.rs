@@ -7,7 +7,7 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-use async_task::FallibleTask;
+use async_executor::FallibleTask;
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::FutureExt;
 
@@ -37,7 +37,7 @@ pub struct TaskPoolBuilder {
     /// If set, we'll use the given stack size rather than the system default
     stack_size: Option<usize>,
     /// Allows customizing the name of the threads - helpful for debugging. If set, threads will
-    /// be named <thread_name> (<thread_index>), i.e. "MyThreadPool (2)"
+    /// be named `<thread_name> (<thread_index>)`, i.e. `"MyThreadPool (2)"`.
     thread_name: Option<String>,
 
     on_thread_spawn: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
@@ -106,14 +106,10 @@ impl TaskPoolBuilder {
 /// will still execute a task, even if it is dropped.
 #[derive(Debug)]
 pub struct TaskPool {
-    /// The executor for the pool
-    ///
-    /// This has to be separate from TaskPoolInner because we have to create an `Arc<Executor>` to
-    /// pass into the worker threads, and we must create the worker threads before we can create
-    /// the `Vec<Task<T>>` contained within `TaskPoolInner`
+    /// The executor for the pool.
     executor: Arc<async_executor::Executor<'static>>,
 
-    /// Inner state of the pool
+    // The inner state of the pool.
     threads: Vec<JoinHandle<()>>,
     shutdown_tx: async_channel::Sender<()>,
 }
@@ -334,6 +330,7 @@ impl TaskPool {
         })
     }
 
+    #[allow(unsafe_code)]
     fn scope_with_executor_inner<'env, F, T>(
         &self,
         tick_task_pool_executor: bool,

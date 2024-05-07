@@ -154,7 +154,7 @@ pub trait Component: Send + Sync + 'static {
     /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
 
-    /// Called when registering this component, allowing mutable access to it's [`ComponentHooks`].
+    /// Called when registering this component, allowing mutable access to its [`ComponentHooks`].
     fn register_component_hooks(_hooks: &mut ComponentHooks) {}
 }
 
@@ -182,7 +182,7 @@ pub enum StorageType {
 /// The type used for [`Component`] lifecycle hooks such as `on_add`, `on_insert` or `on_remove`
 pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity, ComponentId);
 
-/// Lifecycle hooks for a given [`Component`], stored in it's [`ComponentInfo`]
+/// Lifecycle hooks for a given [`Component`], stored in its [`ComponentInfo`]
 #[derive(Debug, Clone, Default)]
 pub struct ComponentHooks {
     pub(crate) on_add: Option<ComponentHook>,
@@ -193,7 +193,7 @@ pub struct ComponentHooks {
 impl ComponentHooks {
     /// Register a [`ComponentHook`] that will be run when this component is added to an entity.
     /// An `on_add` hook will always run before `on_insert` hooks. Spawning an entity counts as
-    /// adding all of it's components.
+    /// adding all of its components.
     ///
     /// Will panic if the component already has an `on_add` hook
     pub fn on_add(&mut self, hook: ComponentHook) -> &mut Self {
@@ -212,7 +212,7 @@ impl ComponentHooks {
     }
 
     /// Register a [`ComponentHook`] that will be run when this component is removed from an entity.
-    /// Despawning an entity counts as removing all of it's components.
+    /// Despawning an entity counts as removing all of its components.
     ///
     /// Will panic if the component already has an `on_remove` hook
     pub fn on_remove(&mut self, hook: ComponentHook) -> &mut Self {
@@ -765,7 +765,7 @@ impl Components {
 
 /// A value that tracks when a system ran relative to other systems.
 /// This is used to power change detection.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Default, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 pub struct Tick {
     tick: u32,

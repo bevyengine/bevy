@@ -129,7 +129,7 @@ fn draw(in: VertexOutput) -> vec4<f32> {
 
     // Signed distances. The magnitude is the distance of the point from the edge of the shape.
     // * Negative values indicate that the point is inside the shape.
-    // * Zero values indicate the point is on on the edge of the shape.
+    // * Zero values indicate the point is on the edge of the shape.
     // * Positive values indicate the point is outside the shape.
 
     // Signed distance from the exterior boundary.

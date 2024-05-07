@@ -770,10 +770,12 @@ impl Default for Direction {
     reflect(Serialize, Deserialize)
 )]
 pub enum Display {
-    /// Use Flexbox layout model to determine the position of this [`Node`].
+    /// Use Flexbox layout model to determine the position of this [`Node`]'s children.
     Flex,
-    /// Use CSS Grid layout model to determine the position of this [`Node`].
+    /// Use CSS Grid layout model to determine the position of this [`Node`]'s children.
     Grid,
+    /// Use CSS Block layout model to determine the position of this [`Node`]'s children.
+    Block,
     /// Use no layout, don't render this node and its children.
     ///
     /// If you want to hide a node and its children,
@@ -896,8 +898,10 @@ impl Default for Overflow {
 pub enum OverflowAxis {
     /// Show overflowing items.
     Visible,
-    /// Hide overflowing items.
+    /// Hide overflowing items by clipping.
     Clip,
+    /// Hide overflowing items by influencing layout and then clipping.
+    Hidden,
 }
 
 impl OverflowAxis {
@@ -1021,6 +1025,14 @@ pub enum MinTrackSizingFunction {
     MaxContent,
     /// Track minimum size should be automatically sized
     Auto,
+    /// Track minimum size should be a percent of the viewport's smaller dimension.
+    VMin(f32),
+    /// Track minimum size should be a percent of the viewport's larger dimension.
+    VMax(f32),
+    /// Track minimum size should be a percent of the viewport's height dimension.
+    Vh(f32),
+    /// Track minimum size should be a percent of the viewport's width dimension.
+    Vw(f32),
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
@@ -1050,6 +1062,14 @@ pub enum MaxTrackSizingFunction {
     ///
     /// Spec: <https://www.w3.org/TR/css3-grid-layout/#fr-unit>
     Fraction(f32),
+    /// Track maximum size should be a percent of the viewport's smaller dimension.
+    VMin(f32),
+    /// Track maximum size should be a percent of the viewport's smaller dimension.
+    VMax(f32),
+    /// Track maximum size should be a percent of the viewport's height dimension.
+    Vh(f32),
+    /// Track maximum size should be a percent of the viewport's width dimension.
+    Vw(f32),
 }
 
 /// A [`GridTrack`] is a Row or Column of a CSS Grid. This struct specifies what size the track should be.
@@ -1166,6 +1186,42 @@ impl GridTrack {
         Self {
             min_sizing_function: min,
             max_sizing_function: max,
+        }
+        .into()
+    }
+
+    /// Create a grid track with a percentage of the viewport's smaller dimension
+    pub fn vmin<T: From<Self>>(value: f32) -> T {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::VMin(value),
+            max_sizing_function: MaxTrackSizingFunction::VMin(value),
+        }
+        .into()
+    }
+
+    /// Create a grid track with a percentage of the viewport's larger dimension
+    pub fn vmax<T: From<Self>>(value: f32) -> T {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::VMax(value),
+            max_sizing_function: MaxTrackSizingFunction::VMax(value),
+        }
+        .into()
+    }
+
+    /// Create a grid track with a percentage of the viewport's height dimension
+    pub fn vh<T: From<Self>>(value: f32) -> T {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::Vh(value),
+            max_sizing_function: MaxTrackSizingFunction::Vh(value),
+        }
+        .into()
+    }
+
+    /// Create a grid track with a percentage of the viewport's width dimension
+    pub fn vw<T: From<Self>>(value: f32) -> T {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::Vw(value),
+            max_sizing_function: MaxTrackSizingFunction::Vw(value),
         }
         .into()
     }
@@ -1341,6 +1397,42 @@ impl RepeatedGridTrack {
         .into()
     }
 
+    /// Create a repeating set of grid tracks with the percentage size of the viewport's smaller dimension
+    pub fn vmin<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
+        Self {
+            repetition: repetition.into(),
+            tracks: SmallVec::from_buf([GridTrack::vmin(value)]),
+        }
+        .into()
+    }
+
+    /// Create a repeating set of grid tracks with the percentage size of the viewport's larger dimension
+    pub fn vmax<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
+        Self {
+            repetition: repetition.into(),
+            tracks: SmallVec::from_buf([GridTrack::vmax(value)]),
+        }
+        .into()
+    }
+
+    /// Create a repeating set of grid tracks with the percentage size of the viewport's height dimension
+    pub fn vh<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
+        Self {
+            repetition: repetition.into(),
+            tracks: SmallVec::from_buf([GridTrack::vh(value)]),
+        }
+        .into()
+    }
+
+    /// Create a repeating set of grid tracks with the percentage size of the viewport's width dimension
+    pub fn vw<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
+        Self {
+            repetition: repetition.into(),
+            tracks: SmallVec::from_buf([GridTrack::vw(value)]),
+        }
+        .into()
+    }
+
     /// Create a repetition of a set of tracks
     pub fn repeat_many<T: From<Self>>(
         repetition: impl Into<GridTrackRepetition>,
@@ -1424,6 +1516,7 @@ pub struct GridPlacement {
 }
 
 impl GridPlacement {
+    #[allow(unsafe_code)]
     pub const DEFAULT: Self = Self {
         start: None,
         // SAFETY: This is trivially safe as 1 is non-zero.

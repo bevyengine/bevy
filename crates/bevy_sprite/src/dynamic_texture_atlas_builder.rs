@@ -3,7 +3,7 @@ use bevy_asset::{Assets, Handle};
 use bevy_math::{URect, UVec2};
 use bevy_render::{
     render_asset::{RenderAsset, RenderAssetUsages},
-    texture::{Image, TextureFormatPixelInfo},
+    texture::{GpuImage, Image, TextureFormatPixelInfo},
 };
 use guillotiere::{size2, Allocation, AtlasAllocator};
 
@@ -56,8 +56,7 @@ impl DynamicTextureAtlasBuilder {
         if let Some(allocation) = allocation {
             let atlas_texture = textures.get_mut(atlas_texture_handle).unwrap();
             assert!(
-                atlas_texture
-                    .asset_usage()
+                <GpuImage as RenderAsset>::asset_usage(atlas_texture)
                     .contains(RenderAssetUsages::MAIN_WORLD),
                 "The asset at atlas_texture_handle must have the RenderAssetUsages::MAIN_WORLD usage flag set"
             );

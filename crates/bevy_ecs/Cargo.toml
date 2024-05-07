@@ -11,9 +11,9 @@ categories = ["game-engines", "data-structures"]
 
 [features]
 trace = []
-multi-threaded = ["bevy_tasks/multi-threaded"]
+multi_threaded = ["bevy_tasks/multi_threaded", "arrayvec"]
 bevy_debug_stepping = []
-default = ["bevy_reflect", "bevy_debug_stepping"]
+default = ["bevy_reflect"]
 
 [dependencies]
 bevy_ptr = { path = "../bevy_ptr", version = "0.14.0-dev" }
@@ -21,15 +21,15 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", optional = tr
 bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 bevy_ecs_macros = { path = "macros", version = "0.14.0-dev" }
-petgraph = "0.6"
 
+petgraph = "0.6"
 bitflags = "2.3"
 concurrent-queue = "2.4.0"
 fixedbitset = "0.5"
-rustc-hash = "1.1"
-serde = "1"
+serde = { version = "1", optional = true, default-features = false }
 thiserror = "1.0"
 nonmax = "0.5"
+arrayvec = { version = "0.7.4", optional = true }
 
 [dev-dependencies]
 rand = "0.8"

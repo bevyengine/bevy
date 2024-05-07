@@ -1,7 +1,11 @@
-use super::{persistent_buffer::PersistentGpuBuffer, Meshlet, MeshletBoundingSphere, MeshletMesh};
+use super::{
+    asset::{Meshlet, MeshletBoundingSpheres, MeshletMesh},
+    persistent_buffer::PersistentGpuBuffer,
+};
 use crate::{
     Material, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
-    PreviousGlobalTransform, RenderMaterialInstances, ShadowView,
+    PreviousGlobalTransform, PreviousViewData, PreviousViewUniforms, RenderMaterialInstances,
+    ShadowView,
 };
 use bevy_asset::{AssetEvent, AssetId, AssetServer, Assets, Handle, UntypedAssetId};
 use bevy_core_pipeline::core_3d::Camera3d;
@@ -10,7 +14,7 @@ use bevy_ecs::{
     entity::{Entity, EntityHashMap},
     event::EventReader,
     query::{AnyOf, Has},
-    system::{Commands, Query, Res, ResMut, Resource, SystemState},
+    system::{Commands, Local, Query, Res, ResMut, Resource, SystemState},
     world::{FromWorld, World},
 };
 use bevy_render::{
@@ -27,31 +31,40 @@ use std::{
     iter,
     mem::size_of,
     ops::{DerefMut, Range},
-    sync::Arc,
+    sync::{atomic::AtomicBool, Arc},
 };
 
 /// Create and queue for uploading to the GPU [`MeshUniform`] components for
 /// [`MeshletMesh`] entities, as well as queuing uploads for any new meshlet mesh
 /// assets that have not already been uploaded to the GPU.
 pub fn extract_meshlet_meshes(
-    // TODO: Replace main_world when Extract<ResMut<Assets<MeshletMesh>>> is possible
-    mut main_world: ResMut<MainWorld>,
     mut gpu_scene: ResMut<MeshletGpuScene>,
+    // TODO: Replace main_world and system_state when Extract<ResMut<Assets<MeshletMesh>>> is possible
+    mut main_world: ResMut<MainWorld>,
+    mut system_state: Local<
+        Option<
+            SystemState<(
+                Query<(
+                    Entity,
+                    &Handle<MeshletMesh>,
+                    &GlobalTransform,
+                    Option<&PreviousGlobalTransform>,
+                    Option<&RenderLayers>,
+                    Has<NotShadowReceiver>,
+                    Has<NotShadowCaster>,
+                )>,
+                Res<AssetServer>,
+                ResMut<Assets<MeshletMesh>>,
+                EventReader<AssetEvent<MeshletMesh>>,
+            )>,
+        >,
+    >,
 ) {
-    let mut system_state: SystemState<(
-        Query<(
-            Entity,
-            &Handle<MeshletMesh>,
-            &GlobalTransform,
-            Option<&PreviousGlobalTransform>,
-            Option<&RenderLayers>,
-            Has<NotShadowReceiver>,
-            Has<NotShadowCaster>,
-        )>,
-        Res<AssetServer>,
-        ResMut<Assets<MeshletMesh>>,
-        EventReader<AssetEvent<MeshletMesh>>,
-    )> = SystemState::new(&mut main_world);
+    if system_state.is_none() {
+        *system_state = Some(SystemState::new(&mut main_world));
+    }
+    let system_state = system_state.as_mut().unwrap();
+
     let (instances_query, asset_server, mut assets, mut asset_events) =
         system_state.get_mut(&mut main_world);
 
@@ -78,17 +91,14 @@ pub fn extract_meshlet_meshes(
     }
 
     for (
-        instance_index,
-        (
-            instance,
-            handle,
-            transform,
-            previous_transform,
-            render_layers,
-            not_shadow_receiver,
-            not_shadow_caster,
-        ),
-    ) in instances_query.iter().enumerate()
+        instance,
+        handle,
+        transform,
+        previous_transform,
+        render_layers,
+        not_shadow_receiver,
+        not_shadow_caster,
+    ) in &instances_query
     {
         // Skip instances with an unloaded MeshletMesh asset
         if asset_server.is_managed(handle.id())
@@ -104,7 +114,6 @@ pub fn extract_meshlet_meshes(
             not_shadow_caster,
             handle,
             &mut assets,
-            instance_index as u32,
         );
 
         // Build a MeshUniform for each instance
@@ -174,7 +183,7 @@ pub fn queue_material_meshlet_meshes<M: Material>(
 }
 
 // TODO: Try using Queue::write_buffer_with() in queue_meshlet_mesh_upload() to reduce copies
-fn upload_storage_buffer<T: ShaderSize + bytemuck::Pod>(
+fn upload_storage_buffer<T: ShaderSize + bytemuck::NoUninit>(
     buffer: &mut StorageBuffer<Vec<T>>,
     render_device: &RenderDevice,
     render_queue: &RenderQueue,
@@ -187,7 +196,7 @@ fn upload_storage_buffer<T: ShaderSize + bytemuck::Pod>(
 
     if capacity >= size {
         let inner = inner.unwrap();
-        let bytes = bytemuck::cast_slice(buffer.get().as_slice());
+        let bytes = bytemuck::must_cast_slice(buffer.get().as_slice());
         render_queue.write_buffer(inner, 0, bytes);
     } else {
         buffer.write_buffer(render_device, render_queue);
@@ -207,10 +216,6 @@ pub fn prepare_meshlet_per_frame_resources(
     render_device: Res<RenderDevice>,
     mut commands: Commands,
 ) {
-    gpu_scene
-        .previous_cluster_id_starts
-        .retain(|_, (_, active)| *active);
-
     if gpu_scene.scene_meshlet_count == 0 {
         return;
     }
@@ -226,30 +231,56 @@ pub fn prepare_meshlet_per_frame_resources(
         &render_queue,
     );
     upload_storage_buffer(
-        &mut gpu_scene.thread_instance_ids,
+        &mut gpu_scene.instance_meshlet_counts_prefix_sum,
         &render_device,
         &render_queue,
     );
     upload_storage_buffer(
-        &mut gpu_scene.thread_meshlet_ids,
-        &render_device,
-        &render_queue,
-    );
-    upload_storage_buffer(
-        &mut gpu_scene.previous_cluster_ids,
+        &mut gpu_scene.instance_meshlet_slice_starts,
         &render_device,
         &render_queue,
     );
 
+    // Early submission for GPU data uploads to start while the render graph records commands
+    render_queue.submit([]);
+
+    let needed_buffer_size = 4 * gpu_scene.scene_meshlet_count as u64;
+    match &mut gpu_scene.cluster_instance_ids {
+        Some(buffer) if buffer.size() >= needed_buffer_size => buffer.clone(),
+        slot => {
+            let buffer = render_device.create_buffer(&BufferDescriptor {
+                label: Some("meshlet_cluster_instance_ids"),
+                size: needed_buffer_size,
+                usage: BufferUsages::STORAGE,
+                mapped_at_creation: false,
+            });
+            *slot = Some(buffer.clone());
+            buffer
+        }
+    };
+    match &mut gpu_scene.cluster_meshlet_ids {
+        Some(buffer) if buffer.size() >= needed_buffer_size => buffer.clone(),
+        slot => {
+            let buffer = render_device.create_buffer(&BufferDescriptor {
+                label: Some("meshlet_cluster_meshlet_ids"),
+                size: needed_buffer_size,
+                usage: BufferUsages::STORAGE,
+                mapped_at_creation: false,
+            });
+            *slot = Some(buffer.clone());
+            buffer
+        }
+    };
+
     let needed_buffer_size = 4 * gpu_scene.scene_triangle_count;
-    let visibility_buffer_draw_index_buffer =
-        match &mut gpu_scene.visibility_buffer_draw_index_buffer {
+    let visibility_buffer_draw_triangle_buffer =
+        match &mut gpu_scene.visibility_buffer_draw_triangle_buffer {
             Some(buffer) if buffer.size() >= needed_buffer_size => buffer.clone(),
             slot => {
                 let buffer = render_device.create_buffer(&BufferDescriptor {
-                    label: Some("meshlet_visibility_buffer_draw_index_buffer"),
+                    label: Some("meshlet_visibility_buffer_draw_triangle_buffer"),
                     size: needed_buffer_size,
-                    usage: BufferUsages::STORAGE | BufferUsages::INDEX,
+                    usage: BufferUsages::STORAGE,
                     mapped_at_creation: false,
                 });
                 *slot = Some(buffer.clone());
@@ -257,7 +288,8 @@ pub fn prepare_meshlet_per_frame_resources(
             }
         };
 
-    let needed_buffer_size = gpu_scene.scene_meshlet_count.div_ceil(32) as u64 * 4;
+    let needed_buffer_size =
+        gpu_scene.scene_meshlet_count.div_ceil(u32::BITS) as u64 * size_of::<u32>() as u64;
     for (view_entity, view, render_layers, (_, shadow_view)) in &views {
         let instance_visibility = gpu_scene
             .view_instance_visibility
@@ -287,29 +319,19 @@ pub fn prepare_meshlet_per_frame_resources(
         upload_storage_buffer(instance_visibility, &render_device, &render_queue);
         let instance_visibility = instance_visibility.buffer().unwrap().clone();
 
-        // Early submission for GPU data uploads to start while the render graph records commands
-        render_queue.submit([]);
-
-        let create_occlusion_buffer = || {
-            render_device.create_buffer(&BufferDescriptor {
-                label: Some("meshlet_occlusion_buffer"),
-                size: needed_buffer_size,
-                usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            })
+        let second_pass_candidates_buffer = match &mut gpu_scene.second_pass_candidates_buffer {
+            Some(buffer) if buffer.size() >= needed_buffer_size => buffer.clone(),
+            slot => {
+                let buffer = render_device.create_buffer(&BufferDescriptor {
+                    label: Some("meshlet_second_pass_candidates"),
+                    size: needed_buffer_size,
+                    usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
+                    mapped_at_creation: false,
+                });
+                *slot = Some(buffer.clone());
+                buffer
+            }
         };
-        let (previous_occlusion_buffer, occlusion_buffer, occlusion_buffer_needs_clearing) =
-            match gpu_scene.previous_occlusion_buffers.get(&view_entity) {
-                Some((buffer_a, buffer_b)) if buffer_b.size() >= needed_buffer_size => {
-                    (buffer_a.clone(), buffer_b.clone(), true)
-                }
-                Some((buffer_a, _)) => (buffer_a.clone(), create_occlusion_buffer(), false),
-                None => (create_occlusion_buffer(), create_occlusion_buffer(), false),
-            };
-        gpu_scene.previous_occlusion_buffers.insert(
-            view_entity,
-            (occlusion_buffer.clone(), previous_occlusion_buffer.clone()),
-        );
 
         let visibility_buffer = TextureDescriptor {
             label: Some("meshlet_visibility_buffer"),
@@ -351,19 +373,19 @@ pub fn prepare_meshlet_per_frame_resources(
                 usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
             });
 
-        let depth_size = Extent3d {
-            // If not a power of 2, round down to the nearest power of 2 to ensure depth is conservative
+        let depth_pyramid_size = Extent3d {
+            // Round down to the nearest power of 2 to ensure depth is conservative
             width: previous_power_of_2(view.viewport.z),
             height: previous_power_of_2(view.viewport.w),
             depth_or_array_layers: 1,
         };
-        let depth_mip_count = depth_size.width.max(depth_size.height).ilog2() + 1;
+        let depth_pyramid_mip_count = depth_pyramid_size.max_mips(TextureDimension::D2);
         let depth_pyramid = texture_cache.get(
             &render_device,
             TextureDescriptor {
                 label: Some("meshlet_depth_pyramid"),
-                size: depth_size,
-                mip_level_count: depth_mip_count,
+                size: depth_pyramid_size,
+                mip_level_count: depth_pyramid_mip_count,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::R32Float,
@@ -371,7 +393,7 @@ pub fn prepare_meshlet_per_frame_resources(
                 view_formats: &[],
             },
         );
-        let depth_pyramid_mips = (0..depth_mip_count)
+        let depth_pyramid_mips = (0..depth_pyramid_mip_count)
             .map(|i| {
                 depth_pyramid.texture.create_view(&TextureViewDescriptor {
                     label: Some("meshlet_depth_pyramid_texture_view"),
@@ -381,10 +403,19 @@ pub fn prepare_meshlet_per_frame_resources(
                     base_mip_level: i,
                     mip_level_count: Some(1),
                     base_array_layer: 0,
-                    array_layer_count: None,
+                    array_layer_count: Some(1),
                 })
             })
-            .collect();
+            .collect::<Box<[TextureView]>>();
+        let depth_pyramid_all_mips = depth_pyramid.default_view.clone();
+
+        let previous_depth_pyramid = match gpu_scene.previous_depth_pyramids.get(&view_entity) {
+            Some(texture_view) => texture_view.clone(),
+            None => depth_pyramid_all_mips.clone(),
+        };
+        gpu_scene
+            .previous_depth_pyramids
+            .insert(view_entity, depth_pyramid_all_mips.clone());
 
         let material_depth_color = TextureDescriptor {
             label: Some("meshlet_material_depth_color"),
@@ -419,17 +450,16 @@ pub fn prepare_meshlet_per_frame_resources(
         let not_shadow_view = shadow_view.is_none();
         commands.entity(view_entity).insert(MeshletViewResources {
             scene_meshlet_count: gpu_scene.scene_meshlet_count,
-            previous_occlusion_buffer,
-            occlusion_buffer,
-            occlusion_buffer_needs_clearing,
+            second_pass_candidates_buffer,
             instance_visibility,
             visibility_buffer: not_shadow_view
                 .then(|| texture_cache.get(&render_device, visibility_buffer)),
             visibility_buffer_draw_indirect_args_first,
             visibility_buffer_draw_indirect_args_second,
-            visibility_buffer_draw_index_buffer: visibility_buffer_draw_index_buffer.clone(),
-            depth_pyramid,
+            visibility_buffer_draw_triangle_buffer: visibility_buffer_draw_triangle_buffer.clone(),
+            depth_pyramid_all_mips,
             depth_pyramid_mips,
+            previous_depth_pyramid,
             material_depth_color: not_shadow_view
                 .then(|| texture_cache.get(&render_device, material_depth_color)),
             material_depth: not_shadow_view
@@ -446,69 +476,93 @@ pub fn prepare_meshlet_view_bind_groups(
         AnyOf<(&ViewDepthTexture, &ShadowView)>,
     )>,
     view_uniforms: Res<ViewUniforms>,
+    previous_view_uniforms: Res<PreviousViewUniforms>,
     render_device: Res<RenderDevice>,
     mut commands: Commands,
 ) {
-    let Some(view_uniforms) = view_uniforms.uniforms.binding() else {
+    let (
+        Some(cluster_instance_ids),
+        Some(cluster_meshlet_ids),
+        Some(view_uniforms),
+        Some(previous_view_uniforms),
+    ) = (
+        gpu_scene.cluster_instance_ids.as_ref(),
+        gpu_scene.cluster_meshlet_ids.as_ref(),
+        view_uniforms.uniforms.binding(),
+        previous_view_uniforms.uniforms.binding(),
+    )
+    else {
         return;
     };
 
+    let first_node = Arc::new(AtomicBool::new(true));
+
+    // TODO: Some of these bind groups can be reused across multiple views
     for (view_entity, view_resources, view_depth) in &views {
         let entries = BindGroupEntries::sequential((
-            gpu_scene.thread_meshlet_ids.binding().unwrap(),
-            gpu_scene.meshlet_bounding_spheres.binding(),
-            gpu_scene.thread_instance_ids.binding().unwrap(),
-            gpu_scene.instance_uniforms.binding().unwrap(),
-            gpu_scene.view_instance_visibility[&view_entity]
+            gpu_scene
+                .instance_meshlet_counts_prefix_sum
                 .binding()
                 .unwrap(),
-            view_resources.occlusion_buffer.as_entire_binding(),
-            gpu_scene.previous_cluster_ids.binding().unwrap(),
-            view_resources.previous_occlusion_buffer.as_entire_binding(),
-            view_uniforms.clone(),
-            &view_resources.depth_pyramid.default_view,
+            gpu_scene.instance_meshlet_slice_starts.binding().unwrap(),
+            cluster_instance_ids.as_entire_binding(),
+            cluster_meshlet_ids.as_entire_binding(),
         ));
-        let culling = render_device.create_bind_group(
-            "meshlet_culling_bind_group",
-            &gpu_scene.culling_bind_group_layout,
+        let fill_cluster_buffers = render_device.create_bind_group(
+            "meshlet_fill_cluster_buffers",
+            &gpu_scene.fill_cluster_buffers_bind_group_layout,
             &entries,
         );
 
         let entries = BindGroupEntries::sequential((
-            view_resources.occlusion_buffer.as_entire_binding(),
-            gpu_scene.thread_meshlet_ids.binding().unwrap(),
-            gpu_scene.previous_cluster_ids.binding().unwrap(),
-            view_resources.previous_occlusion_buffer.as_entire_binding(),
+            cluster_meshlet_ids.as_entire_binding(),
+            gpu_scene.meshlet_bounding_spheres.binding(),
+            cluster_instance_ids.as_entire_binding(),
+            gpu_scene.instance_uniforms.binding().unwrap(),
+            view_resources.instance_visibility.as_entire_binding(),
+            view_resources
+                .second_pass_candidates_buffer
+                .as_entire_binding(),
             gpu_scene.meshlets.binding(),
             view_resources
                 .visibility_buffer_draw_indirect_args_first
                 .as_entire_binding(),
             view_resources
-                .visibility_buffer_draw_index_buffer
+                .visibility_buffer_draw_triangle_buffer
                 .as_entire_binding(),
+            &view_resources.previous_depth_pyramid,
+            view_uniforms.clone(),
+            previous_view_uniforms.clone(),
         ));
-        let write_index_buffer_first = render_device.create_bind_group(
-            "meshlet_write_index_buffer_first_bind_group",
-            &gpu_scene.write_index_buffer_bind_group_layout,
+        let culling_first = render_device.create_bind_group(
+            "meshlet_culling_first_bind_group",
+            &gpu_scene.culling_bind_group_layout,
             &entries,
         );
 
         let entries = BindGroupEntries::sequential((
-            view_resources.occlusion_buffer.as_entire_binding(),
-            gpu_scene.thread_meshlet_ids.binding().unwrap(),
-            gpu_scene.previous_cluster_ids.binding().unwrap(),
-            view_resources.previous_occlusion_buffer.as_entire_binding(),
+            cluster_meshlet_ids.as_entire_binding(),
+            gpu_scene.meshlet_bounding_spheres.binding(),
+            cluster_instance_ids.as_entire_binding(),
+            gpu_scene.instance_uniforms.binding().unwrap(),
+            view_resources.instance_visibility.as_entire_binding(),
+            view_resources
+                .second_pass_candidates_buffer
+                .as_entire_binding(),
             gpu_scene.meshlets.binding(),
             view_resources
                 .visibility_buffer_draw_indirect_args_second
                 .as_entire_binding(),
             view_resources
-                .visibility_buffer_draw_index_buffer
+                .visibility_buffer_draw_triangle_buffer
                 .as_entire_binding(),
+            &view_resources.depth_pyramid_all_mips,
+            view_uniforms.clone(),
+            previous_view_uniforms.clone(),
         ));
-        let write_index_buffer_second = render_device.create_bind_group(
-            "meshlet_write_index_buffer_second_bind_group",
-            &gpu_scene.write_index_buffer_bind_group_layout,
+        let culling_second = render_device.create_bind_group(
+            "meshlet_culling_second_bind_group",
+            &gpu_scene.culling_bind_group_layout,
             &entries,
         );
 
@@ -535,16 +589,16 @@ pub fn prepare_meshlet_view_bind_groups(
             .collect();
 
         let entries = BindGroupEntries::sequential((
-            gpu_scene.thread_meshlet_ids.binding().unwrap(),
+            cluster_meshlet_ids.as_entire_binding(),
             gpu_scene.meshlets.binding(),
             gpu_scene.indices.binding(),
             gpu_scene.vertex_ids.binding(),
             gpu_scene.vertex_data.binding(),
-            gpu_scene.thread_instance_ids.binding().unwrap(),
+            cluster_instance_ids.as_entire_binding(),
             gpu_scene.instance_uniforms.binding().unwrap(),
             gpu_scene.instance_material_ids.binding().unwrap(),
             view_resources
-                .visibility_buffer_draw_index_buffer
+                .visibility_buffer_draw_triangle_buffer
                 .as_entire_binding(),
             view_uniforms.clone(),
         ));
@@ -577,12 +631,12 @@ pub fn prepare_meshlet_view_bind_groups(
             .map(|visibility_buffer| {
                 let entries = BindGroupEntries::sequential((
                     &visibility_buffer.default_view,
-                    gpu_scene.thread_meshlet_ids.binding().unwrap(),
+                    cluster_meshlet_ids.as_entire_binding(),
                     gpu_scene.meshlets.binding(),
                     gpu_scene.indices.binding(),
                     gpu_scene.vertex_ids.binding(),
                     gpu_scene.vertex_data.binding(),
-                    gpu_scene.thread_instance_ids.binding().unwrap(),
+                    cluster_instance_ids.as_entire_binding(),
                     gpu_scene.instance_uniforms.binding().unwrap(),
                 ));
                 render_device.create_bind_group(
@@ -593,9 +647,10 @@ pub fn prepare_meshlet_view_bind_groups(
             });
 
         commands.entity(view_entity).insert(MeshletViewBindGroups {
-            culling,
-            write_index_buffer_first,
-            write_index_buffer_second,
+            first_node: Arc::clone(&first_node),
+            fill_cluster_buffers,
+            culling_first,
+            culling_second,
             downsample_depth,
             visibility_buffer_raster,
             copy_material_depth,
@@ -611,7 +666,7 @@ pub struct MeshletGpuScene {
     vertex_ids: PersistentGpuBuffer<Arc<[u32]>>,
     indices: PersistentGpuBuffer<Arc<[u8]>>,
     meshlets: PersistentGpuBuffer<Arc<[Meshlet]>>,
-    meshlet_bounding_spheres: PersistentGpuBuffer<Arc<[MeshletBoundingSphere]>>,
+    meshlet_bounding_spheres: PersistentGpuBuffer<Arc<[MeshletBoundingSpheres]>>,
     meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, ([Range<BufferAddress>; 5], u64)>,
 
     scene_meshlet_count: u32,
@@ -619,22 +674,23 @@ pub struct MeshletGpuScene {
     next_material_id: u32,
     material_id_lookup: HashMap<UntypedAssetId, u32>,
     material_ids_present_in_scene: HashSet<u32>,
-    /// Per-instance Entity, RenderLayers, and NotShadowCaster
+    /// Per-instance [`Entity`], [`RenderLayers`], and [`NotShadowCaster`]
     instances: Vec<(Entity, RenderLayers, bool)>,
     /// Per-instance transforms, model matrices, and render flags
     instance_uniforms: StorageBuffer<Vec<MeshUniform>>,
-    /// Per-view per-instance visibility bit. Used for RenderLayer and NotShadowCaster support.
+    /// Per-view per-instance visibility bit. Used for [`RenderLayers`] and [`NotShadowCaster`] support.
     view_instance_visibility: EntityHashMap<StorageBuffer<Vec<u32>>>,
     instance_material_ids: StorageBuffer<Vec<u32>>,
-    thread_instance_ids: StorageBuffer<Vec<u32>>,
-    thread_meshlet_ids: StorageBuffer<Vec<u32>>,
-    previous_cluster_ids: StorageBuffer<Vec<u32>>,
-    previous_cluster_id_starts: HashMap<(Entity, AssetId<MeshletMesh>), (u32, bool)>,
-    previous_occlusion_buffers: EntityHashMap<(Buffer, Buffer)>,
-    visibility_buffer_draw_index_buffer: Option<Buffer>,
+    instance_meshlet_counts_prefix_sum: StorageBuffer<Vec<u32>>,
+    instance_meshlet_slice_starts: StorageBuffer<Vec<u32>>,
+    cluster_instance_ids: Option<Buffer>,
+    cluster_meshlet_ids: Option<Buffer>,
+    second_pass_candidates_buffer: Option<Buffer>,
+    previous_depth_pyramids: EntityHashMap<TextureView>,
+    visibility_buffer_draw_triangle_buffer: Option<Buffer>,
 
+    fill_cluster_buffers_bind_group_layout: BindGroupLayout,
     culling_bind_group_layout: BindGroupLayout,
-    write_index_buffer_bind_group_layout: BindGroupLayout,
     visibility_buffer_raster_bind_group_layout: BindGroupLayout,
     downsample_depth_bind_group_layout: BindGroupLayout,
     copy_material_depth_bind_group_layout: BindGroupLayout,
@@ -674,26 +730,35 @@ impl FromWorld for MeshletGpuScene {
                 buffer.set_label(Some("meshlet_instance_material_ids"));
                 buffer
             },
-            thread_instance_ids: {
+            instance_meshlet_counts_prefix_sum: {
                 let mut buffer = StorageBuffer::default();
-                buffer.set_label(Some("meshlet_thread_instance_ids"));
+                buffer.set_label(Some("meshlet_instance_meshlet_counts_prefix_sum"));
                 buffer
             },
-            thread_meshlet_ids: {
+            instance_meshlet_slice_starts: {
                 let mut buffer = StorageBuffer::default();
-                buffer.set_label(Some("meshlet_thread_meshlet_ids"));
+                buffer.set_label(Some("meshlet_instance_meshlet_slice_starts"));
                 buffer
             },
-            previous_cluster_ids: {
-                let mut buffer = StorageBuffer::default();
-                buffer.set_label(Some("meshlet_previous_cluster_ids"));
-                buffer
-            },
-            previous_cluster_id_starts: HashMap::new(),
-            previous_occlusion_buffers: EntityHashMap::default(),
-            visibility_buffer_draw_index_buffer: None,
+            cluster_instance_ids: None,
+            cluster_meshlet_ids: None,
+            second_pass_candidates_buffer: None,
+            previous_depth_pyramids: EntityHashMap::default(),
+            visibility_buffer_draw_triangle_buffer: None,
 
             // TODO: Buffer min sizes
+            fill_cluster_buffers_bind_group_layout: render_device.create_bind_group_layout(
+                "meshlet_fill_cluster_buffers_bind_group_layout",
+                &BindGroupLayoutEntries::sequential(
+                    ShaderStages::COMPUTE,
+                    (
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_sized(false, None),
+                        storage_buffer_sized(false, None),
+                    ),
+                ),
+            ),
             culling_bind_group_layout: render_device.create_bind_group_layout(
                 "meshlet_culling_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(
@@ -706,24 +771,11 @@ impl FromWorld for MeshletGpuScene {
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        uniform_buffer::<ViewUniform>(true),
+                        storage_buffer_sized(false, None),
+                        storage_buffer_sized(false, None),
                         texture_2d(TextureSampleType::Float { filterable: false }),
-                    ),
-                ),
-            ),
-            write_index_buffer_bind_group_layout: render_device.create_bind_group_layout(
-                "meshlet_write_index_buffer_bind_group_layout",
-                &BindGroupLayoutEntries::sequential(
-                    ShaderStages::COMPUTE,
-                    (
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_sized(false, None),
-                        storage_buffer_sized(false, None),
+                        uniform_buffer::<ViewUniform>(true),
+                        uniform_buffer::<PreviousViewData>(true),
                     ),
                 ),
             ),
@@ -801,13 +853,9 @@ impl MeshletGpuScene {
             .for_each(|b| b.get_mut().clear());
         self.instance_uniforms.get_mut().clear();
         self.instance_material_ids.get_mut().clear();
-        self.thread_instance_ids.get_mut().clear();
-        self.thread_meshlet_ids.get_mut().clear();
-        self.previous_cluster_ids.get_mut().clear();
-        self.previous_cluster_id_starts
-            .values_mut()
-            .for_each(|(_, active)| *active = false);
-        // TODO: Remove unused entries for previous_occlusion_buffers
+        self.instance_meshlet_counts_prefix_sum.get_mut().clear();
+        self.instance_meshlet_slice_starts.get_mut().clear();
+        // TODO: Remove unused entries for view_instance_visibility and previous_depth_pyramids
     }
 
     fn queue_meshlet_mesh_upload(
@@ -817,7 +865,6 @@ impl MeshletGpuScene {
         not_shadow_caster: bool,
         handle: &Handle<MeshletMesh>,
         assets: &mut Assets<MeshletMesh>,
-        instance_index: u32,
     ) {
         let queue_meshlet_mesh = |asset_id: &AssetId<MeshletMesh>| {
             let meshlet_mesh = assets.remove_untracked(*asset_id).expect(
@@ -840,7 +887,7 @@ impl MeshletGpuScene {
             );
             let meshlet_bounding_spheres_slice = self
                 .meshlet_bounding_spheres
-                .queue_write(Arc::clone(&meshlet_mesh.meshlet_bounding_spheres), ());
+                .queue_write(Arc::clone(&meshlet_mesh.bounding_spheres), ());
 
             (
                 [
@@ -850,14 +897,9 @@ impl MeshletGpuScene {
                     meshlets_slice,
                     meshlet_bounding_spheres_slice,
                 ],
-                meshlet_mesh.total_meshlet_triangles,
+                meshlet_mesh.worst_case_meshlet_triangles,
             )
         };
-
-        // Append instance data for this frame
-        self.instances
-            .push((instance, render_layers, not_shadow_caster));
-        self.instance_material_ids.get_mut().push(0);
 
         // If the MeshletMesh asset has not been uploaded to the GPU yet, queue it for uploading
         let ([_, _, _, meshlets_slice, _], triangle_count) = self
@@ -869,33 +911,19 @@ impl MeshletGpuScene {
         let meshlets_slice = (meshlets_slice.start as u32 / size_of::<Meshlet>() as u32)
             ..(meshlets_slice.end as u32 / size_of::<Meshlet>() as u32);
 
-        let current_cluster_id_start = self.scene_meshlet_count;
+        // Append instance data for this frame
+        self.instances
+            .push((instance, render_layers, not_shadow_caster));
+        self.instance_material_ids.get_mut().push(0);
+        self.instance_meshlet_counts_prefix_sum
+            .get_mut()
+            .push(self.scene_meshlet_count);
+        self.instance_meshlet_slice_starts
+            .get_mut()
+            .push(meshlets_slice.start);
 
         self.scene_meshlet_count += meshlets_slice.end - meshlets_slice.start;
         self.scene_triangle_count += triangle_count;
-
-        // Calculate the previous cluster IDs for each meshlet for this instance
-        let previous_cluster_id_start = self
-            .previous_cluster_id_starts
-            .entry((instance, handle.id()))
-            .or_insert((0, true));
-        let previous_cluster_ids = if previous_cluster_id_start.1 {
-            0..(meshlets_slice.len() as u32)
-        } else {
-            let start = previous_cluster_id_start.0;
-            start..(meshlets_slice.len() as u32 + start)
-        };
-
-        // Append per-cluster data for this frame
-        self.thread_instance_ids
-            .get_mut()
-            .extend(std::iter::repeat(instance_index).take(meshlets_slice.len()));
-        self.thread_meshlet_ids.get_mut().extend(meshlets_slice);
-        self.previous_cluster_ids
-            .get_mut()
-            .extend(previous_cluster_ids);
-
-        *previous_cluster_id_start = (current_cluster_id_start, true);
     }
 
     /// Get the depth value for use with the material depth texture for a given [`Material`] asset.
@@ -913,12 +941,12 @@ impl MeshletGpuScene {
         self.material_ids_present_in_scene.contains(material_id)
     }
 
-    pub fn culling_bind_group_layout(&self) -> BindGroupLayout {
-        self.culling_bind_group_layout.clone()
+    pub fn fill_cluster_buffers_bind_group_layout(&self) -> BindGroupLayout {
+        self.fill_cluster_buffers_bind_group_layout.clone()
     }
 
-    pub fn write_index_buffer_bind_group_layout(&self) -> BindGroupLayout {
-        self.write_index_buffer_bind_group_layout.clone()
+    pub fn culling_bind_group_layout(&self) -> BindGroupLayout {
+        self.culling_bind_group_layout.clone()
     }
 
     pub fn downsample_depth_bind_group_layout(&self) -> BindGroupLayout {
@@ -941,25 +969,25 @@ impl MeshletGpuScene {
 #[derive(Component)]
 pub struct MeshletViewResources {
     pub scene_meshlet_count: u32,
-    previous_occlusion_buffer: Buffer,
-    pub occlusion_buffer: Buffer,
-    pub occlusion_buffer_needs_clearing: bool,
-    pub instance_visibility: Buffer,
+    pub second_pass_candidates_buffer: Buffer,
+    instance_visibility: Buffer,
     pub visibility_buffer: Option<CachedTexture>,
     pub visibility_buffer_draw_indirect_args_first: Buffer,
     pub visibility_buffer_draw_indirect_args_second: Buffer,
-    visibility_buffer_draw_index_buffer: Buffer,
-    pub depth_pyramid: CachedTexture,
+    visibility_buffer_draw_triangle_buffer: Buffer,
+    depth_pyramid_all_mips: TextureView,
     pub depth_pyramid_mips: Box<[TextureView]>,
+    previous_depth_pyramid: TextureView,
     pub material_depth_color: Option<CachedTexture>,
     pub material_depth: Option<CachedTexture>,
 }
 
 #[derive(Component)]
 pub struct MeshletViewBindGroups {
-    pub culling: BindGroup,
-    pub write_index_buffer_first: BindGroup,
-    pub write_index_buffer_second: BindGroup,
+    pub first_node: Arc<AtomicBool>,
+    pub fill_cluster_buffers: BindGroup,
+    pub culling_first: BindGroup,
+    pub culling_second: BindGroup,
     pub downsample_depth: Box<[BindGroup]>,
     pub visibility_buffer_raster: BindGroup,
     pub copy_material_depth: Option<BindGroup>,
