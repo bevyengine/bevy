@@ -5,9 +5,11 @@ use crate::{
     UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::world::World;
-use bevy_log::error;
 use bevy_tasks::{IoTaskPool, Task};
-use bevy_utils::{tracing::warn, ConditionalSendFuture};
+use bevy_utils::{
+    tracing::{error, warn},
+    ConditionalSendFuture,
+};
 use bevy_utils::{Entry, HashMap, HashSet, TypeIdMap};
 use crossbeam_channel::Sender;
 use std::{
