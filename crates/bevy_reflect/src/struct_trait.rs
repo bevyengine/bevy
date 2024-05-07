@@ -204,7 +204,7 @@ impl<'a> Iterator for FieldIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let value = self.struct_val.field_at(self.index);
-        self.index += 1;
+        self.index += value.is_some() as usize;
         value
     }
 

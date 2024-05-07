@@ -280,7 +280,7 @@ impl<'a> Iterator for VariantFieldIter<'a> {
                 Some(VariantField::Struct(name, self.container.field(name)?))
             }
         };
-        self.index += 1;
+        self.index += value.is_some() as usize;
         value
     }
 
