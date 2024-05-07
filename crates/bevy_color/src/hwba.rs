@@ -69,6 +69,24 @@ impl Hwba {
     pub const fn with_blackness(self, blackness: f32) -> Self {
         Self { blackness, ..self }
     }
+
+        /// Converts the color into a [f32; 4] array in HSLA order.
+    ///
+    /// This is useful for passing the color to a shader.
+    pub fn to_f32_array(&self) -> [f32; 4] {
+        [self.hue, self.whiteness, self.blackness, self.alpha]
+    }
+}
+
+impl From<[f32; 4]> for Hwba {
+    fn from(value: [f32; 4]) -> Self {
+        Self {
+            hue: value[0],
+            whiteness: value[1],
+            blackness: value[2],
+            alpha: value[3],
+        }
+    }
 }
 
 impl Default for Hwba {
