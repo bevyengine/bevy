@@ -1024,16 +1024,15 @@ mod tests {
 
     #[test]
     fn failure_load_states() {
-        /*
-                let start_time = Instant::now();
-                // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-                #[cfg(not(feature = "multi_threaded"))]
-                panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
+        let start_time = Instant::now();
+        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
+        #[cfg(not(feature = "multi_threaded"))]
+        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
 
-                let dir = Dir::default();
+        let dir = Dir::default();
 
-                let a_path = "a.cool.ron";
-                let a_ron = r#"
+        let a_path = "a.cool.ron";
+        let a_ron = r#"
         (
             text: "a",
             dependencies: [
@@ -1043,8 +1042,8 @@ mod tests {
             embedded_dependencies: [],
             sub_texts: []
         )"#;
-                let b_path = "b.cool.ron";
-                let b_ron = r#"
+        let b_path = "b.cool.ron";
+        let b_ron = r#"
         (
             text: "b",
             dependencies: [],
@@ -1052,8 +1051,8 @@ mod tests {
             sub_texts: []
         )"#;
 
-                let c_path = "c.cool.ron";
-                let c_ron = r#"
+        let c_path = "c.cool.ron";
+        let c_ron = r#"
         (
             text: "c",
             dependencies: [
@@ -1063,8 +1062,8 @@ mod tests {
             sub_texts: []
         )"#;
 
-                let d_path = "d.cool.ron";
-                let d_ron = r#"
+        let d_path = "d.cool.ron";
+        let d_ron = r#"
         (
             text: "d",
             dependencies: [],
@@ -1073,119 +1072,118 @@ mod tests {
             sub_texts: []
         )"#;
 
-                dir.insert_asset_text(Path::new(a_path), a_ron);
-                dir.insert_asset_text(Path::new(b_path), b_ron);
-                dir.insert_asset_text(Path::new(c_path), c_ron);
-                dir.insert_asset_text(Path::new(d_path), d_ron);
+        dir.insert_asset_text(Path::new(a_path), a_ron);
+        dir.insert_asset_text(Path::new(b_path), b_ron);
+        dir.insert_asset_text(Path::new(c_path), c_ron);
+        dir.insert_asset_text(Path::new(d_path), d_ron);
 
-                let (mut app, gate_opener, _guard) = test_app(dir);
+        let (mut app, gate_opener, _guard) = test_app(dir);
 
-                app.init_asset::<CoolText>()
-                    .register_asset_loader(CoolTextLoader);
-                let asset_server = app.world().resource::<AssetServer>().clone();
-                let handle: Handle<CoolText> = asset_server.load(a_path);
-                let a_id = handle.id();
-                {
-                    let other_handle: Handle<CoolText> = asset_server.load(a_path);
-                    assert_eq!(
-                        other_handle, handle,
-                        "handles from consecutive load calls should be equal"
-                    );
-                    assert_eq!(
-                        other_handle.id(),
-                        handle.id(),
-                        "handle ids from consecutive load calls should be equal"
-                    );
-                }
+        app.init_asset::<CoolText>()
+            .register_asset_loader(CoolTextLoader);
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle: Handle<CoolText> = asset_server.load(a_path);
+        let a_id = handle.id();
+        {
+            let other_handle: Handle<CoolText> = asset_server.load(a_path);
+            assert_eq!(
+                other_handle, handle,
+                "handles from consecutive load calls should be equal"
+            );
+            assert_eq!(
+                other_handle.id(),
+                handle.id(),
+                "handle ids from consecutive load calls should be equal"
+            );
+        }
 
-                app.world_mut().spawn(handle);
-                gate_opener.open(a_path);
-                gate_opener.open(b_path);
-                gate_opener.open(c_path);
-                gate_opener.open(d_path);
+        app.world_mut().spawn(handle);
+        gate_opener.open(a_path);
+        gate_opener.open(b_path);
+        gate_opener.open(c_path);
+        gate_opener.open(d_path);
 
-                run_app_until(&mut app, |world| {
-                    if Instant::now()
-                        .checked_duration_since(start_time)
-                        .map_or(false, |elapsed| elapsed > Duration::from_secs(10))
-                    {
-                        panic!();
-                    }
+        run_app_until(&mut app, |world| {
+            if Instant::now()
+                .checked_duration_since(start_time)
+                .map_or(false, |elapsed| elapsed > Duration::from_secs(10))
+            {
+                panic!();
+            }
 
-                    let a_text = get::<CoolText>(world, a_id)?;
-                    let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
-                    bevy_log::error!(
-                        "a: {:?}, {:?}, {:?}, {:?}",
-                        a_text,
-                        a_load,
-                        a_deps,
-                        a_rec_deps
-                    );
+            let a_text = get::<CoolText>(world, a_id)?;
+            let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
+            bevy_log::error!(
+                "a: {:?}, {:?}, {:?}, {:?}",
+                a_text,
+                a_load,
+                a_deps,
+                a_rec_deps
+            );
 
-                    let b_id = a_text.dependencies[0].id();
-                    let b_text = get::<CoolText>(world, b_id)?;
-                    let (b_load, b_deps, b_rec_deps) = asset_server.get_load_states(b_id).unwrap();
-                    bevy_log::error!(
-                        "b: {:?}, {:?}, {:?}, {:?}",
-                        b_text,
-                        b_load,
-                        b_deps,
-                        b_rec_deps
-                    );
+            let b_id = a_text.dependencies[0].id();
+            let b_text = get::<CoolText>(world, b_id)?;
+            let (b_load, b_deps, b_rec_deps) = asset_server.get_load_states(b_id).unwrap();
+            bevy_log::error!(
+                "b: {:?}, {:?}, {:?}, {:?}",
+                b_text,
+                b_load,
+                b_deps,
+                b_rec_deps
+            );
 
-                    let c_id = a_text.dependencies[1].id();
-                    let c_text = get::<CoolText>(world, c_id)?;
-                    let (c_load, c_deps, c_rec_deps) = asset_server.get_load_states(c_id).unwrap();
-                    bevy_log::error!(
-                        "c: {:?}, {:?}, {:?}, {:?}",
-                        c_text,
-                        c_load,
-                        c_deps,
-                        c_rec_deps
-                    );
+            let c_id = a_text.dependencies[1].id();
+            let c_text = get::<CoolText>(world, c_id)?;
+            let (c_load, c_deps, c_rec_deps) = asset_server.get_load_states(c_id).unwrap();
+            bevy_log::error!(
+                "c: {:?}, {:?}, {:?}, {:?}",
+                c_text,
+                c_load,
+                c_deps,
+                c_rec_deps
+            );
 
-                    let d_id = c_text.dependencies[0].id();
-                    let d_text = get::<CoolText>(world, d_id);
-                    let (d_load, d_deps, d_rec_deps) = asset_server.get_load_states(d_id).unwrap();
-                    bevy_log::error!(
-                        "d: {:?}, {:?}, {:?}, {:?}",
-                        d_text,
-                        d_load,
-                        d_deps,
-                        d_rec_deps
-                    );
-                    if !matches!(d_load, LoadState::Failed(_)) {
-                        bevy_log::error!("no match, looping");
-                        // wait until d has exited the loading state
-                        return None;
-                    }
+            let d_id = c_text.dependencies[0].id();
+            let d_text = get::<CoolText>(world, d_id);
+            let (d_load, d_deps, d_rec_deps) = asset_server.get_load_states(d_id).unwrap();
+            bevy_log::error!(
+                "d: {:?}, {:?}, {:?}, {:?}",
+                d_text,
+                d_load,
+                d_deps,
+                d_rec_deps
+            );
+            if !matches!(d_load, LoadState::Failed(_)) {
+                bevy_log::error!("no match, looping");
+                // wait until d has exited the loading state
+                return None;
+            }
 
-                    bevy_log::error!("loaded, running asserts");
-                    assert!(d_text.is_none());
-                    assert!(matches!(d_load, LoadState::Failed(_)));
-                    assert_eq!(d_deps, DependencyLoadState::Failed);
-                    assert_eq!(d_rec_deps, RecursiveDependencyLoadState::Failed);
+            bevy_log::error!("loaded, running asserts");
+            assert!(d_text.is_none());
+            assert!(matches!(d_load, LoadState::Failed(_)));
+            assert_eq!(d_deps, DependencyLoadState::Failed);
+            assert_eq!(d_rec_deps, RecursiveDependencyLoadState::Failed);
 
-                    assert_eq!(a_text.text, "a");
-                    assert_eq!(a_load, LoadState::Loaded);
-                    assert_eq!(a_deps, DependencyLoadState::Loaded);
-                    assert_eq!(a_rec_deps, RecursiveDependencyLoadState::Failed);
+            assert_eq!(a_text.text, "a");
+            assert_eq!(a_load, LoadState::Loaded);
+            assert_eq!(a_deps, DependencyLoadState::Loaded);
+            assert_eq!(a_rec_deps, RecursiveDependencyLoadState::Failed);
 
-                    assert_eq!(b_text.text, "b");
-                    assert_eq!(b_load, LoadState::Loaded);
-                    assert_eq!(b_deps, DependencyLoadState::Loaded);
-                    assert_eq!(b_rec_deps, RecursiveDependencyLoadState::Loaded);
+            assert_eq!(b_text.text, "b");
+            assert_eq!(b_load, LoadState::Loaded);
+            assert_eq!(b_deps, DependencyLoadState::Loaded);
+            assert_eq!(b_rec_deps, RecursiveDependencyLoadState::Loaded);
 
-                    assert_eq!(c_text.text, "c");
-                    assert_eq!(c_load, LoadState::Loaded);
-                    assert_eq!(c_deps, DependencyLoadState::Failed);
-                    assert_eq!(c_rec_deps, RecursiveDependencyLoadState::Failed);
+            assert_eq!(c_text.text, "c");
+            assert_eq!(c_load, LoadState::Loaded);
+            assert_eq!(c_deps, DependencyLoadState::Failed);
+            assert_eq!(c_rec_deps, RecursiveDependencyLoadState::Failed);
 
-                    bevy_log::error!("failure_load_states all good");
-                    Some(())
-                });
-                bevy_log::error!("failure_load_states now leaving the function, bye");
-                */
+            bevy_log::error!("failure_load_states all good");
+            Some(())
+        });
+        bevy_log::error!("failure_load_states now leaving the function, bye");
     }
 
     const SIMPLE_TEXT: &str = r#"
@@ -1197,7 +1195,6 @@ mod tests {
 )"#;
     #[test]
     fn keep_gotten_strong_handles() {
-        /*
         let dir = Dir::default();
         dir.insert_asset_text(Path::new("dep.cool.ron"), SIMPLE_TEXT);
 
@@ -1229,115 +1226,111 @@ mod tests {
             app.world().resource::<Assets<CoolText>>().get(id).is_none(),
             "asset has no handles, so it should have been dropped last update"
         );
-        */
     }
 
     #[test]
     fn manual_asset_management() {
-        /*
-               // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-               #[cfg(not(feature = "multi_threaded"))]
-               panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
+        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
+        #[cfg(not(feature = "multi_threaded"))]
+        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
 
-               let dir = Dir::default();
-               let dep_path = "dep.cool.ron";
+        let dir = Dir::default();
+        let dep_path = "dep.cool.ron";
 
-               dir.insert_asset_text(Path::new(dep_path), SIMPLE_TEXT);
+        dir.insert_asset_text(Path::new(dep_path), SIMPLE_TEXT);
 
-               let (mut app, gate_opener, _guard) = test_app(dir);
-               app.init_asset::<CoolText>()
-                   .init_asset::<SubText>()
-                   .init_resource::<StoredEvents>()
-                   .register_asset_loader(CoolTextLoader)
-                   .add_systems(Update, store_asset_events);
+        let (mut app, gate_opener, _guard) = test_app(dir);
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .init_resource::<StoredEvents>()
+            .register_asset_loader(CoolTextLoader)
+            .add_systems(Update, store_asset_events);
 
-               let hello = "hello".to_string();
-               let empty = "".to_string();
+        let hello = "hello".to_string();
+        let empty = "".to_string();
 
-               let id = {
-                   let handle = {
-                       let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
-                       texts.add(CoolText {
-                           text: hello.clone(),
-                           embedded: empty.clone(),
-                           dependencies: vec![],
-                           sub_texts: Vec::new(),
-                       })
-                   };
+        let id = {
+            let handle = {
+                let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
+                texts.add(CoolText {
+                    text: hello.clone(),
+                    embedded: empty.clone(),
+                    dependencies: vec![],
+                    sub_texts: Vec::new(),
+                })
+            };
 
-                   app.update();
+            app.update();
 
-                   {
-                       let text = app
-                           .world()
-                           .resource::<Assets<CoolText>>()
-                           .get(&handle)
-                           .unwrap();
-                       assert_eq!(text.text, hello);
-                   }
-                   handle.id()
-               };
-               // handle is dropped
-               app.update();
-               assert!(
-                   app.world().resource::<Assets<CoolText>>().get(id).is_none(),
-                   "asset has no handles, so it should have been dropped last update"
-               );
-               // remove event is emitted
-               app.update();
-               let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
-               let expected_events = vec![
-                   AssetEvent::Added { id },
-                   AssetEvent::Unused { id },
-                   AssetEvent::Removed { id },
-               ];
-               assert_eq!(events, expected_events);
+            {
+                let text = app
+                    .world()
+                    .resource::<Assets<CoolText>>()
+                    .get(&handle)
+                    .unwrap();
+                assert_eq!(text.text, hello);
+            }
+            handle.id()
+        };
+        // handle is dropped
+        app.update();
+        assert!(
+            app.world().resource::<Assets<CoolText>>().get(id).is_none(),
+            "asset has no handles, so it should have been dropped last update"
+        );
+        // remove event is emitted
+        app.update();
+        let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
+        let expected_events = vec![
+            AssetEvent::Added { id },
+            AssetEvent::Unused { id },
+            AssetEvent::Removed { id },
+        ];
+        assert_eq!(events, expected_events);
 
-               let dep_handle = app.world().resource::<AssetServer>().load(dep_path);
-               let a = CoolText {
-                   text: "a".to_string(),
-                   embedded: empty,
-                   // this dependency is behind a manual load gate, which should prevent 'a' from emitting a LoadedWithDependencies event
-                   dependencies: vec![dep_handle.clone()],
-                   sub_texts: Vec::new(),
-               };
-               let a_handle = app.world().resource::<AssetServer>().load_asset(a);
-               app.update();
-               // TODO: ideally it doesn't take two updates for the added event to emit
-               app.update();
+        let dep_handle = app.world().resource::<AssetServer>().load(dep_path);
+        let a = CoolText {
+            text: "a".to_string(),
+            embedded: empty,
+            // this dependency is behind a manual load gate, which should prevent 'a' from emitting a LoadedWithDependencies event
+            dependencies: vec![dep_handle.clone()],
+            sub_texts: Vec::new(),
+        };
+        let a_handle = app.world().resource::<AssetServer>().load_asset(a);
+        app.update();
+        // TODO: ideally it doesn't take two updates for the added event to emit
+        app.update();
 
-               let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
-               let expected_events = vec![AssetEvent::Added { id: a_handle.id() }];
-               assert_eq!(events, expected_events);
+        let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
+        let expected_events = vec![AssetEvent::Added { id: a_handle.id() }];
+        assert_eq!(events, expected_events);
 
-               gate_opener.open(dep_path);
-               loop {
-                   app.update();
-                   let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
-                   if events.is_empty() {
-                       continue;
-                   }
-                   let expected_events = vec![
-                       AssetEvent::LoadedWithDependencies {
-                           id: dep_handle.id(),
-                       },
-                       AssetEvent::LoadedWithDependencies { id: a_handle.id() },
-                   ];
-                   assert_eq!(events, expected_events);
-                   break;
-               }
-               app.update();
-               let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
-               let expected_events = vec![AssetEvent::Added {
-                   id: dep_handle.id(),
-               }];
-               assert_eq!(events, expected_events);
-        */
+        gate_opener.open(dep_path);
+        loop {
+            app.update();
+            let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
+            if events.is_empty() {
+                continue;
+            }
+            let expected_events = vec![
+                AssetEvent::LoadedWithDependencies {
+                    id: dep_handle.id(),
+                },
+                AssetEvent::LoadedWithDependencies { id: a_handle.id() },
+            ];
+            assert_eq!(events, expected_events);
+            break;
+        }
+        app.update();
+        let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
+        let expected_events = vec![AssetEvent::Added {
+            id: dep_handle.id(),
+        }];
+        assert_eq!(events, expected_events);
     }
 
     #[test]
     fn load_folder() {
-        /*
         // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
         #[cfg(not(feature = "multi_threaded"))]
         panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
@@ -1428,13 +1421,11 @@ mod tests {
             }
             None
         });
-        */
     }
 
     /// Tests that `AssetLoadFailedEvent<A>` events are emitted and can be used to retry failed assets.
     #[test]
     fn load_error_events() {
-        /*
         #[derive(Resource, Default)]
         struct ErrorTracker {
             tick: u64,
@@ -1577,12 +1568,10 @@ mod tests {
                 None => None,
             }
         });
-        */
     }
 
     #[test]
     fn ignore_system_ambiguities_on_assets() {
-        /*
         let mut app = App::new();
         app.add_plugins(AssetPlugin::default())
             .init_asset::<CoolText>();
@@ -1598,7 +1587,6 @@ mod tests {
 
         // running schedule does not error on ambiguity between the 2 uses_assets systems
         app.world_mut().run_schedule(Update);
-        */
     }
 
     // validate the Asset derive macro for various asset types
