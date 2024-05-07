@@ -757,6 +757,8 @@ mod tests {
             );
         }
 
+        error!("loop for a");
+
         // Allow "a" to load ... wait for it to finish loading and validate results
         // Dependencies are still gated so they should not be loaded yet
         gate_opener.open(a_path);
@@ -787,6 +789,8 @@ mod tests {
             Some(())
         });
 
+        error!("loop for b");
+
         // Allow "b" to load ... wait for it to finish loading and validate results
         // "c" should not be loaded yet
         gate_opener.open(b_path);
@@ -816,6 +820,8 @@ mod tests {
             assert_eq!(c_rec_deps, RecursiveDependencyLoadState::Loading);
             Some(())
         });
+
+        error!("loop for c");
 
         // Allow "c" to load ... wait for it to finish loading and validate results
         // all "a" dependencies should be loaded now
@@ -889,6 +895,8 @@ mod tests {
             world.insert_resource(IdResults { b_id, c_id, d_id });
             Some(())
         });
+
+        error!("loop for d");
 
         gate_opener.open(d_path);
         run_app_until(&mut app, |world| {
