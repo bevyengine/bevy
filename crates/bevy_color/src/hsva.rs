@@ -65,6 +65,24 @@ impl Hsva {
     pub const fn with_value(self, value: f32) -> Self {
         Self { value, ..self }
     }
+
+    /// Converts the color into a [f32; 4] array in HSVA order.
+    ///
+    /// This is useful for passing the color to a shader.
+    pub fn to_f32_array(&self) -> [f32; 4] {
+        [self.hue, self.saturation, self.value, self.alpha]
+    }
+}
+
+impl From<[f32; 4]> for Hsva {
+    fn from(value: [f32; 4]) -> Self {
+        Self {
+            hue: value[0],
+            saturation: value[1],
+            value: value[2],
+            alpha: value[3],
+        }
+    }
 }
 
 impl Default for Hsva {
