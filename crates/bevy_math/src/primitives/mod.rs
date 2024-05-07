@@ -43,6 +43,7 @@ pub trait Measured2d {
 pub trait Measured3d {
     /// Get the surface area of the shape
     fn area(&self) -> f32;
+
     /// Get the volume of the shape
     fn volume(&self) -> f32;
 }
