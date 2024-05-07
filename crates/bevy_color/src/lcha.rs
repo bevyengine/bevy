@@ -1,4 +1,4 @@
-use crate::{Alpha, ClampColor, Hue, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
+use crate::{Alpha, ClampColor, Gray, Hue, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
 use bevy_reflect::prelude::*;
 
 /// Color in LCH color space, with alpha
@@ -117,6 +117,11 @@ impl Mix for Lcha {
             alpha: self.alpha * n_factor + other.alpha * factor,
         }
     }
+}
+
+impl Gray for Lcha {
+    const BLACK: Self = Self::new(0.0, 0.0, 0.0000136603785, 1.0);
+    const WHITE: Self = Self::new(1.0, 0.0, 0.0000136603785, 1.0);
 }
 
 impl Alpha for Lcha {

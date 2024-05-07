@@ -1,5 +1,6 @@
 use crate::{
-    impl_componentwise_vector_space, Alpha, ClampColor, LinearRgba, Luminance, Mix, StandardColor,
+    impl_componentwise_vector_space, Alpha, ClampColor, Gray, LinearRgba, Luminance, Mix,
+    StandardColor,
 };
 use bevy_reflect::prelude::*;
 
@@ -158,6 +159,11 @@ impl ClampColor for Xyza {
             && (0. ..=1.).contains(&self.z)
             && (0. ..=1.).contains(&self.alpha)
     }
+}
+
+impl Gray for Xyza {
+    const BLACK: Self = Self::new(0., 0., 0., 1.);
+    const WHITE: Self = Self::new(0.95047, 1.0, 1.08883, 1.0);
 }
 
 impl From<LinearRgba> for Xyza {

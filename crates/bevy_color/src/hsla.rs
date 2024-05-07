@@ -1,6 +1,5 @@
 use crate::{
-    Alpha, ClampColor, Hsva, Hue, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor,
-    Xyza,
+    Alpha, ClampColor, Gray, Hsva, Hue, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza
 };
 use bevy_reflect::prelude::*;
 
@@ -116,6 +115,11 @@ impl Mix for Hsla {
             alpha: self.alpha * n_factor + other.alpha * factor,
         }
     }
+}
+
+impl Gray for Hsla {
+    const BLACK: Self = Self::new(0., 0., 0., 1.);
+    const WHITE: Self = Self::new(0., 0., 1., 1.);
 }
 
 impl Alpha for Hsla {

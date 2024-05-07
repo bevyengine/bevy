@@ -1,6 +1,5 @@
 use crate::{
-    impl_componentwise_vector_space, Alpha, ClampColor, Hsla, Hsva, Hwba, LinearRgba, Luminance,
-    Mix, Oklaba, Srgba, StandardColor, Xyza,
+    impl_componentwise_vector_space, Alpha, ClampColor, Gray, Hsla, Hsva, Hwba, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza
 };
 use bevy_reflect::prelude::*;
 
@@ -98,6 +97,11 @@ impl Mix for Laba {
             alpha: self.alpha * n_factor + other.alpha * factor,
         }
     }
+}
+
+impl Gray for Laba {
+    const BLACK: Self = Self::new(0., 0., 0., 1.);
+    const WHITE: Self = Self::new(1., 0., 0., 1.);
 }
 
 impl Alpha for Laba {

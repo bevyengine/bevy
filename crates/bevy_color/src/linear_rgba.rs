@@ -1,6 +1,5 @@
 use crate::{
-    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ClampColor,
-    Luminance, Mix, StandardColor,
+    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ClampColor, Gray, Luminance, Mix, StandardColor
 };
 use bevy_math::Vec4;
 use bevy_reflect::prelude::*;
@@ -222,6 +221,11 @@ impl Mix for LinearRgba {
             alpha: self.alpha * n_factor + other.alpha * factor,
         }
     }
+}
+
+impl Gray for LinearRgba {
+    const BLACK: Self = Self::BLACK;
+    const WHITE: Self = Self::WHITE;
 }
 
 impl Alpha for LinearRgba {

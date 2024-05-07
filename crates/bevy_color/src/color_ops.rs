@@ -1,5 +1,3 @@
-use crate::Srgba;
-
 /// Methods for changing the luminance of a color. Note that these methods are not
 /// guaranteed to produce consistent results across color spaces,
 /// but will be within a given space.
@@ -42,6 +40,19 @@ pub trait Mix: Sized {
     }
 }
 
+/// Trait for returning a grayscale color of a provided lightness.
+pub trait Gray: Mix + Sized {
+    /// A pure black color.
+    const BLACK: Self;
+    /// A pure white color.
+    const WHITE: Self;
+
+    /// Returns a grey color with the provided lightness from (0.0 - 1.0). 0 is black, 1 is white.
+    fn gray(lightness: f32) -> Self {
+        Self::BLACK.mix(&Self::WHITE, lightness)
+    }
+}
+
 /// Methods for manipulating alpha values.
 pub trait Alpha: Sized {
     /// Return a new version of this color with the given alpha value.
@@ -79,18 +90,6 @@ pub trait Hue: Sized {
     fn rotate_hue(&self, degrees: f32) -> Self {
         let rotated_hue = (self.hue() + degrees).rem_euclid(360.);
         self.with_hue(rotated_hue)
-    }
-}
-
-/// Trait for returning a grayscale color of a provided lightness.
-pub trait Gray: Sized {
-    /// Returns a grey color with the provided lightness from (0.0 - 1.0). 0 is black, 1 is white.
-    fn gray(lightness: f32) -> Self;
-}
-
-impl<T: Mix + From<Srgba>> Gray for T {
-    fn gray(lightness: f32) -> Self {
-        Into::<T>::into(Srgba::BLACK).mix(&Srgba::WHITE.into(), lightness)
     }
 }
 

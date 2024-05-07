@@ -1,7 +1,6 @@
 use crate::color_difference::EuclideanDistance;
 use crate::{
-    impl_componentwise_vector_space, Alpha, ClampColor, LinearRgba, Luminance, Mix, StandardColor,
-    Xyza,
+    impl_componentwise_vector_space, Alpha, ClampColor, Gray, LinearRgba, Luminance, Mix, StandardColor, Xyza
 };
 use bevy_math::Vec4;
 use bevy_reflect::prelude::*;
@@ -330,6 +329,11 @@ impl ClampColor for Srgba {
             && (0. ..=1.).contains(&self.blue)
             && (0. ..=1.).contains(&self.alpha)
     }
+}
+
+impl Gray for Srgba {
+    const BLACK: Self = Self::BLACK;
+    const WHITE: Self = Self::WHITE;
 }
 
 impl From<LinearRgba> for Srgba {

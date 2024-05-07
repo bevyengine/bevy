@@ -1,4 +1,4 @@
-use crate::{Alpha, ClampColor, Hue, Hwba, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza};
+use crate::{Alpha, ClampColor, Gray, Hue, Hwba, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza};
 use bevy_reflect::prelude::*;
 
 /// Color in Hue-Saturation-Value (HSV) color space with alpha.
@@ -84,6 +84,11 @@ impl Mix for Hsva {
             alpha: self.alpha * n_factor + other.alpha * factor,
         }
     }
+}
+
+impl Gray for Hsva {
+    const BLACK: Self = Self::new(0., 0., 0., 1.);
+    const WHITE: Self = Self::new(0., 0., 1., 1.);
 }
 
 impl Alpha for Hsva {
