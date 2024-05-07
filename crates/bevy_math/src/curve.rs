@@ -26,6 +26,19 @@ pub struct InvalidIntervalError;
 #[error("This operation does not make sense in the context of an infinite interval")]
 pub struct InfiniteIntervalError;
 
+/// An error indicating that spaced points on an interval could not be formed.
+#[derive(Debug, Error)]
+#[error("Could not sample evenly-spaced points with these inputs")]
+pub enum SpacedPointsError {
+    /// This operation failed because fewer than two points were requested.
+    #[error("Parameter `points` must be at least 2")]
+    NotEnoughPoints,
+
+    /// This operation failed because the underlying interval is unbounded.
+    #[error("Cannot sample evenly-spaced points on an infinite interval")]
+    InfiniteInterval(InfiniteIntervalError),
+}
+
 impl Interval {
     /// Create a new [`Interval`] with the specified `start` and `end`. The interval can be infinite
     /// but cannot be empty and neither endpoint can be NaN; invalid parameters will result in an error.
@@ -93,12 +106,18 @@ impl Interval {
 
     /// Get an iterator over equally-spaced points from this interval in increasing order.
     /// Returns `None` if `points` is less than 2; the spaced points always include the endpoints.
-    pub fn spaced_points(self, points: usize) -> Option<impl Iterator<Item = f32>> {
+    pub fn spaced_points(
+        self,
+        points: usize,
+    ) -> Result<impl Iterator<Item = f32>, SpacedPointsError> {
         if points < 2 {
-            return None;
+            return Err(SpacedPointsError::NotEnoughPoints);
+        }
+        if !self.is_finite() {
+            return Err(SpacedPointsError::InfiniteInterval(InfiniteIntervalError));
         }
         let step = self.length() / (points - 1) as f32;
-        Some((0..points).map(move |x| self.start + x as f32 * step))
+        Ok((0..points).map(move |x| self.start + x as f32 * step))
     }
 }
 
@@ -153,6 +172,7 @@ pub enum ResamplingError {
     /// This resampling operation was not provided with enough samples to have well-formed output.
     #[error("Not enough samples to construct resampled curve")]
     NotEnoughSamples(usize),
+
     /// This resampling operation failed because of an unbounded interval.
     #[error("Could not resample because this curve has unbounded domain")]
     InfiniteInterval(InfiniteIntervalError),
@@ -492,17 +512,27 @@ where
 
     #[inline]
     fn sample(&self, t: f32) -> T {
-        // We clamp `t` to the domain.
-        let t = self.domain.clamp(t);
-
-        // Inside the curve itself, interpolate between the two nearest sample values.
+        // Inside the curve itself, we interpolate between the two nearest sample values.
         let subdivs = self.samples.len() - 1;
         let step = self.domain.length() / subdivs as f32;
         let t_shifted = t - self.domain.start();
-        let lower_index = (t_shifted / step).floor() as usize;
-        let upper_index = (t_shifted / step).ceil() as usize;
-        let f = (t_shifted / step).fract();
-        self.samples[lower_index].interpolate(&self.samples[upper_index], f)
+        let steps_taken = t_shifted / step;
+
+        // Using `steps_taken` as the source of truth, clamp to the range of valid indices.
+        if steps_taken <= 0.0 {
+            self.samples.first().unwrap().clone()
+        } else if steps_taken >= (self.samples.len() - 1) as f32 {
+            self.samples.last().unwrap().clone()
+        } else {
+            // Here we use only the floor and the fractional part of `steps_taken` to interpolate
+            // between the two nearby sample points; `lower_index + 1` is known to be a valid index
+            // because otherwise, `steps_taken.floor()` must be at least `self.samples.len() - 1`,
+            // but the previous branch captures all such values.
+            let lower_index = steps_taken.floor() as usize;
+            let upper_index = lower_index + 1;
+            let fract = steps_taken.fract();
+            self.samples[lower_index].interpolate(&self.samples[upper_index], fract)
+        }
     }
 }
 
