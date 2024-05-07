@@ -80,7 +80,7 @@ pub(crate) struct AssetInfos {
     pub(crate) dependency_loaded_event_sender: TypeIdMap<fn(&mut World, UntypedAssetId)>,
     pub(crate) dependency_failed_event_sender:
         TypeIdMap<fn(&mut World, UntypedAssetId, AssetPath<'static>, AssetLoadError)>,
-    pub(crate) pending_load_tasks: HashMap<UntypedAssetId, Task<()>>,
+    pub pending_load_tasks: HashMap<UntypedAssetId, Task<()>>,
 }
 
 pub(crate) enum HandleDropResult {

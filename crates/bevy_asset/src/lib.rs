@@ -777,6 +777,16 @@ mod tests {
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
             error!("a states: {:?}", (a_load, a_deps, a_rec_deps));
 
+            let tasks = asset_server
+                .data
+                .infos
+                .read()
+                .pending_load_tasks
+                .iter()
+                .map(|(id, task)| format!("{id} -> {}", task.is_finished()))
+                .collect::<Vec<_>>();
+            error!("pending load tasks: {tasks:?}");
+
             let a_text = get::<CoolText>(world, a_id)?;
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
             assert_eq!(a_text.text, "a");
