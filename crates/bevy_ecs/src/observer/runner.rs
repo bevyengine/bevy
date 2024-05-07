@@ -6,8 +6,8 @@ use crate::{
 
 use super::*;
 
-/// Type for function that is run when an observer is triggered
-/// Typically refers to the default runner that runs the contained,
+/// Type for function that is run when an observer is triggered.
+/// Typically refers to the default runner that runs the system stored in the associated [`ObserverSystemComponent`],
 /// but can be overridden for custom behaviour.
 pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut);
 
@@ -75,7 +75,7 @@ impl ObserverComponent {
 
                     // TODO: Move this check into the observer cache to avoid dynamic dispatch
                     // SAFETY: We only access world metadata
-                    let last_event = unsafe { world.world_metadata() }.last_event_id;
+                    let last_event = unsafe { world.world_metadata() }.last_event_id();
                     if state.last_event_id == last_event {
                         return;
                     }
@@ -96,7 +96,7 @@ impl ObserverComponent {
 
                     // SAFETY:
                     // - `update_archetype_component_access` was just called
-                    // - there are no outsanding references to world except a private component
+                    // - there are no outstanding references to world except a private component
                     // - system is an `ObserverSystem` so won't mutate world beyond the access of a `DeferredWorld`
                     // - system is the same type erased system from above
                     unsafe {

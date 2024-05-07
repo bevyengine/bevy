@@ -12,7 +12,7 @@ use bevy_utils::all_tuples;
 pub trait ObserverSystem<E: 'static, B: Bundle>:
     System<In = Observer<'static, E, B>, Out = ()> + Send + 'static
 {
-    /// Queues any deferred mutations to to be applied at the next [`apply_deferred`](crate::prelude::apply_deferred).
+    /// Queues any deferred mutations to be applied at the next [`apply_deferred`](crate::prelude::apply_deferred).
     fn queue_deferred(&mut self, _world: DeferredWorld);
 }
 

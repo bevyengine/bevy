@@ -1241,7 +1241,7 @@ impl<E: Send + 'static> Command for EmitEcsEvent<E> {
             unsafe {
                 world.trigger_observers_with_data(
                     self.event,
-                    None,
+                    Entity::PLACEHOLDER,
                     self.components.iter().cloned(),
                     &mut self.data,
                 );
@@ -1252,7 +1252,7 @@ impl<E: Send + 'static> Command for EmitEcsEvent<E> {
                 unsafe {
                     world.trigger_observers_with_data(
                         self.event,
-                        Some(target),
+                        target,
                         self.components.iter().cloned(),
                         &mut self.data,
                     );

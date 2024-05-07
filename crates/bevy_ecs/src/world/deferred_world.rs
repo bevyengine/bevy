@@ -346,7 +346,7 @@ impl<'w> DeferredWorld<'w> {
     pub(crate) unsafe fn trigger_observers(
         &mut self,
         event: ComponentId,
-        source: Option<Entity>,
+        source: Entity,
         components: impl Iterator<Item = ComponentId>,
     ) {
         Observers::invoke(self.reborrow(), event, source, components, &mut ());
@@ -360,7 +360,7 @@ impl<'w> DeferredWorld<'w> {
     pub(crate) unsafe fn trigger_observers_with_data<E>(
         &mut self,
         event: ComponentId,
-        source: Option<Entity>,
+        source: Entity,
         components: impl Iterator<Item = ComponentId>,
         data: &mut E,
     ) {
@@ -372,6 +372,10 @@ impl<'w> DeferredWorld<'w> {
         EventBuilder::new(data, self.commands())
     }
 
+    /// Gets an [`UnsafeWorldCell`] containing the underlying world.
+    ///
+    /// # Safety
+    /// - must only be used to to make non-structural ECS changes
     #[inline]
     pub(crate) fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell {
         self.world

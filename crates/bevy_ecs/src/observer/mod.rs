@@ -58,13 +58,8 @@ impl<'w, E, B: Bundle> Observer<'w, E, B> {
         Ptr::from(&self.data)
     }
 
-    /// Returns the entity that triggered the observer, panics if the event was send without a source.
+    /// Returns the entity that triggered the observer, could be [`Entity::PLACEHOLDER`].
     pub fn source(&self) -> Entity {
-        self.trigger.source.expect("No source set for this event")
-    }
-
-    /// Returns the entity that triggered the observer if it was set.
-    pub fn get_source(&self) -> Option<Entity> {
         self.trigger.source
     }
 }
@@ -80,7 +75,7 @@ pub(crate) struct ObserverDescriptor {
 pub struct ObserverTrigger {
     observer: Entity,
     event: ComponentId,
-    source: Option<Entity>,
+    source: Entity,
 }
 
 // Map between an observer entity and it's runner
@@ -139,20 +134,20 @@ impl Observers {
     pub(crate) fn invoke<E>(
         mut world: DeferredWorld,
         event: ComponentId,
-        source: Option<Entity>,
+        source: Entity,
         components: impl Iterator<Item = ComponentId>,
         data: &mut E,
     ) {
         // SAFETY: You cannot get a mutable reference to `observers` from `DeferredWorld`
         let (mut world, observers) = unsafe {
             let world = world.as_unsafe_world_cell();
-            // SAFETY: There are no outsanding world references
+            // SAFETY: There are no outstanding world references
             world.increment_event_id();
             let observers = world.observers();
             let Some(observers) = observers.try_get_observers(event) else {
                 return;
             };
-            // SAFETY: The only outsanding reference to world is `observers`
+            // SAFETY: The only outstanding reference to world is `observers`
             (world.into_deferred(), observers)
         };
 
@@ -172,7 +167,7 @@ impl Observers {
         observers.map.iter().for_each(&mut trigger_observer);
 
         // Trigger entity observers listening for this kind of event
-        if let Some(source) = source {
+        if source != Entity::PLACEHOLDER {
             if let Some(map) = observers.entity_observers.get(&source) {
                 map.iter().for_each(&mut trigger_observer);
             }
@@ -186,7 +181,7 @@ impl Observers {
                     .iter()
                     .for_each(&mut trigger_observer);
 
-                if let Some(source) = source {
+                if source != Entity::PLACEHOLDER {
                     if let Some(map) = component_observers.entity_map.get(&source) {
                         map.iter().for_each(&mut trigger_observer);
                     }
@@ -241,6 +236,7 @@ impl World {
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
     ) -> Entity {
+        // Ensure components are registered with the world
         B::component_ids(&mut self.components, &mut self.storages, &mut |_| {});
         ObserverBuilder::new(self.commands()).run(system)
     }
@@ -251,6 +247,7 @@ impl World {
         EventBuilder::new(event, self.commands())
     }
 
+    /// Register an observer to the cache, called when an observer is created
     pub(crate) fn register_observer(&mut self, entity: Entity) {
         // SAFETY: References do not alias.
         let (observer_component, archetypes, observers) = unsafe {
@@ -303,6 +300,7 @@ impl World {
         }
     }
 
+    /// Remove the observer from the cache, called when an observer gets despawned
     pub(crate) fn unregister_observer(&mut self, entity: Entity, descriptor: ObserverDescriptor) {
         let archetypes = &mut self.archetypes;
         let observers = &mut self.observers;
@@ -461,6 +459,8 @@ mod tests {
 
         world.spawn(A).flush();
         assert_eq!(2, world.resource::<R>().0);
+        // Our A entity plus our two observers
+        assert_eq!(world.entities().len(), 3);
     }
 
     #[test]
@@ -526,7 +526,7 @@ mod tests {
             .spawn_empty()
             .observe(|_: Observer<EventA>| panic!("Event routed to non-targeted entity."));
         world.observer(move |obs: Observer<EventA>, mut res: ResMut<R>| {
-            assert!(obs.get_source().is_none());
+            assert_eq!(obs.source(), Entity::PLACEHOLDER);
             res.0 += 1;
         });
 

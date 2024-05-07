@@ -1932,6 +1932,13 @@ impl World {
         self.last_change_tick
     }
 
+    /// Returns the id of the last ECS event that was fired.
+    /// Used internally to ensure observers don't trigger multiple times for the same event.
+    #[inline]
+    pub(crate) fn last_event_id(&self) -> u32 {
+        self.last_event_id
+    }
+
     /// Sets [`World::last_change_tick()`] to the specified value during a scope.
     /// When the scope terminates, it will return to its old value.
     ///

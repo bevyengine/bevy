@@ -136,6 +136,7 @@ impl<'w, E: 'static> ObserverBuilder<'w, E> {
         self.commands.add(move |world: &mut World| {
             let component = ObserverComponent::from_runner(descriptor, runner);
             world.entity_mut(entity).insert(component);
+            world.register_observer(entity);
         });
         entity
     }

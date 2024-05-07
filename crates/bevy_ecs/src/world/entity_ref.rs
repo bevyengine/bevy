@@ -907,7 +907,7 @@ impl<'w> EntityWorldMut<'w> {
             if old_archetype.has_remove_observer() {
                 deferred_world.trigger_observers(
                     ON_REMOVE,
-                    Some(self.entity),
+                    self.entity,
                     bundle_info.iter_components(),
                 );
             }
@@ -1090,7 +1090,7 @@ impl<'w> EntityWorldMut<'w> {
             if old_archetype.has_remove_observer() {
                 deferred_world.trigger_observers(
                     ON_REMOVE,
-                    Some(self.entity),
+                    self.entity,
                     bundle_info.iter_components(),
                 );
             }
@@ -1211,11 +1211,7 @@ impl<'w> EntityWorldMut<'w> {
         unsafe {
             deferred_world.trigger_on_remove(archetype, self.entity, archetype.components());
             if archetype.has_remove_observer() {
-                deferred_world.trigger_observers(
-                    ON_REMOVE,
-                    Some(self.entity),
-                    archetype.components(),
-                );
+                deferred_world.trigger_observers(ON_REMOVE, self.entity, archetype.components());
             }
         }
 
