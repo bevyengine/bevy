@@ -79,6 +79,25 @@ impl Laba {
     ///
     /// See [Continuity (16) (17)](http://brucelindbloom.com/index.html?LContinuity.html)
     pub const CIE_KAPPA: f32 = 24389.0 / 27.0;
+
+
+    /// Converts the color into a [f32; 4] array in LABA order.
+    ///
+    /// This is useful for passing the color to a shader.
+    pub fn to_f32_array(&self) -> [f32; 4] {
+        [self.lightness, self.a, self.b, self.alpha]
+    }
+}
+
+impl From<[f32; 4]> for Laba {
+    fn from(value: [f32; 4]) -> Self {
+        Self {
+            lightness: value[0],
+            a: value[1],
+            b: value[2],
+            alpha: value[3],
+        }
+    }
 }
 
 impl Default for Laba {
