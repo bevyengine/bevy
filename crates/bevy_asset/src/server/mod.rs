@@ -511,17 +511,13 @@ impl AssetServer {
                 };
 
                 // yield to prevent sending events if this task has been dropped
-                error!("load_internal about to yield");
                 let _permit = self.data.asset_event_sender_lock.acquire().await;
-                error!("load_internal back from yield");
                 self.send_loaded_asset(base_handle.id(), loaded_asset);
                 Ok(final_handle)
             }
             Err(err) => {
                 // yield to prevent sending events if this task has been dropped
-                error!("load_internal about to yield");
                 let _permit = self.data.asset_event_sender_lock.acquire().await;
-                error!("load_internal back from yield");
                 self.send_asset_event(InternalAssetEvent::Failed {
                     id: base_handle.id(),
                     error: err.clone(),
@@ -733,7 +729,6 @@ impl AssetServer {
     }
 
     fn send_asset_event(&self, event: InternalAssetEvent) {
-        error!("asset server send asset event {:?}", event);
         self.data.asset_event_sender.send(event).unwrap();
     }
 
@@ -1177,7 +1172,6 @@ pub fn handle_internal_asset_events(world: &mut World) {
 
 /// Internal events for asset load results
 #[allow(clippy::large_enum_variant)]
-#[derive(Debug)]
 pub(crate) enum InternalAssetEvent {
     Loaded {
         id: UntypedAssetId,

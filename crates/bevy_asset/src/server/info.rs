@@ -195,18 +195,10 @@ impl AssetInfos {
             let task = IoTaskPool::get().spawn(load_fn(handle.clone()));
 
             #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
-            {
-                error!("tracking load task");
-                self.pending_load_tasks.insert(handle.id().untyped(), task);
-            }
+            self.pending_load_tasks.insert(handle.id().untyped(), task);
 
             #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-            {
-                error!("not tracking load task");
-                task.detach();
-            }
-        } else {
-            error!("should_load: false");
+            task.detach();
         }
 
         handle
@@ -272,14 +264,8 @@ impl AssetInfos {
                     // If we can upgrade the handle, there is at least one live handle right now,
                     // The asset load has already kicked off (and maybe completed), so we can just
                     // return a strong handle
-                    error!(
-                        "assetinfos {path}: existing handle upgraded, should load {should_load}"
-                    );
                     Ok((UntypedHandle::Strong(strong_handle), should_load))
                 } else {
-                    error!(
-                        "assetinfos {path}: new handle for old asset, should load {should_load}"
-                    );
                     // Asset meta exists, but all live handles were dropped. This means the `track_assets` system
                     // hasn't been run yet to remove the current asset
                     // (note that this is guaranteed to be transactional with the `track_assets` system because
@@ -304,7 +290,6 @@ impl AssetInfos {
                     HandleLoadingMode::NotLoading => false,
                     HandleLoadingMode::Request | HandleLoadingMode::Force => true,
                 };
-                error!("assetinfos {path}: new handle, should load {should_load}");
                 let handle = Self::create_handle_internal(
                     &mut self.infos,
                     &self.handle_providers,

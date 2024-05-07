@@ -517,24 +517,18 @@ mod tests {
         ) -> Result<Self::Asset, Self::Error> {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
-            error!("CoolText loader {:?} begin", load_context.path());
             let mut ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
             let mut embedded = String::new();
             for dep in ron.embedded_dependencies {
-                error!("CoolText loader {:?} load_direct", load_context.path());
                 let loaded = load_context.load_direct(&dep).await.map_err(|_| {
                     Self::Error::CannotLoadDependency {
                         dependency: dep.into(),
                     }
                 })?;
-                error!(
-                    "CoolText loader {:?} load_direct finished",
-                    load_context.path()
-                );
                 let cool = loaded.get::<CoolText>().unwrap();
                 embedded.push_str(&cool.text);
             }
-            let res = Ok(CoolText {
+            Ok(CoolText {
                 text: ron.text,
                 embedded,
                 dependencies: ron
@@ -547,9 +541,7 @@ mod tests {
                     .drain(..)
                     .map(|text| load_context.add_labeled_asset(text.clone(), SubText { text }))
                     .collect(),
-            });
-            error!("CoolText loader {:?} end", load_context.path());
-            res
+            })
         }
 
         fn extensions(&self) -> &[&str] {
@@ -597,7 +589,6 @@ mod tests {
             &'a self,
             path: &'a Path,
         ) -> Result<Box<bevy_asset::io::Reader<'a>>, bevy_asset::io::AssetReaderError> {
-            error!("[UnstableMemoryAsset::load] start");
             let attempt_number = {
                 let mut attempt_counters = self.attempt_counters.lock().unwrap();
                 if let Some(existing) = attempt_counters.get_mut(path) {
@@ -618,11 +609,8 @@ mod tests {
                     ),
                 );
                 let wait = self.load_delay;
-                error!("[UnstableMemoryAsset::load] about to fail");
                 return async move {
-                    error!("[UnstableMemoryAsset::load] sleeping first");
                     std::thread::sleep(wait);
-                    error!("[UnstableMemoryAsset::load] woke");
                     Err(AssetReaderError::Io(io_error.into()))
                 }
                 .await;
@@ -632,9 +620,7 @@ mod tests {
         }
     }
 
-    fn test_app(dir: Dir) -> (App, GateOpener, std::sync::MutexGuard<'static, ()>) {
-        let guard = LOCK.lock().unwrap();
-
+    fn test_app(dir: Dir) -> (App, GateOpener) {
         let mut app = App::new();
         let (gated_memory_reader, gate_opener) = GatedReader::new(MemoryAssetReader { root: dir });
 
@@ -647,7 +633,7 @@ mod tests {
             LogPlugin::default(),
             AssetPlugin::default(),
         ));
-        (app, gate_opener, guard)
+        (app, gate_opener)
     }
 
     pub fn run_app_until(app: &mut App, mut predicate: impl FnMut(&mut World) -> Option<()>) {
@@ -687,43 +673,43 @@ mod tests {
 
         let a_path = "a.cool.ron";
         let a_ron = r#"
-        (
-            text: "a",
-            dependencies: [
-                "foo/b.cool.ron",
-                "c.cool.ron",
-            ],
-            embedded_dependencies: [],
-            sub_texts: [],
-        )"#;
+(
+    text: "a",
+    dependencies: [
+        "foo/b.cool.ron",
+        "c.cool.ron",
+    ],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#;
         let b_path = "foo/b.cool.ron";
         let b_ron = r#"
-        (
-            text: "b",
-            dependencies: [],
-            embedded_dependencies: [],
-            sub_texts: [],
-        )"#;
+(
+    text: "b",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#;
 
         let c_path = "c.cool.ron";
         let c_ron = r#"
-        (
-            text: "c",
-            dependencies: [
-                "d.cool.ron",
-            ],
-            embedded_dependencies: ["a.cool.ron", "foo/b.cool.ron"],
-            sub_texts: ["hello"],
-        )"#;
+(
+    text: "c",
+    dependencies: [
+        "d.cool.ron",
+    ],
+    embedded_dependencies: ["a.cool.ron", "foo/b.cool.ron"],
+    sub_texts: ["hello"],
+)"#;
 
         let d_path = "d.cool.ron";
         let d_ron = r#"
-        (
-            text: "d",
-            dependencies: [],
-            embedded_dependencies: [],
-            sub_texts: [],
-        )"#;
+(
+    text: "d",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#;
 
         dir.insert_asset_text(Path::new(a_path), a_ron);
         dir.insert_asset_text(Path::new(b_path), b_ron);
@@ -737,7 +723,7 @@ mod tests {
             d_id: AssetId<CoolText>,
         }
 
-        let (mut app, gate_opener, _guard) = test_app(dir);
+        let (mut app, gate_opener) = test_app(dir);
         app.init_asset::<CoolText>()
             .init_asset::<SubText>()
             .init_resource::<StoredEvents>()
@@ -765,28 +751,10 @@ mod tests {
             );
         }
 
-        error!("loop for a");
-
         // Allow "a" to load ... wait for it to finish loading and validate results
         // Dependencies are still gated so they should not be loaded yet
         gate_opener.open(a_path);
         run_app_until(&mut app, |world| {
-            let asset_server = world.resource::<AssetServer>();
-            let state = asset_server.load_state(a_id);
-            error!("a state: {state:?}");
-            let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
-            error!("a states: {:?}", (a_load, a_deps, a_rec_deps));
-
-            let tasks = asset_server
-                .data
-                .infos
-                .read()
-                .pending_load_tasks
-                .iter()
-                .map(|(id, task)| format!("{id} -> {}", task.is_finished()))
-                .collect::<Vec<_>>();
-            error!("pending load tasks: {tasks:?}");
-
             let a_text = get::<CoolText>(world, a_id)?;
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
             assert_eq!(a_text.text, "a");
@@ -812,8 +780,6 @@ mod tests {
             assert_eq!(c_rec_deps, RecursiveDependencyLoadState::Loading);
             Some(())
         });
-
-        error!("loop for b");
 
         // Allow "b" to load ... wait for it to finish loading and validate results
         // "c" should not be loaded yet
@@ -844,8 +810,6 @@ mod tests {
             assert_eq!(c_rec_deps, RecursiveDependencyLoadState::Loading);
             Some(())
         });
-
-        error!("loop for c");
 
         // Allow "c" to load ... wait for it to finish loading and validate results
         // all "a" dependencies should be loaded now
@@ -919,8 +883,6 @@ mod tests {
             world.insert_resource(IdResults { b_id, c_id, d_id });
             Some(())
         });
-
-        error!("loop for d");
 
         gate_opener.open(d_path);
         run_app_until(&mut app, |world| {
@@ -1024,7 +986,6 @@ mod tests {
 
     #[test]
     fn failure_load_states() {
-        let start_time = Instant::now();
         // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
         #[cfg(not(feature = "multi_threaded"))]
         panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
@@ -1033,51 +994,51 @@ mod tests {
 
         let a_path = "a.cool.ron";
         let a_ron = r#"
-        (
-            text: "a",
-            dependencies: [
-                "b.cool.ron",
-                "c.cool.ron",
-            ],
-            embedded_dependencies: [],
-            sub_texts: []
-        )"#;
+(
+    text: "a",
+    dependencies: [
+        "b.cool.ron",
+        "c.cool.ron",
+    ],
+    embedded_dependencies: [],
+    sub_texts: []
+)"#;
         let b_path = "b.cool.ron";
         let b_ron = r#"
-        (
-            text: "b",
-            dependencies: [],
-            embedded_dependencies: [],
-            sub_texts: []
-        )"#;
+(
+    text: "b",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: []
+)"#;
 
         let c_path = "c.cool.ron";
         let c_ron = r#"
-        (
-            text: "c",
-            dependencies: [
-                "d.cool.ron",
-            ],
-            embedded_dependencies: [],
-            sub_texts: []
-        )"#;
+(
+    text: "c",
+    dependencies: [
+        "d.cool.ron",
+    ],
+    embedded_dependencies: [],
+    sub_texts: []
+)"#;
 
         let d_path = "d.cool.ron";
         let d_ron = r#"
-        (
-            text: "d",
-            dependencies: [],
-            OH NO THIS ASSET IS MALFORMED
-            embedded_dependencies: [],
-            sub_texts: []
-        )"#;
+(
+    text: "d",
+    dependencies: [],
+    OH NO THIS ASSET IS MALFORMED
+    embedded_dependencies: [],
+    sub_texts: []
+)"#;
 
         dir.insert_asset_text(Path::new(a_path), a_ron);
         dir.insert_asset_text(Path::new(b_path), b_ron);
         dir.insert_asset_text(Path::new(c_path), c_ron);
         dir.insert_asset_text(Path::new(d_path), d_ron);
 
-        let (mut app, gate_opener, _guard) = test_app(dir);
+        let (mut app, gate_opener) = test_app(dir);
 
         app.init_asset::<CoolText>()
             .register_asset_loader(CoolTextLoader);
@@ -1104,62 +1065,25 @@ mod tests {
         gate_opener.open(d_path);
 
         run_app_until(&mut app, |world| {
-            if Instant::now()
-                .checked_duration_since(start_time)
-                .map_or(false, |elapsed| elapsed > Duration::from_secs(10))
-            {
-                panic!();
-            }
-
             let a_text = get::<CoolText>(world, a_id)?;
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
-            bevy_log::error!(
-                "a: {:?}, {:?}, {:?}, {:?}",
-                a_text,
-                a_load,
-                a_deps,
-                a_rec_deps
-            );
 
             let b_id = a_text.dependencies[0].id();
             let b_text = get::<CoolText>(world, b_id)?;
             let (b_load, b_deps, b_rec_deps) = asset_server.get_load_states(b_id).unwrap();
-            bevy_log::error!(
-                "b: {:?}, {:?}, {:?}, {:?}",
-                b_text,
-                b_load,
-                b_deps,
-                b_rec_deps
-            );
 
             let c_id = a_text.dependencies[1].id();
             let c_text = get::<CoolText>(world, c_id)?;
             let (c_load, c_deps, c_rec_deps) = asset_server.get_load_states(c_id).unwrap();
-            bevy_log::error!(
-                "c: {:?}, {:?}, {:?}, {:?}",
-                c_text,
-                c_load,
-                c_deps,
-                c_rec_deps
-            );
 
             let d_id = c_text.dependencies[0].id();
             let d_text = get::<CoolText>(world, d_id);
             let (d_load, d_deps, d_rec_deps) = asset_server.get_load_states(d_id).unwrap();
-            bevy_log::error!(
-                "d: {:?}, {:?}, {:?}, {:?}",
-                d_text,
-                d_load,
-                d_deps,
-                d_rec_deps
-            );
             if !matches!(d_load, LoadState::Failed(_)) {
-                bevy_log::error!("no match, looping");
                 // wait until d has exited the loading state
                 return None;
             }
 
-            bevy_log::error!("loaded, running asserts");
             assert!(d_text.is_none());
             assert!(matches!(d_load, LoadState::Failed(_)));
             assert_eq!(d_deps, DependencyLoadState::Failed);
@@ -1180,10 +1104,8 @@ mod tests {
             assert_eq!(c_deps, DependencyLoadState::Failed);
             assert_eq!(c_rec_deps, RecursiveDependencyLoadState::Failed);
 
-            bevy_log::error!("failure_load_states all good");
             Some(())
         });
-        bevy_log::error!("failure_load_states now leaving the function, bye");
     }
 
     const SIMPLE_TEXT: &str = r#"
@@ -1198,7 +1120,7 @@ mod tests {
         let dir = Dir::default();
         dir.insert_asset_text(Path::new("dep.cool.ron"), SIMPLE_TEXT);
 
-        let (mut app, _, _guard) = test_app(dir);
+        let (mut app, _) = test_app(dir);
         app.init_asset::<CoolText>()
             .init_asset::<SubText>()
             .init_resource::<StoredEvents>()
@@ -1239,7 +1161,7 @@ mod tests {
 
         dir.insert_asset_text(Path::new(dep_path), SIMPLE_TEXT);
 
-        let (mut app, gate_opener, _guard) = test_app(dir);
+        let (mut app, gate_opener) = test_app(dir);
         app.init_asset::<CoolText>()
             .init_asset::<SubText>()
             .init_resource::<StoredEvents>()
@@ -1339,37 +1261,37 @@ mod tests {
 
         let a_path = "text/a.cool.ron";
         let a_ron = r#"
-        (
-            text: "a",
-            dependencies: [
-                "b.cool.ron",
-            ],
-            embedded_dependencies: [],
-            sub_texts: [],
-        )"#;
+    (
+        text: "a",
+        dependencies: [
+            "b.cool.ron",
+        ],
+        embedded_dependencies: [],
+        sub_texts: [],
+    )"#;
         let b_path = "b.cool.ron";
         let b_ron = r#"
-        (
-            text: "b",
-            dependencies: [],
-            embedded_dependencies: [],
-            sub_texts: [],
-        )"#;
+    (
+        text: "b",
+        dependencies: [],
+        embedded_dependencies: [],
+        sub_texts: [],
+    )"#;
 
         let c_path = "text/c.cool.ron";
         let c_ron = r#"
-        (
-            text: "c",
-            dependencies: [
-            ],
-            embedded_dependencies: [],
-            sub_texts: [],
-        )"#;
+    (
+        text: "c",
+        dependencies: [
+        ],
+        embedded_dependencies: [],
+        sub_texts: [],
+    )"#;
         dir.insert_asset_text(Path::new(a_path), a_ron);
         dir.insert_asset_text(Path::new(b_path), b_ron);
         dir.insert_asset_text(Path::new(c_path), c_ron);
 
-        let (mut app, gate_opener, _guard) = test_app(dir);
+        let (mut app, gate_opener) = test_app(dir);
         app.init_asset::<CoolText>()
             .init_asset::<SubText>()
             .register_asset_loader(CoolTextLoader);
@@ -1439,8 +1361,6 @@ mod tests {
             mut tracker: ResMut<ErrorTracker>,
         ) {
             for event in events.read() {
-                error!("[load_error_events] event: {event:?}");
-
                 if let AssetEvent::LoadedWithDependencies { id } = event {
                     tracker.finished_asset = Some(*id);
                 }
@@ -1461,18 +1381,10 @@ mod tests {
                 .queued_retries
                 .retain(|(path, old_id, retry_after)| {
                     if now > *retry_after {
-                        error!(
-                            "[load_error_events ~ {now}] retrying {old_id:?} after {}",
-                            *retry_after
-                        );
                         let new_handle = server.load::<CoolText>(path);
                         assert_eq!(&new_handle.id(), old_id);
                         false
                     } else {
-                        error!(
-                            "[load_error_events ~ {now}] not retrying {old_id:?} after {}",
-                            *retry_after
-                        );
                         true
                     }
                 });
@@ -1485,10 +1397,6 @@ mod tests {
                 match &error.error {
                     AssetLoadError::AssetReaderError(read_error) => match read_error {
                         AssetReaderError::Io(_) => {
-                            error!(
-                                "[load_error_events] {:?} failed, failures: {} + 1",
-                                error.id, tracker.failures
-                            );
                             tracker.failures += 1;
                             if tracker.failures <= 2 {
                                 // Retry in 10 ticks
@@ -1513,12 +1421,12 @@ mod tests {
 
         let a_path = "text/a.cool.ron";
         let a_ron = r#"
-        (
-            text: "a",
-            dependencies: [],
-            embedded_dependencies: [],
-            sub_texts: [],
-        )"#;
+    (
+        text: "a",
+        dependencies: [],
+        embedded_dependencies: [],
+        sub_texts: [],
+    )"#;
 
         let dir = Dir::default();
         dir.insert_asset_text(Path::new(a_path), a_ron);
@@ -1550,12 +1458,6 @@ mod tests {
         app.world_mut().spawn(a_handle);
 
         run_app_until(&mut app, |world| {
-            let mut q_h = world.query::<&Handle<CoolText>>();
-            let id = q_h.iter(world).next().unwrap().id();
-            let asset_server = world.resource::<AssetServer>();
-            let state = asset_server.load_state(id);
-            error!("[load_error_events] loop {id}:{state:?}");
-
             let tracker = world.resource::<ErrorTracker>();
             match tracker.finished_asset {
                 Some(asset_id) => {

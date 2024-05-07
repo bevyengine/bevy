@@ -182,25 +182,6 @@ pub struct ErasedLoadedAsset {
     pub(crate) meta: Option<Box<dyn AssetMetaDyn>>,
 }
 
-impl std::fmt::Debug for ErasedLoadedAsset {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let ErasedLoadedAsset {
-            value,
-            dependencies,
-            loader_dependencies,
-            labeled_assets,
-            meta,
-        } = self;
-        f.debug_struct("ErasedLoadedAsset")
-            .field("value", &format!("<{}>", value.asset_type_name()))
-            .field("dependencies", &dependencies)
-            .field("loader_dependencies", &loader_dependencies)
-            .field("labeled_assets", &labeled_assets.keys())
-            .field("meta", &meta.is_some())
-            .finish()
-    }
-}
-
 impl<A: Asset> From<LoadedAsset<A>> for ErasedLoadedAsset {
     fn from(asset: LoadedAsset<A>) -> Self {
         ErasedLoadedAsset {
