@@ -588,6 +588,7 @@ mod tests {
             &'a self,
             path: &'a Path,
         ) -> Result<Box<bevy_asset::io::Reader<'a>>, bevy_asset::io::AssetReaderError> {
+            error!("[UnstableMemoryAsset::load] start");
             let attempt_number = {
                 let mut attempt_counters = self.attempt_counters.lock().unwrap();
                 if let Some(existing) = attempt_counters.get_mut(path) {
@@ -608,8 +609,11 @@ mod tests {
                     ),
                 );
                 let wait = self.load_delay;
+                error!("[UnstableMemoryAsset::load] about to fail");
                 return async move {
+                    error!("[UnstableMemoryAsset::load] sleeping first");
                     std::thread::sleep(wait);
+                    error!("[UnstableMemoryAsset::load] woke");
                     Err(AssetReaderError::Io(io_error.into()))
                 }
                 .await;
