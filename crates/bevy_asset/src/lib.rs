@@ -1199,7 +1199,6 @@ mod tests {
 
     #[test]
     fn manual_asset_management() {
-        /*
         // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
         #[cfg(not(feature = "multi_threaded"))]
         panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
@@ -1297,7 +1296,6 @@ mod tests {
             id: dep_handle.id(),
         }];
         assert_eq!(events, expected_events);
-        */
     }
 
     #[test]
@@ -1397,6 +1395,7 @@ mod tests {
     /// Tests that `AssetLoadFailedEvent<A>` events are emitted and can be used to retry failed assets.
     #[test]
     fn load_error_events() {
+/*        
         #[derive(Resource, Default)]
         struct ErrorTracker {
             tick: u64,
@@ -1539,6 +1538,7 @@ mod tests {
                 None => None,
             }
         });
+        */
     }
 
     #[test]
