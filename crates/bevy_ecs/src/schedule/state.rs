@@ -1028,8 +1028,6 @@ mod tests {
 
     use crate::event::EventRegistry;
 
-    use crate::prelude::ResMut;
-
     #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
     enum SimpleState {
         #[default]

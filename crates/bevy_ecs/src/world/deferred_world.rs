@@ -56,8 +56,9 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub fn commands(&mut self) -> Commands {
         // SAFETY: &mut self ensure that there are no outstanding accesses to the queue
-        let queue = unsafe { self.world.get_command_queue() };
-        Commands::new_from_entities(queue, self.world.entities())
+        // let queue = todo!();
+        let command_queue = unsafe { self.world.get_raw_command_queue() };
+        Commands::new_raw_from_entities(command_queue, self.world.entities())
     }
 
     /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given type.

@@ -2,7 +2,7 @@
 
 #![warn(unsafe_op_in_unsafe_fn)]
 
-use super::{command_queue::CommandQueue, Mut, Ref, World, WorldId};
+use super::{Mut, Ref, World, WorldId};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
@@ -13,9 +13,10 @@ use crate::{
     removal_detection::RemovedComponentEvents,
     storage::{Column, ComponentSparseSet, Storages},
     system::{Res, Resource},
+    world::RawCommandQueue,
 };
 use bevy_ptr::Ptr;
-use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr, ptr::addr_of_mut};
+use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
@@ -564,11 +565,11 @@ impl<'w> UnsafeWorldCell<'w> {
     /// It is the callers responsibility to ensure that
     /// - the [`UnsafeWorldCell`] has permission to access the queue mutably
     /// - no mutable references to the queue exist at the same time
-    pub(crate) unsafe fn get_command_queue(self) -> &'w mut CommandQueue {
+    pub(crate) unsafe fn get_raw_command_queue(self) -> RawCommandQueue {
         // SAFETY:
         // - caller ensures there are no existing mutable references
         // - caller ensures that we have permission to access the queue
-        unsafe { &mut *addr_of_mut!((*self.0).command_queue) }
+        unsafe { (*self.0).command_queue.get_raw() }
     }
 }
 

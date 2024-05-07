@@ -7,12 +7,11 @@ use crate::{
     component::ComponentId,
     entity::{Entities, Entity},
     system::{RunSystemWithInput, SystemId},
-    world::{Command, CommandQueue, EntityWorldMut, FromWorld, World},
+    world::{Command, CommandQueue, EntityWorldMut, FromWorld, RawCommandQueue, World},
 };
-use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
 pub use parallel_scope::*;
-use std::marker::PhantomData;
+use std::{marker::PhantomData, mem::MaybeUninit};
 
 /// A [`Command`] queue to perform structural changes to the [`World`].
 ///
@@ -65,10 +64,79 @@ use std::marker::PhantomData;
 /// ```
 ///
 /// [`apply_deferred`]: crate::schedule::apply_deferred
-#[derive(SystemParam)]
 pub struct Commands<'w, 's> {
-    queue: Deferred<'s, CommandQueue>,
+    queue: InternalQueue<'s>,
     entities: &'w Entities,
+}
+
+const _: () = {
+    type __StructFieldsAlias<'w, 's> = (Deferred<'s, CommandQueue>, &'w Entities);
+    #[doc(hidden)]
+    pub struct FetchState {
+        state: <__StructFieldsAlias<'static, 'static> as bevy_ecs::system::SystemParam>::State,
+    }
+    unsafe impl bevy_ecs::system::SystemParam for Commands<'_, '_> {
+        type State = FetchState;
+        type Item<'w, 's> = Commands<'w, 's>;
+        fn init_state(
+            world: &mut bevy_ecs::world::World,
+            system_meta: &mut bevy_ecs::system::SystemMeta,
+        ) -> Self::State {
+            FetchState {
+                state: <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_state(
+                    world,
+                    system_meta,
+                ),
+            }
+        }
+        unsafe fn new_archetype(
+            state: &mut Self::State,
+            archetype: &bevy_ecs::archetype::Archetype,
+            system_meta: &mut bevy_ecs::system::SystemMeta,
+        ) {
+            unsafe {
+                <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::new_archetype(
+                    &mut state.state,
+                    archetype,
+                    system_meta,
+                )
+            }
+        }
+        fn apply(
+            state: &mut Self::State,
+            system_meta: &bevy_ecs::system::SystemMeta,
+            world: &mut bevy_ecs::world::World,
+        ) {
+            <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::apply(
+                &mut state.state,
+                system_meta,
+                world,
+            );
+        }
+        unsafe fn get_param<'w, 's>(
+            state: &'s mut Self::State,
+            system_meta: &bevy_ecs::system::SystemMeta,
+            world: bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell<'w>,
+            change_tick: bevy_ecs::component::Tick,
+        ) -> Self::Item<'w, 's> {
+            let(f0,f1,) =  <(Deferred<'s,CommandQueue> , &'w Entities,)as bevy_ecs::system::SystemParam> ::get_param(&mut state.state,system_meta,world,change_tick);
+            Commands {
+                queue: InternalQueue::CommandQueue(f0),
+                entities: f1,
+            }
+        }
+    }
+    unsafe impl<'w, 's> bevy_ecs::system::ReadOnlySystemParam for Commands<'w, 's>
+    where
+        Deferred<'s, CommandQueue>: bevy_ecs::system::ReadOnlySystemParam,
+        &'w Entities: bevy_ecs::system::ReadOnlySystemParam,
+    {
+    }
+};
+
+enum InternalQueue<'s> {
+    CommandQueue(Deferred<'s, CommandQueue>),
+    RawCommandQueue(RawCommandQueue),
 }
 
 impl<'w, 's> Commands<'w, 's> {
@@ -88,8 +156,22 @@ impl<'w, 's> Commands<'w, 's> {
     /// [system parameter]: crate::system::SystemParam
     pub fn new_from_entities(queue: &'s mut CommandQueue, entities: &'w Entities) -> Self {
         Self {
-            queue: Deferred(queue),
+            queue: InternalQueue::CommandQueue(Deferred(queue)),
             entities,
+        }
+    }
+
+    pub fn new_raw_from_entities(queue: RawCommandQueue, entities: &'w Entities) -> Self {
+        Self {
+            queue: InternalQueue::RawCommandQueue(queue),
+            entities,
+        }
+    }
+
+    pub fn bytes_mut(&mut self) -> &mut Vec<MaybeUninit<u8>> {
+        match &mut self.queue {
+            InternalQueue::CommandQueue(queue) => &mut queue.bytes,
+            InternalQueue::RawCommandQueue(queue) => unsafe { &mut *queue.bytes },
         }
     }
 
@@ -113,14 +195,19 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     pub fn reborrow(&mut self) -> Commands<'w, '_> {
         Commands {
-            queue: self.queue.reborrow(),
+            queue: match &mut self.queue {
+                InternalQueue::CommandQueue(queue) => InternalQueue::CommandQueue(queue.reborrow()),
+                InternalQueue::RawCommandQueue(queue) => {
+                    InternalQueue::RawCommandQueue(unsafe { queue.clone_unsafe() })
+                }
+            },
             entities: self.entities,
         }
     }
 
     /// Take all commands from `other` and append them to `self`, leaving `other` empty
     pub fn append(&mut self, other: &mut CommandQueue) {
-        self.queue.append(other);
+        self.bytes_mut().append(&mut other.bytes);
     }
 
     /// Pushes a [`Command`] to the queue for creating a new empty [`Entity`],
@@ -381,7 +468,18 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator + Send + Sync + 'static,
         I::Item: Bundle,
     {
-        self.queue.push(spawn_batch(bundles_iter));
+        self.push(spawn_batch(bundles_iter))
+    }
+
+    pub fn push<C: Command>(&mut self, command: C) {
+        match &mut self.queue {
+            InternalQueue::CommandQueue(queue) => {
+                queue.push(command);
+            }
+            InternalQueue::RawCommandQueue(queue) => {
+                queue.push(command);
+            }
+        }
     }
 
     /// Pushes a [`Command`] to the queue for creating entities, if needed,
@@ -410,7 +508,7 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle,
     {
-        self.queue.push(insert_or_spawn_batch(bundles_iter));
+        self.push(insert_or_spawn_batch(bundles_iter));
     }
 
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with an inferred value.
@@ -438,7 +536,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(initialise_scoreboard);
     /// ```
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
-        self.queue.push(init_resource::<R>);
+        self.push(init_resource::<R>);
     }
 
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with a specific value.
@@ -467,7 +565,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     pub fn insert_resource<R: Resource>(&mut self, resource: R) {
-        self.queue.push(insert_resource(resource));
+        self.push(insert_resource(resource));
     }
 
     /// Pushes a [`Command`] to the queue for removing a [`Resource`] from the [`World`].
@@ -491,7 +589,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     pub fn remove_resource<R: Resource>(&mut self) {
-        self.queue.push(remove_resource::<R>);
+        self.push(remove_resource::<R>);
     }
 
     /// Runs the system corresponding to the given [`SystemId`].
@@ -517,8 +615,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// execution of the system happens later. To get the output of a system, use
     /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
     pub fn run_system_with_input<I: 'static + Send>(&mut self, id: SystemId<I>, input: I) {
-        self.queue
-            .push(RunSystemWithInput::new_with_input(id, input));
+        self.push(RunSystemWithInput::new_with_input(id, input));
     }
 
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
@@ -580,7 +677,7 @@ impl<'w, 's> Commands<'w, 's> {
         system: S,
     ) -> SystemId<I, O> {
         let entity = self.spawn_empty().id();
-        self.queue.push(RegisterSystem::new(system, entity));
+        self.push(RegisterSystem::new(system, entity));
         SystemId::from_entity(entity)
     }
 
@@ -618,7 +715,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(add_twenty_five_to_counter_system);
     /// ```
     pub fn add<C: Command>(&mut self, command: C) {
-        self.queue.push(command);
+        self.push(command);
     }
 }
 
