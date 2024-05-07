@@ -21,7 +21,7 @@ RUSTDOC_ARGS='[ "-Zunstable-options", "--cfg", "docsrs" ]'
 DOCSRS_METADATA="{ \"all-features\": $ALL_FEATURES, \"cargo-args\": $CARGO_ARGS, \"rustdoc-args\": $RUSTDOC_ARGS }"
 
 echo Crates will be validated to ensure they have the following fields for \`[package.metadata.docs.rs]\`:
-echo $DOCSRS_METADATA | jq '.' # Echo metadata using `jq`'s pretty-printing.
+echo $DOCSRS_METADATA | jq --color-output '.' # Echo metadata using `jq`'s pretty-printing.
 
 echo Gathering crate metadata for current workspace...
 
@@ -55,7 +55,11 @@ else
 
     # Interate over each crate, splitting them up.
     for CRATE in $(echo $INVALID_CRATES | jq -c '.[]'); do
-        echo - $(echo $CRATE | jq '[.name, .manifest_path] | join(": ")'): 
+        # Format crate info to be "CRATE_NAME: CRATE_PATH"
+        CRATE_NAME_PATH=$(echo $CRATE | jq '[.name, .manifest_path] | join(": ")')
+
+        # Print crate info with fun colors! (ANSI escape codes)
+        echo -e "- \033[31m$CRATE_NAME_PATH\033[0m" 
     done
 
     # Return with a non-zero exit code, denoting an error.
