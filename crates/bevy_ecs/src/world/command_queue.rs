@@ -1,6 +1,6 @@
 use crate::system::{SystemBuffer, SystemMeta};
 
-use std::{fmt::Debug, mem::MaybeUninit};
+use std::{fmt::Debug, mem::MaybeUninit, ptr::addr_of_mut};
 
 use bevy_ptr::{OwningPtr, Unaligned};
 use bevy_utils::tracing::warn;
@@ -137,9 +137,9 @@ impl CommandQueue {
     #[inline]
     pub(crate) unsafe fn apply_or_drop_queued(queue: *mut Self, mut world: Option<&mut World>) {
         // SAFETY: Caller ensures `queue` is valid
-        let cursor = unsafe { &mut (*queue).cursor as *mut usize };
+        let cursor = unsafe { addr_of_mut!((*queue).cursor) };
         // SAFETY: Caller ensures `queue` is valid
-        let bytes = unsafe { &mut (*queue).bytes as *mut Vec<MaybeUninit<u8>> };
+        let bytes = unsafe { addr_of_mut!((*queue).bytes) };
 
         // SAFETY: If this is the command queue on world, world will not be dropped as we have a mutable reference
         // If this is not the command queue on world we have exclusive ownership and self will not be mutated
