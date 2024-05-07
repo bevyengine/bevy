@@ -401,7 +401,7 @@ impl<'a> Iterator for ListIter<'a> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let value = self.list.get(self.index);
-        self.index += 1;
+        self.index += value.is_some() as usize;
         value
     }
 
@@ -508,6 +508,7 @@ pub fn list_debug(dyn_list: &dyn List, f: &mut Formatter<'_>) -> std::fmt::Resul
 #[cfg(test)]
 mod tests {
     use super::DynamicList;
+    use crate::{Reflect, ReflectRef};
     use std::assert_eq;
 
     #[test]
@@ -521,5 +522,25 @@ mod tests {
             let value = item.take::<usize>().expect("couldn't downcast to usize");
             assert_eq!(index, value);
         }
+    }
+
+    // This test needs to be run in release mode
+    #[ignore]
+    #[test]
+    fn list_avoid_wrap_in_release() {
+        let b = Box::new(vec![(); usize::MAX]).into_reflect();
+
+        let ReflectRef::List(list) = b.reflect_ref() else {
+            panic!("Not a list...");
+        };
+
+        let mut iter = list.iter();
+        iter.index = usize::MAX - 1;
+        assert!(iter.next().is_some());
+        assert!(iter.next().is_none());
+        assert!(iter.index == usize::MAX);
+        // let's do it again to see we are indeed not moving
+        assert!(iter.next().is_none());
+        assert!(iter.index == usize::MAX);
     }
 }
