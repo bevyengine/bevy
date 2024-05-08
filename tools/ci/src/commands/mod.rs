@@ -38,6 +38,16 @@ pub enum RustChannel {
     Nightly,
 }
 
+impl RustChannel {
+    pub const fn as_str(&self) -> &'static str {
+        match *self {
+            Self::Stable => "stable",
+            // TODO: Test if this supports nightly pinning using `NIGHTLY_TOOLCHAIN` env variable.
+            Self::Nightly => "nightly",
+        }
+    }
+}
+
 fn status_to_result(status: ExitStatus) -> Result<(), ()> {
     if status.success() {
         Ok(())
@@ -60,18 +70,13 @@ pub fn run_cargo_command(
     args: &[&str],
     env: &[(&str, &str)],
 ) -> Result<(), ()> {
-    let channel = match channel {
-        RustChannel::Stable => "stable",
-        RustChannel::Nightly => "nightly",
-    };
-
     // We have to go through rustup as invoking cargo directly won't let us choose the toolchain.
     // The +channel syntax you might be used to doesn't work as the cargo invoked by `Command` is
     // different than the cargo you invoke in the console. Specifically your invocation goes through
     // rustup which picks the correct cargo installation for you. `Command` seems to go directly to
     // the system wide install of cargo.
     Command::new("rustup")
-        .args(["run", channel, "cargo", cargo_command])
+        .args(["run", channel.as_str(), "cargo", cargo_command])
         .args(args)
         .envs(env.iter().copied())
         .status()
@@ -95,16 +100,11 @@ pub fn run_cargo_command_with_json(
     flags: &[&str],
     env: &[(&str, &str)],
 ) -> Result<JsonCommandOutput, ()> {
-    let channel = match channel {
-        RustChannel::Stable => "stable",
-        RustChannel::Nightly => "nightly",
-    };
-
     //  See comment in `run_cargo_command` for why we're invoking rustup.
     let mut child = Command::new("rustup")
         .args([
             "run",
-            channel,
+            channel.as_str(),
             "cargo",
             cargo_command,
             "--message-format",
