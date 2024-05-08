@@ -28,7 +28,7 @@ impl JsonCommandOutput {
         const COMPILER_MESSAGE_FILTER: &str = r#""reason":"compiler-message""#;
 
         let reader = BufReader::new(output);
-        
+
         let mut messages = vec![];
 
         // Each line is an individual JSON object that can be parsed separately.

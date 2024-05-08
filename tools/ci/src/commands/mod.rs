@@ -1,4 +1,17 @@
-use std::process::{Command, ExitStatus, Stdio};
+mod bench_check;
+mod clippy;
+mod compile;
+mod compile_check;
+mod compile_check_no_std;
+mod compile_fail;
+mod doc;
+mod doc_check;
+mod doc_test;
+mod example_check;
+mod format;
+mod lints;
+mod test;
+mod test_check;
 
 pub use bench_check::*;
 pub use clippy::*;
@@ -16,21 +29,7 @@ pub use test::*;
 pub use test_check::*;
 
 use crate::json::JsonCommandOutput;
-
-mod bench_check;
-mod clippy;
-mod compile;
-mod compile_check;
-mod compile_check_no_std;
-mod compile_fail;
-mod doc;
-mod doc_check;
-mod doc_test;
-mod example_check;
-mod format;
-mod lints;
-mod test;
-mod test_check;
+use std::process::{Command, ExitStatus, Stdio};
 
 #[derive(Debug, Default)]
 pub enum RustChannel {
