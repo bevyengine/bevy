@@ -1,4 +1,17 @@
-use std::process::{Command, ExitStatus, Stdio};
+mod bench_check;
+mod cfg_check;
+mod clippy;
+mod compile;
+mod compile_check;
+mod compile_fail;
+mod doc;
+mod doc_check;
+mod doc_test;
+mod example_check;
+mod format;
+mod lints;
+mod test;
+mod test_check;
 
 pub use bench_check::*;
 pub use cfg_check::*;
@@ -16,21 +29,7 @@ pub use test::*;
 pub use test_check::*;
 
 use crate::json::JsonCommandOutput;
-
-mod bench_check;
-mod cfg_check;
-mod clippy;
-mod compile;
-mod compile_check;
-mod compile_fail;
-mod doc;
-mod doc_check;
-mod doc_test;
-mod example_check;
-mod format;
-mod lints;
-mod test;
-mod test_check;
+use std::process::{Command, ExitStatus, Stdio};
 
 #[derive(Debug, Default)]
 pub enum RustChannel {
@@ -103,7 +102,14 @@ pub fn run_cargo_command_with_json(
 
     //  See comment in `run_cargo_command` for why we're invoking rustup.
     let mut child = Command::new("rustup")
-        .args(["run", channel, "cargo", cargo_command, "--message-format", "json"])
+        .args([
+            "run",
+            channel,
+            "cargo",
+            cargo_command,
+            "--message-format",
+            "json",
+        ])
         .args(flags)
         .envs(env.iter().copied())
         .stdout(Stdio::piped())
