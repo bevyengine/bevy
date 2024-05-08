@@ -120,8 +120,13 @@ pub(crate) fn lerp_hue(a: f32, b: f32, t: f32) -> f32 {
 
 #[cfg(test)]
 mod tests {
+    use std::fmt::Debug;
+
     use super::*;
-    use crate::{testing::assert_approx_eq, Hsla};
+    use crate::{
+        testing::{assert_approx_eq, call_for_every_color},
+        Hsla,
+    };
 
     #[test]
     fn test_rotate_hue() {
@@ -152,5 +157,18 @@ mod tests {
         assert_approx_eq!(lerp_hue(350., 10., 0.25), 355., 0.001);
         assert_approx_eq!(lerp_hue(350., 10., 0.5), 0., 0.001);
         assert_approx_eq!(lerp_hue(350., 10., 0.75), 5., 0.001);
+    }
+
+    fn verify_gray<Col>()
+    where
+        Col: Gray + Debug + PartialEq,
+    {
+        assert_eq!(Col::gray(0.), Col::BLACK);
+        assert_eq!(Col::gray(1.), Col::WHITE);
+    }
+
+    #[test]
+    fn test_gray() {
+        call_for_every_color!(verify_gray);
     }
 }
