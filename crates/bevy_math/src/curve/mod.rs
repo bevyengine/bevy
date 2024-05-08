@@ -4,8 +4,10 @@
 pub mod interpolable;
 pub mod interval;
 
-use interpolable::Interpolable;
-use interval::*;
+pub use interpolable::Interpolable;
+pub use interval::{everywhere, interval, Interval};
+
+use interval::{InfiniteIntervalError, InvalidIntervalError};
 use std::{marker::PhantomData, ops::Deref};
 use thiserror::Error;
 
@@ -738,7 +740,7 @@ mod tests {
         assert!(curve.sample(-35.0) == 5.0);
 
         let curve = constant_curve(interval(0.0, 1.0).unwrap(), true);
-        assert!(curve.sample(2.0) == true);
+        assert!(curve.sample(2.0));
         assert!(curve.sample_checked(2.0).is_none());
     }
 
@@ -763,7 +765,7 @@ mod tests {
         assert_eq!(mapped_curve.domain(), everywhere());
 
         let curve = function_curve(interval(0.0, 1.0).unwrap(), |t| t * TAU);
-        let mapped_curve = curve.map(|x| Quat::from_rotation_z(x));
+        let mapped_curve = curve.map(Quat::from_rotation_z);
         assert_eq!(mapped_curve.sample(0.0), Quat::IDENTITY);
         assert!(mapped_curve.sample(1.0).is_near_identity());
         assert_eq!(mapped_curve.domain(), interval(0.0, 1.0).unwrap());
@@ -852,7 +854,7 @@ mod tests {
 
         // Uneven sampling should produce literal equality at the sample points.
         // (This is part of what you get in exchange for O(log(n)) sampling.)
-        let sample_points = (0..100).into_iter().map(|idx| idx as f32 * 0.1);
+        let sample_points = (0..100).map(|idx| idx as f32 * 0.1);
         let resampled_curve = curve.by_ref().resample_uneven(sample_points).unwrap();
         for idx in 0..100 {
             let test_pt = idx as f32 * 0.1;
@@ -864,7 +866,7 @@ mod tests {
 
         // Another example.
         let curve = function_curve(interval(1.0, f32::INFINITY).unwrap(), |t| t.log2());
-        let sample_points = (0..10).into_iter().map(|idx| (idx as f32).exp2());
+        let sample_points = (0..10).map(|idx| (idx as f32).exp2());
         let resampled_curve = curve.by_ref().resample_uneven(sample_points).unwrap();
         for idx in 0..10 {
             let test_pt = (idx as f32).exp2();
