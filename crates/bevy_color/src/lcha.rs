@@ -201,17 +201,6 @@ impl ClampColor for Lcha {
     }
 }
 
-impl From<[f32; 4]> for Lcha {
-    fn from(color: [f32; 4]) -> Self {
-        Self {
-            lightness: color[0],
-            chroma: color[1],
-            hue: color[2],
-            alpha: color[3],
-        }
-    }
-}
-
 impl Convert for Lcha {
     fn to_f32_array(self) -> [f32; 4] {
         [self.lightness, self.chroma, self.hue, self.alpha]
