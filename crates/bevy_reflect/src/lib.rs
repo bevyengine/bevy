@@ -172,7 +172,7 @@
 //! ## Patching
 //!
 //! These dynamic types come in handy when needing to apply multiple changes to another type.
-//! This is known as "patching" and is done using the [`Reflect::apply`] method.
+//! This is known as "patching" and is done using the [`Reflect::apply`] and [`Reflect::try_apply`] methods.
 //!
 //! ```
 //! # use bevy_reflect::{DynamicEnum, Reflect};
@@ -612,6 +612,54 @@ mod tests {
     use crate as bevy_reflect;
     use crate::serde::{ReflectDeserializer, ReflectSerializer};
     use crate::utility::GenericTypePathCell;
+
+    #[test]
+    fn try_apply_should_detect_kinds() {
+        #[derive(Reflect, Debug)]
+        struct Struct {
+            a: u32,
+            b: f32,
+        }
+
+        #[derive(Reflect, Debug)]
+        enum Enum {
+            A,
+            B(u32),
+        }
+
+        let mut struct_target = Struct {
+            a: 0xDEADBEEF,
+            b: 3.14,
+        };
+
+        let mut enum_target = Enum::A;
+
+        let array_src = [8, 0, 8];
+
+        let result = struct_target.try_apply(&enum_target);
+        assert!(
+            matches!(
+                result,
+                Err(ApplyError::MismatchedKinds {
+                    from_kind: ReflectKind::Enum,
+                    to_kind: ReflectKind::Struct
+                })
+            ),
+            "result was {result:?}"
+        );
+
+        let result = enum_target.try_apply(&array_src);
+        assert!(
+            matches!(
+                result,
+                Err(ApplyError::MismatchedKinds {
+                    from_kind: ReflectKind::Array,
+                    to_kind: ReflectKind::Enum
+                })
+            ),
+            "result was {result:?}"
+        );
+    }
 
     #[test]
     fn reflect_struct() {

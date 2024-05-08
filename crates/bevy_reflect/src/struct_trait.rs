@@ -1,6 +1,6 @@
 use crate::{
-    self as bevy_reflect, NamedField, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
-    TypeInfo, TypePath, TypePathTable,
+    self as bevy_reflect, ApplyError, NamedField, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, TypeInfo, TypePath, TypePathTable,
 };
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::HashMap;
@@ -420,19 +420,24 @@ impl Reflect for DynamicStruct {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
         if let ReflectRef::Struct(struct_value) = value.reflect_ref() {
             for (i, value) in struct_value.iter_fields().enumerate() {
                 let name = struct_value.name_at(i).unwrap();
                 if let Some(v) = self.field_mut(name) {
-                    v.apply(value);
+                    v.try_apply(value)?;
                 }
             }
         } else {
-            panic!("Attempted to apply non-struct type to struct type.");
+            return Err(ApplyError::MismatchedKinds {
+                from_kind: value.reflect_kind(),
+                to_kind: ReflectKind::Struct,
+            });
         }
+        Ok(())
     }
 
+    #[inline]
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
