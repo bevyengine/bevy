@@ -1,4 +1,4 @@
-use crate::{ContentSize, FixedMeasure, Measure, Node, UiScale};
+use crate::{ContentSize, FixedMeasure, Measure, Node, NodeMeasure, UiScale};
 use bevy_asset::Assets;
 use bevy_ecs::{
     prelude::{Component, DetectChanges},
@@ -88,9 +88,9 @@ fn create_text_measure(
     match TextMeasureInfo::from_text(&text, fonts, scale_factor) {
         Ok(measure) => {
             if text.linebreak_behavior == BreakLineOn::NoWrap {
-                content_size.set(FixedMeasure { size: measure.max });
+                content_size.set(NodeMeasure::Fixed(FixedMeasure { size: measure.max }));
             } else {
-                content_size.set(TextMeasure { info: measure });
+                content_size.set(NodeMeasure::Text(TextMeasure { info: measure }));
             }
 
             // Text measure func created successfully, so set `TextFlags` to schedule a recompute

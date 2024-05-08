@@ -11,7 +11,7 @@ categories = ["game-engines", "data-structures"]
 
 [features]
 trace = []
-multi-threaded = ["bevy_tasks/multi-threaded", "arrayvec"]
+multi_threaded = ["bevy_tasks/multi_threaded", "arrayvec"]
 bevy_debug_stepping = []
 default = ["bevy_reflect"]
 

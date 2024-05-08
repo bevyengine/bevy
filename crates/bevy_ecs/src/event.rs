@@ -11,6 +11,8 @@ use crate::{
 };
 pub use bevy_ecs_macros::Event;
 use bevy_ecs_macros::SystemSet;
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
 use bevy_utils::detailed_trace;
 use std::ops::{Deref, DerefMut};
 use std::{
@@ -34,10 +36,12 @@ pub trait Event: Send + Sync + 'static {}
 /// sent to the point it was processed. `EventId`s increase montonically by send order.
 ///
 /// [`World`]: crate::world::World
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct EventId<E: Event> {
     /// Uniquely identifies the event associated with this ID.
     // This value corresponds to the order in which each event was added to the world.
     pub id: usize,
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
     _marker: PhantomData<E>,
 }
 
@@ -93,6 +97,7 @@ impl<E: Event> Hash for EventId<E> {
 }
 
 #[derive(Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 struct EventInstance<E: Event> {
     pub event_id: EventId<E>,
     pub event: E,
@@ -171,6 +176,7 @@ struct EventInstance<E: Event> {
 /// [Example usage standalone.](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_ecs/examples/events.rs)
 ///
 #[derive(Debug, Resource)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct Events<E: Event> {
     /// Holds the oldest still active events.
     /// Note that `a.start_event_count + a.len()` should always be equal to `events_b.start_event_count`.
@@ -393,6 +399,7 @@ impl<E: Event> Extend<E> for Events<E> {
 }
 
 #[derive(Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 struct EventSequence<E: Event> {
     events: Vec<EventInstance<E>>,
     start_event_count: usize,
@@ -921,12 +928,12 @@ impl<'a, E: Event> EventParIter<'a, E> {
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     pub fn for_each_with_id<FN: Fn(&'a E, EventId<E>) + Send + Sync + Clone>(self, func: FN) {
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
         {
             self.into_iter().for_each(|(e, i)| func(e, i));
         }
 
-        #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+        #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
         {
             let pool = bevy_tasks::ComputeTaskPool::get();
             let thread_count = pool.thread_num();

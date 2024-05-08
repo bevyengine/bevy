@@ -45,6 +45,7 @@ pub mod ui_debug_overlay;
 ///
 ///  Note: The third method is not recommended, as it requires you to remove the feature before
 ///  creating a build for release to the public.
+#[derive(Default)]
 pub struct DevToolsPlugin;
 
 impl Plugin for DevToolsPlugin {
