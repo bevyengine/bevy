@@ -3,6 +3,7 @@ use crate::{
         Edge, InputSlotError, OutputSlotError, RenderGraphContext, RenderGraphError,
         RunSubGraphError, SlotInfo, SlotInfos,
     },
+    render_phase::DrawError,
     renderer::RenderContext,
 };
 pub use bevy_ecs::label::DynEq;
@@ -97,6 +98,8 @@ pub enum NodeRunError {
     OutputSlotError(#[from] OutputSlotError),
     #[error("encountered an error when running a sub-graph")]
     RunSubGraphError(#[from] RunSubGraphError),
+    #[error("encountered an error when executing draw command")]
+    DrawError(#[from] DrawError),
 }
 
 /// A collection of input and output [`Edges`](Edge) for a [`Node`].

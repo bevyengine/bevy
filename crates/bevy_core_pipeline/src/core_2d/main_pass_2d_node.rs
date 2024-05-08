@@ -69,7 +69,7 @@ impl Node for MainPass2dNode {
                 render_pass.set_camera_viewport(viewport);
             }
 
-            transparent_phase.render(&mut render_pass, world, view_entity);
+            transparent_phase.render(&mut render_pass, world, view_entity)?;
 
             pass_span.end(&mut render_pass);
         }
