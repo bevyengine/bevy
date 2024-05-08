@@ -525,10 +525,11 @@ where
             self.samples.last().unwrap().clone()
         } else {
             // Here we use only the floor and the fractional part of `steps_taken` to interpolate
-            // between the two nearby sample points; `lower_index + 1` is known to be a valid index
-            // because otherwise, `steps_taken.floor()` must be at least `self.samples.len() - 1`,
-            // but the previous branch captures all such values.
+            // between the two nearby sample points.
             let lower_index = steps_taken.floor() as usize;
+
+            // Explicitly clamp the lower index just in case.
+            let lower_index = lower_index.min(self.samples.len() - 2);
             let upper_index = lower_index + 1;
             let fract = steps_taken.fract();
             self.samples[lower_index].interpolate(&self.samples[upper_index], fract)
