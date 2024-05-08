@@ -1,5 +1,6 @@
 use crate::{
-    impl_componentwise_vector_space, Alpha, ClampColor, Convert, LinearRgba, Luminance, Mix, StandardColor,
+    impl_componentwise_vector_space, Alpha, ClampColor, Convert, LinearRgba, Luminance, Mix,
+    StandardColor,
 };
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;

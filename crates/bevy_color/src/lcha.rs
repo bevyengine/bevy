@@ -1,4 +1,6 @@
-use crate::{Alpha, ClampColor, Convert, Hue, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
+use crate::{
+    Alpha, ClampColor, Convert, Hue, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
+};
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
 

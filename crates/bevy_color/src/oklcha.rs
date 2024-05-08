@@ -1,6 +1,6 @@
 use crate::{
-    color_difference::EuclideanDistance, Alpha, ClampColor, Convert, Hsla, Hsva, Hue, Hwba, Laba, Lcha,
-    LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
+    color_difference::EuclideanDistance, Alpha, ClampColor, Convert, Hsla, Hsva, Hue, Hwba, Laba,
+    Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
