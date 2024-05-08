@@ -123,10 +123,7 @@ mod tests {
     use std::fmt::Debug;
 
     use super::*;
-    use crate::{
-        testing::{assert_approx_eq, call_for_every_color},
-        Hsla,
-    };
+    use crate::{testing::assert_approx_eq, Hsla};
 
     #[test]
     fn test_rotate_hue() {
@@ -169,6 +166,14 @@ mod tests {
 
     #[test]
     fn test_gray() {
-        call_for_every_color!(verify_gray);
+        verify_gray::<crate::Hsla>();
+        verify_gray::<crate::Hsva>();
+        verify_gray::<crate::Hwba>();
+        verify_gray::<crate::Laba>();
+        verify_gray::<crate::Lcha>();
+        verify_gray::<crate::LinearRgba>();
+        verify_gray::<crate::Oklaba>();
+        verify_gray::<crate::Oklcha>();
+        verify_gray::<crate::Xyza>();
     }
 }
