@@ -48,7 +48,6 @@ bevy_winit = { path = "../bevy_winit", version = "0.14.0-dev" }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = [
-    "Request",
     "Window",
     "Response",
     "WorkerGlobalScope",
