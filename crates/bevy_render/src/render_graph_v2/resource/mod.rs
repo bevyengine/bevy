@@ -7,7 +7,7 @@ use crate::{render_resource::PipelineCache, renderer::RenderDevice};
 
 use self::ref_eq::RefEq;
 
-use super::{NodeContext, RenderGraphBuilder, RenderGraphExecution};
+use super::{NodeContext, RenderGraph, RenderGraphBuilder};
 
 pub mod bind_group;
 pub mod buffer;
@@ -84,7 +84,7 @@ impl<'g> ResourceTracker<'g> {
 
     pub(super) fn dependencies_ready(
         &self,
-        graph: &RenderGraphExecution<'g>,
+        graph: &RenderGraph<'g>,
         pipeline_cache: &PipelineCache,
         dependencies: &RenderDependencies<'g>,
     ) -> bool {
@@ -168,10 +168,10 @@ pub trait FromDescriptorRenderResource: DescribedRenderResource {
 pub trait UsagesRenderResource: DescribedRenderResource {
     type Usages: Send + Sync + Debug + 'static;
 
-    fn get_descriptor_mut<'a, 'g: 'a>(
-        graph: &'a mut RenderGraphBuilder<'g>,
+    fn get_descriptor_mut<'b, 'g: 'b>(
+        graph: &'b mut RenderGraphBuilder<'g>,
         resource: RenderHandle<'g, Self>,
-    ) -> Option<&'a mut Self::Descriptor>;
+    ) -> Option<&'b mut Self::Descriptor>;
 
     fn has_usages(descriptor: &Self::Descriptor, usages: &Self::Usages) -> bool;
     fn add_usages(descriptor: &mut Self::Descriptor, usages: Self::Usages);
@@ -450,7 +450,7 @@ impl<'g, R: RenderResource> RenderHandle<'g, R> {
 pub struct RenderDependencies<'g> {
     reads: HashSet<RenderResourceId>,
     writes: HashSet<RenderResourceId>,
-    data: PhantomData<RenderGraphExecution<'g>>,
+    data: PhantomData<RenderGraph<'g>>,
 }
 
 impl<'g> RenderDependencies<'g> {

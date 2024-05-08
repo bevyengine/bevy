@@ -6,7 +6,7 @@ use encase::rts_array::Length;
 use wgpu::{BindGroupEntry, BindGroupLayoutEntry, BufferBinding, Label};
 
 use crate::{
-    render_graph_v2::{NodeContext, RenderGraphBuilder, RenderGraphExecution},
+    render_graph_v2::{NodeContext, RenderGraph, RenderGraphBuilder},
     render_resource::{AsBindGroup, BindGroup, BindGroupLayout},
     renderer::RenderDevice,
 };
@@ -132,10 +132,10 @@ impl<'g> RenderGraphBindGroups<'g> {
 
     pub fn create_queued_bind_groups(
         &mut self,
-        graph: &RenderGraphExecution,
+        graph: &RenderGraph,
         world: &World,
         render_device: &RenderDevice,
-        view_entity: EntityRef<'g>,
+        // view_entity: EntityRef<'g>,
     ) {
         let mut bind_group_cache = HashMap::new();
         for (
@@ -152,7 +152,7 @@ impl<'g> RenderGraphBindGroups<'g> {
                 graph,
                 world,
                 dependencies,
-                entity: view_entity,
+                // entity: view_entity,
             };
             let bind_group_entries = (factory)(context.clone());
             let layout = context.get(layout);

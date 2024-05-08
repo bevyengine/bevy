@@ -6,7 +6,7 @@ use std::hash::Hash;
 use wgpu::{TextureUsages, TextureViewDescriptor};
 
 use crate::{
-    render_graph_v2::{NodeContext, RenderGraphBuilder, RenderGraphExecution},
+    render_graph_v2::{NodeContext, RenderGraph, RenderGraphBuilder},
     render_resource::{Sampler, SamplerDescriptor, Texture, TextureDescriptor, TextureView},
 };
 
@@ -175,9 +175,9 @@ impl<'g> RenderGraphTextureViews<'g> {
 
     pub fn create_queued_resources(
         &mut self,
-        graph: &RenderGraphExecution<'g>,
+        graph: &RenderGraph<'g>,
         world: &World,
-        view_entity: EntityRef,
+        // view_entity: EntityRef,
     ) {
         for (id, queued_view) in self.queued_texture_views.drain() {
             let dependencies = RenderDependencies::of(&queued_view.texture);
@@ -185,7 +185,7 @@ impl<'g> RenderGraphTextureViews<'g> {
                 graph,
                 world,
                 dependencies,
-                entity: view_entity,
+                // entity: view_entity,
             };
             let texture_view = context
                 .get(queued_view.texture)
