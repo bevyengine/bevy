@@ -67,7 +67,8 @@ pub fn prepare_fog(
                 FogFalloff::Linear { start, end } => GpuFog {
                     mode: GPU_FOG_MODE_LINEAR,
                     base_color: LinearRgba::from(fog.color).to_vec4(),
-                    directional_light_color: LinearRgba::from(fog.directional_light_color).to_vec4(),
+                    directional_light_color: LinearRgba::from(fog.directional_light_color)
+                        .to_vec4(),
                     directional_light_exponent: fog.directional_light_exponent,
                     be: Vec3::new(*start, *end, 0.0),
                     ..Default::default()
@@ -75,7 +76,8 @@ pub fn prepare_fog(
                 FogFalloff::Exponential { density } => GpuFog {
                     mode: GPU_FOG_MODE_EXPONENTIAL,
                     base_color: LinearRgba::from(fog.color).to_vec4(),
-                    directional_light_color: LinearRgba::from(fog.directional_light_color).to_vec4(),
+                    directional_light_color: LinearRgba::from(fog.directional_light_color)
+                        .to_vec4(),
                     directional_light_exponent: fog.directional_light_exponent,
                     be: Vec3::new(*density, 0.0, 0.0),
                     ..Default::default()
@@ -83,7 +85,8 @@ pub fn prepare_fog(
                 FogFalloff::ExponentialSquared { density } => GpuFog {
                     mode: GPU_FOG_MODE_EXPONENTIAL_SQUARED,
                     base_color: LinearRgba::from(fog.color).to_vec4(),
-                    directional_light_color: LinearRgba::from(fog.directional_light_color).to_vec4(),
+                    directional_light_color: LinearRgba::from(fog.directional_light_color)
+                        .to_vec4(),
                     directional_light_exponent: fog.directional_light_exponent,
                     be: Vec3::new(*density, 0.0, 0.0),
                     ..Default::default()
@@ -94,7 +97,8 @@ pub fn prepare_fog(
                 } => GpuFog {
                     mode: GPU_FOG_MODE_ATMOSPHERIC,
                     base_color: LinearRgba::from(fog.color).to_vec4(),
-                    directional_light_color: LinearRgba::from(fog.directional_light_color).to_vec4(),
+                    directional_light_color: LinearRgba::from(fog.directional_light_color)
+                        .to_vec4(),
                     directional_light_exponent: fog.directional_light_exponent,
                     be: *extinction,
                     bi: *inscattering,
