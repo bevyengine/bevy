@@ -117,8 +117,8 @@ impl<'g> RenderGraph<'g> {
 
     fn create_queued_resources(
         &mut self,
-        resource_cache: &'g mut RenderGraphCachedResources,
-        pipeline_cache: &'g mut PipelineCache,
+        resource_cache: &mut RenderGraphCachedResources,
+        pipeline_cache: &mut PipelineCache,
         render_device: &RenderDevice,
         world: &World,
         // view_entity: EntityRef<'g>,
@@ -144,7 +144,7 @@ impl<'g> RenderGraph<'g> {
 }
 
 pub struct RenderGraphBuilder<'g> {
-    graph: &'g mut RenderGraph<'g>,
+    graph: RenderGraph<'g>,
     resource_cache: &'g mut RenderGraphCachedResources,
     pipeline_cache: &'g mut PipelineCache,
     world: &'g World,
@@ -225,6 +225,19 @@ impl<'g> RenderGraphBuilder<'g> {
 
     pub fn limits(&self) -> wgpu::Limits {
         self.render_device.limits()
+    }
+
+    fn create_queued_resources(&mut self) {
+        self.graph.create_queued_resources(
+            self.resource_cache,
+            self.pipeline_cache,
+            self.render_device,
+            self.world,
+        );
+    }
+
+    fn run(self, render_queue: &RenderQueue) {
+        self.graph.run(self.world, self.render_device, render_queue);
     }
 }
 
