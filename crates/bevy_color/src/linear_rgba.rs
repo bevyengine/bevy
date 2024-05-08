@@ -1,6 +1,5 @@
 use crate::{
-    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ClampColor,
-    Luminance, Mix, StandardColor,
+    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ClampColor, Convert, Luminance, Mix, StandardColor
 };
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
@@ -281,8 +280,24 @@ impl ClampColor for LinearRgba {
     }
 }
 
-impl From<[f32; 4]> for LinearRgba {
-    fn from(color: [f32; 4]) -> Self {
+impl Convert for LinearRgba {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.red, self.green, self.blue, self.alpha]
+    }
+
+    fn to_alphaless_array(self) -> [f32; 3] {
+        [self.red, self.green, self.blue]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.red, self.green, self.blue, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.red, self.green, self.blue)
+    }
+
+    fn from_array(color: [f32; 4]) -> Self {
         Self {
             red: color[0],
             green: color[1],
@@ -290,16 +305,8 @@ impl From<[f32; 4]> for LinearRgba {
             alpha: color[3],
         }
     }
-}
 
-impl From<LinearRgba> for [f32; 4] {
-    fn from(color: LinearRgba) -> Self {
-        [color.red, color.green, color.blue, color.alpha]
-    }
-}
-
-impl From<[f32; 3]> for LinearRgba {
-    fn from(color: [f32; 3]) -> Self {
+    fn from_alphaless_array(color: [f32; 3]) -> Self {
         Self {
             red: color[0],
             green: color[1],
@@ -307,16 +314,8 @@ impl From<[f32; 3]> for LinearRgba {
             alpha: 1.0,
         }
     }
-}
 
-impl From<LinearRgba> for [f32; 3] {
-    fn from(color: LinearRgba) -> Self {
-        [color.red, color.green, color.blue]
-    }
-}
-
-impl From<Vec4> for LinearRgba {
-    fn from(color: Vec4) -> Self {
+    fn from_vec4(color: Vec4) -> Self {
         Self {
             red: color[0],
             green: color[1],
@@ -324,28 +323,14 @@ impl From<Vec4> for LinearRgba {
             alpha: color[3],
         }
     }
-}
 
-impl From<LinearRgba> for Vec4 {
-    fn from(color: LinearRgba) -> Self {
-        Vec4::new(color.red, color.green, color.blue, color.alpha)
-    }
-}
-
-impl From<Vec3> for LinearRgba {
-    fn from(color: Vec3) -> Self {
+    fn from_vec3(color: Vec3) -> Self {
         Self {
             red: color[0],
             green: color[1],
             blue: color[2],
             alpha: 1.0,
         }
-    }
-}
-
-impl From<LinearRgba> for Vec3 {
-    fn from(color: LinearRgba) -> Self {
-        Vec3::new(color.red, color.green, color.blue)
     }
 }
 
