@@ -508,7 +508,6 @@ pub fn list_debug(dyn_list: &dyn List, f: &mut Formatter<'_>) -> std::fmt::Resul
 #[cfg(test)]
 mod tests {
     use super::DynamicList;
-    #[cfg(not(debug_assertions))]
     use crate::{Reflect, ReflectRef};
     use std::assert_eq;
 
@@ -525,22 +524,28 @@ mod tests {
         }
     }
 
-    #[cfg(not(debug_assertions))]
     #[test]
-    fn list_avoid_wrap_in_release() {
-        let b = Box::new(vec![(); usize::MAX]).into_reflect();
+    fn next_index_increment() {
+        const SIZE: usize = if cfg!(debug_assertions) {
+            4
+        } else {
+            // If compiled in release mode, verify we dont overflow
+            usize::MAX
+        };
+        let b = Box::new(vec![(); SIZE]).into_reflect();
 
         let ReflectRef::List(list) = b.reflect_ref() else {
             panic!("Not a list...");
         };
 
         let mut iter = list.iter();
-        iter.index = usize::MAX - 1;
+        iter.index = SIZE - 1;
         assert!(iter.next().is_some());
+
+        // When None we should no longer increase index
         assert!(iter.next().is_none());
-        assert!(iter.index == usize::MAX);
-        // let's do it again to see we are indeed not moving
+        assert!(iter.index == SIZE);
         assert!(iter.next().is_none());
-        assert!(iter.index == usize::MAX);
+        assert!(iter.index == SIZE);
     }
 }

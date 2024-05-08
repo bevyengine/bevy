@@ -467,3 +467,32 @@ pub fn array_debug(dyn_array: &dyn Array, f: &mut std::fmt::Formatter<'_>) -> st
     }
     debug.finish()
 }
+#[cfg(test)]
+mod tests {
+    use crate::{Reflect, ReflectRef};
+    #[test]
+    fn next_index_increment() {
+        const SIZE: usize = if cfg!(debug_assertions) {
+            4
+        } else {
+            // If compiled in release mode, verify we dont overflow
+            usize::MAX
+        };
+
+        let b = Box::new([(); SIZE]).into_reflect();
+
+        let ReflectRef::Array(array) = b.reflect_ref() else {
+            panic!("Not an array...");
+        };
+
+        let mut iter = array.iter();
+        iter.index = SIZE - 1;
+        assert!(iter.next().is_some());
+
+        // When None we should no longer increase index
+        assert!(iter.next().is_none());
+        assert!(iter.index == SIZE);
+        assert!(iter.next().is_none());
+        assert!(iter.index == SIZE);
+    }
+}

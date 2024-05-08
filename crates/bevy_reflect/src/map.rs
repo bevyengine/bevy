@@ -594,4 +594,27 @@ mod tests {
 
         assert!(map.get_at(2).is_none());
     }
+
+    #[test]
+    fn next_index_increment() {
+        let values = ["first", "last"];
+        let mut map = DynamicMap::default();
+        map.insert(0usize, values[0]);
+        map.insert(1usize, values[1]);
+
+        let mut iter = map.iter();
+        let size = iter.len();
+
+        for _ in 0..2 {
+            let prev_index = iter.index;
+            assert!(iter.next().is_some());
+            assert_eq!(prev_index, iter.index - 1);
+        }
+
+        // When None we should no longer increase index
+        for _ in 0..2 {
+            assert!(iter.next().is_none());
+            assert_eq!(size, iter.index);
+        }
+    }
 }
