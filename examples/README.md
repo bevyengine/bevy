@@ -130,6 +130,7 @@ Example | Description
 [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
 [Auto Exposure](../examples/3d/auto_exposure.rs) | A scene showcasing auto exposure
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
+[Clearcoat](../examples/3d/clearcoat.rs) | Demonstrates the clearcoat PBR feature
 [Color grading](../examples/3d/color_grading.rs) | Demonstrates color grading
 [Deferred Rendering](../examples/3d/deferred_rendering.rs) | Renders meshes with both forward and deferred pipelines
 [Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
@@ -209,6 +210,7 @@ Example | Description
 [Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
 [Extra asset source](../examples/asset/extra_source.rs) | Load an asset from a non-standard asset source
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
+[Repeated texture configuration](../examples/asset/repeated_texture.rs) | How to configure the texture to repeat instead of the default clamp to edges
 
 ## Async Tasks
 
