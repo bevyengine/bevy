@@ -23,7 +23,7 @@ bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
 bevy_asset_macros = { path = "macros", version = "0.14.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
-    "uuid",
+  "uuid",
 ] }
 bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
@@ -48,9 +48,9 @@ bevy_winit = { path = "../bevy_winit", version = "0.14.0-dev" }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = [
-    "Window",
-    "Response",
-    "WorkerGlobalScope",
+  "Window",
+  "Response",
+  "WorkerGlobalScope",
 ] }
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
