@@ -10,7 +10,7 @@ use bevy_reflect::Reflect;
 /// A wrapper struct that gives the enclosed type the property of being [`Interpolable`] with
 /// naïve step interpolation. `self.interpolate(other, t)` is such that `self` is returned when
 /// `t` is less than `1.0`, while `other` is returned for values `1.0` and greater.
-#[derive(Reflect, Clone, Copy, Default, Debug)]
+#[derive(Clone, Copy, Default, Debug)]
 pub struct Stepped<T: Clone>(pub T)
 where
     T: Clone;
@@ -31,7 +31,7 @@ impl<T: Clone> Interpolable for Stepped<T> {
 ///
 /// Note that outside of the interval `[0, 1]`, this uses global extrapolation based on the
 /// out-tangent of the left-hand point and the in-tangent of the right-hand point.
-#[derive(Reflect, Clone, Copy, Default, Debug)]
+#[derive(Clone, Copy, Default, Debug)]
 pub struct TwoSidedHermite<V: VectorSpace> {
     /// The position of the datum in space.
     pub point: V,
@@ -72,7 +72,7 @@ where
 /// however, linear interpolation is intrinsic to `Vec3` itself, so the interpolation metadata
 /// itself will be lost if the curve is resampled. On the other hand, the variant curves each
 /// properly know their own modes of interpolation.
-#[derive(Clone, Debug)]
+//#[derive(Clone, Debug)]
 pub enum TranslationCurve {
     /// A curve which takes a constant value over its domain. Notably, this is how animations with
     /// only a single keyframe are interpreted.
@@ -116,7 +116,7 @@ impl Curve<Vec3> for TranslationCurve {
 /// however, linear interpolation is intrinsic to `Vec3` itself, so the interpolation metadata
 /// itself will be lost if the curve is resampled. On the other hand, the variant curves each
 /// properly know their own modes of interpolation.
-#[derive(Clone, Debug)]
+//#[derive(Clone, Debug)]
 pub enum ScaleCurve {
     /// A curve which takes a constant value over its domain. Notably, this is how animations with
     /// only a single keyframe are interpreted.
@@ -160,7 +160,7 @@ impl Curve<Vec3> for ScaleCurve {
 /// however, spherical linear interpolation is intrinsic to `Vec3` itself, so the interpolation
 /// metadata itself will be lost if the curve is resampled. On the other hand, the variant curves each
 /// properly know their own modes of interpolation.
-#[derive(Clone, Debug)]
+//#[derive(Clone, Debug)]
 pub enum RotationCurve {
     /// A curve which takes a constant value over its domain. Notably, this is how animations with
     /// only a single keyframe are interpreted.
@@ -205,7 +205,7 @@ impl Curve<Quat> for RotationCurve {
 /// This type is, itself, a `Curve<Vec<f32>>`; however, in order to avoid allocation, it is
 /// recommended to use its implementation of the [`MultiCurve`] subtrait, which allows dumping
 /// cross-channel sample data into an external buffer, avoiding allocation.
-#[derive(Reflect, Clone, Debug)]
+//#[derive(Reflect, Clone, Debug)]
 pub enum WeightsCurve {
     /// A curve which takes a constant value over its domain. Notably, this is how animations with
     /// only a single keyframe are interpreted.
@@ -262,7 +262,7 @@ impl MultiCurve<f32> for WeightsCurve {
 /// or the [`MorphWeights`] of morph targets for a mesh.
 ///
 /// Each variant yields a [`Curve`] over the data that it parametrizes.
-#[derive(Reflect, Clone, Debug)]
+//#[derive(Reflect, Clone, Debug)]
 pub enum VariableCurve {
     /// A [`TranslationCurve`] for animating the `translation` component of a [`Transform`].
     Translation(TranslationCurve),
@@ -354,7 +354,7 @@ where
 /// "channels" equal to its `width`. This is sampled through `sample_into`, which places the data
 /// into an external buffer. If `T: Default`, this may also be used as a `Curve` directly, but a new
 /// `Vec<T>` will be allocated for each call, which may be undesirable.
-#[derive(Clone, Debug)]
+//#[derive(Clone, Debug)]
 pub struct DynamicArrayCurve<T>
 where
     T: Interpolable,
@@ -376,7 +376,7 @@ where
 }
 
 /// An error that indicates that a [`DynamicArrayCurve`] could not be formed.
-#[derive(Debug, Clone, Copy)]
+//#[derive(Debug, Clone, Copy)]
 pub struct DynamicArrayError;
 
 impl<T> DynamicArrayCurve<T>

@@ -1,199 +1,34 @@
-//! Houses the [`Curve`] trait together with the [`Interpolable`] trait and the [`Interval`]
-//! struct that it depends on.
+//! The [`Curve`] trait, used to describe curves in a number of different domains. This module also
+//! contains the [`Interpolable`] trait and the [`Interval`] type.
 
-use crate::{Quat, VectorSpace};
-use std::{
-    borrow::Cow,
-    cmp::{max_by, min_by},
-    marker::PhantomData,
-    ops::{Deref, RangeInclusive},
-};
+pub mod interpolable;
+pub mod interval;
 
-/// A nonempty closed interval, possibly infinite in either direction.
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-pub struct Interval {
-    start: f32,
-    end: f32,
-}
+pub use interpolable::Interpolable;
+pub use interval::{everywhere, interval, Interval};
 
-/// An error that indicates that an operation would have returned an invalid [`Interval`].
-#[derive(Debug)]
-pub struct InvalidIntervalError;
-
-/// An error indicating that an infinite interval was used where it was inappropriate.
-#[derive(Debug)]
-pub struct InfiniteIntervalError;
-
-impl Interval {
-    /// Create a new [`Interval`] with the specified `start` and `end`. The interval can be infinite
-    /// but cannot be empty and neither endpoint can be NaN; invalid parameters will result in an error.
-    pub fn new(start: f32, end: f32) -> Result<Self, InvalidIntervalError> {
-        if start >= end || start.is_nan() || end.is_nan() {
-            Err(InvalidIntervalError)
-        } else {
-            Ok(Self { start, end })
-        }
-    }
-
-    /// Get the start of this interval.
-    #[inline]
-    pub fn start(self) -> f32 {
-        self.start
-    }
-
-    /// Get the end of this interval.
-    #[inline]
-    pub fn end(self) -> f32 {
-        self.end
-    }
-
-    /// Create an [`Interval`] by intersecting this interval with another. Returns an error if the
-    /// intersection would be empty (hence an invalid interval).
-    pub fn intersect(self, other: Interval) -> Result<Interval, InvalidIntervalError> {
-        let lower = max_by(self.start, other.start, |x, y| x.partial_cmp(y).unwrap());
-        let upper = min_by(self.end, other.end, |x, y| x.partial_cmp(y).unwrap());
-        Self::new(lower, upper)
-    }
-
-    /// Get the length of this interval. Note that the result may be infinite (`f32::INFINITY`).
-    #[inline]
-    pub fn length(self) -> f32 {
-        self.end - self.start
-    }
-
-    /// Returns `true` if this interval is finite.
-    #[inline]
-    pub fn is_finite(self) -> bool {
-        self.length().is_finite()
-    }
-
-    /// Returns `true` if `item` is contained in this interval.
-    #[inline]
-    pub fn contains(self, item: f32) -> bool {
-        (self.start..=self.end).contains(&item)
-    }
-
-    /// Clamp the given `value` to lie within this interval.
-    #[inline]
-    pub fn clamp(self, value: f32) -> f32 {
-        value.clamp(self.start, self.end)
-    }
-
-    /// Get the linear map which maps this curve onto the `other` one. Returns an error if either
-    /// interval is infinite.
-    pub fn linear_map_to(self, other: Self) -> Result<impl Fn(f32) -> f32, InfiniteIntervalError> {
-        if !self.is_finite() || !other.is_finite() {
-            return Err(InfiniteIntervalError);
-        }
-        let scale = other.length() / self.length();
-        Ok(move |x| (x - self.start) * scale + other.start)
-    }
-
-    /// Get an iterator over `points` equally-spaced points from this interval in increasing order.
-    /// Returns `None` if `points` is less than 2; the spaced points always include the endpoints.
-    pub fn spaced_points(self, points: usize) -> Option<impl Iterator<Item = f32>> {
-        if points < 2 {
-            return None;
-        }
-        let step = self.length() / (points - 1) as f32;
-        Some((0..points).map(move |x| self.start + x as f32 * step))
-    }
-}
-
-impl TryFrom<RangeInclusive<f32>> for Interval {
-    type Error = InvalidIntervalError;
-    fn try_from(range: RangeInclusive<f32>) -> Result<Self, Self::Error> {
-        Interval::new(*range.start(), *range.end())
-    }
-}
-
-/// A trait for types whose values can be intermediately interpolated between two given values
-/// with an auxiliary parameter.
-pub trait Interpolable: Clone {
-    /// Interpolate between this value and the `other` given value using the parameter `t`.
-    /// Note that the parameter `t` is not necessarily clamped to lie between `0` and `1`.
-    fn interpolate(&self, other: &Self, t: f32) -> Self;
-}
-
-impl<S, T> Interpolable for (S, T)
-where
-    S: Interpolable,
-    T: Interpolable,
-{
-    fn interpolate(&self, other: &Self, t: f32) -> Self {
-        (
-            self.0.interpolate(&other.0, t),
-            self.1.interpolate(&other.1, t),
-        )
-    }
-}
-
-impl<T> Interpolable for T
-where
-    T: VectorSpace,
-{
-    fn interpolate(&self, other: &Self, t: f32) -> Self {
-        self.lerp(*other, t)
-    }
-}
-
-impl Interpolable for Quat {
-    fn interpolate(&self, other: &Self, t: f32) -> Self {
-        self.slerp(*other, t)
-    }
-}
-
-impl<T> Interpolable for Vec<T>
-where
-    T: Interpolable,
-{
-    fn interpolate(&self, other: &Self, t: f32) -> Self {
-        self.iter()
-            .zip(other)
-            .map(|(x, y)| x.interpolate(y, t))
-            .collect()
-    }
-}
-
-impl<T> Interpolable for Cow<'_, [T]>
-where
-    T: Interpolable,
-{
-    fn interpolate(&self, other: &Self, t: f32) -> Self {
-        if t <= 0.0 {
-            self.clone()
-        } else if t >= 1.0 {
-            other.clone()
-        } else {
-            Cow::Owned(
-                // Cow<'_, [T]> derefs into [T], and its owned counterpart is Vec<T>
-                (*self)
-                    .into_iter()
-                    .zip((*other).into_iter())
-                    .map(|(x, y)| x.interpolate(y, t))
-                    .collect::<Vec<T>>(),
-            )
-        }
-    }
-}
+use interval::{InfiniteIntervalError, InvalidIntervalError};
+use std::{marker::PhantomData, ops::Deref};
+use thiserror::Error;
 
 /// An error indicating that a resampling operation could not be performed because of
 /// malformed inputs.
-#[derive(Debug)] // TODO: Make this an actual Error.
+#[derive(Debug, Error)]
+#[error("Could not resample from this curve because of bad inputs")]
 pub enum ResamplingError {
     /// This resampling operation was not provided with enough samples to have well-formed output.
+    #[error("Not enough samples to construct resampled curve")]
     NotEnoughSamples(usize),
+
     /// This resampling operation failed because of an unbounded interval.
+    #[error("Could not resample because this curve has unbounded domain")]
     InfiniteInterval(InfiniteIntervalError),
 }
 
 /// A trait for a type that can represent values of type `T` parametrized over a fixed interval.
 /// Typical examples of this are actual geometric curves where `T: VectorSpace`, but other kinds
 /// of interpolable data can be represented instead (or in addition).
-pub trait Curve<T>
-where
-    T: Interpolable,
-{
+pub trait Curve<T> {
     /// The interval over which this curve is parametrized.
     fn domain(&self) -> Interval;
 
@@ -220,7 +55,10 @@ where
     /// spaced values. A total of `samples` samples are used, although at least two samples are
     /// required in order to produce well-formed output. If fewer than two samples are provided,
     /// or if this curve has an unbounded domain, then a [`ResamplingError`] is returned.
-    fn resample(&self, samples: usize) -> Result<SampleCurve<T>, ResamplingError> {
+    fn resample(&self, samples: usize) -> Result<SampleCurve<T>, ResamplingError>
+    where
+        T: Interpolable,
+    {
         if samples < 2 {
             return Err(ResamplingError::NotEnoughSamples(samples));
         }
@@ -256,6 +94,7 @@ where
     ) -> Result<UnevenSampleCurve<T>, ResamplingError>
     where
         Self: Sized,
+        T: Interpolable,
     {
         let mut times: Vec<f32> = sample_times
             .into_iter()
@@ -266,8 +105,8 @@ where
             return Err(ResamplingError::NotEnoughSamples(times.len()));
         }
         times.sort_by(|t1, t2| t1.partial_cmp(t2).unwrap());
-        let timed_samples = times.into_iter().map(|t| (t, self.sample(t))).collect();
-        Ok(UnevenSampleCurve { timed_samples })
+        let samples = times.iter().copied().map(|t| self.sample(t)).collect();
+        Ok(UnevenSampleCurve { times, samples })
     }
 
     /// Create a new curve by mapping the values of this curve via a function `f`; i.e., if the
@@ -276,7 +115,6 @@ where
     fn map<S>(self, f: impl Fn(T) -> S) -> impl Curve<S>
     where
         Self: Sized,
-        S: Interpolable,
     {
         MapCurve {
             preimage: self,
@@ -375,7 +213,6 @@ where
     fn zip<S, C>(self, other: C) -> Result<impl Curve<(T, S)>, InvalidIntervalError>
     where
         Self: Sized,
-        S: Interpolable,
         C: Curve<S> + Sized,
     {
         let domain = self.domain().intersect(other.domain())?;
@@ -411,7 +248,6 @@ where
 
 impl<T, C, D> Curve<T> for D
 where
-    T: Interpolable,
     C: Curve<T> + ?Sized,
     D: Deref<Target = C>,
 {
@@ -427,7 +263,7 @@ where
 /// A [`Curve`] which takes a constant value over its domain.
 pub struct ConstantCurve<T>
 where
-    T: Interpolable,
+    T: Clone,
 {
     domain: Interval,
     value: T,
@@ -435,7 +271,7 @@ where
 
 impl<T> Curve<T> for ConstantCurve<T>
 where
-    T: Interpolable,
+    T: Clone,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -451,7 +287,6 @@ where
 /// A [`Curve`] defined by a function.
 pub struct FunctionCurve<T, F>
 where
-    T: Interpolable,
     F: Fn(f32) -> T,
 {
     domain: Interval,
@@ -460,7 +295,6 @@ where
 
 impl<T, F> Curve<T> for FunctionCurve<T, F>
 where
-    T: Interpolable,
     F: Fn(f32) -> T,
 {
     #[inline]
@@ -490,7 +324,8 @@ impl<T> SampleCurve<T>
 where
     T: Interpolable,
 {
-    /// Like [`Curve::map`], but with a concrete return type.
+    /// Like [`Curve::map`], but with a concrete return type. Unlike that function, this one is
+    /// not lazy, and `f` is evaluated immediately on samples to produce the result.
     pub fn map_concrete<S>(self, f: impl Fn(T) -> S) -> SampleCurve<S>
     where
         S: Interpolable,
@@ -524,32 +359,28 @@ where
 
     #[inline]
     fn sample(&self, t: f32) -> T {
-        // We clamp `t` to the domain.
-        let t = self.domain.clamp(t);
-
-        // Inside the curve itself, interpolate between the two nearest sample values.
+        // Inside the curve itself, we interpolate between the two nearest sample values.
         let subdivs = self.samples.len() - 1;
         let step = self.domain.length() / subdivs as f32;
         let t_shifted = t - self.domain.start();
-        let lower_index = (t_shifted / step).floor() as usize;
-        let upper_index = (t_shifted / step).ceil() as usize;
-        let f = (t_shifted / step).fract();
-        self.samples[lower_index].interpolate(&self.samples[upper_index], f)
-    }
+        let steps_taken = t_shifted / step;
 
-    fn map<S>(self, f: impl Fn(T) -> S) -> impl Curve<S>
-    where
-        Self: Sized,
-        S: Interpolable,
-    {
-        self.map_concrete(f)
-    }
+        // Using `steps_taken` as the source of truth, clamp to the range of valid indices.
+        if steps_taken <= 0.0 {
+            self.samples.first().unwrap().clone()
+        } else if steps_taken >= (self.samples.len() - 1) as f32 {
+            self.samples.last().unwrap().clone()
+        } else {
+            // Here we use only the floor and the fractional part of `steps_taken` to interpolate
+            // between the two nearby sample points.
+            let lower_index = steps_taken.floor() as usize;
 
-    fn graph(self) -> impl Curve<(f32, T)>
-    where
-        Self: Sized,
-    {
-        self.graph_concrete()
+            // Explicitly clamp the lower index just in case.
+            let lower_index = lower_index.min(self.samples.len() - 2);
+            let upper_index = lower_index + 1;
+            let fract = steps_taken.fract();
+            self.samples[lower_index].interpolate(&self.samples[upper_index], fract)
+        }
     }
 }
 
@@ -558,41 +389,41 @@ pub struct UnevenSampleCurve<T>
 where
     T: Interpolable,
 {
-    /// The timed that make up this [`UnevenSampleCurve`] by interpolation.
+    /// The times for the samples of this curve.
     ///
-    /// Invariants: this must always have a length of at least 2, be sorted by time, and have no
+    /// Invariants: This must always have a length of at least 2, be sorted, and have no
     /// duplicated or non-finite times.
-    timed_samples: Vec<(f32, T)>,
+    times: Vec<f32>,
+
+    /// The samples corresponding to the times for this curve.
+    ///
+    /// Invariants: This must always have the same length as `times`.
+    samples: Vec<T>,
 }
 
 impl<T> UnevenSampleCurve<T>
 where
     T: Interpolable,
 {
-    /// Like [`Curve::map`], but with a concrete return type..
+    /// Like [`Curve::map`], but with a concrete return type. Unlike that function, this one is
+    /// not lazy, and `f` is evaluated immediately on samples to produce the result.
     pub fn map_concrete<S>(self, f: impl Fn(T) -> S) -> UnevenSampleCurve<S>
     where
         S: Interpolable,
     {
-        let new_samples: Vec<(f32, S)> = self
-            .timed_samples
-            .into_iter()
-            .map(|(t, x)| (t, f(x)))
-            .collect();
+        let new_samples: Vec<S> = self.samples.into_iter().map(f).collect();
         UnevenSampleCurve {
-            timed_samples: new_samples,
+            times: self.times,
+            samples: new_samples,
         }
     }
 
     /// Like [`Curve::graph`], but with a concrete return type.
     pub fn graph_concrete(self) -> UnevenSampleCurve<(f32, T)> {
-        let new_samples: Vec<(f32, (f32, T))> = self
-            .timed_samples
-            .into_iter()
-            .map(|(t, x)| (t, (t, x)))
-            .collect();
+        let new_samples = self.times.iter().copied().zip(self.samples).collect();
         UnevenSampleCurve {
-            timed_samples: new_samples,
+            times: self.times,
+            samples: new_samples,
         }
     }
 
@@ -603,10 +434,12 @@ where
     /// The samples are resorted by time after mapping and deduplicated by output time, so
     /// the function `f` should generally be injective over the sample times of the curve.
     pub fn map_sample_times(mut self, f: impl Fn(f32) -> f32) -> UnevenSampleCurve<T> {
-        self.timed_samples.iter_mut().for_each(|(t, _)| *t = f(*t));
-        self.timed_samples.dedup_by(|(t1, _), (t2, _)| (*t1).eq(t2));
-        self.timed_samples
-            .sort_by(|(t1, _), (t2, _)| t1.partial_cmp(t2).unwrap());
+        let mut timed_samples: Vec<(f32, T)> =
+            self.times.into_iter().map(f).zip(self.samples).collect();
+        timed_samples.dedup_by(|(t1, _), (t2, _)| (*t1).eq(t2));
+        timed_samples.sort_by(|(t1, _), (t2, _)| t1.partial_cmp(t2).unwrap());
+        self.times = timed_samples.iter().map(|(t, _)| t).copied().collect();
+        self.samples = timed_samples.into_iter().map(|(_, x)| x).collect();
         self
     }
 }
@@ -617,46 +450,33 @@ where
 {
     #[inline]
     fn domain(&self) -> Interval {
-        let start = self.timed_samples.first().unwrap().0;
-        let end = self.timed_samples.last().unwrap().0;
-        Interval::new(start, end).unwrap()
+        let start = self.times.first().unwrap();
+        let end = self.times.last().unwrap();
+        Interval::new(*start, *end).unwrap()
     }
 
     #[inline]
     fn sample(&self, t: f32) -> T {
         match self
-            .timed_samples
-            .binary_search_by(|(pt, _)| pt.partial_cmp(&t).unwrap())
+            .times
+            .binary_search_by(|pt| pt.partial_cmp(&t).unwrap())
         {
-            Ok(index) => self.timed_samples[index].1.clone(),
+            Ok(index) => self.samples[index].clone(),
             Err(index) => {
                 if index == 0 {
-                    self.timed_samples.first().unwrap().1.clone()
-                } else if index == self.timed_samples.len() {
-                    self.timed_samples.last().unwrap().1.clone()
+                    self.samples.first().unwrap().clone()
+                } else if index == self.times.len() {
+                    self.samples.last().unwrap().clone()
                 } else {
-                    let (t_lower, v_lower) = self.timed_samples.get(index - 1).unwrap();
-                    let (t_upper, v_upper) = self.timed_samples.get(index).unwrap();
+                    let t_lower = self.times[index - 1];
+                    let v_lower = self.samples.get(index - 1).unwrap();
+                    let t_upper = self.times[index];
+                    let v_upper = self.samples.get(index).unwrap();
                     let s = (t - t_lower) / (t_upper - t_lower);
                     v_lower.interpolate(v_upper, s)
                 }
             }
         }
-    }
-
-    fn map<S>(self, f: impl Fn(T) -> S) -> impl Curve<S>
-    where
-        Self: Sized,
-        S: Interpolable,
-    {
-        self.map_concrete(f)
-    }
-
-    fn graph(self) -> impl Curve<(f32, T)>
-    where
-        Self: Sized,
-    {
-        self.graph_concrete()
     }
 }
 
@@ -664,8 +484,6 @@ where
 /// given function.
 pub struct MapCurve<S, T, C, F>
 where
-    S: Interpolable,
-    T: Interpolable,
     C: Curve<S>,
     F: Fn(S) -> T,
 {
@@ -676,8 +494,6 @@ where
 
 impl<S, T, C, F> Curve<T> for MapCurve<S, T, C, F>
 where
-    S: Interpolable,
-    T: Interpolable,
     C: Curve<S>,
     F: Fn(S) -> T,
 {
@@ -691,11 +507,10 @@ where
         (self.f)(self.preimage.sample(t))
     }
 
-    // Specialized implementation of [`Curve::map`] that reuses data.
+    #[inline]
     fn map<R>(self, g: impl Fn(T) -> R) -> impl Curve<R>
     where
         Self: Sized,
-        R: Interpolable,
     {
         let gf = move |x| g((self.f)(x));
         MapCurve {
@@ -705,6 +520,7 @@ where
         }
     }
 
+    #[inline]
     fn reparametrize(self, domain: Interval, g: impl Fn(f32) -> f32) -> impl Curve<T>
     where
         Self: Sized,
@@ -722,7 +538,6 @@ where
 /// A [`Curve`] whose sample space is mapped onto that of some base curve's before sampling.
 pub struct ReparamCurve<T, C, F>
 where
-    T: Interpolable,
     C: Curve<T>,
     F: Fn(f32) -> f32,
 {
@@ -734,7 +549,6 @@ where
 
 impl<T, C, F> Curve<T> for ReparamCurve<T, C, F>
 where
-    T: Interpolable,
     C: Curve<T>,
     F: Fn(f32) -> f32,
 {
@@ -748,7 +562,7 @@ where
         self.base.sample((self.f)(t))
     }
 
-    // Specialized implementation of [`Curve::reparametrize`] that reuses data.
+    #[inline]
     fn reparametrize(self, domain: Interval, g: impl Fn(f32) -> f32) -> impl Curve<T>
     where
         Self: Sized,
@@ -762,10 +576,10 @@ where
         }
     }
 
+    #[inline]
     fn map<S>(self, g: impl Fn(T) -> S) -> impl Curve<S>
     where
         Self: Sized,
-        S: Interpolable,
     {
         MapReparamCurve {
             reparam_domain: self.domain,
@@ -784,8 +598,6 @@ where
 /// itself inside new structs.
 pub struct MapReparamCurve<S, T, C, F, G>
 where
-    S: Interpolable,
-    T: Interpolable,
     C: Curve<S>,
     F: Fn(S) -> T,
     G: Fn(f32) -> f32,
@@ -799,8 +611,6 @@ where
 
 impl<S, T, C, F, G> Curve<T> for MapReparamCurve<S, T, C, F, G>
 where
-    S: Interpolable,
-    T: Interpolable,
     C: Curve<S>,
     F: Fn(S) -> T,
     G: Fn(f32) -> f32,
@@ -815,10 +625,10 @@ where
         (self.forward_map)(self.base.sample((self.reparam_map)(t)))
     }
 
+    #[inline]
     fn map<R>(self, g: impl Fn(T) -> R) -> impl Curve<R>
     where
         Self: Sized,
-        R: Interpolable,
     {
         let gf = move |x| g((self.forward_map)(x));
         MapReparamCurve {
@@ -830,6 +640,7 @@ where
         }
     }
 
+    #[inline]
     fn reparametrize(self, domain: Interval, g: impl Fn(f32) -> f32) -> impl Curve<T>
     where
         Self: Sized,
@@ -848,7 +659,6 @@ where
 /// A [`Curve`] that is the graph of another curve over its parameter space.
 pub struct GraphCurve<T, C>
 where
-    T: Interpolable,
     C: Curve<T>,
 {
     base: C,
@@ -857,7 +667,6 @@ where
 
 impl<T, C> Curve<(f32, T)> for GraphCurve<T, C>
 where
-    T: Interpolable,
     C: Curve<T>,
 {
     #[inline]
@@ -874,8 +683,6 @@ where
 /// A [`Curve`] that combines the data from two constituent curves into a tuple output type.
 pub struct ProductCurve<S, T, C, D>
 where
-    S: Interpolable,
-    T: Interpolable,
     C: Curve<S>,
     D: Curve<T>,
 {
@@ -887,8 +694,6 @@ where
 
 impl<S, T, C, D> Curve<(S, T)> for ProductCurve<S, T, C, D>
 where
-    S: Interpolable,
-    T: Interpolable,
     C: Curve<S>,
     D: Curve<T>,
 {
@@ -903,20 +708,8 @@ where
     }
 }
 
-// Library functions:
-
-/// Create an [`Interval`] with a given `start` and `end`. Alias of [`Interval::new`].
-pub fn interval(start: f32, end: f32) -> Result<Interval, InvalidIntervalError> {
-    Interval::new(start, end)
-}
-
-/// The [`Interval`] from negative infinity to infinity.
-pub fn everywhere() -> Interval {
-    Interval::new(f32::NEG_INFINITY, f32::INFINITY).unwrap()
-}
-
 /// Create a [`Curve`] that constantly takes the given `value` over the given `domain`.
-pub fn constant_curve<T: Interpolable>(domain: Interval, value: T) -> impl Curve<T> {
+pub fn constant_curve<T: Clone>(domain: Interval, value: T) -> impl Curve<T> {
     ConstantCurve { domain, value }
 }
 
@@ -924,17 +717,163 @@ pub fn constant_curve<T: Interpolable>(domain: Interval, value: T) -> impl Curve
 /// evaluating the function.
 pub fn function_curve<T, F>(domain: Interval, f: F) -> impl Curve<T>
 where
-    T: Interpolable,
     F: Fn(f32) -> T,
 {
     FunctionCurve { domain, f }
 }
 
 /// Flip a curve that outputs tuples so that the tuples are arranged the other way.
-pub fn flip<S, T>(curve: impl Curve<(S, T)>) -> impl Curve<(T, S)>
-where
-    S: Interpolable,
-    T: Interpolable,
-{
+pub fn flip<S, T>(curve: impl Curve<(S, T)>) -> impl Curve<(T, S)> {
     curve.map(|(s, t)| (t, s))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Quat;
+    use approx::{assert_abs_diff_eq, AbsDiffEq};
+    use std::f32::consts::TAU;
+
+    #[test]
+    fn constant_curves() {
+        let curve = constant_curve(everywhere(), 5.0);
+        assert!(curve.sample(-35.0) == 5.0);
+
+        let curve = constant_curve(interval(0.0, 1.0).unwrap(), true);
+        assert!(curve.sample(2.0));
+        assert!(curve.sample_checked(2.0).is_none());
+    }
+
+    #[test]
+    fn function_curves() {
+        let curve = function_curve(everywhere(), |t| t * t);
+        assert!(curve.sample(2.0).abs_diff_eq(&4.0, f32::EPSILON));
+        assert!(curve.sample(-3.0).abs_diff_eq(&9.0, f32::EPSILON));
+
+        let curve = function_curve(interval(0.0, f32::INFINITY).unwrap(), |t| t.log2());
+        assert_eq!(curve.sample(3.5), f32::log2(3.5));
+        assert!(curve.sample(-1.0).is_nan());
+        assert!(curve.sample_checked(-1.0).is_none());
+    }
+
+    #[test]
+    fn mapping() {
+        let curve = function_curve(everywhere(), |t| t * 3.0 + 1.0);
+        let mapped_curve = curve.map(|x| x / 7.0);
+        assert_eq!(mapped_curve.sample(3.5), (3.5 * 3.0 + 1.0) / 7.0);
+        assert_eq!(mapped_curve.sample(-1.0), (-1.0 * 3.0 + 1.0) / 7.0);
+        assert_eq!(mapped_curve.domain(), everywhere());
+
+        let curve = function_curve(interval(0.0, 1.0).unwrap(), |t| t * TAU);
+        let mapped_curve = curve.map(Quat::from_rotation_z);
+        assert_eq!(mapped_curve.sample(0.0), Quat::IDENTITY);
+        assert!(mapped_curve.sample(1.0).is_near_identity());
+        assert_eq!(mapped_curve.domain(), interval(0.0, 1.0).unwrap());
+    }
+
+    #[test]
+    fn reparametrization() {
+        let curve = function_curve(interval(1.0, f32::INFINITY).unwrap(), |t| t.log2());
+        let reparametrized_curve = curve
+            .by_ref()
+            .reparametrize(interval(0.0, f32::INFINITY).unwrap(), |t| t.exp2());
+        assert_abs_diff_eq!(reparametrized_curve.sample(3.5), 3.5);
+        assert_abs_diff_eq!(reparametrized_curve.sample(100.0), 100.0);
+        assert_eq!(
+            reparametrized_curve.domain(),
+            interval(0.0, f32::INFINITY).unwrap()
+        );
+
+        let reparametrized_curve = curve
+            .by_ref()
+            .reparametrize(interval(0.0, 1.0).unwrap(), |t| t + 1.0);
+        assert_abs_diff_eq!(reparametrized_curve.sample(0.0), 0.0);
+        assert_abs_diff_eq!(reparametrized_curve.sample(1.0), 1.0);
+        assert_eq!(reparametrized_curve.domain(), interval(0.0, 1.0).unwrap());
+    }
+
+    #[test]
+    fn multiple_maps() {
+        // Make sure these actually happen in the right order.
+        let curve = function_curve(interval(0.0, 1.0).unwrap(), |t| t.exp2());
+        let first_mapped = curve.map(|x| x.log2());
+        let second_mapped = first_mapped.map(|x| x * -2.0);
+        assert_abs_diff_eq!(second_mapped.sample(0.0), 0.0);
+        assert_abs_diff_eq!(second_mapped.sample(0.5), -1.0);
+        assert_abs_diff_eq!(second_mapped.sample(1.0), -2.0);
+    }
+
+    #[test]
+    fn multiple_reparams() {
+        // Make sure these happen in the right order too.
+        let curve = function_curve(interval(0.0, 1.0).unwrap(), |t| t.exp2());
+        let first_reparam = curve.reparametrize(interval(1.0, 2.0).unwrap(), |t| t.log2());
+        let second_reparam = first_reparam.reparametrize(interval(0.0, 1.0).unwrap(), |t| t + 1.0);
+        assert_abs_diff_eq!(second_reparam.sample(0.0), 1.0);
+        assert_abs_diff_eq!(second_reparam.sample(0.5), 1.5);
+        assert_abs_diff_eq!(second_reparam.sample(1.0), 2.0);
+    }
+
+    #[test]
+    fn resampling() {
+        let curve = function_curve(interval(1.0, 4.0).unwrap(), |t| t.log2());
+
+        // Need at least two points to sample.
+        let nice_try = curve.by_ref().resample(1);
+        assert!(nice_try.is_err());
+
+        // The values of a resampled curve should be very close at the sample points.
+        // Because of denominators, it's not literally equal.
+        // (This is a tradeoff against O(1) sampling.)
+        let resampled_curve = curve.by_ref().resample(101).unwrap();
+        let step = curve.domain().length() / 100.0;
+        for index in 0..101 {
+            let test_pt = curve.domain().start() + index as f32 * step;
+            let expected = curve.sample(test_pt);
+            assert_abs_diff_eq!(resampled_curve.sample(test_pt), expected, epsilon = 1e-6);
+        }
+
+        // Another example.
+        let curve = function_curve(interval(0.0, TAU).unwrap(), |t| t.cos());
+        let resampled_curve = curve.by_ref().resample(1001).unwrap();
+        let step = curve.domain().length() / 1000.0;
+        for index in 0..1001 {
+            let test_pt = curve.domain().start() + index as f32 * step;
+            let expected = curve.sample(test_pt);
+            assert_abs_diff_eq!(resampled_curve.sample(test_pt), expected, epsilon = 1e-6);
+        }
+    }
+
+    #[test]
+    fn uneven_resampling() {
+        let curve = function_curve(interval(0.0, f32::INFINITY).unwrap(), |t| t.exp());
+
+        // Need at least two points to resample.
+        let nice_try = curve.by_ref().resample_uneven([1.0; 1]);
+        assert!(nice_try.is_err());
+
+        // Uneven sampling should produce literal equality at the sample points.
+        // (This is part of what you get in exchange for O(log(n)) sampling.)
+        let sample_points = (0..100).map(|idx| idx as f32 * 0.1);
+        let resampled_curve = curve.by_ref().resample_uneven(sample_points).unwrap();
+        for idx in 0..100 {
+            let test_pt = idx as f32 * 0.1;
+            let expected = curve.sample(test_pt);
+            assert_eq!(resampled_curve.sample(test_pt), expected);
+        }
+        assert_abs_diff_eq!(resampled_curve.domain().start(), 0.0);
+        assert_abs_diff_eq!(resampled_curve.domain().end(), 9.9, epsilon = 1e-6);
+
+        // Another example.
+        let curve = function_curve(interval(1.0, f32::INFINITY).unwrap(), |t| t.log2());
+        let sample_points = (0..10).map(|idx| (idx as f32).exp2());
+        let resampled_curve = curve.by_ref().resample_uneven(sample_points).unwrap();
+        for idx in 0..10 {
+            let test_pt = (idx as f32).exp2();
+            let expected = curve.sample(test_pt);
+            assert_eq!(resampled_curve.sample(test_pt), expected);
+        }
+        assert_abs_diff_eq!(resampled_curve.domain().start(), 1.0);
+        assert_abs_diff_eq!(resampled_curve.domain().end(), 512.0);
+    }
 }
