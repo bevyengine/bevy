@@ -2,14 +2,15 @@ use std::marker::PhantomData;
 
 use bevy_math::{
     cubic_splines::{CubicGenerator, CubicHermite},
-    curve::{interval, ConstantCurve, Curve, Interpolable, Interval, MapCurve, UnevenSampleCurve},
+    curve::{interval, ConstantCurve, Curve, Interpolable, Interval, UnevenSampleCurve},
     FloatExt, Quat, Vec3, Vec4, VectorSpace,
 };
+use bevy_reflect::Reflect;
 
 /// A wrapper struct that gives the enclosed type the property of being [`Interpolable`] with
 /// naïve step interpolation. `self.interpolate(other, t)` is such that `self` is returned when
 /// `t` is less than `1.0`, while `other` is returned for values `1.0` and greater.
-#[derive(Clone, Copy, Default)]
+#[derive(Reflect, Clone, Copy, Default, Debug)]
 pub struct Stepped<T: Clone>(pub T)
 where
     T: Clone;
@@ -30,7 +31,7 @@ impl<T: Clone> Interpolable for Stepped<T> {
 ///
 /// Note that outside of the interval `[0, 1]`, this uses global extrapolation based on the
 /// out-tangent of the left-hand point and the in-tangent of the right-hand point.
-#[derive(Clone, Copy, Default)]
+#[derive(Reflect, Clone, Copy, Default, Debug)]
 pub struct TwoSidedHermite<V: VectorSpace> {
     /// The position of the datum in space.
     pub point: V,
@@ -71,6 +72,7 @@ where
 /// however, linear interpolation is intrinsic to `Vec3` itself, so the interpolation metadata
 /// itself will be lost if the curve is resampled. On the other hand, the variant curves each
 /// properly know their own modes of interpolation.
+#[derive(Clone, Debug)]
 pub enum TranslationCurve {
     /// A curve which takes a constant value over its domain. Notably, this is how animations with
     /// only a single keyframe are interpreted.
@@ -114,6 +116,7 @@ impl Curve<Vec3> for TranslationCurve {
 /// however, linear interpolation is intrinsic to `Vec3` itself, so the interpolation metadata
 /// itself will be lost if the curve is resampled. On the other hand, the variant curves each
 /// properly know their own modes of interpolation.
+#[derive(Clone, Debug)]
 pub enum ScaleCurve {
     /// A curve which takes a constant value over its domain. Notably, this is how animations with
     /// only a single keyframe are interpreted.
@@ -157,6 +160,7 @@ impl Curve<Vec3> for ScaleCurve {
 /// however, spherical linear interpolation is intrinsic to `Vec3` itself, so the interpolation
 /// metadata itself will be lost if the curve is resampled. On the other hand, the variant curves each
 /// properly know their own modes of interpolation.
+#[derive(Clone, Debug)]
 pub enum RotationCurve {
     /// A curve which takes a constant value over its domain. Notably, this is how animations with
     /// only a single keyframe are interpreted.
@@ -201,6 +205,7 @@ impl Curve<Quat> for RotationCurve {
 /// This type is, itself, a `Curve<Vec<f32>>`; however, in order to avoid allocation, it is
 /// recommended to use its implementation of the [`MultiCurve`] subtrait, which allows dumping
 /// cross-channel sample data into an external buffer, avoiding allocation.
+#[derive(Reflect, Clone, Debug)]
 pub enum WeightsCurve {
     /// A curve which takes a constant value over its domain. Notably, this is how animations with
     /// only a single keyframe are interpreted.
@@ -257,6 +262,7 @@ impl MultiCurve<f32> for WeightsCurve {
 /// or the [`MorphWeights`] of morph targets for a mesh.
 ///
 /// Each variant yields a [`Curve`] over the data that it parametrizes.
+#[derive(Reflect, Clone, Debug)]
 pub enum VariableCurve {
     /// A [`TranslationCurve`] for animating the `translation` component of a [`Transform`].
     Translation(TranslationCurve),
@@ -348,6 +354,7 @@ where
 /// "channels" equal to its `width`. This is sampled through `sample_into`, which places the data
 /// into an external buffer. If `T: Default`, this may also be used as a `Curve` directly, but a new
 /// `Vec<T>` will be allocated for each call, which may be undesirable.
+#[derive(Clone, Debug)]
 pub struct DynamicArrayCurve<T>
 where
     T: Interpolable,
@@ -569,5 +576,98 @@ where
         S: Interpolable,
     {
         self.map_sample_into(t, buffer, f)
+    }
+}
+
+// Another experiment: iterable curves.
+
+/// A curve which provides samples in the form of [`Iterator`]s.
+///
+/// This is an abstraction that provides an interface for curves which look like `Curve<Vec<T>>`
+/// but side-stepping issues with allocation on sampling. This happens when the size of an output
+/// array cannot be known statically.
+pub trait IterableCurve<T>
+where
+    T: Interpolable,
+{
+    fn domain(&self) -> Interval;
+
+    /// Sample this curve at a specified time `t`, producing an iterator over sampled values.
+    fn sample_iter<'a>(&self, t: f32) -> impl Iterator<Item = T>
+    where
+        Self: 'a;
+}
+
+impl<T> IterableCurve<T> for DynamicArrayCurve<T>
+where
+    T: Interpolable,
+{
+    fn domain(&self) -> Interval {
+        self.domain()
+    }
+
+    fn sample_iter<'a>(&self, t: f32) -> impl Iterator<Item = T>
+    where
+        Self: 'a,
+    {
+        let t = self.domain().clamp(t);
+
+        let Some(lower_index) = self.find_keyframe(t) else {
+            // After clamping, `find_keyframe` will only return None if we landed on the
+            // last keyframe.
+            let index = self.times.len() - 1;
+
+            // Jump to where the values for the last keyframe are:
+            let morph_index = index * self.width;
+
+            // Return an iterator that just clones the last keyframe.
+            return IteratorDisjunction::Left(
+                self.values[morph_index..(morph_index + self.width)]
+                    .iter()
+                    .cloned(),
+            );
+        };
+
+        // Get the adjacent timestamps and the lerp parameter of `t` between them:
+        let upper_index = lower_index + 1;
+        let lower_timestamp = self.times[lower_index];
+        let upper_timestamp = self.times[upper_index];
+        let lerp_param = f32::inverse_lerp(lower_timestamp, upper_timestamp, t);
+
+        // The indices in `self.values` where the values actually start:
+        let lower_morph_index = lower_index * self.width;
+        let upper_morph_index = upper_index * self.width;
+
+        // Return an iterator that lerps adjacent keyframes together.
+        IteratorDisjunction::Right(
+            self.values[lower_morph_index..(lower_morph_index + self.width)]
+                .iter()
+                .zip(self.values[upper_morph_index..(upper_morph_index + self.width)].iter())
+                .map(move |(x, y)| x.interpolate(y, lerp_param)),
+        )
+    }
+}
+
+enum IteratorDisjunction<A, B, T>
+where
+    A: Iterator<Item = T>,
+    B: Iterator<Item = T>,
+{
+    Left(A),
+    Right(B),
+}
+
+impl<A, B, T> Iterator for IteratorDisjunction<A, B, T>
+where
+    A: Iterator<Item = T>,
+    B: Iterator<Item = T>,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            IteratorDisjunction::Left(a) => a.next(),
+            IteratorDisjunction::Right(b) => b.next(),
+        }
     }
 }
