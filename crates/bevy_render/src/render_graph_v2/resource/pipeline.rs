@@ -432,7 +432,7 @@ impl<'g> IntoRenderResource<'g> for RenderPipelineDescriptor {
         graph: &mut RenderGraphBuilder<'g>,
     ) -> RenderHandle<'g, Self::Resource> {
         let descriptor = RenderGraphRenderPipelineDescriptor::from_raw(self, graph);
-        graph.new_resource(descriptor)
+        graph.new_render_pipeline_descriptor(descriptor)
     }
 }
 
@@ -477,7 +477,7 @@ impl DescribedRenderResource for ComputePipeline {
     }
 }
 
-impl<'g> IntoRenderResource<'g> for ComputePipelineDescriptor {
+impl<'g> IntoRenderResource<'g> for RenderGraphComputePipelineDescriptor<'g> {
     type Resource = ComputePipeline;
 
     fn into_render_resource(
@@ -485,6 +485,18 @@ impl<'g> IntoRenderResource<'g> for ComputePipelineDescriptor {
         graph: &mut RenderGraphBuilder<'g>,
     ) -> RenderHandle<'g, Self::Resource> {
         graph.new_compute_pipeline_descriptor(self)
+    }
+}
+
+impl<'g> IntoRenderResource<'g> for ComputePipelineDescriptor {
+    type Resource = ComputePipeline;
+
+    fn into_render_resource(
+        self,
+        graph: &mut RenderGraphBuilder<'g>,
+    ) -> RenderHandle<'g, Self::Resource> {
+        let descriptor = RenderGraphComputePipelineDescriptor::from_raw(self, graph);
+        graph.new_compute_pipeline_descriptor(descriptor)
     }
 }
 

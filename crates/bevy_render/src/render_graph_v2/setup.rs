@@ -20,6 +20,15 @@ pub struct RenderGraphSetup {
     configurator: Arc<dyn Fn(&mut RenderGraphBuilder) + Send + Sync + 'static>,
 }
 
+impl RenderGraphSetup {
+    pub fn set_render_graph(
+        &mut self,
+        configurator: impl Fn(&mut RenderGraphBuilder) + Send + Sync + 'static,
+    ) {
+        self.configurator = Arc::new(configurator);
+    }
+}
+
 impl Plugin for RenderGraphPlugin {
     fn build(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {

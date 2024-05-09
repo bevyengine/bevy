@@ -1,5 +1,8 @@
 use crate::{define_atomic_id, render_resource::resource_macros::render_resource_wrapper};
-use std::ops::{Bound, Deref, RangeBounds};
+use std::{
+    hash::Hash,
+    ops::{Bound, Deref, RangeBounds},
+};
 
 define_atomic_id!(BufferId);
 render_resource_wrapper!(ErasedBuffer, wgpu::Buffer);
@@ -34,6 +37,20 @@ impl Buffer {
         self.value.unmap();
     }
 }
+
+impl Hash for Buffer {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+impl PartialEq for Buffer {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for Buffer {}
 
 impl From<wgpu::Buffer> for Buffer {
     fn from(value: wgpu::Buffer) -> Self {

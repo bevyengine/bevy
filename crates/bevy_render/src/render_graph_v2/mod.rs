@@ -530,7 +530,7 @@ impl<'g> RenderGraphBuilder<'g> {
     #[inline]
     fn new_compute_pipeline_descriptor(
         &mut self,
-        descriptor: ComputePipelineDescriptor,
+        descriptor: RenderGraphComputePipelineDescriptor<'g>,
     ) -> RenderHandle<'g, ComputePipeline> {
         todo!()
     }
