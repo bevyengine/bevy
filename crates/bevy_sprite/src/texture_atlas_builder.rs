@@ -92,10 +92,15 @@ impl<'a> TextureAtlasBuilder<'a> {
             .push((image_id, Cow::Borrowed(texture)));
     }
 
-    /// Adds sub-images from an image to be copied to the texture atlas. Texture format needs to be supported by [`Image::try_into_dynamic`].
+    /// Adds textures from the provided layout to the texture atlas builder.
     ///
-    /// Optionally an asset id can be passed that can later be used with the texture layout to retrieve the indexes or layout of this texture.
-    /// The insertion order will reflect the index of the added texture in the finished texture atlas.
+    /// This method takes an optional image ID, a reference to the image, and a texture atlas layout as input.
+    /// It iterates over each rectangle defined in the layout and attempts to extract sub-images from the provided image based on the layout.
+    /// The sub-images are then added to the textures to place in the texture atlas builder.
+    ///
+    /// If the layout contains rectangles that are outside the bounds of the provided image, those sub-images will be skipped.
+    ///
+    /// *Note*: Texture format needs to be supported by [`Image::try_into_dynamic`].
     pub fn add_texture_with_layout(
         &mut self,
         image_id: Option<AssetId<Image>>,
@@ -110,7 +115,7 @@ impl<'a> TextureAtlasBuilder<'a> {
                 rect.width(),
                 rect.height(),
             ) else {
-                warn!("TextureAtlasBuilder: Invalid input layout, subimage will be ignored");
+                warn!("TextureAtlasBuilder: Invalid input layout, sub-image will be ignored");
                 continue;
             };
             self.textures_to_place.push((image_id, Cow::Owned(image)));
