@@ -79,6 +79,46 @@ impl Debug for CustomAttribute {
     }
 }
 
+macro_rules! impl_custom_attribute_methods {
+    ($attributes: ident) => {
+        $crate::attributes::impl_custom_attribute_methods!($attributes, "item");
+    };
+    ($attributes: ident, $term: literal) => {
+        #[doc = concat!("Returns the custom attributes for this ", $term, ".")]
+        pub fn custom_attributes(&self) -> &$crate::attributes::CustomAttributes {
+            &self.$attributes
+        }
+
+        /// Gets a custom attribute by type.
+        ///
+        /// For dynamically accessing an attribute, see [`get_attribute_by_id`](Self::get_attribute_by_id).
+        pub fn get_attribute<T: $crate::Reflect>(&self) -> Option<&T> {
+            self.$attributes.get::<T>()
+        }
+
+        /// Gets a custom attribute by its [`TypeId`](std::any::TypeId).
+        ///
+        /// This is the dynamic equivalent of [`get_attribute`](Self::get_attribute).
+        pub fn get_attribute_by_id(&self, id: ::std::any::TypeId) -> Option<&dyn $crate::Reflect> {
+            self.$attributes.get_by_id(id)
+        }
+
+        #[doc = concat!("Returns `true` if this ", $term, " has a custom attribute of the specified type.")]
+        #[doc = "\n\nFor dynamically checking if an attribute exists, see [`has_attribute_by_id`](Self::has_attribute_by_id)."]
+        pub fn has_attribute<T: $crate::Reflect>(&self) -> bool {
+            self.$attributes.contains::<T>()
+        }
+
+        #[doc = concat!("Returns `true` if this ", $term, " has a custom attribute with the specified [`TypeId`](::std::any::TypeId).")]
+        #[doc = "\n\nThis is the dynamic equivalent of [`has_attribute`](Self::has_attribute)"]
+        pub fn has_attribute_by_id(&self, id: ::std::any::TypeId) -> bool {
+            self.$attributes.contains_by_id(id)
+        }
+    };
+}
+
+pub(crate) use impl_custom_attribute_methods;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -139,9 +179,7 @@ mod tests {
             panic!("expected struct info");
         };
 
-        let attributes = info.custom_attributes();
-
-        let tooltip = attributes.get::<Tooltip>().unwrap();
+        let tooltip = info.get_attribute::<Tooltip>().unwrap();
         assert_eq!(&Tooltip::new("My awesome custom attribute!"), tooltip);
     }
 
@@ -158,12 +196,12 @@ mod tests {
             panic!("expected struct info");
         };
 
-        let field_attributes = info.field("value").unwrap().custom_attributes();
+        let field = info.field("value").unwrap();
 
-        let range = field_attributes.get::<RangeInclusive<f64>>().unwrap();
+        let range = field.get_attribute::<RangeInclusive<f64>>().unwrap();
         assert_eq!(&(0.0..=1.0), range);
 
-        let tooltip = field_attributes.get::<Tooltip>().unwrap();
+        let tooltip = field.get_attribute::<Tooltip>().unwrap();
         assert_eq!(&Tooltip::new("Range: 0.0 to 1.0"), tooltip);
     }
 
@@ -177,9 +215,7 @@ mod tests {
             panic!("expected tuple struct info");
         };
 
-        let attributes = info.custom_attributes();
-
-        let tooltip = attributes.get::<Tooltip>().unwrap();
+        let tooltip = info.get_attribute::<Tooltip>().unwrap();
         assert_eq!(&Tooltip::new("My awesome custom attribute!"), tooltip);
     }
 
@@ -196,12 +232,12 @@ mod tests {
             panic!("expected tuple struct info");
         };
 
-        let field_attributes = info.field_at(0).unwrap().custom_attributes();
+        let field = info.field_at(0).unwrap();
 
-        let range = field_attributes.get::<RangeInclusive<f64>>().unwrap();
+        let range = field.get_attribute::<RangeInclusive<f64>>().unwrap();
         assert_eq!(&(0.0..=1.0), range);
 
-        let tooltip = field_attributes.get::<Tooltip>().unwrap();
+        let tooltip = field.get_attribute::<Tooltip>().unwrap();
         assert_eq!(&Tooltip::new("Range: 0.0 to 1.0"), tooltip);
     }
 
@@ -219,9 +255,7 @@ mod tests {
             panic!("expected enum info");
         };
 
-        let attributes = info.custom_attributes();
-
-        let tooltip = attributes.get::<Tooltip>().unwrap();
+        let tooltip = info.get_attribute::<Tooltip>().unwrap();
         assert_eq!(&Tooltip::new("My awesome custom attribute!"), tooltip);
     }
 
@@ -252,27 +286,21 @@ mod tests {
             panic!("expected unit variant");
         };
 
-        let display = transparent_variant
-            .custom_attributes()
-            .get::<Display>()
-            .unwrap();
+        let display = transparent_variant.get_attribute::<Display>().unwrap();
         assert_eq!(&Display::Toggle, display);
 
         let VariantInfo::Tuple(grayscale_variant) = info.variant("Grayscale").unwrap() else {
             panic!("expected tuple variant");
         };
 
-        let display = grayscale_variant
-            .custom_attributes()
-            .get::<Display>()
-            .unwrap();
+        let display = grayscale_variant.get_attribute::<Display>().unwrap();
         assert_eq!(&Display::Slider, display);
 
         let VariantInfo::Struct(rgb_variant) = info.variant("Rgb").unwrap() else {
             panic!("expected struct variant");
         };
 
-        let display = rgb_variant.custom_attributes().get::<Display>().unwrap();
+        let display = rgb_variant.get_attribute::<Display>().unwrap();
         assert_eq!(&Display::Picker, display);
     }
 
@@ -300,18 +328,18 @@ mod tests {
             panic!("expected tuple variant");
         };
 
-        let grayscale_attributes = grayscale_variant.field_at(0).unwrap().custom_attributes();
+        let field = grayscale_variant.field_at(0).unwrap();
 
-        let range = grayscale_attributes.get::<RangeInclusive<f32>>().unwrap();
+        let range = field.get_attribute::<RangeInclusive<f32>>().unwrap();
         assert_eq!(&(0.0..=1.0), range);
 
         let VariantInfo::Struct(rgb_variant) = info.variant("Rgb").unwrap() else {
             panic!("expected struct variant");
         };
 
-        let g_attributes = rgb_variant.field("g").unwrap().custom_attributes();
+        let field = rgb_variant.field("g").unwrap();
 
-        let range = g_attributes.get::<RangeInclusive<u8>>().unwrap();
+        let range = field.get_attribute::<RangeInclusive<u8>>().unwrap();
         assert_eq!(&(0..=255), range);
     }
 
@@ -330,9 +358,8 @@ mod tests {
             panic!("expected struct info");
         };
 
-        let field_attributes = info.field("value").unwrap().custom_attributes();
-
-        assert!(field_attributes.get::<Required>().is_some());
+        let field = info.field("value").unwrap();
+        assert!(field.has_attribute::<Required>());
     }
 
     #[test]
@@ -348,8 +375,7 @@ mod tests {
             panic!("expected struct info");
         };
 
-        let field_attributes = info.field("value").unwrap().custom_attributes();
-
-        assert!(field_attributes.get::<bool>().unwrap());
+        let field = info.field("value").unwrap();
+        assert!(field.get_attribute::<bool>().unwrap());
     }
 }

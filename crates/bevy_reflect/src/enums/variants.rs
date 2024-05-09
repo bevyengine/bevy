@@ -1,4 +1,4 @@
-use crate::attributes::CustomAttributes;
+use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
 use crate::{NamedField, UnnamedField};
 use bevy_utils::HashMap;
 use std::slice::Iter;
@@ -173,16 +173,13 @@ impl StructVariantInfo {
             .collect()
     }
 
-    /// The custom attributes of this variant.
-    pub fn custom_attributes(&self) -> &CustomAttributes {
-        &self.custom_attributes
-    }
-
     /// The docstring of this variant, if any.
     #[cfg(feature = "documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
+
+    impl_custom_attribute_methods!(custom_attributes, "variant");
 }
 
 /// Type info for tuple variants.
@@ -241,16 +238,13 @@ impl TupleVariantInfo {
         self.fields.len()
     }
 
-    /// The custom attributes of this variant.
-    pub fn custom_attributes(&self) -> &CustomAttributes {
-        &self.custom_attributes
-    }
-
     /// The docstring of this variant, if any.
     #[cfg(feature = "documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
+
+    impl_custom_attribute_methods!(custom_attributes, "variant");
 }
 
 /// Type info for unit variants.
@@ -292,14 +286,11 @@ impl UnitVariantInfo {
         self.name
     }
 
-    /// The custom attributes of this variant.
-    pub fn custom_attributes(&self) -> &CustomAttributes {
-        &self.custom_attributes
-    }
-
     /// The docstring of this variant, if any.
     #[cfg(feature = "documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
+
+    impl_custom_attribute_methods!(custom_attributes, "variant");
 }

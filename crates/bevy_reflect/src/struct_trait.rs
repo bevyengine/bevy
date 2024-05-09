@@ -1,4 +1,4 @@
-use crate::attributes::CustomAttributes;
+use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
 use crate::{
     self as bevy_reflect, ApplyError, NamedField, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, TypeInfo, TypePath, TypePathTable,
@@ -189,16 +189,13 @@ impl StructInfo {
         TypeId::of::<T>() == self.type_id
     }
 
-    /// The custom attributes of this struct.
-    pub fn custom_attributes(&self) -> &CustomAttributes {
-        &self.custom_attributes
-    }
-
     /// The docstring of this struct, if any.
     #[cfg(feature = "documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
+
+    impl_custom_attribute_methods!(custom_attributes, "struct");
 }
 
 /// An iterator over the field values of a struct.

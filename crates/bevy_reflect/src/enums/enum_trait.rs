@@ -1,4 +1,4 @@
-use crate::attributes::CustomAttributes;
+use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
 use crate::{DynamicEnum, Reflect, TypePath, TypePathTable, VariantInfo, VariantType};
 use bevy_utils::HashMap;
 use std::any::{Any, TypeId};
@@ -258,16 +258,13 @@ impl EnumInfo {
         TypeId::of::<T>() == self.type_id
     }
 
-    /// The custom attributes of this enum.
-    pub fn custom_attributes(&self) -> &CustomAttributes {
-        &self.custom_attributes
-    }
-
     /// The docstring of this enum, if any.
     #[cfg(feature = "documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
+
+    impl_custom_attribute_methods!(custom_attributes, "enum");
 }
 
 /// An iterator over the fields in the current enum variant.

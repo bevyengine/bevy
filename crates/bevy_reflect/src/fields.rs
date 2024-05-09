@@ -1,4 +1,4 @@
-use crate::attributes::CustomAttributes;
+use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
 use crate::{Reflect, TypePath, TypePathTable};
 use std::any::{Any, TypeId};
 use std::sync::Arc;
@@ -73,16 +73,13 @@ impl NamedField {
         TypeId::of::<T>() == self.type_id
     }
 
-    /// The custom attributes of this field.
-    pub fn custom_attributes(&self) -> &CustomAttributes {
-        &self.custom_attributes
-    }
-
     /// The docstring of this field, if any.
     #[cfg(feature = "documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
+
+    impl_custom_attribute_methods!(custom_attributes, "field");
 }
 
 /// The unnamed field of a reflected tuple or tuple struct.
@@ -154,14 +151,11 @@ impl UnnamedField {
         TypeId::of::<T>() == self.type_id
     }
 
-    /// The custom attributes of this field.
-    pub fn custom_attributes(&self) -> &CustomAttributes {
-        &self.custom_attributes
-    }
-
     /// The docstring of this field, if any.
     #[cfg(feature = "documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
+
+    impl_custom_attribute_methods!(custom_attributes, "field");
 }
