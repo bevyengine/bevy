@@ -2068,6 +2068,17 @@ category = "Reflection"
 wasm = false
 
 [[example]]
+name = "custom_attributes"
+path = "examples/reflection/custom_attributes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_attributes]
+name = "Custom Attributes"
+description = "Registering and accessing custom attributes on reflected types"
+category = "Reflection"
+wasm = false
+
+[[example]]
 name = "dynamic_types"
 path = "examples/reflection/dynamic_types.rs"
 doc-scrape-examples = true
