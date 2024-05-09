@@ -2,7 +2,10 @@
 //! in [_HWB - A More Intuitive Hue-Based Color Model_] by _Smith et al_.
 //!
 //! [_HWB - A More Intuitive Hue-Based Color Model_]: https://web.archive.org/web/20240226005220/http://alvyray.com/Papers/CG/HWB_JGTv208.pdf
-use crate::{Alpha, ClampColor, Hue, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza};
+use crate::{
+    Alpha, ClampColor, ColorToComponents, Hue, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza,
+};
+use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
 
 /// Color in Hue-Whiteness-Blackness (HWB) color space with alpha.
@@ -139,6 +142,60 @@ impl ClampColor for Hwba {
             && (0. ..=1.).contains(&self.whiteness)
             && (0. ..=1.).contains(&self.blackness)
             && (0. ..=1.).contains(&self.alpha)
+    }
+}
+
+impl ColorToComponents for Hwba {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.hue, self.whiteness, self.blackness, self.alpha]
+    }
+
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
+        [self.hue, self.whiteness, self.blackness]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.hue, self.whiteness, self.blackness, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.hue, self.whiteness, self.blackness)
+    }
+
+    fn from_f32_array(color: [f32; 4]) -> Self {
+        Self {
+            hue: color[0],
+            whiteness: color[1],
+            blackness: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
+        Self {
+            hue: color[0],
+            whiteness: color[1],
+            blackness: color[2],
+            alpha: 1.0,
+        }
+    }
+
+    fn from_vec4(color: Vec4) -> Self {
+        Self {
+            hue: color[0],
+            whiteness: color[1],
+            blackness: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_vec3(color: Vec3) -> Self {
+        Self {
+            hue: color[0],
+            whiteness: color[1],
+            blackness: color[2],
+            alpha: 1.0,
+        }
     }
 }
 
