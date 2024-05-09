@@ -28,7 +28,7 @@ pub struct TextureAtlasLayout {
     /// This field is set by [`TextureAtlasBuilder`].
     ///
     /// [`TextureAtlasBuilder`]: crate::TextureAtlasBuilder
-    pub(crate) texture_handles: Option<HashMap<AssetId<Image>, usize>>,
+    pub(crate) texture_handles: Option<HashMap<AssetId<Image>, Vec<usize>>>,
 }
 
 /// Component used to draw a specific section of a texture.
@@ -136,16 +136,31 @@ impl TextureAtlasLayout {
         self.textures.is_empty()
     }
 
-    /// Retrieves the texture *section* index of the given `texture` handle.
+    /// Creates a layout of the given `texture` handle.
     ///
     /// This requires the layout to have been built using a [`TextureAtlasBuilder`]
     ///
     /// [`TextureAtlasBuilder`]: crate::TextureAtlasBuilder
-    pub fn get_texture_index(&self, texture: impl Into<AssetId<Image>>) -> Option<usize> {
-        let id = texture.into();
-        self.texture_handles
-            .as_ref()
-            .and_then(|texture_handles| texture_handles.get(&id).cloned())
+    pub fn sub_layout(&self, texture: impl Into<AssetId<Image>>) -> Option<TextureAtlasLayout> {
+        let mut layout = TextureAtlasLayout::new_empty(self.size);
+        for &index in self.get_texture_index(texture.into())? {
+            layout.textures.push(*self.textures.get(index)?);
+        }
+        Some(layout)
+    }
+
+    /// Retrieves the texture *section* indexes of the given `texture` handle.
+    ///
+    /// This requires the layout to have been built using a [`TextureAtlasBuilder`]
+    ///
+    /// [`TextureAtlasBuilder`]: crate::TextureAtlasBuilder
+    pub fn get_texture_index(&self, texture: impl Into<AssetId<Image>>) -> Option<&[usize]> {
+        Some(
+            self.texture_handles
+                .as_ref()?
+                .get(&texture.into())?
+                .as_slice(),
+        )
     }
 }
 

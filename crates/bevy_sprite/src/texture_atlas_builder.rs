@@ -11,6 +11,7 @@ use rectangle_pack::{
     contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, PackedLocation,
     RectToInsert, TargetBin,
 };
+use std::borrow::Cow;
 use thiserror::Error;
 
 use crate::TextureAtlasLayout;
@@ -29,7 +30,7 @@ pub enum TextureAtlasBuilderError {
 /// sprites.
 pub struct TextureAtlasBuilder<'a> {
     /// Collection of texture's asset id (optional) and image data to be packed into an atlas
-    textures_to_place: Vec<(Option<AssetId<Image>>, &'a Image)>,
+    textures_to_place: Vec<(Option<AssetId<Image>>, Cow<'a, Image>)>,
     /// The initial atlas size in pixels.
     initial_size: UVec2,
     /// The absolute maximum size of the texture atlas in pixels.
@@ -87,7 +88,33 @@ impl<'a> TextureAtlasBuilder<'a> {
     /// Optionally an asset id can be passed that can later be used with the texture layout to retrieve the index of this texture.
     /// The insertion order will reflect the index of the added texture in the finished texture atlas.
     pub fn add_texture(&mut self, image_id: Option<AssetId<Image>>, texture: &'a Image) {
-        self.textures_to_place.push((image_id, texture));
+        self.textures_to_place
+            .push((image_id, Cow::Borrowed(texture)));
+    }
+
+    /// Adds sub-images from an image to be copied to the texture atlas. Texture format needs to be supported by [`Image::try_into_dynamic`].
+    ///
+    /// Optionally an asset id can be passed that can later be used with the texture layout to retrieve the indexes or layout of this texture.
+    /// The insertion order will reflect the index of the added texture in the finished texture atlas.
+    pub fn add_texture_with_layout(
+        &mut self,
+        image_id: Option<AssetId<Image>>,
+        texture: &'a Image,
+        layout: TextureAtlasLayout,
+    ) {
+        for rect in &layout.textures {
+            let top_left_corner = (rect.min.x.min(rect.max.x), rect.min.y.min(rect.max.y));
+            let Ok(image) = texture.try_sub_image(
+                top_left_corner.0,
+                top_left_corner.1,
+                rect.width(),
+                rect.height(),
+            ) else {
+                warn!("TextureAtlasBuilder: Invalid input layout, subimage will be ignored");
+                continue;
+            };
+            self.textures_to_place.push((image_id, Cow::Owned(image)));
+        }
     }
 
     /// Sets the amount of padding in pixels to add between the textures in the texture atlas.
@@ -263,7 +290,10 @@ impl<'a> TextureAtlasBuilder<'a> {
             let max =
                 min + UVec2::new(packed_location.width(), packed_location.height()) - self.padding;
             if let Some(image_id) = image_id {
-                texture_ids.insert(*image_id, index);
+                texture_ids
+                    .entry(*image_id)
+                    .or_insert(Vec::new())
+                    .push(index);
             }
             texture_rects.push(URect { min, max });
             if texture.texture_descriptor.format != self.format && !self.auto_format_conversion {
