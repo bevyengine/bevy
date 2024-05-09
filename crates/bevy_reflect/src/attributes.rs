@@ -1,44 +1,41 @@
 use crate::Reflect;
-use alloc::borrow::Cow;
-use bevy_utils::HashMap;
+use bevy_utils::TypeIdMap;
 use core::fmt::{Debug, Formatter};
-use core::hash::Hash;
+use std::any::TypeId;
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct CustomAttributes {
-    attributes: HashMap<Cow<'static, str>, CustomAttribute>,
+    attributes: TypeIdMap<CustomAttribute>,
 }
 
 impl CustomAttributes {
-    pub fn with_attribute<T: Reflect>(
-        mut self,
-        name: impl Into<Cow<'static, str>>,
-        value: T,
-    ) -> Self {
+    pub fn with_attribute<T: Reflect>(mut self, value: T) -> Self {
         self.attributes
-            .insert(name.into(), CustomAttribute::new(value));
+            .insert(TypeId::of::<T>(), CustomAttribute::new(value));
 
         self
     }
 
-    pub fn contains<K>(&self, name: &K) -> bool
-    where
-        Cow<'static, str>: core::borrow::Borrow<K>,
-        K: Eq + Hash + ?Sized,
-    {
-        self.attributes.contains_key(name)
+    pub fn contains<T: Reflect>(&self) -> bool {
+        self.attributes.contains_key(&TypeId::of::<T>())
     }
 
-    pub fn get<K>(&self, name: &K) -> Option<&CustomAttribute>
-    where
-        Cow<'static, str>: core::borrow::Borrow<K>,
-        K: Eq + Hash + ?Sized,
-    {
-        self.attributes.get(name)
+    pub fn contains_by_id(&self, id: TypeId) -> bool {
+        self.attributes.contains_key(&id)
     }
 
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&str, &CustomAttribute)> {
-        self.attributes.iter().map(|(k, v)| (k.as_ref(), v))
+    pub fn get<T: Reflect>(&self) -> Option<&T> {
+        self.attributes.get(&TypeId::of::<T>())?.value::<T>()
+    }
+
+    pub fn get_by_id(&self, id: TypeId) -> Option<&dyn Reflect> {
+        Some(self.attributes.get(&id)?.reflect_value())
+    }
+
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = (&TypeId, &dyn Reflect)> {
+        self.attributes
+            .iter()
+            .map(|(key, value)| (key, value.reflect_value()))
     }
 
     pub fn len(&self) -> usize {
@@ -47,6 +44,12 @@ impl CustomAttributes {
 
     pub fn is_empty(&self) -> bool {
         self.attributes.is_empty()
+    }
+}
+
+impl Debug for CustomAttributes {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        f.debug_set().entries(self.attributes.values()).finish()
     }
 }
 
@@ -82,41 +85,44 @@ mod tests {
     use crate as bevy_reflect;
     use crate::type_info::Typed;
     use crate::{TypeInfo, VariantInfo};
+    use std::ops::RangeInclusive;
+
+    #[derive(Reflect, PartialEq, Debug)]
+    struct Tooltip(String);
+
+    impl Tooltip {
+        fn new(value: impl Into<String>) -> Self {
+            Self(value.into())
+        }
+    }
 
     #[test]
     fn should_create_custom_attributes() {
-        let attributes = CustomAttributes::default()
-            .with_attribute("min", 0.0_f32)
-            .with_attribute("max", 1.0_f32);
+        let attributes = CustomAttributes::default().with_attribute(0.0..=1.0);
 
-        let value = attributes.get("max").unwrap().value::<f32>();
-
-        assert_eq!(Some(&1.0), value);
+        let value = attributes.get::<RangeInclusive<f64>>().unwrap();
+        assert_eq!(&(0.0..=1.0), value);
     }
 
     #[test]
     fn should_debug_custom_attributes() {
-        let attributes =
-            CustomAttributes::default().with_attribute("label", "My awesome custom attribute!");
+        let attributes = CustomAttributes::default().with_attribute("My awesome custom attribute!");
 
         let debug = format!("{:?}", attributes);
 
-        assert_eq!(
-            r#"CustomAttributes { attributes: {"label": "My awesome custom attribute!"} }"#,
-            debug
-        );
+        assert_eq!(r#"{"My awesome custom attribute!"}"#, debug);
 
         #[derive(Reflect)]
         struct Foo {
             value: i32,
         }
 
-        let attributes = CustomAttributes::default().with_attribute("foo", Foo { value: 42 });
+        let attributes = CustomAttributes::default().with_attribute(Foo { value: 42 });
 
         let debug = format!("{:?}", attributes);
 
         assert_eq!(
-            r#"CustomAttributes { attributes: {"foo": bevy_reflect::attributes::tests::Foo { value: 42 }} }"#,
+            r#"{bevy_reflect::attributes::tests::Foo { value: 42 }}"#,
             debug
         );
     }
@@ -124,7 +130,7 @@ mod tests {
     #[test]
     fn should_derive_custom_attributes_on_struct_container() {
         #[derive(Reflect)]
-        #[reflect(@::bevy_editor::hint = "My awesome custom attribute!")]
+        #[reflect(@Tooltip::new("My awesome custom attribute!"))]
         struct Slider {
             value: f32,
         }
@@ -135,20 +141,16 @@ mod tests {
 
         let attributes = info.custom_attributes();
 
-        let hint = attributes
-            .get("::bevy_editor::hint")
-            .unwrap()
-            .value::<&str>();
-
-        assert_eq!(Some(&"My awesome custom attribute!"), hint);
+        let tooltip = attributes.get::<Tooltip>().unwrap();
+        assert_eq!(&Tooltip::new("My awesome custom attribute!"), tooltip);
     }
 
     #[test]
     fn should_derive_custom_attributes_on_struct_fields() {
         #[derive(Reflect)]
         struct Slider {
-            #[reflect(@min = 0.0, @max = 1.0)]
-            #[reflect(@bevy_editor::hint = "Range: 0.0 to 1.0")]
+            #[reflect(@0.0..=1.0)]
+            #[reflect(@Tooltip::new("Range: 0.0 to 1.0"))]
             value: f32,
         }
 
@@ -158,22 +160,17 @@ mod tests {
 
         let field_attributes = info.field("value").unwrap().custom_attributes();
 
-        let min = field_attributes.get("min").unwrap().value::<f64>();
-        let max = field_attributes.get("max").unwrap().value::<f64>();
-        let hint = field_attributes
-            .get("bevy_editor::hint")
-            .unwrap()
-            .value::<&str>();
+        let range = field_attributes.get::<RangeInclusive<f64>>().unwrap();
+        assert_eq!(&(0.0..=1.0), range);
 
-        assert_eq!(Some(&0.0), min);
-        assert_eq!(Some(&1.0), max);
-        assert_eq!(Some(&"Range: 0.0 to 1.0"), hint);
+        let tooltip = field_attributes.get::<Tooltip>().unwrap();
+        assert_eq!(&Tooltip::new("Range: 0.0 to 1.0"), tooltip);
     }
 
     #[test]
     fn should_derive_custom_attributes_on_tuple_container() {
         #[derive(Reflect)]
-        #[reflect(@::bevy_editor::hint = "My awesome custom attribute!")]
+        #[reflect(@Tooltip::new("My awesome custom attribute!"))]
         struct Slider(f32);
 
         let TypeInfo::TupleStruct(info) = Slider::type_info() else {
@@ -182,20 +179,16 @@ mod tests {
 
         let attributes = info.custom_attributes();
 
-        let hint = attributes
-            .get("::bevy_editor::hint")
-            .unwrap()
-            .value::<&str>();
-
-        assert_eq!(Some(&"My awesome custom attribute!"), hint);
+        let tooltip = attributes.get::<Tooltip>().unwrap();
+        assert_eq!(&Tooltip::new("My awesome custom attribute!"), tooltip);
     }
 
     #[test]
     fn should_derive_custom_attributes_on_tuple_struct_fields() {
         #[derive(Reflect)]
         struct Slider(
-            #[reflect(@min = 0.0, @max = 1.0)]
-            #[reflect(@bevy_editor::hint = "Range: 0.0 to 1.0")]
+            #[reflect(@0.0..=1.0)]
+            #[reflect(@Tooltip::new("Range: 0.0 to 1.0"))]
             f32,
         );
 
@@ -205,22 +198,17 @@ mod tests {
 
         let field_attributes = info.field_at(0).unwrap().custom_attributes();
 
-        let min = field_attributes.get("min").unwrap().value::<f64>();
-        let max = field_attributes.get("max").unwrap().value::<f64>();
-        let hint = field_attributes
-            .get("bevy_editor::hint")
-            .unwrap()
-            .value::<&str>();
+        let range = field_attributes.get::<RangeInclusive<f64>>().unwrap();
+        assert_eq!(&(0.0..=1.0), range);
 
-        assert_eq!(Some(&0.0), min);
-        assert_eq!(Some(&1.0), max);
-        assert_eq!(Some(&"Range: 0.0 to 1.0"), hint);
+        let tooltip = field_attributes.get::<Tooltip>().unwrap();
+        assert_eq!(&Tooltip::new("Range: 0.0 to 1.0"), tooltip);
     }
 
     #[test]
     fn should_derive_custom_attributes_on_enum_container() {
         #[derive(Reflect)]
-        #[reflect(@::bevy_editor::hint = "My awesome custom attribute!")]
+        #[reflect(@Tooltip::new("My awesome custom attribute!"))]
         enum Color {
             Transparent,
             Grayscale(f32),
@@ -233,12 +221,8 @@ mod tests {
 
         let attributes = info.custom_attributes();
 
-        let hint = attributes
-            .get("::bevy_editor::hint")
-            .unwrap()
-            .value::<&str>();
-
-        assert_eq!(Some(&"My awesome custom attribute!"), hint);
+        let tooltip = attributes.get::<Tooltip>().unwrap();
+        assert_eq!(&Tooltip::new("My awesome custom attribute!"), tooltip);
     }
 
     #[test]
@@ -252,11 +236,11 @@ mod tests {
 
         #[derive(Reflect)]
         enum Color {
-            #[reflect(@display = Display::Toggle)]
+            #[reflect(@Display::Toggle)]
             Transparent,
-            #[reflect(@display = Display::Slider)]
+            #[reflect(@Display::Slider)]
             Grayscale(f32),
-            #[reflect(@display = Display::Picker)]
+            #[reflect(@Display::Picker)]
             Rgb { r: u8, g: u8, b: u8 },
         }
 
@@ -270,10 +254,9 @@ mod tests {
 
         let display = transparent_variant
             .custom_attributes()
-            .get("display")
-            .unwrap()
-            .value::<Display>();
-        assert_eq!(Some(&Display::Toggle), display);
+            .get::<Display>()
+            .unwrap();
+        assert_eq!(&Display::Toggle, display);
 
         let VariantInfo::Tuple(grayscale_variant) = info.variant("Grayscale").unwrap() else {
             panic!("expected tuple variant");
@@ -281,21 +264,16 @@ mod tests {
 
         let display = grayscale_variant
             .custom_attributes()
-            .get("display")
-            .unwrap()
-            .value::<Display>();
-        assert_eq!(Some(&Display::Slider), display);
+            .get::<Display>()
+            .unwrap();
+        assert_eq!(&Display::Slider, display);
 
         let VariantInfo::Struct(rgb_variant) = info.variant("Rgb").unwrap() else {
             panic!("expected struct variant");
         };
 
-        let display = rgb_variant
-            .custom_attributes()
-            .get("display")
-            .unwrap()
-            .value::<Display>();
-        assert_eq!(Some(&Display::Picker), display);
+        let display = rgb_variant.custom_attributes().get::<Display>().unwrap();
+        assert_eq!(&Display::Picker, display);
     }
 
     #[test]
@@ -303,13 +281,13 @@ mod tests {
         #[derive(Reflect)]
         enum Color {
             Transparent,
-            Grayscale(#[reflect(@min = 0.0, @max = 1.0)] f32),
+            Grayscale(#[reflect(@0.0..=1.0_f32)] f32),
             Rgb {
-                #[reflect(@min = 0u8, @max = 255u8)]
+                #[reflect(@0..=255u8)]
                 r: u8,
-                #[reflect(@min = 0u8, @max = 255u8)]
+                #[reflect(@0..=255u8)]
                 g: u8,
-                #[reflect(@min = 0u8, @max = 255u8)]
+                #[reflect(@0..=255u8)]
                 b: u8,
             },
         }
@@ -324,11 +302,8 @@ mod tests {
 
         let grayscale_attributes = grayscale_variant.field_at(0).unwrap().custom_attributes();
 
-        let min = grayscale_attributes.get("min").unwrap().value::<f64>();
-        let max = grayscale_attributes.get("max").unwrap().value::<f64>();
-
-        assert_eq!(Some(&0.0), min);
-        assert_eq!(Some(&1.0), max);
+        let range = grayscale_attributes.get::<RangeInclusive<f32>>().unwrap();
+        assert_eq!(&(0.0..=1.0), range);
 
         let VariantInfo::Struct(rgb_variant) = info.variant("Rgb").unwrap() else {
             panic!("expected struct variant");
@@ -336,18 +311,18 @@ mod tests {
 
         let g_attributes = rgb_variant.field("g").unwrap().custom_attributes();
 
-        let min = g_attributes.get("min").unwrap().value::<u8>();
-        let max = g_attributes.get("max").unwrap().value::<u8>();
-
-        assert_eq!(Some(&0), min);
-        assert_eq!(Some(&255), max);
+        let range = g_attributes.get::<RangeInclusive<u8>>().unwrap();
+        assert_eq!(&(0..=255), range);
     }
 
     #[test]
-    fn should_treat_path_as_bool_when_no_value_is_given() {
+    fn should_allow_unit_struct_attribute_values() {
+        #[derive(Reflect)]
+        struct Required;
+
         #[derive(Reflect)]
         struct Foo {
-            #[reflect(@bar)]
+            #[reflect(@Required)]
             value: i32,
         }
 
@@ -357,8 +332,24 @@ mod tests {
 
         let field_attributes = info.field("value").unwrap().custom_attributes();
 
-        let bar = field_attributes.get("bar").unwrap().value::<bool>();
+        assert!(field_attributes.get::<Required>().is_some());
+    }
 
-        assert_eq!(Some(&true), bar);
+    #[test]
+    fn should_accept_last_attribute() {
+        #[derive(Reflect)]
+        struct Foo {
+            #[reflect(@false)]
+            #[reflect(@true)]
+            value: i32,
+        }
+
+        let TypeInfo::Struct(info) = Foo::type_info() else {
+            panic!("expected struct info");
+        };
+
+        let field_attributes = info.field("value").unwrap().custom_attributes();
+
+        assert!(field_attributes.get::<bool>().unwrap());
     }
 }
