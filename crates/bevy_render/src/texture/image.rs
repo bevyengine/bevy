@@ -9,13 +9,14 @@ use crate::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages},
     render_resource::{Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
-    texture::BevyDefault,
+    texture::{image_texture_conversion::IntoDynamicImageError, BevyDefault},
 };
 use bevy_asset::Asset;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::{AspectRatio, UVec2, Vec2};
 use bevy_reflect::prelude::*;
+use image::{DynamicImage, GenericImage};
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use thiserror::Error;
@@ -622,6 +623,45 @@ impl Image {
         });
     }
 
+    /// Attempts to create a sub-image defined by a rectangle.
+    ///
+    /// # Arguments
+    ///
+    /// * `x`: The x-coordinate of the top-left corner of the region.
+    /// * `y`: The y-coordinate of the top-left corner of the region.
+    /// * `width`: The width of the region.
+    /// * `height`: The height of the region.
+    ///
+    /// # Errors
+    ///
+    /// * [`SubImageError::OutOfBounds`] if the rectangle region is outside the image dimensions.
+    /// * [`SubImageError::DynamicImageError`] if the [`TextureFormat`] is unsupported by [`Image::try_into_dynamic`].
+    pub fn try_sub_image(
+        &self,
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
+    ) -> Result<Image, SubImageError> {
+        // Out of bounds check to avoid a panic in image::sub_image.
+        if (x as u64 + width as u64 > self.width() as u64)
+            || (y as u64 + height as u64 > self.height() as u64)
+        {
+            return Err(SubImageError::OutOfBounds);
+        }
+        let dyn_image = DynamicImage::from(
+            self.clone()
+                .try_into_dynamic()?
+                .sub_image(x, y, width, height)
+                .to_image(),
+        );
+        Ok(Self::from_dynamic(
+            dyn_image,
+            self.texture_descriptor.format.is_srgb(),
+            self.asset_usage,
+        ))
+    }
+
     /// Convert a texture from a format to another. Only a few formats are
     /// supported as input and output:
     /// - `TextureFormat::R8Unorm`
@@ -761,6 +801,15 @@ pub enum TextureError {
     /// Only cubemaps with six faces are supported.
     #[error("only cubemaps with six faces are supported")]
     IncompleteCubemap,
+}
+
+/// Error that occurs when creating a sub-image from an existing image.
+#[derive(Error, Debug)]
+pub enum SubImageError {
+    #[error("out of bounds subimage")]
+    OutOfBounds,
+    #[error("failed to transform into dynamic image")]
+    DynamicImageError(#[from] IntoDynamicImageError),
 }
 
 /// The type of a raw image buffer.
