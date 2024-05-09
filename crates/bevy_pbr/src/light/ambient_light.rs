@@ -20,6 +20,10 @@ use super::*;
 pub struct AmbientLight {
     pub color: Color,
     /// A direct scale factor multiplied with `color` before being passed to the shader.
+    ///
+    /// After applying this multiplier, the resulting value should be in units of [cd/m^2].
+    ///
+    /// [cd/m^2]: https://en.wikipedia.org/wiki/Candela_per_square_metre
     pub brightness: f32,
 }
 
