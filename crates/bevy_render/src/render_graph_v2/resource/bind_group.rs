@@ -77,7 +77,7 @@ impl<'g> IntoRenderResource<'g> for &[BindGroupLayoutEntry] {
 #[derive(Default)]
 pub struct RenderGraphBindGroups<'g> {
     bind_groups: HashMap<RenderResourceId, RefEq<'g, BindGroup>>,
-    existing_borrows: HashMap<*const BindGroup, RenderResourceId>,
+    existing_bind_groups: HashMap<RefEq<'g, BindGroup>, RenderResourceId>,
     queued_bind_groups: HashMap<RenderResourceId, QueuedBindGroup<'g>>,
 }
 
@@ -99,24 +99,15 @@ impl<'g> RenderGraphBindGroups<'g> {
         dependencies: Option<RenderDependencies<'g>>,
         bind_group: RefEq<'g, BindGroup>,
     ) -> RenderResourceId {
-        match bind_group {
-            RefEq::Borrowed(bind_group) => {
-                if let Some(id) = self.existing_borrows.get(&(bind_group as *const BindGroup)) {
-                    *id
-                } else {
-                    let id = tracker.new_resource(ResourceType::BindGroup, dependencies);
-                    self.bind_groups.insert(id, RefEq::Borrowed(bind_group));
-                    self.existing_borrows
-                        .insert(bind_group as *const BindGroup, id);
-                    id
-                }
-            }
-            RefEq::Owned(_) => {
+        self.existing_bind_groups
+            .get(&bind_group)
+            .copied()
+            .unwrap_or_else(|| {
                 let id = tracker.new_resource(ResourceType::BindGroup, dependencies);
+                self.existing_bind_groups.insert(bind_group.clone(), id);
                 self.bind_groups.insert(id, bind_group);
                 id
-            }
-        }
+            })
     }
 
     pub fn new_from_descriptor(

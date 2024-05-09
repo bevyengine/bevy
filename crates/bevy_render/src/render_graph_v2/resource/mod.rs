@@ -225,20 +225,21 @@ impl<'g, R: DescribedRenderResource> RenderResources<'g, R> {
     where
         RefEq<'g, R>: Clone + Hash + Eq,
     {
-        if let Some(id) = self.existing_resources.get(&resource) {
-            *id
-        } else {
-            let id = tracker.new_resource(R::RESOURCE_TYPE, None);
-            self.resources.insert(
-                id,
-                RenderResourceMeta {
-                    descriptor,
-                    resource: resource.clone(),
-                },
-            );
-            self.existing_resources.insert(resource, id);
-            id
-        }
+        self.existing_resources
+            .get(&resource)
+            .copied()
+            .unwrap_or_else(|| {
+                let id = tracker.new_resource(R::RESOURCE_TYPE, None);
+                self.existing_resources.insert(resource.clone(), id);
+                self.resources.insert(
+                    id,
+                    RenderResourceMeta {
+                        descriptor,
+                        resource,
+                    },
+                );
+                id
+            })
     }
 
     pub fn new_from_descriptor(

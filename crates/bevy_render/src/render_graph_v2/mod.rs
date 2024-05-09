@@ -29,7 +29,10 @@ use wgpu::{
 
 use self::resource::{
     bind_group::RenderGraphBindGroups,
-    pipeline::{CachedRenderGraphPipelines, RenderGraphPipelines, RenderGraphRenderPipeline},
+    pipeline::{
+        CachedRenderGraphPipelines, RenderGraphComputePipelineDescriptor, RenderGraphPipelines,
+        RenderGraphRenderPipelineDescriptor,
+    },
     ref_eq::RefEq,
     texture::{RenderGraphSamplerDescriptor, RenderGraphTextureView, RenderGraphTextureViews},
     CachedResources, DescribedRenderResource, RenderDependencies, RenderResourceGeneration,
@@ -177,8 +180,14 @@ impl<'g> RenderGraphBuilder<'g> {
         &self,
         resource: RenderHandle<'g, R>,
     ) -> &R::Descriptor {
-        self.get_descriptor_of(resource)
-            .expect("No descriptor found for resource")
+        self.get_descriptor_of(resource).expect(&format!(
+            "Descriptor not found for resource: {:?}",
+            resource
+        ))
+    }
+
+    pub fn is_fresh<R: RenderResource>(&self, resource: RenderHandle<'g, R>) -> bool {
+        self.graph.generation(resource.id()) == 0
     }
 
     pub fn add_usages<R: UsagesRenderResource>(
@@ -493,7 +502,7 @@ impl<'g> RenderGraphBuilder<'g> {
     #[inline]
     fn new_render_pipeline_descriptor(
         &mut self,
-        descriptor: RenderGraphRenderPipeline<'g>,
+        descriptor: RenderGraphRenderPipelineDescriptor<'g>,
     ) -> RenderHandle<'g, RenderPipeline> {
         todo!()
     }
@@ -548,7 +557,10 @@ pub struct NodeContext<'g> {
 
 impl<'g> NodeContext<'g> {
     pub fn get<R: RenderResource>(&self, resource: RenderHandle<'g, R>) -> &R {
-        R::get_from_store(self, resource).expect("Unable to locate render graph resource")
+        R::get_from_store(self, resource).expect(&format!(
+            "Unable to locate render graph resource: {:?}",
+            resource
+        ))
     }
 
     fn get_texture(&self, texture: RenderHandle<'g, Texture>) -> Option<&Texture> {

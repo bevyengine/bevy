@@ -1,15 +1,22 @@
-use std::{borrow::Borrow, mem};
+use std::{
+    borrow::{Borrow, Cow},
+    mem,
+};
 
+use bevy_asset::Handle;
 use bevy_ecs::system::Resource;
 use bevy_utils::HashMap;
+use wgpu::{DepthStencilState, MultisampleState, PrimitiveState, PushConstantRange};
 
 use crate::{
     mesh::MeshVertexBufferLayoutRef,
+    prelude::Shader,
     render_graph_v2::{NodeContext, RenderGraph, RenderGraphBuilder},
     render_resource::{
         BindGroupLayout, CachedComputePipelineId, CachedRenderPipelineId, ComputePipeline,
-        ComputePipelineDescriptor, PipelineCache, RenderPipeline, RenderPipelineDescriptor,
-        SpecializedComputePipeline, SpecializedMeshPipeline, SpecializedRenderPipeline,
+        ComputePipelineDescriptor, FragmentState, PipelineCache, RenderPipeline,
+        RenderPipelineDescriptor, ShaderDefVal, SpecializedComputePipeline,
+        SpecializedMeshPipeline, SpecializedRenderPipeline, VertexState,
     },
 };
 
@@ -27,19 +34,47 @@ pub struct CachedRenderGraphPipelines {
 #[derive(Default)]
 pub struct RenderGraphPipelines<'g> {
     render_pipelines: HashMap<RenderResourceId, RenderPipelineMeta<'g>>,
-    queued_render_pipelines: HashMap<RenderResourceId, RenderGraphRenderPipeline<'g>>,
+    existing_render_pipelines: HashMap<RefEq<'g, RenderPipeline>, RenderResourceId>,
+    queued_render_pipelines: HashMap<RenderResourceId, RenderGraphRenderPipelineDescriptor<'g>>,
     compute_pipelines: HashMap<RenderResourceId, ComputePipelineMeta<'g>>,
-    queued_compute_pipelines: HashMap<RenderResourceId, RenderGraphComputePipeline<'g>>,
+    existing_compute_pipelines: HashMap<RefEq<'g, ComputePipeline>, RenderResourceId>,
+    queued_compute_pipelines: HashMap<RenderResourceId, RenderGraphComputePipelineDescriptor<'g>>,
 }
 
-pub struct RenderGraphRenderPipeline<'g> {
-    layout: Vec<RenderHandle<'g, BindGroupLayout>>,
-    descriptor: RenderPipelineDescriptor,
+/// Describes a render pipeline in the render graph.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RenderGraphRenderPipelineDescriptor<'g> {
+    /// Debug label of the pipeline. This will show up in graphics debuggers for easy identification.
+    pub label: Option<Cow<'static, str>>,
+    /// The layout of bind groups for this pipeline.
+    pub layout: Vec<RenderHandle<'g, BindGroupLayout>>,
+    /// The push constant ranges for this pipeline.
+    /// Supply an empty vector if the pipeline doesn't use push constants.
+    pub push_constant_ranges: Vec<PushConstantRange>,
+    /// The compiled vertex stage, its entry point, and the input buffers layout.
+    pub vertex: VertexState,
+    /// The properties of the pipeline at the primitive assembly and rasterization level.
+    pub primitive: PrimitiveState,
+    /// The effect of draw calls on the depth and stencil aspects of the output target, if any.
+    pub depth_stencil: Option<DepthStencilState>,
+    /// The multi-sampling properties of the pipeline.
+    pub multisample: MultisampleState,
+    /// The compiled fragment stage, its entry point, and the color targets.
+    pub fragment: Option<FragmentState>,
 }
 
-pub struct RenderGraphComputePipeline<'g> {
-    layout: Vec<RenderHandle<'g, BindGroupLayout>>,
-    descriptor: ComputePipelineDescriptor,
+/// Describes a compute pipeline in the render graph.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RenderGraphComputePipelineDescriptor<'g> {
+    pub label: Option<Cow<'static, str>>,
+    pub layout: Vec<RenderHandle<'g, BindGroupLayout>>,
+    pub push_constant_ranges: Vec<PushConstantRange>,
+    /// The compiled shader module for this stage.
+    pub shader: Handle<Shader>,
+    pub shader_defs: Vec<ShaderDefVal>,
+    /// The name of the entry point in the compiled shader. There must be a
+    /// function with this name in the shader.
+    pub entry_point: Cow<'static, str>,
 }
 
 enum RenderPipelineMeta<'g> {
@@ -67,11 +102,15 @@ impl<'g> RenderGraphPipelines<'g> {
         descriptor: Option<RenderPipelineDescriptor>,
         pipeline: RefEq<'g, RenderPipeline>,
     ) -> RenderResourceId {
-        let id = tracker.new_resource(ResourceType::RenderPipeline, None); //todo: add layout
-                                                                           //dependencies
-        self.render_pipelines
-            .insert(id, RenderPipelineMeta::Direct(descriptor, pipeline));
-        id
+        self.existing_render_pipelines
+            .get(&pipeline)
+            .copied()
+            .unwrap_or_else(|| {
+                let id = tracker.new_resource(ResourceType::RenderPipeline, None); //todo: add layout dependencies
+                self.render_pipelines
+                    .insert(id, RenderPipelineMeta::Direct(descriptor, pipeline));
+                id
+            })
     }
 
     pub fn new_direct_compute_pipeline(
@@ -80,43 +119,34 @@ impl<'g> RenderGraphPipelines<'g> {
         descriptor: Option<ComputePipelineDescriptor>,
         pipeline: RefEq<'g, ComputePipeline>,
     ) -> RenderResourceId {
-        let id = tracker.new_resource(ResourceType::ComputePipeline, None);
-        self.compute_pipelines
-            .insert(id, ComputePipelineMeta::Direct(descriptor, pipeline));
-        id
+        self.existing_compute_pipelines
+            .get(&pipeline)
+            .copied()
+            .unwrap_or_else(|| {
+                let id = tracker.new_resource(ResourceType::ComputePipeline, None);
+                self.compute_pipelines
+                    .insert(id, ComputePipelineMeta::Direct(descriptor, pipeline));
+                id
+            })
     }
 
-    pub fn new_cached_render_pipeline(
+    pub fn new_render_pipeline_descriptor(
         &mut self,
         tracker: &mut ResourceTracker,
-        cache: &mut CachedRenderGraphPipelines,
-        pipeline_cache: &PipelineCache,
-        descriptor: RenderPipelineDescriptor,
+        descriptor: RenderGraphRenderPipelineDescriptor<'g>,
     ) -> RenderResourceId {
         let id = tracker.new_resource(ResourceType::RenderPipeline, None);
-        let render_pipeline_id = cache
-            .cached_render_pipelines
-            .entry(descriptor.clone())
-            .or_insert_with(|| pipeline_cache.queue_render_pipeline(descriptor));
-        self.render_pipelines
-            .insert(id, RenderPipelineMeta::Cached(*render_pipeline_id));
+        self.queued_render_pipelines.insert(id, descriptor);
         id
     }
 
-    pub fn new_cached_compute_pipeline(
+    pub fn new_compute_pipeline_descriptor(
         &mut self,
         tracker: &mut ResourceTracker,
-        cache: &mut CachedRenderGraphPipelines,
-        pipeline_cache: &PipelineCache,
-        descriptor: ComputePipelineDescriptor,
+        descriptor: RenderGraphComputePipelineDescriptor<'g>,
     ) -> RenderResourceId {
         let id = tracker.new_resource(ResourceType::ComputePipeline, None);
-        let compute_pipeline_id = cache
-            .cached_compute_pipelines
-            .entry(descriptor.clone())
-            .or_insert_with(|| pipeline_cache.queue_compute_pipeline(descriptor));
-        self.compute_pipelines
-            .insert(id, ComputePipelineMeta::Cached(*compute_pipeline_id));
+        self.queued_compute_pipelines.insert(id, descriptor);
         id
     }
 
@@ -214,7 +244,7 @@ impl DescribedRenderResource for RenderPipeline {
     }
 }
 
-impl<'g> IntoRenderResource<'g> for RenderGraphRenderPipeline<'g> {
+impl<'g> IntoRenderResource<'g> for RenderGraphRenderPipelineDescriptor<'g> {
     type Resource = RenderPipeline;
 
     #[inline]
@@ -233,14 +263,30 @@ impl<'g> IntoRenderResource<'g> for RenderPipelineDescriptor {
         mut self,
         graph: &mut RenderGraphBuilder<'g>,
     ) -> RenderHandle<'g, Self::Resource> {
-        let layout = mem::take(&mut self.layout)
-            .into_iter()
-            .map(|layout| graph.into_resource(layout))
-            .collect::<Vec<_>>();
-        graph.new_resource(RenderGraphRenderPipeline {
+        let RenderPipelineDescriptor {
+            label,
             layout,
-            descriptor: self,
-        })
+            push_constant_ranges,
+            vertex,
+            primitive,
+            depth_stencil,
+            multisample,
+            fragment,
+        } = self;
+        let descriptor = RenderGraphRenderPipelineDescriptor {
+            label,
+            layout: layout
+                .into_iter()
+                .map(|layout| graph.into_resource(layout))
+                .collect(),
+            push_constant_ranges,
+            vertex,
+            primitive,
+            depth_stencil,
+            multisample,
+            fragment,
+        };
+        graph.new_resource(descriptor)
     }
 }
 
