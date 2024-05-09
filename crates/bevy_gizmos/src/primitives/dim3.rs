@@ -254,7 +254,7 @@ where
             .map(|angle| Quat::from_axis_angle(normal, angle))
             .for_each(|quat| {
                 let axis_direction = quat * normals_normal;
-                let direction = Dir3::new_unchecked(axis_direction);
+                let direction = Dir3::new(axis_direction).unwrap();
 
                 // for each axis draw dotted line
                 (0..)

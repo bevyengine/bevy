@@ -829,7 +829,7 @@ where
             self.gizmos
                 .circle(
                     self.position,
-                    Dir3::new_unchecked(self.rotation * axis),
+                    Dir3::new(self.rotation * axis).unwrap(),
                     self.radius,
                     self.color,
                 )
