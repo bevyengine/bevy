@@ -2,7 +2,7 @@ use std::process::Command;
 
 use argh::FromArgs;
 
-use super::{run_cargo_command, RustChannel};
+use super::{run_cargo_command, RustToolchain};
 
 /// Checks that the project compiles for a `no_std` target.
 /// Note that this tool will attempt to install the target via rustup.
@@ -29,7 +29,7 @@ impl CompileCheckNoStdCommand {
         ("bevy_math", &["--features", "libm"]),
         ("bevy_color", &["--features", "libm"]),
         (
-            "bevy_task",
+            "bevy_tasks",
             &["--features", "edge_executor,critical-section"],
         ),
         (
@@ -55,10 +55,11 @@ impl CompileCheckNoStdCommand {
         let mut flags = vec!["--no-default-features", "--target", &target];
 
         for &(lib, additional) in Self::TARGETS {
-            flags.extend_from_slice(&["--target", lib]);
+            flags.extend_from_slice(&["-p", lib]);
             flags.extend_from_slice(additional);
 
-            run_cargo_command("check", RustChannel::Stable, &flags, &[])?;
+            run_cargo_command("check", RustToolchain::Active, &flags, &[])
+                .inspect_err(|_| eprintln!("Failed to run for package {lib}"))?;
 
             for _ in 0..(flags.len() + 2) {
                 flags.pop();

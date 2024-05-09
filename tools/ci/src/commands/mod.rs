@@ -37,6 +37,7 @@ pub enum RustToolchain {
     // Whichever toolchain the user has set as their preferred one
     Active,
     // The nightly toolchain
+    #[allow(dead_code, reason = "We might want to use this in the future")]
     Nightly,
 }
 
@@ -44,7 +45,7 @@ impl RustToolchain {
     /// Returns a toolchain string usable with rustup
     pub fn as_toolchain_string(&self) -> String {
         match *self {
-            // TODO: Test if this supports nightly pinning using `NIGHTLY_TOOLCHAIN` env variable.
+            // TODO: Test if this supports nightly pinning using the `NIGHTLY_TOOLCHAIN` env variable.
             Self::Nightly => "nightly".to_string(),
             Self::Active => {
                 let out = Command::new("rustup")
@@ -56,7 +57,7 @@ impl RustToolchain {
                 // This suffix will be separated by a space.
                 let toolchain = out.stdout.split(|c| *c == b' ').next().unwrap();
 
-                let toolchain = std::str::from_utf8(toolchain).unwrap().to_string();
+                let toolchain = core::str::from_utf8(toolchain).unwrap().to_string();
 
                 toolchain
             }

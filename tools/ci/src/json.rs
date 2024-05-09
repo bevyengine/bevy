@@ -1,9 +1,8 @@
 //! Everything we need to handle json output and input.
 
-use std::{
-    error::Error,
-    io::{BufRead, BufReader, Read},
-};
+use core::error::Error;
+
+use std::io::{BufRead, BufReader, Read};
 
 use serde::Serialize;
 use serde_json::{Map, Value};
