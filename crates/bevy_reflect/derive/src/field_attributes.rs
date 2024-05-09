@@ -111,14 +111,14 @@ impl FieldAttributes {
     /// Parses a single field attribute.
     fn parse_field_attribute(&mut self, input: ParseStream) -> syn::Result<()> {
         let lookahead = input.lookahead1();
-        if lookahead.peek(kw::ignore) {
+        if lookahead.peek(Token![@]) {
+            self.parse_custom_attribute(input)
+        } else if lookahead.peek(kw::ignore) {
             self.parse_ignore(input)
         } else if lookahead.peek(kw::skip_serializing) {
             self.parse_skip_serializing(input)
         } else if lookahead.peek(kw::default) {
             self.parse_default(input)
-        } else if lookahead.peek(Token![@]) {
-            self.parse_custom_attribute(input)
         } else {
             Err(lookahead.error())
         }
