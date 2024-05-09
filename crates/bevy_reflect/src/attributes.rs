@@ -137,11 +137,21 @@ mod tests {
     }
 
     #[test]
-    fn should_create_custom_attributes() {
+    fn should_get_custom_attribute() {
         let attributes = CustomAttributes::default().with_attribute(0.0..=1.0);
 
         let value = attributes.get::<RangeInclusive<f64>>().unwrap();
         assert_eq!(&(0.0..=1.0), value);
+    }
+
+    #[test]
+    fn should_get_custom_attribute_dynamically() {
+        let attributes = CustomAttributes::default().with_attribute(String::from("Hello, World!"));
+
+        let value = attributes.get_by_id(TypeId::of::<String>()).unwrap();
+        assert!(value
+            .reflect_partial_eq(&String::from("Hello, World!"))
+            .unwrap());
     }
 
     #[test]
