@@ -1,6 +1,6 @@
 use std::f32::consts::FRAC_PI_2;
 
-use glam::{Vec2, Vec3A};
+use glam::{Vec2, Vec3A, Vec3Swizzles};
 
 use crate::bounding::{BoundingCircle, BoundingVolume};
 use crate::primitives::{
@@ -20,6 +20,41 @@ impl Bounded3d for Extrusion<Circle> {
             radius: self.base_shape.radius,
         }
         .aabb_3d(translation, rotation * Quat::from_rotation_x(FRAC_PI_2))
+    }
+
+    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
+        bounding_sphere(self, translation, rotation)
+    }
+}
+
+impl Bounded3d for Extrusion<Ellipse> {
+    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
+        let Vec2 { x: a, y: b } = self.base_shape.half_size;
+        let normal = rotation * Vec3::Z;
+        let conjugate_rot = rotation.conjugate();
+
+        let [max_x, max_y, max_z] = Vec3::AXES.map(|axis: Vec3| {
+            let Some(axis) = (conjugate_rot * axis.reject_from(normal))
+                .xy()
+                .try_normalize()
+            else {
+                return Vec3::ZERO;
+            };
+
+            if axis.element_product() == 0. {
+                return rotation * Vec3::new(a * axis.y, b * axis.x, 0.);
+            }
+            let m = -axis.x / axis.y;
+            let signum = axis.signum();
+
+            let y = signum.y * b * b / (b * b + m * m * a * a).sqrt();
+            let x = signum.x * a * (1. - y * y / b / b).sqrt();
+            rotation * Vec3::new(x, y, 0.)
+        });
+
+        let half_size =
+            Vec3::new(max_x.x, max_y.y, max_z.z).abs() + (normal * self.half_depth).abs();
+        Aabb3d::new(translation, half_size)
     }
 
     fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
