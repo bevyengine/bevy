@@ -69,3 +69,22 @@ impl<'de> Visitor<'de> for FrameVisitor {
         Ok(FrameCount(v))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use serde_test::{assert_tokens, Token};
+
+    #[test]
+    fn test_serde_name() {
+        let name = Name::new("MyComponent");
+        assert_tokens(&name, &[Token::String("MyComponent")]);
+    }
+
+    #[test]
+    fn test_serde_frame_count() {
+        let frame_count = FrameCount(100);
+        assert_tokens(&frame_count, &[Token::U32(100)]);
+    }
+}
