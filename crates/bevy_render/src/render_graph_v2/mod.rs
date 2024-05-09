@@ -29,7 +29,7 @@ use wgpu::{
 
 use self::resource::{
     bind_group::RenderGraphBindGroups,
-    pipeline::{CachedRenderGraphPipelines, RenderGraphPipelines},
+    pipeline::{CachedRenderGraphPipelines, RenderGraphPipelines, RenderGraphRenderPipeline},
     ref_eq::RefEq,
     texture::{RenderGraphSamplerDescriptor, RenderGraphTextureView, RenderGraphTextureViews},
     CachedResources, DescribedRenderResource, RenderDependencies, RenderResourceGeneration,
@@ -37,13 +37,13 @@ use self::resource::{
 };
 
 #[derive(Resource, Default)]
-pub struct RenderGraphCachedResources {
+struct RenderGraphCachedResources {
     bind_group_layouts: CachedResources<BindGroupLayout>,
     samplers: CachedResources<Sampler>,
     pipelines: CachedRenderGraphPipelines,
 }
 
-struct RenderGraph<'g> {
+pub struct RenderGraph<'g> {
     resources: ResourceTracker<'g>,
     bind_group_layouts: RenderResources<'g, BindGroupLayout>,
     bind_groups: RenderGraphBindGroups<'g>,
@@ -66,11 +66,9 @@ impl<'g> RenderGraph<'g> {
     fn new() -> Self {
         Self {
             resources: ResourceTracker::default(),
-            bind_group_layouts: RenderResources::new(
-                |device, desc: &Box<[BindGroupLayoutEntry]>| {
-                    device.create_bind_group_layout(None, &desc)
-                },
-            ),
+            bind_group_layouts: RenderResources::new(|device, desc: &Vec<BindGroupLayoutEntry>| {
+                device.create_bind_group_layout(None, desc)
+            }),
             bind_groups: RenderGraphBindGroups::new(),
             textures: RenderResources::new(RenderDevice::create_texture),
             texture_views: RenderGraphTextureViews::new(),
@@ -160,7 +158,11 @@ impl<'g> RenderGraphBuilder<'g> {
         R::into_render_resource(resource, self)
     }
 
-    pub fn import_resource<R: RenderResource>(&mut self, resource: &'g R) -> RenderHandle<'g, R> {
+    pub fn into_resource<R: RenderResource>(&mut self, resource: R) -> RenderHandle<'g, R> {
+        self.new_resource(RefEq::Owned(resource))
+    }
+
+    pub fn as_resource<R: RenderResource>(&mut self, resource: &'g R) -> RenderHandle<'g, R> {
         self.new_resource(RefEq::Borrowed(resource))
     }
 
@@ -279,7 +281,7 @@ impl<'g> RenderGraphBuilder<'g> {
     #[inline]
     fn new_bind_group_layout_direct(
         &mut self,
-        descriptor: Option<Box<[BindGroupLayoutEntry]>>,
+        descriptor: Option<Vec<BindGroupLayoutEntry>>,
         bind_group_layout: RefEq<'g, BindGroupLayout>,
     ) -> RenderHandle<'g, BindGroupLayout> {
         todo!()
@@ -288,7 +290,7 @@ impl<'g> RenderGraphBuilder<'g> {
     #[inline]
     fn new_bind_group_layout_descriptor(
         &mut self,
-        descriptor: Box<[BindGroupLayoutEntry]>,
+        descriptor: Vec<BindGroupLayoutEntry>,
     ) -> RenderHandle<'g, BindGroupLayout> {
         todo!();
     }
@@ -297,7 +299,7 @@ impl<'g> RenderGraphBuilder<'g> {
     fn get_bind_group_layout_descriptor(
         &self,
         bind_group_layout: RenderHandle<'g, BindGroupLayout>,
-    ) -> Option<&Box<[BindGroupLayoutEntry]>> {
+    ) -> Option<&Vec<BindGroupLayoutEntry>> {
         self.graph
             .bind_group_layouts
             .get_descriptor(bind_group_layout.id())
@@ -491,7 +493,7 @@ impl<'g> RenderGraphBuilder<'g> {
     #[inline]
     fn new_render_pipeline_descriptor(
         &mut self,
-        descriptor: RenderPipelineDescriptor,
+        descriptor: RenderGraphRenderPipeline<'g>,
     ) -> RenderHandle<'g, RenderPipeline> {
         todo!()
     }

@@ -194,14 +194,14 @@ where
     }
 }
 
-pub enum NewRenderResource<'g, R: DescribedRenderResource> {
+pub enum NewRenderResource<'g, R: FromDescriptorRenderResource> {
     FromDescriptor(R::Descriptor),
     Resource(Option<R::Descriptor>, RefEq<'g, R>),
 }
 
 pub struct RenderResources<'g, R: DescribedRenderResource> {
     resources: HashMap<RenderResourceId, RenderResourceMeta<'g, R>>,
-    existing_borrows: HashMap<*const R, RenderResourceId>,
+    existing_resources: HashMap<RefEq<'g, R>, RenderResourceId>,
     queued_resources: HashMap<RenderResourceId, R::Descriptor>,
     resource_factory: Box<dyn Fn(&RenderDevice, &R::Descriptor) -> R>,
 }
@@ -210,7 +210,7 @@ impl<'g, R: DescribedRenderResource> RenderResources<'g, R> {
     pub fn new(factory: impl Fn(&RenderDevice, &R::Descriptor) -> R + 'static) -> Self {
         Self {
             resources: Default::default(),
-            existing_borrows: Default::default(),
+            existing_resources: Default::default(),
             queued_resources: Default::default(),
             resource_factory: Box::new(factory),
         }
@@ -221,35 +221,23 @@ impl<'g, R: DescribedRenderResource> RenderResources<'g, R> {
         tracker: &mut ResourceTracker,
         descriptor: Option<R::Descriptor>,
         resource: RefEq<'g, R>,
-    ) -> RenderResourceId {
-        match resource {
-            RefEq::Borrowed(resource) => {
-                if let Some(id) = self.existing_borrows.get(&(resource as *const R)) {
-                    *id
-                } else {
-                    let id = tracker.new_resource(R::RESOURCE_TYPE, None);
-                    self.resources.insert(
-                        id,
-                        RenderResourceMeta {
-                            descriptor,
-                            resource: RefEq::Borrowed(resource),
-                        },
-                    );
-                    self.existing_borrows.insert(resource as *const R, id);
-                    id
-                }
-            }
-            RefEq::Owned(resource) => {
-                let id = tracker.new_resource(R::RESOURCE_TYPE, None);
-                self.resources.insert(
-                    id,
-                    RenderResourceMeta {
-                        descriptor,
-                        resource: RefEq::Owned(resource),
-                    },
-                );
-                id
-            }
+    ) -> RenderResourceId
+    where
+        RefEq<'g, R>: Clone + Hash + Eq,
+    {
+        if let Some(id) = self.existing_resources.get(&resource) {
+            *id
+        } else {
+            let id = tracker.new_resource(R::RESOURCE_TYPE, None);
+            self.resources.insert(
+                id,
+                RenderResourceMeta {
+                    descriptor,
+                    resource: resource.clone(),
+                },
+            );
+            self.existing_resources.insert(resource, id);
+            id
         }
     }
 
@@ -372,11 +360,20 @@ impl<'g, R: RenderResource, F: FnOnce(&RenderDevice) -> R> IntoRenderResource<'g
     }
 }
 
-impl<'g, R: DescribedRenderResource> IntoRenderResource<'g> for NewRenderResource<'g, R> {
+impl<'g, R: FromDescriptorRenderResource> IntoRenderResource<'g> for NewRenderResource<'g, R> {
     type Resource = R;
 
     fn into_render_resource(self, graph: &mut RenderGraphBuilder<'g>) -> RenderHandle<'g, R> {
-        todo!()
+        match self {
+            NewRenderResource::FromDescriptor(descriptor) => {
+                R::new_from_descriptor(graph, descriptor)
+            }
+
+            NewRenderResource::Resource(Some(descriptor), resource) => {
+                R::new_with_descriptor(graph, descriptor, resource)
+            }
+            NewRenderResource::Resource(None, resource) => R::new_direct(graph, resource),
+        }
     }
 }
 

@@ -1,4 +1,4 @@
-use std::borrow::Borrow;
+use std::{borrow::Borrow, mem};
 
 use bevy_ecs::system::Resource;
 use bevy_utils::HashMap;
@@ -7,7 +7,7 @@ use crate::{
     mesh::MeshVertexBufferLayoutRef,
     render_graph_v2::{NodeContext, RenderGraph, RenderGraphBuilder},
     render_resource::{
-        CachedComputePipelineId, CachedRenderPipelineId, ComputePipeline,
+        BindGroupLayout, CachedComputePipelineId, CachedRenderPipelineId, ComputePipeline,
         ComputePipelineDescriptor, PipelineCache, RenderPipeline, RenderPipelineDescriptor,
         SpecializedComputePipeline, SpecializedMeshPipeline, SpecializedRenderPipeline,
     },
@@ -27,7 +27,19 @@ pub struct CachedRenderGraphPipelines {
 #[derive(Default)]
 pub struct RenderGraphPipelines<'g> {
     render_pipelines: HashMap<RenderResourceId, RenderPipelineMeta<'g>>,
+    queued_render_pipelines: HashMap<RenderResourceId, RenderGraphRenderPipeline<'g>>,
     compute_pipelines: HashMap<RenderResourceId, ComputePipelineMeta<'g>>,
+    queued_compute_pipelines: HashMap<RenderResourceId, RenderGraphComputePipeline<'g>>,
+}
+
+pub struct RenderGraphRenderPipeline<'g> {
+    layout: Vec<RenderHandle<'g, BindGroupLayout>>,
+    descriptor: RenderPipelineDescriptor,
+}
+
+pub struct RenderGraphComputePipeline<'g> {
+    layout: Vec<RenderHandle<'g, BindGroupLayout>>,
+    descriptor: ComputePipelineDescriptor,
 }
 
 enum RenderPipelineMeta<'g> {
@@ -169,7 +181,7 @@ impl RenderResource for RenderPipeline {
         graph: &mut RenderGraphBuilder<'g>,
         resource: RefEq<'g, Self>,
     ) -> RenderHandle<'g, Self> {
-        todo!()
+        graph.new_render_pipeline_direct(None, resource)
     }
 
     #[inline]
@@ -177,7 +189,7 @@ impl RenderResource for RenderPipeline {
         context: &'a NodeContext,
         resource: RenderHandle<'a, Self>,
     ) -> Option<&'a Self> {
-        todo!()
+        context.get_render_pipeline(resource)
     }
 }
 
@@ -190,18 +202,19 @@ impl DescribedRenderResource for RenderPipeline {
         descriptor: Self::Descriptor,
         resource: RefEq<'g, Self>,
     ) -> RenderHandle<'g, Self> {
-        todo!()
+        graph.new_render_pipeline_direct(Some(descriptor), resource)
     }
 
+    #[inline]
     fn get_descriptor<'a, 'g: 'a>(
         graph: &'a RenderGraphBuilder<'g>,
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'a Self::Descriptor> {
-        todo!()
+        graph.get_render_pipeline_descriptor(resource)
     }
 }
 
-impl<'g> IntoRenderResource<'g> for RenderPipelineDescriptor {
+impl<'g> IntoRenderResource<'g> for RenderGraphRenderPipeline<'g> {
     type Resource = RenderPipeline;
 
     #[inline]
@@ -209,7 +222,25 @@ impl<'g> IntoRenderResource<'g> for RenderPipelineDescriptor {
         self,
         graph: &mut RenderGraphBuilder<'g>,
     ) -> RenderHandle<'g, Self::Resource> {
-        graph.new_resource(NewRenderResource::FromDescriptor(self))
+        graph.new_render_pipeline_descriptor(self)
+    }
+}
+
+impl<'g> IntoRenderResource<'g> for RenderPipelineDescriptor {
+    type Resource = RenderPipeline;
+
+    fn into_render_resource(
+        mut self,
+        graph: &mut RenderGraphBuilder<'g>,
+    ) -> RenderHandle<'g, Self::Resource> {
+        let layout = mem::take(&mut self.layout)
+            .into_iter()
+            .map(|layout| graph.into_resource(layout))
+            .collect::<Vec<_>>();
+        graph.new_resource(RenderGraphRenderPipeline {
+            layout,
+            descriptor: self,
+        })
     }
 }
 
@@ -221,7 +252,7 @@ impl RenderResource for ComputePipeline {
         graph: &mut RenderGraphBuilder<'g>,
         resource: RefEq<'g, Self>,
     ) -> RenderHandle<'g, Self> {
-        todo!()
+        graph.new_compute_pipeline_direct(None, resource)
     }
 
     #[inline]
@@ -229,7 +260,7 @@ impl RenderResource for ComputePipeline {
         context: &'a NodeContext,
         resource: RenderHandle<'a, Self>,
     ) -> Option<&'a Self> {
-        todo!()
+        context.get_compute_pipeline(resource)
     }
 }
 
