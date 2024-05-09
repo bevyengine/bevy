@@ -41,6 +41,7 @@ impl<'de> Visitor<'de> for EntityVisitor {
     }
 }
 
+// Manually implementing serialize/deserialize allows us to use a more compact representation as simple integers
 impl Serialize for FrameCount {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_u32(self.0)
