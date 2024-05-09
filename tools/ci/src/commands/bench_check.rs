@@ -1,4 +1,4 @@
-use super::{run_cargo_command, run_cargo_command_with_json, RustChannel};
+use super::{run_cargo_command, run_cargo_command_with_json, RustToolchain};
 use crate::json::JsonCommandOutput;
 use argh::FromArgs;
 
@@ -25,7 +25,7 @@ impl BenchCheckCommand {
     ///
     /// For use in aliases.
     pub fn run_with_intermediate() -> Result<(), ()> {
-        run_cargo_command("check", RustChannel::Stable, Self::FLAGS, Self::ENV_VARS)
+        run_cargo_command("check", RustToolchain::Active, Self::FLAGS, Self::ENV_VARS)
     }
 
     /// Runs this command with json output.
@@ -35,7 +35,7 @@ impl BenchCheckCommand {
         run_cargo_command_with_json(
             "check",
             "bench-check",
-            RustChannel::Stable,
+            RustToolchain::Active,
             Self::FLAGS,
             Self::ENV_VARS,
         )

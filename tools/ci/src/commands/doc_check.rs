@@ -1,7 +1,7 @@
 use crate::json::JsonCommandOutput;
 use argh::FromArgs;
 
-use super::{run_cargo_command, run_cargo_command_with_json, RustChannel};
+use super::{run_cargo_command, run_cargo_command_with_json, RustToolchain};
 
 /// Checks that all docs compile.
 #[derive(FromArgs, Default)]
@@ -26,7 +26,7 @@ impl DocCheckCommand {
     ///
     /// For use in aliases.
     pub fn run_with_intermediate() -> Result<(), ()> {
-        run_cargo_command("doc", RustChannel::Stable, Self::FLAGS, Self::ENV_VARS)
+        run_cargo_command("doc", RustToolchain::Active, Self::FLAGS, Self::ENV_VARS)
     }
 
     /// Runs this command with json output.
@@ -36,7 +36,7 @@ impl DocCheckCommand {
         run_cargo_command_with_json(
             "doc",
             "doc-check",
-            RustChannel::Stable,
+            RustToolchain::Active,
             Self::FLAGS,
             Self::ENV_VARS,
         )

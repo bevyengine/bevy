@@ -2,7 +2,7 @@ use std::env::{self, set_current_dir};
 
 use argh::FromArgs;
 
-use super::{run_cargo_command, RustChannel};
+use super::{run_cargo_command, RustToolchain};
 
 /// Runs the compile-fail tests.
 #[derive(FromArgs, Default)]
@@ -28,7 +28,7 @@ impl CompileFailCommand {
 
         set_current_dir("crates/bevy_derive/compile_fail").map_err(|err| eprintln!("{err}"))?;
         let compile_fail_result =
-            run_cargo_command("test", RustChannel::Stable, &flags, Self::ENV_VARS);
+            run_cargo_command("test", RustToolchain::Active, &flags, Self::ENV_VARS);
         set_current_dir(&base_dir).map_err(|err| eprintln!("{err}"))?;
         if !no_fail_fast && compile_fail_result.is_err() {
             return compile_fail_result;
@@ -36,7 +36,7 @@ impl CompileFailCommand {
 
         set_current_dir("crates/bevy_ecs/compile_fail").map_err(|err| eprintln!("{err}"))?;
         let compile_fail_result =
-            run_cargo_command("test", RustChannel::Stable, &flags, Self::ENV_VARS);
+            run_cargo_command("test", RustToolchain::Active, &flags, Self::ENV_VARS);
         set_current_dir(&base_dir).map_err(|err| eprintln!("{err}"))?;
         if !no_fail_fast && compile_fail_result.is_err() {
             return compile_fail_result;
@@ -44,7 +44,7 @@ impl CompileFailCommand {
 
         set_current_dir("crates/bevy_reflect/compile_fail").map_err(|err| eprintln!("{err}"))?;
         let compile_fail_result =
-            run_cargo_command("test", RustChannel::Stable, &flags, Self::ENV_VARS);
+            run_cargo_command("test", RustToolchain::Active, &flags, Self::ENV_VARS);
         set_current_dir(&base_dir).map_err(|err| eprintln!("{err}"))?;
         compile_fail_result
     }

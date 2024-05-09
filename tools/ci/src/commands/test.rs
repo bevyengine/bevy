@@ -1,7 +1,7 @@
 use crate::json::JsonCommandOutput;
 use argh::FromArgs;
 
-use super::{run_cargo_command, run_cargo_command_with_json, RustChannel};
+use super::{run_cargo_command, run_cargo_command_with_json, RustToolchain};
 
 /// Runs all tests (except for doc tests).
 #[derive(FromArgs, Default)]
@@ -25,7 +25,7 @@ impl TestCommand {
             flags.push("--no-fail-fast");
         }
 
-        run_cargo_command("test", RustChannel::Stable, &flags, Self::ENV_VARS)
+        run_cargo_command("test", RustToolchain::Active, &flags, Self::ENV_VARS)
     }
 
     /// Runs this command with json output.
@@ -37,7 +37,13 @@ impl TestCommand {
             flags.push("--no-fail-fast");
         }
 
-        run_cargo_command_with_json("test", "test", RustChannel::Stable, &flags, Self::ENV_VARS)
+        run_cargo_command_with_json(
+            "test",
+            "test",
+            RustToolchain::Active,
+            &flags,
+            Self::ENV_VARS,
+        )
     }
 
     /// Runs this command.

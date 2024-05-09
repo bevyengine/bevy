@@ -1,7 +1,7 @@
 use crate::json::JsonCommandOutput;
 use argh::FromArgs;
 
-use super::{run_cargo_command, run_cargo_command_with_json, RustChannel};
+use super::{run_cargo_command, run_cargo_command_with_json, RustToolchain};
 
 /// Checks that all tests compile.
 #[derive(FromArgs, Default)]
@@ -20,7 +20,7 @@ impl TestCheckCommand {
     ///
     /// For use in aliases.
     pub fn run_with_intermediate() -> Result<(), ()> {
-        run_cargo_command("check", RustChannel::Stable, Self::FLAGS, Self::ENV_VARS)
+        run_cargo_command("check", RustToolchain::Active, Self::FLAGS, Self::ENV_VARS)
     }
 
     /// Runs this command with json output.
@@ -30,7 +30,7 @@ impl TestCheckCommand {
         run_cargo_command_with_json(
             "check",
             "test-check",
-            RustChannel::Stable,
+            RustToolchain::Active,
             Self::FLAGS,
             Self::ENV_VARS,
         )
