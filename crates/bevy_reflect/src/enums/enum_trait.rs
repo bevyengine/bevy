@@ -264,7 +264,7 @@ impl EnumInfo {
         self.docs
     }
 
-    impl_custom_attribute_methods!(custom_attributes, "enum");
+    impl_custom_attribute_methods!(self.custom_attributes, "enum");
 }
 
 /// An iterator over the fields in the current enum variant.

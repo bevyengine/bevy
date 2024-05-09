@@ -84,6 +84,16 @@ impl VariantInfo {
             Self::Unit(info) => info.docs(),
         }
     }
+
+    impl_custom_attribute_methods!(
+        self,
+        match self {
+            Self::Struct(info) => info.custom_attributes(),
+            Self::Tuple(info) => info.custom_attributes(),
+            Self::Unit(info) => info.custom_attributes(),
+        },
+        "variant"
+    );
 }
 
 /// Type info for struct variants.
@@ -179,7 +189,7 @@ impl StructVariantInfo {
         self.docs
     }
 
-    impl_custom_attribute_methods!(custom_attributes, "variant");
+    impl_custom_attribute_methods!(self.custom_attributes, "variant");
 }
 
 /// Type info for tuple variants.
@@ -244,7 +254,7 @@ impl TupleVariantInfo {
         self.docs
     }
 
-    impl_custom_attribute_methods!(custom_attributes, "variant");
+    impl_custom_attribute_methods!(self.custom_attributes, "variant");
 }
 
 /// Type info for unit variants.
@@ -292,5 +302,5 @@ impl UnitVariantInfo {
         self.docs
     }
 
-    impl_custom_attribute_methods!(custom_attributes, "variant");
+    impl_custom_attribute_methods!(self.custom_attributes, "variant");
 }

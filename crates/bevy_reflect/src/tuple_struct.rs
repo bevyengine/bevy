@@ -146,7 +146,7 @@ impl TupleStructInfo {
         self.docs
     }
 
-    impl_custom_attribute_methods!(custom_attributes, "struct");
+    impl_custom_attribute_methods!(self.custom_attributes, "struct");
 }
 
 /// An iterator over the field values of a tuple struct.

@@ -79,7 +79,7 @@ impl NamedField {
         self.docs
     }
 
-    impl_custom_attribute_methods!(custom_attributes, "field");
+    impl_custom_attribute_methods!(self.custom_attributes, "field");
 }
 
 /// The unnamed field of a reflected tuple or tuple struct.
@@ -157,5 +157,5 @@ impl UnnamedField {
         self.docs
     }
 
-    impl_custom_attribute_methods!(custom_attributes, "field");
+    impl_custom_attribute_methods!(self.custom_attributes, "field");
 }

@@ -128,44 +128,45 @@ impl Debug for CustomAttribute {
 ///
 /// # Params
 ///
+/// * `$self` - The name of the variable containing the custom attributes (usually `self`).
 /// * `$attributes` - The name of the field containing the [`CustomAttributes`].
 /// * `$term` - (Optional) The term used to describe the type containing the custom attributes.
 ///   This is purely used to generate better documentation. Defaults to `"item"`.
 ///
 macro_rules! impl_custom_attribute_methods {
-    ($attributes: ident) => {
-        $crate::attributes::impl_custom_attribute_methods!($attributes, "item");
+    ($self:ident . $attributes:ident, $term:literal) => {
+        $crate::attributes::impl_custom_attribute_methods!($self, &$self.$attributes, "item");
     };
-    ($attributes: ident, $term: literal) => {
+    ($self:ident, $attributes:expr, $term:literal) => {
         #[doc = concat!("Returns the custom attributes for this ", $term, ".")]
-        pub fn custom_attributes(&self) -> &$crate::attributes::CustomAttributes {
-            &self.$attributes
+        pub fn custom_attributes(&$self) -> &$crate::attributes::CustomAttributes {
+            $attributes
         }
 
         /// Gets a custom attribute by type.
         ///
         /// For dynamically accessing an attribute, see [`get_attribute_by_id`](Self::get_attribute_by_id).
-        pub fn get_attribute<T: $crate::Reflect>(&self) -> Option<&T> {
-            self.$attributes.get::<T>()
+        pub fn get_attribute<T: $crate::Reflect>(&$self) -> Option<&T> {
+            $self.custom_attributes().get::<T>()
         }
 
         /// Gets a custom attribute by its [`TypeId`](std::any::TypeId).
         ///
         /// This is the dynamic equivalent of [`get_attribute`](Self::get_attribute).
-        pub fn get_attribute_by_id(&self, id: ::std::any::TypeId) -> Option<&dyn $crate::Reflect> {
-            self.$attributes.get_by_id(id)
+        pub fn get_attribute_by_id(&$self, id: ::std::any::TypeId) -> Option<&dyn $crate::Reflect> {
+            $self.custom_attributes().get_by_id(id)
         }
 
         #[doc = concat!("Returns `true` if this ", $term, " has a custom attribute of the specified type.")]
         #[doc = "\n\nFor dynamically checking if an attribute exists, see [`has_attribute_by_id`](Self::has_attribute_by_id)."]
-        pub fn has_attribute<T: $crate::Reflect>(&self) -> bool {
-            self.$attributes.contains::<T>()
+        pub fn has_attribute<T: $crate::Reflect>(&$self) -> bool {
+            $self.custom_attributes().contains::<T>()
         }
 
         #[doc = concat!("Returns `true` if this ", $term, " has a custom attribute with the specified [`TypeId`](::std::any::TypeId).")]
         #[doc = "\n\nThis is the dynamic equivalent of [`has_attribute`](Self::has_attribute)"]
-        pub fn has_attribute_by_id(&self, id: ::std::any::TypeId) -> bool {
-            self.$attributes.contains_by_id(id)
+        pub fn has_attribute_by_id(&$self, id: ::std::any::TypeId) -> bool {
+            $self.custom_attributes().contains_by_id(id)
         }
     };
 }
