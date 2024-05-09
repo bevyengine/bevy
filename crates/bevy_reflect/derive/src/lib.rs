@@ -274,6 +274,36 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 /// // {/* ... */}
 /// ```
 ///
+/// ## `#[reflect(@...)]`
+///
+/// This attribute can be used to register custom attributes to the type's `TypeInfo`.
+///
+/// It accepts any expression after the `@` symbol that resolves to a value which implements `Reflect`.
+///
+/// Any number of custom attributes may be registered, however, each the type of each attribute must be unique.
+/// If two attributes of the same type are registered, the last one will overwrite the first.
+///
+/// ### Example
+///
+/// ```ignore
+/// #[derive(Reflect)]
+/// struct Required;
+///
+/// #[derive(Reflect)]
+/// struct EditorTooltip(String);
+///
+/// impl EditorTooltip {
+///   fn new(text: &str) -> Self {
+///     Self(text.to_string())
+///   }
+/// }
+///
+/// #[derive(Reflect)]
+/// // Specify a "required" status and tooltip:
+/// #[reflect(@Required, @EditorTooltip::new("An ID is required!"))]
+/// struct Id(u8);
+/// ```
+///
 /// # Field Attributes
 ///
 /// Along with the container attributes, this macro comes with some attributes that may be applied
@@ -296,6 +326,35 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 ///
 /// What this does is register the `SerializationData` type within the `GetTypeRegistration` implementation,
 /// which will be used by the reflection serializers to determine whether or not the field is serializable.
+///
+/// ## `#[reflect(@...)]`
+///
+/// This attribute can be used to register custom attributes to the field's `TypeInfo`.
+///
+/// It accepts any expression after the `@` symbol that resolves to a value which implements `Reflect`.
+///
+/// Any number of custom attributes may be registered, however, each the type of each attribute must be unique.
+/// If two attributes of the same type are registered, the last one will overwrite the first.
+///
+/// ### Example
+///
+/// ```ignore
+/// #[derive(Reflect)]
+/// struct EditorTooltip(String);
+///
+/// impl EditorTooltip {
+///   fn new(text: &str) -> Self {
+///     Self(text.to_string())
+///   }
+/// }
+///
+/// #[derive(Reflect)]
+/// struct Slider {
+///   // Specify a custom range and tooltip:
+///   #[reflect(@0.0..=1.0, @EditorTooltip::new("Must be between 0 and 1"))]
+///   value: f32,
+/// }
+/// ```
 ///
 /// [`reflect_trait`]: macro@reflect_trait
 #[proc_macro_derive(Reflect, attributes(reflect, reflect_value, type_path, type_name))]

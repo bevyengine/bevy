@@ -3,12 +3,42 @@ use bevy_utils::TypeIdMap;
 use core::fmt::{Debug, Formatter};
 use std::any::TypeId;
 
+/// A collection of custom attributes for a type, field, or variant.
+///
+/// These attributes can be created with the [`Reflect` derive macro].
+///
+/// Attributes are stored by their [`TypeId`](std::any::TypeId).
+/// Because of this, there can only be one attribute per type.
+///
+/// # Example
+///
+/// ```
+/// # use bevy_reflect::{Reflect, Typed, TypeInfo};
+/// use core::ops::RangeInclusive;
+/// #[derive(Reflect)]
+/// struct Slider {
+///   #[reflect(@RangeInclusive::<f32>::new(0.0, 1.0))]
+///   value: f32
+/// }
+///
+/// let TypeInfo::Struct(info) = <Slider as Typed>::type_info() else {
+///   panic!("expected struct info");
+/// };
+///
+/// let range = info.field("value").unwrap().get_attribute::<RangeInclusive<f32>>().unwrap();
+/// assert_eq!(0.0..=1.0, *range);
+/// ```
+///
+/// [`Reflect` derive macro]: derive@crate::Reflect
 #[derive(Default)]
 pub struct CustomAttributes {
     attributes: TypeIdMap<CustomAttribute>,
 }
 
 impl CustomAttributes {
+    /// Inserts a custom attribute into the collection.
+    ///
+    /// Note that this will overwrite any existing attribute of the same type.
     pub fn with_attribute<T: Reflect>(mut self, value: T) -> Self {
         self.attributes
             .insert(TypeId::of::<T>(), CustomAttribute::new(value));
@@ -16,32 +46,39 @@ impl CustomAttributes {
         self
     }
 
+    /// Returns `true` if this collection contains a custom attribute of the specified type.
     pub fn contains<T: Reflect>(&self) -> bool {
         self.attributes.contains_key(&TypeId::of::<T>())
     }
 
+    /// Returns `true` if this collection contains a custom attribute with the specified [`TypeId`].
     pub fn contains_by_id(&self, id: TypeId) -> bool {
         self.attributes.contains_key(&id)
     }
 
+    /// Gets a custom attribute by type.
     pub fn get<T: Reflect>(&self) -> Option<&T> {
         self.attributes.get(&TypeId::of::<T>())?.value::<T>()
     }
 
+    /// Gets a custom attribute by its [`TypeId`].
     pub fn get_by_id(&self, id: TypeId) -> Option<&dyn Reflect> {
         Some(self.attributes.get(&id)?.reflect_value())
     }
 
+    /// Returns an iterator over all custom attributes.
     pub fn iter(&self) -> impl ExactSizeIterator<Item = (&TypeId, &dyn Reflect)> {
         self.attributes
             .iter()
             .map(|(key, value)| (key, value.reflect_value()))
     }
 
+    /// Returns the number of custom attributes in this collection.
     pub fn len(&self) -> usize {
         self.attributes.len()
     }
 
+    /// Returns `true` if this collection is empty.
     pub fn is_empty(&self) -> bool {
         self.attributes.is_empty()
     }
@@ -53,7 +90,7 @@ impl Debug for CustomAttributes {
     }
 }
 
-pub struct CustomAttribute {
+struct CustomAttribute {
     value: Box<dyn Reflect>,
 }
 
@@ -79,6 +116,22 @@ impl Debug for CustomAttribute {
     }
 }
 
+/// Implements methods for accessing custom attributes.
+///
+/// Implements the following methods:
+///
+/// * `fn custom_attributes(&self) -> &CustomAttributes`
+/// * `fn get_attribute<T: Reflect>(&self) -> Option<&T>`
+/// * `fn get_attribute_by_id(&self, id: TypeId) -> Option<&dyn Reflect>`
+/// * `fn has_attribute<T: Reflect>(&self) -> bool`
+/// * `fn has_attribute_by_id(&self, id: TypeId) -> bool`
+///
+/// # Params
+///
+/// * `$attributes` - The name of the field containing the [`CustomAttributes`].
+/// * `$term` - (Optional) The term used to describe the type containing the custom attributes.
+///   This is purely used to generate better documentation. Defaults to `"item"`.
+///
 macro_rules! impl_custom_attribute_methods {
     ($attributes: ident) => {
         $crate::attributes::impl_custom_attribute_methods!($attributes, "item");
