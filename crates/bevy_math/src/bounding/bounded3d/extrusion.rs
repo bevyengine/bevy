@@ -279,7 +279,7 @@ mod tests {
 
     use crate::{
         bounding::{Bounded3d, BoundingVolume},
-        primitives::{Circle, Ellipse, Extrusion, Line2d, Rectangle, Segment2d},
+        primitives::{Capsule2d, Circle, Ellipse, Extrusion, Rectangle, Segment2d},
         Dir2,
     };
 
@@ -336,6 +336,21 @@ mod tests {
         let aabb = extrusion.aabb_3d(translation, rotation);
         assert_eq!(aabb.center(), translation.into());
         assert_eq!(aabb.half_size(), Vec3A::new(0., 2.4748735, 2.4748735));
+
+        let bounding_sphere = extrusion.bounding_sphere(translation, rotation);
+        assert_eq!(bounding_sphere.center, translation.into());
+        assert_eq!(bounding_sphere.radius(), 2.5);
+    }
+
+    #[test]
+    fn capsule() {
+        let extrusion = Extrusion::new(Capsule2d::new(0.5, 2.0), 4.0);
+        let translation = Vec3::new(3., 4., 5.);
+        let rotation = Quat::from_rotation_x(FRAC_PI_4);
+
+        let aabb = extrusion.aabb_3d(translation, rotation);
+        assert_eq!(aabb.center(), translation.into());
+        assert_eq!(aabb.half_size(), Vec3A::new(0.5, 2.4748735, 2.4748735));
 
         let bounding_sphere = extrusion.bounding_sphere(translation, rotation);
         assert_eq!(bounding_sphere.center, translation.into());
