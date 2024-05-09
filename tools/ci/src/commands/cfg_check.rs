@@ -1,4 +1,4 @@
-use super::{run_cargo_command, run_cargo_command_with_json, RustChannel};
+use super::{run_cargo_command, run_cargo_command_with_json, RustToolchain};
 use crate::json::JsonCommandOutput;
 use argh::FromArgs;
 
@@ -19,7 +19,7 @@ impl CfgCheckCommand {
     ///
     /// For use in aliases.
     pub fn run_with_intermediate() -> Result<(), ()> {
-        run_cargo_command("check", RustChannel::Nightly, Self::FLAGS, Self::ENV_VARS)
+        run_cargo_command("check", RustToolchain::Nightly, Self::FLAGS, Self::ENV_VARS)
     }
 
     /// Runs this command with json output.
@@ -29,7 +29,7 @@ impl CfgCheckCommand {
         run_cargo_command_with_json(
             "check",
             "cfg-check",
-            RustChannel::Nightly,
+            RustToolchain::Nightly,
             Self::FLAGS,
             Self::ENV_VARS,
         )

@@ -32,18 +32,34 @@ use crate::json::JsonCommandOutput;
 use std::process::{Command, ExitStatus, Stdio};
 
 #[derive(Debug, Default)]
-pub enum RustChannel {
+pub enum RustToolchain {
     #[default]
-    Stable,
+    // Whichever toolchain the user has set as their preferred one
+    Active,
+    // The nightly toolchain
     Nightly,
 }
 
-impl RustChannel {
-    pub const fn as_str(&self) -> &'static str {
+impl RustToolchain {
+    /// Returns a toolchain string usable with rustup
+    pub fn as_toolchain_string(&self) -> String {
         match *self {
-            Self::Stable => "stable",
             // TODO: Test if this supports nightly pinning using `NIGHTLY_TOOLCHAIN` env variable.
-            Self::Nightly => "nightly",
+            Self::Nightly => "nightly".to_string(),
+            Self::Active => {
+                let out = Command::new("rustup")
+                    .args(["show", "active-toolchain"])
+                    .output()
+                    .unwrap();
+
+                // The output might contain `(default)` at the end.
+                // This suffix will be separated by a space.
+                let toolchain = out.stdout.split(|c| *c == b' ').next().unwrap();
+
+                let toolchain = std::str::from_utf8(toolchain).unwrap().to_string();
+
+                toolchain
+            }
         }
     }
 }
@@ -66,7 +82,7 @@ fn status_to_result(status: ExitStatus) -> Result<(), ()> {
 /// - The command returned a non success exit code.
 pub fn run_cargo_command(
     cargo_command: &str,
-    channel: RustChannel,
+    channel: RustToolchain,
     args: &[&str],
     env: &[(&str, &str)],
 ) -> Result<(), ()> {
@@ -76,7 +92,12 @@ pub fn run_cargo_command(
     // rustup which picks the correct cargo installation for you. `Command` seems to go directly to
     // the system wide install of cargo.
     Command::new("rustup")
-        .args(["run", channel.as_str(), "cargo", cargo_command])
+        .args([
+            "run",
+            &channel.as_toolchain_string(),
+            "cargo",
+            cargo_command,
+        ])
         .args(args)
         .envs(env.iter().copied())
         .status()
@@ -96,7 +117,7 @@ pub fn run_cargo_command(
 pub fn run_cargo_command_with_json(
     cargo_command: &str,
     command_name: &str,
-    channel: RustChannel,
+    channel: RustToolchain,
     flags: &[&str],
     env: &[(&str, &str)],
 ) -> Result<JsonCommandOutput, ()> {
@@ -104,7 +125,7 @@ pub fn run_cargo_command_with_json(
     let mut child = Command::new("rustup")
         .args([
             "run",
-            channel.as_str(),
+            &channel.as_toolchain_string(),
             "cargo",
             cargo_command,
             "--message-format",

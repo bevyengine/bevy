@@ -1,6 +1,6 @@
 use argh::FromArgs;
 
-use super::{run_cargo_command, RustChannel};
+use super::{run_cargo_command, RustToolchain};
 
 /// Check code formatting.
 #[derive(FromArgs, Default)]
@@ -15,7 +15,7 @@ impl FormatCommand {
     ///
     /// For use in aliases.
     pub fn run_with_intermediate() -> Result<(), ()> {
-        run_cargo_command("fmt", RustChannel::Stable, Self::FLAGS, Self::ENV_VARS)
+        run_cargo_command("fmt", RustToolchain::Active, Self::FLAGS, Self::ENV_VARS)
     }
 
     /// Runs this command.
