@@ -1,6 +1,6 @@
 use crate::{
-    impl_componentwise_vector_space, Alpha, ClampColor, Convert, LinearRgba, Luminance, Mix,
-    StandardColor,
+    impl_componentwise_vector_space, Alpha, ClampColor, ColorToComponents, LinearRgba, Luminance,
+    Mix, StandardColor,
 };
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
@@ -162,12 +162,12 @@ impl ClampColor for Xyza {
     }
 }
 
-impl Convert for Xyza {
+impl ColorToComponents for Xyza {
     fn to_f32_array(self) -> [f32; 4] {
         [self.x, self.y, self.z, self.alpha]
     }
 
-    fn to_alphaless_array(self) -> [f32; 3] {
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
         [self.x, self.y, self.z]
     }
 
@@ -179,7 +179,7 @@ impl Convert for Xyza {
         Vec3::new(self.x, self.y, self.z)
     }
 
-    fn from_array(color: [f32; 4]) -> Self {
+    fn from_f32_array(color: [f32; 4]) -> Self {
         Self {
             x: color[0],
             y: color[1],
@@ -188,7 +188,7 @@ impl Convert for Xyza {
         }
     }
 
-    fn from_alphaless_array(color: [f32; 3]) -> Self {
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
         Self {
             x: color[0],
             y: color[1],

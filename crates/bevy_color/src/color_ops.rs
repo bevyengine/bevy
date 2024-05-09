@@ -100,19 +100,19 @@ pub trait ClampColor: Sized {
 }
 
 /// Trait with methods for converting colors to non-color types
-pub trait Convert {
+pub trait ColorToComponents {
     /// Convert to an f32 array
     fn to_f32_array(self) -> [f32; 4];
     /// Convert to an f32 array without the alpha value
-    fn to_alphaless_array(self) -> [f32; 3];
+    fn to_f32_array_no_alpha(self) -> [f32; 3];
     /// Convert to a Vec4
     fn to_vec4(self) -> Vec4;
     /// Convert to a Vec3
     fn to_vec3(self) -> Vec3;
     /// Convert from an f32 array
-    fn from_array(color: [f32; 4]) -> Self;
+    fn from_f32_array(color: [f32; 4]) -> Self;
     /// Convert from an f32 array without the alpha value
-    fn from_alphaless_array(color: [f32; 3]) -> Self;
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self;
     /// Convert from a Vec4
     fn from_vec4(color: Vec4) -> Self;
     /// Convert from a Vec3

@@ -1,7 +1,7 @@
 use crate::color_difference::EuclideanDistance;
 use crate::{
-    impl_componentwise_vector_space, Alpha, ClampColor, Convert, LinearRgba, Luminance, Mix,
-    StandardColor, Xyza,
+    impl_componentwise_vector_space, Alpha, ClampColor, ColorToComponents, LinearRgba, Luminance,
+    Mix, StandardColor, Xyza,
 };
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
@@ -332,12 +332,12 @@ impl ClampColor for Srgba {
     }
 }
 
-impl Convert for Srgba {
+impl ColorToComponents for Srgba {
     fn to_f32_array(self) -> [f32; 4] {
         [self.red, self.green, self.blue, self.alpha]
     }
 
-    fn to_alphaless_array(self) -> [f32; 3] {
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
         [self.red, self.green, self.blue]
     }
 
@@ -349,7 +349,7 @@ impl Convert for Srgba {
         Vec3::new(self.red, self.green, self.blue)
     }
 
-    fn from_array(color: [f32; 4]) -> Self {
+    fn from_f32_array(color: [f32; 4]) -> Self {
         Self {
             red: color[0],
             green: color[1],
@@ -358,7 +358,7 @@ impl Convert for Srgba {
         }
     }
 
-    fn from_alphaless_array(color: [f32; 3]) -> Self {
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
         Self {
             red: color[0],
             green: color[1],

@@ -2,7 +2,9 @@
 //! in [_HWB - A More Intuitive Hue-Based Color Model_] by _Smith et al_.
 //!
 //! [_HWB - A More Intuitive Hue-Based Color Model_]: https://web.archive.org/web/20240226005220/http://alvyray.com/Papers/CG/HWB_JGTv208.pdf
-use crate::{Alpha, ClampColor, Convert, Hue, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza};
+use crate::{
+    Alpha, ClampColor, ColorToComponents, Hue, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza,
+};
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
 
@@ -143,12 +145,12 @@ impl ClampColor for Hwba {
     }
 }
 
-impl Convert for Hwba {
+impl ColorToComponents for Hwba {
     fn to_f32_array(self) -> [f32; 4] {
         [self.hue, self.whiteness, self.blackness, self.alpha]
     }
 
-    fn to_alphaless_array(self) -> [f32; 3] {
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
         [self.hue, self.whiteness, self.blackness]
     }
 
@@ -160,7 +162,7 @@ impl Convert for Hwba {
         Vec3::new(self.hue, self.whiteness, self.blackness)
     }
 
-    fn from_array(color: [f32; 4]) -> Self {
+    fn from_f32_array(color: [f32; 4]) -> Self {
         Self {
             hue: color[0],
             whiteness: color[1],
@@ -169,7 +171,7 @@ impl Convert for Hwba {
         }
     }
 
-    fn from_alphaless_array(color: [f32; 3]) -> Self {
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
         Self {
             hue: color[0],
             whiteness: color[1],

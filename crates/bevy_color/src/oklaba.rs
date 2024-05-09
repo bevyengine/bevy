@@ -1,6 +1,7 @@
 use crate::{
     color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ClampColor,
-    Convert, Hsla, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
+    ColorToComponents, Hsla, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor,
+    Xyza,
 };
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
@@ -174,12 +175,12 @@ impl ClampColor for Oklaba {
     }
 }
 
-impl Convert for Oklaba {
+impl ColorToComponents for Oklaba {
     fn to_f32_array(self) -> [f32; 4] {
         [self.lightness, self.a, self.b, self.alpha]
     }
 
-    fn to_alphaless_array(self) -> [f32; 3] {
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
         [self.lightness, self.a, self.b]
     }
 
@@ -191,7 +192,7 @@ impl Convert for Oklaba {
         Vec3::new(self.lightness, self.a, self.b)
     }
 
-    fn from_array(color: [f32; 4]) -> Self {
+    fn from_f32_array(color: [f32; 4]) -> Self {
         Self {
             lightness: color[0],
             a: color[1],
@@ -200,7 +201,7 @@ impl Convert for Oklaba {
         }
     }
 
-    fn from_alphaless_array(color: [f32; 3]) -> Self {
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
         Self {
             lightness: color[0],
             a: color[1],

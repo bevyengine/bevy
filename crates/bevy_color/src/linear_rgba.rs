@@ -1,6 +1,6 @@
 use crate::{
     color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ClampColor,
-    Convert, Luminance, Mix, StandardColor,
+    ColorToComponents, Luminance, Mix, StandardColor,
 };
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
@@ -281,12 +281,12 @@ impl ClampColor for LinearRgba {
     }
 }
 
-impl Convert for LinearRgba {
+impl ColorToComponents for LinearRgba {
     fn to_f32_array(self) -> [f32; 4] {
         [self.red, self.green, self.blue, self.alpha]
     }
 
-    fn to_alphaless_array(self) -> [f32; 3] {
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
         [self.red, self.green, self.blue]
     }
 
@@ -298,7 +298,7 @@ impl Convert for LinearRgba {
         Vec3::new(self.red, self.green, self.blue)
     }
 
-    fn from_array(color: [f32; 4]) -> Self {
+    fn from_f32_array(color: [f32; 4]) -> Self {
         Self {
             red: color[0],
             green: color[1],
@@ -307,7 +307,7 @@ impl Convert for LinearRgba {
         }
     }
 
-    fn from_alphaless_array(color: [f32; 3]) -> Self {
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
         Self {
             red: color[0],
             green: color[1],

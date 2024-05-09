@@ -1,6 +1,6 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
-use bevy_color::{Convert, LinearRgba};
+use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_math::{Vec3, Vec4};
 use bevy_render::{

@@ -1,5 +1,6 @@
 use crate::{
-    Alpha, ClampColor, Convert, Hue, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
+    Alpha, ClampColor, ColorToComponents, Hue, Laba, LinearRgba, Luminance, Mix, Srgba,
+    StandardColor, Xyza,
 };
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
@@ -203,12 +204,12 @@ impl ClampColor for Lcha {
     }
 }
 
-impl Convert for Lcha {
+impl ColorToComponents for Lcha {
     fn to_f32_array(self) -> [f32; 4] {
         [self.lightness, self.chroma, self.hue, self.alpha]
     }
 
-    fn to_alphaless_array(self) -> [f32; 3] {
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
         [self.lightness, self.chroma, self.hue]
     }
 
@@ -220,7 +221,7 @@ impl Convert for Lcha {
         Vec3::new(self.lightness, self.chroma, self.hue)
     }
 
-    fn from_array(color: [f32; 4]) -> Self {
+    fn from_f32_array(color: [f32; 4]) -> Self {
         Self {
             lightness: color[0],
             chroma: color[1],
@@ -229,7 +230,7 @@ impl Convert for Lcha {
         }
     }
 
-    fn from_alphaless_array(color: [f32; 3]) -> Self {
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
         Self {
             lightness: color[0],
             chroma: color[1],

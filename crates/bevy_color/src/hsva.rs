@@ -1,5 +1,6 @@
 use crate::{
-    Alpha, ClampColor, Convert, Hue, Hwba, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza,
+    Alpha, ClampColor, ColorToComponents, Hue, Hwba, Lcha, LinearRgba, Mix, Srgba, StandardColor,
+    Xyza,
 };
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
@@ -175,12 +176,12 @@ impl From<Hwba> for Hsva {
     }
 }
 
-impl Convert for Hsva {
+impl ColorToComponents for Hsva {
     fn to_f32_array(self) -> [f32; 4] {
         [self.hue, self.saturation, self.value, self.alpha]
     }
 
-    fn to_alphaless_array(self) -> [f32; 3] {
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
         [self.hue, self.saturation, self.value]
     }
 
@@ -192,7 +193,7 @@ impl Convert for Hsva {
         Vec3::new(self.hue, self.saturation, self.value)
     }
 
-    fn from_array(color: [f32; 4]) -> Self {
+    fn from_f32_array(color: [f32; 4]) -> Self {
         Self {
             hue: color[0],
             saturation: color[1],
@@ -201,7 +202,7 @@ impl Convert for Hsva {
         }
     }
 
-    fn from_alphaless_array(color: [f32; 3]) -> Self {
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
         Self {
             hue: color[0],
             saturation: color[1],
