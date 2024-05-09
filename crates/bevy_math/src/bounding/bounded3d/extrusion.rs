@@ -5,7 +5,7 @@ use glam::{Vec2, Vec3A, Vec3Swizzles};
 use crate::bounding::{BoundingCircle, BoundingVolume};
 use crate::primitives::{
     BoxedPolygon, BoxedPolyline2d, Capsule2d, Cuboid, Cylinder, Ellipse, Extrusion, Line2d,
-    Plane2d, Polygon, Polyline2d, Primitive2d, Rectangle, Segment2d,
+    Plane2d, Polygon, Polyline2d, Primitive2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
 };
 use crate::{Quat, Vec3};
 
@@ -97,8 +97,10 @@ impl Bounded3d for Extrusion<Line2d> {
 
 impl Bounded3d for Extrusion<Segment2d> {
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
-        let half_size = (rotation * self.base_shape.point1().extend(0.)).abs();
-        Aabb3d::new(translation, half_size)
+        let half_size = rotation * self.base_shape.point1().extend(0.);
+        let depth = rotation * Vec3::new(0., 0., self.half_depth);
+
+        Aabb3d::new(translation, half_size.abs() + depth.abs())
     }
 
     fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
@@ -113,9 +115,9 @@ impl<const N: usize> Bounded3d for Extrusion<Polyline2d<N>> {
             rotation,
             self.base_shape.vertices.map(|v| v.extend(0.)).into_iter(),
         );
-        let depth = rotation * Vec3A::new(0., 0., self.half_depth).abs();
+        let depth = rotation * Vec3A::new(0., 0., self.half_depth);
 
-        aabb.grow(depth)
+        aabb.grow(depth.abs())
     }
 
     fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
@@ -130,9 +132,26 @@ impl Bounded3d for Extrusion<BoxedPolyline2d> {
             rotation,
             self.base_shape.vertices.iter().map(|v| v.extend(0.)),
         );
-        let depth = rotation * Vec3A::new(0., 0., self.half_depth).abs();
+        let depth = rotation * Vec3A::new(0., 0., self.half_depth);
 
-        aabb.grow(depth)
+        aabb.grow(depth.abs())
+    }
+
+    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
+        bounding_sphere(self, translation, rotation)
+    }
+}
+
+impl Bounded3d for Extrusion<Triangle2d> {
+    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
+        let aabb = Aabb3d::from_point_cloud(
+            translation,
+            rotation,
+            self.base_shape.vertices.iter().map(|v| v.extend(0.)),
+        );
+        let depth = rotation * Vec3A::new(0., 0., self.half_depth);
+
+        aabb.grow(depth.abs())
     }
 
     fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
@@ -160,9 +179,9 @@ impl<const N: usize> Bounded3d for Extrusion<Polygon<N>> {
             rotation,
             self.base_shape.vertices.map(|v| v.extend(0.)).into_iter(),
         );
-        let depth = rotation * Vec3A::new(0., 0., self.half_depth).abs();
+        let depth = rotation * Vec3A::new(0., 0., self.half_depth);
 
-        aabb.grow(depth)
+        aabb.grow(depth.abs())
     }
 
     fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
@@ -177,9 +196,29 @@ impl Bounded3d for Extrusion<BoxedPolygon> {
             rotation,
             self.base_shape.vertices.iter().map(|v| v.extend(0.)),
         );
-        let depth = rotation * Vec3A::new(0., 0., self.half_depth).abs();
+        let depth = rotation * Vec3A::new(0., 0., self.half_depth);
 
-        aabb.grow(depth)
+        aabb.grow(depth.abs())
+    }
+
+    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
+        bounding_sphere(self, translation, rotation)
+    }
+}
+
+impl Bounded3d for Extrusion<RegularPolygon> {
+    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
+        let aabb = Aabb3d::from_point_cloud(
+            translation,
+            rotation,
+            self.base_shape
+                .vertices(0.)
+                .into_iter()
+                .map(|v| v.extend(0.)),
+        );
+        let depth = rotation * Vec3A::new(0., 0., self.half_depth);
+
+        aabb.grow(depth.abs())
     }
 
     fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
