@@ -79,7 +79,6 @@ pub fn run_cargo_command(
         .args(["run", channel.as_str(), "cargo", cargo_command])
         .args(args)
         .envs(env.iter().copied())
-        // Execute the command and collect its exit code.
         .status()
         .map_err(|err| eprintln!("{err}"))
         .and_then(status_to_result)
@@ -108,7 +107,6 @@ pub fn run_cargo_command_with_json(
             channel.as_str(),
             "cargo",
             cargo_command,
-            // Here we specify that we want JSON output.
             "--message-format",
             "json",
         ])
@@ -124,11 +122,15 @@ pub fn run_cargo_command_with_json(
         unreachable!("Child was configured to pipe it's stdout to use but didn't")
     };
 
-    // Don't just leave the child running in the background.
-    let _ = child.wait();
-
-    JsonCommandOutput::from_cargo_output(command_out, command_name.to_string()).map_err(|err| {
-        // Log error, converting it to an `Err(())`.
-        eprintln!("{err}");
-    })
+    match JsonCommandOutput::from_cargo_output(command_out, command_name.to_string()) {
+        Ok(json) => {
+            let _ = child.wait(); // Don't just leave the child running in the background
+            Ok(json)
+        }
+        Err(err) => {
+            let _ = child.wait();
+            eprintln!("{err}");
+            Err(())
+        }
+    }
 }
