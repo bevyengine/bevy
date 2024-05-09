@@ -691,7 +691,7 @@ impl CubicSegment<Vec2> {
     pub fn new_bezier(p1: impl Into<Vec2>, p2: impl Into<Vec2>) -> Self {
         let (p0, p3) = (Vec2::ZERO, Vec2::ONE);
         let bezier = CubicBezier::new([[p0, p1.into(), p2.into(), p3]]).to_curve();
-        bezier.segments[0].clone()
+        bezier.segments[0]
     }
 
     /// Maximum allowable error for iterative Bezier solve
