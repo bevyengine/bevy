@@ -25,7 +25,7 @@ impl DocTestCommand {
             flags.push("--no-fail-fast");
         }
 
-        run_cargo_command("doc", RustToolchain::Active, &flags, Self::ENV_VARS)
+        run_cargo_command("test", RustToolchain::Active, &flags, Self::ENV_VARS)
     }
 
     /// Runs this command with json output.
@@ -38,7 +38,7 @@ impl DocTestCommand {
         }
 
         run_cargo_command_with_json(
-            "doc",
+            "test",
             "doc-test",
             RustToolchain::Active,
             &flags,
