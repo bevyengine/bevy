@@ -43,7 +43,7 @@ impl<'de> Visitor<'de> for EntityVisitor {
 
 impl Serialize for FrameCount {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(self.0.to_string().as_str())
+        serializer.serialize_u32(self.0)
     }
 }
 
