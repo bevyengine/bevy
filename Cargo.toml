@@ -55,6 +55,7 @@ workspace = true
 default = [
   "animation",
   "bevy_asset",
+  "bevy_state",
   "bevy_audio",
   "bevy_color",
   "bevy_gilrs",
@@ -333,6 +334,9 @@ meshlet_processor = ["bevy_internal/meshlet_processor"]
 
 # Enable support for the ios_simulator by downgrading some rendering capabilities
 ios_simulator = ["bevy_internal/ios_simulator"]
+
+# Enable built in global state machines
+bevy_state = ["bevy_internal/bevy_state"]
 
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.14.0-dev", default-features = false }
@@ -1729,35 +1733,35 @@ wasm = false
 
 [[example]]
 name = "state"
-path = "examples/ecs/state.rs"
+path = "examples/state/state.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.state]
 name = "State"
 description = "Illustrates how to use States to control transitioning from a Menu state to an InGame state"
-category = "ECS (Entity Component System)"
+category = "State"
 wasm = false
 
 [[example]]
 name = "sub_states"
-path = "examples/ecs/sub_states.rs"
+path = "examples/state/sub_states.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.sub_states]
 name = "Sub States"
 description = "Using Sub States for hierarchical state handling."
-category = "ECS (Entity Component System)"
+category = "State"
 wasm = false
 
 [[example]]
 name = "computed_states"
-path = "examples/ecs/computed_states.rs"
+path = "examples/state/computed_states.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.computed_states]
 name = "Computed States"
 description = "Advanced state patterns using Computed States"
-category = "ECS (Entity Component System)"
+category = "State"
 wasm = false
 
 [[example]]
