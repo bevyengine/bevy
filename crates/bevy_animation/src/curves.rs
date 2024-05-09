@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use bevy_math::{
     cubic_splines::{CubicGenerator, CubicHermite},
-    curve::{interval, ConstantCurve, Curve, Interpolable, Interval, UnevenSampleCurve},
+    curve::*,
     FloatExt, Quat, Vec3, Vec4, VectorSpace,
 };
 use bevy_reflect::Reflect;
@@ -222,39 +222,40 @@ pub enum WeightsCurve {
     CubicSpline(DynamicArrayCurve<TwoSidedHermite<f32>>),
 }
 
-impl Curve<Vec<f32>> for WeightsCurve {
+impl IterableCurve<f32> for WeightsCurve {
     fn domain(&self) -> Interval {
         match self {
-            WeightsCurve::Constant(c) => c.domain(),
+            WeightsCurve::Constant(c) => IterableCurve::domain(c),
             WeightsCurve::Linear(c) => c.domain(),
             WeightsCurve::Step(c) => c.domain(),
             WeightsCurve::CubicSpline(c) => c.domain(),
         }
     }
 
-    fn sample(&self, t: f32) -> Vec<f32> {
+    fn sample_iter<'a>(&self, t: f32) -> impl Iterator<Item = f32>
+    where
+        Self: 'a,
+    {
         match self {
-            WeightsCurve::Constant(c) => c.sample(t),
-            WeightsCurve::Linear(c) => c.sample(t),
-            WeightsCurve::Step(c) => c.map(|v| v.into_iter().map(|x| x.0).collect()).sample(t),
-            WeightsCurve::CubicSpline(c) => c
-                .map(|v| v.into_iter().map(|x| x.point).collect())
-                .sample(t),
+            WeightsCurve::Constant(c) => QuaternaryIteratorDisjunction::First(c.sample_iter(t)),
+            WeightsCurve::Linear(c) => QuaternaryIteratorDisjunction::Second(c.sample_iter(t)),
+            WeightsCurve::Step(c) => {
+                QuaternaryIteratorDisjunction::Third(c.sample_iter(t).map(|v| v.0))
+            }
+            WeightsCurve::CubicSpline(c) => {
+                QuaternaryIteratorDisjunction::Fourth(c.sample_iter(t).map(|v| v.point))
+            }
         }
     }
 }
 
-impl MultiCurve<f32> for WeightsCurve {
-    fn map_sample_into<S>(&self, t: f32, buffer: &mut [S], f: &impl Fn(f32) -> S)
-    where
-        S: Interpolable,
-    {
-        match self {
-            WeightsCurve::Constant(c) => todo!(),
-            WeightsCurve::Linear(c) => todo!(),
-            WeightsCurve::Step(c) => todo!(),
-            WeightsCurve::CubicSpline(c) => todo!(),
-        }
+impl Curve<Vec<f32>> for WeightsCurve {
+    fn domain(&self) -> Interval {
+        IterableCurve::domain(self)
+    }
+
+    fn sample(&self, t: f32) -> Vec<f32> {
+        self.sample_iter(t).collect()
     }
 }
 
@@ -277,78 +278,9 @@ pub enum VariableCurve {
     Weights(WeightsCurve),
 }
 
-//--------------//
-// EXPERIMENTAL //
-//--------------//
-
-/// A trait for a curve that takes many interpolable values simultaneously, providing a function
-/// to place those values into a buffer rather than allocating while sampling.
-pub trait MultiCurve<T>: Curve<Vec<T>>
-where
-    T: Interpolable,
-{
-    /// Sample a number of simultaneous values from this curve into a buffer.
-    fn sample_into(&self, t: f32, buffer: &mut [T]) {
-        self.map_sample_into(t, buffer, &|x| x)
-    }
-
-    /// Map the collection of samples by `f` before putting them into the given buffer.
-    fn map_sample_into<S>(&self, t: f32, buffer: &mut [S], f: &impl Fn(T) -> S)
-    where
-        S: Interpolable;
-}
-
-pub struct MultiMapCurve<S, T, C, F>
-where
-    S: Interpolable,
-    T: Interpolable,
-    C: MultiCurve<S>,
-    F: Fn(S) -> T,
-{
-    preimage: C,
-    f: F,
-    _phantom: PhantomData<(S, T)>,
-}
-
-impl<S, T, C, F> Curve<Vec<T>> for MultiMapCurve<S, T, C, F>
-where
-    S: Interpolable,
-    T: Interpolable,
-    C: MultiCurve<S>,
-    F: Fn(S) -> T,
-{
-    fn domain(&self) -> Interval {
-        self.preimage.domain()
-    }
-
-    fn sample(&self, t: f32) -> Vec<T> {
-        self.preimage
-            .sample(t)
-            .into_iter()
-            .map(|x| (self.f)(x))
-            .collect()
-    }
-}
-
-impl<S, T, C, F> MultiCurve<T> for MultiMapCurve<S, T, C, F>
-where
-    S: Interpolable,
-    T: Interpolable,
-    C: MultiCurve<S>,
-    F: Fn(S) -> T,
-{
-    fn sample_into(&self, t: f32, buffer: &mut [T]) {
-        self.preimage.map_sample_into(t, buffer, &self.f);
-    }
-
-    fn map_sample_into<R>(&self, t: f32, buffer: &mut [R], g: &impl Fn(T) -> R)
-    where
-        R: Interpolable,
-    {
-        let gf = |x| g((self.f)(x));
-        self.preimage.map_sample_into(t, buffer, &gf);
-    }
-}
+//-----------------//
+// NEW CURVE STUFF //
+//-----------------//
 
 /// A curve data structure which holds data for a list of keyframes in a number of distinct
 /// "channels" equal to its `width`. This is sampled through `sample_into`, which places the data
@@ -453,101 +385,10 @@ where
         let end = self.times.last().unwrap();
         interval(*start, *end).unwrap()
     }
-
-    /// Sample the interpolated data at time `t` into a given `buffer`.
-    ///
-    /// # Panics
-    /// Panics if the provided buffer is not at least as large as `width`.
-    pub fn sample_into(&self, t: f32, buffer: &mut [T]) {
-        assert!(buffer.len() >= self.width);
-
-        let t = self.domain().clamp(t);
-
-        let Some(lower_index) = self.find_keyframe(t) else {
-            // After clamping, `find_keyframe` will only return None if we landed on the
-            // last keyframe.
-            let index = self.times.len() - 1;
-
-            // Jump to where the values for the last keyframe are:
-            let morph_index = index * self.width;
-
-            // Copy the values for the last keyframe into the buffer:
-            for offset in 0..self.width {
-                buffer[offset] = self.values[morph_index + offset].clone();
-            }
-
-            return;
-        };
-
-        // Get the adjacent timestamps and the lerp parameter of `t` between them:
-        let upper_index = lower_index + 1;
-        let lower_timestamp = self.times[lower_index];
-        let upper_timestamp = self.times[upper_index];
-        let lerp_param = f32::inverse_lerp(lower_timestamp, upper_timestamp, t);
-
-        // The indices in `self.values` where the values actually start:
-        let lower_morph_index = lower_index * self.width;
-        let upper_morph_index = upper_index * self.width;
-
-        // Interpolate and dump the results into the given buffer:
-        for offset in 0..self.width {
-            let lower_value = &self.values[lower_morph_index + offset];
-            let upper_value = &self.values[upper_morph_index + offset];
-            buffer[offset] = lower_value.interpolate(upper_value, lerp_param);
-        }
-    }
-
-    /// Sample the interpolated data at time `t` into a given `buffer` after mapping it through
-    /// a function `f`.
-    ///
-    /// # Panics
-    /// Panics if the provided buffer is not at least as large as `width`.
-    pub fn map_sample_into<S>(&self, t: f32, buffer: &mut [S], f: &impl Fn(T) -> S)
-    where
-        S: Interpolable,
-    {
-        assert!(buffer.len() >= self.width);
-
-        let t = self.domain().clamp(t);
-
-        let Some(lower_index) = self.find_keyframe(t) else {
-            // After clamping, `find_keyframe` will only return None if we landed on the
-            // last keyframe.
-            let index = self.times.len() - 1;
-
-            // Jump to where the values for the last keyframe are:
-            let morph_index = index * self.width;
-
-            // Copy the values for the last keyframe into the buffer:
-            for offset in 0..self.width {
-                buffer[offset] = f(self.values[morph_index + offset].clone());
-            }
-
-            return;
-        };
-
-        // Get the adjacent timestamps and the lerp parameter of `t` between them:
-        let upper_index = lower_index + 1;
-        let lower_timestamp = self.times[lower_index];
-        let upper_timestamp = self.times[upper_index];
-        let lerp_param = f32::inverse_lerp(lower_timestamp, upper_timestamp, t);
-
-        // The indices in `self.values` where the values actually start:
-        let lower_morph_index = lower_index * self.width;
-        let upper_morph_index = upper_index * self.width;
-
-        // Interpolate and dump the results into the given buffer:
-        for offset in 0..self.width {
-            let lower_value = &self.values[lower_morph_index + offset];
-            let upper_value = &self.values[upper_morph_index + offset];
-            buffer[offset] = f(lower_value.interpolate(upper_value, lerp_param));
-        }
-    }
 }
 
 // Note that the `sample` function always allocates its output, whereas `sample_into` can dump
 // the sample data into an external buffer, bypassing the need to allocate.
-
 impl<T> Curve<Vec<T>> for DynamicArrayCurve<T>
 where
     T: Interpolable + Default,
@@ -557,45 +398,8 @@ where
     }
 
     fn sample(&self, t: f32) -> Vec<T> {
-        let mut output: Vec<T> = vec![<T as Default>::default(); self.width];
-        self.sample_into(t, output.as_mut_slice());
-        output
+        self.sample_iter(t).collect()
     }
-}
-
-impl<T> MultiCurve<T> for DynamicArrayCurve<T>
-where
-    T: Interpolable + Default,
-{
-    fn sample_into(&self, t: f32, buffer: &mut [T]) {
-        self.sample_into(t, buffer);
-    }
-
-    fn map_sample_into<S>(&self, t: f32, buffer: &mut [S], f: &impl Fn(T) -> S)
-    where
-        S: Interpolable,
-    {
-        self.map_sample_into(t, buffer, f)
-    }
-}
-
-// Another experiment: iterable curves.
-
-/// A curve which provides samples in the form of [`Iterator`]s.
-///
-/// This is an abstraction that provides an interface for curves which look like `Curve<Vec<T>>`
-/// but side-stepping issues with allocation on sampling. This happens when the size of an output
-/// array cannot be known statically.
-pub trait IterableCurve<T>
-where
-    T: Interpolable,
-{
-    fn domain(&self) -> Interval;
-
-    /// Sample this curve at a specified time `t`, producing an iterator over sampled values.
-    fn sample_iter<'a>(&self, t: f32) -> impl Iterator<Item = T>
-    where
-        Self: 'a;
 }
 
 impl<T> IterableCurve<T> for DynamicArrayCurve<T>
@@ -668,6 +472,38 @@ where
         match self {
             IteratorDisjunction::Left(a) => a.next(),
             IteratorDisjunction::Right(b) => b.next(),
+        }
+    }
+}
+
+enum QuaternaryIteratorDisjunction<A, B, C, D, T>
+where
+    A: Iterator<Item = T>,
+    B: Iterator<Item = T>,
+    C: Iterator<Item = T>,
+    D: Iterator<Item = T>,
+{
+    First(A),
+    Second(B),
+    Third(C),
+    Fourth(D),
+}
+
+impl<A, B, C, D, T> Iterator for QuaternaryIteratorDisjunction<A, B, C, D, T>
+where
+    A: Iterator<Item = T>,
+    B: Iterator<Item = T>,
+    C: Iterator<Item = T>,
+    D: Iterator<Item = T>,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            QuaternaryIteratorDisjunction::First(a) => a.next(),
+            QuaternaryIteratorDisjunction::Second(b) => b.next(),
+            QuaternaryIteratorDisjunction::Third(c) => c.next(),
+            QuaternaryIteratorDisjunction::Fourth(d) => d.next(),
         }
     }
 }
