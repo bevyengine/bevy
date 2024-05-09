@@ -9,6 +9,7 @@ use serde::{
 };
 
 use super::name::Name;
+use super::FrameCount;
 
 impl Serialize for Name {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
@@ -37,5 +38,34 @@ impl<'de> Visitor<'de> for EntityVisitor {
 
     fn visit_string<E: Error>(self, v: String) -> Result<Self::Value, E> {
         Ok(Name::new(v))
+    }
+}
+
+impl Serialize for FrameCount {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.0.to_string().as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for FrameCount {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_u32(FrameVisitor)
+    }
+}
+
+struct FrameVisitor;
+
+impl<'de> Visitor<'de> for FrameVisitor {
+    type Value = FrameCount;
+
+    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+        formatter.write_str(any::type_name::<FrameCount>())
+    }
+
+    fn visit_u32<E>(self, v: u32) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        Ok(FrameCount(v))
     }
 }
