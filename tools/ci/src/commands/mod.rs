@@ -114,7 +114,7 @@ pub fn run_cargo_command_with_json(
         ])
         .args(flags)
         .envs(env.iter().copied())
-        // TODO: What's this line doing?
+        // Capture any output to stdout.
         .stdout(Stdio::piped())
         .spawn()
         .map_err(|err| eprintln!("{err}"))?;
