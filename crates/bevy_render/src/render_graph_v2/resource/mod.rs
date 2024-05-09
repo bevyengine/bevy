@@ -485,6 +485,21 @@ impl<'g> RenderDependencies<'g> {
         new
     }
 
+    #[inline]
+    pub fn reads<R: RenderResource>(&self, resource: RenderHandle<'g, R>) -> bool {
+        self.reads.contains(&resource.id())
+    }
+
+    #[inline]
+    pub fn writes<R: RenderResource>(&self, resource: RenderHandle<'g, R>) -> bool {
+        self.writes.contains(&resource.id())
+    }
+
+    #[inline]
+    pub fn includes<R: RenderResource>(&self, resource: RenderHandle<'g, R>) -> bool {
+        self.reads(resource) || self.writes(resource)
+    }
+
     pub(super) fn iter_reads(&self) -> impl Iterator<Item = RenderResourceId> + '_ {
         self.reads.iter().copied()
     }

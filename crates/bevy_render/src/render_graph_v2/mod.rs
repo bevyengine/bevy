@@ -557,6 +557,10 @@ pub struct NodeContext<'g> {
 
 impl<'g> NodeContext<'g> {
     pub fn get<R: RenderResource>(&self, resource: RenderHandle<'g, R>) -> &R {
+        if !self.dependencies.includes(resource) {
+            panic!("Attempted to illegally access the following resource: {:?}. Have you added it to the node's dependencies?", resource);
+        }
+
         R::get_from_store(self, resource).expect(&format!(
             "Unable to locate render graph resource: {:?}",
             resource
