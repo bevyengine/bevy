@@ -1,3 +1,4 @@
+mod extrusion;
 mod primitive_impls;
 
 use glam::Mat3;
