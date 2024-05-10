@@ -1586,6 +1586,36 @@ mod tests {
         let info = value.get_represented_type_info().unwrap();
         assert!(info.is::<MyGenericStruct<String>>());
 
+        // Struct (dynamic field)
+        #[derive(Reflect)]
+        #[reflect(from_reflect = false)]
+        struct MyDynamicStruct {
+            foo: DynamicStruct,
+            bar: usize,
+        }
+
+        let info = MyDynamicStruct::type_info();
+        if let TypeInfo::Struct(info) = info {
+            assert!(info.is::<MyDynamicStruct>());
+            assert_eq!(MyDynamicStruct::type_path(), info.type_path());
+            assert_eq!(
+                DynamicStruct::type_path(),
+                info.field("foo").unwrap().type_path()
+            );
+            assert_eq!("foo", info.field("foo").unwrap().name());
+            assert!(info.field("foo").unwrap().type_info().is_none());
+            assert_eq!(usize::type_path(), info.field_at(1).unwrap().type_path());
+        } else {
+            panic!("Expected `TypeInfo::Struct`");
+        }
+
+        let value: &dyn Reflect = &MyDynamicStruct {
+            foo: DynamicStruct::default(),
+            bar: 321,
+        };
+        let info = value.get_represented_type_info().unwrap();
+        assert!(info.is::<MyDynamicStruct>());
+
         // Tuple Struct
         #[derive(Reflect)]
         struct MyTupleStruct(usize, i32, MyStruct);
