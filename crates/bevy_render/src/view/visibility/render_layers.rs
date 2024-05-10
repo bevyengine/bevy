@@ -1,11 +1,12 @@
+use smallvec::SmallVec;
 use bevy_ecs::prelude::{Component, ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 
-type LayerMask = u32;
+pub const DEFAULT_LAYERS: &RenderLayers = &RenderLayers::layer(0);
 
 /// An identifier for a rendering layer.
-pub type Layer = u8;
+pub type Layer = usize;
 
 /// Describes which rendering layers an entity belongs to.
 ///
@@ -20,9 +21,15 @@ pub type Layer = u8;
 /// An entity with this component without any layers is invisible.
 ///
 /// Entities without this component belong to layer `0`.
-#[derive(Component, Copy, Clone, Reflect, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Component, Clone, Reflect, PartialEq, Eq, PartialOrd, Ord)]
 #[reflect(Component, Default, PartialEq)]
-pub struct RenderLayers(LayerMask);
+pub struct RenderLayers(SmallVec<[u64; 1]>);
+
+impl Default for &RenderLayers {
+    fn default() -> Self {
+        DEFAULT_LAYERS
+    }
+}
 
 impl std::fmt::Debug for RenderLayers {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -41,27 +48,22 @@ impl FromIterator<Layer> for RenderLayers {
 impl Default for RenderLayers {
     /// By default, this structure includes layer `0`, which represents the first layer.
     fn default() -> Self {
-        RenderLayers::layer(0)
+        let (_, bit) = Self::layer_info(0);
+        RenderLayers(SmallVec::from_const([bit]))
     }
 }
 
 impl RenderLayers {
-    /// The total number of layers supported.
-    pub const TOTAL_LAYERS: usize = std::mem::size_of::<LayerMask>() * 8;
-
     /// Create a new `RenderLayers` belonging to the given layer.
     pub const fn layer(n: Layer) -> Self {
-        RenderLayers(0).with(n)
-    }
-
-    /// Create a new `RenderLayers` that belongs to all layers.
-    pub const fn all() -> Self {
-        RenderLayers(u32::MAX)
+        let (buffer_index, bit) = Self::layer_info(n);
+        assert!(buffer_index < 1, "layer is out of bounds for const construction");
+        RenderLayers(SmallVec::from_const([bit]))
     }
 
     /// Create a new `RenderLayers` that belongs to no layers.
     pub const fn none() -> Self {
-        RenderLayers(0)
+        RenderLayers(SmallVec::from_const([0]))
     }
 
     /// Create a `RenderLayers` from a list of layers.
@@ -77,9 +79,10 @@ impl RenderLayers {
     /// # Panics
     /// Panics when called with a layer greater than `TOTAL_LAYERS - 1`.
     #[must_use]
-    pub const fn with(mut self, layer: Layer) -> Self {
-        assert!((layer as usize) < Self::TOTAL_LAYERS);
-        self.0 |= 1 << layer;
+    pub fn with(mut self, layer: Layer) -> Self {
+        let (buffer_index, bit) = Self::layer_info(layer);
+        Self(SmallVec::new_const()).extend_buffer(buffer_index + 1);
+        self.0[buffer_index] |= bit;
         self
     }
 
@@ -88,17 +91,17 @@ impl RenderLayers {
     /// # Panics
     /// Panics when called with a layer greater than `TOTAL_LAYERS - 1`.
     #[must_use]
-    pub const fn without(mut self, layer: Layer) -> Self {
-        assert!((layer as usize) < Self::TOTAL_LAYERS);
-        self.0 &= !(1 << layer);
+    pub fn without(mut self, layer: Layer) -> Self {
+        let (buffer_index, bit) = Self::layer_info(layer);
+        if buffer_index < self.0.len() {
+            self.0[buffer_index] &= !bit;
+        }
         self
     }
 
     /// Get an iterator of the layers.
-    pub fn iter(&self) -> impl Iterator<Item = Layer> {
-        let total: Layer = std::convert::TryInto::try_into(Self::TOTAL_LAYERS).unwrap();
-        let mask = *self;
-        (0..total).filter(move |g| RenderLayers::layer(*g).intersects(&mask))
+    pub fn iter(&self) -> impl Iterator<Item = Layer> + '_ {
+        self.0.iter().copied().flat_map(Self::iter_layers)
     }
 
     /// Determine if a `RenderLayers` intersects another.
@@ -108,40 +111,74 @@ impl RenderLayers {
     /// A `RenderLayers` with no layers will not match any other
     /// `RenderLayers`, even another with no layers.
     pub fn intersects(&self, other: &RenderLayers) -> bool {
-        (self.0 & other.0) > 0
+        for (self_layer, other_layer) in self.0.iter().zip(other.0.iter()) {
+            if (*self_layer & *other_layer) != 0 {
+                return true;
+            }
+        }
+
+        false
     }
 
     /// get the bitmask representation of the contained layers
-    pub fn bits(&self) -> u32 {
-        self.0
+    pub fn bits(&self) -> &[u64] {
+        self.0.as_slice()
+    }
+
+    const fn layer_info(layer: usize) -> (usize, u64) {
+        let buffer_index = layer / 64;
+        let bit_index = layer % 64;
+        let bit = 1u64 << bit_index;
+
+        (buffer_index, bit)
+    }
+
+    fn extend_buffer(&mut self, other_len: usize) {
+        let new_size = std::cmp::max(self.0.len(), other_len);
+        self.0.reserve_exact(new_size - self.0.len());
+        self.0.resize(new_size, 0u64);
+    }
+
+
+    fn iter_layers(mut buffer: u64) -> impl Iterator<Item = Layer> + 'static {
+        let mut layer: usize = 0;
+        std::iter::from_fn(move || {
+            if buffer == 0 {
+                return None;
+            }
+            let next = buffer.trailing_zeros() + 1;
+            buffer >>= next;
+            layer += next as usize;
+            Some(layer - 1)
+        })
     }
 }
 
 #[cfg(test)]
 mod rendering_mask_tests {
+    use smallvec::SmallVec;
     use super::{Layer, RenderLayers};
 
     #[test]
     fn rendering_mask_sanity() {
-        assert_eq!(
-            RenderLayers::TOTAL_LAYERS,
-            32,
-            "total layers is what we think it is"
-        );
-        assert_eq!(RenderLayers::layer(0).0, 1, "layer 0 is mask 1");
-        assert_eq!(RenderLayers::layer(1).0, 2, "layer 1 is mask 2");
-        assert_eq!(RenderLayers::layer(0).with(1).0, 3, "layer 0 + 1 is mask 3");
-        assert_eq!(
-            RenderLayers::layer(0).with(1).without(0).0,
-            2,
-            "layer 0 + 1 - 0 is mask 2"
-        );
+        let layer_0 = RenderLayers::layer(0);
+        assert_eq!(layer_0.0.len(), 1, "layer 0 is one buffer");
+        assert_eq!(layer_0.0[0], 1, "layer 0 is mask 1");
+        let layer_1 = RenderLayers::layer(1);
+        assert_eq!(layer_1.0.len(), 1, "layer 1 is one buffer");
+        assert_eq!(layer_1.0[0], 2, "layer 1 is mask 2");
+        let layer_0_1 = RenderLayers::layer(0).with(1);
+        assert_eq!(layer_0_1.0.len(), 1, "layer 0 + 1 is one buffer");
+        assert_eq!(layer_0_1.0[0], 3, "layer 0 + 1 is mask 3");
+        let layer_0_1_without_0 = layer_0_1.without(0);
+        assert_eq!(layer_0_1_without_0.0.len(), 1, "layer 0 + 1 - 0 is one buffer");
+        assert_eq!(layer_0_1_without_0.0[0], 2, "layer 0 + 1 - 0 is mask 2");
         assert!(
             RenderLayers::layer(1).intersects(&RenderLayers::layer(1)),
             "layers match like layers"
         );
         assert!(
-            RenderLayers::layer(0).intersects(&RenderLayers(1)),
+            RenderLayers::layer(0).intersects(&RenderLayers(SmallVec::from_const([1]))),
             "a layer of 0 means the mask is just 1 bit"
         );
 
@@ -162,7 +199,7 @@ mod rendering_mask_tests {
             "masks with differing layers do not match"
         );
         assert!(
-            !RenderLayers(0).intersects(&RenderLayers(0)),
+            !RenderLayers::none().intersects(&RenderLayers::none()),
             "empty masks don't match"
         );
         assert_eq!(
