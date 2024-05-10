@@ -31,7 +31,7 @@ pub use bevy_state_macros::States;
 ///   SettingsMenu,
 ///   InGame,
 /// }
-/// 
+///
 /// fn handle_escape_pressed(mut next_state: ResMut<NextState<GameState>>) {
 /// #   let escape_pressed = true;
 ///     if escape_pressed {
