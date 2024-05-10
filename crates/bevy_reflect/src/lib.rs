@@ -1555,6 +1555,7 @@ mod tests {
         assert_eq!(MyStruct::type_path(), info.type_path());
         assert_eq!(i32::type_path(), info.field("foo").unwrap().type_path());
         assert_eq!(TypeId::of::<i32>(), info.field("foo").unwrap().type_id());
+        assert!(info.field("foo").unwrap().type_info().unwrap().is::<i32>());
         assert!(info.field("foo").unwrap().is::<i32>());
         assert_eq!("foo", info.field("foo").unwrap().name());
         assert_eq!(usize::type_path(), info.field_at(1).unwrap().type_path());
@@ -1571,11 +1572,11 @@ mod tests {
         }
 
         let info = <MyGenericStruct<i32>>::type_info().as_struct().unwrap();
-
         assert!(info.is::<MyGenericStruct<i32>>());
         assert_eq!(MyGenericStruct::<i32>::type_path(), info.type_path());
         assert_eq!(i32::type_path(), info.field("foo").unwrap().type_path());
         assert_eq!("foo", info.field("foo").unwrap().name());
+        assert!(info.field("foo").unwrap().type_info().unwrap().is::<i32>());
         assert_eq!(usize::type_path(), info.field_at(1).unwrap().type_path());
 
         let value: &dyn Reflect = &MyGenericStruct {
@@ -1594,6 +1595,7 @@ mod tests {
         assert!(info.is::<MyTupleStruct>());
         assert_eq!(MyTupleStruct::type_path(), info.type_path());
         assert_eq!(i32::type_path(), info.field_at(1).unwrap().type_path());
+        assert!(info.field_at(1).unwrap().type_info().unwrap().is::<i32>());
         assert!(info.field_at(1).unwrap().is::<i32>());
 
         // Tuple
@@ -1604,6 +1606,7 @@ mod tests {
         assert!(info.is::<MyTuple>());
         assert_eq!(MyTuple::type_path(), info.type_path());
         assert_eq!(f32::type_path(), info.field_at(1).unwrap().type_path());
+        assert!(info.field_at(1).unwrap().type_info().unwrap().is::<f32>());
 
         let value: &dyn Reflect = &(123_u32, 1.23_f32, String::from("Hello!"));
         let info = value.get_represented_type_info().unwrap();
@@ -1616,6 +1619,7 @@ mod tests {
 
         assert!(info.is::<MyList>());
         assert!(info.item_is::<usize>());
+        assert!(info.item_info().unwrap().is::<usize>());
         assert_eq!(MyList::type_path(), info.type_path());
         assert_eq!(usize::type_path(), info.item_type_path_table().path());
 
@@ -1631,6 +1635,7 @@ mod tests {
             let info = MySmallVec::type_info().as_list().unwrap();
             assert!(info.is::<MySmallVec>());
             assert!(info.item_is::<String>());
+            assert!(info.item_info().unwrap().is::<String>());
             assert_eq!(MySmallVec::type_path(), info.type_path());
             assert_eq!(String::type_path(), info.item_type_path_table().path());
 
@@ -1646,6 +1651,7 @@ mod tests {
         let info = MyArray::type_info().as_array().unwrap();
         assert!(info.is::<MyArray>());
         assert!(info.item_is::<usize>());
+        assert!(info.item_info().unwrap().is::<usize>());
         assert_eq!(MyArray::type_path(), info.type_path());
         assert_eq!(usize::type_path(), info.item_type_path_table().path());
         assert_eq!(3, info.capacity());
@@ -1673,6 +1679,7 @@ mod tests {
 
         assert!(info.is::<MyCowSlice>());
         assert!(info.item_is::<u8>());
+        assert!(info.item_info().unwrap().is::<u8>());
         assert_eq!(std::any::type_name::<MyCowSlice>(), info.type_path());
         assert_eq!(
             std::any::type_name::<u8>(),
@@ -1691,6 +1698,8 @@ mod tests {
         assert!(info.is::<MyMap>());
         assert!(info.key_is::<usize>());
         assert!(info.value_is::<f32>());
+        assert!(info.key_info().unwrap().is::<usize>());
+        assert!(info.value_info().unwrap().is::<f32>());
         assert_eq!(MyMap::type_path(), info.type_path());
         assert_eq!(usize::type_path(), info.key_type_path_table().path());
         assert_eq!(f32::type_path(), info.value_type_path_table().path());
