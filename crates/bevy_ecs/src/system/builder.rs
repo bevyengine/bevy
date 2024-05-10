@@ -52,7 +52,7 @@ macro_rules! impl_system_builder {
                 }
             }
 
-            /// Add `T` as a parameter built with the `func`
+            /// Add `T` as a parameter built with the given function
             pub fn builder<T: BuildableSystemParam>(
                 mut self,
                 func: impl FnOnce(&mut T::Builder<'_>),
