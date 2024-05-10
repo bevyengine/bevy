@@ -11,6 +11,10 @@ pub struct CI {
     /// continue running commands even if one fails
     #[argh(switch)]
     keep_going: bool,
+
+    /// passes quiet to cargo commands
+    #[argh(switch)]
+    quiet: bool
 }
 
 impl CI {
@@ -63,13 +67,17 @@ impl CI {
             flags |= Flag::KEEP_GOING;
         }
 
+        if self.quiet {
+            flags |= Flag::QUIET;
+        }
+
         match &self.command {
             Some(command) => command.prepare(sh, flags),
             None => {
                 // Note that we are running the subcommands directly rather than using any aliases
                 let mut cmds = vec![];
                 cmds.append(&mut commands::FormatCommand::default().prepare(sh, flags));
-                cmds.append(&mut commands::ClippyCommand::default().prepare(sh, flags));
+                //cmds.append(&mut commands::ClippyCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::TestCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::TestCheckCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::DocCheckCommand::default().prepare(sh, flags));

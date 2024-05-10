@@ -14,8 +14,13 @@ impl Prepare for DocTestCommand {
             .then_some("--no-fail-fast")
             .unwrap_or_default();
 
+        let quiet = flags
+            .contains(Flag::QUIET)
+            .then_some("--quiet")
+            .unwrap_or_default();
+
         vec![PreparedCommand::new::<Self>(
-            cmd!(sh, "cargo test --workspace --doc {no_fail_fast}"),
+            cmd!(sh, "cargo test --workspace --doc {no_fail_fast} {quiet}"),
             "Please fix failing doc tests in output above.",
         )]
     }
