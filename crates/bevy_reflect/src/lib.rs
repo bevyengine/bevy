@@ -1513,18 +1513,14 @@ mod tests {
             bar: usize,
         }
 
-        let info = MyStruct::type_info();
-        if let TypeInfo::Struct(info) = info {
-            assert!(info.is::<MyStruct>());
-            assert_eq!(MyStruct::type_path(), info.type_path());
-            assert_eq!(i32::type_path(), info.field("foo").unwrap().type_path());
-            assert_eq!(TypeId::of::<i32>(), info.field("foo").unwrap().type_id());
-            assert!(info.field("foo").unwrap().is::<i32>());
-            assert_eq!("foo", info.field("foo").unwrap().name());
-            assert_eq!(usize::type_path(), info.field_at(1).unwrap().type_path());
-        } else {
-            panic!("Expected `TypeInfo::Struct`");
-        }
+        let info = MyStruct::type_info().as_struct().unwrap();
+        assert!(info.is::<MyStruct>());
+        assert_eq!(MyStruct::type_path(), info.type_path());
+        assert_eq!(i32::type_path(), info.field("foo").unwrap().type_path());
+        assert_eq!(TypeId::of::<i32>(), info.field("foo").unwrap().type_id());
+        assert!(info.field("foo").unwrap().is::<i32>());
+        assert_eq!("foo", info.field("foo").unwrap().name());
+        assert_eq!(usize::type_path(), info.field_at(1).unwrap().type_path());
 
         let value: &dyn Reflect = &MyStruct { foo: 123, bar: 321 };
         let info = value.get_represented_type_info().unwrap();
@@ -1537,16 +1533,13 @@ mod tests {
             bar: usize,
         }
 
-        let info = <MyGenericStruct<i32>>::type_info();
-        if let TypeInfo::Struct(info) = info {
-            assert!(info.is::<MyGenericStruct<i32>>());
-            assert_eq!(MyGenericStruct::<i32>::type_path(), info.type_path());
-            assert_eq!(i32::type_path(), info.field("foo").unwrap().type_path());
-            assert_eq!("foo", info.field("foo").unwrap().name());
-            assert_eq!(usize::type_path(), info.field_at(1).unwrap().type_path());
-        } else {
-            panic!("Expected `TypeInfo::Struct`");
-        }
+        let info = <MyGenericStruct<i32>>::type_info().as_struct().unwrap();
+
+        assert!(info.is::<MyGenericStruct<i32>>());
+        assert_eq!(MyGenericStruct::<i32>::type_path(), info.type_path());
+        assert_eq!(i32::type_path(), info.field("foo").unwrap().type_path());
+        assert_eq!("foo", info.field("foo").unwrap().name());
+        assert_eq!(usize::type_path(), info.field_at(1).unwrap().type_path());
 
         let value: &dyn Reflect = &MyGenericStruct {
             foo: String::from("Hello!"),
@@ -1559,27 +1552,21 @@ mod tests {
         #[derive(Reflect)]
         struct MyTupleStruct(usize, i32, MyStruct);
 
-        let info = MyTupleStruct::type_info();
-        if let TypeInfo::TupleStruct(info) = info {
-            assert!(info.is::<MyTupleStruct>());
-            assert_eq!(MyTupleStruct::type_path(), info.type_path());
-            assert_eq!(i32::type_path(), info.field_at(1).unwrap().type_path());
-            assert!(info.field_at(1).unwrap().is::<i32>());
-        } else {
-            panic!("Expected `TypeInfo::TupleStruct`");
-        }
+        let info = MyTupleStruct::type_info().as_tuple_struct().unwrap();
+
+        assert!(info.is::<MyTupleStruct>());
+        assert_eq!(MyTupleStruct::type_path(), info.type_path());
+        assert_eq!(i32::type_path(), info.field_at(1).unwrap().type_path());
+        assert!(info.field_at(1).unwrap().is::<i32>());
 
         // Tuple
         type MyTuple = (u32, f32, String);
 
-        let info = MyTuple::type_info();
-        if let TypeInfo::Tuple(info) = info {
-            assert!(info.is::<MyTuple>());
-            assert_eq!(MyTuple::type_path(), info.type_path());
-            assert_eq!(f32::type_path(), info.field_at(1).unwrap().type_path());
-        } else {
-            panic!("Expected `TypeInfo::Tuple`");
-        }
+        let info = MyTuple::type_info().as_tuple().unwrap();
+
+        assert!(info.is::<MyTuple>());
+        assert_eq!(MyTuple::type_path(), info.type_path());
+        assert_eq!(f32::type_path(), info.field_at(1).unwrap().type_path());
 
         let value: &dyn Reflect = &(123_u32, 1.23_f32, String::from("Hello!"));
         let info = value.get_represented_type_info().unwrap();
@@ -1588,15 +1575,12 @@ mod tests {
         // List
         type MyList = Vec<usize>;
 
-        let info = MyList::type_info();
-        if let TypeInfo::List(info) = info {
-            assert!(info.is::<MyList>());
-            assert!(info.item_is::<usize>());
-            assert_eq!(MyList::type_path(), info.type_path());
-            assert_eq!(usize::type_path(), info.item_type_path_table().path());
-        } else {
-            panic!("Expected `TypeInfo::List`");
-        }
+        let info = MyList::type_info().as_list().unwrap();
+
+        assert!(info.is::<MyList>());
+        assert!(info.item_is::<usize>());
+        assert_eq!(MyList::type_path(), info.type_path());
+        assert_eq!(usize::type_path(), info.item_type_path_table().path());
 
         let value: &dyn Reflect = &vec![123_usize];
         let info = value.get_represented_type_info().unwrap();
@@ -1607,15 +1591,11 @@ mod tests {
         {
             type MySmallVec = smallvec::SmallVec<[String; 2]>;
 
-            let info = MySmallVec::type_info();
-            if let TypeInfo::List(info) = info {
-                assert!(info.is::<MySmallVec>());
-                assert!(info.item_is::<String>());
-                assert_eq!(MySmallVec::type_path(), info.type_path());
-                assert_eq!(String::type_path(), info.item_type_path_table().path());
-            } else {
-                panic!("Expected `TypeInfo::List`");
-            }
+            let info = MySmallVec::type_info().as_list().unwrap();
+            assert!(info.is::<MySmallVec>());
+            assert!(info.item_is::<String>());
+            assert_eq!(MySmallVec::type_path(), info.type_path());
+            assert_eq!(String::type_path(), info.item_type_path_table().path());
 
             let value: MySmallVec = smallvec::smallvec![String::default(); 2];
             let value: &dyn Reflect = &value;
@@ -1626,16 +1606,12 @@ mod tests {
         // Array
         type MyArray = [usize; 3];
 
-        let info = MyArray::type_info();
-        if let TypeInfo::Array(info) = info {
-            assert!(info.is::<MyArray>());
-            assert!(info.item_is::<usize>());
-            assert_eq!(MyArray::type_path(), info.type_path());
-            assert_eq!(usize::type_path(), info.item_type_path_table().path());
-            assert_eq!(3, info.capacity());
-        } else {
-            panic!("Expected `TypeInfo::Array`");
-        }
+        let info = MyArray::type_info().as_array().unwrap();
+        assert!(info.is::<MyArray>());
+        assert!(info.item_is::<usize>());
+        assert_eq!(MyArray::type_path(), info.type_path());
+        assert_eq!(usize::type_path(), info.item_type_path_table().path());
+        assert_eq!(3, info.capacity());
 
         let value: &dyn Reflect = &[1usize, 2usize, 3usize];
         let info = value.get_represented_type_info().unwrap();
@@ -1644,13 +1620,10 @@ mod tests {
         // Cow<'static, str>
         type MyCowStr = Cow<'static, str>;
 
-        let info = MyCowStr::type_info();
-        if let TypeInfo::Value(info) = info {
-            assert!(info.is::<MyCowStr>());
-            assert_eq!(std::any::type_name::<MyCowStr>(), info.type_path());
-        } else {
-            panic!("Expected `TypeInfo::Value`");
-        }
+        let info = MyCowStr::type_info().as_value().unwrap();
+
+        assert!(info.is::<MyCowStr>());
+        assert_eq!(std::any::type_name::<MyCowStr>(), info.type_path());
 
         let value: &dyn Reflect = &Cow::<'static, str>::Owned("Hello!".to_string());
         let info = value.get_represented_type_info().unwrap();
@@ -1659,18 +1632,15 @@ mod tests {
         // Cow<'static, [u8]>
         type MyCowSlice = Cow<'static, [u8]>;
 
-        let info = MyCowSlice::type_info();
-        if let TypeInfo::List(info) = info {
-            assert!(info.is::<MyCowSlice>());
-            assert!(info.item_is::<u8>());
-            assert_eq!(std::any::type_name::<MyCowSlice>(), info.type_path());
-            assert_eq!(
-                std::any::type_name::<u8>(),
-                info.item_type_path_table().path()
-            );
-        } else {
-            panic!("Expected `TypeInfo::List`");
-        }
+        let info = MyCowSlice::type_info().as_list().unwrap();
+
+        assert!(info.is::<MyCowSlice>());
+        assert!(info.item_is::<u8>());
+        assert_eq!(std::any::type_name::<MyCowSlice>(), info.type_path());
+        assert_eq!(
+            std::any::type_name::<u8>(),
+            info.item_type_path_table().path()
+        );
 
         let value: &dyn Reflect = &Cow::<'static, [u8]>::Owned(vec![0, 1, 2, 3]);
         let info = value.get_represented_type_info().unwrap();
@@ -1679,17 +1649,14 @@ mod tests {
         // Map
         type MyMap = HashMap<usize, f32>;
 
-        let info = MyMap::type_info();
-        if let TypeInfo::Map(info) = info {
-            assert!(info.is::<MyMap>());
-            assert!(info.key_is::<usize>());
-            assert!(info.value_is::<f32>());
-            assert_eq!(MyMap::type_path(), info.type_path());
-            assert_eq!(usize::type_path(), info.key_type_path_table().path());
-            assert_eq!(f32::type_path(), info.value_type_path_table().path());
-        } else {
-            panic!("Expected `TypeInfo::Map`");
-        }
+        let info = MyMap::type_info().as_map().unwrap();
+
+        assert!(info.is::<MyMap>());
+        assert!(info.key_is::<usize>());
+        assert!(info.value_is::<f32>());
+        assert_eq!(MyMap::type_path(), info.type_path());
+        assert_eq!(usize::type_path(), info.key_type_path_table().path());
+        assert_eq!(f32::type_path(), info.value_type_path_table().path());
 
         let value: &dyn Reflect = &MyMap::new();
         let info = value.get_represented_type_info().unwrap();
@@ -1698,13 +1665,10 @@ mod tests {
         // Value
         type MyValue = String;
 
-        let info = MyValue::type_info();
-        if let TypeInfo::Value(info) = info {
-            assert!(info.is::<MyValue>());
-            assert_eq!(MyValue::type_path(), info.type_path());
-        } else {
-            panic!("Expected `TypeInfo::Value`");
-        }
+        let info = MyValue::type_info().as_value().unwrap();
+
+        assert!(info.is::<MyValue>());
+        assert_eq!(MyValue::type_path(), info.type_path());
 
         let value: &dyn Reflect = &String::from("Hello!");
         let info = value.get_represented_type_info().unwrap();
@@ -1844,15 +1808,12 @@ mod tests {
                 data: Vec<i32>,
             }
 
-            let info = <SomeStruct as Typed>::type_info();
-            if let TypeInfo::Struct(info) = info {
-                let mut fields = info.iter();
-                assert_eq!(Some(" The name"), fields.next().unwrap().docs());
-                assert_eq!(Some(" The index"), fields.next().unwrap().docs());
-                assert_eq!(None, fields.next().unwrap().docs());
-            } else {
-                panic!("expected struct info");
-            }
+            let info = <SomeStruct as Typed>::type_info().as_struct().unwrap();
+
+            let mut fields = info.iter();
+            assert_eq!(Some(" The name"), fields.next().unwrap().docs());
+            assert_eq!(Some(" The index"), fields.next().unwrap().docs());
+            assert_eq!(None, fields.next().unwrap().docs());
         }
 
         #[test]
@@ -1873,31 +1834,20 @@ mod tests {
                 },
             }
 
-            let info = <SomeEnum as Typed>::type_info();
-            if let TypeInfo::Enum(info) = info {
-                let mut variants = info.iter();
-                assert_eq!(None, variants.next().unwrap().docs());
+            let info = <SomeEnum as Typed>::type_info().as_enum().unwrap();
 
-                let variant = variants.next().unwrap();
-                assert_eq!(Some(" Option A"), variant.docs());
-                if let VariantInfo::Tuple(variant) = variant {
-                    let field = variant.field_at(0).unwrap();
-                    assert_eq!(Some(" Index"), field.docs());
-                } else {
-                    panic!("expected tuple variant")
-                }
+            let mut variants = info.iter();
+            assert_eq!(None, variants.next().unwrap().docs());
 
-                let variant = variants.next().unwrap();
-                assert_eq!(Some(" Option B"), variant.docs());
-                if let VariantInfo::Struct(variant) = variant {
-                    let field = variant.field_at(0).unwrap();
-                    assert_eq!(Some(" Name"), field.docs());
-                } else {
-                    panic!("expected struct variant")
-                }
-            } else {
-                panic!("expected enum info");
-            }
+            let variant = variants.next().unwrap().as_tuple_variant().unwrap();
+            assert_eq!(Some(" Option A"), variant.docs());
+            let field = variant.field_at(0).unwrap();
+            assert_eq!(Some(" Index"), field.docs());
+
+            let variant = variants.next().unwrap().as_struct_variant().unwrap();
+            assert_eq!(Some(" Option B"), variant.docs());
+            let field = variant.field_at(0).unwrap();
+            assert_eq!(Some(" Name"), field.docs());
         }
     }
 
