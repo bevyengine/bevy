@@ -1,6 +1,6 @@
 use crate::{
-    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ClampColor, Gray,
-    ColorToComponents, Luminance, Mix, StandardColor,
+    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ClampColor,
+    ColorToComponents, Gray, Luminance, Mix, StandardColor,
 };
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
