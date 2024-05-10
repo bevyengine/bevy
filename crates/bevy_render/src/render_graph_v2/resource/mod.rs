@@ -117,7 +117,6 @@ impl<'g> ResourceTracker<'g> {
         //     .clone()
         //     .unwrap_or_default();
         // //TODO: THIS IS IMPORTANT
-        // todo!();
         // dependencies
         todo!()
     }
@@ -357,7 +356,8 @@ impl<'g, R: RenderResource, F: FnOnce(&RenderDevice) -> R> IntoRenderResource<'g
         self,
         graph: &mut RenderGraphBuilder<'g>,
     ) -> RenderHandle<'g, Self::Resource> {
-        todo!()
+        let resource = (self)(graph.render_device);
+        graph.into_resource(resource)
     }
 }
 

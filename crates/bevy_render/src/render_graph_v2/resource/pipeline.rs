@@ -213,7 +213,7 @@ impl<'g> RenderGraphPipelines<'g> {
         Default::default()
     }
 
-    pub fn new_direct_render_pipeline(
+    pub fn new_render_pipeline_direct(
         &mut self,
         tracker: &mut ResourceTracker,
         descriptor: Option<RenderPipelineDescriptor>,
@@ -230,7 +230,7 @@ impl<'g> RenderGraphPipelines<'g> {
             })
     }
 
-    pub fn new_direct_compute_pipeline(
+    pub fn new_compute_pipeline_direct(
         &mut self,
         tracker: &mut ResourceTracker,
         descriptor: Option<ComputePipelineDescriptor>,
@@ -279,10 +279,10 @@ impl<'g> RenderGraphPipelines<'g> {
 
     pub fn create_queued_pipelines(
         &mut self,
+        graph: &RenderGraph<'g>,
         local_cache: &mut CachedRenderGraphPipelines,
         pipeline_cache: &mut PipelineCache,
-        graph: &RenderGraph<'g>,
-        world: &'g World,
+        world: &World,
     ) {
         for (resource_id, (dependencies, descriptor)) in self.queued_render_pipelines.drain() {
             let ctx = NodeContext {
@@ -317,6 +317,8 @@ impl<'g> RenderGraphPipelines<'g> {
         pipeline_cache.process_queue();
     }
 
+    //Note: currently fails when creating pipelines by descriptor. Might be a footgun but idk when
+    //getting a pipeline's descriptor is that important
     pub fn get_render_pipeline_descriptor<'a>(
         &'a self,
         cache: &'a PipelineCache,
@@ -331,6 +333,8 @@ impl<'g> RenderGraphPipelines<'g> {
         }
     }
 
+    //Note: currently fails when creating pipelines by descriptor. Might be a footgun but idk when
+    //getting a pipeline's descriptor is that important
     pub fn get_compute_pipeline_descriptor<'a>(
         &'a self,
         cache: &'a PipelineCache,

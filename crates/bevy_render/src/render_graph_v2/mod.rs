@@ -5,26 +5,18 @@ use std::mem;
 
 use crate::{
     render_resource::{
-        BindGroup, BindGroupLayout, BindGroupLayoutEntries, Buffer, ComputePipeline,
-        ComputePipelineDescriptor, PipelineCache, RenderPipeline, RenderPipelineDescriptor,
-        Sampler, Texture, TextureView,
+        BindGroup, BindGroupLayout, Buffer, ComputePipeline, ComputePipelineDescriptor,
+        PipelineCache, RenderPipeline, RenderPipelineDescriptor, Sampler, Texture, TextureView,
     },
     renderer::{RenderDevice, RenderQueue},
 };
-use bevy_ecs::{
-    component::Component,
-    entity::Entity,
-    system::Resource,
-    world::{EntityRef, Ref, World},
-};
+use bevy_ecs::{system::Resource, world::World};
 
-use bevy_utils::{EntityHashMap, HashMap};
 use resource::{IntoRenderResource, RenderHandle, RenderResource, RenderResources};
 
 use wgpu::{
-    BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BufferDescriptor,
-    CommandEncoder, CommandEncoderDescriptor, Label, SamplerDescriptor, TextureDescriptor,
-    TextureViewDescriptor,
+    BindGroupEntry, BindGroupLayoutEntry, BufferDescriptor, CommandEncoder,
+    CommandEncoderDescriptor, Label, TextureDescriptor, TextureViewDescriptor,
 };
 
 use self::resource::{
@@ -126,8 +118,16 @@ impl<'g> RenderGraph<'g> {
     ) {
         self.bind_group_layouts
             .create_queued_resources_cached(&mut resource_cache.bind_group_layouts, render_device);
-        // self.pipelines
-        // .create_queued_pipelines(world.resource::<PipelineCache>());
+
+        let mut pipelines = mem::take(&mut self.pipelines);
+        pipelines.create_queued_pipelines(
+            self,
+            &mut resource_cache.pipelines,
+            pipeline_cache,
+            world,
+        );
+        self.pipelines = pipelines;
+
         self.textures.create_queued_resources(render_device);
 
         let mut texture_views = std::mem::take(&mut self.texture_views);
@@ -180,10 +180,27 @@ impl<'g> RenderGraphBuilder<'g> {
         &self,
         resource: RenderHandle<'g, R>,
     ) -> &R::Descriptor {
-        self.get_descriptor_of(resource).expect(&format!(
-            "Descriptor not found for resource: {:?}",
-            resource
-        ))
+        self.get_descriptor_of(resource)
+            .unwrap_or_else(|| panic!("Descriptor not found for resource: {:?}", resource))
+    }
+
+    pub fn get_layout(
+        &self,
+        bind_group: RenderHandle<'g, BindGroup>,
+    ) -> Option<RenderHandle<'g, BindGroupLayout>> {
+        self.graph.bind_groups.get_layout(bind_group.id())
+    }
+
+    pub fn layout(
+        &self,
+        bind_group: RenderHandle<'g, BindGroup>,
+    ) -> RenderHandle<'g, BindGroupLayout> {
+        self.get_layout(bind_group).unwrap_or_else(|| {
+            panic!(
+                "No BindGroupLayout handle associated with BindGroup: {:?}",
+                bind_group
+            )
+        })
     }
 
     pub fn is_fresh<R: RenderResource>(&self, resource: RenderHandle<'g, R>) -> bool {
@@ -293,7 +310,12 @@ impl<'g> RenderGraphBuilder<'g> {
         descriptor: Option<Vec<BindGroupLayoutEntry>>,
         bind_group_layout: RefEq<'g, BindGroupLayout>,
     ) -> RenderHandle<'g, BindGroupLayout> {
-        todo!()
+        let id = self.graph.bind_group_layouts.new_direct(
+            &mut self.graph.resources,
+            descriptor,
+            bind_group_layout,
+        );
+        RenderHandle::new(id)
     }
 
     #[inline]
@@ -301,7 +323,11 @@ impl<'g> RenderGraphBuilder<'g> {
         &mut self,
         descriptor: Vec<BindGroupLayoutEntry>,
     ) -> RenderHandle<'g, BindGroupLayout> {
-        todo!();
+        let id = self
+            .graph
+            .bind_group_layouts
+            .new_from_descriptor(&mut self.graph.resources, descriptor);
+        RenderHandle::new(id)
     }
 
     #[inline]
@@ -318,18 +344,25 @@ impl<'g> RenderGraphBuilder<'g> {
     fn new_bind_group_direct(
         &mut self,
         dependencies: RenderDependencies<'g>,
+        layout: Option<RenderHandle<'g, BindGroupLayout>>,
         bind_group: RefEq<'g, BindGroup>,
     ) -> RenderHandle<'g, BindGroup> {
-        todo!()
+        let id = self.graph.bind_groups.new_direct(
+            &mut self.graph.resources,
+            dependencies,
+            layout,
+            bind_group,
+        );
+        RenderHandle::new(id)
     }
 
     #[inline]
     fn new_bind_group_descriptor(
         &mut self,
-        layout: RenderHandle<'g, BindGroupLayout>,
         label: Label<'g>,
+        layout: RenderHandle<'g, BindGroupLayout>,
         dependencies: RenderDependencies<'g>,
-        bind_group: impl FnOnce(NodeContext<'_>) -> &[BindGroupEntry<'_>] + 'g,
+        bind_group: impl FnOnce(NodeContext) -> Vec<BindGroupEntry> + 'g,
     ) -> RenderHandle<'g, BindGroup> {
         let id = self.graph.bind_groups.new_from_descriptor(
             &mut self.graph.resources,
@@ -496,7 +529,12 @@ impl<'g> RenderGraphBuilder<'g> {
         descriptor: Option<RenderPipelineDescriptor>,
         render_pipeline: RefEq<'g, RenderPipeline>,
     ) -> RenderHandle<'g, RenderPipeline> {
-        todo!()
+        let id = self.graph.pipelines.new_render_pipeline_direct(
+            &mut self.graph.resources,
+            descriptor,
+            render_pipeline,
+        );
+        RenderHandle::new(id)
     }
 
     #[inline]
@@ -504,7 +542,11 @@ impl<'g> RenderGraphBuilder<'g> {
         &mut self,
         descriptor: RenderGraphRenderPipelineDescriptor<'g>,
     ) -> RenderHandle<'g, RenderPipeline> {
-        todo!()
+        let id = self
+            .graph
+            .pipelines
+            .new_render_pipeline_descriptor(&mut self.graph.resources, descriptor);
+        RenderHandle::new(id)
     }
 
     #[inline]
@@ -524,7 +566,12 @@ impl<'g> RenderGraphBuilder<'g> {
         descriptor: Option<ComputePipelineDescriptor>,
         compute_pipeline: RefEq<'g, ComputePipeline>,
     ) -> RenderHandle<'g, ComputePipeline> {
-        todo!()
+        let id = self.graph.pipelines.new_compute_pipeline_direct(
+            &mut self.graph.resources,
+            descriptor,
+            compute_pipeline,
+        );
+        RenderHandle::new(id)
     }
 
     #[inline]
@@ -532,7 +579,11 @@ impl<'g> RenderGraphBuilder<'g> {
         &mut self,
         descriptor: RenderGraphComputePipelineDescriptor<'g>,
     ) -> RenderHandle<'g, ComputePipeline> {
-        todo!()
+        let id = self
+            .graph
+            .pipelines
+            .new_compute_pipeline_descriptor(&mut self.graph.resources, descriptor);
+        RenderHandle::new(id)
     }
 
     #[inline]
@@ -558,13 +609,11 @@ pub struct NodeContext<'g> {
 impl<'g> NodeContext<'g> {
     pub fn get<R: RenderResource>(&self, resource: RenderHandle<'g, R>) -> &R {
         if !self.dependencies.includes(resource) {
-            panic!("Attempted to illegally access the following resource: {:?}. Have you added it to the node's dependencies?", resource);
+            panic!("Attempted to illegally access the following render graph resource: {:?}. Have you added it to the node's dependencies?", resource);
         }
 
-        R::get_from_store(self, resource).expect(&format!(
-            "Unable to locate render graph resource: {:?}",
-            resource
-        ))
+        R::get_from_store(self, resource)
+            .unwrap_or_else(|| panic!("Unable to locate render graph resource: {:?}", resource))
     }
 
     fn get_texture(&self, texture: RenderHandle<'g, Texture>) -> Option<&Texture> {
@@ -575,7 +624,7 @@ impl<'g> NodeContext<'g> {
         &self,
         texture_view: RenderHandle<'g, TextureView>,
     ) -> Option<&TextureView> {
-        todo!()
+        self.graph.texture_views.get(texture_view.id())
     }
 
     fn get_sampler(&self, sampler: RenderHandle<'g, Sampler>) -> Option<&Sampler> {
@@ -610,7 +659,7 @@ impl<'g> NodeContext<'g> {
         &self,
         bind_group_layout: RenderHandle<'g, BindGroupLayout>,
     ) -> Option<&BindGroupLayout> {
-        todo!()
+        self.graph.bind_group_layouts.get(bind_group_layout.id())
     }
 
     fn get_bind_group(&self, bind_group: RenderHandle<'g, BindGroup>) -> Option<&BindGroup> {
