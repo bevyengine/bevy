@@ -75,6 +75,14 @@ impl Preferences {
             .get(key.as_reflect())
             .and_then(|val| val.downcast_ref())
     }
+
+    /// Get a mutable reference to preferences of type `P`.
+    pub fn get_mut<P: Reflect + TypePath>(&mut self) -> Option<&mut P> {
+        let key = P::short_type_path();
+        self.map
+            .get_mut(key.as_reflect())
+            .and_then(|val| val.downcast_mut())
+    }
 }
 
 #[cfg(test)]
