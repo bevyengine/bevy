@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, fmt::Debug, marker::PhantomData};
+use std::{borrow::Borrow, collections::VecDeque, fmt::Debug, marker::PhantomData};
 
 use bevy_utils::{all_tuples, HashMap, HashSet};
 use std::hash::Hash;
@@ -49,7 +49,6 @@ impl<'g> ResourceTracker<'g> {
         resource_type: ResourceType,
         dependencies: Option<RenderDependencies<'g>>,
     ) -> RenderResourceId {
-        //TODO: IMPORTANT: debug check for dependency cycles
         if self.next_id == u32::MAX {
             panic!(
                 "No more than {:?} render resources can exist at once across all render graphs",
@@ -67,12 +66,10 @@ impl<'g> ResourceTracker<'g> {
     }
 
     pub(super) fn write_dependencies(&mut self, dependencies: &RenderDependencies<'g>) {
-        //NOTE: takes dependencies instead of single resource in order to deduplicate writes in
-        //same "set"
-        // self.collect_dependencies(id)
-        //     .writes
-        //     .into_iter()
-        //     .for_each(|id| self.generations[id.id as usize].generation += 1);
+        self.collect_many_dependencies(dependencies)
+            .writes
+            .into_iter()
+            .for_each(|id| self.resources[id.id as usize].generation += 1);
     }
 
     pub(super) fn generation(&self, id: RenderResourceId) -> RenderResourceGeneration {
@@ -108,21 +105,44 @@ impl<'g> ResourceTracker<'g> {
         })
     }
 
-    fn collect_many_dependencies(
+    //There's probably a better way of doing this. Basically flood-filling a graph that may have cycles (but should never really in practice)
+    pub(super) fn collect_many_dependencies(
         &self,
         dependencies: &RenderDependencies<'g>,
     ) -> RenderDependencies<'g> {
-        // let mut dependencies = self.generations[id.id as usize]
-        //     .dependencies
-        //     .clone()
-        //     .unwrap_or_default();
-        // //TODO: THIS IS IMPORTANT
-        // dependencies
-        todo!()
+        let mut new_dependencies = RenderDependencies::new();
+
+        let mut queue = dependencies.iter().collect::<VecDeque<_>>();
+        while let Some(new_read) = queue.pop_front() {
+            if new_dependencies.reads.contains(&new_read) {
+                continue;
+            }
+            new_dependencies.reads.insert(new_read);
+            if let Some(deps) = &self.resources[new_read.id as usize].dependencies {
+                queue.extend(deps.iter());
+            }
+        }
+
+        queue.extend(dependencies.iter_writes());
+        while let Some(new_write) = queue.pop_front() {
+            if new_dependencies.writes.contains(&new_write) {
+                continue;
+            }
+            new_dependencies.writes.insert(new_write);
+            if let Some(deps) = &self.resources[new_write.id as usize].dependencies {
+                queue.extend(deps.iter_writes());
+            }
+        }
+
+        new_dependencies
     }
 
     fn collect_dependencies(&self, id: RenderResourceId) -> RenderDependencies<'g> {
-        todo!()
+        self.resources[id.id as usize]
+            .dependencies
+            .as_ref()
+            .map(|deps| self.collect_many_dependencies(deps))
+            .unwrap_or_default()
     }
 }
 
