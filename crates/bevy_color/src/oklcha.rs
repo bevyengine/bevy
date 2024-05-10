@@ -1,6 +1,6 @@
 use crate::{
-    color_difference::EuclideanDistance, Alpha, ClampColor, ColorToComponents, Hsla, Hsva, Hue,
-    Hwba, Laba, Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
+    color_difference::EuclideanDistance, Alpha, ColorToComponents, Hsla, Hsva, Hue, Hwba, Laba,
+    Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
@@ -280,24 +280,6 @@ impl From<Oklcha> for Oklaba {
     }
 }
 
-impl ClampColor for Oklcha {
-    fn clamped(&self) -> Self {
-        Self {
-            lightness: self.lightness.clamp(0., 1.),
-            chroma: self.chroma.clamp(0., 1.),
-            hue: self.hue.rem_euclid(360.),
-            alpha: self.alpha.clamp(0., 1.),
-        }
-    }
-
-    fn is_within_bounds(&self) -> bool {
-        (0. ..=1.).contains(&self.lightness)
-            && (0. ..=1.).contains(&self.chroma)
-            && (0. ..=360.).contains(&self.hue)
-            && (0. ..=1.).contains(&self.alpha)
-    }
-}
-
 // Derived Conversions
 
 impl From<Hsla> for Oklcha {
@@ -443,22 +425,5 @@ mod tests {
         assert_approx_eq!(oklcha.chroma, oklcha2.chroma, 0.001);
         assert_approx_eq!(oklcha.hue, oklcha2.hue, 0.001);
         assert_approx_eq!(oklcha.alpha, oklcha2.alpha, 0.001);
-    }
-
-    #[test]
-    fn test_clamp() {
-        let color_1 = Oklcha::lch(-1., 2., 400.);
-        let color_2 = Oklcha::lch(1., 1., 249.54);
-        let mut color_3 = Oklcha::lch(-0.4, 1., 1.);
-
-        assert!(!color_1.is_within_bounds());
-        assert_eq!(color_1.clamped(), Oklcha::lch(0., 1., 40.));
-
-        assert!(color_2.is_within_bounds());
-        assert_eq!(color_2, color_2.clamped());
-
-        color_3.clamp();
-        assert!(color_3.is_within_bounds());
-        assert_eq!(color_3, Oklcha::lch(0., 1., 1.));
     }
 }
