@@ -12,7 +12,7 @@ impl Plugin for PreferencesPlugin {
     }
 }
 
-/// A map that stores all application preferences.
+/// A map storing all application preferences.
 ///
 /// Preferences are strongly typed, and defined independently by any `Plugin` that needs persistent
 /// settings. Choice of serialization format and behavior is up to the application developer. The
@@ -21,7 +21,7 @@ impl Plugin for PreferencesPlugin {
 ///
 /// ### Usage
 ///
-/// Preferences only require that the type implements [`Reflect`].
+/// Preferences only require that a type being added implements [`Reflect`].
 ///
 /// ```
 /// # use bevy_reflect::Reflect;
@@ -57,8 +57,23 @@ impl Plugin for PreferencesPlugin {
 ///     new_settings = prefs.get().unwrap();
 /// }
 /// ```
+///
+/// ### Serialization
+///
+/// The preferences map is build on `bevy_reflect`. This makes it possible to serialize preferences
+/// into a dynamic structure, and deserialize it back into this map, while retaining a
+/// strongly-typed API. Because it uses `serde`, `Preferences` can be read ad written to any format.
+///
+/// To build a storage backend, use [`Self::iter_reflect`] to get an iterator of `reflect`able trait
+/// objects that can be serialized. To load serialized data into the preferences, use
+/// `ReflectDeserializer` on each object to convert them into `Box<dyn Reflect>` trait objects,
+/// which you can then load into this resource using [`Preferences::set_dyn`].
 #[derive(Resource, Default, Debug)]
 pub struct Preferences {
+    // Note the key is only used while the struct is in memory so we can quickly look up a value.
+    // The key itself does not need to be dynamic. This `DynamicMap` could be replaced with a custom
+    // built data structure to (potentially) improve lookup performance, however it functions
+    // perfectly fine for now.
     map: bevy_reflect::DynamicMap,
 }
 
@@ -85,7 +100,7 @@ impl Preferences {
 
     /// Get a mutable reference to preferences of type `P`.
     pub fn get_mut<P: Reflect + TypePath>(&mut self) -> Option<&mut P> {
-        let key = P::short_type_path();
+        let key = P::short_type_path().to_string();
         self.map
             .get_mut(key.as_reflect())
             .and_then(|val| val.downcast_mut())
@@ -94,6 +109,14 @@ impl Preferences {
     /// Iterator over all preference entries as [`Reflect`] trait objects.
     pub fn iter_reflect(&self) -> impl Iterator<Item = &dyn Reflect> {
         self.map.iter().map(|(_k, v)| v)
+    }
+
+    /// Remove and return an entry from preferences, if it exists.
+    pub fn remove<P: Reflect + TypePath>(&mut self) -> Option<Box<P>> {
+        let key = P::short_type_path().to_string();
+        self.map
+            .remove(key.as_reflect())
+            .and_then(|val| val.downcast().ok())
     }
 }
 
@@ -107,49 +130,46 @@ mod tests {
 
     use super::Preferences;
 
-    #[test]
-    fn typed_get() {
-        #[derive(Reflect, Clone, PartialEq, Debug)]
-        struct FooPrefsV1 {
-            name: String,
-        }
+    #[derive(Reflect, PartialEq, Debug)]
+    struct Foo(usize);
 
-        #[derive(Reflect, Clone, PartialEq, Debug)]
-        struct FooPrefsV2 {
-            name: String,
-            age: usize,
-        }
+    #[derive(Reflect, PartialEq, Debug)]
+    struct Bar(String);
 
-        let mut preferences = Preferences::default();
-
-        let v1 = FooPrefsV1 {
-            name: "Bevy".into(),
-        };
-
-        let v2 = FooPrefsV2 {
-            name: "Boovy".into(),
-            age: 42,
-        };
-
-        preferences.set(v1.clone());
-        preferences.set(v2.clone());
-        assert_eq!(preferences.get::<FooPrefsV1>(), Some(&v1));
-        assert_eq!(preferences.get::<FooPrefsV2>(), Some(&v2));
+    fn get_registry() -> bevy_reflect::TypeRegistry {
+        let mut registry = bevy_reflect::TypeRegistry::default();
+        registry.register::<Foo>();
+        registry.register::<Bar>();
+        registry
     }
 
     #[test]
-    fn overwrite() {
-        #[derive(Reflect, Clone, PartialEq, Debug)]
-        struct FooPrefs(String);
-
+    fn setters_and_getters() {
         let mut preferences = Preferences::default();
 
-        let bevy = FooPrefs("Bevy".into());
-        let boovy = FooPrefs("Boovy".into());
+        // Set initial value
+        preferences.set(Foo(36));
+        assert_eq!(preferences.get::<Foo>().unwrap().0, 36);
 
-        preferences.set(bevy.clone());
-        preferences.set(boovy.clone());
-        assert_eq!(preferences.get::<FooPrefs>(), Some(&boovy));
+        // Overwrite with set
+        preferences.set(Foo(500));
+        assert_eq!(preferences.get::<Foo>().unwrap().0, 500);
+
+        // Overwrite with get_mut
+        *preferences.get_mut().unwrap() = Foo(12);
+        assert_eq!(preferences.get::<Foo>().unwrap().0, 12);
+
+        // Add new type of preference
+        assert!(preferences.get::<Bar>().is_none());
+        preferences.set(Bar("Bevy".into()));
+        assert_eq!(preferences.get::<Bar>().unwrap().0, "Bevy");
+
+        // Add trait object
+        preferences.set_dyn(Box::new(Bar("Boovy".into())));
+        assert_eq!(preferences.get::<Bar>().unwrap().0, "Boovy");
+
+        // Remove a preference
+        assert_eq!(*preferences.remove::<Foo>().unwrap(), Foo(12));
     }
 
     #[test]
@@ -182,19 +202,6 @@ mod tests {
                 .0,
             "Initial"
         );
-    }
-
-    #[derive(Reflect, PartialEq, Debug)]
-    struct Foo(usize);
-
-    #[derive(Reflect, PartialEq, Debug)]
-    struct Bar(String);
-
-    fn get_registry() -> bevy_reflect::TypeRegistry {
-        let mut registry = bevy_reflect::TypeRegistry::default();
-        registry.register::<Foo>();
-        registry.register::<Bar>();
-        registry
     }
 
     #[test]
