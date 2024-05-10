@@ -271,7 +271,7 @@ fn queue_line_gizmos_2d(
 
         let render_layers = render_layers.unwrap_or_default();
         for (entity, handle, config) in &line_gizmos {
-            if !config.render_layers.intersects(&render_layers) {
+            if !config.render_layers.intersects(render_layers) {
                 continue;
             }
 
@@ -327,7 +327,7 @@ fn queue_line_joint_gizmos_2d(
 
         let render_layers = render_layers.unwrap_or_default();
         for (entity, handle, config) in &line_gizmos {
-            if !config.render_layers.intersects(&render_layers) {
+            if !config.render_layers.intersects(render_layers) {
                 continue;
             }
 
