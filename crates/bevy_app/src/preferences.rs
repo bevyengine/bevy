@@ -209,13 +209,16 @@ mod tests {
         use bevy_reflect::serde::ReflectDeserializer;
         use serde::{de::DeserializeSeed, Serialize};
 
+        let registry = get_registry();
         let mut preferences = Preferences::default();
         preferences.set(Foo(42));
         preferences.set(Bar("Bevy".into()));
 
+        // Manually turn this into a valid JSON map. There is almost certainly a better way to
+        // express this if we want to make this part of the `Preferences` API as a blessed way to
+        // assemble a preferences file, but this is enough to get the file round tripping.
         let mut output = String::new();
         output.push('[');
-        let registry = get_registry();
 
         for value in preferences.iter_reflect() {
             let serializer = bevy_reflect::serde::ReflectSerializer::new(value, &registry);
@@ -226,10 +229,10 @@ mod tests {
 
             let value_output = std::str::from_utf8(&buf).unwrap();
             output.push_str(value_output);
-            output.push(',');
+            output.push(','); // Again, manual JSON map
         }
-        output.pop();
-        output.push(']');
+        output.pop(); // Remove trailing comma
+        output.push(']'); // Close manual JSON map
 
         let expected = r#"[{
     "bevy_app::preferences::tests::Foo": [
@@ -263,7 +266,6 @@ mod tests {
                 .get_type_data::<bevy_reflect::ReflectFromReflect>(type_id)
                 .unwrap();
             let value: Box<dyn Reflect> = reflect_from_reflect.from_reflect(&*output).unwrap();
-            dbg!(&value);
             preferences.set_dyn(value);
         }
 
