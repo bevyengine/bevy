@@ -14,7 +14,7 @@ use std::{borrow::Cow, marker::PhantomData};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::{info_span, Span};
 
-use super::{In, IntoSystem, ReadOnlySystem};
+use super::{In, IntoSystem, ReadOnlySystem, SystemBuilder};
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -176,10 +176,10 @@ impl SystemMeta {
 /// });
 /// ```
 pub struct SystemState<Param: SystemParam + 'static> {
-    meta: SystemMeta,
-    param_state: Param::State,
-    world_id: WorldId,
-    archetype_generation: ArchetypeGeneration,
+    pub(crate) meta: SystemMeta,
+    pub(crate) param_state: Param::State,
+    pub(crate) world_id: WorldId,
+    pub(crate) archetype_generation: ArchetypeGeneration,
 }
 
 impl<Param: SystemParam> SystemState<Param> {
@@ -198,6 +198,16 @@ impl<Param: SystemParam> SystemState<Param> {
             meta,
             param_state,
             world_id: world.id(),
+            archetype_generation: ArchetypeGeneration::initial(),
+        }
+    }
+
+    // Create a [`SystemState`] from a [`SystemBuilder`]
+    pub(crate) fn from_builder(builder: SystemBuilder<Param>) -> Self {
+        Self {
+            meta: builder.meta,
+            param_state: builder.state,
+            world_id: builder.world.id(),
             archetype_generation: ArchetypeGeneration::initial(),
         }
     }
@@ -388,13 +398,30 @@ pub struct FunctionSystem<Marker, F>
 where
     F: SystemParamFunction<Marker>,
 {
-    pub(crate) func: F,
-    pub(crate) param_state: Option<<F::Param as SystemParam>::State>,
-    pub(crate) system_meta: SystemMeta,
-    pub(crate) world_id: Option<WorldId>,
-    pub(crate) archetype_generation: ArchetypeGeneration,
+    func: F,
+    param_state: Option<<F::Param as SystemParam>::State>,
+    system_meta: SystemMeta,
+    world_id: Option<WorldId>,
+    archetype_generation: ArchetypeGeneration,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
-    pub(crate) marker: PhantomData<fn() -> Marker>,
+    marker: PhantomData<fn() -> Marker>,
+}
+
+impl<Marker, F> FunctionSystem<Marker, F>
+where
+    F: SystemParamFunction<Marker>,
+{
+    // Create a [`FunctionSystem`] from a [`SystemBuilder`]
+    pub(crate) fn from_builder(builder: SystemBuilder<F::Param>, func: F) -> Self {
+        Self {
+            func,
+            param_state: Some(builder.state),
+            system_meta: builder.meta,
+            world_id: Some(builder.world.id()),
+            archetype_generation: ArchetypeGeneration::initial(),
+            marker: PhantomData,
+        }
+    }
 }
 
 // De-initializes the cloned system.
@@ -525,9 +552,9 @@ where
             );
         } else {
             self.world_id = Some(world.id());
-            self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
             self.param_state = Some(F::Param::init_state(world, &mut self.system_meta));
         }
+        self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
     }
 
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {

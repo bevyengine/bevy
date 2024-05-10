@@ -1,16 +1,16 @@
-use std::marker::PhantomData;
-
 use bevy_utils::all_tuples;
 
-use crate::{archetype::ArchetypeGeneration, prelude::World};
+use crate::prelude::World;
 
-use super::{BuildableSystemParam, FunctionSystem, SystemMeta, SystemParam, SystemParamFunction};
+use super::{
+    BuildableSystemParam, FunctionSystem, SystemMeta, SystemParam, SystemParamFunction, SystemState,
+};
 
 /// Builder struct used to construct state for [`SystemParam`] passed to a system.
 pub struct SystemBuilder<'w, T: SystemParam = ()> {
-    meta: SystemMeta,
-    state: T::State,
-    world: &'w mut World,
+    pub(crate) meta: SystemMeta,
+    pub(crate) state: T::State,
+    pub(crate) world: &'w mut World,
 }
 
 impl<'w, T: SystemParam> SystemBuilder<'w, T> {
@@ -24,19 +24,17 @@ impl<'w, T: SystemParam> SystemBuilder<'w, T> {
         }
     }
 
-    /// Construct the final system with the built params
+    /// Construct the a system with the built params
     pub fn build<F, Marker>(self, func: F) -> FunctionSystem<Marker, F>
     where
         F: SystemParamFunction<Marker, Param = T>,
     {
-        FunctionSystem {
-            func,
-            param_state: Some(self.state),
-            system_meta: self.meta,
-            world_id: Some(self.world.id()),
-            archetype_generation: ArchetypeGeneration::initial(),
-            marker: PhantomData,
-        }
+        FunctionSystem::from_builder(self, func)
+    }
+
+    /// Return the constructed [`SystemState`]
+    pub fn state(self) -> SystemState<T> {
+        SystemState::from_builder(self)
     }
 }
 

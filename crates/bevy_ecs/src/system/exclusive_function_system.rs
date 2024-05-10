@@ -23,11 +23,11 @@ pub struct ExclusiveFunctionSystem<Marker, F>
 where
     F: ExclusiveSystemParamFunction<Marker>,
 {
-    func: F,
-    param_state: Option<<F::Param as ExclusiveSystemParam>::State>,
-    system_meta: SystemMeta,
+    pub(crate) func: F,
+    pub(crate) param_state: Option<<F::Param as ExclusiveSystemParam>::State>,
+    pub(crate) system_meta: SystemMeta,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
-    marker: PhantomData<fn() -> Marker>,
+    pub(crate) marker: PhantomData<fn() -> Marker>,
 }
 
 /// A marker type used to distinguish exclusive function systems from regular function systems.
