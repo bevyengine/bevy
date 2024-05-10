@@ -78,19 +78,19 @@ pub struct Preferences {
 }
 
 impl Preferences {
-    /// Set preferences of type `P`.
+    /// Set preferences entry of type `P`, potentially overwriting an existing entry.
     pub fn set<P: Reflect>(&mut self, value: P) {
         let path = value.reflect_short_type_path().to_string();
         self.map.insert(path, value);
     }
 
-    /// Set preferences from a boxed trait object of unknown type.
+    /// Set preferences entry from a boxed trait object of unknown type.
     pub fn set_dyn(&mut self, value: Box<dyn Reflect>) {
         let path = value.reflect_short_type_path().to_string();
         self.map.insert_boxed(Box::new(path), value);
     }
 
-    /// Get preferences of type `P`.
+    /// Get preferences entry of type `P`.
     pub fn get<P: Reflect + TypePath>(&self) -> Option<&P> {
         let key = P::short_type_path().to_string();
         self.map
@@ -98,7 +98,7 @@ impl Preferences {
             .and_then(|val| val.downcast_ref())
     }
 
-    /// Get a mutable reference to preferences of type `P`.
+    /// Get a mutable reference to a preferences entry of type `P`.
     pub fn get_mut<P: Reflect + TypePath>(&mut self) -> Option<&mut P> {
         let key = P::short_type_path().to_string();
         self.map
