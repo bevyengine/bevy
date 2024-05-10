@@ -77,10 +77,7 @@ impl RenderLayers {
     /// Add the given layer.
     ///
     /// This may be called multiple times to allow an entity to belong
-    /// to multiple rendering layers. The maximum layer is `TOTAL_LAYERS - 1`.
-    ///
-    /// # Panics
-    /// Panics when called with a layer greater than `TOTAL_LAYERS - 1`.
+    /// to multiple rendering layers.
     #[must_use]
     pub fn with(mut self, layer: Layer) -> Self {
         let (buffer_index, bit) = Self::layer_info(layer);
@@ -89,16 +86,44 @@ impl RenderLayers {
         self
     }
 
-    /// Removes the given rendering layer.
+    /// Add the given layer.
+    ///
+    /// This may be called multiple times to allow an entity to belong
+    /// to multiple rendering layers
     ///
     /// # Panics
-    /// Panics when called with a layer greater than `TOTAL_LAYERS - 1`.
+    /// Panics when called with a layer greater than `64`.
+    pub const fn with_const(mut self, layer: Layer) -> Self {
+        let (buffer_index, bit) = Self::layer_info(layer);
+        assert!(
+            buffer_index < 1,
+            "layer is out of bounds for const construction"
+        );
+        self.0[buffer_index] |= bit;
+        self
+    }
+
+    /// Removes the given rendering layer.
     #[must_use]
     pub fn without(mut self, layer: Layer) -> Self {
         let (buffer_index, bit) = Self::layer_info(layer);
         if buffer_index < self.0.len() {
             self.0[buffer_index] &= !bit;
         }
+        self
+    }
+
+    /// Remove the given layer.
+    ///
+    /// # Panics
+    /// Panics when called with a layer greater than `64`.
+    pub const fn without_const(mut self, layer: Layer) -> Self {
+        let (buffer_index, bit) = Self::layer_info(layer);
+        assert!(
+            buffer_index < 1,
+            "layer is out of bounds for const construction"
+        );
+        self.0[buffer_index] &= !bit;
         self
     }
 
