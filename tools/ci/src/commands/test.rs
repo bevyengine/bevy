@@ -11,18 +11,18 @@ impl Prepare for TestCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {
         let no_fail_fast = flags
             .contains(Flag::KEEP_GOING)
-            .then_some("--no-fail-fast")
+            .then_some(" --no-fail-fast")
             .unwrap_or_default();
 
         let quiet = flags
             .contains(Flag::QUIET)
-            .then_some("--quiet")
+            .then_some(" --quiet")
             .unwrap_or_default();
 
         vec![PreparedCommand::new::<Self>(
             cmd!(
                 sh,
-                "cargo test --workspace --lib --bins --tests --benches {no_fail_fast} {quiet}"
+                "cargo test --workspace --lib --bins --tests --benches{no_fail_fast}{quiet}"
             ),
             "Please fix failing tests in output above.",
         )]

@@ -11,11 +11,11 @@ impl Prepare for FormatCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {
         let quiet = flags
             .contains(Flag::QUIET)
-            .then_some("--quiet")
+            .then_some(" --quiet")
             .unwrap_or_default();
 
         vec![PreparedCommand::new::<Self>(
-            cmd!(sh, "cargo fmt --all -- --check {quiet}"),
+            cmd!(sh, "cargo fmt --all -- --check{quiet}"),
             "Please run 'cargo fmt --all' to format your code.",
         )]
     }

@@ -11,11 +11,11 @@ impl Prepare for CompileCheckCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {
         let quiet = flags
             .contains(Flag::QUIET)
-            .then_some("--quiet")
+            .then_some(" --quiet")
             .unwrap_or_default();
 
         vec![PreparedCommand::new::<Self>(
-            cmd!(sh, "cargo check --workspace {quiet}"),
+            cmd!(sh, "cargo check --workspace{quiet}"),
             "Please fix compiler errors in output above.",
         )]
     }

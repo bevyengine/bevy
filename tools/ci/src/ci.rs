@@ -14,7 +14,7 @@ pub struct CI {
 
     /// passes quiet to cargo commands
     #[argh(switch)]
-    quiet: bool
+    quiet: bool,
 }
 
 impl CI {
