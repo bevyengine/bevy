@@ -64,13 +64,20 @@ pub struct Preferences {
 
 impl Preferences {
     /// Set preferences of type `P`.
-    pub fn set<P: Reflect + TypePath>(&mut self, value: P) {
-        self.map.insert(P::short_type_path(), value);
+    pub fn set<P: Reflect>(&mut self, value: P) {
+        let path = value.reflect_short_type_path().to_string();
+        self.map.insert(path, value);
+    }
+
+    /// Set preferences from a boxed trait object of unknown type.
+    pub fn set_dyn(&mut self, value: Box<dyn Reflect>) {
+        let path = value.reflect_short_type_path().to_string();
+        self.map.insert_boxed(Box::new(path), value);
     }
 
     /// Get preferences of type `P`.
     pub fn get<P: Reflect + TypePath>(&self) -> Option<&P> {
-        let key = P::short_type_path();
+        let key = P::short_type_path().to_string();
         self.map
             .get(key.as_reflect())
             .and_then(|val| val.downcast_ref())
@@ -83,12 +90,18 @@ impl Preferences {
             .get_mut(key.as_reflect())
             .and_then(|val| val.downcast_mut())
     }
+
+    /// Iterator over all preference entries as [`Reflect`] trait objects.
+    pub fn iter_reflect(&self) -> impl Iterator<Item = &dyn Reflect> {
+        self.map.iter().map(|(_k, v)| v)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use bevy_ecs::system::ResMut;
     use bevy_reflect::{Map, Reflect};
+    use serde_json::Value;
 
     use crate::{App, PreferencesPlugin, Startup};
 
@@ -169,5 +182,85 @@ mod tests {
                 .0,
             "Initial"
         );
+    }
+
+    #[derive(Reflect, PartialEq, Debug)]
+    struct Foo(usize);
+
+    #[derive(Reflect, PartialEq, Debug)]
+    struct Bar(String);
+
+    fn get_registry() -> bevy_reflect::TypeRegistry {
+        let mut registry = bevy_reflect::TypeRegistry::default();
+        registry.register::<Foo>();
+        registry.register::<Bar>();
+        registry
+    }
+
+    #[test]
+    fn serialization_round_trip() {
+        use bevy_reflect::serde::ReflectDeserializer;
+        use serde::{de::DeserializeSeed, Serialize};
+
+        let mut preferences = Preferences::default();
+        preferences.set(Foo(42));
+        preferences.set(Bar("Bevy".into()));
+
+        let mut output = String::new();
+        output.push('[');
+        let registry = get_registry();
+
+        for value in preferences.iter_reflect() {
+            let serializer = bevy_reflect::serde::ReflectSerializer::new(value, &registry);
+            let mut buf = Vec::new();
+            let format = serde_json::ser::PrettyFormatter::with_indent(b"    ");
+            let mut ser = serde_json::Serializer::with_formatter(&mut buf, format);
+            serializer.serialize(&mut ser).unwrap();
+
+            let value_output = std::str::from_utf8(&buf).unwrap();
+            output.push_str(value_output);
+            output.push(',');
+        }
+        output.pop();
+        output.push(']');
+
+        let expected = r#"[{
+    "bevy_app::preferences::tests::Foo": [
+        42
+    ]
+},{
+    "bevy_app::preferences::tests::Bar": [
+        "Bevy"
+    ]
+}]"#;
+        assert_eq!(expected, output);
+
+        // Reset preferences and attempt to round-trip the data.
+
+        let mut preferences = Preferences::default();
+        assert!(preferences.map.is_empty());
+
+        let json: Value = serde_json::from_str(&output).unwrap();
+        let entries = json.as_array().unwrap();
+
+        for entry in entries {
+            // Convert back to a string and re-deserialize. Is there an easier way?
+            let entry = entry.to_string();
+            let mut deserializer = serde_json::Deserializer::from_str(&entry);
+
+            let reflect_deserializer = ReflectDeserializer::new(&registry);
+            let output: Box<dyn Reflect> =
+                reflect_deserializer.deserialize(&mut deserializer).unwrap();
+            let type_id = output.get_represented_type_info().unwrap().type_id();
+            let reflect_from_reflect = registry
+                .get_type_data::<bevy_reflect::ReflectFromReflect>(type_id)
+                .unwrap();
+            let value: Box<dyn Reflect> = reflect_from_reflect.from_reflect(&*output).unwrap();
+            dbg!(&value);
+            preferences.set_dyn(value);
+        }
+
+        assert_eq!(preferences.get(), Some(&Foo(42)));
+        assert_eq!(preferences.get(), Some(&Bar("Bevy".into())));
     }
 }
