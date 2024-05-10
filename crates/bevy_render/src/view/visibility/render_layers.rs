@@ -1,7 +1,7 @@
-use smallvec::SmallVec;
 use bevy_ecs::prelude::{Component, ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use smallvec::SmallVec;
 
 pub const DEFAULT_LAYERS: &RenderLayers = &RenderLayers::layer(0);
 
@@ -57,7 +57,10 @@ impl RenderLayers {
     /// Create a new `RenderLayers` belonging to the given layer.
     pub const fn layer(n: Layer) -> Self {
         let (buffer_index, bit) = Self::layer_info(n);
-        assert!(buffer_index < 1, "layer is out of bounds for const construction");
+        assert!(
+            buffer_index < 1,
+            "layer is out of bounds for const construction"
+        );
         RenderLayers(SmallVec::from_const([bit]))
     }
 
@@ -139,7 +142,6 @@ impl RenderLayers {
         self.0.resize(new_size, 0u64);
     }
 
-
     fn iter_layers(mut buffer: u64) -> impl Iterator<Item = Layer> + 'static {
         let mut layer: usize = 0;
         std::iter::from_fn(move || {
@@ -156,8 +158,8 @@ impl RenderLayers {
 
 #[cfg(test)]
 mod rendering_mask_tests {
-    use smallvec::SmallVec;
     use super::{Layer, RenderLayers};
+    use smallvec::SmallVec;
 
     #[test]
     fn rendering_mask_sanity() {
@@ -171,7 +173,11 @@ mod rendering_mask_tests {
         assert_eq!(layer_0_1.0.len(), 1, "layer 0 + 1 is one buffer");
         assert_eq!(layer_0_1.0[0], 3, "layer 0 + 1 is mask 3");
         let layer_0_1_without_0 = layer_0_1.without(0);
-        assert_eq!(layer_0_1_without_0.0.len(), 1, "layer 0 + 1 - 0 is one buffer");
+        assert_eq!(
+            layer_0_1_without_0.0.len(),
+            1,
+            "layer 0 + 1 - 0 is one buffer"
+        );
         assert_eq!(layer_0_1_without_0.0[0], 2, "layer 0 + 1 - 0 is mask 2");
         assert!(
             RenderLayers::layer(1).intersects(&RenderLayers::layer(1)),
