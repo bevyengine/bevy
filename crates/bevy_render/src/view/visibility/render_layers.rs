@@ -81,7 +81,7 @@ impl RenderLayers {
     #[must_use]
     pub fn with(mut self, layer: Layer) -> Self {
         let (buffer_index, bit) = Self::layer_info(layer);
-        Self(SmallVec::new_const()).extend_buffer(buffer_index + 1);
+        self.extend_buffer(buffer_index + 1);
         self.0[buffer_index] |= bit;
         self
     }
@@ -173,6 +173,11 @@ mod rendering_mask_tests {
             "layer 0 + 1 - 0 is one buffer"
         );
         assert_eq!(layer_0_1_without_0.0[0], 2, "layer 0 + 1 - 0 is mask 2");
+        let layer_0_2345 = RenderLayers::layer(0).with(2345);
+        assert_eq!(layer_0_2345.0.len(), 37, "layer 0 + 2345 is 37 buffers");
+        assert_eq!(layer_0_2345.0[0], 1, "layer 0 + 2345 is mask 1");
+        assert_eq!(layer_0_2345.0[36], 2199023255552, "layer 0 + 2345 is mask 2199023255552");
+        assert!(layer_0_2345.intersects(&layer_0), "layer 0 + 2345 intersects 0");
         assert!(
             RenderLayers::layer(1).intersects(&RenderLayers::layer(1)),
             "layers match like layers"
