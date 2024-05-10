@@ -108,7 +108,7 @@ fn update_debug_camera(
         };
         if let Some((config, _)) = gizmo_config.get_config_mut_dyn(&TypeId::of::<UiGizmosDebug>()) {
             config.enabled = true;
-            config.render_layers = layout_debug_layers;
+            config.render_layers = layout_debug_layers.clone();
         }
         let cam = *options.layout_gizmos_camera.get_or_insert_with(spawn_cam);
         let Ok(mut cam) = debug_cams.get_mut(cam) else {
