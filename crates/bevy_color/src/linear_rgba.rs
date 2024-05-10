@@ -1,8 +1,8 @@
 use crate::{
     color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ClampColor,
-    Luminance, Mix, StandardColor,
+    ColorToComponents, Luminance, Mix, StandardColor,
 };
-use bevy_math::Vec4;
+use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
 
@@ -281,15 +281,57 @@ impl ClampColor for LinearRgba {
     }
 }
 
-impl From<LinearRgba> for [f32; 4] {
-    fn from(color: LinearRgba) -> Self {
-        [color.red, color.green, color.blue, color.alpha]
+impl ColorToComponents for LinearRgba {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.red, self.green, self.blue, self.alpha]
     }
-}
 
-impl From<LinearRgba> for Vec4 {
-    fn from(color: LinearRgba) -> Self {
-        Vec4::new(color.red, color.green, color.blue, color.alpha)
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
+        [self.red, self.green, self.blue]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.red, self.green, self.blue, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.red, self.green, self.blue)
+    }
+
+    fn from_f32_array(color: [f32; 4]) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: 1.0,
+        }
+    }
+
+    fn from_vec4(color: Vec4) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_vec3(color: Vec3) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: 1.0,
+        }
     }
 }
 

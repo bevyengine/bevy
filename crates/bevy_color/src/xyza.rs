@@ -1,6 +1,8 @@
 use crate::{
-    impl_componentwise_vector_space, Alpha, ClampColor, LinearRgba, Luminance, Mix, StandardColor,
+    impl_componentwise_vector_space, Alpha, ClampColor, ColorToComponents, LinearRgba, Luminance,
+    Mix, StandardColor,
 };
+use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
 
 /// [CIE 1931](https://en.wikipedia.org/wiki/CIE_1931_color_space) color space, also known as XYZ, with an alpha channel.
@@ -157,6 +159,60 @@ impl ClampColor for Xyza {
             && (0. ..=1.).contains(&self.y)
             && (0. ..=1.).contains(&self.z)
             && (0. ..=1.).contains(&self.alpha)
+    }
+}
+
+impl ColorToComponents for Xyza {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.x, self.y, self.z, self.alpha]
+    }
+
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
+        [self.x, self.y, self.z]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.x, self.y, self.z, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.x, self.y, self.z)
+    }
+
+    fn from_f32_array(color: [f32; 4]) -> Self {
+        Self {
+            x: color[0],
+            y: color[1],
+            z: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
+        Self {
+            x: color[0],
+            y: color[1],
+            z: color[2],
+            alpha: 1.0,
+        }
+    }
+
+    fn from_vec4(color: Vec4) -> Self {
+        Self {
+            x: color[0],
+            y: color[1],
+            z: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_vec3(color: Vec3) -> Self {
+        Self {
+            x: color[0],
+            y: color[1],
+            z: color[2],
+            alpha: 1.0,
+        }
     }
 }
 
