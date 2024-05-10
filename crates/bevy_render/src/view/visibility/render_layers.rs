@@ -86,23 +86,6 @@ impl RenderLayers {
         self
     }
 
-    /// Add the given layer.
-    ///
-    /// This may be called multiple times to allow an entity to belong
-    /// to multiple rendering layers
-    ///
-    /// # Panics
-    /// Panics when called with a layer greater than `64`.
-    pub const fn with_const(mut self, layer: Layer) -> Self {
-        let (buffer_index, bit) = Self::layer_info(layer);
-        assert!(
-            buffer_index < 1,
-            "layer is out of bounds for const construction"
-        );
-        self.0[buffer_index] |= bit;
-        self
-    }
-
     /// Removes the given rendering layer.
     #[must_use]
     pub fn without(mut self, layer: Layer) -> Self {
@@ -110,20 +93,6 @@ impl RenderLayers {
         if buffer_index < self.0.len() {
             self.0[buffer_index] &= !bit;
         }
-        self
-    }
-
-    /// Remove the given layer.
-    ///
-    /// # Panics
-    /// Panics when called with a layer greater than `64`.
-    pub const fn without_const(mut self, layer: Layer) -> Self {
-        let (buffer_index, bit) = Self::layer_info(layer);
-        assert!(
-            buffer_index < 1,
-            "layer is out of bounds for const construction"
-        );
-        self.0[buffer_index] &= !bit;
         self
     }
 
