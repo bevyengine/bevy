@@ -2,9 +2,9 @@
 //! in [_HWB - A More Intuitive Hue-Based Color Model_] by _Smith et al_.
 //!
 //! [_HWB - A More Intuitive Hue-Based Color Model_]: https://web.archive.org/web/20240226005220/http://alvyray.com/Papers/CG/HWB_JGTv208.pdf
-use crate::{Alpha, Lcha, LinearRgba, Srgba, StandardColor, Xyza};
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use serde::{Deserialize, Serialize};
+use crate::{Alpha, ColorToComponents, Hue, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza};
+use bevy_math::{Vec3, Vec4};
+use bevy_reflect::prelude::*;
 
 /// Color in Hue-Whiteness-Blackness (HWB) color space with alpha.
 /// Further information on this color model can be found on [Wikipedia](https://en.wikipedia.org/wiki/HWB_color_model).
@@ -12,8 +12,13 @@ use serde::{Deserialize, Serialize};
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Hwba {
     /// The hue channel. [0.0, 360.0]
     pub hue: f32,
@@ -56,11 +61,6 @@ impl Hwba {
         Self::new(hue, whiteness, blackness, 1.0)
     }
 
-    /// Return a copy of this color with the hue channel set to the given value.
-    pub const fn with_hue(self, hue: f32) -> Self {
-        Self { hue, ..self }
-    }
-
     /// Return a copy of this color with the whiteness channel set to the given value.
     pub const fn with_whiteness(self, whiteness: f32) -> Self {
         Self { whiteness, ..self }
@@ -78,6 +78,19 @@ impl Default for Hwba {
     }
 }
 
+impl Mix for Hwba {
+    #[inline]
+    fn mix(&self, other: &Self, factor: f32) -> Self {
+        let n_factor = 1.0 - factor;
+        Self {
+            hue: crate::color_ops::lerp_hue(self.hue, other.hue, factor),
+            whiteness: self.whiteness * n_factor + other.whiteness * factor,
+            blackness: self.blackness * n_factor + other.blackness * factor,
+            alpha: self.alpha * n_factor + other.alpha * factor,
+        }
+    }
+}
+
 impl Alpha for Hwba {
     #[inline]
     fn with_alpha(&self, alpha: f32) -> Self {
@@ -92,6 +105,77 @@ impl Alpha for Hwba {
     #[inline]
     fn set_alpha(&mut self, alpha: f32) {
         self.alpha = alpha;
+    }
+}
+
+impl Hue for Hwba {
+    #[inline]
+    fn with_hue(&self, hue: f32) -> Self {
+        Self { hue, ..*self }
+    }
+
+    #[inline]
+    fn hue(&self) -> f32 {
+        self.hue
+    }
+
+    #[inline]
+    fn set_hue(&mut self, hue: f32) {
+        self.hue = hue;
+    }
+}
+
+impl ColorToComponents for Hwba {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.hue, self.whiteness, self.blackness, self.alpha]
+    }
+
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
+        [self.hue, self.whiteness, self.blackness]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.hue, self.whiteness, self.blackness, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.hue, self.whiteness, self.blackness)
+    }
+
+    fn from_f32_array(color: [f32; 4]) -> Self {
+        Self {
+            hue: color[0],
+            whiteness: color[1],
+            blackness: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
+        Self {
+            hue: color[0],
+            whiteness: color[1],
+            blackness: color[2],
+            alpha: 1.0,
+        }
+    }
+
+    fn from_vec4(color: Vec4) -> Self {
+        Self {
+            hue: color[0],
+            whiteness: color[1],
+            blackness: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_vec3(color: Vec3) -> Self {
+        Self {
+            hue: color[0],
+            whiteness: color[1],
+            blackness: color[2],
+            alpha: 1.0,
+        }
     }
 }
 
@@ -213,7 +297,6 @@ mod tests {
     use super::*;
     use crate::{
         color_difference::EuclideanDistance, test_colors::TEST_COLORS, testing::assert_approx_eq,
-        Srgba,
     };
 
     #[test]

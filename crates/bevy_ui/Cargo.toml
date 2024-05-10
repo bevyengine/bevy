@@ -31,7 +31,7 @@ bevy_window = { path = "../bevy_window", version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 
 # other
-taffy = { version = "0.3.10" }
+taffy = { version = "0.4" }
 serde = { version = "1", features = ["derive"], optional = true }
 bytemuck = { version = "1.5", features = ["derive"] }
 thiserror = "1.0.0"
@@ -41,8 +41,10 @@ smallvec = "1.11"
 [features]
 serialize = ["serde", "smallvec/serde"]
 
-[package.metadata.docs.rs]
-all-features = true
 
 [lints]
 workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+all-features = true

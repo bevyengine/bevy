@@ -1,5 +1,11 @@
-//! This crate provides core functionality for Bevy Engine.
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
+//! This crate provides core functionality for Bevy Engine.
 
 mod name;
 #[cfg(feature = "serialize")]
@@ -74,7 +80,7 @@ fn tick_global_task_pools(_main_thread_marker: Option<NonSend<NonSendMarker>>) {
 /// [`FrameCount`] will wrap to 0 after exceeding [`u32::MAX`]. Within reasonable
 /// assumptions, one may exploit wrapping arithmetic to determine the number of frames
 /// that have elapsed between two observations – see [`u32::wrapping_sub()`].
-#[derive(Debug, Default, Resource, Clone, Copy)]
+#[derive(Debug, Default, Resource, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FrameCount(pub u32);
 
 /// Adds frame counting functionality to Apps.
@@ -143,7 +149,7 @@ mod tests {
         ));
         app.update();
 
-        let frame_count = app.world.resource::<FrameCount>();
+        let frame_count = app.world().resource::<FrameCount>();
         assert_eq!(1, frame_count.0);
     }
 }

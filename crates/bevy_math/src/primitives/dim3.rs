@@ -1,7 +1,7 @@
 use std::f32::consts::{FRAC_PI_3, PI};
 
-use super::{Circle, Primitive3d};
-use crate::{Dir3, Vec3};
+use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
+use crate::{Dir3, InvalidDirectionError, Mat3, Vec2, Vec3};
 
 /// A sphere primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -32,18 +32,6 @@ impl Sphere {
         2.0 * self.radius
     }
 
-    /// Get the surface area of the sphere
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        4.0 * PI * self.radius.powi(2)
-    }
-
-    /// Get the volume of the sphere
-    #[inline(always)]
-    pub fn volume(&self) -> f32 {
-        4.0 * FRAC_PI_3 * self.radius.powi(3)
-    }
-
     /// Finds the point on the sphere that is closest to the given `point`.
     ///
     /// If the point is outside the sphere, the returned point will be on the surface of the sphere.
@@ -64,33 +52,52 @@ impl Sphere {
     }
 }
 
-/// An unbounded plane in 3D space. It forms a separating surface through the origin,
-/// stretching infinitely far
+impl Measured3d for Sphere {
+    /// Get the surface area of the sphere
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        4.0 * PI * self.radius.powi(2)
+    }
+
+    /// Get the volume of the sphere
+    #[inline(always)]
+    fn volume(&self) -> f32 {
+        4.0 * FRAC_PI_3 * self.radius.powi(3)
+    }
+}
+
+/// A bounded plane in 3D space. It forms a surface starting from the origin with a defined height and width.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Plane3d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Dir3,
+    /// Half of the width and height of the plane
+    pub half_size: Vec2,
 }
 impl Primitive3d for Plane3d {}
 
 impl Default for Plane3d {
-    /// Returns the default [`Plane3d`] with a normal pointing in the `+Y` direction.
+    /// Returns the default [`Plane3d`] with a normal pointing in the `+Y` direction, width and height of `1.0`.
     fn default() -> Self {
-        Self { normal: Dir3::Y }
+        Self {
+            normal: Dir3::Y,
+            half_size: Vec2::splat(0.5),
+        }
     }
 }
 
 impl Plane3d {
-    /// Create a new `Plane3d` from a normal
+    /// Create a new `Plane3d` from a normal and a half size
     ///
     /// # Panics
     ///
     /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
     #[inline(always)]
-    pub fn new(normal: Vec3) -> Self {
+    pub fn new(normal: Vec3, half_size: Vec2) -> Self {
         Self {
             normal: Dir3::new(normal).expect("normal must be nonzero and finite"),
+            half_size,
         }
     }
 
@@ -106,8 +113,71 @@ impl Plane3d {
     /// are *collinear* and lie on the same line.
     #[inline(always)]
     pub fn from_points(a: Vec3, b: Vec3, c: Vec3) -> (Self, Vec3) {
-        let normal = Dir3::new((b - a).cross(c - a))
-            .expect("plane must be defined by three finite points that don't lie on the same line");
+        let normal = Dir3::new((b - a).cross(c - a)).expect(
+            "finite plane must be defined by three finite points that don't lie on the same line",
+        );
+        let translation = (a + b + c) / 3.0;
+
+        (
+            Self {
+                normal,
+                ..Default::default()
+            },
+            translation,
+        )
+    }
+}
+
+/// An unbounded plane in 3D space. It forms a separating surface through the origin,
+/// stretching infinitely far
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct InfinitePlane3d {
+    /// The normal of the plane. The plane will be placed perpendicular to this direction
+    pub normal: Dir3,
+}
+impl Primitive3d for InfinitePlane3d {}
+
+impl Default for InfinitePlane3d {
+    /// Returns the default [`InfinitePlane3d`] with a normal pointing in the `+Y` direction.
+    fn default() -> Self {
+        Self { normal: Dir3::Y }
+    }
+}
+
+impl InfinitePlane3d {
+    /// Create a new `InfinitePlane3d` from a normal
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
+    #[inline(always)]
+    pub fn new<T: TryInto<Dir3>>(normal: T) -> Self
+    where
+        <T as TryInto<Dir3>>::Error: std::fmt::Debug,
+    {
+        Self {
+            normal: normal
+                .try_into()
+                .expect("normal must be nonzero and finite"),
+        }
+    }
+
+    /// Create a new `InfinitePlane3d` based on three points and compute the geometric center
+    /// of those points.
+    ///
+    /// The direction of the plane normal is determined by the winding order
+    /// of the triangular shape formed by the points.
+    ///
+    /// # Panics
+    ///
+    /// Panics if a valid normal can not be computed, for example when the points
+    /// are *collinear* and lie on the same line.
+    #[inline(always)]
+    pub fn from_points(a: Vec3, b: Vec3, c: Vec3) -> (Self, Vec3) {
+        let normal = Dir3::new((b - a).cross(c - a)).expect(
+            "infinite plane must be defined by three finite points that don't lie on the same line",
+        );
         let translation = (a + b + c) / 3.0;
 
         (Self { normal }, translation)
@@ -292,20 +362,6 @@ impl Cuboid {
         2.0 * self.half_size
     }
 
-    /// Get the surface area of the cuboid
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        8.0 * (self.half_size.x * self.half_size.y
-            + self.half_size.y * self.half_size.z
-            + self.half_size.x * self.half_size.z)
-    }
-
-    /// Get the volume of the cuboid
-    #[inline(always)]
-    pub fn volume(&self) -> f32 {
-        8.0 * self.half_size.x * self.half_size.y * self.half_size.z
-    }
-
     /// Finds the point on the cuboid that is closest to the given `point`.
     ///
     /// If the point is outside the cuboid, the returned point will be on the surface of the cuboid.
@@ -314,6 +370,22 @@ impl Cuboid {
     pub fn closest_point(&self, point: Vec3) -> Vec3 {
         // Clamp point coordinates to the cuboid
         point.clamp(-self.half_size, self.half_size)
+    }
+}
+
+impl Measured3d for Cuboid {
+    /// Get the surface area of the cuboid
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        8.0 * (self.half_size.x * self.half_size.y
+            + self.half_size.y * self.half_size.z
+            + self.half_size.x * self.half_size.z)
+    }
+
+    /// Get the volume of the cuboid
+    #[inline(always)]
+    fn volume(&self) -> f32 {
+        8.0 * self.half_size.x * self.half_size.y * self.half_size.z
     }
 }
 
@@ -369,16 +441,18 @@ impl Cylinder {
     pub fn base_area(&self) -> f32 {
         PI * self.radius.powi(2)
     }
+}
 
+impl Measured3d for Cylinder {
     /// Get the total surface area of the cylinder
     #[inline(always)]
-    pub fn area(&self) -> f32 {
+    fn area(&self) -> f32 {
         2.0 * PI * self.radius * (self.radius + 2.0 * self.half_height)
     }
 
     /// Get the volume of the cylinder
     #[inline(always)]
-    pub fn volume(&self) -> f32 {
+    fn volume(&self) -> f32 {
         self.base_area() * 2.0 * self.half_height
     }
 }
@@ -424,17 +498,19 @@ impl Capsule3d {
             half_height: self.half_length,
         }
     }
+}
 
+impl Measured3d for Capsule3d {
     /// Get the surface area of the capsule
     #[inline(always)]
-    pub fn area(&self) -> f32 {
+    fn area(&self) -> f32 {
         // Modified version of 2pi * r * (2r + h)
         4.0 * PI * self.radius * (self.radius + self.half_length)
     }
 
     /// Get the volume of the capsule
     #[inline(always)]
-    pub fn volume(&self) -> f32 {
+    fn volume(&self) -> f32 {
         // Modified version of pi * r^2 * (4/3 * r + a)
         let diameter = self.radius * 2.0;
         PI * self.radius * diameter * (diameter / 3.0 + self.half_length)
@@ -482,16 +558,18 @@ impl Cone {
     pub fn base_area(&self) -> f32 {
         PI * self.radius.powi(2)
     }
+}
 
+impl Measured3d for Cone {
     /// Get the total surface area of the cone
     #[inline(always)]
-    pub fn area(&self) -> f32 {
+    fn area(&self) -> f32 {
         self.base_area() + self.lateral_area()
     }
 
     /// Get the volume of the cone
     #[inline(always)]
-    pub fn volume(&self) -> f32 {
+    fn volume(&self) -> f32 {
         (self.base_area() * self.height) / 3.0
     }
 }
@@ -613,19 +691,283 @@ impl Torus {
             std::cmp::Ordering::Less => TorusKind::Spindle,
         }
     }
+}
 
+impl Measured3d for Torus {
     /// Get the surface area of the torus. Note that this only produces
     /// the expected result when the torus has a ring and isn't self-intersecting
     #[inline(always)]
-    pub fn area(&self) -> f32 {
+    fn area(&self) -> f32 {
         4.0 * PI.powi(2) * self.major_radius * self.minor_radius
     }
 
     /// Get the volume of the torus. Note that this only produces
     /// the expected result when the torus has a ring and isn't self-intersecting
     #[inline(always)]
-    pub fn volume(&self) -> f32 {
+    fn volume(&self) -> f32 {
         2.0 * PI.powi(2) * self.major_radius * self.minor_radius.powi(2)
+    }
+}
+
+/// A 3D triangle primitive.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct Triangle3d {
+    /// The vertices of the triangle.
+    pub vertices: [Vec3; 3],
+}
+
+impl Primitive3d for Triangle3d {}
+
+impl Default for Triangle3d {
+    /// Returns the default [`Triangle3d`] with the vertices `[0.0, 0.5, 0.0]`, `[-0.5, -0.5, 0.0]`, and `[0.5, -0.5, 0.0]`.
+    fn default() -> Self {
+        Self {
+            vertices: [
+                Vec3::new(0.0, 0.5, 0.0),
+                Vec3::new(-0.5, -0.5, 0.0),
+                Vec3::new(0.5, -0.5, 0.0),
+            ],
+        }
+    }
+}
+
+impl Triangle3d {
+    /// Create a new [`Triangle3d`] from points `a`, `b`, and `c`.
+    #[inline(always)]
+    pub fn new(a: Vec3, b: Vec3, c: Vec3) -> Self {
+        Self {
+            vertices: [a, b, c],
+        }
+    }
+
+    /// Get the normal of the triangle in the direction of the right-hand rule, assuming
+    /// the vertices are ordered in a counter-clockwise direction.
+    ///
+    /// The normal is computed as the cross product of the vectors `ab` and `ac`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
+    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
+    #[inline(always)]
+    pub fn normal(&self) -> Result<Dir3, InvalidDirectionError> {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        Dir3::new(ab.cross(ac))
+    }
+
+    /// Checks if the triangle is degenerate, meaning it has zero area.
+    ///
+    /// A triangle is degenerate if the cross product of the vectors `ab` and `ac` has a length less than `10e-7`.
+    /// This indicates that the three vertices are collinear or nearly collinear.
+    #[inline(always)]
+    pub fn is_degenerate(&self) -> bool {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        ab.cross(ac).length() < 10e-7
+    }
+
+    /// Reverse the triangle by swapping the first and last vertices.
+    #[inline(always)]
+    pub fn reverse(&mut self) {
+        self.vertices.swap(0, 2);
+    }
+
+    /// Get the centroid of the triangle.
+    ///
+    /// This function finds the geometric center of the triangle by averaging the vertices:
+    /// `centroid = (a + b + c) / 3`.
+    #[doc(alias("center", "barycenter", "baricenter"))]
+    #[inline(always)]
+    pub fn centroid(&self) -> Vec3 {
+        (self.vertices[0] + self.vertices[1] + self.vertices[2]) / 3.0
+    }
+
+    /// Get the largest side of the triangle.
+    ///
+    /// Returns the two points that form the largest side of the triangle.
+    #[inline(always)]
+    pub fn largest_side(&self) -> (Vec3, Vec3) {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let bc = c - b;
+        let ca = a - c;
+
+        let mut largest_side_points = (a, b);
+        let mut largest_side_length = ab.length();
+
+        if bc.length() > largest_side_length {
+            largest_side_points = (b, c);
+            largest_side_length = bc.length();
+        }
+
+        if ca.length() > largest_side_length {
+            largest_side_points = (a, c);
+        }
+
+        largest_side_points
+    }
+
+    /// Get the circumcenter of the triangle.
+    #[inline(always)]
+    pub fn circumcenter(&self) -> Vec3 {
+        if self.is_degenerate() {
+            // If the triangle is degenerate, the circumcenter is the midpoint of the largest side.
+            let (p1, p2) = self.largest_side();
+            return (p1 + p2) / 2.0;
+        }
+
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        let n = ab.cross(ac);
+
+        // Reference: https://gamedev.stackexchange.com/questions/60630/how-do-i-find-the-circumcenter-of-a-triangle-in-3d
+        a + ((ac.length_squared() * n.cross(ab) + ab.length_squared() * ac.cross(ab).cross(ac))
+            / (2.0 * n.length_squared()))
+    }
+}
+
+impl Measured2d for Triangle3d {
+    /// Get the area of the triangle.
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        ab.cross(ac).length() / 2.0
+    }
+
+    /// Get the perimeter of the triangle.
+    #[inline(always)]
+    fn perimeter(&self) -> f32 {
+        let [a, b, c] = self.vertices;
+        a.distance(b) + b.distance(c) + c.distance(a)
+    }
+}
+
+/// A tetrahedron primitive.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct Tetrahedron {
+    /// The vertices of the tetrahedron.
+    pub vertices: [Vec3; 4],
+}
+impl Primitive3d for Tetrahedron {}
+
+impl Default for Tetrahedron {
+    /// Returns the default [`Tetrahedron`] with the vertices
+    /// `[0.5, 0.5, 0.5]`, `[-0.5, 0.5, -0.5]`, `[-0.5, -0.5, 0.5]` and `[0.5, -0.5, -0.5]`.
+    fn default() -> Self {
+        Self {
+            vertices: [
+                Vec3::new(0.5, 0.5, 0.5),
+                Vec3::new(-0.5, 0.5, -0.5),
+                Vec3::new(-0.5, -0.5, 0.5),
+                Vec3::new(0.5, -0.5, -0.5),
+            ],
+        }
+    }
+}
+
+impl Tetrahedron {
+    /// Create a new [`Tetrahedron`] from points `a`, `b`, `c` and `d`.
+    #[inline(always)]
+    pub fn new(a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> Self {
+        Self {
+            vertices: [a, b, c, d],
+        }
+    }
+
+    /// Get the signed volume of the tetrahedron.
+    ///
+    /// If it's negative, the normal vector of the face defined by
+    /// the first three points using the right-hand rule points
+    /// away from the fourth vertex.
+    #[inline(always)]
+    pub fn signed_volume(&self) -> f32 {
+        let [a, b, c, d] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        let ad = d - a;
+        Mat3::from_cols(ab, ac, ad).determinant() / 6.0
+    }
+
+    /// Get the centroid of the tetrahedron.
+    ///
+    /// This function finds the geometric center of the tetrahedron
+    /// by averaging the vertices: `centroid = (a + b + c + d) / 4`.
+    #[doc(alias("center", "barycenter", "baricenter"))]
+    #[inline(always)]
+    pub fn centroid(&self) -> Vec3 {
+        (self.vertices[0] + self.vertices[1] + self.vertices[2] + self.vertices[3]) / 4.0
+    }
+}
+
+impl Measured3d for Tetrahedron {
+    /// Get the surface area of the tetrahedron.
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        let [a, b, c, d] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        let ad = d - a;
+        let bc = c - b;
+        let bd = d - b;
+        (ab.cross(ac).length()
+            + ab.cross(ad).length()
+            + ac.cross(ad).length()
+            + bc.cross(bd).length())
+            / 2.0
+    }
+
+    /// Get the volume of the tetrahedron.
+    #[inline(always)]
+    fn volume(&self) -> f32 {
+        self.signed_volume().abs()
+    }
+}
+
+/// A 3D shape representing an extruded 2D `base_shape`.
+///
+/// Extruding a shape effectively "thickens" a 2D shapes,
+/// creating a shape with the same cross-section over the entire depth.
+///
+/// The resulting volumes are prisms.
+/// For example, a triangle becomes a triangular prism, while a circle becomes a cylinder.
+#[doc(alias = "Prism")]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct Extrusion<T: Primitive2d> {
+    /// The base shape of the extrusion
+    pub base_shape: T,
+    /// Half of the depth of the extrusion
+    pub half_depth: f32,
+}
+impl<T: Primitive2d> Primitive3d for Extrusion<T> {}
+
+impl<T: Primitive2d> Extrusion<T> {
+    /// Create a new `Extrusion<T>` from a given `base_shape` and `depth`
+    pub fn new(base_shape: T, depth: f32) -> Self {
+        Self {
+            base_shape,
+            half_depth: depth / 2.,
+        }
+    }
+}
+
+impl<T: Primitive2d + Measured2d> Measured3d for Extrusion<T> {
+    /// Get the surface area of the extrusion
+    fn area(&self) -> f32 {
+        2. * (self.base_shape.area() + self.half_depth * self.base_shape.perimeter())
+    }
+
+    /// Get the volume of the extrusion
+    fn volume(&self) -> f32 {
+        2. * self.base_shape.area() * self.half_depth
     }
 }
 
@@ -634,7 +976,7 @@ mod tests {
     // Reference values were computed by hand and/or with external tools
 
     use super::*;
-    use crate::{InvalidDirectionError, Quat};
+    use crate::Quat;
     use approx::assert_relative_eq;
 
     #[test]
@@ -701,6 +1043,14 @@ mod tests {
     #[test]
     fn plane_from_points() {
         let (plane, translation) = Plane3d::from_points(Vec3::X, Vec3::Z, Vec3::NEG_X);
+        assert_eq!(*plane.normal, Vec3::NEG_Y, "incorrect normal");
+        assert_eq!(plane.half_size, Vec2::new(0.5, 0.5), "incorrect half size");
+        assert_eq!(translation, Vec3::Z * 0.33333334, "incorrect translation");
+    }
+
+    #[test]
+    fn infinite_plane_from_points() {
+        let (plane, translation) = InfinitePlane3d::from_points(Vec3::X, Vec3::Z, Vec3::NEG_X);
         assert_eq!(*plane.normal, Vec3::NEG_Y, "incorrect normal");
         assert_eq!(translation, Vec3::Z * 0.33333334, "incorrect translation");
     }
@@ -791,5 +1141,83 @@ mod tests {
         );
         assert_relative_eq!(torus.area(), 33.16187);
         assert_relative_eq!(torus.volume(), 4.97428, epsilon = 0.00001);
+    }
+
+    #[test]
+    fn tetrahedron_math() {
+        let tetrahedron = Tetrahedron {
+            vertices: [
+                Vec3::new(0.3, 1.0, 1.7),
+                Vec3::new(-2.0, -1.0, 0.0),
+                Vec3::new(1.8, 0.5, 1.0),
+                Vec3::new(-1.0, -2.0, 3.5),
+            ],
+        };
+        assert_eq!(tetrahedron.area(), 19.251068, "incorrect area");
+        assert_eq!(tetrahedron.volume(), 3.2058334, "incorrect volume");
+        assert_eq!(
+            tetrahedron.signed_volume(),
+            3.2058334,
+            "incorrect signed volume"
+        );
+        assert_relative_eq!(tetrahedron.centroid(), Vec3::new(-0.225, -0.375, 1.55));
+
+        assert_eq!(Tetrahedron::default().area(), 3.4641016, "incorrect area");
+        assert_eq!(
+            Tetrahedron::default().volume(),
+            0.33333334,
+            "incorrect volume"
+        );
+        assert_eq!(
+            Tetrahedron::default().signed_volume(),
+            -0.33333334,
+            "incorrect signed volume"
+        );
+        assert_relative_eq!(Tetrahedron::default().centroid(), Vec3::ZERO);
+    }
+
+    #[test]
+    fn triangle_math() {
+        let [a, b, c] = [Vec3::ZERO, Vec3::new(1., 1., 0.5), Vec3::new(-3., 2.5, 1.)];
+        let triangle = Triangle3d::new(a, b, c);
+
+        assert!(!triangle.is_degenerate(), "incorrectly found degenerate");
+        assert_eq!(triangle.area(), 3.0233467, "incorrect area");
+        assert_eq!(triangle.perimeter(), 9.832292, "incorrect perimeter");
+        assert_eq!(
+            triangle.circumcenter(),
+            Vec3::new(-1., 1.75, 0.75),
+            "incorrect circumcenter"
+        );
+        assert_eq!(
+            triangle.normal(),
+            Ok(Dir3::new_unchecked(Vec3::new(
+                -0.04134491,
+                -0.4134491,
+                0.90958804
+            ))),
+            "incorrect normal"
+        );
+
+        let degenerate = Triangle3d::new(Vec3::NEG_ONE, Vec3::ZERO, Vec3::ONE);
+        assert!(degenerate.is_degenerate(), "did not find degenerate");
+    }
+
+    #[test]
+    fn extrusion_math() {
+        let circle = Circle::new(0.75);
+        let cylinder = Extrusion::new(circle, 2.5);
+        assert_eq!(cylinder.area(), 15.315264, "incorrect surface area");
+        assert_eq!(cylinder.volume(), 4.417865, "incorrect volume");
+
+        let annulus = crate::primitives::Annulus::new(0.25, 1.375);
+        let tube = Extrusion::new(annulus, 0.333);
+        assert_eq!(tube.area(), 14.886437, "incorrect surface area");
+        assert_eq!(tube.volume(), 1.9124937, "incorrect volume");
+
+        let polygon = crate::primitives::RegularPolygon::new(3.8, 7);
+        let regular_prism = Extrusion::new(polygon, 1.25);
+        assert_eq!(regular_prism.area(), 107.8808, "incorrect surface area");
+        assert_eq!(regular_prism.volume(), 49.392204, "incorrect volume");
     }
 }

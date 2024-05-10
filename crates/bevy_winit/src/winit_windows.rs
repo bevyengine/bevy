@@ -1,13 +1,11 @@
-use accesskit_winit::Adapter;
-use bevy_a11y::{
-    accesskit::{NodeBuilder, NodeClassSet, NodeId, Role, Tree, TreeUpdate},
-    AccessibilityRequested,
-};
+use bevy_a11y::AccessibilityRequested;
 use bevy_ecs::entity::Entity;
 
 use bevy_ecs::entity::EntityHashMap;
 use bevy_utils::{tracing::warn, HashMap};
-use bevy_window::{CursorGrabMode, Window, WindowMode, WindowPosition, WindowResolution};
+use bevy_window::{
+    CursorGrabMode, Window, WindowMode, WindowPosition, WindowResolution, WindowWrapper,
+};
 
 use winit::{
     dpi::{LogicalSize, PhysicalPosition},
@@ -15,7 +13,7 @@ use winit::{
 };
 
 use crate::{
-    accessibility::{AccessKitAdapters, WinitActionHandler, WinitActionHandlers},
+    accessibility::{prepare_accessibility_for_window, AccessKitAdapters, WinitActionHandlers},
     converters::{convert_enabled_buttons, convert_window_level, convert_window_theme},
 };
 
@@ -24,7 +22,7 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct WinitWindows {
     /// Stores [`winit`] windows by window identifier.
-    pub windows: HashMap<winit::window::WindowId, winit::window::Window>,
+    pub windows: HashMap<winit::window::WindowId, WindowWrapper<winit::window::Window>>,
     /// Maps entities to `winit` window identifiers.
     pub entity_to_winit: EntityHashMap<winit::window::WindowId>,
     /// Maps `winit` window identifiers to entities.
@@ -45,7 +43,7 @@ impl WinitWindows {
         adapters: &mut AccessKitAdapters,
         handlers: &mut WinitActionHandlers,
         accessibility_requested: &AccessibilityRequested,
-    ) -> &winit::window::Window {
+    ) -> &WindowWrapper<winit::window::Window> {
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
         // Due to a UIA limitation, winit windows need to be invisible for the
@@ -103,6 +101,12 @@ impl WinitWindows {
             .with_decorations(window.decorations)
             .with_transparent(window.transparent)
             .with_visible(window.visible);
+
+        #[cfg(target_os = "windows")]
+        {
+            use winit::platform::windows::WindowBuilderExtWindows;
+            winit_window_builder = winit_window_builder.with_skip_taskbar(window.skip_taskbar);
+        }
 
         #[cfg(any(
             target_os = "linux",
@@ -189,7 +193,7 @@ impl WinitWindows {
                 let window = web_sys::window().unwrap();
                 let document = window.document().unwrap();
                 let canvas = document
-                    .query_selector(&selector)
+                    .query_selector(selector)
                     .expect("Cannot query for canvas element.");
                 if let Some(canvas) = canvas {
                     let canvas = canvas.dyn_into::<web_sys::HtmlCanvasElement>().ok();
@@ -206,28 +210,14 @@ impl WinitWindows {
 
         let winit_window = winit_window_builder.build(event_loop).unwrap();
         let name = window.title.clone();
-
-        let mut root_builder = NodeBuilder::new(Role::Window);
-        root_builder.set_name(name.into_boxed_str());
-        let root = root_builder.build(&mut NodeClassSet::lock_global());
-
-        let accesskit_window_id = NodeId(entity.to_bits());
-        let handler = WinitActionHandler::default();
-        let accessibility_requested = accessibility_requested.clone();
-        let adapter = Adapter::with_action_handler(
+        prepare_accessibility_for_window(
             &winit_window,
-            move || {
-                accessibility_requested.set(true);
-                TreeUpdate {
-                    nodes: vec![(accesskit_window_id, root)],
-                    tree: Some(Tree::new(accesskit_window_id)),
-                    focus: accesskit_window_id,
-                }
-            },
-            Box::new(handler.clone()),
+            entity,
+            name,
+            accessibility_requested.clone(),
+            adapters,
+            handlers,
         );
-        adapters.insert(entity, adapter);
-        handlers.insert(entity, handler);
 
         // Do not set the grab mode on window creation if it's none. It can fail on mobile.
         if window.cursor.grab_mode != CursorGrabMode::None {
@@ -252,12 +242,12 @@ impl WinitWindows {
 
         self.windows
             .entry(winit_window.id())
-            .insert(winit_window)
+            .insert(WindowWrapper::new(winit_window))
             .into_mut()
     }
 
     /// Get the winit window that is associated with our entity.
-    pub fn get_window(&self, entity: Entity) -> Option<&winit::window::Window> {
+    pub fn get_window(&self, entity: Entity) -> Option<&WindowWrapper<winit::window::Window>> {
         self.entity_to_winit
             .get(&entity)
             .and_then(|winit_id| self.windows.get(winit_id))
@@ -273,9 +263,12 @@ impl WinitWindows {
     /// Remove a window from winit.
     ///
     /// This should mostly just be called when the window is closing.
-    pub fn remove_window(&mut self, entity: Entity) -> Option<winit::window::Window> {
+    pub fn remove_window(
+        &mut self,
+        entity: Entity,
+    ) -> Option<WindowWrapper<winit::window::Window>> {
         let winit_id = self.entity_to_winit.remove(&entity)?;
-        // Don't remove from `winit_to_window_id` so we know the window used to exist.
+        self.winit_to_entity.remove(&winit_id);
         self.windows.remove(&winit_id)
     }
 }

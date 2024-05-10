@@ -1,6 +1,10 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 pub mod io;
 pub mod meta;
@@ -40,8 +44,6 @@ pub use path::*;
 pub use reflect::*;
 pub use server::*;
 
-pub use bevy_utils::BoxedFuture;
-
 /// Rusty Object Notation, a crate used to serialize and deserialize bevy assets.
 pub use ron;
 
@@ -53,18 +55,17 @@ use bevy_app::{App, Last, Plugin, PreUpdate};
 use bevy_ecs::{
     reflect::AppTypeRegistry,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet},
-    system::Resource,
     world::FromWorld,
 };
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use bevy_utils::{tracing::error, HashSet};
 use std::{any::TypeId, sync::Arc};
 
-#[cfg(all(feature = "file_watcher", not(feature = "multi-threaded")))]
+#[cfg(all(feature = "file_watcher", not(feature = "multi_threaded")))]
 compile_error!(
     "The \"file_watcher\" feature for hot reloading requires the \
-    \"multi-threaded\" feature to be functional.\n\
-    Consider either disabling the \"file_watcher\" feature or enabling \"multi-threaded\""
+    \"multi_threaded\" feature to be functional.\n\
+    Consider either disabling the \"file_watcher\" feature or enabling \"multi_threaded\""
 );
 
 /// Provides "asset" loading and processing functionality. An [`Asset`] is a "runtime value" that is loaded from an [`AssetSource`],
@@ -88,6 +89,8 @@ pub struct AssetPlugin {
     pub watch_for_changes_override: Option<bool>,
     /// The [`AssetMode`] to use for this server.
     pub mode: AssetMode,
+    /// How/If asset meta files should be checked.
+    pub meta_check: AssetMetaCheck,
 }
 
 #[derive(Debug)]
@@ -116,8 +119,7 @@ pub enum AssetMode {
 
 /// Configures how / if meta files will be checked. If an asset's meta file is not checked, the default meta for the asset
 /// will be used.
-// TODO: To avoid breaking Bevy 0.12 users in 0.12.1, this is a Resource. In Bevy 0.13 this should be changed to a field on AssetPlugin (if it is still needed).
-#[derive(Debug, Default, Clone, Resource)]
+#[derive(Debug, Default, Clone)]
 pub enum AssetMetaCheck {
     /// Always check if assets have meta files. If the meta does not exist, the default meta will be used.
     #[default]
@@ -135,6 +137,7 @@ impl Default for AssetPlugin {
             file_path: Self::DEFAULT_UNPROCESSED_FILE_PATH.to_string(),
             processed_file_path: Self::DEFAULT_PROCESSED_FILE_PATH.to_string(),
             watch_for_changes_override: None,
+            meta_check: AssetMetaCheck::default(),
         }
     }
 }
@@ -151,7 +154,7 @@ impl Plugin for AssetPlugin {
         let embedded = EmbeddedAssetRegistry::default();
         {
             let mut sources = app
-                .world
+                .world_mut()
                 .get_resource_or_insert_with::<AssetSourceBuilders>(Default::default);
             sources.init_default_source(
                 &self.file_path,
@@ -167,25 +170,20 @@ impl Plugin for AssetPlugin {
             }
             match self.mode {
                 AssetMode::Unprocessed => {
-                    let mut builders = app.world.resource_mut::<AssetSourceBuilders>();
+                    let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
                     let sources = builders.build_sources(watch, false);
-                    let meta_check = app
-                        .world
-                        .get_resource::<AssetMetaCheck>()
-                        .cloned()
-                        .unwrap_or_else(AssetMetaCheck::default);
 
                     app.insert_resource(AssetServer::new_with_meta_check(
                         sources,
                         AssetServerMode::Unprocessed,
-                        meta_check,
+                        self.meta_check.clone(),
                         watch,
                     ));
                 }
                 AssetMode::Processed => {
                     #[cfg(feature = "asset_processor")]
                     {
-                        let mut builders = app.world.resource_mut::<AssetSourceBuilders>();
+                        let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
                         let processor = AssetProcessor::new(&mut builders);
                         let mut sources = builders.build_sources(false, watch);
                         sources.gate_on_processor(processor.data.clone());
@@ -202,7 +200,7 @@ impl Plugin for AssetPlugin {
                     }
                     #[cfg(not(feature = "asset_processor"))]
                     {
-                        let mut builders = app.world.resource_mut::<AssetSourceBuilders>();
+                        let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
                         let sources = builders.build_sources(false, watch);
                         app.insert_resource(AssetServer::new_with_meta_check(
                             sources,
@@ -316,12 +314,14 @@ pub trait AssetApp {
 
 impl AssetApp for App {
     fn register_asset_loader<L: AssetLoader>(&mut self, loader: L) -> &mut Self {
-        self.world.resource::<AssetServer>().register_loader(loader);
+        self.world()
+            .resource::<AssetServer>()
+            .register_loader(loader);
         self
     }
 
     fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self {
-        if let Some(asset_processor) = self.world.get_resource::<AssetProcessor>() {
+        if let Some(asset_processor) = self.world().get_resource::<AssetProcessor>() {
             asset_processor.register_processor(processor);
         }
         self
@@ -333,13 +333,13 @@ impl AssetApp for App {
         source: AssetSourceBuilder,
     ) -> &mut Self {
         let id = id.into();
-        if self.world.get_resource::<AssetServer>().is_some() {
+        if self.world().get_resource::<AssetServer>().is_some() {
             error!("{} must be registered before `AssetPlugin` (typically added as part of `DefaultPlugins`)", id);
         }
 
         {
             let mut sources = self
-                .world
+                .world_mut()
                 .get_resource_or_insert_with(AssetSourceBuilders::default);
             sources.insert(id, source);
         }
@@ -348,22 +348,24 @@ impl AssetApp for App {
     }
 
     fn set_default_asset_processor<P: Process>(&mut self, extension: &str) -> &mut Self {
-        if let Some(asset_processor) = self.world.get_resource::<AssetProcessor>() {
+        if let Some(asset_processor) = self.world().get_resource::<AssetProcessor>() {
             asset_processor.set_default_processor::<P>(extension);
         }
         self
     }
 
     fn init_asset_loader<L: AssetLoader + FromWorld>(&mut self) -> &mut Self {
-        let loader = L::from_world(&mut self.world);
+        let loader = L::from_world(self.world_mut());
         self.register_asset_loader(loader)
     }
 
     fn init_asset<A: Asset>(&mut self) -> &mut Self {
         let assets = Assets::<A>::default();
-        self.world.resource::<AssetServer>().register_asset(&assets);
-        if self.world.contains_resource::<AssetProcessor>() {
-            let processor = self.world.resource::<AssetProcessor>();
+        self.world()
+            .resource::<AssetServer>()
+            .register_asset(&assets);
+        if self.world().contains_resource::<AssetProcessor>() {
+            let processor = self.world().resource::<AssetProcessor>();
             // The processor should have its own handle provider separate from the Asset storage
             // to ensure the id spaces are entirely separate. Not _strictly_ necessary, but
             // desirable.
@@ -392,7 +394,7 @@ impl AssetApp for App {
     where
         A: Asset + Reflect + FromReflect + GetTypeRegistration,
     {
-        let type_registry = self.world.resource::<AppTypeRegistry>();
+        let type_registry = self.world().resource::<AppTypeRegistry>();
         {
             let mut type_registry = type_registry.write();
 
@@ -406,7 +408,7 @@ impl AssetApp for App {
     }
 
     fn preregister_asset_loader<L: AssetLoader>(&mut self, extensions: &[&str]) -> &mut Self {
-        self.world
+        self.world_mut()
             .resource_mut::<AssetServer>()
             .preregister_loader::<L>(extensions);
         self
@@ -448,7 +450,7 @@ mod tests {
     };
     use bevy_log::LogPlugin;
     use bevy_reflect::TypePath;
-    use bevy_utils::{BoxedFuture, Duration, HashMap};
+    use bevy_utils::{Duration, HashMap};
     use futures_lite::AsyncReadExt;
     use serde::{Deserialize, Serialize};
     use std::{path::Path, sync::Arc};
@@ -497,40 +499,38 @@ mod tests {
 
         type Error = CoolTextLoaderError;
 
-        fn load<'a>(
+        async fn load<'a>(
             &'a self,
-            reader: &'a mut Reader,
+            reader: &'a mut Reader<'_>,
             _settings: &'a Self::Settings,
-            load_context: &'a mut LoadContext,
-        ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
-            Box::pin(async move {
-                let mut bytes = Vec::new();
-                reader.read_to_end(&mut bytes).await?;
-                let mut ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
-                let mut embedded = String::new();
-                for dep in ron.embedded_dependencies {
-                    let loaded = load_context.load_direct(&dep).await.map_err(|_| {
-                        Self::Error::CannotLoadDependency {
-                            dependency: dep.into(),
-                        }
-                    })?;
-                    let cool = loaded.get::<CoolText>().unwrap();
-                    embedded.push_str(&cool.text);
-                }
-                Ok(CoolText {
-                    text: ron.text,
-                    embedded,
-                    dependencies: ron
-                        .dependencies
-                        .iter()
-                        .map(|p| load_context.load(p))
-                        .collect(),
-                    sub_texts: ron
-                        .sub_texts
-                        .drain(..)
-                        .map(|text| load_context.add_labeled_asset(text.clone(), SubText { text }))
-                        .collect(),
-                })
+            load_context: &'a mut LoadContext<'_>,
+        ) -> Result<Self::Asset, Self::Error> {
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
+            let mut ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
+            let mut embedded = String::new();
+            for dep in ron.embedded_dependencies {
+                let loaded = load_context.load_direct(&dep).await.map_err(|_| {
+                    Self::Error::CannotLoadDependency {
+                        dependency: dep.into(),
+                    }
+                })?;
+                let cool = loaded.get::<CoolText>().unwrap();
+                embedded.push_str(&cool.text);
+            }
+            Ok(CoolText {
+                text: ron.text,
+                embedded,
+                dependencies: ron
+                    .dependencies
+                    .iter()
+                    .map(|p| load_context.load(p))
+                    .collect(),
+                sub_texts: ron
+                    .sub_texts
+                    .drain(..)
+                    .map(|text| load_context.add_labeled_asset(text.clone(), SubText { text }))
+                    .collect(),
             })
         }
 
@@ -560,31 +560,25 @@ mod tests {
     }
 
     impl AssetReader for UnstableMemoryAssetReader {
-        fn is_directory<'a>(
-            &'a self,
-            path: &'a Path,
-        ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
-            self.memory_reader.is_directory(path)
+        async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
+            self.memory_reader.is_directory(path).await
         }
-        fn read_directory<'a>(
+        async fn read_directory<'a>(
             &'a self,
             path: &'a Path,
-        ) -> BoxedFuture<'a, Result<Box<bevy_asset::io::PathStream>, AssetReaderError>> {
-            self.memory_reader.read_directory(path)
+        ) -> Result<Box<bevy_asset::io::PathStream>, AssetReaderError> {
+            self.memory_reader.read_directory(path).await
         }
-        fn read_meta<'a>(
+        async fn read_meta<'a>(
             &'a self,
             path: &'a Path,
-        ) -> BoxedFuture<'a, Result<Box<bevy_asset::io::Reader<'a>>, AssetReaderError>> {
-            self.memory_reader.read_meta(path)
+        ) -> Result<Box<bevy_asset::io::Reader<'a>>, AssetReaderError> {
+            self.memory_reader.read_meta(path).await
         }
-        fn read<'a>(
+        async fn read<'a>(
             &'a self,
             path: &'a Path,
-        ) -> BoxedFuture<
-            'a,
-            Result<Box<bevy_asset::io::Reader<'a>>, bevy_asset::io::AssetReaderError>,
-        > {
+        ) -> Result<Box<bevy_asset::io::Reader<'a>>, bevy_asset::io::AssetReaderError> {
             let attempt_number = {
                 let mut attempt_counters = self.attempt_counters.lock().unwrap();
                 if let Some(existing) = attempt_counters.get_mut(path) {
@@ -605,13 +599,14 @@ mod tests {
                     ),
                 );
                 let wait = self.load_delay;
-                return Box::pin(async move {
+                return async move {
                     std::thread::sleep(wait);
                     Err(AssetReaderError::Io(io_error.into()))
-                });
+                }
+                .await;
             }
 
-            self.memory_reader.read(path)
+            self.memory_reader.read(path).await
         }
     }
 
@@ -633,7 +628,7 @@ mod tests {
     pub fn run_app_until(app: &mut App, mut predicate: impl FnMut(&mut World) -> Option<()>) {
         for _ in 0..LARGE_ITERATION_COUNT {
             app.update();
-            if predicate(&mut app.world).is_some() {
+            if predicate(app.world_mut()).is_some() {
                 return;
             }
         }
@@ -660,8 +655,8 @@ mod tests {
     #[test]
     fn load_dependencies() {
         // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-        #[cfg(not(feature = "multi-threaded"))]
-        panic!("This test requires the \"multi-threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi-threaded");
+        #[cfg(not(feature = "multi_threaded"))]
+        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
 
         let dir = Dir::default();
 
@@ -723,13 +718,13 @@ mod tests {
             .init_resource::<StoredEvents>()
             .register_asset_loader(CoolTextLoader)
             .add_systems(Update, store_asset_events);
-        let asset_server = app.world.resource::<AssetServer>().clone();
+        let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<CoolText> = asset_server.load(a_path);
         let a_id = handle.id();
-        let entity = app.world.spawn(handle).id();
+        let entity = app.world_mut().spawn(handle).id();
         app.update();
         {
-            let a_text = get::<CoolText>(&app.world, a_id);
+            let a_text = get::<CoolText>(app.world(), a_id);
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
             assert!(a_text.is_none(), "a's asset should not exist yet");
             assert_eq!(a_load, LoadState::Loading, "a should still be loading");
@@ -911,27 +906,27 @@ mod tests {
         });
 
         {
-            let mut texts = app.world.resource_mut::<Assets<CoolText>>();
+            let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
             let a = texts.get_mut(a_id).unwrap();
             a.text = "Changed".to_string();
         }
 
-        app.world.despawn(entity);
+        app.world_mut().despawn(entity);
         app.update();
         assert_eq!(
-            app.world.resource::<Assets<CoolText>>().len(),
+            app.world().resource::<Assets<CoolText>>().len(),
             0,
             "CoolText asset entities should be despawned when no more handles exist"
         );
         app.update();
         // this requires a second update because the parent asset was freed in the previous app.update()
         assert_eq!(
-            app.world.resource::<Assets<SubText>>().len(),
+            app.world().resource::<Assets<SubText>>().len(),
             0,
             "SubText asset entities should be despawned when no more handles exist"
         );
-        let events = app.world.remove_resource::<StoredEvents>().unwrap();
-        let id_results = app.world.remove_resource::<IdResults>().unwrap();
+        let events = app.world_mut().remove_resource::<StoredEvents>().unwrap();
+        let id_results = app.world_mut().remove_resource::<IdResults>().unwrap();
         let expected_events = vec![
             AssetEvent::Added { id: a_id },
             AssetEvent::LoadedWithDependencies {
@@ -981,8 +976,8 @@ mod tests {
     #[test]
     fn failure_load_states() {
         // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-        #[cfg(not(feature = "multi-threaded"))]
-        panic!("This test requires the \"multi-threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi-threaded");
+        #[cfg(not(feature = "multi_threaded"))]
+        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
 
         let dir = Dir::default();
 
@@ -1035,7 +1030,7 @@ mod tests {
         let (mut app, gate_opener) = test_app(dir);
         app.init_asset::<CoolText>()
             .register_asset_loader(CoolTextLoader);
-        let asset_server = app.world.resource::<AssetServer>().clone();
+        let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<CoolText> = asset_server.load(a_path);
         let a_id = handle.id();
         {
@@ -1051,7 +1046,7 @@ mod tests {
             );
         }
 
-        app.world.spawn(handle);
+        app.world_mut().spawn(handle);
         gate_opener.open(a_path);
         gate_opener.open(b_path);
         gate_opener.open(c_path);
@@ -1072,13 +1067,13 @@ mod tests {
             let d_id = c_text.dependencies[0].id();
             let d_text = get::<CoolText>(world, d_id);
             let (d_load, d_deps, d_rec_deps) = asset_server.get_load_states(d_id).unwrap();
-            if d_load != LoadState::Failed {
+            if !matches!(d_load, LoadState::Failed(_)) {
                 // wait until d has exited the loading state
                 return None;
             }
 
             assert!(d_text.is_none());
-            assert_eq!(d_load, LoadState::Failed);
+            assert!(matches!(d_load, LoadState::Failed(_)));
             assert_eq!(d_deps, DependencyLoadState::Failed);
             assert_eq!(d_rec_deps, RecursiveDependencyLoadState::Failed);
 
@@ -1122,7 +1117,7 @@ mod tests {
 
         let id = {
             let handle = {
-                let mut texts = app.world.resource_mut::<Assets<CoolText>>();
+                let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
                 let handle = texts.add(CoolText::default());
                 texts.get_strong_handle(handle.id()).unwrap()
             };
@@ -1130,7 +1125,7 @@ mod tests {
             app.update();
 
             {
-                let text = app.world.resource::<Assets<CoolText>>().get(&handle);
+                let text = app.world().resource::<Assets<CoolText>>().get(&handle);
                 assert!(text.is_some());
             }
             handle.id()
@@ -1138,7 +1133,7 @@ mod tests {
         // handle is dropped
         app.update();
         assert!(
-            app.world.resource::<Assets<CoolText>>().get(id).is_none(),
+            app.world().resource::<Assets<CoolText>>().get(id).is_none(),
             "asset has no handles, so it should have been dropped last update"
         );
     }
@@ -1146,8 +1141,8 @@ mod tests {
     #[test]
     fn manual_asset_management() {
         // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-        #[cfg(not(feature = "multi-threaded"))]
-        panic!("This test requires the \"multi-threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi-threaded");
+        #[cfg(not(feature = "multi_threaded"))]
+        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
 
         let dir = Dir::default();
         let dep_path = "dep.cool.ron";
@@ -1166,7 +1161,7 @@ mod tests {
 
         let id = {
             let handle = {
-                let mut texts = app.world.resource_mut::<Assets<CoolText>>();
+                let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
                 texts.add(CoolText {
                     text: hello.clone(),
                     embedded: empty.clone(),
@@ -1179,7 +1174,7 @@ mod tests {
 
             {
                 let text = app
-                    .world
+                    .world()
                     .resource::<Assets<CoolText>>()
                     .get(&handle)
                     .unwrap();
@@ -1190,12 +1185,12 @@ mod tests {
         // handle is dropped
         app.update();
         assert!(
-            app.world.resource::<Assets<CoolText>>().get(id).is_none(),
+            app.world().resource::<Assets<CoolText>>().get(id).is_none(),
             "asset has no handles, so it should have been dropped last update"
         );
         // remove event is emitted
         app.update();
-        let events = std::mem::take(&mut app.world.resource_mut::<StoredEvents>().0);
+        let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
         let expected_events = vec![
             AssetEvent::Added { id },
             AssetEvent::Unused { id },
@@ -1203,7 +1198,7 @@ mod tests {
         ];
         assert_eq!(events, expected_events);
 
-        let dep_handle = app.world.resource::<AssetServer>().load(dep_path);
+        let dep_handle = app.world().resource::<AssetServer>().load(dep_path);
         let a = CoolText {
             text: "a".to_string(),
             embedded: empty,
@@ -1211,19 +1206,19 @@ mod tests {
             dependencies: vec![dep_handle.clone()],
             sub_texts: Vec::new(),
         };
-        let a_handle = app.world.resource::<AssetServer>().load_asset(a);
+        let a_handle = app.world().resource::<AssetServer>().load_asset(a);
         app.update();
         // TODO: ideally it doesn't take two updates for the added event to emit
         app.update();
 
-        let events = std::mem::take(&mut app.world.resource_mut::<StoredEvents>().0);
+        let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
         let expected_events = vec![AssetEvent::Added { id: a_handle.id() }];
         assert_eq!(events, expected_events);
 
         gate_opener.open(dep_path);
         loop {
             app.update();
-            let events = std::mem::take(&mut app.world.resource_mut::<StoredEvents>().0);
+            let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
             if events.is_empty() {
                 continue;
             }
@@ -1237,7 +1232,7 @@ mod tests {
             break;
         }
         app.update();
-        let events = std::mem::take(&mut app.world.resource_mut::<StoredEvents>().0);
+        let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
         let expected_events = vec![AssetEvent::Added {
             id: dep_handle.id(),
         }];
@@ -1247,8 +1242,8 @@ mod tests {
     #[test]
     fn load_folder() {
         // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-        #[cfg(not(feature = "multi-threaded"))]
-        panic!("This test requires the \"multi-threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi-threaded");
+        #[cfg(not(feature = "multi_threaded"))]
+        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
 
         let dir = Dir::default();
 
@@ -1288,7 +1283,7 @@ mod tests {
         app.init_asset::<CoolText>()
             .init_asset::<SubText>()
             .register_asset_loader(CoolTextLoader);
-        let asset_server = app.world.resource::<AssetServer>().clone();
+        let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<LoadedFolder> = asset_server.load_folder("text");
         gate_opener.open(a_path);
         gate_opener.open(b_path);
@@ -1385,7 +1380,7 @@ mod tests {
             // Check what just failed
             for error in errors.read() {
                 let (load_state, _, _) = server.get_load_states(error.id).unwrap();
-                assert_eq!(load_state, LoadState::Failed);
+                assert!(matches!(load_state, LoadState::Failed(_)));
                 assert_eq!(*error.path.source(), AssetSourceId::Name("unstable".into()));
                 match &error.error {
                     AssetLoadError::AssetReaderError(read_error) => match read_error {
@@ -1443,12 +1438,12 @@ mod tests {
             (asset_event_handler, asset_load_error_event_handler).chain(),
         );
 
-        let asset_server = app.world.resource::<AssetServer>().clone();
+        let asset_server = app.world().resource::<AssetServer>().clone();
         let a_path = format!("unstable://{a_path}");
         let a_handle: Handle<CoolText> = asset_server.load(a_path);
         let a_id = a_handle.id();
 
-        app.world.spawn(a_handle);
+        app.world_mut().spawn(a_handle);
 
         run_app_until(&mut app, |world| {
             let tracker = world.resource::<ErrorTracker>();
@@ -1481,7 +1476,7 @@ mod tests {
         });
 
         // running schedule does not error on ambiguity between the 2 uses_assets systems
-        app.world.run_schedule(Update);
+        app.world_mut().run_schedule(Update);
     }
 
     // validate the Asset derive macro for various asset types

@@ -1,3 +1,5 @@
+use bevy_math::{Vec3, Vec4};
+
 /// Methods for changing the luminance of a color. Note that these methods are not
 /// guaranteed to produce consistent results across color spaces,
 /// but will be within a given space.
@@ -59,5 +61,88 @@ pub trait Alpha: Sized {
     /// Is the alpha component of this color greater than or equal to 1.0?
     fn is_fully_opaque(&self) -> bool {
         self.alpha() >= 1.0
+    }
+}
+
+/// Trait for manipulating the hue of a color.
+pub trait Hue: Sized {
+    /// Return a new version of this color with the hue channel set to the given value.
+    fn with_hue(&self, hue: f32) -> Self;
+
+    /// Return the hue of this color [0.0, 360.0].
+    fn hue(&self) -> f32;
+
+    /// Sets the hue of this color.
+    fn set_hue(&mut self, hue: f32);
+
+    /// Return a new version of this color with the hue channel rotated by the given degrees.
+    fn rotate_hue(&self, degrees: f32) -> Self {
+        let rotated_hue = (self.hue() + degrees).rem_euclid(360.);
+        self.with_hue(rotated_hue)
+    }
+}
+
+/// Trait with methods for converting colors to non-color types
+pub trait ColorToComponents {
+    /// Convert to an f32 array
+    fn to_f32_array(self) -> [f32; 4];
+    /// Convert to an f32 array without the alpha value
+    fn to_f32_array_no_alpha(self) -> [f32; 3];
+    /// Convert to a Vec4
+    fn to_vec4(self) -> Vec4;
+    /// Convert to a Vec3
+    fn to_vec3(self) -> Vec3;
+    /// Convert from an f32 array
+    fn from_f32_array(color: [f32; 4]) -> Self;
+    /// Convert from an f32 array without the alpha value
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self;
+    /// Convert from a Vec4
+    fn from_vec4(color: Vec4) -> Self;
+    /// Convert from a Vec3
+    fn from_vec3(color: Vec3) -> Self;
+}
+
+/// Utility function for interpolating hue values. This ensures that the interpolation
+/// takes the shortest path around the color wheel, and that the result is always between
+/// 0 and 360.
+pub(crate) fn lerp_hue(a: f32, b: f32, t: f32) -> f32 {
+    let diff = (b - a + 180.0).rem_euclid(360.) - 180.;
+    (a + diff * t).rem_euclid(360.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{testing::assert_approx_eq, Hsla};
+
+    #[test]
+    fn test_rotate_hue() {
+        let hsla = Hsla::hsl(180.0, 1.0, 0.5);
+        assert_eq!(hsla.rotate_hue(90.0), Hsla::hsl(270.0, 1.0, 0.5));
+        assert_eq!(hsla.rotate_hue(-90.0), Hsla::hsl(90.0, 1.0, 0.5));
+        assert_eq!(hsla.rotate_hue(180.0), Hsla::hsl(0.0, 1.0, 0.5));
+        assert_eq!(hsla.rotate_hue(-180.0), Hsla::hsl(0.0, 1.0, 0.5));
+        assert_eq!(hsla.rotate_hue(0.0), hsla);
+        assert_eq!(hsla.rotate_hue(360.0), hsla);
+        assert_eq!(hsla.rotate_hue(-360.0), hsla);
+    }
+
+    #[test]
+    fn test_hue_wrap() {
+        assert_approx_eq!(lerp_hue(10., 20., 0.25), 12.5, 0.001);
+        assert_approx_eq!(lerp_hue(10., 20., 0.5), 15., 0.001);
+        assert_approx_eq!(lerp_hue(10., 20., 0.75), 17.5, 0.001);
+
+        assert_approx_eq!(lerp_hue(20., 10., 0.25), 17.5, 0.001);
+        assert_approx_eq!(lerp_hue(20., 10., 0.5), 15., 0.001);
+        assert_approx_eq!(lerp_hue(20., 10., 0.75), 12.5, 0.001);
+
+        assert_approx_eq!(lerp_hue(10., 350., 0.25), 5., 0.001);
+        assert_approx_eq!(lerp_hue(10., 350., 0.5), 0., 0.001);
+        assert_approx_eq!(lerp_hue(10., 350., 0.75), 355., 0.001);
+
+        assert_approx_eq!(lerp_hue(350., 10., 0.25), 355., 0.001);
+        assert_approx_eq!(lerp_hue(350., 10., 0.5), 0., 0.001);
+        assert_approx_eq!(lerp_hue(350., 10., 0.75), 5., 0.001);
     }
 }

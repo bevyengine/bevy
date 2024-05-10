@@ -1,18 +1,23 @@
-use std::ops::{Div, Mul};
-
-use crate::{color_difference::EuclideanDistance, Alpha, Luminance, Mix, StandardColor};
-use bevy_math::Vec4;
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use crate::{
+    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ColorToComponents,
+    Luminance, Mix, StandardColor,
+};
+use bevy_math::{Vec3, Vec4};
+use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
-use serde::{Deserialize, Serialize};
 
 /// Linear RGB color with alpha.
 #[doc = include_str!("../docs/conversion.md")]
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect, Pod, Zeroable)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 #[repr(C)]
 pub struct LinearRgba {
     /// The red channel. [0.0, 1.0]
@@ -26,6 +31,8 @@ pub struct LinearRgba {
 }
 
 impl StandardColor for LinearRgba {}
+
+impl_componentwise_vector_space!(LinearRgba, [red, green, blue, alpha]);
 
 impl LinearRgba {
     /// A fully black color with full alpha.
@@ -256,67 +263,68 @@ impl EuclideanDistance for LinearRgba {
     }
 }
 
-impl From<LinearRgba> for [f32; 4] {
-    fn from(color: LinearRgba) -> Self {
-        [color.red, color.green, color.blue, color.alpha]
+impl ColorToComponents for LinearRgba {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.red, self.green, self.blue, self.alpha]
+    }
+
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
+        [self.red, self.green, self.blue]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.red, self.green, self.blue, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.red, self.green, self.blue)
+    }
+
+    fn from_f32_array(color: [f32; 4]) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: 1.0,
+        }
+    }
+
+    fn from_vec4(color: Vec4) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_vec3(color: Vec3) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: 1.0,
+        }
     }
 }
 
-impl From<LinearRgba> for Vec4 {
+#[cfg(feature = "wgpu-types")]
+impl From<LinearRgba> for wgpu_types::Color {
     fn from(color: LinearRgba) -> Self {
-        Vec4::new(color.red, color.green, color.blue, color.alpha)
-    }
-}
-
-impl From<LinearRgba> for wgpu::Color {
-    fn from(color: LinearRgba) -> Self {
-        wgpu::Color {
+        wgpu_types::Color {
             r: color.red as f64,
             g: color.green as f64,
             b: color.blue as f64,
             a: color.alpha as f64,
-        }
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Mul<f32> for LinearRgba {
-    type Output = Self;
-
-    fn mul(self, rhs: f32) -> Self {
-        Self {
-            red: self.red * rhs,
-            green: self.green * rhs,
-            blue: self.blue * rhs,
-            alpha: self.alpha,
-        }
-    }
-}
-
-impl Mul<LinearRgba> for f32 {
-    type Output = LinearRgba;
-
-    fn mul(self, rhs: LinearRgba) -> LinearRgba {
-        rhs * self
-    }
-}
-
-/// All color channels are scaled directly,
-/// but alpha is unchanged.
-///
-/// Values are not clamped.
-impl Div<f32> for LinearRgba {
-    type Output = Self;
-
-    fn div(self, rhs: f32) -> Self {
-        Self {
-            red: self.red / rhs,
-            green: self.green / rhs,
-            blue: self.blue / rhs,
-            alpha: self.alpha,
         }
     }
 }
@@ -335,6 +343,7 @@ impl encase::ShaderType for LinearRgba {
         encase::private::Metadata {
             alignment,
             has_uniform_min_alignment: false,
+            is_pod: true,
             min_size: size,
             extra: (),
         }
@@ -389,33 +398,6 @@ impl encase::private::CreateFrom for LinearRgba {
         }
     }
 }
-
-/// A [`Zeroable`] type is one whose bytes can be filled with zeroes while remaining valid.
-///
-/// SAFETY: [`LinearRgba`] is inhabited
-/// SAFETY: [`LinearRgba`]'s all-zero bit pattern is a valid value
-unsafe impl Zeroable for LinearRgba {
-    fn zeroed() -> Self {
-        LinearRgba {
-            red: 0.0,
-            green: 0.0,
-            blue: 0.0,
-            alpha: 0.0,
-        }
-    }
-}
-
-/// The [`Pod`] trait is [`bytemuck`]'s marker for types that can be safely transmuted from a byte array.
-///
-/// It is intended to only be implemented for types which are "Plain Old Data".
-///
-/// SAFETY: [`LinearRgba`] is inhabited.
-/// SAFETY: [`LinearRgba`] permits any bit value.
-/// SAFETY: [`LinearRgba`] does not have padding bytes.
-/// SAFETY: all of the fields of [`LinearRgba`] are [`Pod`], as f32 is [`Pod`].
-/// SAFETY: [`LinearRgba`] is `repr(C)`
-/// SAFETY: [`LinearRgba`] does not permit interior mutability.
-unsafe impl Pod for LinearRgba {}
 
 impl encase::ShaderSize for LinearRgba {}
 

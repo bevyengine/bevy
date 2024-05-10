@@ -1,6 +1,8 @@
-use crate::{Alpha, Hwba, Lcha, LinearRgba, Srgba, StandardColor, Xyza};
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use serde::{Deserialize, Serialize};
+use crate::{
+    Alpha, ColorToComponents, Hue, Hwba, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza,
+};
+use bevy_math::{Vec3, Vec4};
+use bevy_reflect::prelude::*;
 
 /// Color in Hue-Saturation-Value (HSV) color space with alpha.
 /// Further information on this color model can be found on [Wikipedia](https://en.wikipedia.org/wiki/HSL_and_HSV).
@@ -8,8 +10,13 @@ use serde::{Deserialize, Serialize};
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect)]
-#[reflect(PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Hsva {
     /// The hue channel. [0.0, 360.0]
     pub hue: f32,
@@ -52,11 +59,6 @@ impl Hsva {
         Self::new(hue, saturation, value, 1.0)
     }
 
-    /// Return a copy of this color with the hue channel set to the given value.
-    pub const fn with_hue(self, hue: f32) -> Self {
-        Self { hue, ..self }
-    }
-
     /// Return a copy of this color with the saturation channel set to the given value.
     pub const fn with_saturation(self, saturation: f32) -> Self {
         Self { saturation, ..self }
@@ -74,6 +76,19 @@ impl Default for Hsva {
     }
 }
 
+impl Mix for Hsva {
+    #[inline]
+    fn mix(&self, other: &Self, factor: f32) -> Self {
+        let n_factor = 1.0 - factor;
+        Self {
+            hue: crate::color_ops::lerp_hue(self.hue, other.hue, factor),
+            saturation: self.saturation * n_factor + other.saturation * factor,
+            value: self.value * n_factor + other.value * factor,
+            alpha: self.alpha * n_factor + other.alpha * factor,
+        }
+    }
+}
+
 impl Alpha for Hsva {
     #[inline]
     fn with_alpha(&self, alpha: f32) -> Self {
@@ -88,6 +103,23 @@ impl Alpha for Hsva {
     #[inline]
     fn set_alpha(&mut self, alpha: f32) {
         self.alpha = alpha;
+    }
+}
+
+impl Hue for Hsva {
+    #[inline]
+    fn with_hue(&self, hue: f32) -> Self {
+        Self { hue, ..*self }
+    }
+
+    #[inline]
+    fn hue(&self) -> f32 {
+        self.hue
+    }
+
+    #[inline]
+    fn set_hue(&mut self, hue: f32) {
+        self.hue = hue;
     }
 }
 
@@ -122,6 +154,60 @@ impl From<Hwba> for Hsva {
         let saturation = 1. - (whiteness / value);
 
         Hsva::new(hue, saturation, value, alpha)
+    }
+}
+
+impl ColorToComponents for Hsva {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.hue, self.saturation, self.value, self.alpha]
+    }
+
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
+        [self.hue, self.saturation, self.value]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.hue, self.saturation, self.value, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.hue, self.saturation, self.value)
+    }
+
+    fn from_f32_array(color: [f32; 4]) -> Self {
+        Self {
+            hue: color[0],
+            saturation: color[1],
+            value: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
+        Self {
+            hue: color[0],
+            saturation: color[1],
+            value: color[2],
+            alpha: 1.0,
+        }
+    }
+
+    fn from_vec4(color: Vec4) -> Self {
+        Self {
+            hue: color[0],
+            saturation: color[1],
+            value: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_vec3(color: Vec3) -> Self {
+        Self {
+            hue: color[0],
+            saturation: color[1],
+            value: color[2],
+            alpha: 1.0,
+        }
     }
 }
 
@@ -180,7 +266,6 @@ mod tests {
     use super::*;
     use crate::{
         color_difference::EuclideanDistance, test_colors::TEST_COLORS, testing::assert_approx_eq,
-        Srgba,
     };
 
     #[test]

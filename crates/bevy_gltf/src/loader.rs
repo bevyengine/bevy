@@ -1,4 +1,5 @@
 use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode};
+#[cfg(feature = "bevy_animation")]
 use bevy_animation::{AnimationTarget, AnimationTargetId};
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, AsyncReadExt, Handle, LoadContext, ReadAssetBytesError,
@@ -37,14 +38,20 @@ use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::{error, info_span, warn};
 use bevy_utils::{HashMap, HashSet};
+use gltf::image::Source;
 use gltf::{
     accessor::Iter,
     mesh::{util::ReadIndices, Mode},
     texture::{Info, MagFilter, MinFilter, TextureTransform, WrappingMode},
     Material, Node, Primitive, Semantic,
 };
+use gltf::{json, Document};
 use serde::{Deserialize, Serialize};
-use smallvec::{smallvec, SmallVec};
+#[cfg(feature = "pbr_multi_layer_material_textures")]
+use serde_json::value;
+use serde_json::{Map, Value};
+#[cfg(feature = "bevy_animation")]
+use smallvec::SmallVec;
 use std::io::Error;
 use std::{
     collections::VecDeque,
@@ -130,8 +137,14 @@ pub struct GltfLoader {
 /// ```
 #[derive(Serialize, Deserialize)]
 pub struct GltfLoaderSettings {
-    /// If true, the loader will load mesh nodes and the associated materials.
-    pub load_meshes: bool,
+    /// If empty, the gltf mesh nodes will be skipped.
+    ///
+    /// Otherwise, nodes will be loaded and retained in RAM/VRAM according to the active flags.
+    pub load_meshes: RenderAssetUsages,
+    /// If empty, the gltf materials will be skipped.
+    ///
+    /// Otherwise, materials will be loaded and retained in RAM/VRAM according to the active flags.
+    pub load_materials: RenderAssetUsages,
     /// If true, the loader will spawn cameras for gltf camera nodes.
     pub load_cameras: bool,
     /// If true, the loader will spawn lights for gltf light nodes.
@@ -143,7 +156,8 @@ pub struct GltfLoaderSettings {
 impl Default for GltfLoaderSettings {
     fn default() -> Self {
         Self {
-            load_meshes: true,
+            load_meshes: RenderAssetUsages::default(),
+            load_materials: RenderAssetUsages::default(),
             load_cameras: true,
             load_lights: true,
             include_source: false,
@@ -155,17 +169,15 @@ impl AssetLoader for GltfLoader {
     type Asset = Gltf;
     type Settings = GltfLoaderSettings;
     type Error = GltfError;
-    fn load<'a>(
+    async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
+        reader: &'a mut Reader<'_>,
         settings: &'a GltfLoaderSettings,
-        load_context: &'a mut LoadContext,
-    ) -> bevy_utils::BoxedFuture<'a, Result<Gltf, Self::Error>> {
-        Box::pin(async move {
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
-            load_gltf(self, &bytes, load_context, settings).await
-        })
+        load_context: &'a mut LoadContext<'_>,
+    ) -> Result<Gltf, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        load_gltf(self, &bytes, load_context, settings).await
     }
 
     fn extensions(&self) -> &[&str] {
@@ -206,6 +218,22 @@ async fn load_gltf<'a, 'b, 'c>(
             .metallic_roughness_texture()
         {
             linear_textures.insert(texture.texture().index());
+        }
+
+        // None of the clearcoat maps should be loaded as sRGB.
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        for texture_field_name in [
+            "clearcoatTexture",
+            "clearcoatRoughnessTexture",
+            "clearcoatNormalTexture",
+        ] {
+            if let Some(texture_index) = material_extension_texture_index(
+                &material,
+                "KHR_materials_clearcoat",
+                texture_field_name,
+            ) {
+                linear_textures.insert(texture_index);
+            }
         }
     }
 
@@ -340,6 +368,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 &linear_textures,
                 parent_path,
                 loader.supported_compressed_formats,
+                settings.load_materials,
             )
             .await?;
             process_loaded_texture(load_context, &mut _texture_handles, image);
@@ -359,6 +388,7 @@ async fn load_gltf<'a, 'b, 'c>(
                             linear_textures,
                             parent_path,
                             loader.supported_compressed_formats,
+                            settings.load_materials,
                         )
                         .await
                     });
@@ -377,13 +407,16 @@ async fn load_gltf<'a, 'b, 'c>(
 
     let mut materials = vec![];
     let mut named_materials = HashMap::default();
-    // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
-    for material in gltf.materials() {
-        let handle = load_material(&material, load_context, false);
-        if let Some(name) = material.name() {
-            named_materials.insert(name.into(), handle.clone());
+    // Only include materials in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_materials flag
+    if !settings.load_materials.is_empty() {
+        // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
+        for material in gltf.materials() {
+            let handle = load_material(&material, load_context, &gltf.document, false);
+            if let Some(name) = material.name() {
+                named_materials.insert(name.into(), handle.clone());
+            }
+            materials.push(handle);
         }
-        materials.push(handle);
     }
     let mut meshes = vec![];
     let mut named_meshes = HashMap::default();
@@ -404,7 +437,7 @@ async fn load_gltf<'a, 'b, 'c>(
             let primitive_label = primitive_label(&gltf_mesh, &primitive);
             let primitive_topology = get_primitive_topology(primitive.mode())?;
 
-            let mut mesh = Mesh::new(primitive_topology, RenderAssetUsages::default());
+            let mut mesh = Mesh::new(primitive_topology, settings.load_meshes);
 
             // Read vertex attributes
             for (semantic, accessor) in primitive.attributes() {
@@ -466,18 +499,10 @@ async fn load_gltf<'a, 'b, 'c>(
             if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none()
                 && matches!(mesh.primitive_topology(), PrimitiveTopology::TriangleList)
             {
-                let vertex_count_before = mesh.count_vertices();
-                mesh.duplicate_vertices();
+                bevy_utils::tracing::debug!(
+                    "Automatically calculating missing vertex normals for geometry."
+                );
                 mesh.compute_flat_normals();
-                let vertex_count_after = mesh.count_vertices();
-
-                if vertex_count_before != vertex_count_after {
-                    bevy_utils::tracing::debug!("Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}", vertex_count_before, vertex_count_after);
-                } else {
-                    bevy_utils::tracing::debug!(
-                        "Missing vertex normals in indexed geometry, computing them as flat."
-                    );
-                }
             }
 
             if let Some(vertex_attribute) = reader
@@ -486,7 +511,7 @@ async fn load_gltf<'a, 'b, 'c>(
             {
                 mesh.insert_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
             } else if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_some()
-                && primitive.material().normal_texture().is_some()
+                && material_needs_tangents(&primitive.material())
             {
                 bevy_utils::tracing::debug!(
                     "Missing vertex tangents for {}, computing them using the mikktspace algorithm. Consider using a tool such as Blender to pre-compute the tangents.", file_name
@@ -601,8 +626,11 @@ async fn load_gltf<'a, 'b, 'c>(
                         &mut entity_to_skin_index_map,
                         &mut active_camera_found,
                         &Transform::default(),
+                        #[cfg(feature = "bevy_animation")]
                         &animation_roots,
+                        #[cfg(feature = "bevy_animation")]
                         None,
+                        &gltf.document,
                     );
                     if result.is_err() {
                         err = Some(result);
@@ -744,6 +772,7 @@ async fn load_image<'a, 'b>(
     linear_textures: &HashSet<usize>,
     parent_path: &'b Path,
     supported_compressed_formats: CompressedImageFormats,
+    render_asset_usages: RenderAssetUsages,
 ) -> Result<ImageOrPath, GltfError> {
     let is_srgb = !linear_textures.contains(&gltf_texture.index());
     let sampler_descriptor = texture_sampler(&gltf_texture);
@@ -764,7 +793,7 @@ async fn load_image<'a, 'b>(
                 supported_compressed_formats,
                 is_srgb,
                 ImageSampler::Descriptor(sampler_descriptor),
-                RenderAssetUsages::default(),
+                render_asset_usages,
             )?;
             Ok(ImageOrPath::Image {
                 image,
@@ -788,7 +817,7 @@ async fn load_image<'a, 'b>(
                         supported_compressed_formats,
                         is_srgb,
                         ImageSampler::Descriptor(sampler_descriptor),
-                        RenderAssetUsages::default(),
+                        render_asset_usages,
                     )?,
                     label: texture_label(&gltf_texture),
                 })
@@ -808,6 +837,7 @@ async fn load_image<'a, 'b>(
 fn load_material(
     material: &Material,
     load_context: &mut LoadContext,
+    document: &Document,
     is_scale_inverted: bool,
 ) -> Handle<StandardMaterial> {
     let material_label = material_label(material, is_scale_inverted);
@@ -911,6 +941,10 @@ fn load_material(
 
         let ior = material.ior().unwrap_or(1.5);
 
+        // Parse the `KHR_materials_clearcoat` extension data if necessary.
+        let clearcoat = ClearcoatExtension::parse(load_context, document, material.extensions())
+            .unwrap_or_default();
+
         // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
         let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
         let scaled_emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
@@ -950,6 +984,15 @@ fn load_material(
             unlit: material.unlit(),
             alpha_mode: alpha_mode(material),
             uv_transform,
+            clearcoat: clearcoat.clearcoat_factor.unwrap_or_default() as f32,
+            clearcoat_perceptual_roughness: clearcoat.clearcoat_roughness_factor.unwrap_or_default()
+                as f32,
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_texture: clearcoat.clearcoat_texture,
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_roughness_texture: clearcoat.clearcoat_roughness_texture,
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_normal_texture: clearcoat.clearcoat_normal_texture,
             ..Default::default()
         }
     })
@@ -1006,8 +1049,9 @@ fn load_node(
     entity_to_skin_index_map: &mut EntityHashMap<usize>,
     active_camera_found: &mut bool,
     parent_transform: &Transform,
-    animation_roots: &HashSet<usize>,
-    mut animation_context: Option<AnimationContext>,
+    #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
+    #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
+    document: &Document,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
     let transform = node_transform(gltf_node);
@@ -1029,7 +1073,7 @@ fn load_node(
         // This is an animation root. Make a new animation context.
         animation_context = Some(AnimationContext {
             root: node.id(),
-            path: smallvec![],
+            path: SmallVec::new(),
         });
     }
 
@@ -1100,7 +1144,8 @@ fn load_node(
     let mut morph_weights = None;
 
     node.with_children(|parent| {
-        if settings.load_meshes {
+        // Only include meshes in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_meshes flag
+        if !settings.load_meshes.is_empty() {
             if let Some(mesh) = gltf_node.mesh() {
                 // append primitives
                 for primitive in mesh.primitives() {
@@ -1114,7 +1159,7 @@ fn load_node(
                     if !root_load_context.has_labeled_asset(&material_label)
                         && !load_context.has_labeled_asset(&material_label)
                     {
-                        load_material(&material, load_context, is_scale_inverted);
+                        load_material(&material, load_context, document, is_scale_inverted);
                     }
 
                     let primitive_label = primitive_label(&mesh, &primitive);
@@ -1255,8 +1300,11 @@ fn load_node(
                 entity_to_skin_index_map,
                 active_camera_found,
                 &world_transform,
+                #[cfg(feature = "bevy_animation")]
                 animation_roots,
+                #[cfg(feature = "bevy_animation")]
                 animation_context.clone(),
+                document,
             ) {
                 gltf_error = Some(err);
                 return;
@@ -1264,7 +1312,8 @@ fn load_node(
         }
     });
 
-    if settings.load_meshes {
+    // Only include meshes in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_meshes flag
+    if !settings.load_meshes.is_empty() {
         if let (Some(mesh), Some(weights)) = (gltf_node.mesh(), morph_weights) {
             let primitive_label = mesh.primitives().next().map(|p| primitive_label(&mesh, &p));
             let first_mesh = primitive_label.map(|label| load_context.get_label_handle(label));
@@ -1326,11 +1375,11 @@ fn texture_label(texture: &gltf::Texture) -> String {
 
 fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Handle<Image> {
     match texture.source().source() {
-        gltf::image::Source::View { .. } => {
+        Source::View { .. } => {
             let label = texture_label(texture);
             load_context.get_label_handle(&label)
         }
-        gltf::image::Source::Uri { uri, .. } => {
+        Source::Uri { uri, .. } => {
             let uri = percent_encoding::percent_decode_str(uri)
                 .decode_utf8()
                 .unwrap();
@@ -1345,6 +1394,24 @@ fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Ha
             }
         }
     }
+}
+
+/// Given a [`json::texture::Info`], returns the handle of the texture that this
+/// refers to.
+///
+/// This is a low-level function only used when the `gltf` crate has no support
+/// for an extension, forcing us to parse its texture references manually.
+#[allow(dead_code)]
+fn texture_handle_from_info(
+    load_context: &mut LoadContext,
+    document: &Document,
+    texture_info: &json::texture::Info,
+) -> Handle<Image> {
+    let texture = document
+        .textures()
+        .nth(texture_info.index.value())
+        .expect("Texture info references a nonexistent texture");
+    texture_handle(load_context, &texture)
 }
 
 /// Returns the label for the `node`.
@@ -1625,9 +1692,103 @@ struct AnimationContext {
     path: SmallVec<[Name; 8]>,
 }
 
-#[cfg(not(feature = "bevy_animation"))]
-#[derive(Clone)]
-struct AnimationContext;
+/// Parsed data from the `KHR_materials_clearcoat` extension.
+///
+/// See the specification:
+/// <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_clearcoat/README.md>
+#[derive(Default)]
+struct ClearcoatExtension {
+    clearcoat_factor: Option<f64>,
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
+    clearcoat_texture: Option<Handle<Image>>,
+    clearcoat_roughness_factor: Option<f64>,
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
+    clearcoat_roughness_texture: Option<Handle<Image>>,
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
+    clearcoat_normal_texture: Option<Handle<Image>>,
+}
+
+impl ClearcoatExtension {
+    #[allow(unused_variables)]
+    fn parse(
+        load_context: &mut LoadContext,
+        document: &Document,
+        material_extensions: Option<&Map<String, Value>>,
+    ) -> Option<ClearcoatExtension> {
+        let extension = material_extensions?
+            .get("KHR_materials_clearcoat")?
+            .as_object()?;
+
+        Some(ClearcoatExtension {
+            clearcoat_factor: extension.get("clearcoatFactor").and_then(Value::as_f64),
+            clearcoat_roughness_factor: extension
+                .get("clearcoatRoughnessFactor")
+                .and_then(Value::as_f64),
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_texture: extension
+                .get("clearcoatTexture")
+                .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
+                .map(|json_info| texture_handle_from_info(load_context, document, &json_info)),
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_roughness_texture: extension
+                .get("clearcoatRoughnessTexture")
+                .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
+                .map(|json_info| texture_handle_from_info(load_context, document, &json_info)),
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_normal_texture: extension
+                .get("clearcoatNormalTexture")
+                .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
+                .map(|json_info| texture_handle_from_info(load_context, document, &json_info)),
+        })
+    }
+}
+
+/// Returns the index (within the `textures` array) of the texture with the
+/// given field name in the data for the material extension with the given name,
+/// if there is one.
+#[cfg(feature = "pbr_multi_layer_material_textures")]
+fn material_extension_texture_index(
+    material: &Material,
+    extension_name: &str,
+    texture_field_name: &str,
+) -> Option<usize> {
+    Some(
+        value::from_value::<json::texture::Info>(
+            material
+                .extensions()?
+                .get(extension_name)?
+                .as_object()?
+                .get(texture_field_name)?
+                .clone(),
+        )
+        .ok()?
+        .index
+        .value(),
+    )
+}
+
+/// Returns true if the material needs mesh tangents in order to be successfully
+/// rendered.
+///
+/// We generate them if this function returns true.
+fn material_needs_tangents(material: &Material) -> bool {
+    if material.normal_texture().is_some() {
+        return true;
+    }
+
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
+    if material_extension_texture_index(
+        material,
+        "KHR_materials_clearcoat",
+        "clearcoatNormalTexture",
+    )
+    .is_some()
+    {
+        return true;
+    }
+
+    false
+}
 
 #[cfg(test)]
 mod test {

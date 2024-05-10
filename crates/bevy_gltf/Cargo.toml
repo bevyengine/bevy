@@ -9,8 +9,9 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-dds = []
-pbr_transmission_textures = []
+dds = ["bevy_render/dds"]
+pbr_transmission_textures = ["bevy_pbr/pbr_transmission_textures"]
+pbr_multi_layer_material_textures = []
 
 [dependencies]
 # bevy
@@ -50,7 +51,7 @@ gltf = { version = "1.4.0", default-features = false, features = [
   "utils",
 ] }
 thiserror = "1.0"
-base64 = "0.21.5"
+base64 = "0.22.0"
 percent-encoding = "2.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1"
@@ -60,4 +61,5 @@ smallvec = "1.11"
 workspace = true
 
 [package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
 all-features = true
