@@ -31,7 +31,27 @@ pub use bevy_state_macros::States;
 ///   SettingsMenu,
 ///   InGame,
 /// }
+/// 
+/// fn handle_escape_pressed(mut next_state: ResMut<NextState<GameState>>) {
+/// #   let escape_pressed = true;
+///     if escape_pressed {
+///         next_state.set(GameState::SettingsMenu);
+///     }
+/// }
 ///
+/// fn open_settings_menu() {
+///     // Show the settings menu...
+/// }
+///
+/// # struct AppMock;
+/// # impl AppMock {
+/// #     fn add_systems<S, M>(&mut self, schedule: S, systems: impl IntoSystemConfigs<M>) {}
+/// # }
+/// # struct Update;
+/// # let mut app = AppMock;
+///
+/// app.add_systems(Update, handle_escape_pressed.run_if(in_state(GameState::MainMenu)));
+/// app.add_systems(OnEnter(GameState::SettingsMenu), open_settings_menu);
 /// ```
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {
     /// How many other states this state depends on.
