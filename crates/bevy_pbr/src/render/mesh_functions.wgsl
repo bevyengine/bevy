@@ -1,7 +1,11 @@
 #define_import_path bevy_pbr::mesh_functions
 
 #import bevy_pbr::{
-    mesh_view_bindings::{view, visibility_ranges},
+    mesh_view_bindings::{
+        view,
+        visibility_ranges,
+        VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE
+    },
     mesh_bindings::mesh,
     mesh_types::MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT,
     view_transformations::position_world_to_clip,
@@ -90,8 +94,16 @@ fn mesh_tangent_local_to_world(model: mat4x4<f32>, vertex_tangent: vec4<f32>, in
 // camera distance to determine the dithering level.
 #ifdef VISIBILITY_RANGE_DITHER
 fn get_visibility_range_dither_level(instance_index: u32, world_position: vec4<f32>) -> i32 {
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 6
+    // If we're using a storage buffer, then the length is variable.
+    let visibility_buffer_array_len = arrayLength(&visibility_ranges);
+#else   // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 6
+    // If we're using a uniform buffer, then the length is constant
+    let visibility_buffer_array_len = VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE;
+#endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 6
+
     let visibility_buffer_index = mesh[instance_index].flags & 0xffffu;
-    if (visibility_buffer_index > arrayLength(&visibility_ranges)) {
+    if (visibility_buffer_index > visibility_buffer_array_len) {
         return -16;
     }
 

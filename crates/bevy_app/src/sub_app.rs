@@ -2,12 +2,15 @@ use crate::{App, InternedAppLabel, Plugin, Plugins, PluginsState, Startup};
 use bevy_ecs::{
     event::EventRegistry,
     prelude::*,
-    schedule::{
-        setup_state_transitions_in_world, FreelyMutableState, InternedScheduleLabel,
-        ScheduleBuildSettings, ScheduleLabel,
-    },
+    schedule::{InternedScheduleLabel, ScheduleBuildSettings, ScheduleLabel},
     system::SystemId,
 };
+#[cfg(feature = "bevy_state")]
+use bevy_state::{
+    prelude::*,
+    state::{setup_state_transitions_in_world, FreelyMutableState},
+};
+
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{HashMap, HashSet};
@@ -297,6 +300,7 @@ impl SubApp {
         self
     }
 
+    #[cfg(feature = "bevy_state")]
     /// See [`App::init_state`].
     pub fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
         if !self.world.contains_resource::<State<S>>() {
@@ -311,6 +315,7 @@ impl SubApp {
         self
     }
 
+    #[cfg(feature = "bevy_state")]
     /// See [`App::insert_state`].
     pub fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
         if !self.world.contains_resource::<State<S>>() {
@@ -326,6 +331,7 @@ impl SubApp {
         self
     }
 
+    #[cfg(feature = "bevy_state")]
     /// See [`App::add_computed_state`].
     pub fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
         if !self
@@ -341,6 +347,7 @@ impl SubApp {
         self
     }
 
+    #[cfg(feature = "bevy_state")]
     /// See [`App::add_sub_state`].
     pub fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
         if !self

@@ -1,5 +1,5 @@
 mod camera_2d;
-mod main_pass_2d_node;
+mod main_transparent_pass_2d_node;
 
 pub mod graph {
     use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
@@ -14,7 +14,9 @@ pub mod graph {
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
     pub enum Node2d {
         MsaaWriteback,
-        MainPass,
+        StartMainPass,
+        MainTransparentPass,
+        EndMainPass,
         Bloom,
         Tonemapping,
         Fxaa,
@@ -27,7 +29,7 @@ pub mod graph {
 use std::ops::Range;
 
 pub use camera_2d::*;
-pub use main_pass_2d_node::*;
+pub use main_transparent_pass_2d_node::*;
 
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
@@ -68,14 +70,21 @@ impl Plugin for Core2dPlugin {
 
         render_app
             .add_render_sub_graph(Core2d)
-            .add_render_graph_node::<MainPass2dNode>(Core2d, Node2d::MainPass)
+            .add_render_graph_node::<EmptyNode>(Core2d, Node2d::StartMainPass)
+            .add_render_graph_node::<ViewNodeRunner<MainTransparentPass2dNode>>(
+                Core2d,
+                Node2d::MainTransparentPass,
+            )
+            .add_render_graph_node::<EmptyNode>(Core2d, Node2d::EndMainPass)
             .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(Core2d, Node2d::Tonemapping)
             .add_render_graph_node::<EmptyNode>(Core2d, Node2d::EndMainPassPostProcessing)
             .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(Core2d, Node2d::Upscaling)
             .add_render_graph_edges(
                 Core2d,
                 (
-                    Node2d::MainPass,
+                    Node2d::StartMainPass,
+                    Node2d::MainTransparentPass,
+                    Node2d::EndMainPass,
                     Node2d::Tonemapping,
                     Node2d::EndMainPassPostProcessing,
                     Node2d::Upscaling,
