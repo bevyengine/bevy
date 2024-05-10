@@ -84,7 +84,7 @@ fn update_debug_camera(
             config.enabled = false;
         }
     } else {
-        let layout_debug_layers: RenderLayers = RenderLayers::none().with_const(16);
+        let layout_debug_layers: RenderLayers = RenderLayers::none().with(16);
         let spawn_cam = || {
             cmds.spawn((
                 Camera2dBundle {
