@@ -230,7 +230,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             }
 
             #[inline]
-            fn apply(&mut self, #ref_value: &dyn #bevy_reflect_path::Reflect) {
+            fn try_apply(&mut self, #ref_value: &dyn #bevy_reflect_path::Reflect) -> #FQResult<(), #bevy_reflect_path::ApplyError>  {
                 if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) = #bevy_reflect_path::Reflect::reflect_ref(#ref_value) {
                     if #bevy_reflect_path::Enum::variant_name(self) == #bevy_reflect_path::Enum::variant_name(#ref_value) {
                         // Same variant -> just update fields
@@ -238,12 +238,16 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                             #bevy_reflect_path::VariantType::Struct => {
                                 for field in #bevy_reflect_path::Enum::iter_fields(#ref_value) {
                                     let name = field.name().unwrap();
-                                    #bevy_reflect_path::Enum::field_mut(self, name).map(|v| v.apply(field.value()));
+                                    if let #FQOption::Some(v) = #bevy_reflect_path::Enum::field_mut(self, name) {
+                                       #bevy_reflect_path::Reflect::try_apply(v, field.value())?;
+                                    }
                                 }
                             }
                             #bevy_reflect_path::VariantType::Tuple => {
                                 for (index, field) in ::core::iter::Iterator::enumerate(#bevy_reflect_path::Enum::iter_fields(#ref_value)) {
-                                    #bevy_reflect_path::Enum::field_at_mut(self, index).map(|v| v.apply(field.value()));
+                                    if let #FQOption::Some(v) = #bevy_reflect_path::Enum::field_at_mut(self, index) {
+                                        #bevy_reflect_path::Reflect::try_apply(v, field.value())?;
+                                    }
                                 }
                             }
                             _ => {}
@@ -254,12 +258,25 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                             #(#variant_names => {
                                 *self = #variant_constructors
                             })*
-                            name => panic!("variant with name `{}` does not exist on enum `{}`", name, <Self as #bevy_reflect_path::TypePath>::type_path()),
+                            name => {
+                                return #FQResult::Err(
+                                    #bevy_reflect_path::ApplyError::UnknownVariant {
+                                        enum_name: ::core::convert::Into::into(#bevy_reflect_path::DynamicTypePath::reflect_type_path(self)),
+                                        variant_name: ::core::convert::Into::into(name),
+                                    }
+                                );
+                            }
                         }
                     }
                 } else {
-                    panic!("`{}` is not an enum", #bevy_reflect_path::DynamicTypePath::reflect_type_path(#ref_value));
+                    return #FQResult::Err(
+                        #bevy_reflect_path::ApplyError::MismatchedKinds {
+                            from_kind: #bevy_reflect_path::Reflect::reflect_kind(#ref_value),
+                            to_kind: #bevy_reflect_path::ReflectKind::Enum,
+                        }
+                    );
                 }
+                #FQResult::Ok(())
             }
 
             fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {

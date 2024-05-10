@@ -8,8 +8,7 @@ license = "MIT OR Apache-2.0"
 publish = false
 
 [dependencies]
-# ui_test dies if we don't specify the version. See oli-obk/ui_test#211
-bevy_derive = { path = "../", version = "0.14.0-dev" }
+bevy_derive = { path = "../" }
 
 [dev-dependencies]
 compile_fail_utils = { path = "../../../tools/compile_fail_utils" }
