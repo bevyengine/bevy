@@ -2,8 +2,6 @@ use std::fmt::Debug;
 
 use std::hash::Hash;
 
-pub use bevy_state_macros::States;
-
 /// Types that can define world-wide states in a finite-state machine.
 ///
 /// The [`Default`] trait defines the starting state.
@@ -22,7 +20,10 @@ pub use bevy_state_macros::States;
 /// # Example
 ///
 /// ```
-/// use bevy_state::prelude::States;
+/// use bevy_state::prelude::*;
+/// use bevy_ecs::prelude::IntoSystemConfigs;
+/// use bevy_ecs::system::ResMut;
+///
 ///
 /// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 /// enum GameState {
