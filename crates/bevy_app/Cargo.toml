@@ -11,9 +11,10 @@ keywords = ["bevy"]
 [features]
 trace = []
 bevy_debug_stepping = []
-default = ["bevy_reflect"]
+default = ["bevy_reflect", "bevy_state"]
 bevy_reflect = ["dep:bevy_reflect", "bevy_ecs/bevy_reflect"]
 serialize = ["bevy_ecs/serde"]
+bevy_state = ["dep:bevy_state"]
 
 [dependencies]
 # bevy
@@ -22,6 +23,7 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev", default-features = fa
 bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", optional = true }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
+bevy_state = { path = "../bevy_state", optional = true, version = "0.14.0-dev" }
 
 # other
 serde = { version = "1.0", features = ["derive"], optional = true }

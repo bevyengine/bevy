@@ -1,7 +1,8 @@
 use crate::{
-    Alpha, ClampColor, Gray, Hsva, Hue, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba,
+    Alpha, ClampColor, ColorToComponents, Hsva, Hue, Hwba, Lcha, LinearRgba, Luminance, Gray, Mix, Srgba,
     StandardColor, Xyza,
 };
+use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
 
 /// Color in Hue-Saturation-Lightness (HSL) color space with alpha.
@@ -197,6 +198,60 @@ impl ClampColor for Hsla {
             && (0. ..=1.).contains(&self.saturation)
             && (0. ..=1.).contains(&self.lightness)
             && (0. ..=1.).contains(&self.alpha)
+    }
+}
+
+impl ColorToComponents for Hsla {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.hue, self.saturation, self.lightness, self.alpha]
+    }
+
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
+        [self.hue, self.saturation, self.lightness]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.hue, self.saturation, self.lightness, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.hue, self.saturation, self.lightness)
+    }
+
+    fn from_f32_array(color: [f32; 4]) -> Self {
+        Self {
+            hue: color[0],
+            saturation: color[1],
+            lightness: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
+        Self {
+            hue: color[0],
+            saturation: color[1],
+            lightness: color[2],
+            alpha: 1.0,
+        }
+    }
+
+    fn from_vec4(color: Vec4) -> Self {
+        Self {
+            hue: color[0],
+            saturation: color[1],
+            lightness: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_vec3(color: Vec3) -> Self {
+        Self {
+            hue: color[0],
+            saturation: color[1],
+            lightness: color[2],
+            alpha: 1.0,
+        }
     }
 }
 

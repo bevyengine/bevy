@@ -1,3 +1,5 @@
+use bevy_math::{Vec3, Vec4};
+
 /// Methods for changing the luminance of a color. Note that these methods are not
 /// guaranteed to produce consistent results across color spaces,
 /// but will be within a given space.
@@ -108,6 +110,26 @@ pub trait ClampColor: Sized {
 
     /// Are all the fields of this color in bounds?
     fn is_within_bounds(&self) -> bool;
+}
+
+/// Trait with methods for converting colors to non-color types
+pub trait ColorToComponents {
+    /// Convert to an f32 array
+    fn to_f32_array(self) -> [f32; 4];
+    /// Convert to an f32 array without the alpha value
+    fn to_f32_array_no_alpha(self) -> [f32; 3];
+    /// Convert to a Vec4
+    fn to_vec4(self) -> Vec4;
+    /// Convert to a Vec3
+    fn to_vec3(self) -> Vec3;
+    /// Convert from an f32 array
+    fn from_f32_array(color: [f32; 4]) -> Self;
+    /// Convert from an f32 array without the alpha value
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self;
+    /// Convert from a Vec4
+    fn from_vec4(color: Vec4) -> Self;
+    /// Convert from a Vec3
+    fn from_vec3(color: Vec3) -> Self;
 }
 
 /// Utility function for interpolating hue values. This ensures that the interpolation
