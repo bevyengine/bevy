@@ -1,6 +1,6 @@
 use crate::{
-    impl_componentwise_vector_space, Alpha, ClampColor, ColorToComponents, LinearRgba, Luminance,
-    Mix, StandardColor,
+    impl_componentwise_vector_space, Alpha, ColorToComponents, LinearRgba, Luminance, Mix,
+    StandardColor,
 };
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
@@ -144,24 +144,6 @@ impl Mix for Xyza {
     }
 }
 
-impl ClampColor for Xyza {
-    fn clamped(&self) -> Self {
-        Self {
-            x: self.x.clamp(0., 1.),
-            y: self.y.clamp(0., 1.),
-            z: self.z.clamp(0., 1.),
-            alpha: self.alpha.clamp(0., 1.),
-        }
-    }
-
-    fn is_within_bounds(&self) -> bool {
-        (0. ..=1.).contains(&self.x)
-            && (0. ..=1.).contains(&self.y)
-            && (0. ..=1.).contains(&self.z)
-            && (0. ..=1.).contains(&self.alpha)
-    }
-}
-
 impl ColorToComponents for Xyza {
     fn to_f32_array(self) -> [f32; 4] {
         [self.x, self.y, self.z, self.alpha]
@@ -289,22 +271,5 @@ mod tests {
             assert_approx_eq!(color.xyz.z, xyz2.z, 0.001);
             assert_approx_eq!(color.xyz.alpha, xyz2.alpha, 0.001);
         }
-    }
-
-    #[test]
-    fn test_clamp() {
-        let color_1 = Xyza::xyz(2., -1., 0.4);
-        let color_2 = Xyza::xyz(0.031, 0.749, 1.);
-        let mut color_3 = Xyza::xyz(-1., 1., 1.);
-
-        assert!(!color_1.is_within_bounds());
-        assert_eq!(color_1.clamped(), Xyza::xyz(1., 0., 0.4));
-
-        assert!(color_2.is_within_bounds());
-        assert_eq!(color_2, color_2.clamped());
-
-        color_3.clamp();
-        assert!(color_3.is_within_bounds());
-        assert_eq!(color_3, Xyza::xyz(0., 1., 1.));
     }
 }

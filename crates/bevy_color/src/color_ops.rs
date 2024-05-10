@@ -82,23 +82,6 @@ pub trait Hue: Sized {
     }
 }
 
-/// Trait with methods for asserting a colorspace is within bounds.
-///
-/// During ordinary usage (e.g. reading images from disk, rendering images, picking colors for UI), colors should always be within their ordinary bounds (such as 0 to 1 for RGB colors).
-/// However, some applications, such as high dynamic range rendering or bloom rely on unbounded colors to naturally represent a wider array of choices.
-pub trait ClampColor: Sized {
-    /// Return a new version of this color clamped, with all fields in bounds.
-    fn clamped(&self) -> Self;
-
-    /// Changes all the fields of this color to ensure they are within bounds.
-    fn clamp(&mut self) {
-        *self = self.clamped();
-    }
-
-    /// Are all the fields of this color in bounds?
-    fn is_within_bounds(&self) -> bool;
-}
-
 /// Trait with methods for converting colors to non-color types
 pub trait ColorToComponents {
     /// Convert to an f32 array
