@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::{Component, ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::{Reflect};
+use bevy_reflect::Reflect;
 use smallvec::SmallVec;
 
 pub const DEFAULT_LAYERS: &RenderLayers = &RenderLayers::layer(0);
