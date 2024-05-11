@@ -64,18 +64,6 @@ impl RenderLayers {
         RenderLayers(SmallVec::from_const([bit]))
     }
 
-    /// Create a new `RenderLayers` belonging to the given layer but without layer `0`.
-    pub const fn none_with(n: Layer) -> Self {
-        let buffer_index = n / 64;
-        let bit_index = n % 64;
-        let bit = 0u64 << bit_index;
-        assert!(
-            buffer_index < 1,
-            "layer is out of bounds for const construction"
-        );
-        RenderLayers(SmallVec::from_const([bit]))
-    }
-
     /// Create a new `RenderLayers` that belongs to no layers.
     pub const fn none() -> Self {
         RenderLayers(SmallVec::from_const([0]))
@@ -248,11 +236,5 @@ mod rendering_mask_tests {
         let layers = RenderLayers::from_layers(&tricky_layers);
         let out = layers.iter().collect::<Vec<_>>();
         assert_eq!(tricky_layers, out, "tricky layers roundtrip");
-
-        let none_with_10 = RenderLayers::none_with(10);
-        assert!(
-            !RenderLayers::default().intersects(&none_with_10),
-            "none_with_1025 is not default"
-        );
     }
 }

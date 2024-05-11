@@ -28,7 +28,7 @@ mod inset;
 /// The [`Camera::order`] index used by the layout debug camera.
 pub const LAYOUT_DEBUG_CAMERA_ORDER: isize = 255;
 /// The [`RenderLayers`] used by the debug gizmos and the debug camera.
-pub const LAYOUT_DEBUG_LAYERS: RenderLayers = RenderLayers::none_with(16);
+pub const LAYOUT_DEBUG_LAYERS: RenderLayers = RenderLayers::layer(16);
 
 #[derive(Clone, Copy)]
 struct LayoutRect {
