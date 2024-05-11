@@ -117,7 +117,7 @@ impl<'g> RenderGraph<'g> {
                                 label,
                                 timestamp_writes: None,
                             });
-                        (f)(context, render_device, render_queue, &mut compute_pass)
+                        (f)(context, render_device, render_queue, &mut compute_pass);
                     }
                 }
             }
