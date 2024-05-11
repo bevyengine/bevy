@@ -63,7 +63,12 @@ struct Node<'g> {
 enum NodeRunner<'g> {
     Raw(Box<dyn FnOnce(NodeContext, &RenderDevice, &RenderQueue, &mut CommandEncoder) + 'g>),
     //Render(Box<dyn FnOnce(NodeContext, &RenderDevice, &RenderQueue, &mut RenderPass) + 'g>),
-    Compute(Box<dyn FnOnce(NodeContext, &RenderDevice, &RenderQueue, &mut ComputePass) + 'g>),
+    Compute(
+        Box<
+            dyn for<'a> FnOnce(&'a NodeContext, &RenderDevice, &RenderQueue, &mut ComputePass<'a>)
+                + 'g,
+        >,
+    ),
 }
 
 impl<'g> RenderGraph<'g> {
@@ -118,7 +123,7 @@ impl<'g> RenderGraph<'g> {
                                 label,
                                 timestamp_writes: None,
                             });
-                        (f)(context, render_device, render_queue, &mut compute_pass);
+                        (f)(&context, render_device, render_queue, &mut compute_pass);
                     }
                 }
             }
@@ -273,7 +278,8 @@ impl<'g> RenderGraphBuilder<'g> {
         &mut self,
         label: Label<'g>,
         dependencies: RenderDependencies<'g>,
-        node: impl FnOnce(NodeContext, &RenderDevice, &RenderQueue, &mut ComputePass) + 'g,
+        node: impl for<'a> FnOnce(&'a NodeContext, &RenderDevice, &RenderQueue, &mut ComputePass<'a>)
+            + 'g,
     ) -> &mut Self {
         //get + save dependency generations here, since they're not stored in RenderDependencies.
         //This is to make creating a RenderDependencies (and cloning!) a pure operation.

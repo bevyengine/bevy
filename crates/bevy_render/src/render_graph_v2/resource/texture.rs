@@ -11,7 +11,7 @@ use crate::{
 };
 
 use super::{
-    ref_eq::RefEq, DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource,
+    deps, ref_eq::RefEq, DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource,
     NewRenderResource, RenderDependencies, RenderHandle, RenderResource, RenderResourceId,
     RenderResourceMeta, ResourceTracker, ResourceType, UsagesRenderResource, WriteRenderResource,
 };
@@ -165,10 +165,7 @@ impl<'g> RenderGraphTextureViews<'g> {
         tracker: &mut ResourceTracker<'g>,
         descriptor: RenderGraphTextureView<'g>,
     ) -> RenderResourceId {
-        let id = tracker.new_resource(
-            ResourceType::TextureView,
-            Some(RenderDependencies::of(&descriptor.texture)),
-        );
+        let id = tracker.new_resource(ResourceType::TextureView, Some(deps![&descriptor.texture]));
         self.queued_texture_views.insert(id, descriptor);
         id
     }
@@ -180,12 +177,10 @@ impl<'g> RenderGraphTextureViews<'g> {
         // view_entity: EntityRef,
     ) {
         for (id, queued_view) in self.queued_texture_views.drain() {
-            let dependencies = RenderDependencies::of(&queued_view.texture);
             let context = NodeContext {
                 graph,
                 world,
-                dependencies,
-                // entity: view_entity,
+                dependencies: deps![&queued_view.texture], // entity: view_entity,
             };
             let texture_view = context
                 .get(queued_view.texture)

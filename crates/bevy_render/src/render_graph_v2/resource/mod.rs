@@ -491,10 +491,10 @@ impl<'g> RenderDependencies<'g> {
     }
 
     #[inline]
-    pub fn of(dependencies: impl IntoRenderDependencies<'g>) -> Self {
-        let mut new = Self::default();
-        new.add(dependencies);
-        new
+    pub fn extend(&mut self, other: RenderDependencies<'g>) -> &mut Self {
+        self.reads.extend(other.iter_reads());
+        self.writes.extend(other.iter_writes());
+        self
     }
 
     #[inline]
@@ -528,10 +528,6 @@ impl<'g> RenderDependencies<'g> {
     }
 }
 
-pub fn render_deps<'g>(dependencies: impl IntoRenderDependencies<'g>) -> RenderDependencies<'g> {
-    RenderDependencies::of(dependencies)
-}
-
 impl<'g, R: RenderResource> IntoRenderDependencies<'g> for &RenderHandle<'g, R> {
     #[inline]
     fn into_render_dependencies(self, dependencies: &mut RenderDependencies<'g>) {
@@ -550,16 +546,27 @@ pub trait IntoRenderDependencies<'g> {
     fn into_render_dependencies(self, dependencies: &mut RenderDependencies<'g>);
 }
 
-macro_rules! impl_into_render_dependencies {
-    ($(($T: ident, $t: ident)),*) => {
-        #[allow(unused_variables)]
-        impl <'g, $($T: IntoRenderDependencies<'g>),*> IntoRenderDependencies<'g> for ($($T,)*) {
-            fn into_render_dependencies(self, dependencies: &mut RenderDependencies<'g>) {
-                let ($($t,)*) = self;
-                $($t.into_render_dependencies(dependencies);)*
-            }
+//in macro crate?
+#[macro_export]
+macro_rules! deps {
+    ($($dep: expr),*) => {
+        {
+            let mut dependencies = $crate::render_graph_v2::resource::RenderDependencies::new();
+            $crate::render_graph_v2::resource::extend_deps!(dependencies, $($dep),*);
+            dependencies
         }
-    };
+    }
 }
 
-all_tuples!(impl_into_render_dependencies, 0, 16, T, t);
+pub use deps;
+
+#[macro_export]
+macro_rules! extend_deps {
+    ($dependencies: ident, $($dep: expr),*) => {
+        {
+            $($dependencies.add($dep);)*
+        }
+    }
+}
+
+pub use extend_deps;
