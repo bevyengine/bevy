@@ -1936,7 +1936,7 @@ pub fn check_light_mesh_visibility(
             }
 
             let entity_mask = maybe_entity_mask.unwrap_or_default();
-            if !view_mask.intersects(&entity_mask) {
+            if !view_mask.intersects(entity_mask) {
                 continue;
             }
 
@@ -2020,7 +2020,7 @@ pub fn check_light_mesh_visibility(
                     }
 
                     let entity_mask = maybe_entity_mask.unwrap_or_default();
-                    if !view_mask.intersects(&entity_mask) {
+                    if !view_mask.intersects(entity_mask) {
                         continue;
                     }
 
@@ -2085,7 +2085,7 @@ pub fn check_light_mesh_visibility(
                     }
 
                     let entity_mask = maybe_entity_mask.unwrap_or_default();
-                    if !view_mask.intersects(&entity_mask) {
+                    if !view_mask.intersects(entity_mask) {
                         continue;
                     }
 
