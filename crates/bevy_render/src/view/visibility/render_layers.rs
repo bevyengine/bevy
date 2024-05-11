@@ -98,8 +98,7 @@ impl RenderLayers {
 
     /// Get an iterator of the layers.
     pub fn iter(&self) -> impl Iterator<Item = Layer> + '_ {
-        self.0.iter().copied().flat_map(Self::iter_layers)
-    }
+        self.0.iter().copied().zip(0..).flat_map(Self::iter_layers)    }
 
     /// Determine if a `RenderLayers` intersects another.
     ///
@@ -136,8 +135,9 @@ impl RenderLayers {
         self.0.resize(new_size, 0u64);
     }
 
-    fn iter_layers(mut buffer: u64) -> impl Iterator<Item = Layer> + 'static {
-        let mut layer: usize = 0;
+    fn iter_layers(buffer_and_offset: (u64, usize)) -> impl Iterator<Item = Layer> + 'static {
+        let (mut buffer, mut layer) = buffer_and_offset;
+        layer *= 64;
         std::iter::from_fn(move || {
             if buffer == 0 {
                 return None;
@@ -230,5 +230,10 @@ mod rendering_mask_tests {
             <RenderLayers as FromIterator<Layer>>::from_iter(vec![0, 1, 2]),
             "from_layers and from_iter are equivalent"
         );
+
+        let tricky_layers = vec![0, 5, 17, 55, 999, 1025, 1026];
+        let layers = RenderLayers::from_layers(&tricky_layers);
+        let out = layers.iter().collect::<Vec<_>>();
+        assert_eq!(tricky_layers, out, "tricky layers roundtrip");
     }
 }
