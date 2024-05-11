@@ -254,7 +254,7 @@ impl<'g> RenderGraphPipelines<'g> {
     ) -> RenderResourceId {
         let mut dependencies = RenderDependencies::new();
         for layout in &descriptor.layout {
-            dependencies.read(layout);
+            dependencies.read(*layout);
         }
         let id = tracker.new_resource(ResourceType::RenderPipeline, Some(dependencies.clone()));
         self.queued_render_pipelines
@@ -269,7 +269,7 @@ impl<'g> RenderGraphPipelines<'g> {
     ) -> RenderResourceId {
         let mut dependencies = RenderDependencies::new();
         for layout in &descriptor.layout {
-            dependencies.read(layout);
+            dependencies.read(*layout);
         }
         let id = tracker.new_resource(ResourceType::ComputePipeline, Some(dependencies.clone()));
         self.queued_compute_pipelines

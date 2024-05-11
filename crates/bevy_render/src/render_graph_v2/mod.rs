@@ -16,11 +16,12 @@ use resource::{IntoRenderResource, RenderHandle, RenderResource, RenderResources
 
 use wgpu::{
     BindGroupEntry, BindGroupLayoutEntry, BufferDescriptor, CommandEncoder,
-    CommandEncoderDescriptor, Label, TextureDescriptor, TextureViewDescriptor,
+    CommandEncoderDescriptor, ComputePass, Label, RenderPass, TextureDescriptor,
+    TextureViewDescriptor,
 };
 
 use self::resource::{
-    bind_group::RenderGraphBindGroups,
+    bind_group::{RenderGraphBindGroupDescriptor, RenderGraphBindGroups},
     pipeline::{
         CachedRenderGraphPipelines, RenderGraphComputePipelineDescriptor, RenderGraphPipelines,
         RenderGraphRenderPipelineDescriptor,
@@ -54,7 +55,14 @@ pub struct RenderGraph<'g> {
 struct Node<'g> {
     label: Label<'g>,
     dependencies: RenderDependencies<'g>,
-    runner: Box<dyn FnOnce(NodeContext, &RenderDevice, &RenderQueue, &mut CommandEncoder) + 'g>,
+    runner: NodeRunner<'g>,
+}
+
+//For later auto-merging render passes
+enum NodeRunner<'g> {
+    Raw(Box<dyn FnOnce(NodeContext, &RenderDevice, &RenderQueue, &mut CommandEncoder) + 'g>),
+    //Render(Box<dyn FnOnce(NodeContext, &RenderDevice, &RenderQueue, &mut RenderPass) + 'g>),
+    Compute(Box<dyn FnOnce(NodeContext, &RenderDevice, &RenderQueue, &mut ComputePass) + 'g>),
 }
 
 impl<'g> RenderGraph<'g> {
@@ -88,9 +96,9 @@ impl<'g> RenderGraph<'g> {
                 &node.dependencies,
             ) {
                 let Node {
+                    label,
                     dependencies,
                     runner,
-                    ..
                 } = node;
                 let context = NodeContext {
                     graph: &self,
@@ -98,7 +106,20 @@ impl<'g> RenderGraph<'g> {
                     dependencies,
                     // entity: entity_ref,
                 };
-                (runner)(context, render_device, render_queue, &mut encoder);
+                match runner {
+                    NodeRunner::Raw(f) => (f)(context, render_device, render_queue, &mut encoder),
+                    // NodeRunner::Render(f) => {
+                    //     let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor { label:  gg, color_attachments: (), depth_stencil_attachment: (), timestamp_writes: (), occlusion_query_set: () })
+                    // },
+                    NodeRunner::Compute(f) => {
+                        let mut compute_pass =
+                            encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                                label,
+                                timestamp_writes: None,
+                            });
+                        (f)(context, render_device, render_queue, &mut compute_pass)
+                    }
+                }
             }
         }
         render_queue.submit([encoder.finish()]);
@@ -241,7 +262,25 @@ impl<'g> RenderGraphBuilder<'g> {
         self.graph.nodes.push(Node {
             label,
             dependencies,
-            runner: Box::new(node),
+            runner: NodeRunner::Raw(Box::new(node)),
+        });
+
+        self
+    }
+
+    pub fn add_compute_node(
+        &mut self,
+        label: Label<'g>,
+        dependencies: RenderDependencies<'g>,
+        node: impl FnOnce(NodeContext, &RenderDevice, &RenderQueue, &mut ComputePass) + 'g,
+    ) -> &mut Self {
+        //get + save dependency generations here, since they're not stored in RenderDependencies.
+        //This is to make creating a RenderDependencies (and cloning!) a pure operation.
+        self.graph.resources.write_dependencies(&dependencies);
+        self.graph.nodes.push(Node {
+            label,
+            dependencies,
+            runner: NodeRunner::Compute(Box::new(node)),
         });
 
         self
@@ -359,18 +398,12 @@ impl<'g> RenderGraphBuilder<'g> {
     #[inline]
     fn new_bind_group_descriptor(
         &mut self,
-        label: Label<'g>,
-        layout: RenderHandle<'g, BindGroupLayout>,
-        dependencies: RenderDependencies<'g>,
-        bind_group: impl FnOnce(NodeContext) -> Vec<BindGroupEntry> + 'g,
+        descriptor: RenderGraphBindGroupDescriptor<'g>,
     ) -> RenderHandle<'g, BindGroup> {
-        let id = self.graph.bind_groups.new_from_descriptor(
-            &mut self.graph.resources,
-            label,
-            layout,
-            dependencies,
-            bind_group,
-        );
+        let id = self
+            .graph
+            .bind_groups
+            .new_from_descriptor(&mut self.graph.resources, descriptor);
         RenderHandle::new(id)
     }
 
@@ -609,7 +642,10 @@ pub struct NodeContext<'g> {
 impl<'g> NodeContext<'g> {
     pub fn get<R: RenderResource>(&self, resource: RenderHandle<'g, R>) -> &R {
         if !self.dependencies.includes(resource) {
-            panic!("Attempted to illegally access the following render graph resource: {:?}. Have you added it to the node's dependencies?", resource);
+            panic!(
+                "Illegal resource access: {:?}. Have you added it to the node's dependencies?",
+                resource
+            );
         }
 
         R::get_from_store(self, resource)

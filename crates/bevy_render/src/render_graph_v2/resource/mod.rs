@@ -478,16 +478,13 @@ impl<'g> RenderDependencies<'g> {
     }
 
     #[inline]
-    pub fn read<R: RenderResource>(&mut self, resource: &RenderHandle<'g, R>) -> &mut Self {
+    pub fn read<R: RenderResource>(&mut self, resource: RenderHandle<'g, R>) -> &mut Self {
         self.reads.insert(resource.id());
         self
     }
 
     #[inline]
-    pub fn write<R: WriteRenderResource>(
-        &mut self,
-        resource: &mut RenderHandle<'g, R>,
-    ) -> &mut Self {
+    pub fn write<R: WriteRenderResource>(&mut self, resource: RenderHandle<'g, R>) -> &mut Self {
         self.writes.insert(resource.id());
         self
     }
@@ -540,14 +537,14 @@ pub fn render_deps<'g>(dependencies: impl IntoRenderDependencies<'g>) -> RenderD
 impl<'g, R: RenderResource> IntoRenderDependencies<'g> for &RenderHandle<'g, R> {
     #[inline]
     fn into_render_dependencies(self, dependencies: &mut RenderDependencies<'g>) {
-        dependencies.read(self);
+        dependencies.read(*self);
     }
 }
 
 impl<'g, R: WriteRenderResource> IntoRenderDependencies<'g> for &mut RenderHandle<'g, R> {
     #[inline]
     fn into_render_dependencies(self, dependencies: &mut RenderDependencies<'g>) {
-        dependencies.write(self);
+        dependencies.write(*self);
     }
 }
 
