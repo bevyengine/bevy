@@ -176,10 +176,10 @@ impl SystemMeta {
 /// });
 /// ```
 pub struct SystemState<Param: SystemParam + 'static> {
-    pub(crate) meta: SystemMeta,
-    pub(crate) param_state: Param::State,
-    pub(crate) world_id: WorldId,
-    pub(crate) archetype_generation: ArchetypeGeneration,
+    meta: SystemMeta,
+    param_state: Param::State,
+    world_id: WorldId,
+    archetype_generation: ArchetypeGeneration,
 }
 
 impl<Param: SystemParam> SystemState<Param> {
