@@ -248,5 +248,11 @@ mod rendering_mask_tests {
         let layers = RenderLayers::from_layers(&tricky_layers);
         let out = layers.iter().collect::<Vec<_>>();
         assert_eq!(tricky_layers, out, "tricky layers roundtrip");
+
+        let none_with_10 = RenderLayers::none_with(10);
+        assert!(
+            !RenderLayers::default().intersects(&none_with_10),
+            "none_with_1025 is not default"
+        );
     }
 }
