@@ -1,5 +1,7 @@
 pub mod resource;
-mod setup;
+pub(crate) mod setup;
+
+pub use setup::RenderGraphSetup;
 
 use std::mem;
 
