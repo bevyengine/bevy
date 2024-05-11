@@ -1,4 +1,4 @@
-use bevy_ecs::world::{EntityRef, World};
+use bevy_ecs::world::World;
 use bevy_math::FloatOrd;
 use bevy_utils::HashMap;
 use std::borrow::Borrow;

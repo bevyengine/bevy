@@ -39,11 +39,6 @@ struct ResourceInfo<'g> {
 }
 
 impl<'g> ResourceTracker<'g> {
-    pub(super) fn clear(&mut self) {
-        self.next_id = 0;
-        self.resources.clear();
-    }
-
     pub(super) fn new_resource(
         &mut self,
         resource_type: ResourceType,
@@ -517,14 +512,17 @@ impl<'g> RenderDependencies<'g> {
         self.reads(resource) || self.writes(resource)
     }
 
+    #[inline]
     pub(super) fn iter_reads(&self) -> impl Iterator<Item = RenderResourceId> + '_ {
         self.reads.iter().copied()
     }
 
+    #[inline]
     pub(super) fn iter_writes(&self) -> impl Iterator<Item = RenderResourceId> + '_ {
         self.writes.iter().copied()
     }
 
+    #[inline]
     pub(super) fn iter(&self) -> impl Iterator<Item = RenderResourceId> + '_ {
         self.iter_reads().chain(self.iter_writes())
     }

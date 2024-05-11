@@ -1,15 +1,13 @@
-use bevy_ecs::world::World;
 use wgpu::{BufferDescriptor, BufferUsages};
 
 use crate::{
-    render_graph_v2::{NodeContext, RenderGraph, RenderGraphBuilder},
+    render_graph_v2::{NodeContext, RenderGraphBuilder},
     render_resource::Buffer,
 };
 
 use super::{
     ref_eq::RefEq, DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource,
-    NewRenderResource, RenderHandle, RenderResource, ResourceType, UsagesRenderResource,
-    WriteRenderResource,
+    RenderHandle, RenderResource, ResourceType, UsagesRenderResource, WriteRenderResource,
 };
 
 impl RenderResource for Buffer {

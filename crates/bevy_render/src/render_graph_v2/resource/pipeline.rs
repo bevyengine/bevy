@@ -1,7 +1,4 @@
-use std::{
-    borrow::{Borrow, Cow},
-    mem,
-};
+use std::borrow::{Borrow, Cow};
 
 use bevy_asset::Handle;
 use bevy_ecs::{system::Resource, world::World};

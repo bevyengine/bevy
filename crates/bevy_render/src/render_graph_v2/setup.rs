@@ -1,4 +1,4 @@
-use std::{mem, ops::Deref, sync::Arc};
+use std::{ops::Deref, sync::Arc};
 
 use bevy_app::{App, Plugin};
 

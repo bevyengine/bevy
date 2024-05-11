@@ -15,9 +15,8 @@ use bevy_ecs::{system::Resource, world::World};
 use resource::{IntoRenderResource, RenderHandle, RenderResource, RenderResources};
 
 use wgpu::{
-    BindGroupEntry, BindGroupLayoutEntry, BufferDescriptor, CommandEncoder,
-    CommandEncoderDescriptor, ComputePass, Label, RenderPass, TextureDescriptor,
-    TextureViewDescriptor,
+    BindGroupLayoutEntry, BufferDescriptor, CommandEncoder, CommandEncoderDescriptor, ComputePass,
+    Label, TextureDescriptor, TextureViewDescriptor,
 };
 
 use self::resource::{
