@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::{Component, ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_reflect::{List, Reflect};
 use smallvec::SmallVec;
 
 pub const DEFAULT_LAYERS: &RenderLayers = &RenderLayers::layer(0);
@@ -98,7 +98,8 @@ impl RenderLayers {
 
     /// Get an iterator of the layers.
     pub fn iter(&self) -> impl Iterator<Item = Layer> + '_ {
-        self.0.iter().copied().zip(0..).flat_map(Self::iter_layers)    }
+        self.0.iter().copied().zip(0..).flat_map(Self::iter_layers)
+    }
 
     /// Determine if a `RenderLayers` intersects another.
     ///
