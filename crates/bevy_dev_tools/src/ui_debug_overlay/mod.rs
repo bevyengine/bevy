@@ -27,6 +27,8 @@ mod inset;
 
 /// The [`Camera::order`] index used by the layout debug camera.
 pub const LAYOUT_DEBUG_CAMERA_ORDER: isize = 255;
+/// The [`RenderLayers`] used by the debug gizmos and the debug camera.
+pub const LAYOUT_DEBUG_LAYERS: RenderLayers = RenderLayers::none_with(16);
 
 #[derive(Clone, Copy)]
 struct LayoutRect {
@@ -84,7 +86,6 @@ fn update_debug_camera(
             config.enabled = false;
         }
     } else {
-        let layout_debug_layers: RenderLayers = RenderLayers::none().with(16);
         let spawn_cam = || {
             cmds.spawn((
                 Camera2dBundle {
@@ -100,7 +101,7 @@ fn update_debug_camera(
                     },
                     ..default()
                 },
-                layout_debug_layers.clone(),
+                LAYOUT_DEBUG_LAYERS.clone(),
                 DebugOverlayCamera,
                 Name::new("Layout Debug Camera"),
             ))
@@ -108,7 +109,7 @@ fn update_debug_camera(
         };
         if let Some((config, _)) = gizmo_config.get_config_mut_dyn(&TypeId::of::<UiGizmosDebug>()) {
             config.enabled = true;
-            config.render_layers = layout_debug_layers.clone();
+            config.render_layers = LAYOUT_DEBUG_LAYERS.clone();
         }
         let cam = *options.layout_gizmos_camera.get_or_insert_with(spawn_cam);
         let Ok(mut cam) = debug_cams.get_mut(cam) else {

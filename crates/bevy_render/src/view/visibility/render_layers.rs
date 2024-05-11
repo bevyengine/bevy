@@ -64,6 +64,17 @@ impl RenderLayers {
         RenderLayers(SmallVec::from_const([bit]))
     }
 
+    /// Create a new `RenderLayers` belonging to the given layer but without layer `0`.
+    pub const fn none_with(n: Layer) -> Self {
+        let (buffer_index, bit) = Self::layer_info(n);
+        assert!(
+            buffer_index < 1,
+            "layer is out of bounds for const construction"
+        );
+        let mask = 0 | bit;
+        RenderLayers(SmallVec::from_const([mask]))
+    }
+
     /// Create a new `RenderLayers` that belongs to no layers.
     pub const fn none() -> Self {
         RenderLayers(SmallVec::from_const([0]))
