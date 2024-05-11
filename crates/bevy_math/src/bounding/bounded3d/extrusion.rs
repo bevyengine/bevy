@@ -4,8 +4,8 @@ use glam::{Vec2, Vec3A, Vec3Swizzles};
 
 use crate::bounding::{BoundingCircle, BoundingVolume};
 use crate::primitives::{
-    BoxedPolygon, BoxedPolyline2d, Capsule2d, Cuboid, Cylinder, Ellipse, Extrusion, Polygon,
-    Polyline2d, Primitive2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
+    BoxedPolygon, BoxedPolyline2d, Capsule2d, Cuboid, Cylinder, Ellipse, Extrusion, Line2d,
+    Polygon, Polyline2d, Primitive2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
 };
 use crate::{Quat, Vec3};
 
@@ -67,6 +67,26 @@ impl Bounded3d for Extrusion<Ellipse> {
 
     fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
         bounding_sphere(self, translation, rotation)
+    }
+}
+
+impl Bounded3d for Extrusion<Line2d> {
+    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
+        let dir = rotation * self.base_shape.direction.extend(0.);
+        let half_depth = (rotation * Vec3::new(0., 0., self.half_depth)).abs();
+
+        let max = f32::MAX / 2.;
+        let half_size = Vec3::new(
+            if dir.x == 0. { half_depth.x } else { max },
+            if dir.y == 0. { half_depth.y } else { max },
+            if dir.z == 0. { half_depth.z } else { max },
+        );
+
+        Aabb3d::new(translation, half_size)
+    }
+
+    fn bounding_sphere(&self, translation: Vec3, _rotation: Quat) -> BoundingSphere {
+        BoundingSphere::new(translation, f32::MAX / 2.)
     }
 }
 
@@ -247,8 +267,8 @@ mod tests {
     use crate::{
         bounding::{Bounded3d, BoundingVolume},
         primitives::{
-            Capsule2d, Circle, Ellipse, Extrusion, Polygon, Polyline2d, Rectangle, RegularPolygon,
-            Segment2d, Triangle2d,
+            Capsule2d, Circle, Ellipse, Extrusion, Line2d, Polygon, Polyline2d, Rectangle,
+            RegularPolygon, Segment2d, Triangle2d,
         },
         Dir2,
     };
@@ -273,9 +293,6 @@ mod tests {
         let translation = Vec3::new(3., 4., 5.);
         let rotation = Quat::from_euler(EulerRot::ZYX, FRAC_PI_4, FRAC_PI_4, FRAC_PI_4);
 
-        for _ in 0..1_000_000 {
-            let _aabb = extrusion.aabb_3d(translation, rotation);
-        }
         let aabb = extrusion.aabb_3d(translation, rotation);
         assert_eq!(aabb.center(), Vec3A::from(translation));
         assert_eq!(aabb.half_size(), Vec3A::new(2.709784, 1.3801551, 2.436141));
@@ -283,6 +300,26 @@ mod tests {
         let bounding_sphere = extrusion.bounding_sphere(translation, rotation);
         assert_eq!(bounding_sphere.center, translation.into());
         assert_eq!(bounding_sphere.radius(), 8f32.sqrt());
+    }
+
+    #[test]
+    fn line() {
+        let extrusion = Extrusion::new(
+            Line2d {
+                direction: Dir2::new_unchecked(Vec2::Y),
+            },
+            4.,
+        );
+        let translation = Vec3::new(3., 4., 5.);
+        let rotation = Quat::from_rotation_y(FRAC_PI_4);
+
+        let aabb = extrusion.aabb_3d(translation, rotation);
+        assert_eq!(aabb.min, Vec3A::new(1.5857864, f32::MIN / 2., 3.5857865));
+        assert_eq!(aabb.max, Vec3A::new(4.4142136, f32::MAX / 2., 6.4142133));
+
+        let bounding_sphere = extrusion.bounding_sphere(translation, rotation);
+        assert_eq!(bounding_sphere.center(), translation.into());
+        assert_eq!(bounding_sphere.radius(), f32::MAX / 2.);
     }
 
     #[test]
