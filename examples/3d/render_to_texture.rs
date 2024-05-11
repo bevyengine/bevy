@@ -134,14 +134,17 @@ fn setup(
         MainPassCube,
     ));
 
-    // Light for the main pass cube
-    // NOTE: Lights only work properly when in one render layer, so we need separate lights for the first and
-    // main passes.
-    commands.spawn((PointLightBundle {
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
-        ..default()
-    },));
-
+    // Light
+    // NOTE: we add the light to both layers so it affects both the rendered-to-texture cube, and the cube on which we display the texture
+    // Setting the layer to RenderLayers::layer(0) would cause the main view to be lit, but the rendered-to-texture cube to be unlit.
+    // Setting the layer to RenderLayers::layer(1) would cause the rendered-to-texture cube to be lit, but the main view to be unlit.    
+    commands.spawn((
+        PointLightBundle {
+            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
+            ..default()
+        },
+        RenderLayers::layer(0).with(1),
+    ));
     // The main pass camera.
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
