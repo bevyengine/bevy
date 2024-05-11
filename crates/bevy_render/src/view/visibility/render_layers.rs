@@ -71,8 +71,7 @@ impl RenderLayers {
             buffer_index < 1,
             "layer is out of bounds for const construction"
         );
-        let mask = 0 | bit;
-        RenderLayers(SmallVec::from_const([mask]))
+        RenderLayers(SmallVec::from_const([bit]))
     }
 
     /// Create a new `RenderLayers` that belongs to no layers.
