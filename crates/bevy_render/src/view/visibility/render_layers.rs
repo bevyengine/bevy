@@ -66,7 +66,9 @@ impl RenderLayers {
 
     /// Create a new `RenderLayers` belonging to the given layer but without layer `0`.
     pub const fn none_with(n: Layer) -> Self {
-        let (buffer_index, bit) = Self::layer_info(n);
+        let buffer_index = n / 64;
+        let bit_index = n % 64;
+        let bit = 0u64 << bit_index;
         assert!(
             buffer_index < 1,
             "layer is out of bounds for const construction"
