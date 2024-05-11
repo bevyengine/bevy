@@ -1197,7 +1197,7 @@ pub(crate) fn assign_lights_to_clusters(
         mut visible_lights,
     ) in &mut views
     {
-        let view_layers = maybe_layers.unwrap_or_default().clone();
+        let view_layers = maybe_layers.unwrap_or_default();
         let clusters = clusters.into_inner();
 
         if matches!(config, ClusterConfig::None) {
@@ -1920,7 +1920,7 @@ pub fn check_light_mesh_visibility(
             continue;
         }
 
-        let view_mask = maybe_view_mask.unwrap_or_default().clone();
+        let view_mask = maybe_view_mask.unwrap_or_default();
 
         for (
             entity,
@@ -1935,7 +1935,7 @@ pub fn check_light_mesh_visibility(
                 continue;
             }
 
-            let entity_mask = maybe_entity_mask.unwrap_or_default().clone();
+            let entity_mask = maybe_entity_mask.unwrap_or_default();
             if !view_mask.intersects(&entity_mask) {
                 continue;
             }
@@ -2000,7 +2000,7 @@ pub fn check_light_mesh_visibility(
                     continue;
                 }
 
-                let view_mask = maybe_view_mask.unwrap_or_default().clone();
+                let view_mask = maybe_view_mask.unwrap_or_default();
                 let light_sphere = Sphere {
                     center: Vec3A::from(transform.translation()),
                     radius: point_light.range,
@@ -2019,7 +2019,7 @@ pub fn check_light_mesh_visibility(
                         continue;
                     }
 
-                    let entity_mask = maybe_entity_mask.unwrap_or_default().clone();
+                    let entity_mask = maybe_entity_mask.unwrap_or_default();
                     if !view_mask.intersects(&entity_mask) {
                         continue;
                     }
@@ -2065,7 +2065,7 @@ pub fn check_light_mesh_visibility(
                     continue;
                 }
 
-                let view_mask = maybe_view_mask.unwrap_or_default().clone();
+                let view_mask = maybe_view_mask.unwrap_or_default();
                 let light_sphere = Sphere {
                     center: Vec3A::from(transform.translation()),
                     radius: point_light.range,
@@ -2084,7 +2084,7 @@ pub fn check_light_mesh_visibility(
                         continue;
                     }
 
-                    let entity_mask = maybe_entity_mask.unwrap_or_default().clone();
+                    let entity_mask = maybe_entity_mask.unwrap_or_default();
                     if !view_mask.intersects(&entity_mask) {
                         continue;
                     }
