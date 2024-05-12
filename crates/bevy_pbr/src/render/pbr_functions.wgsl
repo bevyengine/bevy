@@ -585,7 +585,7 @@ fn apply_pbr_lighting(
 
     // Total light
     output_color = vec4<f32>(
-        view_bindings::view.exposure * (transmitted_light + direct_light + indirect_light + emissive_light),
+        (view_bindings::view.exposure * (transmitted_light + direct_light + indirect_light)) + emissive_light,
         output_color.a
     );
 
