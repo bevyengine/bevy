@@ -403,12 +403,14 @@ mod tests {
 
     /// Checks if the parent of the `user_root_node` in a `RootNodeData`
     /// is correctly assigned as the `implicit_viewport_node`.
-    fn is_root_node_data_valid(
-        taffy_tree: &TaffyTree<NodeMeasure>,
-        root_node_data: &RootNodeData,
-    ) -> bool {
-        taffy_tree.parent(root_node_data.user_root_node)
-            == Some(root_node_data.implicit_viewport_node)
+    fn has_valid_root_node_data(ui_surface: &UiSurface, root_node_entity: &Entity) -> bool {
+        let Some(&root_node_taffy_node_id) = ui_surface.entity_to_taffy.get(root_node_entity) else {
+            return false;
+        };
+        let Some(root_node_data) = ui_surface.root_node_data.get(root_node_entity) else {
+            return false;
+        };
+        ui_surface.taffy.parent(root_node_taffy_node_id) == Some(root_node_data.implicit_viewport_node)
     }
 
     /// Tries to get the root node data for a given root node entity
@@ -461,7 +463,7 @@ mod tests {
         // root node data should now exist
         let root_node_data = get_root_node_data_exact(&ui_surface, root_node_entity, camera_entity)
             .expect("expected root node data");
-        assert!(is_root_node_data_valid(&ui_surface.taffy, root_node_data));
+        assert!(has_valid_root_node_data(&ui_surface, &root_node_entity));
 
         // test duplicate insert 2
         ui_surface.upsert_node(&TEST_LAYOUT_CONTEXT, root_node_entity, &style, None);
@@ -472,7 +474,7 @@ mod tests {
         // root node data should be unaffected
         let root_node_data = get_root_node_data_exact(&ui_surface, root_node_entity, camera_entity)
             .expect("expected root node data");
-        assert!(is_root_node_data_valid(&ui_surface.taffy, root_node_data));
+        assert!(has_valid_root_node_data(&ui_surface, &root_node_entity));
     }
 
     #[test]
