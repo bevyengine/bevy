@@ -2,9 +2,9 @@ use bevy_reflect_derive::impl_type_path;
 use bevy_utils::all_tuples;
 
 use crate::{
-    self as bevy_reflect, utility::GenericTypePathCell, FromReflect, GetTypeRegistration, Reflect,
-    ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypeRegistration, TypeRegistry,
-    Typed, UnnamedField,
+    self as bevy_reflect, utility::GenericTypePathCell, ApplyError, FromReflect,
+    GetTypeRegistration, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
+    TypeRegistration, TypeRegistry, Typed, UnnamedField,
 };
 use crate::{ReflectKind, TypePathTable};
 use std::any::{Any, TypeId};
@@ -369,6 +369,10 @@ impl Reflect for DynamicTuple {
         Box::new(self.clone_dynamic())
     }
 
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        tuple_try_apply(self, value)
+    }
+
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         tuple_partial_eq(self, value)
     }
@@ -394,15 +398,33 @@ impl_type_path!((in bevy_reflect) DynamicTuple);
 /// This function panics if `b` is not a tuple.
 #[inline]
 pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) {
+    if let Err(err) = tuple_try_apply(a, b) {
+        panic!("{err}");
+    }
+}
+
+/// Tries to apply the elements of `b` to the corresponding elements of `a` and
+/// returns a Result.
+///
+/// # Errors
+///
+/// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a tuple or if
+/// applying elements to each other fails.
+#[inline]
+pub fn tuple_try_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) -> Result<(), ApplyError> {
     if let ReflectRef::Tuple(tuple) = b.reflect_ref() {
         for (i, value) in tuple.iter_fields().enumerate() {
             if let Some(v) = a.field_mut(i) {
-                v.apply(value);
+                v.try_apply(value)?;
             }
         }
     } else {
-        panic!("Attempted to apply non-Tuple type to Tuple type.");
+        return Err(ApplyError::MismatchedKinds {
+            from_kind: b.reflect_kind(),
+            to_kind: ReflectKind::Tuple,
+        });
     }
+    Ok(())
 }
 
 /// Compares a [`Tuple`] with a [`Reflect`] value.
@@ -543,6 +565,10 @@ macro_rules! impl_reflect_tuple {
 
             fn apply(&mut self, value: &dyn Reflect) {
                 crate::tuple_apply(self, value);
+            }
+
+            fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+                crate::tuple_try_apply(self, value)
             }
 
             fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
