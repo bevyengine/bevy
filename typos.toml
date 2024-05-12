@@ -2,6 +2,7 @@
 extend-exclude = [
   "*.pbxproj",    # metadata file
   "CHANGELOG.md", # To keep consistency between the commit history/PRs.
+  "*.patch",      # Automatically generated files that should not be manually modified.
 ]
 
 # Corrections take the form of a key/value pair. The key is the incorrect word
