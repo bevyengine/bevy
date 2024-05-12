@@ -2,7 +2,7 @@
 //! derived from: <https://sotrh.github.io/learn-wgpu/showcase/windowless/#a-triangle-without-a-window>
 //! It follows this steps:
 //! 1. Render from camera to gpu-image render target
-//! 2. Copy form gpu image to buffer using `ImageCopyDriver` node in `RenderGraph`
+//! 2. Copy from gpu image to buffer using `ImageCopyDriver` node in `RenderGraph`
 //! 3. Copy from buffer to channel using `receive_image_from_buffer` after `RenderSet::Render`
 //! 4. Save from channel to random named file using `scene::update` at `PostUpdate` in `MainWorld`
 //! 5. Exit if `single_image` setting is set
