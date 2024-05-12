@@ -2,7 +2,12 @@
 
 #import bevy_pbr::{
     mesh_view_bindings as bindings,
-    utils::{PI_2, hsv_to_rgb, rand_f},
+    utils::rand_f,
+}
+
+#import bevy_render::{
+   color_operations::hsv_to_rgb,
+   maths::PI_2,
 }
 
 // NOTE: Keep in sync with bevy_pbr/src/light.rs

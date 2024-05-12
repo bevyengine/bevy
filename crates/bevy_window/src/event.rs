@@ -94,6 +94,20 @@ pub struct WindowClosed {
     pub window: Entity,
 }
 
+/// An event that is sent whenever a window is closing. This will be sent when
+/// after a [`WindowCloseRequested`] event is received and the window is in the process of closing.
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct WindowClosing {
+    /// Window that has been requested to close and is the process of closing.
+    pub window: Entity,
+}
+
 /// An event that is sent whenever a window is destroyed by the underlying window system.
 ///
 /// Note that if your application only has a single window, this event may be your last chance to

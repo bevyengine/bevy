@@ -79,7 +79,7 @@ impl PluginGroup for DefaultPlugins {
                 // compressed texture formats
                 .add(bevy_render::texture::ImagePlugin::default());
 
-            #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+            #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
             {
                 group = group.add(bevy_render::pipelined_rendering::PipelinedRenderingPlugin);
             }

@@ -36,7 +36,7 @@ use std::{
     },
 };
 use wgpu::{
-    Extent3d, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
+    BufferUsages, Extent3d, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
     TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
 
@@ -114,7 +114,7 @@ impl Plugin for ViewPlugin {
             ));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<ViewUniforms>().add_systems(
+            render_app.add_systems(
                 Render,
                 (
                     prepare_view_targets
@@ -125,6 +125,12 @@ impl Plugin for ViewPlugin {
                     prepare_view_uniforms.in_set(RenderSet::PrepareResources),
                 ),
             );
+        }
+    }
+
+    fn finish(&self, app: &mut App) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<ViewUniforms>();
         }
     }
 }
@@ -415,9 +421,23 @@ pub struct ViewUniform {
     render_layers: u32,
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource)]
 pub struct ViewUniforms {
     pub uniforms: DynamicUniformBuffer<ViewUniform>,
+}
+
+impl FromWorld for ViewUniforms {
+    fn from_world(world: &mut World) -> Self {
+        let mut uniforms = DynamicUniformBuffer::default();
+        uniforms.set_label(Some("view_uniforms_buffer"));
+
+        let render_device = world.resource::<RenderDevice>();
+        if render_device.limits().max_storage_buffers_per_shader_stage > 0 {
+            uniforms.add_usages(BufferUsages::STORAGE);
+        }
+
+        Self { uniforms }
+    }
 }
 
 #[derive(Component)]

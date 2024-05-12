@@ -52,6 +52,8 @@ pub use bevy_render as render;
 pub use bevy_scene as scene;
 #[cfg(feature = "bevy_sprite")]
 pub use bevy_sprite as sprite;
+#[cfg(feature = "bevy_state")]
+pub use bevy_state as state;
 pub use bevy_tasks as tasks;
 #[cfg(feature = "bevy_text")]
 pub use bevy_text as text;
