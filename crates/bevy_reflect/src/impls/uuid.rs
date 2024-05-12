@@ -7,6 +7,7 @@ impl_reflect_value!(::uuid::Uuid(
     Serialize,
     Deserialize,
     Default,
+    Clone,
     Debug,
     PartialEq,
     Hash
