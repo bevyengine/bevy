@@ -33,7 +33,7 @@ impl Plugin for ColorMaterialPlugin {
             .insert(
                 &Handle::<ColorMaterial>::default(),
                 ColorMaterial {
-                    color: Color::srgb(1.0, 0.0, 1.0),
+                    emissive: LinearRgba::rgb(1.0, 0.0, 1.0),
                     ..Default::default()
                 },
             );
@@ -45,7 +45,7 @@ impl Plugin for ColorMaterialPlugin {
 #[reflect(Default, Debug)]
 #[uniform(0, ColorMaterialUniform)]
 pub struct ColorMaterial {
-    pub color: Color,
+    pub emissive: LinearRgba,
     #[texture(1)]
     #[sampler(2)]
     pub texture: Option<Handle<Image>>,
@@ -54,8 +54,17 @@ pub struct ColorMaterial {
 impl Default for ColorMaterial {
     fn default() -> Self {
         ColorMaterial {
-            color: Color::WHITE,
+            emissive: LinearRgba::WHITE,
             texture: None,
+        }
+    }
+}
+
+impl From<LinearRgba> for ColorMaterial {
+    fn from(emissive: LinearRgba) -> Self {
+        ColorMaterial {
+            emissive,
+            ..Default::default()
         }
     }
 }
@@ -63,7 +72,7 @@ impl Default for ColorMaterial {
 impl From<Color> for ColorMaterial {
     fn from(color: Color) -> Self {
         ColorMaterial {
-            color,
+            emissive: LinearRgba::from(color),
             ..Default::default()
         }
     }
@@ -103,7 +112,7 @@ impl AsBindGroupShaderType<ColorMaterialUniform> for ColorMaterial {
         }
 
         ColorMaterialUniform {
-            color: LinearRgba::from(self.color).to_f32_array().into(),
+            color: self.emissive.into(),
             flags: flags.bits(),
         }
     }
