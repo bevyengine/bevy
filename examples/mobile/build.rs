@@ -1,4 +1,4 @@
-// a build script to copy libc++_shared.so to the target directory.
+//! A build script to copy libc++_shared.so to the target directory.
 use std::{
     env,
     path::{Path, PathBuf},
@@ -19,7 +19,7 @@ fn android() {
         std::fs::copy(
             lib_path,
             Path::new(&output_path)
-                .join(&env::var("CARGO_NDK_ANDROID_TARGET").unwrap())
+                .join(env::var("CARGO_NDK_ANDROID_TARGET").unwrap())
                 .join("libc++_shared.so"),
         )
         .unwrap();
