@@ -255,16 +255,11 @@ without UI components as a child of an entity with UI components, results may be
             {
                 let taffy_node = *self.entity_to_taffy.get(&ui_entity).unwrap();
                 if let Some(parent) = self.taffy.parent(taffy_node) {
-                    self.taffy
-                        .remove_child(parent, taffy_node)
-                        .unwrap();
+                    self.taffy.remove_child(parent, taffy_node).unwrap();
                 }
 
                 self.taffy
-                    .add_child(
-                        root_node_data.implicit_viewport_node,
-                        taffy_node,
-                    )
+                    .add_child(root_node_data.implicit_viewport_node, taffy_node)
                     .unwrap();
             }
 
@@ -510,7 +505,8 @@ mod tests {
             None
         );
 
-        let root_node_data = get_root_node_data(&ui_surface, root_node_entity).expect("expected root node data");
+        let root_node_data =
+            get_root_node_data(&ui_surface, root_node_entity).expect("expected root node data");
         assert_eq!(
             Some(root_node_data),
             ui_surface.root_node_data.get(&root_node_entity),
