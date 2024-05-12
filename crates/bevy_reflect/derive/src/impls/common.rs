@@ -115,6 +115,7 @@ pub fn common_partial_reflect_methods(
                 }
             })
         });
+    let clone_fn = meta.attrs().get_clone_impl(bevy_reflect_path);
 
     quote! {
         #[inline]
@@ -154,5 +155,7 @@ pub fn common_partial_reflect_methods(
         #partial_eq_fn
 
         #debug_fn
+
+        #clone_fn
     }
 }

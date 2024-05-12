@@ -987,6 +987,39 @@ mod tests {
     }
 
     #[test]
+    fn should_reflect_clone() {
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        #[reflect(Clone)]
+        struct Foo(usize);
+
+        let foo = Foo(123);
+        let clone = foo.reflect_clone().unwrap();
+        assert_eq!(foo, clone.take::<Foo>().unwrap());
+
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        struct Bar(usize);
+
+        let bar = Bar(123);
+        let clone = bar.reflect_clone();
+        assert!(clone.is_none());
+    }
+
+    #[test]
+    fn should_custom_reflect_clone() {
+        #[derive(Reflect, Debug, PartialEq)]
+        #[reflect(Clone(clone_foo))]
+        struct Foo(usize);
+
+        fn clone_foo(foo: &Foo) -> Foo {
+            Foo(foo.0 + 198)
+        }
+
+        let foo = Foo(123);
+        let clone = foo.reflect_clone().unwrap();
+        assert_eq!(Foo(321), clone.take::<Foo>().unwrap());
+    }
+
+    #[test]
     fn should_call_from_reflect_dynamically() {
         #[derive(Reflect)]
         struct MyStruct {

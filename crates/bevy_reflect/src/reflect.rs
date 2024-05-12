@@ -231,6 +231,16 @@ where
     /// [`Map`]: crate::Map
     fn clone_value(&self) -> Box<dyn PartialReflect>;
 
+    /// Attempts to clone `Self` using reflection.
+    ///
+    /// Unlike [`Reflect::clone_value`], which often returns a dynamic representation of `Self`,
+    /// this method attempts create a clone of `Self` directly, if possible.
+    ///
+    /// If the clone cannot be performed, `None` is returned.
+    fn reflect_clone(&self) -> Option<Box<dyn Reflect>> {
+        None
+    }
+
     /// Returns a hash of the value (which includes the type).
     ///
     /// If the underlying type does not support hashing, returns `None`.

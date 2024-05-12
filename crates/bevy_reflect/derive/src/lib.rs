@@ -156,6 +156,11 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 ///
 /// There are a few "special" identifiers that work a bit differently:
 ///
+/// * `#[reflect(Clone)]` will force the implementation of `Reflect::reflect_clone` to rely on
+///   the type's [`Clone`] implementation.
+///   A custom implementation may be provided using `#[reflect(Clone(my_clone_func))]` where
+///   `my_clone_func` is the path to a function matching the signature:
+///   `(&self) -> Self`.
 /// * `#[reflect(Debug)]` will force the implementation of `Reflect::reflect_debug` to rely on
 ///   the type's [`Debug`] implementation.
 ///   A custom implementation may be provided using `#[reflect(Debug(my_debug_func))]` where
