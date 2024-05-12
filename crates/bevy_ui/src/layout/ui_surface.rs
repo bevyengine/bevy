@@ -280,14 +280,6 @@ mod tests {
     use crate::{ContentSize, FixedMeasure};
     use bevy_math::Vec2;
     use taffy::TraversePartialTree;
-    #[test]
-    fn test_initialization() {
-        let ui_surface = UiSurface::default();
-        assert!(ui_surface.entity_to_taffy.is_empty());
-        assert!(ui_surface.camera_entity_to_taffy.is_empty());
-        assert!(ui_surface.camera_roots.is_empty());
-        assert_eq!(ui_surface.taffy.total_node_count(), 0);
-    }
 
     const TEST_LAYOUT_CONTEXT: LayoutContext = LayoutContext {
         scale_factor: 1.0,
@@ -317,6 +309,15 @@ mod tests {
         root_node_pairs
             .iter()
             .find(|&root_node_pair| root_node_pair.user_root_node == *root_node_taffy)
+    }
+    
+    #[test]
+    fn test_initialization() {
+        let ui_surface = UiSurface::default();
+        assert!(ui_surface.entity_to_taffy.is_empty());
+        assert!(ui_surface.camera_entity_to_taffy.is_empty());
+        assert!(ui_surface.camera_roots.is_empty());
+        assert_eq!(ui_surface.taffy.total_node_count(), 0);
     }
 
     #[test]
