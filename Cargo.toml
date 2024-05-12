@@ -79,6 +79,7 @@ default = [
   "default_font",
   "webgl2",
   "sysinfo_plugin",
+  "wayland",
 ]
 
 # Force dynamic linking, which improves iterative compile times
