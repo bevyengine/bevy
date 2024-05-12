@@ -314,10 +314,7 @@ without UI components as a child of an entity with UI components, results may be
             }
 
             self.taffy
-                .compute_layout(
-                    root_node_data.implicit_viewport_node,
-                    available_space,
-                )
+                .compute_layout(root_node_data.implicit_viewport_node, available_space)
                 .unwrap();
         }
     }
@@ -404,13 +401,15 @@ mod tests {
     /// Checks if the parent of the `user_root_node` in a `RootNodeData`
     /// is correctly assigned as the `implicit_viewport_node`.
     fn has_valid_root_node_data(ui_surface: &UiSurface, root_node_entity: &Entity) -> bool {
-        let Some(&root_node_taffy_node_id) = ui_surface.entity_to_taffy.get(root_node_entity) else {
+        let Some(&root_node_taffy_node_id) = ui_surface.entity_to_taffy.get(root_node_entity)
+        else {
             return false;
         };
         let Some(root_node_data) = ui_surface.root_node_data.get(root_node_entity) else {
             return false;
         };
-        ui_surface.taffy.parent(root_node_taffy_node_id) == Some(root_node_data.implicit_viewport_node)
+        ui_surface.taffy.parent(root_node_taffy_node_id)
+            == Some(root_node_data.implicit_viewport_node)
     }
 
     /// Tries to get the root node data for a given root node entity
@@ -539,12 +538,8 @@ mod tests {
         // assign root node to camera
         ui_surface.set_camera_children(camera_entity, [root_node_entity].into_iter());
 
-        assert!(ui_surface
-            .camera_root_nodes
-            .contains_key(&camera_entity));
-        assert!(ui_surface
-            .root_node_data
-            .contains_key(&root_node_entity));
+        assert!(ui_surface.camera_root_nodes.contains_key(&camera_entity));
+        assert!(ui_surface.root_node_data.contains_key(&root_node_entity));
         assert!(ui_surface.camera_root_nodes.contains_key(&camera_entity));
         let root_node_data = get_root_node_data_exact(&ui_surface, root_node_entity, camera_entity)
             .expect("expected root node data");
@@ -560,9 +555,7 @@ mod tests {
         assert!(ui_surface.entity_to_taffy.contains_key(&root_node_entity));
 
         // `camera_roots` and `camera_entity_to_taffy` should no longer contain entries for `camera_entity`
-        assert!(!ui_surface
-            .camera_root_nodes
-            .contains_key(&camera_entity));
+        assert!(!ui_surface.camera_root_nodes.contains_key(&camera_entity));
 
         assert!(!ui_surface.camera_root_nodes.contains_key(&camera_entity));
 
@@ -675,9 +668,8 @@ mod tests {
             "child of root node should not be associated with camera"
         );
 
-        let root_node_data =
-            get_root_node_data_exact(&ui_surface, root_node_entity, camera_entity)
-                .expect("expected root node data");
+        let root_node_data = get_root_node_data_exact(&ui_surface, root_node_entity, camera_entity)
+            .expect("expected root node data");
 
         assert_eq!(ui_surface.taffy.parent(child_taffy), Some(root_taffy_node));
         let root_taffy_children = ui_surface.taffy.children(root_taffy_node).unwrap();
