@@ -9,7 +9,7 @@ use crate::custom_attributes::CustomAttributes;
 use crate::derive_data::ReflectTraitToImpl;
 use crate::utility;
 use crate::utility::terminated_parser;
-use bevy_macro_utils::fq_std::{FQAny, FQOption};
+use bevy_macro_utils::fq_std::{FQAny, FQBox, FQClone, FQOption};
 use proc_macro2::{Ident, Span};
 use quote::quote_spanned;
 use syn::ext::IdentExt;
@@ -23,6 +23,7 @@ mod kw {
     syn::custom_keyword!(Debug);
     syn::custom_keyword!(PartialEq);
     syn::custom_keyword!(Hash);
+    syn::custom_keyword!(Clone);
     syn::custom_keyword!(no_field_bounds);
 }
 
@@ -181,6 +182,7 @@ impl TypePathAttrs {
 ///
 #[derive(Default, Clone)]
 pub(crate) struct ContainerAttributes {
+    clone: TraitImpl,
     debug: TraitImpl,
     hash: TraitImpl,
     partial_eq: TraitImpl,
@@ -239,12 +241,14 @@ impl ContainerAttributes {
             self.parse_type_path(input, trait_)
         } else if lookahead.peek(kw::no_field_bounds) {
             self.parse_no_field_bounds(input)
+        } else if lookahead.peek(kw::Clone) {
+            self.parse_clone(input)
         } else if lookahead.peek(kw::Debug) {
             self.parse_debug(input)
-        } else if lookahead.peek(kw::PartialEq) {
-            self.parse_partial_eq(input)
         } else if lookahead.peek(kw::Hash) {
             self.parse_hash(input)
+        } else if lookahead.peek(kw::PartialEq) {
+            self.parse_partial_eq(input)
         } else if lookahead.peek(Ident::peek_any) {
             self.parse_ident(input)
         } else {
@@ -273,6 +277,26 @@ impl ContainerAttributes {
         reflect_ident.set_span(ident.span());
 
         add_unique_ident(&mut self.idents, reflect_ident)?;
+
+        Ok(())
+    }
+
+    /// Parse `clone` attribute.
+    ///
+    /// Examples:
+    /// - `#[reflect(Clone)]`
+    /// - `#[reflect(Clone(custom_clone_fn))]`
+    fn parse_clone(&mut self, input: ParseStream) -> syn::Result<()> {
+        let ident = input.parse::<kw::Clone>()?;
+
+        if input.peek(token::Paren) {
+            let content;
+            parenthesized!(content in input);
+            let path = content.parse::<Path>()?;
+            self.clone.merge(TraitImpl::Custom(path, ident.span))?;
+        } else {
+            self.clone = TraitImpl::Implemented(ident.span);
+        }
 
         Ok(())
     }
@@ -507,6 +531,24 @@ impl ContainerAttributes {
             &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
                 fn debug(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                     #impl_fn(self, f)
+                }
+            }),
+            TraitImpl::NotImplemented => None,
+        }
+    }
+
+    pub fn get_clone_impl(&self, bevy_reflect_path: &Path) -> Option<proc_macro2::TokenStream> {
+        match &self.clone {
+            &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
+                #[inline]
+                fn reflect_clone(&self) -> #FQOption<#FQBox<dyn #bevy_reflect_path::Reflect>> {
+                    #FQOption::Some(#FQBox::new(#FQClone::clone(self)))
+                }
+            }),
+            &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
+                #[inline]
+                fn reflect_clone(&self) -> #FQOption<#FQBox<dyn #bevy_reflect_path::Reflect>> {
+                    #FQOption::Some(#FQBox::new(#impl_fn(self)))
                 }
             }),
             TraitImpl::NotImplemented => None,

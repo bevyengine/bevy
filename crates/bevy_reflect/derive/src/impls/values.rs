@@ -85,6 +85,11 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
                 #FQBox::new(#FQClone::clone(self))
             }
 
+            #[inline]
+            fn reflect_clone(&self) -> #FQOption<#FQBox<dyn #bevy_reflect_path::Reflect>> {
+                #FQOption::Some(#FQBox::new(#FQClone::clone(self)))
+            }
+
              #[inline]
             fn try_apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) -> #FQResult<(), #bevy_reflect_path::ApplyError> {
                 let any = #bevy_reflect_path::Reflect::as_any(value);
