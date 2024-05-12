@@ -533,6 +533,7 @@ min_sdk_version = >>API or less<<
 Example | File | Description
 --- | --- | ---
 `android` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
+`build.rs` | [`mobile/build.rs`](./mobile/build.rs) | A build script to copy libc++_shared.so to the target directory.
 
 ## iOS
 
