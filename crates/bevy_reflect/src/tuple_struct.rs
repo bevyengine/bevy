@@ -155,7 +155,7 @@ impl<'a> Iterator for TupleStructFieldIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let value = self.tuple_struct.field(self.index);
-        self.index += 1;
+        self.index += value.is_some() as usize;
         value
     }
 
@@ -474,4 +474,27 @@ pub fn tuple_struct_debug(
         debug.field(&field as &dyn Debug);
     }
     debug.finish()
+}
+
+#[cfg(test)]
+mod tests {
+    use crate as bevy_reflect;
+    use crate::*;
+    #[derive(Reflect)]
+    struct Ts(u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8);
+    #[test]
+    fn next_index_increment() {
+        let mut iter = Ts(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11).iter_fields();
+        let size = iter.len();
+        iter.index = size - 1;
+        let prev_index = iter.index;
+        assert!(iter.next().is_some());
+        assert_eq!(prev_index, iter.index - 1);
+
+        // When None we should no longer increase index
+        assert!(iter.next().is_none());
+        assert_eq!(size, iter.index);
+        assert!(iter.next().is_none());
+        assert_eq!(size, iter.index);
+    }
 }
