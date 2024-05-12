@@ -296,6 +296,8 @@ mod tests {
         max_size: 1.0,
     };
 
+    /// Checks if the parent of the `user_root_node` in a `RootNodePair`
+    /// is correctly assigned as the `implicit_viewport_node`.
     fn is_root_node_pair_valid(
         taffy_tree: &TaffyTree<NodeMeasure>,
         root_node_pair: &RootNodePair,
