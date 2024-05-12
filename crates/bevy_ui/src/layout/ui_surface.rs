@@ -311,6 +311,25 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
+    /// Remove root node associations when assigning a node as a child to another node
+    pub(super) fn demote_ui_node(&mut self, target_entity: &Entity, parent_entity: &Entity) {
+        if let Some(mut root_node_data) = self.root_node_data.remove(target_entity) {
+            if let Some(camera_entity) = root_node_data.camera_entity.take() {
+                if let Some(ui_set) = self.camera_root_nodes.get_mut(&camera_entity) {
+                    ui_set.remove(target_entity);
+                }
+            }
+            self.taffy
+                .remove(root_node_data.implicit_viewport_node)
+                .unwrap();
+            let parent_taffy = self.entity_to_taffy.get(parent_entity).unwrap();
+            let child_taffy = self.entity_to_taffy.get(target_entity).unwrap();
+            self.taffy
+                .add_child(*parent_taffy, *child_taffy)
+                .unwrap();
+        }
+    }
+
     /// Disassociates the camera from all of its assigned root nodes and removes their viewport nodes
     /// Removes entry in `camera_root_nodes`
     pub(super) fn remove_camera(&mut self, camera_entity: &Entity) {
