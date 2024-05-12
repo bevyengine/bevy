@@ -304,34 +304,6 @@ mod tests {
             == Some(root_node_pair.implicit_viewport_node)
     }
 
-    fn get_associated_camera_entity(
-        ui_surface: &UiSurface,
-        root_node_entity: Entity,
-    ) -> Option<Entity> {
-        for (&camera_entity, root_node_map) in ui_surface.camera_entity_to_taffy.iter() {
-            if root_node_map.contains_key(&root_node_entity) {
-                return Some(camera_entity);
-            }
-        }
-        None
-    }
-
-    /// Tries to get the root node pair for a given root node entity
-    fn get_root_node_pair(
-        ui_surface: &UiSurface,
-        root_node_entity: Entity,
-    ) -> Option<&RootNodePair> {
-        // If `get_associated_camera_entity_from_ui_entity` returns `None`,
-        // it's not also guaranteed for camera_roots to not contain a reference
-        // to the root nodes taffy node
-        //
-        // `camera_roots` could still theoretically contain a reference to entities taffy node
-        // unless other writes/reads are proven to be atomic in nature
-        // so if they are out of sync then something else is wrong
-        let camera_entity = get_associated_camera_entity(ui_surface, root_node_entity)?;
-        get_root_node_pair_exact(ui_surface, root_node_entity, camera_entity)
-    }
-
     /// Tries to get the root node pair for a given root node entity with the specified camera entity
     fn get_root_node_pair_exact(
         ui_surface: &UiSurface,
@@ -389,7 +361,29 @@ mod tests {
     }
 
     #[test]
-    fn test_helper_methods() {
+    fn test_get_root_node_pair_exact() {
+        /// Attempts to find the camera entity that holds a reference to the given root node entity
+        fn get_associated_camera_entity(
+            ui_surface: &UiSurface,
+            root_node_entity: Entity,
+        ) -> Option<Entity> {
+            for (&camera_entity, root_node_map) in ui_surface.camera_entity_to_taffy.iter() {
+                if root_node_map.contains_key(&root_node_entity) {
+                    return Some(camera_entity);
+                }
+            }
+            None
+        }
+
+        /// Attempts to find the root node pair corresponding to the given root node entity
+        fn get_root_node_pair(
+            ui_surface: &UiSurface,
+            root_node_entity: Entity,
+        ) -> Option<&RootNodePair> {
+            let camera_entity = get_associated_camera_entity(ui_surface, root_node_entity)?;
+            get_root_node_pair_exact(ui_surface, root_node_entity, camera_entity)
+        }
+
         let mut ui_surface = UiSurface::default();
         let camera_entity = Entity::from_raw(0);
         let root_node_entity = Entity::from_raw(1);
