@@ -1,6 +1,11 @@
 (
+  resources: {
+    "scene::ResourceA": (
+      score: 2,
+    ),
+  },
   entities: {
-    0: (
+    4294967296: (
       components: {
         "bevy_transform::components::transform::Transform": (
           translation: (
@@ -8,7 +13,12 @@
             y: 0.0,
             z: 0.0
           ),
-          rotation: (0.0, 0.0, 0.0, 1.0),
+          rotation: (
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            w: 1.0,
+          ),
           scale: (
             x: 1.0,
             y: 1.0,
@@ -24,7 +34,7 @@
         ),
       },
     ),
-    1: (
+    4294967297: (
       components: {
         "scene::ComponentA": (
           x: 3.0,

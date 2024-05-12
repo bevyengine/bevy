@@ -5,11 +5,13 @@ use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
-    Data, DataStruct, Error, Fields, LitInt, LitStr, NestedMeta, Result, Token,
+    token::Comma,
+    Data, DataStruct, Error, Fields, LitInt, LitStr, Meta, MetaList, Result,
 };
 
 const UNIFORM_ATTRIBUTE_NAME: Symbol = Symbol("uniform");
 const TEXTURE_ATTRIBUTE_NAME: Symbol = Symbol("texture");
+const STORAGE_TEXTURE_ATTRIBUTE_NAME: Symbol = Symbol("storage_texture");
 const SAMPLER_ATTRIBUTE_NAME: Symbol = Symbol("sampler");
 const STORAGE_ATTRIBUTE_NAME: Symbol = Symbol("storage");
 const BIND_GROUP_DATA_ATTRIBUTE_NAME: Symbol = Symbol("bind_group_data");
@@ -18,6 +20,7 @@ const BIND_GROUP_DATA_ATTRIBUTE_NAME: Symbol = Symbol("bind_group_data");
 enum BindingType {
     Uniform,
     Texture,
+    StorageTexture,
     Sampler,
     Storage,
 }
@@ -42,13 +45,12 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
     let mut binding_states: Vec<BindingState> = Vec::new();
     let mut binding_impls = Vec::new();
-    let mut bind_group_entries = Vec::new();
     let mut binding_layouts = Vec::new();
     let mut attr_prepared_data_ident = None;
 
     // Read struct-level attributes
     for attr in &ast.attrs {
-        if let Some(attr_ident) = attr.path.get_ident() {
+        if let Some(attr_ident) = attr.path().get_ident() {
             if attr_ident == BIND_GROUP_DATA_ATTRIBUTE_NAME {
                 if let Ok(prepared_data_ident) =
                     attr.parse_args_with(|input: ParseStream| input.parse::<Ident>())
@@ -62,13 +64,16 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(Vec::new());
                     let converted: #converted_shader_type = self.as_bind_group_shader_type(images);
                     buffer.write(&converted).unwrap();
-                    #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
-                        &#render_path::render_resource::BufferInitDescriptor {
-                            label: None,
-                            usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::UNIFORM,
-                            contents: buffer.as_ref(),
-                        },
-                    ))
+                    (
+                        #binding_index,
+                        #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
+                            &#render_path::render_resource::BufferInitDescriptor {
+                                label: None,
+                                usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::UNIFORM,
+                                contents: buffer.as_ref(),
+                            },
+                        ))
+                    )
                 }});
 
                 binding_layouts.push(quote!{
@@ -81,14 +86,6 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             min_binding_size: Some(<#converted_shader_type as #render_path::render_resource::ShaderType>::min_size()),
                         },
                         count: None,
-                    }
-                });
-
-                let binding_vec_index = bind_group_entries.len();
-                bind_group_entries.push(quote! {
-                    #render_path::render_resource::BindGroupEntry {
-                        binding: #binding_index,
-                        resource: bindings[#binding_vec_index].get_binding(),
                     }
                 });
 
@@ -115,9 +112,22 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     };
 
     // Read field-level attributes
-    for field in fields.iter() {
+    for field in fields {
+        // Search ahead for texture attributes so we can use them with any
+        // corresponding sampler attribute.
+        let mut tex_attrs = None;
         for attr in &field.attrs {
-            let Some(attr_ident) = attr.path.get_ident() else {
+            let Some(attr_ident) = attr.path().get_ident() else {
+                continue;
+            };
+            if attr_ident == TEXTURE_ATTRIBUTE_NAME {
+                let (_binding_index, nested_meta_items) = get_binding_nested_attr(attr)?;
+                tex_attrs = Some(get_texture_attrs(nested_meta_items)?);
+            }
+        }
+
+        for attr in &field.attrs {
+            let Some(attr_ident) = attr.path().get_ident() else {
                 continue;
             };
 
@@ -125,6 +135,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 BindingType::Uniform
             } else if attr_ident == TEXTURE_ATTRIBUTE_NAME {
                 BindingType::Texture
+            } else if attr_ident == STORAGE_TEXTURE_ATTRIBUTE_NAME {
+                BindingType::StorageTexture
             } else if attr_ident == SAMPLER_ATTRIBUTE_NAME {
                 BindingType::Sampler
             } else if attr_ident == STORAGE_ATTRIBUTE_NAME {
@@ -150,13 +162,6 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         _ => {
                             // only populate bind group entries for non-uniforms
                             // uniform entries are deferred until the end
-                            let binding_vec_index = bind_group_entries.len();
-                            bind_group_entries.push(quote! {
-                                #render_path::render_resource::BindGroupEntry {
-                                    binding: #binding_index,
-                                    resource: bindings[#binding_vec_index].get_binding(),
-                                }
-                            });
                             BindingState::Occupied {
                                 binding_type,
                                 ident: field_name,
@@ -203,7 +208,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         buffer,
                     } = get_storage_binding_attr(nested_meta_items)?;
                     let visibility =
-                        visibility.hygenic_quote(&quote! { #render_path::render_resource });
+                        visibility.hygienic_quote(&quote! { #render_path::render_resource });
 
                     let field_name = field.ident.as_ref().unwrap();
                     let field_ty = &field.ty;
@@ -216,22 +221,28 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
                     if buffer {
                         binding_impls.push(quote! {
-                            #render_path::render_resource::OwnedBindingResource::Buffer({
-                                self.#field_name.clone()
-                            })
+                            (
+                                #binding_index,
+                                #render_path::render_resource::OwnedBindingResource::Buffer({
+                                    self.#field_name.clone()
+                                })
+                            )
                         });
                     } else {
                         binding_impls.push(quote! {{
                             use #render_path::render_resource::AsBindGroupShaderType;
                             let mut buffer = #render_path::render_resource::encase::StorageBuffer::new(Vec::new());
                             buffer.write(&self.#field_name).unwrap();
-                            #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
-                                &#render_path::render_resource::BufferInitDescriptor {
-                                    label: None,
-                                    usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::STORAGE,
-                                    contents: buffer.as_ref(),
-                                },
-                            ))
+                            (
+                                #binding_index,
+                                #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
+                                    &#render_path::render_resource::BufferInitDescriptor {
+                                        label: None,
+                                        usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::STORAGE,
+                                        contents: buffer.as_ref(),
+                                    },
+                                ))
+                            )
                         }});
                     }
 
@@ -248,26 +259,72 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         }
                     });
                 }
+                BindingType::StorageTexture => {
+                    let StorageTextureAttrs {
+                        dimension,
+                        image_format,
+                        access,
+                        visibility,
+                    } = get_storage_texture_binding_attr(nested_meta_items)?;
+
+                    let visibility =
+                        visibility.hygienic_quote(&quote! { #render_path::render_resource });
+
+                    let fallback_image = get_fallback_image(&render_path, dimension);
+
+                    // insert fallible texture-based entries at 0 so that if we fail here, we exit before allocating any buffers
+                    binding_impls.insert(0, quote! {
+                        ( #binding_index,
+                          #render_path::render_resource::OwnedBindingResource::TextureView({
+                              let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
+                              if let Some(handle) = handle {
+                                  images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.texture_view.clone()
+                              } else {
+                                  #fallback_image.texture_view.clone()
+                              }
+                          })
+                        )
+                    });
+
+                    binding_layouts.push(quote! {
+                        #render_path::render_resource::BindGroupLayoutEntry {
+                            binding: #binding_index,
+                            visibility: #visibility,
+                            ty: #render_path::render_resource::BindingType::StorageTexture {
+                                access: #render_path::render_resource::StorageTextureAccess::#access,
+                                format: #render_path::render_resource::TextureFormat::#image_format,
+                                view_dimension: #render_path::render_resource::#dimension,
+                            },
+                            count: None,
+                        }
+                    });
+                }
                 BindingType::Texture => {
                     let TextureAttrs {
                         dimension,
                         sample_type,
                         multisampled,
                         visibility,
-                    } = get_texture_attrs(nested_meta_items)?;
+                    } = tex_attrs.as_ref().unwrap();
 
                     let visibility =
-                        visibility.hygenic_quote(&quote! { #render_path::render_resource });
+                        visibility.hygienic_quote(&quote! { #render_path::render_resource });
 
-                    binding_impls.push(quote! {
-                        #render_path::render_resource::OwnedBindingResource::TextureView({
-                            let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
-                            if let Some(handle) = handle {
-                                images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.texture_view.clone()
-                            } else {
-                                fallback_image.texture_view.clone()
-                            }
-                        })
+                    let fallback_image = get_fallback_image(&render_path, *dimension);
+
+                    // insert fallible texture-based entries at 0 so that if we fail here, we exit before allocating any buffers
+                    binding_impls.insert(0, quote! {
+                        (
+                            #binding_index,
+                            #render_path::render_resource::OwnedBindingResource::TextureView({
+                                let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
+                                if let Some(handle) = handle {
+                                    images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.texture_view.clone()
+                                } else {
+                                    #fallback_image.texture_view.clone()
+                                }
+                            })
+                        )
                     });
 
                     binding_layouts.push(quote! {
@@ -287,20 +344,30 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     let SamplerAttrs {
                         sampler_binding_type,
                         visibility,
+                        ..
                     } = get_sampler_attrs(nested_meta_items)?;
+                    let TextureAttrs { dimension, .. } = tex_attrs
+                        .as_ref()
+                        .expect("sampler attribute must have matching texture attribute");
 
                     let visibility =
-                        visibility.hygenic_quote(&quote! { #render_path::render_resource });
+                        visibility.hygienic_quote(&quote! { #render_path::render_resource });
 
-                    binding_impls.push(quote! {
-                        #render_path::render_resource::OwnedBindingResource::Sampler({
-                            let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
-                            if let Some(handle) = handle {
-                                images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.sampler.clone()
-                            } else {
-                                fallback_image.sampler.clone()
-                            }
-                        })
+                    let fallback_image = get_fallback_image(&render_path, *dimension);
+
+                    // insert fallible texture-based entries at 0 so that if we fail here, we exit before allocating any buffers
+                    binding_impls.insert(0, quote! {
+                        (
+                            #binding_index,
+                            #render_path::render_resource::OwnedBindingResource::Sampler({
+                                let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
+                                if let Some(handle) = handle {
+                                    images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.sampler.clone()
+                                } else {
+                                    #fallback_image.sampler.clone()
+                                }
+                            })
+                        )
                     });
 
                     binding_layouts.push(quote!{
@@ -318,17 +385,12 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
     // Produce impls for fields with uniform bindings
     let struct_name = &ast.ident;
+    let struct_name_literal = struct_name.to_string();
+    let struct_name_literal = struct_name_literal.as_str();
     let mut field_struct_impls = Vec::new();
     for (binding_index, binding_state) in binding_states.iter().enumerate() {
         let binding_index = binding_index as u32;
         if let BindingState::OccupiedMergeableUniform { uniform_fields } = binding_state {
-            let binding_vec_index = bind_group_entries.len();
-            bind_group_entries.push(quote! {
-                #render_path::render_resource::BindGroupEntry {
-                    binding: #binding_index,
-                    resource: bindings[#binding_vec_index].get_binding(),
-                }
-            });
             // single field uniform bindings for a given index can use a straightforward binding
             if uniform_fields.len() == 1 {
                 let field = &uniform_fields[0];
@@ -337,13 +399,16 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 binding_impls.push(quote! {{
                     let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(Vec::new());
                     buffer.write(&self.#field_name).unwrap();
-                    #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
-                        &#render_path::render_resource::BufferInitDescriptor {
-                            label: None,
-                            usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::UNIFORM,
-                            contents: buffer.as_ref(),
-                        },
-                    ))
+                    (
+                        #binding_index,
+                        #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
+                            &#render_path::render_resource::BufferInitDescriptor {
+                                label: None,
+                                usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::UNIFORM,
+                                contents: buffer.as_ref(),
+                            },
+                        ))
+                    )
                 }});
 
                 binding_layouts.push(quote!{
@@ -380,13 +445,16 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     buffer.write(&#uniform_struct_name {
                         #(#field_name: &self.#field_name,)*
                     }).unwrap();
-                    #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
-                        &#render_path::render_resource::BufferInitDescriptor {
-                            label: None,
-                            usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::UNIFORM,
-                            contents: buffer.as_ref(),
-                        },
-                    ))
+                    (
+                        #binding_index,
+                        #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
+                            &#render_path::render_resource::BufferInitDescriptor {
+                                label: None,
+                                usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::UNIFORM,
+                                contents: buffer.as_ref(),
+                            },
+                        ))
+                    )
                 }});
 
                 binding_layouts.push(quote!{
@@ -421,39 +489,47 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
         impl #impl_generics #render_path::render_resource::AsBindGroup for #struct_name #ty_generics #where_clause {
             type Data = #prepared_data;
-            fn as_bind_group(
+
+            fn label() -> Option<&'static str> {
+                Some(#struct_name_literal)
+            }
+
+            fn unprepared_bind_group(
                 &self,
                 layout: &#render_path::render_resource::BindGroupLayout,
                 render_device: &#render_path::renderer::RenderDevice,
-                images: &#render_path::render_asset::RenderAssets<#render_path::texture::Image>,
+                images: &#render_path::render_asset::RenderAssets<#render_path::texture::GpuImage>,
                 fallback_image: &#render_path::texture::FallbackImage,
-            ) -> Result<#render_path::render_resource::PreparedBindGroup<Self::Data>, #render_path::render_resource::AsBindGroupError> {
+            ) -> Result<#render_path::render_resource::UnpreparedBindGroup<Self::Data>, #render_path::render_resource::AsBindGroupError> {
                 let bindings = vec![#(#binding_impls,)*];
 
-                let bind_group = {
-                    let descriptor = #render_path::render_resource::BindGroupDescriptor {
-                        entries: &[#(#bind_group_entries,)*],
-                        label: None,
-                        layout: &layout,
-                    };
-                    render_device.create_bind_group(&descriptor)
-                };
-
-                Ok(#render_path::render_resource::PreparedBindGroup {
+                Ok(#render_path::render_resource::UnpreparedBindGroup {
                     bindings,
-                    bind_group,
                     data: #get_prepared_data,
                 })
             }
 
-            fn bind_group_layout(render_device: &#render_path::renderer::RenderDevice) -> #render_path::render_resource::BindGroupLayout {
-                render_device.create_bind_group_layout(&#render_path::render_resource::BindGroupLayoutDescriptor {
-                    entries: &[#(#binding_layouts,)*],
-                    label: None,
-                })
+            fn bind_group_layout_entries(render_device: &#render_path::renderer::RenderDevice) -> Vec<#render_path::render_resource::BindGroupLayoutEntry> {
+                vec![#(#binding_layouts,)*]
             }
         }
     }))
+}
+
+fn get_fallback_image(
+    render_path: &syn::Path,
+    dimension: BindingTextureDimension,
+) -> proc_macro2::TokenStream {
+    quote! {
+        match #render_path::render_resource::#dimension {
+            #render_path::render_resource::TextureViewDimension::D1 => &fallback_image.d1,
+            #render_path::render_resource::TextureViewDimension::D2 => &fallback_image.d2,
+            #render_path::render_resource::TextureViewDimension::D2Array => &fallback_image.d2_array,
+            #render_path::render_resource::TextureViewDimension::Cube => &fallback_image.cube,
+            #render_path::render_resource::TextureViewDimension::CubeArray => &fallback_image.cube_array,
+            #render_path::render_resource::TextureViewDimension::D3 => &fallback_image.d3,
+        }
+    }
 }
 
 /// Represents the arguments for the `uniform` binding attribute.
@@ -462,14 +538,14 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 /// like `#[uniform(LitInt, Ident)]`
 struct UniformBindingMeta {
     lit_int: LitInt,
-    _comma: Token![,],
+    _comma: Comma,
     ident: Ident,
 }
 
 /// Represents the arguments for any general binding attribute.
 ///
 /// If parsed, represents an attribute
-/// like `#[foo(LitInt, ...)]` where the rest is optional `NestedMeta`.
+/// like `#[foo(LitInt, ...)]` where the rest is optional [`Meta`].
 enum BindingMeta {
     IndexOnly(LitInt),
     IndexWithOptions(BindingIndexOptions),
@@ -480,13 +556,13 @@ enum BindingMeta {
 /// This represents, for example, `#[texture(0, dimension = "2d_array")]`.
 struct BindingIndexOptions {
     lit_int: LitInt,
-    _comma: Token![,],
-    meta_list: Punctuated<NestedMeta, Token![,]>,
+    _comma: Comma,
+    meta_list: Punctuated<Meta, Comma>,
 }
 
 impl Parse for BindingMeta {
     fn parse(input: ParseStream) -> Result<Self> {
-        if input.peek2(Token![,]) {
+        if input.peek2(Comma) {
             input.parse().map(Self::IndexWithOptions)
         } else {
             input.parse().map(Self::IndexOnly)
@@ -499,7 +575,7 @@ impl Parse for BindingIndexOptions {
         Ok(Self {
             lit_int: input.parse()?,
             _comma: input.parse()?,
-            meta_list: input.parse_terminated(NestedMeta::parse)?,
+            meta_list: input.parse_terminated(Meta::parse, Comma)?,
         })
     }
 }
@@ -523,7 +599,7 @@ fn get_uniform_binding_attr(attr: &syn::Attribute) -> Result<(u32, Ident)> {
     Ok((binding_index, ident))
 }
 
-fn get_binding_nested_attr(attr: &syn::Attribute) -> Result<(u32, Vec<NestedMeta>)> {
+fn get_binding_nested_attr(attr: &syn::Attribute) -> Result<(u32, Vec<Meta>)> {
     let binding_meta = attr.parse_args_with(BindingMeta::parse)?;
 
     match binding_meta {
@@ -555,6 +631,10 @@ impl ShaderStageVisibility {
     fn vertex_fragment() -> Self {
         Self::Flags(VisibilityFlags::vertex_fragment())
     }
+
+    fn compute() -> Self {
+        Self::Flags(VisibilityFlags::compute())
+    }
 }
 
 impl VisibilityFlags {
@@ -565,10 +645,17 @@ impl VisibilityFlags {
             ..Default::default()
         }
     }
+
+    fn compute() -> Self {
+        Self {
+            compute: true,
+            ..Default::default()
+        }
+    }
 }
 
 impl ShaderStageVisibility {
-    fn hygenic_quote(&self, path: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+    fn hygienic_quote(&self, path: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
         match self {
             ShaderStageVisibility::All => quote! { #path::ShaderStages::all() },
             ShaderStageVisibility::None => quote! { #path::ShaderStages::NONE },
@@ -598,49 +685,52 @@ const VISIBILITY_COMPUTE: Symbol = Symbol("compute");
 const VISIBILITY_ALL: Symbol = Symbol("all");
 const VISIBILITY_NONE: Symbol = Symbol("none");
 
-fn get_visibility_flag_value(
-    nested_metas: &Punctuated<NestedMeta, Token![,]>,
-) -> Result<ShaderStageVisibility> {
-    let mut visibility = VisibilityFlags::vertex_fragment();
+fn get_visibility_flag_value(meta_list: &MetaList) -> Result<ShaderStageVisibility> {
+    let mut flags = Vec::new();
 
-    for meta in nested_metas {
-        use syn::{Meta::Path, NestedMeta::Meta};
-        match meta {
-            // Parse `visibility(all)]`.
-            Meta(Path(path)) if path == VISIBILITY_ALL => {
-                return Ok(ShaderStageVisibility::All)
+    meta_list.parse_nested_meta(|meta| {
+        flags.push(meta.path);
+        Ok(())
+    })?;
+
+    if flags.is_empty() {
+        return Err(Error::new_spanned(
+            meta_list,
+            "Invalid visibility format. Must be `visibility(flags)`, flags can be `all`, `none`, or a list-combination of `vertex`, `fragment` and/or `compute`."
+        ));
+    }
+
+    if flags.len() == 1 {
+        if let Some(flag) = flags.first() {
+            if flag == VISIBILITY_ALL {
+                return Ok(ShaderStageVisibility::All);
+            } else if flag == VISIBILITY_NONE {
+                return Ok(ShaderStageVisibility::None);
             }
-            // Parse `visibility(none)]`.
-            Meta(Path(path)) if path == VISIBILITY_NONE => {
-                return Ok(ShaderStageVisibility::None)
-            }
-            // Parse `visibility(vertex, ...)]`.
-            Meta(Path(path)) if path == VISIBILITY_VERTEX => {
-                visibility.vertex = true;
-            }
-            // Parse `visibility(fragment, ...)]`.
-            Meta(Path(path)) if path == VISIBILITY_FRAGMENT => {
-                visibility.fragment = true;
-            }
-            // Parse `visibility(compute, ...)]`.
-            Meta(Path(path)) if path == VISIBILITY_COMPUTE => {
-                visibility.compute = true;
-            }
-            Meta(Path(path)) => return Err(Error::new_spanned(
-                path,
+        }
+    }
+
+    let mut visibility = VisibilityFlags::default();
+
+    for flag in flags {
+        if flag == VISIBILITY_VERTEX {
+            visibility.vertex = true;
+        } else if flag == VISIBILITY_FRAGMENT {
+            visibility.fragment = true;
+        } else if flag == VISIBILITY_COMPUTE {
+            visibility.compute = true;
+        } else {
+            return Err(Error::new_spanned(
+                flag,
                 "Not a valid visibility flag. Must be `all`, `none`, or a list-combination of `vertex`, `fragment` and/or `compute`."
-            )),
-            _ => return Err(Error::new_spanned(
-                meta,
-                "Invalid visibility format: `visibility(...)`.",
-            )),
+            ));
         }
     }
 
     Ok(ShaderStageVisibility::Flags(visibility))
 }
 
-#[derive(Default)]
+#[derive(Clone, Copy, Default)]
 enum BindingTextureDimension {
     D1,
     #[default]
@@ -708,7 +798,72 @@ impl Default for TextureAttrs {
     }
 }
 
+struct StorageTextureAttrs {
+    dimension: BindingTextureDimension,
+    // Parsing of the image_format parameter is deferred to the type checker,
+    // which will error if the format is not member of the TextureFormat enum.
+    image_format: proc_macro2::TokenStream,
+    // Parsing of the access parameter is deferred to the type checker,
+    // which will error if the access is not member of the StorageTextureAccess enum.
+    access: proc_macro2::TokenStream,
+    visibility: ShaderStageVisibility,
+}
+
+impl Default for StorageTextureAttrs {
+    fn default() -> Self {
+        Self {
+            dimension: Default::default(),
+            image_format: quote! { Rgba8Unorm },
+            access: quote! { ReadWrite },
+            visibility: ShaderStageVisibility::compute(),
+        }
+    }
+}
+
+fn get_storage_texture_binding_attr(metas: Vec<Meta>) -> Result<StorageTextureAttrs> {
+    let mut storage_texture_attrs = StorageTextureAttrs::default();
+
+    for meta in metas {
+        use syn::Meta::{List, NameValue};
+        match meta {
+            // Parse #[storage_texture(0, dimension = "...")].
+            NameValue(m) if m.path == DIMENSION => {
+                let value = get_lit_str(DIMENSION, &m.value)?;
+                storage_texture_attrs.dimension = get_texture_dimension_value(value)?;
+            }
+            // Parse #[storage_texture(0, format = ...))].
+            NameValue(m) if m.path == IMAGE_FORMAT => {
+                storage_texture_attrs.image_format = m.value.into_token_stream();
+            }
+            // Parse #[storage_texture(0, access = ...))].
+            NameValue(m) if m.path == ACCESS => {
+                storage_texture_attrs.access = m.value.into_token_stream();
+            }
+            // Parse #[storage_texture(0, visibility(...))].
+            List(m) if m.path == VISIBILITY => {
+                storage_texture_attrs.visibility = get_visibility_flag_value(&m)?;
+            }
+            NameValue(m) => {
+                return Err(Error::new_spanned(
+                    m.path,
+                    "Not a valid name. Available attributes: `dimension`, `image_format`, `access`.",
+                ));
+            }
+            _ => {
+                return Err(Error::new_spanned(
+                    meta,
+                    "Not a name value pair: `foo = \"...\"`",
+                ));
+            }
+        }
+    }
+
+    Ok(storage_texture_attrs)
+}
+
 const DIMENSION: Symbol = Symbol("dimension");
+const IMAGE_FORMAT: Symbol = Symbol("image_format");
+const ACCESS: Symbol = Symbol("access");
 const SAMPLE_TYPE: Symbol = Symbol("sample_type");
 const FILTERABLE: Symbol = Symbol("filterable");
 const MULTISAMPLED: Symbol = Symbol("multisampled");
@@ -727,7 +882,7 @@ const DEPTH: &str = "depth";
 const S_INT: &str = "s_int";
 const U_INT: &str = "u_int";
 
-fn get_texture_attrs(metas: Vec<NestedMeta>) -> Result<TextureAttrs> {
+fn get_texture_attrs(metas: Vec<Meta>) -> Result<TextureAttrs> {
     let mut dimension = Default::default();
     let mut sample_type = Default::default();
     let mut multisampled = Default::default();
@@ -737,35 +892,32 @@ fn get_texture_attrs(metas: Vec<NestedMeta>) -> Result<TextureAttrs> {
     let mut visibility = ShaderStageVisibility::vertex_fragment();
 
     for meta in metas {
-        use syn::{
-            Meta::{List, NameValue},
-            NestedMeta::Meta,
-        };
+        use syn::Meta::{List, NameValue};
         match meta {
             // Parse #[texture(0, dimension = "...")].
-            Meta(NameValue(m)) if m.path == DIMENSION => {
-                let value = get_lit_str(DIMENSION, &m.lit)?;
+            NameValue(m) if m.path == DIMENSION => {
+                let value = get_lit_str(DIMENSION, &m.value)?;
                 dimension = get_texture_dimension_value(value)?;
             }
             // Parse #[texture(0, sample_type = "...")].
-            Meta(NameValue(m)) if m.path == SAMPLE_TYPE => {
-                let value = get_lit_str(SAMPLE_TYPE, &m.lit)?;
+            NameValue(m) if m.path == SAMPLE_TYPE => {
+                let value = get_lit_str(SAMPLE_TYPE, &m.value)?;
                 sample_type = get_texture_sample_type_value(value)?;
             }
             // Parse #[texture(0, multisampled = "...")].
-            Meta(NameValue(m)) if m.path == MULTISAMPLED => {
-                multisampled = get_lit_bool(MULTISAMPLED, &m.lit)?;
+            NameValue(m) if m.path == MULTISAMPLED => {
+                multisampled = get_lit_bool(MULTISAMPLED, &m.value)?;
             }
             // Parse #[texture(0, filterable = "...")].
-            Meta(NameValue(m)) if m.path == FILTERABLE => {
-                filterable = get_lit_bool(FILTERABLE, &m.lit)?.into();
+            NameValue(m) if m.path == FILTERABLE => {
+                filterable = get_lit_bool(FILTERABLE, &m.value)?.into();
                 filterable_ident = m.path.into();
             }
             // Parse #[texture(0, visibility(...))].
-            Meta(List(m)) if m.path == VISIBILITY => {
-                visibility = get_visibility_flag_value(&m.nested)?;
+            List(m) if m.path == VISIBILITY => {
+                visibility = get_visibility_flag_value(&m)?;
             }
-            Meta(NameValue(m)) => {
+            NameValue(m) => {
                 return Err(Error::new_spanned(
                     m.path,
                     "Not a valid name. Available attributes: `dimension`, `sample_type`, `multisampled`, or `filterable`."
@@ -865,26 +1017,23 @@ const FILTERING: &str = "filtering";
 const NON_FILTERING: &str = "non_filtering";
 const COMPARISON: &str = "comparison";
 
-fn get_sampler_attrs(metas: Vec<NestedMeta>) -> Result<SamplerAttrs> {
+fn get_sampler_attrs(metas: Vec<Meta>) -> Result<SamplerAttrs> {
     let mut sampler_binding_type = Default::default();
     let mut visibility = ShaderStageVisibility::vertex_fragment();
 
     for meta in metas {
-        use syn::{
-            Meta::{List, NameValue},
-            NestedMeta::Meta,
-        };
+        use syn::Meta::{List, NameValue};
         match meta {
             // Parse #[sampler(0, sampler_type = "..."))].
-            Meta(NameValue(m)) if m.path == SAMPLER_TYPE => {
-                let value = get_lit_str(DIMENSION, &m.lit)?;
+            NameValue(m) if m.path == SAMPLER_TYPE => {
+                let value = get_lit_str(DIMENSION, &m.value)?;
                 sampler_binding_type = get_sampler_binding_type_value(value)?;
             }
             // Parse #[sampler(0, visibility(...))].
-            Meta(List(m)) if m.path == VISIBILITY => {
-                visibility = get_visibility_flag_value(&m.nested)?;
+            List(m) if m.path == VISIBILITY => {
+                visibility = get_visibility_flag_value(&m)?;
             }
-            Meta(NameValue(m)) => {
+            NameValue(m) => {
                 return Err(Error::new_spanned(
                     m.path,
                     "Not a valid name. Available attributes: `sampler_type`.",
@@ -928,22 +1077,22 @@ struct StorageAttrs {
 const READ_ONLY: Symbol = Symbol("read_only");
 const BUFFER: Symbol = Symbol("buffer");
 
-fn get_storage_binding_attr(metas: Vec<NestedMeta>) -> Result<StorageAttrs> {
+fn get_storage_binding_attr(metas: Vec<Meta>) -> Result<StorageAttrs> {
     let mut visibility = ShaderStageVisibility::vertex_fragment();
     let mut read_only = false;
     let mut buffer = false;
 
     for meta in metas {
-        use syn::{Meta::List, Meta::Path, NestedMeta::Meta};
+        use syn::{Meta::List, Meta::Path};
         match meta {
             // Parse #[storage(0, visibility(...))].
-            Meta(List(m)) if m.path == VISIBILITY => {
-                visibility = get_visibility_flag_value(&m.nested)?;
+            List(m) if m.path == VISIBILITY => {
+                visibility = get_visibility_flag_value(&m)?;
             }
-            Meta(Path(path)) if path == READ_ONLY => {
+            Path(path) if path == READ_ONLY => {
                 read_only = true;
             }
-            Meta(Path(path)) if path == BUFFER => {
+            Path(path) if path == BUFFER => {
                 buffer = true;
             }
             _ => {

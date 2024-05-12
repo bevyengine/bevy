@@ -1,11 +1,11 @@
 #[cfg(any(feature = "flate2", feature = "ruzstd"))]
 use std::io::Read;
 
-use crate::color::SrgbColorSpace;
 #[cfg(feature = "basis-universal")]
 use basis_universal::{
     DecodeFlags, LowLevelUastcTranscoder, SliceParametersUastc, TranscoderBlockFormat,
 };
+use bevy_color::Srgba;
 use bevy_utils::default;
 #[cfg(any(feature = "flate2", feature = "ruzstd"))]
 use ktx2::SupercompressionScheme;
@@ -61,7 +61,7 @@ pub fn ktx2_buffer_to_image(
                 SupercompressionScheme::Zstandard => {
                     let mut cursor = std::io::Cursor::new(_level_data);
                     let mut decoder = ruzstd::StreamingDecoder::new(&mut cursor)
-                        .map_err(TextureError::SuperDecompressionError)?;
+                        .map_err(|err| TextureError::SuperDecompressionError(err.to_string()))?;
                     let mut decompressed = Vec::new();
                     decoder.read_to_end(&mut decompressed).map_err(|err| {
                         TextureError::SuperDecompressionError(format!(
@@ -90,14 +90,12 @@ pub fn ktx2_buffer_to_image(
                 TranscodeFormat::R8UnormSrgb => {
                     let (mut original_width, mut original_height) = (width, height);
 
-                    for level_data in &levels {
-                        transcoded.push(
-                            level_data
-                                .iter()
-                                .copied()
-                                .map(|v| v.nonlinear_to_linear_srgb())
-                                .collect::<Vec<u8>>(),
-                        );
+                    for (level, level_data) in levels.iter().enumerate() {
+                        transcoded[level] = level_data
+                            .iter()
+                            .copied()
+                            .map(|v| (Srgba::gamma_function(v as f32 / 255.) * 255.).floor() as u8)
+                            .collect::<Vec<u8>>();
 
                         // Next mip dimensions are half the current, minimum 1x1
                         original_width = (original_width / 2).max(1);
@@ -109,14 +107,12 @@ pub fn ktx2_buffer_to_image(
                 TranscodeFormat::Rg8UnormSrgb => {
                     let (mut original_width, mut original_height) = (width, height);
 
-                    for level_data in &levels {
-                        transcoded.push(
-                            level_data
-                                .iter()
-                                .copied()
-                                .map(|v| v.nonlinear_to_linear_srgb())
-                                .collect::<Vec<u8>>(),
-                        );
+                    for (level, level_data) in levels.iter().enumerate() {
+                        transcoded[level] = level_data
+                            .iter()
+                            .copied()
+                            .map(|v| (Srgba::gamma_function(v as f32 / 255.) * 255.).floor() as u8)
+                            .collect::<Vec<u8>>();
 
                         // Next mip dimensions are half the current, minimum 1x1
                         original_width = (original_width / 2).max(1);
@@ -139,7 +135,7 @@ pub fn ktx2_buffer_to_image(
                                     rgba[i * 4 + 2] = level_data[offset + 2];
                                     offset += 3;
                                 }
-                                transcoded[level].extend_from_slice(&rgba[0..n_pixels]);
+                                transcoded[level].extend_from_slice(&rgba[0..n_pixels * 4]);
                             }
                         }
                     }
@@ -154,12 +150,13 @@ pub fn ktx2_buffer_to_image(
                 TranscodeFormat::Uastc(data_format) => {
                     let (transcode_block_format, texture_format) =
                         get_transcoded_formats(supported_compressed_formats, data_format, is_srgb);
-                    let texture_format_info = texture_format.describe();
+                    let texture_format_info = texture_format;
                     let (block_width_pixels, block_height_pixels) = (
-                        texture_format_info.block_dimensions.0 as u32,
-                        texture_format_info.block_dimensions.1 as u32,
+                        texture_format_info.block_dimensions().0,
+                        texture_format_info.block_dimensions().1,
                     );
-                    let block_bytes = texture_format_info.block_size as u32;
+                    // Texture is not a depth or stencil format, it is possible to pass `None` and unwrap
+                    let block_bytes = texture_format_info.block_copy_size(None).unwrap();
 
                     let transcoder = LowLevelUastcTranscoder::new();
                     for (level, level_data) in levels.iter().enumerate() {
@@ -233,12 +230,13 @@ pub fn ktx2_buffer_to_image(
     }
 
     // Reorder data from KTX2 MipXLayerYFaceZ to wgpu LayerYFaceZMipX
-    let texture_format_info = texture_format.describe();
+    let texture_format_info = texture_format;
     let (block_width_pixels, block_height_pixels) = (
-        texture_format_info.block_dimensions.0 as usize,
-        texture_format_info.block_dimensions.1 as usize,
+        texture_format_info.block_dimensions().0 as usize,
+        texture_format_info.block_dimensions().1 as usize,
     );
-    let block_bytes = texture_format_info.block_size as usize;
+    // Texture is not a depth or stencil format, it is possible to pass `None` and unwrap
+    let block_bytes = texture_format_info.block_copy_size(None).unwrap() as usize;
 
     let mut wgpu_data = vec![Vec::default(); (layer_count * face_count) as usize];
     for (level, level_data) in levels.iter().enumerate() {
@@ -1037,7 +1035,7 @@ pub fn ktx2_dfd_to_texture_format(
             if sample_information[0].lower == 0 {
                 TextureFormat::Bc6hRgbUfloat
             } else {
-                TextureFormat::Bc6hRgbSfloat
+                TextureFormat::Bc6hRgbFloat
             }
         }
         Some(ColorModel::BC7) => {
@@ -1311,7 +1309,7 @@ pub fn ktx2_format_to_texture_format(
         ktx2::Format::BC5_UNORM_BLOCK => TextureFormat::Bc5RgUnorm,
         ktx2::Format::BC5_SNORM_BLOCK => TextureFormat::Bc5RgSnorm,
         ktx2::Format::BC6H_UFLOAT_BLOCK => TextureFormat::Bc6hRgbUfloat,
-        ktx2::Format::BC6H_SFLOAT_BLOCK => TextureFormat::Bc6hRgbSfloat,
+        ktx2::Format::BC6H_SFLOAT_BLOCK => TextureFormat::Bc6hRgbFloat,
         ktx2::Format::BC7_UNORM_BLOCK | ktx2::Format::BC7_SRGB_BLOCK => {
             if is_srgb {
                 TextureFormat::Bc7RgbaUnormSrgb
@@ -1490,4 +1488,37 @@ pub fn ktx2_format_to_texture_format(
             )))
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::texture::CompressedImageFormats;
+
+    use super::ktx2_buffer_to_image;
+
+    #[test]
+    fn test_ktx_levels() {
+        // R8UnormSrgb textture with 4x4 pixels data and 3 levels of mipmaps
+        let buffer = vec![
+            0xab, 0x4b, 0x54, 0x58, 0x20, 0x32, 0x30, 0xbb, 0x0d, 10, 0x1a, 10, 0x0f, 0, 0, 0, 1,
+            0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 0, 0, 0,
+            0, 0, 0x98, 0, 0, 0, 0x2c, 0, 0, 0, 0xc4, 0, 0, 0, 0x5c, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0x28, 1, 0, 0, 0, 0, 0, 0, 0x10, 0, 0, 0, 0, 0, 0, 0, 0x10,
+            0, 0, 0, 0, 0, 0, 0, 0x24, 1, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0,
+            0, 0, 0, 0x20, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+            0x2c, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0x28, 0, 1, 1, 2, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0, 0, 0, 0x12, 0, 0, 0, 0x4b, 0x54, 0x58,
+            0x6f, 0x72, 0x69, 0x65, 0x6e, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0, 0x72, 0x64, 0, 0,
+            0, 0x10, 0, 0, 0, 0x4b, 0x54, 0x58, 0x73, 0x77, 0x69, 0x7a, 0x7a, 0x6c, 0x65, 0, 0x72,
+            0x72, 0x72, 0x31, 0, 0x2c, 0, 0, 0, 0x4b, 0x54, 0x58, 0x77, 0x72, 0x69, 0x74, 0x65,
+            0x72, 0, 0x74, 0x6f, 0x6b, 0x74, 0x78, 0x20, 0x76, 0x34, 0x2e, 0x33, 0x2e, 0x30, 0x7e,
+            0x32, 0x38, 0x20, 0x2f, 0x20, 0x6c, 0x69, 0x62, 0x6b, 0x74, 0x78, 0x20, 0x76, 0x34,
+            0x2e, 0x33, 0x2e, 0x30, 0x7e, 0x31, 0, 0x4a, 0, 0, 0, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a,
+            0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a, 0x4a,
+            0x4a,
+        ];
+        let supported_compressed_formats = CompressedImageFormats::empty();
+        let result = ktx2_buffer_to_image(&buffer, supported_compressed_formats, true);
+        assert!(result.is_ok());
+    }
 }

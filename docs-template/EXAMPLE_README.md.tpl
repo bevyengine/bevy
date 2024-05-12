@@ -1,4 +1,5 @@
 <!-- MD024 - The Headers from the Platform-Specific Examples should be identical  -->
+<!-- Use 'cargo run -p build-templated-pages -- build-example-page' to generate the final example README.md -->
 <!-- markdownlint-disable-file MD024 -->
 
 # Examples
@@ -51,6 +52,9 @@ git checkout v0.4.0
   - [WASM](#wasm)
     - [Setup](#setup-2)
     - [Build & Run](#build--run-2)
+    - [WebGL2 and WebGPU](#webgl2-and-webgpu)
+    - [Audio in the browsers](#audio-in-the-browsers)
+    - [Optimizing](#optimizing)
     - [Loading Assets](#loading-assets)
 
 # The Bare Minimum
@@ -171,7 +175,7 @@ make run
 ```
 
 In an ideal world, this will boot up, install and run the app for the first
-iOS simulator in your `xcrun simctl devices list`. If this fails, you can
+iOS simulator in your `xcrun simctl list devices`. If this fails, you can
 specify the simulator device UUID via:
 
 ```sh
@@ -214,7 +218,7 @@ wasm-bindgen --out-name wasm_example \
 
 The first command will build the example for the wasm target, creating a binary. Then,
 [wasm-bindgen-cli](https://rustwasm.github.io/wasm-bindgen/reference/cli.html) is used to create
-javascript bindings to this wasm file, which can be loaded using this
+javascript bindings to this wasm file in the output file `examples/wasm/target/wasm_example.js`, which can be loaded using this
 [example HTML file](./wasm/index.html).
 
 Then serve `examples/wasm` directory to browser. i.e.
@@ -229,6 +233,25 @@ python3 -m http.server --directory examples/wasm
 # with ruby
 ruby -run -ehttpd examples/wasm
 ```
+
+#### WebGL2 and WebGPU
+
+Bevy support for WebGPU is being worked on, but is currently experimental.
+
+To build for WebGPU, you'll need to enable the `webgpu` feature. This will override the `webgl2` feature, and builds with the `webgpu` feature enabled won't be able to run on browsers that don't support WebGPU.
+
+Bevy has an helper to build its examples:
+
+- Build for WebGL2: `cargo run -p build-wasm-example -- --api webgl2 load_gltf`
+- Build for WebGPU: `cargo run -p build-wasm-example -- --api webgpu load_gltf`
+
+This helper will log the command used to build the examples.
+
+### Audio in the browsers
+
+For the moment, everything is single threaded, this can lead to stuttering when playing audio in browsers. Not all browsers react the same way for all games, you will have to experiment for your game.
+
+In browsers, audio is not authorized to start without being triggered by an user interaction. This is to avoid multiple tabs all starting to auto play some sounds. You can find more context and explanation for this on [Google Chrome blog](https://developer.chrome.com/blog/web-audio-autoplay/). This page also describes a JS workaround to resume audio as soon as the user interact with your game.
 
 ### Optimizing
 
@@ -289,7 +312,7 @@ mv optimized.wasm examples/wasm/target/lighting_bg.wasm
 ```
 
 For a small project with a basic 3d model and two lights,
-the generated file sizes are, as of Jully 2022 as following:
+the generated file sizes are, as of July 2022, as follows:
 
 |profile                           | wasm-opt | no wasm-opt |
 |----------------------------------|----------|-------------|

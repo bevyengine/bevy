@@ -1,21 +1,58 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, Enum, List, Map, Struct, Tuple, TupleStruct, TypeInfo, Typed,
-    ValueInfo,
+    tuple_struct_debug, Array, DynamicTypePath, Enum, List, Map, Struct, Tuple, TupleStruct,
+    TypeInfo, TypePath, Typed, ValueInfo,
 };
 use std::{
-    any::{self, Any, TypeId},
+    any::{Any, TypeId},
     fmt::Debug,
 };
 
+use thiserror::Error;
+
 use crate::utility::NonGenericTypeInfoCell;
 
-/// An immutable enumeration of "kinds" of reflected type.
+macro_rules! impl_reflect_enum {
+    ($name:ident$(<$lifetime:lifetime>)?) => {
+        impl $name$(<$lifetime>)? {
+            /// Returns the "kind" of this reflected type without any information.
+            pub fn kind(&self) -> ReflectKind {
+                match self {
+                    Self::Struct(_) => ReflectKind::Struct,
+                    Self::TupleStruct(_) => ReflectKind::TupleStruct,
+                    Self::Tuple(_) => ReflectKind::Tuple,
+                    Self::List(_) => ReflectKind::List,
+                    Self::Array(_) => ReflectKind::Array,
+                    Self::Map(_) => ReflectKind::Map,
+                    Self::Enum(_) => ReflectKind::Enum,
+                    Self::Value(_) => ReflectKind::Value,
+                }
+            }
+        }
+
+        impl From<$name$(<$lifetime>)?> for ReflectKind {
+            fn from(value: $name) -> Self {
+                match value {
+                    $name::Struct(_) => Self::Struct,
+                    $name::TupleStruct(_) => Self::TupleStruct,
+                    $name::Tuple(_) => Self::Tuple,
+                    $name::List(_) => Self::List,
+                    $name::Array(_) => Self::Array,
+                    $name::Map(_) => Self::Map,
+                    $name::Enum(_) => Self::Enum,
+                    $name::Value(_) => Self::Value,
+                }
+            }
+        }
+    };
+}
+
+/// An immutable enumeration of "kinds" of a reflected type.
 ///
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
-/// A `ReflectRef` is obtained via [`Reflect::reflect_ref`].
+/// A [`ReflectRef`] is obtained via [`Reflect::reflect_ref`].
 pub enum ReflectRef<'a> {
     Struct(&'a dyn Struct),
     TupleStruct(&'a dyn TupleStruct),
@@ -26,13 +63,14 @@ pub enum ReflectRef<'a> {
     Enum(&'a dyn Enum),
     Value(&'a dyn Reflect),
 }
+impl_reflect_enum!(ReflectRef<'_>);
 
-/// A mutable enumeration of "kinds" of reflected type.
+/// A mutable enumeration of "kinds" of a reflected type.
 ///
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
-/// A `ReflectMut` is obtained via [`Reflect::reflect_mut`].
+/// A [`ReflectMut`] is obtained via [`Reflect::reflect_mut`].
 pub enum ReflectMut<'a> {
     Struct(&'a mut dyn Struct),
     TupleStruct(&'a mut dyn TupleStruct),
@@ -43,13 +81,14 @@ pub enum ReflectMut<'a> {
     Enum(&'a mut dyn Enum),
     Value(&'a mut dyn Reflect),
 }
+impl_reflect_enum!(ReflectMut<'_>);
 
-/// An owned enumeration of "kinds" of reflected type.
+/// An owned enumeration of "kinds" of a reflected type.
 ///
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
-/// A `ReflectOwned` is obtained via [`Reflect::reflect_owned`].
+/// A [`ReflectOwned`] is obtained via [`Reflect::reflect_owned`].
 pub enum ReflectOwned {
     Struct(Box<dyn Struct>),
     TupleStruct(Box<dyn TupleStruct>),
@@ -59,6 +98,74 @@ pub enum ReflectOwned {
     Map(Box<dyn Map>),
     Enum(Box<dyn Enum>),
     Value(Box<dyn Reflect>),
+}
+impl_reflect_enum!(ReflectOwned);
+
+/// A enumeration of all error outcomes that might happen when running [`try_apply`](Reflect::try_apply).
+#[derive(Error, Debug)]
+pub enum ApplyError {
+    #[error("attempted to apply `{from_kind}` to `{to_kind}`")]
+    /// Attempted to apply the wrong [kind](ReflectKind) to a type, e.g. a struct to a enum.
+    MismatchedKinds {
+        from_kind: ReflectKind,
+        to_kind: ReflectKind,
+    },
+
+    #[error("enum variant `{variant_name}` doesn't have a field named `{field_name}`")]
+    /// Enum variant that we tried to apply to was missing a field.
+    MissingEnumField {
+        variant_name: Box<str>,
+        field_name: Box<str>,
+    },
+
+    #[error("`{from_type}` is not `{to_type}`")]
+    /// Tried to apply incompatible types.
+    MismatchedTypes {
+        from_type: Box<str>,
+        to_type: Box<str>,
+    },
+
+    #[error("attempted to apply type with {from_size} size to a type with {to_size} size")]
+    /// Attempted to apply to types with mismatched sizez, e.g. a [u8; 4] to [u8; 3].
+    DifferentSize { from_size: usize, to_size: usize },
+
+    #[error("variant with name `{variant_name}` does not exist on enum `{enum_name}`")]
+    /// The enum we tried to apply to didn't contain a variant with the give name.
+    UnknownVariant {
+        enum_name: Box<str>,
+        variant_name: Box<str>,
+    },
+}
+
+/// A zero-sized enumuration of the "kinds" of a reflected type.
+///
+/// A [`ReflectKind`] is obtained via [`Reflect::reflect_kind`],
+/// or via [`ReflectRef::kind`],[`ReflectMut::kind`] or [`ReflectOwned::kind`].
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum ReflectKind {
+    Struct,
+    TupleStruct,
+    Tuple,
+    List,
+    Array,
+    Map,
+    Enum,
+    Value,
+}
+
+impl std::fmt::Display for ReflectKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReflectKind::Struct => f.pad("struct"),
+            ReflectKind::TupleStruct => f.pad("tuple struct"),
+            ReflectKind::Tuple => f.pad("tuple"),
+            ReflectKind::List => f.pad("list"),
+            ReflectKind::Array => f.pad("array"),
+            ReflectKind::Map => f.pad("map"),
+            ReflectKind::Enum => f.pad("enum"),
+            ReflectKind::Value => f.pad("value"),
+        }
+    }
 }
 
 /// The core trait of [`bevy_reflect`], used for accessing and modifying data dynamically.
@@ -72,19 +179,23 @@ pub enum ReflectOwned {
 /// [`bevy_reflect`]: crate
 /// [derive macro]: bevy_reflect_derive::Reflect
 /// [crate-level documentation]: crate
-pub trait Reflect: Any + Send + Sync {
-    /// Returns the [type name][std::any::type_name] of the underlying type.
-    fn type_name(&self) -> &str;
-
-    /// Returns the [`TypeInfo`] of the underlying type.
+pub trait Reflect: DynamicTypePath + Any + Send + Sync {
+    /// Returns the [`TypeInfo`] of the type _represented_ by this value.
+    ///
+    /// For most types, this will simply return their own `TypeInfo`.
+    /// However, for dynamic types, such as [`DynamicStruct`] or [`DynamicList`],
+    /// this will return the type they represent
+    /// (or `None` if they don't represent any particular type).
     ///
     /// This method is great if you have an instance of a type or a `dyn Reflect`,
     /// and want to access its [`TypeInfo`]. However, if this method is to be called
     /// frequently, consider using [`TypeRegistry::get_type_info`] as it can be more
     /// performant for such use cases.
     ///
+    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [`DynamicList`]: crate::DynamicList
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
-    fn get_type_info(&self) -> &'static TypeInfo;
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo>;
 
     /// Returns the value as a [`Box<dyn Any>`][std::any::Any].
     fn into_any(self: Box<Self>) -> Box<dyn Any>;
@@ -144,7 +255,20 @@ pub trait Reflect: Any + Send + Sync {
     /// - If `T` is any complex type and the corresponding fields or elements of
     ///   `self` and `value` are not of the same type.
     /// - If `T` is a value type and `self` cannot be downcast to `T`
-    fn apply(&mut self, value: &dyn Reflect);
+    fn apply(&mut self, value: &dyn Reflect) {
+        Reflect::try_apply(self, value).unwrap();
+    }
+
+    /// Tries to [`apply`](Reflect::apply) a reflected value to this value.
+    ///
+    /// Functions the same as the [`apply`](Reflect::apply) function but returns an error instead of
+    /// panicking.
+    ///
+    /// # Handling Errors
+    ///
+    /// This function may leave `self` in a partially mutated state if a error was encountered on the way.
+    /// consider maintaining a cloned instance of this data you can switch to if a error is encountered.
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError>;
 
     /// Performs a type-checked assignment of a reflected value to this value.
     ///
@@ -152,7 +276,14 @@ pub trait Reflect: Any + Send + Sync {
     /// containing the trait object.
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>>;
 
-    /// Returns an enumeration of "kinds" of type.
+    /// Returns a zero-sized enumeration of "kinds" of type.
+    ///
+    /// See [`ReflectKind`].
+    fn reflect_kind(&self) -> ReflectKind {
+        self.reflect_ref().kind()
+    }
+
+    /// Returns an immutable enumeration of "kinds" of type.
     ///
     /// See [`ReflectRef`].
     fn reflect_ref(&self) -> ReflectRef;
@@ -193,10 +324,10 @@ pub trait Reflect: Any + Send + Sync {
     /// Debug formatter for the value.
     ///
     /// Any value that is not an implementor of other `Reflect` subtraits
-    /// (e.g. [`List`], [`Map`]), will default to the format: `"Reflect(type_name)"`,
-    /// where `type_name` is the [type name] of the underlying type.
+    /// (e.g. [`List`], [`Map`]), will default to the format: `"Reflect(type_path)"`,
+    /// where `type_path` is the [type path] of the underlying type.
     ///
-    /// [type name]: Self::type_name
+    /// [type path]: TypePath::type_path
     fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.reflect_ref() {
             ReflectRef::Struct(dyn_struct) => struct_debug(dyn_struct, f),
@@ -206,7 +337,7 @@ pub trait Reflect: Any + Send + Sync {
             ReflectRef::Array(dyn_array) => array_debug(dyn_array, f),
             ReflectRef::Map(dyn_map) => map_debug(dyn_map, f),
             ReflectRef::Enum(dyn_enum) => enum_debug(dyn_enum, f),
-            _ => write!(f, "Reflect({})", self.type_name()),
+            _ => write!(f, "Reflect({})", self.reflect_type_path()),
         }
     }
 
@@ -215,6 +346,22 @@ pub trait Reflect: Any + Send + Sync {
     /// If the underlying type does not support serialization, returns `None`.
     fn serializable(&self) -> Option<Serializable> {
         None
+    }
+
+    /// Indicates whether or not this type is a _dynamic_ type.
+    ///
+    /// Dynamic types include the ones built-in to this [crate],
+    /// such as [`DynamicStruct`], [`DynamicList`], and [`DynamicTuple`].
+    /// However, they may be custom types used as proxies for other types
+    /// or to facilitate scripting capabilities.
+    ///
+    /// By default, this method will return `false`.
+    ///
+    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [`DynamicList`]: crate::DynamicList
+    /// [`DynamicTuple`]: crate::DynamicTuple
+    fn is_dynamic(&self) -> bool {
+        false
     }
 }
 
@@ -228,6 +375,19 @@ impl Typed for dyn Reflect {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
         CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
+    }
+}
+
+// The following implementation never actually shadows the concrete TypePath implementation.
+
+// See this playground (https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=589064053f27bc100d90da89c6a860aa).
+impl TypePath for dyn Reflect {
+    fn type_path() -> &'static str {
+        "dyn bevy_reflect::Reflect"
+    }
+
+    fn short_type_path() -> &'static str {
+        "dyn Reflect"
     }
 }
 
@@ -256,8 +416,10 @@ impl dyn Reflect {
     ///
     /// Read `is` for more information on underlying values and represented types.
     #[inline]
-    pub fn represents<T: Reflect>(&self) -> bool {
-        self.type_name() == any::type_name::<T>()
+    pub fn represents<T: Reflect + TypePath>(&self) -> bool {
+        self.get_represented_type_info()
+            .map(|t| t.type_path() == T::type_path())
+            .unwrap_or(false)
     }
 
     /// Returns `true` if the underlying value is of type `T`, or `false`

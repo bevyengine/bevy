@@ -4,17 +4,29 @@
 //! Clicking toggle IME (Input Method Editor) support, but the font used as limited support of characters.
 //! You should change the provided font with another one to test other languages input.
 
-use bevy::{input::keyboard::KeyboardInput, prelude::*};
+use std::mem;
+
+use bevy::{
+    input::{
+        keyboard::{Key, KeyboardInput},
+        ButtonState,
+    },
+    prelude::*,
+};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_scene)
-        .add_system(toggle_ime)
-        .add_system(listen_ime_events)
-        .add_system(listen_received_character_events)
-        .add_system(listen_keyboard_input_events)
-        .add_system(bubbling_text)
+        .add_systems(Startup, setup_scene)
+        .add_systems(
+            Update,
+            (
+                toggle_ime,
+                listen_ime_events,
+                listen_keyboard_input_events,
+                bubbling_text,
+            ),
+        )
         .run();
 }
 
@@ -30,7 +42,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: TextStyle {
                     font: font.clone_weak(),
                     font_size: 20.0,
-                    color: Color::WHITE,
+                    ..default()
                 },
             },
             TextSection {
@@ -38,7 +50,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: TextStyle {
                     font: font.clone_weak(),
                     font_size: 30.0,
-                    color: Color::WHITE,
+                    ..default()
                 },
             },
             TextSection {
@@ -46,7 +58,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: TextStyle {
                     font: font.clone_weak(),
                     font_size: 20.0,
-                    color: Color::WHITE,
+                    ..default()
                 },
             },
             TextSection {
@@ -54,7 +66,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: TextStyle {
                     font: font.clone_weak(),
                     font_size: 30.0,
-                    color: Color::WHITE,
+                    ..default()
                 },
             },
             TextSection {
@@ -62,7 +74,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: TextStyle {
                     font: font.clone_weak(),
                     font_size: 18.0,
-                    color: Color::WHITE,
+                    ..default()
                 },
             },
             TextSection {
@@ -70,17 +82,14 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: TextStyle {
                     font,
                     font_size: 25.0,
-                    color: Color::WHITE,
+                    ..default()
                 },
             },
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(10.0),
-                left: Val::Px(10.0),
-                ..default()
-            },
+            top: Val::Px(10.0),
+            left: Val::Px(10.0),
             ..default()
         }),
     );
@@ -91,7 +100,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextStyle {
                 font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 100.0,
-                color: Color::WHITE,
+                ..default()
             },
         ),
         ..default()
@@ -99,17 +108,14 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn toggle_ime(
-    input: Res<Input<MouseButton>>,
+    input: Res<ButtonInput<MouseButton>>,
     mut windows: Query<&mut Window>,
     mut text: Query<&mut Text, With<Node>>,
 ) {
     if input.just_pressed(MouseButton::Left) {
         let mut window = windows.single_mut();
 
-        window.ime_position = window
-            .cursor_position()
-            .map(|p| Vec2::new(p.x, window.height() - p.y))
-            .unwrap();
+        window.ime_position = window.cursor_position().unwrap();
         window.ime_enabled = !window.ime_enabled;
 
         let mut text = text.single_mut();
@@ -121,9 +127,6 @@ fn toggle_ime(
 struct Bubble {
     timer: Timer,
 }
-
-#[derive(Component)]
-struct ImePreedit;
 
 fn bubbling_text(
     mut commands: Commands,
@@ -143,7 +146,7 @@ fn listen_ime_events(
     mut status_text: Query<&mut Text, With<Node>>,
     mut edit_text: Query<&mut Text, (Without<Node>, Without<Bubble>)>,
 ) {
-    for event in events.iter() {
+    for event in events.read() {
         match event {
             Ime::Preedit { value, cursor, .. } if !cursor.is_none() => {
                 status_text.single_mut().sections[5].value = format!("IME buffer: {value}");
@@ -165,35 +168,43 @@ fn listen_ime_events(
     }
 }
 
-fn listen_received_character_events(
-    mut events: EventReader<ReceivedCharacter>,
-    mut edit_text: Query<&mut Text, (Without<Node>, Without<Bubble>)>,
-) {
-    for event in events.iter() {
-        edit_text.single_mut().sections[0].value.push(event.char);
-    }
-}
-
 fn listen_keyboard_input_events(
     mut commands: Commands,
     mut events: EventReader<KeyboardInput>,
-    mut edit_text: Query<(Entity, &mut Text), (Without<Node>, Without<Bubble>)>,
+    mut edit_text: Query<&mut Text, (Without<Node>, Without<Bubble>)>,
 ) {
-    for event in events.iter() {
-        match event.key_code {
-            Some(KeyCode::Return) => {
-                let (entity, text) = edit_text.single();
-                commands.entity(entity).insert(Bubble {
-                    timer: Timer::from_seconds(5.0, TimerMode::Once),
-                });
+    for event in events.read() {
+        // Only trigger changes when the key is first pressed.
+        if event.state == ButtonState::Released {
+            continue;
+        }
 
-                commands.spawn(Text2dBundle {
-                    text: Text::from_section("".to_string(), text.sections[0].style.clone()),
-                    ..default()
-                });
+        match &event.logical_key {
+            Key::Enter => {
+                let mut text = edit_text.single_mut();
+                if text.sections[0].value.is_empty() {
+                    continue;
+                }
+                let old_value = mem::take(&mut text.sections[0].value);
+
+                commands.spawn((
+                    Text2dBundle {
+                        text: Text::from_section(old_value, text.sections[0].style.clone()),
+                        ..default()
+                    },
+                    Bubble {
+                        timer: Timer::from_seconds(5.0, TimerMode::Once),
+                    },
+                ));
             }
-            Some(KeyCode::Back) => {
-                edit_text.single_mut().1.sections[0].value.pop();
+            Key::Space => {
+                edit_text.single_mut().sections[0].value.push(' ');
+            }
+            Key::Backspace => {
+                edit_text.single_mut().sections[0].value.pop();
+            }
+            Key::Character(character) => {
+                edit_text.single_mut().sections[0].value.push_str(character);
             }
             _ => continue,
         }

@@ -19,23 +19,25 @@ impl<'w> Benchmark<'w> {
     pub fn new() -> Self {
         let mut world = World::new();
 
-        // TODO: batch this
-        for _ in 0..10_000 {
-            world.spawn((
+        world.spawn_batch(
+            std::iter::repeat((
                 Transform(Mat4::from_scale(Vec3::ONE)),
                 Position(Vec3::X),
                 Rotation(Vec3::X),
                 Velocity(Vec3::X),
-            ));
-        }
+            ))
+            .take(10_000),
+        );
 
         let query = world.query::<(&Velocity, &mut Position)>();
         Self(world, query)
     }
 
+    #[inline(never)]
     pub fn run(&mut self) {
         self.1
-            .for_each_mut(&mut self.0, |(velocity, mut position)| {
+            .iter_mut(&mut self.0)
+            .for_each(|(velocity, mut position)| {
                 position.0 += velocity.0;
             });
     }

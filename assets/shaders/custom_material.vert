@@ -16,13 +16,32 @@ layout(set = 0, binding = 0) uniform CameraViewProj {
     float height;
 };
 
-layout(set = 2, binding = 0) uniform Mesh {
-    mat4 Model;
+struct Mesh {
+    mat3x4 Model;
     mat4 InverseTransposeModel;
     uint flags;
 };
 
+#ifdef PER_OBJECT_BUFFER_BATCH_SIZE
+layout(set = 1, binding = 0) uniform Mesh Meshes[#{PER_OBJECT_BUFFER_BATCH_SIZE}];
+#else
+layout(set = 1, binding = 0) readonly buffer _Meshes {
+    Mesh Meshes[];
+};
+#endif // PER_OBJECT_BUFFER_BATCH_SIZE
+
+mat4 affine_to_square(mat3x4 affine) {
+    return transpose(mat4(
+        affine[0],
+        affine[1],
+        affine[2],
+        vec4(0.0, 0.0, 0.0, 1.0)
+    ));
+}
+
 void main() {
     v_Uv = Vertex_Uv;
-    gl_Position = ViewProj * Model * vec4(Vertex_Position, 1.0);
+    gl_Position = ViewProj
+        * affine_to_square(Meshes[gl_InstanceIndex].Model)
+        * vec4(Vertex_Position, 1.0);
 }

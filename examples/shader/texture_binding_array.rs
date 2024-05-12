@@ -3,44 +3,63 @@
 
 use bevy::{
     prelude::*,
-    reflect::TypeUuid,
+    reflect::TypePath,
     render::{
         render_asset::RenderAssets,
-        render_resource::{AsBindGroupError, PreparedBindGroup, *},
+        render_resource::{
+            binding_types::{sampler, texture_2d},
+            *,
+        },
         renderer::RenderDevice,
-        texture::FallbackImage,
+        texture::{FallbackImage, GpuImage},
+        RenderApp,
     },
 };
-use std::num::NonZeroU32;
+use std::{num::NonZeroU32, process::exit};
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()));
-
-    let render_device = app.world.resource::<RenderDevice>();
-
-    // check if the device support the required feature
-    if !render_device
-        .features()
-        .contains(WgpuFeatures::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING)
-    {
-        error!(
-            "Render device doesn't support feature \
-            SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING, \
-            which is required for texture binding arrays"
-        );
-        return;
-    }
-
-    app.add_plugin(MaterialPlugin::<BindlessMaterial>::default())
-        .add_startup_system(setup)
-        .run();
+    app.add_plugins((
+        DefaultPlugins.set(ImagePlugin::default_nearest()),
+        GpuFeatureSupportChecker,
+        MaterialPlugin::<BindlessMaterial>::default(),
+    ))
+    .add_systems(Startup, setup)
+    .run();
 }
 
 const MAX_TEXTURE_COUNT: usize = 16;
 const TILE_ID: [usize; 16] = [
     19, 23, 4, 33, 12, 69, 30, 48, 10, 65, 40, 47, 57, 41, 44, 46,
 ];
+
+struct GpuFeatureSupportChecker;
+
+impl Plugin for GpuFeatureSupportChecker {
+    fn build(&self, _app: &mut App) {}
+
+    fn finish(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        let render_device = render_app.world().resource::<RenderDevice>();
+
+        // Check if the device support the required feature. If not, exit the example.
+        // In a real application, you should setup a fallback for the missing feature
+        if !render_device
+            .features()
+            .contains(WgpuFeatures::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING)
+        {
+            error!(
+                "Render device doesn't support feature \
+SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING, \
+which is required for texture binding arrays"
+            );
+            exit(1);
+        }
+    }
+}
 
 fn setup(
     mut commands: Commands,
@@ -50,28 +69,24 @@ fn setup(
 ) {
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 
     // load 16 textures
     let textures: Vec<_> = TILE_ID
         .iter()
-        .map(|id| {
-            let path = format!("textures/rpg/tiles/generic-rpg-tile{id:0>2}.png");
-            asset_server.load(path)
-        })
+        .map(|id| asset_server.load(format!("textures/rpg/tiles/generic-rpg-tile{id:0>2}.png")))
         .collect();
 
     // a cube with multiple textures
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(Cuboid::default()),
         material: materials.add(BindlessMaterial { textures }),
-        ..Default::default()
+        ..default()
     });
 }
 
-#[derive(Debug, Clone, TypeUuid)]
-#[uuid = "8dd2b424-45a2-4a53-ac29-7ce356b2d5fe"]
+#[derive(Asset, TypePath, Debug, Clone)]
 struct BindlessMaterial {
     textures: Vec<Handle<Image>>,
 }
@@ -83,7 +98,7 @@ impl AsBindGroup for BindlessMaterial {
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        image_assets: &RenderAssets<Image>,
+        image_assets: &RenderAssets<GpuImage>,
         fallback_image: &FallbackImage,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
         // retrieve the render resources from handles
@@ -95,6 +110,8 @@ impl AsBindGroup for BindlessMaterial {
             }
         }
 
+        let fallback_image = &fallback_image.d2;
+
         let textures = vec![&fallback_image.texture_view; MAX_TEXTURE_COUNT];
 
         // convert bevy's resource types to WGPU's references
@@ -105,20 +122,11 @@ impl AsBindGroup for BindlessMaterial {
             textures[id] = &*image.texture_view;
         }
 
-        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            label: "bindless_material_bind_group".into(),
+        let bind_group = render_device.create_bind_group(
+            "bindless_material_bind_group",
             layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureViewArray(&textures[..]),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::Sampler(&fallback_image.sampler),
-                },
-            ],
-        });
+            &BindGroupEntries::sequential((&textures[..], &fallback_image.sampler)),
+        );
 
         Ok(PreparedBindGroup {
             bindings: vec![],
@@ -127,36 +135,52 @@ impl AsBindGroup for BindlessMaterial {
         })
     }
 
-    fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout
+    fn unprepared_bind_group(
+        &self,
+        _: &BindGroupLayout,
+        _: &RenderDevice,
+        _: &RenderAssets<GpuImage>,
+        _: &FallbackImage,
+    ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
+        // we implement as_bind_group directly because
+        panic!("bindless texture arrays can't be owned")
+        // or rather, they can be owned, but then you can't make a `&'a [&'a TextureView]` from a vec of them in get_binding().
+    }
+
+    fn bind_group_layout_entries(_: &RenderDevice) -> Vec<BindGroupLayoutEntry>
     where
         Self: Sized,
     {
-        render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: "bindless_material_layout".into(),
-            entries: &[
-                // @group(1) @binding(0) var textures: binding_array<texture_2d<f32>>;
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::D2,
-                        multisampled: false,
-                    },
-                    count: NonZeroU32::new(MAX_TEXTURE_COUNT as u32),
-                },
-                // @group(1) @binding(1) var nearest_sampler: sampler;
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                    count: None,
-                    // Note: as textures, multiple samplers can also be bound onto one binding slot.
-                    // One may need to pay attention to the limit of sampler binding amount on some platforms.
-                    // count: NonZeroU32::new(MAX_TEXTURE_COUNT as u32),
-                },
-            ],
-        })
+        BindGroupLayoutEntries::with_indices(
+            // The layout entries will only be visible in the fragment stage
+            ShaderStages::FRAGMENT,
+            (
+                // Screen texture
+                //
+                // @group(2) @binding(0) var textures: binding_array<texture_2d<f32>>;
+                (
+                    0,
+                    texture_2d(TextureSampleType::Float { filterable: true })
+                        .count(NonZeroU32::new(MAX_TEXTURE_COUNT as u32).unwrap()),
+                ),
+                // Sampler
+                //
+                // @group(2) @binding(1) var nearest_sampler: sampler;
+                //
+                // Note: as with textures, multiple samplers can also be bound
+                // onto one binding slot:
+                //
+                // ```
+                // sampler(SamplerBindingType::Filtering)
+                //     .count(NonZeroU32::new(MAX_TEXTURE_COUNT as u32).unwrap()),
+                // ```
+                //
+                // One may need to pay attention to the limit of sampler binding
+                // amount on some platforms.
+                (1, sampler(SamplerBindingType::Filtering)),
+            ),
+        )
+        .to_vec()
     }
 }
 

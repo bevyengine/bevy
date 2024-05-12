@@ -1,23 +1,18 @@
 //! This example illustrates loading scenes from files.
-use std::fs::File;
-use std::io::Write;
-
 use bevy::{prelude::*, tasks::IoTaskPool, utils::Duration};
+use std::{fs::File, io::Write};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(AssetPlugin {
-            // This tells the AssetServer to watch for changes to assets.
-            // It enables our scenes to automatically reload in game when we modify their files.
-            watch_for_changes: true,
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .register_type::<ComponentA>()
         .register_type::<ComponentB>()
-        .add_startup_system(save_scene_system)
-        .add_startup_system(load_scene_system)
-        .add_startup_system(infotext_system)
-        .add_system(log_system)
+        .register_type::<ResourceA>()
+        .add_systems(
+            Startup,
+            (save_scene_system, load_scene_system, infotext_system),
+        )
+        .add_systems(Update, log_system)
         .run();
 }
 
@@ -26,7 +21,7 @@ fn main() {
 // `Reflect` enable a bunch of cool behaviors, so its worth checking out the dedicated `reflect.rs`
 // example. The `FromWorld` trait determines how your component is constructed when it loads.
 // For simple use cases you can just implement the `Default` trait (which automatically implements
-// FromResources). The simplest registered component just needs these two derives:
+// `FromWorld`). The simplest registered component just needs these three derives:
 #[derive(Component, Reflect, Default)]
 #[reflect(Component)] // this tells the reflect derive to also reflect component behaviors
 struct ComponentA {
@@ -56,6 +51,13 @@ impl FromWorld for ComponentB {
     }
 }
 
+// Resources can be serialized in scenes as well, with the same requirements `Component`s have.
+#[derive(Resource, Reflect, Default)]
+#[reflect(Resource)]
+struct ResourceA {
+    pub score: u32,
+}
+
 // The initial scene file will be loaded below and not change when the scene is saved
 const SCENE_FILE_PATH: &str = "scenes/load_scene_example.scn.ron";
 
@@ -73,8 +75,12 @@ fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 // This system logs all ComponentA components in our world. Try making a change to a ComponentA in
-// load_scene_example.scn. You should immediately see the changes appear in the console.
-fn log_system(query: Query<(Entity, &ComponentA), Changed<ComponentA>>) {
+// load_scene_example.scn. If you enable the `file_watcher` cargo feature you should immediately see
+// the changes appear in the console whenever you make a change.
+fn log_system(
+    query: Query<(Entity, &ComponentA), Changed<ComponentA>>,
+    res: Option<Res<ResourceA>>,
+) {
     for (entity, component_a) in &query {
         info!("  Entity({})", entity.index());
         info!(
@@ -82,28 +88,45 @@ fn log_system(query: Query<(Entity, &ComponentA), Changed<ComponentA>>) {
             component_a.x, component_a.y
         );
     }
+    if let Some(res) = res {
+        if res.is_added() {
+            info!("  New ResourceA: {{ score: {} }}\n", res.score);
+        }
+    }
 }
 
 fn save_scene_system(world: &mut World) {
-    // Scenes can be created from any ECS World. You can either create a new one for the scene or
-    // use the current World.
+    // Scenes can be created from any ECS World.
+    // You can either create a new one for the scene or use the current World.
+    // For demonstration purposes, we'll create a new one.
     let mut scene_world = World::new();
+
+    // The `TypeRegistry` resource contains information about all registered types (including components).
+    // This is used to construct scenes, so we'll want to ensure that our previous type registrations
+    // exist in this new scene world as well.
+    // To do this, we can simply clone the `AppTypeRegistry` resource.
+    let type_registry = world.resource::<AppTypeRegistry>().clone();
+    scene_world.insert_resource(type_registry);
+
     let mut component_b = ComponentB::from_world(world);
     component_b.value = "hello".to_string();
     scene_world.spawn((
         component_b,
         ComponentA { x: 1.0, y: 2.0 },
         Transform::IDENTITY,
+        Name::new("joe"),
     ));
     scene_world.spawn(ComponentA { x: 3.0, y: 4.0 });
+    scene_world.insert_resource(ResourceA { score: 1 });
 
-    // The TypeRegistry resource contains information about all registered types (including
-    // components). This is used to construct scenes.
-    let type_registry = world.resource::<AppTypeRegistry>();
-    let scene = DynamicScene::from_world(&scene_world, type_registry);
+    // With our sample world ready to go, we can now create our scene using DynamicScene or DynamicSceneBuilder.
+    // For simplicity, we will create our scene using DynamicScene:
+    let scene = DynamicScene::from_world(&scene_world);
 
     // Scenes can be serialized like this:
-    let serialized_scene = scene.serialize_ron(type_registry).unwrap();
+    let type_registry = world.resource::<AppTypeRegistry>();
+    let type_registry = type_registry.read();
+    let serialized_scene = scene.serialize(&type_registry).unwrap();
 
     // Showing the scene in the console
     info!("{}", serialized_scene);
@@ -124,15 +147,14 @@ fn save_scene_system(world: &mut World) {
 
 // This is only necessary for the info message in the UI. See examples/ui/text.rs for a standalone
 // text example.
-fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn infotext_system(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
     commands.spawn(
         TextBundle::from_section(
             "Nothing to see in this window! Check the console output!",
             TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 50.0,
-                color: Color::WHITE,
+                ..default()
             },
         )
         .with_style(Style {

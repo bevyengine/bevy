@@ -1,14 +1,19 @@
 //! Types for declaring and storing [`Component`]s.
 
 use crate::{
+    self as bevy_ecs,
+    archetype::ArchetypeFlags,
     change_detection::MAX_CHANGE_AGE,
+    entity::Entity,
     storage::{SparseSetIndex, Storages},
-    system::{Local, Resource},
-    world::{FromWorld, World},
-    TypeIdMap,
+    system::{Local, Resource, SystemParam},
+    world::{DeferredWorld, FromWorld, World},
 };
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
+use bevy_utils::TypeIdMap;
 use std::cell::UnsafeCell;
 use std::{
     alloc::Layout,
@@ -146,28 +151,11 @@ use std::{
 /// [`SyncCell`]: bevy_utils::synccell::SyncCell
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 pub trait Component: Send + Sync + 'static {
-    type Storage: ComponentStorage;
-}
-
-pub struct TableStorage;
-pub struct SparseStorage;
-
-pub trait ComponentStorage: sealed::Sealed {
-    // because the trait is sealed, those items are private API.
+    /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
-}
 
-impl ComponentStorage for TableStorage {
-    const STORAGE_TYPE: StorageType = StorageType::Table;
-}
-impl ComponentStorage for SparseStorage {
-    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
-}
-
-mod sealed {
-    pub trait Sealed {}
-    impl Sealed for super::TableStorage {}
-    impl Sealed for super::SparseStorage {}
+    /// Called when registering this component, allowing mutable access to its [`ComponentHooks`].
+    fn register_component_hooks(_hooks: &mut ComponentHooks) {}
 }
 
 /// The storage used for a specific component type.
@@ -191,28 +179,107 @@ pub enum StorageType {
     SparseSet,
 }
 
-#[derive(Debug)]
+/// The type used for [`Component`] lifecycle hooks such as `on_add`, `on_insert` or `on_remove`
+pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity, ComponentId);
+
+/// Lifecycle hooks for a given [`Component`], stored in its [`ComponentInfo`]
+#[derive(Debug, Clone, Default)]
+pub struct ComponentHooks {
+    pub(crate) on_add: Option<ComponentHook>,
+    pub(crate) on_insert: Option<ComponentHook>,
+    pub(crate) on_remove: Option<ComponentHook>,
+}
+
+impl ComponentHooks {
+    /// Register a [`ComponentHook`] that will be run when this component is added to an entity.
+    /// An `on_add` hook will always run before `on_insert` hooks. Spawning an entity counts as
+    /// adding all of its components.
+    ///
+    /// Will panic if the component already has an `on_add` hook
+    pub fn on_add(&mut self, hook: ComponentHook) -> &mut Self {
+        self.try_on_add(hook)
+            .expect("Component id: {:?}, already has an on_add hook")
+    }
+
+    /// Register a [`ComponentHook`] that will be run when this component is added (with `.insert`)
+    /// or replaced. The hook won't run if the component is already present and is only mutated.
+    /// An `on_insert` hook always runs after any `on_add` hooks (if the entity didn't already have the component).
+    ///
+    /// Will panic if the component already has an `on_insert` hook
+    pub fn on_insert(&mut self, hook: ComponentHook) -> &mut Self {
+        self.try_on_insert(hook)
+            .expect("Component id: {:?}, already has an on_insert hook")
+    }
+
+    /// Register a [`ComponentHook`] that will be run when this component is removed from an entity.
+    /// Despawning an entity counts as removing all of its components.
+    ///
+    /// Will panic if the component already has an `on_remove` hook
+    pub fn on_remove(&mut self, hook: ComponentHook) -> &mut Self {
+        self.try_on_remove(hook)
+            .expect("Component id: {:?}, already has an on_remove hook")
+    }
+
+    /// Fallible version of [`Self::on_add`].
+    /// Returns `None` if the component already has an `on_add` hook.
+    pub fn try_on_add(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+        if self.on_add.is_some() {
+            return None;
+        }
+        self.on_add = Some(hook);
+        Some(self)
+    }
+
+    /// Fallible version of [`Self::on_insert`].
+    /// Returns `None` if the component already has an `on_insert` hook.
+    pub fn try_on_insert(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+        if self.on_insert.is_some() {
+            return None;
+        }
+        self.on_insert = Some(hook);
+        Some(self)
+    }
+
+    /// Fallible version of [`Self::on_remove`].
+    /// Returns `None` if the component already has an `on_remove` hook.
+    pub fn try_on_remove(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+        if self.on_remove.is_some() {
+            return None;
+        }
+        self.on_remove = Some(hook);
+        Some(self)
+    }
+}
+
+/// Stores metadata for a type of component or resource stored in a specific [`World`].
+#[derive(Debug, Clone)]
 pub struct ComponentInfo {
     id: ComponentId,
     descriptor: ComponentDescriptor,
+    hooks: ComponentHooks,
 }
 
 impl ComponentInfo {
+    /// Returns a value uniquely identifying the current component.
     #[inline]
     pub fn id(&self) -> ComponentId {
         self.id
     }
 
+    /// Returns the name of the current component.
     #[inline]
     pub fn name(&self) -> &str {
         &self.descriptor.name
     }
 
+    /// Returns the [`TypeId`] of the underlying component type.
+    /// Returns `None` if the component does not correspond to a Rust type.
     #[inline]
     pub fn type_id(&self) -> Option<TypeId> {
         self.descriptor.type_id
     }
 
+    /// Returns the layout used to store values of this component in memory.
     #[inline]
     pub fn layout(&self) -> Layout {
         self.descriptor.layout
@@ -229,11 +296,15 @@ impl ComponentInfo {
         self.descriptor.drop
     }
 
+    /// Returns a value indicating the storage strategy for the current component.
     #[inline]
     pub fn storage_type(&self) -> StorageType {
         self.descriptor.storage_type
     }
 
+    /// Returns `true` if the underlying component type can be freely shared between threads.
+    /// If this returns `false`, then extra care must be taken to ensure that components
+    /// are not accessed from the wrong thread.
     #[inline]
     pub fn is_send_and_sync(&self) -> bool {
         self.descriptor.is_send_and_sync
@@ -241,16 +312,39 @@ impl ComponentInfo {
 
     /// Create a new [`ComponentInfo`].
     pub(crate) fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
-        ComponentInfo { id, descriptor }
+        ComponentInfo {
+            id,
+            descriptor,
+            hooks: ComponentHooks::default(),
+        }
+    }
+
+    /// Update the given flags to include any [`ComponentHook`] registered to self
+    #[inline]
+    pub(crate) fn update_archetype_flags(&self, flags: &mut ArchetypeFlags) {
+        if self.hooks().on_add.is_some() {
+            flags.insert(ArchetypeFlags::ON_ADD_HOOK);
+        }
+        if self.hooks().on_insert.is_some() {
+            flags.insert(ArchetypeFlags::ON_INSERT_HOOK);
+        }
+        if self.hooks().on_remove.is_some() {
+            flags.insert(ArchetypeFlags::ON_REMOVE_HOOK);
+        }
+    }
+
+    /// Provides a reference to the collection of hooks associated with this [`Component`]
+    pub fn hooks(&self) -> &ComponentHooks {
+        &self.hooks
     }
 }
 
-/// A semi-opaque value which uniquely identifies the type of a [`Component`] within a
-/// [`World`](crate::world::World).
+/// A value which uniquely identifies the type of a [`Component`] of [`Resource`] within a
+/// [`World`].
 ///
 /// Each time a new `Component` type is registered within a `World` using
-/// [`World::init_component`](crate::world::World::init_component) or
-/// [`World::init_component_with_descriptor`](crate::world::World::init_component_with_descriptor),
+/// e.g. [`World::init_component`] or [`World::init_component_with_descriptor`]
+/// or a Resource with e.g. [`World::init_resource`],
 /// a corresponding `ComponentId` is created to track it.
 ///
 /// While the distinction between `ComponentId` and [`TypeId`] may seem superficial, breaking them
@@ -260,17 +354,31 @@ impl ComponentInfo {
 /// represented as Rust types for scripting or other advanced use-cases.
 ///
 /// A `ComponentId` is tightly coupled to its parent `World`. Attempting to use a `ComponentId` from
-/// one `World` to access the metadata of a `Component` in a different `World` is undefined behaviour
+/// one `World` to access the metadata of a `Component` in a different `World` is undefined behavior
 /// and must not be attempted.
+///
+/// Given a type `T` which implements [`Component`], the `ComponentId` for `T` can be retrieved
+/// from a `World` using [`World::component_id()`] or via [`Components::component_id()`]. Access
+/// to the `ComponentId` for a [`Resource`] is available via [`Components::resource_id()`].
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Hash, PartialEq)
+)]
 pub struct ComponentId(usize);
 
 impl ComponentId {
+    /// Creates a new [`ComponentId`].
+    ///
+    /// The `index` is a unique value associated with each type of component in a given world.
+    /// Usually, this value is taken from a counter incremented for each type of component registered with the world.
     #[inline]
     pub const fn new(index: usize) -> ComponentId {
         ComponentId(index)
     }
 
+    /// Returns the index of the current component.
     #[inline]
     pub fn index(self) -> usize {
         self.0
@@ -283,11 +391,14 @@ impl SparseSetIndex for ComponentId {
         self.index()
     }
 
+    #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
         Self(value)
     }
 }
 
+/// A value describing a component or resource, which may or may not correspond to a Rust type.
+#[derive(Clone)]
 pub struct ComponentDescriptor {
     name: Cow<'static, str>,
     // SAFETY: This must remain private. It must match the statically known StorageType of the
@@ -318,16 +429,21 @@ impl std::fmt::Debug for ComponentDescriptor {
 }
 
 impl ComponentDescriptor {
-    // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
+    /// # SAFETY
+    ///
+    /// `x` must points to a valid value of type `T`.
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
-        x.drop_as::<T>();
+        // SAFETY: Contract is required to be upheld by the caller.
+        unsafe {
+            x.drop_as::<T>();
+        }
     }
 
     /// Create a new `ComponentDescriptor` for the type `T`.
     pub fn new<T: Component>() -> Self {
         Self {
             name: Cow::Borrowed(std::any::type_name::<T>()),
-            storage_type: T::Storage::STORAGE_TYPE,
+            storage_type: T::STORAGE_TYPE,
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
@@ -358,7 +474,7 @@ impl ComponentDescriptor {
 
     /// Create a new `ComponentDescriptor` for a resource.
     ///
-    /// The [`StorageType`] for resources is always [`TableStorage`].
+    /// The [`StorageType`] for resources is always [`StorageType::Table`].
     pub fn new_resource<T: Resource>() -> Self {
         Self {
             name: Cow::Borrowed(std::any::type_name::<T>()),
@@ -383,30 +499,43 @@ impl ComponentDescriptor {
         }
     }
 
+    /// Returns a value indicating the storage strategy for the current component.
     #[inline]
     pub fn storage_type(&self) -> StorageType {
         self.storage_type
     }
 
+    /// Returns the [`TypeId`] of the underlying component type.
+    /// Returns `None` if the component does not correspond to a Rust type.
     #[inline]
     pub fn type_id(&self) -> Option<TypeId> {
         self.type_id
     }
 
+    /// Returns the name of the current component.
     #[inline]
     pub fn name(&self) -> &str {
         self.name.as_ref()
     }
 }
 
+/// Stores metadata associated with each kind of [`Component`] in a given [`World`].
 #[derive(Debug, Default)]
 pub struct Components {
     components: Vec<ComponentInfo>,
-    indices: TypeIdMap<usize>,
-    resource_indices: TypeIdMap<usize>,
+    indices: TypeIdMap<ComponentId>,
+    resource_indices: TypeIdMap<ComponentId>,
 }
 
 impl Components {
+    /// Initializes a component of type `T` with this instance.
+    /// If a component of this type has already been initialized, this will return
+    /// the ID of the pre-existing component.
+    ///
+    /// # See also
+    ///
+    /// * [`Components::component_id()`]
+    /// * [`Components::init_component_with_descriptor()`]
     #[inline]
     pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
         let type_id = TypeId::of::<T>();
@@ -416,19 +545,34 @@ impl Components {
             components,
             ..
         } = self;
-        let index = indices.entry(type_id).or_insert_with(|| {
-            Components::init_component_inner(components, storages, ComponentDescriptor::new::<T>())
-        });
-        ComponentId(*index)
+        *indices.entry(type_id).or_insert_with(|| {
+            let index = Components::init_component_inner(
+                components,
+                storages,
+                ComponentDescriptor::new::<T>(),
+            );
+            T::register_component_hooks(&mut components[index.index()].hooks);
+            index
+        })
     }
 
+    /// Initializes a component described by `descriptor`.
+    ///
+    /// ## Note
+    ///
+    /// If this method is called multiple times with identical descriptors, a distinct `ComponentId`
+    /// will be created for each one.
+    ///
+    /// # See also
+    ///
+    /// * [`Components::component_id()`]
+    /// * [`Components::init_component()`]
     pub fn init_component_with_descriptor(
         &mut self,
         storages: &mut Storages,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
-        let index = Components::init_component_inner(&mut self.components, storages, descriptor);
-        ComponentId(index)
+        Components::init_component_inner(&mut self.components, storages, descriptor)
     }
 
     #[inline]
@@ -436,49 +580,64 @@ impl Components {
         components: &mut Vec<ComponentInfo>,
         storages: &mut Storages,
         descriptor: ComponentDescriptor,
-    ) -> usize {
-        let index = components.len();
-        let info = ComponentInfo::new(ComponentId(index), descriptor);
+    ) -> ComponentId {
+        let component_id = ComponentId(components.len());
+        let info = ComponentInfo::new(component_id, descriptor);
         if info.descriptor.storage_type == StorageType::SparseSet {
             storages.sparse_sets.get_or_insert(&info);
         }
         components.push(info);
-        index
+        component_id
     }
 
+    /// Returns the number of components registered with this instance.
     #[inline]
     pub fn len(&self) -> usize {
         self.components.len()
     }
 
+    /// Returns `true` if there are no components registered with this instance. Otherwise, this returns `false`.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.components.len() == 0
     }
 
+    /// Gets the metadata associated with the given component.
+    ///
+    /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
     pub fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
         self.components.get(id.0)
     }
 
+    /// Returns the name associated with the given component.
+    ///
+    /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
     pub fn get_name(&self, id: ComponentId) -> Option<&str> {
         self.get_info(id).map(|descriptor| descriptor.name())
     }
 
+    /// Gets the metadata associated with the given component.
     /// # Safety
     ///
     /// `id` must be a valid [`ComponentId`]
     #[inline]
     pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         debug_assert!(id.index() < self.components.len());
-        self.components.get_unchecked(id.0)
+        // SAFETY: The caller ensures `id` is valid.
+        unsafe { self.components.get_unchecked(id.0) }
     }
 
-    /// Type-erased equivalent of [`Components::component_id`].
+    #[inline]
+    pub(crate) fn get_hooks_mut(&mut self, id: ComponentId) -> Option<&mut ComponentHooks> {
+        self.components.get_mut(id.0).map(|info| &mut info.hooks)
+    }
+
+    /// Type-erased equivalent of [`Components::component_id()`].
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.indices.get(&type_id).map(|index| ComponentId(*index))
+        self.indices.get(&type_id).copied()
     }
 
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
@@ -488,9 +647,9 @@ impl Components {
     /// instance.
     ///
     /// Returns [`None`] if the `Component` type has not
-    /// yet been initialized using [`Components::init_component`].
+    /// yet been initialized using [`Components::init_component()`].
     ///
-    /// ```rust
+    /// ```
     /// use bevy_ecs::prelude::*;
     ///
     /// let mut world = World::new();
@@ -502,17 +661,21 @@ impl Components {
     ///
     /// assert_eq!(component_a_id, world.components().component_id::<ComponentA>().unwrap())
     /// ```
+    ///
+    /// # See also
+    ///
+    /// * [`Components::get_id()`]
+    /// * [`Components::resource_id()`]
+    /// * [`World::component_id()`]
     #[inline]
     pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
         self.get_id(TypeId::of::<T>())
     }
 
-    /// Type-erased equivalent of [`Components::resource_id`].
+    /// Type-erased equivalent of [`Components::resource_id()`].
     #[inline]
     pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.resource_indices
-            .get(&type_id)
-            .map(|index| ComponentId(*index))
+        self.resource_indices.get(&type_id).copied()
     }
 
     /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
@@ -522,9 +685,9 @@ impl Components {
     /// instance.
     ///
     /// Returns [`None`] if the `Resource` type has not
-    /// yet been initialized using [`Components::init_resource`].
+    /// yet been initialized using [`Components::init_resource()`].
     ///
-    /// ```rust
+    /// ```
     /// use bevy_ecs::prelude::*;
     ///
     /// let mut world = World::new();
@@ -536,11 +699,23 @@ impl Components {
     ///
     /// assert_eq!(resource_a_id, world.components().resource_id::<ResourceA>().unwrap())
     /// ```
+    ///
+    /// # See also
+    ///
+    /// * [`Components::component_id()`]
+    /// * [`Components::get_resource_id()`]
     #[inline]
     pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
         self.get_resource_id(TypeId::of::<T>())
     }
 
+    /// Initializes a [`Resource`] of type `T` with this instance.
+    /// If a resource of this type has already been initialized, this will return
+    /// the ID of the pre-existing resource.
+    ///
+    /// # See also
+    ///
+    /// * [`Components::resource_id()`]
     #[inline]
     pub fn init_resource<T: Resource>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
@@ -551,6 +726,9 @@ impl Components {
         }
     }
 
+    /// Initializes a [non-send resource](crate::system::NonSend) of type `T` with this instance.
+    /// If a resource of this type has already been initialized, this will return
+    /// the ID of the pre-existing resource.
     #[inline]
     pub fn init_non_send<T: Any>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
@@ -571,16 +749,15 @@ impl Components {
         func: impl FnOnce() -> ComponentDescriptor,
     ) -> ComponentId {
         let components = &mut self.components;
-        let index = self.resource_indices.entry(type_id).or_insert_with(|| {
+        *self.resource_indices.entry(type_id).or_insert_with(|| {
             let descriptor = func();
-            let index = components.len();
-            components.push(ComponentInfo::new(ComponentId(index), descriptor));
-            index
-        });
-
-        ComponentId(*index)
+            let component_id = ComponentId(components.len());
+            components.push(ComponentInfo::new(component_id, descriptor));
+            component_id
+        })
     }
 
+    /// Gets an iterator over all components registered with this instance.
     pub fn iter(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
         self.components.iter()
     }
@@ -588,19 +765,22 @@ impl Components {
 
 /// A value that tracks when a system ran relative to other systems.
 /// This is used to power change detection.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Default, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 pub struct Tick {
     tick: u32,
 }
 
 impl Tick {
     /// The maximum relative age for a change tick.
-    /// The value of this is equal to [`crate::change_detection::MAX_CHANGE_AGE`].
+    /// The value of this is equal to [`MAX_CHANGE_AGE`].
     ///
     /// Since change detection will not work for any ticks older than this,
     /// ticks are periodically scanned to ensure their relative values are below this.
     pub const MAX: Self = Self::new(MAX_CHANGE_AGE);
 
+    /// Creates a new [`Tick`] wrapping the given value.
+    #[inline]
     pub const fn new(tick: u32) -> Self {
         Self { tick }
     }
@@ -617,10 +797,10 @@ impl Tick {
         self.tick = tick;
     }
 
-    #[inline]
     /// Returns `true` if this `Tick` occurred since the system's `last_run`.
     ///
     /// `this_run` is the current tick of the system, used as a reference to help deal with wraparound.
+    #[inline]
     pub fn is_newer_than(self, last_run: Tick, this_run: Tick) -> bool {
         // This works even with wraparound because the world tick (`this_run`) is always "newer" than
         // `last_run` and `self.tick`, and we scan periodically to clamp `ComponentTicks` values
@@ -634,6 +814,7 @@ impl Tick {
     }
 
     /// Returns a change tick representing the relationship between `self` and `other`.
+    #[inline]
     pub(crate) fn relative_to(self, other: Self) -> Self {
         let tick = self.tick.wrapping_sub(other.tick);
         Self { tick }
@@ -642,6 +823,7 @@ impl Tick {
     /// Wraps this change tick's value if it exceeds [`Tick::MAX`].
     ///
     /// Returns `true` if wrapping was performed. Otherwise, returns `false`.
+    #[inline]
     pub(crate) fn check_tick(&mut self, tick: Tick) -> bool {
         let age = tick.relative_to(*self);
         // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
@@ -655,10 +837,12 @@ impl Tick {
     }
 }
 
-/// Wrapper around [`Tick`]s for a single component
+/// Interior-mutable access to the [`Tick`]s for a single component or resource.
 #[derive(Copy, Clone, Debug)]
 pub struct TickCells<'a> {
+    /// The tick indicating when the value was added to the world.
     pub added: &'a UnsafeCell<Tick>,
+    /// The tick indicating the last time the value was modified.
     pub changed: &'a UnsafeCell<Tick>,
 }
 
@@ -668,30 +852,45 @@ impl<'a> TickCells<'a> {
     #[inline]
     pub(crate) unsafe fn read(&self) -> ComponentTicks {
         ComponentTicks {
-            added: self.added.read(),
-            changed: self.changed.read(),
+            // SAFETY: The callers uphold the invariants for `read`.
+            added: unsafe { self.added.read() },
+            // SAFETY: The callers uphold the invariants for `read`.
+            changed: unsafe { self.changed.read() },
         }
     }
 }
 
-/// Records when a component was added and when it was last mutably dereferenced (or added).
+/// Records when a component or resource was added and when it was last mutably dereferenced (or added).
 #[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct ComponentTicks {
     pub(crate) added: Tick,
     pub(crate) changed: Tick,
 }
 
 impl ComponentTicks {
+    /// Returns `true` if the component or resource was added after the system last ran.
     #[inline]
-    /// Returns `true` if the component was added after the system last ran.
     pub fn is_added(&self, last_run: Tick, this_run: Tick) -> bool {
         self.added.is_newer_than(last_run, this_run)
     }
 
+    /// Returns `true` if the component or resource was added or mutably dereferenced after the system last ran.
     #[inline]
-    /// Returns `true` if the component was added or mutably dereferenced after the system last ran.
     pub fn is_changed(&self, last_run: Tick, this_run: Tick) -> bool {
         self.changed.is_newer_than(last_run, this_run)
+    }
+
+    /// Returns the tick recording the time this component or resource was most recently changed.
+    #[inline]
+    pub fn last_changed_tick(&self) -> Tick {
+        self.changed
+    }
+
+    /// Returns the tick recording the time this component or resource was added.
+    #[inline]
+    pub fn added_tick(&self) -> Tick {
+        self.added
     }
 
     pub(crate) fn new(change_tick: Tick) -> Self {
@@ -708,7 +907,7 @@ impl ComponentTicks {
     /// However, components and resources that make use of interior mutability might require manual updates.
     ///
     /// # Example
-    /// ```rust,no_run
+    /// ```no_run
     /// # use bevy_ecs::{world::World, component::ComponentTicks};
     /// let world: World = unimplemented!();
     /// let component_ticks: ComponentTicks = unimplemented!();
@@ -721,47 +920,54 @@ impl ComponentTicks {
     }
 }
 
-/// Initialize and fetch a [`ComponentId`] for a specific type.
+/// A [`SystemParam`] that provides access to the [`ComponentId`] for a specific component type.
 ///
 /// # Example
-/// ```rust
+/// ```
 /// # use bevy_ecs::{system::Local, component::{Component, ComponentId, ComponentIdFor}};
 /// #[derive(Component)]
 /// struct Player;
-/// fn my_system(component_id: Local<ComponentIdFor<Player>>) {
-///     let component_id: ComponentId = component_id.into();
+/// fn my_system(component_id: ComponentIdFor<Player>) {
+///     let component_id: ComponentId = component_id.get();
 ///     // ...
 /// }
 /// ```
-pub struct ComponentIdFor<T: Component> {
-    component_id: ComponentId,
-    phantom: PhantomData<T>,
-}
+#[derive(SystemParam)]
+pub struct ComponentIdFor<'s, T: Component>(Local<'s, InitComponentId<T>>);
 
-impl<T: Component> FromWorld for ComponentIdFor<T> {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            component_id: world.init_component::<T>(),
-            phantom: PhantomData,
-        }
+impl<T: Component> ComponentIdFor<'_, T> {
+    /// Gets the [`ComponentId`] for the type `T`.
+    #[inline]
+    pub fn get(&self) -> ComponentId {
+        **self
     }
 }
 
-impl<T: Component> std::ops::Deref for ComponentIdFor<T> {
+impl<T: Component> std::ops::Deref for ComponentIdFor<'_, T> {
     type Target = ComponentId;
     fn deref(&self) -> &Self::Target {
-        &self.component_id
+        &self.0.component_id
     }
 }
 
-impl<T: Component> From<ComponentIdFor<T>> for ComponentId {
+impl<T: Component> From<ComponentIdFor<'_, T>> for ComponentId {
+    #[inline]
     fn from(to_component_id: ComponentIdFor<T>) -> ComponentId {
         *to_component_id
     }
 }
 
-impl<'s, T: Component> From<Local<'s, ComponentIdFor<T>>> for ComponentId {
-    fn from(to_component_id: Local<ComponentIdFor<T>>) -> ComponentId {
-        **to_component_id
+/// Initializes the [`ComponentId`] for a specific type when used with [`FromWorld`].
+struct InitComponentId<T: Component> {
+    component_id: ComponentId,
+    marker: PhantomData<T>,
+}
+
+impl<T: Component> FromWorld for InitComponentId<T> {
+    fn from_world(world: &mut World) -> Self {
+        Self {
+            component_id: world.init_component::<T>(),
+            marker: PhantomData,
+        }
     }
 }

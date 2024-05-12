@@ -1,218 +1,287 @@
 use bevy_ecs::{reflect::ReflectResource, system::Resource};
-use bevy_reflect::{FromReflect, Reflect};
-use bevy_utils::{Duration, Instant};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_utils::Duration;
 
-/// A clock that tracks how much it has advanced (and how much real time has elapsed) since
-/// its previous update and since its creation.
-#[derive(Resource, Reflect, FromReflect, Debug, Clone)]
-#[reflect(Resource)]
-pub struct Time {
-    startup: Instant,
-    first_update: Option<Instant>,
-    last_update: Option<Instant>,
-    // pausing
-    paused: bool,
-    // scaling
-    relative_speed: f64, // using `f64` instead of `f32` to minimize drift from rounding errors
+/// A generic clock resource that tracks how much it has advanced since its
+/// previous update and since its creation.
+///
+/// Multiple instances of this resource are inserted automatically by
+/// [`TimePlugin`](crate::TimePlugin):
+///
+/// - [`Time<Real>`](crate::real::Real) tracks real wall-clock time elapsed.
+/// - [`Time<Virtual>`](crate::virt::Virtual) tracks virtual game time that may
+///   be paused or scaled.
+/// - [`Time<Fixed>`](crate::fixed::Fixed) tracks fixed timesteps based on
+///   virtual time.
+/// - [`Time`] is a generic clock that corresponds to "current" or "default"
+///   time for systems. It contains [`Time<Virtual>`](crate::virt::Virtual)
+///   except inside the [`FixedMain`](bevy_app::FixedMain) schedule when it
+///   contains [`Time<Fixed>`](crate::fixed::Fixed).
+///
+/// The time elapsed since the previous time this clock was advanced is saved as
+/// [`delta()`](Time::delta) and the total amount of time the clock has advanced
+/// is saved as [`elapsed()`](Time::elapsed). Both are represented as exact
+/// [`Duration`] values with fixed nanosecond precision. The clock does not
+/// support time moving backwards, but it can be updated with [`Duration::ZERO`]
+/// which will set [`delta()`](Time::delta) to zero.
+///
+/// These values are also available in seconds as `f32` via
+/// [`delta_seconds()`](Time::delta_seconds) and
+/// [`elapsed_seconds()`](Time::elapsed_seconds), and also in seconds as `f64`
+/// via [`delta_seconds_f64()`](Time::delta_seconds_f64) and
+/// [`elapsed_seconds_f64()`](Time::elapsed_seconds_f64).
+///
+/// Since [`elapsed_seconds()`](Time::elapsed_seconds) will grow constantly and
+/// is `f32`, it will exhibit gradual precision loss. For applications that
+/// require an `f32` value but suffer from gradual precision loss there is
+/// [`elapsed_seconds_wrapped()`](Time::elapsed_seconds_wrapped) available. The
+/// same wrapped value is also available as [`Duration`] and `f64` for
+/// consistency. The wrap period is by default 1 hour, and can be set by
+/// [`set_wrap_period()`](Time::set_wrap_period).
+///
+/// # Accessing clocks
+///
+/// By default, any systems requiring current [`delta()`](Time::delta) or
+/// [`elapsed()`](Time::elapsed) should use `Res<Time>` to access the default
+/// time configured for the program. By default, this refers to
+/// [`Time<Virtual>`](crate::virt::Virtual) except during the
+/// [`FixedMain`](bevy_app::FixedMain) schedule when it refers to
+/// [`Time<Fixed>`](crate::fixed::Fixed). This ensures your system can be used
+/// either in [`Update`](bevy_app::Update) or
+/// [`FixedUpdate`](bevy_app::FixedUpdate) schedule depending on what is needed.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_time::prelude::*;
+/// #
+/// fn ambivalent_system(time: Res<Time>) {
+///     println!("this how I see time: delta {:?}, elapsed {:?}", time.delta(), time.elapsed());
+/// }
+/// ```
+///
+/// If your system needs to react based on real time (wall clock time), like for
+/// user interfaces, it should use `Res<Time<Real>>`. The
+/// [`delta()`](Time::delta) and [`elapsed()`](Time::elapsed) values will always
+/// correspond to real time and will not be affected by pause, time scaling or
+/// other tweaks.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_time::prelude::*;
+/// #
+/// fn real_time_system(time: Res<Time<Real>>) {
+///     println!("this will always be real time: delta {:?}, elapsed {:?}", time.delta(), time.elapsed());
+/// }
+/// ```
+///
+/// If your system specifically needs to access fixed timestep clock, even when
+/// placed in `Update` schedule, you should use `Res<Time<Fixed>>`. The
+/// [`delta()`](Time::delta) and [`elapsed()`](Time::elapsed) values will
+/// correspond to the latest fixed timestep that has been run.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_time::prelude::*;
+/// #
+/// fn fixed_time_system(time: Res<Time<Fixed>>) {
+///     println!("this will always be the last executed fixed timestep: delta {:?}, elapsed {:?}", time.delta(), time.elapsed());
+/// }
+/// ```
+///
+/// Finally, if your system specifically needs to know the current virtual game
+/// time, even if placed inside [`FixedUpdate`](bevy_app::FixedUpdate), for
+/// example to know if the game is [`was_paused()`](Time::was_paused) or to use
+/// [`effective_speed()`](Time::effective_speed), you can use
+/// `Res<Time<Virtual>>`. However, if the system is placed in
+/// [`FixedUpdate`](bevy_app::FixedUpdate), extra care must be used because your
+/// system might be run multiple times with the same [`delta()`](Time::delta)
+/// and [`elapsed()`](Time::elapsed) values as the virtual game time has not
+/// changed between the iterations.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_time::prelude::*;
+/// #
+/// fn fixed_time_system(time: Res<Time<Virtual>>) {
+///     println!("this will be virtual time for this update: delta {:?}, elapsed {:?}", time.delta(), time.elapsed());
+///     println!("also the relative speed of the game is now {}", time.effective_speed());
+/// }
+/// ```
+///
+/// If you need to change the settings for any of the clocks, for example to
+/// [`pause()`](Time::pause) the game, you should use `ResMut<Time<Virtual>>`.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_time::prelude::*;
+/// #
+/// #[derive(Event)]
+/// struct PauseEvent(bool);
+///
+/// fn pause_system(mut time: ResMut<Time<Virtual>>, mut events: EventReader<PauseEvent>) {
+///     for ev in events.read() {
+///         if ev.0 {
+///             time.pause();
+///         } else {
+///             time.unpause();
+///         }
+///     }
+/// }
+/// ```
+///
+/// # Adding custom clocks
+///
+/// New custom clocks can be created by creating your own struct as a context
+/// and passing it to [`new_with()`](Time::new_with). These clocks can be
+/// inserted as resources as normal and then accessed by systems. You can use
+/// the [`advance_by()`](Time::advance_by) or [`advance_to()`](Time::advance_to)
+/// methods to move the clock forwards based on your own logic.
+///
+/// If you want to add methods for your time instance and they require access to
+/// both your context and the generic time part, it's probably simplest to add a
+/// custom trait for them and implement it for `Time<Custom>`.
+///
+/// Your context struct will need to implement the [`Default`] trait because
+/// [`Time`] structures support reflection. It also makes initialization trivial
+/// by being able to call `app.init_resource::<Time<Custom>>()`.
+///
+/// You can also replace the "generic" `Time` clock resource if the "default"
+/// time for your game should not be the default virtual time provided. You can
+/// get a "generic" snapshot of your clock by calling `as_generic()` and then
+/// overwrite the [`Time`] resource with it. The default systems added by
+/// [`TimePlugin`](crate::TimePlugin) will overwrite the [`Time`] clock during
+/// [`First`](bevy_app::First) and [`FixedUpdate`](bevy_app::FixedUpdate)
+/// schedules.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_time::prelude::*;
+/// # use bevy_utils::Instant;
+/// #
+/// #[derive(Debug)]
+/// struct Custom {
+///     last_external_time: Instant,
+/// }
+///
+/// impl Default for Custom {
+///     fn default() -> Self {
+///         Self {
+///             last_external_time: Instant::now(),
+///         }
+///     }
+/// }
+///
+/// trait CustomTime {
+///     fn update_from_external(&mut self, instant: Instant);
+/// }
+///
+/// impl CustomTime for Time<Custom> {
+///     fn update_from_external(&mut self, instant: Instant) {
+///          let delta = instant - self.context().last_external_time;
+///          self.advance_by(delta);
+///          self.context_mut().last_external_time = instant;
+///     }
+/// }
+/// ```
+#[derive(Resource, Debug, Copy, Clone, Reflect)]
+#[reflect(Resource, Default)]
+pub struct Time<T: Default = ()> {
+    context: T,
+    wrap_period: Duration,
     delta: Duration,
     delta_seconds: f32,
     delta_seconds_f64: f64,
     elapsed: Duration,
     elapsed_seconds: f32,
     elapsed_seconds_f64: f64,
-    raw_delta: Duration,
-    raw_delta_seconds: f32,
-    raw_delta_seconds_f64: f64,
-    raw_elapsed: Duration,
-    raw_elapsed_seconds: f32,
-    raw_elapsed_seconds_f64: f64,
-    // wrapping
-    wrap_period: Duration,
     elapsed_wrapped: Duration,
     elapsed_seconds_wrapped: f32,
     elapsed_seconds_wrapped_f64: f64,
-    raw_elapsed_wrapped: Duration,
-    raw_elapsed_seconds_wrapped: f32,
-    raw_elapsed_seconds_wrapped_f64: f64,
 }
 
-impl Default for Time {
-    fn default() -> Self {
-        Self {
-            startup: Instant::now(),
-            first_update: None,
-            last_update: None,
-            paused: false,
-            relative_speed: 1.0,
-            delta: Duration::ZERO,
-            delta_seconds: 0.0,
-            delta_seconds_f64: 0.0,
-            elapsed: Duration::ZERO,
-            elapsed_seconds: 0.0,
-            elapsed_seconds_f64: 0.0,
-            raw_delta: Duration::ZERO,
-            raw_delta_seconds: 0.0,
-            raw_delta_seconds_f64: 0.0,
-            raw_elapsed: Duration::ZERO,
-            raw_elapsed_seconds: 0.0,
-            raw_elapsed_seconds_f64: 0.0,
-            wrap_period: Duration::from_secs(3600), // 1 hour
-            elapsed_wrapped: Duration::ZERO,
-            elapsed_seconds_wrapped: 0.0,
-            elapsed_seconds_wrapped_f64: 0.0,
-            raw_elapsed_wrapped: Duration::ZERO,
-            raw_elapsed_seconds_wrapped: 0.0,
-            raw_elapsed_seconds_wrapped_f64: 0.0,
-        }
-    }
-}
+impl<T: Default> Time<T> {
+    const DEFAULT_WRAP_PERIOD: Duration = Duration::from_secs(3600); // 1 hour
 
-impl Time {
-    /// Constructs a new `Time` instance with a specific startup `Instant`.
-    pub fn new(startup: Instant) -> Self {
+    /// Create a new clock from context with [`Self::delta`] and [`Self::elapsed`] starting from
+    /// zero.
+    pub fn new_with(context: T) -> Self {
         Self {
-            startup,
+            context,
             ..Default::default()
         }
     }
 
-    /// Updates the internal time measurements.
+    /// Advance this clock by adding a `delta` duration to it.
     ///
-    /// Calling this method as part of your app will most likely result in inaccurate timekeeping,
-    /// as the `Time` resource is ordinarily managed by the [`TimePlugin`](crate::TimePlugin).
-    pub fn update(&mut self) {
-        let now = Instant::now();
-        self.update_with_instant(now);
-    }
-
-    /// Updates time with a specified [`Instant`].
-    ///
-    /// This method is provided for use in tests. Calling this method as part of your app will most
-    /// likely result in inaccurate timekeeping, as the `Time` resource is ordinarily managed by the
-    /// [`TimePlugin`](crate::TimePlugin).
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_time::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// # use bevy_utils::Duration;
-    /// # fn main () {
-    /// #     test_health_system();
-    /// # }
-    /// #[derive(Resource)]
-    /// struct Health {
-    ///     // Health value between 0.0 and 1.0
-    ///     health_value: f32,
-    /// }
-    ///
-    /// fn health_system(time: Res<Time>, mut health: ResMut<Health>) {
-    ///     // Increase health value by 0.1 per second, independent of frame rate,
-    ///     // but not beyond 1.0
-    ///     health.health_value = (health.health_value + 0.1 * time.delta_seconds()).min(1.0);
-    /// }
-    ///
-    /// // Mock time in tests
-    /// fn test_health_system() {
-    ///     let mut world = World::default();
-    ///     let mut time = Time::default();
-    ///     time.update();
-    ///     world.insert_resource(time);
-    ///     world.insert_resource(Health { health_value: 0.2 });
-    ///
-    ///     let mut schedule = Schedule::new();
-    ///     schedule.add_system(health_system);
-    ///
-    ///     // Simulate that 30 ms have passed
-    ///     let mut time = world.resource_mut::<Time>();
-    ///     let last_update = time.last_update().unwrap();
-    ///     time.update_with_instant(last_update + Duration::from_millis(30));
-    ///
-    ///     // Run system
-    ///     schedule.run(&mut world);
-    ///
-    ///     // Check that 0.003 has been added to the health value
-    ///     let expected_health_value = 0.2 + 0.1 * 0.03;
-    ///     let actual_health_value = world.resource::<Health>().health_value;
-    ///     assert_eq!(expected_health_value, actual_health_value);
-    /// }
-    /// ```
-    pub fn update_with_instant(&mut self, instant: Instant) {
-        let raw_delta = instant - self.last_update.unwrap_or(self.startup);
-        let delta = if self.paused {
-            Duration::ZERO
-        } else if self.relative_speed != 1.0 {
-            raw_delta.mul_f64(self.relative_speed)
-        } else {
-            // avoid rounding when at normal speed
-            raw_delta
-        };
-
-        if self.last_update.is_some() {
-            self.delta = delta;
-            self.delta_seconds = self.delta.as_secs_f32();
-            self.delta_seconds_f64 = self.delta.as_secs_f64();
-            self.raw_delta = raw_delta;
-            self.raw_delta_seconds = self.raw_delta.as_secs_f32();
-            self.raw_delta_seconds_f64 = self.raw_delta.as_secs_f64();
-        } else {
-            self.first_update = Some(instant);
-        }
-
+    /// The added duration will be returned by [`Self::delta`] and
+    /// [`Self::elapsed`] will be increased by the duration. Adding
+    /// [`Duration::ZERO`] is allowed and will set [`Self::delta`] to zero.
+    pub fn advance_by(&mut self, delta: Duration) {
+        self.delta = delta;
+        self.delta_seconds = self.delta.as_secs_f32();
+        self.delta_seconds_f64 = self.delta.as_secs_f64();
         self.elapsed += delta;
         self.elapsed_seconds = self.elapsed.as_secs_f32();
         self.elapsed_seconds_f64 = self.elapsed.as_secs_f64();
-        self.raw_elapsed += raw_delta;
-        self.raw_elapsed_seconds = self.raw_elapsed.as_secs_f32();
-        self.raw_elapsed_seconds_f64 = self.raw_elapsed.as_secs_f64();
-
-        self.elapsed_wrapped = duration_div_rem(self.elapsed, self.wrap_period).1;
+        self.elapsed_wrapped = duration_rem(self.elapsed, self.wrap_period);
         self.elapsed_seconds_wrapped = self.elapsed_wrapped.as_secs_f32();
         self.elapsed_seconds_wrapped_f64 = self.elapsed_wrapped.as_secs_f64();
-        self.raw_elapsed_wrapped = duration_div_rem(self.raw_elapsed, self.wrap_period).1;
-        self.raw_elapsed_seconds_wrapped = self.raw_elapsed_wrapped.as_secs_f32();
-        self.raw_elapsed_seconds_wrapped_f64 = self.raw_elapsed_wrapped.as_secs_f64();
-
-        self.last_update = Some(instant);
     }
 
-    /// Returns the [`Instant`] the clock was created.
+    /// Advance this clock to a specific `elapsed` time.
     ///
-    /// This usually represents when the app was started.
-    #[inline]
-    pub fn startup(&self) -> Instant {
-        self.startup
-    }
-
-    /// Returns the [`Instant`] when [`update`](#method.update) was first called, if it exists.
+    /// [`Self::delta()`] will return the amount of time the clock was advanced
+    /// and [`Self::elapsed()`] will be the `elapsed` value passed in. Cannot be
+    /// used to move time backwards.
     ///
-    /// This usually represents when the first app update started.
-    #[inline]
-    pub fn first_update(&self) -> Option<Instant> {
-        self.first_update
-    }
-
-    /// Returns the [`Instant`] when [`update`](#method.update) was last called, if it exists.
+    /// # Panics
     ///
-    /// This usually represents when the current app update started.
-    #[inline]
-    pub fn last_update(&self) -> Option<Instant> {
-        self.last_update
+    /// Panics if `elapsed` is less than `Self::elapsed()`.
+    pub fn advance_to(&mut self, elapsed: Duration) {
+        assert!(
+            elapsed >= self.elapsed,
+            "tried to move time backwards to an earlier elapsed moment"
+        );
+        self.advance_by(elapsed - self.elapsed);
     }
 
-    /// Returns how much time has advanced since the last [`update`](#method.update), as a [`Duration`].
+    /// Returns the modulus used to calculate [`elapsed_wrapped`](#method.elapsed_wrapped).
+    ///
+    /// **Note:** The default modulus is one hour.
+    #[inline]
+    pub fn wrap_period(&self) -> Duration {
+        self.wrap_period
+    }
+
+    /// Sets the modulus used to calculate [`elapsed_wrapped`](#method.elapsed_wrapped).
+    ///
+    /// **Note:** This will not take effect until the next update.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `wrap_period` is a zero-length duration.
+    #[inline]
+    pub fn set_wrap_period(&mut self, wrap_period: Duration) {
+        assert!(!wrap_period.is_zero(), "division by zero");
+        self.wrap_period = wrap_period;
+    }
+
+    /// Returns how much time has advanced since the last [`update`](#method.update), as a
+    /// [`Duration`].
     #[inline]
     pub fn delta(&self) -> Duration {
         self.delta
     }
 
-    /// Returns how much time has advanced since the last [`update`](#method.update), as [`f32`] seconds.
+    /// Returns how much time has advanced since the last [`update`](#method.update), as [`f32`]
+    /// seconds.
     #[inline]
     pub fn delta_seconds(&self) -> f32 {
         self.delta_seconds
     }
 
-    /// Returns how much time has advanced since the last [`update`](#method.update), as [`f64`] seconds.
+    /// Returns how much time has advanced since the last [`update`](#method.update), as [`f64`]
+    /// seconds.
     #[inline]
     pub fn delta_seconds_f64(&self) -> f64 {
         self.delta_seconds_f64
@@ -226,7 +295,7 @@ impl Time {
 
     /// Returns how much time has advanced since [`startup`](#method.startup), as [`f32`] seconds.
     ///
-    /// **Note:** This is a monotonically increasing value. It's precision will degrade over time.
+    /// **Note:** This is a monotonically increasing value. Its precision will degrade over time.
     /// If you need an `f32` but that precision loss is unacceptable,
     /// use [`elapsed_seconds_wrapped`](#method.elapsed_seconds_wrapped).
     #[inline]
@@ -264,465 +333,209 @@ impl Time {
         self.elapsed_seconds_wrapped_f64
     }
 
-    /// Returns how much real time has elapsed since the last [`update`](#method.update), as a [`Duration`].
+    /// Returns a reference to the context of this specific clock.
     #[inline]
-    pub fn raw_delta(&self) -> Duration {
-        self.raw_delta
+    pub fn context(&self) -> &T {
+        &self.context
     }
 
-    /// Returns how much real time has elapsed since the last [`update`](#method.update), as [`f32`] seconds.
+    /// Returns a mutable reference to the context of this specific clock.
     #[inline]
-    pub fn raw_delta_seconds(&self) -> f32 {
-        self.raw_delta_seconds
+    pub fn context_mut(&mut self) -> &mut T {
+        &mut self.context
     }
 
-    /// Returns how much real time has elapsed since the last [`update`](#method.update), as [`f64`] seconds.
+    /// Returns a copy of this clock as fully generic clock without context.
     #[inline]
-    pub fn raw_delta_seconds_f64(&self) -> f64 {
-        self.raw_delta_seconds_f64
-    }
-
-    /// Returns how much real time has elapsed since [`startup`](#method.startup), as [`Duration`].
-    #[inline]
-    pub fn raw_elapsed(&self) -> Duration {
-        self.raw_elapsed
-    }
-
-    /// Returns how much real time has elapsed since [`startup`](#method.startup), as [`f32`] seconds.
-    ///
-    /// **Note:** This is a monotonically increasing value. It's precision will degrade over time.
-    /// If you need an `f32` but that precision loss is unacceptable,
-    /// use [`raw_elapsed_seconds_wrapped`](#method.raw_elapsed_seconds_wrapped).
-    #[inline]
-    pub fn raw_elapsed_seconds(&self) -> f32 {
-        self.raw_elapsed_seconds
-    }
-
-    /// Returns how much real time has elapsed since [`startup`](#method.startup), as [`f64`] seconds.
-    #[inline]
-    pub fn raw_elapsed_seconds_f64(&self) -> f64 {
-        self.raw_elapsed_seconds_f64
-    }
-
-    /// Returns how much real time has elapsed since [`startup`](#method.startup) modulo
-    /// the [`wrap_period`](#method.wrap_period), as [`Duration`].
-    #[inline]
-    pub fn raw_elapsed_wrapped(&self) -> Duration {
-        self.raw_elapsed_wrapped
-    }
-
-    /// Returns how much real time has elapsed since [`startup`](#method.startup) modulo
-    /// the [`wrap_period`](#method.wrap_period), as [`f32`] seconds.
-    ///
-    /// This method is intended for applications (e.g. shaders) that require an [`f32`] value but
-    /// suffer from the gradual precision loss of [`raw_elapsed_seconds`](#method.raw_elapsed_seconds).
-    #[inline]
-    pub fn raw_elapsed_seconds_wrapped(&self) -> f32 {
-        self.raw_elapsed_seconds_wrapped
-    }
-
-    /// Returns how much real time has elapsed since [`startup`](#method.startup) modulo
-    /// the [`wrap_period`](#method.wrap_period), as [`f64`] seconds.
-    #[inline]
-    pub fn raw_elapsed_seconds_wrapped_f64(&self) -> f64 {
-        self.raw_elapsed_seconds_wrapped_f64
-    }
-
-    /// Returns the modulus used to calculate [`elapsed_wrapped`](#method.elapsed_wrapped) and
-    /// [`raw_elapsed_wrapped`](#method.raw_elapsed_wrapped).
-    ///
-    /// **Note:** The default modulus is one hour.
-    #[inline]
-    pub fn wrap_period(&self) -> Duration {
-        self.wrap_period
-    }
-
-    /// Sets the modulus used to calculate [`elapsed_wrapped`](#method.elapsed_wrapped) and
-    /// [`raw_elapsed_wrapped`](#method.raw_elapsed_wrapped).
-    ///
-    /// **Note:** This will not take effect until the next update.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `wrap_period` is a zero-length duration.
-    #[inline]
-    pub fn set_wrap_period(&mut self, wrap_period: Duration) {
-        assert!(!wrap_period.is_zero(), "division by zero");
-        self.wrap_period = wrap_period;
-    }
-
-    /// Returns the speed the clock advances relative to your system clock, as [`f32`].
-    /// This is known as "time scaling" or "time dilation" in other engines.
-    ///
-    /// **Note:** This function will return zero when time is paused.
-    #[inline]
-    pub fn relative_speed(&self) -> f32 {
-        self.relative_speed_f64() as f32
-    }
-
-    /// Returns the speed the clock advances relative to your system clock, as [`f64`].
-    /// This is known as "time scaling" or "time dilation" in other engines.
-    ///
-    /// **Note:** This function will return zero when time is paused.
-    #[inline]
-    pub fn relative_speed_f64(&self) -> f64 {
-        if self.paused {
-            0.0
-        } else {
-            self.relative_speed
+    pub fn as_generic(&self) -> Time<()> {
+        Time {
+            context: (),
+            wrap_period: self.wrap_period,
+            delta: self.delta,
+            delta_seconds: self.delta_seconds,
+            delta_seconds_f64: self.delta_seconds_f64,
+            elapsed: self.elapsed,
+            elapsed_seconds: self.elapsed_seconds,
+            elapsed_seconds_f64: self.elapsed_seconds_f64,
+            elapsed_wrapped: self.elapsed_wrapped,
+            elapsed_seconds_wrapped: self.elapsed_seconds_wrapped,
+            elapsed_seconds_wrapped_f64: self.elapsed_seconds_wrapped_f64,
         }
-    }
-
-    /// Sets the speed the clock advances relative to your system clock, given as an [`f32`].
-    ///
-    /// For example, setting this to `2.0` will make the clock advance twice as fast as your system clock.
-    ///
-    /// **Note:** This does not affect the `raw_*` measurements.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `ratio` is negative or not finite.
-    #[inline]
-    pub fn set_relative_speed(&mut self, ratio: f32) {
-        self.set_relative_speed_f64(ratio as f64);
-    }
-
-    /// Sets the speed the clock advances relative to your system clock, given as an [`f64`].
-    ///
-    /// For example, setting this to `2.0` will make the clock advance twice as fast as your system clock.
-    ///
-    /// **Note:** This does not affect the `raw_*` measurements.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `ratio` is negative or not finite.
-    #[inline]
-    pub fn set_relative_speed_f64(&mut self, ratio: f64) {
-        assert!(ratio.is_finite(), "tried to go infinitely fast");
-        assert!(ratio >= 0.0, "tried to go back in time");
-        self.relative_speed = ratio;
-    }
-
-    /// Stops the clock, preventing it from advancing until resumed.
-    ///
-    /// **Note:** This does not affect the `raw_*` measurements.
-    #[inline]
-    pub fn pause(&mut self) {
-        self.paused = true;
-    }
-
-    /// Resumes the clock if paused.
-    #[inline]
-    pub fn unpause(&mut self) {
-        self.paused = false;
-    }
-
-    /// Returns `true` if the clock is currently paused.
-    #[inline]
-    pub fn is_paused(&self) -> bool {
-        self.paused
     }
 }
 
-fn duration_div_rem(dividend: Duration, divisor: Duration) -> (u32, Duration) {
+impl<T: Default> Default for Time<T> {
+    fn default() -> Self {
+        Self {
+            context: Default::default(),
+            wrap_period: Self::DEFAULT_WRAP_PERIOD,
+            delta: Duration::ZERO,
+            delta_seconds: 0.0,
+            delta_seconds_f64: 0.0,
+            elapsed: Duration::ZERO,
+            elapsed_seconds: 0.0,
+            elapsed_seconds_f64: 0.0,
+            elapsed_wrapped: Duration::ZERO,
+            elapsed_seconds_wrapped: 0.0,
+            elapsed_seconds_wrapped_f64: 0.0,
+        }
+    }
+}
+
+fn duration_rem(dividend: Duration, divisor: Duration) -> Duration {
     // `Duration` does not have a built-in modulo operation
     let quotient = (dividend.as_nanos() / divisor.as_nanos()) as u32;
-    let remainder = dividend - (quotient * divisor);
-    (quotient, remainder)
+    dividend - (quotient * divisor)
 }
 
 #[cfg(test)]
-#[allow(clippy::float_cmp)]
-mod tests {
-    use super::Time;
-    use bevy_utils::{Duration, Instant};
-
-    fn assert_float_eq(a: f32, b: f32) {
-        assert!((a - b).abs() <= f32::EPSILON, "{a} != {b}");
-    }
+mod test {
+    use super::*;
 
     #[test]
-    fn update_test() {
-        let start_instant = Instant::now();
-        let mut time = Time::new(start_instant);
+    fn test_initial_state() {
+        let time: Time = Time::default();
 
-        // Ensure `time` was constructed correctly.
-        assert_eq!(time.startup(), start_instant);
-        assert_eq!(time.first_update(), None);
-        assert_eq!(time.last_update(), None);
-        assert_eq!(time.relative_speed(), 1.0);
+        assert_eq!(time.wrap_period(), Time::<()>::DEFAULT_WRAP_PERIOD);
         assert_eq!(time.delta(), Duration::ZERO);
         assert_eq!(time.delta_seconds(), 0.0);
         assert_eq!(time.delta_seconds_f64(), 0.0);
-        assert_eq!(time.raw_delta(), Duration::ZERO);
-        assert_eq!(time.raw_delta_seconds(), 0.0);
-        assert_eq!(time.raw_delta_seconds_f64(), 0.0);
         assert_eq!(time.elapsed(), Duration::ZERO);
         assert_eq!(time.elapsed_seconds(), 0.0);
         assert_eq!(time.elapsed_seconds_f64(), 0.0);
-        assert_eq!(time.raw_elapsed(), Duration::ZERO);
-        assert_eq!(time.raw_elapsed_seconds(), 0.0);
-        assert_eq!(time.raw_elapsed_seconds_f64(), 0.0);
+        assert_eq!(time.elapsed_wrapped(), Duration::ZERO);
+        assert_eq!(time.elapsed_seconds_wrapped(), 0.0);
+        assert_eq!(time.elapsed_seconds_wrapped_f64(), 0.0);
+    }
 
-        // Update `time` and check results.
-        // The first update to `time` normally happens before other systems have run,
-        // so the first delta doesn't appear until the second update.
-        let first_update_instant = Instant::now();
-        time.update_with_instant(first_update_instant);
+    #[test]
+    fn test_advance_by() {
+        let mut time: Time = Time::default();
 
-        assert_eq!(time.startup(), start_instant);
-        assert_eq!(time.first_update(), Some(first_update_instant));
-        assert_eq!(time.last_update(), Some(first_update_instant));
-        assert_eq!(time.relative_speed(), 1.0);
+        time.advance_by(Duration::from_millis(250));
+
+        assert_eq!(time.delta(), Duration::from_millis(250));
+        assert_eq!(time.delta_seconds(), 0.25);
+        assert_eq!(time.delta_seconds_f64(), 0.25);
+        assert_eq!(time.elapsed(), Duration::from_millis(250));
+        assert_eq!(time.elapsed_seconds(), 0.25);
+        assert_eq!(time.elapsed_seconds_f64(), 0.25);
+
+        time.advance_by(Duration::from_millis(500));
+
+        assert_eq!(time.delta(), Duration::from_millis(500));
+        assert_eq!(time.delta_seconds(), 0.5);
+        assert_eq!(time.delta_seconds_f64(), 0.5);
+        assert_eq!(time.elapsed(), Duration::from_millis(750));
+        assert_eq!(time.elapsed_seconds(), 0.75);
+        assert_eq!(time.elapsed_seconds_f64(), 0.75);
+
+        time.advance_by(Duration::ZERO);
+
         assert_eq!(time.delta(), Duration::ZERO);
         assert_eq!(time.delta_seconds(), 0.0);
         assert_eq!(time.delta_seconds_f64(), 0.0);
-        assert_eq!(time.raw_delta(), Duration::ZERO);
-        assert_eq!(time.raw_delta_seconds(), 0.0);
-        assert_eq!(time.raw_delta_seconds_f64(), 0.0);
-        assert_eq!(time.elapsed(), first_update_instant - start_instant,);
-        assert_eq!(
-            time.elapsed_seconds(),
-            (first_update_instant - start_instant).as_secs_f32(),
-        );
-        assert_eq!(
-            time.elapsed_seconds_f64(),
-            (first_update_instant - start_instant).as_secs_f64(),
-        );
-        assert_eq!(time.raw_elapsed(), first_update_instant - start_instant,);
-        assert_eq!(
-            time.raw_elapsed_seconds(),
-            (first_update_instant - start_instant).as_secs_f32(),
-        );
-        assert_eq!(
-            time.raw_elapsed_seconds_f64(),
-            (first_update_instant - start_instant).as_secs_f64(),
-        );
-
-        // Update `time` again and check results.
-        // At this point its safe to use time.delta().
-        let second_update_instant = Instant::now();
-        time.update_with_instant(second_update_instant);
-        assert_eq!(time.startup(), start_instant);
-        assert_eq!(time.first_update(), Some(first_update_instant));
-        assert_eq!(time.last_update(), Some(second_update_instant));
-        assert_eq!(time.relative_speed(), 1.0);
-        assert_eq!(time.delta(), second_update_instant - first_update_instant);
-        assert_eq!(
-            time.delta_seconds(),
-            (second_update_instant - first_update_instant).as_secs_f32(),
-        );
-        assert_eq!(
-            time.delta_seconds_f64(),
-            (second_update_instant - first_update_instant).as_secs_f64(),
-        );
-        assert_eq!(
-            time.raw_delta(),
-            second_update_instant - first_update_instant,
-        );
-        assert_eq!(
-            time.raw_delta_seconds(),
-            (second_update_instant - first_update_instant).as_secs_f32(),
-        );
-        assert_eq!(
-            time.raw_delta_seconds_f64(),
-            (second_update_instant - first_update_instant).as_secs_f64(),
-        );
-        assert_eq!(time.elapsed(), second_update_instant - start_instant,);
-        assert_eq!(
-            time.elapsed_seconds(),
-            (second_update_instant - start_instant).as_secs_f32(),
-        );
-        assert_eq!(
-            time.elapsed_seconds_f64(),
-            (second_update_instant - start_instant).as_secs_f64(),
-        );
-        assert_eq!(time.raw_elapsed(), second_update_instant - start_instant,);
-        assert_eq!(
-            time.raw_elapsed_seconds(),
-            (second_update_instant - start_instant).as_secs_f32(),
-        );
-        assert_eq!(
-            time.raw_elapsed_seconds_f64(),
-            (second_update_instant - start_instant).as_secs_f64(),
-        );
+        assert_eq!(time.elapsed(), Duration::from_millis(750));
+        assert_eq!(time.elapsed_seconds(), 0.75);
+        assert_eq!(time.elapsed_seconds_f64(), 0.75);
     }
 
     #[test]
-    fn wrapping_test() {
-        let start_instant = Instant::now();
+    fn test_advance_to() {
+        let mut time: Time = Time::default();
 
-        let mut time = Time {
-            startup: start_instant,
-            wrap_period: Duration::from_secs(3),
-            ..Default::default()
-        };
+        time.advance_to(Duration::from_millis(250));
 
-        assert_eq!(time.elapsed_seconds_wrapped(), 0.0);
+        assert_eq!(time.delta(), Duration::from_millis(250));
+        assert_eq!(time.delta_seconds(), 0.25);
+        assert_eq!(time.delta_seconds_f64(), 0.25);
+        assert_eq!(time.elapsed(), Duration::from_millis(250));
+        assert_eq!(time.elapsed_seconds(), 0.25);
+        assert_eq!(time.elapsed_seconds_f64(), 0.25);
 
-        time.update_with_instant(start_instant + Duration::from_secs(1));
-        assert_float_eq(time.elapsed_seconds_wrapped(), 1.0);
+        time.advance_to(Duration::from_millis(750));
 
-        time.update_with_instant(start_instant + Duration::from_secs(2));
-        assert_float_eq(time.elapsed_seconds_wrapped(), 2.0);
+        assert_eq!(time.delta(), Duration::from_millis(500));
+        assert_eq!(time.delta_seconds(), 0.5);
+        assert_eq!(time.delta_seconds_f64(), 0.5);
+        assert_eq!(time.elapsed(), Duration::from_millis(750));
+        assert_eq!(time.elapsed_seconds(), 0.75);
+        assert_eq!(time.elapsed_seconds_f64(), 0.75);
 
-        time.update_with_instant(start_instant + Duration::from_secs(3));
-        assert_float_eq(time.elapsed_seconds_wrapped(), 0.0);
+        time.advance_to(Duration::from_millis(750));
 
-        time.update_with_instant(start_instant + Duration::from_secs(4));
-        assert_float_eq(time.elapsed_seconds_wrapped(), 1.0);
-    }
-
-    #[test]
-    fn relative_speed_test() {
-        let start_instant = Instant::now();
-        let mut time = Time::new(start_instant);
-
-        let first_update_instant = Instant::now();
-        time.update_with_instant(first_update_instant);
-
-        // Update `time` again and check results.
-        // At this point its safe to use time.delta().
-        let second_update_instant = Instant::now();
-        time.update_with_instant(second_update_instant);
-        assert_eq!(time.startup(), start_instant);
-        assert_eq!(time.first_update(), Some(first_update_instant));
-        assert_eq!(time.last_update(), Some(second_update_instant));
-        assert_eq!(time.relative_speed(), 1.0);
-        assert_eq!(time.delta(), second_update_instant - first_update_instant);
-        assert_eq!(
-            time.delta_seconds(),
-            (second_update_instant - first_update_instant).as_secs_f32(),
-        );
-        assert_eq!(
-            time.delta_seconds_f64(),
-            (second_update_instant - first_update_instant).as_secs_f64(),
-        );
-        assert_eq!(
-            time.raw_delta(),
-            second_update_instant - first_update_instant,
-        );
-        assert_eq!(
-            time.raw_delta_seconds(),
-            (second_update_instant - first_update_instant).as_secs_f32(),
-        );
-        assert_eq!(
-            time.raw_delta_seconds_f64(),
-            (second_update_instant - first_update_instant).as_secs_f64(),
-        );
-        assert_eq!(time.elapsed(), second_update_instant - start_instant,);
-        assert_eq!(
-            time.elapsed_seconds(),
-            (second_update_instant - start_instant).as_secs_f32(),
-        );
-        assert_eq!(
-            time.elapsed_seconds_f64(),
-            (second_update_instant - start_instant).as_secs_f64(),
-        );
-        assert_eq!(time.raw_elapsed(), second_update_instant - start_instant,);
-        assert_eq!(
-            time.raw_elapsed_seconds(),
-            (second_update_instant - start_instant).as_secs_f32(),
-        );
-        assert_eq!(
-            time.raw_elapsed_seconds_f64(),
-            (second_update_instant - start_instant).as_secs_f64(),
-        );
-
-        // Make app time advance at 2x the rate of your system clock.
-        time.set_relative_speed(2.0);
-
-        // Update `time` again 1 second later.
-        let elapsed = Duration::from_secs(1);
-        let third_update_instant = second_update_instant + elapsed;
-        time.update_with_instant(third_update_instant);
-
-        // Since app is advancing 2x your system clock, expect time
-        // to have advanced by twice the amount of real time elapsed.
-        assert_eq!(time.startup(), start_instant);
-        assert_eq!(time.first_update(), Some(first_update_instant));
-        assert_eq!(time.last_update(), Some(third_update_instant));
-        assert_eq!(time.relative_speed(), 2.0);
-        assert_eq!(time.delta(), elapsed.mul_f32(2.0));
-        assert_eq!(time.delta_seconds(), elapsed.mul_f32(2.0).as_secs_f32());
-        assert_eq!(time.delta_seconds_f64(), elapsed.mul_f32(2.0).as_secs_f64());
-        assert_eq!(time.raw_delta(), elapsed);
-        assert_eq!(time.raw_delta_seconds(), elapsed.as_secs_f32());
-        assert_eq!(time.raw_delta_seconds_f64(), elapsed.as_secs_f64());
-        assert_eq!(
-            time.elapsed(),
-            second_update_instant - start_instant + elapsed.mul_f32(2.0),
-        );
-        assert_eq!(
-            time.elapsed_seconds(),
-            (second_update_instant - start_instant + elapsed.mul_f32(2.0)).as_secs_f32(),
-        );
-        assert_eq!(
-            time.elapsed_seconds_f64(),
-            (second_update_instant - start_instant + elapsed.mul_f32(2.0)).as_secs_f64(),
-        );
-        assert_eq!(
-            time.raw_elapsed(),
-            second_update_instant - start_instant + elapsed,
-        );
-        assert_eq!(
-            time.raw_elapsed_seconds(),
-            (second_update_instant - start_instant + elapsed).as_secs_f32(),
-        );
-        assert_eq!(
-            time.raw_elapsed_seconds_f64(),
-            (second_update_instant - start_instant + elapsed).as_secs_f64(),
-        );
-    }
-
-    #[test]
-    fn pause_test() {
-        let start_instant = Instant::now();
-        let mut time = Time::new(start_instant);
-
-        let first_update_instant = Instant::now();
-        time.update_with_instant(first_update_instant);
-
-        assert!(!time.is_paused());
-        assert_eq!(time.relative_speed(), 1.0);
-
-        time.pause();
-
-        assert!(time.is_paused());
-        assert_eq!(time.relative_speed(), 0.0);
-
-        let second_update_instant = Instant::now();
-        time.update_with_instant(second_update_instant);
-        assert_eq!(time.startup(), start_instant);
-        assert_eq!(time.first_update(), Some(first_update_instant));
-        assert_eq!(time.last_update(), Some(second_update_instant));
         assert_eq!(time.delta(), Duration::ZERO);
-        assert_eq!(
-            time.raw_delta(),
-            second_update_instant - first_update_instant,
-        );
-        assert_eq!(time.elapsed(), first_update_instant - start_instant);
-        assert_eq!(time.raw_elapsed(), second_update_instant - start_instant);
+        assert_eq!(time.delta_seconds(), 0.0);
+        assert_eq!(time.delta_seconds_f64(), 0.0);
+        assert_eq!(time.elapsed(), Duration::from_millis(750));
+        assert_eq!(time.elapsed_seconds(), 0.75);
+        assert_eq!(time.elapsed_seconds_f64(), 0.75);
+    }
 
-        time.unpause();
+    #[test]
+    #[should_panic]
+    fn test_advance_to_backwards_panics() {
+        let mut time: Time = Time::default();
 
-        assert!(!time.is_paused());
-        assert_eq!(time.relative_speed(), 1.0);
+        time.advance_to(Duration::from_millis(750));
 
-        let third_update_instant = Instant::now();
-        time.update_with_instant(third_update_instant);
-        assert_eq!(time.startup(), start_instant);
-        assert_eq!(time.first_update(), Some(first_update_instant));
-        assert_eq!(time.last_update(), Some(third_update_instant));
-        assert_eq!(time.delta(), third_update_instant - second_update_instant);
-        assert_eq!(
-            time.raw_delta(),
-            third_update_instant - second_update_instant,
-        );
-        assert_eq!(
-            time.elapsed(),
-            (third_update_instant - second_update_instant) + (first_update_instant - start_instant),
-        );
-        assert_eq!(time.raw_elapsed(), third_update_instant - start_instant);
+        time.advance_to(Duration::from_millis(250));
+    }
+
+    #[test]
+    fn test_wrapping() {
+        let mut time: Time = Time::default();
+        time.set_wrap_period(Duration::from_secs(3));
+
+        time.advance_by(Duration::from_secs(2));
+
+        assert_eq!(time.elapsed_wrapped(), Duration::from_secs(2));
+        assert_eq!(time.elapsed_seconds_wrapped(), 2.0);
+        assert_eq!(time.elapsed_seconds_wrapped_f64(), 2.0);
+
+        time.advance_by(Duration::from_secs(2));
+
+        assert_eq!(time.elapsed_wrapped(), Duration::from_secs(1));
+        assert_eq!(time.elapsed_seconds_wrapped(), 1.0);
+        assert_eq!(time.elapsed_seconds_wrapped_f64(), 1.0);
+
+        time.advance_by(Duration::from_secs(2));
+
+        assert_eq!(time.elapsed_wrapped(), Duration::ZERO);
+        assert_eq!(time.elapsed_seconds_wrapped(), 0.0);
+        assert_eq!(time.elapsed_seconds_wrapped_f64(), 0.0);
+
+        time.advance_by(Duration::new(3, 250_000_000));
+
+        assert_eq!(time.elapsed_wrapped(), Duration::from_millis(250));
+        assert_eq!(time.elapsed_seconds_wrapped(), 0.25);
+        assert_eq!(time.elapsed_seconds_wrapped_f64(), 0.25);
+    }
+
+    #[test]
+    fn test_wrapping_change() {
+        let mut time: Time = Time::default();
+        time.set_wrap_period(Duration::from_secs(5));
+
+        time.advance_by(Duration::from_secs(8));
+
+        assert_eq!(time.elapsed_wrapped(), Duration::from_secs(3));
+        assert_eq!(time.elapsed_seconds_wrapped(), 3.0);
+        assert_eq!(time.elapsed_seconds_wrapped_f64(), 3.0);
+
+        time.set_wrap_period(Duration::from_secs(2));
+
+        assert_eq!(time.elapsed_wrapped(), Duration::from_secs(3));
+        assert_eq!(time.elapsed_seconds_wrapped(), 3.0);
+        assert_eq!(time.elapsed_seconds_wrapped_f64(), 3.0);
+
+        time.advance_by(Duration::ZERO);
+
+        // Time will wrap to modulo duration from full `elapsed()`, not to what
+        // is left in `elapsed_wrapped()`. This test of values is here to ensure
+        // that we notice if we change that behaviour.
+        assert_eq!(time.elapsed_wrapped(), Duration::from_secs(0));
+        assert_eq!(time.elapsed_seconds_wrapped(), 0.0);
+        assert_eq!(time.elapsed_seconds_wrapped_f64(), 0.0);
     }
 }

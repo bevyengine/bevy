@@ -2,7 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::prelude::*;
+use bevy::{color::palettes::basic::YELLOW, prelude::*};
 
 // A struct for additional data of for a moving cube.
 #[derive(Component)]
@@ -24,10 +24,16 @@ struct Center {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(move_cube)
-        .add_system(rotate_cube)
-        .add_system(scale_down_sphere_proportional_to_cube_travel_distance)
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (
+                move_cube,
+                rotate_cube,
+                scale_down_sphere_proportional_to_cube_travel_distance,
+            )
+                .chain(),
+        )
         .run();
 }
 
@@ -40,14 +46,8 @@ fn setup(
     // Add an object (sphere) for visualizing scaling.
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(
-                Mesh::try_from(shape::Icosphere {
-                    radius: 3.0,
-                    subdivisions: 32,
-                })
-                .unwrap(),
-            ),
-            material: materials.add(Color::YELLOW.into()),
+            mesh: meshes.add(Sphere::new(3.0).mesh().ico(32).unwrap()),
+            material: materials.add(Color::from(YELLOW)),
             transform: Transform::from_translation(Vec3::ZERO),
             ..default()
         },
@@ -67,8 +67,8 @@ fn setup(
         Transform::from_translation(Vec3::Z * -10.0).with_rotation(Quat::from_rotation_y(PI / 2.));
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::WHITE.into()),
+            mesh: meshes.add(Cuboid::default()),
+            material: materials.add(Color::WHITE),
             transform: cube_spawn,
             ..default()
         },
@@ -86,8 +86,8 @@ fn setup(
     });
 
     // Add a light source for better 3d visibility.
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_translation(Vec3::ONE * 3.0),
+    commands.spawn(DirectionalLightBundle {
+        transform: Transform::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 }
@@ -117,7 +117,7 @@ fn rotate_cube(
     // Update the rotation of the cube(s).
     for (mut transform, cube) in &mut cubes {
         // Calculate the rotation of the cube if it would be looking at the sphere in the center.
-        let look_at_sphere = transform.looking_at(center, transform.local_y());
+        let look_at_sphere = transform.looking_at(center, *transform.local_y());
         // Interpolate between the current rotation and the fully turned rotation
         // when looking a the sphere,  with a given turn speed to get a smooth motion.
         // With higher speed the curvature of the orbit would be smaller.

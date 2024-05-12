@@ -3,6 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    color::palettes::basic::{BLUE, LIME, RED},
     pbr::{CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver},
     prelude::*,
 };
@@ -16,9 +17,8 @@ fn main() {
     );
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(toggle_light)
-        .add_system(toggle_shadows)
+        .add_systems(Startup, setup)
+        .add_systems(Update, (toggle_light, toggle_shadows))
         .run();
 }
 
@@ -37,18 +37,12 @@ fn setup(
         perceptual_roughness: 1.0,
         ..default()
     });
-    let sphere_handle = meshes.add(
-        Mesh::try_from(shape::Icosphere {
-            radius: sphere_radius,
-            ..default()
-        })
-        .unwrap(),
-    );
+    let sphere_handle = meshes.add(Sphere::new(sphere_radius));
 
     // sphere - initially a caster
     commands.spawn(PbrBundle {
         mesh: sphere_handle.clone(),
-        material: materials.add(Color::RED.into()),
+        material: materials.add(Color::from(RED)),
         transform: Transform::from_xyz(-1.0, spawn_height, 0.0),
         ..default()
     });
@@ -57,7 +51,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: sphere_handle,
-            material: materials.add(Color::BLUE.into()),
+            material: materials.add(Color::from(BLUE)),
             transform: Transform::from_xyz(1.0, spawn_height, 0.0),
             ..default()
         },
@@ -67,8 +61,8 @@ fn setup(
     // floating plane - initially not a shadow receiver and not a caster
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Plane::from_size(20.0).into()),
-            material: materials.add(Color::GREEN.into()),
+            mesh: meshes.add(Plane3d::default().mesh().size(20.0, 20.0)),
+            material: materials.add(Color::from(LIME)),
             transform: Transform::from_xyz(0.0, 1.0, -10.0),
             ..default()
         },
@@ -78,7 +72,7 @@ fn setup(
 
     // lower ground plane - initially a shadow receiver
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(20.0).into()),
+        mesh: meshes.add(Plane3d::default().mesh().size(20.0, 20.0)),
         material: white_handle,
         ..default()
     });
@@ -99,7 +93,7 @@ fn setup(
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 100000.0,
+            illuminance: light_consts::lux::OVERCAST_DAY,
             shadows_enabled: true,
             ..default()
         },
@@ -127,15 +121,15 @@ fn setup(
 }
 
 fn toggle_light(
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut point_lights: Query<&mut PointLight>,
     mut directional_lights: Query<&mut DirectionalLight>,
 ) {
-    if input.just_pressed(KeyCode::L) {
+    if input.just_pressed(KeyCode::KeyL) {
         for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
                 println!("Using PointLight");
-                100000000.0
+                1_000_000.0 // Mini-sun point light
             } else {
                 0.0
             };
@@ -143,7 +137,7 @@ fn toggle_light(
         for mut light in &mut directional_lights {
             light.illuminance = if light.illuminance == 0.0 {
                 println!("Using DirectionalLight");
-                100000.0
+                light_consts::lux::OVERCAST_DAY
             } else {
                 0.0
             };
@@ -153,7 +147,7 @@ fn toggle_light(
 
 fn toggle_shadows(
     mut commands: Commands,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut queries: ParamSet<(
         Query<Entity, (With<Handle<Mesh>>, With<NotShadowCaster>)>,
         Query<Entity, (With<Handle<Mesh>>, With<NotShadowReceiver>)>,
@@ -161,7 +155,7 @@ fn toggle_shadows(
         Query<Entity, (With<Handle<Mesh>>, Without<NotShadowReceiver>)>,
     )>,
 ) {
-    if input.just_pressed(KeyCode::C) {
+    if input.just_pressed(KeyCode::KeyC) {
         println!("Toggling casters");
         for entity in queries.p0().iter() {
             commands.entity(entity).remove::<NotShadowCaster>();
@@ -170,7 +164,7 @@ fn toggle_shadows(
             commands.entity(entity).insert(NotShadowCaster);
         }
     }
-    if input.just_pressed(KeyCode::R) {
+    if input.just_pressed(KeyCode::KeyR) {
         println!("Toggling receivers");
         for entity in queries.p1().iter() {
             commands.entity(entity).remove::<NotShadowReceiver>();

@@ -1,7 +1,9 @@
 use crate::{
     ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo,
+    TypePath, TypePathTable,
 };
 use std::any::{Any, TypeId};
+use std::fmt::Debug;
 
 /// A static accessor to compile-time type information.
 ///
@@ -23,7 +25,7 @@ use std::any::{Any, TypeId};
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, ValueInfo};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, ValueInfo, ApplyError};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///
@@ -40,23 +42,25 @@ use std::any::{Any, TypeId};
 ///         NamedField::new::<usize >("foo"),
 ///         NamedField::new::<(f32, f32) >("bar"),
 ///       ];
-///       let info = StructInfo::new::<Self>("MyStruct", &fields);
+///       let info = StructInfo::new::<Self>(&fields);
 ///       TypeInfo::Struct(info)
 ///     })
 ///   }
 /// }
 ///
-/// #
+/// # impl TypePath for MyStruct {
+/// #     fn type_path() -> &'static str { todo!() }
+/// #     fn short_type_path() -> &'static str { todo!() }
+/// # }
 /// # impl Reflect for MyStruct {
-/// #   fn type_name(&self) -> &str { todo!() }
-/// #   fn get_type_info(&self) -> &'static TypeInfo { todo!() }
+/// #   fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
 /// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #   fn as_any(&self) -> &dyn Any { todo!() }
 /// #   fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
 /// #   fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
 /// #   fn as_reflect(&self) -> &dyn Reflect { todo!() }
 /// #   fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
-/// #   fn apply(&mut self, value: &dyn Reflect) { todo!() }
+/// #   fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> { todo!() }
 /// #   fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
 /// #   fn reflect_ref(&self) -> ReflectRef { todo!() }
 /// #   fn reflect_mut(&mut self) -> ReflectMut { todo!() }
@@ -66,7 +70,7 @@ use std::any::{Any, TypeId};
 /// ```
 ///
 /// [utility]: crate::utility
-pub trait Typed: Reflect {
+pub trait Typed: Reflect + TypePath {
     /// Returns the compile-time [info] for the underlying type.
     ///
     /// [info]: TypeInfo
@@ -78,23 +82,22 @@ pub trait Typed: Reflect {
 /// Generally, for any given type, this value can be retrieved one of three ways:
 ///
 /// 1. [`Typed::type_info`]
-/// 2. [`Reflect::get_type_info`]
+/// 2. [`Reflect::get_represented_type_info`]
 /// 3. [`TypeRegistry::get_type_info`]
 ///
 /// Each return a static reference to [`TypeInfo`], but they all have their own use cases.
 /// For example, if you know the type at compile time, [`Typed::type_info`] is probably
-/// the simplest. If all you have is a `dyn Reflect`, you'll probably want [`Reflect::get_type_info`].
-/// Lastly, if all you have is a [`TypeId`] or [type name], you will need to go through
+/// the simplest. If all you have is a `dyn Reflect`, you'll probably want [`Reflect::get_represented_type_info`].
+/// Lastly, if all you have is a [`TypeId`] or [type path], you will need to go through
 /// [`TypeRegistry::get_type_info`].
 ///
 /// You may also opt to use [`TypeRegistry::get_type_info`] in place of the other methods simply because
 /// it can be more performant. This is because those other methods may require attaining a lock on
 /// the static [`TypeInfo`], while the registry simply checks a map.
 ///
-/// [`Reflect::get_type_info`]: crate::Reflect::get_type_info
+/// [`Reflect::get_represented_type_info`]: Reflect::get_represented_type_info
 /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
-/// [`TypeId`]: std::any::TypeId
-/// [type name]: std::any::type_name
+/// [type path]: TypePath::type_path
 #[derive(Debug, Clone)]
 pub enum TypeInfo {
     Struct(StructInfo),
@@ -105,10 +108,6 @@ pub enum TypeInfo {
     Map(MapInfo),
     Enum(EnumInfo),
     Value(ValueInfo),
-    /// Type information for "dynamic" types whose metadata can't be known at compile-time.
-    ///
-    /// This includes structs like [`DynamicStruct`](crate::DynamicStruct) and [`DynamicList`](crate::DynamicList).
-    Dynamic(DynamicInfo),
 }
 
 impl TypeInfo {
@@ -123,25 +122,33 @@ impl TypeInfo {
             Self::Map(info) => info.type_id(),
             Self::Enum(info) => info.type_id(),
             Self::Value(info) => info.type_id(),
-            Self::Dynamic(info) => info.type_id(),
         }
     }
 
-    /// The [name] of the underlying type.
+    /// A representation of the type path of the underlying type.
     ///
-    /// [name]: std::any::type_name
-    pub fn type_name(&self) -> &'static str {
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn type_path_table(&self) -> &TypePathTable {
         match self {
-            Self::Struct(info) => info.type_name(),
-            Self::TupleStruct(info) => info.type_name(),
-            Self::Tuple(info) => info.type_name(),
-            Self::List(info) => info.type_name(),
-            Self::Array(info) => info.type_name(),
-            Self::Map(info) => info.type_name(),
-            Self::Enum(info) => info.type_name(),
-            Self::Value(info) => info.type_name(),
-            Self::Dynamic(info) => info.type_name(),
+            Self::Struct(info) => info.type_path_table(),
+            Self::TupleStruct(info) => info.type_path_table(),
+            Self::Tuple(info) => info.type_path_table(),
+            Self::List(info) => info.type_path_table(),
+            Self::Array(info) => info.type_path_table(),
+            Self::Map(info) => info.type_path_table(),
+            Self::Enum(info) => info.type_path_table(),
+            Self::Value(info) => info.type_path_table(),
         }
+    }
+
+    /// The [stable, full type path] of the underlying type.
+    ///
+    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
+    ///
+    /// [stable, full type path]: TypePath
+    /// [`type_path_table`]: Self::type_path_table
+    pub fn type_path(&self) -> &'static str {
+        self.type_path_table().path()
     }
 
     /// Check if the given type matches the underlying type.
@@ -161,7 +168,6 @@ impl TypeInfo {
             Self::Map(info) => info.docs(),
             Self::Enum(info) => info.docs(),
             Self::Value(info) => info.docs(),
-            Self::Dynamic(info) => info.docs(),
         }
     }
 }
@@ -172,20 +178,20 @@ impl TypeInfo {
 /// due to technical reasons (or by definition), but it can also be a purposeful choice.
 ///
 /// For example, [`i32`] cannot be broken down any further, so it is represented by a [`ValueInfo`].
-/// And while [`String`] itself is a struct, it's fields are private, so we don't really treat
+/// And while [`String`] itself is a struct, its fields are private, so we don't really treat
 /// it _as_ a struct. It therefore makes more sense to represent it as a [`ValueInfo`].
 #[derive(Debug, Clone)]
 pub struct ValueInfo {
-    type_name: &'static str,
+    type_path: TypePathTable,
     type_id: TypeId,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
 
 impl ValueInfo {
-    pub fn new<T: Reflect + ?Sized>() -> Self {
+    pub fn new<T: Reflect + TypePath + ?Sized>() -> Self {
         Self {
-            type_name: std::any::type_name::<T>(),
+            type_path: TypePathTable::of::<T>(),
             type_id: TypeId::of::<T>(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -198,11 +204,21 @@ impl ValueInfo {
         Self { docs: doc, ..self }
     }
 
-    /// The [type name] of the value.
+    /// A representation of the type path of the value.
     ///
-    /// [type name]: std::any::type_name
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn type_path_table(&self) -> &TypePathTable {
+        &self.type_path
+    }
+
+    /// The [stable, full type path] of the value.
+    ///
+    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
+    ///
+    /// [stable, full type path]: TypePath
+    /// [`type_path_table`]: Self::type_path_table
+    pub fn type_path(&self) -> &'static str {
+        self.type_path_table().path()
     }
 
     /// The [`TypeId`] of the value.
@@ -216,62 +232,6 @@ impl ValueInfo {
     }
 
     /// The docstring of this dynamic value, if any.
-    #[cfg(feature = "documentation")]
-    pub fn docs(&self) -> Option<&'static str> {
-        self.docs
-    }
-}
-
-/// A container for compile-time info related to Bevy's _dynamic_ types, including primitives.
-///
-/// This is functionally the same as [`ValueInfo`], however, semantically it refers to dynamic
-/// types such as [`DynamicStruct`], [`DynamicTuple`], [`DynamicList`], etc.
-///
-/// [`DynamicStruct`]: crate::DynamicStruct
-/// [`DynamicTuple`]: crate::DynamicTuple
-/// [`DynamicList`]: crate::DynamicList
-#[derive(Debug, Clone)]
-pub struct DynamicInfo {
-    type_name: &'static str,
-    type_id: TypeId,
-    #[cfg(feature = "documentation")]
-    docs: Option<&'static str>,
-}
-
-impl DynamicInfo {
-    pub fn new<T: Reflect>() -> Self {
-        Self {
-            type_name: std::any::type_name::<T>(),
-            type_id: TypeId::of::<T>(),
-            #[cfg(feature = "documentation")]
-            docs: None,
-        }
-    }
-
-    /// Sets the docstring for this dynamic value.
-    #[cfg(feature = "documentation")]
-    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
-        Self { docs, ..self }
-    }
-
-    /// The [type name] of the dynamic value.
-    ///
-    /// [type name]: std::any::type_name
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
-    }
-
-    /// The [`TypeId`] of the dynamic value.
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// Check if the given type matches the dynamic value type.
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
-    }
-
-    /// The docstring of this value, if any.
     #[cfg(feature = "documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs

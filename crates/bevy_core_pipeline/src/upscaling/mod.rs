@@ -3,7 +3,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_render::camera::{CameraOutputMode, ExtractedCamera};
 use bevy_render::view::ViewTarget;
-use bevy_render::{render_resource::*, RenderApp, RenderSet};
+use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
 
 mod node;
 
@@ -13,8 +13,11 @@ pub struct UpscalingPlugin;
 
 impl Plugin for UpscalingPlugin {
     fn build(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_system(queue_view_upscaling_pipelines.in_set(RenderSet::Queue));
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.add_systems(
+                Render,
+                prepare_view_upscaling_pipelines.in_set(RenderSet::Prepare),
+            );
         }
     }
 }
@@ -22,9 +25,9 @@ impl Plugin for UpscalingPlugin {
 #[derive(Component)]
 pub struct ViewUpscalingPipeline(CachedRenderPipelineId);
 
-fn queue_view_upscaling_pipelines(
+fn prepare_view_upscaling_pipelines(
     mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,
     blit_pipeline: Res<BlitPipeline>,
     view_targets: Query<(Entity, &ViewTarget, Option<&ExtractedCamera>)>,
@@ -45,6 +48,9 @@ fn queue_view_upscaling_pipelines(
             samples: 1,
         };
         let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);
+
+        // Ensure the pipeline is loaded before continuing the frame to prevent frames without any GPU work submitted
+        pipeline_cache.block_on_render_pipeline(pipeline);
 
         commands
             .entity(entity)

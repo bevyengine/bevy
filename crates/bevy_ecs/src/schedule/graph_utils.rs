@@ -1,17 +1,19 @@
 use std::fmt::Debug;
 
-use bevy_utils::{
-    petgraph::{algo::TarjanScc, graphmap::NodeTrait, prelude::*},
-    HashMap, HashSet,
-};
+use bevy_utils::{HashMap, HashSet};
 use fixedbitset::FixedBitSet;
+use petgraph::{algo::TarjanScc, graphmap::NodeTrait, prelude::*};
 
 use crate::schedule::set::*;
 
-/// Unique identifier for a system or system set.
+/// Unique identifier for a system or system set stored in a [`ScheduleGraph`].
+///
+/// [`ScheduleGraph`]: super::ScheduleGraph
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum NodeId {
+    /// Identifier for a system.
     System(usize),
+    /// Identifier for a system set.
     Set(usize),
 }
 
@@ -41,17 +43,21 @@ pub(crate) enum DependencyKind {
     Before,
     /// A node that should be succeeded.
     After,
+    /// A node that should be preceded and will **not** automatically insert an instance of `apply_deferred` on the edge.
+    BeforeNoSync,
+    /// A node that should be succeeded and will **not** automatically insert an instance of `apply_deferred` on the edge.
+    AfterNoSync,
 }
 
 /// An edge to be added to the dependency graph.
 #[derive(Clone)]
 pub(crate) struct Dependency {
     pub(crate) kind: DependencyKind,
-    pub(crate) set: BoxedSystemSet,
+    pub(crate) set: InternedSystemSet,
 }
 
 impl Dependency {
-    pub fn new(kind: DependencyKind, set: BoxedSystemSet) -> Self {
+    pub fn new(kind: DependencyKind, set: InternedSystemSet) -> Self {
         Self { kind, set }
     }
 }
@@ -62,59 +68,19 @@ pub(crate) enum Ambiguity {
     #[default]
     Check,
     /// Ignore warnings with systems in any of these system sets. May contain duplicates.
-    IgnoreWithSet(Vec<BoxedSystemSet>),
+    IgnoreWithSet(Vec<InternedSystemSet>),
     /// Ignore all warnings.
     IgnoreAll,
 }
 
-#[derive(Clone)]
+/// Metadata about how the node fits in the schedule graph
+#[derive(Clone, Default)]
 pub(crate) struct GraphInfo {
-    pub(crate) sets: Vec<BoxedSystemSet>,
+    /// the sets that the node belongs to (hierarchy)
+    pub(crate) hierarchy: Vec<InternedSystemSet>,
+    /// the sets that the node depends on (must run before or after)
     pub(crate) dependencies: Vec<Dependency>,
     pub(crate) ambiguous_with: Ambiguity,
-    pub(crate) add_default_base_set: bool,
-    pub(crate) base_set: Option<BoxedSystemSet>,
-}
-
-impl Default for GraphInfo {
-    fn default() -> Self {
-        GraphInfo {
-            sets: Vec::new(),
-            base_set: None,
-            dependencies: Vec::new(),
-            ambiguous_with: Ambiguity::default(),
-            add_default_base_set: true,
-        }
-    }
-}
-
-impl GraphInfo {
-    pub(crate) fn system() -> GraphInfo {
-        GraphInfo {
-            // systems get the default base set automatically
-            add_default_base_set: true,
-            ..Default::default()
-        }
-    }
-
-    pub(crate) fn system_set() -> GraphInfo {
-        GraphInfo {
-            // sets do not get the default base set automatically
-            add_default_base_set: false,
-            ..Default::default()
-        }
-    }
-
-    #[track_caller]
-    pub(crate) fn set_base_set(&mut self, set: BoxedSystemSet) {
-        if let Some(current) = &self.base_set {
-            panic!(
-                "Cannot set the base set because base set {current:?} has already been configured."
-            );
-        } else {
-            self.base_set = Some(set);
-        }
-    }
 }
 
 /// Converts 2D row-major pair of indices into a 1D array index.
@@ -191,7 +157,7 @@ where
         map.insert(node, i);
         topsorted.add_node(node);
         // insert nodes as successors to their predecessors
-        for pred in graph.neighbors_directed(node, Direction::Incoming) {
+        for pred in graph.neighbors_directed(node, Incoming) {
             topsorted.add_edge(pred, node, ());
         }
     }
@@ -216,7 +182,7 @@ where
     for a in topsorted.nodes().rev() {
         let index_a = *map.get(&a).unwrap();
         // iterate their successors in topological order
-        for b in topsorted.neighbors_directed(a, Direction::Outgoing) {
+        for b in topsorted.neighbors_directed(a, Outgoing) {
             let index_b = *map.get(&b).unwrap();
             debug_assert!(index_a < index_b);
             if !visited[index_b] {
@@ -226,7 +192,7 @@ where
                 reachable.insert(index(index_a, index_b, n));
 
                 let successors = transitive_closure
-                    .neighbors_directed(b, Direction::Outgoing)
+                    .neighbors_directed(b, Outgoing)
                     .collect::<Vec<_>>();
                 for c in successors {
                     let index_c = *map.get(&c).unwrap();

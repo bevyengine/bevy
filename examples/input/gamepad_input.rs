@@ -1,17 +1,17 @@
 //! Shows handling of gamepad input, connections, and disconnections.
 
-use bevy::{input::gamepad::GamepadButton, prelude::*};
+use bevy::prelude::*;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_system(gamepad_system)
+        .add_systems(Update, gamepad_system)
         .run();
 }
 
 fn gamepad_system(
     gamepads: Res<Gamepads>,
-    button_inputs: Res<Input<GamepadButton>>,
+    button_inputs: Res<ButtonInput<GamepadButton>>,
     button_axes: Res<Axis<GamepadButton>>,
     axes: Res<Axis<GamepadAxis>>,
 ) {

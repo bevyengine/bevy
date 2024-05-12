@@ -3,9 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    input::gamepad::{
-        GamepadAxisChangedEvent, GamepadButton, GamepadButtonChangedEvent, GamepadSettings,
-    },
+    input::gamepad::{GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadSettings},
     prelude::*,
     sprite::{Anchor, MaterialMesh2dBundle, Mesh2dHandle},
 };
@@ -21,12 +19,10 @@ const BUTTONS_Y: f32 = 80.;
 const STICKS_X: f32 = 150.;
 const STICKS_Y: f32 = -135.;
 
-const NORMAL_BUTTON_COLOR: Color = Color::rgb(0.2, 0.2, 0.2);
-const ACTIVE_BUTTON_COLOR: Color = Color::PURPLE;
-const LIVE_COLOR: Color = Color::rgb(0.4, 0.4, 0.4);
-const DEAD_COLOR: Color = Color::rgb(0.3, 0.3, 0.3);
-const EXTENT_COLOR: Color = Color::rgb(0.3, 0.3, 0.3);
-const TEXT_COLOR: Color = Color::WHITE;
+const NORMAL_BUTTON_COLOR: Color = Color::srgb(0.3, 0.3, 0.3);
+const ACTIVE_BUTTON_COLOR: Color = Color::srgb(0.5, 0., 0.5);
+const LIVE_COLOR: Color = Color::srgb(0.4, 0.4, 0.4);
+const DEAD_COLOR: Color = Color::srgb(0.13, 0.13, 0.13);
 
 #[derive(Component, Deref)]
 struct ReactTo(GamepadButtonType);
@@ -54,10 +50,9 @@ struct ButtonMaterials {
 }
 impl FromWorld for ButtonMaterials {
     fn from_world(world: &mut World) -> Self {
-        let mut materials = world.resource_mut::<Assets<ColorMaterial>>();
         Self {
-            normal: materials.add(ColorMaterial::from(NORMAL_BUTTON_COLOR)),
-            active: materials.add(ColorMaterial::from(ACTIVE_BUTTON_COLOR)),
+            normal: world.add_asset(NORMAL_BUTTON_COLOR),
+            active: world.add_asset(ACTIVE_BUTTON_COLOR),
         }
     }
 }
@@ -70,23 +65,14 @@ struct ButtonMeshes {
 }
 impl FromWorld for ButtonMeshes {
     fn from_world(world: &mut World) -> Self {
-        let mut meshes = world.resource_mut::<Assets<Mesh>>();
         Self {
-            circle: meshes.add(shape::Circle::new(BUTTON_RADIUS).into()).into(),
-            triangle: meshes
-                .add(shape::RegularPolygon::new(BUTTON_RADIUS, 3).into())
+            circle: world.add_asset(Circle::new(BUTTON_RADIUS)).into(),
+            triangle: world
+                .add_asset(RegularPolygon::new(BUTTON_RADIUS, 3))
                 .into(),
-            start_pause: meshes.add(shape::Quad::new(START_SIZE).into()).into(),
-            trigger: meshes.add(shape::Quad::new(TRIGGER_SIZE).into()).into(),
+            start_pause: world.add_asset(Rectangle::from_size(START_SIZE)).into(),
+            trigger: world.add_asset(Rectangle::from_size(TRIGGER_SIZE)).into(),
         }
-    }
-}
-#[derive(Resource, Deref)]
-struct FontHandle(Handle<Font>);
-impl FromWorld for FontHandle {
-    fn from_world(world: &mut World) -> Self {
-        let asset_server = world.resource::<AssetServer>();
-        Self(asset_server.load("fonts/FiraSans-Bold.ttf"))
     }
 }
 
@@ -126,15 +112,19 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .init_resource::<ButtonMaterials>()
         .init_resource::<ButtonMeshes>()
-        .init_resource::<FontHandle>()
-        .add_startup_system(setup)
-        .add_startup_system(setup_sticks)
-        .add_startup_system(setup_triggers)
-        .add_startup_system(setup_connected)
-        .add_system(update_buttons)
-        .add_system(update_button_values)
-        .add_system(update_axes)
-        .add_system(update_connected)
+        .add_systems(
+            Startup,
+            (setup, setup_sticks, setup_triggers, setup_connected),
+        )
+        .add_systems(
+            Update,
+            (
+                update_buttons,
+                update_button_values,
+                update_axes,
+                update_connected,
+            ),
+        )
         .run();
 }
 
@@ -268,7 +258,6 @@ fn setup_sticks(
     meshes: Res<ButtonMeshes>,
     materials: Res<ButtonMaterials>,
     gamepad_settings: Res<GamepadSettings>,
-    font: Res<FontHandle>,
 ) {
     let dead_upper =
         STICK_BOUNDS_SIZE * gamepad_settings.default_axis_settings.deadzone_upperbound();
@@ -295,7 +284,7 @@ fn setup_sticks(
                 parent.spawn(SpriteBundle {
                     sprite: Sprite {
                         custom_size: Some(Vec2::splat(STICK_BOUNDS_SIZE * 2.)),
-                        color: EXTENT_COLOR,
+                        color: DEAD_COLOR,
                         ..default()
                     },
                     ..default()
@@ -323,8 +312,7 @@ fn setup_sticks(
                 // text
                 let style = TextStyle {
                     font_size: 16.,
-                    color: TEXT_COLOR,
-                    font: font.clone(),
+                    ..default()
                 };
                 parent.spawn((
                     Text2dBundle {
@@ -354,7 +342,7 @@ fn setup_sticks(
                         mesh: meshes.circle.clone(),
                         material: materials.normal.clone(),
                         transform: Transform::from_xyz(0., 0., 5.)
-                            .with_scale(Vec2::splat(0.2).extend(1.)),
+                            .with_scale(Vec2::splat(0.15).extend(1.)),
                         ..default()
                     },
                     MoveWithAxes {
@@ -387,7 +375,6 @@ fn setup_triggers(
     mut commands: Commands,
     meshes: Res<ButtonMeshes>,
     materials: Res<ButtonMaterials>,
-    font: Res<FontHandle>,
 ) {
     let mut spawn_trigger = |x, y, button_type| {
         commands
@@ -405,9 +392,8 @@ fn setup_triggers(
                         text: Text::from_section(
                             format!("{:.3}", 0.),
                             TextStyle {
-                                font: font.clone(),
                                 font_size: 16.,
-                                color: TEXT_COLOR,
+                                ..default()
                             },
                         ),
                         ..default()
@@ -429,30 +415,38 @@ fn setup_triggers(
     );
 }
 
-fn setup_connected(mut commands: Commands, font: Res<FontHandle>) {
-    let style = TextStyle {
-        color: TEXT_COLOR,
-        font_size: 30.,
-        font: font.clone(),
+fn setup_connected(mut commands: Commands) {
+    let text_style = TextStyle {
+        font_size: 20.,
+        ..default()
     };
     commands.spawn((
-        TextBundle::from_sections([
-            TextSection {
-                value: "Connected Gamepads:\n".to_string(),
-                style: style.clone(),
+        TextBundle {
+            text: Text::from_sections([
+                TextSection {
+                    value: "Connected Gamepads:\n".to_string(),
+                    style: text_style.clone(),
+                },
+                TextSection {
+                    value: "None".to_string(),
+                    style: text_style,
+                },
+            ]),
+            style: Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.),
+                left: Val::Px(12.),
+                ..default()
             },
-            TextSection {
-                value: "None".to_string(),
-                style,
-            },
-        ]),
+            ..default()
+        },
         ConnectedGamepadsText,
     ));
 }
 
 fn update_buttons(
     gamepads: Res<Gamepads>,
-    button_inputs: Res<Input<GamepadButton>>,
+    button_inputs: Res<ButtonInput<GamepadButton>>,
     materials: Res<ButtonMaterials>,
     mut query: Query<(&mut Handle<ColorMaterial>, &ReactTo)>,
 ) {
@@ -472,7 +466,7 @@ fn update_button_values(
     mut events: EventReader<GamepadButtonChangedEvent>,
     mut query: Query<(&mut Text, &TextWithButtonValue)>,
 ) {
-    for button_event in events.iter() {
+    for button_event in events.read() {
         for (mut text, text_with_button_value) in query.iter_mut() {
             if button_event.button_type == **text_with_button_value {
                 text.sections[0].value = format!("{:.3}", button_event.value);
@@ -486,7 +480,7 @@ fn update_axes(
     mut query: Query<(&mut Transform, &MoveWithAxes)>,
     mut text_query: Query<(&mut Text, &TextWithAxes)>,
 ) {
-    for axis_event in axis_events.iter() {
+    for axis_event in axis_events.read() {
         let axis_type = axis_event.axis_type;
         let value = axis_event.value;
         for (mut transform, move_with) in query.iter_mut() {

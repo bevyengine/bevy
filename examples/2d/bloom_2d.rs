@@ -11,10 +11,9 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::DARK_GRAY))
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(update_bloom_settings)
+        .add_systems(Startup, setup)
+        .add_systems(Update, update_bloom_settings)
         .run();
 }
 
@@ -38,9 +37,9 @@ fn setup(
 
     // Sprite
     commands.spawn(SpriteBundle {
-        texture: asset_server.load("branding/icon.png"),
+        texture: asset_server.load("branding/bevy_bird_dark.png"),
         sprite: Sprite {
-            color: Color::rgb(5.0, 5.0, 5.0), // 4. Put something bright in a dark environment to see the effect
+            color: Color::srgb(5.0, 5.0, 5.0), // 4. Put something bright in a dark environment to see the effect
             custom_size: Some(Vec2::splat(160.0)),
             ..default()
         },
@@ -49,20 +48,18 @@ fn setup(
 
     // Circle mesh
     commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(shape::Circle::new(100.).into()).into(),
+        mesh: meshes.add(Circle::new(100.)).into(),
         // 4. Put something bright in a dark environment to see the effect
-        material: materials.add(ColorMaterial::from(Color::rgb(7.5, 0.0, 7.5))),
+        material: materials.add(Color::srgb(7.5, 0.0, 7.5)),
         transform: Transform::from_translation(Vec3::new(-200., 0., 0.)),
         ..default()
     });
 
     // Hexagon mesh
     commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes
-            .add(shape::RegularPolygon::new(100., 6).into())
-            .into(),
+        mesh: meshes.add(RegularPolygon::new(100., 6)).into(),
         // 4. Put something bright in a dark environment to see the effect
-        material: materials.add(ColorMaterial::from(Color::rgb(6.25, 9.4, 9.1))),
+        material: materials.add(Color::srgb(6.25, 9.4, 9.1)),
         transform: Transform::from_translation(Vec3::new(200., 0., 0.)),
         ..default()
     });
@@ -72,18 +69,15 @@ fn setup(
         TextBundle::from_section(
             "",
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 18.0,
                 color: Color::WHITE,
+                ..default()
             },
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            position: UiRect {
-                bottom: Val::Px(10.0),
-                left: Val::Px(10.0),
-                ..default()
-            },
+            bottom: Val::Px(10.0),
+            left: Val::Px(10.0),
             ..default()
         }),
     );
@@ -95,7 +89,7 @@ fn update_bloom_settings(
     mut camera: Query<(Entity, Option<&mut BloomSettings>), With<Camera>>,
     mut text: Query<&mut Text>,
     mut commands: Commands,
-    keycode: Res<Input<KeyCode>>,
+    keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
     let bloom_settings = camera.single_mut();
@@ -140,59 +134,59 @@ fn update_bloom_settings(
 
             let dt = time.delta_seconds();
 
-            if keycode.pressed(KeyCode::A) {
+            if keycode.pressed(KeyCode::KeyA) {
                 bloom_settings.intensity -= dt / 10.0;
             }
-            if keycode.pressed(KeyCode::Q) {
+            if keycode.pressed(KeyCode::KeyQ) {
                 bloom_settings.intensity += dt / 10.0;
             }
             bloom_settings.intensity = bloom_settings.intensity.clamp(0.0, 1.0);
 
-            if keycode.pressed(KeyCode::S) {
+            if keycode.pressed(KeyCode::KeyS) {
                 bloom_settings.low_frequency_boost -= dt / 10.0;
             }
-            if keycode.pressed(KeyCode::W) {
+            if keycode.pressed(KeyCode::KeyW) {
                 bloom_settings.low_frequency_boost += dt / 10.0;
             }
             bloom_settings.low_frequency_boost = bloom_settings.low_frequency_boost.clamp(0.0, 1.0);
 
-            if keycode.pressed(KeyCode::D) {
+            if keycode.pressed(KeyCode::KeyD) {
                 bloom_settings.low_frequency_boost_curvature -= dt / 10.0;
             }
-            if keycode.pressed(KeyCode::E) {
+            if keycode.pressed(KeyCode::KeyE) {
                 bloom_settings.low_frequency_boost_curvature += dt / 10.0;
             }
             bloom_settings.low_frequency_boost_curvature =
                 bloom_settings.low_frequency_boost_curvature.clamp(0.0, 1.0);
 
-            if keycode.pressed(KeyCode::F) {
+            if keycode.pressed(KeyCode::KeyF) {
                 bloom_settings.high_pass_frequency -= dt / 10.0;
             }
-            if keycode.pressed(KeyCode::R) {
+            if keycode.pressed(KeyCode::KeyR) {
                 bloom_settings.high_pass_frequency += dt / 10.0;
             }
             bloom_settings.high_pass_frequency = bloom_settings.high_pass_frequency.clamp(0.0, 1.0);
 
-            if keycode.pressed(KeyCode::G) {
+            if keycode.pressed(KeyCode::KeyG) {
                 bloom_settings.composite_mode = BloomCompositeMode::Additive;
             }
-            if keycode.pressed(KeyCode::T) {
+            if keycode.pressed(KeyCode::KeyT) {
                 bloom_settings.composite_mode = BloomCompositeMode::EnergyConserving;
             }
 
-            if keycode.pressed(KeyCode::H) {
+            if keycode.pressed(KeyCode::KeyH) {
                 bloom_settings.prefilter_settings.threshold -= dt;
             }
-            if keycode.pressed(KeyCode::Y) {
+            if keycode.pressed(KeyCode::KeyY) {
                 bloom_settings.prefilter_settings.threshold += dt;
             }
             bloom_settings.prefilter_settings.threshold =
                 bloom_settings.prefilter_settings.threshold.max(0.0);
 
-            if keycode.pressed(KeyCode::J) {
+            if keycode.pressed(KeyCode::KeyJ) {
                 bloom_settings.prefilter_settings.threshold_softness -= dt / 10.0;
             }
-            if keycode.pressed(KeyCode::U) {
+            if keycode.pressed(KeyCode::KeyU) {
                 bloom_settings.prefilter_settings.threshold_softness += dt / 10.0;
             }
             bloom_settings.prefilter_settings.threshold_softness = bloom_settings

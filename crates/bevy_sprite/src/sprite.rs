@@ -1,9 +1,15 @@
-use bevy_ecs::component::Component;
+use bevy_color::Color;
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
-use bevy_reflect::Reflect;
-use bevy_render::color::Color;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
+use crate::TextureSlicer;
+
+/// Specifies the rendering properties of a sprite.
+///
+/// This is commonly used as a component within [`SpriteBundle`](crate::bundle::SpriteBundle).
 #[derive(Component, Debug, Default, Clone, Reflect)]
+#[reflect(Component, Default)]
 #[repr(C)]
 pub struct Sprite {
     /// The sprite's color tint
@@ -15,16 +21,37 @@ pub struct Sprite {
     /// An optional custom size for the sprite that will be used when rendering, instead of the size
     /// of the sprite's image
     pub custom_size: Option<Vec2>,
-    /// An optional rectangle representing the region of the sprite's image to render, instead of
-    /// rendering the full image. This is an easy one-off alternative to using a texture atlas.
+    /// An optional rectangle representing the region of the sprite's image to render, instead of rendering
+    /// the full image. This is an easy one-off alternative to using a [`TextureAtlas`](crate::TextureAtlas).
+    ///
+    /// When used with a [`TextureAtlas`](crate::TextureAtlas), the rect
+    /// is offset by the atlas's minimal (top-left) corner position.
     pub rect: Option<Rect>,
     /// [`Anchor`] point of the sprite in the world
     pub anchor: Anchor,
 }
 
+/// Controls how the image is altered when scaled.
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component)]
+pub enum ImageScaleMode {
+    /// The texture will be cut in 9 slices, keeping the texture in proportions on resize
+    Sliced(TextureSlicer),
+    /// The texture will be repeated if stretched beyond `stretched_value`
+    Tiled {
+        /// Should the image repeat horizontally
+        tile_x: bool,
+        /// Should the image repeat vertically
+        tile_y: bool,
+        /// The texture will repeat when the ratio between the *drawing dimensions* of texture and the
+        /// *original texture size* are above this value.
+        stretch_value: f32,
+    },
+}
+
 /// How a sprite is positioned relative to its [`Transform`](bevy_transform::components::Transform).
 /// It defaults to `Anchor::Center`.
-#[derive(Component, Debug, Clone, Default, Reflect)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Default, Reflect)]
 #[doc(alias = "pivot")]
 pub enum Anchor {
     #[default]

@@ -11,19 +11,11 @@
 
 use bevy::prelude::*;
 
-#[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash, States)]
 enum AppState {
     #[default]
     MainMenu,
     InGame,
-}
-
-impl States for AppState {
-    type Iter = std::array::IntoIter<AppState, 2>;
-
-    fn variants() -> Self::Iter {
-        [AppState::MainMenu, AppState::InGame].into_iter()
-    }
 }
 
 #[derive(Component)]
@@ -41,16 +33,19 @@ struct LevelUnload;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_state::<AppState>()
-        .add_system(setup_system.on_startup())
-        .add_system(print_text_system)
-        .add_system(transition_to_in_game_system.in_set(OnUpdate(AppState::MainMenu)))
-        // add the cleanup systems
-        .add_systems((
-            // Pass in the types your system should operate on using the ::<T> (turbofish) syntax
-            cleanup_system::<MenuClose>.in_schedule(OnExit(AppState::MainMenu)),
-            cleanup_system::<LevelUnload>.in_schedule(OnExit(AppState::InGame)),
-        ))
+        .init_state::<AppState>()
+        .add_systems(Startup, setup_system)
+        .add_systems(
+            Update,
+            (
+                print_text_system,
+                transition_to_in_game_system.run_if(in_state(AppState::MainMenu)),
+            ),
+        )
+        // Cleanup systems.
+        // Pass in the types your system should operate on using the ::<T> (turbofish) syntax
+        .add_systems(OnExit(AppState::MainMenu), cleanup_system::<MenuClose>)
+        .add_systems(OnExit(AppState::InGame), cleanup_system::<LevelUnload>)
         .run();
 }
 
@@ -78,7 +73,7 @@ fn print_text_system(time: Res<Time>, mut query: Query<(&mut PrinterTick, &TextT
 
 fn transition_to_in_game_system(
     mut next_state: ResMut<NextState<AppState>>,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     if keyboard_input.pressed(KeyCode::Space) {
         next_state.set(AppState::InGame);

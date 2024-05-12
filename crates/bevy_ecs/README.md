@@ -1,7 +1,9 @@
 # Bevy ECS
 
+[![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/bevyengine/bevy#license)
 [![Crates.io](https://img.shields.io/crates/v/bevy_ecs.svg)](https://crates.io/crates/bevy_ecs)
-[![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/bevyengine/bevy/blob/HEAD/LICENSE)
+[![Downloads](https://img.shields.io/crates/d/bevy_ecs.svg)](https://crates.io/crates/bevy_ecs)
+[![Docs](https://docs.rs/bevy_ecs/badge.svg)](https://docs.rs/bevy_ecs/latest/bevy_ecs/)
 [![Discord](https://img.shields.io/discord/691052431525675048.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/bevy)
 
 ## What is Bevy ECS?
@@ -35,7 +37,7 @@ struct Position { x: f32, y: f32 }
 
 ### Worlds
 
-Entities, Components, and Resources are stored in a `World`. Worlds, much like Rust std collections like HashSet and Vec, expose operations to insert, read, write, and remove the data they store.
+Entities, Components, and Resources are stored in a `World`. Worlds, much like `std::collections`'s `HashSet` and `Vec`, expose operations to insert, read, write, and remove the data they store.
 
 ```rust
 use bevy_ecs::world::World;
@@ -150,7 +152,7 @@ fn main() {
     let mut schedule = Schedule::default();
 
     // Add our system to the schedule
-    schedule.add_system(movement);
+    schedule.add_systems(movement);
 
     // Run the schedule once. If your app has a "loop", you would run this once per loop
     schedule.run(&mut world);
@@ -286,6 +288,7 @@ Events offer a communication channel between one or more systems. Events can be 
 ```rust
 use bevy_ecs::prelude::*;
 
+#[derive(Event)]
 struct MyEvent {
     message: String,
 }
@@ -297,7 +300,7 @@ fn writer(mut writer: EventWriter<MyEvent>) {
 }
 
 fn reader(mut reader: EventReader<MyEvent>) {
-    for event in reader.iter() {
+    for event in reader.read() {
     }
 }
 ```

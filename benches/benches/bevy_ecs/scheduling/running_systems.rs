@@ -21,9 +21,9 @@ pub fn empty_systems(criterion: &mut Criterion) {
     group.measurement_time(std::time::Duration::from_secs(3));
     fn empty() {}
     for amount in 0..5 {
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
         for _ in 0..amount {
-            schedule.add_system(empty);
+            schedule.add_systems(empty);
         }
         schedule.run(&mut world);
         group.bench_function(&format!("{:03}_systems", amount), |bencher| {
@@ -33,14 +33,9 @@ pub fn empty_systems(criterion: &mut Criterion) {
         });
     }
     for amount in 1..21 {
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
         for _ in 0..amount {
-            schedule
-                .add_system(empty)
-                .add_system(empty)
-                .add_system(empty)
-                .add_system(empty)
-                .add_system(empty);
+            schedule.add_systems((empty, empty, empty, empty, empty));
         }
         schedule.run(&mut world);
         group.bench_function(&format!("{:03}_systems", 5 * amount), |bencher| {
@@ -54,17 +49,17 @@ pub fn empty_systems(criterion: &mut Criterion) {
 
 pub fn busy_systems(criterion: &mut Criterion) {
     fn ab(mut q: Query<(&mut A, &mut B)>) {
-        q.for_each_mut(|(mut a, mut b)| {
+        q.iter_mut().for_each(|(mut a, mut b)| {
             std::mem::swap(&mut a.0, &mut b.0);
         });
     }
     fn cd(mut q: Query<(&mut C, &mut D)>) {
-        q.for_each_mut(|(mut c, mut d)| {
+        q.iter_mut().for_each(|(mut c, mut d)| {
             std::mem::swap(&mut c.0, &mut d.0);
         });
     }
     fn ce(mut q: Query<(&mut C, &mut E)>) {
-        q.for_each_mut(|(mut c, mut e)| {
+        q.iter_mut().for_each(|(mut c, mut e)| {
             std::mem::swap(&mut c.0, &mut e.0);
         });
     }
@@ -78,10 +73,10 @@ pub fn busy_systems(criterion: &mut Criterion) {
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0), C(0.0), D(0.0))));
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0), C(0.0), E(0.0))));
         for system_amount in 0..5 {
-            let mut schedule = Schedule::new();
-            schedule.add_system(ab).add_system(cd).add_system(ce);
+            let mut schedule = Schedule::default();
+            schedule.add_systems((ab, cd, ce));
             for _ in 0..system_amount {
-                schedule.add_system(ab).add_system(cd).add_system(ce);
+                schedule.add_systems((ab, cd, ce));
             }
             schedule.run(&mut world);
             group.bench_function(
@@ -103,20 +98,20 @@ pub fn busy_systems(criterion: &mut Criterion) {
 
 pub fn contrived(criterion: &mut Criterion) {
     fn s_0(mut q_0: Query<(&mut A, &mut B)>) {
-        q_0.for_each_mut(|(mut c_0, mut c_1)| {
+        q_0.iter_mut().for_each(|(mut c_0, mut c_1)| {
             std::mem::swap(&mut c_0.0, &mut c_1.0);
         });
     }
     fn s_1(mut q_0: Query<(&mut A, &mut C)>, mut q_1: Query<(&mut B, &mut D)>) {
-        q_0.for_each_mut(|(mut c_0, mut c_1)| {
+        q_0.iter_mut().for_each(|(mut c_0, mut c_1)| {
             std::mem::swap(&mut c_0.0, &mut c_1.0);
         });
-        q_1.for_each_mut(|(mut c_0, mut c_1)| {
+        q_1.iter_mut().for_each(|(mut c_0, mut c_1)| {
             std::mem::swap(&mut c_0.0, &mut c_1.0);
         });
     }
     fn s_2(mut q_0: Query<(&mut C, &mut D)>) {
-        q_0.for_each_mut(|(mut c_0, mut c_1)| {
+        q_0.iter_mut().for_each(|(mut c_0, mut c_1)| {
             std::mem::swap(&mut c_0.0, &mut c_1.0);
         });
     }
@@ -129,10 +124,10 @@ pub fn contrived(criterion: &mut Criterion) {
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0))));
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (C(0.0), D(0.0))));
         for system_amount in 0..5 {
-            let mut schedule = Schedule::new();
-            schedule.add_system(s_0).add_system(s_1).add_system(s_2);
+            let mut schedule = Schedule::default();
+            schedule.add_systems((s_0, s_1, s_2));
             for _ in 0..system_amount {
-                schedule.add_system(s_0).add_system(s_1).add_system(s_2);
+                schedule.add_systems((s_0, s_1, s_2));
             }
             schedule.run(&mut world);
             group.bench_function(

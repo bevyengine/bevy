@@ -1,113 +1,103 @@
 use bevy_ecs::system::Resource;
 use bevy_utils::Duration;
 
-/// A resource for configuring usage of the `rust_winit` library.
-#[derive(Debug, Resource)]
+/// Settings for the [`WinitPlugin`](super::WinitPlugin).
+#[derive(Debug, Resource, Clone)]
 pub struct WinitSettings {
-    /// Configures `winit` to return control to the caller after exiting the
-    /// event loop, enabling [`App::run()`](bevy_app::App::run()) to return.
-    ///
-    /// By default, [`return_from_run`](Self::return_from_run) is `false` and *Bevy*
-    /// will use `winit`'s
-    /// [`EventLoop::run()`](https://docs.rs/winit/latest/winit/event_loop/struct.EventLoop.html#method.run)
-    /// to initiate the event loop.
-    /// [`EventLoop::run()`](https://docs.rs/winit/latest/winit/event_loop/struct.EventLoop.html#method.run)
-    /// will never return but will terminate the process after the event loop exits.
-    ///
-    /// Setting [`return_from_run`](Self::return_from_run) to `true` will cause *Bevy*
-    /// to use `winit`'s
-    /// [`EventLoopExtRunReturn::run_return()`](https://docs.rs/winit/latest/winit/platform/run_return/trait.EventLoopExtRunReturn.html#tymethod.run_return)
-    /// instead which is strongly discouraged by the `winit` authors.
-    ///
-    /// # Supported platforms
-    ///
-    /// This feature is only available on the following desktop `target_os` configurations:
-    /// `windows`, `macos`, `linux`, `dragonfly`, `freebsd`, `netbsd`, and `openbsd`.
-    ///
-    /// Setting [`return_from_run`](Self::return_from_run) to `true` on
-    /// unsupported platforms will cause [`App::run()`](bevy_app::App::run()) to panic!
-    pub return_from_run: bool,
-    /// Configures how the winit event loop updates while the window is focused.
+    /// Determines how frequently the application can update when it has focus.
     pub focused_mode: UpdateMode,
-    /// Configures how the winit event loop updates while the window is *not* focused.
+    /// Determines how frequently the application can update when it's out of focus.
     pub unfocused_mode: UpdateMode,
 }
+
 impl WinitSettings {
-    /// Configure winit with common settings for a game.
+    /// Default settings for games.
+    ///
+    /// [`Continuous`](UpdateMode::Continuous) if windows have focus,
+    /// [`ReactiveLowPower`](UpdateMode::ReactiveLowPower) otherwise.
     pub fn game() -> Self {
-        WinitSettings::default()
+        WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::ReactiveLowPower {
+                wait: Duration::from_secs_f64(1.0 / 60.0), // 60Hz
+            },
+        }
     }
 
-    /// Configure winit with common settings for a desktop application.
+    /// Default settings for desktop applications.
+    ///
+    /// [`Reactive`](UpdateMode::Reactive) if windows have focus,
+    /// [`ReactiveLowPower`](UpdateMode::ReactiveLowPower) otherwise.
+    ///
+    /// Use the [`EventLoopProxy`](crate::EventLoopProxy) to request a redraw from outside bevy.
     pub fn desktop_app() -> Self {
         WinitSettings {
             focused_mode: UpdateMode::Reactive {
-                max_wait: Duration::from_secs(5),
+                wait: Duration::from_secs(5),
             },
             unfocused_mode: UpdateMode::ReactiveLowPower {
-                max_wait: Duration::from_secs(60),
+                wait: Duration::from_secs(60),
             },
-            ..Default::default()
         }
     }
 
-    /// Gets the configured `UpdateMode` depending on whether the window is focused or not
-    pub fn update_mode(&self, focused: bool) -> &UpdateMode {
+    /// Returns the current [`UpdateMode`].
+    ///
+    /// **Note:** The output depends on whether the window has focus or not.
+    pub fn update_mode(&self, focused: bool) -> UpdateMode {
         match focused {
-            true => &self.focused_mode,
-            false => &self.unfocused_mode,
+            true => self.focused_mode,
+            false => self.unfocused_mode,
         }
     }
 }
+
 impl Default for WinitSettings {
     fn default() -> Self {
-        WinitSettings {
-            return_from_run: false,
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        }
+        WinitSettings::game()
     }
 }
 
-/// Configure how the winit event loop should update.
-#[derive(Debug)]
+/// Determines how frequently an [`App`](bevy_app::App) should update.
+///
+/// **Note:** This setting is independent of VSync. VSync is controlled by a window's
+/// [`PresentMode`](bevy_window::PresentMode) setting. If an app can update faster than the refresh
+/// rate, but VSync is enabled, the update rate will be indirectly limited by the renderer.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum UpdateMode {
-    /// The event loop will update continuously, running as fast as possible.
+    /// The [`App`](bevy_app::App) will update over and over, as fast as it possibly can, until an
+    /// [`AppExit`](bevy_app::AppExit) event appears.
     Continuous,
-    /// The event loop will only update if there is a winit event, a redraw is requested, or the
-    /// maximum wait time has elapsed.
-    ///
-    /// ## Note
-    ///
-    /// Once the app has executed all bevy systems and reaches the end of the event loop, there is
-    /// no way to force the app to wake and update again, unless a `winit` event (such as user
-    /// input, or the window being resized) is received or the time limit is reached.
+    /// The [`App`](bevy_app::App) will update in response to the following, until an
+    /// [`AppExit`](bevy_app::AppExit) event appears:
+    /// - `wait` time has elapsed since the previous update
+    /// - a redraw has been requested by [`RequestRedraw`](bevy_window::RequestRedraw)
+    /// - new [window](`winit::event::WindowEvent`) or [raw input](`winit::event::DeviceEvent`)
+    /// events have appeared
+    /// - a redraw has been requested with the [`EventLoopProxy`](crate::EventLoopProxy)
     Reactive {
-        /// The maximum time to wait before the event loop runs again.
+        /// The approximate time from the start of one update to the next.
         ///
-        /// Note that Bevy will wait indefinitely if the duration is too high (such as [`Duration::MAX`]).
-        max_wait: Duration,
+        /// **Note:** This has no upper limit.
+        /// The [`App`](bevy_app::App) will wait indefinitely if you set this to [`Duration::MAX`].
+        wait: Duration,
     },
-    /// The event loop will only update if there is a winit event from direct interaction with the
-    /// window (e.g. mouseover), a redraw is requested, or the maximum wait time has elapsed.
+    /// The [`App`](bevy_app::App) will update in response to the following, until an
+    /// [`AppExit`](bevy_app::AppExit) event appears:
+    /// - `wait` time has elapsed since the previous update
+    /// - a redraw has been requested by [`RequestRedraw`](bevy_window::RequestRedraw)
+    /// - new [window events](`winit::event::WindowEvent`) have appeared
+    /// - a redraw has been requested with the [`EventLoopProxy`](crate::EventLoopProxy)
     ///
-    /// ## Note
-    ///
-    /// Once the app has executed all bevy systems and reaches the end of the event loop, there is
-    /// no way to force the app to wake and update again, unless a `winit` event (such as user
-    /// input, or the window being resized) is received or the time limit is reached.
-    ///
-    /// ## Differences from [`UpdateMode::Reactive`]
-    ///
-    /// Unlike [`UpdateMode::Reactive`], this mode will ignore winit events that aren't directly
-    /// caused by interaction with the window. For example, you might want to use this mode when the
-    /// window is not focused, to only re-draw your bevy app when the cursor is over the window, but
-    /// not when the mouse moves somewhere else on the screen. This helps to significantly reduce
-    /// power consumption by only updated the app when absolutely necessary.
+    /// **Note:** Unlike [`Reactive`](`UpdateMode::Reactive`), this mode will ignore events that
+    /// don't come from interacting with a window, like [`MouseMotion`](winit::event::DeviceEvent::MouseMotion).
+    /// Use this mode if, for example, you only want your app to update when the mouse cursor is
+    /// moving over a window, not just moving in general. This can greatly reduce power consumption.
     ReactiveLowPower {
-        /// The maximum time to wait before the event loop runs again.
+        /// The approximate time from the start of one update to the next.
         ///
-        /// Note that Bevy will wait indefinitely if the duration is too high (such as [`Duration::MAX`]).
-        max_wait: Duration,
+        /// **Note:** This has no upper limit.
+        /// The [`App`](bevy_app::App) will wait indefinitely if you set this to [`Duration::MAX`].
+        wait: Duration,
     },
 }

@@ -2,37 +2,39 @@
 
 use bevy::prelude::*;
 
-const FIXED_TIMESTEP: f32 = 0.5;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         // this system will run once every update (it should match your screen's refresh rate)
-        .add_system(frame_update)
+        .add_systems(Update, frame_update)
         // add our system to the fixed timestep schedule
-        .add_system(fixed_update.in_schedule(CoreSchedule::FixedUpdate))
+        .add_systems(FixedUpdate, fixed_update)
         // configure our fixed timestep schedule to run twice a second
-        .insert_resource(FixedTime::new_from_secs(FIXED_TIMESTEP))
+        .insert_resource(Time::<Fixed>::from_seconds(0.5))
         .run();
 }
 
 fn frame_update(mut last_time: Local<f32>, time: Res<Time>) {
+    // Default `Time` is `Time<Virtual>` here
     info!(
         "time since last frame_update: {}",
-        time.raw_elapsed_seconds() - *last_time
+        time.elapsed_seconds() - *last_time
     );
-    *last_time = time.raw_elapsed_seconds();
+    *last_time = time.elapsed_seconds();
 }
 
-fn fixed_update(mut last_time: Local<f32>, time: Res<Time>, fixed_time: Res<FixedTime>) {
+fn fixed_update(mut last_time: Local<f32>, time: Res<Time>, fixed_time: Res<Time<Fixed>>) {
+    // Default `Time`is `Time<Fixed>` here
     info!(
         "time since last fixed_update: {}\n",
-        time.raw_elapsed_seconds() - *last_time
+        time.elapsed_seconds() - *last_time
     );
 
-    info!("fixed timestep: {}\n", FIXED_TIMESTEP);
+    info!("fixed timestep: {}\n", time.delta_seconds());
+    // If we want to see the overstep, we need to access `Time<Fixed>` specifically
     info!(
         "time accrued toward next fixed_update: {}\n",
-        fixed_time.accumulated().as_secs_f32()
+        fixed_time.overstep().as_secs_f32()
     );
-    *last_time = time.raw_elapsed_seconds();
+    *last_time = time.elapsed_seconds();
 }

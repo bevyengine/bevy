@@ -1,107 +1,95 @@
 mod camera_2d;
-mod main_pass_2d_node;
+mod main_transparent_pass_2d_node;
 
 pub mod graph {
-    pub const NAME: &str = "core_2d";
+    use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
+
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderSubGraph)]
+    pub struct Core2d;
+
     pub mod input {
         pub const VIEW_ENTITY: &str = "view_entity";
     }
-    pub mod node {
-        pub const MSAA_WRITEBACK: &str = "msaa_writeback";
-        pub const MAIN_PASS: &str = "main_pass";
-        pub const BLOOM: &str = "bloom";
-        pub const TONEMAPPING: &str = "tonemapping";
-        pub const FXAA: &str = "fxaa";
-        pub const UPSCALING: &str = "upscaling";
-        pub const END_MAIN_PASS_POST_PROCESSING: &str = "end_main_pass_post_processing";
+
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+    pub enum Node2d {
+        MsaaWriteback,
+        StartMainPass,
+        MainTransparentPass,
+        EndMainPass,
+        Bloom,
+        Tonemapping,
+        Fxaa,
+        Upscaling,
+        ContrastAdaptiveSharpening,
+        EndMainPassPostProcessing,
     }
 }
 
-pub use camera_2d::*;
-pub use main_pass_2d_node::*;
+use std::ops::Range;
 
-use bevy_app::{App, IntoSystemAppConfig, Plugin};
+pub use camera_2d::*;
+pub use main_transparent_pass_2d_node::*;
+
+use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
+use bevy_math::FloatOrd;
 use bevy_render::{
     camera::Camera,
     extract_component::ExtractComponentPlugin,
-    render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
+    render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
-        batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedRenderPipelinePhaseItem,
-        DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase,
+        sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
+        PhaseItemExtraIndex, SortedPhaseItem, SortedRenderPhase,
     },
     render_resource::CachedRenderPipelineId,
-    Extract, ExtractSchedule, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::FloatOrd;
-use std::ops::Range;
 
 use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
+
+use self::graph::{Core2d, Node2d};
 
 pub struct Core2dPlugin;
 
 impl Plugin for Core2dPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Camera2d>()
-            .add_plugin(ExtractComponentPlugin::<Camera2d>::default());
+            .add_plugins(ExtractComponentPlugin::<Camera2d>::default());
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
-
         render_app
             .init_resource::<DrawFunctions<Transparent2d>>()
-            .add_system(extract_core_2d_camera_phases.in_schedule(ExtractSchedule))
-            .add_system(sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort))
-            .add_system(
-                batch_phase_system::<Transparent2d>
-                    .after(sort_phase_system::<Transparent2d>)
-                    .in_set(RenderSet::PhaseSort),
+            .add_systems(ExtractSchedule, extract_core_2d_camera_phases)
+            .add_systems(
+                Render,
+                sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort),
             );
 
-        let pass_node_2d = MainPass2dNode::new(&mut render_app.world);
-        let tonemapping = TonemappingNode::new(&mut render_app.world);
-        let upscaling = UpscalingNode::new(&mut render_app.world);
-        let mut graph = render_app.world.resource_mut::<RenderGraph>();
-
-        let mut draw_2d_graph = RenderGraph::default();
-        draw_2d_graph.add_node(graph::node::MAIN_PASS, pass_node_2d);
-        draw_2d_graph.add_node(graph::node::TONEMAPPING, tonemapping);
-        draw_2d_graph.add_node(graph::node::END_MAIN_PASS_POST_PROCESSING, EmptyNode);
-        draw_2d_graph.add_node(graph::node::UPSCALING, upscaling);
-        let input_node_id = draw_2d_graph.set_input(vec![SlotInfo::new(
-            graph::input::VIEW_ENTITY,
-            SlotType::Entity,
-        )]);
-        draw_2d_graph.add_slot_edge(
-            input_node_id,
-            graph::input::VIEW_ENTITY,
-            graph::node::MAIN_PASS,
-            MainPass2dNode::IN_VIEW,
-        );
-        draw_2d_graph.add_slot_edge(
-            input_node_id,
-            graph::input::VIEW_ENTITY,
-            graph::node::TONEMAPPING,
-            TonemappingNode::IN_VIEW,
-        );
-        draw_2d_graph.add_slot_edge(
-            input_node_id,
-            graph::input::VIEW_ENTITY,
-            graph::node::UPSCALING,
-            UpscalingNode::IN_VIEW,
-        );
-        draw_2d_graph.add_node_edge(graph::node::MAIN_PASS, graph::node::TONEMAPPING);
-        draw_2d_graph.add_node_edge(
-            graph::node::TONEMAPPING,
-            graph::node::END_MAIN_PASS_POST_PROCESSING,
-        );
-        draw_2d_graph.add_node_edge(
-            graph::node::END_MAIN_PASS_POST_PROCESSING,
-            graph::node::UPSCALING,
-        );
-        graph.add_sub_graph(graph::NAME, draw_2d_graph);
+        render_app
+            .add_render_sub_graph(Core2d)
+            .add_render_graph_node::<EmptyNode>(Core2d, Node2d::StartMainPass)
+            .add_render_graph_node::<ViewNodeRunner<MainTransparentPass2dNode>>(
+                Core2d,
+                Node2d::MainTransparentPass,
+            )
+            .add_render_graph_node::<EmptyNode>(Core2d, Node2d::EndMainPass)
+            .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(Core2d, Node2d::Tonemapping)
+            .add_render_graph_node::<EmptyNode>(Core2d, Node2d::EndMainPassPostProcessing)
+            .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(Core2d, Node2d::Upscaling)
+            .add_render_graph_edges(
+                Core2d,
+                (
+                    Node2d::StartMainPass,
+                    Node2d::MainTransparentPass,
+                    Node2d::EndMainPass,
+                    Node2d::Tonemapping,
+                    Node2d::EndMainPassPostProcessing,
+                    Node2d::Upscaling,
+                ),
+            );
     }
 }
 
@@ -110,21 +98,14 @@ pub struct Transparent2d {
     pub entity: Entity,
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
-    /// Range in the vertex buffer of this item
-    pub batch_range: Option<Range<u32>>,
+    pub batch_range: Range<u32>,
+    pub extra_index: PhaseItemExtraIndex,
 }
 
 impl PhaseItem for Transparent2d {
-    type SortKey = FloatOrd;
-
     #[inline]
     fn entity(&self) -> Entity {
         self.entity
-    }
-
-    #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        self.sort_key
     }
 
     #[inline]
@@ -133,8 +114,38 @@ impl PhaseItem for Transparent2d {
     }
 
     #[inline]
+    fn batch_range(&self) -> &Range<u32> {
+        &self.batch_range
+    }
+
+    #[inline]
+    fn batch_range_mut(&mut self) -> &mut Range<u32> {
+        &mut self.batch_range
+    }
+
+    #[inline]
+    fn extra_index(&self) -> PhaseItemExtraIndex {
+        self.extra_index
+    }
+
+    #[inline]
+    fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
+        (&mut self.batch_range, &mut self.extra_index)
+    }
+}
+
+impl SortedPhaseItem for Transparent2d {
+    type SortKey = FloatOrd;
+
+    #[inline]
+    fn sort_key(&self) -> Self::SortKey {
+        self.sort_key
+    }
+
+    #[inline]
     fn sort(items: &mut [Self]) {
-        items.sort_by_key(|item| item.sort_key());
+        // radsort is a stable radix sort that performed better than `slice::sort_by_key` or `slice::sort_unstable_by_key`.
+        radsort::sort_by_key(items, |item| item.sort_key().0);
     }
 }
 
@@ -142,16 +153,6 @@ impl CachedRenderPipelinePhaseItem for Transparent2d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
-    }
-}
-
-impl BatchedPhaseItem for Transparent2d {
-    fn batch_range(&self) -> &Option<Range<u32>> {
-        &self.batch_range
-    }
-
-    fn batch_range_mut(&mut self) -> &mut Option<Range<u32>> {
-        &mut self.batch_range
     }
 }
 
@@ -163,7 +164,7 @@ pub fn extract_core_2d_camera_phases(
         if camera.is_active {
             commands
                 .get_or_spawn(entity)
-                .insert(RenderPhase::<Transparent2d>::default());
+                .insert(SortedRenderPhase::<Transparent2d>::default());
         }
     }
 }

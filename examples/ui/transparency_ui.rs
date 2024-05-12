@@ -7,7 +7,7 @@ fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -19,7 +19,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::width(Val::Percent(100.0)),
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::SpaceAround,
                 ..default()
@@ -30,12 +31,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(ButtonBundle {
                     style: Style {
-                        size: Size::new(Val::Px(150.0), Val::Px(65.0)),
+                        width: Val::Px(150.0),
+                        height: Val::Px(65.0),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    background_color: Color::rgb(0.1, 0.5, 0.1).into(),
+                    image: UiImage::default().with_color(Color::srgb(0.1, 0.5, 0.1)),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -45,7 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             font: font_handle.clone(),
                             font_size: 40.0,
                             // Alpha channel of the color controls transparency.
-                            color: Color::rgba(1.0, 1.0, 1.0, 0.2),
+                            color: Color::srgba(1.0, 1.0, 1.0, 0.2),
                         },
                     ));
                 });
@@ -55,12 +57,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(ButtonBundle {
                     style: Style {
-                        size: Size::new(Val::Px(150.0), Val::Px(65.0)),
+                        width: Val::Px(150.0),
+                        height: Val::Px(65.0),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    background_color: Color::rgb(0.5, 0.1, 0.5).into(),
+                    image: UiImage::default().with_color(Color::srgb(0.5, 0.1, 0.5)),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -70,7 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             font: font_handle.clone(),
                             font_size: 40.0,
                             // Alpha channel of the color controls transparency.
-                            color: Color::rgba(1.0, 1.0, 1.0, 0.2),
+                            color: Color::srgba(1.0, 1.0, 1.0, 0.2),
                         },
                     ));
                 });

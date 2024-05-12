@@ -1,10 +1,15 @@
-use ddsfile::{D3DFormat, Dds, DxgiFormat};
+#[cfg(debug_assertions)]
+use bevy_utils::warn_once;
+use ddsfile::{Caps2, D3DFormat, Dds, DxgiFormat};
 use std::io::Cursor;
-use wgpu::{Extent3d, TextureDimension, TextureFormat};
+use wgpu::{
+    Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
+};
 
 use super::{CompressedImageFormats, Image, TextureError};
 
 pub fn dds_buffer_to_image(
+    #[cfg(debug_assertions)] name: String,
     buffer: &[u8],
     supported_compressed_formats: CompressedImageFormats,
     is_srgb: bool,
@@ -18,17 +23,42 @@ pub fn dds_buffer_to_image(
         )));
     }
     let mut image = Image::default();
+    let is_cubemap = dds.header.caps2.contains(Caps2::CUBEMAP);
+    let depth_or_array_layers = if dds.get_num_array_layers() > 1 {
+        dds.get_num_array_layers()
+    } else {
+        dds.get_depth()
+    };
+    if is_cubemap
+        && !dds.header.caps2.contains(
+            Caps2::CUBEMAP_NEGATIVEX
+                | Caps2::CUBEMAP_NEGATIVEY
+                | Caps2::CUBEMAP_NEGATIVEZ
+                | Caps2::CUBEMAP_POSITIVEX
+                | Caps2::CUBEMAP_POSITIVEY
+                | Caps2::CUBEMAP_POSITIVEZ,
+        )
+    {
+        return Err(TextureError::IncompleteCubemap);
+    }
     image.texture_descriptor.size = Extent3d {
         width: dds.get_width(),
         height: dds.get_height(),
-        depth_or_array_layers: if dds.get_num_array_layers() > 1 {
-            dds.get_num_array_layers()
-        } else {
-            dds.get_depth()
-        },
+        depth_or_array_layers,
     }
     .physical_size(texture_format);
-    image.texture_descriptor.mip_level_count = dds.get_num_mipmap_levels();
+    let mip_map_level = match dds.get_num_mipmap_levels() {
+        0 => {
+            #[cfg(debug_assertions)]
+            warn_once!(
+                "Mipmap levels for texture {} are 0, bumping them to 1",
+                name
+            );
+            1
+        }
+        t => t,
+    };
+    image.texture_descriptor.mip_level_count = mip_map_level;
     image.texture_descriptor.format = texture_format;
     image.texture_descriptor.dimension = if dds.get_depth() > 1 {
         TextureDimension::D3
@@ -37,6 +67,17 @@ pub fn dds_buffer_to_image(
     } else {
         TextureDimension::D1
     };
+    if is_cubemap {
+        let dimension = if image.texture_descriptor.size.depth_or_array_layers > 6 {
+            TextureViewDimension::CubeArray
+        } else {
+            TextureViewDimension::Cube
+        };
+        image.texture_view_descriptor = Some(TextureViewDescriptor {
+            dimension: Some(dimension),
+            ..Default::default()
+        });
+    }
     image.data = dds.data;
     Ok(image)
 }
@@ -88,7 +129,7 @@ pub fn dds_format_to_texture_format(
                     TextureFormat::Bc3RgbaUnorm
                 }
             }
-            D3DFormat::A16B16G16R16 => TextureFormat::Rgba16Uint,
+            D3DFormat::A16B16G16R16 => TextureFormat::Rgba16Unorm,
             D3DFormat::Q16W16V16U16 => TextureFormat::Rgba16Sint,
             D3DFormat::R16F => TextureFormat::R16Float,
             D3DFormat::G16R16F => TextureFormat::Rg16Float,
@@ -215,7 +256,7 @@ pub fn dds_format_to_texture_format(
             }
 
             DxgiFormat::BC6H_Typeless | DxgiFormat::BC6H_UF16 => TextureFormat::Bc6hRgbUfloat,
-            DxgiFormat::BC6H_SF16 => TextureFormat::Bc6hRgbSfloat,
+            DxgiFormat::BC6H_SF16 => TextureFormat::Bc6hRgbFloat,
             DxgiFormat::BC7_Typeless | DxgiFormat::BC7_UNorm | DxgiFormat::BC7_UNorm_sRGB => {
                 if is_srgb {
                     TextureFormat::Bc7RgbaUnormSrgb
@@ -234,4 +275,97 @@ pub fn dds_format_to_texture_format(
             "unspecified".to_string(),
         ));
     })
+}
+
+#[cfg(test)]
+mod test {
+    use wgpu::{util::TextureDataOrder, TextureDescriptor, TextureDimension};
+
+    use crate::texture::CompressedImageFormats;
+
+    use super::dds_buffer_to_image;
+
+    /// `wgpu::create_texture_with_data` that reads from data structure but doesn't actually talk to your GPU
+    fn fake_wgpu_create_texture_with_data(desc: &TextureDescriptor<'_>, data: &[u8]) {
+        // Will return None only if it's a combined depth-stencil format
+        // If so, default to 4, validation will fail later anyway since the depth or stencil
+        // aspect needs to be written to individually
+        let block_size = desc.format.block_copy_size(None).unwrap_or(4);
+        let (block_width, block_height) = desc.format.block_dimensions();
+        let layer_iterations = desc.array_layer_count();
+
+        let outer_iteration;
+        let inner_iteration;
+        match TextureDataOrder::default() {
+            TextureDataOrder::LayerMajor => {
+                outer_iteration = layer_iterations;
+                inner_iteration = desc.mip_level_count;
+            }
+            TextureDataOrder::MipMajor => {
+                outer_iteration = desc.mip_level_count;
+                inner_iteration = layer_iterations;
+            }
+        }
+
+        let mut binary_offset = 0;
+        for outer in 0..outer_iteration {
+            for inner in 0..inner_iteration {
+                let (_layer, mip) = match TextureDataOrder::default() {
+                    TextureDataOrder::LayerMajor => (outer, inner),
+                    TextureDataOrder::MipMajor => (inner, outer),
+                };
+
+                let mut mip_size = desc.mip_level_size(mip).unwrap();
+                // copying layers separately
+                if desc.dimension != TextureDimension::D3 {
+                    mip_size.depth_or_array_layers = 1;
+                }
+
+                // When uploading mips of compressed textures and the mip is supposed to be
+                // a size that isn't a multiple of the block size, the mip needs to be uploaded
+                // as its "physical size" which is the size rounded up to the nearest block size.
+                let mip_physical = mip_size.physical_size(desc.format);
+
+                // All these calculations are performed on the physical size as that's the
+                // data that exists in the buffer.
+                let width_blocks = mip_physical.width / block_width;
+                let height_blocks = mip_physical.height / block_height;
+
+                let bytes_per_row = width_blocks * block_size;
+                let data_size = bytes_per_row * height_blocks * mip_size.depth_or_array_layers;
+
+                let end_offset = binary_offset + data_size as usize;
+
+                assert!(binary_offset < data.len());
+                assert!(end_offset <= data.len());
+                // those asserts match how the data will be accessed by wgpu:
+                // data[binary_offset..end_offset])
+
+                binary_offset = end_offset;
+            }
+        }
+    }
+
+    #[test]
+    fn dds_skybox() {
+        let buffer: [u8; 224] = [
+            0x44, 0x44, 0x53, 0x20, 0x7c, 0, 0, 0, 7, 0x10, 0x08, 0, 4, 0, 0, 0, 4, 0, 0, 0, 0x10,
+            0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0x47, 0x49, 0x4d, 0x50, 0x2d, 0x44, 0x44, 0x53, 0x5c,
+            0x09, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0x20, 0, 0, 0, 4, 0, 0, 0, 0x44, 0x58, 0x54, 0x35, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x08, 0x10, 0, 0, 0, 0xfe, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 0x49, 0x92, 0x24, 0x49, 0x92, 0x24, 0xda, 0xd6,
+            0x2f, 0x5b, 0x8a, 0, 0xff, 0x55, 0xff, 0xff, 0x49, 0x92, 0x24, 0x49, 0x92, 0x24, 0xd5,
+            0x84, 0x8e, 0x3a, 0xb7, 0, 0xaa, 0x55, 0xff, 0xff, 0x49, 0x92, 0x24, 0x49, 0x92, 0x24,
+            0xf5, 0x94, 0x6f, 0x32, 0x57, 0xb7, 0x8b, 0, 0xff, 0xff, 0x49, 0x92, 0x24, 0x49, 0x92,
+            0x24, 0x2c, 0x3a, 0x49, 0x19, 0x28, 0xf7, 0xd7, 0xbe, 0xff, 0xff, 0x49, 0x92, 0x24,
+            0x49, 0x92, 0x24, 0x16, 0x95, 0xae, 0x42, 0xfc, 0, 0xaa, 0x55, 0xff, 0xff, 0x49, 0x92,
+            0x24, 0x49, 0x92, 0x24, 0xd8, 0xad, 0xae, 0x42, 0xaf, 0x0a, 0xaa, 0x55,
+        ];
+        let r = dds_buffer_to_image("".into(), &buffer, CompressedImageFormats::BC, true);
+        assert!(r.is_ok());
+        if let Ok(r) = r {
+            fake_wgpu_create_texture_with_data(&r.texture_descriptor, &r.data);
+        }
+    }
 }

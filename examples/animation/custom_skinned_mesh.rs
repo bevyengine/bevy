@@ -4,24 +4,27 @@
 use std::f32::consts::*;
 
 use bevy::{
-    pbr::AmbientLight,
     prelude::*,
-    render::mesh::{
-        skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-        Indices, PrimitiveTopology, VertexAttributeValues,
+    render::{
+        mesh::{
+            skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
+            Indices, PrimitiveTopology, VertexAttributeValues,
+        },
+        render_asset::RenderAssetUsages,
     },
 };
-use rand::Rng;
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
-            brightness: 1.0,
+            brightness: 3000.0,
             ..default()
         })
-        .add_startup_system(setup)
-        .add_system(joint_animation)
+        .add_systems(Startup, setup)
+        .add_systems(Update, joint_animation)
         .run();
 }
 
@@ -45,16 +48,18 @@ fn setup(
     });
 
     // Create inverse bindpose matrices for a skeleton consists of 2 joints
-    let inverse_bindposes =
-        skinned_mesh_inverse_bindposes_assets.add(SkinnedMeshInverseBindposes::from(vec![
-            Mat4::from_translation(Vec3::new(-0.5, -1.0, 0.0)),
-            Mat4::from_translation(Vec3::new(-0.5, -1.0, 0.0)),
-        ]));
+    let inverse_bindposes = skinned_mesh_inverse_bindposes_assets.add(vec![
+        Mat4::from_translation(Vec3::new(-0.5, -1.0, 0.0)),
+        Mat4::from_translation(Vec3::new(-0.5, -1.0, 0.0)),
+    ]);
 
     // Create a mesh
-    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+    let mesh = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::RENDER_WORLD,
+    )
     // Set mesh vertex positions
-    mesh.insert_attribute(
+    .with_inserted_attribute(
         Mesh::ATTRIBUTE_POSITION,
         vec![
             [0.0, 0.0, 0.0],
@@ -68,14 +73,14 @@ fn setup(
             [0.0, 2.0, 0.0],
             [1.0, 2.0, 0.0],
         ],
-    );
+    )
     // Set mesh vertex normals
-    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; 10]);
+    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; 10])
     // Set mesh vertex joint indices for mesh skinning.
     // Each vertex gets 4 indices used to address the `JointTransforms` array in the vertex shader
     //  as well as `SkinnedMeshJoint` array in the `SkinnedMesh` component.
     // This means that a maximum of 4 joints can affect a single vertex.
-    mesh.insert_attribute(
+    .with_inserted_attribute(
         Mesh::ATTRIBUTE_JOINT_INDEX,
         // Need to be explicit here as [u16; 4] could be either Uint16x4 or Unorm16x4.
         VertexAttributeValues::Uint16x4(vec![
@@ -90,11 +95,11 @@ fn setup(
             [0, 1, 0, 0],
             [0, 1, 0, 0],
         ]),
-    );
+    )
     // Set mesh vertex joint weights for mesh skinning.
     // Each vertex gets 4 joint weights corresponding to the 4 joint indices assigned to it.
     // The sum of these weights should equal to 1.
-    mesh.insert_attribute(
+    .with_inserted_attribute(
         Mesh::ATTRIBUTE_JOINT_WEIGHT,
         vec![
             [1.00, 0.00, 0.0, 0.0],
@@ -108,21 +113,26 @@ fn setup(
             [0.00, 1.00, 0.0, 0.0],
             [0.00, 1.00, 0.0, 0.0],
         ],
-    );
+    )
     // Tell bevy to construct triangles from a list of vertex indices,
     //  where each 3 vertex indices form an triangle.
-    mesh.set_indices(Some(Indices::U16(vec![
+    .with_inserted_indices(Indices::U16(vec![
         0, 1, 3, 0, 3, 2, 2, 3, 5, 2, 5, 4, 4, 5, 7, 4, 7, 6, 6, 7, 9, 6, 9, 8,
-    ])));
+    ]));
 
     let mesh = meshes.add(mesh);
+
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
+    let mut rng = ChaCha8Rng::seed_from_u64(42);
+
     for i in -5..5 {
         // Create joint entities
         let joint_0 = commands
             .spawn(TransformBundle::from(Transform::from_xyz(
                 i as f32 * 1.5,
                 0.0,
-                0.0,
+                i as f32 * 0.1,
             )))
             .id();
         let joint_1 = commands
@@ -139,14 +149,11 @@ fn setup(
         commands.spawn((
             PbrBundle {
                 mesh: mesh.clone(),
-                material: materials.add(
-                    Color::rgb(
-                        rand::thread_rng().gen_range(0.0..1.0),
-                        rand::thread_rng().gen_range(0.0..1.0),
-                        rand::thread_rng().gen_range(0.0..1.0),
-                    )
-                    .into(),
-                ),
+                material: materials.add(Color::srgb(
+                    rng.gen_range(0.0..1.0),
+                    rng.gen_range(0.0..1.0),
+                    rng.gen_range(0.0..1.0),
+                )),
                 ..default()
             },
             SkinnedMesh {

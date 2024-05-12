@@ -1,290 +1,121 @@
-use crate::{AudioSink, AudioSource, Decodable, SpatialAudioSink};
-use bevy_asset::{Asset, Handle, HandleId};
-use bevy_ecs::system::Resource;
+use crate::{AudioSource, Decodable};
+use bevy_asset::{Asset, Handle};
+use bevy_derive::Deref;
+use bevy_ecs::prelude::*;
 use bevy_math::Vec3;
-use bevy_transform::prelude::Transform;
-use parking_lot::RwLock;
-use std::{collections::VecDeque, fmt};
+use bevy_reflect::prelude::*;
 
-/// Use this [`Resource`] to play audio.
-///
-/// ```
-/// # use bevy_ecs::system::Res;
-/// # use bevy_asset::AssetServer;
-/// # use bevy_audio::Audio;
-/// fn play_audio_system(asset_server: Res<AssetServer>, audio: Res<Audio>) {
-///     audio.play(asset_server.load("my_sound.ogg"));
-/// }
-/// ```
-#[derive(Resource)]
-pub struct Audio<Source = AudioSource>
-where
-    Source: Asset + Decodable,
-{
-    /// Queue for playing audio from asset handles
-    pub(crate) queue: RwLock<VecDeque<AudioToPlay<Source>>>,
-}
+/// A volume level equivalent to a non-negative float.
+#[derive(Clone, Copy, Deref, Debug, Reflect)]
+pub struct Volume(pub(crate) f32);
 
-impl<Source: Asset> fmt::Debug for Audio<Source>
-where
-    Source: Decodable,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Audio").field("queue", &self.queue).finish()
-    }
-}
-
-impl<Source> Default for Audio<Source>
-where
-    Source: Asset + Decodable,
-{
+impl Default for Volume {
     fn default() -> Self {
-        Self {
-            queue: Default::default(),
-        }
+        Self(1.0)
     }
 }
 
-impl<Source> Audio<Source>
-where
-    Source: Asset + Decodable,
-{
-    /// Play audio from a [`Handle`] to the audio source
-    ///
-    /// ```
-    /// # use bevy_ecs::system::Res;
-    /// # use bevy_asset::AssetServer;
-    /// # use bevy_audio::Audio;
-    /// fn play_audio_system(asset_server: Res<AssetServer>, audio: Res<Audio>) {
-    ///     audio.play(asset_server.load("my_sound.ogg"));
-    /// }
-    /// ```
-    ///
-    /// Returns a weak [`Handle`] to the [`AudioSink`]. If this handle isn't changed to a
-    /// strong one, the sink will be detached and the sound will continue playing. Changing it
-    /// to a strong handle allows you to control the playback through the [`AudioSink`] asset.
-    ///
-    /// ```
-    /// # use bevy_ecs::system::Res;
-    /// # use bevy_asset::{AssetServer, Assets};
-    /// # use bevy_audio::{Audio, AudioSink};
-    /// fn play_audio_system(
-    ///     asset_server: Res<AssetServer>,
-    ///     audio: Res<Audio>,
-    ///     audio_sinks: Res<Assets<AudioSink>>,
-    /// ) {
-    ///     // This is a weak handle, and can't be used to control playback.
-    ///     let weak_handle = audio.play(asset_server.load("my_sound.ogg"));
-    ///     // This is now a strong handle, and can be used to control playback.
-    ///     let strong_handle = audio_sinks.get_handle(weak_handle);
-    /// }
-    /// ```
-    pub fn play(&self, audio_source: Handle<Source>) -> Handle<AudioSink> {
-        let id = HandleId::random::<AudioSink>();
-        let config = AudioToPlay {
-            settings: PlaybackSettings::ONCE,
-            sink_handle: id,
-            source_handle: audio_source,
-            spatial: None,
-        };
-        self.queue.write().push_back(config);
-        Handle::<AudioSink>::weak(id)
+impl Volume {
+    /// Create a new volume level.
+    pub fn new(volume: f32) -> Self {
+        debug_assert!(volume >= 0.0);
+        Self(f32::max(volume, 0.))
+    }
+    /// Get the value of the volume level.
+    pub fn get(&self) -> f32 {
+        self.0
     }
 
-    /// Play audio from a [`Handle`] to the audio source with [`PlaybackSettings`] that
-    /// allows looping or changing volume from the start.
-    ///
-    /// ```
-    /// # use bevy_ecs::system::Res;
-    /// # use bevy_asset::AssetServer;
-    /// # use bevy_audio::Audio;
-    /// # use bevy_audio::PlaybackSettings;
-    /// fn play_audio_system(asset_server: Res<AssetServer>, audio: Res<Audio>) {
-    ///     audio.play_with_settings(
-    ///         asset_server.load("my_sound.ogg"),
-    ///         PlaybackSettings::LOOP.with_volume(0.75),
-    ///     );
-    /// }
-    /// ```
-    ///
-    /// See [`Self::play`] on how to control playback once it's started.
-    pub fn play_with_settings(
-        &self,
-        audio_source: Handle<Source>,
-        settings: PlaybackSettings,
-    ) -> Handle<AudioSink> {
-        let id = HandleId::random::<AudioSink>();
-        let config = AudioToPlay {
-            settings,
-            sink_handle: id,
-            source_handle: audio_source,
-            spatial: None,
-        };
-        self.queue.write().push_back(config);
-        Handle::<AudioSink>::weak(id)
-    }
-
-    /// Play audio from a [`Handle`] to the audio source, placing the listener at the given
-    /// transform, an ear on each side separated by `gap`. The audio emitter will placed at
-    /// `emitter`.
-    ///
-    /// `bevy_audio` is not using HRTF for spatial audio, but is transforming the sound to a mono
-    /// track, and then changing the level of each stereo channel according to the distance between
-    /// the emitter and each ear by amplifying the difference between what the two ears hear.
-    ///
-    /// ```
-    /// # use bevy_ecs::system::Res;
-    /// # use bevy_asset::AssetServer;
-    /// # use bevy_audio::Audio;
-    /// # use bevy_math::Vec3;
-    /// # use bevy_transform::prelude::Transform;
-    /// fn play_spatial_audio_system(asset_server: Res<AssetServer>, audio: Res<Audio>) {
-    ///     // Sound will be to the left and behind the listener
-    ///     audio.play_spatial(
-    ///         asset_server.load("my_sound.ogg"),
-    ///         Transform::IDENTITY,
-    ///         1.0,
-    ///         Vec3::new(-2.0, 0.0, 1.0),
-    ///     );
-    /// }
-    /// ```
-    ///
-    /// Returns a weak [`Handle`] to the [`SpatialAudioSink`]. If this handle isn't changed to a
-    /// strong one, the sink will be detached and the sound will continue playing. Changing it
-    /// to a strong handle allows you to control the playback, or move the listener and emitter
-    /// through the [`SpatialAudioSink`] asset.
-    ///
-    /// ```
-    /// # use bevy_ecs::system::Res;
-    /// # use bevy_asset::{AssetServer, Assets};
-    /// # use bevy_audio::{Audio, SpatialAudioSink};
-    /// # use bevy_math::Vec3;
-    /// # use bevy_transform::prelude::Transform;
-    /// fn play_spatial_audio_system(
-    ///     asset_server: Res<AssetServer>,
-    ///     audio: Res<Audio>,
-    ///     spatial_audio_sinks: Res<Assets<SpatialAudioSink>>,
-    /// ) {
-    ///     // This is a weak handle, and can't be used to control playback.
-    ///     let weak_handle = audio.play_spatial(
-    ///         asset_server.load("my_sound.ogg"),
-    ///         Transform::IDENTITY,
-    ///         1.0,
-    ///         Vec3::new(-2.0, 0.0, 1.0),
-    ///     );
-    ///     // This is now a strong handle, and can be used to control playback, or move the emitter.
-    ///     let strong_handle = spatial_audio_sinks.get_handle(weak_handle);
-    /// }
-    /// ```
-    pub fn play_spatial(
-        &self,
-        audio_source: Handle<Source>,
-        listener: Transform,
-        gap: f32,
-        emitter: Vec3,
-    ) -> Handle<SpatialAudioSink> {
-        let id = HandleId::random::<SpatialAudioSink>();
-        let config = AudioToPlay {
-            settings: PlaybackSettings::ONCE,
-            sink_handle: id,
-            source_handle: audio_source,
-            spatial: Some(SpatialSettings {
-                left_ear: (listener.translation + listener.left() * gap / 2.0).to_array(),
-                right_ear: (listener.translation + listener.right() * gap / 2.0).to_array(),
-                emitter: emitter.to_array(),
-            }),
-        };
-        self.queue.write().push_back(config);
-        Handle::<SpatialAudioSink>::weak(id)
-    }
-
-    /// Play spatial audio from a [`Handle`] to the audio source with [`PlaybackSettings`] that
-    /// allows looping or changing volume from the start. The listener is placed at the given
-    /// transform, an ear on each side separated by `gap`. The audio emitter is placed at
-    /// `emitter`.
-    ///
-    /// `bevy_audio` is not using HRTF for spatial audio, but is transforming the sound to a mono
-    /// track, and then changing the level of each stereo channel according to the distance between
-    /// the emitter and each ear by amplifying the difference between what the two ears hear.
-    ///
-    /// ```
-    /// # use bevy_ecs::system::Res;
-    /// # use bevy_asset::AssetServer;
-    /// # use bevy_audio::Audio;
-    /// # use bevy_audio::PlaybackSettings;
-    /// # use bevy_math::Vec3;
-    /// # use bevy_transform::prelude::Transform;
-    /// fn play_spatial_audio_system(asset_server: Res<AssetServer>, audio: Res<Audio>) {
-    ///     audio.play_spatial_with_settings(
-    ///         asset_server.load("my_sound.ogg"),
-    ///         PlaybackSettings::LOOP.with_volume(0.75),
-    ///         Transform::IDENTITY,
-    ///         1.0,
-    ///         Vec3::new(-2.0, 0.0, 1.0),
-    ///     );
-    /// }
-    /// ```
-    ///
-    /// See [`Self::play_spatial`] on how to control playback once it's started, or how to move
-    /// the listener or the emitter.
-    pub fn play_spatial_with_settings(
-        &self,
-        audio_source: Handle<Source>,
-        settings: PlaybackSettings,
-        listener: Transform,
-        gap: f32,
-        emitter: Vec3,
-    ) -> Handle<SpatialAudioSink> {
-        let id = HandleId::random::<SpatialAudioSink>();
-        let config = AudioToPlay {
-            settings,
-            sink_handle: id,
-            source_handle: audio_source,
-            spatial: Some(SpatialSettings {
-                left_ear: (listener.translation + listener.left() * gap / 2.0).to_array(),
-                right_ear: (listener.translation + listener.right() * gap / 2.0).to_array(),
-                emitter: emitter.to_array(),
-            }),
-        };
-        self.queue.write().push_back(config);
-        Handle::<SpatialAudioSink>::weak(id)
-    }
+    /// Zero (silent) volume level
+    pub const ZERO: Self = Volume(0.0);
 }
 
-/// Settings to control playback from the start.
-#[derive(Clone, Copy, Debug)]
+/// The way Bevy manages the sound playback.
+#[derive(Debug, Clone, Copy, Reflect)]
+pub enum PlaybackMode {
+    /// Play the sound once. Do nothing when it ends.
+    Once,
+    /// Repeat the sound forever.
+    Loop,
+    /// Despawn the entity and its children when the sound finishes playing.
+    Despawn,
+    /// Remove the audio components from the entity, when the sound finishes playing.
+    Remove,
+}
+
+/// Initial settings to be used when audio starts playing.
+/// If you would like to control the audio while it is playing, query for the
+/// [`AudioSink`][crate::AudioSink] or [`SpatialAudioSink`][crate::SpatialAudioSink]
+/// components. Changes to this component will *not* be applied to already-playing audio.
+#[derive(Component, Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Component)]
 pub struct PlaybackSettings {
-    /// Play in repeat
-    pub repeat: bool,
+    /// The desired playback behavior.
+    pub mode: PlaybackMode,
     /// Volume to play at.
-    pub volume: f32,
+    pub volume: Volume,
     /// Speed to play at.
     pub speed: f32,
+    /// Create the sink in paused state.
+    /// Useful for "deferred playback", if you want to prepare
+    /// the entity, but hear the sound later.
+    pub paused: bool,
+    /// Enables spatial audio for this source.
+    ///
+    /// See also: [`SpatialListener`].
+    ///
+    /// Note: Bevy does not currently support HRTF or any other high-quality 3D sound rendering
+    /// features. Spatial audio is implemented via simple left-right stereo panning.
+    pub spatial: bool,
+    /// Optional scale factor applied to the positions of this audio source and the listener,
+    /// overriding the default value configured on [`AudioPlugin::default_spatial_scale`](crate::AudioPlugin::default_spatial_scale).
+    pub spatial_scale: Option<SpatialScale>,
 }
 
 impl Default for PlaybackSettings {
     fn default() -> Self {
+        // TODO: what should the default be: ONCE/DESPAWN/REMOVE?
         Self::ONCE
     }
 }
 
 impl PlaybackSettings {
-    /// Will play the associate audio source once.
+    /// Will play the associated audio source once.
     pub const ONCE: PlaybackSettings = PlaybackSettings {
-        repeat: false,
-        volume: 1.0,
+        mode: PlaybackMode::Once,
+        volume: Volume(1.0),
         speed: 1.0,
+        paused: false,
+        spatial: false,
+        spatial_scale: None,
     };
 
-    /// Will play the associate audio source in a loop.
+    /// Will play the associated audio source in a loop.
     pub const LOOP: PlaybackSettings = PlaybackSettings {
-        repeat: true,
-        volume: 1.0,
-        speed: 1.0,
+        mode: PlaybackMode::Loop,
+        ..PlaybackSettings::ONCE
     };
+
+    /// Will play the associated audio source once and despawn the entity afterwards.
+    pub const DESPAWN: PlaybackSettings = PlaybackSettings {
+        mode: PlaybackMode::Despawn,
+        ..PlaybackSettings::ONCE
+    };
+
+    /// Will play the associated audio source once and remove the audio components afterwards.
+    pub const REMOVE: PlaybackSettings = PlaybackSettings {
+        mode: PlaybackMode::Remove,
+        ..PlaybackSettings::ONCE
+    };
+
+    /// Helper to start in a paused state.
+    pub const fn paused(mut self) -> Self {
+        self.paused = true;
+        self
+    }
 
     /// Helper to set the volume from start of playback.
-    pub const fn with_volume(mut self, volume: f32) -> Self {
+    pub const fn with_volume(mut self, volume: Volume) -> Self {
         self.volume = volume;
         self
     }
@@ -294,35 +125,147 @@ impl PlaybackSettings {
         self.speed = speed;
         self
     }
+
+    /// Helper to enable or disable spatial audio.
+    pub const fn with_spatial(mut self, spatial: bool) -> Self {
+        self.spatial = spatial;
+        self
+    }
+
+    /// Helper to use a custom spatial scale.
+    pub const fn with_spatial_scale(mut self, spatial_scale: SpatialScale) -> Self {
+        self.spatial_scale = Some(spatial_scale);
+        self
+    }
 }
 
-#[derive(Clone)]
-pub(crate) struct SpatialSettings {
-    pub(crate) left_ear: [f32; 3],
-    pub(crate) right_ear: [f32; 3],
-    pub(crate) emitter: [f32; 3],
+/// Settings for the listener for spatial audio sources.
+///
+/// This must be accompanied by `Transform` and `GlobalTransform`.
+/// Only one entity with a `SpatialListener` should be present at any given time.
+#[derive(Component, Clone, Debug, Reflect)]
+#[reflect(Default, Component)]
+pub struct SpatialListener {
+    /// Left ear position relative to the `GlobalTransform`.
+    pub left_ear_offset: Vec3,
+    /// Right ear position relative to the `GlobalTransform`.
+    pub right_ear_offset: Vec3,
 }
 
-#[derive(Clone)]
-pub(crate) struct AudioToPlay<Source>
+impl Default for SpatialListener {
+    fn default() -> Self {
+        Self::new(4.)
+    }
+}
+
+impl SpatialListener {
+    /// Creates a new `SpatialListener` component.
+    ///
+    /// `gap` is the distance between the left and right "ears" of the listener. Ears are
+    /// positioned on the x axis.
+    pub fn new(gap: f32) -> Self {
+        SpatialListener {
+            left_ear_offset: Vec3::X * gap / -2.0,
+            right_ear_offset: Vec3::X * gap / 2.0,
+        }
+    }
+}
+
+/// Use this [`Resource`] to control the global volume of all audio.
+///
+/// Note: changing this value will not affect already playing audio.
+#[derive(Resource, Default, Clone, Copy, Reflect)]
+#[reflect(Resource)]
+pub struct GlobalVolume {
+    /// The global volume of all audio.
+    pub volume: Volume,
+}
+
+impl GlobalVolume {
+    /// Create a new [`GlobalVolume`] with the given volume.
+    pub fn new(volume: f32) -> Self {
+        Self {
+            volume: Volume::new(volume),
+        }
+    }
+}
+
+/// A scale factor applied to the positions of audio sources and listeners for
+/// spatial audio.
+///
+/// Default is `Vec3::ONE`.
+#[derive(Clone, Copy, Debug, Reflect)]
+pub struct SpatialScale(pub Vec3);
+
+impl SpatialScale {
+    /// Create a new `SpatialScale` with the same value for all 3 dimensions.
+    pub const fn new(scale: f32) -> Self {
+        Self(Vec3::splat(scale))
+    }
+
+    /// Create a new `SpatialScale` with the same value for `x` and `y`, and `0.0`
+    /// for `z`.
+    pub const fn new_2d(scale: f32) -> Self {
+        Self(Vec3::new(scale, scale, 0.0))
+    }
+}
+
+impl Default for SpatialScale {
+    fn default() -> Self {
+        Self(Vec3::ONE)
+    }
+}
+
+/// The default scale factor applied to the positions of audio sources and listeners for
+/// spatial audio. Can be overridden for individual sounds in [`PlaybackSettings`].
+///
+/// You may need to adjust this scale to fit your world's units.
+///
+/// Default is `Vec3::ONE`.
+#[derive(Resource, Default, Clone, Copy, Reflect)]
+#[reflect(Resource)]
+pub struct DefaultSpatialScale(pub SpatialScale);
+
+/// Bundle for playing a standard bevy audio asset
+pub type AudioBundle = AudioSourceBundle<AudioSource>;
+
+/// Bundle for playing a sound.
+///
+/// Insert this bundle onto an entity to trigger a sound source to begin playing.
+///
+/// If the handle refers to an unavailable asset (such as if it has not finished loading yet),
+/// the audio will not begin playing immediately. The audio will play when the asset is ready.
+///
+/// When Bevy begins the audio playback, an [`AudioSink`][crate::AudioSink] component will be
+/// added to the entity. You can use that component to control the audio settings during playback.
+#[derive(Bundle)]
+pub struct AudioSourceBundle<Source = AudioSource>
 where
     Source: Asset + Decodable,
 {
-    pub(crate) sink_handle: HandleId,
-    pub(crate) source_handle: Handle<Source>,
-    pub(crate) settings: PlaybackSettings,
-    pub(crate) spatial: Option<SpatialSettings>,
+    /// Asset containing the audio data to play.
+    pub source: Handle<Source>,
+    /// Initial settings that the audio starts playing with.
+    /// If you would like to control the audio while it is playing,
+    /// query for the [`AudioSink`][crate::AudioSink] component.
+    /// Changes to this component will *not* be applied to already-playing audio.
+    pub settings: PlaybackSettings,
 }
 
-impl<Source> fmt::Debug for AudioToPlay<Source>
-where
-    Source: Asset + Decodable,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("AudioToPlay")
-            .field("sink_handle", &self.sink_handle)
-            .field("source_handle", &self.source_handle)
-            .field("settings", &self.settings)
-            .finish()
+impl<T: Asset + Decodable> Clone for AudioSourceBundle<T> {
+    fn clone(&self) -> Self {
+        Self {
+            source: self.source.clone(),
+            settings: self.settings,
+        }
+    }
+}
+
+impl<T: Decodable + Asset> Default for AudioSourceBundle<T> {
+    fn default() -> Self {
+        Self {
+            source: Default::default(),
+            settings: Default::default(),
+        }
     }
 }

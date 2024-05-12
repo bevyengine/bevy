@@ -1,20 +1,19 @@
-use crate::{PrimaryWindow, Window, WindowCloseRequested};
+use crate::{ClosingWindow, PrimaryWindow, Window, WindowCloseRequested};
 
 use bevy_app::AppExit;
 use bevy_ecs::prelude::*;
-use bevy_input::{keyboard::KeyCode, Input};
 
 /// Exit the application when there are no open windows.
 ///
 /// This system is added by the [`WindowPlugin`] in the default configuration.
-/// To disable this behaviour, set `close_when_requested` (on the [`WindowPlugin`]) to `false`.
+/// To disable this behavior, set `close_when_requested` (on the [`WindowPlugin`]) to `false`.
 /// Ensure that you read the caveats documented on that field if doing so.
 ///
 /// [`WindowPlugin`]: crate::WindowPlugin
 pub fn exit_on_all_closed(mut app_exit_events: EventWriter<AppExit>, windows: Query<&Window>) {
     if windows.is_empty() {
         bevy_utils::tracing::info!("No windows are open, exiting");
-        app_exit_events.send(AppExit);
+        app_exit_events.send(AppExit::Success);
     }
 }
 
@@ -28,39 +27,29 @@ pub fn exit_on_primary_closed(
     windows: Query<(), (With<Window>, With<PrimaryWindow>)>,
 ) {
     if windows.is_empty() {
-        bevy_utils::tracing::info!("Primary windows was closed, exiting");
-        app_exit_events.send(AppExit);
+        bevy_utils::tracing::info!("Primary window was closed, exiting");
+        app_exit_events.send(AppExit::Success);
     }
 }
 
 /// Close windows in response to [`WindowCloseRequested`] (e.g.  when the close button is pressed).
 ///
 /// This system is added by the [`WindowPlugin`] in the default configuration.
-/// To disable this behaviour, set `close_when_requested` (on the [`WindowPlugin`]) to `false`.
+/// To disable this behavior, set `close_when_requested` (on the [`WindowPlugin`]) to `false`.
 /// Ensure that you read the caveats documented on that field if doing so.
 ///
 /// [`WindowPlugin`]: crate::WindowPlugin
-pub fn close_when_requested(mut commands: Commands, mut closed: EventReader<WindowCloseRequested>) {
-    for event in closed.iter() {
-        commands.entity(event.window).despawn();
-    }
-}
-
-/// Close the focused window whenever the escape key (<kbd>Esc</kbd>) is pressed
-///
-/// This is useful for examples or prototyping.
-pub fn close_on_esc(
+pub fn close_when_requested(
     mut commands: Commands,
-    focused_windows: Query<(Entity, &Window)>,
-    input: Res<Input<KeyCode>>,
+    mut closed: EventReader<WindowCloseRequested>,
+    closing: Query<Entity, With<ClosingWindow>>,
 ) {
-    for (window, focus) in focused_windows.iter() {
-        if !focus.focused {
-            continue;
-        }
-
-        if input.just_pressed(KeyCode::Escape) {
-            commands.entity(window).despawn();
-        }
+    // This was inserted by us on the last frame so now we can despawn the window
+    for window in closing.iter() {
+        commands.entity(window).despawn();
+    }
+    // Mark the window as closing so we can despawn it on the next frame
+    for event in closed.read() {
+        commands.entity(event.window).insert(ClosingWindow);
     }
 }

@@ -1,4 +1,18 @@
-#[warn(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
+//! `bevy_window` provides a platform-agnostic interface for windowing in Bevy.
+//!
+//! This crate contains types for window management and events,
+//! used by windowing implementors such as `bevy_winit`.
+//! The [`WindowPlugin`] sets up some global window-related parameters and
+//! is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
+
+use bevy_a11y::Focus;
+
 mod cursor;
 mod event;
 mod raw_handle;
@@ -12,7 +26,9 @@ pub use event::*;
 pub use system::*;
 pub use window::*;
 
+#[allow(missing_docs)]
 pub mod prelude {
+    #[allow(deprecated)]
     #[doc(hidden)]
     pub use crate::{
         CursorEntered, CursorIcon, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection,
@@ -22,8 +38,6 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::prelude::*;
-use std::path::PathBuf;
 
 impl Default for WindowPlugin {
     fn default() -> Self {
@@ -37,12 +51,15 @@ impl Default for WindowPlugin {
 
 /// A [`Plugin`] that defines an interface for windowing support in Bevy.
 pub struct WindowPlugin {
-    /// Settings for the primary window. This will be spawned by
-    /// default, if you want to run without a primary window you should
-    /// set this to `None`.
+    /// Settings for the primary window.
     ///
-    /// Note that if there are no windows, by default the App will exit,
-    /// due to [`exit_on_all_closed`].
+    /// `Some(custom_window)` will spawn an entity with `custom_window` and [`PrimaryWindow`] as components.
+    /// `None` will not spawn a primary window.
+    ///
+    /// Defaults to `Some(Window::default())`.
+    ///
+    /// Note that if there are no windows the App will exit (by default) due to
+    /// [`exit_on_all_closed`].
     pub primary_window: Option<Window>,
 
     /// Whether to exit the app when there are no open windows.
@@ -53,14 +70,14 @@ pub struct WindowPlugin {
     /// surprise your users. It is recommended to leave this setting to
     /// either [`ExitCondition::OnAllClosed`] or [`ExitCondition::OnPrimaryClosed`].
     ///
-    /// [`ExitCondition::OnAllClosed`] will add [`exit_on_all_closed`] to [`CoreSet::Update`].
-    /// [`ExitCondition::OnPrimaryClosed`] will add [`exit_on_primary_closed`] to [`CoreSet::Update`].
+    /// [`ExitCondition::OnAllClosed`] will add [`exit_on_all_closed`] to [`Update`].
+    /// [`ExitCondition::OnPrimaryClosed`] will add [`exit_on_primary_closed`] to [`Update`].
     pub exit_condition: ExitCondition,
 
     /// Whether to close windows when they are requested to be closed (i.e.
     /// when the close button is pressed).
     ///
-    /// If true, this plugin will add [`close_when_requested`] to [`CoreSet::Update`].
+    /// If true, this plugin will add [`close_when_requested`] to [`Update`].
     /// If this system (or a replacement) is not running, the close button will have no effect.
     /// This may surprise your users. It is recommended to leave this setting as `true`.
     pub close_when_requested: bool,
@@ -69,10 +86,13 @@ pub struct WindowPlugin {
 impl Plugin for WindowPlugin {
     fn build(&self, app: &mut App) {
         // User convenience events
+        #[allow(deprecated)]
         app.add_event::<WindowResized>()
             .add_event::<WindowCreated>()
+            .add_event::<WindowClosing>()
             .add_event::<WindowClosed>()
             .add_event::<WindowCloseRequested>()
+            .add_event::<WindowDestroyed>()
             .add_event::<RequestRedraw>()
             .add_event::<CursorMoved>()
             .add_event::<CursorEntered>()
@@ -80,61 +100,64 @@ impl Plugin for WindowPlugin {
             .add_event::<ReceivedCharacter>()
             .add_event::<Ime>()
             .add_event::<WindowFocused>()
+            .add_event::<WindowOccluded>()
             .add_event::<WindowScaleFactorChanged>()
             .add_event::<WindowBackendScaleFactorChanged>()
             .add_event::<FileDragAndDrop>()
-            .add_event::<WindowMoved>();
+            .add_event::<WindowMoved>()
+            .add_event::<WindowThemeChanged>()
+            .add_event::<ApplicationLifetime>();
 
         if let Some(primary_window) = &self.primary_window {
-            app.world
+            let initial_focus = app
+                .world_mut()
                 .spawn(primary_window.clone())
-                .insert(PrimaryWindow);
+                .insert(PrimaryWindow)
+                .id();
+            if let Some(mut focus) = app.world_mut().get_resource_mut::<Focus>() {
+                **focus = Some(initial_focus);
+            }
         }
 
         match self.exit_condition {
             ExitCondition::OnPrimaryClosed => {
-                app.add_system(exit_on_primary_closed.in_base_set(CoreSet::PostUpdate));
+                app.add_systems(PostUpdate, exit_on_primary_closed);
             }
             ExitCondition::OnAllClosed => {
-                app.add_system(exit_on_all_closed.in_base_set(CoreSet::PostUpdate));
+                app.add_systems(PostUpdate, exit_on_all_closed);
             }
             ExitCondition::DontExit => {}
         }
 
         if self.close_when_requested {
             // Need to run before `exit_on_*` systems
-            app.add_system(close_when_requested);
+            app.add_systems(Update, close_when_requested);
         }
 
         // Register event types
+        #[allow(deprecated)]
         app.register_type::<WindowResized>()
             .register_type::<RequestRedraw>()
             .register_type::<WindowCreated>()
             .register_type::<WindowCloseRequested>()
+            .register_type::<WindowClosing>()
             .register_type::<WindowClosed>()
             .register_type::<CursorMoved>()
             .register_type::<CursorEntered>()
             .register_type::<CursorLeft>()
             .register_type::<ReceivedCharacter>()
             .register_type::<WindowFocused>()
+            .register_type::<WindowOccluded>()
             .register_type::<WindowScaleFactorChanged>()
             .register_type::<WindowBackendScaleFactorChanged>()
             .register_type::<FileDragAndDrop>()
-            .register_type::<WindowMoved>();
+            .register_type::<WindowMoved>()
+            .register_type::<WindowThemeChanged>()
+            .register_type::<ApplicationLifetime>();
 
         // Register window descriptor and related types
         app.register_type::<Window>()
-            .register_type::<Cursor>()
-            .register_type::<WindowResolution>()
-            .register_type::<WindowPosition>()
-            .register_type::<WindowMode>()
-            .register_type::<PresentMode>()
-            .register_type::<InternalWindowState>()
-            .register_type::<MonitorSelection>()
-            .register_type::<WindowResizeConstraints>();
-
-        // Register `PathBuf` as it's used by `FileDragAndDrop`
-        app.register_type::<PathBuf>();
+            .register_type::<PrimaryWindow>();
     }
 }
 
@@ -143,11 +166,11 @@ impl Plugin for WindowPlugin {
 pub enum ExitCondition {
     /// Close application when the primary window is closed
     ///
-    /// The plugin will add [`exit_on_primary_closed`] to [`CoreSet::Update`].
+    /// The plugin will add [`exit_on_primary_closed`] to [`Update`].
     OnPrimaryClosed,
     /// Close application when all windows are closed
     ///
-    /// The plugin will add [`exit_on_all_closed`] to [`CoreSet::Update`].
+    /// The plugin will add [`exit_on_all_closed`] to [`Update`].
     OnAllClosed,
     /// Keep application running headless even after closing all windows
     ///

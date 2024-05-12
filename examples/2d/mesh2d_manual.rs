@@ -2,17 +2,21 @@
 //! pipeline for 2d meshes.
 //! It doesn't use the [`Material2d`] abstraction, but changes the vertex buffer to include vertex color.
 //! Check out the "mesh2d" example for simpler / higher level 2d meshes.
-
-use std::f32::consts::PI;
+//!
+//! [`Material2d`]: bevy::sprite::Material2d
 
 use bevy::{
+    color::palettes::basic::YELLOW,
     core_pipeline::core_2d::Transparent2d,
+    math::FloatOrd,
     prelude::*,
-    reflect::TypeUuid,
     render::{
-        mesh::{Indices, MeshVertexAttribute},
-        render_asset::RenderAssets,
-        render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
+        mesh::{GpuMesh, Indices, MeshVertexAttribute},
+        render_asset::{RenderAssetUsages, RenderAssets},
+        render_phase::{
+            AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline,
+            SortedRenderPhase,
+        },
         render_resource::{
             BlendState, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
             MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,
@@ -21,20 +25,21 @@ use bevy::{
         },
         texture::BevyDefault,
         view::{ExtractedView, ViewTarget, VisibleEntities},
-        Extract, RenderApp, RenderSet,
+        Extract, Render, RenderApp, RenderSet,
     },
     sprite::{
-        DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dUniform,
-        SetMesh2dBindGroup, SetMesh2dViewBindGroup,
+        extract_mesh2d, DrawMesh2d, Material2dBindGroupId, Mesh2dHandle, Mesh2dPipeline,
+        Mesh2dPipelineKey, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup,
+        SetMesh2dViewBindGroup, WithMesh2d,
     },
-    utils::FloatOrd,
+    utils::EntityHashMap,
 };
+use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(ColoredMesh2dPlugin)
-        .add_startup_system(star)
+        .add_plugins((DefaultPlugins, ColoredMesh2dPlugin))
+        .add_systems(Startup, star)
         .run();
 }
 
@@ -47,8 +52,13 @@ fn star(
     // We will specify here what kind of topology is used to define the mesh,
     // that is, how triangles are built from the vertices. We will use a
     // triangle list, meaning that each vertex of the triangle has to be
-    // specified.
-    let mut star = Mesh::new(PrimitiveTopology::TriangleList);
+    // specified. We set `RenderAssetUsages::RENDER_WORLD`, meaning this mesh
+    // will not be accessible in future frames from the `meshes` resource, in
+    // order to save on memory once it has been uploaded to the GPU.
+    let mut star = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::RENDER_WORLD,
+    );
 
     // Vertices need to have a position attribute. We will use the following
     // vertices (I hope you can spot the star in the schema).
@@ -74,8 +84,8 @@ fn star(
     // Set the position attribute
     star.insert_attribute(Mesh::ATTRIBUTE_POSITION, v_pos);
     // And a RGB color attribute as well
-    let mut v_color: Vec<u32> = vec![Color::BLACK.as_linear_rgba_u32()];
-    v_color.extend_from_slice(&[Color::YELLOW.as_linear_rgba_u32(); 10]);
+    let mut v_color: Vec<u32> = vec![LinearRgba::BLACK.as_u32()];
+    v_color.extend_from_slice(&[LinearRgba::from(YELLOW).as_u32(); 10]);
     star.insert_attribute(
         MeshVertexAttribute::new("Vertex_Color", 1, VertexFormat::Uint32),
         v_color,
@@ -94,12 +104,12 @@ fn star(
     for i in 2..=10 {
         indices.extend_from_slice(&[0, i, i - 1]);
     }
-    star.set_indices(Some(Indices::U32(indices)));
+    star.insert_indices(Indices::U32(indices));
 
     // We can now spawn the entities for the star and the camera
     commands.spawn((
         // We use a marker component to identify the custom colored meshes
-        ColoredMesh2d::default(),
+        ColoredMesh2d,
         // The `Handle<Mesh>` needs to be wrapped in a `Mesh2dHandle` to use 2d rendering instead of 3d
         Mesh2dHandle(meshes.add(star)),
         // This bundle's components are needed for something to be rendered
@@ -154,16 +164,16 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
         RenderPipelineDescriptor {
             vertex: VertexState {
                 // Use our custom shader
-                shader: COLORED_MESH2D_SHADER_HANDLE.typed::<Shader>(),
+                shader: COLORED_MESH2D_SHADER_HANDLE,
                 entry_point: "vertex".into(),
-                shader_defs: Vec::new(),
+                shader_defs: vec![],
                 // Use our custom vertex buffer
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
                 // Use our custom shader
-                shader: COLORED_MESH2D_SHADER_HANDLE.typed::<Shader>(),
-                shader_defs: Vec::new(),
+                shader: COLORED_MESH2D_SHADER_HANDLE,
+                shader_defs: vec![],
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format,
@@ -178,7 +188,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
                 // Bind group 1 is the mesh uniform
                 self.mesh2d_pipeline.mesh_layout.clone(),
             ],
-            push_constant_ranges: Vec::new(),
+            push_constant_ranges: vec![],
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
@@ -215,17 +225,11 @@ type DrawColoredMesh2d = (
 // using `include_str!()`, or loaded like any other asset with `asset_server.load()`.
 const COLORED_MESH2D_SHADER: &str = r"
 // Import the standard 2d mesh uniforms and set their bind groups
-#import bevy_sprite::mesh2d_types
-#import bevy_sprite::mesh2d_view_bindings
-
-@group(1) @binding(0)
-var<uniform> mesh: Mesh2d;
-
-// NOTE: Bindings must come before functions that use them!
 #import bevy_sprite::mesh2d_functions
 
 // The structure of the vertex buffer is as specified in `specialize()`
 struct Vertex {
+    @builtin(instance_index) instance_index: u32,
     @location(0) position: vec3<f32>,
     @location(1) color: u32,
 };
@@ -242,7 +246,8 @@ struct VertexOutput {
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
     // Project the world position of the mesh into screen position
-    out.clip_position = mesh2d_position_local_to_clip(mesh.model, vec4<f32>(vertex.position, 1.0));
+    let model = mesh2d_functions::get_model_matrix(vertex.instance_index);
+    out.clip_position = mesh2d_functions::mesh2d_position_local_to_clip(model, vec4<f32>(vertex.position, 1.0));
     // Unpack the `u32` from the vertex buffer into the `vec4<f32>` used by the fragment shader
     out.color = vec4<f32>((vec4<u32>(vertex.color) >> vec4<u32>(0u, 8u, 16u, 24u)) & vec4<u32>(255u)) / 255.0;
     return out;
@@ -265,26 +270,40 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 pub struct ColoredMesh2dPlugin;
 
 /// Handle to the custom shader with a unique random ID
-pub const COLORED_MESH2D_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 13828845428412094821);
+pub const COLORED_MESH2D_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(13828845428412094821);
+
+/// Our custom pipeline needs its own instance storage
+#[derive(Resource, Deref, DerefMut, Default)]
+pub struct RenderColoredMesh2dInstances(EntityHashMap<Entity, RenderMesh2dInstance>);
 
 impl Plugin for ColoredMesh2dPlugin {
     fn build(&self, app: &mut App) {
         // Load our custom shader
-        let mut shaders = app.world.resource_mut::<Assets<Shader>>();
-        shaders.set_untracked(
-            COLORED_MESH2D_SHADER_HANDLE,
-            Shader::from_wgsl(COLORED_MESH2D_SHADER),
+        let mut shaders = app.world_mut().resource_mut::<Assets<Shader>>();
+        shaders.insert(
+            &COLORED_MESH2D_SHADER_HANDLE,
+            Shader::from_wgsl(COLORED_MESH2D_SHADER, file!()),
         );
 
-        // Register our custom draw function and pipeline, and add our render systems
+        // Register our custom draw function, and add our render systems
         app.get_sub_app_mut(RenderApp)
             .unwrap()
             .add_render_command::<Transparent2d, DrawColoredMesh2d>()
-            .init_resource::<ColoredMesh2dPipeline>()
             .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()
-            .add_system(extract_colored_mesh2d.in_schedule(ExtractSchedule))
-            .add_system(queue_colored_mesh2d.in_set(RenderSet::Queue));
+            .init_resource::<RenderColoredMesh2dInstances>()
+            .add_systems(
+                ExtractSchedule,
+                extract_colored_mesh2d.after(extract_mesh2d),
+            )
+            .add_systems(Render, queue_colored_mesh2d.in_set(RenderSet::QueueMeshes));
+    }
+
+    fn finish(&self, app: &mut App) {
+        // Register our custom pipeline
+        app.get_sub_app_mut(RenderApp)
+            .unwrap()
+            .init_resource::<ColoredMesh2dPipeline>();
     }
 }
 
@@ -294,14 +313,32 @@ pub fn extract_colored_mesh2d(
     mut previous_len: Local<usize>,
     // When extracting, you must use `Extract` to mark the `SystemParam`s
     // which should be taken from the main world.
-    query: Extract<Query<(Entity, &ComputedVisibility), With<ColoredMesh2d>>>,
+    query: Extract<
+        Query<(Entity, &ViewVisibility, &GlobalTransform, &Mesh2dHandle), With<ColoredMesh2d>>,
+    >,
+    mut render_mesh_instances: ResMut<RenderColoredMesh2dInstances>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, computed_visibility) in &query {
-        if !computed_visibility.is_visible() {
+    for (entity, view_visibility, transform, handle) in &query {
+        if !view_visibility.get() {
             continue;
         }
+
+        let transforms = Mesh2dTransforms {
+            transform: (&transform.affine()).into(),
+            flags: MeshFlags::empty().bits(),
+        };
+
         values.push((entity, ColoredMesh2d));
+        render_mesh_instances.insert(
+            entity,
+            RenderMesh2dInstance {
+                mesh_asset_id: handle.0.id(),
+                transforms,
+                material_bind_group_id: Material2dBindGroupId::default(),
+                automatic_batching: false,
+            },
+        );
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
@@ -315,15 +352,15 @@ pub fn queue_colored_mesh2d(
     mut pipelines: ResMut<SpecializedRenderPipelines<ColoredMesh2dPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
-    render_meshes: Res<RenderAssets<Mesh>>,
-    colored_mesh2d: Query<(&Mesh2dHandle, &Mesh2dUniform), With<ColoredMesh2d>>,
+    render_meshes: Res<RenderAssets<GpuMesh>>,
+    render_mesh_instances: Res<RenderColoredMesh2dInstances>,
     mut views: Query<(
         &VisibleEntities,
-        &mut RenderPhase<Transparent2d>,
+        &mut SortedRenderPhase<Transparent2d>,
         &ExtractedView,
     )>,
 ) {
-    if colored_mesh2d.is_empty() {
+    if render_mesh_instances.is_empty() {
         return;
     }
     // Iterate each view (a camera is a view)
@@ -334,19 +371,21 @@ pub fn queue_colored_mesh2d(
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         // Queue all entities visible to that view
-        for visible_entity in &visible_entities.entities {
-            if let Ok((mesh2d_handle, mesh2d_uniform)) = colored_mesh2d.get(*visible_entity) {
+        for visible_entity in visible_entities.iter::<WithMesh2d>() {
+            if let Some(mesh_instance) = render_mesh_instances.get(visible_entity) {
+                let mesh2d_handle = mesh_instance.mesh_asset_id;
+                let mesh2d_transforms = &mesh_instance.transforms;
                 // Get our specialized pipeline
                 let mut mesh2d_key = mesh_key;
-                if let Some(mesh) = render_meshes.get(&mesh2d_handle.0) {
+                if let Some(mesh) = render_meshes.get(mesh2d_handle) {
                     mesh2d_key |=
-                        Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                        Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology());
                 }
 
                 let pipeline_id =
                     pipelines.specialize(&pipeline_cache, &colored_mesh2d_pipeline, mesh2d_key);
 
-                let mesh_z = mesh2d_uniform.transform.w_axis.z;
+                let mesh_z = mesh2d_transforms.transform.translation.z;
                 transparent_phase.add(Transparent2d {
                     entity: *visible_entity,
                     draw_function: draw_colored_mesh2d,
@@ -355,7 +394,8 @@ pub fn queue_colored_mesh2d(
                     // in order to get correct transparency
                     sort_key: FloatOrd(mesh_z),
                     // This material is not batched
-                    batch_range: None,
+                    batch_range: 0..1,
+                    extra_index: PhaseItemExtraIndex::NONE,
                 });
             }
         }

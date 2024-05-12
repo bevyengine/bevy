@@ -1,16 +1,16 @@
 use crate::{
     camera::Viewport,
-    prelude::Color,
+    diagnostic::internal::{Pass, PassKind, WritePipelineStatistics, WriteTimestamp},
     render_resource::{
         BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
         ShaderStages,
     },
     renderer::RenderDevice,
 };
+use bevy_color::LinearRgba;
 use bevy_utils::{default, detailed_trace};
 use std::ops::Range;
-use wgpu::{IndexFormat, RenderPass};
-use wgpu_hal::{MAX_BIND_GROUPS, MAX_VERTEX_BUFFERS};
+use wgpu::{IndexFormat, QuerySet, RenderPass};
 
 /// Tracks the state of a [`TrackedRenderPass`].
 ///
@@ -114,12 +114,17 @@ impl<'a> TrackedRenderPass<'a> {
         let max_vertex_buffers = limits.max_vertex_buffers as usize;
         Self {
             state: DrawState {
-                bind_groups: vec![(None, Vec::new()); max_bind_groups.min(MAX_BIND_GROUPS)],
-                vertex_buffers: vec![None; max_vertex_buffers.min(MAX_VERTEX_BUFFERS)],
+                bind_groups: vec![(None, Vec::new()); max_bind_groups],
+                vertex_buffers: vec![None; max_vertex_buffers],
                 ..default()
             },
             pass,
         }
+    }
+
+    /// Returns the wgpu [`RenderPass`].
+    pub fn wgpu_pass(&mut self) -> &mut RenderPass<'a> {
+        &mut self.pass
     }
 
     /// Sets the active [`RenderPipeline`].
@@ -175,7 +180,7 @@ impl<'a> TrackedRenderPass<'a> {
     /// Assign a vertex buffer to a slot.
     ///
     /// Subsequent calls to [`draw`] and [`draw_indexed`] on this
-    /// [`RenderPass`] will use `buffer` as one of the source vertex buffers.
+    /// [`TrackedRenderPass`] will use `buffer` as one of the source vertex buffers.
     ///
     /// The `slot_index` refers to the index of the matching descriptor in
     /// [`VertexState::buffers`](crate::render_resource::VertexState::buffers).
@@ -265,7 +270,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// The structure expected in `indirect_buffer` is the following:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -288,7 +293,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// The structure expected in `indirect_buffer` is the following:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndexedIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -316,7 +321,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// `indirect_buffer` should contain `count` tightly packed elements of the following structure:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -354,7 +359,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// `indirect_buffer` should contain `count` tightly packed elements of the following structure:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -397,7 +402,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// `indirect_buffer` should contain `count` tightly packed elements of the following structure:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndexedIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -437,7 +442,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// `indirect_buffer` should contain `count` tightly packed elements of the following structure:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndexedIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -594,8 +599,28 @@ impl<'a> TrackedRenderPass<'a> {
     /// Sets the blend color as used by some of the blending modes.
     ///
     /// Subsequent blending tests will test against this value.
-    pub fn set_blend_constant(&mut self, color: Color) {
+    pub fn set_blend_constant(&mut self, color: LinearRgba) {
         detailed_trace!("set blend constant: {:?}", color);
         self.pass.set_blend_constant(wgpu::Color::from(color));
     }
+}
+
+impl WriteTimestamp for TrackedRenderPass<'_> {
+    fn write_timestamp(&mut self, query_set: &wgpu::QuerySet, index: u32) {
+        self.pass.write_timestamp(query_set, index);
+    }
+}
+
+impl WritePipelineStatistics for TrackedRenderPass<'_> {
+    fn begin_pipeline_statistics_query(&mut self, query_set: &QuerySet, index: u32) {
+        self.pass.begin_pipeline_statistics_query(query_set, index);
+    }
+
+    fn end_pipeline_statistics_query(&mut self) {
+        self.pass.end_pipeline_statistics_query();
+    }
+}
+
+impl Pass for TrackedRenderPass<'_> {
+    const KIND: PassKind = PassKind::Render;
 }

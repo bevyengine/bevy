@@ -2,15 +2,16 @@ use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     query::Access,
+    schedule::{InternedSystemSet, SystemSet},
     system::{
         check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, In, IntoSystem,
         System, SystemMeta,
     },
-    world::{World, WorldId},
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
 use bevy_utils::all_tuples;
-use std::{any::TypeId, borrow::Cow, marker::PhantomData};
+use std::{borrow::Cow, marker::PhantomData};
 
 /// A function system that runs with exclusive [`World`] access.
 ///
@@ -25,11 +26,12 @@ where
     func: F,
     param_state: Option<<F::Param as ExclusiveSystemParam>::State>,
     system_meta: SystemMeta,
-    world_id: Option<WorldId>,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
     marker: PhantomData<fn() -> Marker>,
 }
 
+/// A marker type used to distinguish exclusive function systems from regular function systems.
+#[doc(hidden)]
 pub struct IsExclusiveFunctionSystem;
 
 impl<Marker, F> IntoSystem<F::In, F::Out, (IsExclusiveFunctionSystem, Marker)> for F
@@ -43,7 +45,6 @@ where
             func,
             param_state: None,
             system_meta: SystemMeta::new::<F>(),
-            world_id: None,
             marker: PhantomData,
         }
     }
@@ -65,11 +66,6 @@ where
     }
 
     #[inline]
-    fn type_id(&self) -> TypeId {
-        TypeId::of::<F>()
-    }
-
-    #[inline]
     fn component_access(&self) -> &Access<ComponentId> {
         self.system_meta.component_access_set.combined_access()
     }
@@ -88,43 +84,43 @@ where
     }
 
     #[inline]
-    unsafe fn run_unsafe(&mut self, _input: Self::In, _world: &World) -> Self::Out {
-        panic!("Cannot run exclusive systems with a shared World reference");
-    }
-
-    fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
-        let saved_last_tick = world.last_change_tick;
-        world.last_change_tick = self.system_meta.last_run;
-
-        let params = F::Param::get_param(
-            self.param_state.as_mut().expect(PARAM_MESSAGE),
-            &self.system_meta,
-        );
-        let out = self.func.run(world, input, params);
-
-        let change_tick = world.change_tick.get_mut();
-        self.system_meta.last_run.set(*change_tick);
-        *change_tick = change_tick.wrapping_add(1);
-        world.last_change_tick = saved_last_tick;
-
-        out
-    }
-
-    #[inline]
     fn is_exclusive(&self) -> bool {
         true
     }
 
-    fn get_last_run(&self) -> Tick {
-        self.system_meta.last_run
-    }
-
-    fn set_last_run(&mut self, last_run: Tick) {
-        self.system_meta.last_run = last_run;
+    #[inline]
+    fn has_deferred(&self) -> bool {
+        // exclusive systems have no deferred system params
+        false
     }
 
     #[inline]
-    fn apply_buffers(&mut self, _world: &mut World) {
+    unsafe fn run_unsafe(&mut self, _input: Self::In, _world: UnsafeWorldCell) -> Self::Out {
+        panic!("Cannot run exclusive systems with a shared World reference");
+    }
+
+    fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
+        world.last_change_tick_scope(self.system_meta.last_run, |world| {
+            #[cfg(feature = "trace")]
+            let _span_guard = self.system_meta.system_span.enter();
+
+            let params = F::Param::get_param(
+                self.param_state.as_mut().expect(PARAM_MESSAGE),
+                &self.system_meta,
+            );
+            let out = self.func.run(world, input, params);
+
+            world.flush_commands();
+            let change_tick = world.change_tick.get_mut();
+            self.system_meta.last_run.set(*change_tick);
+            *change_tick = change_tick.wrapping_add(1);
+
+            out
+        })
+    }
+
+    #[inline]
+    fn apply_deferred(&mut self, _world: &mut World) {
         // "pure" exclusive systems do not have any buffers to apply.
         // Systems made by piping a normal system with an exclusive system
         // might have buffers to apply, but this is handled by `PipeSystem`.
@@ -132,12 +128,11 @@ where
 
     #[inline]
     fn initialize(&mut self, world: &mut World) {
-        self.world_id = Some(world.id());
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
         self.param_state = Some(F::Param::init(world, &mut self.system_meta));
     }
 
-    fn update_archetype_component_access(&mut self, _world: &World) {}
+    fn update_archetype_component_access(&mut self, _world: UnsafeWorldCell) {}
 
     #[inline]
     fn check_change_tick(&mut self, change_tick: Tick) {
@@ -148,9 +143,17 @@ where
         );
     }
 
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
-        let set = crate::schedule::SystemTypeSet::<F>::new();
-        vec![Box::new(set)]
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
+        let set = crate::schedule::SystemTypeSet::<Self>::new();
+        vec![set.intern()]
+    }
+
+    fn get_last_run(&self) -> Tick {
+        self.system_meta.last_run
+    }
+
+    fn set_last_run(&mut self, last_run: Tick) {
+        self.system_meta.last_run = last_run;
     }
 }
 
@@ -193,7 +196,7 @@ macro_rules! impl_exclusive_system_function {
             #[inline]
             fn run(&mut self, world: &mut World, _in: (), param_value: ExclusiveSystemParamItem< ($($param,)*)>) -> Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl
-                // without using this function. It fails to recognise that `func`
+                // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
                 #[allow(clippy::too_many_arguments)]
                 fn call_inner<Out, $($param,)*>(
@@ -221,7 +224,7 @@ macro_rules! impl_exclusive_system_function {
             #[inline]
             fn run(&mut self, world: &mut World, input: Input, param_value: ExclusiveSystemParamItem< ($($param,)*)>) -> Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl
-                // without using this function. It fails to recognise that `func`
+                // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
                 #[allow(clippy::too_many_arguments)]
                 fn call_inner<Input, Out, $($param,)*>(
@@ -241,3 +244,44 @@ macro_rules! impl_exclusive_system_function {
 // Note that we rely on the highest impl to be <= the highest order of the tuple impls
 // of `SystemParam` created.
 all_tuples!(impl_exclusive_system_function, 0, 16, F);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn into_system_type_id_consistency() {
+        fn test<T, In, Out, Marker>(function: T)
+        where
+            T: IntoSystem<In, Out, Marker> + Copy,
+        {
+            fn reference_system(_world: &mut World) {}
+
+            use std::any::TypeId;
+
+            let system = IntoSystem::into_system(function);
+
+            assert_eq!(
+                system.type_id(),
+                function.system_type_id(),
+                "System::type_id should be consistent with IntoSystem::system_type_id"
+            );
+
+            assert_eq!(
+                system.type_id(),
+                TypeId::of::<T::System>(),
+                "System::type_id should be consistent with TypeId::of::<T::System>()"
+            );
+
+            assert_ne!(
+                system.type_id(),
+                IntoSystem::into_system(reference_system).type_id(),
+                "Different systems should have different TypeIds"
+            );
+        }
+
+        fn exclusive_function_system(_world: &mut World) {}
+
+        test(exclusive_function_system);
+    }
+}

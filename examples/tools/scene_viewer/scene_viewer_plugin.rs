@@ -1,21 +1,22 @@
-//! A glTF scene viewer plugin.  Provides controls for animation, directional lighting, and switching between scene cameras.
+//! A glTF scene viewer plugin.  Provides controls for directional lighting, and switching between scene cameras.
 //! To use in your own application:
 //! - Copy the code for the `SceneViewerPlugin` and add the plugin to your App.
 //! - Insert an initialized `SceneHandle` resource into your App's `AssetServer`.
 
-use bevy::{asset::LoadState, gltf::Gltf, prelude::*, scene::InstanceId};
+use bevy::{
+    asset::LoadState, gltf::Gltf, input::common_conditions::input_just_pressed, prelude::*,
+    scene::InstanceId,
+};
 
 use std::f32::consts::*;
 use std::fmt;
 
-use super::camera_controller_plugin::*;
+use super::camera_controller::*;
 
 #[derive(Resource)]
 pub struct SceneHandle {
-    gltf_handle: Handle<Gltf>,
+    pub gltf_handle: Handle<Gltf>,
     scene_index: usize,
-    #[cfg(feature = "animation")]
-    animations: Vec<Handle<AnimationClip>>,
     instance_id: Option<InstanceId>,
     pub is_loaded: bool,
     pub has_light: bool,
@@ -26,8 +27,6 @@ impl SceneHandle {
         Self {
             gltf_handle,
             scene_index,
-            #[cfg(feature = "animation")]
-            animations: Vec::new(),
             instance_id: None,
             is_loaded: false,
             has_light: false,
@@ -35,20 +34,31 @@ impl SceneHandle {
     }
 }
 
-impl fmt::Display for SceneHandle {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "
+#[cfg(not(feature = "animation"))]
+const INSTRUCTIONS: &str = r#"
 Scene Controls:
     L           - animate light direction
     U           - toggle shadows
     C           - cycle through the camera controller and any cameras loaded from the scene
 
+    compile with "--features animation" for animation controls.
+"#;
+
+#[cfg(feature = "animation")]
+const INSTRUCTIONS: &str = "
+Scene Controls:
+    L           - animate light direction
+    U           - toggle shadows
+    B           - toggle bounding boxes
+    C           - cycle through the camera controller and any cameras loaded from the scene
+
     Space       - Play/Pause animation
     Enter       - Cycle through animations
-"
-        )
+";
+
+impl fmt::Display for SceneHandle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{INSTRUCTIONS}")
     }
 }
 
@@ -57,26 +67,32 @@ pub struct SceneViewerPlugin;
 impl Plugin for SceneViewerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CameraTracker>()
-            .add_system(scene_load_check.in_base_set(CoreSet::PreUpdate))
-            .add_system(update_lights)
-            .add_system(camera_tracker);
-
-        #[cfg(feature = "animation")]
-        app.add_system(start_animation)
-            .add_system(keyboard_animation_control);
+            .add_systems(PreUpdate, scene_load_check)
+            .add_systems(
+                Update,
+                (
+                    update_lights,
+                    camera_tracker,
+                    toggle_bounding_boxes.run_if(input_just_pressed(KeyCode::KeyB)),
+                ),
+            );
     }
+}
+
+fn toggle_bounding_boxes(mut config: ResMut<GizmoConfigStore>) {
+    config.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
 }
 
 fn scene_load_check(
     asset_server: Res<AssetServer>,
     mut scenes: ResMut<Assets<Scene>>,
-    gltf_assets: ResMut<Assets<Gltf>>,
+    gltf_assets: Res<Assets<Gltf>>,
     mut scene_handle: ResMut<SceneHandle>,
     mut scene_spawner: ResMut<SceneSpawner>,
 ) {
     match scene_handle.instance_id {
         None => {
-            if asset_server.get_load_state(&scene_handle.gltf_handle) == LoadState::Loaded {
+            if asset_server.load_state(&scene_handle.gltf_handle) == LoadState::Loaded {
                 let gltf = gltf_assets.get(&scene_handle.gltf_handle).unwrap();
                 if gltf.scenes.len() > 1 {
                     info!(
@@ -111,22 +127,6 @@ fn scene_load_check(
                 scene_handle.instance_id =
                     Some(scene_spawner.spawn(gltf_scene_handle.clone_weak()));
 
-                #[cfg(feature = "animation")]
-                {
-                    scene_handle.animations = gltf.animations.clone();
-                    if !scene_handle.animations.is_empty() {
-                        info!(
-                            "Found {} animation{}",
-                            scene_handle.animations.len(),
-                            if scene_handle.animations.len() == 1 {
-                                ""
-                            } else {
-                                "s"
-                            }
-                        );
-                    }
-                }
-
                 info!("Spawning scene...");
             }
         }
@@ -140,74 +140,19 @@ fn scene_load_check(
     }
 }
 
-#[cfg(feature = "animation")]
-fn start_animation(
-    mut player: Query<&mut AnimationPlayer>,
-    mut done: Local<bool>,
-    scene_handle: Res<SceneHandle>,
-) {
-    if !*done {
-        if let Ok(mut player) = player.get_single_mut() {
-            if let Some(animation) = scene_handle.animations.first() {
-                player.play(animation.clone_weak()).repeat();
-                *done = true;
-            }
-        }
-    }
-}
-
-#[cfg(feature = "animation")]
-fn keyboard_animation_control(
-    keyboard_input: Res<Input<KeyCode>>,
-    mut animation_player: Query<&mut AnimationPlayer>,
-    scene_handle: Res<SceneHandle>,
-    mut current_animation: Local<usize>,
-    mut changing: Local<bool>,
-) {
-    if scene_handle.animations.is_empty() {
-        return;
-    }
-
-    if let Ok(mut player) = animation_player.get_single_mut() {
-        if keyboard_input.just_pressed(KeyCode::Space) {
-            if player.is_paused() {
-                player.resume();
-            } else {
-                player.pause();
-            }
-        }
-
-        if *changing {
-            // change the animation the frame after return was pressed
-            *current_animation = (*current_animation + 1) % scene_handle.animations.len();
-            player
-                .play(scene_handle.animations[*current_animation].clone_weak())
-                .repeat();
-            *changing = false;
-        }
-
-        if keyboard_input.just_pressed(KeyCode::Return) {
-            // delay the animation change for one frame
-            *changing = true;
-            // set the current animation to its start and pause it to reset to its starting state
-            player.set_elapsed(0.0).pause();
-        }
-    }
-}
-
 fn update_lights(
-    key_input: Res<Input<KeyCode>>,
+    key_input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     mut query: Query<(&mut Transform, &mut DirectionalLight)>,
     mut animate_directional_light: Local<bool>,
 ) {
     for (_, mut light) in &mut query {
-        if key_input.just_pressed(KeyCode::U) {
+        if key_input.just_pressed(KeyCode::KeyU) {
             light.shadows_enabled = !light.shadows_enabled;
         }
     }
 
-    if key_input.just_pressed(KeyCode::L) {
+    if key_input.just_pressed(KeyCode::KeyL) {
         *animate_directional_light = !*animate_directional_light;
     }
     if *animate_directional_light {
@@ -253,7 +198,7 @@ impl CameraTracker {
 
 fn camera_tracker(
     mut camera_tracker: ResMut<CameraTracker>,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut queries: ParamSet<(
         Query<(Entity, &mut Camera), (Added<Camera>, Without<CameraController>)>,
         Query<(Entity, &mut Camera), (Added<Camera>, With<CameraController>)>,
@@ -271,7 +216,7 @@ fn camera_tracker(
         camera.is_active = camera_tracker.track_camera(entity);
     }
 
-    if keyboard_input.just_pressed(KeyCode::C) {
+    if keyboard_input.just_pressed(KeyCode::KeyC) {
         // disable currently active camera
         if let Some(e) = camera_tracker.active_camera() {
             if let Ok(mut camera) = queries.p2().get_mut(e) {

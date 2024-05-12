@@ -1,10 +1,11 @@
 use crate::{
-    utility::{reflect_hasher, NonGenericTypeInfoCell},
-    DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
+    self as bevy_reflect, utility::reflect_hasher, ApplyError, Reflect, ReflectKind, ReflectMut,
+    ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable,
 };
+use bevy_reflect_derive::impl_type_path;
 use std::{
     any::{Any, TypeId},
-    fmt::Debug,
+    fmt::{Debug, Formatter},
     hash::{Hash, Hasher},
 };
 
@@ -17,7 +18,7 @@ use std::{
 ///
 /// Due to the [type-erasing] nature of the reflection API as a whole,
 /// this trait does not make any guarantees that the implementor's elements
-/// are homogenous (i.e. all the same type).
+/// are homogeneous (i.e. all the same type).
 ///
 /// This trait has a blanket implementation over Rust arrays of up to 32 items.
 /// This implementation can technically contain more than 32,
@@ -67,7 +68,7 @@ pub trait Array: Reflect {
     /// Clones the list, producing a [`DynamicArray`].
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
-            name: self.type_name().to_string(),
+            represented_type: self.get_represented_type_info(),
             values: self.iter().map(|value| value.clone_value()).collect(),
         }
     }
@@ -76,9 +77,9 @@ pub trait Array: Reflect {
 /// A container for compile-time array info.
 #[derive(Clone, Debug)]
 pub struct ArrayInfo {
-    type_name: &'static str,
+    type_path: TypePathTable,
     type_id: TypeId,
-    item_type_name: &'static str,
+    item_type_path: TypePathTable,
     item_type_id: TypeId,
     capacity: usize,
     #[cfg(feature = "documentation")]
@@ -92,11 +93,11 @@ impl ArrayInfo {
     ///
     /// * `capacity`: The maximum capacity of the underlying array.
     ///
-    pub fn new<TArray: Array, TItem: Reflect>(capacity: usize) -> Self {
+    pub fn new<TArray: Array + TypePath, TItem: Reflect + TypePath>(capacity: usize) -> Self {
         Self {
-            type_name: std::any::type_name::<TArray>(),
+            type_path: TypePathTable::of::<TArray>(),
             type_id: TypeId::of::<TArray>(),
-            item_type_name: std::any::type_name::<TItem>(),
+            item_type_path: TypePathTable::of::<TItem>(),
             item_type_id: TypeId::of::<TItem>(),
             capacity,
             #[cfg(feature = "documentation")]
@@ -115,11 +116,21 @@ impl ArrayInfo {
         self.capacity
     }
 
-    /// The [type name] of the array.
+    /// A representation of the type path of the array.
     ///
-    /// [type name]: std::any::type_name
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn type_path_table(&self) -> &TypePathTable {
+        &self.type_path
+    }
+
+    /// The [stable, full type path] of the array.
+    ///
+    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
+    ///
+    /// [stable, full type path]: TypePath
+    /// [`type_path_table`]: Self::type_path_table
+    pub fn type_path(&self) -> &'static str {
+        self.type_path_table().path()
     }
 
     /// The [`TypeId`] of the array.
@@ -132,11 +143,11 @@ impl ArrayInfo {
         TypeId::of::<T>() == self.type_id
     }
 
-    /// The [type name] of the array item.
+    /// A representation of the type path of the array item.
     ///
-    /// [type name]: std::any::type_name
-    pub fn item_type_name(&self) -> &'static str {
-        self.item_type_name
+    /// Provides dynamic access to all methods on [`TypePath`].
+    pub fn item_type_path_table(&self) -> &TypePathTable {
+        &self.item_type_path
     }
 
     /// The [`TypeId`] of the array item.
@@ -167,7 +178,7 @@ impl ArrayInfo {
 /// [`DynamicList`]: crate::DynamicList
 #[derive(Debug)]
 pub struct DynamicArray {
-    pub(crate) name: String,
+    pub(crate) represented_type: Option<&'static TypeInfo>,
     pub(crate) values: Box<[Box<dyn Reflect>]>,
 }
 
@@ -175,14 +186,14 @@ impl DynamicArray {
     #[inline]
     pub fn new(values: Box<[Box<dyn Reflect>]>) -> Self {
         Self {
-            name: String::default(),
+            represented_type: None,
             values,
         }
     }
 
     pub fn from_vec<T: Reflect>(values: Vec<T>) -> Self {
         Self {
-            name: String::default(),
+            represented_type: None,
             values: values
                 .into_iter()
                 .map(|field| Box::new(field) as Box<dyn Reflect>)
@@ -191,26 +202,30 @@ impl DynamicArray {
         }
     }
 
-    #[inline]
-    pub fn name(&self) -> &str {
-        &self.name
-    }
+    /// Sets the [type] to be represented by this `DynamicArray`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given [type] is not a [`TypeInfo::Array`].
+    ///
+    /// [type]: TypeInfo
+    pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
+        if let Some(represented_type) = represented_type {
+            assert!(
+                matches!(represented_type, TypeInfo::Array(_)),
+                "expected TypeInfo::Array but received: {:?}",
+                represented_type
+            );
+        }
 
-    #[inline]
-    pub fn set_name(&mut self, name: String) {
-        self.name = name;
+        self.represented_type = represented_type;
     }
 }
 
 impl Reflect for DynamicArray {
     #[inline]
-    fn type_name(&self) -> &str {
-        self.name.as_str()
-    }
-
-    #[inline]
-    fn get_type_info(&self) -> &'static TypeInfo {
-        <Self as Typed>::type_info()
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
     }
 
     #[inline]
@@ -247,10 +262,19 @@ impl Reflect for DynamicArray {
         array_apply(self, value);
     }
 
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        array_try_apply(self, value)
+    }
+
     #[inline]
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
+    }
+
+    #[inline]
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Array
     }
 
     #[inline]
@@ -280,6 +304,17 @@ impl Reflect for DynamicArray {
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         array_partial_eq(self, value)
+    }
+
+    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "DynamicArray(")?;
+        array_debug(self, f)?;
+        write!(f, ")")
+    }
+
+    #[inline]
+    fn is_dynamic(&self) -> bool {
+        true
     }
 }
 
@@ -312,7 +347,7 @@ impl Array for DynamicArray {
     #[inline]
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
-            name: self.name.clone(),
+            represented_type: self.represented_type,
             values: self
                 .values
                 .iter()
@@ -322,13 +357,7 @@ impl Array for DynamicArray {
     }
 }
 
-impl Typed for DynamicArray {
-    fn type_info() -> &'static TypeInfo {
-        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
-    }
-}
-
+impl_type_path!((in bevy_reflect) DynamicArray);
 /// An iterator over an [`Array`].
 pub struct ArrayIter<'a> {
     array: &'a dyn Array,
@@ -349,7 +378,7 @@ impl<'a> Iterator for ArrayIter<'a> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let value = self.array.get(self.index);
-        self.index += 1;
+        self.index += value.is_some() as usize;
         value
     }
 
@@ -366,7 +395,7 @@ impl<'a> ExactSizeIterator for ArrayIter<'a> {}
 #[inline]
 pub fn array_hash<A: Array>(array: &A) -> Option<u64> {
     let mut hasher = reflect_hasher();
-    std::any::Any::type_id(array).hash(&mut hasher);
+    Any::type_id(array).hash(&mut hasher);
     array.len().hash(&mut hasher);
     for value in array.iter() {
         hasher.write_u64(value.reflect_hash()?);
@@ -394,6 +423,38 @@ pub fn array_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) {
     } else {
         panic!("Attempted to apply a non-`Array` type to an `Array` type.");
     }
+}
+
+/// Tries to apply the reflected [array](Array) data to the given [array](Array) and
+/// returns a Result.
+///
+/// # Errors
+///
+/// * Returns an [`ApplyError::DifferentSize`] if the two arrays have differing lengths.
+/// * Returns an [`ApplyError::MismatchedKinds`] if the reflected value is not a
+///   [valid array](ReflectRef::Array).
+/// * Returns any error that is generated while applying elements to each other.
+///
+#[inline]
+pub fn array_try_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) -> Result<(), ApplyError> {
+    if let ReflectRef::Array(reflect_array) = reflect.reflect_ref() {
+        if array.len() != reflect_array.len() {
+            return Err(ApplyError::DifferentSize {
+                from_size: reflect_array.len(),
+                to_size: array.len(),
+            });
+        }
+        for (i, value) in reflect_array.iter().enumerate() {
+            let v = array.get_mut(i).unwrap();
+            v.try_apply(value)?;
+        }
+    } else {
+        return Err(ApplyError::MismatchedKinds {
+            from_kind: reflect.reflect_kind(),
+            to_kind: ReflectKind::Array,
+        });
+    }
+    Ok(())
 }
 
 /// Compares two [arrays](Array) (one concrete and one reflected) to see if they
@@ -441,4 +502,33 @@ pub fn array_debug(dyn_array: &dyn Array, f: &mut std::fmt::Formatter<'_>) -> st
         debug.entry(&item as &dyn Debug);
     }
     debug.finish()
+}
+#[cfg(test)]
+mod tests {
+    use crate::{Reflect, ReflectRef};
+    #[test]
+    fn next_index_increment() {
+        const SIZE: usize = if cfg!(debug_assertions) {
+            4
+        } else {
+            // If compiled in release mode, verify we dont overflow
+            usize::MAX
+        };
+
+        let b = Box::new([(); SIZE]).into_reflect();
+
+        let ReflectRef::Array(array) = b.reflect_ref() else {
+            panic!("Not an array...");
+        };
+
+        let mut iter = array.iter();
+        iter.index = SIZE - 1;
+        assert!(iter.next().is_some());
+
+        // When None we should no longer increase index
+        assert!(iter.next().is_none());
+        assert!(iter.index == SIZE);
+        assert!(iter.next().is_none());
+        assert!(iter.index == SIZE);
+    }
 }

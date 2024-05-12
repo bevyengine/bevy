@@ -2,8 +2,8 @@ use std::ops::Mul;
 
 use super::Transform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::{Affine3A, Mat4, Quat, Vec3, Vec3A};
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
+use bevy_math::{Affine3A, Dir3, Mat4, Quat, Vec3, Vec3A};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// Describe the position of an entity relative to the reference frame.
 ///
@@ -24,8 +24,8 @@ use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 /// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
-/// This system runs during [`CoreSet::PostUpdate`](crate::CoreSet::PostUpdate). If you
-/// update the [`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
+/// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
+/// update the [`Transform`] of an entity in this schedule or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 ///
 /// # Examples
@@ -33,7 +33,7 @@ use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 /// - [`transform`]
 ///
 /// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
-#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
+#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Component, Default, PartialEq)]
 pub struct GlobalTransform(Affine3A);
@@ -42,13 +42,13 @@ macro_rules! impl_local_axis {
     ($pos_name: ident, $neg_name: ident, $axis: ident) => {
         #[doc=std::concat!("Return the local ", std::stringify!($pos_name), " vector (", std::stringify!($axis) ,").")]
         #[inline]
-        pub fn $pos_name(&self) -> Vec3 {
-            (self.0.matrix3 * Vec3::$axis).normalize()
+        pub fn $pos_name(&self) -> Dir3 {
+            Dir3::new_unchecked((self.0.matrix3 * Vec3::$axis).normalize())
         }
 
         #[doc=std::concat!("Return the local ", std::stringify!($neg_name), " vector (-", std::stringify!($axis) ,").")]
         #[inline]
-        pub fn $neg_name(&self) -> Vec3 {
+        pub fn $neg_name(&self) -> Dir3 {
             -self.$pos_name()
         }
     };
@@ -111,11 +111,11 @@ impl GlobalTransform {
     /// Returns the [`Transform`] `self` would have if it was a child of an entity
     /// with the `parent` [`GlobalTransform`].
     ///
-    /// This is useful if you want to "reparent" an `Entity`. Say you have an entity
-    /// `e1` that you want to turn into a child of `e2`, but you want `e1` to keep the
-    /// same global transform, even after re-parenting. You would use:
+    /// This is useful if you want to "reparent" an [`Entity`](bevy_ecs::entity::Entity).
+    /// Say you have an entity `e1` that you want to turn into a child of `e2`,
+    /// but you want `e1` to keep the same global transform, even after re-parenting. You would use:
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_transform::prelude::{GlobalTransform, Transform};
     /// # use bevy_ecs::prelude::{Entity, Query, Component, Commands};
     /// # use bevy_hierarchy::{prelude::Parent, BuildChildren};

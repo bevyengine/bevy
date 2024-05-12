@@ -1,26 +1,25 @@
 //! Renders a lot of sprites to allow performance testing.
 //! See <https://github.com/bevyengine/bevy/pull/1492>
 //!
-//! It sets up many animated sprites in different sizes and rotations,
-//! and at different scales in the world, and moves the camera over them.
-//!
-//! Having sprites out of the camera's field of view should also help stress
-//! test any future potential 2d frustum culling implementation.
+//! This example sets up many sprites in different sizes, rotations, and scales in the world.
+//! It also moves the camera over them to see how well frustum culling works.
 //!
 //! Add the `--colored` arg to run with color tinted sprites. This will cause the sprites to be rendered
 //! in multiple batches, reducing performance but useful for testing.
 
 use bevy::{
+    color::palettes::css::*,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{PresentMode, WindowPlugin},
+    window::{PresentMode, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 
 use rand::Rng;
 
 const CAMERA_SPEED: f32 = 1000.0;
 
-const COLORS: [Color; 3] = [Color::BLUE, Color::WHITE, Color::RED];
+const COLORS: [Color; 3] = [Color::Srgba(BLUE), Color::Srgba(WHITE), Color::Srgba(RED)];
 
 #[derive(Resource)]
 struct ColorTint(bool);
@@ -31,18 +30,28 @@ fn main() {
             std::env::args().nth(1).unwrap_or_default() == "--colored",
         ))
         // Since this is also used as a benchmark, we want it to display performance data.
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                present_mode: PresentMode::AutoNoVsync,
+        .add_plugins((
+            LogDiagnosticsPlugin::default(),
+            FrameTimeDiagnosticsPlugin,
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    present_mode: PresentMode::AutoNoVsync,
+                    resolution: WindowResolution::new(1920.0, 1080.0)
+                        .with_scale_factor_override(1.0),
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
-        .add_startup_system(setup)
-        .add_system(print_sprite_count)
-        .add_system(move_camera.after(print_sprite_count))
+        ))
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        })
+        .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            (print_sprite_count, move_camera.after(print_sprite_count)),
+        )
         .run();
 }
 
@@ -117,6 +126,6 @@ fn print_sprite_count(time: Res<Time>, mut timer: Local<PrintingTimer>, sprites:
     timer.tick(time.delta());
 
     if timer.just_finished() {
-        info!("Sprites: {}", sprites.iter().count(),);
+        info!("Sprites: {}", sprites.iter().count());
     }
 }

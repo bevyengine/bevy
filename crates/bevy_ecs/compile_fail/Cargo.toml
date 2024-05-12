@@ -1,0 +1,18 @@
+[package]
+name = "bevy_ecs_compile_fail"
+edition = "2021"
+description = "Compile fail tests for Bevy Engine's entity component system"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+bevy_ecs = { path = "../" }
+
+[dev-dependencies]
+compile_fail_utils = { path = "../../../tools/compile_fail_utils" }
+
+[[test]]
+name = "ui"
+harness = false

@@ -2,6 +2,8 @@
 //!
 //! [`std::sync::Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 
+use std::ptr;
+
 /// See [`Exclusive`](https://github.com/rust-lang/rust/issues/98407) for stdlib's upcoming implementation,
 /// which should replace this one entirely.
 ///
@@ -41,7 +43,7 @@ impl<T: ?Sized> SyncCell<T> {
     /// to its inner value, to skip constructing with [`new()`](SyncCell::new()).
     pub fn from_mut(r: &'_ mut T) -> &'_ mut SyncCell<T> {
         // SAFETY: repr is transparent, so refs have the same layout; and `SyncCell` properties are `&mut`-agnostic
-        unsafe { &mut *(r as *mut T as *mut SyncCell<T>) }
+        unsafe { &mut *(ptr::from_mut(r) as *mut SyncCell<T>) }
     }
 }
 

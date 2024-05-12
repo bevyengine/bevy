@@ -1,27 +1,49 @@
 use crate::{error::TextError, Font, FontAtlas};
 use ab_glyph::{GlyphId, OutlinedGlyph, Point};
+use bevy_asset::{AssetEvent, AssetId};
 use bevy_asset::{Assets, Handle};
-use bevy_math::Vec2;
-use bevy_reflect::TypeUuid;
+use bevy_ecs::prelude::*;
+use bevy_math::{FloatOrd, UVec2};
+use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
-use bevy_sprite::TextureAtlas;
-use bevy_utils::FloatOrd;
+use bevy_sprite::TextureAtlasLayout;
 use bevy_utils::HashMap;
 
 type FontSizeKey = FloatOrd;
 
-#[derive(TypeUuid)]
-#[uuid = "73ba778b-b6b5-4f45-982d-d21b6b86ace2"]
-pub struct FontAtlasSet {
-    font_atlases: HashMap<FontSizeKey, Vec<FontAtlas>>,
-    // TODO unused, remove
-    #[allow(dead_code)]
-    queue: Vec<FontSizeKey>,
+#[derive(Default, Resource)]
+pub struct FontAtlasSets {
+    // PERF: in theory this could be optimized with Assets storage ... consider making some fast "simple" AssetMap
+    pub(crate) sets: HashMap<AssetId<Font>, FontAtlasSet>,
 }
 
-#[derive(Debug, Clone)]
+impl FontAtlasSets {
+    pub fn get(&self, id: impl Into<AssetId<Font>>) -> Option<&FontAtlasSet> {
+        let id: AssetId<Font> = id.into();
+        self.sets.get(&id)
+    }
+}
+
+pub fn remove_dropped_font_atlas_sets(
+    mut font_atlas_sets: ResMut<FontAtlasSets>,
+    mut font_events: EventReader<AssetEvent<Font>>,
+) {
+    // Clean up font atlas sets for removed fonts
+    for event in font_events.read() {
+        if let AssetEvent::Removed { id } = event {
+            font_atlas_sets.sets.remove(id);
+        }
+    }
+}
+
+pub struct FontAtlasSet {
+    font_atlases: HashMap<FontSizeKey, Vec<FontAtlas>>,
+}
+
+#[derive(Debug, Clone, Reflect)]
 pub struct GlyphAtlasInfo {
-    pub texture_atlas: Handle<TextureAtlas>,
+    pub texture_atlas: Handle<TextureAtlasLayout>,
+    pub texture: Handle<Image>,
     pub glyph_index: usize,
 }
 
@@ -29,7 +51,6 @@ impl Default for FontAtlasSet {
     fn default() -> Self {
         FontAtlasSet {
             font_atlases: HashMap::with_capacity_and_hasher(1, Default::default()),
-            queue: Vec::new(),
         }
     }
 }
@@ -51,7 +72,7 @@ impl FontAtlasSet {
 
     pub fn add_glyph_to_atlas(
         &mut self,
-        texture_atlases: &mut Assets<TextureAtlas>,
+        texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         outlined_glyph: OutlinedGlyph,
     ) -> Result<GlyphAtlasInfo, TextError> {
@@ -62,13 +83,7 @@ impl FontAtlasSet {
         let font_atlases = self
             .font_atlases
             .entry(FloatOrd(font_size))
-            .or_insert_with(|| {
-                vec![FontAtlas::new(
-                    textures,
-                    texture_atlases,
-                    Vec2::splat(512.0),
-                )]
-            });
+            .or_insert_with(|| vec![FontAtlas::new(textures, texture_atlases, UVec2::splat(512))]);
 
         let glyph_texture = Font::get_outlined_glyph_texture(outlined_glyph);
         let add_char_to_font_atlas = |atlas: &mut FontAtlas| -> bool {
@@ -86,13 +101,13 @@ impl FontAtlasSet {
                 .texture_descriptor
                 .size
                 .height
-                .max(glyph_texture.texture_descriptor.size.width);
+                .max(glyph_texture.width());
             // Pick the higher of 512 or the smallest power of 2 greater than glyph_max_size
-            let containing = (1u32 << (32 - glyph_max_size.leading_zeros())).max(512) as f32;
+            let containing = (1u32 << (32 - glyph_max_size.leading_zeros())).max(512);
             font_atlases.push(FontAtlas::new(
                 textures,
                 texture_atlases,
-                Vec2::new(containing, containing),
+                UVec2::splat(containing),
             ));
             if !font_atlases.last_mut().unwrap().add_glyph(
                 textures,
@@ -124,16 +139,29 @@ impl FontAtlasSet {
                     .find_map(|atlas| {
                         atlas
                             .get_glyph_index(glyph_id, position.into())
-                            .map(|glyph_index| (glyph_index, atlas.texture_atlas.clone_weak()))
+                            .map(|glyph_index| {
+                                (
+                                    glyph_index,
+                                    atlas.texture_atlas.clone_weak(),
+                                    atlas.texture.clone_weak(),
+                                )
+                            })
                     })
-                    .map(|(glyph_index, texture_atlas)| GlyphAtlasInfo {
+                    .map(|(glyph_index, texture_atlas, texture)| GlyphAtlasInfo {
                         texture_atlas,
+                        texture,
                         glyph_index,
                     })
             })
     }
 
-    pub fn num_font_atlases(&self) -> usize {
+    /// Returns the number of font atlases in this set
+    pub fn len(&self) -> usize {
         self.font_atlases.len()
+    }
+
+    /// Returns `true` if the font atlas set contains no elements
+    pub fn is_empty(&self) -> bool {
+        self.font_atlases.is_empty()
     }
 }

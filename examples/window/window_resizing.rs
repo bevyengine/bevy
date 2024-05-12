@@ -1,4 +1,4 @@
-///! This example illustrates how to resize windows, and how to respond to a window being resized.
+//! This example illustrates how to resize windows, and how to respond to a window being resized.
 use bevy::{prelude::*, window::WindowResized};
 
 fn main() {
@@ -9,10 +9,8 @@ fn main() {
             small: Vec2::new(640.0, 360.0),
         })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_camera)
-        .add_startup_system(setup_ui)
-        .add_system(on_resize_system)
-        .add_system(toggle_resolution)
+        .add_systems(Startup, (setup_camera, setup_ui))
+        .add_systems(Update, (on_resize_system, toggle_resolution))
         .run();
 }
 
@@ -34,11 +32,11 @@ fn setup_camera(mut cmd: Commands) {
 }
 
 // Spawns the UI
-fn setup_ui(mut cmd: Commands, asset_server: Res<AssetServer>) {
+fn setup_ui(mut cmd: Commands) {
     // Node that fills entire background
     cmd.spawn(NodeBundle {
         style: Style {
-            size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+            width: Val::Percent(100.),
             ..default()
         },
         ..default()
@@ -49,9 +47,8 @@ fn setup_ui(mut cmd: Commands, asset_server: Res<AssetServer>) {
             TextBundle::from_section(
                 "Resolution",
                 TextStyle {
-                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                     font_size: 50.0,
-                    color: Color::BLACK,
+                    ..default()
                 },
             ),
             ResolutionText,
@@ -61,21 +58,21 @@ fn setup_ui(mut cmd: Commands, asset_server: Res<AssetServer>) {
 
 /// This system shows how to request the window to a new resolution
 fn toggle_resolution(
-    keys: Res<Input<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     mut windows: Query<&mut Window>,
     resolution: Res<ResolutionSettings>,
 ) {
     let mut window = windows.single_mut();
 
-    if keys.just_pressed(KeyCode::Key1) {
+    if keys.just_pressed(KeyCode::Digit1) {
         let res = resolution.small;
         window.resolution.set(res.x, res.y);
     }
-    if keys.just_pressed(KeyCode::Key2) {
+    if keys.just_pressed(KeyCode::Digit2) {
         let res = resolution.medium;
         window.resolution.set(res.x, res.y);
     }
-    if keys.just_pressed(KeyCode::Key3) {
+    if keys.just_pressed(KeyCode::Digit3) {
         let res = resolution.large;
         window.resolution.set(res.x, res.y);
     }
@@ -88,7 +85,7 @@ fn on_resize_system(
     mut resize_reader: EventReader<WindowResized>,
 ) {
     let mut text = q.single_mut();
-    for e in resize_reader.iter() {
+    for e in resize_reader.read() {
         // When resolution is being changed
         text.sections[0].value = format!("{:.1} x {:.1}", e.width, e.height);
     }

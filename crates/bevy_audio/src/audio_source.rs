@@ -1,18 +1,20 @@
-use anyhow::Result;
-use bevy_asset::{Asset, AssetLoader, LoadContext, LoadedAsset};
-use bevy_reflect::TypeUuid;
-use bevy_utils::BoxedFuture;
+use bevy_asset::{
+    io::{AsyncReadExt, Reader},
+    Asset, AssetLoader, LoadContext,
+};
+use bevy_reflect::TypePath;
 use std::{io::Cursor, sync::Arc};
 
 /// A source of audio data
-#[derive(Debug, Clone, TypeUuid)]
-#[uuid = "7a14806a-672b-443b-8d16-4f18afefa463"]
+#[derive(Asset, Debug, Clone, TypePath)]
 pub struct AudioSource {
     /// Raw data of the audio source.
     ///
     /// The data must be one of the file formats supported by Bevy (`wav`, `ogg`, `flac`, or `mp3`).
-    /// It is decoded using [`rodio::decoder::Decoder`](https://docs.rs/rodio/latest/rodio/decoder/struct.Decoder.html).
+    /// However, support for these file formats is not part of Bevy's [`default feature set`](https://docs.rs/bevy/latest/bevy/index.html#default-features).
+    /// In order to be able to use these file formats, you will have to enable the appropriate [`optional features`](https://docs.rs/bevy/latest/bevy/index.html#optional-features).
     ///
+    /// It is decoded using [`rodio::decoder::Decoder`](https://docs.rs/rodio/latest/rodio/decoder/struct.Decoder.html).
     /// The decoder has conditionally compiled methods
     /// depending on the features enabled.
     /// If the format used is not enabled,
@@ -38,11 +40,21 @@ impl AsRef<[u8]> for AudioSource {
 pub struct AudioLoader;
 
 impl AssetLoader for AudioLoader {
-    fn load(&self, bytes: &[u8], load_context: &mut LoadContext) -> BoxedFuture<Result<()>> {
-        load_context.set_default_asset(LoadedAsset::new(AudioSource {
+    type Asset = AudioSource;
+    type Settings = ();
+    type Error = std::io::Error;
+
+    async fn load<'a>(
+        &'a self,
+        reader: &'a mut Reader<'_>,
+        _settings: &'a Self::Settings,
+        _load_context: &'a mut LoadContext<'_>,
+    ) -> Result<AudioSource, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        Ok(AudioSource {
             bytes: bytes.into(),
-        }));
-        Box::pin(async move { Ok(()) })
+        })
     }
 
     fn extensions(&self) -> &[&str] {
@@ -64,11 +76,10 @@ impl AssetLoader for AudioLoader {
 }
 
 /// A type implementing this trait can be converted to a [`rodio::Source`] type.
-/// It must be [`Send`] and [`Sync`], and usually implements [`Asset`] so needs to be [`TypeUuid`],
-/// in order to be registered.
+/// It must be [`Send`] and [`Sync`] in order to be registered.
 /// Types that implement this trait usually contain raw sound data that can be converted into an iterator of samples.
 /// This trait is implemented for [`AudioSource`].
-/// Check the example `audio/decodable` for how to implement this trait on a custom type.
+/// Check the example [`decodable`](https://github.com/bevyengine/bevy/blob/latest/examples/audio/decodable.rs) for how to implement this trait on a custom type.
 pub trait Decodable: Send + Sync + 'static {
     /// The type of the audio samples.
     /// Usually a [`u16`], [`i16`] or [`f32`], as those implement [`rodio::Sample`].
@@ -85,8 +96,8 @@ pub trait Decodable: Send + Sync + 'static {
 }
 
 impl Decodable for AudioSource {
-    type Decoder = rodio::Decoder<Cursor<AudioSource>>;
     type DecoderItem = <rodio::Decoder<Cursor<AudioSource>> as Iterator>::Item;
+    type Decoder = rodio::Decoder<Cursor<AudioSource>>;
 
     fn decoder(&self) -> Self::Decoder {
         rodio::Decoder::new(Cursor::new(self.clone())).unwrap()

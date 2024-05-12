@@ -1,0 +1,25 @@
+{
+  "name": "start-mobile-example",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "mobile": "./node_modules/.bin/wdio mobile.conf.js",
+    "android": "OS_VERSION='13.0' DEVICE='Samsung Galaxy S23' ./node_modules/.bin/wdio mobile.conf.js",
+    "ios": "OS_VERSION='15' DEVICE='iPhone 13' ./node_modules/.bin/wdio mobile.conf.js",
+    "clean": "rm -rf node_modules && rm -f package-lock.json && npm install"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT/Apache2",
+  "devDependencies": {
+    "@wdio/cli": "^5.20.1",
+    "@wdio/local-runner": "^5.20.1",
+    "@wdio/mocha-framework": "^5.18.7",
+    "browserstack-local": "^1.4.5",
+    "@percy/appium-app": "^0.0.7"
+  },
+  "dependencies": {
+    "dotenv": "^16.0.1"
+  }
+}
