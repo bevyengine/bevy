@@ -32,9 +32,6 @@ pub struct RootNodeData {
     pub(super) camera_entity: Option<Entity>,
     // The implicit "viewport" node created by Bevy
     pub(super) implicit_viewport_node: taffy::NodeId,
-    #[deprecated]
-    // The root (parentless) node specified by the user
-    pub(super) user_root_node: taffy::NodeId,
 }
 
 #[derive(Resource)]
@@ -206,7 +203,6 @@ without UI components as a child of an entity with UI components, results may be
                 RootNodeData {
                     camera_entity: Some(camera_entity),
                     implicit_viewport_node,
-                    user_root_node,
                 }
             });
 
@@ -257,16 +253,17 @@ without UI components as a child of an entity with UI components, results may be
 
             // fix taffy relationships
             {
-                if let Some(parent) = self.taffy.parent(root_node_data.user_root_node) {
+                let taffy_node = *self.entity_to_taffy.get(&ui_entity).unwrap();
+                if let Some(parent) = self.taffy.parent(taffy_node) {
                     self.taffy
-                        .remove_child(parent, root_node_data.user_root_node)
+                        .remove_child(parent, taffy_node)
                         .unwrap();
                 }
 
                 self.taffy
                     .add_child(
                         root_node_data.implicit_viewport_node,
-                        root_node_data.user_root_node,
+                        taffy_node,
                     )
                     .unwrap();
             }
@@ -513,16 +510,15 @@ mod tests {
             None
         );
 
-        let root_node_data = get_root_node_data(&ui_surface, root_node_entity);
-        assert!(root_node_data.is_some());
+        let root_node_data = get_root_node_data(&ui_surface, root_node_entity).expect("expected root node data");
         assert_eq!(
-            Some(root_node_data.unwrap().user_root_node).as_ref(),
-            ui_surface.entity_to_taffy.get(&root_node_entity)
+            Some(root_node_data),
+            ui_surface.root_node_data.get(&root_node_entity),
         );
 
         assert_eq!(
             get_root_node_data_exact(&ui_surface, root_node_entity, camera_entity),
-            root_node_data
+            Some(root_node_data),
         );
     }
 
