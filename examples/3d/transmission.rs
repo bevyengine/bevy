@@ -144,8 +144,7 @@ fn setup(
         green: scaled_white.green + scaled_orange.green,
         blue: scaled_white.blue + scaled_orange.blue,
         alpha: 1.0,
-    }
-    .into();
+    };
 
     commands.spawn((
         PbrBundle {

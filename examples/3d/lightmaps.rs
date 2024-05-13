@@ -37,7 +37,7 @@ fn add_lightmaps_to_meshes(
     for (entity, name, material) in meshes.iter() {
         if &**name == "Light" {
             materials.get_mut(material).unwrap().emissive =
-                LinearRgba::from(Srgba::WHITE) * exposure;
+                LinearRgba::from(Srgba::WHITE * exposure);
             continue;
         }
 

@@ -75,13 +75,13 @@ pub struct StandardMaterial {
     /// This means that for a light emissive value, in darkness,
     /// you will mostly see the emissive component.
     ///
-    /// The default emissive color is [`Color::BLACK`], which doesn't add anything to the material color.
+    /// The default emissive color is [`LinearRgba::BLACK`], which doesn't add anything to the material color.
     ///
     /// To increase emissive strength, channel values for `emissive`
     /// colors can exceed `1.0`. For instance, a `base_color` of
-    /// `Color::linear_rgb(1.0, 0.0, 0.0)` represents the brightest
+    /// `LinearRgba::rgb(1.0, 0.0, 0.0)` represents the brightest
     /// red for objects that reflect light, but an emissive color
-    /// like `Color::linear_rgb(1000.0, 0.0, 0.0)` can be used to create
+    /// like `LinearRgba::rgb(1000.0, 0.0, 0.0)` can be used to create
     /// intensely bright red emissive effects.
     ///
     /// Increasing the emissive strength of the color will impact visual effects
@@ -759,15 +759,6 @@ impl From<Color> for StandardMaterial {
             } else {
                 AlphaMode::Opaque
             },
-            ..Default::default()
-        }
-    }
-}
-
-impl From<LinearRgba> for StandardMaterial {
-    fn from(emissive: LinearRgba) -> Self {
-        StandardMaterial {
-            emissive,
             ..Default::default()
         }
     }
