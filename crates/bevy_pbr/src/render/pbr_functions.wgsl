@@ -564,6 +564,8 @@ fn apply_pbr_lighting(
     emissive_light = emissive_light * (0.04 + (1.0 - 0.04) * pow(1.0 - clearcoat_NdotV, 5.0));
 #endif
 
+    emissive_light = emissive_light * mix(1.0, view_bindings::view.exposure, emissive.a);
+
 #ifdef STANDARD_MATERIAL_SPECULAR_TRANSMISSION
     transmitted_light += transmission::specular_transmissive_light(in.world_position, in.frag_coord.xyz, view_z, in.N, in.V, F0, ior, thickness, perceptual_roughness, specular_transmissive_color, specular_transmitted_environment_light).rgb;
 
@@ -585,7 +587,7 @@ fn apply_pbr_lighting(
 
     // Total light
     output_color = vec4<f32>(
-        view_bindings::view.exposure * (transmitted_light + direct_light + indirect_light + emissive_light),
+        (view_bindings::view.exposure * (transmitted_light + direct_light + indirect_light)) + emissive_light,
         output_color.a
     );
 

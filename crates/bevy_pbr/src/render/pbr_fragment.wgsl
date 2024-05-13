@@ -178,7 +178,6 @@ fn pbr_input_from_standard_material(
         pbr_input.material.alpha_cutoff = pbr_bindings::material.alpha_cutoff;
 
         // emissive
-        // TODO use .a for exposure compensation in HDR
         var emissive: vec4<f32> = pbr_bindings::material.emissive;
 #ifdef VERTEX_UVS
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
@@ -191,7 +190,7 @@ fn pbr_input_from_standard_material(
                 uv,
 #endif
                 bias,
-            ).rgb, 1.0);
+            ).rgb, emissive.a);
         }
 #endif
         pbr_input.material.emissive = emissive;
