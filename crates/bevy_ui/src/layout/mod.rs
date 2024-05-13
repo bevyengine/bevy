@@ -495,6 +495,7 @@ mod tests {
 
         // no UI entities in world, none in UiSurface
         let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.entity_to_taffy.is_empty());
         assert!(ui_surface.root_node_data.is_empty());
 
         let ui_entity = world.spawn(NodeBundle::default()).id();
