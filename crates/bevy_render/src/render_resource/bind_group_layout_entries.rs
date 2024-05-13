@@ -13,7 +13,7 @@ use wgpu::{BindGroupLayoutEntry, BindingType, ShaderStages};
 ///         ShaderStages::FRAGMENT,
 ///         (
 ///             // Screen texture
-///             (2, tepxture_2d(TextureSampleType::Float { filterable: true })),
+///             (2, texture_2d(TextureSampleType::Float { filterable: true })),
 ///             // Sampler
 ///             (3, sampler(SamplerBindingType::Filtering)),
 ///         ),
@@ -404,6 +404,15 @@ pub mod binding_types {
             ty: BufferBindingType::Uniform,
             has_dynamic_offset,
             min_binding_size,
+        }
+        .into_bind_group_layout_entry_builder()
+    }
+
+    pub fn texture_1d(sample_type: TextureSampleType) -> BindGroupLayoutEntryBuilder {
+        BindingType::Texture {
+            sample_type,
+            view_dimension: TextureViewDimension::D1,
+            multisampled: false,
         }
         .into_bind_group_layout_entry_builder()
     }

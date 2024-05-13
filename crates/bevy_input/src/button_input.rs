@@ -5,10 +5,6 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::HashSet;
 use std::hash::Hash;
 
-// unused import, but needed for intra doc link to work
-#[allow(unused_imports)]
-use bevy_ecs::schedule::State;
-
 /// A "press-able" input of type `T`.
 ///
 /// ## Usage
@@ -23,8 +19,8 @@ use bevy_ecs::schedule::State;
 /// ## Multiple systems
 ///
 /// In case multiple systems are checking for [`ButtonInput::just_pressed`] or [`ButtonInput::just_released`]
-/// but only one should react, for example in the case of triggering
-/// [`State`] change, you should consider clearing the input state, either by:
+/// but only one should react, for example when modifying a
+/// [`Resource`], you should consider clearing the input state, either by:
 ///
 /// * Using [`ButtonInput::clear_just_pressed`] or [`ButtonInput::clear_just_released`] instead.
 /// * Calling [`ButtonInput::clear`] or [`ButtonInput::reset`] immediately after the state change.
@@ -41,9 +37,9 @@ use bevy_ecs::schedule::State;
 ///
 /// | **[`ButtonInput`] operations**          | **Computational complexity** |
 /// |-----------------------------------|------------------------------------|
-/// | [`ButtonInput::any_just_pressed`]       | *O*(m*n)                     |
-/// | [`ButtonInput::any_just_released`]      | *O*(m*n)                     |
-/// | [`ButtonInput::any_pressed`]            | *O*(m*n)                     |
+/// | [`ButtonInput::any_just_pressed`]       | *O*(m)~                      |
+/// | [`ButtonInput::any_just_released`]      | *O*(m)~                      |
+/// | [`ButtonInput::any_pressed`]            | *O*(m)~                      |
 /// | [`ButtonInput::get_just_pressed`]       | *O*(n)                       |
 /// | [`ButtonInput::get_just_released`]      | *O*(n)                       |
 /// | [`ButtonInput::get_pressed`]            | *O*(n)                       |
@@ -66,6 +62,81 @@ use bevy_ecs::schedule::State;
 /// focus switches from one Bevy window to another (for example because a new window was just spawned).
 ///
 /// `ButtonInput<GamepadButton>` is independent of window focus.
+///
+/// ## Examples
+///
+/// Reading and checking against the current set of pressed buttons:
+/// ```no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
+/// # use bevy_ecs::{prelude::{IntoSystemConfigs, Res, Resource, resource_changed}, schedule::Condition};
+/// # use bevy_input::{ButtonInput, prelude::{GamepadButton, KeyCode, MouseButton}};
+///
+/// fn main() {
+///     App::new()
+///         .add_plugins(DefaultPlugins)
+///         .add_systems(
+///             Update,
+///             print_gamepad.run_if(resource_changed::<ButtonInput<GamepadButton>>),
+///         )
+///         .add_systems(
+///             Update,
+///             print_mouse.run_if(resource_changed::<ButtonInput<MouseButton>>),
+///         )
+///         .add_systems(
+///             Update,
+///             print_keyboard.run_if(resource_changed::<ButtonInput<KeyCode>>),
+///         )
+///         .run();
+/// }
+///
+/// fn print_gamepad(gamepad: Res<ButtonInput<GamepadButton>>) {
+///     println!("Gamepad: {:?}", gamepad.get_pressed().collect::<Vec<_>>());
+/// }
+///
+/// fn print_mouse(mouse: Res<ButtonInput<MouseButton>>) {
+///     println!("Mouse: {:?}", mouse.get_pressed().collect::<Vec<_>>());
+/// }
+///
+/// fn print_keyboard(keyboard: Res<ButtonInput<KeyCode>>) {
+///     if keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight])
+///         && keyboard.any_pressed([KeyCode::AltLeft, KeyCode::AltRight])
+///         && keyboard.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight])
+///         && keyboard.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight])
+///         && keyboard.pressed(KeyCode::KeyL)
+///     {
+///         println!("On Windows this opens LinkedIn.");
+///     } else {
+///         println!("keyboard: {:?}", keyboard.get_pressed().collect::<Vec<_>>());
+///     }
+/// }
+/// ```
+///
+/// Accepting input from multiple devices:
+/// ```no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
+/// # use bevy_ecs::{prelude::IntoSystemConfigs, schedule::Condition};
+/// # use bevy_input::{ButtonInput, common_conditions::{input_just_pressed}, prelude::{GamepadButton, Gamepad, GamepadButtonType, KeyCode}};
+///
+/// fn main() {
+///     App::new()
+///         .add_plugins(DefaultPlugins)
+///         .add_systems(
+///             Update,
+///             something_used.run_if(
+///                 input_just_pressed(KeyCode::KeyE)
+///                     .or_else(input_just_pressed(GamepadButton::new(
+///                         Gamepad::new(0),
+///                         GamepadButtonType::West,
+///                     ))),
+///             ),
+///         )
+///         .run();
+/// }
+///
+/// fn something_used() {
+///     println!("Generic use-ish button pressed.");
+/// }
+/// ```
 ///
 /// ## Note
 ///

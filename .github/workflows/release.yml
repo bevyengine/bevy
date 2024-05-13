@@ -52,5 +52,4 @@ jobs:
           base: "main"
           title: "Preparing Next Release"
           body: |
-            Preparing next release
-            This PR has been auto-generated
+            Preparing next release. This PR has been auto-generated.

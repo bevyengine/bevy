@@ -7,9 +7,10 @@ homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
+rust-version = "1.68.2"
 
 [dependencies]
-glam = { version = "0.25", features = ["bytemuck"] }
+glam = { version = "0.27", features = ["bytemuck"] }
 thiserror = "1.0"
 serde = { version = "1", features = ["derive"], optional = true }
 libm = { version = "0.2", optional = true }

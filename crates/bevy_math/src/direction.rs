@@ -92,6 +92,8 @@ impl Dir2 {
     pub const NEG_X: Self = Self(Vec2::NEG_X);
     /// A unit vector pointing along the negative Y axis.
     pub const NEG_Y: Self = Self(Vec2::NEG_Y);
+    /// The directional axes.
+    pub const AXES: [Self; 2] = [Self::X, Self::Y];
 
     /// Create a direction from a finite, nonzero [`Vec2`].
     ///
@@ -254,6 +256,8 @@ impl Dir3 {
     pub const NEG_Y: Self = Self(Vec3::NEG_Y);
     /// A unit vector pointing along the negative Z axis.
     pub const NEG_Z: Self = Self(Vec3::NEG_Z);
+    /// The directional axes.
+    pub const AXES: [Self; 3] = [Self::X, Self::Y, Self::Z];
 
     /// Create a direction from a finite, nonzero [`Vec3`].
     ///
@@ -419,6 +423,8 @@ impl Dir3A {
     pub const NEG_Y: Self = Self(Vec3A::NEG_Y);
     /// A unit vector pointing along the negative Z axis.
     pub const NEG_Z: Self = Self(Vec3A::NEG_Z);
+    /// The directional axes.
+    pub const AXES: [Self; 3] = [Self::X, Self::Y, Self::Z];
 
     /// Create a direction from a finite, nonzero [`Vec3A`].
     ///
@@ -467,6 +473,18 @@ impl Dir3A {
     /// Returns the inner [`Vec3A`]
     pub const fn as_vec3a(&self) -> Vec3A {
         self.0
+    }
+}
+
+impl From<Dir3> for Dir3A {
+    fn from(value: Dir3) -> Self {
+        Self(value.0.into())
+    }
+}
+
+impl From<Dir3A> for Dir3 {
+    fn from(value: Dir3A) -> Self {
+        Self(value.0.into())
     }
 }
 

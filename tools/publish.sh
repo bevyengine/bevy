@@ -7,10 +7,12 @@ crates=(
     bevy_derive
     bevy_math
     bevy_tasks
-    bevy_reflect/bevy_reflect_derive
+    bevy_reflect/derive
     bevy_reflect
     bevy_ecs/macros
     bevy_ecs
+    bevy_state/macros
+    bevy_state
     bevy_app
     bevy_time
     bevy_log

@@ -28,6 +28,7 @@ pub use window::*;
 
 #[allow(missing_docs)]
 pub mod prelude {
+    #[allow(deprecated)]
     #[doc(hidden)]
     pub use crate::{
         CursorEntered, CursorIcon, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection,
@@ -85,8 +86,10 @@ pub struct WindowPlugin {
 impl Plugin for WindowPlugin {
     fn build(&self, app: &mut App) {
         // User convenience events
+        #[allow(deprecated)]
         app.add_event::<WindowResized>()
             .add_event::<WindowCreated>()
+            .add_event::<WindowClosing>()
             .add_event::<WindowClosed>()
             .add_event::<WindowCloseRequested>()
             .add_event::<WindowDestroyed>()
@@ -132,10 +135,12 @@ impl Plugin for WindowPlugin {
         }
 
         // Register event types
+        #[allow(deprecated)]
         app.register_type::<WindowResized>()
             .register_type::<RequestRedraw>()
             .register_type::<WindowCreated>()
             .register_type::<WindowCloseRequested>()
+            .register_type::<WindowClosing>()
             .register_type::<WindowClosed>()
             .register_type::<CursorMoved>()
             .register_type::<CursorEntered>()

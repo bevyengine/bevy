@@ -63,10 +63,9 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     out.position = position_world_to_clip(out.world_position.xyz);
 #endif
 
-#ifdef VERTEX_UVS
+#ifdef VERTEX_UVS_A
     out.uv = vertex.uv;
 #endif
-
 #ifdef VERTEX_UVS_B
     out.uv_b = vertex.uv_b;
 #endif
@@ -89,6 +88,11 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
     out.instance_index = vertex_no_morph.instance_index;
+#endif
+
+#ifdef VISIBILITY_RANGE_DITHER
+    out.visibility_range_dither = mesh_functions::get_visibility_range_dither_level(
+        vertex_no_morph.instance_index, model[3]);
 #endif
 
     return out;
