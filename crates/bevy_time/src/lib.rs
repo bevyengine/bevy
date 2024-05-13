@@ -51,13 +51,18 @@ impl Plugin for TimePlugin {
             .init_resource::<Time<Real>>()
             .init_resource::<Time<Virtual>>()
             .init_resource::<Time<Fixed>>()
-            .init_resource::<TimeUpdateStrategy>()
-            .register_type::<Time>()
-            .register_type::<Time<Real>>()
-            .register_type::<Time<Virtual>>()
-            .register_type::<Time<Fixed>>()
-            .register_type::<Timer>()
-            .add_systems(First, time_system.in_set(TimeSystem))
+            .init_resource::<TimeUpdateStrategy>();
+
+        #[cfg(feature = "bevy_reflect")]
+        {
+            app.register_type::<Time>()
+                .register_type::<Time<Real>>()
+                .register_type::<Time<Virtual>>()
+                .register_type::<Time<Fixed>>()
+                .register_type::<Timer>();
+        }
+
+        app.add_systems(First, time_system.in_set(TimeSystem))
             .add_systems(RunFixedMainLoop, run_fixed_main_schedule);
 
         // ensure the events are not dropped until `FixedMain` systems can observe them

@@ -6,6 +6,7 @@ mod states;
 mod sub_states;
 mod transitions;
 
+pub use bevy_state_macros::*;
 pub use computed_states::*;
 pub use freely_mutable_state::*;
 pub use resources::*;
@@ -16,16 +17,13 @@ pub use transitions::*;
 
 #[cfg(test)]
 mod tests {
+    use bevy_ecs::event::EventRegistry;
     use bevy_ecs::prelude::*;
     use bevy_ecs::schedule::ScheduleLabel;
+    use bevy_state_macros::States;
     use bevy_state_macros::SubStates;
 
     use super::*;
-
-    use bevy_ecs::event::EventRegistry;
-
-    use bevy_ecs::prelude::ResMut;
-
     use crate as bevy_state;
 
     #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]

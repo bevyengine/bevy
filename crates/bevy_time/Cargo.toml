@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = []
+default = ["bevy_reflect"]
 serialize = ["serde"]
 
 [dependencies]
@@ -20,7 +20,7 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev", features = [
 ] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
   "bevy",
-] }
+], optional = true }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 
 # other

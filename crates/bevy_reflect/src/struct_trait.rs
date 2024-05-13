@@ -204,7 +204,7 @@ impl<'a> Iterator for FieldIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let value = self.struct_val.field_at(self.index);
-        self.index += 1;
+        self.index += value.is_some() as usize;
         value
     }
 
@@ -561,4 +561,32 @@ pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut Formatter<'_>) -> std::fmt:
         );
     }
     debug.finish()
+}
+
+#[cfg(test)]
+mod tests {
+    use crate as bevy_reflect;
+    use crate::*;
+    #[derive(Reflect, Default)]
+    struct MyStruct {
+        a: (),
+        b: (),
+        c: (),
+    }
+    #[test]
+    fn next_index_increment() {
+        let my_struct = MyStruct::default();
+        let mut iter = my_struct.iter_fields();
+        iter.index = iter.len() - 1;
+        let prev_index = iter.index;
+        assert!(iter.next().is_some());
+        assert_eq!(prev_index, iter.index - 1);
+
+        // When None we should no longer increase index
+        let prev_index = iter.index;
+        assert!(iter.next().is_none());
+        assert_eq!(prev_index, iter.index);
+        assert!(iter.next().is_none());
+        assert_eq!(prev_index, iter.index);
+    }
 }
