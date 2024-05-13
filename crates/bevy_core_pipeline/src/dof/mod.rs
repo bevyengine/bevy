@@ -889,7 +889,7 @@ impl DepthOfFieldPipelines {
 /// `sampler2DShadow` and will cheerfully generate invalid GLSL that tries to
 /// perform non-percentage-closer-filtering with such a sampler. Therefore we
 /// disable depth of field entirely on WebGL 2.
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 fn depth_textures_are_supported() -> bool {
     false
 }
@@ -901,7 +901,7 @@ fn depth_textures_are_supported() -> bool {
 /// `sampler2DShadow` and will cheerfully generate invalid GLSL that tries to
 /// perform non-percentage-closer-filtering with such a sampler. Therefore we
 /// disable depth of field entirely on WebGL 2.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu"))))]
 fn depth_textures_are_supported() -> bool {
     true
 }
