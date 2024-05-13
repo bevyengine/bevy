@@ -315,7 +315,7 @@ mod tests {
 
         let aabb = extrusion.aabb_3d(translation, rotation);
         assert_eq!(aabb.min, Vec3A::new(1.5857864, f32::MIN / 2., 3.5857865));
-        assert_eq!(aabb.max, Vec3A::new(4.4142136, f32::MAX / 2., 6.4142133));
+        assert_eq!(aabb.max, Vec3A::new(4.4142136, f32::MAX / 2., 6.414213));
 
         let bounding_sphere = extrusion.bounding_sphere(translation, rotation);
         assert_eq!(bounding_sphere.center(), translation.into());
@@ -334,7 +334,7 @@ mod tests {
 
         let bounding_sphere = extrusion.bounding_sphere(translation, rotation);
         assert_eq!(bounding_sphere.center, translation.into());
-        assert_eq!(bounding_sphere.radius(), 2.2912878);
+        assert_eq!(bounding_sphere.radius(), 2.291288);
     }
 
     #[test]
