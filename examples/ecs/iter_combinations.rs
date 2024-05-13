@@ -99,7 +99,7 @@ fn generate_bodies(
                     mesh: meshes.add(Sphere::new(1.0).mesh().ico(5).unwrap()),
                     material: materials.add(StandardMaterial {
                         base_color: ORANGE_RED.into(),
-                        emissive: (LinearRgba::from(ORANGE_RED) * 18.).into(),
+                        emissive: LinearRgba::from(ORANGE_RED) * 18.,
                         ..default()
                     }),
                     ..default()
