@@ -45,6 +45,7 @@ git checkout v0.4.0
   - [Android](#android)
     - [Setup](#setup)
     - [Build & Run](#build--run)
+    - [About `libc++_shared.so`](#about-libc_sharedso)
     - [Old phones](#old-phones)
   - [iOS](#ios)
     - [Setup](#setup-1)
@@ -90,7 +91,7 @@ Example | Description
 
 ```sh
 rustup target add aarch64-linux-android armv7-linux-androideabi
-cargo install cargo-apk
+cargo install cargo-ndk
 ```
 
 The Android SDK must be installed, and the environment variable `ANDROID_SDK_ROOT` set to the root Android `sdk` folder.
@@ -99,23 +100,35 @@ When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` mus
 
 ### Build & Run
 
-To run on a device setup for Android development, run:
+To build an android app, you need to compile it to `so` first with `cargo-ndk`:
 
 ```sh
-cargo apk run -p bevy_mobile_example
+cargo ndk -t <target_name> build --release
 ```
 
-When using Bevy as a library, the following fields must be added to `Cargo.toml`:
+For example, to compile to a 64-bit ARM platform, the command looks like this:
 
-```toml
-[package.metadata.android]
-build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
-
-[package.metadata.android.sdk]
-target_sdk_version = 31
+```sh
+cargo ndk -t arm64-v8a build --release
 ```
 
-Please reference `cargo-apk` [README](https://crates.io/crates/cargo-apk) for other Android Manifest fields.
+After compile, move it to `project_name/app/src/main/jniLibs/<target_name>` to link it.
+
+You can use `-o` option in `cargo-ndk` directly set output folder(which will also set up <target_name> folder), for example project the command looks like this:
+
+```sh
+cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build --release
+```
+
+Please reference `cargo-ndk` [README](https://crates.io/crates/cargo-ndk) for other options.
+
+After compiling and linking you can build and test it in your android project.
+
+#### About `libc++_shared.so`
+
+Bevy probably need `libc++_shared.so` to run on Android(which is required by `oboe` crate), but normally `cargo-ndk` won't copy it.
+
+To copy it, manually retrieve it from NDK source or use a `build.rs` script for automation, which is included in mobile example(`example/mobile/build.rs`).
 
 ### Debugging
 
@@ -135,17 +148,11 @@ adb uninstall org.bevyengine.example
 
 ### Old phones
 
-Bevy by default targets Android API level 31 in its examples which is the <!-- markdown-link-check-disable -->
+Bevy by default targets Android API level 33 in its examples which is the <!-- markdown-link-check-disable -->
 [Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). <!-- markdown-link-check-enable -->
-Users of older phones may want to use an older API when testing.
+Users of older phones may want to use an older API when testing. By default, Bevy uses [`GameAvtivity`](https://developer.android.com/games/agdk/game-activity), which only works for Android API level 31 and higher, so if you want to use older API, you need to switch to `NativeActivity`.
 
-To use a different API, the following fields must be updated in Cargo.toml:
-
-```toml
-[package.metadata.android.sdk]
-target_sdk_version = >>API<<
-min_sdk_version = >>API or less<<
-```
+To use `NativeActivity`, you need to edit it in `cargo.toml` manually, then build it as the [Build & Run](#build--run) section stated above.
 
 Example | File | Description
 --- | --- | ---
