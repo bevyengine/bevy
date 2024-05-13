@@ -158,7 +158,7 @@ fn gaussian_blur(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec
     let uv = frag_coord.xy / vec2<f32>(textureDimensions(color_texture_a));
     let offset = frag_offset / vec2<f32>(textureDimensions(color_texture_a));
 
-    // The PDF of the Gaussian blur is (up to constant factors) `exp(-1 / 2σ² *
+    // The probability density function of the Gaussian blur is (up to constant factors) `exp(-1 / 2σ² *
     // x²). We precalculate the constant factor here to avoid having to
     // calculate it in the inner loop.
     let exp_factor = -1.0 / (2.0 * sigma * sigma);
