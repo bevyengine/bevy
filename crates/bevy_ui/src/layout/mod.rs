@@ -191,10 +191,6 @@ pub fn ui_layout_system(
     }
     scale_factor_events.clear();
 
-    // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
-    for entity in removed_components.removed_content_sizes.read() {
-        ui_surface.try_remove_node_context(entity);
-    }
     for (entity, _, mut content_size_option, _) in &mut style_query {
         if let Some(ref mut content_size) = content_size_option {
             if let Some(measure_func) = content_size.measure.take() {
