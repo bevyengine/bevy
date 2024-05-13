@@ -269,7 +269,7 @@ without UI components as a child of an entity with UI components, results may be
             .unwrap_or_else(|| unreachable!())
     }
 
-    /// Set the ui node entities without a [`Parent`] as children to the root node in the taffy layout.
+    /// Set the ui node entities without a [`bevy_hierarchy::Parent`] as children to the root node in the taffy layout.
     pub fn set_camera_children(
         &mut self,
         camera_entity: Entity,
@@ -333,7 +333,30 @@ without UI components as a child of an entity with UI components, results may be
             }
 
             self.taffy
-                .compute_layout(root_node_data.implicit_viewport_node, available_space)
+                .compute_layout_with_measure(
+                    root_node_data.implicit_viewport_node,
+                    available_space,
+                    |known_dimensions: taffy::Size<Option<f32>>,
+                     available_space: taffy::Size<taffy::AvailableSpace>,
+                     _node_id: taffy::NodeId,
+                     context: Option<&mut NodeMeasure>|
+                     -> taffy::Size<f32> {
+                        context
+                            .map(|ctx| {
+                                let size = ctx.measure(
+                                    known_dimensions.width,
+                                    known_dimensions.height,
+                                    available_space.width,
+                                    available_space.height,
+                                );
+                                taffy::Size {
+                                    width: size.x,
+                                    height: size.y,
+                                }
+                            })
+                            .unwrap_or(taffy::Size::ZERO)
+                    },
+                )
                 .unwrap();
         }
     }
