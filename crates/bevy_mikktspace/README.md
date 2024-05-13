@@ -10,7 +10,7 @@ This is a fork of [https://github.com/gltf-rs/mikktspace](https://github.com/glt
 
 Port of the [Mikkelsen Tangent Space Algorithm](https://en.blender.org/index.php/Dev:Shading/Tangent_Space_Normal_Maps) reference implementation.
 
-Requires at least Rust 1.52.1.
+Requires at least Rust 1.76.0.
 
 ## Examples
 
