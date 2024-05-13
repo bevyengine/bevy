@@ -83,7 +83,7 @@ struct DualOutput {
 // The main color texture.
 @group(0) @binding(2) var color_texture_a: texture_2d<f32>;
 
-// The auxiliary color texture that were sampling from. This is only used as
+// The auxiliary color texture that we're sampling from. This is only used as
 // part of the second bokeh pass.
 #ifdef DUAL_INPUT
 @group(0) @binding(3) var color_texture_b: texture_2d<f32>;
