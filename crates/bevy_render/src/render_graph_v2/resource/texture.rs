@@ -12,8 +12,8 @@ use crate::{
 
 use super::{
     deps, ref_eq::RefEq, DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource,
-    NewRenderResource, RenderDependencies, RenderHandle, RenderResource, RenderResourceId,
-    RenderResourceMeta, ResourceTracker, ResourceType, UsagesRenderResource, WriteRenderResource,
+    NewRenderResource, RenderHandle, RenderResource, RenderResourceId, RenderResourceMeta,
+    ResourceTracker, ResourceType, UsagesRenderResource, WriteRenderResource,
 };
 
 impl RenderResource for Texture {
