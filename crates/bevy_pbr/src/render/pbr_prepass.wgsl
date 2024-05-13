@@ -52,16 +52,16 @@ fn fragment(
 #ifdef VERTEX_UVS
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARD_MATERIAL_NORMAL_MAP
-    let uv_transform = material.uv_transform;
-    let uv = (uv_transform * vec3(in.uv, 1.0)).xy;
+        let uv_transform = material.uv_transform;
+        let uv = (uv_transform * vec3(in.uv, 1.0)).xy;
 
-    // Fill in the sample bias so we can sample from textures.
-    var bias: SampleBias;
+        // Fill in the sample bias so we can sample from textures.
+        var bias: SampleBias;
 #ifdef MESHLET_MESH_MATERIAL_PASS
-    bias.ddx_uv = in.ddx_uv;
-    bias.ddy_uv = in.ddy_uv;
+        bias.ddx_uv = in.ddx_uv;
+        bias.ddy_uv = in.ddy_uv;
 #else   // MESHLET_MESH_MATERIAL_PASS
-    bias.mip_bias = view.mip_bias;
+        bias.mip_bias = view.mip_bias;
 #endif  // MESHLET_MESH_MATERIAL_PASS
 
         let Nt = pbr_functions::sample_texture(
