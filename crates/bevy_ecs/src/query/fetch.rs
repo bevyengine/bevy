@@ -1420,13 +1420,13 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
         archetype: &'w Archetype,
         table: &'w Table,
     ) {
-        <&mut T as WorldQuery>::set_archetype(fetch, state, archetype, table)
+        <&mut T as WorldQuery>::set_archetype(fetch, state, archetype, table);
     }
 
     #[inline]
     // Forwarded to `&mut T`
     unsafe fn set_table<'w>(fetch: &mut WriteFetch<'w, T>, state: &ComponentId, table: &'w Table) {
-        <&mut T as WorldQuery>::set_table(fetch, state, table)
+        <&mut T as WorldQuery>::set_table(fetch, state, table);
     }
 
     #[inline(always)]
