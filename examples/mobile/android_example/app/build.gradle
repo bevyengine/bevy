@@ -4,7 +4,7 @@ plugins {
 
 android {
     namespace 'org.bevyengine.example'
-    compileSdk 33
+    compileSdk 34
 
     defaultConfig {
         applicationId "org.bevyengine.example"
