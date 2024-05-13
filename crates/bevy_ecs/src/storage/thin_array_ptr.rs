@@ -231,7 +231,7 @@ impl<T> ThinArrayPtr<T> {
         last_element_index: usize,
     ) {
         let val = &mut self.swap_remove_unchecked(index, last_element_index);
-        std::ptr::drop_in_place(val as *mut T);
+        std::ptr::drop_in_place(std::ptr::from_mut(val));
     }
 
     /// Get a raw pointer to the last element of the array, return `None` if the length is 0
