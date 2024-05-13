@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use super::{Primitive2d, WindingOrder};
+use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{Dir2, Vec2};
 
 /// A circle primitive
@@ -32,19 +32,6 @@ impl Circle {
         2.0 * self.radius
     }
 
-    /// Get the area of the circle
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        PI * self.radius.powi(2)
-    }
-
-    /// Get the perimeter or circumference of the circle
-    #[inline(always)]
-    #[doc(alias = "circumference")]
-    pub fn perimeter(&self) -> f32 {
-        2.0 * PI * self.radius
-    }
-
     /// Finds the point on the circle that is closest to the given `point`.
     ///
     /// If the point is outside the circle, the returned point will be on the perimeter of the circle.
@@ -62,6 +49,21 @@ impl Circle {
             let dir_to_point = point / distance_squared.sqrt();
             self.radius * dir_to_point
         }
+    }
+}
+
+impl Measured2d for Circle {
+    /// Get the area of the circle
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        PI * self.radius.powi(2)
+    }
+
+    /// Get the perimeter or circumference of the circle
+    #[inline(always)]
+    #[doc(alias = "circumference")]
+    fn perimeter(&self) -> f32 {
+        2.0 * PI * self.radius
     }
 }
 
@@ -118,6 +120,17 @@ impl Ellipse {
         (a * a - b * b).sqrt() / a
     }
 
+    #[inline(always)]
+    /// Get the focal length of the ellipse. This corresponds to the distance between one of the foci and the center of the ellipse.
+    ///
+    /// The focal length of an ellipse is related to its eccentricity by `eccentricity = focal_length / semi_major`
+    pub fn focal_length(&self) -> f32 {
+        let a = self.semi_major();
+        let b = self.semi_minor();
+
+        (a * a - b * b).sqrt()
+    }
+
     /// Returns the length of the semi-major axis. This corresponds to the longest radius of the ellipse.
     #[inline(always)]
     pub fn semi_major(&self) -> f32 {
@@ -129,11 +142,69 @@ impl Ellipse {
     pub fn semi_minor(&self) -> f32 {
         self.half_size.min_element()
     }
+}
 
+impl Measured2d for Ellipse {
     /// Get the area of the ellipse
     #[inline(always)]
-    pub fn area(&self) -> f32 {
+    fn area(&self) -> f32 {
         PI * self.half_size.x * self.half_size.y
+    }
+
+    #[inline(always)]
+    /// Get an approximation for the perimeter or circumference of the ellipse.
+    ///
+    /// The approximation is reasonably precise with a relative error less than 0.007%, getting more precise as the eccentricity of the ellipse decreases.
+    fn perimeter(&self) -> f32 {
+        let a = self.semi_major();
+        let b = self.semi_minor();
+
+        // In the case that `a == b`, the ellipse is a circle
+        if a / b - 1. < 1e-5 {
+            return PI * (a + b);
+        };
+
+        // In the case that `a` is much larger than `b`, the ellipse is a line
+        if a / b > 1e4 {
+            return 4. * a;
+        };
+
+        // These values are  the result of (0.5 choose n)^2 where n is the index in the array
+        // They could be calculated on the fly but hardcoding them yields more accurate and faster results
+        // because the actual calculation for these values involves factorials and numbers > 10^23
+        const BINOMIAL_COEFFICIENTS: [f32; 21] = [
+            1.,
+            0.25,
+            0.015625,
+            0.00390625,
+            0.0015258789,
+            0.00074768066,
+            0.00042057037,
+            0.00025963783,
+            0.00017140154,
+            0.000119028846,
+            0.00008599834,
+            0.00006414339,
+            0.000049109784,
+            0.000038430585,
+            0.000030636627,
+            0.000024815668,
+            0.000020380836,
+            0.000016942893,
+            0.000014236736,
+            0.000012077564,
+            0.000010333865,
+        ];
+
+        // The algorithm used here is the Gauss-Kummer infinite series expansion of the elliptic integral expression for the perimeter of ellipses
+        // For more information see https://www.wolframalpha.com/input/?i=gauss-kummer+series
+        // We only use the terms up to `i == 20` for this approximation
+        let h = ((a - b) / (a + b)).powi(2);
+
+        PI * (a + b)
+            * (0..=20)
+                .map(|i| BINOMIAL_COEFFICIENTS[i] * h.powi(i as i32))
+                .sum::<f32>()
     }
 }
 
@@ -181,20 +252,6 @@ impl Annulus {
         self.outer_circle.radius - self.inner_circle.radius
     }
 
-    /// Get the area of the annulus
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        PI * (self.outer_circle.radius.powi(2) - self.inner_circle.radius.powi(2))
-    }
-
-    /// Get the perimeter or circumference of the annulus,
-    /// which is the sum of the perimeters of the inner and outer circles.
-    #[inline(always)]
-    #[doc(alias = "circumference")]
-    pub fn perimeter(&self) -> f32 {
-        2.0 * PI * (self.outer_circle.radius + self.inner_circle.radius)
-    }
-
     /// Finds the point on the annulus that is closest to the given `point`:
     ///
     /// - If the point is outside of the annulus completely, the returned point will be on the outer perimeter.
@@ -220,6 +277,22 @@ impl Annulus {
             let dir_to_point = point / distance_squared.sqrt();
             self.inner_circle.radius * dir_to_point
         }
+    }
+}
+
+impl Measured2d for Annulus {
+    /// Get the area of the annulus
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        PI * (self.outer_circle.radius.powi(2) - self.inner_circle.radius.powi(2))
+    }
+
+    /// Get the perimeter or circumference of the annulus,
+    /// which is the sum of the perimeters of the inner and outer circles.
+    #[inline(always)]
+    #[doc(alias = "circumference")]
+    fn perimeter(&self) -> f32 {
+        2.0 * PI * (self.outer_circle.radius + self.inner_circle.radius)
     }
 }
 
@@ -404,25 +477,6 @@ impl Triangle2d {
         }
     }
 
-    /// Get the area of the triangle
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        let [a, b, c] = self.vertices;
-        (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y)).abs() / 2.0
-    }
-
-    /// Get the perimeter of the triangle
-    #[inline(always)]
-    pub fn perimeter(&self) -> f32 {
-        let [a, b, c] = self.vertices;
-
-        let ab = a.distance(b);
-        let bc = b.distance(c);
-        let ca = c.distance(a);
-
-        ab + bc + ca
-    }
-
     /// Get the [`WindingOrder`] of the triangle
     #[inline(always)]
     #[doc(alias = "orientation")]
@@ -478,6 +532,27 @@ impl Triangle2d {
     #[inline(always)]
     pub fn reverse(&mut self) {
         self.vertices.swap(0, 2);
+    }
+}
+
+impl Measured2d for Triangle2d {
+    /// Get the area of the triangle
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        let [a, b, c] = self.vertices;
+        (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y)).abs() / 2.0
+    }
+
+    /// Get the perimeter of the triangle
+    #[inline(always)]
+    fn perimeter(&self) -> f32 {
+        let [a, b, c] = self.vertices;
+
+        let ab = a.distance(b);
+        let bc = b.distance(c);
+        let ca = c.distance(a);
+
+        ab + bc + ca
     }
 }
 
@@ -538,18 +613,6 @@ impl Rectangle {
         2.0 * self.half_size
     }
 
-    /// Get the area of the rectangle
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        4.0 * self.half_size.x * self.half_size.y
-    }
-
-    /// Get the perimeter of the rectangle
-    #[inline(always)]
-    pub fn perimeter(&self) -> f32 {
-        4.0 * (self.half_size.x + self.half_size.y)
-    }
-
     /// Finds the point on the rectangle that is closest to the given `point`.
     ///
     /// If the point is outside the rectangle, the returned point will be on the perimeter of the rectangle.
@@ -558,6 +621,20 @@ impl Rectangle {
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         // Clamp point coordinates to the rectangle
         point.clamp(-self.half_size, self.half_size)
+    }
+}
+
+impl Measured2d for Rectangle {
+    /// Get the area of the rectangle
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        4.0 * self.half_size.x * self.half_size.y
+    }
+
+    /// Get the perimeter of the rectangle
+    #[inline(always)]
+    fn perimeter(&self) -> f32 {
+        4.0 * (self.half_size.x + self.half_size.y)
     }
 }
 
@@ -682,20 +759,6 @@ impl RegularPolygon {
         2.0 * self.circumradius() * (PI / self.sides as f32).sin()
     }
 
-    /// Get the area of the regular polygon
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        let angle: f32 = 2.0 * PI / (self.sides as f32);
-        (self.sides as f32) * self.circumradius().powi(2) * angle.sin() / 2.0
-    }
-
-    /// Get the perimeter of the regular polygon.
-    /// This is the sum of its sides
-    #[inline(always)]
-    pub fn perimeter(&self) -> f32 {
-        self.sides as f32 * self.side_length()
-    }
-
     /// Get the internal angle of the regular polygon in degrees.
     ///
     /// This is the angle formed by two adjacent sides with points
@@ -746,6 +809,22 @@ impl RegularPolygon {
             let (sin, cos) = theta.sin_cos();
             Vec2::new(cos, sin) * self.circumcircle.radius
         })
+    }
+}
+
+impl Measured2d for RegularPolygon {
+    /// Get the area of the regular polygon
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        let angle: f32 = 2.0 * PI / (self.sides as f32);
+        (self.sides as f32) * self.circumradius().powi(2) * angle.sin() / 2.0
+    }
+
+    /// Get the perimeter of the regular polygon.
+    /// This is the sum of its sides
+    #[inline(always)]
+    fn perimeter(&self) -> f32 {
+        self.sides as f32 * self.side_length()
     }
 }
 
@@ -859,6 +938,21 @@ mod tests {
 
         let circle = Ellipse::new(2., 2.);
         assert_eq!(circle.eccentricity(), 0., "incorrect circle eccentricity");
+    }
+
+    #[test]
+    fn ellipse_perimeter() {
+        let circle = Ellipse::new(1., 1.);
+        assert_relative_eq!(circle.perimeter(), 6.2831855);
+
+        let line = Ellipse::new(75_000., 0.5);
+        assert_relative_eq!(line.perimeter(), 300_000.);
+
+        let ellipse = Ellipse::new(0.5, 2.);
+        assert_relative_eq!(ellipse.perimeter(), 8.578423);
+
+        let ellipse = Ellipse::new(5., 3.);
+        assert_relative_eq!(ellipse.perimeter(), 25.526999);
     }
 
     #[test]

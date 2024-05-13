@@ -183,7 +183,7 @@ impl<'a> ReflectDerive<'a> {
         input: &'a DeriveInput,
         provenance: ReflectProvenance,
     ) -> Result<Self, syn::Error> {
-        let mut traits = ContainerAttributes::default();
+        let mut container_attributes = ContainerAttributes::default();
         // Should indicate whether `#[reflect_value]` was used.
         let mut reflect_mode = None;
         // Should indicate whether `#[type_path = "..."]` was used.
@@ -205,9 +205,7 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Normal);
-                    let new_traits =
-                        ContainerAttributes::parse_meta_list(meta_list, provenance.trait_)?;
-                    traits.merge(new_traits)?;
+                    container_attributes.parse_meta_list(meta_list, provenance.trait_)?;
                 }
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
                     if !matches!(reflect_mode, None | Some(ReflectMode::Value)) {
@@ -218,9 +216,7 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Value);
-                    let new_traits =
-                        ContainerAttributes::parse_meta_list(meta_list, provenance.trait_)?;
-                    traits.merge(new_traits)?;
+                    container_attributes.parse_meta_list(meta_list, provenance.trait_)?;
                 }
                 Meta::Path(path) if path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
                     if !matches!(reflect_mode, None | Some(ReflectMode::Value)) {
@@ -296,7 +292,7 @@ impl<'a> ReflectDerive<'a> {
             generics: &input.generics,
         };
 
-        let meta = ReflectMeta::new(type_path, traits);
+        let meta = ReflectMeta::new(type_path, container_attributes);
 
         if provenance.source == ReflectImplSource::ImplRemoteType
             && meta.type_path_attrs().should_auto_derive()
@@ -439,7 +435,7 @@ impl<'a> ReflectMeta<'a> {
         Self { docs, ..self }
     }
 
-    /// The registered reflect traits on this struct.
+    /// The registered reflect attributes on this struct.
     pub fn attrs(&self) -> &ContainerAttributes {
         &self.attrs
     }
