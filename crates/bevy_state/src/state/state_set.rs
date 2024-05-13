@@ -27,6 +27,10 @@ mod sealed {
 ///
 /// It is sealed, and auto implemented for all [`States`] types and
 /// tuples containing them.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a state set",
+    label = "invalid state set"
+)]
 pub trait StateSet: sealed::StateSetSealed {
     /// The total [`DEPENDENCY_DEPTH`](`States::DEPENDENCY_DEPTH`) of all
     /// the states that are part of this [`StateSet`], added together.

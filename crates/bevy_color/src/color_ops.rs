@@ -3,6 +3,10 @@ use bevy_math::{Vec3, Vec4};
 /// Methods for changing the luminance of a color. Note that these methods are not
 /// guaranteed to produce consistent results across color spaces,
 /// but will be within a given space.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not have a definition of luminance",
+    label = "non-luminance color model"
+)]
 pub trait Luminance: Sized {
     /// Return the luminance of this color (0.0 - 1.0).
     fn luminance(&self) -> f32;
@@ -30,6 +34,10 @@ pub trait Luminance: Sized {
 }
 
 /// Linear interpolation of two colors within a given color space.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not be mixed",
+    label = "unmixable color model"
+)]
 pub trait Mix: Sized {
     /// Linearly interpolate between this and another color, by factor.
     /// Factor should be between 0.0 and 1.0.
@@ -43,6 +51,10 @@ pub trait Mix: Sized {
 }
 
 /// Methods for manipulating alpha values.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not have an alpha channel",
+    label = "opaque color model"
+)]
 pub trait Alpha: Sized {
     /// Return a new version of this color with the given alpha value.
     fn with_alpha(&self, alpha: f32) -> Self;
@@ -65,6 +77,10 @@ pub trait Alpha: Sized {
 }
 
 /// Trait for manipulating the hue of a color.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not have a definition of hue",
+    label = "non-hue color model"
+)]
 pub trait Hue: Sized {
     /// Return a new version of this color with the hue channel set to the given value.
     fn with_hue(&self, hue: f32) -> Self;
@@ -83,6 +99,10 @@ pub trait Hue: Sized {
 }
 
 /// Trait with methods for converting colors to non-color types
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` cannot be decomposed into color components",
+    label = "invalid color model"
+)]
 pub trait ColorToComponents {
     /// Convert to an f32 array
     fn to_f32_array(self) -> [f32; 4];

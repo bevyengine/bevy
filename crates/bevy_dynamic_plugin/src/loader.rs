@@ -51,6 +51,7 @@ pub unsafe fn dynamically_load_plugin<P: AsRef<OsStr>>(
 }
 
 /// An extension trait for [`App`] that allows loading dynamic plugins.
+#[diagnostic::on_unimplemented(message = "`{Self}` is not an App", label = "invalid `App`")]
 pub trait DynamicPluginExt {
     /// Dynamically links a plugin at the given path, registering the plugin.
     ///

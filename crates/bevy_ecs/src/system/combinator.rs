@@ -83,6 +83,10 @@ use super::{ReadOnlySystem, System};
 /// # assert!(world.resource::<RanFlag>().0);
 /// # world.resource_mut::<RanFlag>().0 = false;
 /// ```
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not combine systems `{A}` and `{B}`",
+    label = "invalid system combination"
+)]
 pub trait Combine<A: System, B: System> {
     /// The [input](System::In) type for a [`CombinatorSystem`].
     type In;

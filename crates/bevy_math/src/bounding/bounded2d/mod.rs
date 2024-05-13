@@ -16,6 +16,7 @@ fn point_cloud_2d_center(points: &[Vec2]) -> Vec2 {
 }
 
 /// A trait with methods that return 2D bounded volumes for a shape
+#[diagnostic::on_unimplemented(message = "`{Self}` is not bounded in 2D")]
 pub trait Bounded2d {
     /// Get an axis-aligned bounding box for the shape with the given translation and rotation.
     /// The rotation is in radians, counterclockwise, with 0 meaning no rotation.

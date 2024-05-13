@@ -9,6 +9,7 @@ use bevy_ecs::{
 use crate::{Children, Parent};
 
 /// An extension trait for [`Query`] that adds hierarchy related methods.
+#[diagnostic::on_unimplemented(message = "`{Self}` is not a Query", label = "invalid query")]
 pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     /// Returns an [`Iterator`] of [`Entity`]s over all of `entity`s descendants.
     ///

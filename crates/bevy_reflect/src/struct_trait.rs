@@ -43,6 +43,7 @@ use std::{
 /// [reflection]: crate
 
 /// [unit structs]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#unit-like-structs-without-any-fields
+#[diagnostic::on_unimplemented(message = "`{Self}` is not a struct", label = "invalid struct")]
 pub trait Struct: Reflect {
     /// Returns a reference to the value of the field named `name` as a `&dyn
     /// Reflect`.
@@ -236,6 +237,7 @@ impl<'a> ExactSizeIterator for FieldIter<'a> {}
 /// assert_eq!(foo.get_field::<String>("bar"), Some(&"Hello".to_string()));
 /// # }
 /// ```
+#[diagnostic::on_unimplemented(message = "`{Self}` is not a struct", label = "invalid struct")]
 pub trait GetField {
     /// Returns a reference to the value of the field named `name`, downcast to
     /// `T`.

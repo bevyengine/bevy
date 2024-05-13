@@ -21,6 +21,10 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 ///
 /// Note that, because implementing types use floating point arithmetic, they are not required to actually
 /// implement `PartialEq` or `Eq`.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a vector space",
+    label = "invalid vector space"
+)]
 pub trait VectorSpace:
     Mul<f32, Output = Self>
     + Div<f32, Output = Self>
@@ -77,6 +81,10 @@ impl VectorSpace for f32 {
 ///
 /// Note that, because implementing types use floating point arithmetic, they are not required to actually
 /// implement `PartialEq` or `Eq`.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a normed vector space",
+    label = "invalid vector space"
+)]
 pub trait NormedVectorSpace: VectorSpace {
     /// The size of this element. The return value should always be nonnegative.
     fn norm(self) -> f32;

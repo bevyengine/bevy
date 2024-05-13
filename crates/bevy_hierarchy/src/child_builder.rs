@@ -309,6 +309,10 @@ impl ChildBuilder<'_> {
 }
 
 /// Trait for removing, adding and replacing children and parents of an entity.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not build child entities",
+    label = "invalid builder"
+)]
 pub trait BuildChildren {
     /// Takes a closure which builds children for this entity using [`ChildBuilder`].
     fn with_children(&mut self, f: impl FnOnce(&mut ChildBuilder)) -> &mut Self;
@@ -516,6 +520,10 @@ impl<'w> WorldChildBuilder<'w> {
 }
 
 /// Trait that defines adding, changing and children and parents of an entity directly through the [`World`].
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not build child entities",
+    label = "invalid builder"
+)]
 pub trait BuildWorldChildren {
     /// Takes a closure which builds children for this entity using [`WorldChildBuilder`].
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self;

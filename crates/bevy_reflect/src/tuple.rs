@@ -33,6 +33,7 @@ use std::slice::Iter;
 ///
 /// [tuple-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-tuple-type
 /// [reflection]: crate
+#[diagnostic::on_unimplemented(message = "`{Self}` is not a tuple", label = "invalid tuple")]
 pub trait Tuple: Reflect {
     /// Returns a reference to the value of the field with index `index` as a
     /// `&dyn Reflect`.
@@ -102,6 +103,7 @@ impl<'a> ExactSizeIterator for TupleFieldIter<'a> {}
 /// assert_eq!(foo.get_field::<i32>(1), Some(&42));
 /// # }
 /// ```
+#[diagnostic::on_unimplemented(message = "`{Self}` is not a tuple", label = "invalid tuple")]
 pub trait GetTupleField {
     /// Returns a reference to the value of the field with index `index`,
     /// downcast to `T`.

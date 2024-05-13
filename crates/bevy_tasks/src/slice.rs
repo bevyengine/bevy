@@ -1,6 +1,7 @@
 use super::TaskPool;
 
 /// Provides functions for mapping read-only slices across a provided [`TaskPool`].
+#[diagnostic::on_unimplemented(message = "`{Self}` can not be sliced in parallel")]
 pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
     /// Splits the slice in chunks of size `chunks_size` or less and maps the chunks
     /// in parallel across the provided `task_pool`. One task is spawned in the task pool
@@ -101,6 +102,7 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
 impl<S, T: Sync> ParallelSlice<T> for S where S: AsRef<[T]> {}
 
 /// Provides functions for mapping mutable slices across a provided [`TaskPool`].
+#[diagnostic::on_unimplemented(message = "`{Self}` can not be mutably sliced in parallel")]
 pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
     /// Splits the slice in chunks of size `chunks_size` or less and maps the chunks
     /// in parallel across the provided `task_pool`. One task is spawned in the task pool

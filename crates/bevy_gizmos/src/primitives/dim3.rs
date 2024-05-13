@@ -17,6 +17,10 @@ const DEFAULT_NUMBER_SEGMENTS: usize = 5;
 const INFINITE_LEN: f32 = 10_000.0;
 
 /// A trait for rendering 3D geometric primitives (`P`) with [`Gizmos`].
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a primitive 3D gizmo",
+    label = "invalid gizmo"
+)]
 pub trait GizmoPrimitive3d<P: Primitive3d> {
     /// The output of `primitive_3d`. This is a builder to set non-default values.
     type Output<'a>

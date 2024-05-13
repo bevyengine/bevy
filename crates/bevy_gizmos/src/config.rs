@@ -46,6 +46,10 @@ pub enum GizmoLineStyle {
 /// Here you can store additional configuration for you gizmo group not covered by [`GizmoConfig`]
 ///
 /// Make sure to derive [`Default`] + [`Reflect`] and register in the app using `app.init_gizmo_group::<T>()`
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a gizmo configuration group",
+    label = "invalid configuration group"
+)]
 pub trait GizmoConfigGroup: Reflect + TypePath + Default {}
 
 /// The default gizmo config group.

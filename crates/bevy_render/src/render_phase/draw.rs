@@ -20,6 +20,10 @@ use std::{
 ///
 /// This trait can either be implemented directly or implicitly composed out of multiple modular
 /// [`RenderCommand`]s. For more details and an example see the [`RenderCommand`] documentation.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a valid draw operation",
+    label = "invalid draw"
+)]
 pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
     /// Prepares the draw function to be used. This is called once and only once before the phase
     /// begins. There may be zero or more [`draw`](Draw::draw) calls following a call to this function.
@@ -167,6 +171,10 @@ impl<P: PhaseItem> DrawFunctions<P> {
 ///     DrawMesh,
 /// );
 /// ```
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a render command",
+    label = "invalid command"
+)]
 pub trait RenderCommand<P: PhaseItem> {
     /// Specifies the general ECS data (e.g. resources) required by [`RenderCommand::render`].
     ///
@@ -301,6 +309,7 @@ where
 
 /// Registers a [`RenderCommand`] as a [`Draw`] function.
 /// They are stored inside the [`DrawFunctions`] resource of the app.
+#[diagnostic::on_unimplemented(message = "`{Self}` is not an App", label = "invalid `App`")]
 pub trait AddRenderCommand {
     /// Adds the [`RenderCommand`] for the specified render phase to the app.
     fn add_render_command<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static>(

@@ -72,6 +72,10 @@ impl From<std::io::Error> for AssetReaderError {
     }
 }
 
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an asynchronous and seekable reader",
+    label = "invalid reader"
+)]
 pub trait AsyncReadAndSeek: AsyncRead + AsyncSeek {}
 
 impl<T: AsyncRead + AsyncSeek> AsyncReadAndSeek for T {}
@@ -83,6 +87,10 @@ pub type Reader<'a> = dyn AsyncReadAndSeek + Unpin + Send + Sync + 'a;
 /// `path`. This trait is not object safe, if needed use a dyn [`ErasedAssetReader`] instead.
 ///
 /// Also see [`AssetWriter`].
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an asset reader",
+    label = "invalid asset reader"
+)]
 pub trait AssetReader: Send + Sync + 'static {
     /// Returns a future to load the full file data at the provided path.
     fn read<'a>(
@@ -121,6 +129,10 @@ pub trait AssetReader: Send + Sync + 'static {
 
 /// Equivalent to an [`AssetReader`] but using boxed futures, necessary eg. when using a `dyn AssetReader`,
 /// as [`AssetReader`] isn't currently object safe.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an erasable asset reader",
+    label = "invalid asset reader"
+)]
 pub trait ErasedAssetReader: Send + Sync + 'static {
     /// Returns a future to load the full file data at the provided path.
     fn read<'a>(&'a self, path: &'a Path)
@@ -192,6 +204,10 @@ pub enum AssetWriterError {
 /// `path`. This trait is not object safe, if needed use a dyn [`ErasedAssetWriter`] instead.
 ///
 /// Also see [`AssetReader`].
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an asset writer",
+    label = "invalid asset writer"
+)]
 pub trait AssetWriter: Send + Sync + 'static {
     /// Writes the full asset bytes at the provided path.
     fn write<'a>(
@@ -274,6 +290,10 @@ pub trait AssetWriter: Send + Sync + 'static {
 
 /// Equivalent to an [`AssetWriter`] but using boxed futures, necessary eg. when using a `dyn AssetWriter`,
 /// as [`AssetWriter`] isn't currently object safe.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an erasable asset writer",
+    label = "invalid asset writer"
+)]
 pub trait ErasedAssetWriter: Send + Sync + 'static {
     /// Writes the full asset bytes at the provided path.
     fn write<'a>(&'a self, path: &'a Path) -> BoxedFuture<Result<Box<Writer>, AssetWriterError>>;
@@ -429,6 +449,10 @@ pub enum AssetSourceEvent {
 
 /// A handle to an "asset watcher" process, that will listen for and emit [`AssetSourceEvent`] values for as long as
 /// [`AssetWatcher`] has not been dropped.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an asset watcher",
+    label = "invalid asset watcher"
+)]
 pub trait AssetWatcher: Send + Sync + 'static {}
 
 /// An [`AsyncRead`] implementation capable of reading a [`Vec<u8>`].

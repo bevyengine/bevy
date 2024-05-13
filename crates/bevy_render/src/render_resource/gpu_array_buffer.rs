@@ -13,6 +13,10 @@ use std::marker::PhantomData;
 use wgpu::{BindingResource, BufferUsages};
 
 /// Trait for types able to go in a [`GpuArrayBuffer`].
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not be used in a GPU array buffer",
+    label = "invalid bufferable"
+)]
 pub trait GpuArrayBufferable: ShaderType + ShaderSize + WriteInto + Clone {}
 impl<T: ShaderType + ShaderSize + WriteInto + Clone> GpuArrayBufferable for T {}
 

@@ -268,6 +268,10 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 ///
 /// [`Query`]: crate::system::Query
 /// [`ReadOnly`]: Self::ReadOnly
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not valid `Query` data",
+    label = "invalid query data"
+)]
 pub unsafe trait QueryData: WorldQuery {
     /// The read-only variant of this [`QueryData`], which satisfies the [`ReadOnlyQueryData`] trait.
     type ReadOnly: ReadOnlyQueryData<State = <Self as WorldQuery>::State>;

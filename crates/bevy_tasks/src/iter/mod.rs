@@ -11,6 +11,10 @@ pub use adapters::*;
 /// run in parallel is inexpensive, *a [`ParallelIterator`] could take longer
 /// than a normal [`Iterator`]*. Therefore, you should profile your code before
 /// using [`ParallelIterator`].
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not be iterated in parallel",
+    label = "invalid iterator"
+)]
 pub trait ParallelIterator<BatchIter>
 where
     BatchIter: Iterator + Send,

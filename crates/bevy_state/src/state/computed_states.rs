@@ -68,6 +68,10 @@ use super::states::States;
 ///         .init_state::<AppState>()
 ///         .add_computed_state::<InGame>();
 /// ```
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a computed state",
+    label = "invalid state"
+)]
 pub trait ComputedStates: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {
     /// The set of states from which the [`Self`] is derived.
     ///

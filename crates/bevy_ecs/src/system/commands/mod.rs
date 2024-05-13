@@ -675,6 +675,10 @@ impl<'w, 's> Commands<'w, 's> {
 ///     assert_eq!(names, HashSet::from_iter(["Entity #0", "Entity #1"]));
 /// }
 /// ```
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an entity command",
+    label = "invalid command"
+)]
 pub trait EntityCommand<Marker = ()>: Send + 'static {
     /// Executes this command for the given [`Entity`].
     fn apply(self, id: Entity, world: &mut World);

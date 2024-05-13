@@ -7,6 +7,7 @@ use rand::{
 };
 
 /// Exposes methods to uniformly sample a variety of primitive shapes.
+#[diagnostic::on_unimplemented(message = "`{Self}` can not be sampled", label = "invalid shape")]
 pub trait ShapeSample {
     /// The type of vector returned by the sample methods, [`Vec2`] for 2D shapes and [`Vec3`] for 3D shapes.
     type Output;

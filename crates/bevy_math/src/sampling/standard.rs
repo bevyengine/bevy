@@ -40,6 +40,9 @@ use rand::{
 /// let mut rng = StdRng::from_entropy();
 /// let random_dir = Dir3::from_rng(&mut rng);
 /// ```
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not be generated from a random distribution"
+)]
 pub trait FromRng
 where
     Self: Sized,

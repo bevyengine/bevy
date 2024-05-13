@@ -102,6 +102,10 @@ use crate::{
 /// @group(2) @binding(1) var color_texture: texture_2d<f32>;
 /// @group(2) @binding(2) var color_sampler: sampler;
 /// ```
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a 2D material",
+    label = "invalid material"
+)]
 pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
     /// will be used.

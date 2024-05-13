@@ -9,6 +9,11 @@ use super::transitions::*;
 ///
 /// While ordinary states are freely mutable (and implement this trait as part of their derive macro),
 /// computed states are not: instead, they can *only* change when the states that drive them do.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a mutable state",
+    label = "invalid state",
+    note = "consider annotating `{Self}` with `#[derive(States)]`"
+)]
 pub trait FreelyMutableState: States {
     /// This function registers all the necessary systems to apply state changes and run transition schedules
     fn register_state(schedule: &mut Schedule) {

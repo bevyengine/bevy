@@ -10,6 +10,10 @@
 /// overlapping elements or finding intersections.
 ///
 /// This trait supports both 2D and 3D bounding shapes.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a bounding volume",
+    label = "invalid volume"
+)]
 pub trait BoundingVolume: Sized {
     /// The position type used for the volume. This should be `Vec2` for 2D and `Vec3` for 3D.
     type Translation: Clone + Copy + PartialEq;
@@ -101,6 +105,10 @@ pub trait BoundingVolume: Sized {
 /// - Raycasting
 /// - Testing for overlap
 /// - Checking if an object is within the view frustum of a camera
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not test for volume intersections",
+    label = "invalid volume"
+)]
 pub trait IntersectsVolume<Volume: BoundingVolume> {
     /// Check if a volume intersects with this intersection test
     fn intersects(&self, volume: &Volume) -> bool;

@@ -109,6 +109,10 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
 }
 
 /// A trait representing data that can be written to a [`PersistentGpuBuffer`].
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not be written to a persistent GPU buffer",
+    label = "invalid bufferable"
+)]
 pub trait PersistentGpuBufferable {
     /// Additional metadata associated with each item, made available during `write_bytes_le`.
     type Metadata;

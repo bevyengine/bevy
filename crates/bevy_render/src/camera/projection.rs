@@ -74,6 +74,7 @@ pub struct CameraUpdateSystem;
 /// systems for your [`CameraProjection`] implementation.
 ///
 /// [`Camera`]: crate::camera::Camera
+#[diagnostic::on_unimplemented(message = "`{Self}` is not a camera", label = "invalid camera")]
 pub trait CameraProjection {
     fn get_projection_matrix(&self) -> Mat4;
     fn update(&mut self, width: f32, height: f32);

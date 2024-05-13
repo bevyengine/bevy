@@ -90,6 +90,10 @@ use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, Shader
 ///
 /// }
 /// ```
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a UI material",
+    label = "invalid material"
+)]
 pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
     /// Returns this materials vertex shader. If [`ShaderRef::Default`] is returned, the default UI
     /// vertex shader will be used.

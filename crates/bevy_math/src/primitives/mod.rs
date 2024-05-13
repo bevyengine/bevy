@@ -10,9 +10,17 @@ pub use dim3::*;
 mod serde;
 
 /// A marker trait for 2D primitives
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a 2D primitive shape",
+    label = "invalid primitive"
+)]
 pub trait Primitive2d {}
 
 /// A marker trait for 3D primitives
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a 3D primitive shape",
+    label = "invalid primitive"
+)]
 pub trait Primitive3d {}
 
 /// The winding order for a set of points
@@ -31,6 +39,10 @@ pub enum WindingOrder {
 }
 
 /// A trait for getting measurements of 2D shapes
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a measurable 2D shape",
+    label = "invalid shape"
+)]
 pub trait Measured2d {
     /// Get the perimeter of the shape
     fn perimeter(&self) -> f32;
@@ -40,6 +52,10 @@ pub trait Measured2d {
 }
 
 /// A trait for getting measurements of 3D shapes
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a measurable 3D shape",
+    label = "invalid shape"
+)]
 pub trait Measured3d {
     /// Get the surface area of the shape
     fn area(&self) -> f32;

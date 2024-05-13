@@ -21,6 +21,7 @@ use crate::{FromType, Reflect};
 /// [derive macro]: bevy_reflect_derive::FromReflect
 /// [`DynamicStruct`]: crate::DynamicStruct
 /// [crate-level documentation]: crate
+#[diagnostic::on_unimplemented(message = "`{Self}` can not be created from a reflection")]
 pub trait FromReflect: Reflect + Sized {
     /// Constructs a concrete instance of `Self` from a reflected value.
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self>;

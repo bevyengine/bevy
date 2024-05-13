@@ -44,6 +44,10 @@ impl<'a> From<AccessError<'a>> for ReflectPathError<'a> {
 }
 
 /// Something that can be interpreted as a reflection path in [`GetPath`].
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a reflection path",
+    label = "invalid path"
+)]
 pub trait ReflectPath<'a>: Sized {
     /// Gets a reference to the specified element on the given [`Reflect`] object.
     ///
@@ -230,6 +234,11 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// [`List`]: crate::List
 /// [`Array`]: crate::Array
 /// [`Enum`]: crate::Enum
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not provide a reflection path",
+    label = "invalid type",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+)]
 pub trait GetPath: Reflect {
     /// Returns a reference to the value specified by `path`.
     ///

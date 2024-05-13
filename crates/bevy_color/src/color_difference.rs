@@ -2,6 +2,10 @@
 
 /// Calculate the distance between this and another color as if they were coordinates
 /// in a Euclidean space. Alpha is not considered in the distance calculation.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not have a definition for distance",
+    label = "invalid color model"
+)]
 pub trait EuclideanDistance: Sized {
     /// Distance from `self` to `other`.
     fn distance(&self, other: &Self) -> f32 {

@@ -528,6 +528,10 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
 /// Ideally, the `usize` values should be very small (ie: incremented starting from
 /// zero), as the number of bits needed to represent a `SparseSetIndex` in a `FixedBitSet`
 /// is proportional to the **value** of those `usize`.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not be used as a sparse set index",
+    label = "invalid index"
+)]
 pub trait SparseSetIndex: Clone + PartialEq + Eq + Hash {
     /// Gets the sparse set index corresponding to this instance.
     fn sparse_set_index(&self) -> usize;

@@ -91,6 +91,10 @@ impl<T> From<&Interned<T>> for Interned<T> {
 /// A trait for internable values.
 ///
 /// This is used by [`Interner<T>`] to create static references for values that are interned.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not be interned",
+    label = "invalid internable"
+)]
 pub trait Internable: Hash + Eq {
     /// Creates a static reference to `self`, possibly leaking memory.
     fn leak(&self) -> &'static Self;

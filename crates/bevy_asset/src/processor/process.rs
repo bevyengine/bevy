@@ -21,6 +21,10 @@ use thiserror::Error;
 ///
 /// This is a "low level", maximally flexible interface. Most use cases are better served by the [`LoadTransformAndSave`] implementation
 /// of [`Process`].
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not process assets",
+    label = "invalid asset process"
+)]
 pub trait Process: Send + Sync + Sized + 'static {
     /// The configuration / settings used to process the asset. This will be stored in the [`AssetMeta`] and is user-configurable per-asset.
     type Settings: Settings + Default + Serialize + for<'a> Deserialize<'a>;
@@ -243,6 +247,10 @@ impl<Loader: AssetLoader, Saver: AssetSaver<Asset = Loader::Asset>> Process
 
 /// A type-erased variant of [`Process`] that enables interacting with processor implementations without knowing
 /// their type.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not be erased",
+    label = "invalid asset process"
+)]
 pub trait ErasedProcessor: Send + Sync {
     /// Type-erased variant of [`Process::process`].
     fn process<'a>(

@@ -382,6 +382,7 @@ impl SystemBuffer for DiagnosticsBuffer {
 }
 
 /// Extend [`App`] with new `register_diagnostic` function.
+#[diagnostic::on_unimplemented(message = "`{Self}` is not an App", label = "invalid `App`")]
 pub trait RegisterDiagnostic {
     /// Register a new [`Diagnostic`] with an [`App`].
     ///

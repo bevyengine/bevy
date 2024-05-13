@@ -16,6 +16,10 @@ pub struct BlendInput<T> {
 }
 
 /// An animatable value type.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not be animated",
+    label = "invalid animatable"
+)]
 pub trait Animatable: Reflect + Sized + Send + Sync + 'static {
     /// Interpolates between `a` and `b` with  a interpolation factor of `time`.
     ///

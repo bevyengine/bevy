@@ -161,6 +161,10 @@ where
 ///
 /// This trait can be useful for making your own systems which accept other systems,
 /// sometimes called higher order systems.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an exclusive system",
+    label = "invalid system"
+)]
 pub trait ExclusiveSystemParamFunction<Marker>: Send + Sync + 'static {
     /// The input type to this system. See [`System::In`].
     type In;
@@ -168,7 +172,7 @@ pub trait ExclusiveSystemParamFunction<Marker>: Send + Sync + 'static {
     /// The return type of this system. See [`System::Out`].
     type Out;
 
-    /// The [`ExclusiveSystemParam`]/s defined by this system's `fn` parameters.
+    /// The [`ExclusiveSystemParam`]'s defined by this system's `fn` parameters.
     type Param: ExclusiveSystemParam;
 
     /// Executes this system once. See [`System::run`].

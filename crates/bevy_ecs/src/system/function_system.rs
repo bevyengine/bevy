@@ -626,6 +626,7 @@ where
 /// ```
 /// [`PipeSystem`]: crate::system::PipeSystem
 /// [`ParamSet`]: crate::system::ParamSet
+#[diagnostic::on_unimplemented(message = "`{Self}` is not a system", label = "invalid system")]
 pub trait SystemParamFunction<Marker>: Send + Sync + 'static {
     /// The input type to this system. See [`System::In`].
     type In;

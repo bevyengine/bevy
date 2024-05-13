@@ -60,6 +60,10 @@ all_tuples_with_size!(impl_render_label_tuples, 1, 32, T, l);
 /// A node can produce outputs used as dependencies by other nodes.
 /// Those inputs and outputs are called slots and are the default way of passing render data
 /// inside the graph. For more information see [`SlotType`](super::SlotType).
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a render graph node",
+    label = "invalid node"
+)]
 pub trait Node: Downcast + Send + Sync + 'static {
     /// Specifies the required input slots for this node.
     /// They will then be available during the run method inside the [`RenderGraphContext`].
@@ -336,7 +340,11 @@ impl Node for RunGraphOnViewNode {
 
 /// This trait should be used instead of the [`Node`] trait when making a render node that runs on a view.
 ///
-/// It is intended to be used with [`ViewNodeRunner`]
+/// It is intended to be used with [`ViewNodeRunner`]'
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a render graph view node",
+    label = "invalid node"
+)]
 pub trait ViewNode {
     /// The query that will be used on the view entity.
     /// It is guaranteed to run on the view entity, so there's no need for a filter

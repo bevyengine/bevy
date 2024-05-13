@@ -27,6 +27,10 @@ use crate::{prelude::ViewVisibility, Extract, ExtractSchedule, RenderApp};
 /// This is essentially the same as
 /// [`ExtractComponent`](crate::extract_component::ExtractComponent), but
 /// higher-performance because it avoids the ECS overhead.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not be extracted for rendering",
+    label = "invalid target"
+)]
 pub trait ExtractInstance: Send + Sync + Sized + 'static {
     /// ECS [`ReadOnlyQueryData`] to fetch the components to extract.
     type QueryData: ReadOnlyQueryData;

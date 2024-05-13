@@ -5,6 +5,7 @@ use bevy_ecs::world::World;
 
 use crate::{meta::Settings, Asset, AssetPath, AssetServer, Assets, Handle};
 
+#[diagnostic::on_unimplemented(message = "`{Self}` is not a World", label = "invalid world")]
 pub trait DirectAssetAccessExt {
     /// Insert an asset similarly to [`Assets::add`].
     fn add_asset<A: Asset>(&mut self, asset: impl Into<A>) -> Handle<A>;
