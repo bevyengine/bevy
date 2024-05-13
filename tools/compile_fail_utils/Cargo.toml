@@ -1,0 +1,15 @@
+[package]
+name = "compile_fail_utils"
+edition = "2021"
+description = "Utils for compile tests used in the engine"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+ui_test = "0.23.0"
+
+[[test]]
+name = "example"
+harness = false

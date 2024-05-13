@@ -77,11 +77,11 @@ serialize = [
   "bevy_ui?/serialize",
   "bevy_color?/serialize",
 ]
-multi-threaded = [
-  "bevy_asset?/multi-threaded",
-  "bevy_ecs/multi-threaded",
-  "bevy_render?/multi-threaded",
-  "bevy_tasks/multi-threaded",
+multi_threaded = [
+  "bevy_asset?/multi_threaded",
+  "bevy_ecs/multi_threaded",
+  "bevy_render?/multi_threaded",
+  "bevy_tasks/multi_threaded",
 ]
 async-io = ["bevy_tasks/async-io"]
 
@@ -96,6 +96,12 @@ subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas"]
 pbr_transmission_textures = [
   "bevy_pbr?/pbr_transmission_textures",
   "bevy_gltf?/pbr_transmission_textures",
+]
+
+# Multi-layer material textures in `StandardMaterial`:
+pbr_multi_layer_material_textures = [
+  "bevy_pbr?/pbr_multi_layer_material_textures",
+  "bevy_gltf?/pbr_multi_layer_material_textures",
 ]
 
 # Optimise for WebGL2
@@ -173,6 +179,9 @@ bevy_dev_tools = ["dep:bevy_dev_tools"]
 # Enable support for the ios_simulator by downgrading some rendering capabilities
 ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
 
+# Enable built in global state machines
+bevy_state = ["dep:bevy_state", "bevy_app/bevy_state"]
+
 [dependencies]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.14.0-dev" }
@@ -181,6 +190,7 @@ bevy_core = { path = "../bevy_core", version = "0.14.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.14.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
+bevy_state = { path = "../bevy_state", optional = true, version = "0.14.0-dev" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
 bevy_input = { path = "../bevy_input", version = "0.14.0-dev" }
 bevy_log = { path = "../bevy_log", version = "0.14.0-dev" }

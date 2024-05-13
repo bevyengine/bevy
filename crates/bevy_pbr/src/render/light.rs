@@ -22,7 +22,6 @@ use bevy_transform::{components::GlobalTransform, prelude::Transform};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::tracing::{error, warn};
-use nonmax::NonMaxU32;
 use std::{hash::Hash, num::NonZeroU64, ops::Range};
 
 use crate::*;
@@ -911,7 +910,7 @@ pub fn prepare_lights(
             // we don't use the alpha at all, so no reason to multiply only [0..3]
             color: Vec4::from_slice(&light.color.to_f32_array()) * light.illuminance,
             // direction is negated to be ready for N.L
-            dir_to_light: light.transform.back(),
+            dir_to_light: light.transform.back().into(),
             flags: flags.bits(),
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
@@ -1734,7 +1733,7 @@ pub struct Shadow {
     pub key: ShadowBinKey,
     pub representative_entity: Entity,
     pub batch_range: Range<u32>,
-    pub dynamic_offset: Option<NonMaxU32>,
+    pub extra_index: PhaseItemExtraIndex,
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -1771,13 +1770,13 @@ impl PhaseItem for Shadow {
     }
 
     #[inline]
-    fn dynamic_offset(&self) -> Option<NonMaxU32> {
-        self.dynamic_offset
+    fn extra_index(&self) -> PhaseItemExtraIndex {
+        self.extra_index
     }
 
     #[inline]
-    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
-        &mut self.dynamic_offset
+    fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
+        (&mut self.batch_range, &mut self.extra_index)
     }
 }
 
@@ -1789,13 +1788,13 @@ impl BinnedPhaseItem for Shadow {
         key: Self::BinKey,
         representative_entity: Entity,
         batch_range: Range<u32>,
-        dynamic_offset: Option<NonMaxU32>,
+        extra_index: PhaseItemExtraIndex,
     ) -> Self {
         Shadow {
             key,
             representative_entity,
             batch_range,
-            dynamic_offset,
+            extra_index,
         }
     }
 }

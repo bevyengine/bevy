@@ -40,6 +40,7 @@ use thiserror::Error;
 /// let bezier = CubicBezier::new(points).to_curve();
 /// let positions: Vec<_> = bezier.iter_positions(100).collect();
 /// ```
+#[derive(Clone, Debug)]
 pub struct CubicBezier<P: VectorSpace> {
     control_points: Vec<[P; 4]>,
 }
@@ -111,6 +112,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
 /// let hermite = CubicHermite::new(points, tangents).to_curve();
 /// let positions: Vec<_> = hermite.iter_positions(100).collect();
 /// ```
+#[derive(Clone, Debug)]
 pub struct CubicHermite<P: VectorSpace> {
     control_points: Vec<(P, P)>,
 }
@@ -177,6 +179,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicHermite<P> {
 /// let cardinal = CubicCardinalSpline::new(0.3, points).to_curve();
 /// let positions: Vec<_> = cardinal.iter_positions(100).collect();
 /// ```
+#[derive(Clone, Debug)]
 pub struct CubicCardinalSpline<P: VectorSpace> {
     tension: f32,
     control_points: Vec<P>,
@@ -264,6 +267,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
 /// let b_spline = CubicBSpline::new(points).to_curve();
 /// let positions: Vec<_> = b_spline.iter_positions(100).collect();
 /// ```
+#[derive(Clone, Debug)]
 pub struct CubicBSpline<P: VectorSpace> {
     control_points: Vec<P>,
 }
@@ -303,7 +307,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBSpline<P> {
 }
 
 /// Error during construction of [`CubicNurbs`]
-#[derive(Debug, Error)]
+#[derive(Clone, Debug, Error)]
 pub enum CubicNurbsError {
     /// Provided the wrong number of knots.
     #[error("Wrong number of knots: expected {expected}, provided {provided}")]
@@ -381,6 +385,7 @@ pub enum CubicNurbsError {
 ///     .to_curve();
 /// let positions: Vec<_> = nurbs.iter_positions(100).collect();
 /// ```
+#[derive(Clone, Debug)]
 pub struct CubicNurbs<P: VectorSpace> {
     control_points: Vec<P>,
     weights: Vec<f32>,
@@ -558,7 +563,7 @@ impl<P: VectorSpace> RationalGenerator<P> for CubicNurbs<P> {
             .map(|((points, weights), knots)| {
                 // This is curve segment i. It uses control points P_i, P_i+2, P_i+2 and P_i+3,
                 // It is associated with knot span i+3 (which is the interval between knots i+3
-                // and i+4) and it's characteristic matrix uses knots i+1 through i+6 (because
+                // and i+4) and its characteristic matrix uses knots i+1 through i+6 (because
                 // those define the two knot spans on either side).
                 let span = knots[4] - knots[3];
                 let coefficient_knots = knots.try_into().expect("Knot windows are of length 6");
@@ -585,6 +590,7 @@ impl<P: VectorSpace> RationalGenerator<P> for CubicNurbs<P> {
 ///
 /// ### Continuity
 /// The curve is C0 continuous, meaning it has no holes or jumps.
+#[derive(Clone, Debug)]
 pub struct LinearSpline<P: VectorSpace> {
     points: Vec<P>,
 }
@@ -624,7 +630,7 @@ pub trait CubicGenerator<P: VectorSpace> {
 /// Can be evaluated as a parametric curve over the domain `[0, 1)`.
 ///
 /// Segments can be chained together to form a longer compound curve.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct CubicSegment<P: VectorSpace> {
     coeff: [P; 4],
 }
@@ -685,7 +691,7 @@ impl CubicSegment<Vec2> {
     pub fn new_bezier(p1: impl Into<Vec2>, p2: impl Into<Vec2>) -> Self {
         let (p0, p3) = (Vec2::ZERO, Vec2::ONE);
         let bezier = CubicBezier::new([[p0, p1.into(), p2.into(), p3]]).to_curve();
-        bezier.segments[0].clone()
+        bezier.segments[0]
     }
 
     /// Maximum allowable error for iterative Bezier solve
@@ -914,7 +920,7 @@ pub trait RationalGenerator<P: VectorSpace> {
 /// Can be evaluated as a parametric curve over the domain `[0, knot_span)`.
 ///
 /// Segments can be chained together to form a longer compound curve.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct RationalSegment<P: VectorSpace> {
     /// The coefficients matrix of the cubic curve.
     coeff: [P; 4],

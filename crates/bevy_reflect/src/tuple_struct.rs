@@ -1,8 +1,8 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    self as bevy_reflect, DynamicTuple, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
-    Tuple, TypeInfo, TypePath, TypePathTable, UnnamedField,
+    self as bevy_reflect, ApplyError, DynamicTuple, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, Tuple, TypeInfo, TypePath, TypePathTable, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -155,7 +155,7 @@ impl<'a> Iterator for TupleStructFieldIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let value = self.tuple_struct.field(self.index);
-        self.index += 1;
+        self.index += value.is_some() as usize;
         value
     }
 
@@ -329,18 +329,23 @@ impl Reflect for DynamicTupleStruct {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
         if let ReflectRef::TupleStruct(tuple_struct) = value.reflect_ref() {
             for (i, value) in tuple_struct.iter_fields().enumerate() {
                 if let Some(v) = self.field_mut(i) {
-                    v.apply(value);
+                    v.try_apply(value)?;
                 }
             }
         } else {
-            panic!("Attempted to apply non-TupleStruct type to TupleStruct type.");
+            return Err(ApplyError::MismatchedKinds {
+                from_kind: value.reflect_kind(),
+                to_kind: ReflectKind::TupleStruct,
+            });
         }
+        Ok(())
     }
 
+    #[inline]
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
@@ -371,6 +376,7 @@ impl Reflect for DynamicTupleStruct {
         Box::new(self.clone_dynamic())
     }
 
+    #[inline]
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         tuple_struct_partial_eq(self, value)
     }
@@ -468,4 +474,27 @@ pub fn tuple_struct_debug(
         debug.field(&field as &dyn Debug);
     }
     debug.finish()
+}
+
+#[cfg(test)]
+mod tests {
+    use crate as bevy_reflect;
+    use crate::*;
+    #[derive(Reflect)]
+    struct Ts(u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8);
+    #[test]
+    fn next_index_increment() {
+        let mut iter = Ts(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11).iter_fields();
+        let size = iter.len();
+        iter.index = size - 1;
+        let prev_index = iter.index;
+        assert!(iter.next().is_some());
+        assert_eq!(prev_index, iter.index - 1);
+
+        // When None we should no longer increase index
+        assert!(iter.next().is_none());
+        assert_eq!(size, iter.index);
+        assert!(iter.next().is_none());
+        assert_eq!(size, iter.index);
+    }
 }

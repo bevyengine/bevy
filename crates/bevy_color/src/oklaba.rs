@@ -1,7 +1,8 @@
 use crate::{
-    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ClampColor, Hsla,
-    Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
+    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ColorToComponents,
+    Hsla, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
 };
+use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
 
 /// Color in Oklab color space, with alpha
@@ -155,21 +156,57 @@ impl EuclideanDistance for Oklaba {
     }
 }
 
-impl ClampColor for Oklaba {
-    fn clamped(&self) -> Self {
+impl ColorToComponents for Oklaba {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.lightness, self.a, self.b, self.alpha]
+    }
+
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
+        [self.lightness, self.a, self.b]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.lightness, self.a, self.b, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.lightness, self.a, self.b)
+    }
+
+    fn from_f32_array(color: [f32; 4]) -> Self {
         Self {
-            lightness: self.lightness.clamp(0., 1.),
-            a: self.a.clamp(-1., 1.),
-            b: self.b.clamp(-1., 1.),
-            alpha: self.alpha.clamp(0., 1.),
+            lightness: color[0],
+            a: color[1],
+            b: color[2],
+            alpha: color[3],
         }
     }
 
-    fn is_within_bounds(&self) -> bool {
-        (0. ..=1.).contains(&self.lightness)
-            && (-1. ..=1.).contains(&self.a)
-            && (-1. ..=1.).contains(&self.b)
-            && (0. ..=1.).contains(&self.alpha)
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
+        Self {
+            lightness: color[0],
+            a: color[1],
+            b: color[2],
+            alpha: 1.0,
+        }
+    }
+
+    fn from_vec4(color: Vec4) -> Self {
+        Self {
+            lightness: color[0],
+            a: color[1],
+            b: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_vec3(color: Vec3) -> Self {
+        Self {
+            lightness: color[0],
+            a: color[1],
+            b: color[2],
+            alpha: 1.0,
+        }
     }
 }
 
@@ -349,22 +386,5 @@ mod tests {
         assert_approx_eq!(oklaba.a, oklaba2.a, 0.001);
         assert_approx_eq!(oklaba.b, oklaba2.b, 0.001);
         assert_approx_eq!(oklaba.alpha, oklaba2.alpha, 0.001);
-    }
-
-    #[test]
-    fn test_clamp() {
-        let color_1 = Oklaba::lab(-1., 2., -2.);
-        let color_2 = Oklaba::lab(1., 0.42, -0.4);
-        let mut color_3 = Oklaba::lab(-0.4, 1., 1.);
-
-        assert!(!color_1.is_within_bounds());
-        assert_eq!(color_1.clamped(), Oklaba::lab(0., 1., -1.));
-
-        assert!(color_2.is_within_bounds());
-        assert_eq!(color_2, color_2.clamped());
-
-        color_3.clamp();
-        assert!(color_3.is_within_bounds());
-        assert_eq!(color_3, Oklaba::lab(0., 1., 1.));
     }
 }

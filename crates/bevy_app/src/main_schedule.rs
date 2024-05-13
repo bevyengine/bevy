@@ -4,6 +4,8 @@ use bevy_ecs::{
     system::{Local, Resource},
     world::{Mut, World},
 };
+#[cfg(feature = "bevy_state")]
+use bevy_state::state::StateTransition;
 
 /// The schedule that contains the app logic that is evaluated each tick of [`App::update()`].
 ///
@@ -72,12 +74,6 @@ pub struct First;
 /// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PreUpdate;
-
-/// Runs [state transitions](bevy_ecs::schedule::States).
-///
-/// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct StateTransition;
 
 /// Runs the [`FixedMain`] schedule in a loop according until all relevant elapsed time has been "consumed".
 ///
