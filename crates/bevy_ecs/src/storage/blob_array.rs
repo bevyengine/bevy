@@ -130,7 +130,6 @@ impl BlobArray {
     /// Just like [`Vec::len`], or [`BlobVec::len`](super::blob_vec::BlobVec::len).*
     ///
     /// # Safety
-    /// The caller must ensure that:
     /// - The type `T` must be the type of the items in this [`BlobArray`].
     /// - `slice_len` <= `len`
     pub unsafe fn get_sub_slice<T>(&self, slice_len: usize) -> &[UnsafeCell<T>] {
@@ -144,28 +143,25 @@ impl BlobArray {
     /// Note that this method will behave exactly the same as [`Vec::clear`] if `elements_to_clear` will be set to `len`.
     ///
     /// # Safety
-    /// The caller must ensure that:
     /// - For every element with index `i`, if `i` < `elements_to_clear`: It must be safe to call [`Self::get_unchecked_mut`] with `i`.
     /// (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `elements_to_clear` <= `len`)
     pub unsafe fn clear_elements(&mut self, elements_to_clear: usize) {
-        if !self.is_zst() {
-            if let Some(drop) = self.drop {
-                // We set `self.drop` to `None` before dropping elements for unwind safety. This ensures we don't
-                // accidentally drop elements twice in the event of a drop impl panicking.
-                self.drop = None;
-                let size = self.item_layout.size();
-                for i in 0..elements_to_clear {
-                    // SAFETY:
-                    // * 0 <= `i` < `len`, so `i * size` must be in bounds for the allocation.
-                    // * `size` is a multiple of the erased type's alignment,
-                    //   so adding a multiple of `size` will preserve alignment.
-                    // * The item is left unreachable so it can be safely promoted to an `OwningPtr`.
-                    let item = unsafe { self.get_ptr_mut().byte_add(i * size).promote() };
-                    // SAFETY: `item` was obtained from this `BlobArray`, so its underlying type must match `drop`.
-                    unsafe { drop(item) };
-                }
-                self.drop = Some(drop);
+        if let Some(drop) = self.drop {
+            // We set `self.drop` to `None` before dropping elements for unwind safety. This ensures we don't
+            // accidentally drop elements twice in the event of a drop impl panicking.
+            self.drop = None;
+            let size = self.item_layout.size();
+            for i in 0..elements_to_clear {
+                // SAFETY:
+                // * 0 <= `i` < `len`, so `i * size` must be in bounds for the allocation.
+                // * `size` is a multiple of the erased type's alignment,
+                //   so adding a multiple of `size` will preserve alignment.
+                // * The item is left unreachable so it can be safely promoted to an `OwningPtr`.
+                let item = unsafe { self.get_ptr_mut().byte_add(i * size).promote() };
+                // SAFETY: `item` was obtained from this `BlobArray`, so its underlying type must match `drop`.
+                unsafe { drop(item) };
             }
+            self.drop = Some(drop);
         }
     }
 
@@ -176,11 +172,13 @@ impl BlobArray {
     /// - `cap` and `len` are indeed the capacity and length of this [`BlobArray`]
     /// - This [`BlobArray`] mustn't be used after calling this method.
     pub unsafe fn drop(&mut self, cap: usize, len: usize) {
-        if cap != 0 && !self.is_zst() {
+        if cap != 0 {
             self.clear_elements(len);
             let layout =
                 array_layout(&self.item_layout, cap).expect("array layout should be valid");
-            std::alloc::dealloc(self.data.as_ptr().cast(), layout);
+            if !self.is_zst() {
+                std::alloc::dealloc(self.data.as_ptr().cast(), layout);
+            }
         }
     }
 
@@ -223,10 +221,9 @@ impl BlobArray {
     /// you might want to use this method to increase the allocation, so more data can be stored in the array.
     ///
     /// # Safety
-    /// The caller must ensure that:
-    /// 1) `current_capacity` + `increment` doesn't overflow `usize`
-    /// 2) The size of the resulting array does not overflow `usize` (specifically, see the safety requirements of [`array_layout_unchecked`])
-    /// 3) `current_capacity` is indeed the current capacity of this array.
+    /// - `current_capacity` + `increment` doesn't overflow `usize`
+    /// - The size of the resulting array does not overflow `usize` (specifically, see the safety requirements of [`array_layout_unchecked`])
+    /// - `current_capacity` is indeed the current capacity of this array.
     /// After calling this method, the caller must update their saved capacity to reflect the change.
     pub(super) unsafe fn realloc(
         &mut self,
@@ -338,7 +335,6 @@ impl BlobArray {
     /// ([`Vec::swap_remove`], [`BlobVec::swap_remove`](super::blob_vec::BlobVec::swap_remove_and_forget_unchecked))
     ///
     /// # Safety
-    /// The caller must ensure that:
     /// - `index_to_keep` < `len`
     /// - `index_to_remove` < `len`
     /// - If `index_to_keep` == `len` - 1, and the caller has the length saved, update the length to reflect that the element with index
@@ -439,5 +435,28 @@ impl BlobArray {
         if let Some(drop) = drop {
             drop(value);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate as bevy_ecs;
+    use bevy_ecs::prelude::*;
+
+    #[derive(Component)]
+    struct PanicOnDrop;
+
+    impl Drop for PanicOnDrop {
+        fn drop(&mut self) {
+            panic!("PanicOnDrop is being Dropped");
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "PanicOnDrop is being Dropped")]
+    fn make_sure_zst_components_get_dropped() {
+        let mut world = World::new();
+
+        world.spawn(PanicOnDrop);
     }
 }
