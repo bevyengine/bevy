@@ -19,4 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
+rootProject.name = "Bevy Example"
 include ':app'
