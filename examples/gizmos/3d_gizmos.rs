@@ -1,12 +1,8 @@
 //! This example demonstrates Bevy's immediate mode drawing API intended for visual debugging.
 
-use std::f32::consts::{FRAC_PI_4, PI};
+use std::f32::consts::PI;
 
-use bevy::{
-    color::palettes::css::*,
-    math::bounding::{Bounded3d, BoundingVolume},
-    prelude::*,
-};
+use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {
     App::new()
@@ -90,12 +86,6 @@ fn draw_example_collection(
     mut my_gizmos: Gizmos<MyRoundGizmos>,
     time: Res<Time>,
 ) {
-    let translation = Vec3::new(3., 4., 5.);
-    let rotation = Quat::from_euler(EulerRot::ZYX, FRAC_PI_4, FRAC_PI_4, FRAC_PI_4);
-    let extrusion = Extrusion::new(Ellipse::new(2.0, 0.5), 4.0);
-    let aabb = extrusion.aabb_3d(translation, rotation);
-    println!("c: {:?}, hs: {:?}", aabb.center(), aabb.half_size());
-
     gizmos.grid(
         Vec3::ZERO,
         Quat::from_rotation_x(PI / 2.),
