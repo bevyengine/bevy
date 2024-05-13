@@ -75,7 +75,6 @@ impl BlobArray {
     /// Just like [`Vec::len`], or [`BlobVec::len`](super::blob_vec::BlobVec::len).*
     ///
     /// # Safety
-    /// The caller must ensure that:
     /// - The element with at index `index` is safe to access.
     /// (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `index` < `len`)
     #[inline]
@@ -95,7 +94,6 @@ impl BlobArray {
     /// Just like [`Vec::len`], or [`BlobVec::len`](super::blob_vec::BlobVec::len).*
     ///
     /// # Safety
-    /// The caller must ensure that:
     /// - The element with at index `index` is safe to access.
     /// (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `index` < `len`)
     #[inline]
@@ -359,7 +357,6 @@ impl BlobArray {
     /// The same as [`Self::swap_remove_unchecked`] but the two elements must non-overlapping.
     ///
     /// # Safety
-    /// The caller must ensure that:
     /// - `index_to_keep` < `len`
     /// - `index_to_remove` < `len`
     /// - `index_to_remove` != `index_to_keep`
@@ -393,7 +390,6 @@ impl BlobArray {
     /// ([`Vec::swap_remove`], [`BlobVec::swap_remove`](super::blob_vec::BlobVec::swap_remove_and_forget_unchecked))
     ///
     /// # Safety
-    /// The caller must ensure that:
     /// - `index_to_keep` < `len`
     /// - `index_to_remove` < `len`
     /// - If `index_to_keep` == `len` - 1, and the caller has the length saved, update the length to reflect that the element with index
@@ -416,7 +412,6 @@ impl BlobArray {
     /// The same as [`Self::swap_remove_and_drop_unchecked`] but the two elements must non-overlapping.
     ///
     /// # Safety
-    /// The caller must ensure that:
     /// - `index_to_keep` < `len`
     /// - `index_to_remove` < `len`
     /// - `index_to_remove` != `index_to_keep`
