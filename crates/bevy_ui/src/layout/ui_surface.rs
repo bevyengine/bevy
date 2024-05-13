@@ -319,9 +319,7 @@ without UI components as a child of an entity with UI components, results may be
                 .unwrap();
             let parent_taffy = self.entity_to_taffy.get(parent_entity).unwrap();
             let child_taffy = self.entity_to_taffy.get(target_entity).unwrap();
-            self.taffy
-                .add_child(*parent_taffy, *child_taffy)
-                .unwrap();
+            self.taffy.add_child(*parent_taffy, *child_taffy).unwrap();
         }
     }
 
@@ -330,13 +328,13 @@ without UI components as a child of an entity with UI components, results may be
     #[cfg(test)]
     pub(super) fn promote_ui_node(&mut self, target_entity: &Entity, camera_entity: &Entity) {
         let taffy_node = self.entity_to_taffy.get(target_entity).unwrap();
-        
+
         // clear the parent - new_with_children doesn't seem to notify the old parent its children have changed
         if let Some(parent) = self.taffy.parent(*taffy_node) {
             self.taffy.remove_child(parent, *taffy_node).unwrap();
         }
-        
-        let mut added = false;        
+
+        let mut added = false;
         self.root_node_data
             .entry(*target_entity)
             .or_insert_with(|| {
@@ -351,16 +349,18 @@ without UI components as a child of an entity with UI components, results may be
                     implicit_viewport_node,
                 }
             });
-        
+
         self.replace_camera_association(*target_entity, Some(*camera_entity));
-        
+
         // if it's not added we want to re-assign the parent we cleared above
         if !added {
             let Some(root_node_data) = self.root_node_data.get(target_entity) else {
-              unreachable!("impossible");  
+                unreachable!("impossible");
             };
             let taffy_node = self.entity_to_taffy.get(target_entity).unwrap();
-            self.taffy.add_child(root_node_data.implicit_viewport_node, *taffy_node).unwrap();
+            self.taffy
+                .add_child(root_node_data.implicit_viewport_node, *taffy_node)
+                .unwrap();
         }
     }
 
