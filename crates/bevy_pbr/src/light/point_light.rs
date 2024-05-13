@@ -5,7 +5,7 @@ use super::*;
 /// Real-world values for `intensity` (luminous power in lumens) based on the electrical power
 /// consumption of the type of real-world light are:
 ///
-/// | Luminous Power (lumen) (i.e. the intensity member) | Incandescent non-halogen (Watts) | Incandescent halogen (Watts) | Compact fluorescent (Watts) | LED (Watts |
+/// | Luminous Power (lumen) (i.e. the intensity member) | Incandescent non-halogen (Watts) | Incandescent halogen (Watts) | Compact fluorescent (Watts) | LED (Watts) |
 /// |------|-----|----|--------|-------|
 /// | 200  | 25  |    | 3-5    | 3     |
 /// | 450  | 40  | 29 | 9-11   | 5-8   |
@@ -20,12 +20,26 @@ use super::*;
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 pub struct PointLight {
+    /// The color of this light source.
     pub color: Color,
     /// Luminous power in lumens, representing the amount of light emitted by this source in all directions.
     pub intensity: f32,
+    /// Cut-off for the light's area-of-effect. Fragments outside this range will not be affected by
+    /// this light at all, so it's important to tune this together with `intensity` to prevent hard
+    /// lighting cut-offs.
     pub range: f32,
+    /// Simulates a light source coming from a spherical volume with the given radius. Only affects
+    /// the size of specular highlights created by this light. Because of this, large values may not
+    /// produce the intended result -- for example, light radius does not affect shadow softness or
+    /// diffuse lighting.
     pub radius: f32,
+    /// Whether this light casts shadows.
     pub shadows_enabled: bool,
+    /// A bias used when sampling shadow maps to avoid "shadow-acne", or false shadow occlusions
+    /// that happen as a result of shadow-map fragments not mapping 1:1 to screen-space fragments.
+    /// Too high of a depth bias can lead to shadows detaching from their casters, or
+    /// "peter-panning". This bias can be tuned together with `shadow_normal_bias` to correct shadow
+    /// artifacts for a given scene.
     pub shadow_depth_bias: f32,
     /// A bias applied along the direction of the fragment's surface normal. It is scaled to the
     /// shadow map's texel size so that it can be small close to the camera and gets larger further
