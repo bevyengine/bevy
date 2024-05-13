@@ -542,7 +542,7 @@ mod tests {
             ui_surface: &UiSurface,
             root_node_entity: Entity,
         ) -> Option<Entity> {
-            get_root_node_data(&ui_surface, root_node_entity)?.camera_entity
+            get_root_node_data(ui_surface, root_node_entity)?.camera_entity
         }
 
         /// Attempts to find the root node data corresponding to the given root node entity

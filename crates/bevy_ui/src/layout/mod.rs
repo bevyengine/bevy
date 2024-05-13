@@ -623,9 +623,14 @@ mod tests {
     fn ui_promotion_from_child_to_root() {
         let (mut world, mut ui_schedule) = setup_ui_test_world();
 
-        let camera_1 = world.query_filtered::<Entity, With<Camera>>().get_single(&world).expect("expected camera");
+        let camera_1 = world
+            .query_filtered::<Entity, With<Camera>>()
+            .get_single(&world)
+            .expect("expected camera");
         let camera_2 = world.spawn(Camera2dBundle::default()).id();
-        let ui_entity1 = world.spawn((NodeBundle::default(), TargetCamera(camera_1))).id();
+        let ui_entity1 = world
+            .spawn((NodeBundle::default(), TargetCamera(camera_1)))
+            .id();
         let ui_entity2 = world.spawn(NodeBundle::default()).id();
         world.commands().entity(ui_entity1).add_child(ui_entity2);
 
