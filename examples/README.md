@@ -535,7 +535,7 @@ Bevy by default targets Android API level 33 in its examples which is the <!-- m
 [Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). <!-- markdown-link-check-enable -->
 Users of older phones may want to use an older API when testing. By default, Bevy uses [`GameAvtivity`](https://developer.android.com/games/agdk/game-activity), which only works for Android API level 31 and higher, so if you want to use older API, you need to switch to `NativeActivity`.
 
-To use `NativeActivity`, you need to edit it in `cargo.toml` manually, then build it as the [Build & Run](#build--Run) section stated above.
+To use `NativeActivity`, you need to edit it in `cargo.toml` manually, then build it as the [Build & Run](#build--run) section stated above.
 
 Example | File | Description
 --- | --- | ---
