@@ -26,11 +26,7 @@ use bevy_a11y::AccessibilityRequested;
 use bevy_utils::Instant;
 pub use system::create_windows;
 use system::{changed_windows, despawn_windows, CachedWindow};
-use winit::{
-    dpi::{LogicalSize, PhysicalSize},
-    event::Modifiers,
-    keyboard::ModifiersKeyState,
-};
+use winit::dpi::{LogicalSize, PhysicalSize};
 pub use winit_config::*;
 pub use winit_event::*;
 pub use winit_windows::*;
@@ -39,11 +35,14 @@ use bevy_app::{App, AppExit, Last, Plugin, PluginsState};
 use bevy_ecs::event::ManualEventReader;
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemState;
+#[cfg(target_os = "macos")]
 use bevy_input::{
     keyboard::{Key, KeyCode, KeyboardInput},
+    ButtonState,
+};
+use bevy_input::{
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
     touchpad::{TouchpadMagnify, TouchpadRotate},
-    ButtonState,
 };
 use bevy_math::{ivec2, DVec2, Vec2};
 #[cfg(not(target_arch = "wasm32"))]
@@ -59,6 +58,8 @@ use bevy_window::{
 };
 #[cfg(target_os = "android")]
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
+#[cfg(target_os = "macos")]
+use winit::{event::Modifiers, keyboard::ModifiersKeyState};
 
 #[cfg(target_os = "android")]
 pub use winit::platform::android::activity as android_activity;
@@ -204,6 +205,7 @@ struct WinitAppRunnerState {
     wait_elapsed: bool,
     /// Number of "forced" updates to trigger on application start
     startup_forced_updates: u32,
+    #[cfg(target_os = "macos")]
     /// State of the keyboard modifiers.
     keyboard_modifiers: Modifiers,
 }
@@ -226,6 +228,7 @@ impl Default for WinitAppRunnerState {
             wait_elapsed: false,
             // 3 seems to be enough, 5 is a safe margin
             startup_forced_updates: 5,
+            #[cfg(target_os = "macos")]
             keyboard_modifiers: Modifiers::default(),
         }
     }
@@ -588,13 +591,21 @@ fn handle_winit_event(
                         }
                     }
 
-                    // Send a `KeyboardInput` event if this key is not a modifier.
                     let keyboard_event = converters::convert_keyboard_input(event, window);
-                    let mod_keys = [Key::Alt, Key::Control, Key::Shift, Key::Super];
-                    if !mod_keys.contains(&keyboard_event.logical_key) {
-                        winit_events.send(keyboard_event);
+
+                    #[cfg(not(target_os = "macos"))]
+                    winit_events.send(keyboard_event);
+
+                    #[cfg(target_os = "macos")]
+                    {
+                        // Send a `KeyboardInput` event if this key is not a modifier.
+                        let mod_keys = [Key::Alt, Key::Control, Key::Shift, Key::Super];
+                        if !mod_keys.contains(&keyboard_event.logical_key) {
+                            winit_events.send(keyboard_event);
+                        }
                     }
                 }
+                #[cfg(target_os = "macos")]
                 WindowEvent::ModifiersChanged(mods) => {
                     // Check if the state of any modifier key has changed.
                     let checks: [(KeyCode, Key, &mut dyn FnMut(Modifiers) -> ModifiersKeyState);
