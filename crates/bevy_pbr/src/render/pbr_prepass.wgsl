@@ -37,7 +37,6 @@ fn fragment(
 #endif // DEPTH_CLAMP_ORTHO
 
 #ifdef NORMAL_PREPASS
-
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if (material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
         let double_sided = (material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u;
