@@ -191,13 +191,6 @@ pub fn ui_layout_system(
     }
     scale_factor_events.clear();
 
-    for (entity, _, mut content_size_option, _) in &mut style_query {
-        if let Some(ref mut content_size) = content_size_option {
-            if let Some(measure_func) = content_size.measure.take() {
-                ui_surface.update_node_context(entity, measure_func);
-            }
-        }
-    }
     // When a root node is added as a child to another ui node
     for (entity, parent) in &demoted_root_node_query {
         if parent.is_added() {
