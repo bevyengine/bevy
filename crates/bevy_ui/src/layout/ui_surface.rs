@@ -1,12 +1,12 @@
 use std::fmt;
 
-use taffy::TaffyTree;
+use taffy::{NodeId, TaffyTree, TraversePartialTree};
 
 use bevy_ecs::entity::{Entity, EntityHashMap, EntityHashSet};
 use bevy_ecs::prelude::Resource;
 use bevy_math::UVec2;
-use bevy_utils::default;
 use bevy_utils::tracing::warn;
+use bevy_utils::{default, HashMap};
 
 use crate::layout::convert;
 use crate::{LayoutContext, LayoutError, Measure, NodeMeasure, Style};
@@ -424,6 +424,100 @@ with UI components as a child of an entity without UI components, results may be
             Err(LayoutError::InvalidHierarchy)
         }
     }
+
+    /// Returns a debug representation of the computed layout of the UI layout tree for each camera.
+    pub fn ui_layout_tree_debug_string(&self) -> Result<String, fmt::Error> {
+        use std::fmt::Write;
+        let mut output = String::new();
+        let taffy_to_entity: HashMap<NodeId, Entity> = self
+            .entity_to_taffy
+            .iter()
+            .map(|(&ui_entity, &taffy_node)| (taffy_node, ui_entity))
+            .collect::<HashMap<NodeId, Entity>>();
+        for (&camera_entity, root_node_set) in self.camera_root_nodes.iter() {
+            writeln!(output, "Layout tree for camera entity: {camera_entity}")?;
+            for &root_node_entity in root_node_set.iter() {
+                let Some(implicit_viewport_node) = self
+                    .root_node_data
+                    .get(&root_node_entity)
+                    .map(|rnd| rnd.implicit_viewport_node)
+                else {
+                    continue;
+                };
+                self.write_node(
+                    &taffy_to_entity,
+                    camera_entity,
+                    implicit_viewport_node,
+                    false,
+                    String::new(),
+                    &mut output,
+                )?;
+            }
+        }
+        Ok(output)
+    }
+
+    /// Recursively navigates the layout tree writing each node's information to the output/acc.
+    fn write_node(
+        &self,
+        taffy_to_entity: &HashMap<NodeId, Entity>,
+        entity: Entity,
+        node: NodeId,
+        has_sibling: bool,
+        lines_string: String,
+        acc: &mut String,
+    ) -> fmt::Result {
+        use std::fmt::Write;
+        let tree = &self.taffy;
+        let layout = tree.layout(node).unwrap();
+        let style = tree.style(node).unwrap();
+
+        let num_children = tree.child_count(node);
+
+        let display_variant = match (num_children, style.display) {
+            (_, taffy::style::Display::None) => "NONE",
+            (0, _) => "LEAF",
+            (_, taffy::style::Display::Flex) => "FLEX",
+            (_, taffy::style::Display::Grid) => "GRID",
+            (_, taffy::style::Display::Block) => "BLOCK",
+        };
+
+        let fork_string = if has_sibling {
+            "├── "
+        } else {
+            "└── "
+        };
+        writeln!(
+            acc,
+            "{lines}{fork} {display} [x: {x:<4} y: {y:<4} width: {width:<4} height: {height:<4}] ({entity:?}) {measured}",
+            lines = lines_string,
+            fork = fork_string,
+            display = display_variant,
+            x = layout.location.x,
+            y = layout.location.y,
+            width = layout.size.width,
+            height = layout.size.height,
+            measured = if tree.get_node_context(node).is_some() { "measured" } else { "" }
+        )?;
+        let bar = if has_sibling { "│   " } else { "    " };
+        let new_string = lines_string + bar;
+
+        // Recurse into children
+        for (index, child_node) in tree.children(node).unwrap().iter().enumerate() {
+            let has_sibling = index < num_children - 1;
+            let child_entity = taffy_to_entity.get(child_node).unwrap();
+            self.write_node(
+                taffy_to_entity,
+                *child_entity,
+                *child_node,
+                has_sibling,
+                new_string.clone(),
+                acc,
+            )?;
+        }
+
+        Ok(())
+    }
 }
 
 // Expose readonly accessors for tests in mod
@@ -446,7 +540,7 @@ impl UiSurface {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ContentSize, FixedMeasure};
+    use crate::{ContentSize, FixedMeasure, Val};
     use bevy_math::Vec2;
     use taffy::TraversePartialTree;
 
@@ -823,5 +917,60 @@ mod tests {
 
         let taffy_node = ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
         assert!(ui_surface.taffy.layout(*taffy_node).is_ok());
+    }
+
+    #[test]
+    fn test_ui_layout_tree_debug_string() {
+        let mut ui_surface = UiSurface::default();
+
+        let camera_entity = Entity::from_raw(0);
+        let root_node_entity = Entity::from_raw(1);
+        let child_entity = Entity::from_raw(2);
+        let style = Style::default();
+
+        ui_surface.upsert_node(&TEST_LAYOUT_CONTEXT, root_node_entity, &style, None);
+        ui_surface.upsert_node(&TEST_LAYOUT_CONTEXT, child_entity, &style, None);
+
+        let root_taffy_node = *ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
+        let child_taffy = *ui_surface.entity_to_taffy.get(&child_entity).unwrap();
+        // set up the relationship manually
+        ui_surface
+            .taffy
+            .add_child(root_taffy_node, child_taffy)
+            .unwrap();
+        ui_surface.set_camera_children(camera_entity, [root_node_entity].into_iter());
+
+        let camera_entity2 = Entity::from_raw(3);
+        let root_node_entity2 = Entity::from_raw(4);
+        let style = Style {
+            top: Val::Px(1.),
+            left: Val::Px(1.),
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
+            ..default()
+        };
+        ui_surface.upsert_node(
+            &TEST_LAYOUT_CONTEXT,
+            root_node_entity2,
+            &style,
+            Some(NodeMeasure::Fixed(FixedMeasure { size: Vec2::ONE })),
+        );
+        ui_surface.set_camera_children(camera_entity2, [root_node_entity2].into_iter());
+
+        ui_surface.compute_camera_layout(&camera_entity, UVec2::ONE);
+        ui_surface.compute_camera_layout(&camera_entity2, UVec2::ONE);
+
+        let debug_string = ui_surface
+            .ui_layout_tree_debug_string()
+            .expect("expected debug string");
+        let lines = debug_string.lines().collect::<Vec<_>>();
+
+        assert!(lines[0].starts_with("Layout tree for camera entity: 0v1|"));
+        assert_eq!(lines[1], "└──  GRID [x: 0    y: 0    width: 1    height: 1   ] (Entity { index: 0, generation: 1 }) ");
+        assert_eq!(lines[2], "    └──  FLEX [x: 0    y: 0    width: 0    height: 0   ] (Entity { index: 1, generation: 1 }) ");
+        assert_eq!(lines[3], "        └──  LEAF [x: 0    y: 0    width: 0    height: 0   ] (Entity { index: 2, generation: 1 }) ");
+        assert!(lines[4].starts_with("Layout tree for camera entity: 3v1|"));
+        assert_eq!(lines[5], "└──  GRID [x: 0    y: 0    width: 1    height: 1   ] (Entity { index: 3, generation: 1 }) ");
+        assert_eq!(lines[6], "    └──  LEAF [x: 1    y: 1    width: 1    height: 1   ] (Entity { index: 4, generation: 1 }) measured");
     }
 }
