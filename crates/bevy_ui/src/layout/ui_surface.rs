@@ -558,7 +558,7 @@ mod tests {
         assert_eq!(ui_surface.taffy.total_node_count(), 2);
 
         // root node data should now exist
-        let root_node_data = get_root_node_data_exact(&ui_surface, root_node_entity, camera_entity)
+        let _root_node_data = get_root_node_data_exact(&ui_surface, root_node_entity, camera_entity)
             .expect("expected root node data");
         assert!(has_valid_root_node_data(&ui_surface, &root_node_entity));
 
@@ -569,7 +569,7 @@ mod tests {
         assert_eq!(ui_surface.taffy.total_node_count(), 2);
 
         // root node data should be unaffected
-        let root_node_data = get_root_node_data_exact(&ui_surface, root_node_entity, camera_entity)
+        let _root_node_data = get_root_node_data_exact(&ui_surface, root_node_entity, camera_entity)
             .expect("expected root node data");
         assert!(has_valid_root_node_data(&ui_surface, &root_node_entity));
     }
@@ -639,7 +639,7 @@ mod tests {
         assert!(ui_surface.camera_root_nodes.contains_key(&camera_entity));
         assert!(ui_surface.root_node_data.contains_key(&root_node_entity));
         assert!(ui_surface.camera_root_nodes.contains_key(&camera_entity));
-        let root_node_data = get_root_node_data_exact(&ui_surface, root_node_entity, camera_entity)
+        let _root_node_data = get_root_node_data_exact(&ui_surface, root_node_entity, camera_entity)
             .expect("expected root node data");
         assert!(ui_surface
             .camera_root_nodes
@@ -766,7 +766,7 @@ mod tests {
             "child of root node should not be associated with camera"
         );
 
-        let root_node_data = get_root_node_data_exact(&ui_surface, root_node_entity, camera_entity)
+        let _root_node_data = get_root_node_data_exact(&ui_surface, root_node_entity, camera_entity)
             .expect("expected root node data");
 
         assert_eq!(ui_surface.taffy.parent(child_taffy), Some(root_taffy_node));
