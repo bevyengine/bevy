@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{marker::PhantomData, ops::Deref};
 
 use bevy_ecs::{
     system::Resource,
@@ -129,5 +129,24 @@ impl<S: FreelyMutableState> NextState<S> {
     /// Remove any pending changes to [`State<S>`]
     pub fn reset(&mut self) {
         *self = Self::Unchanged;
+    }
+}
+
+/// The flag that determines whether the computed or sub state `S` will be refreshed this frame.
+///
+/// Refreshing a state will apply its state transition even if nothing has changed, in which case
+/// there will be a state transition from the current state to itself.
+#[derive(Resource, Debug, Default)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(bevy_reflect::Reflect),
+    reflect(Resource)
+)]
+pub struct RefreshState<S: States>(pub bool, PhantomData<S>);
+
+impl<S: States> RefreshState<S> {
+    /// Plan to refresh the computed state `S`.
+    pub fn refresh(&mut self) {
+        self.0 = true;
     }
 }

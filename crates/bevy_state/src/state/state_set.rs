@@ -10,7 +10,7 @@ use self::sealed::StateSetSealed;
 use super::{
     apply_state_transition, computed_states::ComputedStates, internal_apply_state_transition,
     run_enter, run_exit, run_transition, should_run_transition, sub_states::SubStates,
-    ApplyStateTransition, OnEnter, OnExit, OnTransition, State, StateTransitionEvent,
+    ApplyStateTransition, OnEnter, OnExit, OnTransition, RefreshState, State, StateTransitionEvent,
     StateTransitionSteps, States,
 };
 
@@ -57,7 +57,7 @@ pub trait StateSet: sealed::StateSetSealed {
 /// The isolation works because it is implemented for both S & [`Option<S>`], and has the `RawState` associated type
 /// that allows it to know what the resource in the world should be. We can then essentially "unwrap" it in our
 /// `StateSet` implementation - and the behaviour of that unwrapping will depend on the arguments expected by the
-/// the [`ComputedStates`] & [`SubStates]`.
+/// the [`ComputedStates`] & [`SubStates`].
 trait InnerStateSet: Sized {
     type RawState: States;
 
@@ -94,12 +94,13 @@ impl<S: InnerStateSet> StateSet for S {
     fn register_computed_state_systems_in_schedule<T: ComputedStates<SourceStates = Self>>(
         schedule: &mut Schedule,
     ) {
-        let system = |mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
+        let system = |refresh: Option<Res<RefreshState<T>>>,
+                      mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
                       event: EventWriter<StateTransitionEvent<T>>,
                       commands: Commands,
                       current_state: Option<ResMut<State<T>>>,
                       state_set: Option<Res<State<S::RawState>>>| {
-            if parent_changed.is_empty() {
+            if refresh.map_or(true, |x| !x.0) && parent_changed.is_empty() {
                 return;
             }
             parent_changed.clear();
@@ -141,12 +142,13 @@ impl<S: InnerStateSet> StateSet for S {
     fn register_sub_state_systems_in_schedule<T: SubStates<SourceStates = Self>>(
         schedule: &mut Schedule,
     ) {
-        let system = |mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
+        let system = |refresh: Option<Res<RefreshState<T>>>,
+                      mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
                       event: EventWriter<StateTransitionEvent<T>>,
                       commands: Commands,
                       current_state: Option<ResMut<State<T>>>,
                       state_set: Option<Res<State<S::RawState>>>| {
-            if parent_changed.is_empty() {
+            if refresh.map_or(true, |x| !x.0) && parent_changed.is_empty() {
                 return;
             }
             parent_changed.clear();
@@ -158,21 +160,9 @@ impl<S: InnerStateSet> StateSet for S {
                     None
                 };
 
-            match new_state {
-                Some(value) => {
-                    if current_state.is_none() {
-                        internal_apply_state_transition(
-                            event,
-                            commands,
-                            current_state,
-                            Some(value),
-                        );
-                    }
-                }
-                None => {
-                    internal_apply_state_transition(event, commands, current_state, None);
-                }
-            };
+            if current_state.is_none() || new_state.is_none() {
+                internal_apply_state_transition(event, commands, current_state, new_state);
+            }
         };
 
         schedule
@@ -215,8 +205,13 @@ macro_rules! impl_state_set_sealed_tuples {
             fn register_computed_state_systems_in_schedule<T: ComputedStates<SourceStates = Self>>(
                 schedule: &mut Schedule,
             ) {
-                let system = |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,), event: EventWriter<StateTransitionEvent<T>>, commands: Commands, current_state: Option<ResMut<State<T>>>, ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
-                    if ($($evt.is_empty())&&*) {
+                let system = |refresh: Option<Res<RefreshState<T>>>,
+                              ($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,),
+                              event: EventWriter<StateTransitionEvent<T>>,
+                              commands: Commands,
+                              current_state: Option<ResMut<State<T>>>,
+                              ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
+                    if refresh.map_or(true, |x| !x.0) && ($($evt.is_empty())&&*) {
                         return;
                     }
                     $($evt.clear();)*
@@ -245,8 +240,13 @@ macro_rules! impl_state_set_sealed_tuples {
             fn register_sub_state_systems_in_schedule<T: SubStates<SourceStates = Self>>(
                 schedule: &mut Schedule,
             ) {
-                let system = |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,), event: EventWriter<StateTransitionEvent<T>>, commands: Commands, current_state: Option<ResMut<State<T>>>, ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
-                    if ($($evt.is_empty())&&*) {
+                let system = |refresh: Option<Res<RefreshState<T>>>,
+                              ($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,),
+                              event: EventWriter<StateTransitionEvent<T>>,
+                              commands: Commands,
+                              current_state: Option<ResMut<State<T>>>,
+                              ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
+                    if refresh.map_or(true, |x| !x.0) && ($($evt.is_empty())&&*) {
                         return;
                     }
                     $($evt.clear();)*
@@ -256,16 +256,10 @@ macro_rules! impl_state_set_sealed_tuples {
                     } else {
                         None
                     };
-                    match new_state {
-                        Some(value) => {
-                            if current_state.is_none() {
-                                internal_apply_state_transition(event, commands, current_state, Some(value));
-                            }
-                        }
-                        None => {
-                            internal_apply_state_transition(event, commands, current_state, None);
-                        },
-                    };
+
+                    if current_state.is_none() || new_state.is_none() {
+                        internal_apply_state_transition(event, commands, current_state, new_state);
+                    }
                 };
 
                 schedule

@@ -74,8 +74,7 @@ impl<S: States> ApplyStateTransition<S> {
     }
 }
 
-/// This function actually applies a state change, and registers the required
-/// schedules for downstream computed states and transition schedules.
+/// This function updates the current state and sends a transition event.
 ///
 /// The `new_state` is an option to allow for removal - `None` will trigger the
 /// removal of the `State<S>` resource from the [`World`].
@@ -85,45 +84,26 @@ pub(crate) fn internal_apply_state_transition<S: States>(
     current_state: Option<ResMut<State<S>>>,
     new_state: Option<S>,
 ) {
-    match new_state {
-        Some(entered) => {
-            match current_state {
-                // If the [`State<S>`] resource exists, and the state is not the one we are
-                // entering - we need to set the new value, compute dependant states, send transition events
-                // and register transition schedules.
-                Some(mut state_resource) => {
-                    if *state_resource != entered {
-                        let exited = mem::replace(&mut state_resource.0, entered.clone());
-
-                        event.send(StateTransitionEvent {
-                            before: Some(exited.clone()),
-                            after: Some(entered.clone()),
-                        });
-                    }
-                }
-                None => {
-                    // If the [`State<S>`] resource does not exist, we create it, compute dependant states, send a transition event and register the `OnEnter` schedule.
-                    commands.insert_resource(State(entered.clone()));
-
-                    event.send(StateTransitionEvent {
-                        before: None,
-                        after: Some(entered.clone()),
-                    });
-                }
-            };
-        }
-        None => {
-            // We first remove the [`State<S>`] resource, and if one existed we compute dependant states, send a transition event and run the `OnExit` schedule.
-            if let Some(resource) = current_state {
-                commands.remove_resource::<State<S>>();
-
-                event.send(StateTransitionEvent {
-                    before: Some(resource.get().clone()),
-                    after: None,
-                });
+    event.send(StateTransitionEvent {
+        before: match (current_state, new_state.as_ref()) {
+            // Update the state resource.
+            (Some(mut current_state), Some(new_state)) => {
+                Some(mem::replace(&mut current_state.0, new_state.clone()))
             }
-        }
-    }
+            // Insert the state resource.
+            (None, Some(new_state)) => {
+                commands.insert_resource(State(new_state.clone()));
+                None
+            }
+            // Remove the state resource.
+            (Some(current_state), None) => {
+                commands.remove_resource::<State<S>>();
+                Some(current_state.get().clone())
+            }
+            (None, None) => return,
+        },
+        after: new_state,
+    });
 }
 
 /// Sets up the schedules and systems for handling state transitions
@@ -174,32 +154,13 @@ pub fn apply_state_transition<S: FreelyMutableState>(
     current_state: Option<ResMut<State<S>>>,
     next_state: Option<ResMut<NextState<S>>>,
 ) {
-    // We want to check if the State and NextState resources exist
-    let Some(mut next_state_resource) = next_state else {
+    let Some(mut next_state) = next_state else {
         return;
     };
 
-    match next_state_resource.as_ref() {
-        NextState::Pending(new_state) => {
-            if let Some(current_state) = current_state {
-                if new_state != current_state.get() {
-                    let new_state = new_state.clone();
-                    internal_apply_state_transition(
-                        event,
-                        commands,
-                        Some(current_state),
-                        Some(new_state),
-                    );
-                }
-            }
-        }
-        NextState::Unchanged => {
-            // This is the default value, so we don't need to re-insert the resource
-            return;
-        }
+    if let NextState::Pending(next_state) = mem::take(next_state.as_mut()) {
+        internal_apply_state_transition(event, commands, current_state, Some(next_state));
     }
-
-    *next_state_resource.as_mut() = NextState::<S>::Unchanged;
 }
 
 pub(crate) fn should_run_transition<S: States, T: ScheduleLabel>(
