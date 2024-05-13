@@ -60,13 +60,13 @@ pub struct UiSurface {
     /// Maintains an entry for each root ui node (parentless), and any of its children
     ///
     /// (does not include the `implicit_viewport_node`)
-    pub(super) entity_to_taffy: EntityHashMap<taffy::NodeId>,
+    entity_to_taffy: EntityHashMap<taffy::NodeId>,
     /// Maps root ui node (parentless) `Entity` to its corresponding `RootNodeData`
-    pub(super) root_node_data: EntityHashMap<RootNodeData>,
+    root_node_data: EntityHashMap<RootNodeData>,
     /// Maps camera `Entity` to an associated `EntityHashSet` of root nodes (parentless)
-    pub(super) camera_root_nodes: EntityHashMap<EntityHashSet>,
+    camera_root_nodes: EntityHashMap<EntityHashSet>,
     /// Manages the UI Node Tree
-    pub(super) taffy: TaffyTree<NodeMeasure>,
+    taffy: TaffyTree<NodeMeasure>,
 }
 
 fn _assert_send_sync_ui_surface_impl_safe() {
@@ -423,6 +423,23 @@ with UI components as a child of an entity without UI components, results may be
             );
             Err(LayoutError::InvalidHierarchy)
         }
+    }
+}
+
+// Expose readonly accessors for tests in mod
+#[cfg(test)]
+impl UiSurface {
+    pub(super) fn entity_to_taffy(&self) -> &EntityHashMap<taffy::NodeId> {
+        &self.entity_to_taffy
+    }
+    pub(super) fn root_node_data(&self) -> &EntityHashMap<RootNodeData> {
+        &self.root_node_data
+    }
+    pub(super) fn camera_root_nodes(&self) -> &EntityHashMap<EntityHashSet> {
+        &self.camera_root_nodes
+    }
+    pub(super) fn taffy(&self) -> &TaffyTree<NodeMeasure> {
+        &self.taffy
     }
 }
 
