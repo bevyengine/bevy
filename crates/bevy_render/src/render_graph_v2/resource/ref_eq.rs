@@ -1,8 +1,8 @@
 use std::hash::Hash;
 use std::{borrow::Borrow, ptr};
 
-//Note: I never ended up using much of the actual functionality of this, aside from it being Cow
-//without requiring Clone.
+//essentially a version of Cow that doesn't require Clone and uses reference equality for the
+//borrowed case
 pub enum RefEq<'a, T> {
     Borrowed(&'a T),
     Owned(T),
