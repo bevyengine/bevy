@@ -68,7 +68,7 @@ git checkout v0.4.0
   - [Android](#android)
     - [Setup](#setup)
     - [Build & Run](#build--run)
-    - [About `libc++_shared.so`](#about-libcxx-shared)
+    - [About `libc++_shared.so`](#about-libc_sharedso)
     - [Old phones](#old-phones)
   - [iOS](#ios)
     - [Setup](#setup-1)
@@ -507,7 +507,6 @@ Please reference `cargo-ndk` [README](https://crates.io/crates/cargo-ndk) for ot
 
 After compiling and linking you can build and test it in your android project.
 
-<a id="about-libcxx-shared"></a>
 #### About `libc++_shared.so`
 
 Bevy probably need `libc++_shared.so` to run on Android(which is required by `oboe` crate), but normally `cargo-ndk` won't copy it.
@@ -536,7 +535,7 @@ Bevy by default targets Android API level 33 in its examples which is the <!-- m
 [Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). <!-- markdown-link-check-enable -->
 Users of older phones may want to use an older API when testing. By default, Bevy uses [`GameAvtivity`](https://developer.android.com/games/agdk/game-activity), which only works for Android API level 31 and higher, so if you want to use older API, you need to switch to `NativeActivity`.
 
-To use `NativeActivity`, you need to edit it in `cargo.toml` manually, then build it as the [Build & Run](#build--run) section stated above.
+To use `NativeActivity`, you need to edit it in `cargo.toml` manually, then build it as the [Build & Run](#build--Run) section stated above.
 
 Example | File | Description
 --- | --- | ---
