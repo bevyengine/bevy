@@ -53,6 +53,12 @@ fn fragment(
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARD_MATERIAL_NORMAL_MAP
 
+#ifdef STANDARD_MATERIAL_NORMAL_MAP_UV_B
+        let uv = in.uv_b;
+#else
+        let uv = in.uv;
+#endif
+
     // Fill in the sample bias so we can sample from textures.
     var bias: SampleBias;
 #ifdef MESHLET_MESH_MATERIAL_PASS
@@ -65,7 +71,7 @@ fn fragment(
         let Nt = pbr_functions::sample_texture(
             pbr_bindings::normal_map_texture,
             pbr_bindings::normal_map_sampler,
-            in.uv,
+            uv,
             bias,
         ).rgb;
 
