@@ -558,8 +558,9 @@ mod tests {
         assert_eq!(ui_surface.taffy.total_node_count(), 2);
 
         // root node data should now exist
-        let _root_node_data = get_root_node_data_exact(&ui_surface, root_node_entity, camera_entity)
-            .expect("expected root node data");
+        let _root_node_data =
+            get_root_node_data_exact(&ui_surface, root_node_entity, camera_entity)
+                .expect("expected root node data");
         assert!(has_valid_root_node_data(&ui_surface, &root_node_entity));
 
         // test duplicate insert 2
@@ -569,8 +570,9 @@ mod tests {
         assert_eq!(ui_surface.taffy.total_node_count(), 2);
 
         // root node data should be unaffected
-        let _root_node_data = get_root_node_data_exact(&ui_surface, root_node_entity, camera_entity)
-            .expect("expected root node data");
+        let _root_node_data =
+            get_root_node_data_exact(&ui_surface, root_node_entity, camera_entity)
+                .expect("expected root node data");
         assert!(has_valid_root_node_data(&ui_surface, &root_node_entity));
     }
 
@@ -639,8 +641,9 @@ mod tests {
         assert!(ui_surface.camera_root_nodes.contains_key(&camera_entity));
         assert!(ui_surface.root_node_data.contains_key(&root_node_entity));
         assert!(ui_surface.camera_root_nodes.contains_key(&camera_entity));
-        let _root_node_data = get_root_node_data_exact(&ui_surface, root_node_entity, camera_entity)
-            .expect("expected root node data");
+        let _root_node_data =
+            get_root_node_data_exact(&ui_surface, root_node_entity, camera_entity)
+                .expect("expected root node data");
         assert!(ui_surface
             .camera_root_nodes
             .get(&camera_entity)
@@ -766,8 +769,9 @@ mod tests {
             "child of root node should not be associated with camera"
         );
 
-        let _root_node_data = get_root_node_data_exact(&ui_surface, root_node_entity, camera_entity)
-            .expect("expected root node data");
+        let _root_node_data =
+            get_root_node_data_exact(&ui_surface, root_node_entity, camera_entity)
+                .expect("expected root node data");
 
         assert_eq!(ui_surface.taffy.parent(child_taffy), Some(root_taffy_node));
         let root_taffy_children = ui_surface.taffy.children(root_taffy_node).unwrap();
