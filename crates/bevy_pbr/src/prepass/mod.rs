@@ -32,6 +32,7 @@ use bevy_utils::tracing::error;
 #[cfg(feature = "meshlet")]
 use crate::meshlet::{
     prepare_material_meshlet_meshes_prepass, queue_material_meshlet_meshes, MeshletGpuScene,
+    MeshletMesh,
 };
 use crate::*;
 
@@ -102,7 +103,7 @@ where
             .init_resource::<PrepassViewBindGroup>()
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
             .allow_ambiguous_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
-            .init_resource::<PreviousViewProjectionUniforms>();
+            .init_resource::<PreviousViewUniforms>();
     }
 
     fn finish(&self, app: &mut App) {
@@ -199,9 +200,14 @@ pub struct PreviousViewData {
     pub view_proj: Mat4,
 }
 
+#[cfg(not(feature = "meshlet"))]
+type PreviousViewFilter = (With<Camera3d>, With<MotionVectorPrepass>);
+#[cfg(feature = "meshlet")]
+type PreviousViewFilter = Or<(With<Camera3d>, With<ShadowView>)>;
+
 pub fn update_previous_view_data(
     mut commands: Commands,
-    query: Query<(Entity, &Camera, &GlobalTransform), (With<Camera3d>, With<MotionVectorPrepass>)>,
+    query: Query<(Entity, &Camera, &GlobalTransform), PreviousViewFilter>,
 ) {
     for (entity, camera, camera_transform) in &query {
         let inverse_view = camera_transform.compute_matrix().inverse();
@@ -215,10 +221,15 @@ pub fn update_previous_view_data(
 #[derive(Component)]
 pub struct PreviousGlobalTransform(pub Affine3A);
 
+#[cfg(not(feature = "meshlet"))]
+type PreviousMeshFilter = With<Handle<Mesh>>;
+#[cfg(feature = "meshlet")]
+type PreviousMeshFilter = Or<(With<Handle<Mesh>>, With<Handle<MeshletMesh>>)>;
+
 pub fn update_mesh_previous_global_transforms(
     mut commands: Commands,
-    views: Query<&Camera, (With<Camera3d>, With<MotionVectorPrepass>)>,
-    meshes: Query<(Entity, &GlobalTransform), With<Handle<Mesh>>>,
+    views: Query<&Camera, PreviousViewFilter>,
+    meshes: Query<(Entity, &GlobalTransform), PreviousMeshFilter>,
 ) {
     let should_run = views.iter().any(|camera| camera.is_active);
 
@@ -383,10 +394,12 @@ where
 
         if layout.0.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
+            shader_defs.push("VERTEX_UVS_A".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(1));
         }
 
         if layout.0.contains(Mesh::ATTRIBUTE_UV_1) {
+            shader_defs.push("VERTEX_UVS".into());
             shader_defs.push("VERTEX_UVS_B".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_1.at_shader_location(2));
         }
@@ -534,18 +547,6 @@ where
             PREPASS_SHADER_HANDLE
         };
 
-        let mut push_constant_ranges = Vec::with_capacity(1);
-        if cfg!(all(
-            feature = "webgl",
-            target_arch = "wasm32",
-            not(feature = "webgpu")
-        )) {
-            push_constant_ranges.push(PushConstantRange {
-                stages: ShaderStages::VERTEX,
-                range: 0..4,
-            });
-        }
-
         let mut descriptor = RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: vert_shader_handle,
@@ -585,7 +586,7 @@ where
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            push_constant_ranges,
+            push_constant_ranges: vec![],
             label: Some("prepass_pipeline".into()),
         };
 
@@ -615,7 +616,7 @@ pub fn extract_camera_previous_view_data(
 }
 
 #[derive(Resource, Default)]
-pub struct PreviousViewProjectionUniforms {
+pub struct PreviousViewUniforms {
     pub uniforms: DynamicUniformBuffer<PreviousViewData>,
 }
 
@@ -628,13 +629,13 @@ pub fn prepare_previous_view_uniforms(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    mut view_uniforms: ResMut<PreviousViewProjectionUniforms>,
-    views: Query<(Entity, &ExtractedView, Option<&PreviousViewData>), With<MotionVectorPrepass>>,
+    mut previous_view_uniforms: ResMut<PreviousViewUniforms>,
+    views: Query<(Entity, &ExtractedView, Option<&PreviousViewData>), PreviousViewFilter>,
 ) {
     let views_iter = views.iter();
     let view_count = views_iter.len();
     let Some(mut writer) =
-        view_uniforms
+        previous_view_uniforms
             .uniforms
             .get_writer(view_count, &render_device, &render_queue)
     else {
@@ -670,7 +671,7 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
     prepass_pipeline: Res<PrepassPipeline<M>>,
     view_uniforms: Res<ViewUniforms>,
     globals_buffer: Res<GlobalsBuffer>,
-    previous_view_uniforms: Res<PreviousViewProjectionUniforms>,
+    previous_view_uniforms: Res<PreviousViewUniforms>,
     mut prepass_view_bind_group: ResMut<PrepassViewBindGroup>,
 ) {
     if let (Some(view_binding), Some(globals_binding)) = (
@@ -917,6 +918,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
     type Param = SRes<PrepassViewBindGroup>;
     type ViewQuery = (
         Read<ViewUniformOffset>,
+        Has<MotionVectorPrepass>,
         Option<Read<PreviousViewUniformOffset>>,
     );
     type ItemQuery = ();
@@ -924,8 +926,9 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform_offset, previous_view_uniform_offset): (
+        (view_uniform_offset, has_motion_vector_prepass, previous_view_uniform_offset): (
             &'_ ViewUniformOffset,
+            bool,
             Option<&'_ PreviousViewUniformOffset>,
         ),
         _entity: Option<()>,
@@ -934,21 +937,24 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
     ) -> RenderCommandResult {
         let prepass_view_bind_group = prepass_view_bind_group.into_inner();
 
-        if let Some(previous_view_uniform_offset) = previous_view_uniform_offset {
-            pass.set_bind_group(
-                I,
-                prepass_view_bind_group.motion_vectors.as_ref().unwrap(),
-                &[
-                    view_uniform_offset.offset,
-                    previous_view_uniform_offset.offset,
-                ],
-            );
-        } else {
-            pass.set_bind_group(
-                I,
-                prepass_view_bind_group.no_motion_vectors.as_ref().unwrap(),
-                &[view_uniform_offset.offset],
-            );
+        match previous_view_uniform_offset {
+            Some(previous_view_uniform_offset) if has_motion_vector_prepass => {
+                pass.set_bind_group(
+                    I,
+                    prepass_view_bind_group.motion_vectors.as_ref().unwrap(),
+                    &[
+                        view_uniform_offset.offset,
+                        previous_view_uniform_offset.offset,
+                    ],
+                );
+            }
+            _ => {
+                pass.set_bind_group(
+                    I,
+                    prepass_view_bind_group.no_motion_vectors.as_ref().unwrap(),
+                    &[view_uniform_offset.offset],
+                );
+            }
         }
 
         RenderCommandResult::Success

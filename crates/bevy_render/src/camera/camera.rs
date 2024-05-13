@@ -1,4 +1,5 @@
 use crate::{
+    batching::gpu_preprocessing::GpuPreprocessingSupport,
     camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
     prelude::Image,
     primitives::Frustum,
@@ -6,7 +7,9 @@ use crate::{
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
     texture::GpuImage,
-    view::{ColorGrading, ExtractedView, ExtractedWindows, RenderLayers, VisibleEntities},
+    view::{
+        ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, RenderLayers, VisibleEntities,
+    },
     Extract,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
@@ -17,6 +20,7 @@ use bevy_ecs::{
     entity::Entity,
     event::EventReader,
     prelude::With,
+    query::Has,
     reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut, Resource},
 };
@@ -24,7 +28,7 @@ use bevy_math::{vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::tracing::warn;
+use bevy_utils::{tracing::warn, warn_once};
 use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
@@ -142,8 +146,8 @@ impl Default for Exposure {
     }
 }
 
-/// Parameters based on physical camera characteristics for calculating
-/// EV100 values for use with [`Exposure`].
+/// Parameters based on physical camera characteristics for calculating EV100
+/// values for use with [`Exposure`]. This is also used for depth of field.
 #[derive(Clone, Copy)]
 pub struct PhysicalCameraParameters {
     /// <https://en.wikipedia.org/wiki/F-number>
@@ -152,6 +156,15 @@ pub struct PhysicalCameraParameters {
     pub shutter_speed_s: f32,
     /// <https://en.wikipedia.org/wiki/Film_speed>
     pub sensitivity_iso: f32,
+    /// The height of the [image sensor format] in meters.
+    ///
+    /// Focal length is derived from the FOV and this value. The default is
+    /// 18.66mm, matching the [Super 35] format, which is popular in cinema.
+    ///
+    /// [image sensor format]: https://en.wikipedia.org/wiki/Image_sensor_format
+    ///
+    /// [Super 35]: https://en.wikipedia.org/wiki/Super_35
+    pub sensor_height: f32,
 }
 
 impl PhysicalCameraParameters {
@@ -169,6 +182,7 @@ impl Default for PhysicalCameraParameters {
             aperture_f_stops: 1.0,
             shutter_speed_s: 1.0 / 125.0,
             sensitivity_iso: 100.0,
+            sensor_height: 0.01866,
         }
     }
 }
@@ -827,9 +841,11 @@ pub fn extract_cameras(
             Option<&TemporalJitter>,
             Option<&RenderLayers>,
             Option<&Projection>,
+            Has<GpuCulling>,
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
+    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
 ) {
     let primary_window = primary_window.iter().next();
     for (
@@ -844,9 +860,10 @@ pub fn extract_cameras(
         temporal_jitter,
         render_layers,
         projection,
+        gpu_culling,
     ) in query.iter()
     {
-        let color_grading = *color_grading.unwrap_or(&ColorGrading::default());
+        let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
 
         if !camera.is_active {
             continue;
@@ -914,6 +931,16 @@ pub fn extract_cameras(
 
             if let Some(perspective) = projection {
                 commands.insert(perspective.clone());
+            }
+
+            if gpu_culling {
+                if *gpu_preprocessing_support == GpuPreprocessingSupport::Culling {
+                    commands.insert(GpuCulling);
+                } else {
+                    warn_once!(
+                        "GPU culling isn't supported on this platform; ignoring `GpuCulling`."
+                    );
+                }
             }
         }
     }

@@ -8,15 +8,16 @@ use bevy_ecs::{
 };
 use bevy_utils::tracing::{error, info, warn};
 use bevy_window::{
-    RawHandleWrapper, Window, WindowClosed, WindowCreated, WindowMode, WindowResized,
+    ClosingWindow, RawHandleWrapper, Window, WindowClosed, WindowClosing, WindowCreated,
+    WindowMode, WindowResized,
 };
 
-use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
     event_loop::EventLoopWindowTarget,
 };
 
+use bevy_ecs::query::With;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 
@@ -73,15 +74,14 @@ pub fn create_windows<F: QueryFilter + 'static>(
         window
             .resolution
             .set_scale_factor(winit_window.scale_factor() as f32);
-        commands
-            .entity(entity)
-            .insert(RawHandleWrapper {
-                window_handle: winit_window.window_handle().unwrap().as_raw(),
-                display_handle: winit_window.display_handle().unwrap().as_raw(),
-            })
-            .insert(CachedWindow {
-                window: window.clone(),
-            });
+
+        commands.entity(entity).insert(CachedWindow {
+            window: window.clone(),
+        });
+
+        if let Ok(handle_wrapper) = RawHandleWrapper::new(winit_window) {
+            commands.entity(entity).insert(handle_wrapper);
+        }
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -99,18 +99,24 @@ pub fn create_windows<F: QueryFilter + 'static>(
 }
 
 pub(crate) fn despawn_windows(
+    closing: Query<Entity, With<ClosingWindow>>,
     mut closed: RemovedComponents<Window>,
     window_entities: Query<&Window>,
-    mut close_events: EventWriter<WindowClosed>,
+    mut closing_events: EventWriter<WindowClosing>,
+    mut closed_events: EventWriter<WindowClosed>,
     mut winit_windows: NonSendMut<WinitWindows>,
 ) {
+    for window in closing.iter() {
+        closing_events.send(WindowClosing { window });
+    }
     for window in closed.read() {
         info!("Closing window {:?}", window);
         // Guard to verify that the window is in fact actually gone,
-        // rather than having the component added and removed in the same frame.
+        // rather than having the component added
+        // and removed in the same frame.
         if !window_entities.contains(window) {
             winit_windows.remove_window(window);
-            close_events.send(WindowClosed { window });
+            closed_events.send(WindowClosed { window });
         }
     }
 }
