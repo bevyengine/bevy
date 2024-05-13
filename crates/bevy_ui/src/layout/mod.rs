@@ -5,7 +5,7 @@ use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
     event::EventReader,
-    query::{With, Without},
+    query::{Added, With, Without},
     removal_detection::RemovedComponents,
     system::{Query, Res, ResMut, SystemParam},
     world::Ref,
@@ -91,6 +91,8 @@ pub fn ui_layout_system(
         With<Node>,
     >,
     children_query: Query<(Entity, Ref<Children>), With<Node>>,
+    demoted_root_node_query: Query<(Entity, Ref<Parent>), (With<Node>, Added<Parent>)>,
+    mut removed_parents: RemovedComponents<Parent>,
     just_children_query: Query<&Children>,
     mut removed_components: UiLayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(&mut Node, &mut Transform)>,
@@ -158,6 +160,82 @@ pub fn ui_layout_system(
         }
     }
 
+    for new_root_node_entity in removed_parents.read() {
+        // TODO: most of this should be moved into a function on `UiSurface` but the query requirements might feel out of place
+        let Some(&new_root_node_taffy_id) = ui_surface.entity_to_taffy.get(&new_root_node_entity)
+        else {
+            // no taffy entry
+            continue;
+        };
+        let Some(old_parent_taffy_id) = ui_surface.taffy.parent(new_root_node_taffy_id) else {
+            // no parent assigned
+            // TODO: is this ignorable?
+            continue;
+        };
+        let Some(implicit_viewport_node) = ui_surface.taffy.parent(old_parent_taffy_id) else {
+            // no implicit_viewport_node assigned
+            // TODO: is this ignorable?
+            continue;
+        };
+        let Some((_, root_node_data)) =
+            ui_surface
+                .root_node_data
+                .iter()
+                .find(|(_root_node_entity, root_node_data)| {
+                    root_node_data.implicit_viewport_node == implicit_viewport_node
+                })
+        else {
+            // no matching `RootNodeData` with `implicit_viewport_node`
+            // TODO: should this be handled?
+            continue;
+        };
+
+        let Some(camera_entity) = root_node_data.camera_entity else {
+            // no camera assigned
+            // TODO: this should be handled
+            continue;
+        };
+        let Some(camera) = camera_layout_info.get(&camera_entity) else {
+            // no layout info
+            // TODO: this should be handled
+            continue;
+        };
+
+        ui_surface
+            .taffy
+            .remove_child(old_parent_taffy_id, new_root_node_taffy_id)
+            .unwrap();
+        let Some((_, style, content_size, ..)) = style_query.get_mut(new_root_node_entity).ok()
+        else {
+            // no style
+            // TODO: this might be an error state
+            continue;
+        };
+        let layout_context = LayoutContext::new(
+            camera.scale_factor,
+            [camera.size.x as f32, camera.size.y as f32].into(),
+        );
+        let measure = content_size.and_then(|mut c| c.measure.take());
+        ui_surface
+            .taffy
+            .set_style(
+                new_root_node_taffy_id,
+                convert::from_style(&layout_context, &style, measure.is_some()),
+            )
+            .unwrap();
+        ui_surface.create_or_update_root_node_data(&new_root_node_entity, &camera_entity);
+        ui_surface
+            .camera_root_nodes
+            .entry(camera_entity)
+            .or_default()
+            .insert(new_root_node_entity);
+        let Some(measure) = measure else {
+            // no measure
+            continue;
+        };
+        ui_surface.update_node_context(new_root_node_entity, measure);
+    }
+
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_components.removed_content_sizes.read() {
         ui_surface.try_remove_node_context(entity);
@@ -189,6 +267,13 @@ pub fn ui_layout_system(
         }
     }
     scale_factor_events.clear();
+
+    // When a root node is added as a child to another ui node
+    for (entity, parent) in &demoted_root_node_query {
+        if parent.is_added() {
+            ui_surface.demote_ui_node(&entity, &parent.get());
+        }
+    }
 
     // clean up removed nodes
     ui_surface.remove_entities(removed_components.removed_nodes.read());
@@ -348,7 +433,7 @@ mod tests {
     use bevy_asset::AssetEvent;
     use bevy_asset::Assets;
     use bevy_core_pipeline::core_2d::Camera2dBundle;
-    use bevy_ecs::entity::Entity;
+    use bevy_ecs::entity::{Entity, EntityHashSet};
     use bevy_ecs::event::Events;
     use bevy_ecs::prelude::{Commands, Component, In, Query, With};
     use bevy_ecs::query::Without;
@@ -567,6 +652,83 @@ mod tests {
         assert!(ui_surface.root_node_data.contains_key(&ui_entity));
         assert_eq!(ui_surface.root_node_data.len(), 1);
         assert_eq!(ui_surface.taffy.total_node_count(), 2);
+    }
+
+    #[test]
+    /// test to make sure the ui updates when root nodes become children of other nodes during runtime
+    fn ui_demotion_from_root_to_child() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let ui_entity1 = world.spawn(NodeBundle::default()).id();
+        let ui_entity2 = world.spawn(NodeBundle::default()).id();
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.root_node_data.contains_key(&ui_entity1));
+        assert!(ui_surface.root_node_data.contains_key(&ui_entity2));
+        assert_eq!(ui_surface.taffy.total_node_count(), 4);
+
+        world.commands().entity(ui_entity1).add_child(ui_entity2);
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.root_node_data.contains_key(&ui_entity1));
+        assert!(!ui_surface.root_node_data.contains_key(&ui_entity2));
+        assert_eq!(ui_surface.taffy.total_node_count(), 3);
+        let taffy_parent = ui_surface.entity_to_taffy.get(&ui_entity1).unwrap();
+        let taffy_child = ui_surface.entity_to_taffy.get(&ui_entity2).unwrap();
+        assert_eq!(
+            ui_surface.taffy.parent(*taffy_child).unwrap(),
+            *taffy_parent
+        );
+    }
+
+    #[test]
+    fn ui_promotion_from_child_to_root() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let camera_1 = world
+            .query_filtered::<Entity, With<Camera>>()
+            .get_single(&world)
+            .expect("expected camera");
+        let camera_2 = world
+            .spawn((Camera2dBundle::default(), IsDefaultUiCamera))
+            .id();
+        let ui_entity1 = world
+            .spawn((NodeBundle::default(), TargetCamera(camera_1)))
+            .id();
+        let ui_entity2 = world.spawn(NodeBundle::default()).id();
+        world.commands().entity(ui_entity1).add_child(ui_entity2);
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        let ui_entity2_taffy = *ui_surface.entity_to_taffy.get(&ui_entity2).unwrap();
+        let original_ui_entity2_taffy_parent = ui_surface.taffy.parent(ui_entity2_taffy);
+        assert!(ui_surface.root_node_data.contains_key(&ui_entity1));
+        assert!(!ui_surface.root_node_data.contains_key(&ui_entity2));
+        assert_eq!(ui_surface.taffy.total_node_count(), 3);
+
+        world.commands().entity(ui_entity2).remove_parent();
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        let current_ui_entity2_taffy_parent = ui_surface.taffy.parent(ui_entity2_taffy);
+        // parent should be an implicit view node not the old parent
+        assert_ne!(
+            current_ui_entity2_taffy_parent,
+            original_ui_entity2_taffy_parent
+        );
+        assert!(ui_surface.root_node_data.contains_key(&ui_entity1));
+        assert!(ui_surface.root_node_data.contains_key(&ui_entity2));
+        assert_eq!(
+            ui_surface.camera_root_nodes.get(&camera_2),
+            Some(&EntityHashSet::default())
+        );
+        assert_eq!(ui_surface.taffy.total_node_count(), 4);
     }
 
     #[test]

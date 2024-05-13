@@ -225,7 +225,7 @@ without UI components as a child of an entity with UI components, results may be
     }
 
     /// Creates or updates a root node
-    fn create_or_update_root_node_data(
+    pub(super) fn create_or_update_root_node_data(
         &mut self,
         root_node_entity: &Entity,
         camera_entity: &Entity,
@@ -358,6 +358,21 @@ without UI components as a child of an entity with UI components, results may be
                     },
                 )
                 .unwrap();
+        }
+    }
+
+    /// Demotes root node to a child node of the specified parent
+    pub(super) fn demote_ui_node(&mut self, target_entity: &Entity, parent_entity: &Entity) {
+        // remove camera association
+        self.mark_root_node_as_orphaned(target_entity);
+
+        if let Some(root_node_data) = self.root_node_data.remove(target_entity) {
+            self.taffy
+                .remove(root_node_data.implicit_viewport_node)
+                .unwrap();
+            let parent_taffy = self.entity_to_taffy.get(parent_entity).unwrap();
+            let child_taffy = self.entity_to_taffy.get(target_entity).unwrap();
+            self.taffy.add_child(*parent_taffy, *child_taffy).unwrap();
         }
     }
 
