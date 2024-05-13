@@ -26,7 +26,11 @@ use bevy_a11y::AccessibilityRequested;
 use bevy_utils::Instant;
 pub use system::create_windows;
 use system::{changed_windows, despawn_windows, CachedWindow};
-use winit::dpi::{LogicalSize, PhysicalSize};
+use winit::{
+    dpi::{LogicalSize, PhysicalSize},
+    event::Modifiers,
+    keyboard::ModifiersKeyState,
+};
 pub use winit_config::*;
 pub use winit_event::*;
 pub use winit_windows::*;
@@ -36,8 +40,10 @@ use bevy_ecs::event::ManualEventReader;
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemState;
 use bevy_input::{
+    keyboard::{Key, KeyCode, KeyboardInput},
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
     touchpad::{TouchpadMagnify, TouchpadRotate},
+    ButtonState,
 };
 use bevy_math::{ivec2, DVec2, Vec2};
 #[cfg(not(target_arch = "wasm32"))]
@@ -198,6 +204,8 @@ struct WinitAppRunnerState {
     wait_elapsed: bool,
     /// Number of "forced" updates to trigger on application start
     startup_forced_updates: u32,
+    /// State of the keyboard modifiers.
+    keyboard_modifiers: Modifiers,
 }
 
 impl WinitAppRunnerState {
@@ -218,6 +226,7 @@ impl Default for WinitAppRunnerState {
             wait_elapsed: false,
             // 3 seems to be enough, 5 is a safe margin
             startup_forced_updates: 5,
+            keyboard_modifiers: Modifiers::default(),
         }
     }
 }
@@ -578,7 +587,59 @@ fn handle_winit_event(
                             winit_events.send(ReceivedCharacter { window, char });
                         }
                     }
-                    winit_events.send(converters::convert_keyboard_input(event, window));
+
+                    // Send a `KeyboardInput` event if this key is not a modifier.
+                    let keyboard_event = converters::convert_keyboard_input(event, window);
+                    let mod_keys = [Key::Alt, Key::Control, Key::Shift, Key::Super];
+                    if !mod_keys.contains(&keyboard_event.logical_key) {
+                        winit_events.send(keyboard_event);
+                    }
+                }
+                WindowEvent::ModifiersChanged(mods) => {
+                    // Check if the state of any modifier key has changed.
+                    let checks: [(KeyCode, Key, &mut dyn FnMut(Modifiers) -> ModifiersKeyState);
+                        8] = [
+                        (KeyCode::SuperLeft, Key::Super, &mut |mods| {
+                            mods.lsuper_state()
+                        }),
+                        (KeyCode::SuperRight, Key::Super, &mut |mods| {
+                            mods.rsuper_state()
+                        }),
+                        (KeyCode::ShiftLeft, Key::Shift, &mut |mods| {
+                            mods.lshift_state()
+                        }),
+                        (KeyCode::ShiftRight, Key::Shift, &mut |mods| {
+                            mods.rshift_state()
+                        }),
+                        (KeyCode::AltLeft, Key::Alt, &mut |mods| mods.lalt_state()),
+                        (KeyCode::AltRight, Key::Alt, &mut |mods| mods.ralt_state()),
+                        (KeyCode::ControlLeft, Key::Control, &mut |mods| {
+                            mods.lcontrol_state()
+                        }),
+                        (KeyCode::ControlRight, Key::Control, &mut |mods| {
+                            mods.rcontrol_state()
+                        }),
+                    ];
+
+                    for (key_code, key, f) in checks {
+                        let new = f(mods);
+                        let old = f(runner_state.keyboard_modifiers);
+
+                        if new != old {
+                            winit_events.send(KeyboardInput {
+                                key_code,
+                                logical_key: key,
+                                state: if new == ModifiersKeyState::Pressed {
+                                    ButtonState::Pressed
+                                } else {
+                                    ButtonState::Released
+                                },
+                                window,
+                            });
+                        }
+                    }
+
+                    runner_state.keyboard_modifiers = mods;
                 }
                 WindowEvent::CursorMoved { position, .. } => {
                     let physical_position = DVec2::new(position.x, position.y);
