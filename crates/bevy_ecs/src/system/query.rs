@@ -1368,12 +1368,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn transmute_lens_filtered<NewD: QueryData, NewF: QueryFilter>(
         &mut self,
     ) -> QueryLens<'_, NewD, NewF> {
-        // SAFETY:
-        // - We have exclusive access to the query
-        // - `self` has correctly captured its access
-        // - Access is checked to be a subset of the query's access when the state is created.
-        let world = unsafe { self.world.world() };
-        let state = self.state.transmute_filtered::<NewD, NewF>(world);
+        let components = self.world.components();
+        let state = self.state.transmute_filtered::<NewD, NewF>(components);
         QueryLens {
             world: self.world,
             state,
@@ -1464,14 +1460,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         &mut self,
         other: &mut Query<OtherD, OtherF>,
     ) -> QueryLens<'_, NewD, NewF> {
-        // SAFETY:
-        // - The queries have correctly captured their access.
-        // - We have exclusive access to both queries.
-        // - Access for QueryLens is checked when state is created.
-        let world = unsafe { self.world.world() };
+        let components = self.world.components();
         let state = self
             .state
-            .join_filtered::<OtherD, OtherF, NewD, NewF>(world, other.state);
+            .join_filtered::<OtherD, OtherF, NewD, NewF>(components, other.state);
         QueryLens {
             world: self.world,
             state,

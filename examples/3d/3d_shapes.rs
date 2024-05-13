@@ -42,6 +42,7 @@ fn setup(
         meshes.add(Capsule3d::default()),
         meshes.add(Torus::default()),
         meshes.add(Cylinder::default()),
+        meshes.add(Cone::default()),
         meshes.add(Sphere::default().mesh().ico(5).unwrap()),
         meshes.add(Sphere::default().mesh().uv(32, 18)),
     ];
