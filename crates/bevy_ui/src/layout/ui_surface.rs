@@ -361,7 +361,7 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
-    /// Remove root node associations when assigning a node as a child to another node
+    /// Demotes root node to a child node of the specified parent
     pub(super) fn demote_ui_node(&mut self, target_entity: &Entity, parent_entity: &Entity) {
         // remove camera association
         self.mark_root_node_as_orphaned(target_entity);
@@ -376,9 +376,9 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
+    #[cfg(test)]
     /// Converts ui node to root node
     /// Should only be used for testing - does not set `TargetCamera`
-    #[cfg(test)]
     pub(super) fn promote_ui_node(&mut self, target_entity: &Entity, camera_entity: &Entity) {
         let taffy_node = self.entity_to_taffy.get(target_entity).unwrap();
 
