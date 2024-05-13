@@ -310,7 +310,7 @@ mod tests {
             .iter()
             .find(|&root_node_pair| root_node_pair.user_root_node == *root_node_taffy)
     }
-    
+
     #[test]
     fn test_initialization() {
         let ui_surface = UiSurface::default();
