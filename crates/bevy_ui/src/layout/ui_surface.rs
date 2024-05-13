@@ -418,7 +418,7 @@ without UI components as a child of an entity with UI components, results may be
     }
 
     /// Disassociates the camera from all of its assigned root nodes and removes their viewport nodes
-    /// Removes entry in camera_root_nodes
+    /// Removes entry in `camera_root_nodes`
     pub(super) fn remove_camera(&mut self, camera_entity: &Entity) {
         if let Some(root_node_entities) = self.camera_root_nodes.remove(camera_entity) {
             for root_node_entity in root_node_entities {
