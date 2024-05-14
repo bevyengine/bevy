@@ -3,7 +3,7 @@ use std::{borrow::Borrow, collections::VecDeque, fmt::Debug, marker::PhantomData
 use bevy_utils::{HashMap, HashSet};
 use std::hash::Hash;
 
-use crate::{render_resource::PipelineCache, renderer::RenderDevice};
+use bevy_render::{render_resource::PipelineCache, renderer::RenderDevice};
 
 use self::ref_eq::RefEq;
 

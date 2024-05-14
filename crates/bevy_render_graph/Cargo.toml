@@ -37,8 +37,9 @@ keywords = ["bevy"]
 # trace = ["profiling"]
 # tracing-tracy = []
 # bevy
+bevy_render = { path = "../bevy_render", version = "0.14.0-dev" }
 bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
-#bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.14.0-dev", features = [
     "serialize",
     "wgpu-types",
@@ -48,7 +49,7 @@ bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.14.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
 bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.14.0-dev" }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
+#bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
 bevy_mikktspace = { path = "../bevy_mikktspace", version = "0.14.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
@@ -57,6 +58,6 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
 # bevy_render_macros = { path = "macros", version = "0.14.0-dev" }
 bevy_time = { path = "../bevy_time", version = "0.14.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.14.0-dev" }
-bevy_window = { path = "../bevy_window", version = "0.14.0-dev" }
+#bevy_window = { path = "../bevy_window", version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
+#bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }

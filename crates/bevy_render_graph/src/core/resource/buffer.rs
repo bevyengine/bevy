@@ -1,9 +1,8 @@
 use wgpu::{BufferDescriptor, BufferUsages};
 
-use crate::{
-    render_graph_v2::{NodeContext, RenderGraphBuilder},
-    render_resource::Buffer,
-};
+use bevy_render::render_resource::{Buffer, BufferDescriptor};
+
+use crate::{NodeContext, RenderGraphBuilder};
 
 use super::{
     ref_eq::RefEq, DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource,
