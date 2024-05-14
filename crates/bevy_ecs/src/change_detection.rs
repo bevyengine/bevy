@@ -728,6 +728,65 @@ change_detection_impl!(Ref<'w, T>, T,);
 impl_debug!(Ref<'w, T>,);
 
 /// Unique mutable borrow of an entity's component or of a resource.
+///
+/// This can be used in queries to opt into change detection on both their mutable and immutable forms, as opposed to
+/// `&mut T`, which only provides access to change detection while in its mutable form:
+///
+/// ```rust
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::query::QueryData;
+/// #
+/// #[derive(Component, Clone)]
+/// struct Name(String);
+///
+/// #[derive(Component, Clone, Copy)]
+/// struct Health(f32);
+///
+/// #[derive(Component, Clone, Copy)]
+/// struct Position {
+///     x: f32,
+///     y: f32,
+/// };
+///
+/// #[derive(Component, Clone, Copy)]
+/// struct Player {
+///     id: usize,
+/// };
+///
+/// #[derive(QueryData)]
+/// #[query_data(mutable)]
+/// struct PlayerQuery {
+///     id: &'static Player,
+///
+///     // Reacting to `PlayerName` changes is expensive, so we need to enable change detection when reading it.
+///     name: Mut<'static, Name>,
+///
+///     health: &'static mut Health,
+///     position: &'static mut Position,
+/// }
+///
+/// fn update_player_avatars(players_query: Query<PlayerQuery>) {
+///     // The item returned by the iterator is of type `PlayerQueryReadOnlyItem`.
+///     for player in players_query.iter() {
+///         if player.name.is_changed() {
+///             // Update the player's name. This clones a String, and so is more expensive.
+///             update_player_name(player.id, player.name.clone());
+///         }
+///
+///         // Update the health bar.
+///         update_player_health(player.id, *player.health);
+///
+///         // Update the player's position.
+///         update_player_position(player.id, *player.position);
+///     }
+/// }
+///
+/// # bevy_ecs::system::assert_is_system(update_player_avatars);
+///
+/// # fn update_player_name(player: &Player, new_name: Name) {}
+/// # fn update_player_health(player: &Player, new_health: Health) {}
+/// # fn update_player_position(player: &Player, new_position: Position) {}
+/// ```
 pub struct Mut<'w, T: ?Sized> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
