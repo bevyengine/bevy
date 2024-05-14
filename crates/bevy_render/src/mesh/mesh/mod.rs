@@ -104,6 +104,9 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// - It is possible and sometimes useful for multiple vertices to have the same
 /// [position attribute](Mesh::ATTRIBUTE_POSITION) value,
 /// it's a common technique in 3D modelling for complex UV mapping or other calculations.
+/// - Bevy performs frustum culling based on the [`Aabb`] of meshes, which is calculated 
+/// and added automatically for new meshes only. If a mesh is modified, the entity's [`Aabb`] 
+/// need to be updated manually, or deleted so that it is re-calculated.
 ///
 /// ## Use with `StandardMaterial`
 ///
@@ -224,6 +227,8 @@ impl Mesh {
 
     /// Sets the data for a vertex attribute (position, normal, etc.). The name will
     /// often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
+    /// 
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     ///
     /// # Panics
     /// Panics when the format of the values does not match the attribute's format.
@@ -250,6 +255,8 @@ impl Mesh {
     /// The name will often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
     ///
     /// (Alternatively, you can use [`Mesh::insert_attribute`] to mutate an existing mesh in-place)
+    /// 
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     ///
     /// # Panics
     /// Panics when the format of the values does not match the attribute's format.
@@ -650,6 +657,8 @@ impl Mesh {
     /// Merges the [`Mesh`] data of `other` with `self`. The attributes and indices of `other` will be appended to `self`.
     ///
     /// Note that attributes of `other` that don't exist on `self` will be ignored.
+    /// 
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     ///
     /// # Panics
     ///
@@ -727,12 +736,16 @@ impl Mesh {
     }
 
     /// Transforms the vertex positions, normals, and tangents of the mesh by the given [`Transform`].
+    /// 
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn transformed_by(mut self, transform: Transform) -> Self {
         self.transform_by(transform);
         self
     }
 
     /// Transforms the vertex positions, normals, and tangents of the mesh in place by the given [`Transform`].
+    /// 
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn transform_by(&mut self, transform: Transform) {
         // Needed when transforming normals and tangents
         let covector_scale = transform.scale.yzx() * transform.scale.zxy();
@@ -781,12 +794,16 @@ impl Mesh {
     }
 
     /// Translates the vertex positions of the mesh by the given [`Vec3`].
+    /// 
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn translated_by(mut self, translation: Vec3) -> Self {
         self.translate_by(translation);
         self
     }
 
     /// Translates the vertex positions of the mesh in place by the given [`Vec3`].
+    /// 
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn translate_by(&mut self, translation: Vec3) {
         if translation == Vec3::ZERO {
             return;
@@ -803,12 +820,16 @@ impl Mesh {
     }
 
     /// Rotates the vertex positions, normals, and tangents of the mesh by the given [`Quat`].
+    /// 
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn rotated_by(mut self, rotation: Quat) -> Self {
         self.rotate_by(rotation);
         self
     }
 
     /// Rotates the vertex positions, normals, and tangents of the mesh in place by the given [`Quat`].
+    /// 
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn rotate_by(&mut self, rotation: Quat) {
         if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
             self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
@@ -844,12 +865,16 @@ impl Mesh {
     }
 
     /// Scales the vertex positions, normals, and tangents of the mesh by the given [`Vec3`].
+    /// 
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn scaled_by(mut self, scale: Vec3) -> Self {
         self.scale_by(scale);
         self
     }
 
     /// Scales the vertex positions, normals, and tangents of the mesh in place by the given [`Vec3`].
+    /// 
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn scale_by(&mut self, scale: Vec3) {
         // Needed when transforming normals and tangents
         let covector_scale = scale.yzx() * scale.zxy();
