@@ -16,5 +16,5 @@ material = { group = "com.google.android.material", name = "material", version.r
 constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
 
 [plugins]
-android-application = { id = "com.android.application", version.ref = "agp" }
+androidApplication = { id = "com.android.application", version.ref = "agp" }
 
