@@ -172,9 +172,9 @@ impl BlobArray {
     pub unsafe fn drop(&mut self, cap: usize, len: usize) {
         if cap != 0 {
             self.clear_elements(len);
-            let layout =
-                array_layout(&self.item_layout, cap).expect("array layout should be valid");
             if !self.is_zst() {
+                let layout =
+                    array_layout(&self.item_layout, cap).expect("array layout should be valid");
                 std::alloc::dealloc(self.data.as_ptr().cast(), layout);
             }
         }
