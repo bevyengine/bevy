@@ -371,7 +371,7 @@ impl<'w> EntityMut<'w> {
 
     /// Returns read-only components for the current entity that match the query `Q`.
     pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'_>> {
-        // SAFETY: &mut self implies exclusive access for duration of returned value
+        // SAFETY: We have read-only access to all components of this entity.
         unsafe { self.0.get_components::<Q>() }
     }
 
