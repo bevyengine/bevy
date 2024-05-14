@@ -119,16 +119,21 @@ pub enum DepthOfFieldMode {
     ///
     /// For more information, see [Wikipedia's article on *bokeh*].
     ///
-    /// This is the default.
+    /// This doesn't work on webgpu.
     ///
     /// [Wikipedia's article on *bokeh*]: https://en.wikipedia.org/wiki/Bokeh
-    #[default]
     Bokeh,
 
     /// A faster simulation, in which out-of-focus areas are simply blurred.
     ///
     /// This is less accurate to actual lens behavior and is generally less
     /// aesthetically pleasing but requires less video memory bandwidth.
+    ///
+    /// This is the default.
+    ///
+    /// This works on native and webgpu.
+    /// If targetting native platforms, consider using [`DepthOfFieldMode::Bokeh`] instead.
+    #[default]
     Gaussian,
 }
 
