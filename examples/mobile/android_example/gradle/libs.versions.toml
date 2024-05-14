@@ -17,4 +17,3 @@ games-activity = { group = "androidx.games", name = "games-activity", version.re
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
-
