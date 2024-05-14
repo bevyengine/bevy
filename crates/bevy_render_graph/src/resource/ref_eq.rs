@@ -3,6 +3,9 @@ use std::{borrow::Borrow, ptr};
 
 //essentially a version of Cow that doesn't require Clone and uses reference equality for the
 //borrowed case
+
+//Originally done since most resources didn't implement Eq. Now they do, so should this just be
+//replaced with Cow?
 pub enum RefEq<'a, T> {
     Borrowed(&'a T),
     Owned(T),

@@ -1,0 +1,62 @@
+[package]
+name = "bevy_render_graph"
+version = "0.14.0-dev"
+edition = "2021"
+description = "A modular, reusable render graph for Bevy Engine"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
+
+# [features]
+# png = ["image/png"]
+# exr = ["image/exr"]
+# hdr = ["image/hdr"]
+# tga = ["image/tga"]
+# jpeg = ["image/jpeg"]
+# bmp = ["image/bmp"]
+# webp = ["image/webp"]
+# dds = ["ddsfile"]
+# pnm = ["image/pnm"]
+# multi-threaded = ["bevy_tasks/multi-threaded"]
+
+#shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out", "naga_oil/glsl"]
+#shader_format_spirv = ["wgpu/spirv", "naga/spv-in", "naga/spv-out"]
+
+# For ktx2 supercompression
+# zlib = ["flate2"]
+# zstd = ["ruzstd"]
+
+# wgpu_trace = ["wgpu/trace"
+# ci_limits = []
+# webgl = ["wgpu/webgl"]
+# webgpu = ["wgpu/webgpu"]
+# ios_simulator = []
+
+[dependencies]
+# trace = ["profiling"]
+# tracing-tracy = []
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
+#bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
+bevy_color = { path = "../bevy_color", version = "0.14.0-dev", features = [
+    "serialize",
+    "wgpu-types",
+] }
+bevy_core = { path = "../bevy_core", version = "0.14.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.14.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
+bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.14.0-dev" }
+bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
+bevy_mikktspace = { path = "../bevy_mikktspace", version = "0.14.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
+    "bevy",
+] }
+# bevy_render_macros = { path = "macros", version = "0.14.0-dev" }
+bevy_time = { path = "../bevy_time", version = "0.14.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.14.0-dev" }
+bevy_window = { path = "../bevy_window", version = "0.14.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
