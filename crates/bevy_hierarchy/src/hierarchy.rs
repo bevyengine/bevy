@@ -81,10 +81,6 @@ impl Command for DespawnChildrenRecursive {
 }
 
 /// Trait that holds functions for despawning recursively down the transform hierarchy
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` can not despawn child entities",
-    label = "invalid despawner"
-)]
 pub trait DespawnRecursiveExt {
     /// Despawns the provided entity alongside all descendants.
     fn despawn_recursive(self);

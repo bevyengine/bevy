@@ -7,7 +7,6 @@ use std::{
 
 /// An object safe version of [`Eq`]. This trait is automatically implemented
 /// for any `'static` type that implements `Eq`.
-#[diagnostic::on_unimplemented(message = "`{Self}` does not implement dynamic `Eq`")]
 pub trait DynEq: Any {
     /// Casts the type to `dyn Any`.
     fn as_any(&self) -> &dyn Any;
@@ -37,7 +36,6 @@ where
 
 /// An object safe version of [`Hash`]. This trait is automatically implemented
 /// for any `'static` type that implements `Hash`.
-#[diagnostic::on_unimplemented(message = "`{Self}` does not implement dynamic `Hash`")]
 pub trait DynHash: DynEq {
     /// Casts the type to `dyn Any`.
     fn as_dyn_eq(&self) -> &dyn DynEq;
@@ -112,10 +110,6 @@ macro_rules! define_label {
     ) => {
 
         $(#[$label_attr])*
-        #[diagnostic::on_unimplemented(
-            message = "`{Self}` is not a matching label",
-            label = "invalid label",
-        )]
         pub trait $label_trait_name: 'static + Send + Sync + ::std::fmt::Debug {
 
             $($trait_extra_methods)*

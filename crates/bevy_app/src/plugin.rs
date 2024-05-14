@@ -55,7 +55,6 @@ use std::any::Any;
 /// }
 /// # fn damp_flickering() {}
 /// ```
-#[diagnostic::on_unimplemented(message = "`{Self}` is not a plugin", label = "invalid plugin")]
 pub trait Plugin: Downcast + Any + Send + Sync {
     /// Configures the [`App`] to which this plugin is added.
     fn build(&self, app: &mut App);
@@ -131,10 +130,6 @@ pub type CreatePlugin = unsafe fn() -> *mut dyn Plugin;
 ///
 /// This is implemented for all types which implement [`Plugin`],
 /// [`PluginGroup`](super::PluginGroup), and tuples over [`Plugins`].
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a set of plugins",
-    label = "invalid plugin set"
-)]
 pub trait Plugins<Marker>: sealed::Plugins<Marker> {}
 
 impl<Marker, T> Plugins<Marker> for T where T: sealed::Plugins<Marker> {}

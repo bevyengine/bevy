@@ -165,10 +165,6 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
 }
 
 /// The parts from [`Bundle`] that don't require statically knowing the components of the bundle.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a dynamic component bundle",
-    label = "invalid bundle"
-)]
 pub trait DynamicBundle {
     // SAFETY:
     // The `StorageType` argument passed into [`Bundle::get_components`] must be correct for the

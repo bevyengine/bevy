@@ -87,7 +87,6 @@ use std::slice::Iter;
 /// [`None`]: Option<T>::None
 /// [`Some`]: Option<T>::Some
 /// [`Reflect`]: bevy_reflect_derive::Reflect
-#[diagnostic::on_unimplemented(message = "`{Self}` is not an enum", label = "invalid enum")]
 pub trait Enum: Reflect {
     /// Returns a reference to the value of the field (in the current variant) with the given name.
     ///

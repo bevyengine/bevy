@@ -22,10 +22,6 @@ use thiserror::Error;
 
 /// Loads an [`Asset`] from a given byte [`Reader`]. This can accept [`AssetLoader::Settings`], which configure how the [`Asset`]
 /// should be loaded.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not an asset loader",
-    label = "invalid asset loader"
-)]
 pub trait AssetLoader: Send + Sync + 'static {
     /// The top level [`Asset`] loaded by this [`AssetLoader`].
     type Asset: crate::Asset;
@@ -49,10 +45,6 @@ pub trait AssetLoader: Send + Sync + 'static {
 }
 
 /// Provides type-erased access to an [`AssetLoader`].
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not an erasable asset loader",
-    label = "invalid asset loader"
-)]
 pub trait ErasedAssetLoader: Send + Sync + 'static {
     /// Asynchronously loads the asset(s) from the bytes provided by [`Reader`].
     fn load<'a>(
@@ -239,10 +231,6 @@ impl ErasedLoadedAsset {
 }
 
 /// A type erased container for an [`Asset`] value that is capable of inserting the [`Asset`] into a [`World`]'s [`Assets`] collection.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not an asset container",
-    label = "invalid container"
-)]
 pub trait AssetContainer: Downcast + Any + Send + Sync + 'static {
     fn insert(self: Box<Self>, id: UntypedAssetId, world: &mut World);
     fn asset_type_name(&self) -> &'static str;

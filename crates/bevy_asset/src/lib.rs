@@ -230,10 +230,6 @@ impl Plugin for AssetPlugin {
 )]
 pub trait Asset: VisitAssetDependencies + TypePath + Send + Sync + 'static {}
 
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` can not visit dependencies",
-    label = "invalid asset"
-)]
 pub trait VisitAssetDependencies {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId));
 }
@@ -283,7 +279,6 @@ impl VisitAssetDependencies for Vec<UntypedHandle> {
 }
 
 /// Adds asset-related builder methods to [`App`].
-#[diagnostic::on_unimplemented(message = "`{Self}` is not an App", label = "invalid `App`")]
 pub trait AssetApp {
     /// Registers the given `loader` in the [`App`]'s [`AssetServer`].
     fn register_asset_loader<L: AssetLoader>(&mut self, loader: L) -> &mut Self;

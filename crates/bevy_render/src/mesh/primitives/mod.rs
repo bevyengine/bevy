@@ -26,10 +26,6 @@ mod dim3;
 pub use dim3::*;
 
 /// A trait for shapes that can be turned into a [`Mesh`](super::Mesh).
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` can not be turned into a mesh",
-    label = "invalid meshable"
-)]
 pub trait Meshable {
     /// The output of [`Self::mesh`]. This can either be a [`Mesh`](super::Mesh)
     /// or a builder used for creating a [`Mesh`](super::Mesh).

@@ -47,7 +47,6 @@ use crate::{
 /// [list-like]: https://doc.rust-lang.org/book/ch08-01-vectors.html
 /// [reflection]: crate
 /// [type-erasing]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html
-#[diagnostic::on_unimplemented(message = "`{Self}` is not a list", label = "invalid list")]
 pub trait List: Reflect {
     /// Returns a reference to the element at `index`, or `None` if out of bounds.
     fn get(&self, index: usize) -> Option<&dyn Reflect>;

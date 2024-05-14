@@ -621,10 +621,6 @@ impl<P: VectorSpace> CubicGenerator<P> for LinearSpline<P> {
 }
 
 /// Implement this on cubic splines that can generate a cubic curve from their spline parameters.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` can not generate a cubic curve",
-    label = "invalid generator"
-)]
 pub trait CubicGenerator<P: VectorSpace> {
     /// Build a [`CubicCurve`] by computing the interpolation coefficients for each curve segment.
     fn to_curve(&self) -> CubicCurve<P>;
@@ -915,10 +911,6 @@ impl<P: VectorSpace> IntoIterator for CubicCurve<P> {
 }
 
 /// Implement this on cubic splines that can generate a rational cubic curve from their spline parameters.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` can not generate a rational curve",
-    label = "invalid generator"
-)]
 pub trait RationalGenerator<P: VectorSpace> {
     /// Build a [`RationalCurve`] by computing the interpolation coefficients for each curve segment.
     fn to_curve(&self) -> RationalCurve<P>;

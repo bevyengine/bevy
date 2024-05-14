@@ -80,10 +80,6 @@ impl AssetLoader for AudioLoader {
 /// Types that implement this trait usually contain raw sound data that can be converted into an iterator of samples.
 /// This trait is implemented for [`AudioSource`].
 /// Check the example [`decodable`](https://github.com/bevyengine/bevy/blob/latest/examples/audio/decodable.rs) for how to implement this trait on a custom type.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a decodable audio source",
-    label = "invalid Source"
-)]
 pub trait Decodable: Send + Sync + 'static {
     /// The type of the audio samples.
     /// Usually a [`u16`], [`i16`] or [`f32`], as those implement [`rodio::Sample`].
@@ -110,7 +106,6 @@ impl Decodable for AudioSource {
 
 /// A trait that allows adding a custom audio source to the object.
 /// This is implemented for [`App`][bevy_app::App] to allow registering custom [`Decodable`] types.
-#[diagnostic::on_unimplemented(message = "`{Self}` is not an App", label = "invalid `App`")]
 pub trait AddAudioSource {
     /// Registers an audio source.
     /// The type must implement [`Decodable`],

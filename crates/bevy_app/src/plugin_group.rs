@@ -3,10 +3,6 @@ use bevy_utils::{tracing::debug, tracing::warn, TypeIdMap};
 use std::any::TypeId;
 
 /// Combines multiple [`Plugin`]s into a single unit.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a plugin group",
-    label = "invalid plugin group"
-)]
 pub trait PluginGroup: Sized {
     /// Configures the [`Plugin`]s that are to be added.
     fn build(self) -> PluginGroupBuilder;

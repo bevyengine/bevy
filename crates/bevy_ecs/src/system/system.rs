@@ -271,10 +271,6 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 ///
 /// # assert_eq!(count, 2);
 /// ```
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` can not run systems",
-    label = "invalid system runner"
-)]
 pub trait RunSystemOnce: Sized {
     /// Runs a system and applies its deferred parameters.
     fn run_system_once<T: IntoSystem<(), Out, Marker>, Out, Marker>(self, system: T) -> Out {

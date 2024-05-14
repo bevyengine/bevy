@@ -250,10 +250,6 @@ where
 /// Most light probe systems are written to be generic over the type of light
 /// probe. This allows much of the code to be shared and enables easy addition
 /// of more light probe types (e.g. real-time reflection planes) in the future.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a light probe",
-    label = "invalid light probe"
-)]
 pub trait LightProbeComponent: Send + Sync + Component + Sized {
     /// Holds [`AssetId`]s of the texture or textures that this light probe
     /// references.

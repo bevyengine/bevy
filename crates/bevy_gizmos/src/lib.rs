@@ -188,7 +188,6 @@ impl Plugin for GizmoPlugin {
 }
 
 /// A extension trait adding `App::init_gizmo_group` and `App::insert_gizmo_config`.
-#[diagnostic::on_unimplemented(message = "`{Self}` is not an App", label = "invalid `App`")]
 pub trait AppGizmoBuilder {
     /// Registers [`GizmoConfigGroup`] in the app enabling the use of [Gizmos&lt;Config&gt;](crate::gizmos::Gizmos).
     ///

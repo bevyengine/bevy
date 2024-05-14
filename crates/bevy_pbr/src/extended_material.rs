@@ -27,10 +27,6 @@ pub struct MaterialExtensionKey<E: MaterialExtension> {
 
 /// A subset of the `Material` trait for defining extensions to a base `Material`, such as the builtin `StandardMaterial`.
 /// A user type implementing the trait should be used as the `E` generic param in an `ExtendedMaterial` struct.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a valid material",
-    label = "invalid material"
-)]
 pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the base material mesh vertex shader
     /// will be used.

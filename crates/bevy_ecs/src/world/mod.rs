@@ -73,7 +73,6 @@ pub use identifier::WorldId;
 ///     commands.add(AddToCounter(42));
 /// }
 /// ```
-#[diagnostic::on_unimplemented(message = "`{Self}` is not a command", label = "invalid command")]
 pub trait Command: Send + 'static {
     /// Applies this command, causing it to mutate the provided `world`.
     ///
@@ -2607,7 +2606,6 @@ unsafe impl Sync for World {}
 /// using data from the supplied [`World`].
 ///
 /// This can be helpful for complex initialization or context-aware defaults.
-#[diagnostic::on_unimplemented(message = "`{Self}` can not be created from a World")]
 pub trait FromWorld {
     /// Creates `Self` using data from the given [`World`].
     fn from_world(world: &mut World) -> Self;

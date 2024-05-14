@@ -10,10 +10,6 @@ use crate::{Extract, ExtractSchedule, RenderApp};
 ///
 /// Therefore the resource is transferred from the "main world" into the "render world"
 /// in the [`ExtractSchedule`] step.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` can not be extracted for rendering",
-    label = "invalid resource"
-)]
 pub trait ExtractResource: Resource {
     type Source: Resource;
 

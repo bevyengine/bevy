@@ -7,10 +7,6 @@ use crate::Mix;
 /// implements [`Mix`].
 ///
 /// This is useful for defining gradients or animated color transitions.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a valid color range",
-    label = "invalid color range"
-)]
 pub trait ColorRange<T: Mix> {
     /// Get the color value at the given interpolation factor, which should be between 0.0 (start)
     /// and 1.0 (end).

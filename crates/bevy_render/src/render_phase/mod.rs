@@ -642,7 +642,6 @@ where
 /// and then sorted all at once. This is needed for transparent meshes, which
 /// have to be sorted back-to-front to render with the painter's algorithm.
 /// These types of phase items are generally slower than binned phase items.
-#[diagnostic::on_unimplemented(message = "`{Self}` is not a phase item", label = "invalid item")]
 pub trait PhaseItem: Sized + Send + Sync + 'static {
     /// Whether or not this `PhaseItem` should be subjected to automatic batching. (Default: `true`)
     const AUTOMATIC_BATCHING: bool = true;
@@ -809,10 +808,6 @@ impl PhaseItemExtraIndex {
 ///
 /// An example of a binned phase item is `Opaque3d`, for which the rendering
 /// order isn't critical.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a binned phase item",
-    label = "invalid item"
-)]
 pub trait BinnedPhaseItem: PhaseItem {
     /// The key used for binning [`PhaseItem`]s into bins. Order the members of
     /// [`BinnedPhaseItem::BinKey`] by the order of binding for best
@@ -841,10 +836,6 @@ pub trait BinnedPhaseItem: PhaseItem {
 ///
 /// An example of a sorted phase item is `Transparent3d`, which must be sorted
 /// back to front in order to correctly render with the painter's algorithm.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a sorted phase item",
-    label = "invalid item"
-)]
 pub trait SortedPhaseItem: PhaseItem {
     /// The type used for ordering the items. The smallest values are drawn first.
     /// This order can be calculated using the [`ViewRangefinder3d`],
@@ -876,10 +867,6 @@ pub trait SortedPhaseItem: PhaseItem {
 /// cached in the [`PipelineCache`].
 ///
 /// You can use the [`SetItemPipeline`] render command to set the pipeline for this item.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a cached phase item",
-    label = "invalid item"
-)]
 pub trait CachedRenderPipelinePhaseItem: PhaseItem {
     /// The id of the render pipeline, cached in the [`PipelineCache`], that will be used to draw
     /// this phase item.

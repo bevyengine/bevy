@@ -280,10 +280,6 @@ impl Deref for BindGroup {
 ///     }
 /// }
 /// ```
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` can not be used as a bind group",
-    label = "invalid bind group"
-)]
 pub trait AsBindGroup {
     /// Data that will be stored alongside the "prepared" bind group.
     type Data: Send + Sync;

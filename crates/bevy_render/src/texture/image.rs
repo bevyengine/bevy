@@ -787,10 +787,6 @@ impl<'a> ImageType<'a> {
 }
 
 /// Used to calculate the volume of an item.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` does not a definition for volume",
-    label = "invalid volume"
-)]
 pub trait Volume {
     fn volume(&self) -> usize;
 }
@@ -803,10 +799,6 @@ impl Volume for Extent3d {
 }
 
 /// Extends the wgpu [`TextureFormat`] with information about the pixel.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a `TextureFormat`",
-    label = "invalid `TextureFormat`"
-)]
 pub trait TextureFormatPixelInfo {
     /// Returns the size of a pixel in bytes of the format.
     fn pixel_size(&self) -> usize;

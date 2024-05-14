@@ -44,7 +44,6 @@ use std::{
 /// [`GetTypeRegistration`]: crate::GetTypeRegistration
 /// [limitation]: https://github.com/serde-rs/serde/issues/1937
 /// [`Deserialize`]: ::serde::Deserialize
-#[diagnostic::on_unimplemented(message = "`{Self}` is not an array", label = "invalid array")]
 pub trait Array: Reflect {
     /// Returns a reference to the element at `index`, or `None` if out of bounds.
     fn get(&self, index: usize) -> Option<&dyn Reflect>;

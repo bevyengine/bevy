@@ -788,10 +788,6 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
 /// Types that implement `SystemBuffer` should take care to perform as many
 /// computations up-front as possible. Buffers cannot be applied in parallel,
 /// so you should try to minimize the time spent in [`SystemBuffer::apply`].
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a deferrable system parameter",
-    label = "invalid system parameter"
-)]
 pub trait SystemBuffer: FromWorld + Send + 'static {
     /// Applies any deferred mutations to the [`World`].
     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World);

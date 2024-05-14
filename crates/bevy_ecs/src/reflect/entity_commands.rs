@@ -8,7 +8,6 @@ use std::borrow::Cow;
 use std::marker::PhantomData;
 
 /// An extension trait for [`EntityCommands`] for reflection related functions
-#[diagnostic::on_unimplemented(message = "`{Self}` is not an App", label = "invalid `App`")]
 pub trait ReflectCommandExt {
     /// Adds the given boxed reflect component to the entity using the reflection data in
     /// [`AppTypeRegistry`].

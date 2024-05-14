@@ -18,7 +18,6 @@ impl std::fmt::Debug for ContentSize {
 
 /// A `Measure` is used to compute the size of a ui node
 /// when the size of that node is based on its content.
-#[diagnostic::on_unimplemented(message = "`{Self}` can not be measured", label = "invalid UI node")]
 pub trait Measure: Send + Sync + 'static {
     /// Calculate the size of the node given the constraints.
     fn measure(

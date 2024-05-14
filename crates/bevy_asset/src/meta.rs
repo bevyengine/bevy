@@ -114,10 +114,6 @@ pub struct ProcessedInfoMinimal {
 
 /// A dynamic type-erased counterpart to [`AssetMeta`] that enables passing around and interacting with [`AssetMeta`] without knowing
 /// its type.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` can not be used as an erased AssetMeta",
-    label = "invalid asset meta"
-)]
 pub trait AssetMetaDyn: Downcast + Send + Sync {
     /// Returns a reference to the [`AssetLoader`] settings, if they exist.
     fn loader_settings(&self) -> Option<&dyn Settings>;
@@ -164,10 +160,6 @@ impl_downcast!(AssetMetaDyn);
 /// Settings used by the asset system, such as by [`AssetLoader`], [`Process`], and [`AssetSaver`]
 ///
 /// [`AssetSaver`]: crate::saver::AssetSaver
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` can not be used as an asset setting",
-    label = "invalid settings"
-)]
 pub trait Settings: Downcast + Send + Sync + 'static {}
 
 impl<T: 'static> Settings for T where T: Send + Sync {}

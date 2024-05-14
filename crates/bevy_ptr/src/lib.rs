@@ -22,10 +22,6 @@ pub struct Unaligned;
 
 /// Trait that is only implemented for [`Aligned`] and [`Unaligned`] to work around the lack of ability
 /// to have const generics of an enum.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not an alignment option",
-    label = "invalid alignment"
-)]
 pub trait IsAligned: sealed::Sealed {}
 impl IsAligned for Aligned {}
 impl IsAligned for Unaligned {}
@@ -548,10 +544,6 @@ mod private {
 }
 
 /// Extension trait for helper methods on [`UnsafeCell`]
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not an UnsafeCell",
-    label = "invalid `UnsafeCell`"
-)]
 pub trait UnsafeCellDeref<'a, T>: private::SealedUnsafeCell {
     /// # Safety
     /// - The returned value must be unique and not alias any mutable or immutable references to the contents of the [`UnsafeCell`].

@@ -20,7 +20,6 @@ fn point_cloud_3d_center(points: impl Iterator<Item = impl Into<Vec3A>>) -> Vec3
 }
 
 /// A trait with methods that return 3D bounded volumes for a shape
-#[diagnostic::on_unimplemented(message = "`{Self}` is not bounded in 3D")]
 pub trait Bounded3d {
     /// Get an axis-aligned bounding box for the shape with the given translation and rotation
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d;

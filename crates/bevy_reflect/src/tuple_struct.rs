@@ -34,10 +34,6 @@ use std::slice::Iter;
 ///
 /// [tuple struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#using-tuple-structs-without-named-fields-to-create-different-types
 /// [reflection]: crate
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a tuple struct",
-    label = "invalid tuple struct"
-)]
 pub trait TupleStruct: Reflect {
     /// Returns a reference to the value of the field with index `index` as a
     /// `&dyn Reflect`.
@@ -189,10 +185,6 @@ impl<'a> ExactSizeIterator for TupleStructFieldIter<'a> {}
 /// assert_eq!(foo.get_field::<String>(0), Some(&"Hello".to_string()));
 /// # }
 /// ```
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a tuple struct",
-    label = "invalid tuple struct"
-)]
 pub trait GetTupleStructField {
     /// Returns a reference to the value of the field with index `index`,
     /// downcast to `T`.

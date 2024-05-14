@@ -4,10 +4,6 @@ use bevy_transform::prelude::Transform;
 use rodio::{Sink, SpatialSink};
 
 /// Common interactions with an audio sink.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not an audio sink",
-    label = "invalid audio sink"
-)]
 pub trait AudioSinkPlayback {
     /// Gets the volume of the sound.
     ///

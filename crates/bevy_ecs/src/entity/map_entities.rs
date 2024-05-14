@@ -37,7 +37,6 @@ use super::EntityHashMap;
 ///     }
 /// }
 /// ```
-#[diagnostic::on_unimplemented(message = "`{Self}` can not map entities")]
 pub trait MapEntities {
     /// Updates all [`Entity`] references stored inside using `entity_mapper`.
     ///
@@ -71,10 +70,6 @@ pub trait MapEntities {
 ///     }
 /// }
 /// ```
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not an entity mapper",
-    label = "invalid entity mapper"
-)]
 pub trait EntityMapper {
     /// Map an entity to another entity
     fn map_entity(&mut self, entity: Entity) -> Entity;

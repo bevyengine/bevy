@@ -7,10 +7,6 @@ use std::{borrow::Borrow, hash::Hash, ops::Deref};
 
 /// Saves an [`Asset`] of a given [`AssetSaver::Asset`] type. [`AssetSaver::OutputLoader`] will then be used to load the saved asset
 /// in the final deployed application. The saver should produce asset bytes in a format that [`AssetSaver::OutputLoader`] can read.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not an asset saver",
-    label = "invalid asset saver"
-)]
 pub trait AssetSaver: Send + Sync + 'static {
     /// The top level [`Asset`] saved by this [`AssetSaver`].
     type Asset: Asset;
@@ -34,10 +30,6 @@ pub trait AssetSaver: Send + Sync + 'static {
 }
 
 /// A type-erased dynamic variant of [`AssetSaver`] that allows callers to save assets without knowing the actual type of the [`AssetSaver`].
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not an erasable asset saver",
-    label = "invalid asset saver"
-)]
 pub trait ErasedAssetSaver: Send + Sync + 'static {
     /// Saves the given runtime [`ErasedLoadedAsset`] by writing it to a byte format using `writer`. The passed in `settings` can influence how the
     /// `asset` is saved.  

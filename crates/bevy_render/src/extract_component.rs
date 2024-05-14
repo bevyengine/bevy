@@ -34,10 +34,6 @@ impl<C: Component> DynamicUniformIndex<C> {
 ///
 /// Therefore the component is transferred from the "app world" into the "render world"
 /// in the [`ExtractSchedule`] step.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` can not be extracted for rendering",
-    label = "invalid component"
-)]
 pub trait ExtractComponent: Component {
     /// ECS [`ReadOnlyQueryData`] to fetch the components to extract.
     type QueryData: ReadOnlyQueryData;

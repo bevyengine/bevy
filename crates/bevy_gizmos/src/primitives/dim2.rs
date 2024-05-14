@@ -20,10 +20,6 @@ const HALF_MIN_LINE_LEN: f32 = 25.0;
 const INFINITE_LEN: f32 = 100_000.0;
 
 /// A trait for rendering 2D geometric primitives (`P`) with [`Gizmos`].
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a primitive 2D gizmo",
-    label = "invalid gizmo"
-)]
 pub trait GizmoPrimitive2d<P: Primitive2d> {
     /// The output of `primitive_2d`. This is a builder to set non-default values.
     type Output<'a>

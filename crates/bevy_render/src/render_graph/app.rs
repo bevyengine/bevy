@@ -5,7 +5,6 @@ use bevy_utils::tracing::warn;
 use super::{IntoRenderNodeArray, Node, RenderGraph, RenderLabel, RenderSubGraph};
 
 /// Adds common [`RenderGraph`] operations to [`SubApp`] (and [`App`]).
-#[diagnostic::on_unimplemented(message = "`{Self}` is not an App", label = "invalid `App`")]
 pub trait RenderGraphApp {
     // Add a sub graph to the [`RenderGraph`]
     fn add_render_sub_graph(&mut self, sub_graph: impl RenderSubGraph) -> &mut Self;

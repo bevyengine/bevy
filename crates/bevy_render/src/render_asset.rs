@@ -27,10 +27,6 @@ pub enum PrepareAssetError<E: Send + Sync + 'static> {
 ///
 /// After that in the [`RenderSet::PrepareAssets`] step the extracted asset
 /// is transformed into its GPU-representation of type [`RenderAsset`].
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` can not be extracted for rendering",
-    label = "invalid asset"
-)]
 pub trait RenderAsset: Send + Sync + 'static + Sized {
     /// The representation of the asset in the "main world".
     type SourceAsset: Asset + Clone;

@@ -70,10 +70,6 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// # world.insert_resource(DidRun(false));
 /// # app.run(&mut world);
 /// # assert!(world.resource::<DidRun>().0);
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a run condition",
-    label = "invalid run condition"
-)]
 pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// Returns a new run condition that only returns `true`
     /// if both this one and the passed `and_then` return `true`.
