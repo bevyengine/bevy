@@ -1378,10 +1378,9 @@ unsafe impl<'__w, T: Component> QueryData for &'__w mut T {
     type ReadOnly = &'__w T;
 }
 
-/// Mirroring implementation for `&mut T` -> `&T` in a query, by providing `Mut<T>` -> `Ref<T>` for change detection in a query's read-only type.
+/// When `Mut<T>` is used in a query, it will be converted to `Ref<T>` when transformed into its read-only form, providing access to change detection methods.
 ///
-/// Where using `&mut T` in a query will provide `Mut<T>` in the mutable query type and `&T` in the read-only query type,
-/// using `Mut<T>` directly in the query will provide `Mut<T>` in the mutable query type and `Ref<T>` in the read-only query type.
+/// By contrast `&mut T` will result in a `Mut<T>` item in mutable form to record mutations, but result in a bare `&T` in read-only form.
 ///
 /// SAFETY:
 /// `fetch` accesses a single component mutably.

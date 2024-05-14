@@ -730,7 +730,7 @@ impl_debug!(Ref<'w, T>,);
 /// Unique mutable borrow of an entity's component or of a resource.
 ///
 /// This can be used in queries to opt into change detection on both their mutable and immutable forms, as opposed to
-/// `&mut T`, which only opts into change detection on their mutable forms:
+/// `&mut T`, which only provides access to change detection while in its mutable form:
 ///
 /// ```rust
 /// # use bevy_ecs::prelude::*;
