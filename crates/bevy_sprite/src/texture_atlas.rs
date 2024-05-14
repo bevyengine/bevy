@@ -149,7 +149,7 @@ impl TextureAtlasLayout {
         Some(layout)
     }
 
-    /// Retrieves the texture *section* indexes of the given `texture` handle.
+    /// Retrieves the texture *section* indices of the given `texture` handle.
     ///
     /// This requires the layout to have been built using a [`TextureAtlasBuilder`]
     ///
