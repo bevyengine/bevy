@@ -250,7 +250,7 @@ impl Plugin for LogPlugin {
             finished_subscriber = subscriber.with(android_tracing::AndroidLayer::default());
         }
 
-        #[cfg(any(target_os = "ios"))]
+        #[cfg(target_os = "ios")]
         {
             finished_subscriber = subscriber.with(tracing_oslog::OsLogger::new(
                 &self.subsystem,
