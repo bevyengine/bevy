@@ -35,6 +35,7 @@ fn main() {
                 rotate_bonus,
                 scoreboard_system,
                 spawn_bonus,
+                restart_keyboard,
             )
                 .run_if(in_state(GameState::Playing)),
         )
@@ -120,6 +121,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.player.i = BOARD_SIZE_I / 2;
     game.player.j = BOARD_SIZE_J / 2;
     game.player.move_cooldown = Timer::from_seconds(0.3, TimerMode::Once);
+    game.bonus.entity = None;
 
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 10.0, 4.0),
@@ -385,7 +387,17 @@ fn scoreboard_system(game: Res<Game>, mut query: Query<&mut Text>) {
     text.sections[0].value = format!("Sugar Rush: {}", game.score);
 }
 
-// restart the game when pressing spacebar
+// restart the game on R press
+fn restart_keyboard(
+    mut next_state: ResMut<NextState<GameState>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::KeyR) {
+        next_state.set(GameState::Playing);
+    }
+}
+
+// start a new game on spacebar press
 fn gameover_keyboard(
     mut next_state: ResMut<NextState<GameState>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
