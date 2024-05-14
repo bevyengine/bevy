@@ -106,7 +106,12 @@ impl<S: InnerStateSet> StateSet for S {
             }
             parent_changed.clear();
 
-            let new_state = S::convert_to_usable_state(state_set.as_deref()).and_then(T::compute);
+            let new_state =
+                if let Some(state_set) = S::convert_to_usable_state(state_set.as_deref()) {
+                    T::compute(state_set)
+                } else {
+                    None
+                };
 
             let same_state = current_state.as_ref().map(|x| x.get()) == new_state.as_ref();
             if same_state && !should_refresh {
@@ -153,7 +158,12 @@ impl<S: InnerStateSet> StateSet for S {
             }
             parent_changed.clear();
 
-            let new_state = S::convert_to_usable_state(state_set.as_deref()).and_then(T::should_exist);
+            let new_state =
+                if let Some(state_set) = S::convert_to_usable_state(state_set.as_deref()) {
+                    T::should_exist(state_set)
+                } else {
+                    None
+                };
 
             if current_state.is_none() || new_state.is_none() {
                 internal_apply_state_transition(event, commands, current_state, new_state);
