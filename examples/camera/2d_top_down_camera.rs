@@ -16,7 +16,8 @@ use bevy::math::{vec2, vec3};
 use bevy::prelude::*;
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
 
-static MOVE_SPEED: f32 = 10.;
+static MOVE_SPEED: f32 = 100.;
+static LERP_FACTOR: f32 = 3.;
 
 #[derive(Component, Debug)]
 struct Player;
@@ -31,7 +32,7 @@ fn main() {
     let default_plugins = DefaultPlugins.set(LogPlugin {
         filter: "info,wgpu_core=warn,wgpu_hal=warn,2d_top_down=debug".into(),
         level: Level::INFO,
-        update_subscriber: None,
+        ..default()
     });
 
     App::new()
@@ -102,74 +103,39 @@ fn update_camera(
     let Vec3 { x, y, .. } = player.translation;
     let direction = Vec3::new(x, y, camera.translation.z);
 
-    let smooth_damp = smooth_damp(
-        camera.translation,
-        direction,
-        Vec3::ZERO,
-        0.2,
-        f32::INFINITY,
-        time.delta_seconds(),
-    );
-
-    camera.translation = smooth_damp;
+    camera.translation = camera
+        .translation
+        .lerp(direction, time.delta_seconds() * LERP_FACTOR);
 }
 
 fn move_player(
     mut player: Query<&mut Transform, With<Player>>,
     time: Res<Time>,
-    _kb_input: Res<ButtonInput<KeyCode>>,
+    kb_input: Res<ButtonInput<KeyCode>>,
 ) {
     let Ok(mut player) = player.get_single_mut() else {
         debug!("Player not found");
         return;
     };
 
-    let move_delta = vec2(1., 1.) * MOVE_SPEED * time.delta_seconds();
+    let mut direction = vec2(0., 0.);
+
+    if kb_input.pressed(KeyCode::KeyW) {
+        direction.y = 1.;
+    }
+
+    if kb_input.pressed(KeyCode::KeyS) {
+        direction.y = -1.;
+    }
+
+    if kb_input.pressed(KeyCode::KeyA) {
+        direction.x = -1.;
+    }
+
+    if kb_input.pressed(KeyCode::KeyD) {
+        direction.x = 1.;
+    }
+
+    let move_delta = direction * MOVE_SPEED * time.delta_seconds();
     player.translation += move_delta.extend(0.);
-}
-
-/// Update a vector `Vec3` towards a target over time (`delta_time`).
-/// The smoothness is achieved with a spring-damper like function.
-///
-/// Algorithm based on Game Programming Gems vol.4,
-/// chapter 1.10 "Critically Damped Ease-In/Ease-Out Smoothing".
-pub fn smooth_damp(
-    from: Vec3,
-    to: Vec3,
-    mut velocity: Vec3,
-    mut smoothness: f32,
-    max_speed: f32,
-    delta_time: f32,
-) -> Vec3 {
-    // The desired smoothness clamped to the minimum value.
-    smoothness = f32::max(0.0001, smoothness);
-    // Corresponds to the spring's natural frequency
-    let omega = 2. / smoothness;
-
-    let x = omega * delta_time;
-    // Approximation
-    let exp = 1. / (1. + x + 0.48 * x * x + 0.235 * x * x * x);
-
-    let mut distance_x = from.x - to.x;
-    let mut distance_y = from.y - to.y;
-    let mut distance_z = from.z - to.z;
-
-    let max_distance = max_speed * smoothness;
-    distance_x = f32::min(f32::max(-max_distance, distance_x), max_distance);
-    distance_y = f32::min(f32::max(-max_distance, distance_y), max_distance);
-    distance_z = f32::min(f32::max(-max_distance, distance_z), max_distance);
-
-    let temp_x = (velocity.x + omega * distance_x) * delta_time;
-    let temp_y = (velocity.y + omega * distance_y) * delta_time;
-    let temp_z = (velocity.z + omega * distance_z) * delta_time;
-
-    velocity.x = (velocity.x - omega * temp_x) * exp;
-    velocity.y = (velocity.y - omega * temp_y) * exp;
-    velocity.z = (velocity.z - omega * temp_z) * exp;
-
-    let x = to.x + (distance_x + temp_x) * exp;
-    let y = to.y + (distance_y + temp_y) * exp;
-    let z = to.z + (distance_z + temp_z) * exp;
-
-    Vec3::new(x, y, z)
 }
