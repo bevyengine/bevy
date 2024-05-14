@@ -337,6 +337,7 @@ impl SubApp {
             .contains_resource::<Events<StateTransitionEvent<S>>>()
         {
             setup_state_transitions_in_world(&mut self.world, Some(Startup.intern()));
+            self.init_resource::<RefreshState<S>>();
             self.add_event::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
             S::register_computed_state_systems(schedule);
