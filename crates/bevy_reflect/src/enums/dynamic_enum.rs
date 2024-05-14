@@ -1,9 +1,9 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    self as bevy_reflect, enum_debug, enum_hash, enum_partial_eq, DynamicStruct, DynamicTuple,
-    Enum, Reflect, ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple, TypeInfo, VariantFieldIter,
-    VariantType,
+    self as bevy_reflect, enum_debug, enum_hash, enum_partial_eq, ApplyError, DynamicStruct,
+    DynamicTuple, Enum, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple,
+    TypeInfo, VariantFieldIter, VariantType,
 };
 use std::any::Any;
 use std::fmt::Formatter;
@@ -289,13 +289,6 @@ impl Enum for DynamicEnum {
 
 impl Reflect for DynamicEnum {
     #[inline]
-    fn type_name(&self) -> &str {
-        self.represented_type
-            .map(|info| info.type_name())
-            .unwrap_or_default()
-    }
-
-    #[inline]
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
     }
@@ -331,7 +324,7 @@ impl Reflect for DynamicEnum {
     }
 
     #[inline]
-    fn apply(&mut self, value: &dyn Reflect) {
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
         if let ReflectRef::Enum(value) = value.reflect_ref() {
             if Enum::variant_name(self) == value.variant_name() {
                 // Same variant -> just update fields
@@ -340,14 +333,14 @@ impl Reflect for DynamicEnum {
                         for field in value.iter_fields() {
                             let name = field.name().unwrap();
                             if let Some(v) = Enum::field_mut(self, name) {
-                                v.apply(field.value());
+                                v.try_apply(field.value())?;
                             }
                         }
                     }
                     VariantType::Tuple => {
                         for (index, field) in value.iter_fields().enumerate() {
                             if let Some(v) = Enum::field_at_mut(self, index) {
-                                v.apply(field.value());
+                                v.try_apply(field.value())?;
                             }
                         }
                     }
@@ -376,14 +369,23 @@ impl Reflect for DynamicEnum {
                 self.set_variant(value.variant_name(), dyn_variant);
             }
         } else {
-            panic!("`{}` is not an enum", value.type_name());
+            return Err(ApplyError::MismatchedKinds {
+                from_kind: value.reflect_kind(),
+                to_kind: ReflectKind::Enum,
+            });
         }
+        Ok(())
     }
 
     #[inline]
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
+    }
+
+    #[inline]
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Enum
     }
 
     #[inline]

@@ -1,6 +1,6 @@
 [package]
 name = "bevy_ecs"
-version = "0.11.0-dev"
+version = "0.14.0-dev"
 edition = "2021"
 description = "Bevy Engine's entity component system"
 homepage = "https://bevyengine.org"
@@ -8,29 +8,33 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["ecs", "game", "bevy"]
 categories = ["game-engines", "data-structures"]
+rust-version = "1.77.0"
 
 [features]
 trace = []
+multi_threaded = ["bevy_tasks/multi_threaded", "arrayvec"]
+bevy_debug_stepping = []
 default = ["bevy_reflect"]
 
 [dependencies]
-bevy_ptr = { path = "../bevy_ptr", version = "0.11.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.11.0-dev", optional = true }
-bevy_tasks = { path = "../bevy_tasks", version = "0.11.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.11.0-dev" }
-bevy_ecs_macros = { path = "macros", version = "0.11.0-dev" }
+bevy_ptr = { path = "../bevy_ptr", version = "0.14.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", optional = true }
+bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
+bevy_ecs_macros = { path = "macros", version = "0.14.0-dev" }
 
-async-channel = "1.4"
-event-listener = "2.5"
-thread_local = "1.1.4"
-fixedbitset = "0.4.2"
-rustc-hash = "1.1"
-downcast-rs = "1.2"
-serde = "1"
+petgraph = "0.6"
+bitflags = "2.3"
+concurrent-queue = "2.4.0"
+fixedbitset = "0.5"
+serde = { version = "1", optional = true, default-features = false }
 thiserror = "1.0"
+nonmax = "0.5"
+arrayvec = { version = "0.7.4", optional = true }
 
 [dev-dependencies]
 rand = "0.8"
+static_assertions = "1.1.0"
 
 [[example]]
 name = "events"
@@ -43,3 +47,10 @@ path = "examples/resources.rs"
 [[example]]
 name = "change_detection"
 path = "examples/change_detection.rs"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+all-features = true

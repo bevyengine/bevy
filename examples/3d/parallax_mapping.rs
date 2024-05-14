@@ -3,7 +3,7 @@
 
 use std::fmt;
 
-use bevy::{prelude::*, render::render_resource::TextureFormat, window::close_on_esc};
+use bevy::{prelude::*, render::render_resource::TextureFormat};
 
 fn main() {
     App::new()
@@ -19,7 +19,6 @@ fn main() {
                 update_parallax_depth_scale,
                 update_parallax_layers,
                 switch_method,
-                close_on_esc,
             ),
         )
         .run();
@@ -79,18 +78,18 @@ impl CurrentMethod {
 }
 
 fn update_parallax_depth_scale(
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut target_depth: Local<TargetDepth>,
     mut depth_update: Local<bool>,
     mut text: Query<&mut Text>,
 ) {
-    if input.just_pressed(KeyCode::Key1) {
+    if input.just_pressed(KeyCode::Digit1) {
         target_depth.0 -= DEPTH_UPDATE_STEP;
         target_depth.0 = target_depth.0.max(0.0);
         *depth_update = true;
     }
-    if input.just_pressed(KeyCode::Key2) {
+    if input.just_pressed(KeyCode::Digit2) {
         target_depth.0 += DEPTH_UPDATE_STEP;
         target_depth.0 = target_depth.0.min(MAX_DEPTH);
         *depth_update = true;
@@ -99,8 +98,7 @@ fn update_parallax_depth_scale(
         let mut text = text.single_mut();
         for (_, mat) in materials.iter_mut() {
             let current_depth = mat.parallax_depth_scale;
-            let new_depth =
-                current_depth * (1.0 - DEPTH_CHANGE_RATE) + (target_depth.0 * DEPTH_CHANGE_RATE);
+            let new_depth = current_depth.lerp(target_depth.0, DEPTH_CHANGE_RATE);
             mat.parallax_depth_scale = new_depth;
             text.sections[0].value = format!("Parallax depth scale: {new_depth:.5}\n");
             if (new_depth - current_depth).abs() <= 0.000000001 {
@@ -111,7 +109,7 @@ fn update_parallax_depth_scale(
 }
 
 fn switch_method(
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut text: Query<&mut Text>,
     mut current: Local<CurrentMethod>,
@@ -130,15 +128,15 @@ fn switch_method(
 }
 
 fn update_parallax_layers(
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut target_layers: Local<TargetLayers>,
     mut text: Query<&mut Text>,
 ) {
-    if input.just_pressed(KeyCode::Key3) {
+    if input.just_pressed(KeyCode::Digit3) {
         target_layers.0 -= 1.0;
         target_layers.0 = target_layers.0.max(0.0);
-    } else if input.just_pressed(KeyCode::Key4) {
+    } else if input.just_pressed(KeyCode::Digit4) {
         target_layers.0 += 1.0;
     } else {
         return;
@@ -160,7 +158,7 @@ fn spin(time: Res<Time>, mut query: Query<(&mut Transform, &Spin)>) {
     }
 }
 
-// Camera positions to cycle through when left-clickig.
+// Camera positions to cycle through when left-clicking.
 const CAMERA_POSITIONS: &[Transform] = &[
     Transform {
         translation: Vec3::new(1.5, 1.5, 1.5),
@@ -187,7 +185,7 @@ const CAMERA_POSITIONS: &[Transform] = &[
 fn move_camera(
     mut camera: Query<&mut Transform, With<CameraController>>,
     mut current_view: Local<usize>,
-    button: Res<Input<MouseButton>>,
+    button: Res<ButtonInput<MouseButton>>,
 ) {
     let mut camera = camera.single_mut();
     if button.just_pressed(MouseButton::Left) {
@@ -223,9 +221,8 @@ fn setup(
     // light
     commands
         .spawn(PointLightBundle {
-            transform: Transform::from_xyz(1.8, 0.7, -1.1),
+            transform: Transform::from_xyz(2.0, 1.0, -1.1),
             point_light: PointLight {
-                intensity: 226.0,
                 shadows_enabled: true,
                 ..default()
             },
@@ -233,42 +230,23 @@ fn setup(
         })
         .with_children(|commands| {
             // represent the light source as a sphere
-            let mesh = meshes.add(
-                shape::Icosphere {
-                    radius: 0.05,
-                    subdivisions: 3,
-                }
-                .try_into()
-                .unwrap(),
-            );
+            let mesh = meshes.add(Sphere::new(0.05).mesh().ico(3).unwrap());
             commands.spawn(PbrBundle { mesh, ..default() });
         });
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(
-            shape::Plane {
-                size: 10.0,
-                subdivisions: 0,
-            }
-            .into(),
-        ),
+        mesh: meshes.add(Plane3d::default().mesh().size(10.0, 10.0)),
         material: materials.add(StandardMaterial {
             // standard material derived from dark green, but
             // with roughness and reflectance set.
             perceptual_roughness: 0.45,
             reflectance: 0.18,
-            ..Color::rgb_u8(0, 80, 0).into()
+            ..Color::srgb_u8(0, 80, 0).into()
         }),
         transform: Transform::from_xyz(0.0, -1.0, 0.0),
         ..default()
     });
-
-    let mut cube: Mesh = shape::Cube { size: 1.0 }.into();
-
-    // NOTE: for normal maps and depth maps to work, the mesh
-    // needs tangents generated.
-    cube.generate_tangents().unwrap();
 
     let parallax_depth_scale = TargetDepth::default().0;
     let max_parallax_layer_count = TargetLayers::default().0.exp2();
@@ -287,16 +265,24 @@ fn setup(
     });
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(cube),
+            mesh: meshes.add(
+                // NOTE: for normal maps and depth maps to work, the mesh
+                // needs tangents generated.
+                Mesh::from(Cuboid::default())
+                    .with_generated_tangents()
+                    .unwrap(),
+            ),
             material: parallax_material.clone_weak(),
             ..default()
         },
         Spin { speed: 0.3 },
     ));
 
-    let mut background_cube: Mesh = shape::Cube { size: 40.0 }.into();
-    background_cube.generate_tangents().unwrap();
-    let background_cube = meshes.add(background_cube);
+    let background_cube = meshes.add(
+        Mesh::from(Cuboid::new(40.0, 40.0, 40.0))
+            .with_generated_tangents()
+            .unwrap(),
+    );
 
     let background_cube_bundle = |translation| {
         (

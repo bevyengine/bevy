@@ -17,6 +17,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
+    let sphere_mesh = meshes.add(Sphere::new(0.45));
     // add entities to the world
     for y in -2..=2 {
         for x in -5..=5 {
@@ -24,15 +25,9 @@ fn setup(
             let y01 = (y + 2) as f32 / 4.0;
             // sphere
             commands.spawn(PbrBundle {
-                mesh: meshes.add(
-                    Mesh::try_from(shape::Icosphere {
-                        radius: 0.45,
-                        subdivisions: 32,
-                    })
-                    .unwrap(),
-                ),
+                mesh: sphere_mesh.clone(),
                 material: materials.add(StandardMaterial {
-                    base_color: Color::hex("#ffd891").unwrap(),
+                    base_color: Srgba::hex("#ffd891").unwrap().into(),
                     // vary key PBR parameters on a grid of spheres to show the effect
                     metallic: y01,
                     perceptual_roughness: x01,
@@ -45,15 +40,9 @@ fn setup(
     }
     // unlit sphere
     commands.spawn(PbrBundle {
-        mesh: meshes.add(
-            Mesh::try_from(shape::Icosphere {
-                radius: 0.45,
-                subdivisions: 32,
-            })
-            .unwrap(),
-        ),
+        mesh: sphere_mesh,
         material: materials.add(StandardMaterial {
-            base_color: Color::hex("#ffd891").unwrap(),
+            base_color: Srgba::hex("#ffd891").unwrap().into(),
             // vary key PBR parameters on a grid of spheres to show the effect
             unlit: true,
             ..default()
@@ -62,12 +51,10 @@ fn setup(
         ..default()
     });
 
-    // light
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(50.0, 50.0, 50.0),
-        point_light: PointLight {
-            intensity: 600000.,
-            range: 100.,
+    commands.spawn(DirectionalLightBundle {
+        transform: Transform::from_xyz(50.0, 50.0, 50.0).looking_at(Vec3::ZERO, Vec3::Y),
+        directional_light: DirectionalLight {
+            illuminance: 1_500.,
             ..default()
         },
         ..default()
@@ -79,7 +66,6 @@ fn setup(
             "Perceptual Roughness",
             TextStyle {
                 font_size: 36.0,
-                color: Color::WHITE,
                 ..default()
             },
         )
@@ -96,14 +82,13 @@ fn setup(
             "Metallic",
             TextStyle {
                 font_size: 36.0,
-                color: Color::WHITE,
                 ..default()
             },
         ),
         style: Style {
             position_type: PositionType::Absolute,
             top: Val::Px(130.0),
-            right: Val::Px(0.0),
+            right: Val::ZERO,
             ..default()
         },
         transform: Transform {
@@ -118,7 +103,7 @@ fn setup(
             "Loading Environment Map...",
             TextStyle {
                 font_size: 36.0,
-                color: Color::RED,
+                color: Color::WHITE,
                 ..default()
             },
         )
@@ -145,6 +130,7 @@ fn setup(
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            intensity: 900.0,
         },
     ));
 }
@@ -156,8 +142,8 @@ fn environment_map_load_finish(
     label_query: Query<Entity, With<EnvironmentMapLabel>>,
 ) {
     if let Ok(environment_map) = environment_maps.get_single() {
-        if asset_server.get_load_state(&environment_map.diffuse_map) == LoadState::Loaded
-            && asset_server.get_load_state(&environment_map.specular_map) == LoadState::Loaded
+        if asset_server.load_state(&environment_map.diffuse_map) == LoadState::Loaded
+            && asset_server.load_state(&environment_map.specular_map) == LoadState::Loaded
         {
             if let Ok(label_entity) = label_query.get_single() {
                 commands.entity(label_entity).despawn();

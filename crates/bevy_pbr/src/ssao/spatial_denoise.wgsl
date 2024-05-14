@@ -9,7 +9,7 @@
 // XeGTAO does a 3x3 filter, on two pixels at a time per compute thread, applied twice
 // We do a 3x3 filter, on 1 pixel per compute thread, applied once
 
-#import bevy_render::view
+#import bevy_render::view::View
 
 @group(0) @binding(0) var ambient_occlusion_noisy: texture_2d<f32>;
 @group(0) @binding(1) var depth_differences: texture_2d<u32>;
@@ -31,11 +31,11 @@ fn spatial_denoise(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let visibility2 = textureGather(0, ambient_occlusion_noisy, point_clamp_sampler, uv, vec2<i32>(0i, 2i));
     let visibility3 = textureGather(0, ambient_occlusion_noisy, point_clamp_sampler, uv, vec2<i32>(2i, 2i));
 
-    let left_edges = myunpack4x8unorm(edges0.x);
-    let right_edges = myunpack4x8unorm(edges1.x);
-    let top_edges = myunpack4x8unorm(edges0.z);
-    let bottom_edges = myunpack4x8unorm(edges2.w);
-    var center_edges = myunpack4x8unorm(edges0.y);
+    let left_edges = unpack4x8unorm(edges0.x);
+    let right_edges = unpack4x8unorm(edges1.x);
+    let top_edges = unpack4x8unorm(edges0.z);
+    let bottom_edges = unpack4x8unorm(edges2.w);
+    var center_edges = unpack4x8unorm(edges0.y);
     center_edges *= vec4<f32>(left_edges.y, right_edges.x, top_edges.w, bottom_edges.z);
 
     let center_weight = 1.2;
@@ -81,12 +81,4 @@ fn spatial_denoise(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let denoised_visibility = sum / sum_weight;
 
     textureStore(ambient_occlusion, pixel_coordinates, vec4<f32>(denoised_visibility, 0.0, 0.0, 0.0));
-}
-
-// TODO: Remove this once https://github.com/gfx-rs/naga/pull/2353 lands in Bevy
-fn myunpack4x8unorm(e: u32) -> vec4<f32> {
-    return vec4<f32>(clamp(f32(e & 0xFFu) / 255.0, 0.0, 1.0),
-        clamp(f32((e >> 8u) & 0xFFu) / 255.0, 0.0, 1.0),
-        clamp(f32((e >> 16u) & 0xFFu) / 255.0, 0.0, 1.0),
-        clamp(f32((e >> 24u) & 0xFFu) / 255.0, 0.0, 1.0));
 }

@@ -1,4 +1,5 @@
 //! This example illustrates how to load and play an audio file.
+//! For loading additional audio formats, you can enable the corresponding feature for that audio format.
 
 use bevy::prelude::*;
 
@@ -9,7 +10,9 @@ fn main() {
         .run();
 }
 
-fn setup(asset_server: Res<AssetServer>, audio: Res<Audio>) {
-    let music = asset_server.load("sounds/Windless Slopes.ogg");
-    audio.play(music);
+fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
+    commands.spawn(AudioBundle {
+        source: asset_server.load("sounds/Windless Slopes.ogg"),
+        ..default()
+    });
 }

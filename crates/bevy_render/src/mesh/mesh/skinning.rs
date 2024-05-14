@@ -1,4 +1,4 @@
-use bevy_asset::Handle;
+use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityMapper, MapEntities},
@@ -6,26 +6,25 @@ use bevy_ecs::{
     reflect::ReflectMapEntities,
 };
 use bevy_math::Mat4;
-use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect, TypePath, TypeUuid};
+use bevy_reflect::prelude::*;
 use std::ops::Deref;
 
-#[derive(Component, Debug, Default, Clone, Reflect, FromReflect)]
-#[reflect(Component, MapEntities, FromReflect)]
+#[derive(Component, Debug, Default, Clone, Reflect)]
+#[reflect(Component, MapEntities, Default)]
 pub struct SkinnedMesh {
     pub inverse_bindposes: Handle<SkinnedMeshInverseBindposes>,
     pub joints: Vec<Entity>,
 }
 
 impl MapEntities for SkinnedMesh {
-    fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
+    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
         for joint in &mut self.joints {
-            *joint = entity_mapper.get_or_reserve(*joint);
+            *joint = entity_mapper.map_entity(*joint);
         }
     }
 }
 
-#[derive(Debug, TypeUuid, TypePath)]
-#[uuid = "b9f155a9-54ec-4026-988f-e0a03e99a76f"]
+#[derive(Asset, TypePath, Debug)]
 pub struct SkinnedMeshInverseBindposes(Box<[Mat4]>);
 
 impl From<Vec<Mat4>> for SkinnedMeshInverseBindposes {

@@ -1,82 +1,109 @@
-#import bevy_pbr::mesh_view_bindings
-#import bevy_pbr::mesh_bindings
+#import bevy_pbr::{
+    mesh_functions,
+    skinning,
+    morph::morph,
+    forward_io::{Vertex, VertexOutput},
+    view_transformations::position_world_to_clip,
+}
 
-// NOTE: Bindings must come before functions that use them!
-#import bevy_pbr::mesh_functions
-
-struct Vertex {
-#ifdef VERTEX_POSITIONS
-    @location(0) position: vec3<f32>,
-#endif
+#ifdef MORPH_TARGETS
+fn morph_vertex(vertex_in: Vertex) -> Vertex {
+    var vertex = vertex_in;
+    let weight_count = bevy_pbr::morph::layer_count();
+    for (var i: u32 = 0u; i < weight_count; i ++) {
+        let weight = bevy_pbr::morph::weight_at(i);
+        if weight == 0.0 {
+            continue;
+        }
+        vertex.position += weight * morph(vertex.index, bevy_pbr::morph::position_offset, i);
 #ifdef VERTEX_NORMALS
-    @location(1) normal: vec3<f32>,
-#endif
-#ifdef VERTEX_UVS
-    @location(2) uv: vec2<f32>,
+        vertex.normal += weight * morph(vertex.index, bevy_pbr::morph::normal_offset, i);
 #endif
 #ifdef VERTEX_TANGENTS
-    @location(3) tangent: vec4<f32>,
+        vertex.tangent += vec4(weight * morph(vertex.index, bevy_pbr::morph::tangent_offset, i), 0.0);
 #endif
-#ifdef VERTEX_COLORS
-    @location(4) color: vec4<f32>,
+    }
+    return vertex;
+}
 #endif
-#ifdef SKINNED
-    @location(5) joint_indices: vec4<u32>,
-    @location(6) joint_weights: vec4<f32>,
-#endif
-};
-
-struct VertexOutput {
-    @builtin(position) clip_position: vec4<f32>,
-    #import bevy_pbr::mesh_vertex_output
-};
 
 @vertex
-fn vertex(vertex: Vertex) -> VertexOutput {
+fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var out: VertexOutput;
 
-#ifdef SKINNED
-    var model = skin_model(vertex.joint_indices, vertex.joint_weights);
+#ifdef MORPH_TARGETS
+    var vertex = morph_vertex(vertex_no_morph);
 #else
-    var model = mesh.model;
+    var vertex = vertex_no_morph;
+#endif
+
+#ifdef SKINNED
+    var model = skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
+#else
+    // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
+    // See https://github.com/gfx-rs/naga/issues/2416 .
+    var model = mesh_functions::get_model_matrix(vertex_no_morph.instance_index);
 #endif
 
 #ifdef VERTEX_NORMALS
 #ifdef SKINNED
-    out.world_normal = skin_normals(model, vertex.normal);
+    out.world_normal = skinning::skin_normals(model, vertex.normal);
 #else
-    out.world_normal = mesh_normal_local_to_world(vertex.normal);
+    out.world_normal = mesh_functions::mesh_normal_local_to_world(
+        vertex.normal,
+        // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
+        // See https://github.com/gfx-rs/naga/issues/2416
+        vertex_no_morph.instance_index
+    );
 #endif
 #endif
 
 #ifdef VERTEX_POSITIONS
-    out.world_position = mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
-    out.clip_position = mesh_position_world_to_clip(out.world_position);
+    out.world_position = mesh_functions::mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
+    out.position = position_world_to_clip(out.world_position.xyz);
 #endif
 
-#ifdef VERTEX_UVS
+#ifdef VERTEX_UVS_A
     out.uv = vertex.uv;
+#endif
+#ifdef VERTEX_UVS_B
+    out.uv_b = vertex.uv_b;
 #endif
 
 #ifdef VERTEX_TANGENTS
-    out.world_tangent = mesh_tangent_local_to_world(model, vertex.tangent);
+    out.world_tangent = mesh_functions::mesh_tangent_local_to_world(
+        model,
+        vertex.tangent,
+        // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
+        // See https://github.com/gfx-rs/naga/issues/2416
+        vertex_no_morph.instance_index
+    );
 #endif
 
 #ifdef VERTEX_COLORS
     out.color = vertex.color;
 #endif
 
+#ifdef VERTEX_OUTPUT_INSTANCE_INDEX
+    // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
+    // See https://github.com/gfx-rs/naga/issues/2416
+    out.instance_index = vertex_no_morph.instance_index;
+#endif
+
+#ifdef VISIBILITY_RANGE_DITHER
+    out.visibility_range_dither = mesh_functions::get_visibility_range_dither_level(
+        vertex_no_morph.instance_index, model[3]);
+#endif
+
     return out;
 }
 
-struct FragmentInput {
-    #import bevy_pbr::mesh_vertex_output
-};
-
 @fragment
-fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
+fn fragment(
+    mesh: VertexOutput,
+) -> @location(0) vec4<f32> {
 #ifdef VERTEX_COLORS
-    return in.color;
+    return mesh.color;
 #else
     return vec4<f32>(1.0, 0.0, 1.0, 1.0);
 #endif

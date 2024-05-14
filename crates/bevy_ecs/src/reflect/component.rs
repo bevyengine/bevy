@@ -1,4 +1,6 @@
 //! Definitions for [`Component`] reflection.
+//! This allows inserting, updating, removing and generally interacting with components
+//! whose types are only known at runtime.
 //!
 //! This module exports two types: [`ReflectComponentFns`] and [`ReflectComponent`].
 //!
@@ -13,8 +15,17 @@
 //! type, it tells the derive macro for `Reflect` to add the following single line to its
 //! [`get_type_registration`] method (see the relevant code[^1]).
 //!
-//! ```ignore
+//! ```
+//! # use bevy_reflect::{FromType, Reflect};
+//! # use bevy_ecs::prelude::{ReflectComponent, Component};
+//! # #[derive(Default, Reflect, Component)]
+//! # struct A;
+//! # impl A {
+//! #   fn foo() {
+//! # let mut registration = bevy_reflect::TypeRegistration::of::<A>();
 //! registration.insert::<ReflectComponent>(FromType::<Self>::from_type());
+//! #   }
+//! # }
 //! ```
 //!
 //! This line adds a `ReflectComponent` to the registration data for the type in question.
@@ -25,7 +36,7 @@
 //! implementation of `ReflectComponent`.
 //!
 //! The `FromType<C>` impl creates a function per field of [`ReflectComponentFns`].
-//! In those functions, we call generic methods on [`World`] and [`EntityMut`].
+//! In those functions, we call generic methods on [`World`] and [`EntityWorldMut`].
 //!
 //! The result is a `ReflectComponent` completely independent of `C`, yet capable
 //! of using generic ECS methods such as `entity.get::<C>()` to get `&dyn Reflect`
@@ -46,15 +57,16 @@
 //!
 //! [`get_type_registration`]: bevy_reflect::GetTypeRegistration::get_type_registration
 
+use super::from_reflect_with_fallback;
 use crate::{
     change_detection::Mut,
     component::Component,
     entity::Entity,
-    world::{unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityRef, FromWorld, World},
+    world::{unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityRef, EntityWorldMut, World},
 };
-use bevy_reflect::{FromType, Reflect};
+use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
 
-/// A struct used to operate on reflected [`Component`] of a type.
+/// A struct used to operate on reflected [`Component`] trait of a type.
 ///
 /// A [`ReflectComponent`] for type `T` can be obtained via
 /// [`bevy_reflect::TypeRegistration::data`].
@@ -71,7 +83,7 @@ pub struct ReflectComponent(ReflectComponentFns);
 /// > will not need.
 /// > Usually a [`ReflectComponent`] is created for a type by deriving [`Reflect`]
 /// > and adding the `#[reflect(Component)]` attribute.
-/// > After adding the component to the [`TypeRegistry`][bevy_reflect::TypeRegistry],
+/// > After adding the component to the [`TypeRegistry`],
 /// > its [`ReflectComponent`] can then be retrieved when needed.
 ///
 /// Creating a custom [`ReflectComponent`] may be useful if you need to create new component types
@@ -83,29 +95,27 @@ pub struct ReflectComponent(ReflectComponentFns);
 /// world.
 #[derive(Clone)]
 pub struct ReflectComponentFns {
-    /// Function pointer implementing [`ReflectComponent::from_world()`].
-    pub from_world: fn(&mut World) -> Box<dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::insert()`].
-    pub insert: fn(&mut EntityMut, &dyn Reflect),
+    pub insert: fn(&mut EntityWorldMut, &dyn Reflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectComponent::apply()`].
-    pub apply: fn(&mut EntityMut, &dyn Reflect),
+    pub apply: fn(EntityMut, &dyn Reflect),
     /// Function pointer implementing [`ReflectComponent::apply_or_insert()`].
-    pub apply_or_insert: fn(&mut EntityMut, &dyn Reflect),
+    pub apply_or_insert: fn(&mut EntityWorldMut, &dyn Reflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectComponent::remove()`].
-    pub remove: fn(&mut EntityMut),
+    pub remove: fn(&mut EntityWorldMut),
     /// Function pointer implementing [`ReflectComponent::contains()`].
     pub contains: fn(EntityRef) -> bool,
     /// Function pointer implementing [`ReflectComponent::reflect()`].
     pub reflect: fn(EntityRef) -> Option<&dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::reflect_mut()`].
-    pub reflect_mut: for<'a> fn(&'a mut EntityMut<'_>) -> Option<Mut<'a, dyn Reflect>>,
+    pub reflect_mut: fn(EntityMut) -> Option<Mut<dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::reflect_unchecked_mut()`].
     ///
     /// # Safety
     /// The function may only be called with an [`UnsafeEntityCell`] that can be used to mutably access the relevant component on the given entity.
     pub reflect_unchecked_mut: unsafe fn(UnsafeEntityCell<'_>) -> Option<Mut<'_, dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::copy()`].
-    pub copy: fn(&World, &mut World, Entity, Entity),
+    pub copy: fn(&World, &mut World, Entity, Entity, &TypeRegistry),
 }
 
 impl ReflectComponentFns {
@@ -114,20 +124,20 @@ impl ReflectComponentFns {
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
-    pub fn new<T: Component + Reflect + FromWorld>() -> Self {
+    pub fn new<T: Component + Reflect + FromReflect>() -> Self {
         <ReflectComponent as FromType<T>>::from_type().0
     }
 }
 
 impl ReflectComponent {
-    /// Constructs default reflected [`Component`] from world using [`from_world()`](FromWorld::from_world).
-    pub fn from_world(&self, world: &mut World) -> Box<dyn Reflect> {
-        (self.0.from_world)(world)
-    }
-
-    /// Insert a reflected [`Component`] into the entity like [`insert()`](crate::world::EntityMut::insert).
-    pub fn insert(&self, entity: &mut EntityMut, component: &dyn Reflect) {
-        (self.0.insert)(entity, component);
+    /// Insert a reflected [`Component`] into the entity like [`insert()`](EntityWorldMut::insert).
+    pub fn insert(
+        &self,
+        entity: &mut EntityWorldMut,
+        component: &dyn Reflect,
+        registry: &TypeRegistry,
+    ) {
+        (self.0.insert)(entity, component, registry);
     }
 
     /// Uses reflection to set the value of this [`Component`] type in the entity to the given value.
@@ -135,17 +145,22 @@ impl ReflectComponent {
     /// # Panics
     ///
     /// Panics if there is no [`Component`] of the given type.
-    pub fn apply(&self, entity: &mut EntityMut, component: &dyn Reflect) {
-        (self.0.apply)(entity, component);
+    pub fn apply<'a>(&self, entity: impl Into<EntityMut<'a>>, component: &dyn Reflect) {
+        (self.0.apply)(entity.into(), component);
     }
 
     /// Uses reflection to set the value of this [`Component`] type in the entity to the given value or insert a new one if it does not exist.
-    pub fn apply_or_insert(&self, entity: &mut EntityMut, component: &dyn Reflect) {
-        (self.0.apply_or_insert)(entity, component);
+    pub fn apply_or_insert(
+        &self,
+        entity: &mut EntityWorldMut,
+        component: &dyn Reflect,
+        registry: &TypeRegistry,
+    ) {
+        (self.0.apply_or_insert)(entity, component, registry);
     }
 
     /// Removes this [`Component`] type from the entity. Does nothing if it doesn't exist.
-    pub fn remove(&self, entity: &mut EntityMut) {
+    pub fn remove(&self, entity: &mut EntityWorldMut) {
         (self.0.remove)(entity);
     }
 
@@ -160,8 +175,11 @@ impl ReflectComponent {
     }
 
     /// Gets the value of this [`Component`] type from the entity as a mutable reflected reference.
-    pub fn reflect_mut<'a>(&self, entity: &'a mut EntityMut<'_>) -> Option<Mut<'a, dyn Reflect>> {
-        (self.0.reflect_mut)(entity)
+    pub fn reflect_mut<'a>(
+        &self,
+        entity: impl Into<EntityMut<'a>>,
+    ) -> Option<Mut<'a, dyn Reflect>> {
+        (self.0.reflect_mut)(entity.into())
     }
 
     /// # Safety
@@ -174,7 +192,7 @@ impl ReflectComponent {
         entity: UnsafeEntityCell<'a>,
     ) -> Option<Mut<'a, dyn Reflect>> {
         // SAFETY: safety requirements deferred to caller
-        (self.0.reflect_unchecked_mut)(entity)
+        unsafe { (self.0.reflect_unchecked_mut)(entity) }
     }
 
     /// Gets the value of this [`Component`] type from entity from `source_world` and [applies](Self::apply()) it to the value of this [`Component`] type in entity in `destination_world`.
@@ -188,12 +206,14 @@ impl ReflectComponent {
         destination_world: &mut World,
         source_entity: Entity,
         destination_entity: Entity,
+        registry: &TypeRegistry,
     ) {
         (self.0.copy)(
             source_world,
             destination_world,
             source_entity,
             destination_entity,
+            registry,
         );
     }
 
@@ -233,25 +253,26 @@ impl ReflectComponent {
     }
 }
 
-impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
+impl<C: Component + Reflect> FromType<C> for ReflectComponent {
     fn from_type() -> Self {
         ReflectComponent(ReflectComponentFns {
-            from_world: |world| Box::new(C::from_world(world)),
-            insert: |entity, reflected_component| {
-                let mut component = entity.world_scope(|world| C::from_world(world));
-                component.apply(reflected_component);
+            insert: |entity, reflected_component, registry| {
+                let component = entity.world_scope(|world| {
+                    from_reflect_with_fallback::<C>(reflected_component, world, registry)
+                });
                 entity.insert(component);
             },
-            apply: |entity, reflected_component| {
+            apply: |mut entity, reflected_component| {
                 let mut component = entity.get_mut::<C>().unwrap();
                 component.apply(reflected_component);
             },
-            apply_or_insert: |entity, reflected_component| {
+            apply_or_insert: |entity, reflected_component, registry| {
                 if let Some(mut component) = entity.get_mut::<C>() {
                     component.apply(reflected_component);
                 } else {
-                    let mut component = entity.world_scope(|world| C::from_world(world));
-                    component.apply(reflected_component);
+                    let component = entity.world_scope(|world| {
+                        from_reflect_with_fallback::<C>(reflected_component, world, registry)
+                    });
                     entity.insert(component);
                 }
             },
@@ -259,24 +280,24 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                 entity.remove::<C>();
             },
             contains: |entity| entity.contains::<C>(),
-            copy: |source_world, destination_world, source_entity, destination_entity| {
+            copy: |source_world, destination_world, source_entity, destination_entity, registry| {
                 let source_component = source_world.get::<C>(source_entity).unwrap();
-                let mut destination_component = C::from_world(destination_world);
-                destination_component.apply(source_component);
+                let destination_component =
+                    from_reflect_with_fallback::<C>(source_component, destination_world, registry);
                 destination_world
                     .entity_mut(destination_entity)
                     .insert(destination_component);
             },
             reflect: |entity| entity.get::<C>().map(|c| c as &dyn Reflect),
             reflect_mut: |entity| {
-                entity.get_mut::<C>().map(|c| Mut {
+                entity.into_mut::<C>().map(|c| Mut {
                     value: c.value as &mut dyn Reflect,
                     ticks: c.ticks,
                 })
             },
             reflect_unchecked_mut: |entity| {
                 // SAFETY: reflect_unchecked_mut is an unsafe function pointer used by
-                // `reflect_unchecked_mut` which must be called with an UnsafeEntityCell with access to the the component `C` on the `entity`
+                // `reflect_unchecked_mut` which must be called with an UnsafeEntityCell with access to the component `C` on the `entity`
                 unsafe {
                     entity.get_mut::<C>().map(|c| Mut {
                         value: c.value as &mut dyn Reflect,

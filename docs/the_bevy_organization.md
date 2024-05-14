@@ -19,7 +19,7 @@ Maintainers have merge rights in Bevy repos. They assess the scope of pull reque
 Maintainers abide by the following rules when merging pull requests:
 
 1. Trivial PRs can be merged without approvals.
-2. Relatively uncontroversial PRs can be merged following approval from at least two other community members with appropriate expertise.
+2. Relatively uncontroversial PRs can be merged following approval from at least two community members (including Maintainers) with appropriate expertise.
 3. Controversial PRs cannot be merged unless they have the approval of a Project Lead or two Subject Matter Experts (in the "area" of the PR).
 4. If two Maintainers have approved a controversial PR they can "start the clock" on a PR by adding it to [this queue](https://github.com/orgs/bevyengine/projects/6). If 45 days elapse without SME or Project Lead action (approval, feedback or an explicit request to defer), the PR can be merged by maintainers.
 
@@ -61,7 +61,7 @@ Check out the [Bevy People](https://bevyengine.org/community/people/#the-bevy-or
 
 1. Have actively engaged with Bevy development.
 2. Have demonstrated themselves to be polite and welcoming representatives of the project with an understanding of our goals and direction.
-3. Have asked to join the Bevy Org. Reach out to @cart on [Discord](https://discord.gg/bevy) or email us at bevyengine@gmail.com if you are interested. Everyone is welcome to do this. We generally accept membership requests, so don't hesitate if you are interested!
+3. Have asked to join the Bevy Org. Reach out to @cart on [Discord](https://discord.gg/bevy) or email us at <bevyengine@gmail.com> if you are interested. Everyone is welcome to do this. We generally accept membership requests, so don't hesitate if you are interested!
 
 All Bevy Org members are also Triage Team members. The Triage Team can label and close issues and PRs but do not have merge rights or any special authority within the community.
 

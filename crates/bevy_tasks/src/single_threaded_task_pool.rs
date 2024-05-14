@@ -1,30 +1,30 @@
-use std::{
-    future::Future,
-    marker::PhantomData,
-    mem,
-    sync::{Arc, Mutex},
-};
+use std::sync::Arc;
+use std::{cell::RefCell, future::Future, marker::PhantomData, mem, rc::Rc};
 
-/// Used to create a TaskPool
+thread_local! {
+    static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = const { async_executor::LocalExecutor::new() };
+}
+
+/// Used to create a [`TaskPool`].
 #[derive(Debug, Default, Clone)]
 pub struct TaskPoolBuilder {}
 
 /// This is a dummy struct for wasm support to provide the same api as with the multithreaded
 /// task pool. In the case of the multithreaded task pool this struct is used to spawn
 /// tasks on a specific thread. But the wasm task pool just calls
-/// [`wasm_bindgen_futures::spawn_local`] for spawning which just runs tasks on the main thread
+/// `wasm_bindgen_futures::spawn_local` for spawning which just runs tasks on the main thread
 /// and so the [`ThreadExecutor`] does nothing.
 #[derive(Default)]
 pub struct ThreadExecutor<'a>(PhantomData<&'a ()>);
 impl<'a> ThreadExecutor<'a> {
     /// Creates a new `ThreadExecutor`
     pub fn new() -> Self {
-        Self(PhantomData::default())
+        Self::default()
     }
 }
 
 impl TaskPoolBuilder {
-    /// Creates a new TaskPoolBuilder instance
+    /// Creates a new `TaskPoolBuilder` instance
     pub fn new() -> Self {
         Self::default()
     }
@@ -76,7 +76,7 @@ impl TaskPool {
         1
     }
 
-    /// Allows spawning non-`static futures on the thread pool. The function takes a callback,
+    /// Allows spawning non-`'static` futures on the thread pool. The function takes a callback,
     /// passing a scope object into it. The scope object provided to the callback can be used
     /// to spawn tasks. This function will await the completion of all tasks before returning.
     ///
@@ -89,11 +89,12 @@ impl TaskPool {
         self.scope_with_executor(false, None, f)
     }
 
-    /// Allows spawning non-`static futures on the thread pool. The function takes a callback,
+    /// Allows spawning non-`'static` futures on the thread pool. The function takes a callback,
     /// passing a scope object into it. The scope object provided to the callback can be used
     /// to spawn tasks. This function will await the completion of all tasks before returning.
     ///
     /// This is similar to `rayon::scope` and `crossbeam::scope`
+    #[allow(unsafe_code)]
     pub fn scope_with_executor<'env, F, T>(
         &self,
         _tick_task_pool_executor: bool,
@@ -104,12 +105,23 @@ impl TaskPool {
         F: for<'scope> FnOnce(&'env mut Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
+        // SAFETY: This safety comment applies to all references transmuted to 'env.
+        // Any futures spawned with these references need to return before this function completes.
+        // This is guaranteed because we drive all the futures spawned onto the Scope
+        // to completion in this function. However, rust has no way of knowing this so we
+        // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
+        // Any usages of the references passed into `Scope` must be accessed through
+        // the transmuted reference for the rest of this function.
+
         let executor = &async_executor::LocalExecutor::new();
+        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let executor: &'env async_executor::LocalExecutor<'env> =
             unsafe { mem::transmute(executor) };
 
-        let results: Mutex<Vec<Arc<Mutex<Option<T>>>>> = Mutex::new(Vec::new());
-        let results: &'env Mutex<Vec<Arc<Mutex<Option<T>>>>> = unsafe { mem::transmute(&results) };
+        let results: RefCell<Vec<Rc<RefCell<Option<T>>>>> = RefCell::new(Vec::new());
+        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
+        let results: &'env RefCell<Vec<Rc<RefCell<Option<T>>>>> =
+            unsafe { mem::transmute(&results) };
 
         let mut scope = Scope {
             executor,
@@ -118,6 +130,7 @@ impl TaskPool {
             env: PhantomData,
         };
 
+        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let scope_ref: &'env mut Scope<'_, 'env, T> = unsafe { mem::transmute(&mut scope) };
 
         f(scope_ref);
@@ -125,41 +138,69 @@ impl TaskPool {
         // Loop until all tasks are done
         while executor.try_tick() {}
 
-        let results = scope.results.lock().unwrap();
+        let results = scope.results.borrow();
         results
             .iter()
-            .map(|result| result.lock().unwrap().take().unwrap())
+            .map(|result| result.borrow_mut().take().unwrap())
             .collect()
     }
 
-    /// Spawns a static future onto the JS event loop. For now it is returning FakeTask
-    /// instance with no-op detach method. Returning real Task is possible here, but tricky:
-    /// future is running on JS event loop, Task is running on async_executor::LocalExecutor
-    /// so some proxy future is needed. Moreover currently we don't have long-living
-    /// LocalExecutor here (above `spawn` implementation creates temporary one)
-    /// But for typical use cases it seems that current implementation should be sufficient:
-    /// caller can spawn long-running future writing results to some channel / event queue
-    /// and simply call detach on returned Task (like AssetServer does) - spawned future
-    /// can write results to some channel / event queue.
+    /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be
+    /// cancelled and "detached" allowing it to continue running without having to be polled by the
+    /// end-user.
+    ///
+    /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
     pub fn spawn<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask
     where
         T: 'static,
     {
+        #[cfg(target_arch = "wasm32")]
         wasm_bindgen_futures::spawn_local(async move {
             future.await;
         });
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            LOCAL_EXECUTOR.with(|executor| {
+                let _task = executor.spawn(future);
+                // Loop until all tasks are done
+                while executor.try_tick() {}
+            });
+        }
+
         FakeTask
     }
 
-    /// Spawns a static future on the JS event loop. This is exactly the same as [`TaskSpool::spawn`].
+    /// Spawns a static future on the JS event loop. This is exactly the same as [`TaskPool::spawn`].
     pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask
     where
         T: 'static,
     {
         self.spawn(future)
     }
+
+    /// Runs a function with the local executor. Typically used to tick
+    /// the local executor on the main thread as it needs to share time with
+    /// other things.
+    ///
+    /// ```
+    /// use bevy_tasks::TaskPool;
+    ///
+    /// TaskPool::new().with_local_executor(|local_executor| {
+    ///     local_executor.try_tick();
+    /// });
+    /// ```
+    pub fn with_local_executor<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&async_executor::LocalExecutor) -> R,
+    {
+        LOCAL_EXECUTOR.with(f)
+    }
 }
 
+/// An empty task used in single-threaded contexts.
+///
+/// This does nothing and is therefore safe, and recommended, to ignore.
 #[derive(Debug)]
 pub struct FakeTask;
 
@@ -173,9 +214,9 @@ impl FakeTask {
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
-    executor: &'env async_executor::LocalExecutor<'env>,
+    executor: &'scope async_executor::LocalExecutor<'scope>,
     // Vector to gather results of all futures spawned during scope run
-    results: &'env Mutex<Vec<Arc<Mutex<Option<T>>>>>,
+    results: &'env RefCell<Vec<Rc<RefCell<Option<T>>>>>,
 
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
@@ -190,7 +231,7 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
     /// On the single threaded task pool, it just calls [`Scope::spawn_on_scope`].
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn<Fut: Future<Output = T> + 'env>(&self, f: Fut) {
+    pub fn spawn<Fut: Future<Output = T> + 'scope>(&self, f: Fut) {
         self.spawn_on_scope(f);
     }
 
@@ -201,7 +242,7 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
     /// On the single threaded task pool, it just calls [`Scope::spawn_on_scope`].
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_on_external<Fut: Future<Output = T> + 'env>(&self, f: Fut) {
+    pub fn spawn_on_external<Fut: Future<Output = T> + 'scope>(&self, f: Fut) {
         self.spawn_on_scope(f);
     }
 
@@ -210,11 +251,12 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
     /// returned as a part of [`TaskPool::scope`]'s return value.
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_on_scope<Fut: Future<Output = T> + 'env>(&self, f: Fut) {
-        let result = Arc::new(Mutex::new(None));
-        self.results.lock().unwrap().push(result.clone());
+    pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope>(&self, f: Fut) {
+        let result = Rc::new(RefCell::new(None));
+        self.results.borrow_mut().push(result.clone());
         let f = async move {
-            result.lock().unwrap().replace(f.await);
+            let temp_result = f.await;
+            result.borrow_mut().replace(temp_result);
         };
         self.executor.spawn(f).detach();
     }

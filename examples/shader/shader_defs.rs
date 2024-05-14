@@ -3,9 +3,9 @@
 use bevy::{
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::TypePath,
     render::{
-        mesh::MeshVertexBufferLayout,
+        mesh::MeshVertexBufferLayoutRef,
         render_resource::{
             AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
         },
@@ -14,8 +14,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(MaterialPlugin::<CustomMaterial>::default())
+        .add_plugins((DefaultPlugins, MaterialPlugin::<CustomMaterial>::default()))
         .add_systems(Startup, setup)
         .run();
 }
@@ -28,10 +27,10 @@ fn setup(
 ) {
     // blue cube
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(Cuboid::default()),
         transform: Transform::from_xyz(-1.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {
-            color: Color::BLUE,
+            color: LinearRgba::BLUE,
             is_red: false,
         }),
         ..default()
@@ -39,10 +38,10 @@ fn setup(
 
     // red cube (with green color overridden by the IS_RED "shader def")
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(Cuboid::default()),
         transform: Transform::from_xyz(1.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {
-            color: Color::GREEN,
+            color: LinearRgba::GREEN,
             is_red: true,
         }),
         ..default()
@@ -63,7 +62,7 @@ impl Material for CustomMaterial {
     fn specialize(
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        _layout: &MeshVertexBufferLayout,
+        _layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         if key.bind_group_data.is_red {
@@ -75,12 +74,11 @@ impl Material for CustomMaterial {
 }
 
 // This is the struct that will be passed to your shader
-#[derive(AsBindGroup, TypeUuid, TypePath, Debug, Clone)]
-#[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 #[bind_group_data(CustomMaterialKey)]
-pub struct CustomMaterial {
+struct CustomMaterial {
     #[uniform(0)]
-    color: Color,
+    color: LinearRgba,
     is_red: bool,
 }
 
@@ -89,7 +87,7 @@ pub struct CustomMaterial {
 // Specialization keys should be kept as small / cheap to hash as possible,
 // as they will be used to look up the pipeline for each drawn entity with this material type.
 #[derive(Eq, PartialEq, Hash, Clone)]
-pub struct CustomMaterialKey {
+struct CustomMaterialKey {
     is_red: bool,
 }
 

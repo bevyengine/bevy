@@ -1,6 +1,6 @@
 [package]
 name = "bevy_render"
-version = "0.11.0-dev"
+version = "0.14.0-dev"
 edition = "2021"
 description = "Provides rendering functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -18,9 +18,9 @@ bmp = ["image/bmp"]
 webp = ["image/webp"]
 dds = ["ddsfile"]
 pnm = ["image/pnm"]
-bevy_ci_testing = ["bevy_app/bevy_ci_testing"]
+multi_threaded = ["bevy_tasks/multi_threaded"]
 
-shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out"]
+shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out", "naga_oil/glsl"]
 shader_format_spirv = ["wgpu/spirv", "naga/spv-in", "naga/spv-out"]
 
 # For ktx2 supercompression
@@ -32,68 +32,102 @@ tracing-tracy = []
 wgpu_trace = ["wgpu/trace"]
 ci_limits = []
 webgl = ["wgpu/webgl"]
+webgpu = ["wgpu/webgpu"]
+ios_simulator = []
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.11.0-dev" }
-bevy_asset = { path = "../bevy_asset", version = "0.11.0-dev" }
-bevy_core = { path = "../bevy_core", version = "0.11.0-dev" }
-bevy_derive = { path = "../bevy_derive", version = "0.11.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.11.0-dev" }
-bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.11.0-dev" }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.11.0-dev" }
-bevy_log = { path = "../bevy_log", version = "0.11.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.11.0-dev" }
-bevy_mikktspace = { path = "../bevy_mikktspace", version = "0.11.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.11.0-dev", features = ["bevy"] }
-bevy_render_macros = { path = "macros", version = "0.11.0-dev" }
-bevy_time = { path = "../bevy_time", version = "0.11.0-dev" }
-bevy_transform = { path = "../bevy_transform", version = "0.11.0-dev" }
-bevy_window = { path = "../bevy_window", version = "0.11.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.11.0-dev" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.11.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
+bevy_color = { path = "../bevy_color", version = "0.14.0-dev", features = [
+  "serialize",
+  "wgpu-types",
+] }
+bevy_core = { path = "../bevy_core", version = "0.14.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.14.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
+bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.14.0-dev" }
+bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
+bevy_mikktspace = { path = "../bevy_mikktspace", version = "0.14.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
+  "bevy",
+] }
+bevy_render_macros = { path = "macros", version = "0.14.0-dev" }
+bevy_time = { path = "../bevy_time", version = "0.14.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.14.0-dev" }
+bevy_window = { path = "../bevy_window", version = "0.14.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
 
 # rendering
-image = { version = "0.24", default-features = false }
+image = { version = "0.25", default-features = false }
 
 # misc
-wgpu = { version = "0.16.0" }
-wgpu-hal = "0.16.0"
 codespan-reporting = "0.11.0"
-naga = { version = "0.12.0", features = ["wgsl-in"] }
+# `fragile-send-sync-non-atomic-wasm` feature means we can't use WASM threads for rendering
+# It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm.
+# When the 'atomics' feature is enabled `fragile-send-sync-non-atomic` does nothing
+# and Bevy instead wraps `wgpu` types to verify they are not used off their origin thread.
+wgpu = { version = "0.19.3", default-features = false, features = [
+  "wgsl",
+  "dx12",
+  "metal",
+  "naga",
+  "naga-ir",
+  "fragile-send-sync-non-atomic-wasm",
+] }
+naga = { version = "0.19", features = ["wgsl-in"] }
 serde = { version = "1", features = ["derive"] }
-bitflags = "2.3"
-smallvec = { version = "1.6", features = ["union", "const_generics"] }
-once_cell = "1.4.1" # TODO: replace once_cell with std equivalent if/when this lands: https://github.com/rust-lang/rfcs/pull/2788
+bitflags = { version = "2.3", features = ["serde"] }
+bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = "1.2.0"
-thread_local = "1.1"
 thiserror = "1.0"
-futures-lite = "1.4.0"
-anyhow = "1.0"
-hexasphere = "9.0"
-parking_lot = "0.12.1"
-regex = "1.5"
-ddsfile = { version = "0.5.0", optional = true }
+futures-lite = "2.0.1"
+hexasphere = "12.0"
+ddsfile = { version = "0.5.2", optional = true }
 ktx2 = { version = "0.3.0", optional = true }
 # For ktx2 supercompression
 flate2 = { version = "1.0.22", optional = true }
-ruzstd = { version = "0.4.0", optional = true }
+ruzstd = { version = "0.6.0", optional = true }
 # For transcoding of UASTC/ETC1S universal formats, and for .basis file support
 basis-universal = { version = "0.3.0", optional = true }
-encase = { version = "0.6.1", features = ["glam"] }
+encase = { version = "0.8", features = ["glam"] }
 # For wgpu profiling using tracing. Use `RUST_LOG=info` to also capture the wgpu spans.
-profiling = { version = "1", features = ["profile-with-tracing"], optional = true }
-async-channel = "1.8"
+profiling = { version = "1", features = [
+  "profile-with-tracing",
+], optional = true }
+async-channel = "2.2.0"
+nonmax = "0.5"
+smallvec = "1.11"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# Omit the `glsl` feature in non-WebAssembly by default.
+naga_oil = { version = "0.13", default-features = false, features = [
+  "test_shader",
+] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+naga_oil = "0.13"
 js-sys = "0.3"
-web-sys = { version = "0.3", features = [
-    'Blob',
-    'Document',
-    'Element',
-    'HtmlElement',
-    'Node',
-    'Url',
-    'Window',
+web-sys = { version = "0.3.67", features = [
+  'Blob',
+  'Document',
+  'Element',
+  'HtmlElement',
+  'Node',
+  'Url',
+  'Window',
 ] }
 wasm-bindgen = "0.2"
+
+[target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]
+send_wrapper = "0.6.0"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+all-features = true

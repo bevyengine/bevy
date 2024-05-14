@@ -53,9 +53,14 @@ pub struct Access<T: SparseSetIndex> {
     reads_and_writes: FixedBitSet,
     /// The exclusively-accessed elements.
     writes: FixedBitSet,
-    /// Is `true` if this has access to all elements in the collection?
+    /// Is `true` if this has access to all elements in the collection.
     /// This field is a performance optimization for `&World` (also harder to mess up for soundness).
     reads_all: bool,
+    /// Is `true` if this has mutable access to all elements in the collection.
+    /// If this is true, then `reads_all` must also be true.
+    writes_all: bool,
+    // Elements that are not accessed, but whose presence in an archetype affect query results.
+    archetypal: FixedBitSet,
     marker: PhantomData<T>,
 }
 
@@ -68,6 +73,8 @@ impl<T: SparseSetIndex + fmt::Debug> fmt::Debug for Access<T> {
             )
             .field("writes", &FormattedBitSet::<T>::new(&self.writes))
             .field("reads_all", &self.reads_all)
+            .field("writes_all", &self.writes_all)
+            .field("archetypal", &FormattedBitSet::<T>::new(&self.archetypal))
             .finish()
     }
 }
@@ -83,32 +90,37 @@ impl<T: SparseSetIndex> Access<T> {
     pub const fn new() -> Self {
         Self {
             reads_all: false,
+            writes_all: false,
             reads_and_writes: FixedBitSet::new(),
             writes: FixedBitSet::new(),
+            archetypal: FixedBitSet::new(),
             marker: PhantomData,
         }
     }
 
-    /// Increases the set capacity to the specified amount.
-    ///
-    /// Does nothing if `capacity` is less than or equal to the current value.
-    pub fn grow(&mut self, capacity: usize) {
-        self.reads_and_writes.grow(capacity);
-        self.writes.grow(capacity);
-    }
-
     /// Adds access to the element given by `index`.
     pub fn add_read(&mut self, index: T) {
-        self.reads_and_writes.grow(index.sparse_set_index() + 1);
-        self.reads_and_writes.insert(index.sparse_set_index());
+        self.reads_and_writes
+            .grow_and_insert(index.sparse_set_index());
     }
 
     /// Adds exclusive access to the element given by `index`.
     pub fn add_write(&mut self, index: T) {
-        self.reads_and_writes.grow(index.sparse_set_index() + 1);
-        self.reads_and_writes.insert(index.sparse_set_index());
-        self.writes.grow(index.sparse_set_index() + 1);
-        self.writes.insert(index.sparse_set_index());
+        self.reads_and_writes
+            .grow_and_insert(index.sparse_set_index());
+        self.writes.grow_and_insert(index.sparse_set_index());
+    }
+
+    /// Adds an archetypal (indirect) access to the element given by `index`.
+    ///
+    /// This is for elements whose values are not accessed (and thus will never cause conflicts),
+    /// but whose presence in an archetype may affect query results.
+    ///
+    /// Currently, this is only used for [`Has<T>`].
+    ///
+    /// [`Has<T>`]: crate::query::Has
+    pub fn add_archetypal(&mut self, index: T) {
+        self.archetypal.grow_and_insert(index.sparse_set_index());
     }
 
     /// Returns `true` if this can access the element given by `index`.
@@ -116,9 +128,31 @@ impl<T: SparseSetIndex> Access<T> {
         self.reads_all || self.reads_and_writes.contains(index.sparse_set_index())
     }
 
+    /// Returns `true` if this can access anything.
+    pub fn has_any_read(&self) -> bool {
+        self.reads_all || !self.reads_and_writes.is_clear()
+    }
+
     /// Returns `true` if this can exclusively access the element given by `index`.
     pub fn has_write(&self, index: T) -> bool {
-        self.writes.contains(index.sparse_set_index())
+        self.writes_all || self.writes.contains(index.sparse_set_index())
+    }
+
+    /// Returns `true` if this accesses anything mutably.
+    pub fn has_any_write(&self) -> bool {
+        self.writes_all || !self.writes.is_clear()
+    }
+
+    /// Returns true if this has an archetypal (indirect) access to the element given by `index`.
+    ///
+    /// This is an element whose value is not accessed (and thus will never cause conflicts),
+    /// but whose presence in an archetype may affect query results.
+    ///
+    /// Currently, this is only used for [`Has<T>`].
+    ///
+    /// [`Has<T>`]: crate::query::Has
+    pub fn has_archetypal(&self, index: T) -> bool {
+        self.archetypal.contains(index.sparse_set_index())
     }
 
     /// Sets this as having access to all indexed elements (i.e. `&World`).
@@ -126,14 +160,32 @@ impl<T: SparseSetIndex> Access<T> {
         self.reads_all = true;
     }
 
+    /// Sets this as having mutable access to all indexed elements (i.e. `EntityMut`).
+    pub fn write_all(&mut self) {
+        self.reads_all = true;
+        self.writes_all = true;
+    }
+
     /// Returns `true` if this has access to all indexed elements (i.e. `&World`).
     pub fn has_read_all(&self) -> bool {
         self.reads_all
     }
 
+    /// Returns `true` if this has write access to all indexed elements (i.e. `EntityMut`).
+    pub fn has_write_all(&self) -> bool {
+        self.writes_all
+    }
+
+    /// Removes all writes.
+    pub fn clear_writes(&mut self) {
+        self.writes_all = false;
+        self.writes.clear();
+    }
+
     /// Removes all accesses.
     pub fn clear(&mut self) {
         self.reads_all = false;
+        self.writes_all = false;
         self.reads_and_writes.clear();
         self.writes.clear();
     }
@@ -141,6 +193,7 @@ impl<T: SparseSetIndex> Access<T> {
     /// Adds all access from `other`.
     pub fn extend(&mut self, other: &Access<T>) {
         self.reads_all = self.reads_all || other.reads_all;
+        self.writes_all = self.writes_all || other.writes_all;
         self.reads_and_writes.union_with(&other.reads_and_writes);
         self.writes.union_with(&other.writes);
     }
@@ -150,29 +203,70 @@ impl<T: SparseSetIndex> Access<T> {
     /// [`Access`] instances are incompatible if one can write
     /// an element that the other can read or write.
     pub fn is_compatible(&self, other: &Access<T>) -> bool {
-        // Only systems that do not write data are compatible with systems that operate on `&World`.
+        if self.writes_all {
+            return !other.has_any_read();
+        }
+
+        if other.writes_all {
+            return !self.has_any_read();
+        }
+
         if self.reads_all {
-            return other.writes.count_ones(..) == 0;
+            return !other.has_any_write();
         }
 
         if other.reads_all {
-            return self.writes.count_ones(..) == 0;
+            return !self.has_any_write();
         }
 
         self.writes.is_disjoint(&other.reads_and_writes)
             && other.writes.is_disjoint(&self.reads_and_writes)
     }
 
+    /// Returns `true` if the set is a subset of another, i.e. `other` contains
+    /// at least all the values in `self`.
+    pub fn is_subset(&self, other: &Access<T>) -> bool {
+        if self.writes_all {
+            return other.writes_all;
+        }
+
+        if other.writes_all {
+            return true;
+        }
+
+        if self.reads_all {
+            return other.reads_all;
+        }
+
+        if other.reads_all {
+            return self.writes.is_subset(&other.writes);
+        }
+
+        self.reads_and_writes.is_subset(&other.reads_and_writes)
+            && self.writes.is_subset(&other.writes)
+    }
+
     /// Returns a vector of elements that the access and `other` cannot access at the same time.
     pub fn get_conflicts(&self, other: &Access<T>) -> Vec<T> {
         let mut conflicts = FixedBitSet::default();
         if self.reads_all {
+            // QUESTION: How to handle `other.writes_all`?
             conflicts.extend(other.writes.ones());
         }
 
         if other.reads_all {
+            // QUESTION: How to handle `self.writes_all`.
             conflicts.extend(self.writes.ones());
         }
+
+        if self.writes_all {
+            conflicts.extend(other.reads_and_writes.ones());
+        }
+
+        if other.writes_all {
+            conflicts.extend(self.reads_and_writes.ones());
+        }
+
         conflicts.extend(self.writes.intersection(&other.reads_and_writes));
         conflicts.extend(self.reads_and_writes.intersection(&other.writes));
         conflicts
@@ -196,6 +290,18 @@ impl<T: SparseSetIndex> Access<T> {
     /// Returns the indices of the elements this has exclusive access to.
     pub fn writes(&self) -> impl Iterator<Item = T> + '_ {
         self.writes.ones().map(T::get_sparse_set_index)
+    }
+
+    /// Returns the indices of the elements that this has an archetypal access to.
+    ///
+    /// These are elements whose values are not accessed (and thus will never cause conflicts),
+    /// but whose presence in an archetype may affect query results.
+    ///
+    /// Currently, this is only used for [`Has<T>`].
+    ///
+    /// [`Has<T>`]: crate::query::Has
+    pub fn archetypal(&self) -> impl Iterator<Item = T> + '_ {
+        self.archetypal.ones().map(T::get_sparse_set_index)
     }
 }
 
@@ -221,16 +327,18 @@ impl<T: SparseSetIndex> Access<T> {
 /// See comments the [`WorldQuery`](super::WorldQuery) impls of [`AnyOf`](super::AnyOf)/`Option`/[`Or`](super::Or) for more information.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FilteredAccess<T: SparseSetIndex> {
-    access: Access<T>,
+    pub(crate) access: Access<T>,
+    pub(crate) required: FixedBitSet,
     // An array of filter sets to express `With` or `Without` clauses in disjunctive normal form, for example: `Or<(With<A>, With<B>)>`.
     // Filters like `(With<A>, Or<(With<B>, Without<C>)>` are expanded into `Or<((With<A>, With<B>), (With<A>, Without<C>))>`.
-    filter_sets: Vec<AccessFilters<T>>,
+    pub(crate) filter_sets: Vec<AccessFilters<T>>,
 }
 
 impl<T: SparseSetIndex> Default for FilteredAccess<T> {
     fn default() -> Self {
         Self {
             access: Access::default(),
+            required: FixedBitSet::default(),
             filter_sets: vec![AccessFilters::default()],
         }
     }
@@ -260,13 +368,19 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// Adds access to the element given by `index`.
     pub fn add_read(&mut self, index: T) {
         self.access.add_read(index.clone());
+        self.add_required(index.clone());
         self.and_with(index);
     }
 
     /// Adds exclusive access to the element given by `index`.
     pub fn add_write(&mut self, index: T) {
         self.access.add_write(index.clone());
+        self.add_required(index.clone());
         self.and_with(index);
+    }
+
+    fn add_required(&mut self, index: T) {
+        self.required.grow_and_insert(index.sparse_set_index());
     }
 
     /// Adds a `With` filter: corresponds to a conjunction (AND) operation.
@@ -274,10 +388,8 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// Suppose we begin with `Or<(With<A>, With<B>)>`, which is represented by an array of two `AccessFilter` instances.
     /// Adding `AND With<C>` via this method transforms it into the equivalent of  `Or<((With<A>, With<C>), (With<B>, With<C>))>`.
     pub fn and_with(&mut self, index: T) {
-        let index = index.sparse_set_index();
         for filter in &mut self.filter_sets {
-            filter.with.grow(index + 1);
-            filter.with.insert(index);
+            filter.with.grow_and_insert(index.sparse_set_index());
         }
     }
 
@@ -286,10 +398,8 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// Suppose we begin with `Or<(With<A>, With<B>)>`, which is represented by an array of two `AccessFilter` instances.
     /// Adding `AND Without<C>` via this method transforms it into the equivalent of  `Or<((With<A>, Without<C>), (With<B>, Without<C>))>`.
     pub fn and_without(&mut self, index: T) {
-        let index = index.sparse_set_index();
         for filter in &mut self.filter_sets {
-            filter.without.grow(index + 1);
-            filter.without.insert(index);
+            filter.without.grow_and_insert(index.sparse_set_index());
         }
     }
 
@@ -345,6 +455,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// `Or<((With<A>, With<C>), (With<A>, Without<D>), (Without<B>, With<C>), (Without<B>, Without<D>))>`.
     pub fn extend(&mut self, other: &FilteredAccess<T>) {
         self.access.extend(&other.access);
+        self.required.union_with(&other.required);
 
         // We can avoid allocating a new array of bitsets if `other` contains just a single set of filters:
         // in this case we can short-circuit by performing an in-place union for each bitset.
@@ -372,12 +483,37 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     pub fn read_all(&mut self) {
         self.access.read_all();
     }
+
+    /// Sets the underlying unfiltered access as having mutable access to all indexed elements.
+    pub fn write_all(&mut self) {
+        self.access.write_all();
+    }
+
+    /// Returns `true` if the set is a subset of another, i.e. `other` contains
+    /// at least all the values in `self`.
+    pub fn is_subset(&self, other: &FilteredAccess<T>) -> bool {
+        self.required.is_subset(&other.required) && self.access().is_subset(other.access())
+    }
+
+    /// Returns the indices of the elements that this access filters for.
+    pub fn with_filters(&self) -> impl Iterator<Item = T> + '_ {
+        self.filter_sets
+            .iter()
+            .flat_map(|f| f.with.ones().map(T::get_sparse_set_index))
+    }
+
+    /// Returns the indices of the elements that this access filters out.
+    pub fn without_filters(&self) -> impl Iterator<Item = T> + '_ {
+        self.filter_sets
+            .iter()
+            .flat_map(|f| f.without.ones().map(T::get_sparse_set_index))
+    }
 }
 
 #[derive(Clone, Eq, PartialEq)]
-struct AccessFilters<T> {
-    with: FixedBitSet,
-    without: FixedBitSet,
+pub(crate) struct AccessFilters<T> {
+    pub(crate) with: FixedBitSet,
+    pub(crate) without: FixedBitSet,
     _index_type: PhantomData<T>,
 }
 
@@ -538,7 +674,6 @@ mod tests {
     fn read_all_access_conflicts() {
         // read_all / single write
         let mut access_a = Access::<usize>::default();
-        access_a.grow(10);
         access_a.add_write(0);
 
         let mut access_b = Access::<usize>::default();
@@ -548,7 +683,6 @@ mod tests {
 
         // read_all / read_all
         let mut access_a = Access::<usize>::default();
-        access_a.grow(10);
         access_a.read_all();
 
         let mut access_b = Access::<usize>::default();

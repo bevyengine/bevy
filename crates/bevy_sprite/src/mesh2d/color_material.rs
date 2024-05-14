@@ -1,15 +1,17 @@
+use crate::{Material2d, Material2dPlugin, MaterialMesh2dBundle};
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
+use bevy_color::{Color, LinearRgba};
 use bevy_math::Vec4;
-use bevy_reflect::{prelude::*, TypeUuid};
+use bevy_reflect::prelude::*;
 use bevy_render::{
-    color::Color, prelude::Shader, render_asset::RenderAssets, render_resource::*, texture::Image,
+    render_asset::RenderAssets,
+    render_resource::*,
+    texture::{GpuImage, Image},
 };
 
-use crate::{Material2d, Material2dPlugin, MaterialMesh2dBundle};
-
-pub const COLOR_MATERIAL_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3253086872234592509);
+pub const COLOR_MATERIAL_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(3253086872234592509);
 
 #[derive(Default)]
 pub struct ColorMaterialPlugin;
@@ -23,15 +25,15 @@ impl Plugin for ColorMaterialPlugin {
             Shader::from_wgsl
         );
 
-        app.add_plugin(Material2dPlugin::<ColorMaterial>::default())
+        app.add_plugins(Material2dPlugin::<ColorMaterial>::default())
             .register_asset_reflect::<ColorMaterial>();
 
-        app.world
+        app.world_mut()
             .resource_mut::<Assets<ColorMaterial>>()
-            .set_untracked(
-                Handle::<ColorMaterial>::default(),
+            .insert(
+                &Handle::<ColorMaterial>::default(),
                 ColorMaterial {
-                    color: Color::rgb(1.0, 0.0, 1.0),
+                    color: Color::srgb(1.0, 0.0, 1.0),
                     ..Default::default()
                 },
             );
@@ -39,9 +41,8 @@ impl Plugin for ColorMaterialPlugin {
 }
 
 /// A [2d material](Material2d) that renders [2d meshes](crate::Mesh2dHandle) with a texture tinted by a uniform color
-#[derive(AsBindGroup, Reflect, FromReflect, Debug, Clone, TypeUuid)]
+#[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[reflect(Default, Debug)]
-#[uuid = "e228a544-e3ca-4e1e-bb9d-4d8bc1ad8c19"]
 #[uniform(0, ColorMaterialUniform)]
 pub struct ColorMaterial {
     pub color: Color,
@@ -81,7 +82,7 @@ impl From<Handle<Image>> for ColorMaterial {
 bitflags::bitflags! {
     #[repr(transparent)]
     pub struct ColorMaterialFlags: u32 {
-        const TEXTURE           = (1 << 0);
+        const TEXTURE           = 1 << 0;
         const NONE              = 0;
         const UNINITIALIZED     = 0xFFFF;
     }
@@ -95,14 +96,14 @@ pub struct ColorMaterialUniform {
 }
 
 impl AsBindGroupShaderType<ColorMaterialUniform> for ColorMaterial {
-    fn as_bind_group_shader_type(&self, _images: &RenderAssets<Image>) -> ColorMaterialUniform {
+    fn as_bind_group_shader_type(&self, _images: &RenderAssets<GpuImage>) -> ColorMaterialUniform {
         let mut flags = ColorMaterialFlags::NONE;
         if self.texture.is_some() {
             flags |= ColorMaterialFlags::TEXTURE;
         }
 
         ColorMaterialUniform {
-            color: self.color.as_linear_rgba_f32().into(),
+            color: LinearRgba::from(self.color).to_f32_array().into(),
             flags: flags.bits(),
         }
     }
@@ -110,7 +111,7 @@ impl AsBindGroupShaderType<ColorMaterialUniform> for ColorMaterial {
 
 impl Material2d for ColorMaterial {
     fn fragment_shader() -> ShaderRef {
-        COLOR_MATERIAL_SHADER_HANDLE.typed().into()
+        COLOR_MATERIAL_SHADER_HANDLE.into()
     }
 }
 

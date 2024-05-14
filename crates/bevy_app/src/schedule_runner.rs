@@ -1,8 +1,8 @@
 use crate::{
     app::{App, AppExit},
     plugin::Plugin,
+    PluginsState,
 };
-use bevy_ecs::event::{Events, ManualEventReader};
 use bevy_utils::{Duration, Instant};
 
 #[cfg(target_arch = "wasm32")]
@@ -71,36 +71,37 @@ impl Plugin for ScheduleRunnerPlugin {
     fn build(&self, app: &mut App) {
         let run_mode = self.run_mode;
         app.set_runner(move |mut app: App| {
-            let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
+            let plugins_state = app.plugins_state();
+            if plugins_state != PluginsState::Cleaned {
+                while app.plugins_state() == PluginsState::Adding {
+                    #[cfg(not(target_arch = "wasm32"))]
+                    bevy_tasks::tick_global_task_pools_on_main_thread();
+                }
+                app.finish();
+                app.cleanup();
+            }
+
             match run_mode {
                 RunMode::Once => {
                     app.update();
+
+                    if let Some(exit) = app.should_exit() {
+                        return exit;
+                    }
+
+                    AppExit::Success
                 }
                 RunMode::Loop { wait } => {
-                    let mut tick = move |app: &mut App,
-                                         wait: Option<Duration>|
+                    let tick = move |app: &mut App,
+                                     wait: Option<Duration>|
                           -> Result<Option<Duration>, AppExit> {
                         let start_time = Instant::now();
 
-                        if let Some(app_exit_events) =
-                            app.world.get_resource_mut::<Events<AppExit>>()
-                        {
-                            if let Some(exit) = app_exit_event_reader.iter(&app_exit_events).last()
-                            {
-                                return Err(exit.clone());
-                            }
-                        }
-
                         app.update();
 
-                        if let Some(app_exit_events) =
-                            app.world.get_resource_mut::<Events<AppExit>>()
-                        {
-                            if let Some(exit) = app_exit_event_reader.iter(&app_exit_events).last()
-                            {
-                                return Err(exit.clone());
-                            }
-                        }
+                        if let Some(exit) = app.should_exit() {
+                            return Err(exit);
+                        };
 
                         let end_time = Instant::now();
 
@@ -116,43 +117,54 @@ impl Plugin for ScheduleRunnerPlugin {
 
                     #[cfg(not(target_arch = "wasm32"))]
                     {
-                        while let Ok(delay) = tick(&mut app, wait) {
-                            if let Some(delay) = delay {
-                                std::thread::sleep(delay);
+                        loop {
+                            match tick(&mut app, wait) {
+                                Ok(Some(delay)) => std::thread::sleep(delay),
+                                Ok(None) => continue,
+                                Err(exit) => return exit,
                             }
                         }
                     }
 
                     #[cfg(target_arch = "wasm32")]
                     {
-                        fn set_timeout(f: &Closure<dyn FnMut()>, dur: Duration) {
+                        fn set_timeout(callback: &Closure<dyn FnMut()>, dur: Duration) {
                             web_sys::window()
                                 .unwrap()
                                 .set_timeout_with_callback_and_timeout_and_arguments_0(
-                                    f.as_ref().unchecked_ref(),
+                                    callback.as_ref().unchecked_ref(),
                                     dur.as_millis() as i32,
                                 )
                                 .expect("Should register `setTimeout`.");
                         }
                         let asap = Duration::from_millis(1);
 
-                        let mut rc = Rc::new(app);
-                        let f = Rc::new(RefCell::new(None));
-                        let g = f.clone();
+                        let exit = Rc::new(RefCell::new(AppExit::Success));
+                        let closure_exit = exit.clone();
 
-                        let c = move || {
-                            let mut app = Rc::get_mut(&mut rc).unwrap();
-                            let delay = tick(&mut app, wait);
+                        let mut app = Rc::new(app);
+                        let moved_tick_closure = Rc::new(RefCell::new(None));
+                        let base_tick_closure = moved_tick_closure.clone();
+
+                        let tick_app = move || {
+                            let app = Rc::get_mut(&mut app).unwrap();
+                            let delay = tick(app, wait);
                             match delay {
-                                Ok(delay) => {
-                                    set_timeout(f.borrow().as_ref().unwrap(), delay.unwrap_or(asap))
+                                Ok(delay) => set_timeout(
+                                    moved_tick_closure.borrow().as_ref().unwrap(),
+                                    delay.unwrap_or(asap),
+                                ),
+                                Err(code) => {
+                                    closure_exit.replace(code);
                                 }
-                                Err(_) => {}
                             }
                         };
-                        *g.borrow_mut() = Some(Closure::wrap(Box::new(c) as Box<dyn FnMut()>));
-                        set_timeout(g.borrow().as_ref().unwrap(), asap);
-                    };
+                        *base_tick_closure.borrow_mut() =
+                            Some(Closure::wrap(Box::new(tick_app) as Box<dyn FnMut()>));
+                        set_timeout(base_tick_closure.borrow().as_ref().unwrap(), asap);
+
+                        exit.take()
+                    }
                 }
             }
         });

@@ -3,7 +3,8 @@
 use bevy::prelude::*;
 // Using crossbeam_channel instead of std as std `Receiver` is `!Sync`
 use crossbeam_channel::{bounded, Receiver};
-use rand::Rng;
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 use std::time::{Duration, Instant};
 
 fn main() {
@@ -25,17 +26,21 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 
     let (tx, rx) = bounded::<u32>(10);
-    std::thread::spawn(move || loop {
-        // Everything here happens in another thread
-        // This is where you could connect to an external data source
-        let mut rng = rand::thread_rng();
-        let start_time = Instant::now();
-        let duration = Duration::from_secs_f32(rng.gen_range(0.0..0.2));
-        while start_time.elapsed() < duration {
-            // Spinning for 'duration', simulating doing hard work!
-        }
+    std::thread::spawn(move || {
+        // We're seeding the PRNG here to make this example deterministic for testing purposes.
+        // This isn't strictly required in practical use unless you need your app to be deterministic.
+        let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
+        loop {
+            // Everything here happens in another thread
+            // This is where you could connect to an external data source
+            let start_time = Instant::now();
+            let duration = Duration::from_secs_f32(rng.gen_range(0.0..0.2));
+            while start_time.elapsed() < duration {
+                // Spinning for 'duration', simulating doing hard work!
+            }
 
-        tx.send(rng.gen_range(0..2000)).unwrap();
+            tx.send(rng.gen_range(0..2000)).unwrap();
+        }
     });
 
     commands.insert_resource(StreamReceiver(rx));
@@ -51,19 +56,14 @@ fn read_stream(receiver: Res<StreamReceiver>, mut events: EventWriter<StreamEven
 fn spawn_text(mut commands: Commands, mut reader: EventReader<StreamEvent>) {
     let text_style = TextStyle {
         font_size: 20.0,
-        color: Color::WHITE,
         ..default()
     };
 
-    for (per_frame, event) in reader.iter().enumerate() {
+    for (per_frame, event) in reader.read().enumerate() {
         commands.spawn(Text2dBundle {
             text: Text::from_section(event.0.to_string(), text_style.clone())
-                .with_alignment(TextAlignment::Center),
-            transform: Transform::from_xyz(
-                per_frame as f32 * 100.0 + rand::thread_rng().gen_range(-40.0..40.0),
-                300.0,
-                0.0,
-            ),
+                .with_justify(JustifyText::Center),
+            transform: Transform::from_xyz(per_frame as f32 * 100.0, 300.0, 0.0),
             ..default()
         });
     }

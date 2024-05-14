@@ -3,23 +3,33 @@
 //! Continuously recomputes a large `Text` component with 100 sections.
 
 use bevy::{
+    color::palettes::basic::{BLUE, YELLOW},
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     text::{BreakLineOn, Text2dBounds},
-    window::{PresentMode, WindowPlugin},
+    window::{PresentMode, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                present_mode: PresentMode::Immediate,
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    present_mode: PresentMode::AutoNoVsync,
+                    resolution: WindowResolution::new(1920.0, 1080.0)
+                        .with_scale_factor_override(1.0),
+                    ..default()
+                }),
                 ..default()
             }),
-            ..default()
-        }))
-        .add_plugin(FrameTimeDiagnosticsPlugin)
-        .add_plugin(LogDiagnosticsPlugin::default())
+            FrameTimeDiagnosticsPlugin,
+            LogDiagnosticsPlugin::default(),
+        ))
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
+        })
         .add_systems(Startup, spawn)
         .add_systems(Update, update_text_bounds)
         .run();
@@ -37,7 +47,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: TextStyle {
                         font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                         font_size: (4 + i % 10) as f32,
-                        color: Color::BLUE,
+                        color: BLUE.into(),
                     },
                 },
                 TextSection {
@@ -45,7 +55,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: (4 + i % 11) as f32,
-                        color: Color::YELLOW,
+                        color: YELLOW.into(),
                     },
                 },
             ]
@@ -54,7 +64,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Text2dBundle {
         text: Text {
             sections,
-            alignment: TextAlignment::Center,
+            justify: JustifyText::Center,
             linebreak_behavior: BreakLineOn::AnyCharacter,
         },
         ..Default::default()

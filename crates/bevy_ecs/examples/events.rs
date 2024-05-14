@@ -1,11 +1,14 @@
-use bevy_ecs::prelude::*;
+//! In this example a system sends a custom event with a 50/50 chance during any frame.
+//! If an event was send, it will be printed by the console in a receiving system.
 
-// In this example a system sends a custom event with a 50/50 chance during any frame.
-// If an event was send, it will be printed by the console in a receiving system.
+use bevy_ecs::{event::EventRegistry, prelude::*};
+
 fn main() {
     // Create a new empty world and add the event as a resource
     let mut world = World::new();
-    world.insert_resource(Events::<MyEvent>::default());
+    // The event registry is stored as a resource, and allows us to quickly update all events at once.
+    // This call adds both the registry resource and the events resource into the world.
+    EventRegistry::register_event::<MyEvent>(&mut world);
 
     // Create a schedule to store our systems
     let mut schedule = Schedule::default();
@@ -16,7 +19,7 @@ fn main() {
     #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
     pub struct FlushEvents;
 
-    schedule.add_systems(Events::<MyEvent>::update_system.in_set(FlushEvents));
+    schedule.add_systems(bevy_ecs::event::event_update_system.in_set(FlushEvents));
 
     // Add systems sending and receiving events after the events are flushed.
     schedule.add_systems((
@@ -52,7 +55,7 @@ fn sending_system(mut event_writer: EventWriter<MyEvent>) {
 // This system listens for events of the type MyEvent
 // If an event is received it will be printed to the console
 fn receiving_system(mut event_reader: EventReader<MyEvent>) {
-    for my_event in event_reader.iter() {
+    for my_event in event_reader.read() {
         println!(
             "    Received message {:?}, with random value of {}",
             my_event.message, my_event.random_value

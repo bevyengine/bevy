@@ -1,8 +1,0 @@
-error[E0499]: cannot borrow `iter` as mutable more than once at a time
-  --> tests/ui/system_query_iter_many_mut_lifetime_safety.rs:9:25
-   |
-9  |     while let Some(a) = iter.fetch_next() {
-   |                         ^^^^^^^^^^^^^^^^^ `iter` was mutably borrowed here in the previous iteration of the loop
-10 |         // this should fail to compile
-11 |         results.push(a);
-   |         --------------- first borrow used here, in later iteration of loop

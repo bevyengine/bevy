@@ -1,46 +1,55 @@
 use crate::{
-    First, Main, MainSchedulePlugin, Plugin, PluginGroup, Startup, StateTransition, Update,
+    First, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp,
+    SubApps,
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
+    event::{event_update_system, ManualEventReader},
+    intern::Interned,
     prelude::*,
-    schedule::{
-        apply_state_transition, common_conditions::run_once as run_once_condition,
-        run_enter_schedule, BoxedScheduleLabel, IntoSystemConfigs, IntoSystemSetConfigs,
-        ScheduleLabel,
-    },
+    schedule::{ScheduleBuildSettings, ScheduleLabel},
+    system::SystemId,
 };
-use bevy_utils::{tracing::debug, HashMap, HashSet};
-use std::{
-    fmt::Debug,
-    panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
-};
-
+#[cfg(feature = "bevy_state")]
+use bevy_state::{prelude::*, state::FreelyMutableState};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-bevy_utils::define_label!(
+use bevy_utils::{tracing::debug, HashMap};
+use std::{
+    fmt::Debug,
+    process::{ExitCode, Termination},
+};
+use std::{
+    num::NonZeroU8,
+    panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
+};
+use thiserror::Error;
+
+bevy_ecs::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
     AppLabel,
-    /// A strongly-typed identifier for an [`AppLabel`].
-    AppLabelId,
+    APP_LABEL_INTERNER
 );
 
-/// The [`Resource`] that stores the [`App`]'s [`TypeRegistry`](bevy_reflect::TypeRegistry).
-#[cfg(feature = "bevy_reflect")]
-#[derive(Resource, Clone, bevy_derive::Deref, bevy_derive::DerefMut, Default)]
-pub struct AppTypeRegistry(pub bevy_reflect::TypeRegistryArc);
+pub use bevy_ecs::label::DynEq;
 
+/// A shorthand for `Interned<dyn AppLabel>`.
+pub type InternedAppLabel = Interned<dyn AppLabel>;
+
+#[derive(Debug, Error)]
 pub(crate) enum AppError {
+    #[error("duplicate plugin {plugin_name:?}")]
     DuplicatePlugin { plugin_name: String },
 }
 
 #[allow(clippy::needless_doctest_main)]
-/// A container of app logic and data.
+/// [`App`] is the primary API for writing user applications. It automates the setup of a
+/// [standard lifecycle](Main) and provides interface glue for [plugins](`Plugin`).
 ///
-/// Bundles together the necessary elements like [`World`] and [`Schedule`] to create
-/// an ECS-based application. It also stores a pointer to a [runner function](Self::set_runner).
-/// The runner is responsible for managing the application's event loop and applying the
-/// [`Schedule`] to the [`World`] to drive application logic.
+/// A single [`App`] can contain multiple [`SubApp`] instances, but [`App`] methods only affect
+/// the "main" one. To access a particular [`SubApp`], use [`get_sub_app`](App::get_sub_app)
+/// or [`get_sub_app_mut`](App::get_sub_app_mut).
+///
 ///
 /// # Examples
 ///
@@ -61,122 +70,22 @@ pub(crate) enum AppError {
 /// }
 /// ```
 pub struct App {
-    /// The main ECS [`World`] of the [`App`].
-    /// This stores and provides access to all the main data of the application.
-    /// The systems of the [`App`] will run using this [`World`].
-    /// If additional separate [`World`]-[`Schedule`] pairs are needed, you can use [`sub_app`](App::insert_sub_app)s.
-    pub world: World,
-    /// The [runner function](Self::set_runner) is primarily responsible for managing
-    /// the application's event loop and advancing the [`Schedule`].
-    /// Typically, it is not configured manually, but set by one of Bevy's built-in plugins.
-    /// See `bevy::winit::WinitPlugin` and [`ScheduleRunnerPlugin`](crate::schedule_runner::ScheduleRunnerPlugin).
-    pub runner: Box<dyn Fn(App) + Send>, // Send bound is required to make App Send
-    /// The schedule that systems are added to by default.
+    pub(crate) sub_apps: SubApps,
+    /// The function that will manage the app's lifecycle.
     ///
-    /// The schedule that runs the main loop of schedule execution.
+    /// Bevy provides the [`WinitPlugin`] and [`ScheduleRunnerPlugin`] for windowed and headless
+    /// applications, respectively.
     ///
-    /// This is initially set to [`Main`].
-    pub main_schedule_label: BoxedScheduleLabel,
-    sub_apps: HashMap<AppLabelId, SubApp>,
-    plugin_registry: Vec<Box<dyn Plugin>>,
-    plugin_name_added: HashSet<String>,
-    /// A private counter to prevent incorrect calls to `App::run()` from `Plugin::build()`
-    building_plugin_depth: usize,
+    /// [`WinitPlugin`]: https://docs.rs/bevy/latest/bevy/winit/struct.WinitPlugin.html
+    /// [`ScheduleRunnerPlugin`]: https://docs.rs/bevy/latest/bevy/app/struct.ScheduleRunnerPlugin.html
+    pub(crate) runner: RunnerFn,
 }
 
 impl Debug for App {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "App {{ sub_apps: ")?;
         f.debug_map()
-            .entries(self.sub_apps.iter().map(|(k, v)| (k, v)))
-            .finish()?;
-        write!(f, "}}")
-    }
-}
-
-/// A [`SubApp`] contains its own [`Schedule`] and [`World`] separate from the main [`App`].
-/// This is useful for situations where data and data processing should be kept completely separate
-/// from the main application. The primary use of this feature in bevy is to enable pipelined rendering.
-///
-/// # Example
-///
-/// ```rust
-/// # use bevy_app::{App, AppLabel, SubApp, Main};
-/// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::schedule::ScheduleLabel;
-///
-/// #[derive(Resource, Default)]
-/// struct Val(pub i32);
-///
-/// #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
-/// struct ExampleApp;
-///
-/// let mut app = App::new();
-///
-/// // initialize the main app with a value of 0;
-/// app.insert_resource(Val(10));
-///
-/// // create a app with a resource and a single schedule
-/// let mut sub_app = App::empty();
-/// // add an outer schedule that runs the main schedule
-/// sub_app.insert_resource(Val(100));
-///
-/// // initialize main schedule
-/// sub_app.add_systems(Main, |counter: Res<Val>| {
-///     // since we assigned the value from the main world in extract
-///     // we see that value instead of 100
-///     assert_eq!(counter.0, 10);
-/// });
-///
-/// // add the sub_app to the app
-/// app.insert_sub_app(ExampleApp, SubApp::new(sub_app, |main_world, sub_app| {
-///     // extract the value from the main app to the sub app
-///     sub_app.world.resource_mut::<Val>().0 = main_world.resource::<Val>().0;
-/// }));
-///
-/// // This will run the schedules once, since we're using the default runner
-/// app.run();
-/// ```
-pub struct SubApp {
-    /// The [`SubApp`]'s instance of [`App`]
-    pub app: App,
-
-    /// A function that allows access to both the main [`App`] [`World`] and the [`SubApp`]. This is
-    /// useful for moving data between the sub app and the main app.
-    extract: Box<dyn Fn(&mut World, &mut App) + Send>,
-}
-
-impl SubApp {
-    /// Creates a new [`SubApp`].
-    ///
-    /// The provided function `extract` is normally called by the [`update`](App::update) method.
-    /// After extract is called, the [`Schedule`] of the sub app is run. The [`World`]
-    /// parameter represents the main app world, while the [`App`] parameter is just a mutable
-    /// reference to the `SubApp` itself.
-    pub fn new(app: App, extract: impl Fn(&mut World, &mut App) + Send + 'static) -> Self {
-        Self {
-            app,
-            extract: Box::new(extract),
-        }
-    }
-
-    /// Runs the [`SubApp`]'s default schedule.
-    pub fn run(&mut self) {
-        self.app.world.run_schedule(&*self.app.main_schedule_label);
-        self.app.world.clear_trackers();
-    }
-
-    /// Extracts data from main world to this sub-app.
-    pub fn extract(&mut self, main_world: &mut World) {
-        (self.extract)(main_world, &mut self.app);
-    }
-}
-
-impl Debug for SubApp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "SubApp {{ app: ")?;
-        f.debug_map()
-            .entries(self.app.sub_apps.iter().map(|(k, v)| (k, v)))
+            .entries(self.sub_apps.sub_apps.iter())
             .finish()?;
         write!(f, "}}")
     }
@@ -185,25 +94,21 @@ impl Debug for SubApp {
 impl Default for App {
     fn default() -> Self {
         let mut app = App::empty();
+        app.sub_apps.main.update_schedule = Some(Main.intern());
+
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();
-
-        app.add_plugin(MainSchedulePlugin);
+        app.add_plugins(MainSchedulePlugin);
+        app.add_systems(
+            First,
+            event_update_system
+                .in_set(bevy_ecs::event::EventUpdates)
+                .run_if(bevy_ecs::event::event_update_condition),
+        );
         app.add_event::<AppExit>();
-
-        #[cfg(feature = "bevy_ci_testing")]
-        {
-            crate::ci_testing::setup_app(&mut app);
-        }
 
         app
     }
-}
-
-// Dummy plugin used to temporary hold the place in the plugin registry
-struct PlaceholderPlugin;
-impl Plugin for PlaceholderPlugin {
-    fn build(&self, _app: &mut App) {}
 }
 
 impl App {
@@ -215,179 +120,206 @@ impl App {
 
     /// Creates a new empty [`App`] with minimal default configuration.
     ///
-    /// This constructor should be used if you wish to provide custom scheduling, exit handling, cleanup, etc.
+    /// Use this constructor if you want to customize scheduling, exit handling, cleanup, etc.
     pub fn empty() -> App {
-        let mut world = World::new();
-        world.init_resource::<Schedules>();
         Self {
-            world,
+            sub_apps: SubApps {
+                main: SubApp::new(),
+                sub_apps: HashMap::new(),
+            },
             runner: Box::new(run_once),
-            sub_apps: HashMap::default(),
-            plugin_registry: Vec::default(),
-            plugin_name_added: Default::default(),
-            main_schedule_label: Box::new(Main),
-            building_plugin_depth: 0,
         }
     }
 
-    /// Advances the execution of the [`Schedule`] by one cycle.
-    ///
-    /// This method also updates sub apps.
-    /// See [`insert_sub_app`](Self::insert_sub_app) for more details.
-    ///
-    /// The schedule run by this method is determined by the [`main_schedule_label`](App) field.
-    /// By default this is [`Main`].
-    ///
-    /// # Panics
-    ///
-    /// The active schedule of the app must be set before this method is called.
+    /// Runs the default schedules of all sub-apps (starting with the "main" app) once.
     pub fn update(&mut self) {
-        #[cfg(feature = "trace")]
-        let _bevy_update_span = info_span!("update").entered();
-        {
-            #[cfg(feature = "trace")]
-            let _bevy_main_update_span = info_span!("main app").entered();
-            self.world.run_schedule(&*self.main_schedule_label);
-        }
-        for (_label, sub_app) in self.sub_apps.iter_mut() {
-            #[cfg(feature = "trace")]
-            let _sub_app_span = info_span!("sub app", name = ?_label).entered();
-            sub_app.extract(&mut self.world);
-            sub_app.run();
+        if self.is_building_plugins() {
+            panic!("App::update() was called while a plugin was building.");
         }
 
-        self.world.clear_trackers();
+        self.sub_apps.update();
     }
 
-    /// Starts the application by calling the app's [runner function](Self::set_runner).
+    /// Runs the [`App`] by calling its [runner](Self::set_runner).
     ///
-    /// Finalizes the [`App`] configuration. For general usage, see the example on the item
+    /// This will (re)build the [`App`] first. For general usage, see the example on the item
     /// level documentation.
     ///
-    /// # `run()` might not return
+    /// # Caveats
     ///
-    /// Calls to [`App::run()`] might never return.
+    /// Calls to [`App::run()`] will never return on iOS and Web.
     ///
-    /// In simple and *headless* applications, one can expect that execution will
-    /// proceed, normally, after calling [`run()`](App::run()) but this is not the case for
-    /// windowed applications.
+    /// Headless apps can generally expect this method to return control to the caller when
+    /// it completes, but that is not the case for windowed apps. Windowed apps are typically
+    /// driven by an event loop and some platforms expect the program to terminate when the
+    /// event loop ends.
     ///
-    /// Windowed apps are typically driven by an *event loop* or *message loop* and
-    /// some window-manager APIs expect programs to terminate when their primary
-    /// window is closed and that event loop terminates – behavior of processes that
-    /// do not is often platform dependent or undocumented.
-    ///
-    /// By default, *Bevy* uses the `winit` crate for window creation. See
-    /// [`WinitSettings::return_from_run`](https://docs.rs/bevy/latest/bevy/winit/struct.WinitSettings.html#structfield.return_from_run)
-    /// for further discussion of this topic and for a mechanism to require that [`App::run()`]
-    /// *does* return – albeit one that carries its own caveats and disclaimers.
+    /// By default, *Bevy* uses the `winit` crate for window creation.
     ///
     /// # Panics
     ///
-    /// Panics if called from `Plugin::build()`, because it would prevent other plugins to properly build.
-    pub fn run(&mut self) {
+    /// Panics if not all plugins have been built.
+    pub fn run(&mut self) -> AppExit {
         #[cfg(feature = "trace")]
         let _bevy_app_run_span = info_span!("bevy_app").entered();
-
-        let mut app = std::mem::replace(self, App::empty());
-        if app.building_plugin_depth > 0 {
-            panic!("App::run() was called from within Plugin::build(), which is not allowed.");
+        if self.is_building_plugins() {
+            panic!("App::run() was called while a plugin was building.");
         }
 
-        let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
-        (runner)(app);
+        let runner = std::mem::replace(&mut self.runner, Box::new(run_once));
+        let app = std::mem::replace(self, App::empty());
+        (runner)(app)
     }
 
-    /// Check that [`Plugin::ready`] of all plugins returns true. This is usually called by the
-    /// event loop, but can be useful for situations where you want to use [`App::update`]
-    pub fn ready(&self) -> bool {
-        for plugin in &self.plugin_registry {
-            if !plugin.ready(self) {
-                return false;
-            }
-        }
-        true
-    }
-
-    /// Run [`Plugin::finish`] for each plugin. This is usually called by the event loop once all
-    /// plugins are [`App::ready`], but can be useful for situations where you want to use
-    /// [`App::update`].
-    pub fn finish(&mut self) {
-        // temporarily remove the plugin registry to run each plugin's setup function on app.
-        let plugin_registry = std::mem::take(&mut self.plugin_registry);
-        for plugin in &plugin_registry {
-            plugin.finish(self);
-        }
-        self.plugin_registry = plugin_registry;
-    }
-
-    /// Run [`Plugin::cleanup`] for each plugin. This is usually called by the event loop after
-    /// [`App::finish`], but can be useful for situations where you want to use [`App::update`].
-    pub fn cleanup(&mut self) {
-        // temporarily remove the plugin registry to run each plugin's setup function on app.
-        let plugin_registry = std::mem::take(&mut self.plugin_registry);
-        for plugin in &plugin_registry {
-            plugin.cleanup(self);
-        }
-        self.plugin_registry = plugin_registry;
-    }
-
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
-    /// for each state variant (if they don't already exist), an instance of [`apply_state_transition::<S>`] in
-    /// [`StateTransition`] so that transitions happen before [`Update`] and
-    /// a instance of [`run_enter_schedule::<S>`] in [`StateTransition`] with a
-    /// [`run_once`](`run_once_condition`) condition to run the on enter schedule of the
-    /// initial state.
+    /// Sets the function that will be called when the app is run.
     ///
-    /// If you would like to control how other systems run based on the current state,
-    /// you can emulate this behavior using the [`in_state`] [`Condition`](bevy_ecs::schedule::Condition).
+    /// The runner function `f` is called only once by [`App::run`]. If the
+    /// presence of a main loop in the app is desired, it is the responsibility of the runner
+    /// function to provide it.
     ///
-    /// Note that you can also apply state transitions at other points in the schedule
-    /// by adding the [`apply_state_transition`] system manually.
-    pub fn add_state<S: States>(&mut self) -> &mut Self {
-        self.init_resource::<State<S>>()
-            .init_resource::<NextState<S>>()
-            .add_systems(
-                StateTransition,
-                (
-                    run_enter_schedule::<S>.run_if(run_once_condition()),
-                    apply_state_transition::<S>,
-                )
-                    .chain(),
-            );
-
-        // The OnEnter, OnExit, and OnTransition schedules are lazily initialized
-        // (i.e. when the first system is added to them), and World::try_run_schedule is used to fail
-        // gracefully if they aren't present.
-
-        self
-    }
-
-    /// Adds a system to the default system set and schedule of the app's [`Schedules`].
-    ///
-    /// Refer to the [system module documentation](bevy_ecs::system) to see how a system
-    /// can be defined.
+    /// The runner function is usually not set manually, but by Bevy integrated plugins
+    /// (e.g. `WinitPlugin`).
     ///
     /// # Examples
     ///
     /// ```
     /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
     /// #
-    /// # fn my_system() {}
-    /// # let mut app = App::new();
-    /// #
-    /// app.add_system(my_system);
+    /// fn my_runner(mut app: App) -> AppExit {
+    ///     loop {
+    ///         println!("In main loop");
+    ///         app.update();
+    ///         if let Some(exit) = app.should_exit() {
+    ///             return exit;
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// App::new()
+    ///     .set_runner(my_runner);
     /// ```
-    #[deprecated(
-        since = "0.11.0",
-        note = "Please use `add_systems` instead. If you didn't change the default base set, you should use `add_systems(Update, your_system).`"
-    )]
-    pub fn add_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
-        self.add_systems(Update, system)
+    pub fn set_runner(&mut self, f: impl FnOnce(App) -> AppExit + 'static) -> &mut Self {
+        self.runner = Box::new(f);
+        self
     }
 
-    /// Adds a system to the given schedule in this app's [`Schedules`].
+    /// Returns the state of all plugins. This is usually called by the event loop, but can be
+    /// useful for situations where you want to use [`App::update`].
+    // TODO: &mut self -> &self
+    #[inline]
+    pub fn plugins_state(&mut self) -> PluginsState {
+        let mut overall_plugins_state = match self.main_mut().plugins_state {
+            PluginsState::Adding => {
+                let mut state = PluginsState::Ready;
+                let plugins = std::mem::take(&mut self.main_mut().plugin_registry);
+                for plugin in &plugins {
+                    // plugins installed to main need to see all sub-apps
+                    if !plugin.ready(self) {
+                        state = PluginsState::Adding;
+                        break;
+                    }
+                }
+                self.main_mut().plugin_registry = plugins;
+                state
+            }
+            state => state,
+        };
+
+        // overall state is the earliest state of any sub-app
+        self.sub_apps.iter_mut().skip(1).for_each(|s| {
+            overall_plugins_state = overall_plugins_state.min(s.plugins_state());
+        });
+
+        overall_plugins_state
+    }
+
+    /// Runs [`Plugin::finish`] for each plugin. This is usually called by the event loop once all
+    /// plugins are ready, but can be useful for situations where you want to use [`App::update`].
+    pub fn finish(&mut self) {
+        // plugins installed to main should see all sub-apps
+        let plugins = std::mem::take(&mut self.main_mut().plugin_registry);
+        for plugin in &plugins {
+            plugin.finish(self);
+        }
+        let main = self.main_mut();
+        main.plugin_registry = plugins;
+        main.plugins_state = PluginsState::Finished;
+        self.sub_apps.iter_mut().skip(1).for_each(|s| s.finish());
+    }
+
+    /// Runs [`Plugin::cleanup`] for each plugin. This is usually called by the event loop after
+    /// [`App::finish`], but can be useful for situations where you want to use [`App::update`].
+    pub fn cleanup(&mut self) {
+        // plugins installed to main should see all sub-apps
+        let plugins = std::mem::take(&mut self.main_mut().plugin_registry);
+        for plugin in &plugins {
+            plugin.cleanup(self);
+        }
+        let main = self.main_mut();
+        main.plugin_registry = plugins;
+        main.plugins_state = PluginsState::Cleaned;
+        self.sub_apps.iter_mut().skip(1).for_each(|s| s.cleanup());
+    }
+
+    /// Returns `true` if any of the sub-apps are building plugins.
+    pub(crate) fn is_building_plugins(&self) -> bool {
+        self.sub_apps.iter().any(|s| s.is_building_plugins())
+    }
+
+    #[cfg(feature = "bevy_state")]
+    /// Initializes a [`State`] with standard starting values.
+    ///
+    /// This method is idempotent: it has no effect when called again using the same generic type.
+    ///
+    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`], [`OnTransition`] and [`OnExit`] schedules.
+    /// These schedules are triggered before [`Update`](crate::Update) and at startup.
+    ///
+    /// If you would like to control how other systems run based on the current state, you can
+    /// emulate this behavior using the [`in_state`] [`Condition`].
+    ///
+    /// Note that you can also apply state transitions at other points in the schedule
+    /// by triggering the [`StateTransition`](`bevy_ecs::schedule::StateTransition`) schedule manually.
+    pub fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
+        self.main_mut().init_state::<S>();
+        self
+    }
+
+    #[cfg(feature = "bevy_state")]
+    /// Inserts a specific [`State`] to the current [`App`] and overrides any [`State`] previously
+    /// added of the same type.
+    ///
+    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`], [`OnTransition`] and [`OnExit`] schedules.
+    /// These schedules are triggered before [`Update`](crate::Update) and at startup.
+    ///
+    /// If you would like to control how other systems run based on the current state, you can
+    /// emulate this behavior using the [`in_state`] [`Condition`].
+    ///
+    /// Note that you can also apply state transitions at other points in the schedule
+    /// by triggering the [`StateTransition`](`bevy_ecs::schedule::StateTransition`) schedule manually.
+    pub fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
+        self.main_mut().insert_state::<S>(state);
+        self
+    }
+
+    #[cfg(feature = "bevy_state")]
+    /// Sets up a type implementing [`ComputedStates`].
+    ///
+    /// This method is idempotent: it has no effect when called again using the same generic type.
+    pub fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
+        self.main_mut().add_computed_state::<S>();
+        self
+    }
+
+    #[cfg(feature = "bevy_state")]
+    /// Sets up a type implementing [`SubStates`].
+    ///
+    /// This method is idempotent: it has no effect when called again using the same generic type.
+    pub fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
+        self.main_mut().add_sub_state::<S>();
+        self
+    }
+
+    /// Adds one or more systems to the given schedule in this app's [`Schedules`].
     ///
     /// # Examples
     ///
@@ -409,112 +341,41 @@ impl App {
         schedule: impl ScheduleLabel,
         systems: impl IntoSystemConfigs<M>,
     ) -> &mut Self {
-        let mut schedules = self.world.resource_mut::<Schedules>();
-
-        if let Some(schedule) = schedules.get_mut(&schedule) {
-            schedule.add_systems(systems);
-        } else {
-            let mut new_schedule = Schedule::new();
-            new_schedule.add_systems(systems);
-            schedules.insert(schedule, new_schedule);
-        }
-
+        self.main_mut().add_systems(schedule, systems);
         self
     }
 
-    /// Adds a system to [`Startup`].
+    /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
     ///
-    /// These systems will run exactly once, at the start of the [`App`]'s lifecycle.
-    /// To add a system that runs every frame, see [`add_system`](Self::add_system).
+    /// It's possible to register the same systems more than once, they'll be stored separately.
     ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// fn my_startup_system(_commands: Commands) {
-    ///     println!("My startup system");
-    /// }
-    ///
-    /// App::new()
-    ///     .add_systems(Startup, my_startup_system);
-    /// ```
-    #[deprecated(
-        since = "0.11.0",
-        note = "Please use `add_systems` instead. If you didn't change the default base set, you should use `add_systems(Startup, your_system).`"
-    )]
-    pub fn add_startup_system<M>(&mut self, system: impl IntoSystemConfigs<M>) -> &mut Self {
-        self.add_systems(Startup, system)
-    }
-
-    /// Adds a collection of systems to [`Startup`].
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # let mut app = App::new();
-    /// # fn startup_system_a() {}
-    /// # fn startup_system_b() {}
-    /// # fn startup_system_c() {}
-    /// #
-    /// app.add_systems(Startup, (
-    ///     startup_system_a,
-    ///     startup_system_b,
-    ///     startup_system_c,
-    /// ));
-    /// ```
-    #[deprecated(
-        since = "0.11.0",
-        note = "Please use `add_systems` instead. If you didn't change the default base set, you should use `add_systems(Startup, your_system).`"
-    )]
-    pub fn add_startup_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
-        self.add_systems(Startup, systems.into_configs())
-    }
-
-    /// Configures a system set in the default schedule, adding the set if it does not exist.
-    pub fn configure_set(
+    /// This is different from adding systems to a [`Schedule`] with [`App::add_systems`],
+    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
+    /// This allows for running systems in a push-based fashion.
+    /// Using a [`Schedule`] is still preferred for most cases
+    /// due to its better performance and ability to run non-conflicting systems simultaneously.
+    pub fn register_system<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
         &mut self,
-        schedule: impl ScheduleLabel,
-        set: impl IntoSystemSetConfig,
-    ) -> &mut Self {
-        let mut schedules = self.world.resource_mut::<Schedules>();
-        if let Some(schedule) = schedules.get_mut(&schedule) {
-            schedule.configure_set(set);
-        } else {
-            let mut new_schedule = Schedule::new();
-            new_schedule.configure_set(set);
-            schedules.insert(schedule, new_schedule);
-        }
-        self
+        system: S,
+    ) -> SystemId<I, O> {
+        self.main_mut().register_system(system)
     }
 
-    /// Configures a collection of system sets in the default schedule, adding any sets that do not exist.
+    /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.
+    #[track_caller]
     pub fn configure_sets(
         &mut self,
         schedule: impl ScheduleLabel,
         sets: impl IntoSystemSetConfigs,
     ) -> &mut Self {
-        let mut schedules = self.world.resource_mut::<Schedules>();
-        if let Some(schedule) = schedules.get_mut(&schedule) {
-            schedule.configure_sets(sets);
-        } else {
-            let mut new_schedule = Schedule::new();
-            new_schedule.configure_sets(sets);
-            schedules.insert(schedule, new_schedule);
-        }
+        self.main_mut().configure_sets(schedule, sets);
         self
     }
 
-    /// Setup the application to manage events of type `T`.
+    /// Initializes `T` event handling by inserting an event queue resource ([`Events::<T>`])
+    /// and scheduling an [`event_update_system`] in [`First`](crate::First).
     ///
-    /// This is done by adding a [`Resource`] of type [`Events::<T>`],
-    /// and inserting an [`update_system`](Events::update_system) into [`First`].
-    ///
-    /// See [`Events`] for defining events.
+    /// See [`Events`] for information on how to define events.
     ///
     /// # Examples
     ///
@@ -532,19 +393,14 @@ impl App {
     where
         T: Event,
     {
-        if !self.world.contains_resource::<Events<T>>() {
-            self.init_resource::<Events<T>>()
-                .add_systems(First, Events::<T>::update_system);
-        }
+        self.main_mut().add_event::<T>();
         self
     }
 
-    /// Inserts a [`Resource`] to the current [`App`] and overwrites any [`Resource`] previously added of the same type.
+    /// Inserts the [`Resource`] into the app, overwriting any existing resource of the same type.
     ///
-    /// A [`Resource`] in Bevy represents globally unique data. [`Resource`]s must be added to Bevy apps
-    /// before using them. This happens with [`insert_resource`](Self::insert_resource).
-    ///
-    /// See [`init_resource`](Self::init_resource) for [`Resource`]s that implement [`Default`] or [`FromWorld`].
+    /// There is also an [`init_resource`](Self::init_resource) for resources that have
+    /// [`Default`] or [`FromWorld`] implementations.
     ///
     /// # Examples
     ///
@@ -561,40 +417,16 @@ impl App {
     ///    .insert_resource(MyCounter { counter: 0 });
     /// ```
     pub fn insert_resource<R: Resource>(&mut self, resource: R) -> &mut Self {
-        self.world.insert_resource(resource);
+        self.main_mut().insert_resource(resource);
         self
     }
 
-    /// Inserts a non-send resource to the app.
+    /// Inserts the [`Resource`], initialized with its default value, into the app,
+    /// if there is no existing instance of `R`.
     ///
-    /// You usually want to use [`insert_resource`](Self::insert_resource),
-    /// but there are some special cases when a resource cannot be sent across threads.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// struct MyCounter {
-    ///     counter: usize,
-    /// }
-    ///
-    /// App::new()
-    ///     .insert_non_send_resource(MyCounter { counter: 0 });
-    /// ```
-    pub fn insert_non_send_resource<R: 'static>(&mut self, resource: R) -> &mut Self {
-        self.world.insert_non_send_resource(resource);
-        self
-    }
-
-    /// Initialize a [`Resource`] with standard starting values by adding it to the [`World`].
-    ///
-    /// If the [`Resource`] already exists, nothing happens.
-    ///
-    /// The [`Resource`] must implement the [`FromWorld`] trait.
-    /// If the [`Default`] trait is implemented, the [`FromWorld`] trait will use
-    /// the [`Default::default`] method to initialize the [`Resource`].
+    /// `R` must implement [`FromWorld`].
+    /// If `R` implements [`Default`], [`FromWorld`] will be automatically implemented and
+    /// initialize the [`Resource`] with [`Default::default`].
     ///
     /// # Examples
     ///
@@ -619,135 +451,91 @@ impl App {
     ///     .init_resource::<MyCounter>();
     /// ```
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> &mut Self {
-        self.world.init_resource::<R>();
+        self.main_mut().init_resource::<R>();
         self
     }
 
-    /// Initialize a non-send [`Resource`] with standard starting values by adding it to the [`World`].
+    /// Inserts the [`!Send`](Send) resource into the app, overwriting any existing resource
+    /// of the same type.
     ///
-    /// The [`Resource`] must implement the [`FromWorld`] trait.
-    /// If the [`Default`] trait is implemented, the [`FromWorld`] trait will use
-    /// the [`Default::default`] method to initialize the [`Resource`].
-    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
-        self.world.init_non_send_resource::<R>();
-        self
-    }
-
-    /// Sets the function that will be called when the app is run.
-    ///
-    /// The runner function `run_fn` is called only once by [`App::run`]. If the
-    /// presence of a main loop in the app is desired, it is the responsibility of the runner
-    /// function to provide it.
-    ///
-    /// The runner function is usually not set manually, but by Bevy integrated plugins
-    /// (e.g. `WinitPlugin`).
+    /// There is also an [`init_non_send_resource`](Self::init_non_send_resource) for
+    /// resources that implement [`Default`]
     ///
     /// # Examples
     ///
     /// ```
     /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// #
-    /// fn my_runner(mut app: App) {
-    ///     loop {
-    ///         println!("In main loop");
-    ///         app.update();
-    ///     }
+    /// struct MyCounter {
+    ///     counter: usize,
     /// }
     ///
     /// App::new()
-    ///     .set_runner(my_runner);
+    ///     .insert_non_send_resource(MyCounter { counter: 0 });
     /// ```
-    pub fn set_runner(&mut self, run_fn: impl Fn(App) + 'static + Send) -> &mut Self {
-        self.runner = Box::new(run_fn);
+    pub fn insert_non_send_resource<R: 'static>(&mut self, resource: R) -> &mut Self {
+        self.world_mut().insert_non_send_resource(resource);
         self
     }
 
-    /// Adds a single [`Plugin`].
-    ///
-    /// One of Bevy's core principles is modularity. All Bevy engine features are implemented
-    /// as [`Plugin`]s. This includes internal features like the renderer.
-    ///
-    /// Bevy also provides a few sets of default [`Plugin`]s. See [`add_plugins`](Self::add_plugins).
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// #
-    /// # // Dummies created to avoid using `bevy_log`,
-    /// # // which pulls in too many dependencies and breaks rust-analyzer
-    /// # pub mod bevy_log {
-    /// #     use bevy_app::prelude::*;
-    /// #     #[derive(Default)]
-    /// #     pub struct LogPlugin;
-    /// #     impl Plugin for LogPlugin{
-    /// #        fn build(&self, app: &mut App) {}
-    /// #     }
-    /// # }
-    /// App::new().add_plugin(bevy_log::LogPlugin::default());
-    /// ```
-    ///
-    /// # Panics
-    ///
-    /// Panics if the plugin was already added to the application.
-    pub fn add_plugin<T>(&mut self, plugin: T) -> &mut Self
-    where
-        T: Plugin,
-    {
-        match self.add_boxed_plugin(Box::new(plugin)) {
-            Ok(app) => app,
-            Err(AppError::DuplicatePlugin { plugin_name }) => panic!(
-                "Error adding plugin {plugin_name}: : plugin was already added in application"
-            ),
-        }
+    /// Inserts the [`!Send`](Send) resource into the app, initialized with its default value,
+    /// if there is no existing instance of `R`.
+    pub fn init_non_send_resource<R: 'static + Default>(&mut self) -> &mut Self {
+        self.world_mut().init_non_send_resource::<R>();
+        self
     }
 
-    /// Boxed variant of [`add_plugin`](App::add_plugin) that can be used from a [`PluginGroup`]
     pub(crate) fn add_boxed_plugin(
         &mut self,
         plugin: Box<dyn Plugin>,
     ) -> Result<&mut Self, AppError> {
         debug!("added plugin: {}", plugin.name());
-        if plugin.is_unique() && !self.plugin_name_added.insert(plugin.name().to_string()) {
+        if plugin.is_unique()
+            && !self
+                .main_mut()
+                .plugin_names
+                .insert(plugin.name().to_string())
+        {
             Err(AppError::DuplicatePlugin {
                 plugin_name: plugin.name().to_string(),
             })?;
         }
 
-        // Reserve that position in the plugin registry. if a plugin adds plugins, they will be correctly ordered
-        let plugin_position_in_registry = self.plugin_registry.len();
-        self.plugin_registry.push(Box::new(PlaceholderPlugin));
+        // Reserve position in the plugin registry. If the plugin adds more plugins,
+        // they'll all end up in insertion order.
+        let index = self.main().plugin_registry.len();
+        self.main_mut()
+            .plugin_registry
+            .push(Box::new(PlaceholderPlugin));
 
-        self.building_plugin_depth += 1;
+        self.main_mut().plugin_build_depth += 1;
         let result = catch_unwind(AssertUnwindSafe(|| plugin.build(self)));
-        self.building_plugin_depth -= 1;
+        self.main_mut().plugin_build_depth -= 1;
+
         if let Err(payload) = result {
             resume_unwind(payload);
         }
-        self.plugin_registry[plugin_position_in_registry] = plugin;
+
+        self.main_mut().plugin_registry[index] = plugin;
         Ok(self)
     }
 
-    /// Checks if a [`Plugin`] has already been added.
-    ///
-    /// This can be used by plugins to check if a plugin they depend upon has already been
-    /// added.
+    /// Returns `true` if the [`Plugin`] has already been added.
     pub fn is_plugin_added<T>(&self) -> bool
     where
         T: Plugin,
     {
-        self.plugin_registry
-            .iter()
-            .any(|p| p.downcast_ref::<T>().is_some())
+        self.main().is_plugin_added::<T>()
     }
 
-    /// Returns a vector of references to any plugins of type `T` that have been added.
+    /// Returns a vector of references to all plugins of type `T` that have been added.
     ///
-    /// This can be used to read the settings of any already added plugins.
-    /// This vector will be length zero if no plugins of that type have been added.
+    /// This can be used to read the settings of any existing plugins.
+    /// This vector will be empty if no plugins of that type have been added.
     /// If multiple copies of the same plugin are added to the [`App`], they will be listed in insertion order in this vector.
     ///
-    /// ```rust
+    /// ```
     /// # use bevy_app::prelude::*;
     /// # #[derive(Default)]
     /// # struct ImagePlugin {
@@ -757,20 +545,20 @@ impl App {
     /// #    fn build(&self, app: &mut App) {}
     /// # }
     /// # let mut app = App::new();
-    /// # app.add_plugin(ImagePlugin::default());
+    /// # app.add_plugins(ImagePlugin::default());
     /// let default_sampler = app.get_added_plugins::<ImagePlugin>()[0].default_sampler;
     /// ```
     pub fn get_added_plugins<T>(&self) -> Vec<&T>
     where
         T: Plugin,
     {
-        self.plugin_registry
-            .iter()
-            .filter_map(|p| p.downcast_ref())
-            .collect()
+        self.main().get_added_plugins::<T>()
     }
 
-    /// Adds a group of [`Plugin`]s.
+    /// Installs a [`Plugin`] collection.
+    ///
+    /// Bevy prioritizes modularity as a core principle. **All** engine features are implemented
+    /// as plugins, even the complex ones like rendering.
     ///
     /// [`Plugin`]s can be grouped into a set by using a [`PluginGroup`].
     ///
@@ -778,50 +566,72 @@ impl App {
     /// The [`PluginGroup`]s available by default are `DefaultPlugins` and `MinimalPlugins`.
     ///
     /// To customize the plugins in the group (reorder, disable a plugin, add a new plugin
-    /// before / after another plugin), call [`build()`](PluginGroup::build) on the group,
+    /// before / after another plugin), call [`build()`](super::PluginGroup::build) on the group,
     /// which will convert it to a [`PluginGroupBuilder`](crate::PluginGroupBuilder).
+    ///
+    /// You can also specify a group of [`Plugin`]s by using a tuple over [`Plugin`]s and
+    /// [`PluginGroup`]s. See [`Plugins`] for more details.
     ///
     /// ## Examples
     /// ```
     /// # use bevy_app::{prelude::*, PluginGroupBuilder, NoopPluginGroup as MinimalPlugins};
     /// #
+    /// # // Dummies created to avoid using `bevy_log`,
+    /// # // which pulls in too many dependencies and breaks rust-analyzer
+    /// # pub struct LogPlugin;
+    /// # impl Plugin for LogPlugin {
+    /// #     fn build(&self, app: &mut App) {}
+    /// # }
     /// App::new()
     ///     .add_plugins(MinimalPlugins);
+    /// App::new()
+    ///     .add_plugins((MinimalPlugins, LogPlugin));
     /// ```
     ///
     /// # Panics
     ///
-    /// Panics if one of the plugin in the group was already added to the application.
-    pub fn add_plugins<T: PluginGroup>(&mut self, group: T) -> &mut Self {
-        let builder = group.build();
-        builder.finish(self);
+    /// Panics if one of the plugins had already been added to the application.
+    ///
+    /// [`PluginGroup`]:super::PluginGroup
+    #[track_caller]
+    pub fn add_plugins<M>(&mut self, plugins: impl Plugins<M>) -> &mut Self {
+        if matches!(
+            self.plugins_state(),
+            PluginsState::Cleaned | PluginsState::Finished
+        ) {
+            panic!(
+                "Plugins cannot be added after App::cleanup() or App::finish() has been called."
+            );
+        }
+        plugins.add_to_app(self);
         self
     }
 
     /// Registers the type `T` in the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource,
     /// adding reflect data as specified in the [`Reflect`](bevy_reflect::Reflect) derive:
-    /// ```rust,ignore
-    /// #[derive(Reflect)]
+    /// ```ignore (No serde "derive" feature)
+    /// #[derive(Component, Serialize, Deserialize, Reflect)]
     /// #[reflect(Component, Serialize, Deserialize)] // will register ReflectComponent, ReflectSerialize, ReflectDeserialize
     /// ```
     ///
-    /// See [`bevy_reflect::TypeRegistry::register`].
+    /// See [`bevy_reflect::TypeRegistry::register`] for more information.
     #[cfg(feature = "bevy_reflect")]
     pub fn register_type<T: bevy_reflect::GetTypeRegistration>(&mut self) -> &mut Self {
-        let registry = self.world.resource_mut::<AppTypeRegistry>();
-        registry.write().register::<T>();
+        self.main_mut().register_type::<T>();
         self
     }
 
-    /// Adds the type data `D` to type `T` in the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource.
+    /// Associates type data `D` with type `T` in the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource.
     ///
-    /// Most of the time [`App::register_type`] can be used instead to register a type you derived [`Reflect`](bevy_reflect::Reflect) for.
-    /// However, in cases where you want to add a piece of type data that was not included in the list of `#[reflect(...)]` type data in the derive,
-    /// or where the type is generic and cannot register e.g. `ReflectSerialize` unconditionally without knowing the specific type parameters,
-    /// this method can be used to insert additional type data.
+    /// Most of the time [`register_type`](Self::register_type) can be used instead to register a
+    /// type you derived [`Reflect`](bevy_reflect::Reflect) for. However, in cases where you want to
+    /// add a piece of type data that was not included in the list of `#[reflect(...)]` type data in
+    /// the derive, or where the type is generic and cannot register e.g. `ReflectSerialize`
+    /// unconditionally without knowing the specific type parameters, this method can be used to
+    /// insert additional type data.
     ///
     /// # Example
-    /// ```rust
+    /// ```
     /// use bevy_app::App;
     /// use bevy_reflect::{ReflectSerialize, ReflectDeserialize};
     ///
@@ -834,130 +644,251 @@ impl App {
     /// See [`bevy_reflect::TypeRegistry::register_type_data`].
     #[cfg(feature = "bevy_reflect")]
     pub fn register_type_data<
-        T: bevy_reflect::Reflect + 'static,
+        T: bevy_reflect::Reflect + bevy_reflect::TypePath,
         D: bevy_reflect::TypeData + bevy_reflect::FromType<T>,
     >(
         &mut self,
     ) -> &mut Self {
-        let registry = self.world.resource_mut::<AppTypeRegistry>();
-        registry.write().register_type_data::<T, D>();
+        self.main_mut().register_type_data::<T, D>();
         self
     }
 
-    /// Retrieves a `SubApp` stored inside this [`App`].
+    /// Returns a reference to the [`World`].
+    pub fn world(&self) -> &World {
+        self.main().world()
+    }
+
+    /// Returns a mutable reference to the [`World`].
+    pub fn world_mut(&mut self) -> &mut World {
+        self.main_mut().world_mut()
+    }
+
+    /// Returns a reference to the main [`SubApp`].
+    pub fn main(&self) -> &SubApp {
+        &self.sub_apps.main
+    }
+
+    /// Returns a mutable reference to the main [`SubApp`].
+    pub fn main_mut(&mut self) -> &mut SubApp {
+        &mut self.sub_apps.main
+    }
+
+    /// Returns a reference to the [`SubApp`] with the given label.
     ///
     /// # Panics
     ///
-    /// Panics if the `SubApp` doesn't exist.
-    pub fn sub_app_mut(&mut self, label: impl AppLabel) -> &mut App {
-        match self.get_sub_app_mut(label) {
-            Ok(app) => app,
-            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_str()),
-        }
+    /// Panics if the [`SubApp`] doesn't exist.
+    pub fn sub_app(&self, label: impl AppLabel) -> &SubApp {
+        let str = label.intern();
+        self.get_sub_app(label).unwrap_or_else(|| {
+            panic!("No sub-app with label '{:?}' exists.", str);
+        })
     }
 
-    /// Retrieves a `SubApp` inside this [`App`] with the given label, if it exists. Otherwise returns
-    /// an [`Err`] containing the given label.
-    pub fn get_sub_app_mut(&mut self, label: impl AppLabel) -> Result<&mut App, AppLabelId> {
-        let label = label.as_label();
-        self.sub_apps
-            .get_mut(&label)
-            .map(|sub_app| &mut sub_app.app)
-            .ok_or(label)
-    }
-
-    /// Retrieves a `SubApp` stored inside this [`App`].
+    /// Returns a reference to the [`SubApp`] with the given label.
     ///
     /// # Panics
     ///
-    /// Panics if the `SubApp` doesn't exist.
-    pub fn sub_app(&self, label: impl AppLabel) -> &App {
-        match self.get_sub_app(label) {
-            Ok(app) => app,
-            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_str()),
-        }
+    /// Panics if the [`SubApp`] doesn't exist.
+    pub fn sub_app_mut(&mut self, label: impl AppLabel) -> &mut SubApp {
+        let str = label.intern();
+        self.get_sub_app_mut(label).unwrap_or_else(|| {
+            panic!("No sub-app with label '{:?}' exists.", str);
+        })
     }
 
-    /// Inserts an existing sub app into the app
+    /// Returns a reference to the [`SubApp`] with the given label, if it exists.
+    pub fn get_sub_app(&self, label: impl AppLabel) -> Option<&SubApp> {
+        self.sub_apps.sub_apps.get(&label.intern())
+    }
+
+    /// Returns a mutable reference to the [`SubApp`] with the given label, if it exists.
+    pub fn get_sub_app_mut(&mut self, label: impl AppLabel) -> Option<&mut SubApp> {
+        self.sub_apps.sub_apps.get_mut(&label.intern())
+    }
+
+    /// Inserts a [`SubApp`] with the given label.
     pub fn insert_sub_app(&mut self, label: impl AppLabel, sub_app: SubApp) {
-        self.sub_apps.insert(label.as_label(), sub_app);
+        self.sub_apps.sub_apps.insert(label.intern(), sub_app);
     }
 
-    /// Removes a sub app from the app. Returns [`None`] if the label doesn't exist.
+    /// Removes the [`SubApp`] with the given label, if it exists.
     pub fn remove_sub_app(&mut self, label: impl AppLabel) -> Option<SubApp> {
-        self.sub_apps.remove(&label.as_label())
+        self.sub_apps.sub_apps.remove(&label.intern())
     }
 
-    /// Retrieves a `SubApp` inside this [`App`] with the given label, if it exists. Otherwise returns
-    /// an [`Err`] containing the given label.
-    pub fn get_sub_app(&self, label: impl AppLabel) -> Result<&App, impl AppLabel> {
-        self.sub_apps
-            .get(&label.as_label())
-            .map(|sub_app| &sub_app.app)
-            .ok_or(label)
-    }
-
-    /// Adds a new `schedule` to the [`App`] under the provided `label`.
-    ///
-    /// # Warning
-    /// This method will overwrite any existing schedule at that label.
-    /// To avoid this behavior, use the `init_schedule` method instead.
-    pub fn add_schedule(&mut self, label: impl ScheduleLabel, schedule: Schedule) -> &mut Self {
-        let mut schedules = self.world.resource_mut::<Schedules>();
-        schedules.insert(label, schedule);
-
+    /// Inserts a new `schedule` under the provided `label`, overwriting any existing
+    /// schedule with the same label.
+    pub fn add_schedule(&mut self, schedule: Schedule) -> &mut Self {
+        self.main_mut().add_schedule(schedule);
         self
     }
 
-    /// Initializes a new empty `schedule` to the [`App`] under the provided `label` if it does not exists.
+    /// Initializes an empty `schedule` under the provided `label`, if it does not exist.
     ///
-    /// See [`App::add_schedule`] to pass in a pre-constructed schedule.
+    /// See [`add_schedule`](Self::add_schedule) to insert an existing schedule.
     pub fn init_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
-        let mut schedules = self.world.resource_mut::<Schedules>();
-        if !schedules.contains(&label) {
-            schedules.insert(label, Schedule::new());
-        }
+        self.main_mut().init_schedule(label);
         self
     }
 
-    /// Gets read-only access to the [`Schedule`] with the provided `label` if it exists.
+    /// Returns a reference to the [`Schedule`] with the provided `label` if it exists.
     pub fn get_schedule(&self, label: impl ScheduleLabel) -> Option<&Schedule> {
-        let schedules = self.world.get_resource::<Schedules>()?;
-        schedules.get(&label)
+        self.main().get_schedule(label)
     }
 
-    /// Gets read-write access to a [`Schedule`] with the provided `label` if it exists.
+    /// Returns a mutable reference to the [`Schedule`] with the provided `label` if it exists.
     pub fn get_schedule_mut(&mut self, label: impl ScheduleLabel) -> Option<&mut Schedule> {
-        let schedules = self.world.get_resource_mut::<Schedules>()?;
-        // We need to call .into_inner here to satisfy the borrow checker:
-        // it can reason about reborrows using ordinary references but not the `Mut` smart pointer.
-        schedules.into_inner().get_mut(&label)
+        self.main_mut().get_schedule_mut(label)
     }
 
-    /// Applies the function to the [`Schedule`] associated with `label`.
+    /// Runs function `f` with the [`Schedule`] associated with `label`.
     ///
     /// **Note:** This will create the schedule if it does not already exist.
     pub fn edit_schedule(
         &mut self,
         label: impl ScheduleLabel,
-        mut f: impl FnMut(&mut Schedule),
+        f: impl FnMut(&mut Schedule),
     ) -> &mut Self {
-        let mut schedules = self.world.resource_mut::<Schedules>();
+        self.main_mut().edit_schedule(label, f);
+        self
+    }
 
-        if schedules.get(&label).is_none() {
-            schedules.insert(label.dyn_clone(), Schedule::new());
+    /// Applies the provided [`ScheduleBuildSettings`] to all schedules.
+    pub fn configure_schedules(
+        &mut self,
+        schedule_build_settings: ScheduleBuildSettings,
+    ) -> &mut Self {
+        self.main_mut().configure_schedules(schedule_build_settings);
+        self
+    }
+
+    /// When doing [ambiguity checking](ScheduleBuildSettings) this
+    /// ignores systems that are ambiguous on [`Component`] T.
+    ///
+    /// This settings only applies to the main world. To apply this to other worlds call the
+    /// [corresponding method](World::allow_ambiguous_component) on World
+    ///
+    /// ## Example
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::schedule::{LogLevel, ScheduleBuildSettings};
+    /// # use bevy_utils::default;
+    ///
+    /// #[derive(Component)]
+    /// struct A;
+    ///
+    /// // these systems are ambiguous on A
+    /// fn system_1(_: Query<&mut A>) {}
+    /// fn system_2(_: Query<&A>) {}
+    ///
+    /// let mut app = App::new();
+    /// app.configure_schedules(ScheduleBuildSettings {
+    ///   ambiguity_detection: LogLevel::Error,
+    ///   ..default()
+    /// });
+    ///
+    /// app.add_systems(Update, ( system_1, system_2 ));
+    /// app.allow_ambiguous_component::<A>();
+    ///
+    /// // running the app does not error.
+    /// app.update();
+    /// ```
+    pub fn allow_ambiguous_component<T: Component>(&mut self) -> &mut Self {
+        self.main_mut().allow_ambiguous_component::<T>();
+        self
+    }
+
+    /// When doing [ambiguity checking](ScheduleBuildSettings) this
+    /// ignores systems that are ambiguous on [`Resource`] T.
+    ///
+    /// This settings only applies to the main world. To apply this to other worlds call the
+    /// [corresponding method](World::allow_ambiguous_resource) on World
+    ///
+    /// ## Example
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::schedule::{LogLevel, ScheduleBuildSettings};
+    /// # use bevy_utils::default;
+    ///
+    /// #[derive(Resource)]
+    /// struct R;
+    ///
+    /// // these systems are ambiguous on R
+    /// fn system_1(_: ResMut<R>) {}
+    /// fn system_2(_: Res<R>) {}
+    ///
+    /// let mut app = App::new();
+    /// app.configure_schedules(ScheduleBuildSettings {
+    ///   ambiguity_detection: LogLevel::Error,
+    ///   ..default()
+    /// });
+    /// app.insert_resource(R);
+    ///
+    /// app.add_systems(Update, ( system_1, system_2 ));
+    /// app.allow_ambiguous_resource::<R>();
+    ///
+    /// // running the app does not error.
+    /// app.update();
+    /// ```
+    pub fn allow_ambiguous_resource<T: Resource>(&mut self) -> &mut Self {
+        self.main_mut().allow_ambiguous_resource::<T>();
+        self
+    }
+
+    /// Suppress warnings and errors that would result from systems in these sets having ambiguities
+    /// (conflicting access but indeterminate order) with systems in `set`.
+    ///
+    /// When possible, do this directly in the `.add_systems(Update, a.ambiguous_with(b))` call.
+    /// However, sometimes two independent plugins `A` and `B` are reported as ambiguous, which you
+    /// can only suppress as the consumer of both.
+    #[track_caller]
+    pub fn ignore_ambiguity<M1, M2, S1, S2>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        a: S1,
+        b: S2,
+    ) -> &mut Self
+    where
+        S1: IntoSystemSet<M1>,
+        S2: IntoSystemSet<M2>,
+    {
+        self.main_mut().ignore_ambiguity(schedule, a, b);
+        self
+    }
+
+    /// Attempts to determine if an [`AppExit`] was raised since the last update.
+    ///
+    /// Will attempt to return the first [`Error`](AppExit::Error) it encounters.
+    /// This should be called after every [`update()`](App::update) otherwise you risk
+    /// dropping possible [`AppExit`] events.
+    pub fn should_exit(&self) -> Option<AppExit> {
+        let mut reader = ManualEventReader::default();
+
+        let events = self.world().get_resource::<Events<AppExit>>()?;
+        let mut events = reader.read(events);
+
+        if events.len() != 0 {
+            return Some(
+                events
+                    .find(|exit| exit.is_error())
+                    .cloned()
+                    .unwrap_or(AppExit::Success),
+            );
         }
 
-        let schedule = schedules.get_mut(&label).unwrap();
-        // Call the function f, passing in the schedule retrieved
-        f(schedule);
-
-        self
+        None
     }
 }
 
-fn run_once(mut app: App) {
-    while !app.ready() {
+type RunnerFn = Box<dyn FnOnce(App) -> AppExit>;
+
+fn run_once(mut app: App) -> AppExit {
+    while app.plugins_state() == PluginsState::Adding {
         #[cfg(not(target_arch = "wasm32"))]
         bevy_tasks::tick_global_task_pools_on_main_thread();
     }
@@ -965,69 +896,148 @@ fn run_once(mut app: App) {
     app.cleanup();
 
     app.update();
+
+    let mut exit_code_reader = ManualEventReader::default();
+    if let Some(app_exit_events) = app.world().get_resource::<Events<AppExit>>() {
+        if exit_code_reader
+            .read(app_exit_events)
+            .any(AppExit::is_error)
+        {
+            return AppExit::error();
+        }
+    }
+
+    AppExit::Success
 }
 
-/// An event that indicates the [`App`] should exit. This will fully exit the app process at the
-/// start of the next tick of the schedule.
+/// An event that indicates the [`App`] should exit. If one or more of these are present at the end of an update,
+/// the [runner](App::set_runner) will end and ([maybe](App::run)) return control to the caller.
 ///
-/// You can also use this event to detect that an exit was requested. In order to receive it, systems
-/// subscribing to this event should run after it was emitted and before the schedule of the same
-/// frame is over. This is important since [`App::run()`] might never return.
+/// This event can be used to detect when an exit is requested. Make sure that systems listening
+/// for this event run before the current update ends.
 ///
-/// If you don't require access to other components or resources, consider implementing the [`Drop`]
-/// trait on components/resources for code that runs on exit. That saves you from worrying about
-/// system schedule ordering, and is idiomatic Rust.
-#[derive(Event, Debug, Clone, Default)]
-pub struct AppExit;
+/// # Portability
+/// This type is roughly meant to map to a standard definition of a process exit code (0 means success, not 0 means error). Due to portability concerns
+/// (see [`ExitCode`](https://doc.rust-lang.org/std/process/struct.ExitCode.html) and [`process::exit`](https://doc.rust-lang.org/std/process/fn.exit.html#))
+/// we only allow error codes between 1 and [255](u8::MAX).
+#[derive(Event, Debug, Clone, Default, PartialEq, Eq)]
+pub enum AppExit {
+    /// [`App`] exited without any problems.
+    #[default]
+    Success,
+    /// The [`App`] experienced an unhandleable error.
+    /// Holds the exit code we expect our app to return.
+    Error(NonZeroU8),
+}
+
+impl AppExit {
+    /// Creates a [`AppExit::Error`] with a error code of 1.
+    #[must_use]
+    pub const fn error() -> Self {
+        Self::Error(NonZeroU8::MIN)
+    }
+
+    /// Returns `true` if `self` is a [`AppExit::Success`].
+    #[must_use]
+    pub const fn is_success(&self) -> bool {
+        matches!(self, AppExit::Success)
+    }
+
+    /// Returns `true` if `self` is a [`AppExit::Error`].
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        matches!(self, AppExit::Error(_))
+    }
+
+    /// Creates a [`AppExit`] from a code.
+    ///
+    /// When `code` is 0 a [`AppExit::Success`] is constructed otherwise a
+    /// [`AppExit::Error`] is constructed.
+    #[must_use]
+    pub const fn from_code(code: u8) -> Self {
+        match NonZeroU8::new(code) {
+            Some(code) => Self::Error(code),
+            None => Self::Success,
+        }
+    }
+}
+
+impl From<u8> for AppExit {
+    #[must_use]
+    fn from(value: u8) -> Self {
+        Self::from_code(value)
+    }
+}
+
+impl Termination for AppExit {
+    fn report(self) -> std::process::ExitCode {
+        match self {
+            AppExit::Success => ExitCode::SUCCESS,
+            // We leave logging an error to our users
+            AppExit::Error(value) => ExitCode::from(value.get()),
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs::{
-        schedule::{OnEnter, States},
-        system::Commands,
-    };
+    use std::{marker::PhantomData, mem};
 
-    use crate::{App, Plugin};
+    use bevy_ecs::{schedule::ScheduleLabel, system::Commands};
+
+    use crate::{App, AppExit, Plugin};
 
     struct PluginA;
     impl Plugin for PluginA {
-        fn build(&self, _app: &mut crate::App) {}
+        fn build(&self, _app: &mut App) {}
     }
     struct PluginB;
     impl Plugin for PluginB {
-        fn build(&self, _app: &mut crate::App) {}
+        fn build(&self, _app: &mut App) {}
     }
     struct PluginC<T>(T);
     impl<T: Send + Sync + 'static> Plugin for PluginC<T> {
-        fn build(&self, _app: &mut crate::App) {}
+        fn build(&self, _app: &mut App) {}
     }
     struct PluginD;
     impl Plugin for PluginD {
-        fn build(&self, _app: &mut crate::App) {}
+        fn build(&self, _app: &mut App) {}
         fn is_unique(&self) -> bool {
             false
         }
     }
 
+    struct PluginE;
+
+    impl Plugin for PluginE {
+        fn build(&self, _app: &mut App) {}
+
+        fn finish(&self, app: &mut App) {
+            if app.is_plugin_added::<PluginA>() {
+                panic!("cannot run if PluginA is already registered");
+            }
+        }
+    }
+
     #[test]
     fn can_add_two_plugins() {
-        App::new().add_plugin(PluginA).add_plugin(PluginB);
+        App::new().add_plugins((PluginA, PluginB));
     }
 
     #[test]
     #[should_panic]
     fn cant_add_twice_the_same_plugin() {
-        App::new().add_plugin(PluginA).add_plugin(PluginA);
+        App::new().add_plugins((PluginA, PluginA));
     }
 
     #[test]
     fn can_add_twice_the_same_plugin_with_different_type_param() {
-        App::new().add_plugin(PluginC(0)).add_plugin(PluginC(true));
+        App::new().add_plugins((PluginC(0), PluginC(true)));
     }
 
     #[test]
     fn can_add_twice_the_same_plugin_not_unique() {
-        App::new().add_plugin(PluginD).add_plugin(PluginD);
+        App::new().add_plugins((PluginD, PluginD));
     }
 
     #[test]
@@ -1036,21 +1046,19 @@ mod tests {
         struct PluginRun;
         struct InnerPlugin;
         impl Plugin for InnerPlugin {
-            fn build(&self, _: &mut crate::App) {}
+            fn build(&self, _: &mut App) {}
         }
         impl Plugin for PluginRun {
-            fn build(&self, app: &mut crate::App) {
-                app.add_plugin(InnerPlugin).run();
+            fn build(&self, app: &mut App) {
+                app.add_plugins(InnerPlugin).run();
             }
         }
-        App::new().add_plugin(PluginRun);
+        App::new().add_plugins(PluginRun);
     }
 
-    #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
-    enum AppState {
-        #[default]
-        MainMenu,
-    }
+    #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
+    struct EnterMainMenu;
+
     fn bar(mut commands: Commands) {
         commands.spawn_empty();
     }
@@ -1062,20 +1070,162 @@ mod tests {
     #[test]
     fn add_systems_should_create_schedule_if_it_does_not_exist() {
         let mut app = App::new();
-        app.add_state::<AppState>()
-            .add_systems(OnEnter(AppState::MainMenu), (foo, bar));
+        app.add_systems(EnterMainMenu, (foo, bar));
 
-        app.world.run_schedule(OnEnter(AppState::MainMenu));
-        assert_eq!(app.world.entities().len(), 2);
+        app.world_mut().run_schedule(EnterMainMenu);
+        assert_eq!(app.world().entities().len(), 2);
     }
 
     #[test]
-    fn add_systems_should_create_schedule_if_it_does_not_exist2() {
+    #[should_panic]
+    fn test_is_plugin_added_works_during_finish() {
         let mut app = App::new();
-        app.add_systems(OnEnter(AppState::MainMenu), (foo, bar))
-            .add_state::<AppState>();
+        app.add_plugins(PluginA);
+        app.add_plugins(PluginE);
+        app.finish();
+    }
 
-        app.world.run_schedule(OnEnter(AppState::MainMenu));
-        assert_eq!(app.world.entities().len(), 2);
+    #[test]
+    fn test_derive_app_label() {
+        use super::AppLabel;
+        use crate::{self as bevy_app};
+
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct UnitLabel;
+
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct TupleLabel(u32, u32);
+
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct StructLabel {
+            a: u32,
+            b: u32,
+        }
+
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct EmptyTupleLabel();
+
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct EmptyStructLabel {}
+
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        enum EnumLabel {
+            #[default]
+            Unit,
+            Tuple(u32, u32),
+            Struct {
+                a: u32,
+                b: u32,
+            },
+        }
+
+        #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+        struct GenericLabel<T>(PhantomData<T>);
+
+        assert_eq!(UnitLabel.intern(), UnitLabel.intern());
+        assert_eq!(EnumLabel::Unit.intern(), EnumLabel::Unit.intern());
+        assert_ne!(UnitLabel.intern(), EnumLabel::Unit.intern());
+        assert_ne!(UnitLabel.intern(), TupleLabel(0, 0).intern());
+        assert_ne!(EnumLabel::Unit.intern(), EnumLabel::Tuple(0, 0).intern());
+
+        assert_eq!(TupleLabel(0, 0).intern(), TupleLabel(0, 0).intern());
+        assert_eq!(
+            EnumLabel::Tuple(0, 0).intern(),
+            EnumLabel::Tuple(0, 0).intern()
+        );
+        assert_ne!(TupleLabel(0, 0).intern(), TupleLabel(0, 1).intern());
+        assert_ne!(
+            EnumLabel::Tuple(0, 0).intern(),
+            EnumLabel::Tuple(0, 1).intern()
+        );
+        assert_ne!(TupleLabel(0, 0).intern(), EnumLabel::Tuple(0, 0).intern());
+        assert_ne!(
+            TupleLabel(0, 0).intern(),
+            StructLabel { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(
+            EnumLabel::Tuple(0, 0).intern(),
+            EnumLabel::Struct { a: 0, b: 0 }.intern()
+        );
+
+        assert_eq!(
+            StructLabel { a: 0, b: 0 }.intern(),
+            StructLabel { a: 0, b: 0 }.intern()
+        );
+        assert_eq!(
+            EnumLabel::Struct { a: 0, b: 0 }.intern(),
+            EnumLabel::Struct { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(
+            StructLabel { a: 0, b: 0 }.intern(),
+            StructLabel { a: 0, b: 1 }.intern()
+        );
+        assert_ne!(
+            EnumLabel::Struct { a: 0, b: 0 }.intern(),
+            EnumLabel::Struct { a: 0, b: 1 }.intern()
+        );
+        assert_ne!(
+            StructLabel { a: 0, b: 0 }.intern(),
+            EnumLabel::Struct { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(
+            StructLabel { a: 0, b: 0 }.intern(),
+            EnumLabel::Struct { a: 0, b: 0 }.intern()
+        );
+        assert_ne!(StructLabel { a: 0, b: 0 }.intern(), UnitLabel.intern(),);
+        assert_ne!(
+            EnumLabel::Struct { a: 0, b: 0 }.intern(),
+            EnumLabel::Unit.intern()
+        );
+
+        assert_eq!(
+            GenericLabel::<u32>(PhantomData).intern(),
+            GenericLabel::<u32>(PhantomData).intern()
+        );
+        assert_ne!(
+            GenericLabel::<u32>(PhantomData).intern(),
+            GenericLabel::<u64>(PhantomData).intern()
+        );
+    }
+
+    /// Custom runners should be in charge of when `app::update` gets called as they may need to
+    /// coordinate some state.
+    /// bug: <https://github.com/bevyengine/bevy/issues/10385>
+    /// fix: <https://github.com/bevyengine/bevy/pull/10389>
+    #[test]
+    fn regression_test_10385() {
+        use super::{Res, Resource};
+        use crate::PreUpdate;
+
+        #[derive(Resource)]
+        struct MyState {}
+
+        fn my_runner(mut app: App) -> AppExit {
+            let my_state = MyState {};
+            app.world_mut().insert_resource(my_state);
+
+            for _ in 0..5 {
+                app.update();
+            }
+
+            AppExit::Success
+        }
+
+        fn my_system(_: Res<MyState>) {
+            // access state during app update
+        }
+
+        // Should not panic due to missing resource
+        App::new()
+            .set_runner(my_runner)
+            .add_systems(PreUpdate, my_system)
+            .run();
+    }
+
+    #[test]
+    fn app_exit_size() {
+        // There wont be many of them so the size isn't a issue but
+        // it's nice they're so small let's keep it that way.
+        assert_eq!(mem::size_of::<AppExit>(), mem::size_of::<u8>());
     }
 }

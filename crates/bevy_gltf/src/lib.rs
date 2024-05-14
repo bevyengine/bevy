@@ -1,4 +1,14 @@
-#![allow(clippy::type_complexity)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
+//! Plugin providing an [`AssetLoader`](bevy_asset::AssetLoader) and type definitions
+//! for loading glTF 2.0 (a standard 3D scene definition format) files in Bevy.
+//!
+//! The [glTF 2.0 specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html) defines the format of the glTF files.
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
@@ -9,10 +19,10 @@ mod vertex_attributes;
 pub use loader::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{AddAsset, Handle};
+use bevy_asset::{Asset, AssetApp, Handle};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_pbr::StandardMaterial;
-use bevy_reflect::{FromReflect, Reflect, ReflectFromReflect, TypePath, TypeUuid};
+use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
     mesh::{Mesh, MeshVertexAttribute},
     renderer::RenderDevice,
@@ -23,91 +33,127 @@ use bevy_scene::Scene;
 /// Adds support for glTF file loading to the app.
 #[derive(Default)]
 pub struct GltfPlugin {
-    custom_vertex_attributes: HashMap<String, MeshVertexAttribute>,
+    custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
 }
 
 impl GltfPlugin {
+    /// Register a custom vertex attribute so that it is recognized when loading a glTF file with the [`GltfLoader`].
+    ///
+    /// `name` must be the attribute name as found in the glTF data, which must start with an underscore.
+    /// See [this section of the glTF specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview)
+    /// for additional details on custom attributes.
     pub fn add_custom_vertex_attribute(
         mut self,
         name: &str,
         attribute: MeshVertexAttribute,
     ) -> Self {
-        self.custom_vertex_attributes
-            .insert(name.to_string(), attribute);
+        self.custom_vertex_attributes.insert(name.into(), attribute);
         self
     }
 }
 
 impl Plugin for GltfPlugin {
     fn build(&self, app: &mut App) {
-        let supported_compressed_formats = match app.world.get_resource::<RenderDevice>() {
-            Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
+        app.register_type::<GltfExtras>()
+            .init_asset::<Gltf>()
+            .init_asset::<GltfNode>()
+            .init_asset::<GltfPrimitive>()
+            .init_asset::<GltfMesh>()
+            .preregister_asset_loader::<GltfLoader>(&["gltf", "glb"]);
+    }
 
-            None => CompressedImageFormats::all(),
+    fn finish(&self, app: &mut App) {
+        let supported_compressed_formats = match app.world().get_resource::<RenderDevice>() {
+            Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
+            None => CompressedImageFormats::NONE,
         };
-        app.add_asset_loader::<GltfLoader>(GltfLoader {
+        app.register_asset_loader(GltfLoader {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
-        })
-        .register_type::<GltfExtras>()
-        .add_asset::<Gltf>()
-        .add_asset::<GltfNode>()
-        .add_asset::<GltfPrimitive>()
-        .add_asset::<GltfMesh>();
+        });
     }
 }
 
 /// Representation of a loaded glTF file.
-#[derive(Debug, TypeUuid, TypePath)]
-#[uuid = "5c7d5f8a-f7b0-4e45-a09e-406c0372fea2"]
+#[derive(Asset, Debug, TypePath)]
 pub struct Gltf {
+    /// All scenes loaded from the glTF file.
     pub scenes: Vec<Handle<Scene>>,
-    pub named_scenes: HashMap<String, Handle<Scene>>,
+    /// Named scenes loaded from the glTF file.
+    pub named_scenes: HashMap<Box<str>, Handle<Scene>>,
+    /// All meshes loaded from the glTF file.
     pub meshes: Vec<Handle<GltfMesh>>,
-    pub named_meshes: HashMap<String, Handle<GltfMesh>>,
+    /// Named meshes loaded from the glTF file.
+    pub named_meshes: HashMap<Box<str>, Handle<GltfMesh>>,
+    /// All materials loaded from the glTF file.
     pub materials: Vec<Handle<StandardMaterial>>,
-    pub named_materials: HashMap<String, Handle<StandardMaterial>>,
+    /// Named materials loaded from the glTF file.
+    pub named_materials: HashMap<Box<str>, Handle<StandardMaterial>>,
+    /// All nodes loaded from the glTF file.
     pub nodes: Vec<Handle<GltfNode>>,
-    pub named_nodes: HashMap<String, Handle<GltfNode>>,
+    /// Named nodes loaded from the glTF file.
+    pub named_nodes: HashMap<Box<str>, Handle<GltfNode>>,
+    /// Default scene to be displayed.
     pub default_scene: Option<Handle<Scene>>,
+    /// All animations loaded from the glTF file.
     #[cfg(feature = "bevy_animation")]
     pub animations: Vec<Handle<AnimationClip>>,
+    /// Named animations loaded from the glTF file.
     #[cfg(feature = "bevy_animation")]
-    pub named_animations: HashMap<String, Handle<AnimationClip>>,
+    pub named_animations: HashMap<Box<str>, Handle<AnimationClip>>,
+    /// The gltf root of the gltf asset, see <https://docs.rs/gltf/latest/gltf/struct.Gltf.html>. Only has a value when `GltfLoaderSettings::include_source` is true.
+    pub source: Option<gltf::Gltf>,
 }
 
 /// A glTF node with all of its child nodes, its [`GltfMesh`],
 /// [`Transform`](bevy_transform::prelude::Transform) and an optional [`GltfExtras`].
-#[derive(Debug, Clone, TypeUuid, TypePath)]
-#[uuid = "dad74750-1fd6-460f-ac51-0a7937563865"]
+///
+/// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-node).
+#[derive(Asset, Debug, Clone, TypePath)]
 pub struct GltfNode {
+    /// Direct children of the node.
     pub children: Vec<GltfNode>,
+    /// Mesh of the node.
     pub mesh: Option<Handle<GltfMesh>>,
+    /// Local transform.
     pub transform: bevy_transform::prelude::Transform,
+    /// Additional data.
     pub extras: Option<GltfExtras>,
 }
 
 /// A glTF mesh, which may consist of multiple [`GltfPrimitives`](GltfPrimitive)
 /// and an optional [`GltfExtras`].
-#[derive(Debug, Clone, TypeUuid, TypePath)]
-#[uuid = "8ceaec9a-926a-4f29-8ee3-578a69f42315"]
+///
+/// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-mesh).
+#[derive(Asset, Debug, Clone, TypePath)]
 pub struct GltfMesh {
+    /// Primitives of the glTF mesh.
     pub primitives: Vec<GltfPrimitive>,
+    /// Additional data.
     pub extras: Option<GltfExtras>,
 }
 
 /// Part of a [`GltfMesh`] that consists of a [`Mesh`], an optional [`StandardMaterial`] and [`GltfExtras`].
-#[derive(Debug, Clone, TypeUuid, TypePath)]
-#[uuid = "cbfca302-82fd-41cb-af77-cab6b3d50af1"]
+///
+/// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-mesh-primitive).
+#[derive(Asset, Debug, Clone, TypePath)]
 pub struct GltfPrimitive {
+    /// Topology to be rendered.
     pub mesh: Handle<Mesh>,
+    /// Material to apply to the `mesh`.
     pub material: Option<Handle<StandardMaterial>>,
+    /// Additional data.
     pub extras: Option<GltfExtras>,
+    /// Additional data of the `material`.
     pub material_extras: Option<GltfExtras>,
 }
 
-#[derive(Clone, Debug, Reflect, FromReflect, Default, Component)]
-#[reflect(Component, FromReflect)]
+/// Additional untyped data that can be present on most glTF types.
+///
+/// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
+#[derive(Clone, Debug, Reflect, Default, Component)]
+#[reflect(Component)]
 pub struct GltfExtras {
+    /// Content of the extra data.
     pub value: String,
 }

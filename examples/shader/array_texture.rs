@@ -1,16 +1,19 @@
+//! This example illustrates how to create a texture for use with a `texture_2d_array<f32>` shader
+//! uniform variable.
+
 use bevy::{
     asset::LoadState,
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 
-/// This example illustrates how to create a texture for use with a `texture_2d_array<f32>` shader
-/// uniform variable.
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(MaterialPlugin::<ArrayTextureMaterial>::default())
+        .add_plugins((
+            DefaultPlugins,
+            MaterialPlugin::<ArrayTextureMaterial>::default(),
+        ))
         .add_systems(Startup, setup)
         .add_systems(Update, create_array_texture)
         .run();
@@ -30,20 +33,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 3000.0,
-            ..Default::default()
-        },
-        transform: Transform::from_xyz(-3.0, 2.0, -1.0),
-        ..Default::default()
-    });
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 3000.0,
-            ..Default::default()
-        },
-        transform: Transform::from_xyz(3.0, 2.0, 1.0),
+    commands.spawn(DirectionalLightBundle {
+        transform: Transform::from_xyz(3.0, 2.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..Default::default()
     });
 
@@ -63,7 +54,7 @@ fn create_array_texture(
     mut materials: ResMut<Assets<ArrayTextureMaterial>>,
 ) {
     if loading_texture.is_loaded
-        || asset_server.get_load_state(loading_texture.handle.clone()) != LoadState::Loaded
+        || asset_server.load_state(loading_texture.handle.id()) != LoadState::Loaded
     {
         return;
     }
@@ -75,7 +66,7 @@ fn create_array_texture(
     image.reinterpret_stacked_2d_as_array(array_layers);
 
     // Spawn some cubes using the array texture
-    let mesh_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+    let mesh_handle = meshes.add(Cuboid::default());
     let material_handle = materials.add(ArrayTextureMaterial {
         array_texture: loading_texture.handle.clone(),
     });
@@ -89,8 +80,7 @@ fn create_array_texture(
     }
 }
 
-#[derive(AsBindGroup, Debug, Clone, TypeUuid, TypePath)]
-#[uuid = "9c5a0ddf-1eaf-41b4-9832-ed736fd26af3"]
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 struct ArrayTextureMaterial {
     #[texture(0, dimension = "2d_array")]
     #[sampler(1)]

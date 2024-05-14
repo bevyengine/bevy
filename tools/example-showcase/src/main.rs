@@ -1,6 +1,10 @@
+//! Tool to run all examples or generate a showcase page for the Bevy website.
+
 use std::{
-    collections::HashMap,
+    collections::{hash_map::DefaultHasher, HashMap},
+    fmt::Display,
     fs::{self, File},
+    hash::{Hash, Hasher},
     io::Write,
     path::{Path, PathBuf},
     process::exit,
@@ -8,9 +12,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use clap::Parser;
+use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
 use pbr::ProgressBar;
-use toml_edit::Document;
+use toml_edit::DocumentMut;
 use xshell::{cmd, Shell};
 
 #[derive(Parser, Debug)]
@@ -21,6 +25,14 @@ struct Args {
 
     #[command(subcommand)]
     action: Action,
+
+    #[arg(long)]
+    /// Pagination control - page number. To use with --per-page
+    page: Option<usize>,
+
+    #[arg(long)]
+    /// Pagination control - number of examples per page. To use with --page
+    per_page: Option<usize>,
 }
 
 #[derive(clap::Subcommand, Debug)]
@@ -38,15 +50,43 @@ enum Action {
         #[arg(long)]
         /// Take a screenshot
         screenshot: bool,
+
+        #[arg(long)]
+        /// Running in CI (some adaptation to the code)
+        in_ci: bool,
+
+        #[arg(long)]
+        /// Do not run stress test examples
+        ignore_stress_tests: bool,
+
+        #[arg(long)]
+        /// Report execution details in files
+        report_details: bool,
+
+        #[arg(long)]
+        /// Show the logs during execution
+        show_logs: bool,
+
+        #[arg(long)]
+        /// File containing the list of examples to run, incompatible with pagination
+        example_list: Option<String>,
+
+        #[arg(long)]
+        /// Only run examples that don't need extra features
+        only_default_features: bool,
     },
     /// Build the markdown files for the website
     BuildWebsiteList {
         #[arg(long)]
         /// Path to the folder where the content should be created
         content_folder: String,
+
+        #[arg(value_enum, long, default_value_t = WebApi::Webgpu)]
+        /// Which API to use for rendering
+        api: WebApi,
     },
-    /// BUild the examples in wasm / WebGPU
-    BuildWebGPUExamples {
+    /// Build the examples in wasm
+    BuildWasmExamples {
         #[arg(long)]
         /// Path to the folder where the content should be created
         content_folder: String,
@@ -58,11 +98,39 @@ enum Action {
         #[arg(long)]
         /// Optimize the wasm file for size with wasm-opt
         optimize_size: bool,
+
+        #[arg(value_enum, long)]
+        /// Which API to use for rendering
+        api: WebApi,
     },
+}
+
+#[derive(Debug, Copy, Clone, ValueEnum)]
+enum WebApi {
+    Webgl2,
+    Webgpu,
+}
+
+impl Display for WebApi {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WebApi::Webgl2 => write!(f, "webgl2"),
+            WebApi::Webgpu => write!(f, "webgpu"),
+        }
+    }
 }
 
 fn main() {
     let cli = Args::parse();
+
+    if cli.page.is_none() != cli.per_page.is_none() {
+        let mut cmd = Args::command();
+        cmd.error(
+            ErrorKind::MissingRequiredArgument,
+            "page and per-page must be used together",
+        )
+        .exit();
+    }
 
     let profile = cli.profile;
 
@@ -71,10 +139,34 @@ fn main() {
             wgpu_backend,
             manual_stop,
             screenshot,
+            in_ci,
+            ignore_stress_tests,
+            report_details,
+            show_logs,
+            example_list,
+            only_default_features,
         } => {
-            let examples_to_run = parse_examples();
+            if example_list.is_some() && cli.page.is_some() {
+                let mut cmd = Args::command();
+                cmd.error(
+                    ErrorKind::ArgumentConflict,
+                    "example-list can't be used with pagination",
+                )
+                .exit();
+            }
+            let example_filter = example_list
+                .as_ref()
+                .map(|path| {
+                    let file = fs::read_to_string(path).unwrap();
+                    file.lines().map(|l| l.to_string()).collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+
+            let mut examples_to_run = parse_examples();
 
             let mut failed_examples = vec![];
+            let mut successful_examples = vec![];
+            let mut no_screenshot_examples = vec![];
 
             let mut extra_parameters = vec![];
 
@@ -82,7 +174,7 @@ fn main() {
                 (true, true) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(
-                        b"(exit_after: None, frame_time: Some(0.05), screenshot_frames: [100])",
+                        b"(setup: (fixed_frame_time: Some(0.05)), events: [(100, Screenshot)])",
                     )
                     .unwrap();
                     extra_parameters.push("--features");
@@ -92,7 +184,7 @@ fn main() {
                 (false, true) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(
-                        b"(exit_after: Some(300), frame_time: Some(0.05), screenshot_frames: [100])",
+                        b"(setup: (fixed_frame_time: Some(0.05)), events: [(100, Screenshot), (250, AppExit)])",
                     )
                     .unwrap();
                     extra_parameters.push("--features");
@@ -100,19 +192,121 @@ fn main() {
                 }
                 (false, false) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
-                    file.write_all(b"(exit_after: Some(300))").unwrap();
+                    file.write_all(b"(events: [(250, AppExit)])").unwrap();
                     extra_parameters.push("--features");
                     extra_parameters.push("bevy_ci_testing");
                 }
             }
 
-            for to_run in examples_to_run {
+            if in_ci {
+                // Removing desktop mode as is slows down too much in CI
+                let sh = Shell::new().unwrap();
+                cmd!(
+                    sh,
+                    "git apply --ignore-whitespace tools/example-showcase/remove-desktop-app-mode.patch"
+                )
+                .run()
+                .unwrap();
+
+                // Don't use automatic position as it's "random" on Windows and breaks screenshot comparison
+                // using the cursor position
+                let sh = Shell::new().unwrap();
+                cmd!(
+                    sh,
+                    "git apply --ignore-whitespace tools/example-showcase/fixed-window-position.patch"
+                )
+                .run()
+                .unwrap();
+
+                // Setting lights ClusterConfig to have less clusters by default
+                // This is needed as the default config is too much for the CI runner
+                cmd!(
+                    sh,
+                    "git apply --ignore-whitespace tools/example-showcase/reduce-light-cluster-config.patch"
+                )
+                .run()
+                .unwrap();
+
+                // Sending extra WindowResize events. They are not sent on CI with xvfb x11 server
+                // This is needed for example split_screen that uses the window size to set the panels
+                cmd!(
+                    sh,
+                    "git apply --ignore-whitespace tools/example-showcase/extra-window-resized-events.patch"
+                )
+                .run()
+                .unwrap();
+
+                // Don't try to get an audio output stream in CI as there isn't one
+                // On macOS m1 runner in GitHub Actions, getting one timeouts after 15 minutes
+                cmd!(
+                    sh,
+                    "git apply --ignore-whitespace tools/example-showcase/disable-audio.patch"
+                )
+                .run()
+                .unwrap();
+
+                // Sort the examples so that they are not run by category
+                examples_to_run.sort_by_key(|example| {
+                    let mut hasher = DefaultHasher::new();
+                    example.hash(&mut hasher);
+                    hasher.finish()
+                });
+            }
+
+            let work_to_do = || {
+                examples_to_run
+                    .iter()
+                    .filter(|example| example.category != "Stress Tests" || !ignore_stress_tests)
+                    .filter(|example| {
+                        example_list.is_none() || example_filter.contains(&example.technical_name)
+                    })
+                    .filter(|example| {
+                        !only_default_features || example.required_features.is_empty()
+                    })
+                    .skip(cli.page.unwrap_or(0) * cli.per_page.unwrap_or(0))
+                    .take(cli.per_page.unwrap_or(usize::MAX))
+            };
+
+            let mut pb = ProgressBar::new(work_to_do().count() as u64);
+
+            let reports_path = "example-showcase-reports";
+            if report_details {
+                std::fs::create_dir(reports_path)
+                    .expect("Failed to create example-showcase-reports directory");
+            }
+
+            for to_run in work_to_do() {
                 let sh = Shell::new().unwrap();
                 let example = &to_run.technical_name;
-                let extra_parameters = extra_parameters.clone();
+                let required_features = if to_run.required_features.is_empty() {
+                    vec![]
+                } else {
+                    vec!["--features".to_string(), to_run.required_features.join(",")]
+                };
+                let local_extra_parameters = extra_parameters
+                    .iter()
+                    .map(|s| s.to_string())
+                    .chain(required_features.iter().cloned())
+                    .collect::<Vec<_>>();
+
+                for command in &to_run.setup {
+                    let exe = &command[0];
+                    let args = &command[1..];
+                    cmd!(sh, "{exe} {args...}").run().unwrap();
+                }
+
+                let _ = cmd!(
+                    sh,
+                    "cargo build --profile {profile} --example {example} {local_extra_parameters...}"
+                ).run();
+                let local_extra_parameters = extra_parameters
+                    .iter()
+                    .map(|s| s.to_string())
+                    .chain(required_features.iter().cloned())
+                    .collect::<Vec<_>>();
                 let mut cmd = cmd!(
                     sh,
-                    "cargo run --profile {profile} --example {example} {extra_parameters...}"
+                    "cargo run --profile {profile} --example {example} {local_extra_parameters...}"
                 );
 
                 if let Some(backend) = wgpu_backend.as_ref() {
@@ -124,31 +318,122 @@ fn main() {
                 }
 
                 let before = Instant::now();
+                if report_details || show_logs {
+                    cmd = cmd.ignore_status();
+                }
+                let result = cmd.output();
 
-                if cmd.run().is_ok() {
+                let duration = before.elapsed();
+
+                if (!report_details && result.is_ok())
+                    || (report_details && result.as_ref().unwrap().status.success())
+                {
                     if screenshot {
                         let _ = fs::create_dir_all(Path::new("screenshots").join(&to_run.category));
-                        let _ = fs::rename(
+                        let renamed_screenshot = fs::rename(
                             "screenshot-100.png",
                             Path::new("screenshots")
                                 .join(&to_run.category)
                                 .join(format!("{}.png", to_run.technical_name)),
                         );
+                        if let Err(err) = renamed_screenshot {
+                            println!("Failed to rename screenshot: {:?}", err);
+                            no_screenshot_examples.push((to_run, duration));
+                        } else {
+                            successful_examples.push((to_run, duration));
+                        }
+                    } else {
+                        successful_examples.push((to_run, duration));
                     }
                 } else {
-                    failed_examples.push(to_run);
+                    failed_examples.push((to_run, duration));
                 }
 
-                let duration = before.elapsed();
-                println!("took {duration:?}");
+                if report_details || show_logs {
+                    let result = result.unwrap();
+                    let stdout = String::from_utf8_lossy(&result.stdout);
+                    let stderr = String::from_utf8_lossy(&result.stderr);
+                    if show_logs {
+                        println!("{}", stdout);
+                        println!("{}", stderr);
+                    }
+                    if report_details {
+                        let mut file =
+                            File::create(format!("{reports_path}/{}.log", example)).unwrap();
+                        file.write_all(b"==== stdout ====\n").unwrap();
+                        file.write_all(stdout.as_bytes()).unwrap();
+                        file.write_all(b"\n==== stderr ====\n").unwrap();
+                        file.write_all(stderr.as_bytes()).unwrap();
+                    }
+                }
 
                 thread::sleep(Duration::from_secs(1));
+                pb.inc();
             }
+            pb.finish_print("done");
+
+            if report_details {
+                let _ = fs::write(
+                    format!("{reports_path}/successes"),
+                    successful_examples
+                        .iter()
+                        .map(|(example, duration)| {
+                            format!(
+                                "{}/{} - {}",
+                                example.category,
+                                example.technical_name,
+                                duration.as_secs_f32()
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                );
+                let _ = fs::write(
+                    format!("{reports_path}/failures"),
+                    failed_examples
+                        .iter()
+                        .map(|(example, duration)| {
+                            format!(
+                                "{}/{} - {}",
+                                example.category,
+                                example.technical_name,
+                                duration.as_secs_f32()
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                );
+                if screenshot {
+                    let _ = fs::write(
+                        format!("{reports_path}/no_screenshots"),
+                        no_screenshot_examples
+                            .iter()
+                            .map(|(example, duration)| {
+                                format!(
+                                    "{}/{} - {}",
+                                    example.category,
+                                    example.technical_name,
+                                    duration.as_secs_f32()
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                            .join("\n"),
+                    );
+                }
+            }
+
+            println!(
+                "total: {} / passed: {}, failed: {}, no screenshot: {}",
+                work_to_do().count(),
+                successful_examples.len(),
+                failed_examples.len(),
+                no_screenshot_examples.len()
+            );
             if failed_examples.is_empty() {
                 println!("All examples passed!");
             } else {
                 println!("Failed examples:");
-                for example in failed_examples {
+                for (example, _) in failed_examples {
                     println!(
                         "  {} / {} ({})",
                         example.category, example.name, example.technical_name
@@ -157,7 +442,10 @@ fn main() {
                 exit(1);
             }
         }
-        Action::BuildWebsiteList { content_folder } => {
+        Action::BuildWebsiteList {
+            content_folder,
+            api,
+        } => {
             let examples_to_run = parse_examples();
 
             let root_path = Path::new(&content_folder);
@@ -165,9 +453,10 @@ fn main() {
             let _ = fs::create_dir_all(root_path);
 
             let mut index = File::create(root_path.join("_index.md")).unwrap();
-            index
-                .write_all(
-                    "+++
+            if matches!(api, WebApi::Webgpu) {
+                index
+                    .write_all(
+                        "+++
 title = \"Bevy Examples in WebGPU\"
 template = \"examples-webgpu.html\"
 sort_by = \"weight\"
@@ -175,16 +464,43 @@ sort_by = \"weight\"
 [extra]
 header_message = \"Examples (WebGPU)\"
 +++"
-                    .as_bytes(),
-                )
-                .unwrap();
+                        .as_bytes(),
+                    )
+                    .unwrap();
+            } else {
+                index
+                    .write_all(
+                        "+++
+title = \"Bevy Examples in WebGL2\"
+template = \"examples.html\"
+sort_by = \"weight\"
+
+[extra]
+header_message = \"Examples (WebGL2)\"
++++"
+                        .as_bytes(),
+                    )
+                    .unwrap();
+            }
 
             let mut categories = HashMap::new();
             for to_show in examples_to_run {
                 if !to_show.wasm {
                     continue;
                 }
-                let category_path = root_path.join(&to_show.category);
+
+                // This beautifys the path
+                // to make it a good looking URL
+                // rather than having weird whitespace
+                // and other characters that don't
+                // work well in a URL path.
+                let category_path = root_path.join(
+                    &to_show
+                        .category
+                        .replace(['(', ')'], "")
+                        .replace(' ', "-")
+                        .to_lowercase(),
+                );
 
                 if !categories.contains_key(&to_show.category) {
                     let _ = fs::create_dir_all(&category_path);
@@ -217,43 +533,71 @@ weight = {}
                         format!(
                             "+++
 title = \"{}\"
-template = \"example-webgpu.html\"
+template = \"example{}.html\"
 weight = {}
 description = \"{}\"
+# This creates redirection pages
+# for the old URLs which used
+# uppercase letters and whitespace.
+aliases = [\"/examples{}/{}/{}\"]
 
 [extra]
 technical_name = \"{}\"
-link = \"{}/{}\"
+link = \"/examples{}/{}/{}\"
 image = \"../static/screenshots/{}/{}.png\"
-code_path = \"content/examples-webgpu/{}\"
+code_path = \"content/examples{}/{}\"
 github_code_path = \"{}\"
-header_message = \"Examples (WebGPU)\"
+header_message = \"Examples ({})\"
 +++",
                             to_show.name,
+                            match api {
+                                WebApi::Webgpu => "-webgpu",
+                                WebApi::Webgl2 => "",
+                            },
                             categories.get(&to_show.category).unwrap(),
                             to_show.description.replace('"', "'"),
+                            match api {
+                                WebApi::Webgpu => "-webgpu",
+                                WebApi::Webgl2 => "",
+                            },
+                            to_show.category,
                             &to_show.technical_name.replace('_', "-"),
+                            &to_show.technical_name.replace('_', "-"),
+                            match api {
+                                WebApi::Webgpu => "-webgpu",
+                                WebApi::Webgl2 => "",
+                            },
                             &to_show.category,
                             &to_show.technical_name.replace('_', "-"),
                             &to_show.category,
                             &to_show.technical_name,
+                            match api {
+                                WebApi::Webgpu => "-webgpu",
+                                WebApi::Webgl2 => "",
+                            },
                             code_path
                                 .components()
                                 .skip(1)
                                 .collect::<PathBuf>()
                                 .display(),
                             &to_show.path,
+                            match api {
+                                WebApi::Webgpu => "WebGPU",
+                                WebApi::Webgl2 => "WebGL2",
+                            },
                         )
                         .as_bytes(),
                     )
                     .unwrap();
             }
         }
-        Action::BuildWebGPUExamples {
+        Action::BuildWasmExamples {
             content_folder,
             website_hacks,
             optimize_size,
+            api,
         } => {
+            let api = format!("{}", api);
             let examples_to_build = parse_examples();
 
             let root_path = Path::new(&content_folder);
@@ -275,37 +619,54 @@ header_message = \"Examples (WebGPU)\"
                 let sh = Shell::new().unwrap();
 
                 // setting a canvas by default to help with integration
-                cmd!(sh, "sed -i.bak 's/canvas: None,/canvas: Some(\"#bevy\".to_string()),/' crates/bevy_window/src/window.rs").run().unwrap();
-                cmd!(sh, "sed -i.bak 's/fit_canvas_to_parent: false,/fit_canvas_to_parent: true,/' crates/bevy_window/src/window.rs").run().unwrap();
+                cmd!(
+                    sh,
+                    "git apply --ignore-whitespace tools/example-showcase/window-settings-wasm.patch"
+                )
+                .run()
+                .unwrap();
 
                 // setting the asset folder root to the root url of this domain
-                cmd!(sh, "sed -i.bak 's/asset_folder: \"assets\"/asset_folder: \"\\/assets\\/examples\\/\"/' crates/bevy_asset/src/lib.rs").run().unwrap();
+                cmd!(
+                    sh,
+                    "git apply --ignore-whitespace tools/example-showcase/asset-source-website.patch"
+                )
+                .run()
+                .unwrap();
             }
 
-            let mut pb = ProgressBar::new(
+            let work_to_do = || {
                 examples_to_build
                     .iter()
                     .filter(|to_build| to_build.wasm)
-                    .count() as u64,
-            );
-            for to_build in examples_to_build {
-                if !to_build.wasm {
-                    continue;
-                }
+                    .skip(cli.page.unwrap_or(0) * cli.per_page.unwrap_or(0))
+                    .take(cli.per_page.unwrap_or(usize::MAX))
+            };
 
+            let mut pb = ProgressBar::new(work_to_do().count() as u64);
+            for to_build in work_to_do() {
                 let sh = Shell::new().unwrap();
                 let example = &to_build.technical_name;
+                let required_features = if to_build.required_features.is_empty() {
+                    vec![]
+                } else {
+                    vec![
+                        "--features".to_string(),
+                        to_build.required_features.join(","),
+                    ]
+                };
+
                 if optimize_size {
                     cmd!(
                         sh,
-                        "cargo run -p build-wasm-example -- --api webgpu {example} --optimize-size"
+                        "cargo run -p build-wasm-example -- --api {api} {example} --optimize-size {required_features...}"
                     )
                     .run()
                     .unwrap();
                 } else {
                     cmd!(
                         sh,
-                        "cargo run -p build-wasm-example -- --api webgpu {example}"
+                        "cargo run -p build-wasm-example -- --api {api} {example} {required_features...}"
                     )
                     .run()
                     .unwrap();
@@ -345,8 +706,8 @@ header_message = \"Examples (WebGPU)\"
 }
 
 fn parse_examples() -> Vec<Example> {
-    let manifest_file = std::fs::read_to_string("Cargo.toml").unwrap();
-    let manifest = manifest_file.parse::<Document>().unwrap();
+    let manifest_file = fs::read_to_string("Cargo.toml").unwrap();
+    let manifest = manifest_file.parse::<DocumentMut>().unwrap();
     let metadatas = manifest
         .get("package")
         .unwrap()
@@ -379,17 +740,59 @@ fn parse_examples() -> Vec<Example> {
                 description: metadata["description"].as_str().unwrap().to_string(),
                 category: metadata["category"].as_str().unwrap().to_string(),
                 wasm: metadata["wasm"].as_bool().unwrap(),
+                required_features: val
+                    .get("required-features")
+                    .map(|rf| {
+                        rf.as_array()
+                            .unwrap()
+                            .into_iter()
+                            .map(|v| v.as_str().unwrap().to_string())
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+                setup: metadata
+                    .get("setup")
+                    .map(|setup| {
+                        setup
+                            .as_array()
+                            .unwrap()
+                            .into_iter()
+                            .map(|v| {
+                                v.as_array()
+                                    .unwrap()
+                                    .into_iter()
+                                    .map(|v| v.as_str().unwrap().to_string())
+                                    .collect()
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default(),
             })
         })
         .collect()
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+/// Data for this struct comes from both the entry for an example in the Cargo.toml file, and its associated metadata.
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 struct Example {
+    // From the example entry
+    /// Name of the example, used to start it from the cargo CLI with `--example`
     technical_name: String,
+    /// Path to the example file
     path: String,
+    /// List of non default required features
+    required_features: Vec<String>,
+
+    // From the example metadata
+    /// Pretty name, used for display
     name: String,
+    /// Description of the example, for discoverability
     description: String,
+    /// Pretty category name, matching the folder containing the example
     category: String,
+    /// Does this example work in wasm?
+    // TODO: be able to differentiate between WebGL2, WebGPU, both, or neither (for examples that could run on wasm without a renderer)
     wasm: bool,
+    /// List of commands to run before the example. Can be used for example to specify data to download
+    setup: Vec<Vec<String>>,
 }

@@ -1,10 +1,11 @@
 //! Update a scene from a glTF file, either by spawning the scene as a child of another entity,
 //! or by accessing the entities of the scene.
 
-use bevy::prelude::*;
+use bevy::{pbr::DirectionalLightShadowMap, prelude::*};
 
 fn main() {
     App::new()
+        .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, move_scene_entities)
@@ -15,19 +16,30 @@ fn main() {
 struct MovedScene;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 5.0, 4.0),
+    commands.spawn(DirectionalLightBundle {
+        transform: Transform::from_xyz(4.0, 25.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
+        directional_light: DirectionalLight {
+            shadows_enabled: true,
+            ..default()
+        },
         ..default()
     });
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(1.05, 0.9, 1.5)
-            .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_xyz(-0.5, 0.9, 1.5)
+                .looking_at(Vec3::new(-0.5, 0.3, 0.0), Vec3::Y),
+            ..default()
+        },
+        EnvironmentMapLight {
+            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            intensity: 150.0,
+        },
+    ));
 
     // Spawn the scene as a child of this entity at the given transform
     commands.spawn(SceneBundle {
-        transform: Transform::from_xyz(0.0, 0.0, -1.0),
+        transform: Transform::from_xyz(-1.0, 0.0, 0.0),
         scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
         ..default()
     });
@@ -58,7 +70,7 @@ fn move_scene_entities(
                     0.,
                     time.elapsed_seconds().cos() / 20.,
                 );
-                offset += 1.0;
+                offset += 0.5;
             }
         }
     }

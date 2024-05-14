@@ -1,10 +1,12 @@
+//! Tool used to build Bevy examples for wasm.
+
 use std::{fs::File, io::Write};
 
 use clap::{Parser, ValueEnum};
 use xshell::{cmd, Shell};
 
 #[derive(Debug, Copy, Clone, ValueEnum)]
-enum Api {
+enum WebApi {
     Webgl2,
     Webgpu,
 }
@@ -26,13 +28,17 @@ struct Args {
     /// Stop after this number of frames
     frames: Option<usize>,
 
-    #[arg(value_enum, short, long, default_value_t = Api::Webgl2)]
+    #[arg(value_enum, short, long, default_value_t = WebApi::Webgl2)]
     /// Browser API to use for rendering
-    api: Api,
+    api: WebApi,
 
     #[arg(short, long)]
     /// Optimize the wasm file for size with wasm-opt
     optimize_size: bool,
+
+    #[arg(long)]
+    /// Additional features to enable
+    features: Vec<String>,
 }
 
 fn main() {
@@ -40,43 +46,19 @@ fn main() {
 
     assert!(!cli.examples.is_empty(), "must have at least one example");
 
-    let mut default_features = true;
-    let mut features = vec![];
+    let default_features = true;
+    let mut features: Vec<&str> = cli.features.iter().map(|f| f.as_str()).collect();
     if let Some(frames) = cli.frames {
         let mut file = File::create("ci_testing_config.ron").unwrap();
-        file.write_fmt(format_args!("(exit_after: Some({frames}))"))
+        file.write_fmt(format_args!("(events: [({frames}, AppExit)])"))
             .unwrap();
         features.push("bevy_ci_testing");
     }
 
     match cli.api {
-        Api::Webgl2 => (),
-        Api::Webgpu => {
-            features.push("animation");
-            features.push("bevy_asset");
-            features.push("bevy_audio");
-            features.push("bevy_gilrs");
-            features.push("bevy_scene");
-            features.push("bevy_winit");
-            features.push("bevy_core_pipeline");
-            features.push("bevy_pbr");
-            features.push("bevy_gltf");
-            features.push("bevy_render");
-            features.push("bevy_sprite");
-            features.push("bevy_text");
-            features.push("bevy_ui");
-            features.push("png");
-            features.push("hdr");
-            features.push("ktx2");
-            features.push("zstd");
-            features.push("vorbis");
-            features.push("x11");
-            features.push("filesystem_watcher");
-            features.push("bevy_gizmos");
-            features.push("android_shared_stdcxx");
-            features.push("tonemapping_luts");
-            features.push("default_font");
-            default_features = false;
+        WebApi::Webgl2 => (),
+        WebApi::Webgpu => {
+            features.push("webgpu");
         }
     }
 
@@ -91,13 +73,10 @@ fn main() {
             parameters.push("--features");
             parameters.push(&features_string);
         }
-        let mut cmd = cmd!(
+        let cmd = cmd!(
             sh,
             "cargo build {parameters...} --profile release --target wasm32-unknown-unknown --example {example}"
         );
-        if matches!(cli.api, Api::Webgpu) {
-            cmd = cmd.env("RUSTFLAGS", "--cfg=web_sys_unstable_apis");
-        }
         cmd.run().expect("Error building example");
 
         cmd!(
@@ -109,7 +88,7 @@ fn main() {
 
         if cli.optimize_size {
             cmd!(sh, "wasm-opt -Oz --output examples/wasm/target/wasm_example_bg.wasm.optimized examples/wasm/target/wasm_example_bg.wasm")
-                .run().expect("Failed to optimize for size. Do you have wasm-opt corretly set up?");
+                .run().expect("Failed to optimize for size. Do you have wasm-opt correctly set up?");
         }
 
         if cli.test {

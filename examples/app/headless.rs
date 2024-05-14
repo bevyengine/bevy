@@ -2,9 +2,11 @@
 //! You can also completely remove rendering / windowing Plugin code from bevy
 //! by making your import look like this in your Cargo.toml.
 //!
+//! ```toml
 //! [dependencies]
 //! bevy = { version = "*", default-features = false }
 //! # replace "*" with the most recent version of bevy
+//! ```
 
 use bevy::{app::ScheduleRunnerPlugin, prelude::*, utils::Duration};
 

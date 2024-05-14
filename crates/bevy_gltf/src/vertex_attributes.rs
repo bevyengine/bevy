@@ -6,7 +6,7 @@ use bevy_render::{
 use bevy_utils::HashMap;
 use gltf::{
     accessor::{DataType, Dimensions},
-    mesh::util::{ReadColors, ReadJoints, ReadTexCoords},
+    mesh::util::{ReadColors, ReadJoints, ReadTexCoords, ReadWeights},
 };
 use thiserror::Error;
 
@@ -206,6 +206,19 @@ impl<'a> VertexAttributeIter<'a> {
         }
     }
 
+    /// Materializes joint weight values, converting compatible formats to Float32x4
+    fn into_joint_weight_values(self) -> Result<Values, AccessFailed> {
+        match self {
+            VertexAttributeIter::U8x4(it, Normalization(true)) => {
+                Ok(Values::Float32x4(ReadWeights::U8(it).into_f32().collect()))
+            }
+            VertexAttributeIter::U16x4(it, Normalization(true)) => {
+                Ok(Values::Float32x4(ReadWeights::U16(it).into_f32().collect()))
+            }
+            s => s.into_any_values(),
+        }
+    }
+
     /// Materializes texture coordinate values, converting compatible formats to Float32x2
     fn into_tex_coord_values(self) -> Result<Values, AccessFailed> {
         match self {
@@ -224,6 +237,7 @@ enum ConversionMode {
     Any,
     Rgba,
     JointIndex,
+    JointWeight,
     TexCoord,
 }
 
@@ -241,7 +255,7 @@ pub(crate) fn convert_attribute(
     semantic: gltf::Semantic,
     accessor: gltf::Accessor,
     buffer_data: &Vec<Vec<u8>>,
-    custom_vertex_attributes: &HashMap<String, MeshVertexAttribute>,
+    custom_vertex_attributes: &HashMap<Box<str>, MeshVertexAttribute>,
 ) -> Result<(MeshVertexAttribute, Values), ConvertAttributeError> {
     if let Some((attribute, conversion)) = match &semantic {
         gltf::Semantic::Positions => Some((Mesh::ATTRIBUTE_POSITION, ConversionMode::Any)),
@@ -249,12 +263,15 @@ pub(crate) fn convert_attribute(
         gltf::Semantic::Tangents => Some((Mesh::ATTRIBUTE_TANGENT, ConversionMode::Any)),
         gltf::Semantic::Colors(0) => Some((Mesh::ATTRIBUTE_COLOR, ConversionMode::Rgba)),
         gltf::Semantic::TexCoords(0) => Some((Mesh::ATTRIBUTE_UV_0, ConversionMode::TexCoord)),
+        gltf::Semantic::TexCoords(1) => Some((Mesh::ATTRIBUTE_UV_1, ConversionMode::TexCoord)),
         gltf::Semantic::Joints(0) => {
             Some((Mesh::ATTRIBUTE_JOINT_INDEX, ConversionMode::JointIndex))
         }
-        gltf::Semantic::Weights(0) => Some((Mesh::ATTRIBUTE_JOINT_WEIGHT, ConversionMode::Any)),
+        gltf::Semantic::Weights(0) => {
+            Some((Mesh::ATTRIBUTE_JOINT_WEIGHT, ConversionMode::JointWeight))
+        }
         gltf::Semantic::Extras(name) => custom_vertex_attributes
-            .get(name)
+            .get(name.as_str())
             .map(|attr| (attr.clone(), ConversionMode::Any)),
         _ => None,
     } {
@@ -264,6 +281,7 @@ pub(crate) fn convert_attribute(
             ConversionMode::Rgba => iter.into_rgba_values(),
             ConversionMode::TexCoord => iter.into_tex_coord_values(),
             ConversionMode::JointIndex => iter.into_joint_index_values(),
+            ConversionMode::JointWeight => iter.into_joint_weight_values(),
         });
         match converted_values {
             Ok(values) => {

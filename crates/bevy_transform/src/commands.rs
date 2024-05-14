@@ -1,28 +1,25 @@
-//! Extension to [`EntityCommands`] to modify [`bevy_hierarchy`] hierarchies
+//! Extension to [`EntityCommands`] to modify `bevy_hierarchy` hierarchies
 //! while preserving [`GlobalTransform`].
 
-use bevy_ecs::{prelude::Entity, system::Command, system::EntityCommands, world::World};
-use bevy_hierarchy::{AddChild, RemoveParent};
-
-#[cfg(doc)]
-use bevy_hierarchy::BuildChildren;
+use bevy_ecs::{prelude::Entity, system::EntityCommands, world::Command, world::World};
+use bevy_hierarchy::{PushChild, RemoveParent};
 
 use crate::{GlobalTransform, Transform};
 
-/// Command similar to [`AddChild`], but updating the child transform to keep
+/// Command similar to [`PushChild`], but updating the child transform to keep
 /// it at the same [`GlobalTransform`].
 ///
 /// You most likely want to use [`BuildChildrenTransformExt::set_parent_in_place`]
 /// method on [`EntityCommands`] instead.
-pub struct AddChildInPlace {
+pub struct PushChildInPlace {
     /// Parent entity to add the child to.
     pub parent: Entity,
     /// Child entity to add.
     pub child: Entity,
 }
-impl Command for AddChildInPlace {
+impl Command for PushChildInPlace {
     fn apply(self, world: &mut World) {
-        let hierarchy_command = AddChild {
+        let hierarchy_command = PushChild {
             child: self.child,
             parent: self.parent,
         };
@@ -63,13 +60,13 @@ impl Command for RemoveParentInPlace {
         update_transform();
     }
 }
-/// Collection of methods similar to [`BuildChildren`], but preserving each
+/// Collection of methods similar to [`BuildChildren`](bevy_hierarchy::BuildChildren), but preserving each
 /// entity's [`GlobalTransform`].
 pub trait BuildChildrenTransformExt {
     /// Change this entity's parent while preserving this entity's [`GlobalTransform`]
     /// by updating its [`Transform`].
     ///
-    /// See [`BuildChildren::set_parent`] for a method that doesn't update the
+    /// See [`BuildChildren::set_parent`](bevy_hierarchy::BuildChildren::set_parent) for a method that doesn't update the
     /// [`Transform`].
     ///
     /// Note that both the hierarchy and transform updates will only execute
@@ -80,7 +77,7 @@ pub trait BuildChildrenTransformExt {
     /// Make this entity parentless while preserving this entity's [`GlobalTransform`]
     /// by updating its [`Transform`] to be equal to its current [`GlobalTransform`].
     ///
-    /// See [`BuildChildren::remove_parent`] for a method that doesn't update the
+    /// See [`BuildChildren::remove_parent`](bevy_hierarchy::BuildChildren::remove_parent) for a method that doesn't update the
     /// [`Transform`].
     ///
     /// Note that both the hierarchy and transform updates will only execute
@@ -88,16 +85,16 @@ pub trait BuildChildrenTransformExt {
     /// (during [`apply_deferred`](bevy_ecs::schedule::apply_deferred)).
     fn remove_parent_in_place(&mut self) -> &mut Self;
 }
-impl<'w, 's, 'a> BuildChildrenTransformExt for EntityCommands<'w, 's, 'a> {
-    fn remove_parent_in_place(&mut self) -> &mut Self {
+impl BuildChildrenTransformExt for EntityCommands<'_> {
+    fn set_parent_in_place(&mut self, parent: Entity) -> &mut Self {
         let child = self.id();
-        self.commands().add(RemoveParentInPlace { child });
+        self.commands().add(PushChildInPlace { child, parent });
         self
     }
 
-    fn set_parent_in_place(&mut self, parent: Entity) -> &mut Self {
+    fn remove_parent_in_place(&mut self) -> &mut Self {
         let child = self.id();
-        self.commands().add(AddChildInPlace { child, parent });
+        self.commands().add(RemoveParentInPlace { child });
         self
     }
 }

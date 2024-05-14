@@ -1,18 +1,16 @@
-use std::any::TypeId;
-
-use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
-use anyhow::Result;
-use bevy_app::AppTypeRegistry;
+use crate::{ron, DynamicSceneBuilder, Scene, SceneSpawnError};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
-    entity::{Entity, EntityMap},
-    reflect::{ReflectComponent, ReflectMapEntities},
+    entity::Entity,
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
     world::World,
 };
-use bevy_reflect::{Reflect, TypePath, TypeRegistryArc, TypeUuid};
-use bevy_utils::HashMap;
+use bevy_reflect::{Reflect, TypePath, TypeRegistry};
+use bevy_utils::TypeIdMap;
 
 #[cfg(feature = "serialize")]
 use crate::serde::SceneSerializer;
+use bevy_asset::Asset;
 use bevy_ecs::reflect::ReflectResource;
 #[cfg(feature = "serialize")]
 use serde::Serialize;
@@ -26,10 +24,12 @@ use serde::Serialize;
 /// * adding the [`Handle<DynamicScene>`](bevy_asset::Handle) to an entity (the scene will only be
 /// visible if the entity already has [`Transform`](bevy_transform::components::Transform) and
 /// [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
-#[derive(Default, TypeUuid, TypePath)]
-#[uuid = "749479b1-fb8c-4ff8-a775-623aa76014f5"]
+/// * using the [`DynamicSceneBuilder`] to construct a `DynamicScene` from `World`.
+#[derive(Asset, TypePath, Default)]
 pub struct DynamicScene {
+    /// Resources stored in the dynamic scene.
     pub resources: Vec<Box<dyn Reflect>>,
+    /// Entities contained in the dynamic scene.
     pub entities: Vec<DynamicEntity>,
 }
 
@@ -46,19 +46,16 @@ pub struct DynamicEntity {
 
 impl DynamicScene {
     /// Create a new dynamic scene from a given scene.
-    pub fn from_scene(scene: &Scene, type_registry: &AppTypeRegistry) -> Self {
-        Self::from_world(&scene.world, type_registry)
+    pub fn from_scene(scene: &Scene) -> Self {
+        Self::from_world(&scene.world)
     }
 
     /// Create a new dynamic scene from a given world.
-    pub fn from_world(world: &World, type_registry: &AppTypeRegistry) -> Self {
-        let mut builder =
-            DynamicSceneBuilder::from_world_with_type_registry(world, type_registry.clone());
-
-        builder.extract_entities(world.iter_entities().map(|entity| entity.id()));
-        builder.extract_resources();
-
-        builder.build()
+    pub fn from_world(world: &World) -> Self {
+        DynamicSceneBuilder::from_world(world)
+            .extract_entities(world.iter_entities().map(|entity| entity.id()))
+            .extract_resources()
+            .build()
     }
 
     /// Write the resources, the dynamic entities, and their corresponding components to the given world.
@@ -69,33 +66,38 @@ impl DynamicScene {
     pub fn write_to_world_with(
         &self,
         world: &mut World,
-        entity_map: &mut EntityMap,
+        entity_map: &mut EntityHashMap<Entity>,
         type_registry: &AppTypeRegistry,
     ) -> Result<(), SceneSpawnError> {
         let type_registry = type_registry.read();
 
         for resource in &self.resources {
-            let registration = type_registry
-                .get_with_name(resource.type_name())
-                .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                    type_name: resource.type_name().to_string(),
-                })?;
+            let type_info = resource.get_represented_type_info().ok_or_else(|| {
+                SceneSpawnError::NoRepresentedType {
+                    type_path: resource.reflect_type_path().to_string(),
+                }
+            })?;
+            let registration = type_registry.get(type_info.type_id()).ok_or_else(|| {
+                SceneSpawnError::UnregisteredButReflectedType {
+                    type_path: type_info.type_path().to_string(),
+                }
+            })?;
             let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
                 SceneSpawnError::UnregisteredResource {
-                    type_name: resource.type_name().to_string(),
+                    type_path: type_info.type_path().to_string(),
                 }
             })?;
 
             // If the world already contains an instance of the given resource
             // just apply the (possibly) new value, otherwise insert the resource
-            reflect_resource.apply_or_insert(world, &**resource);
+            reflect_resource.apply_or_insert(world, &**resource, &type_registry);
         }
 
         // For each component types that reference other entities, we keep track
         // of which entities in the scene use that component.
         // This is so we can update the scene-internal references to references
         // of the actual entities in the world.
-        let mut scene_mappings: HashMap<TypeId, Vec<Entity>> = HashMap::default();
+        let mut scene_mappings: TypeIdMap<Vec<Entity>> = Default::default();
 
         for scene_entity in &self.entities {
             // Fetch the entity with the given entity id from the `entity_map`
@@ -108,15 +110,20 @@ impl DynamicScene {
 
             // Apply/ add each component to the given entity.
             for component in &scene_entity.components {
-                let registration = type_registry
-                    .get_with_name(component.type_name())
-                    .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                        type_name: component.type_name().to_string(),
-                    })?;
+                let type_info = component.get_represented_type_info().ok_or_else(|| {
+                    SceneSpawnError::NoRepresentedType {
+                        type_path: component.reflect_type_path().to_string(),
+                    }
+                })?;
+                let registration = type_registry.get(type_info.type_id()).ok_or_else(|| {
+                    SceneSpawnError::UnregisteredButReflectedType {
+                        type_path: type_info.type_path().to_string(),
+                    }
+                })?;
                 let reflect_component =
                     registration.data::<ReflectComponent>().ok_or_else(|| {
                         SceneSpawnError::UnregisteredComponent {
-                            type_name: component.type_name().to_string(),
+                            type_path: type_info.type_path().to_string(),
                         }
                     })?;
 
@@ -125,14 +132,14 @@ impl DynamicScene {
                 if registration.data::<ReflectMapEntities>().is_some() {
                     scene_mappings
                         .entry(registration.type_id())
-                        .or_insert(Vec::new())
+                        .or_default()
                         .push(entity);
                 }
 
                 // If the entity already has the given component attached,
                 // just apply the (possibly) new value, otherwise add the
                 // component to the entity.
-                reflect_component.apply_or_insert(entity_mut, &**component);
+                reflect_component.apply_or_insert(entity_mut, &**component, &type_registry);
             }
         }
 
@@ -157,16 +164,22 @@ impl DynamicScene {
     pub fn write_to_world(
         &self,
         world: &mut World,
-        entity_map: &mut EntityMap,
+        entity_map: &mut EntityHashMap<Entity>,
     ) -> Result<(), SceneSpawnError> {
         let registry = world.resource::<AppTypeRegistry>().clone();
         self.write_to_world_with(world, entity_map, &registry)
     }
 
     // TODO: move to AssetSaver when it is implemented
-    /// Serialize this dynamic scene into rust object notation (ron).
+    /// Serialize this dynamic scene into the official Bevy scene format (`.scn` / `.scn.ron`).
+    ///
+    /// The Bevy scene format is based on [Rusty Object Notation (RON)]. It describes the scene
+    /// in a human-friendly format. To deserialize the scene, use the [`SceneLoader`].
+    ///
+    /// [`SceneLoader`]: crate::SceneLoader
+    /// [Rusty Object Notation (RON)]: https://crates.io/crates/ron
     #[cfg(feature = "serialize")]
-    pub fn serialize_ron(&self, registry: &TypeRegistryArc) -> Result<String, ron::Error> {
+    pub fn serialize(&self, registry: &TypeRegistry) -> Result<String, ron::Error> {
         serialize_ron(SceneSerializer::new(self, registry))
     }
 }
@@ -185,9 +198,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use bevy_app::AppTypeRegistry;
-    use bevy_ecs::{entity::EntityMap, system::Command, world::World};
-    use bevy_hierarchy::{AddChild, Parent};
+    use bevy_ecs::entity::EntityHashMap;
+    use bevy_ecs::{reflect::AppTypeRegistry, world::Command, world::World};
+    use bevy_hierarchy::{Parent, PushChild};
 
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
 
@@ -204,7 +217,7 @@ mod tests {
             .register::<Parent>();
         let original_parent_entity = world.spawn_empty().id();
         let original_child_entity = world.spawn_empty().id();
-        AddChild {
+        PushChild {
             parent: original_parent_entity,
             child: original_child_entity,
         }
@@ -212,20 +225,20 @@ mod tests {
 
         // We then write this relationship to a new scene, and then write that scene back to the
         // world to create another parent and child relationship
-        let mut scene_builder = DynamicSceneBuilder::from_world(&world);
-        scene_builder.extract_entity(original_parent_entity);
-        scene_builder.extract_entity(original_child_entity);
-        let scene = scene_builder.build();
-        let mut entity_map = EntityMap::default();
+        let scene = DynamicSceneBuilder::from_world(&world)
+            .extract_entity(original_parent_entity)
+            .extract_entity(original_child_entity)
+            .build();
+        let mut entity_map = EntityHashMap::default();
         scene.write_to_world(&mut world, &mut entity_map).unwrap();
 
-        let from_scene_parent_entity = entity_map.get(original_parent_entity).unwrap();
-        let from_scene_child_entity = entity_map.get(original_child_entity).unwrap();
+        let &from_scene_parent_entity = entity_map.get(&original_parent_entity).unwrap();
+        let &from_scene_child_entity = entity_map.get(&original_child_entity).unwrap();
 
         // We then add the parent from the scene as a child of the original child
         // Hierarchy should look like:
         // Original Parent <- Original Child <- Scene Parent <- Scene Child
-        AddChild {
+        PushChild {
             parent: original_child_entity,
             child: from_scene_parent_entity,
         }

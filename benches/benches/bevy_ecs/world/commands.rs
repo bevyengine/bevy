@@ -1,8 +1,8 @@
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    system::{Command, CommandQueue, Commands},
-    world::World,
+    system::Commands,
+    world::{Command, CommandQueue, World},
 };
 use criterion::{black_box, Criterion};
 

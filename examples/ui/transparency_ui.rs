@@ -20,6 +20,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn(NodeBundle {
             style: Style {
                 width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::SpaceAround,
                 ..default()
@@ -36,7 +37,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    background_color: Color::rgb(0.1, 0.5, 0.1).into(),
+                    image: UiImage::default().with_color(Color::srgb(0.1, 0.5, 0.1)),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -46,7 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             font: font_handle.clone(),
                             font_size: 40.0,
                             // Alpha channel of the color controls transparency.
-                            color: Color::rgba(1.0, 1.0, 1.0, 0.2),
+                            color: Color::srgba(1.0, 1.0, 1.0, 0.2),
                         },
                     ));
                 });
@@ -62,7 +63,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    background_color: Color::rgb(0.5, 0.1, 0.5).into(),
+                    image: UiImage::default().with_color(Color::srgb(0.5, 0.1, 0.5)),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -72,7 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             font: font_handle.clone(),
                             font_size: 40.0,
                             // Alpha channel of the color controls transparency.
-                            color: Color::rgba(1.0, 1.0, 1.0, 0.2),
+                            color: Color::srgba(1.0, 1.0, 1.0, 0.2),
                         },
                     ));
                 });

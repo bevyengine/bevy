@@ -1,6 +1,6 @@
 //! This example illustrates how to react to component change.
 
-use bevy::{ecs::world::Ref, prelude::*};
+use bevy::prelude::*;
 use rand::Rng;
 
 fn main() {
@@ -40,7 +40,7 @@ fn change_component(time: Res<Time>, mut query: Query<(Entity, &mut MyComponent)
 // Only entities matching the filters will be in the query
 fn change_detection(query: Query<(Entity, &MyComponent), Changed<MyComponent>>) {
     for (entity, component) in &query {
-        info!("{:?} changed: {:?}", entity, component,);
+        info!("{:?} changed: {:?}", entity, component);
     }
 }
 

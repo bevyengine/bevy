@@ -1,11 +1,12 @@
-use crate::{Axis, Input};
+//! The gamepad input functionality.
+
+use crate::{Axis, ButtonInput, ButtonState};
 use bevy_ecs::event::{Event, EventReader, EventWriter};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     system::{Res, ResMut, Resource},
 };
-use bevy_reflect::ReflectFromReflect;
-use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::Duration;
 use bevy_utils::{tracing::info, HashMap};
 use thiserror::Error;
@@ -28,13 +29,17 @@ pub enum AxisSettingsError {
     /// Parameter `livezone_lowerbound` was not less than or equal to parameter `deadzone_lowerbound`.
     #[error("invalid parameter values livezone_lowerbound {} deadzone_lowerbound {}, expected livezone_lowerbound <= deadzone_lowerbound", .livezone_lowerbound, .deadzone_lowerbound)]
     LiveZoneLowerBoundGreaterThanDeadZoneLowerBound {
+        /// The value of the `livezone_lowerbound` parameter.
         livezone_lowerbound: f32,
+        /// The value of the `deadzone_lowerbound` parameter.
         deadzone_lowerbound: f32,
     },
     ///  Parameter `deadzone_upperbound` was not less than or equal to parameter `livezone_upperbound`.
     #[error("invalid parameter values livezone_upperbound {} deadzone_upperbound {}, expected deadzone_upperbound <= livezone_upperbound", .livezone_upperbound, .deadzone_upperbound)]
     DeadZoneUpperBoundGreaterThanLiveZoneUpperBound {
+        /// The value of the `livezone_upperbound` parameter.
         livezone_upperbound: f32,
+        /// The value of the `deadzone_upperbound` parameter.
         deadzone_upperbound: f32,
     },
     /// The given parameter was not in range 0.0..=2.0.
@@ -54,7 +59,9 @@ pub enum ButtonSettingsError {
     /// Parameter `release_threshold` was not less than or equal to `press_threshold`.
     #[error("invalid parameter values release_threshold {} press_threshold {}, expected release_threshold <= press_threshold", .release_threshold, .press_threshold)]
     ReleaseThresholdGreaterThanPressThreshold {
+        /// The value of the `press_threshold` parameter.
         press_threshold: f32,
+        /// The value of the `release_threshold` parameter.
         release_threshold: f32,
     },
 }
@@ -73,8 +80,8 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// ## Note
 ///
 /// The `ID` of a gamepad is fixed until the gamepad disconnects or the app is restarted.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
-#[reflect(Debug, Hash, PartialEq, FromReflect)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
+#[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -93,14 +100,19 @@ impl Gamepad {
 }
 
 /// Metadata associated with a [`Gamepad`].
-#[derive(Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq, FromReflect)]
+#[derive(Debug, Clone, PartialEq, Eq, Reflect)]
+#[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadInfo {
+    /// The name of the gamepad.
+    ///
+    /// This name is generally defined by the OS.
+    ///
+    /// For example on Windows the name may be "HID-compliant game controller".
     pub name: String,
 }
 
@@ -131,6 +143,7 @@ impl Gamepads {
         self.gamepads.keys().copied()
     }
 
+    /// The name of the gamepad if this one is connected.
     pub fn name(&self, gamepad: Gamepad) -> Option<&str> {
         self.gamepads.get(&gamepad).map(|g| g.name.as_str())
     }
@@ -152,10 +165,10 @@ impl Gamepads {
 ///
 /// This is used to determine which button has changed its value when receiving a
 /// [`GamepadButtonChangedEvent`]. It is also used in the [`GamepadButton`]
-/// which in turn is used to create the [`Input<GamepadButton>`] or
+/// which in turn is used to create the [`ButtonInput<GamepadButton>`] or
 /// [`Axis<GamepadButton>`] `bevy` resources.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
-#[reflect(Debug, Hash, PartialEq, FromReflect)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, PartialOrd, Ord)]
+#[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -213,14 +226,14 @@ pub enum GamepadButtonType {
 ///
 /// ## Usage
 ///
-/// It is used as the generic `T` value of an [`Input`] and [`Axis`] to create `bevy` resources. These
+/// It is used as the generic `T` value of an [`ButtonInput`] and [`Axis`] to create `bevy` resources. These
 /// resources store the data of the buttons of a gamepad and can be accessed inside of a system.
 ///
 /// ## Updating
 ///
 /// The gamepad button resources are updated inside of the [`gamepad_button_event_system`].
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
-#[reflect(Debug, Hash, PartialEq, FromReflect)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
+#[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -254,6 +267,21 @@ impl GamepadButton {
     }
 }
 
+/// A gamepad button input event.
+#[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct GamepadButtonInput {
+    /// The gamepad button assigned to the event.
+    pub button: GamepadButton,
+    /// The pressed state of the button.
+    pub state: ButtonState,
+}
+
 /// A type of a [`GamepadAxis`].
 ///
 /// ## Usage
@@ -261,8 +289,8 @@ impl GamepadButton {
 /// This is used to determine which axis has changed its value when receiving a
 /// [`GamepadAxisChangedEvent`]. It is also used in the [`GamepadAxis`]
 /// which in turn is used to create the [`Axis<GamepadAxis>`] `bevy` resource.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
-#[reflect(Debug, Hash, PartialEq, FromReflect)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
+#[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -297,8 +325,8 @@ pub enum GamepadAxisType {
 /// ## Updating
 ///
 /// The gamepad axes resources are updated inside of the [`gamepad_axis_event_system`].
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
-#[reflect(Debug, Hash, PartialEq, FromReflect)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
+#[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -342,8 +370,8 @@ impl GamepadAxis {
 /// The [`GamepadSettings`] are used inside of `bevy_gilrs` to determine when raw gamepad events from `gilrs`,
 /// should register as a [`GamepadEvent`]. Events that don't meet the change thresholds defined in [`GamepadSettings`]
 /// will not register. To modify these settings, mutate the corresponding resource.
-#[derive(Resource, Default, Debug, Reflect, FromReflect)]
-#[reflect(Debug, Default, FromReflect)]
+#[derive(Resource, Default, Debug, Reflect)]
+#[reflect(Debug, Default)]
 pub struct GamepadSettings {
     /// The default button settings.
     pub default_button_settings: ButtonSettings,
@@ -425,8 +453,8 @@ impl GamepadSettings {
 /// value is surpassed and released if the `release_threshold` value is undercut.
 ///
 /// Allowed values: `0.0 <= ``release_threshold`` <= ``press_threshold`` <= 1.0`
-#[derive(Debug, Clone, Reflect, FromReflect)]
-#[reflect(Debug, Default, FromReflect)]
+#[derive(Debug, Clone, Reflect)]
+#[reflect(Debug, Default)]
 pub struct ButtonSettings {
     press_threshold: f32,
     release_threshold: f32,
@@ -488,14 +516,14 @@ impl ButtonSettings {
     /// Returns `true` if the button is pressed.
     ///
     /// A button is considered pressed if the `value` passed is greater than or equal to the press threshold.
-    fn is_pressed(&self, value: f32) -> bool {
+    pub fn is_pressed(&self, value: f32) -> bool {
         value >= self.press_threshold
     }
 
     /// Returns `true` if the button is released.
     ///
     /// A button is considered released if the `value` passed is lower than or equal to the release threshold.
-    fn is_released(&self, value: f32) -> bool {
+    pub fn is_released(&self, value: f32) -> bool {
         value <= self.release_threshold
     }
 
@@ -585,8 +613,8 @@ impl ButtonSettings {
 /// Otherwise, values will not be rounded.
 ///
 /// The valid range is `[-1.0, 1.0]`.
-#[derive(Debug, Clone, Reflect, FromReflect, PartialEq)]
-#[reflect(Debug, Default, FromReflect)]
+#[derive(Debug, Clone, Reflect, PartialEq)]
+#[reflect(Debug, Default)]
 pub struct AxisSettings {
     /// Values that are higher than `livezone_upperbound` will be rounded up to 1.0.
     livezone_upperbound: f32,
@@ -603,10 +631,10 @@ pub struct AxisSettings {
 impl Default for AxisSettings {
     fn default() -> Self {
         AxisSettings {
-            livezone_upperbound: 0.95,
+            livezone_upperbound: 1.0,
             deadzone_upperbound: 0.05,
             deadzone_lowerbound: -0.05,
-            livezone_lowerbound: -0.95,
+            livezone_lowerbound: -1.0,
             threshold: 0.01,
         }
     }
@@ -917,8 +945,8 @@ impl AxisSettings {
 /// ## Updating
 ///
 /// The current value of a button is received through the [`GamepadButtonChangedEvent`].
-#[derive(Debug, Clone, Reflect, FromReflect)]
-#[reflect(Debug, Default, FromReflect)]
+#[derive(Debug, Clone, Reflect)]
+#[reflect(Debug, Default)]
 pub struct ButtonAxisSettings {
     /// The high value at which to apply rounding.
     pub high: f32,
@@ -983,7 +1011,7 @@ impl ButtonAxisSettings {
 /// Handles [`GamepadConnectionEvent`]s and updates gamepad resources.
 ///
 /// Updates the [`Gamepads`] resource and resets and/or initializes
-/// the [`Axis<GamepadButton>`] and [`Input<GamepadButton>`] resources.
+/// the [`Axis<GamepadButton>`] and [`ButtonInput<GamepadButton>`] resources.
 ///
 /// ## Note
 ///
@@ -993,9 +1021,9 @@ pub fn gamepad_connection_system(
     mut connection_events: EventReader<GamepadConnectionEvent>,
     mut axis: ResMut<Axis<GamepadAxis>>,
     mut button_axis: ResMut<Axis<GamepadButton>>,
-    mut button_input: ResMut<Input<GamepadButton>>,
+    mut button_input: ResMut<ButtonInput<GamepadButton>>,
 ) {
-    for connection_event in connection_events.iter() {
+    for connection_event in connection_events.read() {
         let gamepad = connection_event.gamepad;
 
         if let GamepadConnection::Connected(info) = &connection_event.connection {
@@ -1026,22 +1054,25 @@ pub fn gamepad_connection_system(
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq, FromReflect)]
+/// The connection status of a gamepad.
+#[derive(Debug, Clone, PartialEq, Reflect)]
+#[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub enum GamepadConnection {
+    /// The gamepad is connected.
     Connected(GamepadInfo),
+    /// The gamepad is disconnected.
     Disconnected,
 }
 
 /// A Gamepad connection event. Created when a connection to a gamepad
 /// is established and when a gamepad is disconnected.
-#[derive(Event, Debug, Clone, PartialEq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1055,6 +1086,7 @@ pub struct GamepadConnectionEvent {
 }
 
 impl GamepadConnectionEvent {
+    /// Creates a [`GamepadConnectionEvent`].
     pub fn new(gamepad: Gamepad, connection: GamepadConnection) -> Self {
         Self {
             gamepad,
@@ -1062,29 +1094,37 @@ impl GamepadConnectionEvent {
         }
     }
 
+    /// Is the gamepad connected?
     pub fn connected(&self) -> bool {
         matches!(self.connection, GamepadConnection::Connected(_))
     }
 
+    /// Is the gamepad disconnected?
     pub fn disconnected(&self) -> bool {
         !self.connected()
     }
 }
 
-#[derive(Event, Debug, Clone, PartialEq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq, FromReflect)]
+/// Gamepad event for when the "value" on the axis changes
+/// by an amount larger than the threshold defined in [`GamepadSettings`].
+#[derive(Event, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadAxisChangedEvent {
+    /// The gamepad on which the axis is triggered.
     pub gamepad: Gamepad,
+    /// The type of the triggered axis.
     pub axis_type: GamepadAxisType,
+    /// The value of the axis.
     pub value: f32,
 }
 
 impl GamepadAxisChangedEvent {
+    /// Creates a [`GamepadAxisChangedEvent`].
     pub fn new(gamepad: Gamepad, axis_type: GamepadAxisType, value: f32) -> Self {
         Self {
             gamepad,
@@ -1096,20 +1136,24 @@ impl GamepadAxisChangedEvent {
 
 /// Gamepad event for when the "value" (amount of pressure) on the button
 /// changes by an amount larger than the threshold defined in [`GamepadSettings`].
-#[derive(Event, Debug, Clone, PartialEq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadButtonChangedEvent {
+    /// The gamepad on which the button is triggered.
     pub gamepad: Gamepad,
+    /// The type of the triggered button.
     pub button_type: GamepadButtonType,
+    /// The value of the button.
     pub value: f32,
 }
 
 impl GamepadButtonChangedEvent {
+    /// Creates a [`GamepadButtonChangedEvent`].
     pub fn new(gamepad: Gamepad, button_type: GamepadButtonType, value: f32) -> Self {
         Self {
             gamepad,
@@ -1119,38 +1163,50 @@ impl GamepadButtonChangedEvent {
     }
 }
 
-/// Uses [`GamepadAxisChangedEvent`]s to update the relevant [`Input`] and [`Axis`] values.
+/// Uses [`GamepadAxisChangedEvent`]s to update the relevant [`ButtonInput`] and [`Axis`] values.
 pub fn gamepad_axis_event_system(
     mut gamepad_axis: ResMut<Axis<GamepadAxis>>,
     mut axis_events: EventReader<GamepadAxisChangedEvent>,
 ) {
-    for axis_event in axis_events.iter() {
+    for axis_event in axis_events.read() {
         let axis = GamepadAxis::new(axis_event.gamepad, axis_event.axis_type);
         gamepad_axis.set(axis, axis_event.value);
     }
 }
 
-/// Uses [`GamepadButtonChangedEvent`]s to update the relevant [`Input`] and [`Axis`] values.
+/// Uses [`GamepadButtonChangedEvent`]s to update the relevant [`ButtonInput`] and [`Axis`] values.
 pub fn gamepad_button_event_system(
-    mut button_events: EventReader<GamepadButtonChangedEvent>,
-    mut button_input: ResMut<Input<GamepadButton>>,
-    mut button_axis: ResMut<Axis<GamepadButton>>,
+    mut button_changed_events: EventReader<GamepadButtonChangedEvent>,
+    mut button_input: ResMut<ButtonInput<GamepadButton>>,
+    mut button_input_events: EventWriter<GamepadButtonInput>,
     settings: Res<GamepadSettings>,
 ) {
-    for button_event in button_events.iter() {
+    for button_event in button_changed_events.read() {
         let button = GamepadButton::new(button_event.gamepad, button_event.button_type);
         let value = button_event.value;
         let button_property = settings.get_button_settings(button);
 
         if button_property.is_released(value) {
-            // We don't have to check if the button was previously pressed
+            // Check if button was previously pressed
+            if button_input.pressed(button) {
+                button_input_events.send(GamepadButtonInput {
+                    button,
+                    state: ButtonState::Released,
+                });
+            }
+            // We don't have to check if the button was previously pressed here
             // because that check is performed within Input<T>::release()
             button_input.release(button);
         } else if button_property.is_pressed(value) {
+            // Check if button was previously not pressed
+            if !button_input.pressed(button) {
+                button_input_events.send(GamepadButtonInput {
+                    button,
+                    state: ButtonState::Pressed,
+                });
+            }
             button_input.press(button);
         };
-
-        button_axis.set(button, value);
     }
 }
 
@@ -1159,16 +1215,19 @@ pub fn gamepad_button_event_system(
 /// This event type is used over the [`GamepadConnectionEvent`],
 /// [`GamepadButtonChangedEvent`] and [`GamepadAxisChangedEvent`] when
 /// the in-frame relative ordering of events is important.
-#[derive(Event, Debug, Clone, PartialEq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq, FromReflect)]
+#[derive(Event, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 pub enum GamepadEvent {
+    /// A gamepad has been connected or disconnected.
     Connection(GamepadConnectionEvent),
+    /// A button of the gamepad has been triggered.
     Button(GamepadButtonChangedEvent),
+    /// An axis of the gamepad has been triggered.
     Axis(GamepadAxisChangedEvent),
 }
 
@@ -1190,22 +1249,26 @@ impl From<GamepadAxisChangedEvent> for GamepadEvent {
     }
 }
 
-/// Splits the [`GamepadEvent`] event stream into it's component events.
+/// Splits the [`GamepadEvent`] event stream into its component events.
 pub fn gamepad_event_system(
     mut gamepad_events: EventReader<GamepadEvent>,
     mut connection_events: EventWriter<GamepadConnectionEvent>,
     mut button_events: EventWriter<GamepadButtonChangedEvent>,
     mut axis_events: EventWriter<GamepadAxisChangedEvent>,
-    mut button_input: ResMut<Input<GamepadButton>>,
+    mut button_input: ResMut<ButtonInput<GamepadButton>>,
 ) {
     button_input.bypass_change_detection().clear();
-    for gamepad_event in gamepad_events.iter() {
+    for gamepad_event in gamepad_events.read() {
         match gamepad_event {
             GamepadEvent::Connection(connection_event) => {
                 connection_events.send(connection_event.clone());
             }
-            GamepadEvent::Button(button_event) => button_events.send(button_event.clone()),
-            GamepadEvent::Axis(axis_event) => axis_events.send(axis_event.clone()),
+            GamepadEvent::Button(button_event) => {
+                button_events.send(button_event.clone());
+            }
+            GamepadEvent::Axis(axis_event) => {
+                axis_events.send(axis_event.clone());
+            }
         }
     }
 }
@@ -1246,16 +1309,16 @@ const ALL_AXIS_TYPES: [GamepadAxisType; 6] = [
 /// The intensity at which a gamepad's force-feedback motors may rumble.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GamepadRumbleIntensity {
-    /// The rumble intensity of the strong gamepad motor
+    /// The rumble intensity of the strong gamepad motor.
     ///
-    /// Ranges from 0.0 to 1.0
+    /// Ranges from `0.0` to `1.0`.
     ///
     /// By convention, this is usually a low-frequency motor on the left-hand
     /// side of the gamepad, though it may vary across platforms and hardware.
     pub strong_motor: f32,
-    /// The rumble intensity of the weak gamepad motor
+    /// The rumble intensity of the weak gamepad motor.
     ///
-    /// Ranges from 0.0 to 1.0
+    /// Ranges from `0.0` to `1.0`.
     ///
     /// By convention, this is usually a high-frequency motor on the right-hand
     /// side of the gamepad, though it may vary across platforms and hardware.
@@ -1263,27 +1326,27 @@ pub struct GamepadRumbleIntensity {
 }
 
 impl GamepadRumbleIntensity {
-    /// Rumble both gamepad motors at maximum intensity
+    /// Rumble both gamepad motors at maximum intensity.
     pub const MAX: Self = GamepadRumbleIntensity {
         strong_motor: 1.0,
         weak_motor: 1.0,
     };
 
-    /// Rumble the weak motor at maximum intensity
+    /// Rumble the weak motor at maximum intensity.
     pub const WEAK_MAX: Self = GamepadRumbleIntensity {
         strong_motor: 0.0,
         weak_motor: 1.0,
     };
 
-    /// Rumble the strong motor at maximum intensity
+    /// Rumble the strong motor at maximum intensity.
     pub const STRONG_MAX: Self = GamepadRumbleIntensity {
         strong_motor: 1.0,
         weak_motor: 0.0,
     };
 
-    /// Creates a new rumble intensity with weak motor intensity set to the given value
+    /// Creates a new rumble intensity with weak motor intensity set to the given value.
     ///
-    /// Clamped within the 0 to 1 range
+    /// Clamped within the `0.0` to `1.0` range.
     pub const fn weak_motor(intensity: f32) -> Self {
         Self {
             weak_motor: intensity,
@@ -1291,9 +1354,9 @@ impl GamepadRumbleIntensity {
         }
     }
 
-    /// Creates a new rumble intensity with strong motor intensity set to the given value
+    /// Creates a new rumble intensity with strong motor intensity set to the given value.
     ///
-    /// Clamped within the 0 to 1 range
+    /// Clamped within the `0.0` to `1.0` range.
     pub const fn strong_motor(intensity: f32) -> Self {
         Self {
             strong_motor: intensity,
@@ -1302,7 +1365,7 @@ impl GamepadRumbleIntensity {
     }
 }
 
-/// An event that controls force-feedback rumbling of a [`Gamepad`]
+/// An event that controls force-feedback rumbling of a [`Gamepad`].
 ///
 /// # Notes
 ///
@@ -1344,19 +1407,22 @@ pub enum GamepadRumbleRequest {
     ///
     /// To replace an existing rumble, send a [`GamepadRumbleRequest::Stop`] event first.
     Add {
-        /// How long the gamepad should rumble
+        /// How long the gamepad should rumble.
         duration: Duration,
-        /// How intense the rumble should be
+        /// How intense the rumble should be.
         intensity: GamepadRumbleIntensity,
-        /// The gamepad to rumble
+        /// The gamepad to rumble.
         gamepad: Gamepad,
     },
-    /// Stop all running rumbles on the given [`Gamepad`]
-    Stop { gamepad: Gamepad },
+    /// Stop all running rumbles on the given [`Gamepad`].
+    Stop {
+        /// The gamepad to stop rumble.
+        gamepad: Gamepad,
+    },
 }
 
 impl GamepadRumbleRequest {
-    /// Get the [`Gamepad`] associated with this request
+    /// Get the [`Gamepad`] associated with this request.
     pub fn gamepad(&self) -> Gamepad {
         match self {
             Self::Add { gamepad, .. } | Self::Stop { gamepad } => *gamepad,
@@ -1467,7 +1533,7 @@ mod tests {
         ];
 
         for (new_value, expected) in cases {
-            let settings = AxisSettings::default();
+            let settings = AxisSettings::new(-0.95, -0.05, 0.05, 0.95, 0.01).unwrap();
             test_axis_settings_filter(settings, new_value, None, expected);
         }
     }
@@ -1494,7 +1560,7 @@ mod tests {
         ];
 
         for (new_value, old_value, expected) in cases {
-            let settings = AxisSettings::default();
+            let settings = AxisSettings::new(-0.95, -0.05, 0.05, 0.95, 0.01).unwrap();
             test_axis_settings_filter(settings, new_value, old_value, expected);
         }
     }

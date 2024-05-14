@@ -24,29 +24,29 @@ fn print_mouse_events_system(
     mut touchpad_magnify_events: EventReader<TouchpadMagnify>,
     mut touchpad_rotate_events: EventReader<TouchpadRotate>,
 ) {
-    for event in mouse_button_input_events.iter() {
+    for event in mouse_button_input_events.read() {
         info!("{:?}", event);
     }
 
-    for event in mouse_motion_events.iter() {
+    for event in mouse_motion_events.read() {
         info!("{:?}", event);
     }
 
-    for event in cursor_moved_events.iter() {
+    for event in cursor_moved_events.read() {
         info!("{:?}", event);
     }
 
-    for event in mouse_wheel_events.iter() {
-        info!("{:?}", event);
-    }
-
-    // This event will only fire on macOS
-    for event in touchpad_magnify_events.iter() {
+    for event in mouse_wheel_events.read() {
         info!("{:?}", event);
     }
 
     // This event will only fire on macOS
-    for event in touchpad_rotate_events.iter() {
+    for event in touchpad_magnify_events.read() {
+        info!("{:?}", event);
+    }
+
+    // This event will only fire on macOS
+    for event in touchpad_rotate_events.read() {
         info!("{:?}", event);
     }
 }

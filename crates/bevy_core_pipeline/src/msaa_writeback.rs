@@ -1,9 +1,10 @@
 use crate::{
     blit::{BlitPipeline, BlitPipelineKey},
-    core_2d::{self, CORE_2D},
-    core_3d::{self, CORE_3D},
+    core_2d::graph::{Core2d, Node2d},
+    core_3d::graph::{Core3d, Node3d},
 };
 use bevy_app::{App, Plugin};
+use bevy_color::LinearRgba;
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
@@ -20,25 +21,22 @@ pub struct MsaaWritebackPlugin;
 
 impl Plugin for MsaaWritebackPlugin {
     fn build(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
-
         render_app.add_systems(
             Render,
-            queue_msaa_writeback_pipelines.in_set(RenderSet::Queue),
+            prepare_msaa_writeback_pipelines.in_set(RenderSet::Prepare),
         );
         {
-            use core_2d::graph::node::*;
             render_app
-                .add_render_graph_node::<MsaaWritebackNode>(CORE_2D, MSAA_WRITEBACK)
-                .add_render_graph_edge(CORE_2D, MSAA_WRITEBACK, MAIN_PASS);
+                .add_render_graph_node::<MsaaWritebackNode>(Core2d, Node2d::MsaaWriteback)
+                .add_render_graph_edge(Core2d, Node2d::MsaaWriteback, Node2d::StartMainPass);
         }
         {
-            use core_3d::graph::node::*;
             render_app
-                .add_render_graph_node::<MsaaWritebackNode>(CORE_3D, MSAA_WRITEBACK)
-                .add_render_graph_edge(CORE_3D, MSAA_WRITEBACK, START_MAIN_PASS);
+                .add_render_graph_node::<MsaaWritebackNode>(Core3d, Node3d::MsaaWriteback)
+                .add_render_graph_edge(Core3d, Node3d::MsaaWriteback, Node3d::StartMainPass);
         }
     }
 }
@@ -59,19 +57,24 @@ impl Node for MsaaWritebackNode {
     fn update(&mut self, world: &mut World) {
         self.cameras.update_archetypes(world);
     }
+
     fn run(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        if *world.resource::<Msaa>() == Msaa::Off {
+            return Ok(());
+        }
+
         let view_entity = graph.view_entity();
         if let Ok((target, blit_pipeline_id)) = self.cameras.get_manual(world, view_entity) {
             let blit_pipeline = world.resource::<BlitPipeline>();
             let pipeline_cache = world.resource::<PipelineCache>();
-            let pipeline = pipeline_cache
-                .get_render_pipeline(blit_pipeline_id.0)
-                .unwrap();
+            let Some(pipeline) = pipeline_cache.get_render_pipeline(blit_pipeline_id.0) else {
+                return Ok(());
+            };
 
             // The current "main texture" needs to be bound as an input resource, and we need the "other"
             // unused target to be the "resolve target" for the MSAA write. Therefore this is the same
@@ -80,33 +83,28 @@ impl Node for MsaaWritebackNode {
 
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("msaa_writeback"),
-                // The target's "resolve target" is the "destination" in post_process
+                // The target's "resolve target" is the "destination" in post_process.
                 // We will indirectly write the results to the "destination" using
                 // the MSAA resolve step.
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: LoadOp::Clear(Default::default()),
-                    store: true,
-                }))],
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    // If MSAA is enabled, then the sampled texture will always exist
+                    view: target.sampled_main_texture_view().unwrap(),
+                    resolve_target: Some(post_process.destination),
+                    ops: Operations {
+                        load: LoadOp::Clear(LinearRgba::BLACK.into()),
+                        store: StoreOp::Store,
+                    },
+                })],
                 depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
             };
 
-            let bind_group =
-                render_context
-                    .render_device()
-                    .create_bind_group(&BindGroupDescriptor {
-                        label: None,
-                        layout: &blit_pipeline.texture_bind_group,
-                        entries: &[
-                            BindGroupEntry {
-                                binding: 0,
-                                resource: BindingResource::TextureView(post_process.source),
-                            },
-                            BindGroupEntry {
-                                binding: 1,
-                                resource: BindingResource::Sampler(&blit_pipeline.sampler),
-                            },
-                        ],
-                    });
+            let bind_group = render_context.render_device().create_bind_group(
+                None,
+                &blit_pipeline.texture_bind_group,
+                &BindGroupEntries::sequential((post_process.source, &blit_pipeline.sampler)),
+            );
 
             let mut render_pass = render_context
                 .command_encoder()
@@ -116,6 +114,7 @@ impl Node for MsaaWritebackNode {
             render_pass.set_bind_group(0, &bind_group, &[]);
             render_pass.draw(0..3, 0..1);
         }
+
         Ok(())
     }
 }
@@ -123,7 +122,7 @@ impl Node for MsaaWritebackNode {
 #[derive(Component)]
 pub struct MsaaWritebackBlitPipeline(CachedRenderPipelineId);
 
-fn queue_msaa_writeback_pipelines(
+fn prepare_msaa_writeback_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,

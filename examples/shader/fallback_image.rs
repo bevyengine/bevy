@@ -7,14 +7,16 @@
 //! not panic.
 use bevy::{
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(MaterialPlugin::<FallbackTestMaterial>::default())
+        .add_plugins((
+            DefaultPlugins,
+            MaterialPlugin::<FallbackTestMaterial>::default(),
+        ))
         .add_systems(Startup, setup)
         .run();
 }
@@ -25,7 +27,7 @@ fn setup(
     mut materials: ResMut<Assets<FallbackTestMaterial>>,
 ) {
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+        mesh: meshes.add(Cuboid::default()),
         material: materials.add(FallbackTestMaterial {
             image_1d: None,
             image_2d: None,
@@ -34,16 +36,15 @@ fn setup(
             image_cube_array: None,
             image_3d: None,
         }),
-        ..Default::default()
+        ..default()
     });
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::new(1.5, 0.0, 0.0), Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }
 
-#[derive(AsBindGroup, Debug, Clone, TypePath, TypeUuid)]
-#[uuid = "d4890167-0e16-4bfc-b812-434717f20409"]
+#[derive(AsBindGroup, Debug, Clone, Asset, TypePath)]
 struct FallbackTestMaterial {
     #[texture(0, dimension = "1d")]
     #[sampler(1)]

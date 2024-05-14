@@ -1,4 +1,11 @@
-use bevy::{input::touch::TouchPhase, prelude::*, window::WindowMode};
+//! A 3d Scene with a button and playing sound.
+
+use bevy::{
+    color::palettes::basic::*,
+    input::touch::TouchPhase,
+    prelude::*,
+    window::{ApplicationLifetime, WindowMode},
+};
 
 // the `bevy_main` proc_macro generates the required boilerplate for iOS and Android
 #[bevy_main]
@@ -13,7 +20,7 @@ fn main() {
         ..default()
     }))
     .add_systems(Startup, (setup_scene, setup_music))
-    .add_systems(Update, (touch_camera, button_handler));
+    .add_systems(Update, (touch_camera, button_handler, handle_lifetime));
 
     // MSAA makes some Android devices panic, this is under investigation
     // https://github.com/bevyengine/bevy/issues/8229
@@ -31,7 +38,7 @@ fn touch_camera(
 ) {
     let window = windows.single();
 
-    for touch in touches.iter() {
+    for touch in touches.read() {
         if touch.phase == TouchPhase::Started {
             *last_position = None;
         }
@@ -58,27 +65,21 @@ fn setup_scene(
 ) {
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
-        material: materials.add(Color::rgb(0.1, 0.2, 0.1).into()),
+        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
+        material: materials.add(Color::srgb(0.1, 0.2, 0.1)),
         ..default()
     });
     // cube
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
+        mesh: meshes.add(Cuboid::default()),
+        material: materials.add(Color::srgb(0.5, 0.4, 0.3)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
     // sphere
     commands.spawn(PbrBundle {
-        mesh: meshes.add(
-            Mesh::try_from(shape::Icosphere {
-                subdivisions: 4,
-                radius: 0.5,
-            })
-            .unwrap(),
-        ),
-        material: materials.add(Color::rgb(0.1, 0.4, 0.8).into()),
+        mesh: meshes.add(Sphere::new(0.5).mesh().ico(4).unwrap()),
+        material: materials.add(Color::srgb(0.1, 0.4, 0.8)),
         transform: Transform::from_xyz(1.5, 1.5, 1.5),
         ..default()
     });
@@ -86,7 +87,7 @@ fn setup_scene(
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         point_light: PointLight {
-            intensity: 5000.0,
+            intensity: 1_000_000.0,
             // Shadows makes some Android devices segfault, this is under investigation
             // https://github.com/bevyengine/bevy/issues/8214
             #[cfg(not(target_os = "android"))]
@@ -103,19 +104,22 @@ fn setup_scene(
 
     // Test ui
     commands
-        .spawn(ButtonBundle {
-            style: Style {
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                position_type: PositionType::Absolute,
-                left: Val::Px(50.0),
-                right: Val::Px(50.0),
-                top: Val::Auto,
-                bottom: Val::Px(50.0),
+        .spawn((
+            ButtonBundle {
+                style: Style {
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(50.0),
+                    right: Val::Px(50.0),
+                    bottom: Val::Px(50.0),
+                    ..default()
+                },
+                image: UiImage::default().with_color(Color::NONE),
                 ..default()
             },
-            ..default()
-        })
+            BackgroundColor(Color::WHITE),
+        ))
         .with_children(|b| {
             b.spawn(
                 TextBundle::from_section(
@@ -126,7 +130,7 @@ fn setup_scene(
                         ..default()
                     },
                 )
-                .with_text_alignment(TextAlignment::Center),
+                .with_text_justify(JustifyText::Center),
             );
         });
 }
@@ -139,20 +143,37 @@ fn button_handler(
 ) {
     for (interaction, mut color) in &mut interaction_query {
         match *interaction {
-            Interaction::Clicked => {
-                *color = Color::BLUE.into();
+            Interaction::Pressed => {
+                *color = BLUE.into();
             }
             Interaction::Hovered => {
-                *color = Color::GRAY.into();
+                *color = GRAY.into();
             }
             Interaction::None => {
-                *color = Color::WHITE.into();
+                *color = WHITE.into();
             }
         }
     }
 }
 
-fn setup_music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
-    let music = asset_server.load("sounds/Windless Slopes.ogg");
-    audio.play(music);
+fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
+    commands.spawn(AudioBundle {
+        source: asset_server.load("sounds/Windless Slopes.ogg"),
+        settings: PlaybackSettings::LOOP,
+    });
+}
+
+// Pause audio when app goes into background and resume when it returns.
+// This is handled by the OS on iOS, but not on Android.
+fn handle_lifetime(
+    mut lifetime_events: EventReader<ApplicationLifetime>,
+    music_controller: Query<&AudioSink>,
+) {
+    for event in lifetime_events.read() {
+        match event {
+            ApplicationLifetime::Suspended => music_controller.single().pause(),
+            ApplicationLifetime::Resumed => music_controller.single().play(),
+            ApplicationLifetime::Started => (),
+        }
+    }
 }
