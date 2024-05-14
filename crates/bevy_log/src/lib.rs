@@ -250,6 +250,14 @@ impl Plugin for LogPlugin {
             finished_subscriber = subscriber.with(android_tracing::AndroidLayer::default());
         }
 
+        #[cfg(any(target_os = "ios"))]
+        {
+            finished_subscriber = subscriber.with(tracing_oslog::OsLogger::new(
+                &self.subsystem,
+                &self.category,
+            ));
+        }
+
         let logger_already_set = LogTracer::init().is_err();
         let subscriber_already_set =
             bevy_utils::tracing::subscriber::set_global_default(finished_subscriber).is_err();
@@ -261,19 +269,6 @@ impl Plugin for LogPlugin {
             (true, false) => error!("Could not set global logger as it is already set. Consider disabling LogPlugin."),
             (false, true) => error!("Could not set global tracing subscriber as it is already set. Consider disabling LogPlugin."),
             (false, false) => (),
-        }
-
-        #[cfg(any(target_os = "ios"))]
-        {
-            let subscriber = {
-                let settings = app.world.get_resource_or_insert_with(LogSettings::default);
-                subscriber.with(tracing_oslog::OsLogger::new(
-                    &settings.subsystem,
-                    &settings.category,
-                ))
-            };
-            bevy_utils::tracing::subscriber::set_global_default(subscriber)
-                .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
         }
     }
 }
