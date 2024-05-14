@@ -44,10 +44,6 @@ impl<'a> From<AccessError<'a>> for ReflectPathError<'a> {
 }
 
 /// Something that can be interpreted as a reflection path in [`GetPath`].
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a reflection path",
-    label = "invalid path"
-)]
 pub trait ReflectPath<'a>: Sized {
     /// Gets a reference to the specified element on the given [`Reflect`] object.
     ///

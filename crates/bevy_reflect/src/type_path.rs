@@ -82,7 +82,7 @@ use std::fmt;
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not have a type path",
     label = "invalid type",
-    note = "consider annotating `{Self}` with `#[derive(TypePath)]`"
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]` or `#[derive(TypePath)]`"
 )]
 pub trait TypePath: 'static {
     /// Returns the fully qualified path of the underlying type.
@@ -136,7 +136,8 @@ pub trait TypePath: 'static {
 /// [`Reflect`]: crate::Reflect
 #[diagnostic::on_unimplemented(
     message = "`{Self}` can not be used as a dynamic type path",
-    label = "invalid type"
+    label = "invalid type",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]` or `#[derive(TypePath)]`"
 )]
 pub trait DynamicTypePath {
     /// See [`TypePath::type_path`].
