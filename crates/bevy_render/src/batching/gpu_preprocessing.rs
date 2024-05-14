@@ -223,7 +223,8 @@ impl FromWorld for GpuPreprocessingSupport {
         let device = world.resource::<RenderDevice>();
 
         if device.limits().max_compute_workgroup_size_x == 0 ||
-            !device.features().contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING)
+            // filter lower end / older devices on Android as they crash when using GPU preprocessing
+            (cfg!(target_os = "android") && !device.features().contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING))
         {
             GpuPreprocessingSupport::None
         } else if !device
