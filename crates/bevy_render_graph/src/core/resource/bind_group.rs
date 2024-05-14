@@ -2,15 +2,15 @@ use std::{borrow::Borrow, hash::Hash, ops::Deref};
 
 use bevy_ecs::world::World;
 use bevy_utils::HashMap;
-use wgpu::{BindGroupEntry, BindingResource, BufferAddress, BufferBinding, BufferSize, Label};
 
-use crate::{
-    render_graph_v2::{NodeContext, RenderGraph, RenderGraphBuilder},
+use bevy_render::{
     render_resource::{
         BindGroup, BindGroupLayout, BindGroupLayoutEntry, Buffer, Sampler, TextureView,
     },
     renderer::RenderDevice,
 };
+
+use crate::core::{NodeContext, RenderGraph, RenderGraphBuilder};
 
 use super::{
     ref_eq::RefEq, DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource,

@@ -3,19 +3,20 @@ use std::borrow::{Borrow, Cow};
 use bevy_asset::Handle;
 use bevy_ecs::{system::Resource, world::World};
 use bevy_utils::HashMap;
-use wgpu::{DepthStencilState, MultisampleState, PrimitiveState, PushConstantRange};
 
-use crate::{
+use bevy_render::{
     mesh::MeshVertexBufferLayoutRef,
     prelude::Shader,
-    render_graph_v2::{NodeContext, RenderGraph, RenderGraphBuilder},
     render_resource::{
         BindGroupLayout, CachedComputePipelineId, CachedRenderPipelineId, ComputePipeline,
-        ComputePipelineDescriptor, FragmentState, PipelineCache, RenderPipeline,
-        RenderPipelineDescriptor, ShaderDefVal, SpecializedComputePipeline,
-        SpecializedMeshPipeline, SpecializedRenderPipeline, VertexState,
+        ComputePipelineDescriptor, DepthStencilState, FragmentState, MultisampleState,
+        PipelineCache, PrimitiveState, PushConstantRange, RenderPipeline, RenderPipelineDescriptor,
+        ShaderDefVal, SpecializedComputePipeline, SpecializedMeshPipeline,
+        SpecializedRenderPipeline, VertexState,
     },
 };
+
+use crate::core::{NodeContext, RenderGraph, RenderGraphBuilder};
 
 use super::{
     ref_eq::RefEq, DescribedRenderResource, IntoRenderResource, RenderDependencies, RenderHandle,

@@ -551,8 +551,8 @@ pub trait IntoRenderDependencies<'g> {
 macro_rules! deps {
     ($($dep: expr),*) => {
         {
-            let mut dependencies = $crate::render_graph_v2::resource::RenderDependencies::new();
-            $crate::render_graph_v2::resource::extend_deps!(dependencies, $($dep),*);
+            let mut dependencies = $crate::core::resource::RenderDependencies::new();
+            $crate::core::resource::extend_deps!(dependencies, $($dep),*);
             dependencies
         }
     }

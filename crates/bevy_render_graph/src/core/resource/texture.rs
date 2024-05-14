@@ -3,11 +3,12 @@ use bevy_math::FloatOrd;
 use bevy_utils::HashMap;
 use std::borrow::Borrow;
 use std::hash::Hash;
-use wgpu::{TextureUsages, TextureViewDescriptor};
 
-use crate::{
-    render_graph_v2::{NodeContext, RenderGraph, RenderGraphBuilder},
-    render_resource::{Sampler, SamplerDescriptor, Texture, TextureDescriptor, TextureView},
+use crate::core::{NodeContext, RenderGraph, RenderGraphBuilder};
+
+use bevy_render::render_resource::{
+    Sampler, SamplerDescriptor, Texture, TextureDescriptor, TextureUsages, TextureView,
+    TextureViewDescriptor,
 };
 
 use super::{

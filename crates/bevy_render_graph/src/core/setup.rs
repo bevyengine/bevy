@@ -4,7 +4,7 @@ use bevy_app::{App, Plugin};
 
 use bevy_ecs::{system::Resource, world::World};
 
-use crate::{
+use bevy_render::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_resource::PipelineCache,
     renderer::{RenderDevice, RenderQueue},

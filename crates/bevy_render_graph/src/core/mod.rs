@@ -5,21 +5,19 @@ pub use setup::RenderGraphSetup;
 
 use std::mem;
 
-use crate::{
+use bevy_ecs::{system::Resource, world::World};
+use bevy_render::{
     render_resource::{
-        BindGroup, BindGroupLayout, Buffer, ComputePipeline, ComputePipelineDescriptor,
-        PipelineCache, RenderPipeline, RenderPipelineDescriptor, Sampler, Texture, TextureView,
+        BindGroup, BindGroupLayout, BindGroupLayoutEntry, Buffer, CommandEncoder,
+        CommandEncoderDescriptor, ComputePass, ComputePassDescriptor, ComputePipeline,
+        ComputePipelineDescriptor, PipelineCache, RenderPipeline, RenderPipelineDescriptor,
+        Sampler, Texture, TextureView,
     },
     renderer::{RenderDevice, RenderQueue},
+    settings::{WgpuFeatures, WgpuLimits},
 };
-use bevy_ecs::{system::Resource, world::World};
 
 use resource::{IntoRenderResource, RenderHandle, RenderResource, RenderResources};
-
-use wgpu::{
-    BindGroupLayoutEntry, BufferDescriptor, CommandEncoder, CommandEncoderDescriptor, ComputePass,
-    Label, TextureDescriptor, TextureViewDescriptor,
-};
 
 use self::resource::{
     bind_group::{RenderGraphBindGroupDescriptor, RenderGraphBindGroups},
@@ -112,11 +110,10 @@ impl<'g> RenderGraph<'g> {
                     //     let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor { label:  gg, color_attachments: (), depth_stencil_attachment: (), timestamp_writes: (), occlusion_query_set: () })
                     // },
                     NodeRunner::Compute(f) => {
-                        let mut compute_pass =
-                            encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                                label,
-                                timestamp_writes: None,
-                            });
+                        let mut compute_pass = encoder.begin_compute_pass(&ComputePassDescriptor {
+                            label,
+                            timestamp_writes: None,
+                        });
                         (f)(&context, &mut compute_pass);
                     }
                 }
@@ -286,11 +283,11 @@ impl<'g> RenderGraphBuilder<'g> {
         self
     }
 
-    pub fn features(&self) -> wgpu::Features {
+    pub fn features(&self) -> WgpuFeatures {
         self.render_device.features()
     }
 
-    pub fn limits(&self) -> wgpu::Limits {
+    pub fn limits(&self) -> WgpuLimits {
         self.render_device.limits()
     }
 
