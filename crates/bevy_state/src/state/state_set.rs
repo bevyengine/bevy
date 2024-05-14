@@ -94,24 +94,24 @@ impl<S: InnerStateSet> StateSet for S {
     fn register_computed_state_systems_in_schedule<T: ComputedStates<SourceStates = Self>>(
         schedule: &mut Schedule,
     ) {
-        let system = |refresh: Option<ResMut<RefreshState<T>>>,
-                      mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
+        let system = |mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
                       event: EventWriter<StateTransitionEvent<T>>,
                       commands: Commands,
                       current_state: Option<ResMut<State<T>>>,
+                      refresh: Option<ResMut<RefreshState<T>>>,
                       state_set: Option<Res<State<S::RawState>>>| {
-            let refresh = refresh.is_some_and(|mut x| std::mem::take(&mut x.0));
-            if !refresh && parent_changed.is_empty() {
+            let should_refresh = refresh.is_some_and(|mut x| std::mem::take(&mut x.0));
+            if parent_changed.is_empty() {
                 return;
             }
             parent_changed.clear();
 
-            let new_state =
-                if let Some(state_set) = S::convert_to_usable_state(state_set.as_deref()) {
-                    T::compute(state_set)
-                } else {
-                    None
-                };
+            let new_state = S::convert_to_usable_state(state_set.as_deref()).and_then(T::compute);
+
+            let same_state = current_state.as_ref().map(|x| x.get()) == new_state.as_ref();
+            if same_state && !should_refresh {
+                return;
+            }
 
             internal_apply_state_transition(event, commands, current_state, new_state);
         };
@@ -153,12 +153,7 @@ impl<S: InnerStateSet> StateSet for S {
             }
             parent_changed.clear();
 
-            let new_state =
-                if let Some(state_set) = S::convert_to_usable_state(state_set.as_deref()) {
-                    T::should_exist(state_set)
-                } else {
-                    None
-                };
+            let new_state = S::convert_to_usable_state(state_set.as_deref()).and_then(T::should_exist);
 
             if current_state.is_none() || new_state.is_none() {
                 internal_apply_state_transition(event, commands, current_state, new_state);
@@ -205,14 +200,14 @@ macro_rules! impl_state_set_sealed_tuples {
             fn register_computed_state_systems_in_schedule<T: ComputedStates<SourceStates = Self>>(
                 schedule: &mut Schedule,
             ) {
-                let system = |refresh: Option<ResMut<RefreshState<T>>>,
-                              ($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,),
+                let system = |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,),
                               event: EventWriter<StateTransitionEvent<T>>,
                               commands: Commands,
                               current_state: Option<ResMut<State<T>>>,
+                              refresh: Option<ResMut<RefreshState<T>>>,
                               ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
-                    let refresh = refresh.is_some_and(|mut x| std::mem::take(&mut x.0));
-                    if !refresh && ($($evt.is_empty())&&*) {
+                    let should_refresh = refresh.is_some_and(|mut x| std::mem::take(&mut x.0));
+                    if ($($evt.is_empty())&&*) {
                         return;
                     }
                     $($evt.clear();)*
@@ -222,6 +217,11 @@ macro_rules! impl_state_set_sealed_tuples {
                     } else {
                         None
                     };
+
+                    let same_state = current_state.as_ref().map(|x| x.get()) == new_state.as_ref();
+                    if same_state && !should_refresh {
+                        return;
+                    }
 
                     internal_apply_state_transition(event, commands, current_state, new_state);
                 };
