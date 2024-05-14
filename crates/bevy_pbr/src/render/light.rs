@@ -1148,6 +1148,11 @@ pub fn prepare_lights(
                 continue;
             }
 
+            // Only deal with cascades when shadows are enabled.
+            if (gpu_light.flags & DirectionalLightFlags::SHADOWS_ENABLED.bits()) == 0u32 {
+                continue;
+            }
+
             let cascades = light
                 .cascades
                 .get(&entity)

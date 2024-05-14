@@ -108,6 +108,12 @@ impl RenderLayers {
     /// A `RenderLayers` with no layers will not match any other
     /// `RenderLayers`, even another with no layers.
     pub fn intersects(&self, other: &RenderLayers) -> bool {
+        // Check for the common case where the view layer and entity layer
+        // both point towards our default layer.
+        if self.0.as_ptr() == other.0.as_ptr() {
+            return true;
+        }
+
         for (self_layer, other_layer) in self.0.iter().zip(other.0.iter()) {
             if (*self_layer & *other_layer) != 0 {
                 return true;
