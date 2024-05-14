@@ -14,8 +14,8 @@ use bevy_window::{
 
 use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
-    event_loop::EventLoopWindowTarget,
 };
+use winit::event_loop::{ActiveEventLoop, EventLoop};
 
 use bevy_ecs::query::With;
 #[cfg(target_arch = "wasm32")]
@@ -36,7 +36,7 @@ use crate::{
 /// default values.
 #[allow(clippy::too_many_arguments)]
 pub fn create_windows<F: QueryFilter + 'static>(
-    event_loop: &EventLoopWindowTarget<crate::UserEvent>,
+    event_loop: &ActiveEventLoop,
     (
         mut commands,
         mut created_windows,
@@ -202,7 +202,7 @@ pub(crate) fn changed_windows(
         }
 
         if window.cursor.icon != cache.window.cursor.icon {
-            winit_window.set_cursor_icon(converters::convert_cursor_icon(window.cursor.icon));
+            winit_window.set_cursor(converters::convert_cursor_icon(window.cursor.icon));
         }
 
         if window.cursor.grab_mode != cache.window.cursor.grab_mode {

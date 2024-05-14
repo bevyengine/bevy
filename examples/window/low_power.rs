@@ -9,6 +9,7 @@ use bevy::{
     window::{PresentMode, RequestRedraw, WindowPlugin},
     winit::{EventLoopProxy, WinitSettings},
 };
+use bevy::winit::UserEvent;
 
 fn main() {
     App::new()
@@ -87,7 +88,7 @@ fn update_winit(
             // when there are no inputs, so you send redraw requests while the animation is playing.
             // Note that in this example the RequestRedraw winit event will make the app run in the same
             // way as continuous
-            let _ = event_loop_proxy.send_event(RequestRedraw);
+            let _ = event_loop_proxy.send_event(UserEvent::WakeUp);
             WinitSettings::desktop_app()
         }
     };

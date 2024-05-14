@@ -60,8 +60,9 @@ pub use winit::platform::android::activity as android_activity;
 use winit::event::StartCause;
 use winit::{
     event::{self, DeviceEvent, Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopWindowTarget},
+    event_loop::{ControlFlow, EventLoop, EventLoopBuilder},
 };
+use winit::event_loop::ActiveEventLoop;
 
 use crate::accessibility::{AccessKitAdapters, AccessKitPlugin, WinitActionHandlers};
 
@@ -95,14 +96,14 @@ pub struct WinitPlugin {
 
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut App) {
-        let mut event_loop_builder = EventLoopBuilder::<UserEvent>::with_user_event();
+        let mut event_loop_builder = EventLoop::<UserEvent>::with_user_event();
 
         // linux check is needed because x11 might be enabled on other platforms.
         #[cfg(all(target_os = "linux", feature = "x11"))]
         {
             use winit::platform::x11::EventLoopBuilderExtX11;
 
-            // This allows a Bevy app to be started and ran outside of the main thread.
+            // This allows a Bevy app to be started and ran outside the main thread.
             // A use case for this is to allow external applications to spawn a thread
             // which runs a Bevy app without requiring the Bevy app to need to reside on
             // the main thread, which can be problematic.
@@ -222,6 +223,8 @@ impl Default for WinitAppRunnerState {
     }
 }
 
+
+
 #[derive(PartialEq, Eq, Debug)]
 enum UpdateState {
     NotYetStarted,
@@ -259,7 +262,10 @@ pub type CreateWindowParams<'w, 's, F = ()> = (
 /// Use `NonSend<EventLoopProxy>` to receive this resource.
 pub type EventLoopProxy = winit::event_loop::EventLoopProxy<UserEvent>;
 
-type UserEvent = RequestRedraw;
+#[derive(Debug, Clone, Copy)]
+pub enum UserEvent {
+    WakeUp,
+}
 
 /// The default [`App::runner`] for the [`WinitPlugin`] plugin.
 ///
@@ -294,14 +300,15 @@ pub fn winit_runner(mut app: App) -> AppExit {
         EventWriter<WindowResized>,
         NonSend<WinitWindows>,
         Query<(&mut Window, &mut CachedWindow)>,
-        NonSend<AccessKitAdapters>,
+        NonSendMut<AccessKitAdapters>,
     )> = SystemState::new(app.world_mut());
 
     let mut create_window =
         SystemState::<CreateWindowParams<Added<Window>>>::from_world(app.world_mut());
     let mut winit_events = Vec::default();
+
     // set up the event loop
-    let event_handler = move |event, event_loop: &EventLoopWindowTarget<UserEvent>| {
+    let event_handler = move |event, event_loop: &ActiveEventLoop| {
         // The event loop is in the process of exiting, so don't deliver any new events
         if event_loop.exiting() {
             return;
@@ -343,14 +350,14 @@ fn handle_winit_event(
         EventWriter<WindowResized>,
         NonSend<WinitWindows>,
         Query<(&mut Window, &mut CachedWindow)>,
-        NonSend<AccessKitAdapters>,
+        NonSendMut<AccessKitAdapters>,
     )>,
     focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)>,
     redraw_event_reader: &mut ManualEventReader<RequestRedraw>,
     winit_events: &mut Vec<WinitEvent>,
     exit_notify: &SyncSender<AppExit>,
     event: Event<UserEvent>,
-    event_loop: &EventLoopWindowTarget<UserEvent>,
+    event_loop: &ActiveEventLoop,
 ) {
     #[cfg(feature = "trace")]
     let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
@@ -542,7 +549,7 @@ fn handle_winit_event(
         Event::WindowEvent {
             event, window_id, ..
         } => {
-            let (mut window_resized, winit_windows, mut windows, access_kit_adapters) =
+            let (mut window_resized, winit_windows, mut windows, mut access_kit_adapters) =
                 event_writer_system_state.get_mut(app.world_mut());
 
             let Some(window) = winit_windows.get_window_entity(window_id) else {
@@ -557,7 +564,7 @@ fn handle_winit_event(
 
             // Allow AccessKit to respond to `WindowEvent`s before they reach
             // the engine.
-            if let Some(adapter) = access_kit_adapters.get(&window) {
+            if let Some(adapter) = access_kit_adapters.get_mut(&window) {
                 if let Some(winit_window) = winit_windows.get_window(window) {
                     adapter.process_event(winit_window, &event);
                 }
@@ -611,10 +618,10 @@ fn handle_winit_event(
                         window,
                     });
                 }
-                WindowEvent::TouchpadMagnify { delta, .. } => {
+                WindowEvent::PinchGesture { delta, .. } => {
                     winit_events.send(TouchpadMagnify(delta as f32));
                 }
-                WindowEvent::TouchpadRotate { delta, .. } => {
+                WindowEvent::RotationGesture { delta, .. } => {
                     winit_events.send(TouchpadRotate(delta));
                 }
                 WindowEvent::MouseWheel { delta, .. } => match delta {
@@ -774,7 +781,7 @@ fn handle_winit_event(
             }
             runner_state.activity_state = UpdateState::WillResume;
         }
-        Event::UserEvent(RequestRedraw) => {
+        Event::UserEvent(UserEvent::WakeUp) => {
             runner_state.redraw_requested = true;
         }
         _ => (),

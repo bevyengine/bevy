@@ -7,10 +7,7 @@ use bevy_window::{
     CursorGrabMode, Window, WindowMode, WindowPosition, WindowResolution, WindowWrapper,
 };
 
-use winit::{
-    dpi::{LogicalSize, PhysicalPosition},
-    monitor::MonitorHandle,
-};
+use winit::{dpi::{LogicalSize, PhysicalPosition}, event_loop, monitor::MonitorHandle};
 
 use crate::{
     accessibility::{prepare_accessibility_for_window, AccessKitAdapters, WinitActionHandlers},
@@ -37,21 +34,22 @@ impl WinitWindows {
     /// Creates a `winit` window and associates it with our entity.
     pub fn create_window(
         &mut self,
-        event_loop: &winit::event_loop::EventLoopWindowTarget<crate::UserEvent>,
+        event_loop: &winit::event_loop::ActiveEventLoop,
         entity: Entity,
         window: &Window,
         adapters: &mut AccessKitAdapters,
         handlers: &mut WinitActionHandlers,
         accessibility_requested: &AccessibilityRequested,
     ) -> &WindowWrapper<winit::window::Window> {
-        let mut winit_window_builder = winit::window::WindowBuilder::new();
+        let mut winit_window_attributes = winit::window::Window::default_attributes();
+        let mut winit_window_builder = event_loop.create_window(winit::window::Window::default_attributes());
 
         // Due to a UIA limitation, winit windows need to be invisible for the
         // AccessKit adapter is initialized.
-        winit_window_builder = winit_window_builder.with_visible(false);
+        winit_window_attributes = winit_window_attributes.with_visible(false);
 
-        winit_window_builder = match window.mode {
-            WindowMode::BorderlessFullscreen => winit_window_builder.with_fullscreen(Some(
+        winit_window_attributes = match window.mode {
+            WindowMode::BorderlessFullscreen => winit_window_attributes.with_fullscreen(Some(
                 winit::window::Fullscreen::Borderless(event_loop.primary_monitor()),
             )),
             mode @ (WindowMode::Fullscreen | WindowMode::SizedFullscreen) => {
@@ -66,11 +64,11 @@ impl WinitWindows {
                         _ => unreachable!(),
                     };
 
-                    winit_window_builder
+                    winit_window_attributes
                         .with_fullscreen(Some(winit::window::Fullscreen::Exclusive(videomode)))
                 } else {
                     warn!("Could not determine primary monitor, ignoring exclusive fullscreen request for window {:?}", window.title);
-                    winit_window_builder
+                    winit_window_attributes
                 }
             }
             WindowMode::Windowed => {
@@ -81,19 +79,19 @@ impl WinitWindows {
                     event_loop.primary_monitor(),
                     None,
                 ) {
-                    winit_window_builder = winit_window_builder.with_position(position);
+                    winit_window_attributes = winit_window_attributes.with_position(position);
                 }
 
                 let logical_size = LogicalSize::new(window.width(), window.height());
                 if let Some(sf) = window.resolution.scale_factor_override() {
-                    winit_window_builder.with_inner_size(logical_size.to_physical::<f64>(sf.into()))
+                    winit_window_attributes.with_inner_size(logical_size.to_physical::<f64>(sf.into()))
                 } else {
-                    winit_window_builder.with_inner_size(logical_size)
+                    winit_window_attributes.with_inner_size(logical_size)
                 }
             }
         };
 
-        winit_window_builder = winit_window_builder
+        winit_window_attributes = winit_window_attributes
             .with_window_level(convert_window_level(window.window_level))
             .with_theme(window.window_theme.map(convert_window_theme))
             .with_resizable(window.resizable)
@@ -105,7 +103,7 @@ impl WinitWindows {
         #[cfg(target_os = "windows")]
         {
             use winit::platform::windows::WindowBuilderExtWindows;
-            winit_window_builder = winit_window_builder.with_skip_taskbar(window.skip_taskbar);
+            winit_window_attributes = winit_window_attributes.with_skip_taskbar(window.skip_taskbar);
         }
 
         #[cfg(any(
@@ -128,8 +126,8 @@ impl WinitWindows {
                 )
             ))]
             {
-                winit_window_builder = winit::platform::wayland::WindowBuilderExtWayland::with_name(
-                    winit_window_builder,
+                winit_window_attributes = winit::platform::wayland::WindowBuilderExtWayland::with_name(
+                    winit_window_attributes,
                     name.clone(),
                     "",
                 );
@@ -146,17 +144,17 @@ impl WinitWindows {
                 )
             ))]
             {
-                winit_window_builder = winit::platform::x11::WindowBuilderExtX11::with_name(
-                    winit_window_builder,
+                winit_window_attributes = winit::platform::x11::WindowBuilderExtX11::with_name(
+                    winit_window_attributes,
                     name.clone(),
                     "",
                 );
             }
             #[cfg(target_os = "windows")]
             {
-                winit_window_builder =
+                winit_window_attributes =
                     winit::platform::windows::WindowBuilderExtWindows::with_class_name(
-                        winit_window_builder,
+                        winit_window_attributes,
                         name.clone(),
                     );
             }
@@ -172,17 +170,17 @@ impl WinitWindows {
             height: constraints.max_height,
         };
 
-        let winit_window_builder =
+        let winit_window_attributes =
             if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
-                winit_window_builder
+                winit_window_attributes
                     .with_min_inner_size(min_inner_size)
                     .with_max_inner_size(max_inner_size)
             } else {
-                winit_window_builder.with_min_inner_size(min_inner_size)
+                winit_window_attributes.with_min_inner_size(min_inner_size)
             };
 
         #[allow(unused_mut)]
-        let mut winit_window_builder = winit_window_builder.with_title(window.title.as_str());
+        let mut winit_window_attributes = winit_window_attributes.with_title(window.title.as_str());
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -197,18 +195,18 @@ impl WinitWindows {
                     .expect("Cannot query for canvas element.");
                 if let Some(canvas) = canvas {
                     let canvas = canvas.dyn_into::<web_sys::HtmlCanvasElement>().ok();
-                    winit_window_builder = winit_window_builder.with_canvas(canvas);
+                    winit_window_attributes = winit_window_attributes.with_canvas(canvas);
                 } else {
                     panic!("Cannot find element: {}.", selector);
                 }
             }
 
-            winit_window_builder =
-                winit_window_builder.with_prevent_default(window.prevent_default_event_handling);
-            winit_window_builder = winit_window_builder.with_append(true);
+            winit_window_attributes =
+                winit_window_attributes.with_prevent_default(window.prevent_default_event_handling);
+            winit_window_attributes = winit_window_attributes.with_append(true);
         }
 
-        let winit_window = winit_window_builder.build(event_loop).unwrap();
+        let winit_window = event_loop.create_window(winit_window_attributes).unwrap();
         let name = window.title.clone();
         prepare_accessibility_for_window(
             &winit_window,
