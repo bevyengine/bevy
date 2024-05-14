@@ -15,7 +15,7 @@ use bevy_window::{
 use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
 };
-use winit::event_loop::{ActiveEventLoop, EventLoop};
+use winit::event_loop::{ActiveEventLoop};
 
 use bevy_ecs::query::With;
 #[cfg(target_arch = "wasm32")]

@@ -60,7 +60,7 @@ pub use winit::platform::android::activity as android_activity;
 use winit::event::StartCause;
 use winit::{
     event::{self, DeviceEvent, Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop, EventLoopBuilder},
+    event_loop::{ControlFlow, EventLoop},
 };
 use winit::event_loop::ActiveEventLoop;
 
@@ -223,8 +223,6 @@ impl Default for WinitAppRunnerState {
     }
 }
 
-
-
 #[derive(PartialEq, Eq, Debug)]
 enum UpdateState {
     NotYetStarted,
@@ -262,6 +260,7 @@ pub type CreateWindowParams<'w, 's, F = ()> = (
 /// Use `NonSend<EventLoopProxy>` to receive this resource.
 pub type EventLoopProxy = winit::event_loop::EventLoopProxy<UserEvent>;
 
+/// The default event that can be used to wake the window loop
 #[derive(Debug, Clone, Copy)]
 pub enum UserEvent {
     WakeUp,

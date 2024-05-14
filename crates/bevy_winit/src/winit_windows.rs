@@ -7,7 +7,7 @@ use bevy_window::{
     CursorGrabMode, Window, WindowMode, WindowPosition, WindowResolution, WindowWrapper,
 };
 
-use winit::{dpi::{LogicalSize, PhysicalPosition}, event_loop, monitor::MonitorHandle};
+use winit::{dpi::{LogicalSize, PhysicalPosition}, monitor::MonitorHandle};
 
 use crate::{
     accessibility::{prepare_accessibility_for_window, AccessKitAdapters, WinitActionHandlers},
@@ -42,7 +42,6 @@ impl WinitWindows {
         accessibility_requested: &AccessibilityRequested,
     ) -> &WindowWrapper<winit::window::Window> {
         let mut winit_window_attributes = winit::window::Window::default_attributes();
-        let mut winit_window_builder = event_loop.create_window(winit::window::Window::default_attributes());
 
         // Due to a UIA limitation, winit windows need to be invisible for the
         // AccessKit adapter is initialized.
@@ -278,7 +277,7 @@ pub fn get_fitting_videomode(
     monitor: &MonitorHandle,
     width: u32,
     height: u32,
-) -> winit::monitor::VideoMode {
+) -> winit::monitor::VideoModeHandle {
     let mut modes = monitor.video_modes().collect::<Vec<_>>();
 
     fn abs_diff(a: u32, b: u32) -> u32 {
@@ -306,10 +305,10 @@ pub fn get_fitting_videomode(
     modes.first().unwrap().clone()
 }
 
-/// Gets the "best" videomode from a monitor.
+/// Gets the "best" video-mode handle from a monitor.
 ///
 /// The heuristic for "best" prioritizes width, height, and refresh rate in that order.
-pub fn get_best_videomode(monitor: &MonitorHandle) -> winit::monitor::VideoMode {
+pub fn get_best_videomode(monitor: &MonitorHandle) -> winit::monitor::VideoModeHandle {
     let mut modes = monitor.video_modes().collect::<Vec<_>>();
     modes.sort_by(|a, b| {
         use std::cmp::Ordering::*;

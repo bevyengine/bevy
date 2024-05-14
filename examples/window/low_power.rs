@@ -6,7 +6,7 @@
 use bevy::{
     prelude::*,
     utils::Duration,
-    window::{PresentMode, RequestRedraw, WindowPlugin},
+    window::{PresentMode, WindowPlugin},
     winit::{EventLoopProxy, WinitSettings},
 };
 use bevy::winit::UserEvent;
