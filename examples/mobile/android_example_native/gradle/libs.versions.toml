@@ -17,4 +17,3 @@ constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayo
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
-
