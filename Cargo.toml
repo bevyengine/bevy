@@ -2857,6 +2857,17 @@ category = "Window"
 wasm = false
 
 [[example]]
+name = "force_run_in_background"
+path = "examples/window/force_run_in_background.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.force_run_in_background]
+name = "Force run in background"
+description = "Demonstrates running the bevy schedules in wasm even in the tab is not focused"
+category = "Window"
+wasm = true
+
+[[example]]
 name = "window_settings"
 path = "examples/window/window_settings.rs"
 doc-scrape-examples = true
