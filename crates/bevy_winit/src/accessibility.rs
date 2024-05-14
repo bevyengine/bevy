@@ -13,6 +13,7 @@ use bevy_a11y::{
     AccessibilityNode, AccessibilityRequested, AccessibilitySystem, Focus,
 };
 use bevy_a11y::{ActionRequest as ActionRequestWrapper, ManageAccessibilityUpdates};
+use bevy_a11y::accesskit::ActivationHandler;
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashMap;
@@ -44,7 +45,37 @@ impl ActionHandler for WinitActionHandler {
         requests.push_back(request);
     }
 }
-
+//
+// struct UiState;
+// impl UiState {
+//     fn new() -> Arc<Mutex<Self>> {
+//         Arc::new(Mutex::new(Self))
+//     }
+//     //
+//     // fn build_root(&mut self) -> Node {
+//     //     let mut root_builder = NodeBuilder::new(Role::Window);
+//     //     root_builder.set_name(name.into_boxed_str());
+//     //     let root = root_builder.build();
+//     //
+//     //     let mut builder = NodeBuilder::new(Role::Window);
+//     //     builder.set_children(vec![BUTTON_1_ID, BUTTON_2_ID]);
+//     //     if self.announcement.is_some() {
+//     //         builder.push_child(ANNOUNCEMENT_ID);
+//     //     }
+//     //     builder.set_name(WINDOW_TITLE);
+//     //     builder.build()
+//     // }
+// }
+//
+// struct TearoffActivationHandler {
+//     state: Arc<Mutex<UiState>>,
+// }
+//
+// impl ActivationHandler for TearoffActivationHandler {
+//     fn request_initial_tree(&mut self) -> Option<TreeUpdate> {
+//         Some(self.state.lock().unwrap().build_initial_tree())
+//     }
+// }
 /// Prepares accessibility for a winit window.
 pub(crate) fn prepare_accessibility_for_window(
     winit_window: &winit::window::Window,
@@ -54,17 +85,29 @@ pub(crate) fn prepare_accessibility_for_window(
     adapters: &mut AccessKitAdapters,
     handlers: &mut WinitActionHandlers,
 ) {
-    let mut root_builder = NodeBuilder::new(Role::Window);
-    root_builder.set_name(name.into_boxed_str());
-    let root = root_builder.build();
-    // TODO: restore this
     //
+    // let ui = Ui::new
     // let accesskit_window_id = NodeId(entity.to_bits());
-    // let handler = WinitActionHandler::default();
+    // let handler = TearoffActivationHandler {
+    //     state: Arc::clone(Ui::new
+    // };
     // let adapter = Adapter::with_mixed_handlers(
     //     winit_window,
     //     &handler,
     //     event_loop_proxy.clone(),
+    // );
+    // TODO: restore this
+    // let adapter = Adapter::with_action_handler(
+    //     winit_window,
+    //     move || {
+    //         accessibility_requested.set(true);
+    //         TreeUpdate {
+    //             nodes: vec![(accesskit_window_id, root)],
+    //             tree: Some(Tree::new(accesskit_window_id)),
+    //             focus: accesskit_window_id,
+    //         }
+    //     },
+    //     Box::new(handler.clone()),
     // );
     // adapters.insert(entity, adapter);
     // handlers.insert(entity, handler);
