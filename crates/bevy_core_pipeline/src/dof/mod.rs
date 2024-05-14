@@ -795,12 +795,11 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
 /// Extracts all [`DepthOfFieldSettings`] components into the render world.
 fn extract_depth_of_field_settings(
     mut commands: Commands,
-    msaa: Extract<Res<Msaa>>,
     mut query: Extract<Query<(Entity, &DepthOfFieldSettings, &Projection)>>,
 ) {
-    if **msaa != Msaa::Off && !depth_textures_are_supported() {
+    if !depth_textures_are_supported() {
         info_once!(
-            "Disabling depth of field on this platform because depth textures aren't available"
+            "Disabling depth of field on this platform because depth textures aren't supported correctly"
         );
         return;
     }
