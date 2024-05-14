@@ -158,12 +158,12 @@ impl<'w> EntityRef<'w> {
     }
 
     /// Returns read-only components for the current entity that match the query `Q`.
-    pub fn components<Q: ReadOnlyQueryData>(&self) -> Q::Item<'_> {
-        self.get_components::<Q>().unwrap()
+    pub fn components<Q: ReadOnlyQueryData>(&self) -> Q::Item<'w> {
+        self.get_components::<Q>().expect(QUERY_MISMATCH_ERROR)
     }
 
     /// Returns read-only components for the current entity that match the query `Q`.
-    pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'_>> {
+    pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'w>> {
         // SAFETY: &mut self implies exclusive access for duration of returned value
         unsafe { self.0.get_components::<Q>() }
     }
@@ -364,12 +364,12 @@ impl<'w> EntityMut<'w> {
 
     /// Returns read-only components for the current entity that match the query `Q`.
     pub fn components<Q: ReadOnlyQueryData>(&self) -> Q::Item<'_> {
-        self.get_components::<Q>().unwrap()
+        self.get_components::<Q>().expect(QUERY_MISMATCH_ERROR)
     }
 
     /// Returns components for the current entity that match the query `Q`.
     pub fn components_mut<Q: QueryData>(&mut self) -> Q::Item<'_> {
-        self.get_components_mut::<Q>().unwrap()
+        self.get_components_mut::<Q>().expect(QUERY_MISMATCH_ERROR)
     }
 
     /// Returns read-only components for the current entity that match the query `Q`.
@@ -679,6 +679,31 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'_ T> {
         EntityRef::from(self).get()
+    }
+
+    /// Returns read-only components for the current entity that match the query `Q`.
+    #[inline]
+    pub fn components<Q: ReadOnlyQueryData>(&self) -> Q::Item<'_> {
+        EntityRef::from(self).components::<Q>()
+    }
+
+    /// Returns components for the current entity that match the query `Q`.
+    #[inline]
+    pub fn components_mut<Q: QueryData>(&mut self) -> Q::Item<'_> {
+        self.get_components_mut::<Q>().expect(QUERY_MISMATCH_ERROR)
+    }
+
+    /// Returns read-only components for the current entity that match the query `Q`.
+    #[inline]
+    pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'_>> {
+        EntityRef::from(self).get_components::<Q>()
+    }
+
+    /// Returns components for the current entity that match the query `Q`.
+    #[inline]
+    pub fn get_components_mut<Q: QueryData>(&mut self) -> Option<Q::Item<'_>> {
+        // SAFETY: &mut self implies exclusive access for duration of returned value
+        unsafe { self.as_unsafe_entity_cell().get_components::<Q>() }
     }
 
     /// Consumes `self` and gets access to the component of type `T` with
@@ -1523,6 +1548,8 @@ unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
         deferred_world.trigger_observers(ON_REMOVE, entity, bundle_info.iter_explicit_components());
     }
 }
+
+const QUERY_MISMATCH_ERROR: &str = "Query does not match the current entity";
 
 /// A view into a single entity and component in a world, which may either be vacant or occupied.
 ///
