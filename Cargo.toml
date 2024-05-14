@@ -3026,6 +3026,17 @@ description = "Demonstrates the clearcoat PBR feature"
 category = "3D Rendering"
 wasm = false
 
+[[example]]
+name = "depth_of_field"
+path = "examples/3d/depth_of_field.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.depth_of_field]
+name = "Depth of field"
+description = "Demonstrates depth of field"
+category = "3D Rendering"
+wasm = false
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"

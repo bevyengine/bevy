@@ -13,7 +13,7 @@ use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_math::{Affine2, Mat4, Vec3};
 use bevy_pbr::{
     DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle, SpotLight,
-    SpotLightBundle, StandardMaterial, MAX_JOINTS,
+    SpotLightBundle, StandardMaterial, UvChannel, MAX_JOINTS,
 };
 use bevy_render::{
     alpha::AlphaMode,
@@ -49,7 +49,7 @@ use gltf::{json, Document};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "pbr_multi_layer_material_textures")]
 use serde_json::value;
-use serde_json::{Map, Value};
+use serde_json::Value;
 #[cfg(feature = "bevy_animation")]
 use smallvec::SmallVec;
 use std::io::Error;
@@ -846,10 +846,13 @@ fn load_material(
 
         // TODO: handle missing label handle errors here?
         let color = pbr.base_color_factor();
-        let base_color_texture = pbr.base_color_texture().map(|info| {
-            // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
-            texture_handle(load_context, &info.texture())
-        });
+        let base_color_channel = pbr
+            .base_color_texture()
+            .map(|info| get_uv_channel(material, "base color", info.tex_coord()))
+            .unwrap_or_default();
+        let base_color_texture = pbr
+            .base_color_texture()
+            .map(|info| texture_handle(load_context, &info.texture()));
 
         let uv_transform = pbr
             .base_color_texture()
@@ -859,15 +862,21 @@ fn load_material(
             })
             .unwrap_or_default();
 
+        let normal_map_channel = material
+            .normal_texture()
+            .map(|info| get_uv_channel(material, "normal map", info.tex_coord()))
+            .unwrap_or_default();
         let normal_map_texture: Option<Handle<Image>> =
             material.normal_texture().map(|normal_texture| {
                 // TODO: handle normal_texture.scale
-                // TODO: handle normal_texture.tex_coord() (the *set* index for the right texcoords)
                 texture_handle(load_context, &normal_texture.texture())
             });
 
+        let metallic_roughness_channel = pbr
+            .metallic_roughness_texture()
+            .map(|info| get_uv_channel(material, "metallic/roughness", info.tex_coord()))
+            .unwrap_or_default();
         let metallic_roughness_texture = pbr.metallic_roughness_texture().map(|info| {
-            // TODO: handle info.tex_coord() (the *set* index for the right texcoords)
             warn_on_differing_texture_transforms(
                 material,
                 &info,
@@ -877,32 +886,49 @@ fn load_material(
             texture_handle(load_context, &info.texture())
         });
 
+        let occlusion_channel = material
+            .occlusion_texture()
+            .map(|info| get_uv_channel(material, "occlusion", info.tex_coord()))
+            .unwrap_or_default();
         let occlusion_texture = material.occlusion_texture().map(|occlusion_texture| {
-            // TODO: handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
             // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
             texture_handle(load_context, &occlusion_texture.texture())
         });
 
         let emissive = material.emissive_factor();
+        let emissive_channel = material
+            .emissive_texture()
+            .map(|info| get_uv_channel(material, "emissive", info.tex_coord()))
+            .unwrap_or_default();
         let emissive_texture = material.emissive_texture().map(|info| {
-            // TODO: handle occlusion_texture.tex_coord() (the *set* index for the right texcoords)
             // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
             warn_on_differing_texture_transforms(material, &info, uv_transform, "emissive");
             texture_handle(load_context, &info.texture())
         });
 
         #[cfg(feature = "pbr_transmission_textures")]
-        let (specular_transmission, specular_transmission_texture) =
-            material.transmission().map_or((0.0, None), |transmission| {
-                let transmission_texture: Option<Handle<Image>> = transmission
-                    .transmission_texture()
-                    .map(|transmission_texture| {
-                        // TODO: handle transmission_texture.tex_coord() (the *set* index for the right texcoords)
-                        texture_handle(load_context, &transmission_texture.texture())
-                    });
+        let (specular_transmission, specular_transmission_channel, specular_transmission_texture) =
+            material
+                .transmission()
+                .map_or((0.0, UvChannel::Uv0, None), |transmission| {
+                    let specular_transmission_channel = transmission
+                        .transmission_texture()
+                        .map(|info| {
+                            get_uv_channel(material, "specular/transmission", info.tex_coord())
+                        })
+                        .unwrap_or_default();
+                    let transmission_texture: Option<Handle<Image>> = transmission
+                        .transmission_texture()
+                        .map(|transmission_texture| {
+                            texture_handle(load_context, &transmission_texture.texture())
+                        });
 
-                (transmission.transmission_factor(), transmission_texture)
-            });
+                    (
+                        transmission.transmission_factor(),
+                        specular_transmission_channel,
+                        transmission_texture,
+                    )
+                });
 
         #[cfg(not(feature = "pbr_transmission_textures"))]
         let specular_transmission = material
@@ -910,22 +936,33 @@ fn load_material(
             .map_or(0.0, |transmission| transmission.transmission_factor());
 
         #[cfg(feature = "pbr_transmission_textures")]
-        let (thickness, thickness_texture, attenuation_distance, attenuation_color) = material
-            .volume()
-            .map_or((0.0, None, f32::INFINITY, [1.0, 1.0, 1.0]), |volume| {
+        let (
+            thickness,
+            thickness_channel,
+            thickness_texture,
+            attenuation_distance,
+            attenuation_color,
+        ) = material.volume().map_or(
+            (0.0, UvChannel::Uv0, None, f32::INFINITY, [1.0, 1.0, 1.0]),
+            |volume| {
+                let thickness_channel = volume
+                    .thickness_texture()
+                    .map(|info| get_uv_channel(material, "thickness", info.tex_coord()))
+                    .unwrap_or_default();
                 let thickness_texture: Option<Handle<Image>> =
                     volume.thickness_texture().map(|thickness_texture| {
-                        // TODO: handle thickness_texture.tex_coord() (the *set* index for the right texcoords)
                         texture_handle(load_context, &thickness_texture.texture())
                     });
 
                 (
                     volume.thickness_factor(),
+                    thickness_channel,
                     thickness_texture,
                     volume.attenuation_distance(),
                     volume.attenuation_color(),
                 )
-            });
+            },
+        );
 
         #[cfg(not(feature = "pbr_transmission_textures"))]
         let (thickness, attenuation_distance, attenuation_color) =
@@ -942,8 +979,8 @@ fn load_material(
         let ior = material.ior().unwrap_or(1.5);
 
         // Parse the `KHR_materials_clearcoat` extension data if necessary.
-        let clearcoat = ClearcoatExtension::parse(load_context, document, material.extensions())
-            .unwrap_or_default();
+        let clearcoat =
+            ClearcoatExtension::parse(load_context, document, material).unwrap_or_default();
 
         // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
         let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
@@ -952,10 +989,13 @@ fn load_material(
 
         StandardMaterial {
             base_color: Color::linear_rgba(color[0], color[1], color[2], color[3]),
+            base_color_channel,
             base_color_texture,
             perceptual_roughness: pbr.roughness_factor(),
             metallic: pbr.metallic_factor(),
+            metallic_roughness_channel,
             metallic_roughness_texture,
+            normal_map_channel,
             normal_map_texture,
             double_sided: material.double_sided(),
             cull_mode: if material.double_sided() {
@@ -965,13 +1005,19 @@ fn load_material(
             } else {
                 Some(Face::Back)
             },
+            occlusion_channel,
             occlusion_texture,
             emissive,
+            emissive_channel,
             emissive_texture,
             specular_transmission,
             #[cfg(feature = "pbr_transmission_textures")]
+            specular_transmission_channel,
+            #[cfg(feature = "pbr_transmission_textures")]
             specular_transmission_texture,
             thickness,
+            #[cfg(feature = "pbr_transmission_textures")]
+            thickness_channel,
             #[cfg(feature = "pbr_transmission_textures")]
             thickness_texture,
             ior,
@@ -988,14 +1034,43 @@ fn load_material(
             clearcoat_perceptual_roughness: clearcoat.clearcoat_roughness_factor.unwrap_or_default()
                 as f32,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_channel: clearcoat.clearcoat_channel,
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_texture: clearcoat.clearcoat_texture,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_roughness_channel: clearcoat.clearcoat_roughness_channel,
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_roughness_texture: clearcoat.clearcoat_roughness_texture,
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_normal_channel: clearcoat.clearcoat_normal_channel,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_normal_texture: clearcoat.clearcoat_normal_texture,
             ..Default::default()
         }
     })
+}
+
+fn get_uv_channel(material: &Material, texture_kind: &str, tex_coord: u32) -> UvChannel {
+    match tex_coord {
+        0 => UvChannel::Uv0,
+        1 => UvChannel::Uv1,
+        _ => {
+            let material_name = material
+                .name()
+                .map(|n| format!("the material \"{n}\""))
+                .unwrap_or_else(|| "an unnamed material".to_string());
+            let material_index = material
+                .index()
+                .map(|i| format!("index {i}"))
+                .unwrap_or_else(|| "default".to_string());
+            warn!(
+                "Only 2 UV Channels are supported, but {material_name} ({material_index}) \
+                has the TEXCOORD attribute {} on texture kind {texture_kind}, which will fallback to 0.",
+                tex_coord,
+            );
+            UvChannel::Uv0
+        }
+    }
 }
 
 fn convert_texture_transform_to_affine2(texture_transform: TextureTransform) -> Affine2 {
@@ -1700,10 +1775,16 @@ struct AnimationContext {
 struct ClearcoatExtension {
     clearcoat_factor: Option<f64>,
     #[cfg(feature = "pbr_multi_layer_material_textures")]
+    clearcoat_channel: UvChannel,
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
     clearcoat_texture: Option<Handle<Image>>,
     clearcoat_roughness_factor: Option<f64>,
     #[cfg(feature = "pbr_multi_layer_material_textures")]
+    clearcoat_roughness_channel: UvChannel,
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
     clearcoat_roughness_texture: Option<Handle<Image>>,
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
+    clearcoat_normal_channel: UvChannel,
     #[cfg(feature = "pbr_multi_layer_material_textures")]
     clearcoat_normal_texture: Option<Handle<Image>>,
 }
@@ -1713,11 +1794,48 @@ impl ClearcoatExtension {
     fn parse(
         load_context: &mut LoadContext,
         document: &Document,
-        material_extensions: Option<&Map<String, Value>>,
+        material: &Material,
     ) -> Option<ClearcoatExtension> {
-        let extension = material_extensions?
+        let extension = material
+            .extensions()?
             .get("KHR_materials_clearcoat")?
             .as_object()?;
+
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        let (clearcoat_channel, clearcoat_texture) = extension
+            .get("clearcoatTexture")
+            .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
+            .map(|json_info| {
+                (
+                    get_uv_channel(material, "clearcoat", json_info.tex_coord),
+                    texture_handle_from_info(load_context, document, &json_info),
+                )
+            })
+            .unzip();
+
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        let (clearcoat_roughness_channel, clearcoat_roughness_texture) = extension
+            .get("clearcoatRoughnessTexture")
+            .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
+            .map(|json_info| {
+                (
+                    get_uv_channel(material, "clearcoat roughness", json_info.tex_coord),
+                    texture_handle_from_info(load_context, document, &json_info),
+                )
+            })
+            .unzip();
+
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        let (clearcoat_normal_channel, clearcoat_normal_texture) = extension
+            .get("clearcoatNormalTexture")
+            .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
+            .map(|json_info| {
+                (
+                    get_uv_channel(material, "clearcoat normal", json_info.tex_coord),
+                    texture_handle_from_info(load_context, document, &json_info),
+                )
+            })
+            .unzip();
 
         Some(ClearcoatExtension {
             clearcoat_factor: extension.get("clearcoatFactor").and_then(Value::as_f64),
@@ -1725,20 +1843,17 @@ impl ClearcoatExtension {
                 .get("clearcoatRoughnessFactor")
                 .and_then(Value::as_f64),
             #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_texture: extension
-                .get("clearcoatTexture")
-                .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
-                .map(|json_info| texture_handle_from_info(load_context, document, &json_info)),
+            clearcoat_channel: clearcoat_channel.unwrap_or_default(),
             #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_roughness_texture: extension
-                .get("clearcoatRoughnessTexture")
-                .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
-                .map(|json_info| texture_handle_from_info(load_context, document, &json_info)),
+            clearcoat_texture,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_normal_texture: extension
-                .get("clearcoatNormalTexture")
-                .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
-                .map(|json_info| texture_handle_from_info(load_context, document, &json_info)),
+            clearcoat_roughness_channel: clearcoat_roughness_channel.unwrap_or_default(),
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_roughness_texture,
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_normal_channel: clearcoat_normal_channel.unwrap_or_default(),
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_normal_texture,
         })
     }
 }

@@ -7,8 +7,13 @@ use bevy::{
 };
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
+    let mut app = App::new();
+
+    // MSAA and Motion Blur together are not compatible on WebGL
+    #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
+    app.insert_resource(Msaa::Off);
+
+    app.add_plugins(DefaultPlugins)
         .add_systems(Startup, (setup_camera, setup_scene, setup_ui))
         .add_systems(Update, (keyboard_inputs, move_cars, move_camera).chain())
         .run();
@@ -24,6 +29,8 @@ fn setup_camera(mut commands: Commands) {
             motion_blur: MotionBlur {
                 shutter_angle: 1.0,
                 samples: 2,
+                #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
+                _webgl2_padding: Default::default(),
             },
             ..default()
         },
