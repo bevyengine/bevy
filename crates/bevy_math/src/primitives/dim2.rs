@@ -726,7 +726,7 @@ impl RegularPolygon {
     /// Panics if `circumradius` is negative
     #[inline(always)]
     pub fn new(circumradius: f32, sides: usize) -> Self {
-        assert!(circumradius >= 0.0, "polygon has a negative radius");
+        assert!(circumradius.is_sign_positive(), "polygon has a negative radius");
         assert!(sides > 2, "polygon has less than 3 sides");
 
         Self {
