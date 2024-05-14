@@ -154,11 +154,17 @@ pub fn apply_state_transition<S: FreelyMutableState>(
     current_state: Option<ResMut<State<S>>>,
     next_state: Option<ResMut<NextState<S>>>,
 ) {
+    // We want to check if the State and NextState resources exist
     let Some(mut next_state) = next_state else {
         return;
     };
+    let next_state = mem::take(next_state.as_mut());
 
-    if let NextState::Pending(next_state) = mem::take(next_state.as_mut()) {
+    if current_state.is_none() {
+        return;
+    }
+
+    if let NextState::Pending(next_state) = next_state {
         internal_apply_state_transition(event, commands, current_state, Some(next_state));
     }
 }
