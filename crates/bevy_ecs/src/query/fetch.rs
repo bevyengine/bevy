@@ -1462,8 +1462,8 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
     }
 
     // Forwarded to `&mut T`
-    fn get_state(world: &World) -> Option<ComponentId> {
-        <&mut T as WorldQuery>::get_state(world)
+    fn get_state(components: &Components) -> Option<ComponentId> {
+        <&mut T as WorldQuery>::get_state(components)
     }
 
     // Forwarded to `&mut T`
