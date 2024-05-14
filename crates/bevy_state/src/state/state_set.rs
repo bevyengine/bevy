@@ -94,13 +94,14 @@ impl<S: InnerStateSet> StateSet for S {
     fn register_computed_state_systems_in_schedule<T: ComputedStates<SourceStates = Self>>(
         schedule: &mut Schedule,
     ) {
-        let system = |refresh: Option<Res<RefreshState<T>>>,
+        let system = |refresh: Option<ResMut<RefreshState<T>>>,
                       mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
                       event: EventWriter<StateTransitionEvent<T>>,
                       commands: Commands,
                       current_state: Option<ResMut<State<T>>>,
                       state_set: Option<Res<State<S::RawState>>>| {
-            if refresh.map_or(true, |x| !x.0) && parent_changed.is_empty() {
+            let refresh = refresh.is_some_and(|mut x| std::mem::take(&mut x.0));
+            if !refresh && parent_changed.is_empty() {
                 return;
             }
             parent_changed.clear();
@@ -142,13 +143,14 @@ impl<S: InnerStateSet> StateSet for S {
     fn register_sub_state_systems_in_schedule<T: SubStates<SourceStates = Self>>(
         schedule: &mut Schedule,
     ) {
-        let system = |refresh: Option<Res<RefreshState<T>>>,
+        let system = |refresh: Option<ResMut<RefreshState<T>>>,
                       mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
                       event: EventWriter<StateTransitionEvent<T>>,
                       commands: Commands,
                       current_state: Option<ResMut<State<T>>>,
                       state_set: Option<Res<State<S::RawState>>>| {
-            if refresh.map_or(true, |x| !x.0) && parent_changed.is_empty() {
+            let refresh = refresh.is_some_and(|mut x| std::mem::take(&mut x.0));
+            if !refresh && parent_changed.is_empty() {
                 return;
             }
             parent_changed.clear();
@@ -205,13 +207,14 @@ macro_rules! impl_state_set_sealed_tuples {
             fn register_computed_state_systems_in_schedule<T: ComputedStates<SourceStates = Self>>(
                 schedule: &mut Schedule,
             ) {
-                let system = |refresh: Option<Res<RefreshState<T>>>,
+                let system = |refresh: Option<ResMut<RefreshState<T>>>,
                               ($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,),
                               event: EventWriter<StateTransitionEvent<T>>,
                               commands: Commands,
                               current_state: Option<ResMut<State<T>>>,
                               ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
-                    if refresh.map_or(true, |x| !x.0) && ($($evt.is_empty())&&*) {
+                    let refresh = refresh.is_some_and(|mut x| std::mem::take(&mut x.0));
+                    if !refresh && ($($evt.is_empty())&&*) {
                         return;
                     }
                     $($evt.clear();)*
@@ -240,13 +243,14 @@ macro_rules! impl_state_set_sealed_tuples {
             fn register_sub_state_systems_in_schedule<T: SubStates<SourceStates = Self>>(
                 schedule: &mut Schedule,
             ) {
-                let system = |refresh: Option<Res<RefreshState<T>>>,
+                let system = |refresh: Option<ResMut<RefreshState<T>>>,
                               ($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,),
                               event: EventWriter<StateTransitionEvent<T>>,
                               commands: Commands,
                               current_state: Option<ResMut<State<T>>>,
                               ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
-                    if refresh.map_or(true, |x| !x.0) && ($($evt.is_empty())&&*) {
+                    let refresh = refresh.is_some_and(|mut x| std::mem::take(&mut x.0));
+                    if !refresh && ($($evt.is_empty())&&*) {
                         return;
                     }
                     $($evt.clear();)*
