@@ -232,7 +232,6 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// [`Enum`]: crate::Enum
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not provide a reflection path",
-    label = "invalid type",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
 pub trait GetPath: Reflect {

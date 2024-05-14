@@ -29,8 +29,8 @@ use std::{
 ///
 /// Events must be thread-safe.
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` is not an event",
-    label = "invalid event",
+    message = "`{Self}` is not an `Event`",
+    label = "invalid `Event`",
     note = "consider annotating `{Self}` with `#[derive(Event]`"
 )]
 pub trait Event: Send + Sync + 'static {}

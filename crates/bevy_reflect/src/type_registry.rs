@@ -58,7 +58,6 @@ impl Debug for TypeRegistryArc {
 /// [crate-level documentation]: crate
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not provide type registration information",
-    label = "invalid type",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
 pub trait GetTypeRegistration: 'static {

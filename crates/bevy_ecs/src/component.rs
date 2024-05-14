@@ -151,8 +151,8 @@ use std::{
 /// [`SyncCell`]: bevy_utils::synccell::SyncCell
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a component",
-    label = "invalid component",
+    message = "`{Self}` is not a `Component`",
+    label = "invalid `Component`",
     note = "consider annotating `{Self}` with `#[derive(Component)]`"
 )]
 pub trait Component: Send + Sync + 'static {

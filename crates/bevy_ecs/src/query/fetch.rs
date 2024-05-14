@@ -270,7 +270,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// [`ReadOnly`]: Self::ReadOnly
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not valid `Query` data",
-    label = "invalid query data"
+    label = "invalid `Query` data"
 )]
 pub unsafe trait QueryData: WorldQuery {
     /// The read-only variant of this [`QueryData`], which satisfies the [`ReadOnlyQueryData`] trait.

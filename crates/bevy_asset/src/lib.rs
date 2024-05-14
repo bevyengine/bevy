@@ -224,8 +224,8 @@ impl Plugin for AssetPlugin {
 }
 
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` is not an asset",
-    label = "invalid asset",
+    message = "`{Self}` is not an `Asset`",
+    label = "invalid `Asset`",
     note = "consider annotating `{Self}` with `#[derive(Asset)]`"
 )]
 pub trait Asset: VisitAssetDependencies + TypePath + Send + Sync + 'static {}

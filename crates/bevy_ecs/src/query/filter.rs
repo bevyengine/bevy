@@ -72,7 +72,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// [`State`]: Self::State
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a valid `Query` filter",
-    label = "invalid query filter"
+    label = "invalid `Query` filter"
 )]
 pub trait QueryFilter: WorldQuery {
     /// Returns true if (and only if) this Filter relies strictly on archetypes to limit which
@@ -943,7 +943,7 @@ impl<T: Component> QueryFilter for Changed<T> {
 /// they do not implement [`ArchetypeFilter`].
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not an archetypical filter",
-    label = "invalid filter"
+    label = "invalid `Query` filter"
 )]
 pub trait ArchetypeFilter: QueryFilter {}
 
