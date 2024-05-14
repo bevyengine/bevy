@@ -5,7 +5,9 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 
-use super::{freely_mutable_state::FreelyMutableState, states::States};
+use super::{
+    computed_states::ComputedStates, freely_mutable_state::FreelyMutableState, states::States,
+};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_ecs::prelude::ReflectResource;
@@ -132,19 +134,25 @@ impl<S: FreelyMutableState> NextState<S> {
     }
 }
 
-/// The flag that determines whether the computed or sub state `S` will be refreshed this frame.
+/// The flag that determines whether the computed state `S` will be refreshed this frame.
 ///
 /// Refreshing a state will apply its state transition even if nothing has changed, in which case
 /// there will be a state transition from the current state to itself.
-#[derive(Resource, Debug, Default)]
+#[derive(Resource, Debug)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
     reflect(Resource)
 )]
-pub struct RefreshState<S: States>(pub bool, PhantomData<S>);
+pub struct RefreshState<S: ComputedStates>(pub bool, PhantomData<S>);
 
-impl<S: States> RefreshState<S> {
+impl<S: ComputedStates> Default for RefreshState<S> {
+    fn default() -> Self {
+        Self(false, PhantomData)
+    }
+}
+
+impl<S: ComputedStates> RefreshState<S> {
     /// Plan to refresh the computed state `S`.
     pub fn refresh(&mut self) {
         self.0 = true;
