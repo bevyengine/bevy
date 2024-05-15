@@ -224,7 +224,6 @@ fn apply_pbr_lighting(
 ) -> vec4<f32> {
     var output_color: vec4<f32> = in.material.base_color;
 
-    // TODO use .a for exposure compensation in HDR
     let emissive = in.material.emissive;
 
     // calculate non-linear roughness from linear perceptualRoughness
