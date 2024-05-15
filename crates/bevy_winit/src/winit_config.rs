@@ -104,9 +104,9 @@ impl UpdateMode {
     pub fn reactive_low_power(wait: Duration) -> Self {
         Self::Reactive {
             wait,
-            react_to_device_events: true,
+            react_to_device_events: false,
             react_to_user_events: true,
-            react_to_window_events: false,
+            react_to_window_events: true,
         }
     }
 }

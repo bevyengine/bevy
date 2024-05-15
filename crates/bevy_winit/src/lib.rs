@@ -67,6 +67,10 @@ pub struct WinitPlugin<T: Event> {
 }
 
 impl<T: Event> Plugin for WinitPlugin<T> {
+    fn name(&self) -> &str {
+        "bevy_winit::WinitPlugin"
+    }
+
     fn build(&self, app: &mut App) {
         let mut event_loop_builder = EventLoop::<T>::with_user_event();
 
