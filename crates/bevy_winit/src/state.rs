@@ -601,10 +601,7 @@ impl WinitAppRunnerState {
     }
 
     fn forward_winit_events(&mut self) {
-        let buffered_events = self
-            .winit_events
-            .drain(..)
-            .collect::<Vec<_>>();
+        let buffered_events = self.winit_events.drain(..).collect::<Vec<_>>();
 
         if buffered_events.is_empty() {
             return;
