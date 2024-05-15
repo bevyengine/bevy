@@ -69,11 +69,25 @@ pub struct WinitAppRunnerState<T: Event> {
     /// Winit events to send
     winit_events: Vec<WinitEvent>,
     _marker: PhantomData<T>,
+
+    event_writer_system_state: SystemState<(
+        EventWriter<'static, WindowResized>,
+        NonSend<'static, WinitWindows>,
+        Query<'static, 'static, (&'static mut Window, &'static mut CachedWindow)>,
+        NonSendMut<'static, AccessKitAdapters>,
+    )>
 }
 
 impl<T: Event> WinitAppRunnerState<T> {
     fn new(mut app: App) -> Self {
         app.add_event::<T>();
+
+        let event_writer_system_state: SystemState<(
+            EventWriter<WindowResized>,
+            NonSend<WinitWindows>,
+            Query<(&mut Window, &mut CachedWindow)>,
+            NonSendMut<AccessKitAdapters>,
+        )> = SystemState::new(app.world_mut());
 
         Self {
             app,
@@ -90,6 +104,7 @@ impl<T: Event> WinitAppRunnerState<T> {
             startup_forced_updates: 5,
             winit_events: Vec::new(),
             _marker: PhantomData,
+            event_writer_system_state,
         }
     }
 
@@ -165,15 +180,8 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
     ) {
         self.window_event_received = true;
 
-        let mut event_writer_system_state: SystemState<(
-            EventWriter<WindowResized>,
-            NonSend<WinitWindows>,
-            Query<(&mut Window, &mut CachedWindow)>,
-            NonSendMut<AccessKitAdapters>,
-        )> = SystemState::new(self.world_mut());
-
         let (mut window_resized, winit_windows, mut windows, mut access_kit_adapters) =
-            event_writer_system_state.get_mut(self.world_mut());
+            self.event_writer_system_state.get_mut(self.app.world_mut());
 
         let Some(window) = winit_windows.get_window_entity(window_id) else {
             warn!("Skipped event {event:?} for unknown winit Window Id {window_id:?}");
