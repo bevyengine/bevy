@@ -7,6 +7,7 @@ homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
+rust-version = "1.76.0"
 
 [features]
 default = ["smallvec"]
@@ -25,7 +26,7 @@ documentation = ["bevy_reflect_derive/documentation"]
 bevy_math = { path = "../bevy_math", version = "0.14.0-dev", features = [
   "serialize",
 ], optional = true }
-bevy_reflect_derive = { path = "bevy_reflect_derive", version = "0.14.0-dev" }
+bevy_reflect_derive = { path = "derive", version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 bevy_ptr = { path = "../bevy_ptr", version = "0.14.0-dev" }
 

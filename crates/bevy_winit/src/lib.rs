@@ -302,6 +302,11 @@ pub fn winit_runner(mut app: App) -> AppExit {
     let mut winit_events = Vec::default();
     // set up the event loop
     let event_handler = move |event, event_loop: &EventLoopWindowTarget<UserEvent>| {
+        // The event loop is in the process of exiting, so don't deliver any new events
+        if event_loop.exiting() {
+            return;
+        }
+
         handle_winit_event(
             &mut app,
             &mut runner_state,

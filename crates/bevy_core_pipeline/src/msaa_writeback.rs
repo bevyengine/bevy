@@ -31,7 +31,7 @@ impl Plugin for MsaaWritebackPlugin {
         {
             render_app
                 .add_render_graph_node::<MsaaWritebackNode>(Core2d, Node2d::MsaaWriteback)
-                .add_render_graph_edge(Core2d, Node2d::MsaaWriteback, Node2d::MainPass);
+                .add_render_graph_edge(Core2d, Node2d::MsaaWriteback, Node2d::StartMainPass);
         }
         {
             render_app

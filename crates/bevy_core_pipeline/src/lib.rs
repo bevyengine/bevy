@@ -7,12 +7,14 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
+pub mod auto_exposure;
 pub mod blit;
 pub mod bloom;
 pub mod contrast_adaptive_sharpening;
 pub mod core_2d;
 pub mod core_3d;
 pub mod deferred;
+pub mod dof;
 pub mod fullscreen_vertex_shader;
 pub mod fxaa;
 pub mod motion_blur;
@@ -52,6 +54,7 @@ use crate::{
     core_2d::Core2dPlugin,
     core_3d::Core3dPlugin,
     deferred::copy_lighting_id::CopyDeferredLightingIdPlugin,
+    dof::DepthOfFieldPlugin,
     fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
     fxaa::FxaaPlugin,
     motion_blur::MotionBlurPlugin,
@@ -92,6 +95,7 @@ impl Plugin for CorePipelinePlugin {
                 FxaaPlugin,
                 CASPlugin,
                 MotionBlurPlugin,
+                DepthOfFieldPlugin,
             ));
     }
 }
