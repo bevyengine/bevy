@@ -1,5 +1,5 @@
 use crate::{
-    measurement::AvailableSpace, ContentSize, Measure, Node, NodeMeasure, UiImage, UiScale,
+    measurement::AvailableSpace, ContentSize, Measure, Node, NodeMeasure, Style, UiImage, UiScale,
 };
 use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
@@ -82,6 +82,7 @@ pub fn update_image_content_size_system(
             &UiImage,
             &mut UiImageSize,
             Option<&TextureAtlas>,
+            Option<&mut Style>,
         ),
         UpdateImageFilter,
     >,
@@ -92,7 +93,7 @@ pub fn update_image_content_size_system(
         .unwrap_or(1.)
         * ui_scale.0;
 
-    for (mut content_size, image, mut image_size, atlas_image) in &mut query {
+    for (mut content_size, image, mut image_size, atlas_image, style) in &mut query {
         if let Some(size) = match atlas_image {
             Some(atlas) => atlas.texture_rect(&atlases).map(|t| t.size()),
             None => textures.get(&image.texture).map(|t| t.size()),
@@ -107,6 +108,10 @@ pub fn update_image_content_size_system(
                     // multiply the image size by the scale factor to get the physical size
                     size: size.as_vec2() * combined_scale_factor,
                 }));
+                if let Some(mut style) = style {
+                    let Vec2 { x, y } = size.as_vec2();
+                    style.aspect_ratio = Some(x / y);
+                }
             }
         }
     }
