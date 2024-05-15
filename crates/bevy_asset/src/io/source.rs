@@ -525,7 +525,7 @@ impl AssetSource {
     }
 }
 
-/// A collection of [`AssetSources`].
+/// A collection of [`AssetSource`]s.
 pub struct AssetSources {
     sources: HashMap<CowArc<'static, str>, AssetSource>,
     default: AssetSource,
