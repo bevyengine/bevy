@@ -167,12 +167,16 @@ fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
 // This is handled by the OS on iOS, but not on Android.
 fn handle_lifetime(
     mut lifetime_events: EventReader<AppLifecycle>,
-    music_controller: Query<&AudioSink>,
+    music_controller_q: Query<&AudioSink>,
 ) {
+    let Ok(music_controller) = music_controller_q.get_single() else {
+        return;
+    };
+
     for event in lifetime_events.read() {
         match event {
-            AppLifecycle::Suspended => music_controller.single().pause(),
-            AppLifecycle::Running => music_controller.single().play(),
+            AppLifecycle::Suspended => music_controller.pause(),
+            AppLifecycle::Running => music_controller.play(),
             _ => (),
         }
     }
