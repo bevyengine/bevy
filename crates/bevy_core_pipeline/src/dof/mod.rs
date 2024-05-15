@@ -797,7 +797,7 @@ fn extract_depth_of_field_settings(
     mut commands: Commands,
     mut query: Extract<Query<(Entity, &DepthOfFieldSettings, &Projection)>>,
 ) {
-    if !DEPTH_TEXTURE_LOADING_SUPPORTED {
+    if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
         info_once!(
             "Disabling depth of field on this platform because depth textures aren't supported correctly"
         );
@@ -894,7 +894,7 @@ impl DepthOfFieldPipelines {
 /// perform non-percentage-closer-filtering with such a sampler. Therefore we
 /// disable depth of field entirely on WebGL 2.
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-const DEPTH_TEXTURE_LOADING_SUPPORTED: bool = false;
+const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = false;
 /// Returns true if multisampled depth textures are supported on this platform.
 ///
 /// In theory, Naga supports depth textures on WebGL 2. In practice, it doesn't,
@@ -903,4 +903,4 @@ const DEPTH_TEXTURE_LOADING_SUPPORTED: bool = false;
 /// perform non-percentage-closer-filtering with such a sampler. Therefore we
 /// disable depth of field entirely on WebGL 2.
 #[cfg(not(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu"))))]
-const DEPTH_TEXTURE_LOADING_SUPPORTED: bool = true;
+const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
