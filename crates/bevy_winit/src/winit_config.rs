@@ -18,7 +18,7 @@ impl WinitSettings {
     pub fn game() -> Self {
         WinitSettings {
             focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::reactive(Duration::from_secs_f64(1.0 / 60.0)), // 60Hz,
+            unfocused_mode: UpdateMode::reactive_low_power(Duration::from_secs_f64(1.0 / 60.0)), // 60Hz,
         }
     }
 
