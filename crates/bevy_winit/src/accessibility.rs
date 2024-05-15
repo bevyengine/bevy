@@ -32,6 +32,16 @@ pub struct AccessKitAdapters(pub EntityHashMap<Adapter>);
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct WinitActionRequestHandlers(pub EntityHashMap<Arc<Mutex<WinitActionRequestHandler>>>);
 
+/// Forwards `AccessKit` [`ActionRequest`]s from winit to an event channel.
+#[derive(Clone, Default, Deref, DerefMut)]
+pub struct WinitActionRequestHandler(pub VecDeque<ActionRequest>);
+
+impl WinitActionRequestHandler {
+    fn new() -> Arc<Mutex<Self>> {
+        Arc::new(Mutex::new(Self(VecDeque::new())))
+    }
+}
+
 struct AccessKitState {
     name: String,
     entity: Entity,
@@ -88,16 +98,6 @@ impl WinitActivationHandler {
     }
 }
 
-#[derive(Clone, Default, Deref, DerefMut)]
-pub struct WinitActionRequestHandler(pub VecDeque<ActionRequest>);
-
-impl WinitActionRequestHandler {
-    fn new() -> Arc<Mutex<Self>> {
-        Arc::new(Mutex::new(Self(VecDeque::new())))
-    }
-}
-
-/// Forwards `AccessKit` [`ActionRequest`]s from winit to an event channel.
 #[derive(Clone, Default)]
 struct WinitActionHandler(Arc<Mutex<WinitActionRequestHandler>>);
 

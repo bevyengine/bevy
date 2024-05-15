@@ -1,7 +1,6 @@
 #![allow(deprecated)]
 #![allow(missing_docs)]
 
-use bevy_app::App;
 use bevy_ecs::prelude::*;
 use bevy_input::keyboard::KeyboardInput;
 use bevy_input::touch::TouchInput;
