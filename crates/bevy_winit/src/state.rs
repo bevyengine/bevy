@@ -1,4 +1,4 @@
-use std::sync::mpsc::sync_channel;
+use std::sync::mpsc::{sync_channel, SyncSender};
 use std::time::Instant;
 use approx::relative_eq;
 use winit::application::ApplicationHandler;
@@ -68,11 +68,12 @@ impl UpdateState {
 /// Persistent state that is used to run the [`App`] according to the current
 /// [`UpdateMode`].
 pub(crate) struct WinitAppRunnerState {
-    /// Current activity state of the app.
+    /// The running app.
     pub(crate) app: App,
-
     /// Current activity state of the app.
     pub(crate) activity_state: UpdateState,
+    /// Exit value once the loop is finished.
+    pub(crate) app_exit: Option<AppExit>,
     /// Current update mode of the app.
     pub(crate) update_mode: UpdateMode,
     /// Is `true` if a new [`WindowEvent`] has been received since the last update.
@@ -95,6 +96,7 @@ impl WinitAppRunnerState {
         Self {
             app,
             activity_state: UpdateState::NotYetStarted,
+            app_exit: None,
             update_mode: UpdateMode::Continuous,
             window_event_received: false,
             device_event_received: false,
@@ -133,8 +135,6 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
             SystemState::<CreateWindowParams<Added<Window>>>::from_world(self.app.world_mut());
         create_windows(event_loop, create_window.get_mut(self.app.world_mut()));
         create_window.apply(self.app.world_mut());
-
-
 
         self.wait_elapsed = match cause {
             StartCause::WaitCancelled {
@@ -382,7 +382,7 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
         }
     }
 
-    fn device_event(&mut self, event_loop: &ActiveEventLoop, device_id: DeviceId, event: DeviceEvent) {
+    fn device_event(&mut self, _event_loop: &ActiveEventLoop, _device_id: DeviceId, event: DeviceEvent) {
         self.device_event_received = true;
         if let DeviceEvent::MouseMotion { delta: (x, y) } = event {
             let delta = Vec2::new(x as f32, y as f32);
@@ -548,6 +548,13 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
             }
             self.redraw_requested = false;
         }
+
+        if let Some(app_exit) = self.app.should_exit() {
+            self.app_exit = Some(app_exit);
+            event_loop.exit();
+            return;
+        }
+
     }
 
     fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
@@ -699,49 +706,16 @@ pub fn winit_runner(mut app: App) -> AppExit {
 
     let mut runner_state = WinitAppRunnerState::new(app);
 
-    // TODO: restore this
-    // // Create a channel with a size of 1, since ideally only one exit code will be sent before exiting the app.
-    // let (exit_sender, exit_receiver) = sync_channel(1);
-    //
-    //
-    // let mut create_window =
-    //     SystemState::<CreateWindowParams<Added<Window>>>::from_world(app.world_mut());
-    // let mut winit_events = Vec::default();
-    //
-    // // set up the event loop
-    // let event_handler = move |event, event_loop: &ActiveEventLoop| {
-    //     // The event loop is in the process of exiting, so don't deliver any new events
-    //     if event_loop.exiting() {
-    //         return;
-    //     }
-    //
-    //     crate::runner::handle_winit_event(
-    //         &mut app,
-    //         &mut runner_state,
-    //         &mut create_window,
-    //         &mut event_writer_system_state,
-    //         &mut focused_windows_state,
-    //         &mut redraw_event_reader,
-    //         &mut winit_events,
-    //         &exit_sender,
-    //         event,
-    //         event_loop,
-    //     );
-    // };
-
     trace!("starting winit event loop");
     // TODO(clean): the winit docs mention using `spawn` instead of `run` on WASM.
     if let Err(err) = event_loop.run_app(&mut runner_state) {
         error!("winit event loop returned an error: {err}");
     }
 
-    // TODO: restore this
-    // // If everything is working correctly then the event loop only exits after it's sent a exit code.
-    // exit_receiver
-    //     .try_recv()
-    //     .map_err(|err| error!("Failed to receive a app exit code! This is a bug. Reason: {err}"))
-    //     .unwrap_or(AppExit::error())
-
-    // TODO: remove this
-    AppExit::error()
+    // If everything is working correctly then the event loop only exits after it's sent an exit code.
+    runner_state.app_exit
+        .unwrap_or_else(|| {
+            error!("Failed to receive a app exit code! This is a bug");
+            AppExit::error()
+        })
 }
