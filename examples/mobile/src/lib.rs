@@ -172,7 +172,7 @@ fn handle_lifetime(
     for event in lifetime_events.read() {
         match event {
             AppLifecycle::Suspended => music_controller.single().pause(),
-            AppLifecycle::Resumed => music_controller.single().play(),
+            AppLifecycle::Running => music_controller.single().play(),
             _ => (),
         }
     }

@@ -73,8 +73,8 @@ impl WinitAppRunnerState {
     fn new(app: App) -> Self {
         Self {
             app,
-            lifecycle: AppLifecycle::NotYetStarted,
-            previous_lifecycle: AppLifecycle::NotYetStarted,
+            lifecycle: AppLifecycle::Idle,
+            previous_lifecycle: AppLifecycle::Idle,
             app_exit: None,
             update_mode: UpdateMode::Continuous,
             window_event_received: false,
@@ -195,10 +195,10 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
         }
 
         if self.lifecycle == AppLifecycle::WillResume {
-            self.lifecycle = AppLifecycle::Resumed;
-            // Trigger the update to enter the active state
+            self.lifecycle = AppLifecycle::Running;
+            // Trigger the update to enter the running state
             should_update = true;
-            // Trigger the next redraw ro refresh the screen immediately
+            // Trigger the next redraw to refresh the screen immediately
             self.redraw_requested = true;
 
             #[cfg(target_os = "android")]

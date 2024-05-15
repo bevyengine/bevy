@@ -390,8 +390,8 @@ pub struct WindowThemeChanged {
 )]
 pub enum AppLifecycle {
     /// The application is not started yet.
-    NotYetStarted,
-    /// The application just started.
+    Idle,
+    /// The application is running.
     Running,
     /// The application is going to be suspended.
     /// Applications have one frame to react to this event before being paused in the background.
@@ -401,8 +401,6 @@ pub enum AppLifecycle {
     /// The application is going to be resumed.
     /// Applications have one extra frame to react to this event before being fully resumed.
     WillResume,
-    /// The application was resumed.
-    Resumed,
 }
 
 impl AppLifecycle {
@@ -410,8 +408,8 @@ impl AppLifecycle {
     #[inline]
     pub fn is_active(&self) -> bool {
         match self {
-            Self::NotYetStarted | Self::Suspended => false,
-            Self::Running | Self::WillSuspend | Self::WillResume | Self::Resumed => true,
+            Self::Idle | Self::Suspended => false,
+            Self::Running | Self::WillSuspend | Self::WillResume => true,
         }
     }
 }
