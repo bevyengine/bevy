@@ -31,7 +31,7 @@ impl ViewNode for MainTransparentPass2dNode {
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
 
-        if !transparent_phase.items.is_empty() {
+        {
             #[cfg(feature = "trace")]
             let _main_pass_2d = info_span!("main_transparent_pass_2d").entered();
 
