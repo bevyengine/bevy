@@ -1,11 +1,11 @@
 //! Create an application without winit (runs single time, no event loop).
 
 use bevy::prelude::*;
-use bevy::winit::WinitPlugin;
+use bevy::winit::{WakeUp, WinitPlugin};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.build().disable::<WinitPlugin>())
+        .add_plugins(DefaultPlugins.build().disable::<WinitPlugin<WakeUp>>())
         .add_systems(Update, setup_system)
         .run();
 }
