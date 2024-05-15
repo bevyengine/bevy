@@ -25,7 +25,7 @@ use winit::window::WindowId;
 
 #[allow(deprecated)]
 use bevy_window::{
-    ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
+    AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
     ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
     WindowCloseRequested, WindowDestroyed, WindowFocused, WindowMoved, WindowOccluded,
     WindowResized, WindowScaleFactorChanged, WindowThemeChanged,
@@ -80,6 +80,8 @@ pub(crate) struct WinitAppRunnerState {
     pub(crate) window_event_received: bool,
     /// Is `true` if a new [`DeviceEvent`] has been received since the last update.
     pub(crate) device_event_received: bool,
+    /// Is `true` if a new [`UserEvent`] has been received since the last update.
+    pub(crate) user_event_received: bool,
     /// Is `true` if the app has requested a redraw since the last update.
     pub(crate) redraw_requested: bool,
     /// Is `true` if enough time has elapsed since `last_update` to run another update.
@@ -100,6 +102,7 @@ impl WinitAppRunnerState {
             update_mode: UpdateMode::Continuous,
             window_event_received: false,
             device_event_received: false,
+            user_event_received: false,
             redraw_requested: false,
             wait_elapsed: false,
             // 3 seems to be enough, 5 is a safe margin
@@ -110,10 +113,26 @@ impl WinitAppRunnerState {
     pub(crate) fn reset_on_update(&mut self) {
         self.window_event_received = false;
         self.device_event_received = false;
+        self.user_event_received = false;
     }
 }
 
 impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
+    fn resumed(&mut self, _event_loop: &ActiveEventLoop) {
+        match self.activity_state {
+            UpdateState::NotYetStarted => self.winit_events.send(AppLifecycle::Started),
+            _ => self.winit_events.send(AppLifecycle::WillResume),
+        }
+        self.activity_state = UpdateState::WillResume;
+    }
+
+    fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
+        self.winit_events.send(AppLifecycle::WillSuspend);
+        // Mark the state as `WillSuspend`. This will let the schedule run one last time
+        // before actually suspending to let the application react
+        self.activity_state = UpdateState::WillSuspend;
+    }
+
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
         #[cfg(feature = "trace")]
         let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
@@ -149,16 +168,187 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
         };
     }
 
-    fn resumed(&mut self, _event_loop: &ActiveEventLoop) {
-        match self.activity_state {
-            UpdateState::NotYetStarted => self.winit_events.send(ApplicationLifetime::Started),
-            _ => self.winit_events.send(ApplicationLifetime::Resumed),
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
+
+        let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)> =
+            SystemState::new(self.app.world_mut());
+
+        if let Some(app_redraw_events) = self.app.world().get_resource::<Events<RequestRedraw>>() {
+            if redraw_event_reader.read(app_redraw_events).last().is_some() {
+                self.redraw_requested = true;
+            }
         }
-        self.activity_state = UpdateState::WillResume;
+
+        let (config, windows) = focused_windows_state.get(self.app.world());
+        let focused = windows.iter().any(|(_, window)| window.focused);
+
+        let mut update_mode = config.update_mode(focused);
+        let mut should_update = self.should_update(update_mode);
+
+        if self.startup_forced_updates > 0 {
+            self.startup_forced_updates -= 1;
+            // Ensure that an update is triggered on the first iterations for app initialization
+            should_update = true;
+        }
+
+        if self.activity_state == UpdateState::WillSuspend {
+            self.winit_events.send(AppLifecycle::Suspended);
+            self.activity_state = UpdateState::Suspended;
+            // Trigger one last update to enter the suspended state
+            should_update = true;
+
+            #[cfg(target_os = "android")]
+            {
+                // Remove the `RawHandleWrapper` from the primary window.
+                // This will trigger the surface destruction.
+                let mut query = app
+                    .world_mut()
+                    .query_filtered::<Entity, With<PrimaryWindow>>();
+                let entity = query.single(&app.world());
+                app.world_mut()
+                    .entity_mut(entity)
+                    .remove::<RawHandleWrapper>();
+            }
+        }
+
+        if self.activity_state == UpdateState::WillResume {
+            self.winit_events.send(AppLifecycle::Resumed);
+            self.activity_state = UpdateState::Active;
+            // Trigger the update to enter the active state
+            should_update = true;
+            // Trigger the next redraw ro refresh the screen immediately
+            self.redraw_requested = true;
+
+            #[cfg(target_os = "android")]
+            {
+                // Get windows that are cached but without raw handles. Those window were already created, but got their
+                // handle wrapper removed when the app was suspended.
+                let mut query = app
+                    .world_mut()
+                    .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
+                if let Ok((entity, window)) = query.get_single(&app.world()) {
+                    let window = window.clone();
+
+                    let (
+                        ..,
+                        mut winit_windows,
+                        mut adapters,
+                        mut handlers,
+                        accessibility_requested,
+                    ) = create_window.get_mut(app.world_mut());
+
+                    let winit_window = winit_windows.create_window(
+                        event_loop,
+                        entity,
+                        &window,
+                        &mut adapters,
+                        &mut handlers,
+                        &accessibility_requested,
+                    );
+
+                    let wrapper = RawHandleWrapper::new(winit_window).unwrap();
+
+                    app.world_mut().entity_mut(entity).insert(wrapper);
+                }
+            }
+        }
+
+        // This is recorded before running app.update(), to run the next cycle after a correct timeout.
+        // If the cycle takes more than the wait timeout, it will be re-executed immediately.
+        let begin_frame_time = Instant::now();
+
+        if should_update {
+            // Not redrawing, but the timeout elapsed.
+            self.run_app_update();
+
+            // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
+            let (config, windows) = focused_windows_state.get(self.app.world());
+            let focused = windows.iter().any(|(_, window)| window.focused);
+
+            update_mode = config.update_mode(focused);
+        }
+
+        // The update mode could have been changed, so we need to redraw and force an update
+        if update_mode != self.update_mode {
+            // Trigger the next redraw since we're changing the update mode
+            self.redraw_requested = true;
+            // Consider the wait as elapsed since it could have been cancelled by a user event
+            self.wait_elapsed = true;
+
+            self.update_mode = update_mode;
+        }
+
+        match update_mode {
+            UpdateMode::Continuous => {
+                // per winit's docs on [Window::is_visible](https://docs.rs/winit/latest/winit/window/struct.Window.html#method.is_visible),
+                // we cannot use the visibility to drive rendering on these platforms
+                // so we cannot discern whether to beneficially use `Poll` or not?
+                cfg_if::cfg_if! {
+                    if #[cfg(not(any(
+                        target_arch = "wasm32",
+                        target_os = "android",
+                        target_os = "ios",
+                        all(target_os = "linux", any(feature = "x11", feature = "wayland"))
+                    )))]
+                    {
+                        let winit_windows = self.app.world().non_send_resource::<WinitWindows>();
+                        let visible = winit_windows.windows.iter().any(|(_, w)| {
+                            w.is_visible().unwrap_or(false)
+                        });
+
+                        event_loop.set_control_flow(if visible {
+                            ControlFlow::Wait
+                        } else {
+                            ControlFlow::Poll
+                        });
+                    }
+                    else {
+                        event_loop.set_control_flow(ControlFlow::Wait);
+                    }
+                }
+
+                // Trigger the next redraw to refresh the screen immediately if waiting
+                if let ControlFlow::Wait = event_loop.control_flow() {
+                    self.redraw_requested = true;
+                }
+            }
+            UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
+                // Set the next timeout, starting from the instant before running app.update() to avoid frame delays
+                if let Some(next) = begin_frame_time.checked_add(wait) {
+                    if self.wait_elapsed {
+                        event_loop.set_control_flow(ControlFlow::WaitUntil(next));
+                    }
+                }
+            }
+        }
+
+        if self.redraw_requested && self.activity_state != UpdateState::Suspended {
+            let winit_windows = self.app.world().non_send_resource::<WinitWindows>();
+            for window in winit_windows.windows.values() {
+                window.request_redraw();
+            }
+            self.redraw_requested = false;
+        }
+
+        if let Some(app_exit) = self.app.should_exit() {
+            self.app_exit = Some(app_exit);
+            event_loop.exit();
+            return;
+        }
     }
 
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: UserEvent) {
-        self.redraw_requested = true;
+    fn device_event(
+        &mut self,
+        _event_loop: &ActiveEventLoop,
+        _device_id: DeviceId,
+        event: DeviceEvent,
+    ) {
+        self.device_event_received = true;
+        if let DeviceEvent::MouseMotion { delta: (x, y) } = event {
+            let delta = Vec2::new(x as f32, y as f32);
+            self.winit_events.send(MouseMotion { delta });
+        }
     }
 
     fn window_event(
@@ -377,9 +567,6 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
             WindowEvent::Destroyed => {
                 self.winit_events.send(WindowDestroyed { window });
             }
-            WindowEvent::RedrawRequested => {
-                self.run_app_update();
-            }
             _ => {}
         }
 
@@ -394,188 +581,9 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
         }
     }
 
-    fn device_event(
-        &mut self,
-        _event_loop: &ActiveEventLoop,
-        _device_id: DeviceId,
-        event: DeviceEvent,
-    ) {
-        self.device_event_received = true;
-        if let DeviceEvent::MouseMotion { delta: (x, y) } = event {
-            let delta = Vec2::new(x as f32, y as f32);
-            self.winit_events.send(MouseMotion { delta });
-        }
-    }
-
-    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
-        let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
-
-        let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)> =
-            SystemState::new(self.app.world_mut());
-
-        if let Some(app_redraw_events) = self.app.world().get_resource::<Events<RequestRedraw>>() {
-            if redraw_event_reader.read(app_redraw_events).last().is_some() {
-                self.redraw_requested = true;
-            }
-        }
-
-        let (config, windows) = focused_windows_state.get(self.app.world());
-        let focused = windows.iter().any(|(_, window)| window.focused);
-
-        let mut update_mode = config.update_mode(focused);
-        let mut should_update = self.should_update(update_mode);
-
-        if self.startup_forced_updates > 0 {
-            self.startup_forced_updates -= 1;
-            // Ensure that an update is triggered on the first iterations for app initialization
-            should_update = true;
-        }
-
-        if self.activity_state == UpdateState::WillSuspend {
-            self.activity_state = UpdateState::Suspended;
-            // Trigger one last update to enter the suspended state
-            should_update = true;
-
-            #[cfg(target_os = "android")]
-            {
-                // Remove the `RawHandleWrapper` from the primary window.
-                // This will trigger the surface destruction.
-                let mut query = app
-                    .world_mut()
-                    .query_filtered::<Entity, With<PrimaryWindow>>();
-                let entity = query.single(&app.world());
-                app.world_mut()
-                    .entity_mut(entity)
-                    .remove::<RawHandleWrapper>();
-            }
-        }
-
-        if self.activity_state == UpdateState::WillResume {
-            self.activity_state = UpdateState::Active;
-            // Trigger the update to enter the active state
-            should_update = true;
-            // Trigger the next redraw ro refresh the screen immediately
-            self.redraw_requested = true;
-
-            #[cfg(target_os = "android")]
-            {
-                // Get windows that are cached but without raw handles. Those window were already created, but got their
-                // handle wrapper removed when the app was suspended.
-                let mut query = app
-                    .world_mut()
-                    .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
-                if let Ok((entity, window)) = query.get_single(&app.world()) {
-                    let window = window.clone();
-
-                    let (
-                        ..,
-                        mut winit_windows,
-                        mut adapters,
-                        mut handlers,
-                        accessibility_requested,
-                    ) = create_window.get_mut(app.world_mut());
-
-                    let winit_window = winit_windows.create_window(
-                        event_loop,
-                        entity,
-                        &window,
-                        &mut adapters,
-                        &mut handlers,
-                        &accessibility_requested,
-                    );
-
-                    let wrapper = RawHandleWrapper::new(winit_window).unwrap();
-
-                    app.world_mut().entity_mut(entity).insert(wrapper);
-                }
-            }
-        }
-
-        // This is recorded before running app.update(), to run the next cycle after a correct timeout.
-        // If the cycle takes more than the wait timeout, it will be re-executed immediately.
-        let begin_frame_time = Instant::now();
-
-        if should_update {
-            // Not redrawing, but the timeout elapsed.
-            self.run_app_update();
-
-            // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
-            let (config, windows) = focused_windows_state.get(self.app.world());
-            let focused = windows.iter().any(|(_, window)| window.focused);
-
-            update_mode = config.update_mode(focused);
-        }
-
-        match update_mode {
-            UpdateMode::Continuous => {
-                // per winit's docs on [Window::is_visible](https://docs.rs/winit/latest/winit/window/struct.Window.html#method.is_visible),
-                // we cannot use the visibility to drive rendering on these platforms
-                // so we cannot discern whether to beneficially use `Poll` or not?
-                cfg_if::cfg_if! {
-                    if #[cfg(not(any(
-                        target_arch = "wasm32",
-                        target_os = "android",
-                        target_os = "ios",
-                        all(target_os = "linux", any(feature = "x11", feature = "wayland"))
-                    )))]
-                    {
-                        let winit_windows = self.app.world().non_send_resource::<WinitWindows>();
-                        let visible = winit_windows.windows.iter().any(|(_, w)| {
-                            w.is_visible().unwrap_or(false)
-                        });
-
-                        event_loop.set_control_flow(if visible {
-                            ControlFlow::Wait
-                        } else {
-                            ControlFlow::Poll
-                        });
-                    }
-                    else {
-                        event_loop.set_control_flow(ControlFlow::Wait);
-                    }
-                }
-
-                // Trigger the next redraw to refresh the screen immediately if waiting
-                if let ControlFlow::Wait = event_loop.control_flow() {
-                    self.redraw_requested = true;
-                }
-            }
-            UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
-                // Set the next timeout, starting from the instant before running app.update() to avoid frame delays
-                if let Some(next) = begin_frame_time.checked_add(wait) {
-                    if self.wait_elapsed {
-                        event_loop.set_control_flow(ControlFlow::WaitUntil(next));
-                    }
-                }
-            }
-        }
-
-        if update_mode != self.update_mode {
-            // Trigger the next redraw since we're changing the update mode
-            self.redraw_requested = true;
-            self.update_mode = update_mode;
-        }
-
-        if self.redraw_requested && self.activity_state != UpdateState::Suspended {
-            let winit_windows = self.app.world().non_send_resource::<WinitWindows>();
-            for window in winit_windows.windows.values() {
-                window.request_redraw();
-            }
-            self.redraw_requested = false;
-        }
-
-        if let Some(app_exit) = self.app.should_exit() {
-            self.app_exit = Some(app_exit);
-            event_loop.exit();
-            return;
-        }
-    }
-
-    fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
-        self.winit_events.send(ApplicationLifetime::Suspended);
-        // Mark the state as `WillSuspend`. This will let the schedule run one last time
-        // before actually suspending to let the application react
-        self.activity_state = UpdateState::WillSuspend;
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: UserEvent) {
+        self.redraw_requested = true;
+        self.user_event_received = true;
     }
 }
 
@@ -583,9 +591,15 @@ impl WinitAppRunnerState {
     fn should_update(&self, update_mode: UpdateMode) -> bool {
         let handle_event = match update_mode {
             UpdateMode::Continuous | UpdateMode::Reactive { .. } => {
-                self.wait_elapsed || self.window_event_received || self.device_event_received
+                self.wait_elapsed
+                    || self.user_event_received
+                    || self.window_event_received
+                    || self.device_event_received
             }
-            UpdateMode::ReactiveLowPower { .. } => self.wait_elapsed || self.window_event_received,
+            UpdateMode::ReactiveLowPower { .. } =>
+                self.wait_elapsed
+                || self.user_event_received
+                || self.window_event_received,
         };
 
         handle_event && self.activity_state.is_active()
@@ -611,7 +625,7 @@ impl WinitAppRunnerState {
 
         for winit_event in buffered_events.iter() {
             match winit_event.clone() {
-                WinitEvent::ApplicationLifetime(e) => {
+                WinitEvent::AppLifecycle(e) => {
                     app.world_mut().send_event(e);
                 }
                 WinitEvent::CursorEntered(e) => {

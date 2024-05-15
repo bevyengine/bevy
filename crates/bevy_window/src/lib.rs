@@ -106,7 +106,7 @@ impl Plugin for WindowPlugin {
             .add_event::<FileDragAndDrop>()
             .add_event::<WindowMoved>()
             .add_event::<WindowThemeChanged>()
-            .add_event::<ApplicationLifetime>();
+            .add_event::<AppLifecycle>();
 
         if let Some(primary_window) = &self.primary_window {
             let initial_focus = app
@@ -153,7 +153,7 @@ impl Plugin for WindowPlugin {
             .register_type::<FileDragAndDrop>()
             .register_type::<WindowMoved>()
             .register_type::<WindowThemeChanged>()
-            .register_type::<ApplicationLifetime>();
+            .register_type::<AppLifecycle>();
 
         // Register window descriptor and related types
         app.register_type::<Window>()

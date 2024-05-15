@@ -388,13 +388,17 @@ pub struct WindowThemeChanged {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub enum ApplicationLifetime {
+pub enum AppLifecycle {
     /// The application just started.
     Started,
+    /// The application is going to be suspended.
+    /// Applications have one frame to react to this event before being paused in the background.
+    WillSuspend,
     /// The application was suspended.
-    ///
-    /// On Android, applications have one frame to react to this event before being paused in the background.
     Suspended,
+    /// The application is going to be resumed.
+    /// Applications have one extra frame to react to this event before being fully resumed.
+    WillResume,
     /// The application was resumed.
     Resumed,
 }

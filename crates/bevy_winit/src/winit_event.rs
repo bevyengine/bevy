@@ -12,7 +12,7 @@ use bevy_reflect::Reflect;
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_window::{
-    ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
+    AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
     ReceivedCharacter, RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested,
     WindowCreated, WindowDestroyed, WindowFocused, WindowMoved, WindowOccluded, WindowResized,
     WindowScaleFactorChanged, WindowThemeChanged,
@@ -32,7 +32,7 @@ use bevy_window::{
     reflect(Serialize, Deserialize)
 )]
 pub enum WinitEvent {
-    ApplicationLifetime(ApplicationLifetime),
+    AppLifecycle(AppLifecycle),
     CursorEntered(CursorEntered),
     CursorLeft(CursorLeft),
     CursorMoved(CursorMoved),
@@ -63,9 +63,9 @@ pub enum WinitEvent {
     KeyboardInput(KeyboardInput),
 }
 
-impl From<ApplicationLifetime> for WinitEvent {
-    fn from(e: ApplicationLifetime) -> Self {
-        Self::ApplicationLifetime(e)
+impl From<AppLifecycle> for WinitEvent {
+    fn from(e: AppLifecycle) -> Self {
+        Self::AppLifecycle(e)
     }
 }
 impl From<CursorEntered> for WinitEvent {
