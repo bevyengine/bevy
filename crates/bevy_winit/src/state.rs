@@ -46,49 +46,32 @@ use crate::{
 pub static ANDROID_APP: std::sync::OnceLock<android_activity::AndroidApp> =
     std::sync::OnceLock::new();
 
-#[derive(PartialEq, Eq, Debug)]
-pub(crate) enum UpdateState {
-    NotYetStarted,
-    Active,
-    Suspended,
-    WillSuspend,
-    WillResume,
-}
-
-impl UpdateState {
-    #[inline]
-    pub(crate) fn is_active(&self) -> bool {
-        match self {
-            Self::NotYetStarted | Self::Suspended => false,
-            Self::Active | Self::WillSuspend | Self::WillResume => true,
-        }
-    }
-}
-
 /// Persistent state that is used to run the [`App`] according to the current
 /// [`UpdateMode`].
 pub(crate) struct WinitAppRunnerState {
     /// The running app.
-    pub(crate) app: App,
-    /// Current activity state of the app.
-    pub(crate) activity_state: UpdateState,
+    app: App,
     /// Exit value once the loop is finished.
-    pub(crate) app_exit: Option<AppExit>,
+    app_exit: Option<AppExit>,
     /// Current update mode of the app.
-    pub(crate) update_mode: UpdateMode,
+    update_mode: UpdateMode,
     /// Is `true` if a new [`WindowEvent`] has been received since the last update.
-    pub(crate) window_event_received: bool,
+    window_event_received: bool,
     /// Is `true` if a new [`DeviceEvent`] has been received since the last update.
-    pub(crate) device_event_received: bool,
+    device_event_received: bool,
     /// Is `true` if a new [`UserEvent`] has been received since the last update.
-    pub(crate) user_event_received: bool,
+    user_event_received: bool,
     /// Is `true` if the app has requested a redraw since the last update.
-    pub(crate) redraw_requested: bool,
+    redraw_requested: bool,
     /// Is `true` if enough time has elapsed since `last_update` to run another update.
-    pub(crate) wait_elapsed: bool,
+    wait_elapsed: bool,
     /// Number of "forced" updates to trigger on application start
-    pub(crate) startup_forced_updates: u32,
+    startup_forced_updates: u32,
 
+    /// Current app lifecycle state.
+    lifecycle: AppLifecycle,
+    /// The previous app lifecycle state.
+    previous_lifecycle: AppLifecycle,
     /// Winit events to send
     winit_events: Vec<WinitEvent>,
 }
@@ -97,7 +80,8 @@ impl WinitAppRunnerState {
     fn new(app: App) -> Self {
         Self {
             app,
-            activity_state: UpdateState::NotYetStarted,
+            lifecycle: AppLifecycle::NotYetStarted,
+            previous_lifecycle: AppLifecycle::NotYetStarted,
             app_exit: None,
             update_mode: UpdateMode::Continuous,
             window_event_received: false,
@@ -110,7 +94,8 @@ impl WinitAppRunnerState {
             winit_events: Vec::new(),
         }
     }
-    pub(crate) fn reset_on_update(&mut self) {
+
+    fn reset_on_update(&mut self) {
         self.window_event_received = false;
         self.device_event_received = false;
         self.user_event_received = false;
@@ -119,18 +104,15 @@ impl WinitAppRunnerState {
 
 impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
     fn resumed(&mut self, _event_loop: &ActiveEventLoop) {
-        match self.activity_state {
-            UpdateState::NotYetStarted => self.winit_events.send(AppLifecycle::Started),
-            _ => self.winit_events.send(AppLifecycle::WillResume),
-        }
-        self.activity_state = UpdateState::WillResume;
+        // Mark the state as `WillResume`. This will let the schedule run one extra time
+        // when actually resuming the app
+        self.lifecycle = AppLifecycle::WillResume;
     }
 
     fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
-        self.winit_events.send(AppLifecycle::WillSuspend);
         // Mark the state as `WillSuspend`. This will let the schedule run one last time
         // before actually suspending to let the application react
-        self.activity_state = UpdateState::WillSuspend;
+        self.lifecycle = AppLifecycle::WillSuspend;
     }
 
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
@@ -192,9 +174,8 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
             should_update = true;
         }
 
-        if self.activity_state == UpdateState::WillSuspend {
-            self.winit_events.send(AppLifecycle::Suspended);
-            self.activity_state = UpdateState::Suspended;
+        if self.lifecycle == AppLifecycle::WillSuspend {
+            self.lifecycle = AppLifecycle::Suspended;
             // Trigger one last update to enter the suspended state
             should_update = true;
 
@@ -212,9 +193,8 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
             }
         }
 
-        if self.activity_state == UpdateState::WillResume {
-            self.winit_events.send(AppLifecycle::Resumed);
-            self.activity_state = UpdateState::Active;
+        if self.lifecycle == AppLifecycle::WillResume {
+            self.lifecycle = AppLifecycle::Resumed;
             // Trigger the update to enter the active state
             should_update = true;
             // Trigger the next redraw ro refresh the screen immediately
@@ -252,6 +232,12 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
                     app.world_mut().entity_mut(entity).insert(wrapper);
                 }
             }
+        }
+
+        // Notifies a lifecycle change
+        if self.lifecycle != self.previous_lifecycle {
+            self.previous_lifecycle = self.lifecycle;
+            self.winit_events.send(self.lifecycle);
         }
 
         // This is recorded before running app.update(), to run the next cycle after a correct timeout.
@@ -323,7 +309,7 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
             }
         }
 
-        if self.redraw_requested && self.activity_state != UpdateState::Suspended {
+        if self.redraw_requested && self.lifecycle != AppLifecycle::Suspended {
             let winit_windows = self.app.world().non_send_resource::<WinitWindows>();
             for window in winit_windows.windows.values() {
                 window.request_redraw();
@@ -602,7 +588,7 @@ impl WinitAppRunnerState {
                 || self.window_event_received,
         };
 
-        handle_event && self.activity_state.is_active()
+        handle_event && self.lifecycle.is_active()
     }
 
     fn run_app_update(&mut self) {

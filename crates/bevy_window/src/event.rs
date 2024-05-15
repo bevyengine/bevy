@@ -389,8 +389,10 @@ pub struct WindowThemeChanged {
     reflect(Serialize, Deserialize)
 )]
 pub enum AppLifecycle {
+    /// The application is not started yet.
+    NotYetStarted,
     /// The application just started.
-    Started,
+    Running,
     /// The application is going to be suspended.
     /// Applications have one frame to react to this event before being paused in the background.
     WillSuspend,
@@ -401,4 +403,15 @@ pub enum AppLifecycle {
     WillResume,
     /// The application was resumed.
     Resumed,
+}
+
+impl AppLifecycle {
+    /// Return `true` if the app can be updated.
+    #[inline]
+    pub fn is_active(&self) -> bool {
+        match self {
+            Self::NotYetStarted | Self::Suspended => false,
+            Self::Running | Self::WillSuspend | Self::WillResume | Self::Resumed => true,
+        }
+    }
 }
