@@ -85,7 +85,8 @@ use super::{ReadOnlySystem, System};
 /// ```
 #[diagnostic::on_unimplemented(
     message = "`{Self}` can not combine systems `{A}` and `{B}`",
-    label = "invalid system combination"
+    label = "invalid system combination",
+    note = "the inputs and outputs of `{A}` and `{B}` are not compatible with this combiner"
 )]
 pub trait Combine<A: System, B: System> {
     /// The [input](System::In) type for a [`CombinatorSystem`].

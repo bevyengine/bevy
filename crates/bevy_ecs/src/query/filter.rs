@@ -72,7 +72,8 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// [`State`]: Self::State
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a valid `Query` filter",
-    label = "invalid `Query` filter"
+    label = "invalid `Query` filter",
+    note = "a `QueryFilter` typically uses a combination of `With<T>` and `Without<T>` statements"
 )]
 pub trait QueryFilter: WorldQuery {
     /// Returns true if (and only if) this Filter relies strictly on archetypes to limit which
@@ -942,8 +943,9 @@ impl<T: Component> QueryFilter for Changed<T> {
 /// [`Added`] and [`Changed`] works with entities, and therefore are not archetypal. As such
 /// they do not implement [`ArchetypeFilter`].
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` is not an archetypical filter",
-    label = "invalid `Query` filter"
+    message = "`{Self}` is not a valid `Query` filter based on archetype information",
+    label = "invalid `Query` filter",
+    note = "an `ArchetypeFilter` typically uses a combination of `With<T>` and `Without<T>` statements"
 )]
 pub trait ArchetypeFilter: QueryFilter {}
 
