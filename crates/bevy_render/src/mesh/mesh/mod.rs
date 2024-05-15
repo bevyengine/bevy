@@ -878,7 +878,7 @@ impl Mesh {
         {
             // Transform normals, taking into account non-uniform scaling
             normals.iter_mut().for_each(|normal| {
-                let scaled_normal = Vec3::from_slice(normal) * covector_scale;
+                let scaled_normal = Vec3::from_slice(normal) * scale;
                 *normal = scaled_normal.normalize_or_zero().to_array();
             });
         }
