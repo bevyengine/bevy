@@ -137,7 +137,7 @@ pub(crate) fn prepare_accessibility_for_window(
     let deactivation_handler = WinitDeactivationHandler;
 
     let adapter = Adapter::with_direct_handlers(
-        &winit_window,
+        winit_window,
         activation_handler,
         action_handler,
         deactivation_handler,

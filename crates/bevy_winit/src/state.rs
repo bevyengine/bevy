@@ -89,7 +89,7 @@ impl<T: Event> WinitAppRunnerState<T> {
             // 3 seems to be enough, 5 is a safe margin
             startup_forced_updates: 5,
             winit_events: Vec::new(),
-            _marker: PhantomData::default(),
+            _marker: PhantomData,
         }
     }
 
@@ -570,7 +570,6 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         if let Some(app_exit) = self.app.should_exit() {
             self.app_exit = Some(app_exit);
             event_loop.exit();
-            return;
         }
     }
 
