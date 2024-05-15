@@ -47,22 +47,25 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Add Android targets
-        run: rustup target add aarch64-linux-android armv7-linux-androideabi
+        run: rustup target add aarch64-linux-android
 
-      - name: Install Cargo APK
-        run: cargo install --force cargo-apk
+      - name: Install Cargo NDK
+        run: cargo install --force cargo-ndk
 
-      - name: Build app for Android
-        run: ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME cargo apk build --package bevy_mobile_example
+      - name: Build .so file
+        run: ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build --release
         env: 
           # This will reduce the APK size from 1GB to ~200MB
           CARGO_PROFILE_DEV_DEBUG: false
+
+      - name: Build app for Android
+        run: cd examples/mobile && ./gradlew build
 
       - name: Upload to Browser Stack
         run: |
           curl -u "${{ secrets.BROWSERSTACK_USERNAME }}:${{ secrets.BROWSERSTACK_ACCESS_KEY }}" \
             -X POST "https://api-cloud.browserstack.com/app-automate/upload" \
-            -F "file=@target/debug/apk/bevyexample.apk" \
+            -F "file=@android_example/app/build/outputs/apk/debug/app-debug.apk" \
             -F "custom_id=$GITHUB_RUN_ID"
 
   nonce:
