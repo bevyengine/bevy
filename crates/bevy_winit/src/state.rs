@@ -3,7 +3,7 @@ use bevy_app::{App, AppExit, PluginsState};
 use bevy_ecs::change_detection::{DetectChanges, NonSendMut, Res};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::event::{EventWriter, ManualEventReader};
-use bevy_ecs::prelude::{Added, Events, NonSend, Query};
+use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemState;
 use bevy_ecs::world::FromWorld;
 use bevy_input::{
@@ -183,11 +183,11 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
             {
                 // Remove the `RawHandleWrapper` from the primary window.
                 // This will trigger the surface destruction.
-                let mut query = app
+                let mut query = self.app
                     .world_mut()
                     .query_filtered::<Entity, With<PrimaryWindow>>();
-                let entity = query.single(&app.world());
-                app.world_mut()
+                let entity = query.single(&self.app.world());
+                self.app.world_mut()
                     .entity_mut(entity)
                     .remove::<RawHandleWrapper>();
             }
@@ -204,10 +204,10 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
             {
                 // Get windows that are cached but without raw handles. Those window were already created, but got their
                 // handle wrapper removed when the app was suspended.
-                let mut query = app
+                let mut query = self.app
                     .world_mut()
                     .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
-                if let Ok((entity, window)) = query.get_single(&app.world()) {
+                if let Ok((entity, window)) = query.get_single(&self.app.world()) {
                     let window = window.clone();
 
                     let (
@@ -216,7 +216,7 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
                         mut adapters,
                         mut handlers,
                         accessibility_requested,
-                    ) = create_window.get_mut(app.world_mut());
+                    ) = create_window.get_mut(self.app.world_mut());
 
                     let winit_window = winit_windows.create_window(
                         event_loop,
@@ -229,7 +229,7 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
 
                     let wrapper = RawHandleWrapper::new(winit_window).unwrap();
 
-                    app.world_mut().entity_mut(entity).insert(wrapper);
+                    self.app.world_mut().entity_mut(entity).insert(wrapper);
                 }
             }
         }
