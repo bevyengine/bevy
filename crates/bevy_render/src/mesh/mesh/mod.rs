@@ -1670,8 +1670,12 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
 
 #[cfg(test)]
 mod tests {
+    use std::f32::consts::FRAC_PI_2;
+
     use super::Mesh;
-    use crate::render_asset::RenderAssetUsages;
+    use crate::{mesh::VertexAttributeValues, render_asset::RenderAssetUsages};
+    use bevy_math::Vec3;
+    use bevy_transform::components::Transform;
     use wgpu::PrimitiveTopology;
 
     #[test]
@@ -1682,5 +1686,51 @@ mod tests {
             RenderAssetUsages::default(),
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0, 0.0]]);
+    }
+
+    #[test]
+    fn transform_mesh() {
+        let mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            vec![[-1., -1., 2.], [1., -1., 2.], [0., 1., 2.]],
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_NORMAL,
+            vec![[0., 0., 1.], [0., 0., 1.], [0., 0., 1.]],
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0., 0.], [1., 0.], [0.5, 1.]]);
+
+        let mesh = mesh.transformed_by(
+            Transform::from_translation(Vec3::splat(-2.)).with_scale(Vec3::new(2., 0., -1.)),
+        );
+
+        if let Some(VertexAttributeValues::Float32x3(positions)) =
+            mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+        {
+            assert_eq!(
+                positions,
+                &vec![[-4.0, -2.0, -4.0], [0.0, -2.0, -4.0], [-2.0, -2.0, -4.0]]
+            )
+        } else {
+            panic!("Mesh does not have a position attribute");
+        }
+
+        if let Some(VertexAttributeValues::Float32x3(normals)) =
+            mesh.attribute(Mesh::ATTRIBUTE_NORMAL)
+        {
+            assert_eq!(normals, &vec![[0., 0., -1.]; 3])
+        } else {
+            panic!("Mesh does not have a normal attribute");
+        }
+
+        if let Some(VertexAttributeValues::Float32x2(uvs)) = mesh.attribute(Mesh::ATTRIBUTE_UV_0) {
+            assert_eq!(uvs, &vec![[0., 0.], [1., 0.], [0.5, 1.]])
+        } else {
+            panic!("Mesh does not have a uv attribute");
+        }
     }
 }
