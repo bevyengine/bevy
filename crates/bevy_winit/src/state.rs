@@ -125,6 +125,10 @@ impl<T: Event> WinitAppRunnerState<T> {
 
 impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
+        if event_loop.exiting() {
+            return;
+        }
+
         #[cfg(feature = "trace")]
         let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
 
@@ -138,13 +142,6 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             }
             self.redraw_requested = true;
         }
-
-        // create any new windows
-        // (even if app did not update, some may have been created by plugin setup)
-        let mut create_window =
-            SystemState::<CreateWindowParams<Added<Window>>>::from_world(self.world_mut());
-        create_windows(event_loop, create_window.get_mut(self.world_mut()));
-        create_window.apply(self.world_mut());
 
         self.wait_elapsed = match cause {
             StartCause::WaitCancelled {
@@ -407,6 +404,13 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        // create any new windows
+        // (even if app did not update, some may have been created by plugin setup)
+        let mut create_window =
+            SystemState::<CreateWindowParams<Added<Window>>>::from_world(self.world_mut());
+        create_windows(event_loop, create_window.get_mut(self.world_mut()));
+        create_window.apply(self.world_mut());
+
         let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
 
         let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)> =
@@ -577,6 +581,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
 
         if let Some(app_exit) = self.app.should_exit() {
             self.app_exit = Some(app_exit);
+
             event_loop.exit();
         }
     }
@@ -585,6 +590,11 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         // Mark the state as `WillSuspend`. This will let the schedule run one last time
         // before actually suspending to let the application react
         self.lifecycle = AppLifecycle::WillSuspend;
+    }
+
+    fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
+        let world = self.world_mut();
+        world.clear_all();
     }
 }
 
