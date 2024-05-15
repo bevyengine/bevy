@@ -119,7 +119,7 @@ pub enum DepthOfFieldMode {
     ///
     /// For more information, see [Wikipedia's article on *bokeh*].
     ///
-    /// This doesn't work on webgpu.
+    /// This doesn't work on WebGPU.
     ///
     /// [Wikipedia's article on *bokeh*]: https://en.wikipedia.org/wiki/Bokeh
     Bokeh,
