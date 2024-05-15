@@ -1,8 +1,8 @@
 //! Shows how to create a custom event that can be handled by the event loop.
 
-use std::fmt::Formatter;
 use bevy::prelude::*;
 use bevy::winit::{EventLoopProxy, WakeUp, WinitPlugin};
+use std::fmt::Formatter;
 
 #[derive(Default, Debug, Event)]
 enum CustomEvent {
@@ -30,11 +30,14 @@ fn main() {
                 .disable::<WinitPlugin<WakeUp>>()
                 .add(winit_plugin),
         )
-        .add_systems(Startup, (
-            setup,
-            #[cfg(target_arch = "wasm32")]
-            wasm::expose_event_loop_proxy,
-        ))
+        .add_systems(
+            Startup,
+            (
+                setup,
+                #[cfg(target_arch = "wasm32")]
+                wasm::expose_event_loop_proxy,
+            ),
+        )
         .add_systems(Update, (send_event, handle_event))
         .run();
 }
@@ -66,10 +69,10 @@ pub(crate) mod wasm {
     use bevy::{ecs::system::NonSend, winit::EventLoopProxy};
     use once_cell::sync::Lazy;
 
+    use crate::CustomEvent;
     use wasm_bindgen::prelude::*;
     use wasm_bindgen::JsCast;
     use web_sys::KeyboardEvent;
-    use crate::CustomEvent;
 
     pub static EVENT_LOOP_PROXY: Lazy<Arc<Mutex<Option<EventLoopProxy<CustomEvent>>>>> =
         Lazy::new(|| Arc::new(Mutex::new(None)));
