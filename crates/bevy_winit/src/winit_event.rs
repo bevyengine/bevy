@@ -12,9 +12,9 @@ use bevy_reflect::Reflect;
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_window::{
-    AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
-    ReceivedCharacter, RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested,
-    WindowCreated, WindowDestroyed, WindowFocused, WindowMoved, WindowOccluded, WindowResized,
+    AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, ReceivedCharacter,
+    RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated,
+    WindowDestroyed, WindowFocused, WindowMoved, WindowOccluded, WindowResized,
     WindowScaleFactorChanged, WindowThemeChanged,
 };
 

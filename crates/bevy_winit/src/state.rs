@@ -23,10 +23,10 @@ use winit::window::WindowId;
 
 #[allow(deprecated)]
 use bevy_window::{
-    AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
-    ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
-    WindowCloseRequested, WindowDestroyed, WindowFocused, WindowMoved, WindowOccluded,
-    WindowResized, WindowScaleFactorChanged, WindowThemeChanged,
+    AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, ReceivedCharacter,
+    RequestRedraw, Window, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowDestroyed,
+    WindowFocused, WindowMoved, WindowOccluded, WindowResized, WindowScaleFactorChanged,
+    WindowThemeChanged,
 };
 #[cfg(target_os = "android")]
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
@@ -92,6 +92,14 @@ impl WinitAppRunnerState {
         self.device_event_received = false;
         self.user_event_received = false;
     }
+
+    fn world(&self) -> &World {
+        self.app.world()
+    }
+
+    fn world_mut(&mut self) -> &mut World {
+        self.app.world_mut()
+    }
 }
 
 impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
@@ -125,9 +133,9 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
         // create any new windows
         // (even if app did not update, some may have been created by plugin setup)
         let mut create_window =
-            SystemState::<CreateWindowParams<Added<Window>>>::from_world(self.app.world_mut());
-        create_windows(event_loop, create_window.get_mut(self.app.world_mut()));
-        create_window.apply(self.app.world_mut());
+            SystemState::<CreateWindowParams<Added<Window>>>::from_world(self.world_mut());
+        create_windows(event_loop, create_window.get_mut(self.world_mut()));
+        create_window.apply(self.world_mut());
 
         self.wait_elapsed = match cause {
             StartCause::WaitCancelled {
@@ -146,15 +154,15 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
         let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
 
         let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)> =
-            SystemState::new(self.app.world_mut());
+            SystemState::new(self.world_mut());
 
-        if let Some(app_redraw_events) = self.app.world().get_resource::<Events<RequestRedraw>>() {
+        if let Some(app_redraw_events) = self.world().get_resource::<Events<RequestRedraw>>() {
             if redraw_event_reader.read(app_redraw_events).last().is_some() {
                 self.redraw_requested = true;
             }
         }
 
-        let (config, windows) = focused_windows_state.get(self.app.world());
+        let (config, windows) = focused_windows_state.get(self.world());
         let focused = windows.iter().any(|(_, window)| window.focused);
 
         let mut update_mode = config.update_mode(focused);
@@ -175,11 +183,11 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
             {
                 // Remove the `RawHandleWrapper` from the primary window.
                 // This will trigger the surface destruction.
-                let mut query = self.app
+                let mut query = self
                     .world_mut()
                     .query_filtered::<Entity, With<PrimaryWindow>>();
-                let entity = query.single(&self.app.world());
-                self.app.world_mut()
+                let entity = query.single(&self.world());
+                self.world_mut()
                     .entity_mut(entity)
                     .remove::<RawHandleWrapper>();
             }
@@ -196,13 +204,13 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
             {
                 // Get windows that are cached but without raw handles. Those window were already created, but got their
                 // handle wrapper removed when the app was suspended.
-                let mut query = self.app
-                    .world_mut()
+                let mut query = self.world_mut()
                     .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
-                if let Ok((entity, window)) = query.get_single(&self.app.world()) {
+                if let Ok((entity, window)) = query.get_single(&self.world()) {
                     let window = window.clone();
 
-                    let mut create_window = SystemState::<CreateWindowParams>::from_world(self.app.world_mut());
+                    let mut create_window =
+                        SystemState::<CreateWindowParams>::from_world(self.world_mut());
 
                     let (
                         ..,
@@ -210,7 +218,7 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
                         mut adapters,
                         mut handlers,
                         accessibility_requested,
-                    ) = create_window.get_mut(self.app.world_mut());
+                    ) = create_window.get_mut(self.world_mut());
 
                     let winit_window = winit_windows.create_window(
                         event_loop,
@@ -223,7 +231,7 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
 
                     let wrapper = RawHandleWrapper::new(winit_window).unwrap();
 
-                    self.app.world_mut().entity_mut(entity).insert(wrapper);
+                    self.world_mut().entity_mut(entity).insert(wrapper);
                 }
             }
         }
@@ -243,7 +251,7 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
             self.run_app_update();
 
             // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
-            let (config, windows) = focused_windows_state.get(self.app.world());
+            let (config, windows) = focused_windows_state.get(self.world());
             let focused = windows.iter().any(|(_, window)| window.focused);
 
             update_mode = config.update_mode(focused);
@@ -272,7 +280,7 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
                         all(target_os = "linux", any(feature = "x11", feature = "wayland"))
                     )))]
                     {
-                        let winit_windows = self.app.world().non_send_resource::<WinitWindows>();
+                        let winit_windows = self.world().non_send_resource::<WinitWindows>();
                         let visible = winit_windows.windows.iter().any(|(_, w)| {
                             w.is_visible().unwrap_or(false)
                         });
@@ -304,7 +312,7 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
         }
 
         if self.redraw_requested && self.lifecycle != AppLifecycle::Suspended {
-            let winit_windows = self.app.world().non_send_resource::<WinitWindows>();
+            let winit_windows = self.world().non_send_resource::<WinitWindows>();
             for window in winit_windows.windows.values() {
                 window.request_redraw();
             }
@@ -325,6 +333,7 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
         event: DeviceEvent,
     ) {
         self.device_event_received = true;
+
         if let DeviceEvent::MouseMotion { delta: (x, y) } = event {
             let delta = Vec2::new(x as f32, y as f32);
             self.winit_events.send(MouseMotion { delta });
@@ -337,15 +346,17 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
         window_id: WindowId,
         event: WindowEvent,
     ) {
+        self.window_event_received = true;
+
         let mut event_writer_system_state: SystemState<(
             EventWriter<WindowResized>,
             NonSend<WinitWindows>,
             Query<(&mut Window, &mut CachedWindow)>,
             NonSendMut<AccessKitAdapters>,
-        )> = SystemState::new(self.app.world_mut());
+        )> = SystemState::new(self.world_mut());
 
         let (mut window_resized, winit_windows, mut windows, mut access_kit_adapters) =
-            event_writer_system_state.get_mut(self.app.world_mut());
+            event_writer_system_state.get_mut(self.world_mut());
 
         let Some(window) = winit_windows.get_window_entity(window_id) else {
             warn!("Skipped event {event:?} for unknown winit Window Id {window_id:?}");
@@ -364,8 +375,6 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
                 adapter.process_event(winit_window, &event);
             }
         }
-
-        self.window_event_received = true;
 
         match event {
             WindowEvent::Resized(size) => {
@@ -550,11 +559,8 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
             _ => {}
         }
 
-        let mut windows = self
-            .app
-            .world_mut()
-            .query::<(&mut Window, &mut CachedWindow)>();
-        if let Ok((window_component, mut cache)) = windows.get_mut(self.app.world_mut(), window) {
+        let mut windows = self.world_mut().query::<(&mut Window, &mut CachedWindow)>();
+        if let Ok((window_component, mut cache)) = windows.get_mut(self.world_mut(), window) {
             if window_component.is_changed() {
                 cache.window = window_component.clone();
             }
@@ -562,8 +568,8 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
     }
 
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: UserEvent) {
-        self.redraw_requested = true;
         self.user_event_received = true;
+        self.redraw_requested = true;
     }
 }
 
@@ -576,10 +582,9 @@ impl WinitAppRunnerState {
                     || self.window_event_received
                     || self.device_event_received
             }
-            UpdateMode::ReactiveLowPower { .. } =>
-                self.wait_elapsed
-                || self.user_event_received
-                || self.window_event_received,
+            UpdateMode::ReactiveLowPower { .. } => {
+                self.wait_elapsed || self.user_event_received || self.window_event_received
+            }
         };
 
         handle_event && self.lifecycle.is_active()
@@ -596,95 +601,100 @@ impl WinitAppRunnerState {
     }
 
     fn forward_winit_events(&mut self) {
-        let buffered_events = &mut self.winit_events;
-        let app = &mut self.app;
+        let buffered_events = self
+            .winit_events
+            .drain(..)
+            .collect::<Vec<_>>();
 
         if buffered_events.is_empty() {
             return;
         }
 
+        let world = self.world_mut();
+
         for winit_event in buffered_events.iter() {
             match winit_event.clone() {
                 WinitEvent::AppLifecycle(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::CursorEntered(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::CursorLeft(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::CursorMoved(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::FileDragAndDrop(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::Ime(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::ReceivedCharacter(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::RequestRedraw(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::WindowBackendScaleFactorChanged(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::WindowCloseRequested(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::WindowCreated(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::WindowDestroyed(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::WindowFocused(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::WindowMoved(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::WindowOccluded(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::WindowResized(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::WindowScaleFactorChanged(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::WindowThemeChanged(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::MouseButtonInput(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::MouseMotion(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::MouseWheel(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::TouchpadMagnify(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::TouchpadRotate(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::TouchInput(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
                 WinitEvent::KeyboardInput(e) => {
-                    app.world_mut().send_event(e);
+                    world.send_event(e);
                 }
             }
         }
-        app.world_mut()
+
+        world
             .resource_mut::<Events<WinitEvent>>()
-            .send_batch(buffered_events.drain(..));
+            .send_batch(buffered_events);
     }
 }
 
