@@ -52,7 +52,9 @@ fn send_event(
 ) {
     if input.just_pressed(KeyCode::Space) {
         let _ = event_loop_proxy.send_event(CustomEvent::WakeUp);
-        info!("Sending custom event through the proxy");
+    }
+    if input.just_pressed(KeyCode::KeyE) {
+        let _ = event_loop_proxy.send_event(CustomEvent::Key('e'));
     }
 }
 

@@ -3,7 +3,7 @@
 //! This is useful for making desktop applications, or any other program that doesn't need to be
 //! running the event loop non-stop.
 
-use bevy::winit::UserEvent;
+use bevy::winit::WakeUp;
 use bevy::{
     prelude::*,
     utils::Duration,
@@ -55,7 +55,7 @@ enum ExampleMode {
 fn update_winit(
     mode: Res<ExampleMode>,
     mut winit_config: ResMut<WinitSettings>,
-    event_loop_proxy: NonSend<EventLoopProxy>,
+    event_loop_proxy: NonSend<EventLoopProxy<WakeUp>>,
 ) {
     use ExampleMode::*;
     *winit_config = match *mode {
@@ -89,7 +89,7 @@ fn update_winit(
             // when there are no inputs, so you send redraw requests while the animation is playing.
             // Note that in this example the RequestRedraw winit event will make the app run in the same
             // way as continuous
-            let _ = event_loop_proxy.send_event(UserEvent::WakeUp);
+            let _ = event_loop_proxy.send_event(WakeUp);
             WinitSettings::desktop_app()
         }
     };

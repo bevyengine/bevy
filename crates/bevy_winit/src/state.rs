@@ -75,7 +75,7 @@ pub struct WinitAppRunnerState<T: Event> {
         NonSend<'static, WinitWindows>,
         Query<'static, 'static, (&'static mut Window, &'static mut CachedWindow)>,
         NonSendMut<'static, AccessKitAdapters>,
-    )>
+    )>,
 }
 
 impl<T: Event> WinitAppRunnerState<T> {
