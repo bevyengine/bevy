@@ -52,8 +52,10 @@ impl ViewNode for MainTransparentPass2dNode {
                 render_pass.set_camera_viewport(viewport);
             }
 
-            transparent_phase.render(&mut render_pass, world, view_entity);
-
+            if !transparent_phase.items.is_empty() {
+                transparent_phase.render(&mut render_pass, world, view_entity);
+            }
+            
             pass_span.end(&mut render_pass);
         }
 
