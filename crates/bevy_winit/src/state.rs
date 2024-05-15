@@ -19,8 +19,6 @@ use winit::dpi::{LogicalSize, PhysicalSize};
 use winit::event;
 use winit::event::{DeviceEvent, DeviceId, StartCause, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
-#[cfg(target_os = "android")]
-pub use winit::platform::android::activity as android_activity;
 use winit::window::WindowId;
 
 #[allow(deprecated)]
@@ -39,12 +37,6 @@ use crate::{
     converters, create_windows, react_to_resize, AppSendEvent, CreateWindowParams, UpdateMode,
     UserEvent, WinitEvent, WinitSettings, WinitWindows,
 };
-
-/// [`AndroidApp`] provides an interface to query the application state as well as monitor events
-/// (for example lifecycle and input events).
-#[cfg(target_os = "android")]
-pub static ANDROID_APP: std::sync::OnceLock<android_activity::AndroidApp> =
-    std::sync::OnceLock::new();
 
 /// Persistent state that is used to run the [`App`] according to the current
 /// [`UpdateMode`].
@@ -209,6 +201,8 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
                     .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
                 if let Ok((entity, window)) = query.get_single(&self.app.world()) {
                     let window = window.clone();
+
+                    let mut create_window = SystemState::<CreateWindowParams>::from_world(self.app.world_mut());
 
                     let (
                         ..,

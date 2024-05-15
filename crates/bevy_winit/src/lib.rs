@@ -12,7 +12,6 @@
 //! The app's [runner](bevy_app::App::runner) is set by `WinitPlugin` and handles the `winit` [`EventLoop`].
 //! See `winit_runner` for details.
 
-use accesskit_winit::Event as AccessKitEvent;
 use winit::event_loop::EventLoop;
 #[cfg(target_os = "android")]
 pub use winit::platform::android::activity as android_activity;
@@ -22,8 +21,6 @@ use bevy_app::{App, Last, Plugin};
 use bevy_ecs::prelude::*;
 #[allow(deprecated)]
 use bevy_window::{exit_on_all_closed, Window, WindowCreated, WindowResized};
-#[cfg(target_os = "android")]
-use bevy_window::{PrimaryWindow, RawHandleWrapper};
 pub use system::create_windows;
 use system::{changed_windows, despawn_windows};
 pub use winit_config::*;
@@ -32,7 +29,6 @@ pub use winit_windows::*;
 
 use crate::accessibility::{AccessKitAdapters, AccessKitPlugin, WinitActionRequestHandlers};
 use crate::state::winit_runner;
-// use crate::runner::winit_runner;
 
 pub mod accessibility;
 mod converters;
@@ -151,16 +147,8 @@ impl Plugin for WinitPlugin {
 /// The default event that can be used to wake the window loop
 #[derive(Debug)]
 pub enum UserEvent {
-    /// Wraps `accesskit` events
-    AccessKit(AccessKitEvent),
     /// Wakes up the loop if in wait state
     WakeUp,
-}
-
-impl From<AccessKitEvent> for UserEvent {
-    fn from(evt: AccessKitEvent) -> Self {
-        UserEvent::AccessKit(evt)
-    }
 }
 
 /// The [`winit::event_loop::EventLoopProxy`] with the specific [`winit::event::Event::UserEvent`] used in the [`winit_runner`].
