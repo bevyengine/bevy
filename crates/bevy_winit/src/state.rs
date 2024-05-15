@@ -302,7 +302,7 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
                     self.redraw_requested = true;
                 }
             }
-            UpdateMode::Reactive { wait } | UpdateMode::ReactiveLowPower { wait } => {
+            UpdateMode::Reactive { wait, .. } => {
                 // Set the next timeout, starting from the instant before running app.update() to avoid frame delays
                 if let Some(next) = begin_frame_time.checked_add(wait) {
                     if self.wait_elapsed {
@@ -577,14 +577,22 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
 impl WinitAppRunnerState {
     fn should_update(&self, update_mode: UpdateMode) -> bool {
         let handle_event = match update_mode {
-            UpdateMode::Continuous | UpdateMode::Reactive { .. } => {
+            UpdateMode::Continuous => {
                 self.wait_elapsed
                     || self.user_event_received
                     || self.window_event_received
                     || self.device_event_received
             }
-            UpdateMode::ReactiveLowPower { .. } => {
-                self.wait_elapsed || self.user_event_received || self.window_event_received
+            UpdateMode::Reactive {
+                react_to_device_events,
+                react_to_user_events,
+                react_to_window_events,
+                ..
+            } => {
+                self.wait_elapsed
+                    || (react_to_device_events && self.device_event_received)
+                    || (react_to_user_events && self.user_event_received)
+                    || (react_to_window_events && self.window_event_received)
             }
         };
 

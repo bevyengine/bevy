@@ -20,9 +20,7 @@ fn main() {
         // You can also customize update behavior with the fields of [`WinitSettings`]
         .insert_resource(WinitSettings {
             focused_mode: bevy::winit::UpdateMode::Continuous,
-            unfocused_mode: bevy::winit::UpdateMode::ReactiveLowPower {
-                wait: Duration::from_millis(10),
-            },
+            unfocused_mode: bevy::winit::UpdateMode::reactive_low_power(Duration::from_millis(10)),
         })
         .insert_resource(ExampleMode::Game)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -79,7 +77,10 @@ fn update_winit(
             //     (e.g. the mouse hovers over a visible part of the out of focus window), a
             //     [`RequestRedraw`] event is received, or one minute has passed without the app
             //     updating.
-            WinitSettings::desktop_app()
+            WinitSettings {
+                focused_mode: bevy::winit::UpdateMode::reactive(Duration::from_secs(1)),
+                unfocused_mode: bevy::winit::UpdateMode::reactive_low_power(Duration::from_secs(5)),
+            }
         }
         ApplicationWithRedraw => {
             // Sending a `RequestRedraw` event is useful when you want the app to update the next
