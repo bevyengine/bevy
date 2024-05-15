@@ -131,7 +131,7 @@ pub enum DepthOfFieldMode {
     ///
     /// This is the default.
     ///
-    /// This works on native and webgpu.
+    /// This works on native and WebGPU.
     /// If targeting native platforms, consider using [`DepthOfFieldMode::Bokeh`] instead.
     #[default]
     Gaussian,
