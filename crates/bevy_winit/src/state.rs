@@ -12,8 +12,9 @@ use bevy_input::{
 };
 use bevy_log::{error, trace, warn};
 use bevy_math::{ivec2, DVec2, Vec2};
+#[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
-use std::time::Instant;
+use bevy_utils::Instant;
 use winit::application::ApplicationHandler;
 use winit::dpi::{LogicalSize, PhysicalSize};
 use winit::event;

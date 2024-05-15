@@ -192,7 +192,7 @@ impl WinitWindows {
         #[cfg(target_arch = "wasm32")]
         {
             use wasm_bindgen::JsCast;
-            use winit::platform::web::WindowBuilderExtWebSys;
+            use winit::platform::web::WindowAttributesExtWebSys;
 
             if let Some(selector) = &window.canvas {
                 let window = web_sys::window().unwrap();

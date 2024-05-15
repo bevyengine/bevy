@@ -32,7 +32,6 @@ use crate::state::winit_runner;
 
 pub mod accessibility;
 mod converters;
-// mod runner;
 mod state;
 mod system;
 mod winit_config;
@@ -121,22 +120,6 @@ impl Plugin for WinitPlugin {
         let event_loop = event_loop_builder
             .build()
             .expect("Failed to build event loop");
-
-        // iOS, macOS, and Android don't like it if you create windows before the event loop is
-        // initialized.
-        //
-        // See:
-        // - https://github.com/rust-windowing/winit/blob/master/README.md#macos
-        // - https://github.com/rust-windowing/winit/blob/master/README.md#ios
-        #[cfg(not(any(target_os = "android", target_os = "ios", target_os = "macos")))]
-        {
-            // Otherwise, we want to create a window before `bevy_render` initializes the renderer
-            // so that we have a surface to use as a hint. This improves compatibility with `wgpu`
-            // backends, especially WASM/WebGL2.
-            let mut create_window = SystemState::<CreateWindowParams>::from_world(app.world_mut());
-            create_windows(&event_loop, create_window.get_mut(app.world_mut()));
-            create_window.apply(app.world_mut());
-        }
 
         // `winit`'s windows are bound to the event loop that created them, so the event loop must
         // be inserted as a resource here to pass it onto the runner.
