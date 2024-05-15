@@ -1670,8 +1670,6 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
 
 #[cfg(test)]
 mod tests {
-    use std::f32::consts::FRAC_PI_2;
-
     use super::Mesh;
     use crate::{mesh::VertexAttributeValues, render_asset::RenderAssetUsages};
     use bevy_math::Vec3;
@@ -1714,7 +1712,7 @@ mod tests {
             assert_eq!(
                 positions,
                 &vec![[-4.0, -2.0, -4.0], [0.0, -2.0, -4.0], [-2.0, -2.0, -4.0]]
-            )
+            );
         } else {
             panic!("Mesh does not have a position attribute");
         }
@@ -1722,13 +1720,13 @@ mod tests {
         if let Some(VertexAttributeValues::Float32x3(normals)) =
             mesh.attribute(Mesh::ATTRIBUTE_NORMAL)
         {
-            assert_eq!(normals, &vec![[0., 0., -1.]; 3])
+            assert_eq!(normals, &vec![[0., 0., -1.]; 3]);
         } else {
             panic!("Mesh does not have a normal attribute");
         }
 
         if let Some(VertexAttributeValues::Float32x2(uvs)) = mesh.attribute(Mesh::ATTRIBUTE_UV_0) {
-            assert_eq!(uvs, &vec![[0., 0.], [1., 0.], [0.5, 1.]])
+            assert_eq!(uvs, &vec![[0., 0.], [1., 0.], [0.5, 1.]]);
         } else {
             panic!("Mesh does not have a uv attribute");
         }
