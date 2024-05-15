@@ -1,6 +1,19 @@
-use std::sync::mpsc::{sync_channel, SyncSender};
-use std::time::Instant;
 use approx::relative_eq;
+use bevy_app::{App, AppExit, PluginsState};
+use bevy_ecs::change_detection::{DetectChanges, NonSendMut, Res};
+use bevy_ecs::entity::Entity;
+use bevy_ecs::event::{EventWriter, ManualEventReader};
+use bevy_ecs::prelude::{Added, Events, NonSend, Query};
+use bevy_ecs::system::SystemState;
+use bevy_ecs::world::FromWorld;
+use bevy_input::{
+    mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
+    touchpad::{TouchpadMagnify, TouchpadRotate},
+};
+use bevy_log::{error, trace, warn};
+use bevy_math::{ivec2, DVec2, Vec2};
+use bevy_tasks::tick_global_task_pools_on_main_thread;
+use std::time::Instant;
 use winit::application::ApplicationHandler;
 use winit::dpi::{LogicalSize, PhysicalSize};
 use winit::event;
@@ -9,36 +22,23 @@ use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 #[cfg(target_os = "android")]
 pub use winit::platform::android::activity as android_activity;
 use winit::window::WindowId;
-use bevy_app::{App, AppExit, PluginsState};
-use bevy_ecs::change_detection::{DetectChanges, NonSendMut, Res};
-use bevy_ecs::entity::Entity;
-use bevy_ecs::event::{EventWriter, ManualEventReader};
-use bevy_ecs::prelude::{Added, Events, NonSend, Query};
-use bevy_ecs::system::SystemState;
-use bevy_ecs::world::FromWorld;
-use bevy_log::{error, trace, warn};
-use bevy_math::{DVec2, ivec2, Vec2};
-use bevy_input::{
-    mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
-    touchpad::{TouchpadMagnify, TouchpadRotate},
-};
-use bevy_tasks::tick_global_task_pools_on_main_thread;
 
-#[cfg(target_os = "android")]
-use bevy_window::{PrimaryWindow, RawHandleWrapper};
 #[allow(deprecated)]
 use bevy_window::{
-    ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved,
-    FileDragAndDrop, Ime, ReceivedCharacter, RequestRedraw, Window,
-    WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowDestroyed,
-    WindowFocused, WindowMoved, WindowOccluded, WindowResized, WindowScaleFactorChanged,
-    WindowThemeChanged,
+    ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
+    ReceivedCharacter, RequestRedraw, Window, WindowBackendScaleFactorChanged,
+    WindowCloseRequested, WindowDestroyed, WindowFocused, WindowMoved, WindowOccluded,
+    WindowResized, WindowScaleFactorChanged, WindowThemeChanged,
 };
+#[cfg(target_os = "android")]
+use bevy_window::{PrimaryWindow, RawHandleWrapper};
 
-use crate::{AppSendEvent, converters, create_windows, CreateWindowParams, react_to_resize, UpdateMode, UserEvent, WinitEvent, WinitSettings, WinitWindows};
 use crate::accessibility::AccessKitAdapters;
 use crate::system::CachedWindow;
-use crate::winit_event::forward_winit_events;
+use crate::{
+    converters, create_windows, react_to_resize, AppSendEvent, CreateWindowParams, UpdateMode,
+    UserEvent, WinitEvent, WinitSettings, WinitWindows,
+};
 
 /// [`AndroidApp`] provides an interface to query the application state as well as monitor events
 /// (for example lifecycle and input events).
@@ -116,7 +116,7 @@ impl WinitAppRunnerState {
 impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
         #[cfg(feature = "trace")]
-            let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
+        let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
 
         if self.app.plugins_state() != PluginsState::Cleaned {
             if self.app.plugins_state() != PluginsState::Ready {
@@ -161,7 +161,12 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
         self.redraw_requested = true;
     }
 
-    fn window_event(&mut self, _event_loop: &ActiveEventLoop, window_id: WindowId, event: WindowEvent) {
+    fn window_event(
+        &mut self,
+        _event_loop: &ActiveEventLoop,
+        window_id: WindowId,
+        event: WindowEvent,
+    ) {
         let mut event_writer_system_state: SystemState<(
             EventWriter<WindowResized>,
             NonSend<WinitWindows>,
@@ -205,7 +210,8 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
                         self.winit_events.send(ReceivedCharacter { window, char });
                     }
                 }
-                self.winit_events.send(converters::convert_keyboard_input(event, window));
+                self.winit_events
+                    .send(converters::convert_keyboard_input(event, window));
             }
             WindowEvent::CursorMoved { position, .. } => {
                 let physical_position = DVec2::new(position.x, position.y);
@@ -216,8 +222,7 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
                 });
 
                 win.set_physical_cursor_position(Some(physical_position));
-                let position =
-                    (physical_position / win.resolution.scale_factor() as f64).as_vec2();
+                let position = (physical_position / win.resolution.scale_factor() as f64).as_vec2();
                 self.winit_events.send(CursorMoved {
                     window,
                     position,
@@ -266,7 +271,8 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
                 let location = touch
                     .location
                     .to_logical(win.resolution.scale_factor() as f64);
-                self.winit_events.send(converters::convert_touch_input(touch, location, window));
+                self.winit_events
+                    .send(converters::convert_touch_input(touch, location, window));
             }
             WindowEvent::ScaleFactorChanged {
                 scale_factor,
@@ -328,13 +334,16 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
                 self.winit_events.send(WindowOccluded { window, occluded });
             }
             WindowEvent::DroppedFile(path_buf) => {
-                self.winit_events.send(FileDragAndDrop::DroppedFile { window, path_buf });
+                self.winit_events
+                    .send(FileDragAndDrop::DroppedFile { window, path_buf });
             }
             WindowEvent::HoveredFile(path_buf) => {
-                self.winit_events.send(FileDragAndDrop::HoveredFile { window, path_buf });
+                self.winit_events
+                    .send(FileDragAndDrop::HoveredFile { window, path_buf });
             }
             WindowEvent::HoveredFileCancelled => {
-                self.winit_events.send(FileDragAndDrop::HoveredFileCanceled { window });
+                self.winit_events
+                    .send(FileDragAndDrop::HoveredFileCanceled { window });
             }
             WindowEvent::Moved(position) => {
                 let position = ivec2(position.x, position.y);
@@ -374,7 +383,10 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
             _ => {}
         }
 
-        let mut windows = self.app.world_mut().query::<(&mut Window, &mut CachedWindow)>();
+        let mut windows = self
+            .app
+            .world_mut()
+            .query::<(&mut Window, &mut CachedWindow)>();
         if let Ok((window_component, mut cache)) = windows.get_mut(self.app.world_mut(), window) {
             if window_component.is_changed() {
                 cache.window = window_component.clone();
@@ -382,7 +394,12 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
         }
     }
 
-    fn device_event(&mut self, _event_loop: &ActiveEventLoop, _device_id: DeviceId, event: DeviceEvent) {
+    fn device_event(
+        &mut self,
+        _event_loop: &ActiveEventLoop,
+        _device_id: DeviceId,
+        event: DeviceEvent,
+    ) {
         self.device_event_received = true;
         if let DeviceEvent::MouseMotion { delta: (x, y) } = event {
             let delta = Vec2::new(x as f32, y as f32);
@@ -495,28 +512,28 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
                 // we cannot use the visibility to drive rendering on these platforms
                 // so we cannot discern whether to beneficially use `Poll` or not?
                 cfg_if::cfg_if! {
-                        if #[cfg(not(any(
-                            target_arch = "wasm32",
-                            target_os = "android",
-                            target_os = "ios",
-                            all(target_os = "linux", any(feature = "x11", feature = "wayland"))
-                        )))]
-                        {
-                            let winit_windows = self.app.world().non_send_resource::<WinitWindows>();
-                            let visible = winit_windows.windows.iter().any(|(_, w)| {
-                                w.is_visible().unwrap_or(false)
-                            });
+                    if #[cfg(not(any(
+                        target_arch = "wasm32",
+                        target_os = "android",
+                        target_os = "ios",
+                        all(target_os = "linux", any(feature = "x11", feature = "wayland"))
+                    )))]
+                    {
+                        let winit_windows = self.app.world().non_send_resource::<WinitWindows>();
+                        let visible = winit_windows.windows.iter().any(|(_, w)| {
+                            w.is_visible().unwrap_or(false)
+                        });
 
-                            event_loop.set_control_flow(if visible {
-                                ControlFlow::Wait
-                            } else {
-                                ControlFlow::Poll
-                            });
-                        }
-                        else {
-                            event_loop.set_control_flow(ControlFlow::Wait);
-                        }
+                        event_loop.set_control_flow(if visible {
+                            ControlFlow::Wait
+                        } else {
+                            ControlFlow::Poll
+                        });
                     }
+                    else {
+                        event_loop.set_control_flow(ControlFlow::Wait);
+                    }
+                }
 
                 // Trigger the next redraw to refresh the screen immediately if waiting
                 if let ControlFlow::Wait = event_loop.control_flow() {
@@ -539,9 +556,7 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
             self.update_mode = update_mode;
         }
 
-        if self.redraw_requested
-            && self.activity_state != UpdateState::Suspended
-        {
+        if self.redraw_requested && self.activity_state != UpdateState::Suspended {
             let winit_windows = self.app.world().non_send_resource::<WinitWindows>();
             for window in winit_windows.windows.values() {
                 window.request_redraw();
@@ -554,7 +569,6 @@ impl ApplicationHandler<UserEvent> for WinitAppRunnerState {
             event_loop.exit();
             return;
         }
-
     }
 
     fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
@@ -569,21 +583,15 @@ impl WinitAppRunnerState {
     fn should_update(&self, update_mode: UpdateMode) -> bool {
         let handle_event = match update_mode {
             UpdateMode::Continuous | UpdateMode::Reactive { .. } => {
-                self.wait_elapsed
-                    || self.window_event_received
-                    || self.device_event_received
+                self.wait_elapsed || self.window_event_received || self.device_event_received
             }
-            UpdateMode::ReactiveLowPower { .. } => {
-                self.wait_elapsed || self.window_event_received
-            }
+            UpdateMode::ReactiveLowPower { .. } => self.wait_elapsed || self.window_event_received,
         };
 
         handle_event && self.activity_state.is_active()
     }
 
-    fn run_app_update(
-        &mut self,
-    ) {
+    fn run_app_update(&mut self) {
         self.reset_on_update();
 
         self.forward_winit_events();
@@ -713,9 +721,8 @@ pub fn winit_runner(mut app: App) -> AppExit {
     }
 
     // If everything is working correctly then the event loop only exits after it's sent an exit code.
-    runner_state.app_exit
-        .unwrap_or_else(|| {
-            error!("Failed to receive a app exit code! This is a bug");
-            AppExit::error()
-        })
+    runner_state.app_exit.unwrap_or_else(|| {
+        error!("Failed to receive a app exit code! This is a bug");
+        AppExit::error()
+    })
 }

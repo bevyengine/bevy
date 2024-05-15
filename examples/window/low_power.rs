@@ -3,13 +3,13 @@
 //! This is useful for making desktop applications, or any other program that doesn't need to be
 //! running the event loop non-stop.
 
+use bevy::winit::UserEvent;
 use bevy::{
     prelude::*,
     utils::Duration,
     window::{PresentMode, WindowPlugin},
     winit::{EventLoopProxy, WinitSettings},
 };
-use bevy::winit::UserEvent;
 
 fn main() {
     App::new()

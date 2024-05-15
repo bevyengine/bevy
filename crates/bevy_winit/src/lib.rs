@@ -1,8 +1,8 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-html_logo_url = "https://bevyengine.org/assets/icon.png",
-html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
 //! `bevy_winit` provides utilities to handle window creation and the eventloop through [`winit`]
@@ -21,22 +21,16 @@ use bevy_a11y::AccessibilityRequested;
 use bevy_app::{App, Last, Plugin};
 use bevy_ecs::prelude::*;
 #[allow(deprecated)]
-use bevy_window::{
-    exit_on_all_closed
-    , Window
-    , WindowCreated
-    , WindowResized
-    ,
-};
+use bevy_window::{exit_on_all_closed, Window, WindowCreated, WindowResized};
 #[cfg(target_os = "android")]
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
-use system::{changed_windows, despawn_windows};
 pub use system::create_windows;
+use system::{changed_windows, despawn_windows};
 pub use winit_config::*;
 pub use winit_event::*;
 pub use winit_windows::*;
 
-use crate::accessibility::{AccessKitAdapters, AccessKitPlugin, WinitActionHandlers};
+use crate::accessibility::{AccessKitAdapters, AccessKitPlugin, WinitActionRequestHandlers};
 use crate::state::winit_runner;
 // use crate::runner::winit_runner;
 
@@ -193,7 +187,7 @@ pub type CreateWindowParams<'w, 's, F = ()> = (
     EventWriter<'w, WindowCreated>,
     NonSendMut<'w, WinitWindows>,
     NonSendMut<'w, AccessKitAdapters>,
-    ResMut<'w, WinitActionHandlers>,
+    ResMut<'w, WinitActionRequestHandlers>,
     Res<'w, AccessibilityRequested>,
 );
 

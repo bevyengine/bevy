@@ -6,14 +6,12 @@ use std::{
 };
 
 use accesskit_winit::Adapter;
+use bevy_a11y::accesskit::{ActivationHandler, DeactivationHandler, Node};
 use bevy_a11y::{
-    accesskit::{
-        ActionHandler, ActionRequest, NodeBuilder, NodeId, Role, Tree, TreeUpdate,
-    },
+    accesskit::{ActionHandler, ActionRequest, NodeBuilder, NodeId, Role, Tree, TreeUpdate},
     AccessibilityNode, AccessibilityRequested, AccessibilitySystem, Focus,
 };
 use bevy_a11y::{ActionRequest as ActionRequestWrapper, ManageAccessibilityUpdates};
-use bevy_a11y::accesskit::ActivationHandler;
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashMap;
@@ -21,23 +19,87 @@ use bevy_ecs::{
     prelude::{DetectChanges, Entity, EventReader, EventWriter},
     query::With,
     schedule::IntoSystemConfigs,
-    system::{NonSend, NonSendMut, Query, Res, ResMut, Resource},
+    system::{NonSendMut, Query, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_window::{PrimaryWindow, Window, WindowClosed};
-use crate::EventLoopProxy;
 
 /// Maps window entities to their `AccessKit` [`Adapter`]s.
 #[derive(Default, Deref, DerefMut)]
 pub struct AccessKitAdapters(pub EntityHashMap<Adapter>);
 
-/// Maps window entities to their respective [`WinitActionHandler`]s.
+/// Maps window entities to their respective [`WinitActionRequests`]s.
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct WinitActionHandlers(pub EntityHashMap<WinitActionHandler>);
+pub struct WinitActionRequestHandlers(pub EntityHashMap<Arc<Mutex<WinitActionRequestHandler>>>);
+
+struct AccessKitState {
+    name: String,
+    entity: Entity,
+    requested: AccessibilityRequested,
+}
+
+impl AccessKitState {
+    fn new(
+        name: impl Into<String>,
+        entity: Entity,
+        requested: AccessibilityRequested,
+    ) -> Arc<Mutex<Self>> {
+        let name = name.into();
+
+        Arc::new(Mutex::new(Self {
+            name,
+            entity,
+            requested,
+        }))
+    }
+
+    fn build_root(&mut self) -> Node {
+        let mut builder = NodeBuilder::new(Role::Window);
+        builder.set_name(self.name.clone());
+        builder.build()
+    }
+
+    fn build_initial_tree(&mut self) -> TreeUpdate {
+        let root = self.build_root();
+        let accesskit_window_id = NodeId(self.entity.to_bits());
+        let mut tree = Tree::new(accesskit_window_id);
+        tree.app_name = Some(self.name.clone());
+        self.requested.set(true);
+
+        TreeUpdate {
+            nodes: vec![(accesskit_window_id, root)],
+            tree: Some(tree),
+            focus: accesskit_window_id,
+        }
+    }
+}
+
+struct WinitActivationHandler(Arc<Mutex<AccessKitState>>);
+
+impl ActivationHandler for WinitActivationHandler {
+    fn request_initial_tree(&mut self) -> Option<TreeUpdate> {
+        Some(self.0.lock().unwrap().build_initial_tree())
+    }
+}
+
+impl WinitActivationHandler {
+    pub fn new(state: Arc<Mutex<AccessKitState>>) -> Self {
+        Self(state)
+    }
+}
+
+#[derive(Clone, Default, Deref, DerefMut)]
+pub struct WinitActionRequestHandler(pub VecDeque<ActionRequest>);
+
+impl WinitActionRequestHandler {
+    fn new() -> Arc<Mutex<Self>> {
+        Arc::new(Mutex::new(Self(VecDeque::new())))
+    }
+}
 
 /// Forwards `AccessKit` [`ActionRequest`]s from winit to an event channel.
-#[derive(Clone, Default, Deref, DerefMut)]
-pub struct WinitActionHandler(pub Arc<Mutex<VecDeque<ActionRequest>>>);
+#[derive(Clone, Default)]
+struct WinitActionHandler(Arc<Mutex<WinitActionRequestHandler>>);
 
 impl ActionHandler for WinitActionHandler {
     fn do_action(&mut self, request: ActionRequest) {
@@ -45,37 +107,19 @@ impl ActionHandler for WinitActionHandler {
         requests.push_back(request);
     }
 }
-//
-// struct UiState;
-// impl UiState {
-//     fn new() -> Arc<Mutex<Self>> {
-//         Arc::new(Mutex::new(Self))
-//     }
-//     //
-//     // fn build_root(&mut self) -> Node {
-//     //     let mut root_builder = NodeBuilder::new(Role::Window);
-//     //     root_builder.set_name(name.into_boxed_str());
-//     //     let root = root_builder.build();
-//     //
-//     //     let mut builder = NodeBuilder::new(Role::Window);
-//     //     builder.set_children(vec![BUTTON_1_ID, BUTTON_2_ID]);
-//     //     if self.announcement.is_some() {
-//     //         builder.push_child(ANNOUNCEMENT_ID);
-//     //     }
-//     //     builder.set_name(WINDOW_TITLE);
-//     //     builder.build()
-//     // }
-// }
-//
-// struct TearoffActivationHandler {
-//     state: Arc<Mutex<UiState>>,
-// }
-//
-// impl ActivationHandler for TearoffActivationHandler {
-//     fn request_initial_tree(&mut self) -> Option<TreeUpdate> {
-//         Some(self.state.lock().unwrap().build_initial_tree())
-//     }
-// }
+
+impl WinitActionHandler {
+    pub fn new(handler: Arc<Mutex<WinitActionRequestHandler>>) -> Self {
+        Self(handler)
+    }
+}
+
+struct WinitDeactivationHandler;
+
+impl DeactivationHandler for WinitDeactivationHandler {
+    fn deactivate_accessibility(&mut self) {}
+}
+
 /// Prepares accessibility for a winit window.
 pub(crate) fn prepare_accessibility_for_window(
     winit_window: &winit::window::Window,
@@ -83,49 +127,39 @@ pub(crate) fn prepare_accessibility_for_window(
     name: String,
     accessibility_requested: AccessibilityRequested,
     adapters: &mut AccessKitAdapters,
-    handlers: &mut WinitActionHandlers,
+    handlers: &mut WinitActionRequestHandlers,
 ) {
-    //
-    // let ui = Ui::new
-    // let accesskit_window_id = NodeId(entity.to_bits());
-    // let handler = TearoffActivationHandler {
-    //     state: Arc::clone(Ui::new
-    // };
-    // let adapter = Adapter::with_mixed_handlers(
-    //     winit_window,
-    //     &handler,
-    //     event_loop_proxy.clone(),
-    // );
-    // TODO: restore this
-    // let adapter = Adapter::with_action_handler(
-    //     winit_window,
-    //     move || {
-    //         accessibility_requested.set(true);
-    //         TreeUpdate {
-    //             nodes: vec![(accesskit_window_id, root)],
-    //             tree: Some(Tree::new(accesskit_window_id)),
-    //             focus: accesskit_window_id,
-    //         }
-    //     },
-    //     Box::new(handler.clone()),
-    // );
-    // adapters.insert(entity, adapter);
-    // handlers.insert(entity, handler);
+    let state = AccessKitState::new(name, entity, accessibility_requested);
+    let activation_handler = WinitActivationHandler::new(Arc::clone(&state));
+
+    let action_request_handler = WinitActionRequestHandler::new();
+    let action_handler = WinitActionHandler::new(Arc::clone(&action_request_handler));
+    let deactivation_handler = WinitDeactivationHandler;
+
+    let adapter = Adapter::with_direct_handlers(
+        &winit_window,
+        activation_handler,
+        action_handler,
+        deactivation_handler,
+    );
+
+    adapters.insert(entity, adapter);
+    handlers.insert(entity, action_request_handler);
 }
 
 fn window_closed(
     mut adapters: NonSendMut<AccessKitAdapters>,
-    mut receivers: ResMut<WinitActionHandlers>,
+    mut handlers: ResMut<WinitActionRequestHandlers>,
     mut events: EventReader<WindowClosed>,
 ) {
     for WindowClosed { window, .. } in events.read() {
         adapters.remove(window);
-        receivers.remove(window);
+        handlers.remove(window);
     }
 }
 
 fn poll_receivers(
-    handlers: Res<WinitActionHandlers>,
+    handlers: Res<WinitActionRequestHandlers>,
     mut actions: EventWriter<ActionRequestWrapper>,
 ) {
     for (_id, handler) in handlers.iter() {
@@ -252,7 +286,7 @@ pub struct AccessKitPlugin;
 impl Plugin for AccessKitPlugin {
     fn build(&self, app: &mut App) {
         app.init_non_send_resource::<AccessKitAdapters>()
-            .init_resource::<WinitActionHandlers>()
+            .init_resource::<WinitActionRequestHandlers>()
             .add_event::<ActionRequestWrapper>()
             .add_systems(
                 PostUpdate,

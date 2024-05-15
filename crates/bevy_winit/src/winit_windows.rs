@@ -7,10 +7,15 @@ use bevy_window::{
     CursorGrabMode, Window, WindowMode, WindowPosition, WindowResolution, WindowWrapper,
 };
 
-use winit::{dpi::{LogicalSize, PhysicalPosition}, monitor::MonitorHandle};
+use winit::{
+    dpi::{LogicalSize, PhysicalPosition},
+    monitor::MonitorHandle,
+};
 
 use crate::{
-    accessibility::{prepare_accessibility_for_window, AccessKitAdapters, WinitActionHandlers},
+    accessibility::{
+        prepare_accessibility_for_window, AccessKitAdapters, WinitActionRequestHandlers,
+    },
     converters::{convert_enabled_buttons, convert_window_level, convert_window_theme},
 };
 
@@ -38,7 +43,7 @@ impl WinitWindows {
         entity: Entity,
         window: &Window,
         adapters: &mut AccessKitAdapters,
-        handlers: &mut WinitActionHandlers,
+        handlers: &mut WinitActionRequestHandlers,
         accessibility_requested: &AccessibilityRequested,
     ) -> &WindowWrapper<winit::window::Window> {
         let mut winit_window_attributes = winit::window::Window::default_attributes();
@@ -83,7 +88,8 @@ impl WinitWindows {
 
                 let logical_size = LogicalSize::new(window.width(), window.height());
                 if let Some(sf) = window.resolution.scale_factor_override() {
-                    winit_window_attributes.with_inner_size(logical_size.to_physical::<f64>(sf.into()))
+                    winit_window_attributes
+                        .with_inner_size(logical_size.to_physical::<f64>(sf.into()))
                 } else {
                     winit_window_attributes.with_inner_size(logical_size)
                 }
@@ -102,7 +108,8 @@ impl WinitWindows {
         #[cfg(target_os = "windows")]
         {
             use winit::platform::windows::WindowBuilderExtWindows;
-            winit_window_attributes = winit_window_attributes.with_skip_taskbar(window.skip_taskbar);
+            winit_window_attributes =
+                winit_window_attributes.with_skip_taskbar(window.skip_taskbar);
         }
 
         #[cfg(any(
@@ -125,11 +132,12 @@ impl WinitWindows {
                 )
             ))]
             {
-                winit_window_attributes = winit::platform::wayland::WindowBuilderExtWayland::with_name(
-                    winit_window_attributes,
-                    name.clone(),
-                    "",
-                );
+                winit_window_attributes =
+                    winit::platform::wayland::WindowBuilderExtWayland::with_name(
+                        winit_window_attributes,
+                        name.clone(),
+                        "",
+                    );
             }
 
             #[cfg(all(
