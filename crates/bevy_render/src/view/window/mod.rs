@@ -12,9 +12,10 @@ use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_utils::warn_once;
 use bevy_utils::{default, tracing::debug, HashSet};
 use bevy_window::{
-    CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
+    CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosing,
 };
 use std::{
+    num::NonZeroU32,
     ops::{Deref, DerefMut},
     sync::PoisonError,
 };
@@ -66,6 +67,7 @@ pub struct ExtractedWindow {
     pub physical_width: u32,
     pub physical_height: u32,
     pub present_mode: PresentMode,
+    pub desired_maximum_frame_latency: Option<NonZeroU32>,
     /// Note: this will not always be the swap chain texture view. When taking a screenshot,
     /// this will point to an alternative texture instead to allow for copying the render result
     /// to CPU memory.
@@ -115,7 +117,7 @@ impl DerefMut for ExtractedWindows {
 fn extract_windows(
     mut extracted_windows: ResMut<ExtractedWindows>,
     screenshot_manager: Extract<Res<ScreenshotManager>>,
-    mut closed: Extract<EventReader<WindowClosed>>,
+    mut closing: Extract<EventReader<WindowClosing>>,
     windows: Extract<Query<(Entity, &Window, &RawHandleWrapper, Option<&PrimaryWindow>)>>,
     mut removed: Extract<RemovedComponents<RawHandleWrapper>>,
     mut window_surfaces: ResMut<WindowSurfaces>,
@@ -136,6 +138,7 @@ fn extract_windows(
             physical_width: new_width,
             physical_height: new_height,
             present_mode: window.present_mode,
+            desired_maximum_frame_latency: window.desired_maximum_frame_latency,
             swap_chain_texture: None,
             swap_chain_texture_view: None,
             size_changed: false,
@@ -174,9 +177,9 @@ fn extract_windows(
         }
     }
 
-    for closed_window in closed.read() {
-        extracted_windows.remove(&closed_window.window);
-        window_surfaces.remove(&closed_window.window);
+    for closing_window in closing.read() {
+        extracted_windows.remove(&closing_window.window);
+        window_surfaces.remove(&closing_window.window);
     }
     for removed_window in removed.read() {
         extracted_windows.remove(&removed_window);
@@ -429,6 +432,12 @@ pub fn need_surface_configuration(
     false
 }
 
+// 2 is wgpu's default/what we've been using so far.
+// 1 is the minimum, but may cause lower framerates due to the cpu waiting for the gpu to finish
+// all work for the previous frame before starting work on the next frame, which then means the gpu
+// has to wait for the cpu to finish to start on the next frame.
+const DEFAULT_DESIRED_MAXIMUM_FRAME_LATENCY: u32 = 2;
+
 /// Creates window surfaces.
 pub fn create_surfaces(
     // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
@@ -488,12 +497,10 @@ pub fn create_surfaces(
                         PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
                         PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
                     },
-                    // TODO: Expose this as a setting somewhere
-                    // 2 is wgpu's default/what we've been using so far.
-                    // 1 is the minimum, but may cause lower framerates due to the cpu waiting for the gpu to finish
-                    // all work for the previous frame before starting work on the next frame, which then means the gpu
-                    // has to wait for the cpu to finish to start on the next frame.
-                    desired_maximum_frame_latency: 2,
+                    desired_maximum_frame_latency: window
+                        .desired_maximum_frame_latency
+                        .map(NonZeroU32::get)
+                        .unwrap_or(DEFAULT_DESIRED_MAXIMUM_FRAME_LATENCY),
                     alpha_mode: match window.alpha_mode {
                         CompositeAlphaMode::Auto => wgpu::CompositeAlphaMode::Auto,
                         CompositeAlphaMode::Opaque => wgpu::CompositeAlphaMode::Opaque,

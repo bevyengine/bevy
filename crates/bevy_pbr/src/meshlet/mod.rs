@@ -30,12 +30,11 @@ pub(crate) use self::{
     },
 };
 
-pub use self::asset::{Meshlet, MeshletBoundingSphere, MeshletMesh};
+pub use self::asset::*;
 #[cfg(feature = "meshlet_processor")]
 pub use self::from_mesh::MeshToMeshletMeshConversionError;
 
 use self::{
-    asset::MeshletMeshSaverLoad,
     gpu_scene::{
         extract_meshlet_meshes, perform_pending_meshlet_mesh_writes,
         prepare_meshlet_per_frame_resources, prepare_meshlet_view_bind_groups,
@@ -50,8 +49,8 @@ use self::{
     },
     pipelines::{
         MeshletPipelines, MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE, MESHLET_CULLING_SHADER_HANDLE,
-        MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE, MESHLET_VISIBILITY_BUFFER_RASTER_SHADER_HANDLE,
-        MESHLET_WRITE_INDEX_BUFFER_SHADER_HANDLE,
+        MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE, MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE,
+        MESHLET_VISIBILITY_BUFFER_RASTER_SHADER_HANDLE,
     },
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
@@ -76,6 +75,8 @@ use bevy_ecs::{
 use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{Shader, TextureUsages},
+    renderer::RenderDevice,
+    settings::WgpuFeatures,
     view::{
         check_visibility, prepare_view_targets, InheritedVisibility, Msaa, ViewVisibility,
         Visibility, VisibilitySystems,
@@ -83,7 +84,6 @@ use bevy_render::{
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_transform::TransformSystem;
 
 const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1325134235233421);
 const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
@@ -100,6 +100,7 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 /// Additionally, occlusion culling can eliminate meshlets that would cause overdraw.
 /// * Much more efficient batching. All geometry can be rasterized in a single indirect draw.
 /// * Scales better with large amounts of dense geometry and overdraw. Bevy's standard renderer will bottleneck sooner.
+/// * Near-seamless level of detail (LOD).
 /// * Much greater base overhead. Rendering will be slower than Bevy's standard renderer with small amounts of geometry and overdraw.
 /// * Much greater memory usage.
 /// * Requires preprocessing meshes. See [`MeshletMesh`] for details.
@@ -107,9 +108,9 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 ///
 /// This plugin is not compatible with [`Msaa`], and adding this plugin will disable it.
 ///
-/// This plugin does not work on the WebGL2 backend.
+/// This plugin does not work on WASM.
 ///
-/// ![A render of the Stanford dragon as a `MeshletMesh`](https://raw.githubusercontent.com/bevyengine/bevy/meshlet/crates/bevy_pbr/src/meshlet/meshlet_preview.png)
+/// ![A render of the Stanford dragon as a `MeshletMesh`](https://raw.githubusercontent.com/bevyengine/bevy/main/crates/bevy_pbr/src/meshlet/meshlet_preview.png)
 pub struct MeshletPlugin;
 
 impl Plugin for MeshletPlugin {
@@ -128,14 +129,14 @@ impl Plugin for MeshletPlugin {
         );
         load_internal_asset!(
             app,
-            MESHLET_CULLING_SHADER_HANDLE,
-            "cull_meshlets.wgsl",
+            MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE,
+            "fill_cluster_buffers.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
-            MESHLET_WRITE_INDEX_BUFFER_SHADER_HANDLE,
-            "write_index_buffer.wgsl",
+            MESHLET_CULLING_SHADER_HANDLE,
+            "cull_meshlets.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
@@ -168,14 +169,7 @@ impl Plugin for MeshletPlugin {
             .insert_resource(Msaa::Off)
             .add_systems(
                 PostUpdate,
-                check_visibility::<WithMeshletMesh>
-                    .in_set(VisibilitySystems::CheckVisibility)
-                    .after(VisibilitySystems::CalculateBounds)
-                    .after(VisibilitySystems::UpdateOrthographicFrusta)
-                    .after(VisibilitySystems::UpdatePerspectiveFrusta)
-                    .after(VisibilitySystems::UpdateProjectionFrusta)
-                    .after(VisibilitySystems::VisibilityPropagate)
-                    .after(TransformSystem::TransformPropagate),
+                check_visibility::<WithMeshletMesh>.in_set(VisibilitySystems::CheckVisibility),
             );
     }
 
@@ -183,6 +177,15 @@ impl Plugin for MeshletPlugin {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+
+        if !render_app
+            .world()
+            .resource::<RenderDevice>()
+            .features()
+            .contains(WgpuFeatures::PUSH_CONSTANTS)
+        {
+            panic!("MeshletPlugin can't be used. GPU lacks support: WgpuFeatures::PUSH_CONSTANTS is not supported.");
+        }
 
         render_app
             .add_render_graph_node::<MeshletVisibilityBufferRasterPassNode>(
@@ -204,17 +207,18 @@ impl Plugin for MeshletPlugin {
             .add_render_graph_edges(
                 Core3d,
                 (
-                    NodeMeshlet::VisibilityBufferRasterPass,
+                    // TODO: Meshlet VisibilityBufferRaster should be after main pass when not using depth prepass
                     NodePbr::ShadowPass,
-                    NodeMeshlet::Prepass,
-                    NodeMeshlet::DeferredPrepass,
                     Node3d::Prepass,
                     Node3d::DeferredPrepass,
+                    NodeMeshlet::VisibilityBufferRasterPass,
+                    NodeMeshlet::Prepass,
+                    NodeMeshlet::DeferredPrepass,
                     Node3d::CopyDeferredLightingId,
                     Node3d::EndPrepasses,
                     Node3d::StartMainPass,
-                    NodeMeshlet::MainOpaquePass,
                     Node3d::MainOpaquePass,
+                    NodeMeshlet::MainOpaquePass,
                     Node3d::EndMainPass,
                 ),
             )
@@ -290,6 +294,7 @@ fn configure_meshlet_views(
                 .entity(entity)
                 .insert(MeshletViewMaterialsMainOpaquePass::default());
         } else {
+            // TODO: Should we add both Prepass and DeferredGBufferPrepass materials here, and in other systems/nodes?
             commands.entity(entity).insert((
                 MeshletViewMaterialsMainOpaquePass::default(),
                 MeshletViewMaterialsPrepass::default(),

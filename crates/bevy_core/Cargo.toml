@@ -32,6 +32,7 @@ serialize = ["dep:serde"]
 
 [dev-dependencies]
 crossbeam-channel = "0.5.0"
+serde_test = "1.0"
 
 [lints]
 workspace = true

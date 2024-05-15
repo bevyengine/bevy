@@ -1,0 +1,14 @@
+error[E0499]: cannot borrow `query` as mutable more than once at a time
+  --> tests/ui/system_query_get_lifetime_safety.rs:8:14
+   |
+7  |     let a1 = query.get_mut(e).unwrap();
+   |              ----- first mutable borrow occurs here
+8  |     let a2 = query.get_mut(e).unwrap();
+   |              ^^^^^ second mutable borrow occurs here
+9  |
+10 |     println!("{} {}", a1.0, a2.0);
+   |                       -- first borrow later used here
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0499`.

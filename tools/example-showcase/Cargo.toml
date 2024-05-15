@@ -1,11 +1,9 @@
 [package]
 name = "example-showcase"
-version = "0.14.0-dev"
 edition = "2021"
-description = "Run examples"
+description = "Tool for running examples or generating a showcase page for the website."
 publish = false
 license = "MIT OR Apache-2.0"
-
 
 [dependencies]
 xshell = "0.2"
