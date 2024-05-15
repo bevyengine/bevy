@@ -2802,6 +2802,17 @@ category = "Window"
 wasm = true
 
 [[example]]
+name = "custom_user_event"
+path = "examples/window/custom_user_event.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_user_event]
+name = "Custom User Event"
+description = "Handles custom user events within the event loop"
+category = "Window"
+wasm = true
+
+[[example]]
 name = "low_power"
 path = "examples/window/low_power.rs"
 doc-scrape-examples = true
