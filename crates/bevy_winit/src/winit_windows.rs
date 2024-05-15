@@ -107,7 +107,7 @@ impl WinitWindows {
 
         #[cfg(target_os = "windows")]
         {
-            use winit::platform::windows::WindowBuilderExtWindows;
+            use winit::platform::windows::WindowAttributesExtWindows;
             winit_window_attributes =
                 winit_window_attributes.with_skip_taskbar(window.skip_taskbar);
         }
@@ -133,7 +133,7 @@ impl WinitWindows {
             ))]
             {
                 winit_window_attributes =
-                    winit::platform::wayland::WindowBuilderExtWayland::with_name(
+                    winit::platform::wayland::WindowAttributesExtWayland::with_name(
                         winit_window_attributes,
                         name.clone(),
                         "",
@@ -151,7 +151,7 @@ impl WinitWindows {
                 )
             ))]
             {
-                winit_window_attributes = winit::platform::x11::WindowBuilderExtX11::with_name(
+                winit_window_attributes = winit::platform::x11::WindowAttributesExtX11::with_name(
                     winit_window_attributes,
                     name.clone(),
                     "",
@@ -160,7 +160,7 @@ impl WinitWindows {
             #[cfg(target_os = "windows")]
             {
                 winit_window_attributes =
-                    winit::platform::windows::WindowBuilderExtWindows::with_class_name(
+                    winit::platform::windows::WindowAttributesExtWindows::with_class_name(
                         winit_window_attributes,
                         name.clone(),
                     );
