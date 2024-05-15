@@ -895,6 +895,7 @@ impl DepthOfFieldPipelines {
 /// disable depth of field entirely on WebGL 2.
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = false;
+
 /// Returns true if multisampled depth textures are supported on this platform.
 ///
 /// In theory, Naga supports depth textures on WebGL 2. In practice, it doesn't,
