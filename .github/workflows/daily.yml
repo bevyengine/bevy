@@ -53,7 +53,7 @@ jobs:
         run: cargo install --force cargo-ndk
 
       - name: Build .so file
-        run: ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build --release --package bevy_mobile_example
+        run: cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build --release --package bevy_mobile_example
         env: 
           # This will reduce the APK size from 1GB to ~200MB
           CARGO_PROFILE_DEV_DEBUG: false
