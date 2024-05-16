@@ -213,6 +213,7 @@ pub enum NewRenderResource<'g, R: FromDescriptorRenderResource> {
     Resource(Option<R::Descriptor>, RefEq<'g, R>),
 }
 
+#[allow(clippy::type_complexity)]
 pub struct RenderResources<'g, R: DescribedRenderResource> {
     resources: HashMap<RenderResourceId, RenderResourceMeta<'g, R>>,
     existing_resources: HashMap<RefEq<'g, R>, RenderResourceId>,

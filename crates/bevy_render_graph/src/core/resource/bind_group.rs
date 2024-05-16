@@ -20,7 +20,7 @@ use crate::core::{Label, NodeContext, RenderGraph, RenderGraphBuilder};
 use super::{
     ref_eq::RefEq, DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource,
     RenderDependencies, RenderHandle, RenderResource, RenderResourceId, ResourceTracker,
-    ResourceType,
+    ResourceType, WriteRenderResource,
 };
 
 impl RenderResource for BindGroupLayout {
@@ -303,7 +303,7 @@ fn make_bind_group<'n>(
         )
         .collect();
 
-    render_device.create_bind_group(label, raw_layout, &raw_entries)
+    render_device.create_bind_group(label.as_deref(), raw_layout, &raw_entries)
 }
 
 pub struct RenderGraphBindGroupDescriptor<'g> {
@@ -311,7 +311,7 @@ pub struct RenderGraphBindGroupDescriptor<'g> {
     pub layout: RenderHandle<'g, BindGroupLayout>,
     ///Note: This is not ideal, since we would like to create the dependencies automatically from
     ///the binding list. This isn't possible currently because we'd have to dereference a bind
-    ///group layout possibly before it's created. Possible solutions: leave as is, or add Layout information to each entry
+    ///group layout possibly before it's created. Possible solutions: leave as is, or add Layout information to each entr
     ///so we can infer read/write usage for each binding and maybe create the layout automatically
     ///as well. That might be too verbose though.
     pub dependencies: RenderDependencies<'g>,
@@ -358,6 +358,8 @@ impl RenderResource for BindGroup {
         context.get_bind_group(resource)
     }
 }
+
+impl WriteRenderResource for BindGroup {}
 
 impl<'g> IntoRenderResource<'g> for RenderGraphBindGroupDescriptor<'g> {
     type Resource = BindGroup;

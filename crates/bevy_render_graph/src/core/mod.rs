@@ -3,7 +3,7 @@ pub(crate) mod setup;
 
 pub use setup::RenderGraphSetup;
 
-use std::mem;
+use std::{borrow::Cow, mem};
 
 use bevy_ecs::{system::Resource, world::World};
 use bevy_render::{
@@ -31,7 +31,7 @@ use self::resource::{
     RenderResourceId, ResourceTracker, UsagesRenderResource,
 };
 
-pub type Label<'a> = Option<&'a str>;
+pub type Label<'a> = Option<Cow<'a, str>>;
 
 #[derive(Resource, Default)]
 struct RenderGraphCachedResources {
@@ -58,6 +58,7 @@ struct Node<'g> {
     runner: NodeRunner<'g>,
 }
 
+#[allow(clippy::type_complexity)]
 enum NodeRunner<'g> {
     Raw(Box<dyn FnOnce(NodeContext, &RenderDevice, &RenderQueue, &mut CommandEncoder) + 'g>),
     //todo: possibility of auto-merging render passes?
@@ -106,6 +107,7 @@ impl<'g> RenderGraph<'g> {
                     dependencies,
                     // entity: entity_ref,
                 };
+
                 match runner {
                     NodeRunner::Raw(f) => (f)(context, render_device, render_queue, &mut encoder),
                     // NodeRunner::Render(f) => {
@@ -113,7 +115,7 @@ impl<'g> RenderGraph<'g> {
                     // },
                     NodeRunner::Compute(f) => {
                         let mut compute_pass = encoder.begin_compute_pass(&ComputePassDescriptor {
-                            label,
+                            label: label.as_deref(),
                             timestamp_writes: None,
                         });
                         (f)(&context, &mut compute_pass);
