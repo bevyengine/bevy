@@ -3,18 +3,16 @@
 
 use std::fmt;
 
-use bevy::{prelude::*, render::render_resource::TextureFormat};
+use bevy::{prelude::*, render::texture::ImageLoaderSettings};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(Normal(None))
         .add_systems(Startup, setup)
         .add_systems(
             Update,
             (
                 spin,
-                update_normal,
                 move_camera,
                 update_parallax_depth_scale,
                 update_parallax_layers,
@@ -200,14 +198,15 @@ fn setup(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut normal: ResMut<Normal>,
     asset_server: Res<AssetServer>,
 ) {
     // The normal map. Note that to generate it in the GIMP image editor, you should
     // open the depth map, and do Filters → Generic → Normal Map
     // You should enable the "flip X" checkbox.
-    let normal_handle = asset_server.load("textures/parallax_example/cube_normal.png");
-    normal.0 = Some(normal_handle);
+    let normal_handle = asset_server.load_with_settings(
+        "textures/parallax_example/cube_normal.png",
+        |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
+    );
 
     // Camera
     commands.spawn((
@@ -254,7 +253,7 @@ fn setup(
     let parallax_material = materials.add(StandardMaterial {
         perceptual_roughness: 0.4,
         base_color_texture: Some(asset_server.load("textures/parallax_example/cube_color.png")),
-        normal_map_texture: normal.0.clone(),
+        normal_map_texture: Some(normal_handle),
         // The depth map is a greyscale texture where black is the highest level and
         // white the lowest.
         depth_map: Some(asset_server.load("textures/parallax_example/cube_depth.png")),
@@ -334,39 +333,4 @@ fn setup(
             ..default()
         }),
     );
-}
-
-/// Store handle of the normal to later modify its format in [`update_normal`].
-#[derive(Resource)]
-struct Normal(Option<Handle<Image>>);
-
-/// Work around the default bevy image loader.
-///
-/// The bevy image loader used by `AssetServer` always loads images in
-/// `Srgb` mode, which is usually what it should do,
-/// but is incompatible with normal maps.
-///
-/// Normal maps require a texture in linear color space,
-/// so we overwrite the format of the normal map we loaded through `AssetServer`
-/// in this system.
-///
-/// Note that this method of conversion is a last resort workaround. You should
-/// get your normal maps from a 3d model file, like gltf.
-///
-/// In this system, we wait until the image is loaded, immediately
-/// change its format and never run the logic afterward.
-fn update_normal(
-    mut already_ran: Local<bool>,
-    mut images: ResMut<Assets<Image>>,
-    normal: Res<Normal>,
-) {
-    if *already_ran {
-        return;
-    }
-    if let Some(normal) = normal.0.as_ref() {
-        if let Some(image) = images.get_mut(normal) {
-            image.texture_descriptor.format = TextureFormat::Rgba8Unorm;
-            *already_ran = true;
-        }
-    }
 }

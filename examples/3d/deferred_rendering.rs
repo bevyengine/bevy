@@ -12,7 +12,7 @@ use bevy::{
         NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
     },
     prelude::*,
-    render::render_resource::TextureFormat,
+    render::texture::ImageLoaderSettings,
 };
 
 fn main() {
@@ -21,13 +21,9 @@ fn main() {
         .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins(DefaultPlugins)
-        .insert_resource(Normal(None))
         .insert_resource(Pause(true))
         .add_systems(Startup, (setup, setup_parallax))
-        .add_systems(
-            Update,
-            (animate_light_direction, switch_mode, spin, update_normal),
-        )
+        .add_systems(Update, (animate_light_direction, switch_mode, spin))
         .run();
 }
 
@@ -244,14 +240,15 @@ fn setup_parallax(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut normal: ResMut<Normal>,
     asset_server: Res<AssetServer>,
 ) {
     // The normal map. Note that to generate it in the GIMP image editor, you should
     // open the depth map, and do Filters → Generic → Normal Map
     // You should enable the "flip X" checkbox.
-    let normal_handle = asset_server.load("textures/parallax_example/cube_normal.png");
-    normal.0 = Some(normal_handle);
+    let normal_handle = asset_server.load_with_settings(
+        "textures/parallax_example/cube_normal.png",
+        |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
+    );
 
     let mut cube = Mesh::from(Cuboid::new(0.15, 0.15, 0.15));
 
@@ -262,7 +259,7 @@ fn setup_parallax(
     let parallax_material = materials.add(StandardMaterial {
         perceptual_roughness: 0.4,
         base_color_texture: Some(asset_server.load("textures/parallax_example/cube_color.png")),
-        normal_map_texture: normal.0.clone(),
+        normal_map_texture: Some(normal_handle),
         // The depth map is a greyscale texture where black is the highest level and
         // white the lowest.
         depth_map: Some(asset_server.load("textures/parallax_example/cube_depth.png")),
@@ -281,28 +278,6 @@ fn setup_parallax(
         Spin { speed: 0.3 },
     ));
 }
-
-/// Store handle of the normal to later modify its format in [`update_normal`].
-#[derive(Resource)]
-struct Normal(Option<Handle<Image>>);
-
-// See `examples/3d/parallax_mapping.rs` example for reasoning
-fn update_normal(
-    mut already_ran: Local<bool>,
-    mut images: ResMut<Assets<Image>>,
-    normal: Res<Normal>,
-) {
-    if *already_ran {
-        return;
-    }
-    if let Some(normal) = normal.0.as_ref() {
-        if let Some(image) = images.get_mut(normal) {
-            image.texture_descriptor.format = TextureFormat::Rgba8Unorm;
-            *already_ran = true;
-        }
-    }
-}
-
 #[derive(Component)]
 struct Spin {
     speed: f32,
