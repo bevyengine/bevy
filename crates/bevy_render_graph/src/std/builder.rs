@@ -17,7 +17,7 @@ pub struct BindGroupBuilder<'b, 'g: 'b> {
     label: Label<'g>,
     shader_stages: ShaderStages,
     layout: Vec<BindGroupLayoutEntry>,
-    bindings: Vec<RenderGraphBindGroupEntry<'g>>,
+    entries: Vec<RenderGraphBindGroupEntry<'g>>,
     dependencies: RenderDependencies<'g>,
 }
 
@@ -32,7 +32,7 @@ impl<'b, 'g: 'b> BindGroupBuilder<'b, 'g> {
             label,
             shader_stages,
             layout: Vec::new(),
-            bindings: Vec::new(),
+            entries: Vec::new(),
             dependencies: RenderDependencies::new(),
         }
     }
@@ -49,8 +49,8 @@ impl<'b, 'g: 'b> BindGroupBuilder<'b, 'g> {
             ty: BindingType::Sampler(descriptor.binding_type()),
             count: None,
         });
-        self.bindings.push(RenderGraphBindGroupEntry {
-            binding: self.bindings.len() as u32,
+        self.entries.push(RenderGraphBindGroupEntry {
+            binding: self.entries.len() as u32,
             resource: RenderGraphBindingResource::Sampler(sampler),
         });
         self.dependencies.read(sampler);
@@ -96,7 +96,9 @@ impl<'b, 'g: 'b> BindGroupBuilder<'b, 'g> {
             label: self.label,
             layout,
             dependencies: self.dependencies,
-            bindings: self.bindings,
+            entries: self.entries,
         })
     }
 }
+
+pub struct ComputePass {}

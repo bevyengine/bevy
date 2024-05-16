@@ -159,7 +159,7 @@ impl<'g> RenderGraphBindGroups<'g> {
                 label,
                 layout,
                 dependencies,
-                mut bindings,
+                entries,
             },
         ) in self.queued_bind_groups.drain()
         {
@@ -170,9 +170,8 @@ impl<'g> RenderGraphBindGroups<'g> {
                 // entity: view_entity,
             };
 
-            bindings.sort_by_key(|entry| entry.binding);
             let bind_group = bind_group_cache
-                .entry(bindings)
+                .entry(entries)
                 .or_insert_with_key(|bindings| {
                     make_bind_group(context, render_device, label, layout, bindings)
                 });
@@ -316,7 +315,7 @@ pub struct RenderGraphBindGroupDescriptor<'g> {
     ///so we can infer read/write usage for each binding and maybe create the layout automatically
     ///as well. That might be too verbose though.
     pub dependencies: RenderDependencies<'g>,
-    pub bindings: Vec<RenderGraphBindGroupEntry<'g>>,
+    pub entries: Vec<RenderGraphBindGroupEntry<'g>>,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]

@@ -359,8 +359,9 @@ impl<'g> RenderGraphBuilder<'g> {
     #[inline]
     fn new_bind_group_layout_descriptor(
         &mut self,
-        descriptor: Vec<BindGroupLayoutEntry>,
+        mut descriptor: Vec<BindGroupLayoutEntry>,
     ) -> RenderHandle<'g, BindGroupLayout> {
+        descriptor.sort_by_key(|entry| entry.binding);
         let id = self
             .graph
             .bind_group_layouts
@@ -397,8 +398,9 @@ impl<'g> RenderGraphBuilder<'g> {
     #[inline]
     fn new_bind_group_descriptor(
         &mut self,
-        descriptor: RenderGraphBindGroupDescriptor<'g>,
+        mut descriptor: RenderGraphBindGroupDescriptor<'g>,
     ) -> RenderHandle<'g, BindGroup> {
+        descriptor.entries.sort_by_key(|entry| entry.binding);
         let id = self
             .graph
             .bind_groups
