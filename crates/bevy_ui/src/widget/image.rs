@@ -108,9 +108,12 @@ pub fn update_image_content_size_system(
                     // multiply the image size by the scale factor to get the physical size
                     size: size.as_vec2() * combined_scale_factor,
                 }));
+                // Image should keep its proportions even if no width or height is specified in its style
                 if let Some(mut style) = style {
-                    let Vec2 { x, y } = size.as_vec2();
-                    style.aspect_ratio = Some(x / y);
+                    if style.aspect_ratio.is_none() {
+                        let Vec2 { x, y } = size.as_vec2();
+                        style.aspect_ratio = Some(x / y);
+                    }
                 }
             }
         }
