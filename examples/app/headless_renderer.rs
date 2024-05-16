@@ -492,6 +492,7 @@ fn update(
                     // Fill correct data from channel to image
                     let img_bytes = images.get_mut(image.id()).unwrap();
 
+                    // We need to ensure that this works regardless of the image dimensions
                     let row_bytes = img_bytes.width() as usize
                         * img_bytes.texture_descriptor.format.pixel_size();
                     let aligned_row_bytes = RenderDevice::align_copy_bytes_per_row(row_bytes);
