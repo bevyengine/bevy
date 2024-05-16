@@ -1,5 +1,5 @@
 use std::{
-    borrow::Borrow,
+    borrow::{Borrow, Cow},
     hash::Hash,
     ops::{Deref, Range},
 };
@@ -18,9 +18,9 @@ use bevy_render::{
 use crate::core::{Label, NodeContext, RenderGraph, RenderGraphBuilder};
 
 use super::{
-    ref_eq::RefEq, DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource,
-    RenderDependencies, RenderHandle, RenderResource, RenderResourceId, ResourceTracker,
-    ResourceType, WriteRenderResource,
+    DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource, RenderDependencies,
+    RenderHandle, RenderResource, RenderResourceId, ResourceTracker, ResourceType,
+    WriteRenderResource,
 };
 
 impl RenderResource for BindGroupLayout {
@@ -28,7 +28,7 @@ impl RenderResource for BindGroupLayout {
 
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,
-        resource: RefEq<'g, Self>,
+        resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self> {
         graph.new_bind_group_layout_direct(None, resource)
     }
@@ -47,7 +47,7 @@ impl DescribedRenderResource for BindGroupLayout {
     fn new_with_descriptor<'g>(
         graph: &mut RenderGraphBuilder<'g>,
         descriptor: Self::Descriptor,
-        resource: RefEq<'g, Self>,
+        resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self> {
         graph.new_bind_group_layout_direct(Some(descriptor), resource)
     }
@@ -97,13 +97,13 @@ impl<'g> IntoRenderResource<'g> for &[BindGroupLayoutEntry] {
 #[derive(Default)]
 pub struct RenderGraphBindGroups<'g> {
     bind_groups: HashMap<RenderResourceId, RenderGraphBindGroupMeta<'g>>,
-    existing_bind_groups: HashMap<RefEq<'g, BindGroup>, RenderResourceId>,
+    existing_bind_groups: HashMap<Cow<'g, BindGroup>, RenderResourceId>,
     queued_bind_groups: HashMap<RenderResourceId, RenderGraphBindGroupDescriptor<'g>>,
 }
 
 struct RenderGraphBindGroupMeta<'g> {
     layout: Option<RenderHandle<'g, BindGroupLayout>>,
-    bind_group: RefEq<'g, BindGroup>,
+    bind_group: Cow<'g, BindGroup>,
 }
 
 impl<'g> RenderGraphBindGroups<'g> {
@@ -116,7 +116,7 @@ impl<'g> RenderGraphBindGroups<'g> {
         tracker: &mut ResourceTracker<'g>,
         mut dependencies: RenderDependencies<'g>,
         layout: Option<RenderHandle<'g, BindGroupLayout>>,
-        bind_group: RefEq<'g, BindGroup>,
+        bind_group: Cow<'g, BindGroup>,
     ) -> RenderResourceId {
         self.existing_bind_groups
             .get(&bind_group)
@@ -179,7 +179,7 @@ impl<'g> RenderGraphBindGroups<'g> {
                 id,
                 RenderGraphBindGroupMeta {
                     layout: Some(layout),
-                    bind_group: RefEq::Owned(bind_group.clone()),
+                    bind_group: Cow::Owned(bind_group.clone()),
                 },
             );
         }
@@ -346,7 +346,7 @@ impl RenderResource for BindGroup {
 
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,
-        resource: RefEq<'g, Self>,
+        resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self> {
         graph.new_bind_group_direct(Default::default(), None, resource)
     }

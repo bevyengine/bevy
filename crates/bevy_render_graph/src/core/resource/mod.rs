@@ -1,18 +1,20 @@
-use std::{borrow::Borrow, collections::VecDeque, fmt::Debug, marker::PhantomData};
+use std::{
+    borrow::{Borrow, Cow},
+    collections::VecDeque,
+    fmt::Debug,
+    marker::PhantomData,
+};
 
 use bevy_utils::{HashMap, HashSet};
 use std::hash::Hash;
 
 use bevy_render::{render_resource::PipelineCache, renderer::RenderDevice};
 
-use self::ref_eq::RefEq;
-
 use super::{NodeContext, RenderGraph, RenderGraphBuilder};
 
 pub mod bind_group;
 pub mod buffer;
 pub mod pipeline;
-pub(crate) mod ref_eq; //make pub?
 pub mod texture;
 
 #[derive(Default)]
@@ -141,12 +143,12 @@ impl<'g> ResourceTracker<'g> {
     }
 }
 
-pub trait RenderResource: Sized + Send + Sync + 'static {
+pub trait RenderResource: Sized + Send + Sync + Clone + 'static {
     const RESOURCE_TYPE: ResourceType;
 
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,
-        resource: RefEq<'g, Self>,
+        resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self>;
 
     fn get_from_store<'a>(
@@ -163,7 +165,7 @@ pub trait DescribedRenderResource: RenderResource {
     fn new_with_descriptor<'g>(
         graph: &mut RenderGraphBuilder<'g>,
         descriptor: Self::Descriptor,
-        resource: RefEq<'g, Self>,
+        resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self>;
 
     fn get_descriptor<'a, 'g: 'a>(
@@ -193,7 +195,7 @@ pub trait UsagesRenderResource: DescribedRenderResource {
 
 struct RenderResourceMeta<'g, R: DescribedRenderResource> {
     pub descriptor: Option<R::Descriptor>,
-    pub resource: RefEq<'g, R>,
+    pub resource: Cow<'g, R>,
 }
 
 impl<'g, R: DescribedRenderResource + Clone> Clone for RenderResourceMeta<'g, R>
@@ -210,13 +212,13 @@ where
 
 pub enum NewRenderResource<'g, R: FromDescriptorRenderResource> {
     FromDescriptor(R::Descriptor),
-    Resource(Option<R::Descriptor>, RefEq<'g, R>),
+    Resource(Option<R::Descriptor>, Cow<'g, R>),
 }
 
 #[allow(clippy::type_complexity)]
 pub struct RenderResources<'g, R: DescribedRenderResource> {
     resources: HashMap<RenderResourceId, RenderResourceMeta<'g, R>>,
-    existing_resources: HashMap<RefEq<'g, R>, RenderResourceId>,
+    existing_resources: HashMap<Cow<'g, R>, RenderResourceId>,
     queued_resources: HashMap<RenderResourceId, R::Descriptor>,
     resource_factory: Box<dyn Fn(&RenderDevice, &R::Descriptor) -> R>,
 }
@@ -235,10 +237,10 @@ impl<'g, R: DescribedRenderResource> RenderResources<'g, R> {
         &mut self,
         tracker: &mut ResourceTracker,
         descriptor: Option<R::Descriptor>,
-        resource: RefEq<'g, R>,
+        resource: Cow<'g, R>,
     ) -> RenderResourceId
     where
-        RefEq<'g, R>: Clone + Hash + Eq,
+        Cow<'g, R>: Clone + Hash + Eq,
     {
         self.existing_resources
             .get(&resource)
@@ -274,7 +276,7 @@ impl<'g, R: DescribedRenderResource> RenderResources<'g, R> {
                 id,
                 RenderResourceMeta {
                     descriptor: Some(descriptor),
-                    resource: RefEq::Owned(resource),
+                    resource: Cow::Owned(resource),
                 },
             );
         }
@@ -305,7 +307,7 @@ impl<'g, R: DescribedRenderResource> RenderResources<'g, R> {
                     id,
                     RenderResourceMeta {
                         descriptor: Some(descriptor),
-                        resource: RefEq::Borrowed(resource),
+                        resource: Cow::Borrowed(resource),
                     },
                 );
             }
@@ -394,7 +396,7 @@ impl<'g, R: FromDescriptorRenderResource> IntoRenderResource<'g> for NewRenderRe
     }
 }
 
-impl<'g, R: RenderResource> IntoRenderResource<'g> for RefEq<'g, R> {
+impl<'g, R: RenderResource> IntoRenderResource<'g> for Cow<'g, R> {
     type Resource = R;
 
     fn into_render_resource(

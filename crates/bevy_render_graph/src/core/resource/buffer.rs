@@ -1,17 +1,19 @@
+use std::borrow::Cow;
+
 use bevy_render::render_resource::{Buffer, BufferDescriptor, BufferUsages};
 
 use crate::core::{NodeContext, RenderGraphBuilder};
 
 use super::{
-    ref_eq::RefEq, DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource,
-    RenderHandle, RenderResource, ResourceType, UsagesRenderResource, WriteRenderResource,
+    DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource, RenderHandle,
+    RenderResource, ResourceType, UsagesRenderResource, WriteRenderResource,
 };
 
 impl RenderResource for Buffer {
     const RESOURCE_TYPE: ResourceType = ResourceType::Buffer;
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,
-        resource: RefEq<'g, Self>,
+        resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self> {
         graph.new_buffer_direct(None, resource)
     }
@@ -32,7 +34,7 @@ impl DescribedRenderResource for Buffer {
     fn new_with_descriptor<'g>(
         graph: &mut RenderGraphBuilder<'g>,
         descriptor: Self::Descriptor,
-        resource: RefEq<'g, Self>,
+        resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self> {
         graph.new_buffer_direct(Some(descriptor), resource)
     }

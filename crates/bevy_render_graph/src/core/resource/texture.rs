@@ -1,7 +1,7 @@
 use bevy_ecs::world::World;
 use bevy_math::FloatOrd;
 use bevy_utils::HashMap;
-use std::borrow::Borrow;
+use std::borrow::{Borrow, Cow};
 use std::hash::Hash;
 
 use crate::core::{NodeContext, RenderGraph, RenderGraphBuilder};
@@ -12,7 +12,7 @@ use bevy_render::render_resource::{
 };
 
 use super::{
-    deps, ref_eq::RefEq, DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource,
+    deps, DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource,
     NewRenderResource, RenderHandle, RenderResource, RenderResourceId, RenderResourceMeta,
     ResourceTracker, ResourceType, UsagesRenderResource, WriteRenderResource,
 };
@@ -23,7 +23,7 @@ impl RenderResource for Texture {
     #[inline]
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,
-        resource: RefEq<'g, Self>,
+        resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self> {
         graph.new_texture_direct(None, resource)
     }
@@ -46,7 +46,7 @@ impl DescribedRenderResource for Texture {
     fn new_with_descriptor<'g>(
         graph: &mut RenderGraphBuilder<'g>,
         descriptor: Self::Descriptor,
-        resource: RefEq<'g, Self>,
+        resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self> {
         graph.new_texture_direct(Some(descriptor), resource)
     }
@@ -124,10 +124,10 @@ impl<'g> RenderGraphTextureViews<'g> {
         &mut self,
         tracker: &mut ResourceTracker,
         descriptor: Option<TextureViewDescriptor<'static>>,
-        resource: RefEq<'g, TextureView>,
+        resource: Cow<'g, TextureView>,
     ) -> RenderResourceId {
         match resource {
-            RefEq::Borrowed(texture_view) => {
+            Cow::Borrowed(texture_view) => {
                 if let Some(id) = self
                     .existing_borrows
                     .get(&(texture_view as *const TextureView))
@@ -139,7 +139,7 @@ impl<'g> RenderGraphTextureViews<'g> {
                         id,
                         RenderResourceMeta {
                             descriptor,
-                            resource: RefEq::Borrowed(texture_view),
+                            resource: Cow::Borrowed(texture_view),
                         },
                     );
                     self.existing_borrows
@@ -147,13 +147,13 @@ impl<'g> RenderGraphTextureViews<'g> {
                     id
                 }
             }
-            RefEq::Owned(texture_view) => {
+            Cow::Owned(texture_view) => {
                 let id = tracker.new_resource(ResourceType::TextureView, None);
                 self.texture_views.insert(
                     id,
                     RenderResourceMeta {
                         descriptor,
-                        resource: RefEq::Owned(texture_view),
+                        resource: Cow::Owned(texture_view),
                     },
                 );
                 id
@@ -190,7 +190,7 @@ impl<'g> RenderGraphTextureViews<'g> {
                 id,
                 RenderResourceMeta {
                     descriptor: Some(queued_view.descriptor),
-                    resource: RefEq::Owned(texture_view),
+                    resource: Cow::Owned(texture_view),
                 },
             );
         }
@@ -221,7 +221,7 @@ impl RenderResource for TextureView {
     #[inline]
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,
-        resource: RefEq<'g, Self>,
+        resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self> {
         graph.new_texture_view_direct(None, resource)
     }
@@ -244,7 +244,7 @@ impl DescribedRenderResource for TextureView {
     fn new_with_descriptor<'g>(
         graph: &mut RenderGraphBuilder<'g>,
         descriptor: Self::Descriptor,
-        resource: RefEq<'g, Self>,
+        resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self> {
         graph.new_texture_view_direct(Some(descriptor), resource)
     }
@@ -275,7 +275,7 @@ impl RenderResource for Sampler {
     #[inline]
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,
-        resource: RefEq<'g, Self>,
+        resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self> {
         graph.new_sampler_direct(None, resource)
     }
@@ -296,7 +296,7 @@ impl DescribedRenderResource for Sampler {
     fn new_with_descriptor<'g>(
         graph: &mut RenderGraphBuilder<'g>,
         descriptor: Self::Descriptor,
-        resource: RefEq<'g, Self>,
+        resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self> {
         graph.new_sampler_direct(Some(descriptor), resource)
     }

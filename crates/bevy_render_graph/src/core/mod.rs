@@ -25,7 +25,6 @@ use self::resource::{
         CachedRenderGraphPipelines, RenderGraphComputePipelineDescriptor, RenderGraphPipelines,
         RenderGraphRenderPipelineDescriptor,
     },
-    ref_eq::RefEq,
     texture::{RenderGraphSamplerDescriptor, RenderGraphTextureView, RenderGraphTextureViews},
     CachedResources, DescribedRenderResource, RenderDependencies, RenderResourceGeneration,
     RenderResourceId, ResourceTracker, UsagesRenderResource,
@@ -184,11 +183,11 @@ impl<'g> RenderGraphBuilder<'g> {
     }
 
     pub fn into_resource<R: RenderResource>(&mut self, resource: R) -> RenderHandle<'g, R> {
-        self.new_resource(RefEq::Owned(resource))
+        self.new_resource(Cow::Owned(resource))
     }
 
     pub fn as_resource<R: RenderResource>(&mut self, resource: &'g R) -> RenderHandle<'g, R> {
-        self.new_resource(RefEq::Borrowed(resource))
+        self.new_resource(Cow::Borrowed(resource))
     }
 
     pub fn get_descriptor<R: DescribedRenderResource>(
@@ -348,7 +347,7 @@ impl<'g> RenderGraphBuilder<'g> {
     fn new_bind_group_layout_direct(
         &mut self,
         descriptor: Option<Vec<BindGroupLayoutEntry>>,
-        bind_group_layout: RefEq<'g, BindGroupLayout>,
+        bind_group_layout: Cow<'g, BindGroupLayout>,
     ) -> RenderHandle<'g, BindGroupLayout> {
         let id = self.graph.bind_group_layouts.new_direct(
             &mut self.graph.resources,
@@ -386,7 +385,7 @@ impl<'g> RenderGraphBuilder<'g> {
         &mut self,
         dependencies: RenderDependencies<'g>,
         layout: Option<RenderHandle<'g, BindGroupLayout>>,
-        bind_group: RefEq<'g, BindGroup>,
+        bind_group: Cow<'g, BindGroup>,
     ) -> RenderHandle<'g, BindGroup> {
         let id = self.graph.bind_groups.new_direct(
             &mut self.graph.resources,
@@ -414,7 +413,7 @@ impl<'g> RenderGraphBuilder<'g> {
     fn new_texture_direct(
         &mut self,
         descriptor: Option<TextureDescriptor<'static>>,
-        texture: RefEq<'g, Texture>,
+        texture: Cow<'g, Texture>,
     ) -> RenderHandle<'g, Texture> {
         let id = self
             .graph
@@ -455,7 +454,7 @@ impl<'g> RenderGraphBuilder<'g> {
     fn new_texture_view_direct(
         &mut self,
         descriptor: Option<TextureViewDescriptor<'static>>,
-        texture_view: RefEq<'g, TextureView>,
+        texture_view: Cow<'g, TextureView>,
     ) -> RenderHandle<'g, TextureView> {
         let id = self.graph.texture_views.new_direct(
             &mut self.graph.resources,
@@ -489,7 +488,7 @@ impl<'g> RenderGraphBuilder<'g> {
     fn new_sampler_direct(
         &mut self,
         descriptor: Option<RenderGraphSamplerDescriptor>,
-        sampler: RefEq<'g, Sampler>,
+        sampler: Cow<'g, Sampler>,
     ) -> RenderHandle<'g, Sampler> {
         let id = self
             .graph
@@ -522,7 +521,7 @@ impl<'g> RenderGraphBuilder<'g> {
     fn new_buffer_direct(
         &mut self,
         descriptor: Option<BufferDescriptor<'static>>,
-        buffer: RefEq<'g, Buffer>,
+        buffer: Cow<'g, Buffer>,
     ) -> RenderHandle<'g, Buffer> {
         let id = self
             .graph
@@ -563,7 +562,7 @@ impl<'g> RenderGraphBuilder<'g> {
     fn new_render_pipeline_direct(
         &mut self,
         descriptor: Option<RenderPipelineDescriptor>,
-        render_pipeline: RefEq<'g, RenderPipeline>,
+        render_pipeline: Cow<'g, RenderPipeline>,
     ) -> RenderHandle<'g, RenderPipeline> {
         let id = self.graph.pipelines.new_render_pipeline_direct(
             &mut self.graph.resources,
@@ -600,7 +599,7 @@ impl<'g> RenderGraphBuilder<'g> {
     fn new_compute_pipeline_direct(
         &mut self,
         descriptor: Option<ComputePipelineDescriptor>,
-        compute_pipeline: RefEq<'g, ComputePipeline>,
+        compute_pipeline: Cow<'g, ComputePipeline>,
     ) -> RenderHandle<'g, ComputePipeline> {
         let id = self.graph.pipelines.new_compute_pipeline_direct(
             &mut self.graph.resources,

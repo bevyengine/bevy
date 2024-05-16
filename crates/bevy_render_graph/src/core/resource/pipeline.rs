@@ -19,8 +19,8 @@ use bevy_render::{
 use crate::core::{NodeContext, RenderGraph, RenderGraphBuilder};
 
 use super::{
-    ref_eq::RefEq, DescribedRenderResource, IntoRenderResource, RenderDependencies, RenderHandle,
-    RenderResource, RenderResourceId, ResourceTracker, ResourceType,
+    DescribedRenderResource, IntoRenderResource, RenderDependencies, RenderHandle, RenderResource,
+    RenderResourceId, ResourceTracker, ResourceType,
 };
 
 #[derive(Default)]
@@ -32,7 +32,7 @@ pub struct CachedRenderGraphPipelines {
 #[derive(Default)]
 pub struct RenderGraphPipelines<'g> {
     render_pipelines: HashMap<RenderResourceId, RenderPipelineMeta<'g>>,
-    existing_render_pipelines: HashMap<RefEq<'g, RenderPipeline>, RenderResourceId>,
+    existing_render_pipelines: HashMap<Cow<'g, RenderPipeline>, RenderResourceId>,
     queued_render_pipelines: HashMap<
         RenderResourceId,
         (
@@ -41,7 +41,7 @@ pub struct RenderGraphPipelines<'g> {
         ),
     >,
     compute_pipelines: HashMap<RenderResourceId, ComputePipelineMeta<'g>>,
-    existing_compute_pipelines: HashMap<RefEq<'g, ComputePipeline>, RenderResourceId>,
+    existing_compute_pipelines: HashMap<Cow<'g, ComputePipeline>, RenderResourceId>,
     queued_compute_pipelines: HashMap<
         RenderResourceId,
         (
@@ -194,15 +194,12 @@ impl<'g> RenderGraphComputePipelineDescriptor<'g> {
 }
 
 enum RenderPipelineMeta<'g> {
-    Direct(Option<RenderPipelineDescriptor>, RefEq<'g, RenderPipeline>),
+    Direct(Option<RenderPipelineDescriptor>, Cow<'g, RenderPipeline>),
     Cached(CachedRenderPipelineId),
 }
 
 enum ComputePipelineMeta<'g> {
-    Direct(
-        Option<ComputePipelineDescriptor>,
-        RefEq<'g, ComputePipeline>,
-    ),
+    Direct(Option<ComputePipelineDescriptor>, Cow<'g, ComputePipeline>),
     Cached(CachedComputePipelineId),
 }
 
@@ -215,7 +212,7 @@ impl<'g> RenderGraphPipelines<'g> {
         &mut self,
         tracker: &mut ResourceTracker,
         descriptor: Option<RenderPipelineDescriptor>,
-        pipeline: RefEq<'g, RenderPipeline>,
+        pipeline: Cow<'g, RenderPipeline>,
     ) -> RenderResourceId {
         self.existing_render_pipelines
             .get(&pipeline)
@@ -232,7 +229,7 @@ impl<'g> RenderGraphPipelines<'g> {
         &mut self,
         tracker: &mut ResourceTracker,
         descriptor: Option<ComputePipelineDescriptor>,
-        pipeline: RefEq<'g, ComputePipeline>,
+        pipeline: Cow<'g, ComputePipeline>,
     ) -> RenderResourceId {
         self.existing_compute_pipelines
             .get(&pipeline)
@@ -378,7 +375,7 @@ impl RenderResource for RenderPipeline {
     #[inline]
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,
-        resource: RefEq<'g, Self>,
+        resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self> {
         graph.new_render_pipeline_direct(None, resource)
     }
@@ -399,7 +396,7 @@ impl DescribedRenderResource for RenderPipeline {
     fn new_with_descriptor<'g>(
         graph: &mut RenderGraphBuilder<'g>,
         descriptor: Self::Descriptor,
-        resource: RefEq<'g, Self>,
+        resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self> {
         graph.new_render_pipeline_direct(Some(descriptor), resource)
     }
@@ -444,7 +441,7 @@ impl RenderResource for ComputePipeline {
     #[inline]
     fn new_direct<'g>(
         graph: &mut RenderGraphBuilder<'g>,
-        resource: RefEq<'g, Self>,
+        resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self> {
         graph.new_compute_pipeline_direct(None, resource)
     }
@@ -465,7 +462,7 @@ impl DescribedRenderResource for ComputePipeline {
     fn new_with_descriptor<'g>(
         graph: &mut RenderGraphBuilder<'g>,
         descriptor: Self::Descriptor,
-        resource: RefEq<'g, Self>,
+        resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self> {
         graph.new_compute_pipeline_direct(Some(descriptor), resource)
     }
