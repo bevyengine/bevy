@@ -11,11 +11,6 @@ pub(crate) struct EnumVariantOutputData {
     ///
     /// For example, `Some` and `None` for the `Option` enum.
     pub variant_names: Vec<String>,
-    /// The pattern matching portion of each variant.
-    ///
-    /// For example, `Option::Some { 0: _0 }` and `Option::None {}` for the `Option` enum.
-    #[allow(dead_code)]
-    pub variant_patterns: Vec<proc_macro2::TokenStream>,
     /// The constructor portion of each variant.
     ///
     /// For example, `Option::Some { 0: value }` and `Option::None {}` for the `Option` enum.
@@ -88,7 +83,6 @@ impl<'a> EnumVariantOutputDataBuilder<'a> {
         let variants = self.reflect_enum.variants();
 
         let mut variant_names = Vec::with_capacity(variants.len());
-        let mut variant_patterns = Vec::with_capacity(variants.len());
         let mut variant_constructors = Vec::with_capacity(variants.len());
 
         for variant in variants {
@@ -98,33 +92,21 @@ impl<'a> EnumVariantOutputDataBuilder<'a> {
 
             let fields = variant.fields();
 
-            let (field_patterns, field_constructors): (Vec<_>, Vec<_>) = fields
-                .iter()
-                .map(|field| {
-                    let member = ident_or_index(field.data.ident.as_ref(), field.declaration_index);
-                    let alias = format_ident!("_{}", member);
+            let field_constructors = fields.iter().map(|field| {
+                let member = ident_or_index(field.data.ident.as_ref(), field.declaration_index);
 
-                    let value = self.construct_field(VariantField {
-                        member: &member,
-                        variant_name: &variant_name,
-                        field,
-                    });
+                let value = self.construct_field(VariantField {
+                    member: &member,
+                    variant_name: &variant_name,
+                    field,
+                });
 
-                    let pattern = quote! {
-                        #member: #alias
-                    };
+                let constructor = quote! {
+                    #member: #value
+                };
 
-                    let constructor = quote! {
-                        #member: #value
-                    };
-
-                    (pattern, constructor)
-                })
-                .unzip();
-
-            let pattern = quote! {
-                #variant_path { #( #field_patterns ),* }
-            };
+                constructor
+            });
 
             let constructor = quote! {
                 #variant_path {
@@ -133,13 +115,11 @@ impl<'a> EnumVariantOutputDataBuilder<'a> {
             };
 
             variant_names.push(variant_name);
-            variant_patterns.push(pattern);
             variant_constructors.push(constructor);
         }
 
         EnumVariantOutputData {
             variant_names,
-            variant_patterns,
             variant_constructors,
         }
     }
