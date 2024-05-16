@@ -119,16 +119,21 @@ pub enum DepthOfFieldMode {
     ///
     /// For more information, see [Wikipedia's article on *bokeh*].
     ///
-    /// This is the default.
+    /// This doesn't work on WebGPU.
     ///
     /// [Wikipedia's article on *bokeh*]: https://en.wikipedia.org/wiki/Bokeh
-    #[default]
     Bokeh,
 
     /// A faster simulation, in which out-of-focus areas are simply blurred.
     ///
     /// This is less accurate to actual lens behavior and is generally less
     /// aesthetically pleasing but requires less video memory bandwidth.
+    ///
+    /// This is the default.
+    ///
+    /// This works on native and WebGPU.
+    /// If targeting native platforms, consider using [`DepthOfFieldMode::Bokeh`] instead.
+    #[default]
     Gaussian,
 }
 
@@ -790,12 +795,11 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
 /// Extracts all [`DepthOfFieldSettings`] components into the render world.
 fn extract_depth_of_field_settings(
     mut commands: Commands,
-    msaa: Extract<Res<Msaa>>,
     mut query: Extract<Query<(Entity, &DepthOfFieldSettings, &Projection)>>,
 ) {
-    if **msaa != Msaa::Off && !depth_textures_are_supported() {
+    if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
         info_once!(
-            "Disabling depth of field on this platform because depth textures aren't available"
+            "Disabling depth of field on this platform because depth textures aren't supported correctly"
         );
         return;
     }
@@ -889,10 +893,8 @@ impl DepthOfFieldPipelines {
 /// `sampler2DShadow` and will cheerfully generate invalid GLSL that tries to
 /// perform non-percentage-closer-filtering with such a sampler. Therefore we
 /// disable depth of field entirely on WebGL 2.
-#[cfg(target_arch = "wasm32")]
-fn depth_textures_are_supported() -> bool {
-    false
-}
+#[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = false;
 
 /// Returns true if multisampled depth textures are supported on this platform.
 ///
@@ -901,7 +903,5 @@ fn depth_textures_are_supported() -> bool {
 /// `sampler2DShadow` and will cheerfully generate invalid GLSL that tries to
 /// perform non-percentage-closer-filtering with such a sampler. Therefore we
 /// disable depth of field entirely on WebGL 2.
-#[cfg(not(target_arch = "wasm32"))]
-fn depth_textures_are_supported() -> bool {
-    true
-}
+#[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
+const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
