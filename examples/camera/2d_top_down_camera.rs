@@ -1,31 +1,21 @@
 //! Shows how to create a 2D top-down camera to smoothly follow the player.
 
-// Init state, camera and plane
-// Cube character movement on a plane: Transform
-// Update position on time with delta seconds
-// Camera Position: follow player
-// 1. Query player
-// 2. Query Camera mut
-// 3. Update cam position based on player movement
-// 4. Optimize for smooth movement with smooth damp
-// 5. Level Boundaries: show damp effect on boundaries
-// 6. Colliders: to better showcase camera movements (optional)
-
+use bevy::core_pipeline::bloom::BloomSettings;
 use bevy::log::{Level, LogPlugin};
 use bevy::math::{vec2, vec3};
 use bevy::prelude::*;
-use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
+use bevy::sprite::{Material2d, MaterialMesh2dBundle, Mesh2dHandle};
 
 static MOVE_SPEED: f32 = 100.;
-static LERP_FACTOR: f32 = 3.;
+static LERP_FACTOR: f32 = 2.;
 
-#[derive(Component, Debug)]
+#[derive(Component)]
 struct Player;
 
-#[derive(Bundle, Debug)]
-struct PlayerBundle {
+#[derive(Bundle)]
+struct PlayerBundle<M: Material2d> {
     player: Player,
-    sprite_bundle: SpriteBundle,
+    mesh_bundle: MaterialMesh2dBundle<M>,
 }
 
 fn main() {
@@ -37,6 +27,7 @@ fn main() {
 
     App::new()
         .add_plugins(default_plugins)
+        .insert_resource(ClearColor(Color::BLACK))
         .add_systems(Startup, (scene_setup, camera_setup).chain())
         .add_systems(Update, (update_camera, move_player))
         .run();
@@ -49,22 +40,19 @@ fn scene_setup(
 ) {
     // World where we move the player
     commands.spawn(MaterialMesh2dBundle {
-        mesh: Mesh2dHandle(meshes.add(Rectangle::new(1000.0, 1000.0))),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
+        mesh: Mesh2dHandle(meshes.add(Rectangle::new(1000., 700.))),
+        material: materials.add(Color::srgb(52. / 255., 39. / 255., 69. / 255.)), //77 57 102
         ..default()
     });
 
     // Player
     commands.spawn(PlayerBundle {
         player: Player,
-        sprite_bundle: SpriteBundle {
+        mesh_bundle: MaterialMesh2dBundle {
+            mesh: meshes.add(Circle::new(25.)).into(),
+            material: materials.add(Color::srgb(6.25, 9.4, 9.1)),
             transform: Transform {
-                scale: vec3(50., 50., 1.),
                 translation: vec3(0., 0., 2.),
-                ..default()
-            },
-            sprite: Sprite {
-                color: Color::BLACK,
                 ..default()
             },
             ..default()
@@ -77,10 +65,14 @@ fn scene_setup(
 fn camera_setup(mut commands: Commands) {
     let camera = Camera2dBundle {
         transform: Transform::from_xyz(0., 0., 1.),
+        camera: Camera {
+            hdr: true,
+            ..default()
+        },
         ..default()
     };
 
-    commands.spawn(camera);
+    commands.spawn((camera, BloomSettings::NATURAL));
 
     debug!("Camera setup finished");
 }
@@ -103,6 +95,7 @@ fn update_camera(
     let Vec3 { x, y, .. } = player.translation;
     let direction = Vec3::new(x, y, camera.translation.z);
 
+    // Move camera with a smooth effect
     camera.translation = camera
         .translation
         .lerp(direction, time.delta_seconds() * LERP_FACTOR);
