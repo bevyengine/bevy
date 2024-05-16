@@ -502,7 +502,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 bevy_utils::tracing::debug!(
                     "Automatically calculating missing vertex normals for geometry."
                 );
-                mesh.compute_flat_normals();
+                mesh.compute_normals();
             }
 
             if let Some(vertex_attribute) = reader
