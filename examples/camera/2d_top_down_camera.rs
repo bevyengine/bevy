@@ -6,8 +6,11 @@ use bevy::math::{vec2, vec3};
 use bevy::prelude::*;
 use bevy::sprite::{Material2d, MaterialMesh2dBundle, Mesh2dHandle};
 
-static MOVE_SPEED: f32 = 100.;
-static LERP_FACTOR: f32 = 2.;
+/// Player movement speed factor.
+const PLAYER_SPEED: f32 = 100.;
+
+/// Camera lerp factor.
+const CAM_LERP_FACTOR: f32 = 2.;
 
 #[derive(Component)]
 struct Player;
@@ -29,7 +32,7 @@ fn main() {
         .add_plugins(default_plugins)
         .insert_resource(ClearColor(Color::BLACK))
         .add_systems(Startup, (scene_setup, camera_setup).chain())
-        .add_systems(Update, (update_camera, move_player))
+        .add_systems(Update, (move_player, update_camera).chain())
         .run();
 }
 
@@ -98,7 +101,7 @@ fn update_camera(
     // Move camera with a smooth effect
     camera.translation = camera
         .translation
-        .lerp(direction, time.delta_seconds() * LERP_FACTOR);
+        .lerp(direction, time.delta_seconds() * CAM_LERP_FACTOR);
 }
 
 fn move_player(
@@ -129,6 +132,6 @@ fn move_player(
         direction.x = 1.;
     }
 
-    let move_delta = direction * MOVE_SPEED * time.delta_seconds();
+    let move_delta = direction * PLAYER_SPEED * time.delta_seconds();
     player.translation += move_delta.extend(0.);
 }
