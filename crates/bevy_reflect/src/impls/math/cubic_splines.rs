@@ -1,5 +1,6 @@
 use crate as bevy_reflect;
 use bevy_math::{cubic_splines::*, VectorSpace};
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect_derive::impl_reflect;
 
 impl_reflect!(
@@ -54,8 +55,7 @@ impl_reflect!(
 );
 
 impl_reflect!(
-    #[reflect(Debug)]
-    #[reflect(PartialEq, where P: PartialEq)]
+    #[reflect(Debug, Default)]
     #[type_path = "bevy_math::cubic_splines"]
     struct CubicSegment<P: VectorSpace> {
         coeff: [P; 4],
@@ -64,7 +64,6 @@ impl_reflect!(
 
 impl_reflect!(
     #[reflect(Debug)]
-    #[reflect(PartialEq, where P: PartialEq)]
     #[type_path = "bevy_math::cubic_splines"]
     struct CubicCurve<P: VectorSpace> {
         segments: Vec<CubicSegment<P>>,
@@ -72,8 +71,7 @@ impl_reflect!(
 );
 
 impl_reflect!(
-    #[reflect(Debug)]
-    #[reflect(PartialEq, where P: PartialEq)]
+    #[reflect(Debug, Default)]
     #[type_path = "bevy_math::cubic_splines"]
     struct RationalSegment<P: VectorSpace> {
         coeff: [P; 4],
@@ -84,7 +82,6 @@ impl_reflect!(
 
 impl_reflect!(
     #[reflect(Debug)]
-    #[reflect(PartialEq, where P: PartialEq)]
     #[type_path = "bevy_math::cubic_splines"]
     struct RationalCurve<P: VectorSpace> {
         segments: Vec<RationalSegment<P>>,
