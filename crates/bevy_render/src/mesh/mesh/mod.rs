@@ -774,7 +774,7 @@ impl Mesh {
         {
             // Transform tangents, taking into account non-uniform scaling and rotation
             tangents.iter_mut().for_each(|tangent| {
-                let scaled_tangent = Vec3::from_slice(tangent) * scale_recip;
+                let scaled_tangent = Vec3::from_slice(tangent) * transform.scale;
                 *tangent = (transform.rotation * scaled_tangent.normalize_or_zero()).to_array();
             });
         }
@@ -886,7 +886,7 @@ impl Mesh {
         {
             // Transform tangents, taking into account non-uniform scaling
             tangents.iter_mut().for_each(|tangent| {
-                let scaled_tangent = Vec3::from_slice(tangent) * scale_recip;
+                let scaled_tangent = Vec3::from_slice(tangent) * scale;
                 *tangent = scaled_tangent.normalize_or_zero().to_array();
             });
         }
@@ -1672,7 +1672,7 @@ fn scale_normal(normal: Vec3, scale_recip: Vec3) -> Vec3 {
         (normal * scale_recip).normalize_or_zero()
     } else {
         // This is basically just `normal * scale_recip` but with the added rule that `0. * anything == 0.`
-        // This is neccessary because one of the components of `scale_recip` is infinite
+        // This is necessary because one of the components of `scale_recip` is infinite
         let n = Vec3::new(
             if normal.x == 0. {
                 0.
