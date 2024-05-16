@@ -429,7 +429,7 @@ pub fn check_visibility<QF>(
             continue;
         }
 
-        let view_mask = maybe_view_mask.copied().unwrap_or_default();
+        let view_mask = maybe_view_mask.unwrap_or_default();
 
         visible_aabb_query.par_iter_mut().for_each_init(
             || thread_queues.borrow_local_mut(),
@@ -451,8 +451,8 @@ pub fn check_visibility<QF>(
                     return;
                 }
 
-                let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
-                if !view_mask.intersects(&entity_mask) {
+                let entity_mask = maybe_entity_mask.unwrap_or_default();
+                if !view_mask.intersects(entity_mask) {
                     return;
                 }
 

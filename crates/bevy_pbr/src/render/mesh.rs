@@ -1031,6 +1031,7 @@ fn collect_meshes_for_gpu_building(
     }
 }
 
+/// All data needed to construct a pipeline for rendering 3D meshes.
 #[derive(Resource, Clone)]
 pub struct MeshPipeline {
     /// A reference to all the mesh pipeline view layouts.
@@ -1069,6 +1070,7 @@ impl FromWorld for MeshPipeline {
         )> = SystemState::new(world);
         let (render_device, default_sampler, render_queue, view_layouts) =
             system_state.get_mut(world);
+
         let clustered_forward_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
 
@@ -1528,10 +1530,12 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if layout.0.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
+            shader_defs.push("VERTEX_UVS_A".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
         }
 
         if layout.0.contains(Mesh::ATTRIBUTE_UV_1) {
+            shader_defs.push("VERTEX_UVS".into());
             shader_defs.push("VERTEX_UVS_B".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_1.at_shader_location(3));
         }

@@ -134,6 +134,7 @@ Example | Description
 [Clearcoat](../examples/3d/clearcoat.rs) | Demonstrates the clearcoat PBR feature
 [Color grading](../examples/3d/color_grading.rs) | Demonstrates color grading
 [Deferred Rendering](../examples/3d/deferred_rendering.rs) | Renders meshes with both forward and deferred pipelines
+[Depth of field](../examples/3d/depth_of_field.rs) | Demonstrates depth of field
 [Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
 [Generate Custom Mesh](../examples/3d/generate_custom_mesh.rs) | Simple showcase of how to generate a custom mesh with a custom texture
 [Irradiance Volumes](../examples/3d/irradiance_volumes.rs) | Demonstrates irradiance volumes
@@ -164,6 +165,7 @@ Example | Description
 [Update glTF Scene](../examples/3d/update_gltf_scene.rs) | Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 [Vertex Colors](../examples/3d/vertex_colors.rs) | Shows the use of vertex colors
 [Visibility range](../examples/3d/visibility_range.rs) | Demonstrates visibility ranges
+[Volumetric fog](../examples/3d/volumetric_fog.rs) | Demonstrates volumetric fog and lighting
 [Wireframe](../examples/3d/wireframe.rs) | Showcases wireframe rendering
 
 ## Animation

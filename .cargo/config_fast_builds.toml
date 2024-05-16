@@ -144,3 +144,8 @@ rustflags = [
 # In most cases the gains are negligible, but if you are on macos and have slow compile times you should see significant gains.
 # [profile.dev]
 # debug = 1
+
+# This is enables you to run the CI tool using `cargo ci`.
+# This is not enabled by default, you need to copy this file to `config.toml`.
+[alias]
+ci = "run --package ci --"

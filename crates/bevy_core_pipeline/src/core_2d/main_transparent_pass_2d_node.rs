@@ -31,7 +31,8 @@ impl ViewNode for MainTransparentPass2dNode {
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
 
-        if !transparent_phase.items.is_empty() {
+        // This needs to run at least once to clear the background color, even if there are no items to render
+        {
             #[cfg(feature = "trace")]
             let _main_pass_2d = info_span!("main_transparent_pass_2d").entered();
 
@@ -51,7 +52,9 @@ impl ViewNode for MainTransparentPass2dNode {
                 render_pass.set_camera_viewport(viewport);
             }
 
-            transparent_phase.render(&mut render_pass, world, view_entity);
+            if !transparent_phase.items.is_empty() {
+                transparent_phase.render(&mut render_pass, world, view_entity);
+            }
 
             pass_span.end(&mut render_pass);
         }

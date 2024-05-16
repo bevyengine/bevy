@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, Archetypes},
     change_detection::{Ticks, TicksMut},
-    component::{Component, ComponentId, StorageType, Tick},
+    component::{Component, ComponentId, Components, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
@@ -333,7 +333,7 @@ unsafe impl WorldQuery for Entity {
 
     fn init_state(_world: &mut World) {}
 
-    fn get_state(_world: &World) -> Option<()> {
+    fn get_state(_components: &Components) -> Option<()> {
         Some(())
     }
 
@@ -405,7 +405,7 @@ unsafe impl WorldQuery for EntityLocation {
 
     fn init_state(_world: &mut World) {}
 
-    fn get_state(_world: &World) -> Option<()> {
+    fn get_state(_components: &Components) -> Option<()> {
         Some(())
     }
 
@@ -484,7 +484,7 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
 
     fn init_state(_world: &mut World) {}
 
-    fn get_state(_world: &World) -> Option<()> {
+    fn get_state(_components: &Components) -> Option<()> {
         Some(())
     }
 
@@ -560,7 +560,7 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
 
     fn init_state(_world: &mut World) {}
 
-    fn get_state(_world: &World) -> Option<()> {
+    fn get_state(_components: &Components) -> Option<()> {
         Some(())
     }
 
@@ -660,7 +660,7 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
         FilteredAccess::default()
     }
 
-    fn get_state(_world: &World) -> Option<Self::State> {
+    fn get_state(_components: &Components) -> Option<Self::State> {
         Some(FilteredAccess::default())
     }
 
@@ -772,7 +772,7 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
         FilteredAccess::default()
     }
 
-    fn get_state(_world: &World) -> Option<Self::State> {
+    fn get_state(_components: &Components) -> Option<Self::State> {
         Some(FilteredAccess::default())
     }
 
@@ -844,7 +844,7 @@ unsafe impl WorldQuery for &Archetype {
 
     fn init_state(_world: &mut World) {}
 
-    fn get_state(_world: &World) -> Option<()> {
+    fn get_state(_components: &Components) -> Option<()> {
         Some(())
     }
 
@@ -995,8 +995,8 @@ unsafe impl<T: Component> WorldQuery for &T {
         world.init_component::<T>()
     }
 
-    fn get_state(world: &World) -> Option<Self::State> {
-        world.component_id::<T>()
+    fn get_state(components: &Components) -> Option<Self::State> {
+        components.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -1178,8 +1178,8 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         world.init_component::<T>()
     }
 
-    fn get_state(world: &World) -> Option<Self::State> {
-        world.component_id::<T>()
+    fn get_state(components: &Components) -> Option<Self::State> {
+        components.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -1361,8 +1361,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         world.init_component::<T>()
     }
 
-    fn get_state(world: &World) -> Option<Self::State> {
-        world.component_id::<T>()
+    fn get_state(components: &Components) -> Option<Self::State> {
+        components.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -1376,6 +1376,107 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 /// SAFETY: access of `&T` is a subset of `&mut T`
 unsafe impl<'__w, T: Component> QueryData for &'__w mut T {
     type ReadOnly = &'__w T;
+}
+
+/// When `Mut<T>` is used in a query, it will be converted to `Ref<T>` when transformed into its read-only form, providing access to change detection methods.
+///
+/// By contrast `&mut T` will result in a `Mut<T>` item in mutable form to record mutations, but result in a bare `&T` in read-only form.
+///
+/// SAFETY:
+/// `fetch` accesses a single component mutably.
+/// This is sound because `update_component_access` and `update_archetype_component_access` add write access for that component and panic when appropriate.
+/// `update_component_access` adds a `With` filter for a component.
+/// This is sound because `matches_component_set` returns whether the set contains that component.
+unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
+    type Item<'w> = Mut<'w, T>;
+    type Fetch<'w> = WriteFetch<'w, T>;
+    type State = ComponentId;
+
+    // Forwarded to `&mut T`
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Mut<'wlong, T>) -> Mut<'wshort, T> {
+        <&mut T as WorldQuery>::shrink(item)
+    }
+
+    #[inline]
+    // Forwarded to `&mut T`
+    unsafe fn init_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        state: &ComponentId,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> WriteFetch<'w, T> {
+        <&mut T as WorldQuery>::init_fetch(world, state, last_run, this_run)
+    }
+
+    // Forwarded to `&mut T`
+    const IS_DENSE: bool = <&mut T as WorldQuery>::IS_DENSE;
+
+    #[inline]
+    // Forwarded to `&mut T`
+    unsafe fn set_archetype<'w>(
+        fetch: &mut WriteFetch<'w, T>,
+        state: &ComponentId,
+        archetype: &'w Archetype,
+        table: &'w Table,
+    ) {
+        <&mut T as WorldQuery>::set_archetype(fetch, state, archetype, table);
+    }
+
+    #[inline]
+    // Forwarded to `&mut T`
+    unsafe fn set_table<'w>(fetch: &mut WriteFetch<'w, T>, state: &ComponentId, table: &'w Table) {
+        <&mut T as WorldQuery>::set_table(fetch, state, table);
+    }
+
+    #[inline(always)]
+    // Forwarded to `&mut T`
+    unsafe fn fetch<'w>(
+        // Rust complains about lifetime bounds not matching the trait if I directly use `WriteFetch<'w, T>` right here.
+        // But it complains nowhere else in the entire trait implementation.
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> Mut<'w, T> {
+        <&mut T as WorldQuery>::fetch(fetch, entity, table_row)
+    }
+
+    // NOT forwarded to `&mut T`
+    fn update_component_access(
+        &component_id: &ComponentId,
+        access: &mut FilteredAccess<ComponentId>,
+    ) {
+        // Update component access here instead of in `<&mut T as WorldQuery>` to avoid erroneously referencing
+        // `&mut T` in error message.
+        assert!(
+            !access.access().has_read(component_id),
+            "Mut<{}> conflicts with a previous access in this query. Mutable component access mut be unique.",
+                std::any::type_name::<T>(),
+        );
+        access.add_write(component_id);
+    }
+
+    // Forwarded to `&mut T`
+    fn init_state(world: &mut World) -> ComponentId {
+        <&mut T as WorldQuery>::init_state(world)
+    }
+
+    // Forwarded to `&mut T`
+    fn get_state(components: &Components) -> Option<ComponentId> {
+        <&mut T as WorldQuery>::get_state(components)
+    }
+
+    // Forwarded to `&mut T`
+    fn matches_component_set(
+        state: &ComponentId,
+        set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        <&mut T as WorldQuery>::matches_component_set(state, set_contains_id)
+    }
+}
+
+// SAFETY: access of `Ref<T>` is a subset of `Mut<T>`
+unsafe impl<'__w, T: Component> QueryData for Mut<'__w, T> {
+    type ReadOnly = Ref<'__w, T>;
 }
 
 #[doc(hidden)]
@@ -1480,8 +1581,8 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         T::init_state(world)
     }
 
-    fn get_state(world: &World) -> Option<Self::State> {
-        T::get_state(world)
+    fn get_state(components: &Components) -> Option<Self::State> {
+        T::get_state(components)
     }
 
     fn matches_component_set(
@@ -1635,8 +1736,8 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
         world.init_component::<T>()
     }
 
-    fn get_state(world: &World) -> Option<Self::State> {
-        world.component_id::<T>()
+    fn get_state(components: &Components) -> Option<Self::State> {
+        components.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -1776,13 +1877,13 @@ macro_rules! impl_anytuple_fetch {
 
                 *_access = _new_access;
             }
-
-            fn init_state(_world: &mut World) -> Self::State {
-                ($($name::init_state(_world),)*)
+            #[allow(unused_variables)]
+            fn init_state(world: &mut World) -> Self::State {
+                ($($name::init_state(world),)*)
             }
-
-            fn get_state(_world: &World) -> Option<Self::State> {
-                Some(($($name::get_state(_world)?,)*))
+            #[allow(unused_variables)]
+            fn get_state(components: &Components) -> Option<Self::State> {
+                Some(($($name::get_state(components)?,)*))
             }
 
             fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
@@ -1858,8 +1959,8 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
         D::init_state(world)
     }
 
-    fn get_state(world: &World) -> Option<Self::State> {
-        D::get_state(world)
+    fn get_state(components: &Components) -> Option<Self::State> {
+        D::get_state(components)
     }
 
     fn matches_component_set(
@@ -1923,7 +2024,7 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
 
     fn init_state(_world: &mut World) -> Self::State {}
 
-    fn get_state(_world: &World) -> Option<Self::State> {
+    fn get_state(_components: &Components) -> Option<Self::State> {
         Some(())
     }
 
