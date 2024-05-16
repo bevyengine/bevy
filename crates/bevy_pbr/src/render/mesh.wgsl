@@ -63,10 +63,9 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     out.position = position_world_to_clip(out.world_position.xyz);
 #endif
 
-#ifdef VERTEX_UVS
+#ifdef VERTEX_UVS_A
     out.uv = vertex.uv;
 #endif
-
 #ifdef VERTEX_UVS_B
     out.uv_b = vertex.uv_b;
 #endif

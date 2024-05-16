@@ -39,6 +39,7 @@ pub mod config;
 pub mod gizmos;
 pub mod grid;
 pub mod primitives;
+pub mod rounded_box;
 
 #[cfg(feature = "bevy_pbr")]
 pub mod light;

@@ -55,6 +55,7 @@ git checkout v0.4.0
   - [Reflection](#reflection)
   - [Scene](#scene)
   - [Shaders](#shaders)
+  - [State](#state)
   - [Stress Tests](#stress-tests)
   - [Time](#time)
   - [Tools](#tools)
@@ -133,6 +134,7 @@ Example | Description
 [Clearcoat](../examples/3d/clearcoat.rs) | Demonstrates the clearcoat PBR feature
 [Color grading](../examples/3d/color_grading.rs) | Demonstrates color grading
 [Deferred Rendering](../examples/3d/deferred_rendering.rs) | Renders meshes with both forward and deferred pipelines
+[Depth of field](../examples/3d/depth_of_field.rs) | Demonstrates depth of field
 [Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
 [Generate Custom Mesh](../examples/3d/generate_custom_mesh.rs) | Simple showcase of how to generate a custom mesh with a custom texture
 [Irradiance Volumes](../examples/3d/irradiance_volumes.rs) | Demonstrates irradiance volumes
@@ -189,6 +191,7 @@ Example | Description
 [Empty](../examples/app/empty.rs) | An empty application (does nothing)
 [Empty with Defaults](../examples/app/empty_defaults.rs) | An empty application with default plugins
 [Headless](../examples/app/headless.rs) | An application that runs without default plugins
+[Headless Renderer](../examples/app/headless_renderer.rs) | An application that runs with no window, but renders into image file
 [Log layers](../examples/app/log_layers.rs) | Illustrate how to add custom log layers
 [Logs](../examples/app/logs.rs) | Illustrate how to use generate log output
 [No Renderer](../examples/app/no_renderer.rs) | An application that runs with default plugins and displays an empty window, but without an actual renderer
@@ -251,7 +254,6 @@ Example | Description
 --- | ---
 [Component Change Detection](../examples/ecs/component_change_detection.rs) | Change detection on components
 [Component Hooks](../examples/ecs/component_hooks.rs) | Define component hooks to manage component lifecycle events
-[Computed States](../examples/ecs/computed_states.rs) | Advanced state patterns using Computed States
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 [Custom Schedule](../examples/ecs/custom_schedule.rs) | Demonstrates how to add custom schedules
 [Dynamic ECS](../examples/ecs/dynamic.rs) | Dynamically create components, spawn entities with those components and query those components
@@ -268,8 +270,6 @@ Example | Description
 [Run Conditions](../examples/ecs/run_conditions.rs) | Run systems only when one or multiple conditions are met
 [Send and receive events](../examples/ecs/send_and_receive_events.rs) | Demonstrates how to send and receive events of the same type in a single system
 [Startup System](../examples/ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
-[State](../examples/ecs/state.rs) | Illustrates how to use States to control transitioning from a Menu state to an InGame state
-[Sub States](../examples/ecs/sub_states.rs) | Using Sub States for hierarchical state handling.
 [System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
 [System Parameter](../examples/ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
 [System Piping](../examples/ecs/system_piping.rs) | Pipe the output of one system into a second, allowing you to handle any errors gracefully
@@ -360,6 +360,14 @@ Example | Description
 [Post Processing - Custom Render Pass](../examples/shader/post_processing.rs) | A custom post processing effect, using a custom render pass that runs after the main pass
 [Shader Defs](../examples/shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader)
 [Texture Binding Array (Bindless Textures)](../examples/shader/texture_binding_array.rs) | A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures).
+
+## State
+
+Example | Description
+--- | ---
+[Computed States](../examples/state/computed_states.rs) | Advanced state patterns using Computed States
+[State](../examples/state/state.rs) | Illustrates how to use States to control transitioning from a Menu state to an InGame state
+[Sub States](../examples/state/sub_states.rs) | Using Sub States for hierarchical state handling.
 
 ## Stress Tests
 

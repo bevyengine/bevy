@@ -1,47 +1,40 @@
 use crate::impls::{impl_type_path, impl_typed};
-use crate::utility::ident_or_index;
 use crate::ReflectStruct;
 use bevy_macro_utils::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult};
 use quote::{quote, ToTokens};
+use syn::{Index, Member};
 
-/// Implements `Struct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
-pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenStream {
+/// Implements `TupleStruct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
+pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenStream {
     let fqoption = FQOption.into_token_stream();
 
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
     let struct_path = reflect_struct.meta().type_path();
 
-    let field_names = reflect_struct
-        .active_fields()
-        .map(|field| {
-            field
-                .data
-                .ident
-                .as_ref()
-                .map(|i| i.to_string())
-                .unwrap_or_else(|| field.declaration_index.to_string())
-        })
-        .collect::<Vec<String>>();
     let field_idents = reflect_struct
         .active_fields()
-        .map(|field| ident_or_index(field.data.ident.as_ref(), field.declaration_index))
+        .map(|field| Member::Unnamed(Index::from(field.declaration_index)))
         .collect::<Vec<_>>();
     let field_types = reflect_struct.active_types();
     let field_count = field_idents.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
+
+    let where_clause_options = reflect_struct.where_clause_options();
+    let get_type_registration_impl = reflect_struct.get_type_registration(&where_clause_options);
 
     let hash_fn = reflect_struct
         .meta()
         .attrs()
         .get_hash_impl(bevy_reflect_path);
     let debug_fn = reflect_struct.meta().attrs().get_debug_impl();
-    let partial_eq_fn = reflect_struct.meta()
+    let partial_eq_fn = reflect_struct
+        .meta()
         .attrs()
         .get_partial_eq_impl(bevy_reflect_path)
         .unwrap_or_else(|| {
             quote! {
                 fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<bool> {
-                    #bevy_reflect_path::struct_partial_eq(self, value)
+                    #bevy_reflect_path::tuple_struct_partial_eq(self, value)
                 }
             }
         });
@@ -52,14 +45,14 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
             .active_fields()
             .map(|field| ToTokens::to_token_stream(&field.doc));
         quote! {
-            #(#bevy_reflect_path::NamedField::new::<#field_types>(#field_names).with_docs(#docs) ,)*
+            #(#bevy_reflect_path::UnnamedField::new::<#field_types>(#field_idents).with_docs(#docs) ,)*
         }
     };
 
     #[cfg(not(feature = "documentation"))]
     let field_generator = {
         quote! {
-            #(#bevy_reflect_path::NamedField::new::<#field_types>(#field_names) ,)*
+            #(#bevy_reflect_path::UnnamedField::new::<#field_types>(#field_idents) ,)*
         }
     };
 
@@ -67,31 +60,28 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
     let info_generator = {
         let doc = reflect_struct.meta().doc();
         quote! {
-            #bevy_reflect_path::StructInfo::new::<Self>(&fields).with_docs(#doc)
+           #bevy_reflect_path::TupleStructInfo::new::<Self>(&fields).with_docs(#doc)
         }
     };
 
     #[cfg(not(feature = "documentation"))]
     let info_generator = {
         quote! {
-            #bevy_reflect_path::StructInfo::new::<Self>(&fields)
+            #bevy_reflect_path::TupleStructInfo::new::<Self>(&fields)
         }
     };
 
-    let where_clause_options = reflect_struct.where_clause_options();
     let typed_impl = impl_typed(
         reflect_struct.meta(),
         &where_clause_options,
         quote! {
             let fields = [#field_generator];
             let info = #info_generator;
-            #bevy_reflect_path::TypeInfo::Struct(info)
+            #bevy_reflect_path::TypeInfo::TupleStruct(info)
         },
     );
 
     let type_path_impl = impl_type_path(reflect_struct.meta());
-
-    let get_type_registration_impl = reflect_struct.get_type_registration(&where_clause_options);
 
     let (impl_generics, ty_generics, where_clause) = reflect_struct
         .meta()
@@ -108,54 +98,33 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
 
         #type_path_impl
 
-        impl #impl_generics #bevy_reflect_path::Struct for #struct_path #ty_generics #where_reflect_clause {
-            fn field(&self, name: &str) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
-                match name {
-                    #(#field_names => #fqoption::Some(&self.#field_idents),)*
-                    _ => #FQOption::None,
-                }
-            }
-
-            fn field_mut(&mut self, name: &str) -> #FQOption<&mut dyn #bevy_reflect_path::Reflect> {
-                match name {
-                    #(#field_names => #fqoption::Some(&mut self.#field_idents),)*
-                    _ => #FQOption::None,
-                }
-            }
-
-            fn field_at(&self, index: usize) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
+        impl #impl_generics #bevy_reflect_path::TupleStruct for #struct_path #ty_generics #where_reflect_clause {
+            fn field(&self, index: usize) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
                 match index {
                     #(#field_indices => #fqoption::Some(&self.#field_idents),)*
                     _ => #FQOption::None,
                 }
             }
 
-            fn field_at_mut(&mut self, index: usize) -> #FQOption<&mut dyn #bevy_reflect_path::Reflect> {
+            fn field_mut(&mut self, index: usize) -> #FQOption<&mut dyn #bevy_reflect_path::Reflect> {
                 match index {
                     #(#field_indices => #fqoption::Some(&mut self.#field_idents),)*
                     _ => #FQOption::None,
                 }
             }
-
-            fn name_at(&self, index: usize) -> #FQOption<&str> {
-                match index {
-                    #(#field_indices => #fqoption::Some(#field_names),)*
-                    _ => #FQOption::None,
-                }
-            }
-
+            #[inline]
             fn field_len(&self) -> usize {
                 #field_count
             }
-
-            fn iter_fields(&self) -> #bevy_reflect_path::FieldIter {
-                #bevy_reflect_path::FieldIter::new(self)
+            #[inline]
+            fn iter_fields(&self) -> #bevy_reflect_path::TupleStructFieldIter {
+                #bevy_reflect_path::TupleStructFieldIter::new(self)
             }
 
-            fn clone_dynamic(&self) -> #bevy_reflect_path::DynamicStruct {
-                let mut dynamic: #bevy_reflect_path::DynamicStruct = #FQDefault::default();
+            fn clone_dynamic(&self) -> #bevy_reflect_path::DynamicTupleStruct {
+                let mut dynamic: #bevy_reflect_path::DynamicTupleStruct = #FQDefault::default();
                 dynamic.set_represented_type(#bevy_reflect_path::Reflect::get_represented_type_info(self));
-                #(dynamic.insert_boxed(#field_names, #bevy_reflect_path::Reflect::clone_value(&self.#field_idents));)*
+                #(dynamic.insert_boxed(#bevy_reflect_path::Reflect::clone_value(&self.#field_idents));)*
                 dynamic
             }
         }
@@ -198,7 +167,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
 
             #[inline]
             fn clone_value(&self) -> #FQBox<dyn #bevy_reflect_path::Reflect> {
-                #FQBox::new(#bevy_reflect_path::Struct::clone_dynamic(self))
+                #FQBox::new(#bevy_reflect_path::TupleStruct::clone_dynamic(self))
             }
 
             #[inline]
@@ -208,31 +177,38 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
             }
 
             #[inline]
-            fn apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) {
-                if let #bevy_reflect_path::ReflectRef::Struct(struct_value) = #bevy_reflect_path::Reflect::reflect_ref(value) {
-                    for (i, value) in ::core::iter::Iterator::enumerate(#bevy_reflect_path::Struct::iter_fields(struct_value)) {
-                        let name = #bevy_reflect_path::Struct::name_at(struct_value, i).unwrap();
-                        #bevy_reflect_path::Struct::field_mut(self, name).map(|v| v.apply(value));
+            fn try_apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) -> #FQResult<(), #bevy_reflect_path::ApplyError> {
+                if let #bevy_reflect_path::ReflectRef::TupleStruct(struct_value) = #bevy_reflect_path::Reflect::reflect_ref(value) {
+                    for (i, value) in ::core::iter::Iterator::enumerate(#bevy_reflect_path::TupleStruct::iter_fields(struct_value)) {
+                        if let #FQOption::Some(v) = #bevy_reflect_path::TupleStruct::field_mut(self, i) {
+                            #bevy_reflect_path::Reflect::try_apply(v, value)?;
+                        }
                     }
                 } else {
-                    panic!("Attempted to apply non-struct type to struct type.");
+                    return #FQResult::Err(
+                        #bevy_reflect_path::ApplyError::MismatchedKinds {
+                            from_kind: #bevy_reflect_path::Reflect::reflect_kind(value),
+                            to_kind: #bevy_reflect_path::ReflectKind::TupleStruct,
+                        }
+                    );
                 }
+               #FQResult::Ok(())
             }
-
+            #[inline]
             fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {
-                #bevy_reflect_path::ReflectKind::Struct
+                #bevy_reflect_path::ReflectKind::TupleStruct
             }
-
+            #[inline]
             fn reflect_ref(&self) -> #bevy_reflect_path::ReflectRef {
-                #bevy_reflect_path::ReflectRef::Struct(self)
+                #bevy_reflect_path::ReflectRef::TupleStruct(self)
             }
-
+            #[inline]
             fn reflect_mut(&mut self) -> #bevy_reflect_path::ReflectMut {
-                #bevy_reflect_path::ReflectMut::Struct(self)
+                #bevy_reflect_path::ReflectMut::TupleStruct(self)
             }
-
+            #[inline]
             fn reflect_owned(self: #FQBox<Self>) -> #bevy_reflect_path::ReflectOwned {
-                #bevy_reflect_path::ReflectOwned::Struct(self)
+                #bevy_reflect_path::ReflectOwned::TupleStruct(self)
             }
 
             #hash_fn
