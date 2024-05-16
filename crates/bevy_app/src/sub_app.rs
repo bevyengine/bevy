@@ -15,6 +15,7 @@ use bevy_state::{
 use bevy_utils::tracing::info_span;
 use bevy_utils::{HashMap, HashSet};
 use std::fmt::Debug;
+use crate::plugin_registry::{PluginRegistry, PluginState};
 
 type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
 
@@ -65,13 +66,12 @@ pub struct SubApp {
     /// The data of this application.
     world: World,
     /// List of plugins that have been added.
-    pub(crate) plugin_registry: Vec<Box<dyn Plugin>>,
+    plugin_registry: PluginRegistry,
     /// The names of plugins that have been added to this app. (used to track duplicates and
     /// already-registered plugins)
     pub(crate) plugin_names: HashSet<String>,
     /// Panics if an update is attempted while plugins are building.
     pub(crate) plugin_build_depth: usize,
-    pub(crate) plugins_state: PluginsState,
     /// The schedule that will be run by [`update`](Self::update).
     pub update_schedule: Option<InternedScheduleLabel>,
     /// A function that gives mutable access to two app worlds. This is primarily
@@ -91,10 +91,9 @@ impl Default for SubApp {
         world.init_resource::<Schedules>();
         Self {
             world,
-            plugin_registry: Vec::default(),
+            plugin_registry: PluginRegistry::default(),
             plugin_names: HashSet::default(),
             plugin_build_depth: 0,
-            plugins_state: PluginsState::Adding,
             update_schedule: None,
             extract: None,
         }
@@ -393,10 +392,17 @@ impl SubApp {
     where
         T: Plugin,
     {
-        self.plugin_registry
-            .iter()
-            .filter_map(|p| p.downcast_ref())
-            .collect()
+        self.plugin_registry.get_all()
+    }
+
+    pub fn take_plugin_registry(&mut self) -> PluginRegistry
+    {
+        std::mem::replace(&mut self.plugin_registry, PluginRegistry::default())
+    }
+
+    pub fn insert_plugin_registry(&mut self, plugin_registry: PluginRegistry)
+    {
+        self.plugin_registry = plugin_registry;
     }
 
     /// Returns `true` if there is no plugin in the middle of being built.
@@ -405,49 +411,26 @@ impl SubApp {
     }
 
     /// Return the state of plugins.
+    pub fn update_plugins(&mut self) {
+        let state = self.plugin_registry.state();
+
+        println!("updating plugins for {:?} from {:?} ({:?})", self, state, std::thread::current().id());
+
+        let mut plugin_registry = self.take_plugin_registry();
+
+        self.plugin_build_depth += 1;
+        self.run_as_app(|app| {
+            plugin_registry.update(app);
+        });
+        self.plugin_build_depth -= 1;
+
+        self.insert_plugin_registry(plugin_registry);
+    }
+
+    /// Return the state of plugins.
     #[inline]
-    pub fn plugins_state(&mut self) -> PluginsState {
-        match self.plugins_state {
-            PluginsState::Adding => {
-                let mut state = PluginsState::Ready;
-                let plugins = std::mem::take(&mut self.plugin_registry);
-                self.run_as_app(|app| {
-                    for plugin in &plugins {
-                        if !plugin.ready(app) {
-                            state = PluginsState::Adding;
-                            return;
-                        }
-                    }
-                });
-                self.plugin_registry = plugins;
-                state
-            }
-            state => state,
-        }
-    }
-
-    /// Runs [`Plugin::finish`] for each plugin.
-    pub fn finish(&mut self) {
-        let plugins = std::mem::take(&mut self.plugin_registry);
-        self.run_as_app(|app| {
-            for plugin in &plugins {
-                plugin.finish(app);
-            }
-        });
-        self.plugin_registry = plugins;
-        self.plugins_state = PluginsState::Finished;
-    }
-
-    /// Runs [`Plugin::cleanup`] for each plugin.
-    pub fn cleanup(&mut self) {
-        let plugins = std::mem::take(&mut self.plugin_registry);
-        self.run_as_app(|app| {
-            for plugin in &plugins {
-                plugin.cleanup(app);
-            }
-        });
-        self.plugin_registry = plugins;
-        self.plugins_state = PluginsState::Cleaned;
+    pub fn plugins_state(&self) -> PluginsState {
+        self.plugin_registry.state()
     }
 
     /// See [`App::register_type`].

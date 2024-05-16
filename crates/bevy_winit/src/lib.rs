@@ -12,6 +12,29 @@
 //! The app's [runner](bevy_app::App::runner) is set by `WinitPlugin` and handles the `winit` [`EventLoop`].
 //! See `winit_runner` for details.
 
+<<<<<<< Updated upstream
+=======
+use std::marker::PhantomData;
+use winit::event_loop::EventLoop;
+#[cfg(target_os = "android")]
+pub use winit::platform::android::activity as android_activity;
+
+use bevy_a11y::AccessibilityRequested;
+use bevy_app::{App, Last, Plugin};
+use bevy_ecs::prelude::*;
+use bevy_log::info;
+#[allow(deprecated)]
+use bevy_window::{exit_on_all_closed, Window, WindowCreated, WindowResized};
+pub use system::create_windows;
+use system::{changed_windows, despawn_windows};
+pub use winit_config::*;
+pub use winit_event::*;
+pub use winit_windows::*;
+
+use crate::accessibility::{AccessKitAdapters, AccessKitPlugin, WinitActionRequestHandlers};
+use crate::state::winit_runner;
+
+>>>>>>> Stashed changes
 pub mod accessibility;
 mod converters;
 mod system;
@@ -93,9 +116,24 @@ pub struct WinitPlugin {
     pub run_on_any_thread: bool,
 }
 
+<<<<<<< Updated upstream
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut App) {
         let mut event_loop_builder = EventLoopBuilder::<UserEvent>::with_user_event();
+=======
+impl<T: Event> Plugin for WinitPlugin<T> {
+    fn name(&self) -> &str {
+        "bevy_winit::WinitPlugin"
+    }
+
+    fn build(&self, _app: &mut App) {
+        // do nothing
+    }
+
+    fn init(&self, app: &mut App) {
+        info!("pre_build");
+        let mut event_loop_builder = EventLoop::<T>::with_user_event();
+>>>>>>> Stashed changes
 
         // linux check is needed because x11 might be enabled on other platforms.
         #[cfg(all(target_os = "linux", feature = "x11"))]

@@ -2,6 +2,8 @@ use downcast_rs::{impl_downcast, Downcast};
 
 use crate::App;
 use std::any::Any;
+use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
+use crate::plugin_registry::PluginState;
 
 /// A collection of Bevy app logic and configuration.
 ///
@@ -56,6 +58,11 @@ use std::any::Any;
 /// # fn damp_flickering() {}
 /// ````
 pub trait Plugin: Downcast + Any + Send + Sync {
+    /// Pre-configures the [`App`] to which this plugin is added.
+    fn init(&self, _app: &mut App) {
+        // do nothing
+    }
+
     /// Configures the [`App`] to which this plugin is added.
     fn build(&self, app: &mut App);
 
@@ -90,6 +97,22 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     fn is_unique(&self) -> bool {
         true
     }
+
+    fn update(&mut self, app: &mut App, state: PluginState) {
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            match state {
+                PluginState::Init => self.init(app),
+                PluginState::Building => self.build(app),
+                PluginState::Finished => self.finish(app),
+                PluginState::Cleaned => self.cleanup(app),
+                _ => { }
+            }
+        }));
+
+        if let Err(payload) = result {
+            resume_unwind(payload);
+        }
+    }
 }
 
 impl_downcast!(Plugin);
@@ -98,19 +121,6 @@ impl<T: Fn(&mut App) + Send + Sync + 'static> Plugin for T {
     fn build(&self, app: &mut App) {
         self(app);
     }
-}
-
-/// Plugins state in the application
-#[derive(PartialEq, Eq, Debug, Clone, Copy, PartialOrd, Ord)]
-pub enum PluginsState {
-    /// Plugins are being added.
-    Adding,
-    /// All plugins already added are ready.
-    Ready,
-    /// Finish has been executed for all plugins added.
-    Finished,
-    /// Cleanup has been executed for all plugins added.
-    Cleaned,
 }
 
 /// A dummy plugin that's to temporarily occupy an entry in an app's plugin registry.

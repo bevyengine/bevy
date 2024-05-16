@@ -237,6 +237,31 @@ impl Main {
 pub struct MainSchedulePlugin;
 
 impl Plugin for MainSchedulePlugin {
+    fn init(&self, app: &mut App) {
+        println!("init MainSchedulePlugin");
+        // simple "facilitator" schedules benefit from simpler single threaded scheduling
+        let mut main_schedule = Schedule::new(Main);
+        main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        let mut fixed_main_schedule = Schedule::new(FixedMain);
+        fixed_main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        let mut fixed_main_loop_schedule = Schedule::new(RunFixedMainLoop);
+        fixed_main_loop_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+
+        app.add_schedule(main_schedule)
+            .add_schedule(fixed_main_schedule)
+            .add_schedule(fixed_main_loop_schedule)
+            .init_resource::<MainScheduleOrder>()
+            .init_resource::<FixedMainScheduleOrder>()
+            .add_systems(Main, Main::run_main)
+            .add_systems(FixedMain, FixedMain::run_fixed_main);
+
+        #[cfg(feature = "bevy_debug_stepping")]
+        {
+            use bevy_ecs::schedule::{IntoSystemConfigs, Stepping};
+            app.add_systems(Main, Stepping::begin_frame.before(Main::run_main));
+        }
+    }
+
     fn build(&self, app: &mut App) {
         // simple "facilitator" schedules benefit from simpler single threaded scheduling
         let mut main_schedule = Schedule::new(Main);

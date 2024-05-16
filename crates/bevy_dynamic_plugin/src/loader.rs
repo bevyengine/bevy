@@ -67,6 +67,8 @@ impl DynamicPluginExt for App {
         // SAFETY: Follows the same safety requirements as `dynamically_load_plugin`.
         let (lib, plugin) = unsafe { dynamically_load_plugin(path).unwrap() };
         std::mem::forget(lib); // Ensure that the library is not automatically unloaded
+        println!("here");
+        plugin.init(self);
         plugin.build(self);
         self
     }
