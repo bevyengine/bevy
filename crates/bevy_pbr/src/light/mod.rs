@@ -26,6 +26,7 @@ use crate::*;
 
 mod ambient_light;
 pub use ambient_light::AmbientLight;
+
 mod point_light;
 pub use point_light::PointLight;
 mod spot_light;
@@ -1018,7 +1019,7 @@ pub(crate) fn directional_light_order(
         .then_with(|| entity_1.cmp(entity_2)) // stable
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 // data required for assigning lights to clusters
 pub(crate) struct PointLightAssignmentData {
     entity: Entity,
@@ -1108,7 +1109,7 @@ pub(crate) fn assign_lights_to_clusters(
                         shadows_enabled: point_light.shadows_enabled,
                         range: point_light.range,
                         spot_light_angle: None,
-                        render_layers: maybe_layers.copied().unwrap_or_default(),
+                        render_layers: maybe_layers.unwrap_or_default().clone(),
                     }
                 },
             ),
@@ -1125,7 +1126,7 @@ pub(crate) fn assign_lights_to_clusters(
                         shadows_enabled: spot_light.shadows_enabled,
                         range: spot_light.range,
                         spot_light_angle: Some(spot_light.outer_angle),
-                        render_layers: maybe_layers.copied().unwrap_or_default(),
+                        render_layers: maybe_layers.unwrap_or_default().clone(),
                     }
                 },
             ),
@@ -1199,7 +1200,7 @@ pub(crate) fn assign_lights_to_clusters(
         mut visible_lights,
     ) in &mut views
     {
-        let view_layers = maybe_layers.copied().unwrap_or_default();
+        let view_layers = maybe_layers.unwrap_or_default();
         let clusters = clusters.into_inner();
 
         if matches!(config, ClusterConfig::None) {
@@ -1926,7 +1927,7 @@ pub fn check_light_mesh_visibility(
             continue;
         }
 
-        let view_mask = maybe_view_mask.copied().unwrap_or_default();
+        let view_mask = maybe_view_mask.unwrap_or_default();
 
         for (
             entity,
@@ -1942,8 +1943,8 @@ pub fn check_light_mesh_visibility(
                 continue;
             }
 
-            let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
-            if !view_mask.intersects(&entity_mask) {
+            let entity_mask = maybe_entity_mask.unwrap_or_default();
+            if !view_mask.intersects(entity_mask) {
                 continue;
             }
 
@@ -2016,7 +2017,7 @@ pub fn check_light_mesh_visibility(
                     continue;
                 }
 
-                let view_mask = maybe_view_mask.copied().unwrap_or_default();
+                let view_mask = maybe_view_mask.unwrap_or_default();
                 let light_sphere = Sphere {
                     center: Vec3A::from(transform.translation()),
                     radius: point_light.range,
@@ -2036,8 +2037,8 @@ pub fn check_light_mesh_visibility(
                         continue;
                     }
 
-                    let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
-                    if !view_mask.intersects(&entity_mask) {
+                    let entity_mask = maybe_entity_mask.unwrap_or_default();
+                    if !view_mask.intersects(entity_mask) {
                         continue;
                     }
 
@@ -2091,7 +2092,7 @@ pub fn check_light_mesh_visibility(
                     continue;
                 }
 
-                let view_mask = maybe_view_mask.copied().unwrap_or_default();
+                let view_mask = maybe_view_mask.unwrap_or_default();
                 let light_sphere = Sphere {
                     center: Vec3A::from(transform.translation()),
                     radius: point_light.range,
@@ -2111,8 +2112,8 @@ pub fn check_light_mesh_visibility(
                         continue;
                     }
 
-                    let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
-                    if !view_mask.intersects(&entity_mask) {
+                    let entity_mask = maybe_entity_mask.unwrap_or_default();
+                    if !view_mask.intersects(entity_mask) {
                         continue;
                     }
 
