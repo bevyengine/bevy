@@ -1,2 +1,2 @@
 pub mod builder;
-pub use builder::BindGroupBuilder;
+pub use builder::*;
