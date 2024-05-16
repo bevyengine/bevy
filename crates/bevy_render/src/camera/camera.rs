@@ -146,8 +146,8 @@ impl Default for Exposure {
     }
 }
 
-/// Parameters based on physical camera characteristics for calculating
-/// EV100 values for use with [`Exposure`].
+/// Parameters based on physical camera characteristics for calculating EV100
+/// values for use with [`Exposure`]. This is also used for depth of field.
 #[derive(Clone, Copy)]
 pub struct PhysicalCameraParameters {
     /// <https://en.wikipedia.org/wiki/F-number>
@@ -156,6 +156,15 @@ pub struct PhysicalCameraParameters {
     pub shutter_speed_s: f32,
     /// <https://en.wikipedia.org/wiki/Film_speed>
     pub sensitivity_iso: f32,
+    /// The height of the [image sensor format] in meters.
+    ///
+    /// Focal length is derived from the FOV and this value. The default is
+    /// 18.66mm, matching the [Super 35] format, which is popular in cinema.
+    ///
+    /// [image sensor format]: https://en.wikipedia.org/wiki/Image_sensor_format
+    ///
+    /// [Super 35]: https://en.wikipedia.org/wiki/Super_35
+    pub sensor_height: f32,
 }
 
 impl PhysicalCameraParameters {
@@ -173,6 +182,7 @@ impl Default for PhysicalCameraParameters {
             aperture_f_stops: 1.0,
             shutter_speed_s: 1.0 / 125.0,
             sensitivity_iso: 100.0,
+            sensor_height: 0.01866,
         }
     }
 }
@@ -916,7 +926,7 @@ pub fn extract_cameras(
             }
 
             if let Some(render_layers) = render_layers {
-                commands.insert(*render_layers);
+                commands.insert(render_layers.clone());
             }
 
             if let Some(perspective) = projection {

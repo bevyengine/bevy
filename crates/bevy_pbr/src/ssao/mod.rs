@@ -153,13 +153,13 @@ pub struct ScreenSpaceAmbientOcclusionBundle {
 /// Doing so greatly reduces SSAO noise.
 ///
 /// SSAO is not supported on `WebGL2`, and is not currently supported on `WebGPU` or `DirectX12`.
-#[derive(Component, ExtractComponent, Reflect, PartialEq, Eq, Hash, Clone, Default)]
+#[derive(Component, ExtractComponent, Reflect, PartialEq, Eq, Hash, Clone, Default, Debug)]
 #[reflect(Component)]
 pub struct ScreenSpaceAmbientOcclusionSettings {
     pub quality_level: ScreenSpaceAmbientOcclusionQualityLevel,
 }
 
-#[derive(Reflect, PartialEq, Eq, Hash, Clone, Copy, Default)]
+#[derive(Reflect, PartialEq, Eq, Hash, Clone, Copy, Default, Debug)]
 pub enum ScreenSpaceAmbientOcclusionQualityLevel {
     Low,
     Medium,

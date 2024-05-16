@@ -271,9 +271,9 @@ fn queue_line_gizmos_2d(
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
+        let render_layers = render_layers.unwrap_or_default();
         for (entity, handle, config) in &line_gizmos {
-            let render_layers = render_layers.copied().unwrap_or_default();
-            if !config.render_layers.intersects(&render_layers) {
+            if !config.render_layers.intersects(render_layers) {
                 continue;
             }
 
@@ -328,9 +328,9 @@ fn queue_line_joint_gizmos_2d(
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
+        let render_layers = render_layers.unwrap_or_default();
         for (entity, handle, config) in &line_gizmos {
-            let render_layers = render_layers.copied().unwrap_or_default();
-            if !config.render_layers.intersects(&render_layers) {
+            if !config.render_layers.intersects(render_layers) {
                 continue;
             }
 

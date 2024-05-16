@@ -309,7 +309,7 @@ fn queue_line_gizmos_3d(
             continue;
         };
 
-        let render_layers = render_layers.copied().unwrap_or_default();
+        let render_layers = render_layers.unwrap_or_default();
 
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
             | MeshPipelineKey::from_hdr(view.hdr);
@@ -331,7 +331,7 @@ fn queue_line_gizmos_3d(
         }
 
         for (entity, handle, config) in &line_gizmos {
-            if !config.render_layers.intersects(&render_layers) {
+            if !config.render_layers.intersects(render_layers) {
                 continue;
             }
 
@@ -400,7 +400,7 @@ fn queue_line_joint_gizmos_3d(
             continue;
         };
 
-        let render_layers = render_layers.copied().unwrap_or_default();
+        let render_layers = render_layers.unwrap_or_default();
 
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
             | MeshPipelineKey::from_hdr(view.hdr);
@@ -422,7 +422,7 @@ fn queue_line_joint_gizmos_3d(
         }
 
         for (entity, handle, config) in &line_gizmos {
-            if !config.render_layers.intersects(&render_layers) {
+            if !config.render_layers.intersects(render_layers) {
                 continue;
             }
 
