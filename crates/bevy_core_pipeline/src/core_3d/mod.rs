@@ -497,6 +497,8 @@ pub fn extract_core_3d_camera_phases(
 
     opaque_3d_phases.retain(|entity, _| live_entities.contains(entity));
     alpha_mask_3d_phases.retain(|entity, _| live_entities.contains(entity));
+    transmissive_3d_phases.retain(|entity, _| live_entities.contains(entity));
+    transparent_3d_phases.retain(|entity, _| live_entities.contains(entity));
 }
 
 // Extract the render phases for the prepass

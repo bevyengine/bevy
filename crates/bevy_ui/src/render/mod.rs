@@ -46,7 +46,7 @@ use bevy_sprite::TextureAtlasLayout;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::HashMap;
+use bevy_utils::{EntityHashSet, HashMap};
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
 
@@ -663,6 +663,8 @@ pub fn extract_default_ui_camera_view<T: Component>(
     ui_scale: Extract<Res<UiScale>>,
     query: Extract<Query<(Entity, &Camera), With<T>>>,
 ) {
+    let mut live_entities = EntityHashSet::default();
+
     let scale = ui_scale.0.recip();
     for (entity, camera) in &query {
         // ignore inactive cameras
@@ -714,8 +716,12 @@ pub fn extract_default_ui_camera_view<T: Component>(
                 .get_or_spawn(entity)
                 .insert(DefaultCameraView(default_camera_view));
             transparent_render_phases.insert_or_clear(entity);
+
+            live_entities.insert(entity);
         }
     }
+
+    transparent_render_phases.retain(|entity, _| live_entities.contains(entity));
 }
 
 #[cfg(feature = "bevy_text")]

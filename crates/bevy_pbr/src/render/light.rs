@@ -689,7 +689,12 @@ pub fn prepare_lights(
     render_queue: Res<RenderQueue>,
     mut global_light_meta: ResMut<GlobalLightMeta>,
     mut light_meta: ResMut<LightMeta>,
-    views: Query<(Entity, &ExtractedView, &ExtractedClusterConfig, Option<&RenderLayers>)>,
+    views: Query<(
+        Entity,
+        &ExtractedView,
+        &ExtractedClusterConfig,
+        Option<&RenderLayers>,
+    )>,
     ambient_light: Res<AmbientLight>,
     point_light_shadow_map: Res<PointLightShadowMap>,
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,

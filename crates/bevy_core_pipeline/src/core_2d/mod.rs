@@ -32,7 +32,7 @@ pub use camera_2d::*;
 pub use main_transparent_pass_2d_node::*;
 
 use bevy_app::{App, Plugin};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use bevy_math::FloatOrd;
 use bevy_render::{
     camera::Camera,
@@ -162,6 +162,7 @@ pub fn extract_core_2d_camera_phases(
     mut transparent_2d_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     cameras_2d: Extract<Query<(Entity, &Camera), With<Camera2d>>>,
 ) {
+    let mut live_entities = EntityHashSet::default();
     for (entity, camera) in &cameras_2d {
         if !camera.is_active {
             continue;
@@ -169,5 +170,10 @@ pub fn extract_core_2d_camera_phases(
 
         commands.get_or_spawn(entity);
         transparent_2d_phases.insert_or_clear(entity);
+
+        live_entities.insert(entity);
     }
+
+    // Clear out all dead views.
+    transparent_2d_phases.retain(|camera_entity, _| live_entities.contains(camera_entity));
 }
