@@ -20,18 +20,26 @@ struct MyRoundGizmos {}
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     // text
-    commands.spawn(TextBundle::from_section(
-        "Hold 'Left' or 'Right' to change the line width of straight gizmos\n\
+    commands.spawn(
+        TextBundle::from_section(
+            "Hold 'Left' or 'Right' to change the line width of straight gizmos\n\
         Hold 'Up' or 'Down' to change the line width of round gizmos\n\
-        Press '1' or '2' to toggle the visibility of straight gizmos or round gizmos\n\
-        Press 'U' or 'I' to cycle through line styles for straight or round gizmos\n\
-        Press 'J' or 'K' to cycle through line joins for straight or round gizmos",
-        TextStyle {
-            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-            font_size: 24.,
-            color: Color::WHITE,
-        },
-    ));
+        Press '1' / '2' to toggle the visibility of straight / round gizmos\n\
+        Press 'U' / 'I' to cycle through line styles\n\
+        Press 'J' / 'K' to cycle through line joins",
+            TextStyle {
+                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                font_size: 20.,
+                color: Color::WHITE,
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.),
+            left: Val::Px(12.),
+            ..default()
+        }),
+    );
 }
 
 fn draw_example_collection(
@@ -47,10 +55,10 @@ fn draw_example_collection(
         .grid_2d(
             Vec2::ZERO,
             0.0,
-            UVec2::new(16, 12),
-            Vec2::new(60., 60.),
-            // Light gray
-            LinearRgba::gray(0.65),
+            UVec2::new(16, 9),
+            Vec2::new(80., 80.),
+            // Dark gray
+            LinearRgba::gray(0.05),
         )
         .outer_edges();
 
@@ -62,36 +70,26 @@ fn draw_example_collection(
         (Vec2::Y * 300., BLUE),
     ]);
 
-    gizmos.rect_2d(
-        Vec2::ZERO,
-        time.elapsed_seconds() / 3.,
-        Vec2::splat(300.),
-        BLACK,
-    );
+    gizmos.rect_2d(Vec2::ZERO, 0., Vec2::splat(650.), BLACK);
 
     my_gizmos
-        .rounded_rect_2d(
-            Vec2::ZERO,
-            time.elapsed_seconds() / -3.,
-            Vec2::splat(300.),
-            BLACK,
-        )
+        .rounded_rect_2d(Vec2::ZERO, 0., Vec2::splat(630.), BLACK)
         .corner_radius((time.elapsed_seconds() / 3.).cos() * 100.);
 
-    // The circles have 32 line-segments by default.
-    my_gizmos.circle_2d(Vec2::ZERO, 120., BLACK);
+    // Circles have 32 line-segments by default.
+    // You may want to increase this for larger circles.
+    my_gizmos.circle_2d(Vec2::ZERO, 300., NAVY).segments(64);
+
     my_gizmos.ellipse_2d(
         Vec2::ZERO,
         time.elapsed_seconds() % TAU,
         Vec2::new(100., 200.),
         YELLOW_GREEN,
     );
-    // You may want to increase this for larger circles.
-    my_gizmos.circle_2d(Vec2::ZERO, 300., NAVY).segments(64);
 
     // Arcs default amount of segments is linearly interpolated between
     // 1 and 32, using the arc length as scalar.
-    my_gizmos.arc_2d(Vec2::ZERO, sin / 10., PI / 2., 350., ORANGE_RED);
+    my_gizmos.arc_2d(Vec2::ZERO, sin / 10., PI / 2., 310., ORANGE_RED);
 
     gizmos.arrow_2d(
         Vec2::ZERO,
