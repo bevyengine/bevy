@@ -1266,6 +1266,8 @@ fn load_node(
                     let primitive_label = primitive_label(&mesh, &primitive);
                     let bounds = primitive.bounding_box();
 
+                    // TODO: Handle meshlet meshes
+
                     let mut mesh_entity = parent.spawn(PbrBundle {
                         // TODO: handle missing label handle errors here?
                         mesh: load_context.get_label_handle(&primitive_label),
