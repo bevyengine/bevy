@@ -8,10 +8,10 @@ use std::mem;
 use bevy_ecs::{system::Resource, world::World};
 use bevy_render::{
     render_resource::{
-        BindGroup, BindGroupLayout, BindGroupLayoutEntry, Buffer, CommandEncoder,
+        BindGroup, BindGroupLayout, BindGroupLayoutEntry, Buffer, BufferDescriptor, CommandEncoder,
         CommandEncoderDescriptor, ComputePass, ComputePassDescriptor, ComputePipeline,
         ComputePipelineDescriptor, PipelineCache, RenderPipeline, RenderPipelineDescriptor,
-        Sampler, Texture, TextureView,
+        Sampler, Texture, TextureDescriptor, TextureView, TextureViewDescriptor,
     },
     renderer::{RenderDevice, RenderQueue},
     settings::{WgpuFeatures, WgpuLimits},
@@ -30,6 +30,8 @@ use self::resource::{
     CachedResources, DescribedRenderResource, RenderDependencies, RenderResourceGeneration,
     RenderResourceId, ResourceTracker, UsagesRenderResource,
 };
+
+pub type Label<'a> = Option<&'a str>;
 
 #[derive(Resource, Default)]
 struct RenderGraphCachedResources {
@@ -187,18 +189,18 @@ impl<'g> RenderGraphBuilder<'g> {
         self.new_resource(RefEq::Borrowed(resource))
     }
 
-    pub fn get_descriptor_of<R: DescribedRenderResource>(
+    pub fn get_descriptor<R: DescribedRenderResource>(
         &self,
         resource: RenderHandle<'g, R>,
     ) -> Option<&R::Descriptor> {
         R::get_descriptor(self, resource)
     }
 
-    pub fn descriptor_of<R: DescribedRenderResource>(
+    pub fn descriptor<R: DescribedRenderResource>(
         &self,
         resource: RenderHandle<'g, R>,
     ) -> &R::Descriptor {
-        self.get_descriptor_of(resource)
+        self.get_descriptor(resource)
             .unwrap_or_else(|| panic!("Descriptor not found for resource: {:?}", resource))
     }
 

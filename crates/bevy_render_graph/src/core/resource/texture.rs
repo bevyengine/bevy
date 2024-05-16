@@ -7,8 +7,8 @@ use std::hash::Hash;
 use crate::core::{NodeContext, RenderGraph, RenderGraphBuilder};
 
 use bevy_render::render_resource::{
-    Sampler, SamplerDescriptor, Texture, TextureDescriptor, TextureUsages, TextureView,
-    TextureViewDescriptor,
+    FilterMode, Sampler, SamplerBindingType, SamplerDescriptor, Texture, TextureDescriptor,
+    TextureUsages, TextureView, TextureViewDescriptor,
 };
 
 use super::{
@@ -321,6 +321,21 @@ impl FromDescriptorRenderResource for Sampler {
 
 #[derive(Clone, Debug)]
 pub struct RenderGraphSamplerDescriptor(pub SamplerDescriptor<'static>);
+
+impl RenderGraphSamplerDescriptor {
+    pub fn binding_type(&self) -> SamplerBindingType {
+        if self.0.compare.is_some() {
+            SamplerBindingType::Comparison
+        } else if [self.0.min_filter, self.0.mag_filter, self.0.mipmap_filter]
+            .iter()
+            .any(|f| *f == FilterMode::Linear)
+        {
+            SamplerBindingType::Filtering
+        } else {
+            SamplerBindingType::NonFiltering
+        }
+    }
+}
 
 impl Hash for RenderGraphSamplerDescriptor {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {

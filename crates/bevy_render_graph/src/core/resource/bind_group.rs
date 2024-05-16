@@ -1,16 +1,21 @@
-use std::{borrow::Borrow, hash::Hash, ops::Deref};
+use std::{
+    borrow::Borrow,
+    hash::Hash,
+    ops::{Deref, Range},
+};
 
 use bevy_ecs::world::World;
 use bevy_utils::HashMap;
 
 use bevy_render::{
     render_resource::{
-        BindGroup, BindGroupLayout, BindGroupLayoutEntry, Buffer, Sampler, TextureView,
+        BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutEntry, BindingResource, Buffer,
+        BufferAddress, BufferBinding, BufferSize, Sampler, TextureView,
     },
     renderer::RenderDevice,
 };
 
-use crate::core::{NodeContext, RenderGraph, RenderGraphBuilder};
+use crate::core::{Label, NodeContext, RenderGraph, RenderGraphBuilder};
 
 use super::{
     ref_eq::RefEq, DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource,
@@ -64,14 +69,28 @@ impl FromDescriptorRenderResource for BindGroupLayout {
     }
 }
 
+impl<'g> IntoRenderResource<'g> for Vec<BindGroupLayoutEntry> {
+    type Resource = BindGroupLayout;
+
+    #[inline]
+    fn into_render_resource(
+        mut self,
+        graph: &mut RenderGraphBuilder<'g>,
+    ) -> RenderHandle<'g, Self::Resource> {
+        self.sort_by_key(|entry| entry.binding);
+        graph.new_bind_group_layout_descriptor(self)
+    }
+}
+
 impl<'g> IntoRenderResource<'g> for &[BindGroupLayoutEntry] {
     type Resource = BindGroupLayout;
 
+    #[inline]
     fn into_render_resource(
         self,
         graph: &mut RenderGraphBuilder<'g>,
     ) -> RenderHandle<'g, Self::Resource> {
-        graph.new_bind_group_layout_descriptor(Vec::from(self))
+        graph.new_resource(Vec::from(self))
     }
 }
 
@@ -140,7 +159,7 @@ impl<'g> RenderGraphBindGroups<'g> {
                 label,
                 layout,
                 dependencies,
-                bindings,
+                mut bindings,
             },
         ) in self.queued_bind_groups.drain()
         {
@@ -150,20 +169,12 @@ impl<'g> RenderGraphBindGroups<'g> {
                 dependencies,
                 // entity: view_entity,
             };
-            let raw_layout = context.get(layout);
+
+            bindings.sort_by_key(|entry| entry.binding);
             let bind_group = bind_group_cache
                 .entry(bindings)
                 .or_insert_with_key(|bindings| {
-                    //awful rust lifetimes hack
-                    let owned_bindings = bindings
-                        .iter()
-                        .map(|binding| binding.as_owned_binding(&context))
-                        .collect::<Vec<_>>();
-                    let raw_bindings = owned_bindings
-                        .iter()
-                        .map(|binding| binding.as_binding())
-                        .collect::<Vec<_>>();
-                    render_device.create_bind_group(label, raw_layout, &raw_bindings)
+                    make_bind_group(context, render_device, label, layout, bindings)
                 });
             self.bind_groups.insert(
                 id,
@@ -188,75 +199,130 @@ impl<'g> RenderGraphBindGroups<'g> {
     }
 }
 
+fn make_bind_group<'n>(
+    ctx: NodeContext<'n>,
+    render_device: &RenderDevice,
+    label: Label<'n>,
+    layout: RenderHandle<'n, BindGroupLayout>,
+    entries: &[RenderGraphBindGroupEntry<'n>],
+) -> BindGroup {
+    #[inline]
+    fn push_ref<T>(vec: &mut Vec<T>, item: T) -> Range<usize> {
+        let i_fst = vec.len();
+        vec.push(item);
+        i_fst..vec.len()
+    }
+
+    #[inline]
+    fn push_many_ref<T>(vec: &mut Vec<T>, items: impl IntoIterator<Item = T>) -> Range<usize> {
+        let i_fst = vec.len();
+        vec.extend(items);
+        i_fst..vec.len()
+    }
+
+    let ctx_ref = &ctx;
+
+    let raw_layout = ctx.get(layout);
+
+    let mut buffers = Vec::with_capacity(entries.len());
+    let mut samplers = Vec::with_capacity(entries.len());
+    let mut texture_views = Vec::with_capacity(entries.len());
+    let mut indices: Vec<Range<usize>> = Vec::with_capacity(entries.len());
+
+    entries
+        .iter()
+        .enumerate()
+        .for_each(|(i, RenderGraphBindGroupEntry { resource, .. })| {
+            indices[i] = match resource {
+                RenderGraphBindingResource::Buffer(buffer_binding) => push_ref(
+                    &mut buffers,
+                    BufferBinding {
+                        buffer: ctx_ref.get(buffer_binding.buffer).deref(),
+                        offset: buffer_binding.offset,
+                        size: buffer_binding.size,
+                    },
+                ),
+                RenderGraphBindingResource::BufferArray(buffer_bindings) => push_many_ref(
+                    &mut buffers,
+                    buffer_bindings.iter().map(|buffer_binding| BufferBinding {
+                        buffer: ctx_ref.get(buffer_binding.buffer).deref(),
+                        offset: buffer_binding.offset,
+                        size: buffer_binding.size,
+                    }),
+                ),
+                RenderGraphBindingResource::Sampler(sampler_binding) => {
+                    push_ref(&mut samplers, ctx_ref.get(*sampler_binding).deref())
+                }
+                RenderGraphBindingResource::SamplerArray(sampler_bindings) => push_many_ref(
+                    &mut samplers,
+                    sampler_bindings
+                        .iter()
+                        .map(|sampler| ctx_ref.get(*sampler).deref()),
+                ),
+                RenderGraphBindingResource::TextureView(texture_view_binding) => push_ref(
+                    &mut texture_views,
+                    ctx_ref.get(*texture_view_binding).deref(),
+                ),
+                RenderGraphBindingResource::TextureViewArray(texture_view_bindings) => {
+                    push_many_ref(
+                        &mut texture_views,
+                        texture_view_bindings
+                            .iter()
+                            .map(|texture_view| ctx_ref.get(*texture_view).deref()),
+                    )
+                }
+            };
+        });
+
+    let raw_entries: Vec<BindGroupEntry<'_>> = entries
+        .iter()
+        .enumerate()
+        .map(
+            |(i, RenderGraphBindGroupEntry { binding, resource })| BindGroupEntry {
+                binding: *binding,
+                resource: match resource {
+                    RenderGraphBindingResource::Buffer(_) => {
+                        BindingResource::Buffer(buffers[indices[i].start].clone())
+                    }
+                    RenderGraphBindingResource::BufferArray(_) => {
+                        BindingResource::BufferArray(&buffers[indices[i].clone()])
+                    }
+                    RenderGraphBindingResource::Sampler(_) => {
+                        BindingResource::Sampler(samplers[indices[i].start])
+                    }
+                    RenderGraphBindingResource::SamplerArray(_) => {
+                        BindingResource::SamplerArray(&samplers[indices[i].clone()])
+                    }
+                    RenderGraphBindingResource::TextureView(_) => {
+                        BindingResource::TextureView(texture_views[indices[i].start])
+                    }
+                    RenderGraphBindingResource::TextureViewArray(_) => {
+                        BindingResource::TextureViewArray(&texture_views[indices[i].clone()])
+                    }
+                },
+            },
+        )
+        .collect();
+
+    render_device.create_bind_group(label, raw_layout, &raw_entries)
+}
+
 pub struct RenderGraphBindGroupDescriptor<'g> {
-    label: Label<'g>,
-    layout: RenderHandle<'g, BindGroupLayout>,
+    pub label: Label<'g>,
+    pub layout: RenderHandle<'g, BindGroupLayout>,
     ///Note: This is not ideal, since we would like to create the dependencies automatically from
     ///the binding list. This isn't possible currently because we'd have to dereference a bind
     ///group layout possibly before it's created. Possible solutions: leave as is, or add Layout information to each entry
     ///so we can infer read/write usage for each binding and maybe create the layout automatically
     ///as well. That might be too verbose though.
-    dependencies: RenderDependencies<'g>,
-    bindings: Vec<RenderGraphBindGroupEntry<'g>>,
+    pub dependencies: RenderDependencies<'g>,
+    pub bindings: Vec<RenderGraphBindGroupEntry<'g>>,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct RenderGraphBindGroupEntry<'g> {
     pub binding: u32,
     pub resource: RenderGraphBindingResource<'g>,
-}
-
-impl<'g> RenderGraphBindGroupEntry<'g> {
-    fn as_owned_binding<'a>(&'a self, context: &'a NodeContext<'g>) -> OwnedBindGroupEntry<'a> {
-        OwnedBindGroupEntry {
-            binding: self.binding,
-            resource: self.resource.as_owned_binding(context),
-        }
-    }
-}
-
-struct OwnedBindGroupEntry<'a> {
-    binding: u32,
-    resource: OwnedGraphBindingResource<'a>,
-}
-
-impl<'a> OwnedBindGroupEntry<'a> {
-    fn as_binding(&'a self) -> BindGroupEntry<'a> {
-        BindGroupEntry {
-            binding: self.binding,
-            resource: self.resource.as_binding(),
-        }
-    }
-}
-
-enum OwnedGraphBindingResource<'a> {
-    Buffer(wgpu::BufferBinding<'a>),
-    BufferArray(Vec<wgpu::BufferBinding<'a>>),
-    Sampler(&'a wgpu::Sampler),
-    SamplerArray(Vec<&'a wgpu::Sampler>),
-    TextureView(&'a wgpu::TextureView),
-    TextureViewArray(Vec<&'a wgpu::TextureView>),
-}
-
-impl<'a> OwnedGraphBindingResource<'a> {
-    fn as_binding(&self) -> BindingResource {
-        match self {
-            OwnedGraphBindingResource::Buffer(buffer) => BindingResource::Buffer(buffer.clone()),
-            OwnedGraphBindingResource::BufferArray(buffers) => {
-                BindingResource::BufferArray(buffers)
-            }
-            OwnedGraphBindingResource::Sampler(sampler) => BindingResource::Sampler(sampler),
-            OwnedGraphBindingResource::SamplerArray(samplers) => {
-                BindingResource::SamplerArray(samplers)
-            }
-            OwnedGraphBindingResource::TextureView(texture_view) => {
-                BindingResource::TextureView(texture_view)
-            }
-            OwnedGraphBindingResource::TextureViewArray(texture_views) => {
-                BindingResource::TextureViewArray(texture_views)
-            }
-        }
-    }
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -269,61 +335,11 @@ pub enum RenderGraphBindingResource<'g> {
     TextureViewArray(Vec<RenderHandle<'g, TextureView>>),
 }
 
-impl<'g> RenderGraphBindingResource<'g> {
-    fn as_owned_binding<'a>(
-        &'a self,
-        context: &'a NodeContext<'g>,
-    ) -> OwnedGraphBindingResource<'a> {
-        match self {
-            RenderGraphBindingResource::Buffer(buffer) => {
-                OwnedGraphBindingResource::Buffer(buffer.as_owned_binding(context))
-            }
-            RenderGraphBindingResource::BufferArray(buffers) => {
-                let raw_buffers = buffers
-                    .iter()
-                    .map(|buffer| buffer.as_owned_binding(context))
-                    .collect();
-                OwnedGraphBindingResource::BufferArray(raw_buffers)
-            }
-            RenderGraphBindingResource::Sampler(sampler) => {
-                OwnedGraphBindingResource::Sampler(context.get(*sampler).deref())
-            }
-            RenderGraphBindingResource::SamplerArray(samplers) => {
-                let raw_samplers = samplers
-                    .iter()
-                    .map(|sampler| context.get(*sampler).deref())
-                    .collect();
-                OwnedGraphBindingResource::SamplerArray(raw_samplers)
-            }
-            RenderGraphBindingResource::TextureView(texture_view) => {
-                OwnedGraphBindingResource::TextureView(context.get(*texture_view).deref())
-            }
-            RenderGraphBindingResource::TextureViewArray(texture_views) => {
-                let raw_texture_views = texture_views
-                    .iter()
-                    .map(|texture_view| context.get(*texture_view).deref())
-                    .collect();
-                OwnedGraphBindingResource::TextureViewArray(raw_texture_views)
-            }
-        }
-    }
-}
-
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct RenderGraphBufferBinding<'g> {
     buffer: RenderHandle<'g, Buffer>,
     offset: BufferAddress,
     size: Option<BufferSize>,
-}
-
-impl<'g> RenderGraphBufferBinding<'g> {
-    fn as_owned_binding<'a>(&'a self, context: &'a NodeContext<'g>) -> BufferBinding<'a> {
-        BufferBinding {
-            buffer: context.get(self.buffer).deref(),
-            offset: self.offset,
-            size: self.size,
-        }
-    }
 }
 
 impl RenderResource for BindGroup {
