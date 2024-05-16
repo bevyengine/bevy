@@ -8,6 +8,8 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
+# This isn't very polished ATM, I just copied from bevy_render's cargo.toml and took out all the unneeded dependencies and features
+
 # [features]
 # png = ["image/png"]
 # exr = ["image/exr"]
