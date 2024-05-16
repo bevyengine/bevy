@@ -320,10 +320,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         RenderPipelineDescriptor {
             label: Some("deferred_lighting_pipeline".into()),
             layout: vec![
-                self.mesh_pipeline
-                    .view_layouts
-                    .get_view_layout(key.into())
-                    .clone(),
+                self.mesh_pipeline.get_view_layout(key.into()).clone(),
                 self.bind_group_layout_1.clone(),
             ],
             vertex: VertexState {

@@ -1557,7 +1557,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED".into());
         }
 
-        let mut bind_group_layout = vec![self.view_layouts.get_view_layout(key.into()).clone()];
+        let mut bind_group_layout = vec![self.get_view_layout(key.into()).clone()];
 
         if key.msaa_samples() > 1 {
             shader_defs.push("MULTISAMPLED".into());
