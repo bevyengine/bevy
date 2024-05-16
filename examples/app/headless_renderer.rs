@@ -13,8 +13,7 @@ use bevy::{
     prelude::*,
     render::{
         camera::RenderTarget,
-        render_asset::RenderAssetUsages,
-        render_asset::RenderAssets,
+        render_asset::{RenderAssetUsages, RenderAssets},
         render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
         render_resource::{
             Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d,
@@ -22,7 +21,7 @@ use bevy::{
             TextureUsages,
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
-        texture::BevyDefault,
+        texture::{BevyDefault, TextureFormatPixelInfo},
         Extract, Render, RenderApp, RenderSet,
     },
 };
@@ -492,7 +491,20 @@ fn update(
                 for image in images_to_save.iter() {
                     // Fill correct data from channel to image
                     let img_bytes = images.get_mut(image.id()).unwrap();
-                    img_bytes.data.clone_from(&image_data);
+
+                    let row_bytes = img_bytes.width() as usize
+                        * img_bytes.texture_descriptor.format.pixel_size();
+                    let aligned_row_bytes = RenderDevice::align_copy_bytes_per_row(row_bytes);
+                    if row_bytes == aligned_row_bytes {
+                        img_bytes.data.clone_from(&image_data);
+                    } else {
+                        // shrink data to original image size
+                        img_bytes.data = image_data
+                            .chunks(aligned_row_bytes)
+                            .flat_map(|row| &row[..row_bytes])
+                            .cloned()
+                            .collect();
+                    }
 
                     // Create RGBA Image Buffer
                     let img = match img_bytes.clone().try_into_dynamic() {
