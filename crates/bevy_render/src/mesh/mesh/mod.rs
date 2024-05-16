@@ -735,10 +735,9 @@ impl Mesh {
     /// Transforms the vertex positions, normals, and tangents of the mesh in place by the given [`Transform`].
     pub fn transform_by(&mut self, transform: Transform) {
         // Needed when transforming normals and tangents
-        let covector_scale = transform.scale.yzx() * transform.scale.zxy();
-
+        let scale_recip = 1. / transform.scale;
         debug_assert!(
-            covector_scale != Vec3::ZERO,
+            transform.scale.yzx() * transform.scale.zxy() != Vec3::ZERO,
             "mesh transform scale cannot be zero on more than one axis"
         );
 
@@ -764,8 +763,9 @@ impl Mesh {
         {
             // Transform normals, taking into account non-uniform scaling and rotation
             normals.iter_mut().for_each(|normal| {
-                let scaled_normal = Vec3::from_slice(normal) * transform.scale;
-                *normal = (transform.rotation * scaled_normal.normalize_or_zero()).to_array();
+                *normal = (transform.rotation
+                    * scale_normal(Vec3::from_array(*normal), scale_recip))
+                .to_array();
             });
         }
 
@@ -774,7 +774,7 @@ impl Mesh {
         {
             // Transform tangents, taking into account non-uniform scaling and rotation
             tangents.iter_mut().for_each(|tangent| {
-                let scaled_tangent = Vec3::from_slice(tangent) * covector_scale;
+                let scaled_tangent = Vec3::from_slice(tangent) * scale_recip;
                 *tangent = (transform.rotation * scaled_tangent.normalize_or_zero()).to_array();
             });
         }
@@ -852,10 +852,9 @@ impl Mesh {
     /// Scales the vertex positions, normals, and tangents of the mesh in place by the given [`Vec3`].
     pub fn scale_by(&mut self, scale: Vec3) {
         // Needed when transforming normals and tangents
-        let covector_scale = scale.yzx() * scale.zxy();
-
+        let scale_recip = 1. / scale;
         debug_assert!(
-            covector_scale != Vec3::ZERO,
+            scale.yzx() * scale.zxy() != Vec3::ZERO,
             "mesh transform scale cannot be zero on more than one axis"
         );
 
@@ -878,8 +877,7 @@ impl Mesh {
         {
             // Transform normals, taking into account non-uniform scaling
             normals.iter_mut().for_each(|normal| {
-                let scaled_normal = Vec3::from_slice(normal) * scale;
-                *normal = scaled_normal.normalize_or_zero().to_array();
+                *normal = scale_normal(Vec3::from_array(*normal), scale_recip).to_array();
             });
         }
 
@@ -888,7 +886,7 @@ impl Mesh {
         {
             // Transform tangents, taking into account non-uniform scaling
             tangents.iter_mut().for_each(|tangent| {
-                let scaled_tangent = Vec3::from_slice(tangent) * covector_scale;
+                let scaled_tangent = Vec3::from_slice(tangent) * scale_recip;
                 *tangent = scaled_tangent.normalize_or_zero().to_array();
             });
         }
@@ -1668,6 +1666,45 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
     Ok(mikktspace_mesh.tangents)
 }
 
+/// Correctly scales and renormalizes an already normalized `normal` by the scale determined by its reciprocal `scale_recip`
+fn scale_normal(normal: Vec3, scale_recip: Vec3) -> Vec3 {
+    if scale_recip.is_finite() {
+        (normal * scale_recip).normalize_or_zero()
+    } else {
+        // This is basically just `normal * scale_recip` but with the added rule that `0. * anything == 0.`
+        // This is neccessary because one of the components of `scale_recip` is infinite
+        let n = Vec3::new(
+            if normal.x == 0. {
+                0.
+            } else {
+                normal.x * scale_recip.x
+            },
+            if normal.y == 0. {
+                0.
+            } else {
+                normal.y * scale_recip.y
+            },
+            if normal.z == 0. {
+                0.
+            } else {
+                normal.z * scale_recip.z
+            },
+        );
+
+        // If n is finite, the normal was perpendicular to the flattened axis
+        // else the
+        if n.is_finite() {
+            n.normalize_or_zero()
+        } else {
+            Vec3::new(
+                if n.x.is_finite() { 0. } else { n.x.signum() },
+                if n.y.is_finite() { 0. } else { n.y.signum() },
+                if n.z.is_finite() { 0. } else { n.z.signum() },
+            )
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Mesh;
@@ -1698,7 +1735,11 @@ mod tests {
         )
         .with_inserted_attribute(
             Mesh::ATTRIBUTE_NORMAL,
-            vec![[0., 0., 1.], [0., 0., 1.], [0., 0., 1.]],
+            vec![
+                Vec3::new(-1., -1., 1.).normalize().to_array(),
+                Vec3::new(1., -1., 1.).normalize().to_array(),
+                [0., 0., 1.],
+            ],
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0., 0.], [1., 0.], [0.5, 1.]]);
 
@@ -1709,6 +1750,8 @@ mod tests {
         if let Some(VertexAttributeValues::Float32x3(positions)) =
             mesh.attribute(Mesh::ATTRIBUTE_POSITION)
         {
+            // All positions are first scaled resulting in `vec![[-2, 0., -2.], [2., 0., -2.], [0., 0., -2.]]`
+            // and then shifted by `-2.` along each axis
             assert_eq!(
                 positions,
                 &vec![[-4.0, -2.0, -4.0], [0.0, -2.0, -4.0], [-2.0, -2.0, -4.0]]
@@ -1720,7 +1763,7 @@ mod tests {
         if let Some(VertexAttributeValues::Float32x3(normals)) =
             mesh.attribute(Mesh::ATTRIBUTE_NORMAL)
         {
-            assert_eq!(normals, &vec![[0., 0., -1.]; 3]);
+            assert_eq!(normals, &vec![[0., -1., 0.], [0., -1., 0.], [0., 0., -1.]]);
         } else {
             panic!("Mesh does not have a normal attribute");
         }
