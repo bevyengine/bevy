@@ -3037,6 +3037,17 @@ description = "Demonstrates depth of field"
 category = "3D Rendering"
 wasm = false
 
+[[example]]
+name = "volumetric_fog"
+path = "examples/3d/volumetric_fog.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.volumetric_fog]
+name = "Volumetric fog"
+description = "Demonstrates volumetric fog and lighting"
+category = "3D Rendering"
+wasm = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"

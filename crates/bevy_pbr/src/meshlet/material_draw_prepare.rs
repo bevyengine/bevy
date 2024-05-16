@@ -165,7 +165,10 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
             let pipeline_descriptor = RenderPipelineDescriptor {
                 label: material_pipeline_descriptor.label,
                 layout: vec![
-                    mesh_pipeline.get_view_layout(view_key.into()).clone(),
+                    mesh_pipeline
+                        .view_layouts
+                        .get_view_layout(view_key.into())
+                        .clone(),
                     gpu_scene.material_draw_bind_group_layout(),
                     material_pipeline.material_layout.clone(),
                 ],
