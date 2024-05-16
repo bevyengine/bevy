@@ -37,7 +37,6 @@ impl ViewNode for MainTransparentPass2dNode {
         };
 
         // This needs to run at least once to clear the background color, even if there are no items to render
-
         {
             #[cfg(feature = "trace")]
             let _main_pass_2d = info_span!("main_transparent_pass_2d").entered();
