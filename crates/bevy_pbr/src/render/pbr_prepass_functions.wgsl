@@ -20,13 +20,10 @@ fn prepass_alpha_discard(in: VertexOutput) {
 #ifdef VERTEX_UVS
 #ifdef VERTEX_UVS_A
     var uv = in.uv;
-#else
+#else   // VERTEX_UVS_A
     var uv = in.uv_b;
-#endif
-#ifdef VERTEX_UVS_B
-    if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_UV_BIT) != 0u) {
-        uv = in.uv_b;
-    }
+#endif  // VERTEX_UVS_A
+
 #endif
     let uv_transform = pbr_bindings::material.uv_transform;
     uv = (uv_transform * vec3(uv, 1.0)).xy;
