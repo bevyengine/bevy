@@ -306,7 +306,7 @@ fn apply_pbr_lighting(
     transmissive_lighting_input.V = -in.V;
     transmissive_lighting_input.diffuse_color = diffuse_transmissive_color;
     transmissive_lighting_input.F0_ = vec3(0.0);
-    transmissive_lighting_input.F_ab = vec2(0.0);
+    transmissive_lighting_input.F_ab = vec2(0.1);
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     transmissive_lighting_input.layers[LAYER_CLEARCOAT].NdotV = 0.0;
     transmissive_lighting_input.layers[LAYER_CLEARCOAT].N = vec3(0.0);
