@@ -12,9 +12,12 @@
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
+use bevy_derive::{Deref, DerefMut};
 use bevy_utils::HashMap;
 
 mod loader;
+#[cfg(feature = "meshlet")]
+mod meshlet;
 mod vertex_attributes;
 pub use loader::*;
 
@@ -55,11 +58,22 @@ impl GltfPlugin {
 impl Plugin for GltfPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<GltfExtras>()
+            .init_asset::<RawGltf>()
             .init_asset::<Gltf>()
             .init_asset::<GltfNode>()
             .init_asset::<GltfPrimitive>()
             .init_asset::<GltfMesh>()
             .preregister_asset_loader::<GltfLoader>(&["gltf", "glb"]);
+
+        #[cfg(feature = "meshlet")]
+        if let Some(processor) = app
+            .world()
+            .get_resource::<bevy_asset::processor::AssetProcessor>()
+        {
+            processor.register_processor::<bevy_asset::processor::LoadAndSave<RawGltfLoader, meshlet::MeshletMeshGltfSaver>>(
+                meshlet::MeshletMeshGltfSaver.into(),
+            );
+        }
     }
 
     fn finish(&self, app: &mut App) {
@@ -67,6 +81,8 @@ impl Plugin for GltfPlugin {
             Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
             None => CompressedImageFormats::NONE,
         };
+
+        app.register_asset_loader(RawGltfLoader);
         app.register_asset_loader(GltfLoader {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
@@ -75,6 +91,10 @@ impl Plugin for GltfPlugin {
 }
 
 /// Representation of a loaded glTF file.
+#[derive(Asset, Debug, TypePath, Deref, DerefMut)]
+pub struct RawGltf(pub gltf::Gltf);
+
+/// Bevy representation of a loaded glTF file.
 #[derive(Asset, Debug, TypePath)]
 pub struct Gltf {
     /// All scenes loaded from the glTF file.
@@ -140,6 +160,9 @@ pub struct GltfMesh {
 pub struct GltfPrimitive {
     /// Topology to be rendered.
     pub mesh: Handle<Mesh>,
+    /// Meshlet topology to be rendered.
+    #[cfg(feature = "meshlet")]
+    pub meshlet_mesh: Option<Handle<bevy_pbr::experimental::meshlet::MeshletMesh>>,
     /// Material to apply to the `mesh`.
     pub material: Option<Handle<StandardMaterial>>,
     /// Additional data.

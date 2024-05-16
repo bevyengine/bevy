@@ -1,4 +1,4 @@
-use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode};
+use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode, RawGltf};
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{AnimationTarget, AnimationTargetId};
 use bevy_asset::{
@@ -106,6 +106,9 @@ pub enum GltfError {
     Io(#[from] std::io::Error),
 }
 
+/// Loads glTF files.
+pub struct RawGltfLoader;
+
 /// Loads glTF files with all of their data as their corresponding bevy representations.
 pub struct GltfLoader {
     /// List of compressed image formats handled by the loader.
@@ -135,7 +138,7 @@ pub struct GltfLoader {
 ///     }
 /// );
 /// ```
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct GltfLoaderSettings {
     /// If empty, the gltf mesh nodes will be skipped.
     ///
@@ -178,6 +181,27 @@ impl AssetLoader for GltfLoader {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         load_gltf(self, &bytes, load_context, settings).await
+    }
+
+    fn extensions(&self) -> &[&str] {
+        &["gltf", "glb"]
+    }
+}
+
+impl AssetLoader for RawGltfLoader {
+    type Asset = RawGltf;
+    type Settings = GltfLoaderSettings;
+    type Error = GltfError;
+    async fn load<'a>(
+        &'a self,
+        reader: &'a mut Reader<'_>,
+        _settings: &'a GltfLoaderSettings,
+        _load_context: &'a mut LoadContext<'_>,
+    ) -> Result<RawGltf, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        let gltf = gltf::Gltf::from_slice(&bytes)?;
+        Ok(RawGltf(gltf))
     }
 
     fn extensions(&self) -> &[&str] {
@@ -532,6 +556,8 @@ async fn load_gltf<'a, 'b, 'c>(
             let mesh = load_context.add_labeled_asset(primitive_label, mesh);
             primitives.push(super::GltfPrimitive {
                 mesh,
+                #[cfg(feature = "meshlet")]
+                meshlet_mesh: todo!("Read meshlet from primitive"),
                 material: primitive
                     .material()
                     .index()
@@ -1559,7 +1585,7 @@ fn texture_address_mode(gltf_address_mode: &WrappingMode) -> ImageAddressMode {
 
 /// Maps the `primitive_topology` form glTF to `wgpu`.
 #[allow(clippy::result_large_err)]
-fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
+pub(crate) fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
     match mode {
         Mode::Points => Ok(PrimitiveTopology::PointList),
         Mode::Lines => Ok(PrimitiveTopology::LineList),

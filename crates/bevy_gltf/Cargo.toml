@@ -12,6 +12,8 @@ keywords = ["bevy"]
 dds = ["bevy_render/dds"]
 pbr_transmission_textures = ["bevy_pbr/pbr_transmission_textures"]
 pbr_multi_layer_material_textures = []
+meshlet = ["bevy_pbr/meshlet"]
+meshlet_processor = ["bevy_pbr/meshlet_processor"]
 
 [dependencies]
 # bevy
@@ -21,6 +23,7 @@ bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.14.0-dev" }
 bevy_core = { path = "../bevy_core", version = "0.14.0-dev" }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.14.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
