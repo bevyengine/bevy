@@ -10,10 +10,14 @@ use bevy_render::{
     camera::{Camera, CameraProjection},
     extract_component::ExtractComponent,
     extract_resource::ExtractResource,
+    mesh::Mesh,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, HalfSpace, Sphere},
     render_resource::BufferBindingType,
     renderer::RenderDevice,
-    view::{InheritedVisibility, RenderLayers, ViewVisibility, VisibleEntities},
+    view::{
+        InheritedVisibility, RenderLayers, ViewVisibility, VisibilityRange, VisibleEntities,
+        VisibleEntityRanges, WithMesh,
+    },
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::warn;
@@ -97,6 +101,10 @@ impl Default for PointLightShadowMap {
         Self { size: 1024 }
     }
 }
+
+/// A convenient alias for `Or<(With<PointLight>, With<SpotLight>,
+/// With<DirectionalLight>)>`, for use with [`VisibleEntities`].
+pub type WithLight = Or<(With<PointLight>, With<SpotLight>, With<DirectionalLight>)>;
 
 /// Controls the resolution of [`DirectionalLight`] shadow maps.
 #[derive(Resource, Clone, Debug, Reflect)]
@@ -432,11 +440,11 @@ fn calculate_cascade(
         texel_size: cascade_texel_size,
     }
 }
-/// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not cast shadows.
+/// Add this component to make a [`Mesh`] not cast shadows.
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct NotShadowCaster;
-/// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not receive shadows.
+/// Add this component to make a [`Mesh`] not receive shadows.
 ///
 /// **Note:** If you're using diffuse transmission, setting [`NotShadowReceiver`] will
 /// cause both “regular” shadows as well as diffusely transmitted shadows to be disabled,
@@ -444,7 +452,7 @@ pub struct NotShadowCaster;
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct NotShadowReceiver;
-/// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) using a PBR material with [`diffuse_transmission`](crate::pbr_material::StandardMaterial::diffuse_transmission)`> 0.0`
+/// Add this component to make a [`Mesh`] using a PBR material with [`diffuse_transmission`](crate::pbr_material::StandardMaterial::diffuse_transmission)`> 0.0`
 /// receive shadows on its diffuse transmission lobe. (i.e. its “backside”)
 ///
 /// Not enabled by default, as it requires carefully setting up [`thickness`](crate::pbr_material::StandardMaterial::thickness)
@@ -460,8 +468,6 @@ pub struct TransmittedShadowReceiver;
 ///
 /// The different modes use different approaches to
 /// [Percentage Closer Filtering](https://developer.nvidia.com/gpugems/gpugems/part-ii-lighting-and-shadows/chapter-11-shadow-map-antialiasing).
-///
-/// Currently does not affect point lights.
 #[derive(Component, ExtractComponent, Reflect, Clone, Copy, PartialEq, Eq, Default)]
 #[reflect(Component, Default)]
 pub enum ShadowFilteringMethod {
@@ -469,20 +475,29 @@ pub enum ShadowFilteringMethod {
     ///
     /// Fast but poor quality.
     Hardware2x2,
-    /// Method by Ignacio Castaño for The Witness using 9 samples and smart
-    /// filtering to achieve the same as a regular 5x5 filter kernel.
+    /// Approximates a fixed Gaussian blur, good when TAA isn't in use.
     ///
     /// Good quality, good performance.
+    ///
+    /// For directional and spot lights, this uses a [method by Ignacio Castaño
+    /// for *The Witness*] using 9 samples and smart filtering to achieve the same
+    /// as a regular 5x5 filter kernel.
+    ///
+    /// [method by Ignacio Castaño for *The Witness*]: https://web.archive.org/web/20230210095515/http://the-witness.net/news/2013/09/shadow-mapping-summary-part-1/
     #[default]
-    Castano13,
-    /// Method by Jorge Jimenez for Call of Duty: Advanced Warfare using 8
-    /// samples in spiral pattern, randomly-rotated by interleaved gradient
-    /// noise with spatial variation.
+    Gaussian,
+    /// A randomized filter that varies over time, good when TAA is in use.
     ///
     /// Good quality when used with
     /// [`TemporalAntiAliasSettings`](bevy_core_pipeline::experimental::taa::TemporalAntiAliasSettings)
     /// and good performance.
-    Jimenez14,
+    ///
+    /// For directional and spot lights, this uses a [method by Jorge Jimenez for
+    /// *Call of Duty: Advanced Warfare*] using 8 samples in spiral pattern,
+    /// randomly-rotated by interleaved gradient noise with spatial variation.
+    ///
+    /// [method by Jorge Jimenez for *Call of Duty: Advanced Warfare*]: https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/
+    Temporal,
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -1308,7 +1323,7 @@ pub(crate) fn assign_lights_to_clusters(
                 // scale x and y cluster count to be able to fit all our indices
 
                 // we take the ratio of the actual indices over the index estimate.
-                // this not not guaranteed to be small enough due to overlapped tiles, but
+                // this is not guaranteed to be small enough due to overlapped tiles, but
                 // the conservative estimate is more than sufficient to cover the
                 // difference
                 let index_ratio = ViewClusterBindings::MAX_INDICES as f32 / cluster_index_estimate;
@@ -1851,9 +1866,15 @@ pub fn check_light_mesh_visibility(
             Option<&RenderLayers>,
             Option<&Aabb>,
             Option<&GlobalTransform>,
+            Has<VisibilityRange>,
         ),
-        (Without<NotShadowCaster>, Without<DirectionalLight>),
+        (
+            Without<NotShadowCaster>,
+            Without<DirectionalLight>,
+            With<Handle<Mesh>>,
+        ),
     >,
+    visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
 ) {
     fn shrink_entities(visible_entities: &mut VisibleEntities) {
         // Check that visible entities capacity() is no more than two times greater than len()
@@ -1870,6 +1891,8 @@ pub fn check_light_mesh_visibility(
 
         visible_entities.entities.shrink_to(reserved);
     }
+
+    let visible_entity_ranges = visible_entity_ranges.as_deref();
 
     // Directional lights
     for (directional_light, frusta, mut visible_entities, maybe_view_mask, light_view_visibility) in
@@ -1912,6 +1935,7 @@ pub fn check_light_mesh_visibility(
             maybe_entity_mask,
             maybe_aabb,
             maybe_transform,
+            has_visibility_range,
         ) in &mut visible_entity_query
         {
             if !inherited_visibility.get() {
@@ -1931,6 +1955,15 @@ pub fn check_light_mesh_visibility(
                         .get_mut(view)
                         .expect("Per-view visible entities should have been inserted already");
 
+                    // Check visibility ranges.
+                    if has_visibility_range
+                        && visible_entity_ranges.is_some_and(|visible_entity_ranges| {
+                            !visible_entity_ranges.entity_is_in_range_of_view(entity, *view)
+                        })
+                    {
+                        continue;
+                    }
+
                     for (frustum, frustum_visible_entities) in
                         view_frusta.iter().zip(view_visible_entities)
                     {
@@ -1940,7 +1973,7 @@ pub fn check_light_mesh_visibility(
                         }
 
                         view_visibility.set();
-                        frustum_visible_entities.entities.push(entity);
+                        frustum_visible_entities.get_mut::<WithMesh>().push(entity);
                     }
                 }
             } else {
@@ -1952,7 +1985,7 @@ pub fn check_light_mesh_visibility(
                         .expect("Per-view visible entities should have been inserted already");
 
                     for frustum_visible_entities in view_visible_entities {
-                        frustum_visible_entities.entities.push(entity);
+                        frustum_visible_entities.get_mut::<WithMesh>().push(entity);
                     }
                 }
             }
@@ -1996,6 +2029,7 @@ pub fn check_light_mesh_visibility(
                     maybe_entity_mask,
                     maybe_aabb,
                     maybe_transform,
+                    has_visibility_range,
                 ) in &mut visible_entity_query
                 {
                     if !inherited_visibility.get() {
@@ -2004,6 +2038,15 @@ pub fn check_light_mesh_visibility(
 
                     let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
                     if !view_mask.intersects(&entity_mask) {
+                        continue;
+                    }
+
+                    // Check visibility ranges.
+                    if has_visibility_range
+                        && visible_entity_ranges.is_some_and(|visible_entity_ranges| {
+                            !visible_entity_ranges.entity_is_in_range_of_any_view(entity)
+                        })
+                    {
                         continue;
                     }
 
@@ -2021,13 +2064,13 @@ pub fn check_light_mesh_visibility(
                         {
                             if frustum.intersects_obb(aabb, &model_to_world, true, true) {
                                 view_visibility.set();
-                                visible_entities.entities.push(entity);
+                                visible_entities.push::<WithMesh>(entity);
                             }
                         }
                     } else {
                         view_visibility.set();
                         for visible_entities in cubemap_visible_entities.iter_mut() {
-                            visible_entities.entities.push(entity);
+                            visible_entities.push::<WithMesh>(entity);
                         }
                     }
                 }
@@ -2061,6 +2104,7 @@ pub fn check_light_mesh_visibility(
                     maybe_entity_mask,
                     maybe_aabb,
                     maybe_transform,
+                    has_visibility_range,
                 ) in &mut visible_entity_query
                 {
                     if !inherited_visibility.get() {
@@ -2069,6 +2113,15 @@ pub fn check_light_mesh_visibility(
 
                     let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
                     if !view_mask.intersects(&entity_mask) {
+                        continue;
+                    }
+
+                    // Check visibility ranges.
+                    if has_visibility_range
+                        && visible_entity_ranges.is_some_and(|visible_entity_ranges| {
+                            !visible_entity_ranges.entity_is_in_range_of_any_view(entity)
+                        })
+                    {
                         continue;
                     }
 
@@ -2082,11 +2135,11 @@ pub fn check_light_mesh_visibility(
 
                         if frustum.intersects_obb(aabb, &model_to_world, true, true) {
                             view_visibility.set();
-                            visible_entities.entities.push(entity);
+                            visible_entities.push::<WithMesh>(entity);
                         }
                     } else {
                         view_visibility.set();
-                        visible_entities.entities.push(entity);
+                        visible_entities.push::<WithMesh>(entity);
                     }
                 }
 

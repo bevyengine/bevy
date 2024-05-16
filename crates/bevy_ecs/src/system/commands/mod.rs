@@ -4,6 +4,7 @@ use super::{Deferred, IntoSystem, RegisterSystem, Resource};
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
+    component::ComponentId,
     entity::{Entities, Entity},
     system::{RunSystemWithInput, SystemId},
     world::{Command, CommandQueue, EntityWorldMut, FromWorld, World},
@@ -580,10 +581,7 @@ impl<'w, 's> Commands<'w, 's> {
     ) -> SystemId<I, O> {
         let entity = self.spawn_empty().id();
         self.queue.push(RegisterSystem::new(system, entity));
-        SystemId {
-            entity,
-            marker: std::marker::PhantomData,
-        }
+        SystemId::from_entity(entity)
     }
 
     /// Pushes a generic [`Command`] to the command queue.
@@ -893,6 +891,11 @@ impl EntityCommands<'_> {
         self.add(remove::<T>)
     }
 
+    /// Removes a component from the entity.
+    pub fn remove_by_id(&mut self, component_id: ComponentId) -> &mut Self {
+        self.add(remove_by_id(component_id))
+    }
+
     /// Despawns the entity.
     ///
     /// See [`World::despawn`] for more details.
@@ -1102,8 +1105,20 @@ fn try_insert(bundle: impl Bundle) -> impl EntityCommand {
 /// For a [`Bundle`] type `T`, this will remove any components in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
 fn remove<T: Bundle>(entity: Entity, world: &mut World) {
-    if let Some(mut entity_mut) = world.get_entity_mut(entity) {
-        entity_mut.remove::<T>();
+    if let Some(mut entity) = world.get_entity_mut(entity) {
+        entity.remove::<T>();
+    }
+}
+
+/// An [`EntityCommand`] that removes components with a provided [`ComponentId`] from an entity.
+/// # Panics
+///
+/// Panics if the provided [`ComponentId`] does not exist in the [`World`].
+fn remove_by_id(component_id: ComponentId) -> impl EntityCommand {
+    move |entity: Entity, world: &mut World| {
+        if let Some(mut entity) = world.get_entity_mut(entity) {
+            entity.remove_by_id(component_id);
+        }
     }
 }
 
@@ -1153,9 +1168,12 @@ mod tests {
         system::{Commands, Resource},
         world::{CommandQueue, World},
     };
-    use std::sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
+    use std::{
+        any::TypeId,
+        sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        },
     };
 
     #[allow(dead_code)]
@@ -1261,6 +1279,59 @@ mod tests {
             .entity(entity)
             .remove::<W<u32>>()
             .remove::<(W<u32>, W<u64>, SparseDropCk, DropCk)>();
+
+        assert_eq!(dense_is_dropped.load(Ordering::Relaxed), 0);
+        assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 0);
+        command_queue.apply(&mut world);
+        assert_eq!(dense_is_dropped.load(Ordering::Relaxed), 1);
+        assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 1);
+
+        let results_after = world
+            .query::<(&W<u32>, &W<u64>)>()
+            .iter(&world)
+            .map(|(a, b)| (a.0, b.0))
+            .collect::<Vec<_>>();
+        assert_eq!(results_after, vec![]);
+        let results_after_u64 = world
+            .query::<&W<u64>>()
+            .iter(&world)
+            .map(|v| v.0)
+            .collect::<Vec<_>>();
+        assert_eq!(results_after_u64, vec![]);
+    }
+
+    #[test]
+    fn remove_components_by_id() {
+        let mut world = World::default();
+
+        let mut command_queue = CommandQueue::default();
+        let (dense_dropck, dense_is_dropped) = DropCk::new_pair();
+        let (sparse_dropck, sparse_is_dropped) = DropCk::new_pair();
+        let sparse_dropck = SparseDropCk(sparse_dropck);
+
+        let entity = Commands::new(&mut command_queue, &world)
+            .spawn((W(1u32), W(2u64), dense_dropck, sparse_dropck))
+            .id();
+        command_queue.apply(&mut world);
+        let results_before = world
+            .query::<(&W<u32>, &W<u64>)>()
+            .iter(&world)
+            .map(|(a, b)| (a.0, b.0))
+            .collect::<Vec<_>>();
+        assert_eq!(results_before, vec![(1u32, 2u64)]);
+
+        // test component removal
+        Commands::new(&mut command_queue, &world)
+            .entity(entity)
+            .remove_by_id(world.components().get_id(TypeId::of::<W<u32>>()).unwrap())
+            .remove_by_id(world.components().get_id(TypeId::of::<W<u64>>()).unwrap())
+            .remove_by_id(world.components().get_id(TypeId::of::<DropCk>()).unwrap())
+            .remove_by_id(
+                world
+                    .components()
+                    .get_id(TypeId::of::<SparseDropCk>())
+                    .unwrap(),
+            );
 
         assert_eq!(dense_is_dropped.load(Ordering::Relaxed), 0);
         assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 0);

@@ -34,26 +34,28 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
     mesh::Mesh,
-    render_phase::{BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
+    render_phase::{
+        BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem,
+        PhaseItemExtraIndex,
+    },
     render_resource::{BindGroupId, CachedRenderPipelineId, Extent3d, TextureFormat, TextureView},
     texture::ColorAttachment,
 };
-use nonmax::NonMaxU32;
 
 pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
 pub const MOTION_VECTOR_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg16Float;
 
 /// If added to a [`crate::prelude::Camera3d`] then depth values will be copied to a separate texture available to the main pass.
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Default, Reflect, Clone)]
 pub struct DepthPrepass;
 
 /// If added to a [`crate::prelude::Camera3d`] then vertex world normals will be copied to a separate texture available to the main pass.
 /// Normals will have normal map textures already applied.
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Default, Reflect, Clone)]
 pub struct NormalPrepass;
 
 /// If added to a [`crate::prelude::Camera3d`] then screen space motion vectors will be copied to a separate texture available to the main pass.
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Default, Reflect, Clone)]
 pub struct MotionVectorPrepass;
 
 /// If added to a [`crate::prelude::Camera3d`] then deferred materials will be rendered to the deferred gbuffer texture and will be available to subsequent passes.
@@ -119,7 +121,7 @@ pub struct Opaque3dPrepass {
     pub representative_entity: Entity,
 
     pub batch_range: Range<u32>,
-    pub dynamic_offset: Option<NonMaxU32>,
+    pub extra_index: PhaseItemExtraIndex,
 }
 
 // TODO: Try interning these.
@@ -163,13 +165,13 @@ impl PhaseItem for Opaque3dPrepass {
     }
 
     #[inline]
-    fn dynamic_offset(&self) -> Option<NonMaxU32> {
-        self.dynamic_offset
+    fn extra_index(&self) -> PhaseItemExtraIndex {
+        self.extra_index
     }
 
     #[inline]
-    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
-        &mut self.dynamic_offset
+    fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
+        (&mut self.batch_range, &mut self.extra_index)
     }
 }
 
@@ -181,13 +183,13 @@ impl BinnedPhaseItem for Opaque3dPrepass {
         key: Self::BinKey,
         representative_entity: Entity,
         batch_range: Range<u32>,
-        dynamic_offset: Option<NonMaxU32>,
+        extra_index: PhaseItemExtraIndex,
     ) -> Self {
         Opaque3dPrepass {
             key,
             representative_entity,
             batch_range,
-            dynamic_offset,
+            extra_index,
         }
     }
 }
@@ -208,7 +210,7 @@ pub struct AlphaMask3dPrepass {
     pub key: OpaqueNoLightmap3dBinKey,
     pub representative_entity: Entity,
     pub batch_range: Range<u32>,
-    pub dynamic_offset: Option<NonMaxU32>,
+    pub extra_index: PhaseItemExtraIndex,
 }
 
 impl PhaseItem for AlphaMask3dPrepass {
@@ -233,13 +235,13 @@ impl PhaseItem for AlphaMask3dPrepass {
     }
 
     #[inline]
-    fn dynamic_offset(&self) -> Option<NonMaxU32> {
-        self.dynamic_offset
+    fn extra_index(&self) -> PhaseItemExtraIndex {
+        self.extra_index
     }
 
     #[inline]
-    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
-        &mut self.dynamic_offset
+    fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
+        (&mut self.batch_range, &mut self.extra_index)
     }
 }
 
@@ -251,13 +253,13 @@ impl BinnedPhaseItem for AlphaMask3dPrepass {
         key: Self::BinKey,
         representative_entity: Entity,
         batch_range: Range<u32>,
-        dynamic_offset: Option<NonMaxU32>,
+        extra_index: PhaseItemExtraIndex,
     ) -> Self {
         Self {
             key,
             representative_entity,
             batch_range,
-            dynamic_offset,
+            extra_index,
         }
     }
 }

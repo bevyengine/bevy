@@ -3,11 +3,11 @@
 #import bevy_pbr::{
     meshlet_bindings::{
         meshlet_visibility_buffer,
-        meshlet_thread_meshlet_ids,
+        meshlet_cluster_meshlet_ids,
         meshlets,
         meshlet_vertex_ids,
         meshlet_vertex_data,
-        meshlet_thread_instance_ids,
+        meshlet_cluster_instance_ids,
         meshlet_instance_uniforms,
         get_meshlet_index,
         unpack_meshlet_vertex,
@@ -22,7 +22,7 @@
 #ifdef PREPASS_FRAGMENT
 #ifdef MOTION_VECTOR_PREPASS
 #import bevy_pbr::{
-    prepass_bindings::previous_view_proj,
+    prepass_bindings::previous_view_uniforms,
     pbr_prepass_functions::calculate_motion_vector,
 }
 #endif
@@ -95,11 +95,11 @@ struct VertexOutput {
 
 /// Load the visibility buffer texture and resolve it into a VertexOutput.
 fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
-    let vbuffer = textureLoad(meshlet_visibility_buffer, vec2<i32>(frag_coord.xy), 0).r;
-    let cluster_id = vbuffer >> 8u;
-    let meshlet_id = meshlet_thread_meshlet_ids[cluster_id];
+    let packed_ids = textureLoad(meshlet_visibility_buffer, vec2<i32>(frag_coord.xy), 0).r;
+    let cluster_id = packed_ids >> 6u;
+    let meshlet_id = meshlet_cluster_meshlet_ids[cluster_id];
     let meshlet = meshlets[meshlet_id];
-    let triangle_id = extractBits(vbuffer, 0u, 8u);
+    let triangle_id = extractBits(packed_ids, 0u, 6u);
     let index_ids = meshlet.start_index_id + vec3(triangle_id * 3u) + vec3(0u, 1u, 2u);
     let indices = meshlet.start_vertex_id + vec3(get_meshlet_index(index_ids.x), get_meshlet_index(index_ids.y), get_meshlet_index(index_ids.z));
     let vertex_ids = vec3(meshlet_vertex_ids[indices.x], meshlet_vertex_ids[indices.y], meshlet_vertex_ids[indices.z]);
@@ -107,13 +107,14 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let vertex_2 = unpack_meshlet_vertex(meshlet_vertex_data[vertex_ids.y]);
     let vertex_3 = unpack_meshlet_vertex(meshlet_vertex_data[vertex_ids.z]);
 
-    let instance_id = meshlet_thread_instance_ids[cluster_id];
+    let instance_id = meshlet_cluster_instance_ids[cluster_id];
     let instance_uniform = meshlet_instance_uniforms[instance_id];
     let model = affine3_to_square(instance_uniform.model);
 
     let world_position_1 = mesh_position_local_to_world(model, vec4(vertex_1.position, 1.0));
     let world_position_2 = mesh_position_local_to_world(model, vec4(vertex_2.position, 1.0));
     let world_position_3 = mesh_position_local_to_world(model, vec4(vertex_3.position, 1.0));
+
     let clip_position_1 = position_world_to_clip(world_position_1.xyz);
     let clip_position_2 = position_world_to_clip(world_position_2.xyz);
     let clip_position_3 = position_world_to_clip(world_position_3.xyz);
@@ -153,9 +154,9 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let previous_world_position_1 = mesh_position_local_to_world(previous_model, vec4(vertex_1.position, 1.0));
     let previous_world_position_2 = mesh_position_local_to_world(previous_model, vec4(vertex_2.position, 1.0));
     let previous_world_position_3 = mesh_position_local_to_world(previous_model, vec4(vertex_3.position, 1.0));
-    let previous_clip_position_1 = previous_view_proj * vec4(previous_world_position_1.xyz, 1.0);
-    let previous_clip_position_2 = previous_view_proj * vec4(previous_world_position_2.xyz, 1.0);
-    let previous_clip_position_3 = previous_view_proj * vec4(previous_world_position_3.xyz, 1.0);
+    let previous_clip_position_1 = previous_view_uniforms.view_proj * vec4(previous_world_position_1.xyz, 1.0);
+    let previous_clip_position_2 = previous_view_uniforms.view_proj * vec4(previous_world_position_2.xyz, 1.0);
+    let previous_clip_position_3 = previous_view_uniforms.view_proj * vec4(previous_world_position_3.xyz, 1.0);
     let previous_partial_derivatives = compute_partial_derivatives(
         array(previous_clip_position_1, previous_clip_position_2, previous_clip_position_3),
         frag_coord_ndc,

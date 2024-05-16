@@ -1,24 +1,27 @@
+mod range;
 mod render_layers;
 
-use bevy_derive::Deref;
+use std::any::TypeId;
+
+pub use range::*;
 pub use render_layers::*;
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::prelude::*;
+use bevy_derive::Deref;
+use bevy_ecs::{prelude::*, query::QueryFilter};
 use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystem};
-use bevy_utils::Parallel;
+use bevy_utils::{Parallel, TypeIdMap};
 
 use crate::{
-    camera::{
-        camera_system, Camera, CameraProjection, OrthographicProjection, PerspectiveProjection,
-        Projection,
-    },
+    camera::{Camera, CameraProjection},
     mesh::Mesh,
     primitives::{Aabb, Frustum, Sphere},
 };
+
+use super::NoCpuCulling;
 
 /// User indication of whether an entity is visible. Propagates down the entity hierarchy.
 ///
@@ -170,34 +173,74 @@ pub struct NoFrustumCulling;
 #[reflect(Component, Default)]
 pub struct VisibleEntities {
     #[reflect(ignore)]
-    pub entities: Vec<Entity>,
+    pub entities: TypeIdMap<Vec<Entity>>,
 }
 
 impl VisibleEntities {
-    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &Entity> {
-        self.entities.iter()
+    pub fn get<QF>(&self) -> &[Entity]
+    where
+        QF: 'static,
+    {
+        match self.entities.get(&TypeId::of::<QF>()) {
+            Some(entities) => &entities[..],
+            None => &[],
+        }
     }
 
-    pub fn len(&self) -> usize {
-        self.entities.len()
+    pub fn get_mut<QF>(&mut self) -> &mut Vec<Entity>
+    where
+        QF: 'static,
+    {
+        self.entities.entry(TypeId::of::<QF>()).or_default()
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.entities.is_empty()
+    pub fn iter<QF>(&self) -> impl DoubleEndedIterator<Item = &Entity>
+    where
+        QF: 'static,
+    {
+        self.get::<QF>().iter()
+    }
+
+    pub fn len<QF>(&self) -> usize
+    where
+        QF: 'static,
+    {
+        self.get::<QF>().len()
+    }
+
+    pub fn is_empty<QF>(&self) -> bool
+    where
+        QF: 'static,
+    {
+        self.get::<QF>().is_empty()
+    }
+
+    pub fn clear<QF>(&mut self)
+    where
+        QF: 'static,
+    {
+        self.get_mut::<QF>().clear();
+    }
+
+    pub fn push<QF>(&mut self, entity: Entity)
+    where
+        QF: 'static,
+    {
+        self.get_mut::<QF>().push(entity);
     }
 }
+
+/// A convenient alias for `With<Handle<Mesh>>`, for use with
+/// [`VisibleEntities`].
+pub type WithMesh = With<Handle<Mesh>>;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum VisibilitySystems {
     /// Label for the [`calculate_bounds`], `calculate_bounds_2d` and `calculate_bounds_text2d` systems,
     /// calculating and inserting an [`Aabb`] to relevant entities.
     CalculateBounds,
-    /// Label for the [`update_frusta<OrthographicProjection>`] system.
-    UpdateOrthographicFrusta,
-    /// Label for the [`update_frusta<PerspectiveProjection>`] system.
-    UpdatePerspectiveFrusta,
-    /// Label for the [`update_frusta<Projection>`] system.
-    UpdateProjectionFrusta,
+    /// Label for [`update_frusta`] in [`CameraProjectionPlugin`](crate::camera::CameraProjectionPlugin).
+    UpdateFrusta,
     /// Label for the system propagating the [`InheritedVisibility`] in a
     /// [`hierarchy`](bevy_hierarchy).
     VisibilityPropagate,
@@ -212,40 +255,18 @@ impl Plugin for VisibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
-        app.add_systems(
+        app.configure_sets(
+            PostUpdate,
+            (CalculateBounds, UpdateFrusta, VisibilityPropagate)
+                .before(CheckVisibility)
+                .after(TransformSystem::TransformPropagate),
+        )
+        .add_systems(
             PostUpdate,
             (
                 calculate_bounds.in_set(CalculateBounds),
-                update_frusta::<OrthographicProjection>
-                    .in_set(UpdateOrthographicFrusta)
-                    .after(camera_system::<OrthographicProjection>)
-                    .after(TransformSystem::TransformPropagate)
-                    // We assume that no camera will have more than one projection component,
-                    // so these systems will run independently of one another.
-                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                    .ambiguous_with(update_frusta::<PerspectiveProjection>)
-                    .ambiguous_with(update_frusta::<Projection>),
-                update_frusta::<PerspectiveProjection>
-                    .in_set(UpdatePerspectiveFrusta)
-                    .after(camera_system::<PerspectiveProjection>)
-                    .after(TransformSystem::TransformPropagate)
-                    // We assume that no camera will have more than one projection component,
-                    // so these systems will run independently of one another.
-                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                    .ambiguous_with(update_frusta::<Projection>),
-                update_frusta::<Projection>
-                    .in_set(UpdateProjectionFrusta)
-                    .after(camera_system::<Projection>)
-                    .after(TransformSystem::TransformPropagate),
                 (visibility_propagate_system, reset_view_visibility).in_set(VisibilityPropagate),
-                check_visibility
-                    .in_set(CheckVisibility)
-                    .after(CalculateBounds)
-                    .after(UpdateOrthographicFrusta)
-                    .after(UpdatePerspectiveFrusta)
-                    .after(UpdateProjectionFrusta)
-                    .after(VisibilityPropagate)
-                    .after(TransformSystem::TransformPropagate),
+                check_visibility::<WithMesh>.in_set(CheckVisibility),
             ),
         );
     }
@@ -271,9 +292,7 @@ pub fn calculate_bounds(
 
 /// Updates [`Frustum`].
 ///
-/// This system is used in system sets [`VisibilitySystems::UpdateProjectionFrusta`],
-/// [`VisibilitySystems::UpdatePerspectiveFrusta`], and
-/// [`VisibilitySystems::UpdateOrthographicFrusta`].
+/// This system is used in [`CameraProjectionPlugin`](crate::camera::CameraProjectionPlugin).
 pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
     mut views: Query<
         (&GlobalTransform, &T, &mut Frustum),
@@ -366,84 +385,112 @@ fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
 
 /// System updating the visibility of entities each frame.
 ///
-/// The system is part of the [`VisibilitySystems::CheckVisibility`] set. Each frame, it updates the
-/// [`ViewVisibility`] of all entities, and for each view also compute the [`VisibleEntities`]
-/// for that view.
-pub fn check_visibility(
+/// The system is part of the [`VisibilitySystems::CheckVisibility`] set. Each
+/// frame, it updates the [`ViewVisibility`] of all entities, and for each view
+/// also compute the [`VisibleEntities`] for that view.
+///
+/// This system needs to be run for each type of renderable entity. If you add a
+/// new type of renderable entity, you'll need to add an instantiation of this
+/// system to the [`VisibilitySystems::CheckVisibility`] set so that Bevy will
+/// detect visibility properly for those entities.
+pub fn check_visibility<QF>(
     mut thread_queues: Local<Parallel<Vec<Entity>>>,
     mut view_query: Query<(
+        Entity,
         &mut VisibleEntities,
         &Frustum,
         Option<&RenderLayers>,
         &Camera,
+        Has<NoCpuCulling>,
     )>,
-    mut visible_aabb_query: Query<(
-        Entity,
-        &InheritedVisibility,
-        &mut ViewVisibility,
-        Option<&RenderLayers>,
-        Option<&Aabb>,
-        &GlobalTransform,
-        Has<NoFrustumCulling>,
-    )>,
-) {
-    for (mut visible_entities, frustum, maybe_view_mask, camera) in &mut view_query {
+    mut visible_aabb_query: Query<
+        (
+            Entity,
+            &InheritedVisibility,
+            &mut ViewVisibility,
+            Option<&RenderLayers>,
+            Option<&Aabb>,
+            &GlobalTransform,
+            Has<NoFrustumCulling>,
+            Has<VisibilityRange>,
+        ),
+        QF,
+    >,
+    visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
+) where
+    QF: QueryFilter + 'static,
+{
+    let visible_entity_ranges = visible_entity_ranges.as_deref();
+
+    for (view, mut visible_entities, frustum, maybe_view_mask, camera, no_cpu_culling) in
+        &mut view_query
+    {
         if !camera.is_active {
             continue;
         }
 
         let view_mask = maybe_view_mask.copied().unwrap_or_default();
 
-        visible_entities.entities.clear();
-        visible_aabb_query.par_iter_mut().for_each(|query_item| {
-            let (
-                entity,
-                inherited_visibility,
-                mut view_visibility,
-                maybe_entity_mask,
-                maybe_model_aabb,
-                transform,
-                no_frustum_culling,
-            ) = query_item;
+        visible_aabb_query.par_iter_mut().for_each_init(
+            || thread_queues.borrow_local_mut(),
+            |queue, query_item| {
+                let (
+                    entity,
+                    inherited_visibility,
+                    mut view_visibility,
+                    maybe_entity_mask,
+                    maybe_model_aabb,
+                    transform,
+                    no_frustum_culling,
+                    has_visibility_range,
+                ) = query_item;
 
-            // Skip computing visibility for entities that are configured to be hidden.
-            // ViewVisibility has already been reset in `reset_view_visibility`.
-            if !inherited_visibility.get() {
-                return;
-            }
+                // Skip computing visibility for entities that are configured to be hidden.
+                // ViewVisibility has already been reset in `reset_view_visibility`.
+                if !inherited_visibility.get() {
+                    return;
+                }
 
-            let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
-            if !view_mask.intersects(&entity_mask) {
-                return;
-            }
+                let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
+                if !view_mask.intersects(&entity_mask) {
+                    return;
+                }
 
-            // If we have an aabb, do frustum culling
-            if !no_frustum_culling {
-                if let Some(model_aabb) = maybe_model_aabb {
-                    let model = transform.affine();
-                    let model_sphere = Sphere {
-                        center: model.transform_point3a(model_aabb.center),
-                        radius: transform.radius_vec3a(model_aabb.half_extents),
-                    };
-                    // Do quick sphere-based frustum culling
-                    if !frustum.intersects_sphere(&model_sphere, false) {
-                        return;
-                    }
-                    // Do aabb-based frustum culling
-                    if !frustum.intersects_obb(model_aabb, &model, true, false) {
-                        return;
+                // If outside of the visibility range, cull.
+                if has_visibility_range
+                    && visible_entity_ranges.is_some_and(|visible_entity_ranges| {
+                        !visible_entity_ranges.entity_is_in_range_of_view(entity, view)
+                    })
+                {
+                    return;
+                }
+
+                // If we have an aabb, do frustum culling
+                if !no_frustum_culling && !no_cpu_culling {
+                    if let Some(model_aabb) = maybe_model_aabb {
+                        let model = transform.affine();
+                        let model_sphere = Sphere {
+                            center: model.transform_point3a(model_aabb.center),
+                            radius: transform.radius_vec3a(model_aabb.half_extents),
+                        };
+                        // Do quick sphere-based frustum culling
+                        if !frustum.intersects_sphere(&model_sphere, false) {
+                            return;
+                        }
+                        // Do aabb-based frustum culling
+                        if !frustum.intersects_obb(model_aabb, &model, true, false) {
+                            return;
+                        }
                     }
                 }
-            }
 
-            view_visibility.set();
-            thread_queues.scope(|queue| {
+                view_visibility.set();
                 queue.push(entity);
-            });
-        });
+            },
+        );
 
-        visible_entities.entities.clear();
-        thread_queues.drain_into(&mut visible_entities.entities);
+        visible_entities.clear::<QF>();
+        thread_queues.drain_into(visible_entities.get_mut::<QF>());
     }
 }
 

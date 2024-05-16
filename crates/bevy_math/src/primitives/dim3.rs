@@ -1,10 +1,7 @@
 use std::f32::consts::{FRAC_PI_3, PI};
 
 use super::{Circle, Primitive3d};
-use crate::{
-    bounding::{Aabb3d, Bounded3d, BoundingSphere},
-    Dir3, InvalidDirectionError, Quat, Vec3,
-};
+use crate::{Dir3, InvalidDirectionError, Mat3, Vec2, Vec3};
 
 /// A sphere primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -67,33 +64,38 @@ impl Sphere {
     }
 }
 
-/// An unbounded plane in 3D space. It forms a separating surface through the origin,
-/// stretching infinitely far
+/// A bounded plane in 3D space. It forms a surface starting from the origin with a defined height and width.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Plane3d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Dir3,
+    /// Half of the width and height of the plane
+    pub half_size: Vec2,
 }
 impl Primitive3d for Plane3d {}
 
 impl Default for Plane3d {
-    /// Returns the default [`Plane3d`] with a normal pointing in the `+Y` direction.
+    /// Returns the default [`Plane3d`] with a normal pointing in the `+Y` direction, width and height of `1.0`.
     fn default() -> Self {
-        Self { normal: Dir3::Y }
+        Self {
+            normal: Dir3::Y,
+            half_size: Vec2::splat(0.5),
+        }
     }
 }
 
 impl Plane3d {
-    /// Create a new `Plane3d` from a normal
+    /// Create a new `Plane3d` from a normal and a half size
     ///
     /// # Panics
     ///
     /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
     #[inline(always)]
-    pub fn new(normal: Vec3) -> Self {
+    pub fn new(normal: Vec3, half_size: Vec2) -> Self {
         Self {
             normal: Dir3::new(normal).expect("normal must be nonzero and finite"),
+            half_size,
         }
     }
 
@@ -109,8 +111,71 @@ impl Plane3d {
     /// are *collinear* and lie on the same line.
     #[inline(always)]
     pub fn from_points(a: Vec3, b: Vec3, c: Vec3) -> (Self, Vec3) {
-        let normal = Dir3::new((b - a).cross(c - a))
-            .expect("plane must be defined by three finite points that don't lie on the same line");
+        let normal = Dir3::new((b - a).cross(c - a)).expect(
+            "finite plane must be defined by three finite points that don't lie on the same line",
+        );
+        let translation = (a + b + c) / 3.0;
+
+        (
+            Self {
+                normal,
+                ..Default::default()
+            },
+            translation,
+        )
+    }
+}
+
+/// An unbounded plane in 3D space. It forms a separating surface through the origin,
+/// stretching infinitely far
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct InfinitePlane3d {
+    /// The normal of the plane. The plane will be placed perpendicular to this direction
+    pub normal: Dir3,
+}
+impl Primitive3d for InfinitePlane3d {}
+
+impl Default for InfinitePlane3d {
+    /// Returns the default [`InfinitePlane3d`] with a normal pointing in the `+Y` direction.
+    fn default() -> Self {
+        Self { normal: Dir3::Y }
+    }
+}
+
+impl InfinitePlane3d {
+    /// Create a new `InfinitePlane3d` from a normal
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
+    #[inline(always)]
+    pub fn new<T: TryInto<Dir3>>(normal: T) -> Self
+    where
+        <T as TryInto<Dir3>>::Error: std::fmt::Debug,
+    {
+        Self {
+            normal: normal
+                .try_into()
+                .expect("normal must be nonzero and finite"),
+        }
+    }
+
+    /// Create a new `InfinitePlane3d` based on three points and compute the geometric center
+    /// of those points.
+    ///
+    /// The direction of the plane normal is determined by the winding order
+    /// of the triangular shape formed by the points.
+    ///
+    /// # Panics
+    ///
+    /// Panics if a valid normal can not be computed, for example when the points
+    /// are *collinear* and lie on the same line.
+    #[inline(always)]
+    pub fn from_points(a: Vec3, b: Vec3, c: Vec3) -> (Self, Vec3) {
+        let normal = Dir3::new((b - a).cross(c - a)).expect(
+            "infinite plane must be defined by three finite points that don't lie on the same line",
+        );
         let translation = (a + b + c) / 3.0;
 
         (Self { normal }, translation)
@@ -699,7 +764,7 @@ impl Triangle3d {
 
     /// Checks if the triangle is degenerate, meaning it has zero area.
     ///
-    /// A triangle is degenerate if the cross product of the vectors `ab` and `ac` has a length less than `f32::EPSILON`.
+    /// A triangle is degenerate if the cross product of the vectors `ab` and `ac` has a length less than `10e-7`.
     /// This indicates that the three vertices are collinear or nearly collinear.
     #[inline(always)]
     pub fn is_degenerate(&self) -> bool {
@@ -770,56 +835,83 @@ impl Triangle3d {
     }
 }
 
-impl Bounded3d for Triangle3d {
-    /// Get the bounding box of the triangle.
-    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
-        let [a, b, c] = self.vertices;
+/// A tetrahedron primitive.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct Tetrahedron {
+    /// The vertices of the tetrahedron.
+    pub vertices: [Vec3; 4],
+}
+impl Primitive3d for Tetrahedron {}
 
-        let a = rotation * a;
-        let b = rotation * b;
-        let c = rotation * c;
+impl Default for Tetrahedron {
+    /// Returns the default [`Tetrahedron`] with the vertices
+    /// `[0.5, 0.5, 0.5]`, `[-0.5, 0.5, -0.5]`, `[-0.5, -0.5, 0.5]` and `[0.5, -0.5, -0.5]`.
+    fn default() -> Self {
+        Self {
+            vertices: [
+                Vec3::new(0.5, 0.5, 0.5),
+                Vec3::new(-0.5, 0.5, -0.5),
+                Vec3::new(-0.5, -0.5, 0.5),
+                Vec3::new(0.5, -0.5, -0.5),
+            ],
+        }
+    }
+}
 
-        let min = a.min(b).min(c);
-        let max = a.max(b).max(c);
-
-        let bounding_center = (max + min) / 2.0 + translation;
-        let half_extents = (max - min) / 2.0;
-
-        Aabb3d::new(bounding_center, half_extents)
+impl Tetrahedron {
+    /// Create a new [`Tetrahedron`] from points `a`, `b`, `c` and `d`.
+    #[inline(always)]
+    pub fn new(a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> Self {
+        Self {
+            vertices: [a, b, c, d],
+        }
     }
 
-    /// Get the bounding sphere of the triangle.
+    /// Get the surface area of the tetrahedron.
+    #[inline(always)]
+    pub fn area(&self) -> f32 {
+        let [a, b, c, d] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        let ad = d - a;
+        let bc = c - b;
+        let bd = d - b;
+        (ab.cross(ac).length()
+            + ab.cross(ad).length()
+            + ac.cross(ad).length()
+            + bc.cross(bd).length())
+            / 2.0
+    }
+
+    /// Get the volume of the tetrahedron.
+    #[inline(always)]
+    pub fn volume(&self) -> f32 {
+        self.signed_volume().abs()
+    }
+
+    /// Get the signed volume of the tetrahedron.
     ///
-    /// The [`Triangle3d`] implements the minimal bounding sphere calculation. For acute triangles, the circumcenter is used as
-    /// the center of the sphere. For the others, the bounding sphere is the minimal sphere
-    /// that contains the largest side of the triangle.
-    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
-        if self.is_degenerate() {
-            let (p1, p2) = self.largest_side();
-            let (segment, _) = Segment3d::from_points(p1, p2);
-            return segment.bounding_sphere(translation, rotation);
-        }
+    /// If it's negative, the normal vector of the face defined by
+    /// the first three points using the right-hand rule points
+    /// away from the fourth vertex.
+    #[inline(always)]
+    pub fn signed_volume(&self) -> f32 {
+        let [a, b, c, d] = self.vertices;
+        let ab = b - a;
+        let ac = c - a;
+        let ad = d - a;
+        Mat3::from_cols(ab, ac, ad).determinant() / 6.0
+    }
 
-        let [a, b, c] = self.vertices;
-
-        let side_opposite_to_non_acute = if (b - a).dot(c - a) <= 0.0 {
-            Some((b, c))
-        } else if (c - b).dot(a - b) <= 0.0 {
-            Some((c, a))
-        } else if (a - c).dot(b - c) <= 0.0 {
-            Some((a, b))
-        } else {
-            None
-        };
-
-        if let Some((p1, p2)) = side_opposite_to_non_acute {
-            let (segment, _) = Segment3d::from_points(p1, p2);
-            segment.bounding_sphere(translation, rotation)
-        } else {
-            let circumcenter = self.circumcenter();
-            let radius = circumcenter.distance(a);
-            BoundingSphere::new(circumcenter + translation, radius)
-        }
+    /// Get the centroid of the tetrahedron.
+    ///
+    /// This function finds the geometric center of the tetrahedron
+    /// by averaging the vertices: `centroid = (a + b + c + d) / 4`.
+    #[doc(alias("center", "barycenter", "baricenter"))]
+    #[inline(always)]
+    pub fn centroid(&self) -> Vec3 {
+        (self.vertices[0] + self.vertices[1] + self.vertices[2] + self.vertices[3]) / 4.0
     }
 }
 
@@ -828,6 +920,7 @@ mod tests {
     // Reference values were computed by hand and/or with external tools
 
     use super::*;
+    use crate::Quat;
     use approx::assert_relative_eq;
 
     #[test]
@@ -894,6 +987,14 @@ mod tests {
     #[test]
     fn plane_from_points() {
         let (plane, translation) = Plane3d::from_points(Vec3::X, Vec3::Z, Vec3::NEG_X);
+        assert_eq!(*plane.normal, Vec3::NEG_Y, "incorrect normal");
+        assert_eq!(plane.half_size, Vec2::new(0.5, 0.5), "incorrect half size");
+        assert_eq!(translation, Vec3::Z * 0.33333334, "incorrect translation");
+    }
+
+    #[test]
+    fn infinite_plane_from_points() {
+        let (plane, translation) = InfinitePlane3d::from_points(Vec3::X, Vec3::Z, Vec3::NEG_X);
         assert_eq!(*plane.normal, Vec3::NEG_Y, "incorrect normal");
         assert_eq!(translation, Vec3::Z * 0.33333334, "incorrect translation");
     }
@@ -984,5 +1085,65 @@ mod tests {
         );
         assert_relative_eq!(torus.area(), 33.16187);
         assert_relative_eq!(torus.volume(), 4.97428, epsilon = 0.00001);
+    }
+
+    #[test]
+    fn tetrahedron_math() {
+        let tetrahedron = Tetrahedron {
+            vertices: [
+                Vec3::new(0.3, 1.0, 1.7),
+                Vec3::new(-2.0, -1.0, 0.0),
+                Vec3::new(1.8, 0.5, 1.0),
+                Vec3::new(-1.0, -2.0, 3.5),
+            ],
+        };
+        assert_eq!(tetrahedron.area(), 19.251068, "incorrect area");
+        assert_eq!(tetrahedron.volume(), 3.2058334, "incorrect volume");
+        assert_eq!(
+            tetrahedron.signed_volume(),
+            3.2058334,
+            "incorrect signed volume"
+        );
+        assert_relative_eq!(tetrahedron.centroid(), Vec3::new(-0.225, -0.375, 1.55));
+
+        assert_eq!(Tetrahedron::default().area(), 3.4641016, "incorrect area");
+        assert_eq!(
+            Tetrahedron::default().volume(),
+            0.33333334,
+            "incorrect volume"
+        );
+        assert_eq!(
+            Tetrahedron::default().signed_volume(),
+            -0.33333334,
+            "incorrect signed volume"
+        );
+        assert_relative_eq!(Tetrahedron::default().centroid(), Vec3::ZERO);
+    }
+
+    #[test]
+    fn triangle_math() {
+        let [a, b, c] = [Vec3::ZERO, Vec3::new(1., 1., 0.5), Vec3::new(-3., 2.5, 1.)];
+        let triangle = Triangle3d::new(a, b, c);
+
+        assert!(!triangle.is_degenerate(), "incorrectly found degenerate");
+        assert_eq!(triangle.area(), 3.0233467, "incorrect area");
+        assert_eq!(triangle.perimeter(), 9.832292, "incorrect perimeter");
+        assert_eq!(
+            triangle.circumcenter(),
+            Vec3::new(-1., 1.75, 0.75),
+            "incorrect circumcenter"
+        );
+        assert_eq!(
+            triangle.normal(),
+            Ok(Dir3::new_unchecked(Vec3::new(
+                -0.04134491,
+                -0.4134491,
+                0.90958804
+            ))),
+            "incorrect normal"
+        );
+
+        let degenerate = Triangle3d::new(Vec3::NEG_ONE, Vec3::ZERO, Vec3::ONE);
+        assert!(degenerate.is_degenerate(), "did not find degenerate");
     }
 }

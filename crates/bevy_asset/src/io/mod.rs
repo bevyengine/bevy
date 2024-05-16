@@ -51,6 +51,21 @@ pub enum AssetReaderError {
     HttpError(u16),
 }
 
+impl PartialEq for AssetReaderError {
+    /// Equality comparison for `AssetReaderError::Io` is not full (only through `ErrorKind` of inner error)
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::NotFound(path), Self::NotFound(other_path)) => path == other_path,
+            (Self::Io(error), Self::Io(other_error)) => error.kind() == other_error.kind(),
+            (Self::HttpError(code), Self::HttpError(other_code)) => code == other_code,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for AssetReaderError {}
+
 impl From<std::io::Error> for AssetReaderError {
     fn from(value: std::io::Error) -> Self {
         Self::Io(Arc::new(value))
@@ -84,7 +99,7 @@ pub trait AssetReader: Send + Sync + 'static {
         &'a self,
         path: &'a Path,
     ) -> impl ConditionalSendFuture<Output = Result<Box<PathStream>, AssetReaderError>>;
-    /// Returns an iterator of directory entry names at the provided path.
+    /// Returns true if the provided path points to a directory.
     fn is_directory<'a>(
         &'a self,
         path: &'a Path,

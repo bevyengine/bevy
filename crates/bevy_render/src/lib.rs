@@ -46,25 +46,29 @@ pub mod prelude {
         mesh::{morph::MorphWeights, primitives::Meshable, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
-        texture::{Image, ImagePlugin},
+        texture::{image_texture_conversion::IntoDynamicImageError, Image, ImagePlugin},
         view::{InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibilityBundle},
         ExtractSchedule,
     };
 }
 
+use batching::gpu_preprocessing::BatchingPlugin;
 use bevy_ecs::schedule::ScheduleBuildSettings;
 use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
 use bevy_hierarchy::ValidParentCheckPlugin;
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
+use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
+use render_asset::RenderAssetBytesPerFrame;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
+use crate::mesh::GpuMesh;
 use crate::renderer::WgpuWrapper;
 use crate::{
     camera::CameraPlugin,
-    mesh::{morph::MorphPlugin, Mesh, MeshPlugin},
+    mesh::{morph::MorphPlugin, MeshPlugin},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
@@ -92,7 +96,7 @@ use std::{
 pub struct RenderPlugin {
     pub render_creation: RenderCreation,
     /// If `true`, disables asynchronous pipeline compilation.
-    /// This has no effect on macOS, Wasm, iOS, or without the `multi-threaded` feature.
+    /// This has no effect on macOS, Wasm, iOS, or without the `multi_threaded` feature.
     pub synchronous_pipeline_compilation: bool,
 }
 
@@ -111,7 +115,7 @@ pub enum RenderSet {
     /// Queue drawable entities as phase items in render phases ready for
     /// sorting (if necessary)
     Queue,
-    /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<Mesh>` is completed.
+    /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<GpuMesh>` is completed.
     QueueMeshes,
     // TODO: This could probably be moved in favor of a system ordering
     // abstraction in `Render` or `Queue`
@@ -123,7 +127,7 @@ pub enum RenderSet {
     Prepare,
     /// A sub-set within [`Prepare`](RenderSet::Prepare) for initializing buffers, textures and uniforms for use in bind groups.
     PrepareResources,
-    /// Flush buffers after [`PrepareResources`](RenderSet::PrepareResources), but before ['PrepareBindGroups'](RenderSet::PrepareBindGroups).
+    /// Flush buffers after [`PrepareResources`](RenderSet::PrepareResources), but before [`PrepareBindGroups`](RenderSet::PrepareBindGroups).
     PrepareResourcesFlush,
     /// A sub-set within [`Prepare`](RenderSet::Prepare) for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSet::PrepareResources).
     PrepareBindGroups,
@@ -161,7 +165,7 @@ impl Render {
         );
 
         schedule.configure_sets((ExtractCommands, PrepareAssets, Prepare).chain());
-        schedule.configure_sets(QueueMeshes.in_set(Queue).after(prepare_assets::<Mesh>));
+        schedule.configure_sets(QueueMeshes.in_set(Queue).after(prepare_assets::<GpuMesh>));
         schedule.configure_sets(
             (PrepareResources, PrepareResourcesFlush, PrepareBindGroups)
                 .chain()
@@ -232,6 +236,8 @@ pub struct RenderApp;
 pub const INSTANCE_INDEX_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(10313207077636615845);
 pub const MATHS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10665356303104593376);
+pub const COLOR_OPERATIONS_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(1844674407370955161);
 
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
@@ -331,7 +337,11 @@ impl Plugin for RenderPlugin {
             MeshPlugin,
             GlobalsPlugin,
             MorphPlugin,
+            BatchingPlugin,
         ));
+
+        app.init_resource::<RenderAssetBytesPerFrame>()
+            .add_plugins(ExtractResourcePlugin::<RenderAssetBytesPerFrame>::default());
 
         app.register_type::<alpha::AlphaMode>()
             // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy
@@ -351,6 +361,12 @@ impl Plugin for RenderPlugin {
 
     fn finish(&self, app: &mut App) {
         load_internal_asset!(app, MATHS_SHADER_HANDLE, "maths.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            COLOR_OPERATIONS_SHADER_HANDLE,
+            "color_operations.wgsl",
+            Shader::from_wgsl
+        );
         if let Some(future_renderer_resources) =
             app.world_mut().remove_resource::<FutureRendererResources>()
         {
@@ -374,7 +390,14 @@ impl Plugin for RenderPlugin {
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(render_adapter)
-                .insert_resource(adapter_info);
+                .insert_resource(adapter_info)
+                .add_systems(
+                    Render,
+                    (|mut bpf: ResMut<RenderAssetBytesPerFrame>| {
+                        bpf.reset();
+                    })
+                    .in_set(RenderSet::Cleanup),
+                );
         }
     }
 }

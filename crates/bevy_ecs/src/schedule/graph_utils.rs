@@ -73,9 +73,12 @@ pub(crate) enum Ambiguity {
     IgnoreAll,
 }
 
+/// Metadata about how the node fits in the schedule graph
 #[derive(Clone, Default)]
 pub(crate) struct GraphInfo {
-    pub(crate) sets: Vec<InternedSystemSet>,
+    /// the sets that the node belongs to (hierarchy)
+    pub(crate) hierarchy: Vec<InternedSystemSet>,
+    /// the sets that the node depends on (must run before or after)
     pub(crate) dependencies: Vec<Dependency>,
     pub(crate) ambiguous_with: Ambiguity,
 }

@@ -43,18 +43,18 @@ pub trait BoundingVolume: Sized {
     fn merge(&self, other: &Self) -> Self;
 
     /// Increases the size of the bounding volume in each direction by the given amount.
-    fn grow(&self, amount: Self::HalfSize) -> Self;
+    fn grow(&self, amount: impl Into<Self::HalfSize>) -> Self;
 
     /// Decreases the size of the bounding volume in each direction by the given amount.
-    fn shrink(&self, amount: Self::HalfSize) -> Self;
+    fn shrink(&self, amount: impl Into<Self::HalfSize>) -> Self;
 
     /// Scale the size of the bounding volume around its center by the given amount
-    fn scale_around_center(&self, scale: Self::HalfSize) -> Self;
+    fn scale_around_center(&self, scale: impl Into<Self::HalfSize>) -> Self;
 
     /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
     fn transformed_by(
         mut self,
-        translation: Self::Translation,
+        translation: impl Into<Self::Translation>,
         rotation: impl Into<Self::Rotation>,
     ) -> Self {
         self.transform_by(translation, rotation);
@@ -64,7 +64,7 @@ pub trait BoundingVolume: Sized {
     /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
     fn transform_by(
         &mut self,
-        translation: Self::Translation,
+        translation: impl Into<Self::Translation>,
         rotation: impl Into<Self::Rotation>,
     ) {
         self.rotate_by(rotation);
@@ -72,13 +72,13 @@ pub trait BoundingVolume: Sized {
     }
 
     /// Translates the bounding volume by the given translation.
-    fn translated_by(mut self, translation: Self::Translation) -> Self {
+    fn translated_by(mut self, translation: impl Into<Self::Translation>) -> Self {
         self.translate_by(translation);
         self
     }
 
     /// Translates the bounding volume by the given translation.
-    fn translate_by(&mut self, translation: Self::Translation);
+    fn translate_by(&mut self, translation: impl Into<Self::Translation>);
 
     /// Rotates the bounding volume around the origin by the given rotation.
     ///

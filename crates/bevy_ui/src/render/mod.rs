@@ -7,7 +7,12 @@ use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
-use bevy_render::{render_phase::PhaseItem, view::ViewVisibility, ExtractSchedule, Render};
+use bevy_render::{
+    render_phase::{PhaseItem, PhaseItemExtraIndex},
+    texture::GpuImage,
+    view::ViewVisibility,
+    ExtractSchedule, Render,
+};
 use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
 pub use pipeline::*;
 pub use render_pass::*;
@@ -829,16 +834,16 @@ struct UiVertex {
 
 #[derive(Resource)]
 pub struct UiMeta {
-    vertices: BufferVec<UiVertex>,
-    indices: BufferVec<u32>,
+    vertices: RawBufferVec<UiVertex>,
+    indices: RawBufferVec<u32>,
     view_bind_group: Option<BindGroup>,
 }
 
 impl Default for UiMeta {
     fn default() -> Self {
         Self {
-            vertices: BufferVec::new(BufferUsages::VERTEX),
-            indices: BufferVec::new(BufferUsages::INDEX),
+            vertices: RawBufferVec::new(BufferUsages::VERTEX),
+            indices: RawBufferVec::new(BufferUsages::INDEX),
             view_bind_group: None,
         }
     }
@@ -900,7 +905,7 @@ pub fn queue_uinodes(
             ),
             // batch_range will be calculated in prepare_uinodes
             batch_range: 0..0,
-            dynamic_offset: None,
+            extra_index: PhaseItemExtraIndex::NONE,
         });
     }
 }
@@ -920,7 +925,7 @@ pub fn prepare_uinodes(
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
     mut image_bind_groups: ResMut<UiImageBindGroups>,
-    gpu_images: Res<RenderAssets<Image>>,
+    gpu_images: Res<RenderAssets<GpuImage>>,
     mut phases: Query<&mut SortedRenderPhase<TransparentUi>>,
     events: Res<SpriteAssetEvents>,
     mut previous_len: Local<usize>,
@@ -1141,7 +1146,7 @@ pub fn prepare_uinodes(
                             flags: flags | shader_flags::CORNERS[i],
                             radius: extracted_uinode.border_radius,
                             border: extracted_uinode.border,
-                            size: transformed_rect_size.xy().into(),
+                            size: rect_size.xy().into(),
                         });
                     }
 

@@ -293,9 +293,10 @@ impl From<LinearRgba> for Vec4 {
     }
 }
 
-impl From<LinearRgba> for wgpu::Color {
+#[cfg(feature = "wgpu-types")]
+impl From<LinearRgba> for wgpu_types::Color {
     fn from(color: LinearRgba) -> Self {
-        wgpu::Color {
+        wgpu_types::Color {
             r: color.red as f64,
             g: color.green as f64,
             b: color.blue as f64,
@@ -318,6 +319,7 @@ impl encase::ShaderType for LinearRgba {
         encase::private::Metadata {
             alignment,
             has_uniform_min_alignment: false,
+            is_pod: true,
             min_size: size,
             extra: (),
         }

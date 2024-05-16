@@ -1,8 +1,9 @@
 use crate::{
     config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
     line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
-    DrawLineJointGizmo, GizmoRenderSystem, LineGizmo, LineGizmoUniformBindgroupLayout,
-    SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE, LINE_SHADER_HANDLE,
+    DrawLineJointGizmo, GizmoRenderSystem, GpuLineGizmo, LineGizmo,
+    LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE,
+    LINE_SHADER_HANDLE,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
@@ -21,7 +22,9 @@ use bevy_ecs::{
 use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
-    render_phase::{AddRenderCommand, DrawFunctions, SetItemPipeline, SortedRenderPhase},
+    render_phase::{
+        AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline, SortedRenderPhase,
+    },
     render_resource::*,
     texture::BevyDefault,
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
@@ -51,7 +54,7 @@ impl Plugin for LineGizmo3dPlugin {
                 Render,
                 (queue_line_gizmos_3d, queue_line_joint_gizmos_3d)
                     .in_set(GizmoRenderSystem::QueueLineGizmos3d)
-                    .after(prepare_assets::<LineGizmo>),
+                    .after(prepare_assets::<GpuLineGizmo>),
             );
     }
 
@@ -278,7 +281,7 @@ fn queue_line_gizmos_3d(
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoMeshConfig)>,
-    line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
+    line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut views: Query<(
         &ExtractedView,
         &mut SortedRenderPhase<Transparent3d>,
@@ -347,7 +350,7 @@ fn queue_line_gizmos_3d(
                 pipeline,
                 distance: 0.,
                 batch_range: 0..1,
-                dynamic_offset: None,
+                extra_index: PhaseItemExtraIndex::NONE,
             });
         }
     }
@@ -361,7 +364,7 @@ fn queue_line_joint_gizmos_3d(
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoMeshConfig)>,
-    line_gizmo_assets: Res<RenderAssets<LineGizmo>>,
+    line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut views: Query<(
         &ExtractedView,
         &mut SortedRenderPhase<Transparent3d>,
@@ -436,7 +439,7 @@ fn queue_line_joint_gizmos_3d(
                 pipeline,
                 distance: 0.,
                 batch_range: 0..1,
-                dynamic_offset: None,
+                extra_index: PhaseItemExtraIndex::NONE,
             });
         }
     }
