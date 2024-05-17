@@ -1,9 +1,11 @@
 use crate::{App, Plugin};
 use bevy_ecs::{
-    schedule::{ExecutorKind, InternedScheduleLabel, Schedule, ScheduleLabel, StateTransition},
+    schedule::{ExecutorKind, InternedScheduleLabel, Schedule, ScheduleLabel},
     system::{Local, Resource},
     world::{Mut, World},
 };
+#[cfg(feature = "bevy_state")]
+use bevy_state::state::StateTransition;
 
 /// The schedule that contains the app logic that is evaluated each tick of [`App::update()`].
 ///

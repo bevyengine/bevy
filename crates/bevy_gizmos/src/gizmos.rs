@@ -825,14 +825,9 @@ where
         if !self.gizmos.enabled {
             return;
         }
-        for axis in Vec3::AXES {
+        for axis in Dir3::AXES {
             self.gizmos
-                .circle(
-                    self.position,
-                    Dir3::new_unchecked(self.rotation * axis),
-                    self.radius,
-                    self.color,
-                )
+                .circle(self.position, self.rotation * axis, self.radius, self.color)
                 .segments(self.circle_segments);
         }
     }

@@ -21,7 +21,7 @@ pub(crate) struct EnumVariantConstructors {
 pub(crate) fn get_variant_constructors(
     reflect_enum: &ReflectEnum,
     ref_value: &Ident,
-    can_panic: bool,
+    return_apply_error: bool,
 ) -> EnumVariantConstructors {
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
     let variant_count = reflect_enum.variants().len();
@@ -50,21 +50,6 @@ pub(crate) fn get_variant_constructors(
                     _ => quote! { #FQDefault::default() }
                 }
             } else {
-                let (resolve_error, resolve_missing) = if can_panic {
-                    let field_ref_str = match &field_ident {
-                        Member::Named(ident) => format!("the field `{ident}`"),
-                        Member::Unnamed(index) => format!("the field at index {}", index.index)
-                    };
-                    let ty = field.data.ty.to_token_stream();
-
-                    let on_error = format!("{field_ref_str} should be of type `{ty}`");
-                    let on_missing = format!("{field_ref_str} is required but could not be found");
-
-                    (quote!(.expect(#on_error)), quote!(.expect(#on_missing)))
-                } else {
-                    (quote!(?), quote!(?))
-                };
-
                 let field_accessor = match &field.data.ident {
                     Some(ident) => {
                         let name = ident.to_string();
@@ -73,6 +58,31 @@ pub(crate) fn get_variant_constructors(
                     None => quote!(#ref_value.field_at(#reflect_index)),
                 };
                 reflect_index += 1;
+
+                let (resolve_error, resolve_missing) = if return_apply_error {
+                    let field_ref_str = match &field_ident {
+                        Member::Named(ident) => format!("{ident}"),
+                        Member::Unnamed(index) => format!(".{}", index.index)
+                    };
+                    let ty = field.data.ty.to_token_stream();
+
+                    (
+                        quote!(.ok_or(#bevy_reflect_path::ApplyError::MismatchedTypes {
+                            // The unwrap won't panic. By this point the #field_accessor would have been invoked once and any failure to
+                            // access the given field handled by the `resolve_missing` code bellow.
+                            from_type: ::core::convert::Into::into(
+                                #bevy_reflect_path::DynamicTypePath::reflect_type_path(#FQOption::unwrap(#field_accessor))
+                            ),
+                            to_type: ::core::convert::Into::into(<#ty as #bevy_reflect_path::TypePath>::type_path())
+                        })?),
+                        quote!(.ok_or(#bevy_reflect_path::ApplyError::MissingEnumField {
+                                variant_name: ::core::convert::Into::into(#name),
+                                field_name: ::core::convert::Into::into(#field_ref_str)
+                        })?)
+                    )
+                } else {
+                    (quote!(?), quote!(?))
+                };
 
                 match &field.attrs.default {
                     DefaultBehavior::Func(path) => quote! {

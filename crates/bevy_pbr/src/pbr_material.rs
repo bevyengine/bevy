@@ -10,6 +10,18 @@ use bitflags::bitflags;
 use crate::deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID;
 use crate::*;
 
+/// An enum to define which UV attribute to use for a texture.
+/// It is used for every texture in the [`StandardMaterial`].
+/// It only supports two UV attributes, [`Mesh::ATTRIBUTE_UV_0`] and [`Mesh::ATTRIBUTE_UV_1`].
+/// The default is [`UvChannel::Uv0`].
+#[derive(Reflect, Default, Debug, Clone, PartialEq, Eq)]
+#[reflect(Default, Debug)]
+pub enum UvChannel {
+    #[default]
+    Uv0,
+    Uv1,
+}
+
 /// A material with "standard" properties used in PBR lighting
 /// Standard property values with pictures here
 /// <https://google.github.io/filament/Material%20Properties.pdf>.
@@ -28,6 +40,11 @@ pub struct StandardMaterial {
     ///
     /// Defaults to [`Color::WHITE`].
     pub base_color: Color,
+
+    /// The UV channel to use for the [`StandardMaterial::base_color_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    pub base_color_channel: UvChannel,
 
     /// The texture component of the material's color before lighting.
     /// The actual pre-lighting color is `base_color * this_texture`.
@@ -73,6 +90,11 @@ pub struct StandardMaterial {
     /// it just adds a value to the color seen on screen.
     pub emissive: Color,
 
+    /// The UV channel to use for the [`StandardMaterial::emissive_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    pub emissive_channel: UvChannel,
+
     /// The emissive map, multiplies pixels with [`emissive`]
     /// to get the final "emitting" color of a surface.
     ///
@@ -113,6 +135,11 @@ pub struct StandardMaterial {
     /// If used together with a roughness/metallic texture, this is factored into the final base
     /// color as `metallic * metallic_texture_value`.
     pub metallic: f32,
+
+    /// The UV channel to use for the [`StandardMaterial::metallic_roughness_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    pub metallic_roughness_channel: UvChannel,
 
     /// Metallic and roughness maps, stored as a single texture.
     ///
@@ -170,6 +197,12 @@ pub struct StandardMaterial {
     #[doc(alias = "translucency")]
     pub diffuse_transmission: f32,
 
+    /// The UV channel to use for the [`StandardMaterial::diffuse_transmission_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    #[cfg(feature = "pbr_transmission_textures")]
+    pub diffuse_transmission_channel: UvChannel,
+
     /// A map that modulates diffuse transmission via its alpha channel. Multiplied by [`StandardMaterial::diffuse_transmission`]
     /// to obtain the final result.
     ///
@@ -205,6 +238,12 @@ pub struct StandardMaterial {
     #[doc(alias = "refraction")]
     pub specular_transmission: f32,
 
+    /// The UV channel to use for the [`StandardMaterial::specular_transmission_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    #[cfg(feature = "pbr_transmission_textures")]
+    pub specular_transmission_channel: UvChannel,
+
     /// A map that modulates specular transmission via its red channel. Multiplied by [`StandardMaterial::specular_transmission`]
     /// to obtain the final result.
     ///
@@ -227,6 +266,12 @@ pub struct StandardMaterial {
     #[doc(alias = "volume")]
     #[doc(alias = "thin_walled")]
     pub thickness: f32,
+
+    /// The UV channel to use for the [`StandardMaterial::thickness_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    #[cfg(feature = "pbr_transmission_textures")]
+    pub thickness_channel: UvChannel,
 
     /// A map that modulates thickness via its green channel. Multiplied by [`StandardMaterial::thickness`]
     /// to obtain the final result.
@@ -294,6 +339,11 @@ pub struct StandardMaterial {
     #[doc(alias = "extinction_color")]
     pub attenuation_color: Color,
 
+    /// The UV channel to use for the [`StandardMaterial::normal_map_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    pub normal_map_channel: UvChannel,
+
     /// Used to fake the lighting of bumps and dents on a material.
     ///
     /// A typical usage would be faking cobblestones on a flat plane mesh in 3D.
@@ -323,6 +373,11 @@ pub struct StandardMaterial {
     /// it to right-handed conventions.
     pub flip_normal_map_y: bool,
 
+    /// The UV channel to use for the [`StandardMaterial::occlusion_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    pub occlusion_channel: UvChannel,
+
     /// Specifies the level of exposure to ambient light.
     ///
     /// This is usually generated and stored automatically ("baked") by 3D-modelling software.
@@ -347,6 +402,12 @@ pub struct StandardMaterial {
     /// Defaults to zero, specifying no clearcoat layer.
     pub clearcoat: f32,
 
+    /// The UV channel to use for the [`StandardMaterial::clearcoat_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
+    pub clearcoat_channel: UvChannel,
+
     /// An image texture that specifies the strength of the clearcoat layer in
     /// the red channel. Values sampled from this texture are multiplied by the
     /// main [`StandardMaterial::clearcoat`] factor.
@@ -366,6 +427,12 @@ pub struct StandardMaterial {
     /// Defaults to 0.5.
     pub clearcoat_perceptual_roughness: f32,
 
+    /// The UV channel to use for the [`StandardMaterial::clearcoat_roughness_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
+    pub clearcoat_roughness_channel: UvChannel,
+
     /// An image texture that specifies the roughness of the clearcoat level in
     /// the green channel. Values from this texture are multiplied by the main
     /// [`StandardMaterial::clearcoat_perceptual_roughness`] factor.
@@ -375,6 +442,12 @@ pub struct StandardMaterial {
     #[sampler(22)]
     #[cfg(feature = "pbr_multi_layer_material_textures")]
     pub clearcoat_roughness_texture: Option<Handle<Image>>,
+
+    /// The UV channel to use for the [`StandardMaterial::clearcoat_normal_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    #[cfg(feature = "pbr_multi_layer_material_textures")]
+    pub clearcoat_normal_channel: UvChannel,
 
     /// An image texture that specifies a normal map that is to be applied to
     /// the clearcoat layer. This can be used to simulate, for example,
@@ -607,13 +680,16 @@ impl Default for StandardMaterial {
             // White because it gets multiplied with texture values if someone uses
             // a texture.
             base_color: Color::WHITE,
+            base_color_channel: UvChannel::Uv0,
             base_color_texture: None,
             emissive: Color::BLACK,
+            emissive_channel: UvChannel::Uv0,
             emissive_texture: None,
             // Matches Blender's default roughness.
             perceptual_roughness: 0.5,
             // Metallic should generally be set to 0.0 or 1.0.
             metallic: 0.0,
+            metallic_roughness_channel: UvChannel::Uv0,
             metallic_roughness_texture: None,
             // Minimum real-world reflectance is 2%, most materials between 2-5%
             // Expressed in a linear scale and equivalent to 4% reflectance see
@@ -621,24 +697,38 @@ impl Default for StandardMaterial {
             reflectance: 0.5,
             diffuse_transmission: 0.0,
             #[cfg(feature = "pbr_transmission_textures")]
+            diffuse_transmission_channel: UvChannel::Uv0,
+            #[cfg(feature = "pbr_transmission_textures")]
             diffuse_transmission_texture: None,
             specular_transmission: 0.0,
             #[cfg(feature = "pbr_transmission_textures")]
+            specular_transmission_channel: UvChannel::Uv0,
+            #[cfg(feature = "pbr_transmission_textures")]
             specular_transmission_texture: None,
             thickness: 0.0,
+            #[cfg(feature = "pbr_transmission_textures")]
+            thickness_channel: UvChannel::Uv0,
             #[cfg(feature = "pbr_transmission_textures")]
             thickness_texture: None,
             ior: 1.5,
             attenuation_color: Color::WHITE,
             attenuation_distance: f32::INFINITY,
+            occlusion_channel: UvChannel::Uv0,
             occlusion_texture: None,
+            normal_map_channel: UvChannel::Uv0,
             normal_map_texture: None,
             clearcoat: 0.0,
             clearcoat_perceptual_roughness: 0.5,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_channel: UvChannel::Uv0,
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_texture: None,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_roughness_channel: UvChannel::Uv0,
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_roughness_texture: None,
+            #[cfg(feature = "pbr_multi_layer_material_textures")]
+            clearcoat_normal_channel: UvChannel::Uv0,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_normal_texture: None,
             flip_normal_map_y: false,
@@ -914,6 +1004,17 @@ bitflags! {
         const SPECULAR_TRANSMISSION = 0x20;
         const CLEARCOAT             = 0x40;
         const CLEARCOAT_NORMAL_MAP  = 0x80;
+        const BASE_COLOR_UV            = 0x00100;
+        const EMISSIVE_UV              = 0x00200;
+        const METALLIC_ROUGHNESS_UV    = 0x00400;
+        const OCCLUSION_UV             = 0x00800;
+        const SPECULAR_TRANSMISSION_UV = 0x01000;
+        const THICKNESS_UV             = 0x02000;
+        const DIFFUSE_TRANSMISSION_UV  = 0x04000;
+        const NORMAL_MAP_UV            = 0x08000;
+        const CLEARCOAT_UV             = 0x10000;
+        const CLEARCOAT_ROUGHNESS_UV   = 0x20000;
+        const CLEARCOAT_NORMAL_UV      = 0x40000;
         const DEPTH_BIAS            = 0xffffffff_00000000;
     }
 }
@@ -958,6 +1059,58 @@ impl From<&StandardMaterial> for StandardMaterialKey {
             StandardMaterialKey::CLEARCOAT_NORMAL_MAP,
             material.clearcoat > 0.0 && material.clearcoat_normal_texture.is_some(),
         );
+
+        key.set(
+            StandardMaterialKey::BASE_COLOR_UV,
+            material.base_color_channel != UvChannel::Uv0,
+        );
+
+        key.set(
+            StandardMaterialKey::EMISSIVE_UV,
+            material.emissive_channel != UvChannel::Uv0,
+        );
+        key.set(
+            StandardMaterialKey::METALLIC_ROUGHNESS_UV,
+            material.metallic_roughness_channel != UvChannel::Uv0,
+        );
+        key.set(
+            StandardMaterialKey::OCCLUSION_UV,
+            material.occlusion_channel != UvChannel::Uv0,
+        );
+        #[cfg(feature = "pbr_transmission_textures")]
+        {
+            key.set(
+                StandardMaterialKey::SPECULAR_TRANSMISSION_UV,
+                material.specular_transmission_channel != UvChannel::Uv0,
+            );
+            key.set(
+                StandardMaterialKey::THICKNESS_UV,
+                material.thickness_channel != UvChannel::Uv0,
+            );
+            key.set(
+                StandardMaterialKey::DIFFUSE_TRANSMISSION_UV,
+                material.diffuse_transmission_channel != UvChannel::Uv0,
+            );
+        }
+        key.set(
+            StandardMaterialKey::NORMAL_MAP_UV,
+            material.normal_map_channel != UvChannel::Uv0,
+        );
+        #[cfg(feature = "pbr_multi_layer_material_textures")]
+        {
+            key.set(
+                StandardMaterialKey::CLEARCOAT_UV,
+                material.clearcoat_channel != UvChannel::Uv0,
+            );
+            key.set(
+                StandardMaterialKey::CLEARCOAT_ROUGHNESS_UV,
+                material.clearcoat_roughness_channel != UvChannel::Uv0,
+            );
+            key.set(
+                StandardMaterialKey::CLEARCOAT_NORMAL_UV,
+                material.clearcoat_normal_channel != UvChannel::Uv0,
+            );
+        }
 
         key.insert(StandardMaterialKey::from_bits_retain(
             (material.depth_bias as u64) << STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT,
@@ -1061,6 +1214,50 @@ impl Material for StandardMaterial {
                 (
                     StandardMaterialKey::CLEARCOAT_NORMAL_MAP,
                     "STANDARD_MATERIAL_CLEARCOAT_NORMAL_MAP",
+                ),
+                (
+                    StandardMaterialKey::BASE_COLOR_UV,
+                    "STANDARD_MATERIAL_BASE_COLOR_UV_B",
+                ),
+                (
+                    StandardMaterialKey::EMISSIVE_UV,
+                    "STANDARD_MATERIAL_EMISSIVE_UV_B",
+                ),
+                (
+                    StandardMaterialKey::METALLIC_ROUGHNESS_UV,
+                    "STANDARD_MATERIAL_METALLIC_ROUGHNESS_UV_B",
+                ),
+                (
+                    StandardMaterialKey::OCCLUSION_UV,
+                    "STANDARD_MATERIAL_OCCLUSION_UV_B",
+                ),
+                (
+                    StandardMaterialKey::SPECULAR_TRANSMISSION_UV,
+                    "STANDARD_MATERIAL_SPECULAR_TRANSMISSION_UV_B",
+                ),
+                (
+                    StandardMaterialKey::THICKNESS_UV,
+                    "STANDARD_MATERIAL_THICKNESS_UV_B",
+                ),
+                (
+                    StandardMaterialKey::DIFFUSE_TRANSMISSION_UV,
+                    "STANDARD_MATERIAL_DIFFUSE_TRANSMISSION_UV_B",
+                ),
+                (
+                    StandardMaterialKey::NORMAL_MAP_UV,
+                    "STANDARD_MATERIAL_NORMAL_MAP_UV_B",
+                ),
+                (
+                    StandardMaterialKey::CLEARCOAT_UV,
+                    "STANDARD_MATERIAL_CLEARCOAT_UV_B",
+                ),
+                (
+                    StandardMaterialKey::CLEARCOAT_ROUGHNESS_UV,
+                    "STANDARD_MATERIAL_CLEARCOAT_ROUGHNESS_UV_B",
+                ),
+                (
+                    StandardMaterialKey::CLEARCOAT_NORMAL_UV,
+                    "STANDARD_MATERIAL_CLEARCOAT_NORMAL_UV_B",
                 ),
             ] {
                 if key.bind_group_data.intersects(flags) {

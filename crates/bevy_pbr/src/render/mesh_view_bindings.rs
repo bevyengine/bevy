@@ -33,6 +33,8 @@ use bevy_render::render_resource::binding_types::texture_cube;
 use bevy_utils::warn_once;
 use environment_map::EnvironmentMapLight;
 
+#[cfg(debug_assertions)]
+use crate::MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES;
 use crate::{
     environment_map::{self, RenderViewEnvironmentMapBindGroupEntries},
     irradiance_volume::{
@@ -45,9 +47,6 @@ use crate::{
     ScreenSpaceReflectionsSettings, ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
 };
-
-#[cfg(debug_assertions)]
-use crate::MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES;
 
 #[derive(Clone)]
 pub struct MeshPipelineViewLayout {
@@ -373,7 +372,6 @@ impl FromWorld for MeshPipelineViewLayouts {
                 key,
                 render_device,
             );
-
             #[cfg(debug_assertions)]
             let texture_count: usize = entries
                 .iter()
@@ -403,6 +401,37 @@ impl MeshPipelineViewLayouts {
 
         &layout.bind_group_layout
     }
+}
+
+/// Generates all possible view layouts for the mesh pipeline, based on all combinations of
+/// [`MeshPipelineViewLayoutKey`] flags.
+pub fn generate_view_layouts(
+    render_device: &RenderDevice,
+    clustered_forward_buffer_binding_type: BufferBindingType,
+    visibility_ranges_buffer_binding_type: BufferBindingType,
+) -> [MeshPipelineViewLayout; MeshPipelineViewLayoutKey::COUNT] {
+    array::from_fn(|i| {
+        let key = MeshPipelineViewLayoutKey::from_bits_truncate(i as u32);
+        let entries = layout_entries(
+            clustered_forward_buffer_binding_type,
+            visibility_ranges_buffer_binding_type,
+            key,
+            render_device,
+        );
+
+        #[cfg(debug_assertions)]
+        let texture_count: usize = entries
+            .iter()
+            .filter(|entry| matches!(entry.ty, BindingType::Texture { .. }))
+            .count();
+
+        MeshPipelineViewLayout {
+            bind_group_layout: render_device
+                .create_bind_group_layout(key.label().as_str(), &entries),
+            #[cfg(debug_assertions)]
+            texture_count,
+        }
+    })
 }
 
 #[derive(Component)]

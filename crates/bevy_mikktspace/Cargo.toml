@@ -13,6 +13,7 @@ homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "Zlib AND (MIT OR Apache-2.0)"
 keywords = ["bevy", "3D", "graphics", "algorithm", "tangent"]
+rust-version = "1.76.0"
 
 [dependencies]
 glam = "0.27"

@@ -28,6 +28,11 @@ use std::{
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
 ///
 /// Events must be thread-safe.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an `Event`",
+    label = "invalid `Event`",
+    note = "consider annotating `{Self}` with `#[derive(Event]`"
+)]
 pub trait Event: Send + Sync + 'static {}
 
 /// An `EventId` uniquely identifies an event stored in a specific [`World`].
@@ -928,12 +933,12 @@ impl<'a, E: Event> EventParIter<'a, E> {
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     pub fn for_each_with_id<FN: Fn(&'a E, EventId<E>) + Send + Sync + Clone>(self, func: FN) {
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
         {
             self.into_iter().for_each(|(e, i)| func(e, i));
         }
 
-        #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+        #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
         {
             let pool = bevy_tasks::ComputeTaskPool::get();
             let thread_count = pool.thread_num();
@@ -1509,7 +1514,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "multi-threaded")]
+    #[cfg(feature = "multi_threaded")]
     #[test]
     fn test_events_par_iter() {
         use std::{collections::HashSet, sync::mpsc};

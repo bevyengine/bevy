@@ -226,18 +226,18 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         diffuse_transmission
     );
     let NdotV = max(dot(N, V), 0.0001);
-    let f_ab = lighting::F_AB(perceptual_roughness, NdotV);
+    let F_ab = lighting::F_AB(perceptual_roughness, NdotV);
     let F0 = pbr_functions::calculate_F0(base_color, metallic, reflectance);
 
     // Pack all the values into a structure.
     var lighting_input: lighting::LightingInput;
     lighting_input.layers[LAYER_BASE].NdotV = NdotV;
-    lighting_input.layers[LAYER_BASE].N = in.N;
+    lighting_input.layers[LAYER_BASE].N = N;
     lighting_input.layers[LAYER_BASE].R = R;
     lighting_input.layers[LAYER_BASE].perceptual_roughness = perceptual_roughness;
     lighting_input.layers[LAYER_BASE].roughness = roughness;
-    lighting_input.P = in.world_position.xyz;
-    lighting_input.V = in.V;
+    lighting_input.P = world_position.xyz;
+    lighting_input.V = V;
     lighting_input.diffuse_color = diffuse_color;
     lighting_input.F0_ = F0;
     lighting_input.F_ab = F_ab;

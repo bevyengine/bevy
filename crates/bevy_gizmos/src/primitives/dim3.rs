@@ -245,7 +245,7 @@ where
         let normal = self.rotation * *self.normal;
         self.gizmos
             .primitive_3d(self.normal, self.position, self.rotation, self.color);
-        let normals_normal = normal.any_orthonormal_vector();
+        let normals_normal = self.rotation * self.normal.any_orthonormal_vector();
 
         // draws the axes
         // get rotation for each direction

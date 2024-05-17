@@ -35,6 +35,7 @@ mod prepass;
 mod render;
 mod ssao;
 mod ssr;
+mod volumetric_fog;
 
 use bevy_color::{Color, LinearRgba};
 use std::marker::PhantomData;
@@ -52,6 +53,7 @@ pub use prepass::*;
 pub use render::*;
 pub use ssao::*;
 pub use ssr::*;
+pub use volumetric_fog::*;
 
 pub mod prelude {
     #[doc(hidden)]
@@ -83,6 +85,8 @@ pub mod graph {
         /// Label for the screen space ambient occlusion render node.
         ScreenSpaceAmbientOcclusion,
         DeferredLightingPass,
+        /// Label for the volumetric lighting pass.
+        VolumetricFog,
         /// Label for the compute shader instance data building pass.
         GpuPreprocess,
         /// Label for the screen space reflections pass.
@@ -318,6 +322,7 @@ impl Plugin for PbrPlugin {
                 GpuMeshPreprocessPlugin {
                     use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
                 },
+                VolumetricFogPlugin,
                 ScreenSpaceReflectionsPlugin,
             ))
             .configure_sets(
