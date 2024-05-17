@@ -49,6 +49,7 @@ impl Plugin for BatchingPlugin {
         };
 
         render_app.init_resource::<GpuPreprocessingSupport>();
+        render_app.init_resource::<IndirectParametersBuffer>();
         render_app.add_systems(
             Render,
             write_indirect_parameters_buffer.in_set(RenderSet::PrepareResourcesFlush),

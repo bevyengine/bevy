@@ -361,8 +361,6 @@ fn handle_winit_event(
         return;
     }
 
-    info!("***************** Event running");
-
     // create any new windows
     // (even if app did not update, some may have been created by plugin setup)
     create_windows(event_loop, create_window.get_mut(app.world_mut()));
@@ -815,6 +813,7 @@ fn run_app_update(
 
     forward_winit_events(winit_events, app);
 
+    info!("***************** App update");
     app.update();
 }
 
