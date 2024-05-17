@@ -709,7 +709,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
                 pass.set_index_buffer(index_buffer.slice(..), vertex_offset as u64, *index_format);
                 pass.draw_indexed(
                     index_offset..(index_offset + *count),
-                    0,
+                    vertex_offset as i32,
                     batch_range.clone(),
                 );
             }
