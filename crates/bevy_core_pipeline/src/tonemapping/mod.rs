@@ -11,11 +11,12 @@ use bevy_render::render_resource::binding_types::{
 };
 use bevy_render::renderer::RenderDevice;
 use bevy_render::texture::{CompressedImageFormats, GpuImage, Image, ImageSampler, ImageType};
-use bevy_render::view::{ViewTarget, ViewUniform};
+use bevy_render::view::{ExtractedView, ViewTarget, ViewUniform};
 use bevy_render::{camera::Camera, texture::FallbackImage};
 use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
 #[cfg(not(feature = "tonemapping_luts"))]
 use bevy_utils::tracing::error;
+use bitflags::bitflags;
 
 mod node;
 
@@ -179,10 +180,27 @@ impl Tonemapping {
     }
 }
 
+bitflags! {
+    /// Various flags describing what tonemapping needs to do.
+    ///
+    /// This allows the shader to skip unneeded steps.
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+    pub struct TonemappingPipelineKeyFlags: u8 {
+        /// The hue needs to be changed.
+        const HUE_ROTATE                = 0x01;
+        /// The white balance needs to be adjusted.
+        const WHITE_BALANCE             = 0x02;
+        /// Saturation/contrast/gamma/gain/lift for one or more sections
+        /// (shadows, midtones, highlights) need to be adjusted.
+        const SECTIONAL_COLOR_GRADING   = 0x04;
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TonemappingPipelineKey {
     deband_dither: DebandDither,
     tonemapping: Tonemapping,
+    flags: TonemappingPipelineKeyFlags,
 }
 
 impl SpecializedRenderPipeline for TonemappingPipeline {
@@ -192,6 +210,23 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
         let mut shader_defs = Vec::new();
         if let DebandDither::Enabled = key.deband_dither {
             shader_defs.push("DEBAND_DITHER".into());
+        }
+
+        // Define shader flags depending on the color grading options in use.
+        if key.flags.contains(TonemappingPipelineKeyFlags::HUE_ROTATE) {
+            shader_defs.push("HUE_ROTATE".into());
+        }
+        if key
+            .flags
+            .contains(TonemappingPipelineKeyFlags::WHITE_BALANCE)
+        {
+            shader_defs.push("WHITE_BALANCE".into());
+        }
+        if key
+            .flags
+            .contains(TonemappingPipelineKeyFlags::SECTIONAL_COLOR_GRADING)
+        {
+            shader_defs.push("SECTIONAL_COLOR_GRADING".into());
         }
 
         match key.tonemapping {
@@ -292,12 +327,38 @@ pub fn prepare_view_tonemapping_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TonemappingPipeline>>,
     upscaling_pipeline: Res<TonemappingPipeline>,
-    view_targets: Query<(Entity, Option<&Tonemapping>, Option<&DebandDither>), With<ViewTarget>>,
+    view_targets: Query<
+        (
+            Entity,
+            &ExtractedView,
+            Option<&Tonemapping>,
+            Option<&DebandDither>,
+        ),
+        With<ViewTarget>,
+    >,
 ) {
-    for (entity, tonemapping, dither) in view_targets.iter() {
+    for (entity, view, tonemapping, dither) in view_targets.iter() {
+        // As an optimization, we omit parts of the shader that are unneeded.
+        let mut flags = TonemappingPipelineKeyFlags::empty();
+        flags.set(
+            TonemappingPipelineKeyFlags::HUE_ROTATE,
+            view.color_grading.global.hue != 0.0,
+        );
+        flags.set(
+            TonemappingPipelineKeyFlags::WHITE_BALANCE,
+            view.color_grading.global.temperature != 0.0 || view.color_grading.global.tint != 0.0,
+        );
+        flags.set(
+            TonemappingPipelineKeyFlags::SECTIONAL_COLOR_GRADING,
+            view.color_grading
+                .all_sections()
+                .any(|section| *section != default()),
+        );
+
         let key = TonemappingPipelineKey {
             deband_dither: *dither.unwrap_or(&DebandDither::Disabled),
             tonemapping: *tonemapping.unwrap_or(&Tonemapping::None),
+            flags,
         };
         let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);
 

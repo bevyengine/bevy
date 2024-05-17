@@ -6,7 +6,7 @@ use super::helpers::*;
 
 use bevy_color::Color;
 use bevy_math::primitives::{
-    BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, Ellipse, Line2d, Plane2d, Polygon,
+    Annulus, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, Ellipse, Line2d, Plane2d, Polygon,
     Polyline2d, Primitive2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
 };
 use bevy_math::{Dir2, Mat2, Vec2};
@@ -109,6 +109,32 @@ where
         }
 
         self.ellipse_2d(position, angle, primitive.half_size, color);
+    }
+}
+
+// annulus 2d
+
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<Annulus> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = () where Self: 'a;
+
+    fn primitive_2d(
+        &mut self,
+        primitive: Annulus,
+        position: Vec2,
+        angle: f32,
+        color: impl Into<Color>,
+    ) -> Self::Output<'_> {
+        if !self.enabled {
+            return;
+        }
+
+        let color = color.into();
+        self.primitive_2d(primitive.inner_circle, position, angle, color);
+        self.primitive_2d(primitive.outer_circle, position, angle, color);
     }
 }
 

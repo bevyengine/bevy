@@ -5,7 +5,6 @@ use bevy::input::mouse::{MouseButtonInput, MouseMotion};
 use bevy::prelude::*;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
-use std::f32::consts::PI;
 
 fn main() {
     App::new()
@@ -33,7 +32,7 @@ struct Cube {
 }
 
 #[derive(Component)]
-struct RandomAxes(Vec3, Vec3);
+struct RandomAxes(Dir3, Dir3);
 
 #[derive(Component)]
 struct Instructions;
@@ -80,8 +79,8 @@ fn setup(
     });
 
     // Initialize random axes
-    let first = random_direction(&mut seeded_rng);
-    let second = random_direction(&mut seeded_rng);
+    let first = seeded_rng.gen();
+    let second = seeded_rng.gen();
     commands.spawn(RandomAxes(first, second));
 
     // Finally, our cube that is going to rotate
@@ -185,8 +184,8 @@ fn handle_keypress(
 
     if keyboard.just_pressed(KeyCode::KeyR) {
         // Randomize the target axes
-        let first = random_direction(&mut seeded_rng.0);
-        let second = random_direction(&mut seeded_rng.0);
+        let first = seeded_rng.0.gen();
+        let second = seeded_rng.0.gen();
         *random_axes = RandomAxes(first, second);
 
         // Stop the cube and set it up to transform from its present orientation to the new one
@@ -241,22 +240,6 @@ fn handle_mouse(
 fn arrow_ends(transform: &Transform, axis: Vec3, length: f32) -> (Vec3, Vec3) {
     let local_vector = length * (transform.rotation * axis);
     (transform.translation, transform.translation + local_vector)
-}
-
-fn random_direction(rng: &mut impl Rng) -> Vec3 {
-    let height = rng.gen::<f32>() * 2. - 1.;
-    let theta = rng.gen::<f32>() * 2. * PI;
-
-    build_direction(height, theta)
-}
-
-fn build_direction(height: f32, theta: f32) -> Vec3 {
-    let z = height;
-    let m = f32::acos(z).sin();
-    let x = theta.cos() * m;
-    let y = theta.sin() * m;
-
-    Vec3::new(x, y, z)
 }
 
 // This is where `Transform::align` is actually used!

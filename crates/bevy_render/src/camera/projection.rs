@@ -70,6 +70,9 @@ pub struct CameraUpdateSystem;
 /// to recompute the camera projection matrix of the [`Camera`] component attached to
 /// the same entity as the component implementing this trait.
 ///
+/// Use the plugins [`CameraProjectionPlugin`] and `bevy::pbr::PbrProjectionPlugin` to setup the
+/// systems for your [`CameraProjection`] implementation.
+///
 /// [`Camera`]: crate::camera::Camera
 pub trait CameraProjection {
     fn get_projection_matrix(&self) -> Mat4;

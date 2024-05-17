@@ -31,7 +31,7 @@ use bevy_render::{
     render_resource::*,
     renderer::RenderDevice,
     texture::FallbackImage,
-    view::{ExtractedView, Msaa, VisibleEntities, WithMesh},
+    view::{ExtractedView, Msaa, RenderVisibilityRanges, VisibleEntities, WithMesh},
 };
 use bevy_utils::tracing::error;
 use std::marker::PhantomData;
@@ -529,6 +529,7 @@ pub fn queue_material_meshes<M: Material>(
     render_mesh_instances: Res<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     render_lightmaps: Res<RenderLightmaps>,
+    render_visibility_ranges: Res<RenderVisibilityRanges>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
@@ -674,6 +675,10 @@ pub fn queue_material_meshes<M: Material>(
                 .map(|lightmap| lightmap.image);
             if lightmap_image.is_some() {
                 mesh_key |= MeshPipelineKey::LIGHTMAPPED;
+            }
+
+            if render_visibility_ranges.entity_has_crossfading_visibility_ranges(*visible_entity) {
+                mesh_key |= MeshPipelineKey::VISIBILITY_RANGE_DITHER;
             }
 
             let pipeline_id = pipelines.specialize(

@@ -17,6 +17,7 @@ fn main() {
             aperture_f_stops: 1.0,
             shutter_speed_s: 1.0 / 125.0,
             sensitivity_iso: 100.0,
+            sensor_height: 0.01866,
         }))
         .add_systems(Startup, setup)
         .add_systems(Update, (update_exposure, movement, animate_light_direction))

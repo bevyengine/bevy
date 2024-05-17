@@ -116,8 +116,8 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
                     pipeline_cache.get_render_pipeline(*material_pipeline_id)
                 {
                     let x = *material_id * 3;
-                    render_pass.set_bind_group(2, material_bind_group, &[]);
                     render_pass.set_render_pipeline(material_pipeline);
+                    render_pass.set_bind_group(2, material_bind_group, &[]);
                     render_pass.draw(x..(x + 3), 0..1);
                 }
             }
@@ -237,8 +237,8 @@ impl ViewNode for MeshletPrepassNode {
                     pipeline_cache.get_render_pipeline(*material_pipeline_id)
                 {
                     let x = *material_id * 3;
-                    render_pass.set_bind_group(2, material_bind_group, &[]);
                     render_pass.set_render_pipeline(material_pipeline);
+                    render_pass.set_bind_group(2, material_bind_group, &[]);
                     render_pass.draw(x..(x + 3), 0..1);
                 }
             }
@@ -363,8 +363,8 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
                     pipeline_cache.get_render_pipeline(*material_pipeline_id)
                 {
                     let x = *material_id * 3;
-                    render_pass.set_bind_group(2, material_bind_group, &[]);
                     render_pass.set_render_pipeline(material_pipeline);
+                    render_pass.set_bind_group(2, material_bind_group, &[]);
                     render_pass.draw(x..(x + 3), 0..1);
                 }
             }

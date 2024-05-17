@@ -21,7 +21,7 @@ use crate::{
         BinnedPhaseItem, BinnedRenderPhase, BinnedRenderPhaseBatch, CachedRenderPipelinePhaseItem,
         PhaseItemExtraIndex, SortedPhaseItem, SortedRenderPhase, UnbatchableBinnedEntityIndices,
     },
-    render_resource::{BufferVec, GpuArrayBufferable, UninitBufferVec},
+    render_resource::{BufferVec, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     view::{GpuCulling, ViewTarget},
     Render, RenderApp, RenderSet,
@@ -101,7 +101,7 @@ where
     /// The uniform data inputs for the current frame.
     ///
     /// These are uploaded during the extraction phase.
-    pub current_input_buffer: BufferVec<BDI>,
+    pub current_input_buffer: RawBufferVec<BDI>,
 
     /// The uniform data inputs for the previous frame.
     ///
@@ -110,7 +110,7 @@ where
     /// can spawn or despawn between frames. Instead, each current buffer
     /// data input uniform is expected to contain the index of the
     /// corresponding buffer data input uniform in this list.
-    pub previous_input_buffer: BufferVec<BDI>,
+    pub previous_input_buffer: RawBufferVec<BDI>,
 }
 
 /// The buffer of GPU preprocessing work items for a single view.
@@ -247,8 +247,8 @@ where
         BatchedInstanceBuffers {
             data_buffer: UninitBufferVec::new(BufferUsages::STORAGE),
             work_item_buffers: EntityHashMap::default(),
-            current_input_buffer: BufferVec::new(BufferUsages::STORAGE),
-            previous_input_buffer: BufferVec::new(BufferUsages::STORAGE),
+            current_input_buffer: RawBufferVec::new(BufferUsages::STORAGE),
+            previous_input_buffer: RawBufferVec::new(BufferUsages::STORAGE),
         }
     }
 

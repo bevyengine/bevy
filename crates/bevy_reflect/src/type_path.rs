@@ -147,22 +147,27 @@ pub trait DynamicTypePath {
 }
 
 impl<T: TypePath> DynamicTypePath for T {
+    #[inline]
     fn reflect_type_path(&self) -> &str {
         Self::type_path()
     }
 
+    #[inline]
     fn reflect_short_type_path(&self) -> &str {
         Self::short_type_path()
     }
 
+    #[inline]
     fn reflect_type_ident(&self) -> Option<&str> {
         Self::type_ident()
     }
 
+    #[inline]
     fn reflect_crate_name(&self) -> Option<&str> {
         Self::crate_name()
     }
 
+    #[inline]
     fn reflect_module_path(&self) -> Option<&str> {
         Self::module_path()
     }

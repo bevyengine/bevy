@@ -1,4 +1,7 @@
-use crate::{Alpha, ClampColor, Hue, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza};
+use crate::{
+    Alpha, ColorToComponents, Hue, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
+};
+use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
 
 /// Color in LCH color space, with alpha
@@ -182,21 +185,57 @@ impl Luminance for Lcha {
     }
 }
 
-impl ClampColor for Lcha {
-    fn clamped(&self) -> Self {
+impl ColorToComponents for Lcha {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.lightness, self.chroma, self.hue, self.alpha]
+    }
+
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
+        [self.lightness, self.chroma, self.hue]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.lightness, self.chroma, self.hue, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.lightness, self.chroma, self.hue)
+    }
+
+    fn from_f32_array(color: [f32; 4]) -> Self {
         Self {
-            lightness: self.lightness.clamp(0., 1.5),
-            chroma: self.chroma.clamp(0., 1.5),
-            hue: self.hue.rem_euclid(360.),
-            alpha: self.alpha.clamp(0., 1.),
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: color[3],
         }
     }
 
-    fn is_within_bounds(&self) -> bool {
-        (0. ..=1.5).contains(&self.lightness)
-            && (0. ..=1.5).contains(&self.chroma)
-            && (0. ..=360.).contains(&self.hue)
-            && (0. ..=1.).contains(&self.alpha)
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
+        Self {
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: 1.0,
+        }
+    }
+
+    fn from_vec4(color: Vec4) -> Self {
+        Self {
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_vec3(color: Vec3) -> Self {
+        Self {
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: 1.0,
+        }
     }
 }
 
@@ -345,22 +384,5 @@ mod tests {
             }
             assert_approx_eq!(color.lch.alpha, lcha.alpha, 0.001);
         }
-    }
-
-    #[test]
-    fn test_clamp() {
-        let color_1 = Lcha::lch(-1., 2., 400.);
-        let color_2 = Lcha::lch(1., 1.5, 249.54);
-        let mut color_3 = Lcha::lch(-0.4, 1., 1.);
-
-        assert!(!color_1.is_within_bounds());
-        assert_eq!(color_1.clamped(), Lcha::lch(0., 1.5, 40.));
-
-        assert!(color_2.is_within_bounds());
-        assert_eq!(color_2, color_2.clamped());
-
-        color_3.clamp();
-        assert!(color_3.is_within_bounds());
-        assert_eq!(color_3, Lcha::lch(0., 1., 1.));
     }
 }

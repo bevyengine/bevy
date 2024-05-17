@@ -105,6 +105,8 @@ pub trait System: Send + Sync + 'static {
     fn check_change_tick(&mut self, change_tick: Tick);
 
     /// Returns the system's default [system sets](crate::schedule::SystemSet).
+    ///
+    /// Each system will create a default system set that contains the system.
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         Vec::new()
     }
