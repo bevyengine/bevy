@@ -1,4 +1,4 @@
-//! This example illustrates various ways to load assets.
+//! This example illustrates how to wait for multiple assets to be loaded.
 
 use std::{
     f32::consts::PI,
