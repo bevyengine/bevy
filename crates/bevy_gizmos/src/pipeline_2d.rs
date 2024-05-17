@@ -16,6 +16,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::FloatOrd;
+use bevy_render::renderer::RenderDevice;
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
@@ -26,7 +27,6 @@ use bevy_render::{
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
     Render, RenderApp, RenderSet,
 };
-use bevy_render::renderer::RenderDevice;
 use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
 use bevy_utils::tracing::error;
 
@@ -68,7 +68,6 @@ impl Plugin for LineGizmo2dPlugin {
                     .in_set(GizmoRenderSystem::QueueLineGizmos2d)
                     .after(prepare_assets::<GpuLineGizmo>),
             );
-
     }
 }
 

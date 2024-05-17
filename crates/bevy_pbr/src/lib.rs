@@ -91,6 +91,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
+use bevy_render::renderer::RenderDevice;
 use bevy_render::{
     alpha::AlphaMode,
     camera::{
@@ -106,7 +107,6 @@ use bevy_render::{
     view::{check_visibility, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_render::renderer::RenderDevice;
 use bevy_transform::TransformSystem;
 
 pub const PBR_TYPES_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1708015359337029744);
@@ -417,7 +417,6 @@ impl Plugin for PbrPlugin {
         let draw_3d_graph = graph.get_sub_graph_mut(Core3d).unwrap();
         draw_3d_graph.add_node(NodePbr::ShadowPass, shadow_pass_node);
         draw_3d_graph.add_node_edge(NodePbr::ShadowPass, Node3d::StartMainPass);
-
     }
 }
 

@@ -111,8 +111,7 @@ impl Plugin for Mesh2dRenderPlugin {
         let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
         let render_device = render_app.world().resource::<RenderDevice>();
-        let batched_instance_buffer =
-            BatchedInstanceBuffer::<Mesh2dUniform>::new(render_device);
+        let batched_instance_buffer = BatchedInstanceBuffer::<Mesh2dUniform>::new(render_device);
 
         if let Some(per_object_buffer_batch_size) =
             GpuArrayBuffer::<Mesh2dUniform>::batch_size(render_device)

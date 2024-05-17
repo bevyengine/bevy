@@ -31,12 +31,12 @@ impl<C: Component + GpuArrayBufferable> Plugin for GpuComponentArrayBufferPlugin
 
         render_app
             .insert_resource(GpuArrayBuffer::<C>::new(
-            render_app.world().resource::<RenderDevice>(),
-        )).add_systems(
-            Render,
-            prepare_gpu_component_array_buffers::<C>.in_set(RenderSet::PrepareResources),
-        );
-
+                render_app.world().resource::<RenderDevice>(),
+            ))
+            .add_systems(
+                Render,
+                prepare_gpu_component_array_buffers::<C>.in_set(RenderSet::PrepareResources),
+            );
     }
 }
 

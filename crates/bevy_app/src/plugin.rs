@@ -149,7 +149,9 @@ pub trait Plugin: Downcast + Any + Send + Sync {
 
     /// Checks all required [`SubApp`]]s.
     fn check_required_sub_apps(&mut self, app: &App) -> bool {
-        self.require_sub_apps().iter().all(|s| app.contains_sub_app(*s))
+        self.require_sub_apps()
+            .iter()
+            .all(|s| app.contains_sub_app(*s))
     }
 }
 

@@ -4,8 +4,8 @@ use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_ecs::prelude::*;
 pub use bevy_render_macros::ExtractResource;
 
-use crate::{Extract, ExtractSchedule, RenderApp};
 use crate::renderer::RenderDevice;
+use crate::{Extract, ExtractSchedule, RenderApp};
 
 /// Describes how a resource gets extracted for rendering.
 ///

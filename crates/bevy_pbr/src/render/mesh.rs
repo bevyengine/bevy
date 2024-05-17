@@ -4,28 +4,27 @@ use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
 use static_assertions::const_assert_eq;
 
-use bevy_asset::{AssetId, load_internal_asset};
+use bevy_asset::{load_internal_asset, AssetId};
 use bevy_core_pipeline::{
-    core_3d::{AlphaMask3d, CORE_3D_DEPTH_FORMAT, Opaque3d, Transmissive3d, Transparent3d},
+    core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
 };
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_ecs::entity::EntityHashMap;
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_render::{
     batching::{
-        GetBatchData,
-        GetFullBatchData, gpu_preprocessing::{
+        gpu_preprocessing::{
             self, GpuPreprocessingSupport, IndirectParameters, IndirectParametersBuffer,
-        }, no_gpu_preprocessing, NoAutomaticBatching,
+        },
+        no_gpu_preprocessing, GetBatchData, GetFullBatchData, NoAutomaticBatching,
     },
     camera::Camera,
-    Extract,
     mesh::*,
     primitives::Aabb,
     render_asset::RenderAssets,
@@ -37,20 +36,21 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, DefaultImageSampler, ImageSampler, TextureFormatPixelInfo},
     view::{
-        GpuCulling, prepare_view_targets, RenderVisibilityRanges, ViewTarget, ViewUniformOffset,
+        prepare_view_targets, GpuCulling, RenderVisibilityRanges, ViewTarget, ViewUniformOffset,
         ViewVisibility, VisibilityRange,
     },
+    Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{Entry, HashMap, Parallel, tracing::error, tracing::warn};
+use bevy_utils::{tracing::error, tracing::warn, Entry, HashMap, Parallel};
 
-use crate::*;
 use crate::render::{
     morph::{
-        extract_morphs, MorphIndices, MorphUniform, no_automatic_morph_batching, prepare_morphs,
+        extract_morphs, no_automatic_morph_batching, prepare_morphs, MorphIndices, MorphUniform,
     },
     skin::no_automatic_skin_batching,
 };
+use crate::*;
 
 use super::skin::SkinIndices;
 
@@ -127,15 +127,15 @@ impl Plugin for MeshRenderPlugin {
             PostUpdate,
             (no_automatic_skin_batching, no_automatic_morph_batching),
         )
-            .add_plugins((
-                BinnedRenderPhasePlugin::<Opaque3d, MeshPipeline>::default(),
-                BinnedRenderPhasePlugin::<AlphaMask3d, MeshPipeline>::default(),
-                BinnedRenderPhasePlugin::<Shadow, MeshPipeline>::default(),
-                BinnedRenderPhasePlugin::<Opaque3dDeferred, MeshPipeline>::default(),
-                BinnedRenderPhasePlugin::<AlphaMask3dDeferred, MeshPipeline>::default(),
-                SortedRenderPhasePlugin::<Transmissive3d, MeshPipeline>::default(),
-                SortedRenderPhasePlugin::<Transparent3d, MeshPipeline>::default(),
-            ));
+        .add_plugins((
+            BinnedRenderPhasePlugin::<Opaque3d, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<AlphaMask3d, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<Shadow, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<Opaque3dDeferred, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<AlphaMask3dDeferred, MeshPipeline>::default(),
+            SortedRenderPhasePlugin::<Transmissive3d, MeshPipeline>::default(),
+            SortedRenderPhasePlugin::<Transparent3d, MeshPipeline>::default(),
+        ));
     }
 
     fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
@@ -183,9 +183,7 @@ impl Plugin for MeshRenderPlugin {
                 ),
             );
 
-
-        let gpu_preprocessing_support =
-            render_app.world().resource::<GpuPreprocessingSupport>();
+        let gpu_preprocessing_support = render_app.world().resource::<GpuPreprocessingSupport>();
         let use_gpu_instance_buffer_builder = self.use_gpu_instance_buffer_builder
             && *gpu_preprocessing_support != GpuPreprocessingSupport::None;
 
@@ -796,17 +794,17 @@ pub fn extract_meshes_for_cpu_building(
         || render_mesh_instance_queues.borrow_local_mut(),
         |queue,
          (
-             entity,
-             view_visibility,
-             transform,
-             previous_transform,
-             handle,
-             not_shadow_receiver,
-             transmitted_receiver,
-             not_shadow_caster,
-             no_automatic_batching,
-             visibility_range,
-         )| {
+            entity,
+            view_visibility,
+            transform,
+            previous_transform,
+            handle,
+            not_shadow_receiver,
+            transmitted_receiver,
+            not_shadow_caster,
+            no_automatic_batching,
+            visibility_range,
+        )| {
             if !view_visibility.get() {
                 return;
             }
@@ -848,12 +846,12 @@ pub fn extract_meshes_for_cpu_building(
 
     // Collect the render mesh instances.
     let RenderMeshInstances::CpuBuilding(ref mut render_mesh_instances) = *render_mesh_instances
-        else {
-            panic!(
-                "`extract_meshes_for_cpu_building` should only be called if we're using CPU \
+    else {
+        panic!(
+            "`extract_meshes_for_cpu_building` should only be called if we're using CPU \
             `MeshUniform` building"
-            );
-        };
+        );
+    };
 
     render_mesh_instances.clear();
     for queue in render_mesh_instance_queues.iter_mut() {
@@ -901,30 +899,30 @@ pub fn extract_meshes_for_gpu_building(
 
     // Collect render mesh instances. Build up the uniform buffer.
     let RenderMeshInstances::GpuBuilding(ref mut render_mesh_instances) = *render_mesh_instances
-        else {
-            panic!(
-                "`extract_meshes_for_gpu_building` should only be called if we're \
+    else {
+        panic!(
+            "`extract_meshes_for_gpu_building` should only be called if we're \
             using GPU `MeshUniform` building"
-            );
-        };
+        );
+    };
 
     meshes_query.par_iter().for_each_init(
         || render_mesh_instance_queues.borrow_local_mut(),
         |queue,
          (
-             entity,
-             view_visibility,
-             transform,
-             previous_transform,
-             lightmap,
-             aabb,
-             handle,
-             not_shadow_receiver,
-             transmitted_receiver,
-             not_shadow_caster,
-             no_automatic_batching,
-             visibility_range,
-         )| {
+            entity,
+            view_visibility,
+            transform,
+            previous_transform,
+            lightmap,
+            aabb,
+            handle,
+            not_shadow_receiver,
+            transmitted_receiver,
+            not_shadow_caster,
+            no_automatic_batching,
+            visibility_range,
+        )| {
             if !view_visibility.get() {
                 return;
             }
@@ -1890,7 +1888,9 @@ pub fn prepare_mesh_bind_group(
     } else {
         return;
     };
-    let Some(model) = model else { return; };
+    let Some(model) = model else {
+        return;
+    };
 
     groups.model_only = Some(layouts.model_only(&render_device, &model));
 
@@ -2008,14 +2008,14 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             .map(|render_lightmap| render_lightmap.image);
 
         let Some(bind_group) = bind_groups.get(mesh_asset_id, lightmap, is_skinned, is_morphed)
-            else {
-                error!(
+        else {
+            error!(
                 "The MeshBindGroups resource wasn't set in the render phase. \
                 It should be set by the prepare_mesh_bind_group system.\n\
                 This is a bevy bug! Please open an issue."
             );
-                return RenderCommandResult::Failure;
-            };
+            return RenderCommandResult::Failure;
+        };
 
         let mut dynamic_offsets: [u32; 3] = Default::default();
         let mut offset_count = 0;

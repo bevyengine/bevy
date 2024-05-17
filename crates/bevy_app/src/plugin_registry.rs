@@ -1,8 +1,8 @@
 use bevy_utils::HashMap;
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 
-use crate::{App, PluginState};
 use crate::Plugin;
+use crate::{App, PluginState};
 
 /// Plugin registry state in the application
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
@@ -168,9 +168,9 @@ impl PluginRegistry {
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs::prelude::Resource;
-    use crate::{InternedAppLabel, SubApp, AppLabel};
     use crate::{self as bevy_app};
+    use crate::{AppLabel, InternedAppLabel, SubApp};
+    use bevy_ecs::prelude::Resource;
 
     use super::*;
 
@@ -341,7 +341,7 @@ mod tests {
     fn dont_finalize_plugin_without_required_subapp() {
         let mut registry = PluginRegistry::default();
         registry.add(Box::new(TestPlugin {
-            require_sub_app: true
+            require_sub_app: true,
         }));
 
         let mut app = App::new();
@@ -364,7 +364,7 @@ mod tests {
     fn finalize_plugin_with_required_subapp() {
         let mut registry = PluginRegistry::default();
         registry.add(Box::new(TestPlugin {
-            require_sub_app: true
+            require_sub_app: true,
         }));
         registry.add(Box::new(SubAppCreatorPlugin));
 

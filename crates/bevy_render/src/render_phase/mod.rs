@@ -36,6 +36,7 @@ use encase::{internal::WriteInto, ShaderSize};
 use nonmax::NonMaxU32;
 pub use rangefinder::*;
 
+use crate::renderer::RenderDevice;
 use crate::{
     batching::{
         self,
@@ -59,7 +60,6 @@ use std::{
     ops::Range,
     slice::SliceIndex,
 };
-use crate::renderer::RenderDevice;
 
 /// A collection of all rendering instructions, that will be executed by the GPU, for a
 /// single render phase for a single view.

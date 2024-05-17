@@ -11,11 +11,11 @@ use std::{
     sync::Arc,
 };
 
+use crate::renderer::RenderDevice;
 use crate::{render_asset::RenderAssetPlugin, texture::GpuImage, RenderApp};
 use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_asset::AssetApp;
 use bevy_ecs::{entity::Entity, system::Resource};
-use crate::renderer::RenderDevice;
 
 /// Adds the [`Mesh`] as an asset and makes sure that they are extracted and prepared for the GPU.
 pub struct MeshPlugin;

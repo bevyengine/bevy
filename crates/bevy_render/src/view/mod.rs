@@ -127,19 +127,17 @@ impl Plugin for ViewPlugin {
             return;
         };
 
-        render_app
-            .init_resource::<ViewUniforms>()
-            .add_systems(
-                Render,
-                (
-                    prepare_view_targets
-                        .in_set(RenderSet::ManageViews)
-                        .after(prepare_windows)
-                        .after(crate::render_asset::prepare_assets::<GpuImage>)
-                        .ambiguous_with(crate::camera::sort_cameras), // doesn't use `sorted_camera_index_for_target`
-                    prepare_view_uniforms.in_set(RenderSet::PrepareResources),
-                ),
-            );
+        render_app.init_resource::<ViewUniforms>().add_systems(
+            Render,
+            (
+                prepare_view_targets
+                    .in_set(RenderSet::ManageViews)
+                    .after(prepare_windows)
+                    .after(crate::render_asset::prepare_assets::<GpuImage>)
+                    .ambiguous_with(crate::camera::sort_cameras), // doesn't use `sorted_camera_index_for_target`
+                prepare_view_uniforms.in_set(RenderSet::PrepareResources),
+            ),
+        );
     }
 }
 

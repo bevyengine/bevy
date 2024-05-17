@@ -1,3 +1,4 @@
+use crate::renderer::RenderDevice;
 use crate::{ExtractSchedule, MainWorld, Render, RenderApp, RenderSet};
 use bevy_app::{App, AppLabel, InternedAppLabel, Plugin, SubApp};
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
@@ -13,7 +14,6 @@ use bevy_utils::{tracing::debug, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use thiserror::Error;
-use crate::renderer::RenderDevice;
 
 #[derive(Debug, Error)]
 pub enum PrepareAssetError<E: Send + Sync + 'static> {

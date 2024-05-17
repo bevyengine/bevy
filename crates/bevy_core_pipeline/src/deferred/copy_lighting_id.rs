@@ -1,16 +1,16 @@
-use bevy_app::{AppLabel, InternedAppLabel};
 use bevy_app::prelude::*;
-use bevy_asset::{Handle, load_internal_asset};
+use bevy_app::{AppLabel, InternedAppLabel};
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
 use bevy_math::UVec2;
 use bevy_render::{
     camera::ExtractedCamera,
-    Render,
-    render_resource::{*, binding_types::texture_2d},
-    RenderApp,
+    render_resource::{binding_types::texture_2d, *},
     renderer::RenderDevice,
-    RenderSet, texture::{CachedTexture, TextureCache}, view::ViewTarget,
+    texture::{CachedTexture, TextureCache},
+    view::ViewTarget,
+    Render, RenderApp, RenderSet,
 };
 use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
@@ -55,7 +55,7 @@ impl Plugin for CopyDeferredLightingIdPlugin {
         render_app
             .add_systems(
                 Render,
-                (prepare_deferred_lighting_id_textures.in_set(RenderSet::PrepareResources), ),
+                (prepare_deferred_lighting_id_textures.in_set(RenderSet::PrepareResources),),
             )
             .init_resource::<CopyDeferredLightingIdPipeline>();
     }
@@ -90,14 +90,14 @@ impl ViewNode for CopyDeferredLightingIdNode {
 
         let Some(pipeline) =
             pipeline_cache.get_render_pipeline(copy_deferred_lighting_id_pipeline.pipeline_id)
-            else {
-                return Ok(());
-            };
+        else {
+            return Ok(());
+        };
         let Some(deferred_lighting_pass_id_texture) =
             &view_prepass_textures.deferred_lighting_pass_id
-            else {
-                return Ok(());
-            };
+        else {
+            return Ok(());
+        };
 
         let bind_group = render_context.render_device().create_bind_group(
             "copy_deferred_lighting_id_bind_group",
@@ -191,9 +191,9 @@ fn prepare_deferred_lighting_id_textures(
 ) {
     for (entity, camera) in &views {
         if let Some(UVec2 {
-                        x: width,
-                        y: height,
-                    }) = camera.physical_target_size
+            x: width,
+            y: height,
+        }) = camera.physical_target_size
         {
             let texture_descriptor = TextureDescriptor {
                 label: Some("deferred_lighting_id_depth_texture_a"),

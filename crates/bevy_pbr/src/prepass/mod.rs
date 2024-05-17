@@ -115,7 +115,6 @@ where
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
             .allow_ambiguous_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
             .init_resource::<PreviousViewUniforms>();
-
     }
 }
 
@@ -135,8 +134,7 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        let no_prepass_plugin_loaded = !app
-            .contains_resource::<AnyPrepassPluginLoaded>();
+        let no_prepass_plugin_loaded = !app.contains_resource::<AnyPrepassPluginLoaded>();
 
         if no_prepass_plugin_loaded {
             app.insert_resource(AnyPrepassPluginLoaded)
@@ -165,8 +163,7 @@ where
     }
 
     fn finalize(&self, app: &mut App) {
-        let no_prepass_plugin_loaded = !app
-            .contains_resource::<AnyPrepassPluginLoaded>();
+        let no_prepass_plugin_loaded = !app.contains_resource::<AnyPrepassPluginLoaded>();
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

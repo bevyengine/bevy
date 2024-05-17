@@ -1,5 +1,6 @@
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
+use bevy_app::{AppLabel, InternedAppLabel};
 use bevy_asset::{load_internal_asset, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
@@ -17,7 +18,6 @@ use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
 #[cfg(not(feature = "tonemapping_luts"))]
 use bevy_utils::tracing::error;
 use bitflags::bitflags;
-use bevy_app::{AppLabel, InternedAppLabel};
 
 mod node;
 

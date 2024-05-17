@@ -41,12 +41,12 @@ use bevy_ecs::{
 use bevy_math::{uvec2, vec4, Rect, UVec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::mesh::GpuMesh;
+use bevy_render::renderer::RenderDevice;
 use bevy_render::texture::GpuImage;
 use bevy_render::{
     mesh::Mesh, render_asset::RenderAssets, render_resource::Shader, texture::Image,
     view::ViewVisibility, Extract, ExtractSchedule, RenderApp,
 };
-use bevy_render::renderer::RenderDevice;
 use bevy_utils::HashSet;
 
 use crate::{ExtractMeshesSet, RenderMeshInstances};

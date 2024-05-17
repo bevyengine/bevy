@@ -67,7 +67,9 @@ pub mod prelude {
 }
 
 use aabb::AabbGizmoPlugin;
-use bevy_app::{App, AppLabel, FixedFirst, FixedLast, InternedAppLabel, Last, Plugin, RunFixedMainLoop};
+use bevy_app::{
+    App, AppLabel, FixedFirst, FixedLast, InternedAppLabel, Last, Plugin, RunFixedMainLoop,
+};
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_color::LinearRgba;
 use bevy_ecs::{

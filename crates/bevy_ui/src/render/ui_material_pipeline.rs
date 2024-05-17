@@ -1,5 +1,6 @@
 use std::{hash::Hash, marker::PhantomData, ops::Range};
 
+use bevy_app::{AppLabel, InternedAppLabel};
 use bevy_asset::*;
 use bevy_ecs::{
     prelude::Component,
@@ -23,7 +24,6 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};
 use bytemuck::{Pod, Zeroable};
-use bevy_app::{AppLabel, InternedAppLabel};
 
 use crate::*;
 

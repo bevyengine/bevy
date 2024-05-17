@@ -14,6 +14,7 @@ use bevy_ecs::{
     schedule::IntoSystemConfigs,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::renderer::RenderDevice;
 use bevy_render::{
     camera::Camera,
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
@@ -21,7 +22,6 @@ use bevy_render::{
     render_resource::{Shader, ShaderType, SpecializedRenderPipelines},
     Render, RenderApp, RenderSet,
 };
-use bevy_render::renderer::RenderDevice;
 
 pub mod node;
 pub mod pipeline;

@@ -46,6 +46,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_render::renderer::RenderDevice;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     mesh::Mesh,
@@ -56,7 +57,6 @@ use bevy_render::{
     view::{check_visibility, NoFrustumCulling, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_render::renderer::RenderDevice;
 
 /// Adds support for 2D sprite rendering.
 #[derive(Default)]

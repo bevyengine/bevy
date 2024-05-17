@@ -1,10 +1,10 @@
-use bevy_app::{AppLabel, InternedAppLabel};
 use crate::{
     graph::NodePbr, irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight,
     MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusionSettings,
     ViewLightProbesUniformOffset,
 };
 use bevy_app::prelude::*;
+use bevy_app::{AppLabel, InternedAppLabel};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
@@ -139,7 +139,6 @@ impl Plugin for DeferredPbrLightingPlugin {
                     Node3d::MainOpaquePass,
                 ),
             );
-
     }
 }
 

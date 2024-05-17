@@ -1,5 +1,5 @@
-use bevy_app::{AppLabel, InternedAppLabel};
 use bevy_app::prelude::*;
+use bevy_app::{AppLabel, InternedAppLabel};
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_render::extract_component::ExtractComponentPlugin;
@@ -94,7 +94,6 @@ impl Plugin for AutoExposurePlugin {
                 Core3d,
                 (Node3d::EndMainPass, node::AutoExposure, Node3d::Tonemapping),
             );
-
     }
 }
 

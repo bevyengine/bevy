@@ -34,6 +34,7 @@ pub use main_transparent_pass_2d_node::*;
 use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::FloatOrd;
+use bevy_render::renderer::RenderDevice;
 use bevy_render::{
     camera::Camera,
     extract_component::ExtractComponentPlugin,
@@ -45,7 +46,6 @@ use bevy_render::{
     render_resource::CachedRenderPipelineId,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_render::renderer::RenderDevice;
 
 use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
 

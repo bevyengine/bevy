@@ -1,10 +1,10 @@
-use bevy_app::{AppLabel, InternedAppLabel};
 use crate::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_app::prelude::*;
+use bevy_app::{AppLabel, InternedAppLabel};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
