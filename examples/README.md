@@ -540,6 +540,7 @@ Bevy by default targets Android API level 33 in its examples which is the <!-- m
 Users of older phones may want to use an older API when testing. By default, Bevy uses [`GameAvtivity`](https://developer.android.com/games/agdk/game-activity), which only works for Android API level 31 and higher, so if you want to use older API, you need to switch to `NativeActivity`.
 
 To use `NativeActivity`, you need to edit it in `cargo.toml` manually like this:
+
 ```toml
 bevy = { version = "0.14", default-features = false, features = ["android-native-activity", ...] }
 ```
