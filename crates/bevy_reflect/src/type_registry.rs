@@ -56,6 +56,10 @@ impl Debug for TypeRegistryArc {
 /// See the [crate-level documentation] for more information on type registration.
 ///
 /// [crate-level documentation]: crate
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not provide type registration information",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+)]
 pub trait GetTypeRegistration: 'static {
     /// Returns the default [`TypeRegistration`] for this type.
     fn get_type_registration() -> TypeRegistration;
