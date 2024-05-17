@@ -12,8 +12,8 @@ pub enum PluginState {
     Init,
     /// Plugin is being built.
     Building,
-    /// Plugin is ready.
-    Ready,
+    /// Plugin is not yet ready.
+    NotYetReady,
     /// Plugin configuration is finished.
     Finished,
     /// Plugin resources are cleaned up.
@@ -25,9 +25,10 @@ impl PluginState {
         match self {
             Self::Idle => Self::Init,
             Self::Init => Self::Building,
-            Self::Building => Self::Ready,
-            Self::Ready => Self::Finished,
-            _ => Self::Cleaned,
+            Self::Building => Self::NotYetReady,
+            Self::NotYetReady => Self::NotYetReady,
+            Self::Finished => Self::Cleaned,
+            _ => unreachable!()
         }
     }
 }
@@ -84,7 +85,7 @@ impl PluginRegistry {
         self.states.values().min().map(|s| {
             match s {
                 PluginState::Idle | PluginState::Init => PluginsState::Init,
-                PluginState::Building | PluginState::Ready  => PluginsState::Building,
+                PluginState::Building | PluginState::NotYetReady  => PluginsState::Building,
                 PluginState::Finished => PluginsState::Finalizing,
                 PluginState::Cleaned => PluginsState::Done,
             }
@@ -92,24 +93,39 @@ impl PluginRegistry {
     }
 
     pub fn update(&mut self, app: &mut App) {
+        println!("Registry state before: {:?} ({})", self.state(), self.plugins.len());
+
         for plugin in &mut self.plugins {
             let current_state = self.states.get_mut(plugin.name()).expect("Plugin state must exist");
 
             if *current_state < PluginState::Cleaned {
                 let mut next_state = current_state.next();
-                if next_state == PluginState::Ready {
+                if next_state == PluginState::NotYetReady {
                     if !plugin.ready(app) {
+                        println!("Plugin {} not ready yet", plugin.name());
+
+                        *current_state = next_state;
                         continue;
                     }
 
                     next_state = PluginState::Finished;
                 }
-                println!("Updating to {next_state:?}");
+                println!("Updating {} to {next_state:?}", plugin.name());
 
                 plugin.update(app, next_state);
                 *current_state = next_state;
             }
         }
+
+        println!("Registry state after: {:?} ({})", self.state(), self.plugins.len());
+    }
+
+    pub fn merge(&mut self, mut other: Self) {
+        other.plugins.extend(self.plugins.drain(..));
+        other.states.extend(self.states.drain());
+
+        self.plugins = other.plugins;
+        self.states = other.states;
     }
 }
 

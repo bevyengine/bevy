@@ -212,9 +212,14 @@ fn add_children_nodes(
 pub struct AccessKitPlugin;
 
 impl Plugin for AccessKitPlugin {
+    fn init(&self, app: &mut App) {
+        app
+            .init_non_send_resource::<AccessKitAdapters>()
+            .init_resource::<WinitActionHandlers>();
+    }
+
     fn build(&self, app: &mut App) {
-        app.init_non_send_resource::<AccessKitAdapters>()
-            .init_resource::<WinitActionHandlers>()
+        app
             .add_event::<ActionRequestWrapper>()
             .add_systems(
                 PostUpdate,

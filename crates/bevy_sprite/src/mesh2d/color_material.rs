@@ -27,7 +27,13 @@ impl Plugin for ColorMaterialPlugin {
 
         app.add_plugins(Material2dPlugin::<ColorMaterial>::default())
             .register_asset_reflect::<ColorMaterial>();
+    }
 
+    fn ready(&self, app: &App) -> bool {
+        app.world().contains_resource::<Assets<ColorMaterial>>()
+    }
+
+    fn finish(&self, app: &mut App) {
         app.world_mut()
             .resource_mut::<Assets<ColorMaterial>>()
             .insert(

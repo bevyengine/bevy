@@ -43,6 +43,14 @@ impl Plugin for BatchingPlugin {
         );
     }
 
+    fn ready(&self, app: &App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
+        };
+
+        render_app.world().contains_resource::<RenderAdapter>()
+    }
+
     fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

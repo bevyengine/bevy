@@ -111,7 +111,7 @@ impl Plugin for PipelinedRenderingPlugin {
         }
         app.insert_resource(MainThreadExecutor::new());
 
-        let mut sub_app = SubApp::new();
+        let mut sub_app = SubApp::new("render_extract_app");
         sub_app.set_extract(renderer_extract);
         app.insert_sub_app(RenderExtractApp, sub_app);
     }

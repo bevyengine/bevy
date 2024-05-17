@@ -1,4 +1,4 @@
-use crate::{App, InternedAppLabel, Plugin, Plugins, PluginsState, Startup};
+use crate::{App, AppLabel, InternedAppLabel, Plugin, Plugins, PluginsState, Startup};
 use bevy_ecs::{
     event::EventRegistry,
     prelude::*,
@@ -42,7 +42,7 @@ type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
 /// app.insert_resource(Val(10));
 ///
 /// // Create a sub-app with the same resource and a single schedule.
-/// let mut sub_app = SubApp::new();
+/// let mut sub_app = SubApp::new("subapp".into());
 /// sub_app.insert_resource(Val(100));
 ///
 /// // Setup an extract function to copy the resource's value in the main world.
@@ -63,10 +63,11 @@ type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
 /// app.run();
 /// ```
 pub struct SubApp {
+    name: String,
     /// The data of this application.
     world: World,
     /// List of plugins that have been added.
-    plugin_registry: PluginRegistry,
+    pub(crate) plugin_registry: PluginRegistry,
     /// The names of plugins that have been added to this app. (used to track duplicates and
     /// already-registered plugins)
     pub(crate) plugin_names: HashSet<String>,
@@ -85,11 +86,14 @@ impl Debug for SubApp {
     }
 }
 
-impl Default for SubApp {
-    fn default() -> Self {
+impl SubApp {
+    /// Returns a default, empty [`SubApp`].
+    pub fn new(name: impl Into<String>) -> Self {
         let mut world = World::new();
         world.init_resource::<Schedules>();
+
         Self {
+            name: name.into(),
             world,
             plugin_registry: PluginRegistry::default(),
             plugin_names: HashSet::default(),
@@ -97,13 +101,7 @@ impl Default for SubApp {
             update_schedule: None,
             extract: None,
         }
-    }
-}
 
-impl SubApp {
-    /// Returns a default, empty [`SubApp`].
-    pub fn new() -> Self {
-        Self::default()
     }
 
     /// This method is a workaround. Each [`SubApp`] can have its own plugins, but [`Plugin`]
@@ -402,7 +400,7 @@ impl SubApp {
 
     pub fn insert_plugin_registry(&mut self, plugin_registry: PluginRegistry)
     {
-        self.plugin_registry = plugin_registry;
+        self.plugin_registry.merge(plugin_registry);
     }
 
     /// Returns `true` if there is no plugin in the middle of being built.
@@ -411,17 +409,15 @@ impl SubApp {
     }
 
     /// Return the state of plugins.
-    pub fn update_plugins(&mut self) {
-        let state = self.plugin_registry.state();
-
-        println!("updating plugins for {:?} from {:?} ({:?})", self, state, std::thread::current().id());
-
+    pub fn update_plugins(&mut self, sub_apps: SubApps) {
         let mut plugin_registry = self.take_plugin_registry();
 
         self.plugin_build_depth += 1;
+        println!("Before {} {}", self.name, plugin_registry.len());
         self.run_as_app(|app| {
             plugin_registry.update(app);
         });
+        println!("After {} {}", self.name, plugin_registry.len());
         self.plugin_build_depth -= 1;
 
         self.insert_plugin_registry(plugin_registry);
@@ -456,7 +452,6 @@ impl SubApp {
 }
 
 /// The collection of sub-apps that belong to an [`App`].
-#[derive(Default)]
 pub struct SubApps {
     /// The primary sub-app that contains the "main" world.
     pub main: SubApp,

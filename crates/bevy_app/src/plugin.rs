@@ -110,6 +110,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
         }));
 
         if let Err(payload) = result {
+            println!("*************** Error *************");
             resume_unwind(payload);
         }
     }

@@ -30,7 +30,15 @@ impl<R: ExtractResource> Default for ExtractResourcePlugin<R> {
 }
 
 impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
-    fn build(&self, app: &mut App) {
+    fn build(&self, _app: &mut App) {
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        println!("App contains subapp: {}", app.contains_sub_app(RenderApp));
+        app.contains_sub_app(RenderApp)
+    }
+
+    fn finish(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(ExtractSchedule, extract_resource::<R>);
         } else {

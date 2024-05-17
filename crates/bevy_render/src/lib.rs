@@ -426,7 +426,7 @@ fn extract(main_world: &mut World, render_world: &mut World) {
 unsafe fn initialize_render_app(app: &mut App) {
     app.init_resource::<ScratchMainWorld>();
 
-    let mut render_app = SubApp::new();
+    let mut render_app = SubApp::new("render_app");
     render_app.update_schedule = Some(Render.intern());
 
     let mut extract_schedule = Schedule::new(ExtractSchedule);

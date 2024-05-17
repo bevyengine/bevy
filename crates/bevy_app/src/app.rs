@@ -118,7 +118,7 @@ impl App {
     pub fn empty() -> App {
         Self {
             sub_apps: SubApps {
-                main: SubApp::new(),
+                main: SubApp::new("main"),
                 sub_apps: HashMap::new(),
             },
             runner: Box::new(run_once),
@@ -201,12 +201,10 @@ impl App {
     /// useful for situations where you want to use [`App::update`].
     #[inline]
     pub fn update_plugins(&mut self) {
-        println!("Updating main plugins");
         self.main_mut().update_plugins();
 
         // overall state is the earliest state of any sub-app
         self.sub_apps.iter_mut().skip(1).for_each(|s| {
-            println!("Updating subapp plugins");
             s.update_plugins();
         });
     }
@@ -469,10 +467,12 @@ impl App {
         }
 
         let mut plugin_registry = self.main_mut().take_plugin_registry();
+        println!("Before: {}", plugin_registry.len());
 
         plugin_registry.add(plugin);
 
         plugin_registry.update(self);
+        println!("After: {}", plugin_registry.len());
 
         self.main_mut().insert_plugin_registry(plugin_registry);
 
@@ -562,23 +562,6 @@ impl App {
 
         self
     }
-    //
-    // pub fn build_plugins(&mut self) -> Result<&mut Self, AppError>  {
-    //     let plugins = std::mem::take(&mut self.main_mut().plugin_registry);
-    //
-    //     self.main_mut().plugin_build_depth += 1;
-    //     for plugin in &plugins {
-    //         let result = catch_unwind(AssertUnwindSafe(|| plugin.build(self)));
-    //         if let Err(payload) = result {
-    //             resume_unwind(payload);
-    //         }
-    //     }
-    //     self.main_mut().plugin_build_depth -= 1;
-    //
-    //     self.main_mut().plugin_registry = plugins;
-    //
-    //     Ok(self)
-    // }
 
     /// Registers the type `T` in the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource,
     /// adding reflect data as specified in the [`Reflect`](bevy_reflect::Reflect) derive:
@@ -670,6 +653,11 @@ impl App {
         })
     }
 
+    /// Returns if the [`SubApp`] with the given label exists.
+    pub fn contains_sub_app(&self, label: impl AppLabel) -> bool {
+        self.sub_apps.sub_apps.contains_key(&label.intern())
+    }
+
     /// Returns a reference to the [`SubApp`] with the given label, if it exists.
     pub fn get_sub_app(&self, label: impl AppLabel) -> Option<&SubApp> {
         self.sub_apps.sub_apps.get(&label.intern())
@@ -682,6 +670,7 @@ impl App {
 
     /// Inserts a [`SubApp`] with the given label.
     pub fn insert_sub_app(&mut self, label: impl AppLabel, sub_app: SubApp) {
+        println!("********************* Inserting {:?}", label);
         self.sub_apps.sub_apps.insert(label.intern(), sub_app);
     }
 
