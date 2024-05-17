@@ -79,6 +79,10 @@ use std::fmt;
 /// [`crate_name`]: TypePath::crate_name
 /// [`module_path`]: TypePath::module_path
 /// [`type_ident`]: TypePath::type_ident
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not have a type path",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]` or `#[derive(TypePath)]`"
+)]
 pub trait TypePath: 'static {
     /// Returns the fully qualified path of the underlying type.
     ///
@@ -129,6 +133,10 @@ pub trait TypePath: 'static {
 /// Since this is a supertrait of [`Reflect`] its methods can be called on a `dyn Reflect`.
 ///
 /// [`Reflect`]: crate::Reflect
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not be used as a dynamic type path",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]` or `#[derive(TypePath)]`"
+)]
 pub trait DynamicTypePath {
     /// See [`TypePath::type_path`].
     fn reflect_type_path(&self) -> &str;

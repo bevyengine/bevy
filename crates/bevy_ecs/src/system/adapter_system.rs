@@ -39,6 +39,10 @@ use crate::{schedule::InternedSystemSet, world::unsafe_world_cell::UnsafeWorldCe
 /// # system.initialize(&mut world);
 /// # assert!(system.run((), &mut world));
 /// ```
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not adapt a system of type `{S}`",
+    label = "invalid system adapter"
+)]
 pub trait Adapt<S: System>: Send + Sync + 'static {
     /// The [input](System::In) type for an [`AdapterSystem`].
     type In;
