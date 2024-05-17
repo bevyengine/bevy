@@ -38,11 +38,8 @@ pub struct AssetBarrierInner {
     wakers: Mutex<Vec<Waker>>,
 }
 
-/// This is required to support both sync and async.
-///
-/// For sync only the easiest implementation is
-/// [`Arc<()>`] and use [`Arc::strong_count`] for completion.
-/// [`Arc<Atomic*>`] is a more robust alternative.
+/// Future for [`AssetBarrier`] completion.
+#[must_use = "`Future`s do nothing unless polled."]
 #[derive(Debug, Resource, Deref)]
 pub struct AssetBarrierFuture(Arc<AssetBarrierInner>);
 
@@ -138,6 +135,7 @@ fn setup(
     let loading_state = Arc::new(Mutex::new("Loading..".to_owned()));
     commands.insert_resource(AsyncLoadingState(loading_state.clone()));
 
+    // await the `AssetBarrierFuture`.
     AsyncComputeTaskPool::get()
         .spawn(async move {
             future.await;
@@ -229,7 +227,7 @@ fn wait_on_load(
     for i in 0..10 {
         for j in 0..10 {
             let index = i * 10 + j;
-            let position = Vec3::new(i as f32 - 5.0, 0.0, j as f32 - 5.0) * 1.0;
+            let position = Vec3::new(i as f32 - 5.0, 0.0, j as f32 - 5.0);
             // All gltfs must exist because this is guarded by the `AssetBarrier`.
             let gltf = gltfs.get(&foxes.0[index]).unwrap();
             let scene = gltf.scenes.first().unwrap().clone();
