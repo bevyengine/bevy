@@ -775,6 +775,15 @@ pub fn queue_prepass_material_meshes<M: Material>(
             alpha_mask_deferred_render_phases.get_mut(&view),
         );
 
+        // Skip if there's no place to put the mesh.
+        if opaque_phase.is_none()
+            && alpha_mask_phase.is_none()
+            && opaque_deferred_phase.is_none()
+            && alpha_mask_deferred_phase.is_none()
+        {
+            continue;
+        }
+
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
         if depth_prepass.is_some() {
             view_key |= MeshPipelineKey::DEPTH_PREPASS;
