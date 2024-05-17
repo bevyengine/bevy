@@ -137,8 +137,8 @@ fn setup(
     ));
 
     // Candle Flame
-    let scaled_white = LinearRgba::from(ANTIQUE_WHITE) * 80.;
-    let scaled_orange = LinearRgba::from(ORANGE_RED) * 16.;
+    let scaled_white = LinearRgba::from(ANTIQUE_WHITE) * 20.;
+    let scaled_orange = LinearRgba::from(ORANGE_RED) * 4.;
     let emissive = LinearRgba {
         red: scaled_white.red + scaled_orange.red,
         green: scaled_white.green + scaled_orange.green,
