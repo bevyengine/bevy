@@ -60,7 +60,7 @@ pub struct GpuAllocatorPlugin {
 }
 
 /// Manages allocations in GPU buffers.
-#[derive(Resource, Clone)]
+#[derive(Resource)]
 pub struct GpuAllocator {
     slabs: HashMap<SlabId, Buffer>,
     slab_size: u64,
