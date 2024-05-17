@@ -178,13 +178,19 @@ impl<'a> EnumVariantOutputDataBuilder<'a> {
         this: &Ident,
         variant_field: VariantField,
     ) -> proc_macro2::TokenStream {
-        match variant_field.member {
-            Member::Named(ident) => {
+        match &variant_field.field.data.ident {
+            Some(ident) => {
                 let name = ident.to_string();
                 quote!(#this.field(#name))
             }
-            Member::Unnamed(reflect_index) => {
-                quote!(#this.field_at(#reflect_index))
+            None => {
+                if let Some(index) = variant_field.field.reflection_index {
+                    quote!(#this.field_at(#index))
+                } else {
+                    quote!(::core::compile_error!(
+                        "internal bevy_reflect error: field should be active"
+                    ))
+                }
             }
         }
     }
