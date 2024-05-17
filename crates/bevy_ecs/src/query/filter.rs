@@ -70,7 +70,11 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// [`matches_component_set`]: Self::matches_component_set
 /// [`Query`]: crate::system::Query
 /// [`State`]: Self::State
-
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a valid `Query` filter",
+    label = "invalid `Query` filter",
+    note = "a `QueryFilter` typically uses a combination of `With<T>` and `Without<T>` statements"
+)]
 pub trait QueryFilter: WorldQuery {
     /// Returns true if (and only if) this Filter relies strictly on archetypes to limit which
     /// components are accessed by the Query.
@@ -938,6 +942,11 @@ impl<T: Component> QueryFilter for Changed<T> {
 ///
 /// [`Added`] and [`Changed`] works with entities, and therefore are not archetypal. As such
 /// they do not implement [`ArchetypeFilter`].
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a valid `Query` filter based on archetype information",
+    label = "invalid `Query` filter",
+    note = "an `ArchetypeFilter` typically uses a combination of `With<T>` and `Without<T>` statements"
+)]
 pub trait ArchetypeFilter: QueryFilter {}
 
 impl<T: Component> ArchetypeFilter for With<T> {}
