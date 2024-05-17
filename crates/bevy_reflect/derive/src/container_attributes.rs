@@ -92,24 +92,6 @@ impl FromReflectAttrs {
             .map(|lit| lit.value())
             .unwrap_or(true)
     }
-
-    /// Merges this [`FromReflectAttrs`] with another.
-    pub fn merge(&mut self, other: FromReflectAttrs) -> Result<(), syn::Error> {
-        if let Some(new) = other.auto_derive {
-            if let Some(existing) = &self.auto_derive {
-                if existing.value() != new.value() {
-                    return Err(syn::Error::new(
-                        new.span(),
-                        format!("`{FROM_REFLECT_ATTR}` already set to {}", existing.value()),
-                    ));
-                }
-            } else {
-                self.auto_derive = Some(new);
-            }
-        }
-
-        Ok(())
-    }
 }
 
 /// A collection of attributes used for deriving `TypePath` via the `Reflect` derive.
@@ -132,24 +114,6 @@ impl TypePathAttrs {
             .as_ref()
             .map(|lit| lit.value())
             .unwrap_or(true)
-    }
-
-    /// Merges this [`TypePathAttrs`] with another.
-    pub fn merge(&mut self, other: TypePathAttrs) -> Result<(), syn::Error> {
-        if let Some(new) = other.auto_derive {
-            if let Some(existing) = &self.auto_derive {
-                if existing.value() != new.value() {
-                    return Err(syn::Error::new(
-                        new.span(),
-                        format!("`{TYPE_PATH_ATTR}` already set to {}", existing.value()),
-                    ));
-                }
-            } else {
-                self.auto_derive = Some(new);
-            }
-        }
-
-        Ok(())
     }
 }
 
@@ -231,14 +195,16 @@ impl ContainerAttributes {
     ///
     /// # Example
     /// - `Hash, Debug(custom_debug), MyTrait`
-    pub fn parse_terminated(input: ParseStream, trait_: ReflectTraitToImpl) -> syn::Result<Self> {
-        let mut this = Self::default();
-
+    pub fn parse_terminated(
+        &mut self,
+        input: ParseStream,
+        trait_: ReflectTraitToImpl,
+    ) -> syn::Result<()> {
         terminated_parser(Token![,], |stream| {
-            this.parse_container_attribute(stream, trait_)
+            self.parse_container_attribute(stream, trait_)
         })(input)?;
 
-        Ok(this)
+        Ok(())
     }
 
     /// Parse the contents of a `#[reflect(...)]` attribute into a [`ContainerAttributes`] instance.
@@ -246,8 +212,12 @@ impl ContainerAttributes {
     /// # Example
     /// - `#[reflect(Hash, Debug(custom_debug), MyTrait)]`
     /// - `#[reflect(no_field_bounds)]`
-    pub fn parse_meta_list(meta: &MetaList, trait_: ReflectTraitToImpl) -> syn::Result<Self> {
-        meta.parse_args_with(|stream: ParseStream| Self::parse_terminated(stream, trait_))
+    pub fn parse_meta_list(
+        &mut self,
+        meta: &MetaList,
+        trait_: ReflectTraitToImpl,
+    ) -> syn::Result<()> {
+        meta.parse_args_with(|stream: ParseStream| self.parse_terminated(stream, trait_))
     }
 
     /// Parse a single container attribute.
@@ -392,7 +362,7 @@ impl ContainerAttributes {
         trait_: ReflectTraitToImpl,
     ) -> syn::Result<()> {
         let pair = input.parse::<MetaNameValue>()?;
-        let value = extract_bool(&pair.value, |lit| {
+        let extracted_bool = extract_bool(&pair.value, |lit| {
             // Override `lit` if this is a `FromReflect` derive.
             // This typically means a user is opting out of the default implementation
             // from the `Reflect` derive and using the `FromReflect` derive directly instead.
@@ -401,7 +371,16 @@ impl ContainerAttributes {
                 .unwrap_or_else(|| lit.clone())
         })?;
 
-        self.from_reflect_attrs.auto_derive = Some(value);
+        if let Some(existing) = &self.from_reflect_attrs.auto_derive {
+            if existing.value() != extracted_bool.value() {
+                return Err(syn::Error::new(
+                    extracted_bool.span(),
+                    format!("`{FROM_REFLECT_ATTR}` already set to {}", existing.value()),
+                ));
+            }
+        } else {
+            self.from_reflect_attrs.auto_derive = Some(extracted_bool);
+        }
 
         Ok(())
     }
@@ -416,7 +395,7 @@ impl ContainerAttributes {
         trait_: ReflectTraitToImpl,
     ) -> syn::Result<()> {
         let pair = input.parse::<MetaNameValue>()?;
-        let value = extract_bool(&pair.value, |lit| {
+        let extracted_bool = extract_bool(&pair.value, |lit| {
             // Override `lit` if this is a `FromReflect` derive.
             // This typically means a user is opting out of the default implementation
             // from the `Reflect` derive and using the `FromReflect` derive directly instead.
@@ -425,7 +404,16 @@ impl ContainerAttributes {
                 .unwrap_or_else(|| lit.clone())
         })?;
 
-        self.type_path_attrs.auto_derive = Some(value);
+        if let Some(existing) = &self.type_path_attrs.auto_derive {
+            if existing.value() != extracted_bool.value() {
+                return Err(syn::Error::new(
+                    extracted_bool.span(),
+                    format!("`{TYPE_PATH_ATTR}` already set to {}", existing.value()),
+                ));
+            }
+        } else {
+            self.type_path_attrs.auto_derive = Some(extracted_bool);
+        }
 
         Ok(())
     }
@@ -529,50 +517,6 @@ impl ContainerAttributes {
     /// Returns true if the `no_field_bounds` attribute was found on this type.
     pub fn no_field_bounds(&self) -> bool {
         self.no_field_bounds
-    }
-
-    /// Merges the trait implementations of this [`ContainerAttributes`] with another one.
-    ///
-    /// An error is returned if the two [`ContainerAttributes`] have conflicting implementations.
-    pub fn merge(&mut self, other: ContainerAttributes) -> Result<(), syn::Error> {
-        // Destructuring is used to help ensure that all fields are merged
-        let Self {
-            debug,
-            hash,
-            partial_eq,
-            from_reflect_attrs,
-            type_path_attrs,
-            custom_where,
-            no_field_bounds,
-            idents,
-        } = self;
-
-        debug.merge(other.debug)?;
-        hash.merge(other.hash)?;
-        partial_eq.merge(other.partial_eq)?;
-        from_reflect_attrs.merge(other.from_reflect_attrs)?;
-        type_path_attrs.merge(other.type_path_attrs)?;
-
-        Self::merge_custom_where(custom_where, other.custom_where);
-
-        *no_field_bounds |= other.no_field_bounds;
-
-        for ident in other.idents {
-            add_unique_ident(idents, ident)?;
-        }
-        Ok(())
-    }
-
-    fn merge_custom_where(this: &mut Option<WhereClause>, other: Option<WhereClause>) {
-        match (this, other) {
-            (Some(this), Some(other)) => {
-                this.predicates.extend(other.predicates);
-            }
-            (this @ None, Some(other)) => {
-                *this = Some(other);
-            }
-            _ => {}
-        }
     }
 }
 

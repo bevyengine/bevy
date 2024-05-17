@@ -528,6 +528,16 @@ pub struct Cone {
 }
 impl Primitive3d for Cone {}
 
+impl Default for Cone {
+    /// Returns the default [`Cone`] with a base radius of `0.5` and a height of `1.0`.
+    fn default() -> Self {
+        Self {
+            radius: 0.5,
+            height: 1.0,
+        }
+    }
+}
+
 impl Cone {
     /// Get the base of the cone as a [`Circle`]
     #[inline(always)]

@@ -167,13 +167,14 @@ pub enum ProcessError {
     ExtensionRequired,
 }
 
-impl<
-        Loader: AssetLoader,
-        T: AssetTransformer<AssetInput = Loader::Asset>,
-        Saver: AssetSaver<Asset = T::AssetOutput>,
-    > Process for LoadTransformAndSave<Loader, T, Saver>
+impl<Loader, Transformer, Saver> Process for LoadTransformAndSave<Loader, Transformer, Saver>
+where
+    Loader: AssetLoader,
+    Transformer: AssetTransformer<AssetInput = Loader::Asset>,
+    Saver: AssetSaver<Asset = Transformer::AssetOutput>,
 {
-    type Settings = LoadTransformAndSaveSettings<Loader::Settings, T::Settings, Saver::Settings>;
+    type Settings =
+        LoadTransformAndSaveSettings<Loader::Settings, Transformer::Settings, Saver::Settings>;
     type OutputLoader = Saver::OutputLoader;
 
     async fn process<'a>(
@@ -200,7 +201,8 @@ impl<
             .await
             .map_err(|err| ProcessError::AssetTransformError(err.into()))?;
 
-        let saved_asset = SavedAsset::<T::AssetOutput>::from_transformed(&post_transformed_asset);
+        let saved_asset =
+            SavedAsset::<Transformer::AssetOutput>::from_transformed(&post_transformed_asset);
 
         let output_settings = self
             .saver

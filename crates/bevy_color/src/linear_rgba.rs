@@ -1,8 +1,8 @@
 use crate::{
-    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ClampColor,
+    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ColorToComponents,
     Luminance, Mix, StandardColor,
 };
-use bevy_math::Vec4;
+use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
 
@@ -263,33 +263,57 @@ impl EuclideanDistance for LinearRgba {
     }
 }
 
-impl ClampColor for LinearRgba {
-    fn clamped(&self) -> Self {
+impl ColorToComponents for LinearRgba {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.red, self.green, self.blue, self.alpha]
+    }
+
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
+        [self.red, self.green, self.blue]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.red, self.green, self.blue, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.red, self.green, self.blue)
+    }
+
+    fn from_f32_array(color: [f32; 4]) -> Self {
         Self {
-            red: self.red.clamp(0., 1.),
-            green: self.green.clamp(0., 1.),
-            blue: self.blue.clamp(0., 1.),
-            alpha: self.alpha.clamp(0., 1.),
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: color[3],
         }
     }
 
-    fn is_within_bounds(&self) -> bool {
-        (0. ..=1.).contains(&self.red)
-            && (0. ..=1.).contains(&self.green)
-            && (0. ..=1.).contains(&self.blue)
-            && (0. ..=1.).contains(&self.alpha)
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: 1.0,
+        }
     }
-}
 
-impl From<LinearRgba> for [f32; 4] {
-    fn from(color: LinearRgba) -> Self {
-        [color.red, color.green, color.blue, color.alpha]
+    fn from_vec4(color: Vec4) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: color[3],
+        }
     }
-}
 
-impl From<LinearRgba> for Vec4 {
-    fn from(color: LinearRgba) -> Self {
-        Vec4::new(color.red, color.green, color.blue, color.alpha)
+    fn from_vec3(color: Vec3) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: 1.0,
+        }
     }
 }
 
@@ -412,22 +436,5 @@ mod tests {
         let lighter2 = lighter1.lighter(0.1);
         let twice_as_light = color.lighter(0.2);
         assert!(lighter2.distance_squared(&twice_as_light) < 0.0001);
-    }
-
-    #[test]
-    fn test_clamp() {
-        let color_1 = LinearRgba::rgb(2., -1., 0.4);
-        let color_2 = LinearRgba::rgb(0.031, 0.749, 1.);
-        let mut color_3 = LinearRgba::rgb(-1., 1., 1.);
-
-        assert!(!color_1.is_within_bounds());
-        assert_eq!(color_1.clamped(), LinearRgba::rgb(1., 0., 0.4));
-
-        assert!(color_2.is_within_bounds());
-        assert_eq!(color_2, color_2.clamped());
-
-        color_3.clamp();
-        assert!(color_3.is_within_bounds());
-        assert_eq!(color_3, LinearRgba::rgb(0., 1., 1.));
     }
 }

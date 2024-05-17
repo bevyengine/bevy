@@ -28,6 +28,11 @@ use std::{
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
 ///
 /// Events must be thread-safe.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an `Event`",
+    label = "invalid `Event`",
+    note = "consider annotating `{Self}` with `#[derive(Event]`"
+)]
 pub trait Event: Send + Sync + 'static {}
 
 /// An `EventId` uniquely identifies an event stored in a specific [`World`].
@@ -1509,7 +1514,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "multi-threaded")]
+    #[cfg(feature = "multi_threaded")]
     #[test]
     fn test_events_par_iter() {
         use std::{collections::HashSet, sync::mpsc};

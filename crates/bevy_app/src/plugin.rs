@@ -54,7 +54,7 @@ use std::any::Any;
 ///     }
 /// }
 /// # fn damp_flickering() {}
-/// ````
+/// ```
 pub trait Plugin: Downcast + Any + Send + Sync {
     /// Configures the [`App`] to which this plugin is added.
     fn build(&self, app: &mut App);

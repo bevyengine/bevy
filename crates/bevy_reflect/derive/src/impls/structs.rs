@@ -208,29 +208,37 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
             }
 
             #[inline]
-            fn apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) {
+            fn try_apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) -> #FQResult<(), #bevy_reflect_path::ApplyError> {
                 if let #bevy_reflect_path::ReflectRef::Struct(struct_value) = #bevy_reflect_path::Reflect::reflect_ref(value) {
                     for (i, value) in ::core::iter::Iterator::enumerate(#bevy_reflect_path::Struct::iter_fields(struct_value)) {
                         let name = #bevy_reflect_path::Struct::name_at(struct_value, i).unwrap();
-                        #bevy_reflect_path::Struct::field_mut(self, name).map(|v| v.apply(value));
+                        if let #FQOption::Some(v) = #bevy_reflect_path::Struct::field_mut(self, name) {
+                           #bevy_reflect_path::Reflect::try_apply(v, value)?;
+                        }
                     }
                 } else {
-                    panic!("Attempted to apply non-struct type to struct type.");
+                    return #FQResult::Err(
+                        #bevy_reflect_path::ApplyError::MismatchedKinds {
+                            from_kind: #bevy_reflect_path::Reflect::reflect_kind(value),
+                            to_kind: #bevy_reflect_path::ReflectKind::Struct
+                        }
+                    );
                 }
+                #FQResult::Ok(())
             }
-
+            #[inline]
             fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {
                 #bevy_reflect_path::ReflectKind::Struct
             }
-
+            #[inline]
             fn reflect_ref(&self) -> #bevy_reflect_path::ReflectRef {
                 #bevy_reflect_path::ReflectRef::Struct(self)
             }
-
+            #[inline]
             fn reflect_mut(&mut self) -> #bevy_reflect_path::ReflectMut {
                 #bevy_reflect_path::ReflectMut::Struct(self)
             }
-
+            #[inline]
             fn reflect_owned(self: #FQBox<Self>) -> #bevy_reflect_path::ReflectOwned {
                 #bevy_reflect_path::ReflectOwned::Struct(self)
             }

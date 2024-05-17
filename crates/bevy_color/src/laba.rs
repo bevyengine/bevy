@@ -1,7 +1,8 @@
 use crate::{
-    impl_componentwise_vector_space, Alpha, ClampColor, Hsla, Hsva, Hwba, LinearRgba, Luminance,
-    Mix, Oklaba, Srgba, StandardColor, Xyza,
+    impl_componentwise_vector_space, Alpha, ColorToComponents, Hsla, Hsva, Hwba, LinearRgba,
+    Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
+use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
 
 /// Color in LAB color space, with alpha
@@ -117,24 +118,6 @@ impl Alpha for Laba {
     }
 }
 
-impl ClampColor for Laba {
-    fn clamped(&self) -> Self {
-        Self {
-            lightness: self.lightness.clamp(0., 1.5),
-            a: self.a.clamp(-1.5, 1.5),
-            b: self.b.clamp(-1.5, 1.5),
-            alpha: self.alpha.clamp(0., 1.),
-        }
-    }
-
-    fn is_within_bounds(&self) -> bool {
-        (0. ..=1.5).contains(&self.lightness)
-            && (-1.5..=1.5).contains(&self.a)
-            && (-1.5..=1.5).contains(&self.b)
-            && (0. ..=1.).contains(&self.alpha)
-    }
-}
-
 impl Luminance for Laba {
     #[inline]
     fn with_luminance(&self, lightness: f32) -> Self {
@@ -161,6 +144,60 @@ impl Luminance for Laba {
             self.b,
             self.alpha,
         )
+    }
+}
+
+impl ColorToComponents for Laba {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.lightness, self.a, self.b, self.alpha]
+    }
+
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
+        [self.lightness, self.a, self.b]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.lightness, self.a, self.b, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.lightness, self.a, self.b)
+    }
+
+    fn from_f32_array(color: [f32; 4]) -> Self {
+        Self {
+            lightness: color[0],
+            a: color[1],
+            b: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
+        Self {
+            lightness: color[0],
+            a: color[1],
+            b: color[2],
+            alpha: 1.0,
+        }
+    }
+
+    fn from_vec4(color: Vec4) -> Self {
+        Self {
+            lightness: color[0],
+            a: color[1],
+            b: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_vec3(color: Vec3) -> Self {
+        Self {
+            lightness: color[0],
+            a: color[1],
+            b: color[2],
+            alpha: 1.0,
+        }
     }
 }
 
@@ -376,22 +413,5 @@ mod tests {
             }
             assert_approx_eq!(color.lab.alpha, laba.alpha, 0.001);
         }
-    }
-
-    #[test]
-    fn test_clamp() {
-        let color_1 = Laba::lab(-1., 2., -2.);
-        let color_2 = Laba::lab(1., 1.5, -1.2);
-        let mut color_3 = Laba::lab(-0.4, 1., 1.);
-
-        assert!(!color_1.is_within_bounds());
-        assert_eq!(color_1.clamped(), Laba::lab(0., 1.5, -1.5));
-
-        assert!(color_2.is_within_bounds());
-        assert_eq!(color_2, color_2.clamped());
-
-        color_3.clamp();
-        assert!(color_3.is_within_bounds());
-        assert_eq!(color_3, Laba::lab(0., 1., 1.));
     }
 }
