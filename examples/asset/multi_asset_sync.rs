@@ -241,5 +241,9 @@ fn wait_on_load(
 }
 
 fn get_async_loading_state(state: Res<AsyncLoadingState>, mut text: Query<&mut Text>) {
-    state.0.lock().unwrap().clone_into(&mut text.single_mut().sections[0].value);
+    state
+        .0
+        .lock()
+        .unwrap()
+        .clone_into(&mut text.single_mut().sections[0].value);
 }

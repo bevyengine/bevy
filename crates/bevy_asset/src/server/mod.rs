@@ -281,7 +281,7 @@ impl AssetServer {
     ///
     /// The guard item should notify the caller in its [`Drop`] implementation. See example `multi_asset_sync`.
     /// Synchronously this can be a [`Arc<AtomicU32>`] that decrements its counter, asynchronously this can be a `Barrier`.
-    /// 
+    ///
     /// Additionally, you can check the asset's load state by reading [`AssetEvent`] events, calling [`AssetServer::load_state`], or checking
     /// the [`Assets`] storage to see if the [`Asset`] exists yet.
     ///
@@ -320,11 +320,7 @@ impl AssetServer {
         settings: impl Fn(&mut S) + Send + Sync + 'static,
         guard: G,
     ) -> Handle<A> {
-        self.load_with_meta_transform(
-            path,
-            Some(loader_settings_meta_transform(settings)),
-            guard,
-        )
+        self.load_with_meta_transform(path, Some(loader_settings_meta_transform(settings)), guard)
     }
 
     fn load_with_meta_transform<'a, A: Asset, G: Send + Sync + 'static>(
