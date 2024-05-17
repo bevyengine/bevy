@@ -90,7 +90,7 @@ Example | Description
 ### Setup
 
 ```sh
-rustup target add aarch64-linux-android armv7-linux-androideabi
+rustup target add aarch64-linux-android
 cargo install cargo-ndk
 ```
 
@@ -112,7 +112,7 @@ For example, to compile to a 64-bit ARM platform, the command looks like this:
 cargo ndk -t arm64-v8a build --release
 ```
 
-After compile, move it to `project_name/app/src/main/jniLibs/<target_name>` to link it.
+After compile, move the compiled `so` file to `project_name/app/src/main/jniLibs/<target_name>` to link it.
 
 You can use `-o` option in `cargo-ndk` directly set output folder(which will also set up <target_name> folder), for example project the command looks like this:
 
@@ -126,9 +126,11 @@ After compiling and linking you can build and test it in your android project.
 
 #### About `libc++_shared.so`
 
-Bevy probably need `libc++_shared.so` to run on Android(which is required by `oboe` crate), but normally `cargo-ndk` won't copy it.
+Bevy may require `libc++_shared.so` to run on Android, as it is needed by the `oboe` crate, but typically `cargo-ndk` does not copy this file automatically.
 
-To copy it, manually retrieve it from NDK source or use a `build.rs` script for automation, which is included in mobile example(`example/mobile/build.rs`).
+To include it, you can manually obtain it from NDK source or use a `build.rs` script for automation, as described in the `cargo-ndk` [README](https://github.com/bbqsrc/cargo-ndk?tab=readme-ov-file#linking-against-and-copying-libc_sharedso-into-the-relevant-places-in-the-output-directory).
+
+Alternatively, you can modify project files to include it when building apk, which is used in this example. To understand the specific steps taken in this project, please refer to the comments within the project files for detailed instructions(`app/CMakeList.txt`, `app/build.gradle`, `app/src/main/cpp/dummy.cpp`).
 
 ### Debugging
 
@@ -152,7 +154,12 @@ Bevy by default targets Android API level 33 in its examples which is the <!-- m
 [Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). <!-- markdown-link-check-enable -->
 Users of older phones may want to use an older API when testing. By default, Bevy uses [`GameAvtivity`](https://developer.android.com/games/agdk/game-activity), which only works for Android API level 31 and higher, so if you want to use older API, you need to switch to `NativeActivity`.
 
-To use `NativeActivity`, you need to edit it in `cargo.toml` manually, then build it as the [Build & Run](#build--run) section stated above.
+To use `NativeActivity`, you need to edit it in `cargo.toml` manually like this:
+```toml
+bevy = { version = "0.14", default-features = false, features = ["android-native-activity", ...] }
+```
+
+Then build it as the [Build & Run](#build--run) section stated above.
 
 Example | File | Description
 --- | --- | ---
