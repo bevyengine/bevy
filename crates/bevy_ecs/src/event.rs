@@ -31,14 +31,14 @@ use std::{
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not an `Event`",
     label = "invalid `Event`",
-    note = "consider annotating `{Self}` with `#[derive(Event]`"
+    note = "consider annotating `{Self}` with `#[derive(Event)]`"
 )]
 pub trait Event: Send + Sync + 'static {}
 
 /// An `EventId` uniquely identifies an event stored in a specific [`World`].
 ///
 /// An `EventId` can among other things be used to trace the flow of an event from the point it was
-/// sent to the point it was processed. `EventId`s increase montonically by send order.
+/// sent to the point it was processed. `EventId`s increase monotonically by send order.
 ///
 /// [`World`]: crate::world::World
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
