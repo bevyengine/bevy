@@ -48,6 +48,12 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
       - uses: actions/cache@v4
         with:
           path: |
@@ -65,10 +71,10 @@ jobs:
         run: cargo install --force cargo-ndk
 
       - name: Build .so file
-        run: ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build --release
+        run: cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build --release --package bevy_mobile_example
 
-      - name: Build APK
-        run: cd examples/mobile && ./gradlew build
+      - name: Build app for Android
+        run: cd examples/mobile/android_example && chmod +x gradlew && ./gradlew build
 
   run-examples-linux-vulkan:
     if: ${{ github.event_name == 'merge_group' }}
