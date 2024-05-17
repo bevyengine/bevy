@@ -28,7 +28,7 @@ use crate::{
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
-use bevy_ecs::entity::EntityHashMap;
+use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
@@ -46,7 +46,7 @@ use bevy_sprite::TextureAtlasLayout;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{EntityHashSet, HashMap};
+use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
 
@@ -662,8 +662,9 @@ pub fn extract_default_ui_camera_view<T: Component>(
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     ui_scale: Extract<Res<UiScale>>,
     query: Extract<Query<(Entity, &Camera), With<T>>>,
+    mut live_entities: Local<EntityHashSet>,
 ) {
-    let mut live_entities = EntityHashSet::default();
+    live_entities.clear();
 
     let scale = ui_scale.0.recip();
     for (entity, camera) in &query {

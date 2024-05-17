@@ -707,6 +707,7 @@ pub fn prepare_lights(
         AnyOf<(&CubemapFrusta, &Frustum)>,
     )>,
     directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
+    mut live_shadow_mapping_lights: Local<EntityHashSet>,
 ) {
     let views_iter = views.iter();
     let views_count = views_iter.len();
@@ -957,7 +958,7 @@ pub fn prepare_lights(
         .gpu_point_lights
         .write_buffer(&render_device, &render_queue);
 
-    let mut live_shadow_mapping_lights = EntityHashSet::default();
+    live_shadow_mapping_lights.clear();
 
     // set up light data for each view
     for (entity, extracted_view, clusters, maybe_layers) in &views {

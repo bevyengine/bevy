@@ -478,8 +478,10 @@ pub fn extract_core_3d_camera_phases(
     mut transmissive_3d_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_3d_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     cameras_3d: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
+    mut live_entities: Local<EntityHashSet>,
 ) {
-    let mut live_entities = EntityHashSet::default();
+    live_entities.clear();
+
     for (entity, camera) in &cameras_3d {
         if !camera.is_active {
             continue;
@@ -521,8 +523,10 @@ pub fn extract_camera_prepass_phase(
             With<Camera3d>,
         >,
     >,
+    mut live_entities: Local<EntityHashSet>,
 ) {
-    let mut live_entities = EntityHashSet::default();
+    live_entities.clear();
+
     for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass) in
         cameras_3d.iter()
     {

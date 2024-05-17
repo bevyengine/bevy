@@ -161,8 +161,10 @@ pub fn extract_core_2d_camera_phases(
     mut commands: Commands,
     mut transparent_2d_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     cameras_2d: Extract<Query<(Entity, &Camera), With<Camera2d>>>,
+    mut live_entities: Local<EntityHashSet>,
 ) {
-    let mut live_entities = EntityHashSet::default();
+    live_entities.clear();
+
     for (entity, camera) in &cameras_2d {
         if !camera.is_active {
             continue;
