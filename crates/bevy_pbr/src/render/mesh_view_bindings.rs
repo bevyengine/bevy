@@ -44,7 +44,7 @@ use crate::{
     prepass, FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta,
     LightProbesBuffer, LightProbesUniform, MeshPipeline, MeshPipelineKey, RenderViewLightProbes,
     ScreenSpaceAmbientOcclusionTextures, ScreenSpaceReflectionsBuffer,
-    ScreenSpaceReflectionsSettings, ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
+    ScreenSpaceReflectionsUniform, ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
 };
 
@@ -282,7 +282,7 @@ fn layout_entries(
                 .visibility(ShaderStages::VERTEX),
             ),
             // Screen space reflection settings
-            (13, uniform_buffer::<ScreenSpaceReflectionsSettings>(true)),
+            (13, uniform_buffer::<ScreenSpaceReflectionsUniform>(true)),
             // Screen space ambient occlusion texture
             (
                 14,

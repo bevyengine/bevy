@@ -23,11 +23,12 @@ use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
-        binding_types, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
-        CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, FragmentState,
-        Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, Shader, ShaderStages, ShaderType, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, TextureFormat, TextureSampleType,
+        binding_types, AddressMode, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
+        CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, FilterMode,
+        FragmentState, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
+        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
+        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
+        TextureFormat, TextureSampleType,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::BevyDefault as _,
@@ -43,6 +44,7 @@ use crate::{
 };
 
 const SSR_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10438925299917978850);
+const RAYMARCH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(8517409683450840946);
 
 /// Enables screen-space reflections for a camera.
 ///
@@ -80,31 +82,62 @@ pub struct ScreenSpaceReflectionsBundle {
 ///
 /// SSR is an approximation technique and produces artifacts in some situations.
 /// Hand-tuning the settings in this component will likely be useful.
-#[derive(Clone, Copy, Component, Reflect, ShaderType)]
+#[derive(Clone, Copy, Component, Reflect)]
 #[reflect(Component, Default)]
 pub struct ScreenSpaceReflectionsSettings {
     /// The maximum PBR roughness level that will enable screen space
     /// reflections.
     pub perceptual_roughness_threshold: f32,
 
-    /// An approximation value for the depth of objects in the depth buffer.
+    /// When marching the depth buffer, we only have 2.5D information and don't
+    /// know how thick surfaces are. We shall assume that the depth buffer
+    /// fragments are cuboids with a constant thickness defined by this
+    /// parameter.
     pub thickness: f32,
 
-    /// The maximum number of large raymarching steps that the SSR shader will
-    /// perform in order to find reflected objects.
+    /// The number of steps to be taken at regular intervals to find an initial
+    /// intersection. Must not be zero.
     ///
     /// Higher values result in higher-quality reflections, because the
     /// raymarching shader is less likely to miss objects. However, they take
     /// more GPU time.
-    pub major_step_count: i32,
+    pub linear_steps: u32,
 
-    /// The number of small steps that the SSR shader will perform in order to
-    /// narrow down a more precise location for reflections.
+    /// Exponent to be applied in the linear part of the march.
     ///
-    /// Higher values result in higher-quality reflections, especially when
-    /// reproducing the edges of objects and textures on objects. However, they
-    /// take more GPU time.
-    pub minor_step_count: i32,
+    /// A value of 1.0 will result in equidistant steps, and higher values will
+    /// compress the earlier steps, and expand the later ones. This might be
+    /// desirable in order to get more detail close to objects.
+    ///
+    /// For optimal performance, this should be a small unsigned integer, such
+    /// as 1 or 2.
+    pub linear_march_exponent: f32,
+
+    /// Number of steps in a bisection (binary search) to perform once the
+    /// linear search has found an intersection. Helps narrow down the hit,
+    /// increasing the chance of the secant method finding an accurate hit
+    /// point.
+    pub bisection_steps: u32,
+
+    /// Approximate the root position using the secant method—by solving for
+    /// line-line intersection between the ray approach rate and the surface
+    /// gradient.
+    pub use_secant: bool,
+}
+
+/// A version of [`ScreenSpaceReflectionsSettings`] for upload to the GPU.
+///
+/// For more information on these fields, see the corresponding documentation in
+/// [`ScreenSpaceReflectionsSettings`].
+#[derive(Clone, Copy, Component, ShaderType)]
+pub struct ScreenSpaceReflectionsUniform {
+    perceptual_roughness_threshold: f32,
+    thickness: f32,
+    linear_steps: u32,
+    linear_march_exponent: f32,
+    bisection_steps: u32,
+    /// A boolean converted to a `u32`.
+    use_secant: u32,
 }
 
 /// The node in the render graph that traces screen space reflections.
@@ -120,13 +153,16 @@ pub struct ScreenSpaceReflectionsPipelineId(pub CachedRenderPipelineId);
 #[derive(Resource)]
 pub struct ScreenSpaceReflectionsPipeline {
     mesh_view_layouts: MeshPipelineViewLayouts,
+    color_sampler: Sampler,
+    depth_linear_sampler: Sampler,
+    depth_nearest_sampler: Sampler,
     bind_group_layout: BindGroupLayout,
     binding_arrays_are_usable: bool,
 }
 
 /// A GPU buffer that stores the screen space reflection settings for each view.
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct ScreenSpaceReflectionsBuffer(pub DynamicUniformBuffer<ScreenSpaceReflectionsSettings>);
+pub struct ScreenSpaceReflectionsBuffer(pub DynamicUniformBuffer<ScreenSpaceReflectionsUniform>);
 
 /// A component that stores the offset within the
 /// [`ScreenSpaceReflectionsBuffer`] for each view.
@@ -144,6 +180,12 @@ pub struct ScreenSpaceReflectionsPipelineKey {
 impl Plugin for ScreenSpaceReflectionsPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, SSR_SHADER_HANDLE, "ssr.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            RAYMARCH_SHADER_HANDLE,
+            "raymarch.wgsl",
+            Shader::from_wgsl
+        );
 
         app.register_type::<ScreenSpaceReflectionsSettings>()
             .add_plugins(ExtractComponentPlugin::<ScreenSpaceReflectionsSettings>::default());
@@ -186,12 +228,17 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
 
 impl Default for ScreenSpaceReflectionsSettings {
     // Reasonable default values.
+    //
+    // These are from
+    // <https://gist.github.com/h3r2tic/9c8356bdaefbe80b1a22ae0aaee192db?permalink_comment_id=4552149#gistcomment-4552149>.
     fn default() -> Self {
         Self {
             perceptual_roughness_threshold: 0.1,
-            thickness: 1.0,
-            major_step_count: 8,
-            minor_step_count: 8,
+            linear_steps: 16,
+            bisection_steps: 4,
+            use_secant: true,
+            thickness: 0.25,
+            linear_march_exponent: 1.0,
         }
     }
 }
@@ -238,7 +285,12 @@ impl ViewNode for ScreenSpaceReflectionsNode {
         let ssr_bind_group = render_context.render_device().create_bind_group(
             Some("SSR bind group"),
             &ssr_pipeline.bind_group_layout,
-            &BindGroupEntries::single(postprocess.source),
+            &BindGroupEntries::sequential((
+                postprocess.source,
+                &ssr_pipeline.color_sampler,
+                &ssr_pipeline.depth_linear_sampler,
+                &ssr_pipeline.depth_nearest_sampler,
+            )),
         );
 
         // Build the SSR render pass.
@@ -281,16 +333,54 @@ impl FromWorld for ScreenSpaceReflectionsPipeline {
         let mesh_view_layouts = world.resource::<MeshPipelineViewLayouts>().clone();
         let render_device = world.resource::<RenderDevice>();
 
+        // Create the bind group layout.
         let bind_group_layout = render_device.create_bind_group_layout(
             "SSR bind group layout",
-            &BindGroupLayoutEntries::single(
+            &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
-                binding_types::texture_2d(TextureSampleType::Float { filterable: true }),
+                (
+                    binding_types::texture_2d(TextureSampleType::Float { filterable: true }),
+                    binding_types::sampler(SamplerBindingType::Filtering),
+                    binding_types::sampler(SamplerBindingType::Filtering),
+                    binding_types::sampler(SamplerBindingType::NonFiltering),
+                ),
             ),
         );
 
+        // Create the samplers we need.
+
+        let color_sampler = render_device.create_sampler(&SamplerDescriptor {
+            label: "SSR color sampler".into(),
+            address_mode_u: AddressMode::ClampToEdge,
+            address_mode_v: AddressMode::ClampToEdge,
+            mag_filter: FilterMode::Linear,
+            min_filter: FilterMode::Linear,
+            ..default()
+        });
+
+        let depth_linear_sampler = render_device.create_sampler(&SamplerDescriptor {
+            label: "SSR depth linear sampler".into(),
+            address_mode_u: AddressMode::ClampToEdge,
+            address_mode_v: AddressMode::ClampToEdge,
+            mag_filter: FilterMode::Linear,
+            min_filter: FilterMode::Linear,
+            ..default()
+        });
+
+        let depth_nearest_sampler = render_device.create_sampler(&SamplerDescriptor {
+            label: "SSR depth nearest sampler".into(),
+            address_mode_u: AddressMode::ClampToEdge,
+            address_mode_v: AddressMode::ClampToEdge,
+            mag_filter: FilterMode::Nearest,
+            min_filter: FilterMode::Nearest,
+            ..default()
+        });
+
         Self {
             mesh_view_layouts,
+            color_sampler,
+            depth_linear_sampler,
+            depth_nearest_sampler,
             bind_group_layout,
             binding_arrays_are_usable: binding_arrays_are_usable(render_device),
         }
@@ -312,7 +402,7 @@ pub fn prepare_ssr_pipelines(
             Has<MotionVectorPrepass>,
         ),
         (
-            With<ScreenSpaceReflectionsSettings>,
+            With<ScreenSpaceReflectionsUniform>,
             With<DepthPrepass>,
             With<DeferredPrepass>,
         ),
@@ -362,7 +452,7 @@ pub fn prepare_ssr_pipelines(
 /// writes them into a GPU buffer.
 pub fn prepare_ssr_settings(
     mut commands: Commands,
-    views: Query<(Entity, Option<&ScreenSpaceReflectionsSettings>), With<ExtractedView>>,
+    views: Query<(Entity, Option<&ScreenSpaceReflectionsUniform>), With<ExtractedView>>,
     mut ssr_settings_buffer: ResMut<ScreenSpaceReflectionsBuffer>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
@@ -373,10 +463,10 @@ pub fn prepare_ssr_settings(
         return;
     };
 
-    for (view, ssr_settings) in views.iter() {
-        let uniform_offset = match ssr_settings {
+    for (view, ssr_uniform) in views.iter() {
+        let uniform_offset = match ssr_uniform {
             None => 0,
-            Some(ssr_settings) => writer.write(ssr_settings),
+            Some(ssr_uniform) => writer.write(ssr_uniform),
         };
         commands
             .entity(view)
@@ -389,10 +479,10 @@ impl ExtractComponent for ScreenSpaceReflectionsSettings {
 
     type QueryFilter = ();
 
-    type Out = ScreenSpaceReflectionsSettings;
+    type Out = ScreenSpaceReflectionsUniform;
 
     fn extract_component(settings: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
-        Some(*settings)
+        Some((*settings).into())
     }
 }
 
@@ -440,6 +530,19 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
             primitive: default(),
             depth_stencil: None,
             multisample: default(),
+        }
+    }
+}
+
+impl From<ScreenSpaceReflectionsSettings> for ScreenSpaceReflectionsUniform {
+    fn from(settings: ScreenSpaceReflectionsSettings) -> Self {
+        Self {
+            perceptual_roughness_threshold: settings.perceptual_roughness_threshold,
+            thickness: settings.thickness,
+            linear_steps: settings.linear_steps,
+            linear_march_exponent: settings.linear_march_exponent,
+            bisection_steps: settings.bisection_steps,
+            use_secant: settings.use_secant as u32,
         }
     }
 }

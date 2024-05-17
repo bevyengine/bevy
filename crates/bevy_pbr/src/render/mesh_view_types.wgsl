@@ -137,10 +137,14 @@ struct LightProbes {
 };
 
 // Settings for screen space reflections.
+//
+// For more information on these settings, see the documentation for
+// `bevy_pbr::ssr::ScreenSpaceReflectionsSettings`.
 struct ScreenSpaceReflectionsSettings {
-    // Roughness values lower than this trigger SSR.
     perceptual_roughness_threshold: f32,
     thickness: f32,
-    major_step_count: i32,
-    minor_step_count: i32,
+    linear_steps: u32,
+    linear_march_exponent: f32,
+    bisection_steps: u32,
+    use_secant: u32,
 };
