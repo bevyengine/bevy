@@ -18,11 +18,11 @@ fn prepass_alpha_discard(in: VertexOutput) {
     var output_color: vec4<f32> = pbr_bindings::material.base_color;
 
 #ifdef VERTEX_UVS
-#ifdef VERTEX_UVS_A
-    var uv = in.uv;
-#else   // VERTEX_UVS_A
+#ifdef STANDARD_MATERIAL_BASE_COLOR_UV_B
     var uv = in.uv_b;
-#endif  // VERTEX_UVS_A
+#else   // STANDARD_MATERIAL_BASE_COLOR_UV_B
+    var uv = in.uv;
+#endif  // STANDARD_MATERIAL_BASE_COLOR_UV_B
 
 #endif
     let uv_transform = pbr_bindings::material.uv_transform;
