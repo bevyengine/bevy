@@ -1,6 +1,6 @@
 //! Light probes for baked global illumination.
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_derive::{Deref, DerefMut};
@@ -319,12 +319,15 @@ impl Plugin for LightProbePlugin {
 
         app.register_type::<LightProbe>()
             .register_type::<EnvironmentMapLight>()
-            .register_type::<IrradianceVolume>();
+            .register_type::<IrradianceVolume>()
+            .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new());
+    }
+
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
     }
 
     fn finalize(&self, app: &mut App) {
-        app.add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new());
-
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };

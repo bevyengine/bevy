@@ -4,7 +4,7 @@ use crate::{
     prelude::Camera3d,
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core::FrameCount;
 use bevy_ecs::{
@@ -48,11 +48,19 @@ impl Plugin for TemporalAntiAliasPlugin {
 
         app.insert_resource(Msaa::Off)
             .register_type::<TemporalAntiAliasSettings>();
+    }
 
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn finalize(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+
         render_app
+            .init_resource::<TaaPipeline>()
             .init_resource::<SpecializedRenderPipelines<TaaPipeline>>()
             .add_systems(ExtractSchedule, extract_taa_settings)
             .add_systems(
@@ -74,14 +82,6 @@ impl Plugin for TemporalAntiAliasPlugin {
                     Node3d::Tonemapping,
                 ),
             );
-    }
-
-    fn finalize(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<TaaPipeline>();
     }
 }
 

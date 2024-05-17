@@ -1,4 +1,4 @@
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{
     prelude::{Component, Entity},
@@ -37,10 +37,23 @@ impl Plugin for SkyboxPlugin {
             ExtractComponentPlugin::<Skybox>::default(),
             UniformComponentPlugin::<SkyboxUniforms>::default(),
         ));
+    }
 
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+
+        let render_device = render_app.world().resource::<RenderDevice>().clone();
+
         render_app
             .init_resource::<SpecializedRenderPipelines<SkyboxPipeline>>()
             .add_systems(
@@ -50,13 +63,7 @@ impl Plugin for SkyboxPlugin {
                     prepare_skybox_bind_groups.in_set(RenderSet::PrepareBindGroups),
                 ),
             );
-    }
 
-    fn finalize(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        let render_device = render_app.world().resource::<RenderDevice>().clone();
         render_app.insert_resource(SkyboxPipeline::new(&render_device));
     }
 }

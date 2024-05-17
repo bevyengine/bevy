@@ -3,7 +3,7 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
     Render, RenderApp, RenderSet,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_ecs::{
     prelude::{Component, Entity},
     schedule::IntoSystemConfigs,
@@ -16,21 +16,23 @@ use std::marker::PhantomData;
 pub struct GpuComponentArrayBufferPlugin<C: Component + GpuArrayBufferable>(PhantomData<C>);
 
 impl<C: Component + GpuArrayBufferable> Plugin for GpuComponentArrayBufferPlugin<C> {
-    fn build(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_systems(
-                Render,
-                prepare_gpu_component_array_buffers::<C>.in_set(RenderSet::PrepareResources),
-            );
-        }
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
     }
 
     fn finalize(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.insert_resource(GpuArrayBuffer::<C>::new(
-                render_app.world().resource::<RenderDevice>(),
-            ));
-        }
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app
+            .insert_resource(GpuArrayBuffer::<C>::new(
+            render_app.world().resource::<RenderDevice>(),
+        )).add_systems(
+            Render,
+            prepare_gpu_component_array_buffers::<C>.in_set(RenderSet::PrepareResources),
+        );
+
     }
 }
 

@@ -90,12 +90,19 @@ where
             "prepass_io.wgsl",
             Shader::from_wgsl
         );
+    }
 
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn finalize(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
         render_app
+            .init_resource::<PrepassPipeline<M>>()
             .add_systems(
                 Render,
                 prepare_prepass_view_bind_group::<M>.in_set(RenderSet::PrepareBindGroups),
@@ -104,14 +111,7 @@ where
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
             .allow_ambiguous_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
             .init_resource::<PreviousViewUniforms>();
-    }
 
-    fn finalize(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<PrepassPipeline<M>>();
     }
 }
 
@@ -131,10 +131,8 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        let no_prepass_plugin_loaded = app
-            .world()
-            .get_resource::<AnyPrepassPluginLoaded>()
-            .is_none();
+        let no_prepass_plugin_loaded = !app
+            .contains_resource::<AnyPrepassPluginLoaded>();
 
         if no_prepass_plugin_loaded {
             app.insert_resource(AnyPrepassPluginLoaded)
@@ -152,6 +150,15 @@ where
                     BinnedRenderPhasePlugin::<AlphaMask3dPrepass, MeshPipeline>::default(),
                 ));
         }
+    }
+
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let no_prepass_plugin_loaded = !app
+            .contains_resource::<AnyPrepassPluginLoaded>();
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

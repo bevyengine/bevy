@@ -84,6 +84,11 @@ impl PluginRegistry {
             if *current_state < PluginState::Done {
                 let mut next_state = current_state.next();
                 if next_state == PluginState::NotYetReady {
+                    if !plugin.check_required_sub_apps(app) {
+                        *current_state = PluginState::Done;
+                        continue;
+                    }
+
                     if !plugin.ready(app) {
                         *current_state = next_state;
                         continue;
@@ -164,6 +169,8 @@ impl PluginRegistry {
 #[cfg(test)]
 mod tests {
     use bevy_ecs::prelude::Resource;
+    use crate::{InternedAppLabel, SubApp, AppLabel};
+    use crate::{self as bevy_app};
 
     use super::*;
 
@@ -175,8 +182,10 @@ mod tests {
         cleaned: usize,
     }
 
-    #[derive(Clone)]
-    pub struct TestPlugin;
+    #[derive(Clone, Default)]
+    pub struct TestPlugin {
+        require_sub_app: bool,
+    }
 
     impl Plugin for TestPlugin {
         fn name(&self) -> &str {
@@ -195,6 +204,14 @@ mod tests {
             res.built += 1;
         }
 
+        fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+            if self.require_sub_app {
+                return vec![DummyApp.intern()];
+            }
+
+            Vec::new()
+        }
+
         fn finalize(&self, app: &mut App) {
             let mut res = app.world_mut().resource_mut::<TestResource>();
             res.finished += 1;
@@ -209,9 +226,7 @@ mod tests {
     #[derive(Clone)]
     pub struct DummyPlugin;
 
-    impl Plugin for DummyPlugin {
-        fn build(&self, _app: &mut App) {}
-    }
+    impl Plugin for DummyPlugin {}
 
     #[derive(Clone)]
     pub struct PanicPlugin;
@@ -240,7 +255,7 @@ mod tests {
     #[test]
     fn test_add() {
         let mut registry = PluginRegistry::default();
-        registry.add(Box::new(TestPlugin));
+        registry.add(Box::new(TestPlugin::default()));
 
         assert_eq!(registry.plugins.len(), 1);
 
@@ -257,7 +272,7 @@ mod tests {
     #[test]
     fn test_update() {
         let mut registry = PluginRegistry::default();
-        registry.add(Box::new(TestPlugin));
+        registry.add(Box::new(TestPlugin::default()));
 
         let mut app = App::new();
 
@@ -291,7 +306,7 @@ mod tests {
     #[test]
     fn test_cleanup() {
         let mut registry = PluginRegistry::default();
-        registry.add(Box::new(TestPlugin));
+        registry.add(Box::new(TestPlugin::default()));
 
         let mut app = App::new();
 
@@ -310,11 +325,70 @@ mod tests {
         assert_plugin_status(&app, 1, 1, 1, 1);
     }
 
+    #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+    pub struct DummyApp;
+
+    #[derive(Clone)]
+    pub struct SubAppCreatorPlugin;
+
+    impl Plugin for SubAppCreatorPlugin {
+        fn build(&self, app: &mut App) {
+            app.insert_sub_app(DummyApp, SubApp::new("dummy"))
+        }
+    }
+
+    #[test]
+    fn dont_finalize_plugin_without_required_subapp() {
+        let mut registry = PluginRegistry::default();
+        registry.add(Box::new(TestPlugin {
+            require_sub_app: true
+        }));
+
+        let mut app = App::new();
+
+        registry.update(&mut app);
+        registry.update(&mut app);
+        registry.update(&mut app);
+        registry.update(&mut app);
+        registry.cleanup(&mut app);
+
+        assert_eq!(registry.state(), PluginRegistryState::Cleaned);
+        assert_eq!(
+            registry.plugin_state("TestPlugin"),
+            Some(PluginState::Cleaned)
+        );
+        assert_plugin_status(&app, 1, 1, 0, 1);
+    }
+
+    #[test]
+    fn finalize_plugin_with_required_subapp() {
+        let mut registry = PluginRegistry::default();
+        registry.add(Box::new(TestPlugin {
+            require_sub_app: true
+        }));
+        registry.add(Box::new(SubAppCreatorPlugin));
+
+        let mut app = App::new();
+
+        registry.update(&mut app);
+        registry.update(&mut app);
+        registry.update(&mut app);
+        registry.update(&mut app);
+        registry.cleanup(&mut app);
+
+        assert_eq!(registry.state(), PluginRegistryState::Cleaned);
+        assert_eq!(
+            registry.plugin_state("TestPlugin"),
+            Some(PluginState::Cleaned)
+        );
+        assert_plugin_status(&app, 1, 1, 1, 1);
+    }
+
     #[test]
     #[should_panic]
     fn cannot_cleanup_a_non_finalized_plugin() {
         let mut registry = PluginRegistry::default();
-        registry.add(Box::new(TestPlugin));
+        registry.add(Box::new(TestPlugin::default()));
 
         let mut app = App::new();
 
@@ -352,7 +426,7 @@ mod tests {
     #[should_panic]
     fn plugins_cannot_be_added_after_being_ready() {
         let mut registry = PluginRegistry::default();
-        registry.add(Box::new(TestPlugin));
+        registry.add(Box::new(TestPlugin::default()));
 
         let mut app = App::new();
         registry.update(&mut app);

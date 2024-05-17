@@ -28,7 +28,7 @@
 //!
 //! [`bevy-baked-gi`]: https://github.com/pcwalton/bevy-baked-gi
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
@@ -125,6 +125,10 @@ impl Plugin for LightmapPlugin {
             "lightmap.wgsl",
             Shader::from_wgsl
         );
+    }
+
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
     }
 
     fn finalize(&self, app: &mut App) {

@@ -1,3 +1,4 @@
+use bevy_app::{AppLabel, InternedAppLabel};
 use crate::blit::{BlitPipeline, BlitPipelineKey};
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
@@ -12,7 +13,11 @@ pub use node::UpscalingNode;
 pub struct UpscalingPlugin;
 
 impl Plugin for UpscalingPlugin {
-    fn build(&self, app: &mut App) {
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn finalize(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
                 Render,

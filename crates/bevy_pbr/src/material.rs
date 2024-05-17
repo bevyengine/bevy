@@ -254,44 +254,6 @@ where
             RenderAssetPlugin::<PreparedMaterial<M>>::default(),
         ));
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<DrawFunctions<Shadow>>()
-                .add_render_command::<Shadow, DrawPrepass<M>>()
-                .add_render_command::<Transmissive3d, DrawMaterial<M>>()
-                .add_render_command::<Transparent3d, DrawMaterial<M>>()
-                .add_render_command::<Opaque3d, DrawMaterial<M>>()
-                .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
-                .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_systems(
-                    Render,
-                    queue_material_meshes::<M>
-                        .in_set(RenderSet::QueueMeshes)
-                        .after(prepare_assets::<PreparedMaterial<M>>),
-                );
-
-            if self.shadows_enabled {
-                render_app.add_systems(
-                    Render,
-                    queue_shadows::<M>
-                        .in_set(RenderSet::QueueMeshes)
-                        .after(prepare_assets::<PreparedMaterial<M>>),
-                );
-            }
-
-            #[cfg(feature = "meshlet")]
-            render_app.add_systems(
-                Render,
-                (
-                    prepare_material_meshlet_meshes_main_opaque_pass::<M>,
-                    queue_material_meshlet_meshes::<M>,
-                )
-                    .chain()
-                    .in_set(RenderSet::Queue)
-                    .run_if(resource_exists::<MeshletGpuScene>),
-            );
-        }
-
         if self.shadows_enabled || self.prepass_enabled {
             // PrepassPipelinePlugin is required for shadow mapping and the optional PrepassPlugin
             app.add_plugins(PrepassPipelinePlugin::<M>::default());
@@ -302,10 +264,51 @@ where
         }
     }
 
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
     fn finalize(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<MaterialPipeline<M>>();
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app
+            .init_resource::<MaterialPipeline<M>>()
+            .init_resource::<DrawFunctions<Shadow>>()
+            .add_render_command::<Shadow, DrawPrepass<M>>()
+            .add_render_command::<Transmissive3d, DrawMaterial<M>>()
+            .add_render_command::<Transparent3d, DrawMaterial<M>>()
+            .add_render_command::<Opaque3d, DrawMaterial<M>>()
+            .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
+            .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
+            .add_systems(
+                Render,
+                queue_material_meshes::<M>
+                    .in_set(RenderSet::QueueMeshes)
+                    .after(prepare_assets::<PreparedMaterial<M>>),
+            );
+
+        if self.shadows_enabled {
+            render_app.add_systems(
+                Render,
+                queue_shadows::<M>
+                    .in_set(RenderSet::QueueMeshes)
+                    .after(prepare_assets::<PreparedMaterial<M>>),
+            );
         }
+
+        #[cfg(feature = "meshlet")]
+        render_app.add_systems(
+            Render,
+            (
+                prepare_material_meshlet_meshes_main_opaque_pass::<M>,
+                queue_material_meshlet_meshes::<M>,
+            )
+                .chain()
+                .in_set(RenderSet::Queue)
+                .run_if(resource_exists::<MeshletGpuScene>),
+        );
     }
 }
 

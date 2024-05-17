@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_ecs::prelude::*;
 pub use bevy_render_macros::ExtractResource;
 
@@ -30,17 +30,16 @@ impl<R: ExtractResource> Default for ExtractResourcePlugin<R> {
 }
 
 impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
-    fn build(&self, _app: &mut App) {}
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
 
     fn finalize(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_systems(ExtractSchedule, extract_resource::<R>);
-        } else {
-            bevy_utils::error_once!(
-                "Render app did not exist when trying to add `extract_resource` for <{}>.",
-                std::any::type_name::<R>()
-            );
-        }
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app.add_systems(ExtractSchedule, extract_resource::<R>);
     }
 }
 

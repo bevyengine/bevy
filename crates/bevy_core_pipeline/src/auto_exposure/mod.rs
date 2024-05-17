@@ -1,3 +1,4 @@
+use bevy_app::{AppLabel, InternedAppLabel};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
@@ -60,12 +61,20 @@ impl Plugin for AutoExposurePlugin {
 
         app.register_type::<AutoExposureSettings>();
         app.add_plugins(ExtractComponentPlugin::<AutoExposureSettings>::default());
+    }
 
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn finalize(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
         render_app
+            .init_resource::<AutoExposurePipeline>()
+            .init_resource::<AutoExposureResources>()
             .init_resource::<SpecializedComputePipelines<AutoExposurePipeline>>()
             .init_resource::<AutoExposureBuffers>()
             .add_systems(ExtractSchedule, extract_buffers)
@@ -81,15 +90,7 @@ impl Plugin for AutoExposurePlugin {
                 Core3d,
                 (Node3d::EndMainPass, node::AutoExposure, Node3d::Tonemapping),
             );
-    }
 
-    fn finalize(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<AutoExposurePipeline>();
-        render_app.init_resource::<AutoExposureResources>();
     }
 }
 

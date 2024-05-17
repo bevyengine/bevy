@@ -31,7 +31,7 @@ use std::ops::Range;
 pub use camera_2d::*;
 pub use main_transparent_pass_2d_node::*;
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::FloatOrd;
 use bevy_render::{
@@ -56,10 +56,17 @@ impl Plugin for Core2dPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Camera2d>()
             .add_plugins(ExtractComponentPlugin::<Camera2d>::default());
+    }
 
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn finalize(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+
         render_app
             .init_resource::<DrawFunctions<Transparent2d>>()
             .add_systems(ExtractSchedule, extract_core_2d_camera_phases)

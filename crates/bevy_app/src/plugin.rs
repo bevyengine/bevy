@@ -1,6 +1,6 @@
 use downcast_rs::{impl_downcast, Downcast};
 
-use crate::App;
+use crate::{App, InternedAppLabel};
 use std::any::Any;
 
 /// Plugin state in the application
@@ -95,7 +95,14 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     }
 
     /// Configures the [`App`] to which this plugin is added.
-    fn build(&self, app: &mut App);
+    fn build(&self, _app: &mut App) {
+        // do nothing
+    }
+
+    /// Returns required sub apps before finalizing.
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        Vec::new()
+    }
 
     /// Has the plugin finished its setup? This can be useful for plugins that need something
     /// asynchronous to happen before they can finish their setup, like the initialization of a renderer.
@@ -104,7 +111,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
         true
     }
 
-    /// Finalize this plugin to the [`App`], once all plugins registered are ready. This can
+    /// Finalizes this plugin to the [`App`], once all plugins registered are ready. This can
     /// be useful for plugins that depends on another plugin asynchronous setup, like the renderer.
     fn finalize(&self, _app: &mut App) {
         // do nothing
@@ -129,7 +136,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
         true
     }
 
-    /// Update the plugin to a desired [`PluginState`].
+    /// Updates the plugin to a desired [`PluginState`].
     fn update(&mut self, app: &mut App, state: PluginState) {
         match state {
             PluginState::Init => self.init(app),
@@ -138,6 +145,11 @@ pub trait Plugin: Downcast + Any + Send + Sync {
             PluginState::Done => {}
             s => panic!("Cannot handle {s:?} state"),
         }
+    }
+
+    /// Checks all required [`SubApp`]]s.
+    fn check_required_sub_apps(&mut self, app: &App) -> bool {
+        self.require_sub_apps().iter().all(|s| app.contains_sub_app(*s))
     }
 }
 

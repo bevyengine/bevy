@@ -16,7 +16,7 @@ use crate::{
     extract_component::ExtractComponentPlugin, extract_resource::ExtractResourcePlugin,
     render_graph::RenderGraph, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_ecs::schedule::IntoSystemConfigs;
 
 #[derive(Default)]
@@ -43,25 +43,29 @@ impl Plugin for CameraPlugin {
             ));
     }
 
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
     fn ready(&self, app: &App) -> bool {
         let Some(render_app) = app.get_sub_app(RenderApp) else {
             return false;
         };
 
-        render_app
-            .world()
-            .contains_resource::<GpuPreprocessingSupport>()
+        render_app.contains_resource::<GpuPreprocessingSupport>()
     }
 
     fn finalize(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<SortedCameras>()
-                .add_systems(ExtractSchedule, extract_cameras)
-                .add_systems(Render, sort_cameras.in_set(RenderSet::ManageViews));
-            let camera_driver_node = CameraDriverNode::new(render_app.world_mut());
-            let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
-            render_graph.add_node(crate::graph::CameraDriverLabel, camera_driver_node);
-        }
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app
+            .init_resource::<SortedCameras>()
+            .add_systems(ExtractSchedule, extract_cameras)
+            .add_systems(Render, sort_cameras.in_set(RenderSet::ManageViews));
+        let camera_driver_node = CameraDriverNode::new(render_app.world_mut());
+        let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
+        render_graph.add_node(crate::graph::CameraDriverLabel, camera_driver_node);
     }
 }

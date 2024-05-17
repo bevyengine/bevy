@@ -5,7 +5,7 @@ use crate::{
     LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE,
     LINE_SHADER_HANDLE,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_asset::Handle;
 use bevy_core_pipeline::{
     core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT},
@@ -34,12 +34,18 @@ use bevy_utils::tracing::error;
 
 pub struct LineGizmo3dPlugin;
 impl Plugin for LineGizmo3dPlugin {
-    fn build(&self, app: &mut App) {
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn finalize(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
         render_app
+            .init_resource::<LineGizmoPipeline>()
+            .init_resource::<LineJointGizmoPipeline>()
             .add_render_command::<Transparent3d, DrawLineGizmo3d>()
             .add_render_command::<Transparent3d, DrawLineJointGizmo3d>()
             .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
@@ -56,15 +62,7 @@ impl Plugin for LineGizmo3dPlugin {
                     .in_set(GizmoRenderSystem::QueueLineGizmos3d)
                     .after(prepare_assets::<GpuLineGizmo>),
             );
-    }
 
-    fn finalize(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<LineGizmoPipeline>();
-        render_app.init_resource::<LineJointGizmoPipeline>();
     }
 }
 

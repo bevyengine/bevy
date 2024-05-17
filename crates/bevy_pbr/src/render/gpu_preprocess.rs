@@ -8,7 +8,7 @@
 
 use std::num::NonZeroU64;
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::{
@@ -119,6 +119,10 @@ impl Plugin for GpuMeshPreprocessPlugin {
             "mesh_preprocess.wgsl",
             Shader::from_wgsl
         );
+    }
+
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
     }
 
     fn finalize(&self, app: &mut App) {

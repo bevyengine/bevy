@@ -1,3 +1,4 @@
+use bevy_app::{AppLabel, InternedAppLabel};
 use crate::{
     graph::NodePbr, irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight,
     MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusionSettings,
@@ -104,12 +105,19 @@ impl Plugin for DeferredPbrLightingPlugin {
             "deferred_lighting.wgsl",
             Shader::from_wgsl
         );
+    }
 
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn finalize(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
         render_app
+            .init_resource::<DeferredLightingLayout>()
             .init_resource::<SpecializedRenderPipelines<DeferredLightingLayout>>()
             .add_systems(
                 Render,
@@ -127,14 +135,7 @@ impl Plugin for DeferredPbrLightingPlugin {
                     Node3d::MainOpaquePass,
                 ),
             );
-    }
 
-    fn finalize(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<DeferredLightingLayout>();
     }
 }
 

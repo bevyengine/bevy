@@ -458,6 +458,36 @@ impl App {
         self
     }
 
+    /// Returns `true` if the [`Resource`] exists in the app world.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Resource)]
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// impl Default for MyCounter {
+    ///     fn default() -> MyCounter {
+    ///         MyCounter {
+    ///             counter: 100
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// let mut app = App::new();
+    /// app.insert_resource(MyCounter { counter: 0 });
+    ///
+    /// assert!(app.contains_resource::<MyCounter>());
+    /// ```
+    pub fn contains_resource<R: Resource>(&self) -> bool {
+        self.main().contains_resource::<R>()
+    }
+
     /// Inserts the [`!Send`](Send) resource into the app, overwriting any existing resource
     /// of the same type.
     ///
@@ -478,15 +508,36 @@ impl App {
     ///     .insert_non_send_resource(MyCounter { counter: 0 });
     /// ```
     pub fn insert_non_send_resource<R: 'static>(&mut self, resource: R) -> &mut Self {
-        self.world_mut().insert_non_send_resource(resource);
+        self.main_mut().insert_non_send_resource(resource);
         self
     }
 
     /// Inserts the [`!Send`](Send) resource into the app, initialized with its default value,
     /// if there is no existing instance of `R`.
-    pub fn init_non_send_resource<R: 'static + Default>(&mut self) -> &mut Self {
-        self.world_mut().init_non_send_resource::<R>();
+    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
+        self.main_mut().init_non_send_resource::<R>();
         self
+    }
+
+    /// Returns `true` if the [`!Send`](Send) resource exists in the app world.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// let mut app = App::new();
+    /// app.insert_non_send_resource(MyCounter { counter: 0 });
+    ///
+    /// assert!(app.contains_non_send_resource::<MyCounter>());
+    /// ```
+    pub fn contains_non_send_resource<R: 'static>(&self) -> bool {
+        self.main().contains_non_send_resource::<R>()
     }
 
     pub(crate) fn add_boxed_plugin(

@@ -381,13 +381,20 @@ impl Plugin for PbrPlugin {
                     ..Default::default()
                 },
             );
+    }
 
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn finalize(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
-        // Extract the required data from the main world
         render_app
+            .init_resource::<ShadowSamplers>()
+            .init_resource::<GlobalLightMeta>()
             .add_systems(ExtractSchedule, (extract_clusters, extract_lights))
             .add_systems(
                 Render,
@@ -405,17 +412,7 @@ impl Plugin for PbrPlugin {
         let draw_3d_graph = graph.get_sub_graph_mut(Core3d).unwrap();
         draw_3d_graph.add_node(NodePbr::ShadowPass, shadow_pass_node);
         draw_3d_graph.add_node_edge(NodePbr::ShadowPass, Node3d::StartMainPass);
-    }
 
-    fn finalize(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        // Extract the required data from the main world
-        render_app
-            .init_resource::<ShadowSamplers>()
-            .init_resource::<GlobalLightMeta>();
     }
 }
 

@@ -5,7 +5,7 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core::FrameCount;
 use bevy_ecs::prelude::*;
@@ -20,17 +20,25 @@ impl Plugin for GlobalsPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, GLOBALS_TYPE_HANDLE, "globals.wgsl", Shader::from_wgsl);
         app.register_type::<GlobalsUniform>();
+    }
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<GlobalsBuffer>()
-                .init_resource::<Time>()
-                .add_systems(ExtractSchedule, (extract_frame_count, extract_time))
-                .add_systems(
-                    Render,
-                    prepare_globals_buffer.in_set(RenderSet::PrepareResources),
-                );
-        }
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app
+            .init_resource::<GlobalsBuffer>()
+            .init_resource::<Time>()
+            .add_systems(ExtractSchedule, (extract_frame_count, extract_time))
+            .add_systems(
+                Render,
+                prepare_globals_buffer.in_set(RenderSet::PrepareResources),
+            );
     }
 }
 

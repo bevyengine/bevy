@@ -4,7 +4,7 @@ use crate::{
     view::ViewVisibility,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
     component::Component,
@@ -79,15 +79,21 @@ impl<C> Default for UniformComponentPlugin<C> {
 }
 
 impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentPlugin<C> {
-    fn build(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .insert_resource(ComponentUniforms::<C>::default())
-                .add_systems(
-                    Render,
-                    prepare_uniform_components::<C>.in_set(RenderSet::PrepareResources),
-                );
-        }
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app
+            .insert_resource(ComponentUniforms::<C>::default())
+            .add_systems(
+                Render,
+                prepare_uniform_components::<C>.in_set(RenderSet::PrepareResources),
+            );
     }
 }
 
@@ -183,13 +189,19 @@ impl<C, F> ExtractComponentPlugin<C, F> {
 }
 
 impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
-    fn build(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            if self.only_extract_visible {
-                render_app.add_systems(ExtractSchedule, extract_visible_components::<C>);
-            } else {
-                render_app.add_systems(ExtractSchedule, extract_components::<C>);
-            }
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        if self.only_extract_visible {
+            render_app.add_systems(ExtractSchedule, extract_visible_components::<C>);
+        } else {
+            render_app.add_systems(ExtractSchedule, extract_components::<C>);
         }
     }
 }

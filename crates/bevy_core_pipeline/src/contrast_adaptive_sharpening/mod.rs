@@ -1,3 +1,4 @@
+use bevy_app::{AppLabel, InternedAppLabel};
 use crate::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
@@ -115,11 +116,19 @@ impl Plugin for CASPlugin {
             ExtractComponentPlugin::<ContrastAdaptiveSharpeningSettings>::default(),
             UniformComponentPlugin::<CASUniform>::default(),
         ));
+    }
 
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn finalize(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+
         render_app
+            .init_resource::<CASPipeline>()
             .init_resource::<SpecializedRenderPipelines<CASPipeline>>()
             .add_systems(Render, prepare_cas_pipelines.in_set(RenderSet::Prepare));
 
@@ -157,13 +166,7 @@ impl Plugin for CASPlugin {
                     ),
                 );
         }
-    }
 
-    fn finalize(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app.init_resource::<CASPipeline>();
     }
 }
 

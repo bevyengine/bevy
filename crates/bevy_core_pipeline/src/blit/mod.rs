@@ -1,4 +1,4 @@
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::prelude::*;
 use bevy_render::{
@@ -20,17 +20,23 @@ pub struct BlitPlugin;
 impl Plugin for BlitPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, BLIT_SHADER_HANDLE, "blit.wgsl", Shader::from_wgsl);
+    }
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.allow_ambiguous_resource::<SpecializedRenderPipelines<BlitPipeline>>();
-        }
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+
         render_app
+            .allow_ambiguous_resource::<SpecializedRenderPipelines<BlitPipeline>>()
             .init_resource::<BlitPipeline>()
             .init_resource::<SpecializedRenderPipelines<BlitPipeline>>();
     }

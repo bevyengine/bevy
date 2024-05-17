@@ -67,7 +67,7 @@ pub mod prelude {
 }
 
 use aabb::AabbGizmoPlugin;
-use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
+use bevy_app::{App, AppLabel, FixedFirst, FixedLast, InternedAppLabel, Last, Plugin, RunFixedMainLoop};
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_color::LinearRgba;
 use bevy_ecs::{
@@ -156,7 +156,11 @@ impl Plugin for GizmoPlugin {
         }
     }
 
-    fn finalize(&self, app: &mut bevy_app::App) {
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn finalize(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };

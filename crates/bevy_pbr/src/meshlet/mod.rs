@@ -55,7 +55,7 @@ use self::{
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
 use crate::{graph::NodePbr, Material};
-use bevy_app::{App, Plugin, PostUpdate};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetApp, Handle};
 use bevy_core_pipeline::{
     core_3d::{
@@ -171,6 +171,10 @@ impl Plugin for MeshletPlugin {
                 PostUpdate,
                 check_visibility::<WithMeshletMesh>.in_set(VisibilitySystems::CheckVisibility),
             );
+    }
+
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
     }
 
     fn finalize(&self, app: &mut App) {

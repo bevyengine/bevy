@@ -23,6 +23,7 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};
 use bytemuck::{Pod, Zeroable};
+use bevy_app::{AppLabel, InternedAppLabel};
 
 use crate::*;
 
@@ -61,31 +62,34 @@ where
             ExtractComponentPlugin::<Handle<M>>::extract_visible(),
             RenderAssetPlugin::<PreparedUiMaterial<M>>::default(),
         ));
+    }
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .add_render_command::<TransparentUi, DrawUiMaterial<M>>()
-                .init_resource::<ExtractedUiMaterialNodes<M>>()
-                .init_resource::<UiMaterialMeta<M>>()
-                .init_resource::<SpecializedRenderPipelines<UiMaterialPipeline<M>>>()
-                .add_systems(
-                    ExtractSchedule,
-                    extract_ui_material_nodes::<M>.in_set(RenderUiSystem::ExtractBackgrounds),
-                )
-                .add_systems(
-                    Render,
-                    (
-                        queue_ui_material_nodes::<M>.in_set(RenderSet::Queue),
-                        prepare_uimaterial_nodes::<M>.in_set(RenderSet::PrepareBindGroups),
-                    ),
-                );
-        }
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
     }
 
     fn finalize(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<UiMaterialPipeline<M>>();
-        }
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app
+            .init_resource::<UiMaterialPipeline<M>>()
+            .add_render_command::<TransparentUi, DrawUiMaterial<M>>()
+            .init_resource::<ExtractedUiMaterialNodes<M>>()
+            .init_resource::<UiMaterialMeta<M>>()
+            .init_resource::<SpecializedRenderPipelines<UiMaterialPipeline<M>>>()
+            .add_systems(
+                ExtractSchedule,
+                extract_ui_material_nodes::<M>.in_set(RenderUiSystem::ExtractBackgrounds),
+            )
+            .add_systems(
+                Render,
+                (
+                    queue_ui_material_nodes::<M>.in_set(RenderSet::Queue),
+                    prepare_uimaterial_nodes::<M>.in_set(RenderSet::PrepareBindGroups),
+                ),
+            );
     }
 }
 

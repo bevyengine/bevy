@@ -17,6 +17,7 @@ use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
 #[cfg(not(feature = "tonemapping_luts"))]
 use bevy_utils::tracing::error;
 use bitflags::bitflags;
+use bevy_app::{AppLabel, InternedAppLabel};
 
 mod node;
 
@@ -96,23 +97,28 @@ impl Plugin for TonemappingPlugin {
             ExtractComponentPlugin::<Tonemapping>::default(),
             ExtractComponentPlugin::<DebandDither>::default(),
         ));
+    }
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app
-            .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
-            .add_systems(
-                Render,
-                prepare_view_tonemapping_pipelines.in_set(RenderSet::Prepare),
-            );
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-        render_app.init_resource::<TonemappingPipeline>();
+
+        render_app
+            .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
+            .add_systems(
+                Render,
+                prepare_view_tonemapping_pipelines.in_set(RenderSet::Prepare),
+            )
+            .init_resource::<TonemappingPipeline>();
     }
 }
 

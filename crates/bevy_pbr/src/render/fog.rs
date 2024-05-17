@@ -1,4 +1,4 @@
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_ecs::prelude::*;
@@ -139,10 +139,19 @@ impl Plugin for FogPlugin {
         app.register_type::<FogSettings>();
         app.add_plugins(ExtractComponentPlugin::<FogSettings>::default());
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<FogMeta>()
-                .add_systems(Render, prepare_fog.in_set(RenderSet::PrepareResources));
-        }
+    }
+
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app
+            .init_resource::<FogMeta>()
+            .add_systems(Render, prepare_fog.in_set(RenderSet::PrepareResources));
     }
 }

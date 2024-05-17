@@ -9,7 +9,7 @@ use crate::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_math::UVec2;
@@ -55,11 +55,24 @@ impl Plugin for BloomPlugin {
             ExtractComponentPlugin::<BloomSettings>::default(),
             UniformComponentPlugin::<BloomUniforms>::default(),
         ));
+    }
 
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+
         render_app
+            .init_resource::<BloomDownsamplingPipeline>()
+            .init_resource::<BloomUpsamplingPipeline>()
             .init_resource::<SpecializedRenderPipelines<BloomDownsamplingPipeline>>()
             .init_resource::<SpecializedRenderPipelines<BloomUpsamplingPipeline>>()
             .add_systems(
@@ -83,15 +96,6 @@ impl Plugin for BloomPlugin {
                 Core2d,
                 (Node2d::EndMainPass, Node2d::Bloom, Node2d::Tonemapping),
             );
-    }
-
-    fn finalize(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app
-            .init_resource::<BloomDownsamplingPipeline>()
-            .init_resource::<BloomUpsamplingPipeline>();
     }
 }
 

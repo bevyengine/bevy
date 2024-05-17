@@ -3,7 +3,7 @@ use crate::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_color::LinearRgba;
 use bevy_ecs::prelude::*;
 use bevy_render::{
@@ -20,10 +20,15 @@ use bevy_render::{render_resource::*, RenderApp};
 pub struct MsaaWritebackPlugin;
 
 impl Plugin for MsaaWritebackPlugin {
-    fn build(&self, app: &mut App) {
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn finalize(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+
         render_app.add_systems(
             Render,
             prepare_msaa_writeback_pipelines.in_set(RenderSet::Prepare),

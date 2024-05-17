@@ -152,8 +152,6 @@ impl Plugin for WinitPlugin {
         // be inserted as a resource here to pass it onto the runner.
         app.insert_non_send_resource(event_loop);
     }
-
-    fn build(&self, _app: &mut App) {}
 }
 
 trait AppSendEvent {

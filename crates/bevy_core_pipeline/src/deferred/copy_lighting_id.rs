@@ -1,30 +1,32 @@
-use crate::{
-    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
-    prepass::{DeferredPrepass, ViewPrepassTextures},
-};
+use bevy_app::{AppLabel, InternedAppLabel};
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{Handle, load_internal_asset};
 use bevy_ecs::prelude::*;
+use bevy_ecs::query::QueryItem;
 use bevy_math::UVec2;
 use bevy_render::{
     camera::ExtractedCamera,
-    render_resource::{binding_types::texture_2d, *},
+    Render,
+    render_resource::{*, binding_types::texture_2d},
+    RenderApp,
     renderer::RenderDevice,
-    texture::{CachedTexture, TextureCache},
-    view::ViewTarget,
-    Render, RenderApp, RenderSet,
+    RenderSet, texture::{CachedTexture, TextureCache}, view::ViewTarget,
 };
-
-use bevy_ecs::query::QueryItem;
 use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     renderer::RenderContext,
+};
+
+use crate::{
+    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
+    prepass::{DeferredPrepass, ViewPrepassTextures},
 };
 
 use super::DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT;
 
 pub const COPY_DEFERRED_LIGHTING_ID_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(5230948520734987);
+
 pub struct CopyDeferredLightingIdPlugin;
 
 impl Plugin for CopyDeferredLightingIdPlugin {
@@ -35,13 +37,14 @@ impl Plugin for CopyDeferredLightingIdPlugin {
             "copy_deferred_lighting_id.wgsl",
             Shader::from_wgsl
         );
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app.add_systems(
-            Render,
-            (prepare_deferred_lighting_id_textures.in_set(RenderSet::PrepareResources),),
-        );
+    }
+
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {
@@ -49,12 +52,18 @@ impl Plugin for CopyDeferredLightingIdPlugin {
             return;
         };
 
-        render_app.init_resource::<CopyDeferredLightingIdPipeline>();
+        render_app
+            .add_systems(
+                Render,
+                (prepare_deferred_lighting_id_textures.in_set(RenderSet::PrepareResources), ),
+            )
+            .init_resource::<CopyDeferredLightingIdPipeline>();
     }
 }
 
 #[derive(Default)]
 pub struct CopyDeferredLightingIdNode;
+
 impl CopyDeferredLightingIdNode {
     pub const NAME: &'static str = "copy_deferred_lighting_id";
 }
@@ -81,14 +90,14 @@ impl ViewNode for CopyDeferredLightingIdNode {
 
         let Some(pipeline) =
             pipeline_cache.get_render_pipeline(copy_deferred_lighting_id_pipeline.pipeline_id)
-        else {
-            return Ok(());
-        };
+            else {
+                return Ok(());
+            };
         let Some(deferred_lighting_pass_id_texture) =
             &view_prepass_textures.deferred_lighting_pass_id
-        else {
-            return Ok(());
-        };
+            else {
+                return Ok(());
+            };
 
         let bind_group = render_context.render_device().create_bind_group(
             "copy_deferred_lighting_id_bind_group",
@@ -182,9 +191,9 @@ fn prepare_deferred_lighting_id_textures(
 ) {
     for (entity, camera) in &views {
         if let Some(UVec2 {
-            x: width,
-            y: height,
-        }) = camera.physical_target_size
+                        x: width,
+                        y: height,
+                    }) = camera.physical_target_size
         {
             let texture_descriptor = TextureDescriptor {
                 label: Some("deferred_lighting_id_depth_texture_a"),
