@@ -57,6 +57,10 @@ impl Plugin for RenderDiagnosticsPlugin {
         vec![RenderApp.intern()]
     }
 
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
+    }
+
     fn finalize(&self, app: &mut App) {
         let render_diagnostics_mutex = app.world().resource::<RenderDiagnosticsMutex>().clone();
 

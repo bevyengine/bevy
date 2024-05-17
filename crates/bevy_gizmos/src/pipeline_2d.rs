@@ -26,6 +26,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
     Render, RenderApp, RenderSet,
 };
+use bevy_render::renderer::RenderDevice;
 use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
 use bevy_utils::tracing::error;
 
@@ -34,6 +35,10 @@ pub struct LineGizmo2dPlugin;
 impl Plugin for LineGizmo2dPlugin {
     fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {

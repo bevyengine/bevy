@@ -83,6 +83,10 @@ impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentP
         vec![RenderApp.intern()]
     }
 
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
+    }
+
     fn finalize(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -191,6 +195,10 @@ impl<C, F> ExtractComponentPlugin<C, F> {
 impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
     fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {

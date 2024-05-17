@@ -56,6 +56,7 @@ use bevy_render::{
     view::{check_visibility, NoFrustumCulling, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
+use bevy_render::renderer::RenderDevice;
 
 /// Adds support for 2D sprite rendering.
 #[derive(Default)]
@@ -124,38 +125,45 @@ impl Plugin for SpritePlugin {
                         .in_set(VisibilitySystems::CheckVisibility),
                 ),
             );
+    }
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<ImageBindGroups>()
-                .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
-                .init_resource::<SpriteMeta>()
-                .init_resource::<ExtractedSprites>()
-                .init_resource::<SpriteAssetEvents>()
-                .add_render_command::<Transparent2d, DrawSprite>()
-                .add_systems(
-                    ExtractSchedule,
-                    (
-                        extract_sprites.in_set(SpriteSystem::ExtractSprites),
-                        extract_sprite_events,
-                    ),
-                )
-                .add_systems(
-                    Render,
-                    (
-                        queue_sprites
-                            .in_set(RenderSet::Queue)
-                            .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
-                        prepare_sprites.in_set(RenderSet::PrepareBindGroups),
-                    ),
-                );
-        };
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<SpritePipeline>();
-        }
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app
+            .init_resource::<SpritePipeline>()
+            .init_resource::<ImageBindGroups>()
+            .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
+            .init_resource::<SpriteMeta>()
+            .init_resource::<ExtractedSprites>()
+            .init_resource::<SpriteAssetEvents>()
+            .add_render_command::<Transparent2d, DrawSprite>()
+            .add_systems(
+                ExtractSchedule,
+                (
+                    extract_sprites.in_set(SpriteSystem::ExtractSprites),
+                    extract_sprite_events,
+                ),
+            )
+            .add_systems(
+                Render,
+                (
+                    queue_sprites
+                        .in_set(RenderSet::Queue)
+                        .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
+                    prepare_sprites.in_set(RenderSet::PrepareBindGroups),
+                ),
+            );
     }
 }
 

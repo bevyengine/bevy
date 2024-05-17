@@ -21,6 +21,7 @@ use bevy_render::{
     render_resource::{Shader, ShaderType, SpecializedRenderPipelines},
     Render, RenderApp, RenderSet,
 };
+use bevy_render::renderer::RenderDevice;
 
 pub mod node;
 pub mod pipeline;
@@ -135,6 +136,10 @@ impl Plugin for MotionBlurPlugin {
 
     fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {

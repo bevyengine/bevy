@@ -45,6 +45,7 @@ use bevy_render::{
     render_resource::CachedRenderPipelineId,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
+use bevy_render::renderer::RenderDevice;
 
 use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
 
@@ -60,6 +61,10 @@ impl Plugin for Core2dPlugin {
 
     fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {

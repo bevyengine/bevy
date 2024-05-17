@@ -5,6 +5,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::camera::{CameraOutputMode, ExtractedCamera};
 use bevy_render::view::ViewTarget;
 use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
+use bevy_render::renderer::RenderDevice;
 
 mod node;
 
@@ -15,6 +16,10 @@ pub struct UpscalingPlugin;
 impl Plugin for UpscalingPlugin {
     fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {

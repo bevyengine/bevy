@@ -14,6 +14,7 @@ use bevy_render::{
     Render, RenderSet,
 };
 use bevy_render::{render_resource::*, RenderApp};
+use bevy_render::renderer::RenderDevice;
 
 /// This enables "msaa writeback" support for the `core_2d` and `core_3d` pipelines, which can be enabled on cameras
 /// using [`bevy_render::camera::Camera::msaa_writeback`]. See the docs on that field for more information.
@@ -22,6 +23,10 @@ pub struct MsaaWritebackPlugin;
 impl Plugin for MsaaWritebackPlugin {
     fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {

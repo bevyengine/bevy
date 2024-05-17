@@ -42,6 +42,7 @@ use bevy_render::{
 };
 use bevy_sprite::SpriteSystem;
 use std::num::NonZeroUsize;
+use bevy_render::renderer::RenderDevice;
 
 /// Adds text rendering support to an app.
 ///
@@ -107,13 +108,25 @@ impl Plugin for TextPlugin {
                     remove_dropped_font_atlas_sets,
                 ),
             );
+    }
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_systems(
-                ExtractSchedule,
-                extract_text2d_sprite.after(SpriteSystem::ExtractSprites),
-            );
-        }
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app.add_systems(
+            ExtractSchedule,
+            extract_text2d_sprite.after(SpriteSystem::ExtractSprites),
+        );
 
         #[cfg(feature = "default_font")]
         load_internal_binary_asset!(

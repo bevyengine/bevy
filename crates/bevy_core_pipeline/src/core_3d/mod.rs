@@ -108,6 +108,10 @@ impl Plugin for Core3dPlugin {
         vec![RenderApp.intern()]
     }
 
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
+    }
+
     fn finalize(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

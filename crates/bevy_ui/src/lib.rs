@@ -57,6 +57,7 @@ use bevy_render::{
     view::{check_visibility, VisibilitySystems},
     RenderApp,
 };
+use bevy_render::renderer::RenderDevice;
 use bevy_transform::TransformSystem;
 use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
@@ -177,8 +178,14 @@ impl Plugin for UiPlugin {
 
         #[cfg(feature = "bevy_text")]
         build_text_interop(app);
+    }
 
-        build_ui_render(app);
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {
@@ -187,6 +194,8 @@ impl Plugin for UiPlugin {
         };
 
         render_app.init_resource::<UiPipeline>();
+
+        build_ui_render(app);
     }
 }
 

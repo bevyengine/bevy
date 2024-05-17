@@ -1,4 +1,4 @@
-use bevy_app::Plugin;
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 
 use bevy_core_pipeline::core_2d::Transparent2d;
@@ -93,50 +93,56 @@ impl Plugin for Mesh2dRenderPlugin {
             Shader::from_wgsl
         );
         load_internal_asset!(app, MESH2D_SHADER_HANDLE, "mesh2d.wgsl", Shader::from_wgsl);
+    }
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<RenderMesh2dInstances>()
-                .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
-                .add_systems(ExtractSchedule, extract_mesh2d)
-                .add_systems(
-                    Render,
-                    (
-                        batch_and_prepare_sorted_render_phase::<Transparent2d, Mesh2dPipeline>
-                            .in_set(RenderSet::PrepareResources),
-                        write_batched_instance_buffer::<Mesh2dPipeline>
-                            .in_set(RenderSet::PrepareResourcesFlush),
-                        prepare_mesh2d_bind_group.in_set(RenderSet::PrepareBindGroups),
-                        prepare_mesh2d_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
-                        no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<Mesh2dPipeline>
-                            .in_set(RenderSet::Cleanup)
-                            .after(RenderSet::Render),
-                    ),
-                );
-        }
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut bevy_app::App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
         let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            let render_device = render_app.world().resource::<RenderDevice>();
-            let batched_instance_buffer =
-                BatchedInstanceBuffer::<Mesh2dUniform>::new(render_device);
+        let render_device = render_app.world().resource::<RenderDevice>();
+        let batched_instance_buffer =
+            BatchedInstanceBuffer::<Mesh2dUniform>::new(render_device);
 
-            if let Some(per_object_buffer_batch_size) =
-                GpuArrayBuffer::<Mesh2dUniform>::batch_size(render_device)
-            {
-                mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
-                    "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
-                    per_object_buffer_batch_size,
-                ));
-            }
-
-            render_app
-                .insert_resource(batched_instance_buffer)
-                .init_resource::<Mesh2dPipeline>();
+        if let Some(per_object_buffer_batch_size) =
+            GpuArrayBuffer::<Mesh2dUniform>::batch_size(render_device)
+        {
+            mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
+                "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
+                per_object_buffer_batch_size,
+            ));
         }
+
+        render_app
+            .insert_resource(batched_instance_buffer)
+            .init_resource::<Mesh2dPipeline>()
+            .init_resource::<RenderMesh2dInstances>()
+            .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
+            .add_systems(ExtractSchedule, extract_mesh2d)
+            .add_systems(
+                Render,
+                (
+                    batch_and_prepare_sorted_render_phase::<Transparent2d, Mesh2dPipeline>
+                        .in_set(RenderSet::PrepareResources),
+                    write_batched_instance_buffer::<Mesh2dPipeline>
+                        .in_set(RenderSet::PrepareResourcesFlush),
+                    prepare_mesh2d_bind_group.in_set(RenderSet::PrepareBindGroups),
+                    prepare_mesh2d_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                    no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<Mesh2dPipeline>
+                        .in_set(RenderSet::Cleanup)
+                        .after(RenderSet::Render),
+                ),
+            );
 
         // Load the mesh_bindings shader module here as it depends on runtime information about
         // whether storage buffers are supported, or the maximum uniform buffer binding size.

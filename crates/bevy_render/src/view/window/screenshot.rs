@@ -1,6 +1,6 @@
 use std::{borrow::Cow, path::Path, sync::PoisonError};
 
-use bevy_app::Plugin;
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_tasks::AsyncComputeTaskPool;
@@ -138,10 +138,20 @@ impl Plugin for ScreenshotPlugin {
         );
     }
 
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
+    }
+
     fn finalize(&self, app: &mut bevy_app::App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>();
-        }
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app.init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>();
     }
 }
 

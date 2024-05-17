@@ -17,6 +17,7 @@ use bevy_ecs::{
 };
 
 use crate::{prelude::ViewVisibility, Extract, ExtractSchedule, RenderApp};
+use crate::renderer::RenderDevice;
 
 /// Describes how to extract data needed for rendering from a component or
 /// components.
@@ -95,6 +96,10 @@ where
 {
     fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {

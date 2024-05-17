@@ -5,6 +5,7 @@ use bevy_ecs::prelude::*;
 pub use bevy_render_macros::ExtractResource;
 
 use crate::{Extract, ExtractSchedule, RenderApp};
+use crate::renderer::RenderDevice;
 
 /// Describes how a resource gets extracted for rendering.
 ///
@@ -32,6 +33,10 @@ impl<R: ExtractResource> Default for ExtractResourcePlugin<R> {
 impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
     fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {

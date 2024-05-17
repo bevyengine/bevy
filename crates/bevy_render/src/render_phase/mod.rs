@@ -28,7 +28,7 @@ mod draw;
 mod draw_state;
 mod rangefinder;
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_utils::{default, hashbrown::hash_map::Entry, HashMap};
 pub use draw::*;
 pub use draw_state::*;
@@ -59,6 +59,7 @@ use std::{
     ops::Range,
     slice::SliceIndex,
 };
+use crate::renderer::RenderDevice;
 
 /// A collection of all rendering instructions, that will be executed by the GPU, for a
 /// single render phase for a single view.
@@ -393,7 +394,15 @@ where
     BPI: BinnedPhaseItem,
     GFBD: GetFullBatchData + Sync + Send + 'static,
 {
-    fn build(&self, app: &mut App) {
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
@@ -442,7 +451,15 @@ where
     SPI: SortedPhaseItem + CachedRenderPipelinePhaseItem,
     GFBD: GetFullBatchData + Sync + Send + 'static,
 {
-    fn build(&self, app: &mut App) {
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };

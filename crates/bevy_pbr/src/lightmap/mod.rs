@@ -46,6 +46,7 @@ use bevy_render::{
     mesh::Mesh, render_asset::RenderAssets, render_resource::Shader, texture::Image,
     view::ViewVisibility, Extract, ExtractSchedule, RenderApp,
 };
+use bevy_render::renderer::RenderDevice;
 use bevy_utils::HashSet;
 
 use crate::{ExtractMeshesSet, RenderMeshInstances};
@@ -129,6 +130,10 @@ impl Plugin for LightmapPlugin {
 
     fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {

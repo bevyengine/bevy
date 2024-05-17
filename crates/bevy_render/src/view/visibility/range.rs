@@ -6,7 +6,7 @@ use std::{
     ops::Range,
 };
 
-use bevy_app::{App, Plugin, PostUpdate};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin, PostUpdate};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -57,7 +57,17 @@ impl Plugin for VisibilityRangePlugin {
                     .in_set(VisibilitySystems::CheckVisibility)
                     .before(check_visibility::<WithMesh>),
             );
+    }
 
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };

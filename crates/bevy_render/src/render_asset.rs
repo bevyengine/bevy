@@ -1,5 +1,5 @@
 use crate::{ExtractSchedule, MainWorld, Render, RenderApp, RenderSet};
-use bevy_app::{App, Plugin, SubApp};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin, SubApp};
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
 use bevy_ecs::{
     prelude::{Commands, EventReader, IntoSystemConfigs, ResMut, Resource},
@@ -13,6 +13,7 @@ use bevy_utils::{tracing::debug, HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use thiserror::Error;
+use crate::renderer::RenderDevice;
 
 #[derive(Debug, Error)]
 pub enum PrepareAssetError<E: Send + Sync + 'static> {
@@ -134,17 +135,30 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
 {
     fn build(&self, app: &mut App) {
         app.init_resource::<CachedExtractRenderAssetSystemState<A>>();
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<ExtractedAssets<A>>()
-                .init_resource::<RenderAssets<A>>()
-                .init_resource::<PrepareNextFrameAssets<A>>()
-                .add_systems(ExtractSchedule, extract_render_asset::<A>);
-            AFTER::register_system(
-                render_app,
-                prepare_assets::<A>.in_set(RenderSet::PrepareAssets),
-            );
-        }
+    }
+
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app
+            .init_resource::<ExtractedAssets<A>>()
+            .init_resource::<RenderAssets<A>>()
+            .init_resource::<PrepareNextFrameAssets<A>>()
+            .add_systems(ExtractSchedule, extract_render_asset::<A>);
+        AFTER::register_system(
+            render_app,
+            prepare_assets::<A>.in_set(RenderSet::PrepareAssets),
+        );
     }
 }
 

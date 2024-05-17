@@ -22,7 +22,7 @@ use crate::{
     },
     Render, RenderApp, RenderSet,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -112,9 +112,24 @@ impl Plugin for ViewPlugin {
                 VisibilityPlugin,
                 VisibilityRangePlugin,
             ));
+    }
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_systems(
+    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready(&self, app: &App) -> bool {
+        app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app
+            .init_resource::<ViewUniforms>()
+            .add_systems(
                 Render,
                 (
                     prepare_view_targets
@@ -125,17 +140,6 @@ impl Plugin for ViewPlugin {
                     prepare_view_uniforms.in_set(RenderSet::PrepareResources),
                 ),
             );
-        }
-    }
-
-    fn ready(&self, app: &App) -> bool {
-        app.world().contains_resource::<RenderDevice>()
-    }
-
-    fn finalize(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<ViewUniforms>();
-        }
     }
 }
 
