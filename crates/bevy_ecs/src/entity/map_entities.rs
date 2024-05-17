@@ -37,6 +37,7 @@ use super::EntityHashMap;
 ///     }
 /// }
 /// ```
+///
 pub trait MapEntities {
     /// Updates all [`Entity`] references stored inside using `entity_mapper`.
     ///
