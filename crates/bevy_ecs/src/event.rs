@@ -8,9 +8,9 @@ use crate::{
     component::{ComponentId, Tick},
     system::{Local, Res, ResMut, Resource, SystemParam},
     world::World,
+    schedule::ScheduleLabel
 };
 pub use bevy_ecs_macros::Event;
-use bevy_ecs_macros::SystemSet;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use bevy_utils::detailed_trace;
@@ -23,6 +23,11 @@ use std::{
     marker::PhantomData,
     slice::Iter,
 };
+use std::any::{Any, TypeId};
+use std::fmt::{Debug, Formatter};
+use bevy_ecs_macros::SystemSet;
+use crate::prelude::Schedules;
+use crate::schedule::IntoSystemConfigs;
 
 /// A type that can be stored in an [`Events<E>`] resource
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
@@ -1115,8 +1120,76 @@ impl<E: Event> ExactSizeIterator for SendBatchIds<E> {
     }
 }
 
+#[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash)]
+struct EventTriggeredSchedules;
+
+#[derive(ScheduleLabel)]
+pub struct OnEvent<E: Event + Sized>(PhantomData<E>);
+
+impl<E: Event + Sized> Hash for OnEvent<E> {
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
+        TypeId::of::<E>().hash(hasher)
+    }
+}
+
+impl<E: Event + Sized> Default for OnEvent<E> {
+    fn default() -> Self {
+        Self(PhantomData::default())
+    }
+}
+
+impl<E: Event + Sized> Debug for OnEvent<E> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Self::type_id(self).fmt(f)
+    }
+}
+
+impl<E: Event + Sized> Clone for OnEvent<E> {
+    fn clone(&self) -> Self {
+        Self(PhantomData::default())
+    }
+}
+
+impl<E: Event + Sized> PartialEq<Self> for OnEvent<E> {
+    fn eq(&self, other: &Self) -> bool {
+        true
+    }
+}
+
+impl<E: Event + Sized> Eq for OnEvent<E> {
+
+}
+
+pub trait EventScheduler: Event + Sized {
+    fn setup_in_world(world: &mut World) {
+        world.init_resource::<Events<Self>>();
+        let mut schedules = world.get_resource_or_insert_with(|| Schedules::default());
+        schedules.add_systems(EventTriggeredSchedules, (|world: &mut World| {
+            eprintln!("Trying to run schedule");
+            let _ = world.try_run_schedule(OnEvent::<Self>::default());
+        }).run_if(|mut event: EventReader<Self>| {
+            if event.is_empty() {
+                eprintln!("No Event");
+                return false;
+            }
+            eprintln!("Yes Event");
+            event.clear();
+            true
+        }));
+    }
+
+    fn on() -> OnEvent<Self> {
+        OnEvent::default()
+    }
+}
+
+impl<E: Event + Sized> EventScheduler for E {
+
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::schedule::Schedules;
     use crate::system::assert_is_read_only_system;
 
     use super::*;
@@ -1540,5 +1613,29 @@ mod tests {
             assert_eq!(observed, HashSet::from_iter(0..100));
         });
         schedule.run(&mut world);
+    }
+
+    #[derive(Resource, Debug, Default)]
+    struct ScheduleCounter(u32);
+
+    #[test]
+    fn type_based_event_scheduler_can_run_systems() {
+        let mut world = World::new();
+        world.init_resource::<Schedules>();
+        world.init_resource::<ScheduleCounter>();
+
+        TestEvent::setup_in_world(&mut world);
+
+        let mut schedules = world.resource_mut::<Schedules>();
+
+        schedules.add_systems(TestEvent::on(), |mut counter: ResMut<ScheduleCounter>| counter.0 += 1);
+
+        world.send_event(TestEvent { i: 1 });
+
+        assert_eq!(world.resource::<ScheduleCounter>().0, 0);
+
+        world.run_schedule(EventTriggeredSchedules);
+
+        assert_eq!(world.resource::<ScheduleCounter>().0, 1);
     }
 }
