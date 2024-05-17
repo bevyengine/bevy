@@ -508,7 +508,7 @@ fn update(
                         // shrink data to original image size
                         img_bytes.data = image_data
                             .chunks(aligned_row_bytes)
-                            .flat_map(|row| &row[..row_bytes])
+                            .flat_map(|row| &row[..row_bytes.min(row.len())])
                             .cloned()
                             .collect();
                     }
