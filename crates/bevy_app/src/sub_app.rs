@@ -42,7 +42,7 @@ type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
 /// app.insert_resource(Val(10));
 ///
 /// // Create a sub-app with the same resource and a single schedule.
-/// let mut sub_app = SubApp::new("subapp".into());
+/// let mut sub_app = SubApp::new("subapp");
 /// sub_app.insert_resource(Val(100));
 ///
 /// // Setup an extract function to copy the resource's value in the main world.
@@ -66,13 +66,9 @@ pub struct SubApp {
     name: String,
     /// The data of this application.
     world: World,
-    /// List of plugins that have been added.
-    pub(crate) plugin_registry: PluginRegistry,
     /// The names of plugins that have been added to this app. (used to track duplicates and
     /// already-registered plugins)
     pub(crate) plugin_names: HashSet<String>,
-    /// Panics if an update is attempted while plugins are building.
-    pub(crate) plugin_build_depth: usize,
     /// The schedule that will be run by [`update`](Self::update).
     pub update_schedule: Option<InternedScheduleLabel>,
     /// A function that gives mutable access to two app worlds. This is primarily
@@ -95,25 +91,11 @@ impl SubApp {
         Self {
             name: name.into(),
             world,
-            plugin_registry: PluginRegistry::default(),
             plugin_names: HashSet::default(),
-            plugin_build_depth: 0,
             update_schedule: None,
             extract: None,
         }
 
-    }
-
-    /// This method is a workaround. Each [`SubApp`] can have its own plugins, but [`Plugin`]
-    /// works on an [`App`] as a whole.
-    fn run_as_app<F>(&mut self, f: F)
-    where
-        F: FnOnce(&mut App),
-    {
-        let mut app = App::empty();
-        std::mem::swap(self, &mut app.sub_apps.main);
-        f(&mut app);
-        std::mem::swap(self, &mut app.sub_apps.main);
     }
 
     /// Returns a reference to the [`World`].
@@ -128,10 +110,6 @@ impl SubApp {
 
     /// Runs the default schedule.
     pub fn update(&mut self) {
-        if self.is_building_plugins() {
-            panic!("SubApp::update() was called while a plugin was building.");
-        }
-
         if let Some(label) = self.update_schedule {
             self.world.run_schedule(label);
         }
@@ -369,64 +347,6 @@ impl SubApp {
         }
 
         self
-    }
-
-    /// See [`App::add_plugins`].
-    pub fn add_plugins<M>(&mut self, plugins: impl Plugins<M>) -> &mut Self {
-        self.run_as_app(|app| plugins.add_to_app(app));
-        self
-    }
-
-    /// See [`App::is_plugin_added`].
-    pub fn is_plugin_added<T>(&self) -> bool
-    where
-        T: Plugin,
-    {
-        self.plugin_names.contains(std::any::type_name::<T>())
-    }
-
-    /// See [`App::get_added_plugins`].
-    pub fn get_added_plugins<T>(&self) -> Vec<&T>
-    where
-        T: Plugin,
-    {
-        self.plugin_registry.get_all()
-    }
-
-    pub fn take_plugin_registry(&mut self) -> PluginRegistry
-    {
-        std::mem::replace(&mut self.plugin_registry, PluginRegistry::default())
-    }
-
-    pub fn insert_plugin_registry(&mut self, plugin_registry: PluginRegistry)
-    {
-        self.plugin_registry.merge(plugin_registry);
-    }
-
-    /// Returns `true` if there is no plugin in the middle of being built.
-    pub(crate) fn is_building_plugins(&self) -> bool {
-        self.plugin_build_depth > 0
-    }
-
-    /// Return the state of plugins.
-    pub fn update_plugins(&mut self, sub_apps: SubApps) {
-        let mut plugin_registry = self.take_plugin_registry();
-
-        self.plugin_build_depth += 1;
-        println!("Before {} {}", self.name, plugin_registry.len());
-        self.run_as_app(|app| {
-            plugin_registry.update(app);
-        });
-        println!("After {} {}", self.name, plugin_registry.len());
-        self.plugin_build_depth -= 1;
-
-        self.insert_plugin_registry(plugin_registry);
-    }
-
-    /// Return the state of plugins.
-    #[inline]
-    pub fn plugins_state(&self) -> PluginsState {
-        self.plugin_registry.state()
     }
 
     /// See [`App::register_type`].

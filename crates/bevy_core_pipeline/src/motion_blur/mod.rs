@@ -131,11 +131,14 @@ impl Plugin for MotionBlurPlugin {
             ExtractComponentPlugin::<MotionBlur>::default(),
             UniformComponentPlugin::<MotionBlur>::default(),
         ));
+    }
 
+    fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
+        render_app.init_resource::<pipeline::MotionBlurPipeline>();
         render_app
             .init_resource::<SpecializedRenderPipelines<pipeline::MotionBlurPipeline>>()
             .add_systems(
@@ -156,13 +159,5 @@ impl Plugin for MotionBlurPlugin {
                     Node3d::Bloom, // we want blurred areas to bloom and tonemap properly.
                 ),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<pipeline::MotionBlurPipeline>();
     }
 }

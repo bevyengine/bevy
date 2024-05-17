@@ -73,6 +73,20 @@ impl PluginRegistry {
             .collect()
     }
 
+    pub fn contains<T: Plugin>(&self) -> bool {
+        self.get::<T>().is_some()
+    }
+
+    pub fn get<T: Plugin>(&self) -> Option<&T> {
+        for p in &self.plugins {
+            if let Some(t) = p.downcast_ref() {
+                return Some(t);
+            }
+        }
+
+        None
+    }
+
     pub fn len(&self) -> usize {
         self.plugins.len()
     }
@@ -147,6 +161,10 @@ mod tests {
     pub struct TestPlugin;
 
     impl Plugin for TestPlugin {
+        fn name(&self) -> &str {
+            "TestPlugin"
+        }
+
         fn init(&self, app: &mut App) {
             let mut res = TestResource::default();
             res.init += 1;
@@ -192,6 +210,7 @@ mod tests {
         assert_eq!(registry.len(), 0);
         assert!(registry.is_empty());
         assert_eq!(registry.state(), PluginsState::None);
+        assert!(!registry.contains::<TestPlugin>());
     }
 
     #[test]
@@ -204,8 +223,12 @@ mod tests {
 
         assert_eq!(registry.state(), PluginsState::Init);
 
+        assert!(registry.contains::<TestPlugin>());
         let plugins = registry.get_all::<TestPlugin>();
         assert_eq!(plugins.len(), 1);
+
+        let plugin = registry.get::<TestPlugin>().unwrap();
+        assert_eq!(plugin.name(), "TestPlugin");
     }
 
     #[test]

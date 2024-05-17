@@ -32,15 +32,7 @@ use super::{BatchMeta, GetBatchData, GetFullBatchData};
 pub struct BatchingPlugin;
 
 impl Plugin for BatchingPlugin {
-    fn build(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.add_systems(
-            Render,
-            write_indirect_parameters_buffer.in_set(RenderSet::PrepareResourcesFlush),
-        );
+    fn build(&self, _app: &mut App) {
     }
 
     fn ready(&self, app: &App) -> bool {
@@ -57,6 +49,10 @@ impl Plugin for BatchingPlugin {
         };
 
         render_app.init_resource::<GpuPreprocessingSupport>();
+        render_app.add_systems(
+            Render,
+            write_indirect_parameters_buffer.in_set(RenderSet::PrepareResourcesFlush),
+        );
     }
 }
 

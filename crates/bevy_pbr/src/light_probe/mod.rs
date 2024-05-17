@@ -323,12 +323,13 @@ impl Plugin for LightProbePlugin {
     }
 
     fn finish(&self, app: &mut App) {
+        app.add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new());
+
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
         render_app
-            .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
             .init_resource::<LightProbesBuffer>()
             .add_systems(ExtractSchedule, gather_light_probes::<EnvironmentMapLight>)
             .add_systems(ExtractSchedule, gather_light_probes::<IrradianceVolume>)

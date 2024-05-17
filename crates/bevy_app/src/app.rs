@@ -1,4 +1,4 @@
-use crate::{First, Main, MainSchedulePlugin, Plugin, Plugins, PluginsState, SubApp, SubApps};
+use crate::{First, Main, MainSchedulePlugin, Plugin, PluginRegistry, Plugins, PluginsState, SubApp, SubApps};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     event::{event_update_system, ManualEventReader},
@@ -64,6 +64,9 @@ pub(crate) enum AppError {
 /// }
 /// ```
 pub struct App {
+    /// List of plugins that have been added.
+    pub(crate) plugin_registry: PluginRegistry,
+
     pub(crate) sub_apps: SubApps,
     /// The function that will manage the app's lifecycle.
     ///
@@ -73,6 +76,9 @@ pub struct App {
     /// [`WinitPlugin`]: https://docs.rs/bevy/latest/bevy/winit/struct.WinitPlugin.html
     /// [`ScheduleRunnerPlugin`]: https://docs.rs/bevy/latest/bevy/app/struct.ScheduleRunnerPlugin.html
     pub(crate) runner: RunnerFn,
+
+    /// Panics if an update is attempted while plugins are building.
+    pub(crate) plugin_build_depth: usize,
 }
 
 impl Debug for App {
@@ -117,11 +123,13 @@ impl App {
     /// Use this constructor if you want to customize scheduling, exit handling, cleanup, etc.
     pub fn empty() -> App {
         Self {
+            plugin_registry: PluginRegistry::default(),
             sub_apps: SubApps {
                 main: SubApp::new("main"),
                 sub_apps: HashMap::new(),
             },
             runner: Box::new(run_once),
+            plugin_build_depth: 0,
         }
     }
 
@@ -201,33 +209,37 @@ impl App {
     /// useful for situations where you want to use [`App::update`].
     #[inline]
     pub fn update_plugins(&mut self) {
-        self.main_mut().update_plugins();
+        let mut plugin_registry = self.take_plugin_registry();
 
-        // overall state is the earliest state of any sub-app
-        self.sub_apps.iter_mut().skip(1).for_each(|s| {
-            s.update_plugins();
-        });
+        self.plugin_build_depth += 1;
+        println!("Before {}", plugin_registry.len());
+        plugin_registry.update(self);
+        println!("After {}", plugin_registry.len());
+        self.plugin_build_depth -= 1;
+
+        self.insert_plugin_registry(plugin_registry);
+    }
+
+    pub fn take_plugin_registry(&mut self) -> PluginRegistry
+    {
+        std::mem::replace(&mut self.plugin_registry, PluginRegistry::default())
+    }
+
+    pub fn insert_plugin_registry(&mut self, plugin_registry: PluginRegistry)
+    {
+        self.plugin_registry.merge(plugin_registry);
     }
 
     /// Returns the state of all plugins. This is usually called by the event loop, but can be
     /// useful for situations where you want to use [`App::update`].
     #[inline]
     pub fn plugins_state(&self) -> PluginsState {
-        let mut overall_plugins_state = self.main().plugins_state();
-
-        // overall state is the earliest state of any sub-app
-        self.sub_apps.iter().skip(1).for_each(|s| {
-            if s.plugins_state() != PluginsState::None {
-                overall_plugins_state = overall_plugins_state.min(s.plugins_state());
-            }
-        });
-
-        overall_plugins_state
+        self.plugin_registry.state()
     }
 
     /// Returns `true` if any of the sub-apps are building plugins.
     pub(crate) fn is_building_plugins(&self) -> bool {
-        self.sub_apps.iter().any(|s| s.is_building_plugins())
+        self.plugin_build_depth > 0
     }
 
     #[cfg(feature = "bevy_state")]
@@ -466,15 +478,15 @@ impl App {
             })?;
         }
 
-        let mut plugin_registry = self.main_mut().take_plugin_registry();
-        println!("Before: {}", plugin_registry.len());
+        let mut plugin_registry = self.take_plugin_registry();
+        println!("Before {:p}: {}", self, plugin_registry.len());
 
         plugin_registry.add(plugin);
 
         plugin_registry.update(self);
         println!("After: {}", plugin_registry.len());
 
-        self.main_mut().insert_plugin_registry(plugin_registry);
+        self.insert_plugin_registry(plugin_registry);
 
         Ok(self)
     }
@@ -484,7 +496,7 @@ impl App {
     where
         T: Plugin,
     {
-        self.main().is_plugin_added::<T>()
+        self.plugin_registry.contains::<T>()
     }
 
     /// Returns a vector of references to all plugins of type `T` that have been added.
@@ -510,7 +522,7 @@ impl App {
     where
         T: Plugin,
     {
-        self.main().get_added_plugins::<T>()
+        self.plugin_registry.get_all()
     }
 
     /// Installs a [`Plugin`] collection.
@@ -670,12 +682,13 @@ impl App {
 
     /// Inserts a [`SubApp`] with the given label.
     pub fn insert_sub_app(&mut self, label: impl AppLabel, sub_app: SubApp) {
-        println!("********************* Inserting {:?}", label);
+        println!("********************* Inserting {:?} into {self:p}", label);
         self.sub_apps.sub_apps.insert(label.intern(), sub_app);
     }
 
     /// Removes the [`SubApp`] with the given label, if it exists.
     pub fn remove_sub_app(&mut self, label: impl AppLabel) -> Option<SubApp> {
+        println!("********************* Removing {:?} from {self:p}", label);
         self.sub_apps.sub_apps.remove(&label.intern())
     }
 
