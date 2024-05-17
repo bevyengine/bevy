@@ -139,7 +139,7 @@ fn setup(
     AsyncComputeTaskPool::get()
         .spawn(async move {
             future.await;
-            *loading_state.lock().unwrap() = "Loading Complete!".to_owned();
+            "Loading Complete!".clone_into(&mut loading_state.lock().unwrap());
         })
         .detach();
 
@@ -241,5 +241,5 @@ fn wait_on_load(
 }
 
 fn get_async_loading_state(state: Res<AsyncLoadingState>, mut text: Query<&mut Text>) {
-    text.single_mut().sections[0].value = state.0.lock().unwrap().clone();
+    state.0.lock().unwrap().clone_into(&mut text.single_mut().sections[0].value);
 }
