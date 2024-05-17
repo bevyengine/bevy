@@ -210,6 +210,7 @@ fn wait_on_load(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    // If our barrier isn't ready, return early and wait another cycle
     if barrier.map(|b| b.is_ready()) != Some(true) {
         return;
     };
