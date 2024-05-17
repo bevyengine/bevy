@@ -162,7 +162,7 @@ impl From<Cone> for Mesh {
 mod tests {
     use bevy_math::{primitives::Cone, Vec2};
 
-    use crate::mesh::{Mesh, Meshable, VertexAttributeValues};
+    use crate::mesh::{primitives::MeshBuilder, Mesh, Meshable, VertexAttributeValues};
 
     /// Rounds floats to handle floating point error in tests.
     fn round_floats<const N: usize>(points: &mut [[f32; N]]) {

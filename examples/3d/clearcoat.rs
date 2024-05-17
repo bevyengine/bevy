@@ -25,7 +25,9 @@ use bevy::{
     math::vec3,
     pbr::{CascadeShadowConfig, Cascades, CascadesVisibleEntities},
     prelude::*,
-    render::{primitives::CascadesFrusta, texture::ImageLoaderSettings},
+    render::{
+        mesh::primitives::MeshBuilder, primitives::CascadesFrusta, texture::ImageLoaderSettings,
+    },
 };
 
 /// The size of each sphere.
