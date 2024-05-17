@@ -1,8 +1,8 @@
 use crate::{
     io::{AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader},
     meta::{
-        loader_settings_meta_transform, meta_transform_settings, AssetHash, AssetMeta, AssetMetaDyn,
-        ProcessedInfoMinimal, Settings,
+        loader_settings_meta_transform, meta_transform_settings, AssetHash, AssetMeta,
+        AssetMetaDyn, ProcessedInfoMinimal, Settings,
     },
     path::AssetPath,
     Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, LoadedUntypedAsset,
@@ -186,7 +186,7 @@ impl<A: Asset> LoadedAsset<A> {
     }
 
     /// Iterate over all labels for "labeled assets" in the loaded asset
-    pub fn iter_labels(&self) -> impl Iterator<Item=&str> {
+    pub fn iter_labels(&self) -> impl Iterator<Item = &str> {
         self.labeled_assets.keys().map(|s| &**s)
     }
 }
@@ -257,15 +257,13 @@ impl ErasedLoadedAsset {
     /// the original type-erased asset is returned.
     pub fn downcast<A: Asset>(mut self) -> Result<LoadedAsset<A>, ErasedLoadedAsset> {
         match self.value.downcast::<A>() {
-            Ok(value) => {
-                Ok(LoadedAsset {
-                    value: *value,
-                    dependencies: self.dependencies,
-                    loader_dependencies: self.loader_dependencies,
-                    labeled_assets: self.labeled_assets,
-                    meta: self.meta,
-                })
-            }
+            Ok(value) => Ok(LoadedAsset {
+                value: *value,
+                dependencies: self.dependencies,
+                loader_dependencies: self.loader_dependencies,
+                labeled_assets: self.labeled_assets,
+                meta: self.meta,
+            }),
             Err(value) => {
                 self.value = value;
                 Err(self)
@@ -596,7 +594,8 @@ impl<'a> LoadContext<'a> {
                 .get_meta_loader_and_reader(&path, Some(TypeId::of::<A>()))
                 .await
                 .map_err(to_error)?;
-            let untyped_asset = self.asset_server
+            let untyped_asset = self
+                .asset_server
                 .load_with_meta_loader_and_reader(
                     &path,
                     meta,
@@ -607,13 +606,14 @@ impl<'a> LoadContext<'a> {
                 )
                 .await
                 .map_err(to_error)?;
-            untyped_asset.downcast::<A>()
-                .map_err(|_| to_error(AssetLoadError::RequestedHandleTypeMismatch {
+            untyped_asset.downcast::<A>().map_err(|_| {
+                to_error(AssetLoadError::RequestedHandleTypeMismatch {
                     path: path.clone(),
                     requested: TypeId::of::<A>(),
                     actual_asset_name: loader.asset_type_name(),
                     loader_name: loader.type_name(),
-                }))?
+                })
+            })?
         };
         let info = loaded_asset
             .meta
@@ -656,7 +656,8 @@ impl<'a> LoadContext<'a> {
                 .await
                 .map_err(to_error)?;
             meta_transform_settings(&mut *meta, &settings);
-            let untyped_asset = self.asset_server
+            let untyped_asset = self
+                .asset_server
                 .load_with_meta_loader_and_reader(
                     &path,
                     meta,
@@ -667,13 +668,14 @@ impl<'a> LoadContext<'a> {
                 )
                 .await
                 .map_err(to_error)?;
-            untyped_asset.downcast::<A>()
-                .map_err(|_| to_error(AssetLoadError::RequestedHandleTypeMismatch {
+            untyped_asset.downcast::<A>().map_err(|_| {
+                to_error(AssetLoadError::RequestedHandleTypeMismatch {
                     path: path.clone(),
                     requested: TypeId::of::<A>(),
                     actual_asset_name: loader.asset_type_name(),
                     loader_name: loader.type_name(),
-                }))?
+                })
+            })?
         };
         let info = loaded_asset
             .meta
@@ -771,13 +773,16 @@ impl<'a> LoadContext<'a> {
                 self.populate_hashes,
             )
             .await
-            .and_then(|asset| asset.downcast()
-                .map_err(|_| AssetLoadError::RequestedHandleTypeMismatch {
-                    path: path.clone(),
-                    requested: TypeId::of::<A>(),
-                    actual_asset_name: loader.asset_type_name(),
-                    loader_name: loader.type_name(),
-                }))
+            .and_then(|asset| {
+                asset
+                    .downcast()
+                    .map_err(|_| AssetLoadError::RequestedHandleTypeMismatch {
+                        path: path.clone(),
+                        requested: TypeId::of::<A>(),
+                        actual_asset_name: loader.asset_type_name(),
+                        loader_name: loader.type_name(),
+                    })
+            })
             .map_err(|error| LoadDirectError {
                 dependency: path.clone(),
                 error,
@@ -839,13 +844,16 @@ impl<'a> LoadContext<'a> {
                 self.populate_hashes,
             )
             .await
-            .and_then(|asset| asset.downcast()
-                .map_err(|_| AssetLoadError::RequestedHandleTypeMismatch {
-                    path: path.clone(),
-                    requested: TypeId::of::<A>(),
-                    actual_asset_name: loader.asset_type_name(),
-                    loader_name: loader.type_name(),
-                }))
+            .and_then(|asset| {
+                asset
+                    .downcast()
+                    .map_err(|_| AssetLoadError::RequestedHandleTypeMismatch {
+                        path: path.clone(),
+                        requested: TypeId::of::<A>(),
+                        actual_asset_name: loader.asset_type_name(),
+                        loader_name: loader.type_name(),
+                    })
+            })
             .map_err(|error| LoadDirectError {
                 dependency: path.clone(),
                 error,

@@ -150,9 +150,11 @@ impl AssetLoader for CoolTextLoader {
             base_text.push_str(&loaded.get().0);
         }
         for (path, settings_override) in ron.dependencies_with_settings {
-            let loaded = load_context.load_direct_with_settings::<Text, _>(&path, move |settings| {
-                *settings = settings_override.clone();
-            }).await?;
+            let loaded = load_context
+                .load_direct_with_settings::<Text, _>(&path, move |settings| {
+                    *settings = settings_override.clone();
+                })
+                .await?;
             base_text.push_str(&loaded.get().0);
         }
         Ok(CoolText {
