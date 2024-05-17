@@ -1031,6 +1031,7 @@ fn collect_meshes_for_gpu_building(
     }
 }
 
+/// All data needed to construct a pipeline for rendering 3D meshes.
 #[derive(Resource, Clone)]
 pub struct MeshPipeline {
     /// A reference to all the mesh pipeline view layouts.
@@ -1069,6 +1070,7 @@ impl FromWorld for MeshPipeline {
         )> = SystemState::new(world);
         let (render_device, default_sampler, render_queue, view_layouts) =
             system_state.get_mut(world);
+
         let clustered_forward_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
 

@@ -432,6 +432,11 @@ impl_param_set!();
 /// ```
 ///
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a `Resource`",
+    label = "invalid `Resource`",
+    note = "consider annotating `{Self}` with `#[derive(Resource)]`"
+)]
 pub trait Resource: Send + Sync + 'static {}
 
 // SAFETY: Res only reads a single World resource

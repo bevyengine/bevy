@@ -70,6 +70,10 @@ use std::fmt::Debug;
 /// ```
 ///
 /// [utility]: crate::utility
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not provide type information through reflection",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+)]
 pub trait Typed: Reflect + TypePath {
     /// Returns the compile-time [info] for the underlying type.
     ///
