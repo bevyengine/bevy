@@ -125,7 +125,7 @@ impl Plugin for ImagePlugin {
         app.preregister_asset_loader::<ImageLoader>(IMG_FILE_EXTENSIONS);
     }
 
-    fn finish(&self, app: &mut App) {
+    fn finalize(&self, app: &mut App) {
         #[cfg(any(
             feature = "png",
             feature = "dds",

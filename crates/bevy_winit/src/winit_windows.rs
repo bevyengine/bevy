@@ -11,7 +11,10 @@ use winit::{
     dpi::{LogicalSize, PhysicalPosition},
     event_loop::EventLoopWindowTarget,
     monitor::{MonitorHandle, VideoMode},
-    window::{CursorGrabMode as WinitCursorGrabMode, Fullscreen, WindowId, Window as WinitWindow, WindowBuilder, WindowAttributes}
+    window::{
+        CursorGrabMode as WinitCursorGrabMode, Fullscreen, Window as WinitWindow, WindowBuilder,
+        WindowId,
+    },
 };
 
 use crate::{
@@ -53,9 +56,8 @@ impl WinitWindows {
         winit_window_builder = winit_window_builder.with_visible(false);
 
         winit_window_builder = match window.mode {
-            WindowMode::BorderlessFullscreen => winit_window_builder.with_fullscreen(Some(
-                Fullscreen::Borderless(event_loop.primary_monitor()),
-            )),
+            WindowMode::BorderlessFullscreen => winit_window_builder
+                .with_fullscreen(Some(Fullscreen::Borderless(event_loop.primary_monitor()))),
             mode @ (WindowMode::Fullscreen | WindowMode::SizedFullscreen) => {
                 if let Some(primary_monitor) = event_loop.primary_monitor() {
                     let videomode = match mode {
@@ -68,8 +70,7 @@ impl WinitWindows {
                         _ => unreachable!(),
                     };
 
-                    winit_window_builder
-                        .with_fullscreen(Some(Fullscreen::Exclusive(videomode)))
+                    winit_window_builder.with_fullscreen(Some(Fullscreen::Exclusive(videomode)))
                 } else {
                     warn!("Could not determine primary monitor, ignoring exclusive fullscreen request for window {:?}", window.title);
                     winit_window_builder
@@ -226,7 +227,11 @@ impl WinitWindows {
         self.add_window(entity, winit_window)
     }
 
-    fn add_window(&mut self, entity: Entity, winit_window: WinitWindow) -> &WindowWrapper<WinitWindow> {
+    fn add_window(
+        &mut self,
+        entity: Entity,
+        winit_window: WinitWindow,
+    ) -> &WindowWrapper<WinitWindow> {
         self.entity_to_winit.insert(entity, winit_window.id());
         self.winit_to_entity.insert(winit_window.id(), entity);
 
@@ -253,10 +258,7 @@ impl WinitWindows {
     /// Remove a window from winit.
     ///
     /// This should mostly just be called when the window is closing.
-    pub fn remove_window(
-        &mut self,
-        entity: Entity,
-    ) -> Option<WindowWrapper<WinitWindow>> {
+    pub fn remove_window(&mut self, entity: Entity) -> Option<WindowWrapper<WinitWindow>> {
         let winit_id = self.entity_to_winit.remove(&entity)?;
         self.winit_to_entity.remove(&winit_id);
         self.windows.remove(&winit_id)
@@ -266,11 +268,7 @@ impl WinitWindows {
 /// Gets the "best" video mode which fits the given dimensions.
 ///
 /// The heuristic for "best" prioritizes width, height, and refresh rate in that order.
-pub fn get_fitting_videomode(
-    monitor: &MonitorHandle,
-    width: u32,
-    height: u32,
-) -> VideoMode {
+pub fn get_fitting_videomode(monitor: &MonitorHandle, width: u32, height: u32) -> VideoMode {
     let mut modes = monitor.video_modes().collect::<Vec<_>>();
 
     fn abs_diff(a: u32, b: u32) -> u32 {
@@ -319,6 +317,26 @@ pub fn get_best_videomode(monitor: &MonitorHandle) -> VideoMode {
     modes.first().unwrap().clone()
 }
 
+fn handle_cursor(window: &Window, winit_window: &WinitWindow) {
+    // Do not set the grab mode on window creation if it's none. It can fail on mobile.
+    if window.cursor.grab_mode != CursorGrabMode::None {
+        attempt_grab(&winit_window, window.cursor.grab_mode);
+    }
+
+    winit_window.set_cursor_visible(window.cursor.visible);
+
+    // Do not set the cursor hittest on window creation if it's false, as it will always fail on
+    // some platforms and log an unfixable warning.
+    if !window.cursor.hit_test {
+        if let Err(err) = winit_window.set_cursor_hittest(window.cursor.hit_test) {
+            warn!(
+                "Could not set cursor hit test for window {:?}: {:?}",
+                window.title, err
+            );
+        }
+    }
+}
+
 pub(crate) fn attempt_grab(winit_window: &WinitWindow, grab_mode: CursorGrabMode) {
     let grab_result = match grab_mode {
         CursorGrabMode::None => winit_window.set_cursor_grab(WinitCursorGrabMode::None),
@@ -337,26 +355,6 @@ pub(crate) fn attempt_grab(winit_window: &WinitWindow, grab_mode: CursorGrabMode
         };
 
         bevy_utils::tracing::error!("Unable to {} cursor: {}", err_desc, err);
-    }
-}
-
-fn handle_cursor(window: &Window, winit_window: &WinitWindow) {
-// Do not set the grab mode on window creation if it's none. It can fail on mobile.
-    if window.cursor.grab_mode != CursorGrabMode::None {
-        attempt_grab(&winit_window, window.cursor.grab_mode);
-    }
-
-    winit_window.set_cursor_visible(window.cursor.visible);
-
-    // Do not set the cursor hittest on window creation if it's false, as it will always fail on
-    // some platforms and log an unfixable warning.
-    if !window.cursor.hit_test {
-        if let Err(err) = winit_window.set_cursor_hittest(window.cursor.hit_test) {
-            warn!(
-                    "Could not set cursor hit test for window {:?}: {:?}",
-                    window.title, err
-                );
-        }
     }
 }
 

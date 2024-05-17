@@ -62,7 +62,7 @@ impl Plugin for GltfPlugin {
             .preregister_asset_loader::<GltfLoader>(&["gltf", "glb"]);
     }
 
-    fn finish(&self, app: &mut App) {
+    fn finalize(&self, app: &mut App) {
         let supported_compressed_formats = match app.world().get_resource::<RenderDevice>() {
             Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
             None => CompressedImageFormats::NONE,

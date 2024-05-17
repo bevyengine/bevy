@@ -60,7 +60,7 @@ impl Plugin for GpuReadbackPlugin {
 
     // The render device is only accessible inside finish().
     // So we need to initialize render resources here.
-    fn finish(&self, app: &mut App) {
+    fn finalize(&self, app: &mut App) {
         let (s, r) = crossbeam_channel::unbounded();
         app.insert_resource(MainWorldReceiver(r));
 

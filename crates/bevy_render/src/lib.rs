@@ -359,7 +359,7 @@ impl Plugin for RenderPlugin {
             .unwrap_or(true)
     }
 
-    fn finish(&self, app: &mut App) {
+    fn finalize(&self, app: &mut App) {
         load_internal_asset!(app, MATHS_SHADER_HANDLE, "maths.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,

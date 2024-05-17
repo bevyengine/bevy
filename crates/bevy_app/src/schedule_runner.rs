@@ -1,4 +1,8 @@
-use crate::{app::{App, AppExit}, plugin::Plugin, PluginsState};
+use crate::{
+    app::{App, AppExit},
+    plugin::Plugin,
+    PluginRegistryState,
+};
 use bevy_utils::{Duration, Instant};
 
 #[cfg(target_arch = "wasm32")]
@@ -67,12 +71,7 @@ impl Plugin for ScheduleRunnerPlugin {
     fn build(&self, app: &mut App) {
         let run_mode = self.run_mode;
         app.set_runner(move |mut app: App| {
-            while app.plugins_state() != PluginsState::Done {
-                app.update_plugins();
-
-                #[cfg(not(target_arch = "wasm32"))]
-                bevy_tasks::tick_global_task_pools_on_main_thread();
-            }
+            app.update_and_clean_plugins();
 
             match run_mode {
                 RunMode::Once => {

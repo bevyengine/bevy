@@ -33,7 +33,7 @@ impl Plugin for ColorMaterialPlugin {
         app.world().contains_resource::<Assets<ColorMaterial>>()
     }
 
-    fn finish(&self, app: &mut App) {
+    fn finalize(&self, app: &mut App) {
         app.world_mut()
             .resource_mut::<Assets<ColorMaterial>>()
             .insert(

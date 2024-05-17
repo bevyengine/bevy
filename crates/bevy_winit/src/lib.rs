@@ -12,24 +12,6 @@
 //! The app's [runner](bevy_app::App::runner) is set by `WinitPlugin` and handles the `winit` [`EventLoop`].
 //! See `winit_runner` for details.
 
-use winit::event_loop::EventLoop;
-#[cfg(target_os = "android")]
-pub use winit::platform::android::activity as android_activity;
-
-use bevy_a11y::AccessibilityRequested;
-use bevy_app::{App, Last, Plugin};
-use bevy_ecs::prelude::*;
-use bevy_log::info;
-#[allow(deprecated)]
-use bevy_window::{exit_on_all_closed, Window, WindowCreated, WindowResized};
-pub use system::create_windows;
-use system::{changed_windows, despawn_windows};
-pub use winit_config::*;
-pub use winit_event::*;
-pub use winit_windows::*;
-
-use crate::accessibility::{AccessKitAdapters, AccessKitPlugin};
-
 pub mod accessibility;
 mod converters;
 mod system;
@@ -40,14 +22,16 @@ mod winit_windows;
 use std::sync::mpsc::{sync_channel, SyncSender};
 
 use approx::relative_eq;
+use bevy_a11y::AccessibilityRequested;
 use bevy_utils::Instant;
-use system::{CachedWindow};
+pub use system::create_windows;
+use system::{changed_windows, despawn_windows, CachedWindow};
 use winit::dpi::{LogicalSize, PhysicalSize};
 pub use winit_config::*;
 pub use winit_event::*;
 pub use winit_windows::*;
 
-use bevy_app::{AppExit, PluginsState};
+use bevy_app::{App, AppExit, Last, Plugin, PluginRegistryState};
 use bevy_ecs::event::ManualEventReader;
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemState;
@@ -56,15 +40,13 @@ use bevy_input::{
     touchpad::{TouchpadMagnify, TouchpadRotate},
 };
 use bevy_math::{ivec2, DVec2, Vec2};
-#[cfg(not(target_arch = "wasm32"))]
-use bevy_tasks::tick_global_task_pools_on_main_thread;
 use bevy_utils::tracing::{error, trace, warn};
 #[allow(deprecated)]
 use bevy_window::{
-    ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved,
-    FileDragAndDrop, Ime, ReceivedCharacter, RequestRedraw,
-    WindowBackendScaleFactorChanged, WindowCloseRequested, WindowDestroyed,
-    WindowFocused, WindowMoved, WindowOccluded, WindowScaleFactorChanged,
+    exit_on_all_closed, ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved,
+    FileDragAndDrop, Ime, ReceivedCharacter, RequestRedraw, Window,
+    WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowDestroyed,
+    WindowFocused, WindowMoved, WindowOccluded, WindowResized, WindowScaleFactorChanged,
     WindowThemeChanged,
 };
 #[cfg(target_os = "android")]
@@ -76,10 +58,10 @@ pub use winit::platform::android::activity as android_activity;
 use winit::event::StartCause;
 use winit::{
     event::{self, DeviceEvent, Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoopBuilder, EventLoopWindowTarget},
+    event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopWindowTarget},
 };
 
-use crate::accessibility::{WinitActionHandlers};
+use crate::accessibility::{AccessKitAdapters, AccessKitPlugin, WinitActionHandlers};
 
 use crate::converters::convert_winit_theme;
 
@@ -111,7 +93,6 @@ pub struct WinitPlugin {
 
 impl Plugin for WinitPlugin {
     fn init(&self, app: &mut App) {
-        info!("pre_build");
         let mut event_loop_builder = EventLoopBuilder::<UserEvent>::with_user_event();
 
         // linux check is needed because x11 might be enabled on other platforms.
@@ -186,6 +167,7 @@ impl AppSendEvent for Vec<WinitEvent> {
 
 /// Persistent state that is used to run the [`App`] according to the current
 /// [`UpdateMode`].
+#[derive(Debug)]
 struct WinitAppRunnerState {
     /// Current activity state of the app.
     activity_state: UpdateState,
@@ -353,14 +335,6 @@ fn handle_winit_event(
     #[cfg(feature = "trace")]
     let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
 
-    if app.plugins_state() != PluginsState::Done {
-        app.update_plugins();
-
-        #[cfg(not(target_arch = "wasm32"))]
-        tick_global_task_pools_on_main_thread();
-        return;
-    }
-
     // create any new windows
     // (even if app did not update, some may have been created by plugin setup)
     create_windows(event_loop, create_window.get_mut(app.world_mut()));
@@ -368,6 +342,16 @@ fn handle_winit_event(
 
     match event {
         Event::AboutToWait => {
+            if app.plugins_state() < PluginRegistryState::Done {
+                app.update_plugins();
+
+                if app.plugins_state() == PluginRegistryState::Done {
+                    app.cleanup_plugins();
+                }
+
+                return;
+            }
+
             if let Some(app_redraw_events) = app.world().get_resource::<Events<RequestRedraw>>() {
                 if redraw_event_reader.read(app_redraw_events).last().is_some() {
                     runner_state.redraw_requested = true;
@@ -736,9 +720,6 @@ fn handle_winit_event(
                 WindowEvent::Destroyed => {
                     winit_events.send(WindowDestroyed { window });
                 }
-                WindowEvent::RedrawRequested => {
-                    run_app_update(runner_state, app, winit_events);
-                }
                 _ => {}
             }
 
@@ -813,7 +794,6 @@ fn run_app_update(
 
     forward_winit_events(winit_events, app);
 
-    info!("***************** App update");
     app.update();
 }
 

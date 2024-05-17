@@ -159,7 +159,7 @@ impl Plugin for CASPlugin {
         }
     }
 
-    fn finish(&self, app: &mut App) {
+    fn finalize(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };

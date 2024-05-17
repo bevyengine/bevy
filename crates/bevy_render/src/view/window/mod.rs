@@ -40,15 +40,10 @@ impl Plugin for WindowRenderPlugin {
     }
 
     fn ready(&self, app: &App) -> bool {
-        let Some(render_app) = app.get_sub_app(RenderApp) else {
-            return false;
-        };
-
-        app.world().contains_resource::<RenderDevice>()
-        // app.world().contains_resource::<RenderDevice>() && render_app.world().contains_resource::<ScreenshotManager>()
+        app.contains_sub_app(RenderApp) && app.world().contains_resource::<RenderDevice>()
     }
 
-    fn finish(&self, app: &mut App) {
+    fn finalize(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };

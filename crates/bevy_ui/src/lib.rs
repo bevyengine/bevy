@@ -181,7 +181,7 @@ impl Plugin for UiPlugin {
         build_ui_render(app);
     }
 
-    fn finish(&self, app: &mut App) {
+    fn finalize(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };

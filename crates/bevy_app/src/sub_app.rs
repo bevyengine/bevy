@@ -1,4 +1,4 @@
-use crate::{App, AppLabel, InternedAppLabel, Plugin, Plugins, PluginsState, Startup};
+use crate::{App, AppLabel, InternedAppLabel, Plugin, PluginRegistryState, Plugins, Startup};
 use bevy_ecs::{
     event::EventRegistry,
     prelude::*,
@@ -11,11 +11,11 @@ use bevy_state::{
     state::{setup_state_transitions_in_world, FreelyMutableState},
 };
 
+use crate::plugin_registry::{PluginRegistry, PluginState};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{HashMap, HashSet};
 use std::fmt::Debug;
-use crate::plugin_registry::{PluginRegistry, PluginState};
 
 type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
 
@@ -95,7 +95,6 @@ impl SubApp {
             update_schedule: None,
             extract: None,
         }
-
     }
 
     /// Returns a reference to the [`World`].

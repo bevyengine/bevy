@@ -132,7 +132,7 @@ impl Plugin for ViewPlugin {
         app.world().contains_resource::<RenderDevice>()
     }
 
-    fn finish(&self, app: &mut App) {
+    fn finalize(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<ViewUniforms>();
         }

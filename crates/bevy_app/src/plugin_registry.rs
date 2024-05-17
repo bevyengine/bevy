@@ -1,12 +1,14 @@
 use bevy_utils::HashMap;
+use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 
 use crate::App;
 use crate::Plugin;
 
 /// Plugins state in the application
-#[derive(PartialEq, Eq, Debug, Clone, Copy, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PluginState {
     /// Plugin is not initialized.
+    #[default]
     Idle,
     /// Plugin is initialized.
     Init,
@@ -14,8 +16,10 @@ pub enum PluginState {
     Building,
     /// Plugin is not yet ready.
     NotYetReady,
-    /// Plugin configuration is finished.
-    Finished,
+    /// Plugin configuration is finishing.
+    Finishing,
+    /// Plugin configuration is completed.
+    Done,
     /// Plugin resources are cleaned up.
     Cleaned,
 }
@@ -27,17 +31,18 @@ impl PluginState {
             Self::Init => Self::Building,
             Self::Building => Self::NotYetReady,
             Self::NotYetReady => Self::NotYetReady,
-            Self::Finished => Self::Cleaned,
-            _ => unreachable!()
+            Self::Finishing => Self::Done,
+            s => unreachable!("Cannot handle {:?} state", s),
         }
     }
 }
 
 /// Plugins state in the application
-#[derive(PartialEq, Eq, Debug, Clone, Copy, PartialOrd, Ord)]
-pub enum PluginsState {
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub enum PluginRegistryState {
+    #[default]
     /// No plugin has been added.
-    None,
+    Idle,
     /// Plugins are initialized.
     Init,
     /// Plugins are being built.
@@ -46,24 +51,32 @@ pub enum PluginsState {
     Finalizing,
     /// Plugins configuration is complete.
     Done,
+    /// Plugins resources are cleaned up.
+    Cleaned,
 }
 
 #[derive(Default)]
 pub struct PluginRegistry {
     plugins: Vec<Box<dyn Plugin>>,
-    states: HashMap<String, PluginState>,
+    plugin_states: HashMap<String, PluginState>,
+    state: PluginRegistryState,
 }
 
 impl PluginRegistry {
+    pub fn state(&self) -> PluginRegistryState {
+        self.state
+    }
+
     pub fn add(&mut self, plugin: Box<dyn Plugin>) {
-        if self.state() >= PluginsState::Finalizing {
+        if self.state() >= PluginRegistryState::Finalizing {
             panic!("Cannot add plugins after the ready state");
         }
 
         let name = plugin.name().to_string();
 
-        self.states.insert(name, PluginState::Idle);
+        self.plugin_states.insert(name, PluginState::Idle);
         self.plugins.push(plugin);
+        self.update_state();
     }
 
     pub fn get_all<T: Plugin>(&self) -> Vec<&T> {
@@ -95,51 +108,94 @@ impl PluginRegistry {
         self.plugins.is_empty()
     }
 
-    pub fn state(&self) -> PluginsState {
-        self.states.values().min().map(|s| {
-            match s {
-                PluginState::Idle | PluginState::Init => PluginsState::Init,
-                PluginState::Building | PluginState::NotYetReady  => PluginsState::Building,
-                PluginState::Finished => PluginsState::Finalizing,
-                PluginState::Cleaned => PluginsState::Done,
-            }
-        }).unwrap_or(PluginsState::None)
+    pub fn plugin_state(&self, name: &str) -> Option<PluginState> {
+        self.plugin_states.get(name).cloned()
     }
 
     pub fn update(&mut self, app: &mut App) {
-        println!("Registry state before: {:?} ({})", self.state(), self.plugins.len());
-
         for plugin in &mut self.plugins {
-            let current_state = self.states.get_mut(plugin.name()).expect("Plugin state must exist");
+            let current_state = self
+                .plugin_states
+                .get_mut(plugin.name())
+                .expect("Plugin state must exist");
 
-            if *current_state < PluginState::Cleaned {
+            if *current_state < PluginState::Done {
                 let mut next_state = current_state.next();
                 if next_state == PluginState::NotYetReady {
                     if !plugin.ready(app) {
-                        println!("Plugin {} not ready yet", plugin.name());
-
                         *current_state = next_state;
                         continue;
                     }
 
-                    next_state = PluginState::Finished;
+                    next_state = PluginState::Finishing;
                 }
-                println!("Updating {} to {next_state:?}", plugin.name());
 
-                plugin.update(app, next_state);
+                let result = catch_unwind(AssertUnwindSafe(|| {
+                    plugin.update(app, next_state);
+                }));
+
+                if let Err(payload) = result {
+                    resume_unwind(payload);
+                }
+
                 *current_state = next_state;
             }
         }
 
-        println!("Registry state after: {:?} ({})", self.state(), self.plugins.len());
+        self.update_state();
+    }
+
+    fn update_state(&mut self) {
+        self.state = self
+            .plugin_states
+            .values()
+            .min()
+            .map(|s| match s {
+                PluginState::Idle | PluginState::Init => PluginRegistryState::Init,
+                PluginState::Building | PluginState::NotYetReady => PluginRegistryState::Building,
+                PluginState::Finishing => PluginRegistryState::Finalizing,
+                PluginState::Done => PluginRegistryState::Done,
+                PluginState::Cleaned => PluginRegistryState::Cleaned,
+            })
+            .unwrap_or(PluginRegistryState::Idle);
+    }
+
+    pub fn cleanup(&mut self, app: &mut App) {
+        for plugin in &mut self.plugins {
+            let current_state = self
+                .plugin_states
+                .get_mut(plugin.name())
+                .expect("Plugin state must exist");
+
+            if *current_state != PluginState::Done {
+                panic!(
+                    "Cannot cleanup a not-finalized plugin: {} (current state: {:?})",
+                    plugin.name(),
+                    current_state
+                );
+            }
+
+            let result = catch_unwind(AssertUnwindSafe(|| {
+                plugin.cleanup(app);
+            }));
+
+            if let Err(payload) = result {
+                resume_unwind(payload);
+            }
+
+            *current_state = PluginState::Cleaned;
+        }
+
+        self.update_state();
     }
 
     pub fn merge(&mut self, mut other: Self) {
         other.plugins.extend(self.plugins.drain(..));
-        other.states.extend(self.states.drain());
+        other.plugin_states.extend(self.plugin_states.drain());
 
         self.plugins = other.plugins;
-        self.states = other.states;
+        self.plugin_states = other.plugin_states;
+        self.update_state();
     }
 }
 
@@ -177,7 +233,7 @@ mod tests {
             res.built += 1;
         }
 
-        fn finish(&self, app: &mut App) {
+        fn finalize(&self, app: &mut App) {
             let mut res = app.world_mut().resource_mut::<TestResource>();
             res.finished += 1;
         }
@@ -209,8 +265,9 @@ mod tests {
         let registry = PluginRegistry::default();
         assert_eq!(registry.len(), 0);
         assert!(registry.is_empty());
-        assert_eq!(registry.state(), PluginsState::None);
+        assert_eq!(registry.state(), PluginRegistryState::Idle);
         assert!(!registry.contains::<TestPlugin>());
+        assert_eq!(registry.plugin_state("TestPlugin"), None);
     }
 
     #[test]
@@ -221,7 +278,7 @@ mod tests {
         assert_eq!(registry.len(), 1);
         assert!(!registry.is_empty());
 
-        assert_eq!(registry.state(), PluginsState::Init);
+        assert_eq!(registry.state(), PluginRegistryState::Init);
 
         assert!(registry.contains::<TestPlugin>());
         let plugins = registry.get_all::<TestPlugin>();
@@ -239,20 +296,63 @@ mod tests {
         let mut app = App::new();
 
         registry.update(&mut app);
-        assert_eq!(registry.state(), PluginsState::Init);
+        assert_eq!(registry.state(), PluginRegistryState::Init);
+        assert_eq!(registry.plugin_state("TestPlugin"), Some(PluginState::Init));
         assert_plugin_status(&app, 1, 0, 0, 0);
 
         registry.update(&mut app);
-        assert_eq!(registry.state(), PluginsState::Building);
+        assert_eq!(registry.state(), PluginRegistryState::Building);
+        assert_eq!(
+            registry.plugin_state("TestPlugin"),
+            Some(PluginState::Building)
+        );
         assert_plugin_status(&app, 1, 1, 0, 0);
 
         registry.update(&mut app);
-        assert_eq!(registry.state(), PluginsState::Finalizing);
+        assert_eq!(registry.state(), PluginRegistryState::Finalizing);
+        assert_eq!(
+            registry.plugin_state("TestPlugin"),
+            Some(PluginState::Finishing)
+        );
         assert_plugin_status(&app, 1, 1, 1, 0);
 
         registry.update(&mut app);
-        assert_eq!(registry.state(), PluginsState::Done);
+        assert_eq!(registry.state(), PluginRegistryState::Done);
+        assert_eq!(registry.plugin_state("TestPlugin"), Some(PluginState::Done));
+        assert_plugin_status(&app, 1, 1, 1, 0);
+    }
+
+    #[test]
+    fn test_cleanup() {
+        let mut registry = PluginRegistry::default();
+        registry.add(Box::new(TestPlugin));
+
+        let mut app = App::new();
+
+        registry.update(&mut app);
+        registry.update(&mut app);
+        registry.update(&mut app);
+        registry.update(&mut app);
+        assert_eq!(registry.plugin_state("TestPlugin"), Some(PluginState::Done));
+
+        registry.cleanup(&mut app);
+        assert_eq!(registry.state(), PluginRegistryState::Cleaned);
+        assert_eq!(
+            registry.plugin_state("TestPlugin"),
+            Some(PluginState::Cleaned)
+        );
         assert_plugin_status(&app, 1, 1, 1, 1);
+    }
+
+    #[test]
+    #[should_panic]
+    fn cannot_cleanup_a_non_finalized_plugin() {
+        let mut registry = PluginRegistry::default();
+        registry.add(Box::new(TestPlugin));
+
+        let mut app = App::new();
+
+        registry.cleanup(&mut app);
     }
 
     #[derive(Clone)]
@@ -276,10 +376,10 @@ mod tests {
 
         registry.update(&mut app);
         registry.update(&mut app);
-        assert_eq!(registry.state(), PluginsState::Building);
+        assert_eq!(registry.state(), PluginRegistryState::Building);
 
         registry.update(&mut app);
-        assert_eq!(registry.state(), PluginsState::Building);
+        assert_eq!(registry.state(), PluginRegistryState::Building);
     }
 
     #[test]
@@ -293,7 +393,7 @@ mod tests {
         registry.update(&mut app);
         registry.update(&mut app);
 
-        assert_eq!(registry.state(), PluginsState::Finalizing);
+        assert_eq!(registry.state(), PluginRegistryState::Finalizing);
 
         registry.add(Box::new(DummyPlugin));
     }

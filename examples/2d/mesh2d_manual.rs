@@ -299,7 +299,7 @@ impl Plugin for ColoredMesh2dPlugin {
             .add_systems(Render, queue_colored_mesh2d.in_set(RenderSet::QueueMeshes));
     }
 
-    fn finish(&self, app: &mut App) {
+    fn finalize(&self, app: &mut App) {
         // Register our custom pipeline
         app.get_sub_app_mut(RenderApp)
             .unwrap()

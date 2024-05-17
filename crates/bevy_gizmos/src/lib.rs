@@ -142,17 +142,6 @@ impl Plugin for GizmoPlugin {
         #[cfg(feature = "bevy_pbr")]
         app.add_plugins(LightGizmoPlugin);
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.add_systems(
-            Render,
-            prepare_line_gizmo_bind_group.in_set(RenderSet::PrepareBindGroups),
-        );
-
-        render_app.add_systems(ExtractSchedule, extract_gizmo_data);
-
         #[cfg(feature = "bevy_sprite")]
         if app.is_plugin_added::<bevy_sprite::SpritePlugin>() {
             app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
@@ -167,10 +156,17 @@ impl Plugin for GizmoPlugin {
         }
     }
 
-    fn finish(&self, app: &mut bevy_app::App) {
+    fn finalize(&self, app: &mut bevy_app::App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+
+        render_app.add_systems(
+            Render,
+            prepare_line_gizmo_bind_group.in_set(RenderSet::PrepareBindGroups),
+        );
+
+        render_app.add_systems(ExtractSchedule, extract_gizmo_data);
 
         let render_device = render_app.world().resource::<RenderDevice>();
         let line_layout = render_device.create_bind_group_layout(

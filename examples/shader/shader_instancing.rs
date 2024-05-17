@@ -94,7 +94,7 @@ impl Plugin for CustomMaterialPlugin {
             );
     }
 
-    fn finish(&self, app: &mut App) {
+    fn finalize(&self, app: &mut App) {
         app.sub_app_mut(RenderApp).init_resource::<CustomPipeline>();
     }
 }

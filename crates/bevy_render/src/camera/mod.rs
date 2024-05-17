@@ -11,13 +11,13 @@ pub use clear_color::*;
 pub use manual_texture_view::*;
 pub use projection::*;
 
+use crate::batching::gpu_preprocessing::GpuPreprocessingSupport;
 use crate::{
     extract_component::ExtractComponentPlugin, extract_resource::ExtractResourcePlugin,
     render_graph::RenderGraph, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::schedule::IntoSystemConfigs;
-use crate::batching::gpu_preprocessing::GpuPreprocessingSupport;
 
 #[derive(Default)]
 pub struct CameraPlugin;
@@ -48,10 +48,12 @@ impl Plugin for CameraPlugin {
             return false;
         };
 
-        render_app.world().contains_resource::<GpuPreprocessingSupport>()
+        render_app
+            .world()
+            .contains_resource::<GpuPreprocessingSupport>()
     }
 
-    fn finish(&self, app: &mut App) {
+    fn finalize(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<SortedCameras>()

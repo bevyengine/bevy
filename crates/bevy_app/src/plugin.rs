@@ -1,9 +1,9 @@
 use downcast_rs::{impl_downcast, Downcast};
 
+use crate::plugin_registry::PluginState;
 use crate::App;
 use std::any::Any;
-use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
-use crate::plugin_registry::PluginState;
+use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 
 /// A collection of Bevy app logic and configuration.
 ///
@@ -21,7 +21,7 @@ use crate::plugin_registry::PluginState;
 /// When adding a plugin to an [`App`]:
 /// * the app calls [`Plugin::build`] immediately, and register the plugin
 /// * once the app started, it will wait for all registered [`Plugin::ready`] to return `true`
-/// * it will then call all registered [`Plugin::finish`]
+/// * it will then call all registered [`Plugin::finalize`]
 /// * and call all registered [`Plugin::cleanup`]
 ///
 /// ## Defining a plugin.
@@ -68,14 +68,14 @@ pub trait Plugin: Downcast + Any + Send + Sync {
 
     /// Has the plugin finished its setup? This can be useful for plugins that need something
     /// asynchronous to happen before they can finish their setup, like the initialization of a renderer.
-    /// Once the plugin is ready, [`finish`](Plugin::finish) should be called.
+    /// Once the plugin is ready, [`finish`](Plugin::finalize) should be called.
     fn ready(&self, _app: &App) -> bool {
         true
     }
 
-    /// Finish adding this plugin to the [`App`], once all plugins registered are ready. This can
+    /// Finalize this plugin to the [`App`], once all plugins registered are ready. This can
     /// be useful for plugins that depends on another plugin asynchronous setup, like the renderer.
-    fn finish(&self, _app: &mut App) {
+    fn finalize(&self, _app: &mut App) {
         // do nothing
     }
 
@@ -99,19 +99,12 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     }
 
     fn update(&mut self, app: &mut App, state: PluginState) {
-        let result = catch_unwind(AssertUnwindSafe(|| {
-            match state {
-                PluginState::Init => self.init(app),
-                PluginState::Building => self.build(app),
-                PluginState::Finished => self.finish(app),
-                PluginState::Cleaned => self.cleanup(app),
-                _ => { }
-            }
-        }));
-
-        if let Err(payload) = result {
-            println!("*************** Error *************");
-            resume_unwind(payload);
+        match state {
+            PluginState::Init => self.init(app),
+            PluginState::Building => self.build(app),
+            PluginState::Finishing => self.finalize(app),
+            PluginState::Done => {}
+            s => unreachable!("Cannot handle {s:?} state"),
         }
     }
 }
