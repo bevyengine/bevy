@@ -145,9 +145,8 @@ impl AssetLoader for CoolTextLoader {
         let ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
         let mut base_text = ron.text;
         for embedded in ron.embedded_dependencies {
-            let loaded = load_context.load_direct(&embedded).await?;
-            let text = loaded.get::<Text>().unwrap();
-            base_text.push_str(&text.0);
+            let loaded = load_context.load_direct::<Text>(&embedded).await?;
+            base_text.push_str(&loaded.get().0);
         }
         Ok(CoolText {
             text: base_text,
