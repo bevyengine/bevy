@@ -46,6 +46,12 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
       - name: Add Android targets
         run: rustup target add aarch64-linux-android
 
