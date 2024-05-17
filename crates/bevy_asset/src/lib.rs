@@ -32,6 +32,9 @@ mod path;
 mod reflect;
 mod server;
 
+#[cfg(not(target_arch = "wasm32"))]
+mod temp;
+
 pub use assets::*;
 pub use bevy_asset_macros::Asset;
 pub use direct_access_ext::DirectAssetAccessExt;
@@ -95,6 +98,9 @@ pub struct AssetPlugin {
     pub mode: AssetMode,
     /// How/If asset meta files should be checked.
     pub meta_check: AssetMetaCheck,
+    /// The path to use for temporary assets (relative to the project root).
+    /// If not provided, a platform specific folder will be created and deleted upon exit.
+    pub temporary_file_path: Option<String>,
 }
 
 #[derive(Debug)]
@@ -142,6 +148,7 @@ impl Default for AssetPlugin {
             processed_file_path: Self::DEFAULT_PROCESSED_FILE_PATH.to_string(),
             watch_for_changes_override: None,
             meta_check: AssetMetaCheck::default(),
+            temporary_file_path: None,
         }
     }
 }
@@ -167,6 +174,23 @@ impl Plugin for AssetPlugin {
             );
             embedded.register_source(&mut sources);
         }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            match temp::get_temp_source(app.world_mut(), self.temporary_file_path.clone()) {
+                Ok(source) => {
+                    let mut sources = app
+                        .world_mut()
+                        .get_resource_or_insert_with::<AssetSourceBuilders>(Default::default);
+
+                    sources.insert("temp", source);
+                }
+                Err(error) => {
+                    error!("Could not setup temp:// AssetSource due to an IO Error: {error}");
+                }
+            };
+        }
+
         {
             let mut watch = cfg!(feature = "watch");
             if let Some(watch_override) = self.watch_for_changes_override {

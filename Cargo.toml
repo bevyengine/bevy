@@ -1437,6 +1437,17 @@ description = "Demonstrates how to wait for multiple assets to be loaded."
 category = "Assets"
 wasm = true
 
+[[example]]
+name = "temp_asset"
+path = "examples/asset/temp_asset.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.temp_asset]
+name = "Temporary assets"
+description = "How to use the temporary asset source"
+category = "Assets"
+wasm = false
+
 # Async Tasks
 [[example]]
 name = "async_compute"

@@ -217,6 +217,7 @@ Example | Description
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
 [Mult-asset synchronization](../examples/asset/multi_asset_sync.rs) | Demonstrates how to wait for multiple assets to be loaded.
 [Repeated texture configuration](../examples/asset/repeated_texture.rs) | How to configure the texture to repeat instead of the default clamp to edges
+[Temporary assets](../examples/asset/temp_asset.rs) | How to use the temporary asset source
 
 ## Async Tasks
 

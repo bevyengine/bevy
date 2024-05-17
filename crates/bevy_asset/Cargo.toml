@@ -57,6 +57,7 @@ js-sys = "0.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 notify-debouncer-full = { version = "0.3.1", optional = true }
+tempfile = "3.10.1"
 
 [dev-dependencies]
 bevy_core = { path = "../bevy_core", version = "0.14.0-dev" }

@@ -1,0 +1,183 @@
+//! This example shows how to use the temporary asset source, `temp://`.
+//! First, a [`TextAsset`] is created in-memory, then saved into the temporary asset source.
+//! Once the save operation is completed, we load the asset just like any other file, and display its contents!
+
+use bevy::{
+    asset::{
+        saver::{AssetSaver, ErasedAssetSaver},
+        AssetPath, ErasedLoadedAsset, LoadedAsset,
+    },
+    prelude::*,
+    tasks::{block_on, IoTaskPool, Task},
+};
+
+use futures_lite::future;
+use text_asset::{TextAsset, TextLoader, TextSaver};
+
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .init_asset::<TextAsset>()
+        .register_asset_loader(TextLoader)
+        .add_systems(Startup, (save_temp_asset, setup_ui))
+        .add_systems(Update, (wait_until_temp_saved, display_text))
+        .run();
+}
+
+/// Attempt to save an asset to the temporary asset source.
+fn save_temp_asset(assets: Res<AssetServer>, mut commands: Commands) {
+    // This is the asset we will attempt to save.
+    let my_text_asset = TextAsset("Hello World!".to_owned());
+
+    // To ensure the `Task` can outlive this function, we must provide owned versions
+    // of the `AssetServer` and our desired path.
+    let path = AssetPath::from("temp://message.txt").into_owned();
+    let server = assets.clone();
+
+    let task = IoTaskPool::get().spawn(async move {
+        save_asset(my_text_asset, path, server, TextSaver)
+            .await
+            .unwrap();
+    });
+
+    // To ensure the task completes before we try loading, we will manually poll this task
+    // so we can react to its completion.
+    commands.spawn(SavingTask(task));
+}
+
+/// Poll the save tasks until completion, and then start loading our temporary text asset.
+fn wait_until_temp_saved(
+    assets: Res<AssetServer>,
+    mut tasks: Query<(Entity, &mut SavingTask)>,
+    mut commands: Commands,
+) {
+    for (entity, mut task) in tasks.iter_mut() {
+        if let Some(()) = block_on(future::poll_once(&mut task.0)) {
+            commands.insert_resource(MyTempText {
+                text: assets.load("temp://message.txt"),
+            });
+
+            commands.entity(entity).despawn_recursive();
+        }
+    }
+}
+
+/// Setup a basic UI to display our [`TextAsset`] once it's loaded.
+fn setup_ui(mut commands: Commands) {
+    commands.spawn(Camera2dBundle::default());
+
+    commands.spawn((TextBundle::from_section("Loading...", default())
+        .with_text_justify(JustifyText::Center)
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            bottom: Val::Percent(50.),
+            right: Val::Percent(50.),
+            ..default()
+        }),));
+}
+
+/// Once the [`TextAsset`] is loaded, update our display text to its contents.
+fn display_text(
+    mut query: Query<&mut Text>,
+    my_text: Option<Res<MyTempText>>,
+    texts: Res<Assets<TextAsset>>,
+) {
+    let message = my_text
+        .as_ref()
+        .and_then(|resource| texts.get(&resource.text))
+        .map(|text| text.0.as_str())
+        .unwrap_or("Loading...");
+
+    for mut text in query.iter_mut() {
+        *text = Text::from_section(message, default());
+    }
+}
+
+/// Save an [`Asset`] at the provided path. Returns [`None`] on failure.
+async fn save_asset<A: Asset>(
+    asset: A,
+    path: AssetPath<'_>,
+    server: AssetServer,
+    saver: impl AssetSaver<Asset = A> + ErasedAssetSaver,
+) -> Option<()> {
+    let asset = ErasedLoadedAsset::from(LoadedAsset::from(asset));
+    let source = server.get_source(path.source()).ok()?;
+    let writer = source.writer().ok()?;
+
+    let mut writer = writer.write(path.path()).await.ok()?;
+    ErasedAssetSaver::save(&saver, &mut writer, &asset, &())
+        .await
+        .ok()?;
+
+    Some(())
+}
+
+#[derive(Component)]
+struct SavingTask(Task<()>);
+
+#[derive(Resource)]
+struct MyTempText {
+    text: Handle<TextAsset>,
+}
+
+mod text_asset {
+    //! Putting the implementation of an asset loader and writer for a text asset in this module to avoid clutter.
+    //! While this is required for this example to function, it isn't the focus.
+
+    use bevy::{
+        asset::{
+            io::{Reader, Writer},
+            saver::{AssetSaver, SavedAsset},
+            AssetLoader, LoadContext,
+        },
+        prelude::*,
+    };
+    use futures_lite::{AsyncReadExt, AsyncWriteExt};
+
+    #[derive(Asset, TypePath, Debug)]
+    pub struct TextAsset(pub String);
+
+    #[derive(Default)]
+    pub struct TextLoader;
+
+    impl AssetLoader for TextLoader {
+        type Asset = TextAsset;
+        type Settings = ();
+        type Error = std::io::Error;
+        async fn load<'a>(
+            &'a self,
+            reader: &'a mut Reader<'_>,
+            _settings: &'a Self::Settings,
+            _load_context: &'a mut LoadContext<'_>,
+        ) -> Result<TextAsset, Self::Error> {
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
+            let value = String::from_utf8(bytes).unwrap();
+            Ok(TextAsset(value))
+        }
+
+        fn extensions(&self) -> &[&str] {
+            &["txt"]
+        }
+    }
+
+    #[derive(Default)]
+    pub struct TextSaver;
+
+    impl AssetSaver for TextSaver {
+        type Asset = TextAsset;
+        type Settings = ();
+        type OutputLoader = TextLoader;
+        type Error = std::io::Error;
+
+        async fn save<'a>(
+            &'a self,
+            writer: &'a mut Writer,
+            asset: SavedAsset<'a, Self::Asset>,
+            _settings: &'a Self::Settings,
+        ) -> Result<(), Self::Error> {
+            writer.write_all(asset.0.as_bytes()).await?;
+            Ok(())
+        }
+    }
+}
