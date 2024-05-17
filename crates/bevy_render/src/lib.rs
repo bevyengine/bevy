@@ -240,17 +240,27 @@ pub const COLOR_OPERATIONS_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(1844674407370955161);
 
 impl Plugin for RenderPlugin {
-    fn ready_to_build(&self, app: &mut App) -> bool {
-        let world = app.world_mut();
-        let mut window_q = world.query_filtered::<Entity, (With<PrimaryWindow>, With<RawHandleWrapper>)>();
-        window_q.iter(world).len() > 0
+    /// Creates the rendering sub-app.
+    fn init(&self, app: &mut App) {
+        // SAFETY: Plugins should be set up on the main thread.
+        unsafe { initialize_render_app(app) };
     }
 
-    /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
+    /// Sets up the [`RenderSet`] and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
         app.init_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>();
+    }
 
+    fn ready_to_configure(&self, app: &mut App) -> bool {
+        let world = app.world_mut();
+        let mut window_q = world.query_filtered::<&RawHandleWrapper, With<PrimaryWindow>>();
+        window_q.iter(world).len() > 0
+    }
+
+    /// Initializes the renderer.
+    fn configure(&self, app: &mut App) {
+        println!("************************");
         match &self.render_creation {
             RenderCreation::Manual(device, queue, adapter_info, adapter, instance) => {
                 let future_renderer_resources_wrapper = Arc::new(Mutex::new(Some((
@@ -263,8 +273,6 @@ impl Plugin for RenderPlugin {
                 app.insert_resource(FutureRendererResources(
                     future_renderer_resources_wrapper.clone(),
                 ));
-                // SAFETY: Plugins should be set up on the main thread.
-                unsafe { initialize_render_app(app) };
             }
             RenderCreation::Automatic(render_creation) => {
                 if let Some(backends) = render_creation.backends {
@@ -277,6 +285,7 @@ impl Plugin for RenderPlugin {
                         Query<&RawHandleWrapper, With<PrimaryWindow>>,
                     > = SystemState::new(app.world_mut());
                     let primary_window = system_state.get(app.world()).get_single().ok().cloned();
+                    info!("Primary window: {primary_window:?}");
 
                     let settings = render_creation.clone();
                     let async_renderer = async move {
@@ -331,9 +340,6 @@ impl Plugin for RenderPlugin {
                     // Otherwise, just block for it to complete
                     #[cfg(not(target_arch = "wasm32"))]
                     futures_lite::future::block_on(async_renderer);
-
-                    // SAFETY: Plugins should be set up on the main thread.
-                    unsafe { initialize_render_app(app) };
                 }
             }
         };

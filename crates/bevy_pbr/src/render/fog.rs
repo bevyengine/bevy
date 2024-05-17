@@ -145,7 +145,8 @@ impl Plugin for FogPlugin {
     }
 
     fn ready_to_finalize(&self, app: &mut App) -> bool {
-        app.contains_resource::<RenderDevice>()
+        let render_app = app.sub_app(RenderApp);
+        render_app.contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {

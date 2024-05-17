@@ -68,6 +68,7 @@ pub mod prelude {
 
 use aabb::AabbGizmoPlugin;
 use bevy_app::prelude::*;
+use bevy_app::RunFixedMainLoop;
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_color::LinearRgba;
 use bevy_ecs::{
@@ -104,7 +105,6 @@ use gizmos::{GizmoStorage, Swap};
 #[cfg(feature = "bevy_pbr")]
 use light::LightGizmoPlugin;
 use std::{any::TypeId, mem};
-use bevy_app::RunFixedMainLoop;
 
 const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
 const LINE_JOINT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1162780797909187908);
@@ -162,7 +162,8 @@ impl Plugin for GizmoPlugin {
     }
 
     fn ready_to_finalize(&self, app: &mut App) -> bool {
-        app.contains_resource::<RenderDevice>()
+        let render_app = app.sub_app(RenderApp);
+        render_app.contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {

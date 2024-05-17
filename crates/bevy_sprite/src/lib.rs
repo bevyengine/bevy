@@ -46,6 +46,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_render::render_phase::DrawFunctions;
 use bevy_render::renderer::RenderDevice;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -132,7 +133,9 @@ impl Plugin for SpritePlugin {
     }
 
     fn ready_to_finalize(&self, app: &mut App) -> bool {
-        app.contains_resource::<RenderDevice>()
+        let render_app = app.sub_app(RenderApp);
+        render_app.contains_resource::<RenderDevice>()
+            && render_app.contains_resource::<DrawFunctions<Transparent2d>>()
     }
 
     fn finalize(&self, app: &mut App) {

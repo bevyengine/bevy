@@ -1,20 +1,20 @@
 use bitflags::bitflags;
 
 use bevy_app::prelude::*;
-use bevy_asset::{Assets, Handle, load_internal_asset};
+use bevy_asset::{load_internal_asset, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
-use bevy_render::{camera::Camera, texture::FallbackImage};
-use bevy_render::{Render, render_resource::*, RenderApp, RenderSet};
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::extract_resource::{ExtractResource, ExtractResourcePlugin};
-use bevy_render::render_asset::{RenderAssets, RenderAssetUsages};
+use bevy_render::render_asset::{RenderAssetUsages, RenderAssets};
 use bevy_render::render_resource::binding_types::{
     sampler, texture_2d, texture_3d, uniform_buffer,
 };
 use bevy_render::renderer::RenderDevice;
 use bevy_render::texture::{CompressedImageFormats, GpuImage, Image, ImageSampler, ImageType};
 use bevy_render::view::{ExtractedView, ViewTarget, ViewUniform};
+use bevy_render::{camera::Camera, texture::FallbackImage};
+use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
 use bevy_utils::default;
 #[cfg(not(feature = "tonemapping_luts"))]
 use bevy_utils::tracing::error;
@@ -58,7 +58,7 @@ impl Plugin for TonemappingPlugin {
             let mut images = app.world_mut().resource_mut::<Assets<Image>>();
 
             #[cfg(feature = "tonemapping_luts")]
-                let tonemapping_luts = {
+            let tonemapping_luts = {
                 TonemappingLuts {
                     blender_filmic: images.add(setup_tonemapping_lut_image(
                         include_bytes!("luts/Blender_-11_12.ktx2"),
@@ -76,7 +76,7 @@ impl Plugin for TonemappingPlugin {
             };
 
             #[cfg(not(feature = "tonemapping_luts"))]
-                let tonemapping_luts = {
+            let tonemapping_luts = {
                 let placeholder = images.add(lut_placeholder());
                 TonemappingLuts {
                     blender_filmic: placeholder.clone(),
@@ -104,7 +104,8 @@ impl Plugin for TonemappingPlugin {
     }
 
     fn ready_to_finalize(&self, app: &mut App) -> bool {
-        app.contains_resource::<RenderDevice>()
+        let render_app = app.sub_app(RenderApp);
+        render_app.contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {
@@ -130,7 +131,7 @@ pub struct TonemappingPipeline {
 
 /// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
 #[derive(
-Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
+    Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
 #[extract_component_filter(With < Camera >)]
 #[reflect(Component)]
@@ -376,7 +377,7 @@ pub fn prepare_view_tonemapping_pipelines(
 
 /// Enables a debanding shader that applies dithering to mitigate color banding in the final image for a given [`Camera`] entity.
 #[derive(
-Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
+    Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
 #[extract_component_filter(With < Camera >)]
 #[reflect(Component)]
@@ -429,7 +430,7 @@ fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
     });
     Image::from_buffer(
         #[cfg(all(debug_assertions, feature = "dds"))]
-            "Tonemapping LUT sampler".to_string(),
+        "Tonemapping LUT sampler".to_string(),
         bytes,
         image_type,
         CompressedImageFormats::NONE,
@@ -437,7 +438,7 @@ fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
         image_sampler,
         RenderAssetUsages::RENDER_WORLD,
     )
-        .unwrap()
+    .unwrap()
 }
 
 pub fn lut_placeholder() -> Image {

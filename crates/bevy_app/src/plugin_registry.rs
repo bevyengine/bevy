@@ -119,7 +119,7 @@ impl PluginRegistry {
             .min()
             .map(|s| match s {
                 PluginState::Idle | PluginState::Init => PluginRegistryState::Init,
-                PluginState::Building  => PluginRegistryState::Building,
+                PluginState::Building => PluginRegistryState::Building,
                 PluginState::Finalizing => PluginRegistryState::Finalizing,
                 PluginState::Configuring => PluginRegistryState::Configuring,
                 PluginState::Done => PluginRegistryState::Done,
@@ -387,11 +387,11 @@ mod tests {
 
         let mut app = App::new();
 
-        registry.update(&mut app);  // Init
-        registry.update(&mut app);  // Build
-        registry.update(&mut app);  // Configure
-        registry.update(&mut app);  // Finalize
-        registry.update(&mut app);  // Done
+        registry.update(&mut app); // Init
+        registry.update(&mut app); // Build
+        registry.update(&mut app); // Configure
+        registry.update(&mut app); // Finalize
+        registry.update(&mut app); // Done
         registry.cleanup(&mut app);
 
         assert_eq!(registry.state(), PluginRegistryState::Cleaned);
@@ -453,7 +453,14 @@ mod tests {
         registry.add(Box::new(DummyPlugin));
     }
 
-    fn assert_plugin_status(app: &App, init: usize, built: usize, configured: usize, finished: usize, cleaned: usize) {
+    fn assert_plugin_status(
+        app: &App,
+        init: usize,
+        built: usize,
+        configured: usize,
+        finished: usize,
+        cleaned: usize,
+    ) {
         let res = app.world().resource::<TestResource>();
 
         assert_eq!(res.init, init, "Wrong init status");
