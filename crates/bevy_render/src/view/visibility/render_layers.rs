@@ -117,19 +117,25 @@ impl RenderLayers {
     }
 
     /// Returns the set of [layers](Layer) shared by two instances of [`RenderLayers`].
-    pub const fn and(self, other: Self) -> Self {
+    ///
+    /// This corresponds to the `self & other` operation.
+    pub const fn intersection(self, other: Self) -> Self {
         let mask = self.0 & other.0;
         Self(mask)
     }
 
     /// Returns all [layers](Layer) included in either instance of [`RenderLayers`].
-    pub const fn or(self, other: Self) -> Self {
+    ///
+    /// This corresponds to the `self | other` operation.
+    pub const fn union(self, other: Self) -> Self {
         let mask = self.0 | other.0;
         Self(mask)
     }
 
     /// Returns all [layers](Layer) included in exactly one of the instances of [`RenderLayers`].
-    pub const fn xor(self, other: Self) -> Self {
+    ///
+    /// This corresponds to the "exclusive or" (XOR) operation: `self ^ other`.
+    pub const fn symmetric_difference(self, other: Self) -> Self {
         let mask = self.0 ^ other.0;
         Self(mask)
     }
@@ -138,21 +144,21 @@ impl RenderLayers {
 impl std::ops::BitAnd for RenderLayers {
     type Output = Self;
     fn bitand(self, rhs: Self) -> Self::Output {
-        self.and(rhs)
+        self.intersection(rhs)
     }
 }
 
 impl std::ops::BitOr for RenderLayers {
     type Output = Self;
     fn bitor(self, rhs: Self) -> Self::Output {
-        self.or(rhs)
+        self.union(rhs)
     }
 }
 
 impl std::ops::BitXor for RenderLayers {
     type Output = Self;
     fn bitxor(self, rhs: Self) -> Self::Output {
-        self.xor(rhs)
+        self.symmetric_difference(rhs)
     }
 }
 
@@ -228,17 +234,17 @@ mod rendering_mask_tests {
         let a = RenderLayers::from_layers(&[2, 4, 6]);
         let b = RenderLayers::from_layers(&[1, 2, 3, 4, 5]);
 
-        assert_eq!(a.or(b), RenderLayers::from_layers(&[1, 2, 3, 4, 5, 6]));
-        assert_eq!(a.and(b), RenderLayers::from_layers(&[2, 4]));
-        assert_eq!(a.xor(b), RenderLayers::from_layers(&[1, 3, 5, 6]));
+        assert_eq!(a | b, RenderLayers::from_layers(&[1, 2, 3, 4, 5, 6]));
+        assert_eq!(a & b, RenderLayers::from_layers(&[2, 4]));
+        assert_eq!(a ^ b, RenderLayers::from_layers(&[1, 3, 5, 6]));
 
         assert_eq!(a.and(RenderLayers::all()), a);
         assert_eq!(
-            RenderLayers::none().or(RenderLayers::all()),
+            RenderLayers::none() | RenderLayers::all(),
             RenderLayers::all()
         );
         assert_eq!(
-            RenderLayers::none().xor(RenderLayers::all()),
+            RenderLayers::none() ^ RenderLayers::all(),
             RenderLayers::all()
         );
     }
