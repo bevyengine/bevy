@@ -14,6 +14,8 @@ pub enum PluginRegistryState {
     Init,
     /// Plugins are being built.
     Building,
+    /// Plugins are being configured.
+    Configuring,
     /// Plugins are being finalized.
     Finalizing,
     /// Plugins configuration is complete.
@@ -82,19 +84,17 @@ impl PluginRegistry {
                 .expect("Plugin state must exist");
 
             if *current_state < PluginState::Done {
-                let mut next_state = current_state.next();
-                if next_state == PluginState::NotYetReady {
+                let next_state = current_state.next();
+
+                if next_state == PluginState::Finalizing {
                     if !plugin.check_required_sub_apps(app) {
                         *current_state = PluginState::Done;
                         continue;
                     }
+                }
 
-                    if !plugin.ready(app) {
-                        *current_state = next_state;
-                        continue;
-                    }
-
-                    next_state = PluginState::Finishing;
+                if !plugin.ready(app, next_state) {
+                    continue;
                 }
 
                 let result = catch_unwind(AssertUnwindSafe(|| {
@@ -119,8 +119,9 @@ impl PluginRegistry {
             .min()
             .map(|s| match s {
                 PluginState::Idle | PluginState::Init => PluginRegistryState::Init,
-                PluginState::Building | PluginState::NotYetReady => PluginRegistryState::Building,
-                PluginState::Finishing => PluginRegistryState::Finalizing,
+                PluginState::Building  => PluginRegistryState::Building,
+                PluginState::Finalizing => PluginRegistryState::Finalizing,
+                PluginState::Configuring => PluginRegistryState::Configuring,
                 PluginState::Done => PluginRegistryState::Done,
                 PluginState::Cleaned => PluginRegistryState::Cleaned,
             })
@@ -178,6 +179,7 @@ mod tests {
     pub struct TestResource {
         init: usize,
         built: usize,
+        configured: usize,
         finished: usize,
         cleaned: usize,
     }
@@ -192,6 +194,14 @@ mod tests {
             "TestPlugin"
         }
 
+        fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+            if self.require_sub_app {
+                return vec![DummyApp.intern()];
+            }
+
+            Vec::new()
+        }
+
         fn init(&self, app: &mut App) {
             let mut res = TestResource::default();
             res.init += 1;
@@ -204,12 +214,9 @@ mod tests {
             res.built += 1;
         }
 
-        fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
-            if self.require_sub_app {
-                return vec![DummyApp.intern()];
-            }
-
-            Vec::new()
+        fn configure(&self, app: &mut App) {
+            let mut res = app.world_mut().resource_mut::<TestResource>();
+            res.configured += 1;
         }
 
         fn finalize(&self, app: &mut App) {
@@ -279,7 +286,7 @@ mod tests {
         registry.update(&mut app);
         assert_eq!(registry.state(), PluginRegistryState::Init);
         assert_eq!(registry.plugin_state("TestPlugin"), Some(PluginState::Init));
-        assert_plugin_status(&app, 1, 0, 0, 0);
+        assert_plugin_status(&app, 1, 0, 0, 0, 0);
 
         registry.update(&mut app);
         assert_eq!(registry.state(), PluginRegistryState::Building);
@@ -287,20 +294,28 @@ mod tests {
             registry.plugin_state("TestPlugin"),
             Some(PluginState::Building)
         );
-        assert_plugin_status(&app, 1, 1, 0, 0);
+        assert_plugin_status(&app, 1, 1, 0, 0, 0);
+
+        registry.update(&mut app);
+        assert_eq!(registry.state(), PluginRegistryState::Configuring);
+        assert_eq!(
+            registry.plugin_state("TestPlugin"),
+            Some(PluginState::Configuring)
+        );
+        assert_plugin_status(&app, 1, 1, 1, 0, 0);
 
         registry.update(&mut app);
         assert_eq!(registry.state(), PluginRegistryState::Finalizing);
         assert_eq!(
             registry.plugin_state("TestPlugin"),
-            Some(PluginState::Finishing)
+            Some(PluginState::Finalizing)
         );
-        assert_plugin_status(&app, 1, 1, 1, 0);
+        assert_plugin_status(&app, 1, 1, 1, 1, 0);
 
         registry.update(&mut app);
         assert_eq!(registry.state(), PluginRegistryState::Done);
         assert_eq!(registry.plugin_state("TestPlugin"), Some(PluginState::Done));
-        assert_plugin_status(&app, 1, 1, 1, 0);
+        assert_plugin_status(&app, 1, 1, 1, 1, 0);
     }
 
     #[test]
@@ -314,6 +329,7 @@ mod tests {
         registry.update(&mut app);
         registry.update(&mut app);
         registry.update(&mut app);
+        registry.update(&mut app);
         assert_eq!(registry.plugin_state("TestPlugin"), Some(PluginState::Done));
 
         registry.cleanup(&mut app);
@@ -322,7 +338,7 @@ mod tests {
             registry.plugin_state("TestPlugin"),
             Some(PluginState::Cleaned)
         );
-        assert_plugin_status(&app, 1, 1, 1, 1);
+        assert_plugin_status(&app, 1, 1, 1, 1, 1);
     }
 
     #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
@@ -350,6 +366,7 @@ mod tests {
         registry.update(&mut app);
         registry.update(&mut app);
         registry.update(&mut app);
+        registry.update(&mut app);
         registry.cleanup(&mut app);
 
         assert_eq!(registry.state(), PluginRegistryState::Cleaned);
@@ -357,7 +374,7 @@ mod tests {
             registry.plugin_state("TestPlugin"),
             Some(PluginState::Cleaned)
         );
-        assert_plugin_status(&app, 1, 1, 0, 1);
+        assert_plugin_status(&app, 1, 1, 1, 0, 1);
     }
 
     #[test]
@@ -370,10 +387,11 @@ mod tests {
 
         let mut app = App::new();
 
-        registry.update(&mut app);
-        registry.update(&mut app);
-        registry.update(&mut app);
-        registry.update(&mut app);
+        registry.update(&mut app);  // Init
+        registry.update(&mut app);  // Build
+        registry.update(&mut app);  // Configure
+        registry.update(&mut app);  // Finalize
+        registry.update(&mut app);  // Done
         registry.cleanup(&mut app);
 
         assert_eq!(registry.state(), PluginRegistryState::Cleaned);
@@ -381,7 +399,7 @@ mod tests {
             registry.plugin_state("TestPlugin"),
             Some(PluginState::Cleaned)
         );
-        assert_plugin_status(&app, 1, 1, 1, 1);
+        assert_plugin_status(&app, 1, 1, 1, 1, 1);
     }
 
     #[test]
@@ -402,7 +420,7 @@ mod tests {
 
     impl Plugin for WaitingPlugin {
         fn build(&self, _app: &mut App) {}
-        fn ready(&self, _app: &App) -> bool {
+        fn ready_to_build(&self, _app: &mut App) -> bool {
             self.ready
         }
     }
@@ -416,10 +434,7 @@ mod tests {
 
         registry.update(&mut app);
         registry.update(&mut app);
-        assert_eq!(registry.state(), PluginRegistryState::Building);
-
-        registry.update(&mut app);
-        assert_eq!(registry.state(), PluginRegistryState::Building);
+        assert_eq!(registry.state(), PluginRegistryState::Init);
     }
 
     #[test]
@@ -438,11 +453,12 @@ mod tests {
         registry.add(Box::new(DummyPlugin));
     }
 
-    fn assert_plugin_status(app: &App, init: usize, built: usize, finished: usize, cleaned: usize) {
+    fn assert_plugin_status(app: &App, init: usize, built: usize, configured: usize, finished: usize, cleaned: usize) {
         let res = app.world().resource::<TestResource>();
 
         assert_eq!(res.init, init, "Wrong init status");
         assert_eq!(res.built, built, "Wrong built status");
+        assert_eq!(res.configured, configured, "Wrong configured status");
         assert_eq!(res.finished, finished, "Wrong finished status");
         assert_eq!(res.cleaned, cleaned, "Wrong cleaned status");
     }

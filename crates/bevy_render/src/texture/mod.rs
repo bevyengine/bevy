@@ -39,7 +39,7 @@ pub use texture_cache::*;
 use crate::{
     render_asset::RenderAssetPlugin, renderer::RenderDevice, Render, RenderApp, RenderSet,
 };
-use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
+use bevy_app::prelude::*;
 use bevy_asset::{AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
 
@@ -122,7 +122,7 @@ impl Plugin for ImagePlugin {
         vec![RenderApp.intern()]
     }
 
-    fn ready(&self, app: &App) -> bool {
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
         app.contains_resource::<RenderDevice>()
     }
 

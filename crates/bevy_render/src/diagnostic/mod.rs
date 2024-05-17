@@ -6,7 +6,7 @@ pub(crate) mod internal;
 
 use std::{borrow::Cow, marker::PhantomData, sync::Arc};
 
-use bevy_app::{App, AppLabel, InternedAppLabel, Plugin, PreUpdate};
+use bevy_app::prelude::*;
 
 use crate::RenderApp;
 
@@ -57,7 +57,7 @@ impl Plugin for RenderDiagnosticsPlugin {
         vec![RenderApp.intern()]
     }
 
-    fn ready(&self, app: &App) -> bool {
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
         app.contains_resource::<RenderDevice>()
     }
 

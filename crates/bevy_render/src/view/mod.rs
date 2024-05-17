@@ -22,7 +22,7 @@ use crate::{
     },
     Render, RenderApp, RenderSet,
 };
-use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
+use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -118,7 +118,7 @@ impl Plugin for ViewPlugin {
         vec![RenderApp.intern()]
     }
 
-    fn ready(&self, app: &App) -> bool {
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
         app.world().contains_resource::<RenderDevice>()
     }
 

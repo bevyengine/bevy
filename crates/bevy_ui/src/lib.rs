@@ -184,7 +184,7 @@ impl Plugin for UiPlugin {
         vec![RenderApp.intern()]
     }
 
-    fn ready(&self, app: &App) -> bool {
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
         app.contains_resource::<RenderDevice>()
     }
 

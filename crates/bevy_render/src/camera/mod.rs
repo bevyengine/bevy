@@ -16,7 +16,7 @@ use crate::{
     extract_component::ExtractComponentPlugin, extract_resource::ExtractResourcePlugin,
     render_graph::RenderGraph, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
+use bevy_app::prelude::*;
 use bevy_ecs::schedule::IntoSystemConfigs;
 
 #[derive(Default)]
@@ -47,7 +47,7 @@ impl Plugin for CameraPlugin {
         vec![RenderApp.intern()]
     }
 
-    fn ready(&self, app: &App) -> bool {
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
         let Some(render_app) = app.get_sub_app(RenderApp) else {
             return false;
         };

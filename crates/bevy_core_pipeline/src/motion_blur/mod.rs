@@ -7,7 +7,7 @@ use crate::{
     core_3d::graph::{Core3d, Node3d},
     prepass::{DepthPrepass, MotionVectorPrepass},
 };
-use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
+use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{
     bundle::Bundle, component::Component, query::With, reflect::ReflectComponent,
@@ -138,7 +138,7 @@ impl Plugin for MotionBlurPlugin {
         vec![RenderApp.intern()]
     }
 
-    fn ready(&self, app: &App) -> bool {
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
         app.contains_resource::<RenderDevice>()
     }
 

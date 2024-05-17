@@ -6,7 +6,7 @@ use crate::{
     texture::TextureFormatPixelInfo,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet, WgpuWrapper,
 };
-use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
+use bevy_app::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 #[cfg(target_os = "linux")]
 use bevy_utils::warn_once;
@@ -43,7 +43,7 @@ impl Plugin for WindowRenderPlugin {
         vec![RenderApp.intern()]
     }
 
-    fn ready(&self, app: &App) -> bool {
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
         app.world().contains_resource::<RenderDevice>()
     }
 

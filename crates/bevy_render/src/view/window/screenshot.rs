@@ -1,6 +1,6 @@
 use std::{borrow::Cow, path::Path, sync::PoisonError};
 
-use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
+use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_tasks::AsyncComputeTaskPool;
@@ -142,7 +142,7 @@ impl Plugin for ScreenshotPlugin {
         vec![RenderApp.intern()]
     }
 
-    fn ready(&self, app: &App) -> bool {
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
         app.contains_resource::<RenderDevice>()
     }
 

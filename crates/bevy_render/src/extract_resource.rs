@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
+use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 pub use bevy_render_macros::ExtractResource;
 
@@ -35,7 +35,7 @@ impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
         vec![RenderApp.intern()]
     }
 
-    fn ready(&self, app: &App) -> bool {
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
         app.contains_resource::<RenderDevice>()
     }
 

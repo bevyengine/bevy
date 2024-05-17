@@ -1,6 +1,6 @@
 use crate::renderer::RenderDevice;
 use crate::{ExtractSchedule, MainWorld, Render, RenderApp, RenderSet};
-use bevy_app::{App, AppLabel, InternedAppLabel, Plugin, SubApp};
+use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
 use bevy_ecs::{
     prelude::{Commands, EventReader, IntoSystemConfigs, ResMut, Resource},
@@ -141,7 +141,7 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
         vec![RenderApp.intern()]
     }
 
-    fn ready(&self, app: &App) -> bool {
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
         app.contains_resource::<RenderDevice>()
     }
 

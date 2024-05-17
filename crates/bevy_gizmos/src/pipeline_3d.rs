@@ -5,7 +5,7 @@ use crate::{
     LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE,
     LINE_SHADER_HANDLE,
 };
-use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
+use bevy_app::prelude::*;
 use bevy_asset::Handle;
 use bevy_core_pipeline::{
     core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT},
@@ -39,7 +39,7 @@ impl Plugin for LineGizmo3dPlugin {
         vec![RenderApp.intern()]
     }
 
-    fn ready(&self, app: &App) -> bool {
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
         app.contains_resource::<RenderDevice>()
     }
 

@@ -4,7 +4,6 @@ use crate::{
     ViewLightProbesUniformOffset,
 };
 use bevy_app::prelude::*;
-use bevy_app::{AppLabel, InternedAppLabel};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
@@ -111,7 +110,7 @@ impl Plugin for DeferredPbrLightingPlugin {
         vec![RenderApp.intern()]
     }
 
-    fn ready(&self, app: &App) -> bool {
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
         app.contains_resource::<RenderDevice>()
     }
 

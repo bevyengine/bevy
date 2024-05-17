@@ -75,10 +75,10 @@ use crate::{
     settings::RenderCreation,
     view::{ViewPlugin, WindowRenderPlugin},
 };
-use bevy_app::{App, AppLabel, Plugin, SubApp};
+use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, AssetServer, Handle};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
-use bevy_utils::tracing::debug;
+use bevy_utils::tracing::{debug, info};
 use std::{
     ops::{Deref, DerefMut},
     sync::{Arc, Mutex},
@@ -240,6 +240,12 @@ pub const COLOR_OPERATIONS_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(1844674407370955161);
 
 impl Plugin for RenderPlugin {
+    fn ready_to_build(&self, app: &mut App) -> bool {
+        let world = app.world_mut();
+        let mut window_q = world.query_filtered::<Entity, (With<PrimaryWindow>, With<RawHandleWrapper>)>();
+        window_q.iter(world).len() > 0
+    }
+
     /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
         app.init_asset::<Shader>()
@@ -304,6 +310,9 @@ impl Plugin for RenderPlugin {
                             .await;
                         debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
                         debug!("Configured wgpu adapter Features: {:#?}", device.features());
+                        info!("Configured wgpu adapter Limits: {:#?}", device.limits());
+                        info!("Configured wgpu adapter Features: {:#?}", device.features());
+
                         let mut future_renderer_resources_inner =
                             future_renderer_resources_wrapper.lock().unwrap();
                         *future_renderer_resources_inner = Some((
@@ -352,7 +361,7 @@ impl Plugin for RenderPlugin {
             .register_type::<primitives::Frustum>();
     }
 
-    fn ready(&self, app: &App) -> bool {
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
         app.world()
             .get_resource::<FutureRendererResources>()
             .and_then(|frr| frr.0.try_lock().map(|locked| locked.is_some()).ok())

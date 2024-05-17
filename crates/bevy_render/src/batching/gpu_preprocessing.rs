@@ -1,6 +1,6 @@
 //! Batching functionality when GPU preprocessing is in use.
 
-use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
+use bevy_app::prelude::*;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
@@ -38,7 +38,7 @@ impl Plugin for BatchingPlugin {
         vec![RenderApp.intern()]
     }
 
-    fn ready(&self, app: &App) -> bool {
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
         app.world().contains_resource::<RenderAdapter>()
     }
 

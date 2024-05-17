@@ -3,7 +3,7 @@ use crate::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
 };
-use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
+use bevy_app::prelude::*;
 use bevy_color::LinearRgba;
 use bevy_ecs::prelude::*;
 use bevy_render::renderer::RenderDevice;
@@ -25,7 +25,7 @@ impl Plugin for MsaaWritebackPlugin {
         vec![RenderApp.intern()]
     }
 
-    fn ready(&self, app: &App) -> bool {
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
         app.contains_resource::<RenderDevice>()
     }
 

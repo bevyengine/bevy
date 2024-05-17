@@ -28,7 +28,7 @@ mod draw;
 mod draw_state;
 mod rangefinder;
 
-use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
+use bevy_app::prelude::*;
 use bevy_utils::{default, hashbrown::hash_map::Entry, HashMap};
 pub use draw::*;
 pub use draw_state::*;
@@ -398,7 +398,7 @@ where
         vec![RenderApp.intern()]
     }
 
-    fn ready(&self, app: &App) -> bool {
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
         app.contains_resource::<RenderDevice>()
     }
 
@@ -455,7 +455,7 @@ where
         vec![RenderApp.intern()]
     }
 
-    fn ready(&self, app: &App) -> bool {
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
         app.contains_resource::<RenderDevice>()
     }
 

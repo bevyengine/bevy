@@ -1,5 +1,5 @@
 use crate::{Material2d, Material2dPlugin, MaterialMesh2dBundle};
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_color::{Color, LinearRgba};
 use bevy_math::Vec4;
@@ -29,7 +29,7 @@ impl Plugin for ColorMaterialPlugin {
             .register_asset_reflect::<ColorMaterial>();
     }
 
-    fn ready(&self, app: &App) -> bool {
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
         app.world().contains_resource::<Assets<ColorMaterial>>()
     }
 

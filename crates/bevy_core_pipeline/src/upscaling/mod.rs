@@ -1,6 +1,5 @@
 use crate::blit::{BlitPipeline, BlitPipelineKey};
 use bevy_app::prelude::*;
-use bevy_app::{AppLabel, InternedAppLabel};
 use bevy_ecs::prelude::*;
 use bevy_render::camera::{CameraOutputMode, ExtractedCamera};
 use bevy_render::renderer::RenderDevice;
@@ -18,7 +17,7 @@ impl Plugin for UpscalingPlugin {
         vec![RenderApp.intern()]
     }
 
-    fn ready(&self, app: &App) -> bool {
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
         app.contains_resource::<RenderDevice>()
     }
 

@@ -49,7 +49,7 @@ pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
-use bevy_app::{App, AppLabel, InternedAppLabel, Plugin, PostUpdate};
+use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_math::FloatOrd;
 use bevy_render::{
@@ -108,7 +108,7 @@ impl Plugin for Core3dPlugin {
         vec![RenderApp.intern()]
     }
 
-    fn ready(&self, app: &App) -> bool {
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
         app.contains_resource::<RenderDevice>()
     }
 

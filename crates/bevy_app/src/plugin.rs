@@ -13,10 +13,10 @@ pub enum PluginState {
     Init,
     /// Plugin is being built.
     Building,
-    /// Plugin is not yet ready.
-    NotYetReady,
+    /// Plugin is being configured.
+    Configuring,
     /// Plugin configuration is finishing.
-    Finishing,
+    Finalizing,
     /// Plugin configuration is completed.
     Done,
     /// Plugin resources are cleaned up.
@@ -28,9 +28,9 @@ impl PluginState {
         match self {
             Self::Idle => Self::Init,
             Self::Init => Self::Building,
-            Self::Building => Self::NotYetReady,
-            Self::NotYetReady => Self::NotYetReady,
-            Self::Finishing => Self::Done,
+            Self::Building => Self::Configuring,
+            Self::Configuring => Self::Finalizing,
+            Self::Finalizing => Self::Done,
             s => unreachable!("Cannot handle {:?} state", s),
         }
     }
@@ -89,29 +89,43 @@ impl PluginState {
 /// # fn damp_flickering() {}
 /// ````
 pub trait Plugin: Downcast + Any + Send + Sync {
-    /// Pre-configures the [`App`] to which this plugin is added.
-    fn init(&self, _app: &mut App) {
-        // do nothing
-    }
-
-    /// Configures the [`App`] to which this plugin is added.
-    fn build(&self, _app: &mut App) {
-        // do nothing
-    }
-
     /// Returns required sub apps before finalizing.
     fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
         Vec::new()
     }
 
-    /// Has the plugin finished its setup? This can be useful for plugins that need something
-    /// asynchronous to happen before they can finish their setup, like the initialization of a renderer.
-    /// Once the plugin is ready, [`finish`](Plugin::finalize) should be called.
-    fn ready(&self, _app: &App) -> bool {
+    /// Pre-configures the [`App`] to which this plugin is added.
+    fn init(&self, _app: &mut App) {
+        // do nothing
+    }
+
+    /// Is the plugin ready to be built?
+    fn ready_to_build(&self, _app: &mut App) -> bool {
         true
     }
 
-    /// Finalizes this plugin to the [`App`], once all plugins registered are ready. This can
+    /// Builds the [`Plugin`] resources.
+    fn build(&self, _app: &mut App) {
+        // do nothing
+    }
+
+    /// Is the plugin ready to be configured?
+    fn ready_to_configure(&self, _app: &mut App) -> bool {
+        true
+    }
+
+    /// Configures the [`App`] to which this plugin is added. This can
+    /// be useful for plugins that needs completing asynchronous configuration.
+    fn configure(&self, _app: &mut App) {
+        // do nothing
+    }
+
+    /// Is the plugin ready to be finalized?.
+    fn ready_to_finalize(&self, _app: &mut App) -> bool {
+        true
+    }
+
+    /// Finalizes this plugin to the [`App`]. This can
     /// be useful for plugins that depends on another plugin asynchronous setup, like the renderer.
     fn finalize(&self, _app: &mut App) {
         // do nothing
@@ -141,9 +155,19 @@ pub trait Plugin: Downcast + Any + Send + Sync {
         match state {
             PluginState::Init => self.init(app),
             PluginState::Building => self.build(app),
-            PluginState::Finishing => self.finalize(app),
+            PluginState::Configuring => self.configure(app),
+            PluginState::Finalizing => self.finalize(app),
             PluginState::Done => {}
             s => panic!("Cannot handle {s:?} state"),
+        }
+    }
+
+    fn ready(&self, app: &mut App, next_state: PluginState) -> bool {
+        match next_state {
+            PluginState::Building => self.ready_to_build(app),
+            PluginState::Configuring => self.ready_to_configure(app),
+            PluginState::Finalizing => self.ready_to_finalize(app),
+            _ => true,
         }
     }
 

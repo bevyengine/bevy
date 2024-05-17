@@ -1,5 +1,4 @@
 use bevy_app::prelude::*;
-use bevy_app::{AppLabel, InternedAppLabel};
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_render::extract_component::ExtractComponentPlugin;
@@ -67,7 +66,7 @@ impl Plugin for AutoExposurePlugin {
         vec![RenderApp.intern()]
     }
 
-    fn ready(&self, app: &App) -> bool {
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
         app.contains_resource::<RenderDevice>()
     }
 

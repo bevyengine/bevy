@@ -28,7 +28,7 @@
 //!
 //! [`bevy-baked-gi`]: https://github.com/pcwalton/bevy-baked-gi
 
-use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
+use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
@@ -132,7 +132,7 @@ impl Plugin for LightmapPlugin {
         vec![RenderApp.intern()]
     }
 
-    fn ready(&self, app: &App) -> bool {
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
         app.contains_resource::<RenderDevice>()
     }
 
