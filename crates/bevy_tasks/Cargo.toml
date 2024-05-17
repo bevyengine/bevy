@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-multi-threaded = ["dep:async-channel", "dep:concurrent-queue"]
+multi_threaded = ["dep:async-channel", "dep:concurrent-queue"]
 
 [dependencies]
 futures-lite = "2.0.1"

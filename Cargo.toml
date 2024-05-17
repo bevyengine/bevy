@@ -15,10 +15,10 @@ rust-version = "1.77.0"
 [workspace]
 exclude = [
   "benches",
-  "crates/bevy_ecs_compile_fail_tests",
-  "crates/bevy_macros_compile_fail_tests",
-  "crates/bevy_reflect_compile_fail_tests",
-  "crates/bevy_compile_test_utils",
+  "crates/bevy_derive/compile_fail",
+  "crates/bevy_ecs/compile_fail",
+  "crates/bevy_reflect/compile_fail",
+  "tools/compile_fail_utils",
 ]
 members = [
   "crates/*",
@@ -55,6 +55,7 @@ workspace = true
 default = [
   "animation",
   "bevy_asset",
+  "bevy_state",
   "bevy_audio",
   "bevy_color",
   "bevy_gilrs",
@@ -67,7 +68,7 @@ default = [
   "bevy_sprite",
   "bevy_text",
   "bevy_ui",
-  "multi-threaded",
+  "multi_threaded",
   "png",
   "hdr",
   "vorbis",
@@ -252,7 +253,7 @@ symphonia-wav = ["bevy_internal/symphonia-wav"]
 serialize = ["bevy_internal/serialize"]
 
 # Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.
-multi-threaded = ["bevy_internal/multi-threaded"]
+multi_threaded = ["bevy_internal/multi_threaded"]
 
 # Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.
 async-io = ["bevy_internal/async-io"]
@@ -302,6 +303,11 @@ shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 # Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
 
+# Enable support for multi-layer material textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
+pbr_multi_layer_material_textures = [
+  "bevy_internal/pbr_multi_layer_material_textures",
+]
+
 # Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
 webgl2 = ["bevy_internal/webgl"]
 
@@ -328,6 +334,9 @@ meshlet_processor = ["bevy_internal/meshlet_processor"]
 
 # Enable support for the ios_simulator by downgrading some rendering capabilities
 ios_simulator = ["bevy_internal/ios_simulator"]
+
+# Enable built in global state machines
+bevy_state = ["bevy_internal/bevy_state"]
 
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.14.0-dev", default-features = false }
@@ -677,6 +686,17 @@ name = "Fog"
 description = "A scene showcasing the distance fog effect"
 category = "3D Rendering"
 wasm = true
+
+[[example]]
+name = "auto_exposure"
+path = "examples/3d/auto_exposure.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.auto_exposure]
+name = "Auto Exposure"
+description = "A scene showcasing auto exposure"
+category = "3D Rendering"
+wasm = false
 
 [[example]]
 name = "blend_modes"
@@ -1259,6 +1279,17 @@ category = "Application"
 wasm = false
 
 [[example]]
+name = "headless_renderer"
+path = "examples/app/headless_renderer.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.headless_renderer]
+name = "Headless Renderer"
+description = "An application that runs with no window, but renders into image file"
+category = "Application"
+wasm = false
+
+[[example]]
 name = "without_winit"
 path = "examples/app/without_winit.rs"
 doc-scrape-examples = true
@@ -1370,6 +1401,17 @@ name = "Asset Processing"
 description = "Demonstrates how to process and load custom assets"
 category = "Assets"
 wasm = false
+
+[[example]]
+name = "repeated_texture"
+path = "examples/asset/repeated_texture.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.repeated_texture]
+name = "Repeated texture configuration"
+description = "How to configure the texture to repeat instead of the default clamp to edges"
+category = "Assets"
+wasm = true
 
 # Async Tasks
 [[example]]
@@ -1691,35 +1733,35 @@ wasm = false
 
 [[example]]
 name = "state"
-path = "examples/ecs/state.rs"
+path = "examples/state/state.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.state]
 name = "State"
 description = "Illustrates how to use States to control transitioning from a Menu state to an InGame state"
-category = "ECS (Entity Component System)"
+category = "State"
 wasm = false
 
 [[example]]
 name = "sub_states"
-path = "examples/ecs/sub_states.rs"
+path = "examples/state/sub_states.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.sub_states]
 name = "Sub States"
 description = "Using Sub States for hierarchical state handling."
-category = "ECS (Entity Component System)"
+category = "State"
 wasm = false
 
 [[example]]
 name = "computed_states"
-path = "examples/ecs/computed_states.rs"
+path = "examples/state/computed_states.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.computed_states]
 name = "Computed States"
 description = "Advanced state patterns using Computed States"
-category = "ECS (Entity Component System)"
+category = "State"
 wasm = false
 
 [[example]]
@@ -2022,6 +2064,17 @@ doc-scrape-examples = true
 [package.metadata.example.reflection]
 name = "Reflection"
 description = "Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types"
+category = "Reflection"
+wasm = false
+
+[[example]]
+name = "dynamic_types"
+path = "examples/reflection/dynamic_types.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.dynamic_types]
+name = "Dynamic Types"
+description = "How dynamic types are used with reflection"
 category = "Reflection"
 wasm = false
 
@@ -2958,6 +3011,40 @@ doc-scrape-examples = true
 [package.metadata.example.color_grading]
 name = "Color grading"
 description = "Demonstrates color grading"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "clearcoat"
+path = "examples/3d/clearcoat.rs"
+doc-scrape-examples = true
+required-features = ["pbr_multi_layer_material_textures"]
+
+[package.metadata.example.clearcoat]
+name = "Clearcoat"
+description = "Demonstrates the clearcoat PBR feature"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "depth_of_field"
+path = "examples/3d/depth_of_field.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.depth_of_field]
+name = "Depth of field"
+description = "Demonstrates depth of field"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "volumetric_fog"
+path = "examples/3d/volumetric_fog.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.volumetric_fog]
+name = "Volumetric fog"
+description = "Demonstrates volumetric fog and lighting"
 category = "3D Rendering"
 wasm = true
 
