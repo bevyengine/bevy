@@ -3,7 +3,8 @@
 #![allow(clippy::match_same_arms)]
 
 use bevy::{
-    input::common_conditions::input_just_pressed, prelude::*, sprite::MaterialMesh2dBundle,
+    input::common_conditions::input_just_pressed, prelude::*,
+    render::mesh::primitives::MeshBuilder, sprite::MaterialMesh2dBundle,
 };
 
 const LEFT_RIGHT_OFFSET_2D: f32 = 200.0;
