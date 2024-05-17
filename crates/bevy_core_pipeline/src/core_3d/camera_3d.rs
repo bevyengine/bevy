@@ -65,7 +65,7 @@ impl Default for Camera3d {
 
 #[derive(Clone, Copy, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
-pub struct Camera3dDepthTextureUsage(u32);
+pub struct Camera3dDepthTextureUsage(pub u32);
 
 impl From<TextureUsages> for Camera3dDepthTextureUsage {
     fn from(value: TextureUsages) -> Self {

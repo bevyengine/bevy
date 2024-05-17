@@ -230,6 +230,10 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// [`List`]: crate::List
 /// [`Array`]: crate::Array
 /// [`Enum`]: crate::Enum
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not provide a reflection path",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+)]
 pub trait GetPath: Reflect {
     /// Returns a reference to the value specified by `path`.
     ///
