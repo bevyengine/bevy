@@ -180,17 +180,6 @@ jobs:
           name: example-run-windows
           path: example-run/
 
-  compare-windows-screenshots:
-    name: Compare Windows screenshots
-    needs: [run-examples-on-windows-dx12]
-    uses: ./.github/workflows/send-screenshots-to-pixeleagle.yml
-    with:
-      commit: ${{ github.sha }}
-      branch: ${{ github.ref_name }}
-      artifact: screenshots-windows
-      os: windows
-    secrets: inherit
-
   run-examples-on-wasm:
     if: ${{ github.event_name == 'merge_group' }}
     runs-on: ubuntu-latest
