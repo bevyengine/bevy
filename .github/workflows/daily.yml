@@ -59,7 +59,7 @@ jobs:
           CARGO_PROFILE_DEV_DEBUG: false
 
       - name: Build app for Android
-        run: cd examples/mobile && ./gradlew build
+        run: cd examples/mobile/android_example && ./gradlew build
 
       - name: Upload to Browser Stack
         run: |
