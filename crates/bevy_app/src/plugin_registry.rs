@@ -1,43 +1,10 @@
 use bevy_utils::HashMap;
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 
-use crate::App;
+use crate::{App, PluginState};
 use crate::Plugin;
 
-/// Plugins state in the application
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub enum PluginState {
-    /// Plugin is not initialized.
-    #[default]
-    Idle,
-    /// Plugin is initialized.
-    Init,
-    /// Plugin is being built.
-    Building,
-    /// Plugin is not yet ready.
-    NotYetReady,
-    /// Plugin configuration is finishing.
-    Finishing,
-    /// Plugin configuration is completed.
-    Done,
-    /// Plugin resources are cleaned up.
-    Cleaned,
-}
-
-impl PluginState {
-    pub(crate) fn next(self) -> Self {
-        match self {
-            Self::Idle => Self::Init,
-            Self::Init => Self::Building,
-            Self::Building => Self::NotYetReady,
-            Self::NotYetReady => Self::NotYetReady,
-            Self::Finishing => Self::Done,
-            s => unreachable!("Cannot handle {:?} state", s),
-        }
-    }
-}
-
-/// Plugins state in the application
+/// Plugin registry state in the application
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PluginRegistryState {
     #[default]
@@ -55,19 +22,22 @@ pub enum PluginRegistryState {
     Cleaned,
 }
 
+/// Registry for all the [`App`] [`Plugin`]s
 #[derive(Default)]
-pub struct PluginRegistry {
+pub(crate) struct PluginRegistry {
     plugins: Vec<Box<dyn Plugin>>,
     plugin_states: HashMap<String, PluginState>,
     state: PluginRegistryState,
 }
 
 impl PluginRegistry {
-    pub fn state(&self) -> PluginRegistryState {
+    /// Returns the registry current state
+    pub(crate) fn state(&self) -> PluginRegistryState {
         self.state
     }
 
-    pub fn add(&mut self, plugin: Box<dyn Plugin>) {
+    /// Add a new plugin. Plugins can be added only before the finalizing state.
+    pub(crate) fn add(&mut self, plugin: Box<dyn Plugin>) {
         if self.state() >= PluginRegistryState::Finalizing {
             panic!("Cannot add plugins after the ready state");
         }
@@ -79,18 +49,21 @@ impl PluginRegistry {
         self.update_state();
     }
 
-    pub fn get_all<T: Plugin>(&self) -> Vec<&T> {
+    /// Returns all the plugin of a specified type.
+    pub(crate) fn get_all<T: Plugin>(&self) -> Vec<&T> {
         self.plugins
             .iter()
             .filter_map(|p| p.downcast_ref())
             .collect()
     }
 
-    pub fn contains<T: Plugin>(&self) -> bool {
+    /// Returns `true` if the registry contains the required plugin by type
+    pub(crate) fn contains<T: Plugin>(&self) -> bool {
         self.get::<T>().is_some()
     }
 
-    pub fn get<T: Plugin>(&self) -> Option<&T> {
+    /// Returns the optional plugin by type
+    pub(crate) fn get<T: Plugin>(&self) -> Option<&T> {
         for p in &self.plugins {
             if let Some(t) = p.downcast_ref() {
                 return Some(t);
@@ -100,19 +73,8 @@ impl PluginRegistry {
         None
     }
 
-    pub fn len(&self) -> usize {
-        self.plugins.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.plugins.is_empty()
-    }
-
-    pub fn plugin_state(&self, name: &str) -> Option<PluginState> {
-        self.plugin_states.get(name).cloned()
-    }
-
-    pub fn update(&mut self, app: &mut App) {
+    /// Updates all plugins up to the [``PluginState::Done] state.
+    pub(crate) fn update(&mut self, app: &mut App) {
         for plugin in &mut self.plugins {
             let current_state = self
                 .plugin_states
@@ -160,7 +122,7 @@ impl PluginRegistry {
             .unwrap_or(PluginRegistryState::Idle);
     }
 
-    pub fn cleanup(&mut self, app: &mut App) {
+    pub(crate) fn cleanup(&mut self, app: &mut App) {
         for plugin in &mut self.plugins {
             let current_state = self
                 .plugin_states
@@ -189,7 +151,7 @@ impl PluginRegistry {
         self.update_state();
     }
 
-    pub fn merge(&mut self, mut other: Self) {
+    pub(crate) fn merge(&mut self, mut other: Self) {
         other.plugins.extend(self.plugins.drain(..));
         other.plugin_states.extend(self.plugin_states.drain());
 
@@ -260,11 +222,16 @@ mod tests {
         }
     }
 
+    impl PluginRegistry {
+        fn plugin_state(&self, name: &str) -> Option<PluginState> {
+            self.plugin_states.get(name).cloned()
+        }
+    }
+
     #[test]
     fn test_empty() {
         let registry = PluginRegistry::default();
-        assert_eq!(registry.len(), 0);
-        assert!(registry.is_empty());
+        assert_eq!(registry.plugins.len(), 0);
         assert_eq!(registry.state(), PluginRegistryState::Idle);
         assert!(!registry.contains::<TestPlugin>());
         assert_eq!(registry.plugin_state("TestPlugin"), None);
@@ -275,8 +242,7 @@ mod tests {
         let mut registry = PluginRegistry::default();
         registry.add(Box::new(TestPlugin));
 
-        assert_eq!(registry.len(), 1);
-        assert!(!registry.is_empty());
+        assert_eq!(registry.plugins.len(), 1);
 
         assert_eq!(registry.state(), PluginRegistryState::Init);
 

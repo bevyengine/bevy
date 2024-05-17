@@ -36,6 +36,6 @@ pub mod prelude {
             PostStartup, PostUpdate, PreStartup, PreUpdate, SpawnScene, Startup, Update,
         },
         sub_app::SubApp,
-        DynamicPlugin, Plugin, PluginGroup, PluginState,
+        DynamicPlugin, Plugin, PluginGroup,
     };
 }

@@ -1,4 +1,4 @@
-use crate::{App, AppLabel, InternedAppLabel, Plugin, PluginRegistryState, Plugins, Startup};
+use crate::{InternedAppLabel, Startup};
 use bevy_ecs::{
     event::EventRegistry,
     prelude::*,
@@ -11,7 +11,6 @@ use bevy_state::{
     state::{setup_state_transitions_in_world, FreelyMutableState},
 };
 
-use crate::plugin_registry::{PluginRegistry, PluginState};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{HashMap, HashSet};
@@ -63,7 +62,7 @@ type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
 /// app.run();
 /// ```
 pub struct SubApp {
-    name: String,
+    name: &'static str,
     /// The data of this application.
     world: World,
     /// The names of plugins that have been added to this app. (used to track duplicates and
@@ -84,17 +83,22 @@ impl Debug for SubApp {
 
 impl SubApp {
     /// Returns a default, empty [`SubApp`].
-    pub fn new(name: impl Into<String>) -> Self {
+    pub fn new(name: &'static str) -> Self {
         let mut world = World::new();
         world.init_resource::<Schedules>();
 
         Self {
-            name: name.into(),
+            name,
             world,
             plugin_names: HashSet::default(),
             update_schedule: None,
             extract: None,
         }
+    }
+
+    /// Returns the name of the [`SubApp`].
+    pub fn name(&self) -> &str {
+        self.name
     }
 
     /// Returns a reference to the [`World`].

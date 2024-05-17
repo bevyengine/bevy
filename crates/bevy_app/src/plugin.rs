@@ -1,9 +1,40 @@
 use downcast_rs::{impl_downcast, Downcast};
 
-use crate::plugin_registry::PluginState;
 use crate::App;
 use std::any::Any;
-use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
+
+/// Plugin state in the application
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub enum PluginState {
+    /// Plugin is not initialized.
+    #[default]
+    Idle,
+    /// Plugin is initialized.
+    Init,
+    /// Plugin is being built.
+    Building,
+    /// Plugin is not yet ready.
+    NotYetReady,
+    /// Plugin configuration is finishing.
+    Finishing,
+    /// Plugin configuration is completed.
+    Done,
+    /// Plugin resources are cleaned up.
+    Cleaned,
+}
+
+impl PluginState {
+    pub(crate) fn next(self) -> Self {
+        match self {
+            Self::Idle => Self::Init,
+            Self::Init => Self::Building,
+            Self::Building => Self::NotYetReady,
+            Self::NotYetReady => Self::NotYetReady,
+            Self::Finishing => Self::Done,
+            s => unreachable!("Cannot handle {:?} state", s),
+        }
+    }
+}
 
 /// A collection of Bevy app logic and configuration.
 ///
@@ -98,13 +129,14 @@ pub trait Plugin: Downcast + Any + Send + Sync {
         true
     }
 
+    /// Update the plugin to a desired [`PluginState`].
     fn update(&mut self, app: &mut App, state: PluginState) {
         match state {
             PluginState::Init => self.init(app),
             PluginState::Building => self.build(app),
             PluginState::Finishing => self.finalize(app),
             PluginState::Done => {}
-            s => unreachable!("Cannot handle {s:?} state"),
+            s => panic!("Cannot handle {s:?} state"),
         }
     }
 }

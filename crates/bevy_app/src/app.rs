@@ -28,7 +28,6 @@ bevy_ecs::define_label!(
     APP_LABEL_INTERNER
 );
 
-use crate::plugin_registry::PluginState;
 pub use bevy_ecs::label::DynEq;
 
 /// A shorthand for `Interned<dyn AppLabel>`.
@@ -976,7 +975,6 @@ mod tests {
 
     use bevy_ecs::{schedule::ScheduleLabel, system::Commands};
 
-    use crate::plugin_registry::PluginState;
     use crate::{App, AppExit, Plugin, PluginRegistryState, Update};
 
     struct PluginA;

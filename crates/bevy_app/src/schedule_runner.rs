@@ -1,7 +1,6 @@
 use crate::{
     app::{App, AppExit},
     plugin::Plugin,
-    PluginRegistryState,
 };
 use bevy_utils::{Duration, Instant};
 
