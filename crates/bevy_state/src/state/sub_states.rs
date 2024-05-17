@@ -143,6 +143,11 @@ pub use bevy_state_macros::SubStates;
 ///
 /// impl FreelyMutableState for GamePhase {}
 /// ```
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not be used as a sub-state",
+    label = "invalid sub-state",
+    note = "consider annotating `{Self}` with `#[derive(SubStates)]`"
+)]
 pub trait SubStates: States + FreelyMutableState {
     /// The set of states from which the [`Self`] is derived.
     ///
