@@ -249,7 +249,7 @@ impl App {
 
     fn take_plugin_registry(&mut self) -> PluginRegistry {
         self.plugin_build_depth += 1;
-        std::mem::replace(&mut self.plugin_registry, PluginRegistry::default())
+        std::mem::take(&mut self.plugin_registry)
     }
 
     fn insert_plugin_registry(&mut self, plugin_registry: PluginRegistry) {

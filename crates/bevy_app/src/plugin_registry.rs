@@ -75,7 +75,7 @@ impl PluginRegistry {
         None
     }
 
-    /// Updates all plugins up to the [``PluginState::Done] state.
+    /// Updates all plugins up to the [`PluginState::Done`] state.
     pub(crate) fn update(&mut self, app: &mut App) {
         for plugin in &mut self.plugins {
             let current_state = self
@@ -156,7 +156,7 @@ impl PluginRegistry {
     }
 
     pub(crate) fn merge(&mut self, mut other: Self) {
-        other.plugins.extend(self.plugins.drain(..));
+        other.plugins.append(&mut self.plugins);
         other.plugin_states.extend(self.plugin_states.drain());
 
         self.plugins = other.plugins;
