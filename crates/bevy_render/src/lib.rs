@@ -66,6 +66,7 @@ use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
 use crate::mesh::GpuMesh;
 use crate::renderer::WgpuWrapper;
+use crate::settings::WgpuSettings;
 use crate::{
     camera::CameraPlugin,
     mesh::{morph::MorphPlugin, MeshPlugin},
@@ -243,6 +244,13 @@ impl Plugin for RenderPlugin {
     /// Creates the rendering sub-app.
     fn init(&self, app: &mut App) {
         // SAFETY: Plugins should be set up on the main thread.
+        if matches!(
+            self.render_creation,
+            RenderCreation::Automatic(WgpuSettings { backends: None, .. })
+        ) {
+            return;
+        }
+
         unsafe { initialize_render_app(app) };
     }
 
