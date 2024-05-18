@@ -12,7 +12,6 @@
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
-use bevy_derive::{Deref, DerefMut};
 use bevy_utils::HashMap;
 
 mod loader;
@@ -91,8 +90,13 @@ impl Plugin for GltfPlugin {
 }
 
 /// Representation of a loaded glTF file.
-#[derive(Asset, Debug, TypePath, Deref, DerefMut)]
-pub struct RawGltf(pub gltf::Gltf);
+#[derive(Asset, Debug, TypePath)]
+pub struct RawGltf {
+    /// TODO
+    pub gltf: gltf::Gltf,
+    /// TODO
+    pub buffer_data: Vec<Vec<u8>>,
+}
 
 /// Bevy representation of a loaded glTF file.
 #[derive(Asset, Debug, TypePath)]

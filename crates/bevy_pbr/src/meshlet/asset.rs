@@ -43,6 +43,20 @@ pub struct MeshletMesh {
     pub bounding_spheres: Arc<[MeshletBoundingSpheres]>,
 }
 
+impl MeshletMesh {
+    pub fn into_bytes(&self) -> Result<Vec<u8>, MeshletMeshSaveOrLoadError> {
+        let mut bytes = Vec::new();
+        let mut writer = FrameEncoder::new(&mut bytes);
+        bincode::serialize_into(&mut writer, &self)?;
+        writer.finish()?;
+        Ok(bytes)
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, bincode::Error> {
+        bincode::deserialize_from(FrameDecoder::new(Cursor::new(bytes)))
+    }
+}
+
 /// A single meshlet within a [`MeshletMesh`].
 #[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
@@ -96,7 +110,7 @@ impl AssetLoader for MeshletMeshSaverLoad {
 
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
-        let asset = bincode::deserialize_from(FrameDecoder::new(Cursor::new(bytes)))?;
+        let asset = MeshletMesh::from_bytes(&bytes)?;
 
         Ok(asset)
     }
@@ -122,11 +136,7 @@ impl AssetSaver for MeshletMeshSaverLoad {
             .write_all(&MESHLET_MESH_ASSET_VERSION.to_le_bytes())
             .await?;
 
-        let mut bytes = Vec::new();
-        let mut sync_writer = FrameEncoder::new(&mut bytes);
-        bincode::serialize_into(&mut sync_writer, asset.get())?;
-        sync_writer.finish()?;
-        writer.write_all(&bytes).await?;
+        writer.write_all(&asset.into_bytes()?).await?;
 
         Ok(())
     }

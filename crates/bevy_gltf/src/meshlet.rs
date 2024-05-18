@@ -2,12 +2,13 @@ use crate::{
     get_primitive_topology, vertex_attributes::convert_attribute, GltfError, GltfLoader,
     GltfLoaderSettings, RawGltf,
 };
+use base64::{prelude::BASE64_STANDARD, Engine};
 use bevy_asset::{
     io::Writer,
     saver::{AssetSaver, SavedAsset},
     AsyncWriteExt,
 };
-use bevy_pbr::experimental::meshlet::MeshletMesh;
+use bevy_pbr::experimental::meshlet::{MeshletMesh, MESHLET_MESH_ASSET_VERSION};
 use bevy_render::{
     mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues},
     render_asset::RenderAssetUsages,
@@ -16,10 +17,9 @@ use bevy_utils::{
     tracing::{debug, warn},
     HashMap,
 };
-use gltf::{
-    json::{mesh::Primitive, Root},
-    mesh::util::ReadIndices,
-};
+use gltf::{mesh::util::ReadIndices, Primitive};
+use serde_json::{json, Map};
+use std::{collections::VecDeque, ops::Deref};
 
 pub struct MeshletMeshGltfSaver;
 
@@ -35,47 +35,70 @@ impl AssetSaver for MeshletMeshGltfSaver {
         asset: SavedAsset<'a, RawGltf>,
         settings: &'a GltfLoaderSettings,
     ) -> Result<GltfLoaderSettings, GltfError> {
-        let mut gltf = asset.into_json();
+        let mut meshlet_meshes = VecDeque::new();
 
-        for mesh in &mut gltf.meshes() {
-            for primitive in &mut mesh.primitives() {
-                #[cfg(feature = "meshlet_processor")]
-                {
-                    load_mesh(primitive, &gltf)?;
-
-                    let meshlet_mesh = MeshletMesh::from_mesh(mesh)?;
-
-                    // TODO: Remove old buffer/views from gltf
-                    // TODO: Serialize meshlet_mesh, compress, and add buffer data to gltf
-                    // TODO: Add meshlet metadata (including version number) to primitive extras
-                }
-
+        for mesh in asset.gltf.meshes() {
+            for primitive in mesh.primitives() {
                 #[cfg(not(feature = "meshlet_processor"))]
                 panic!(
                     "Converting GLTF files to use MeshletMeshes requires feature meshlet_processor."
                 );
+
+                let mesh = load_mesh(&primitive, &asset.buffer_data)?;
+
+                #[cfg(feature = "meshlet_processor")]
+                {
+                    let meshlet_mesh = MeshletMesh::from_mesh(&mesh).expect("TODO");
+                    meshlet_meshes.push_back(meshlet_mesh);
+                }
             }
         }
 
-        writer.write_all(&gltf.to_vec()?).await?;
+        let mut gltf = asset.gltf.deref().clone().into_json();
+
+        for mesh in &mut gltf.meshes {
+            for primitive in &mut mesh.primitives {
+                let meshlet_mesh_bytes = meshlet_meshes.pop_front().unwrap();
+                let meshlet_mesh_bytes = meshlet_mesh_bytes.into_bytes().expect("TODO");
+                let meshlet_mesh_bytes = BASE64_STANDARD.encode(meshlet_mesh_bytes);
+
+                if primitive.extensions.is_none() {
+                    primitive.extensions =
+                        Some(gltf::json::extensions::mesh::Primitive { others: Map::new() });
+                }
+
+                primitive.extensions.as_mut().unwrap().others.insert(
+                    "BEVY_meshlet_mesh".to_owned(),
+                    json!({
+                        "version": MESHLET_MESH_ASSET_VERSION,
+                        "bytes": meshlet_mesh_bytes,
+                    }),
+                );
+
+                // TODO: Remove primitive indices, attributes, buffer views, and buffers
+            }
+        }
+
+        let bytes = gltf.to_vec().expect("TODO");
+        writer.write_all(&bytes).await?;
 
         Ok(settings.clone())
     }
 }
 
-fn load_mesh(primitive: &Primitive, gltf: &Root) -> Result<Mesh, GltfError> {
+fn load_mesh<'a>(primitive: &Primitive<'a>, buffer_data: &Vec<Vec<u8>>) -> Result<Mesh, GltfError> {
     let primitive_topology = get_primitive_topology(primitive.mode())?;
 
     let mut mesh = Mesh::new(primitive_topology, RenderAssetUsages::default());
 
     for (semantic, accessor) in primitive.attributes() {
-        match convert_attribute(semantic, accessor, &gltf.buffers, &HashMap::new()) {
+        match convert_attribute(semantic, accessor, &buffer_data, &HashMap::new()) {
             Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
             Err(err) => warn!("{}", err),
         }
     }
 
-    let reader = primitive.reader(|buffer| Some(gltf.buffers[buffer.index()].as_slice()));
+    let reader = primitive.reader(|buffer| Some(buffer_data[buffer.index()].as_slice()));
 
     if let Some(indices) = reader.read_indices() {
         mesh.insert_indices(match indices {
@@ -86,7 +109,7 @@ fn load_mesh(primitive: &Primitive, gltf: &Root) -> Result<Mesh, GltfError> {
     };
 
     if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none()
-        && *matches!(mesh.primitive_topology(), PrimitiveTopology::TriangleList)
+        && matches!(mesh.primitive_topology(), PrimitiveTopology::TriangleList)
     {
         debug!("Automatically calculating missing vertex normals for geometry.");
         mesh.compute_flat_normals();
