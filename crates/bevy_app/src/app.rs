@@ -138,6 +138,10 @@ impl App {
 
     /// Runs the default schedules of all sub-apps (starting with the "main" app) once.
     pub fn update(&mut self) {
+        if self.plugins_state() == PluginRegistryState::Init {
+            self.update_and_clean_plugins();
+        }
+
         if self.is_building_plugins() {
             panic!("App::update() was called while a plugin was building.");
         }

@@ -89,12 +89,13 @@ impl PluginState {
 /// # fn damp_flickering() {}
 /// ````
 pub trait Plugin: Downcast + Any + Send + Sync {
-    /// Returns required sub apps before finalizing.
+    /// Returns required sub apps before finalizing this plugin.
     fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
         Vec::new()
     }
 
-    /// Pre-configures the [`App`] to which this plugin is added.
+    /// Pre-configures the [`App`] to which this plugin is added. This is usually executed before
+    /// the event loop is started.
     fn init(&self, _app: &mut App) {
         // do nothing
     }
@@ -104,7 +105,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
         true
     }
 
-    /// Builds the [`Plugin`] resources.
+    /// Builds the [`Plugin`] resources. This is usually executed inside an event loop.
     fn build(&self, _app: &mut App) {
         // do nothing
     }
@@ -120,7 +121,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
         // do nothing
     }
 
-    /// Is the plugin ready to be finalized?.
+    /// Is the plugin ready to be finalized?
     fn ready_to_finalize(&self, _app: &mut App) -> bool {
         true
     }
