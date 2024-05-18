@@ -1,6 +1,7 @@
 use crate::{self as bevy_asset};
 use crate::{
-    Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, LoadState, UntypedHandle,
+    Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, HandleDropResult,
+    UntypedHandle,
 };
 use bevy_ecs::{
     prelude::EventWriter,
@@ -550,18 +551,17 @@ impl<A: Asset> Assets<A> {
             let id = drop_event.id.typed();
 
             if drop_event.asset_server_managed {
-                let untyped_id = id.untyped();
-                if let Some(info) = infos.get(untyped_id) {
-                    if let LoadState::Loading | LoadState::NotLoaded = info.load_state {
+                // the process_handle_drop call checks whether new handles have been created since the drop event was fired, before removing the asset
+                match infos.process_handle_drop(id.untyped(), &asset_server.data.asset_event_sender)
+                {
+                    // a new handle has been created, or the asset doesn't exist
+                    HandleDropResult::NotDropped => continue,
+                    // an load is in progress, refire the event for next frame
+                    HandleDropResult::CantDropYet => {
                         not_ready.push(drop_event);
                         continue;
                     }
-                }
-
-                // the process_handle_drop call checks whether new handles have been created since the drop event was fired, before removing the asset
-                if !infos.process_handle_drop(untyped_id) {
-                    // a new handle has been created, or the asset doesn't exist
-                    continue;
+                    HandleDropResult::Dropped => (),
                 }
             }
 
@@ -569,8 +569,9 @@ impl<A: Asset> Assets<A> {
             assets.remove_dropped(id);
         }
 
-        // TODO: this is _extremely_ inefficient find a better fix
-        // This will also loop failed assets indefinitely. Is that ok?
+        // for internally tracked tasks (or their dependents) this will only refire each event once, as
+        // the task has been dropped and a fail event sent in `infos.process_handle_drop` above.
+        // for untracked load tasks this will refire until the load completes
         for event in not_ready {
             assets.handle_provider.drop_sender.send(event).unwrap();
         }

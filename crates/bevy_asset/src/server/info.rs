@@ -1,13 +1,13 @@
 use crate::{
     meta::{AssetHash, MetaTransform},
     Asset, AssetHandleProvider, AssetLoadError, AssetPath, DependencyLoadState, ErasedLoadedAsset,
-    Handle, InternalAssetEvent, LoadState, RecursiveDependencyLoadState, StrongHandle,
-    UntypedAssetId, UntypedHandle,
+    Handle, InternalAssetEvent, InternalAssetEventSender, LoadState, RecursiveDependencyLoadState,
+    StrongHandle, UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::world::World;
-use bevy_utils::tracing::warn;
+use bevy_tasks::{IoTaskPool, Task};
+use bevy_utils::{tracing::warn, ConditionalSendFuture};
 use bevy_utils::{Entry, HashMap, HashSet, TypeIdMap};
-use crossbeam_channel::Sender;
 use std::{
     any::TypeId,
     sync::{Arc, Weak},
@@ -76,6 +76,16 @@ pub(crate) struct AssetInfos {
     pub(crate) dependency_loaded_event_sender: TypeIdMap<fn(&mut World, UntypedAssetId)>,
     pub(crate) dependency_failed_event_sender:
         TypeIdMap<fn(&mut World, UntypedAssetId, AssetPath<'static>, AssetLoadError)>,
+    pending_load_tasks: HashMap<UntypedAssetId, Task<()>>,
+}
+
+pub(crate) enum HandleDropResult {
+    // asset already dropped, was never created, or new handles have been created
+    NotDropped,
+    // asset can be dropped and infos data has been cleaned up
+    Dropped,
+    // asset load is still in progress externally and cannot be cancelled
+    CantDropYet,
 }
 
 impl std::fmt::Debug for AssetInfos {
@@ -162,6 +172,32 @@ impl AssetInfos {
         let (handle, should_load) =
             unwrap_with_context(result, std::any::type_name::<A>()).unwrap();
         (handle.typed_unchecked(), should_load)
+    }
+
+    pub(crate) fn get_or_create_path_handle_and_load<
+        A: Asset,
+        F: ConditionalSendFuture<Output = ()> + 'static,
+    >(
+        &mut self,
+        path: AssetPath<'static>,
+        loading_mode: HandleLoadingMode,
+        meta_transform: Option<MetaTransform>,
+        load_fn: impl FnOnce(Handle<A>) -> F,
+    ) -> Handle<A> {
+        let (handle, should_load) =
+            self.get_or_create_path_handle(path, loading_mode, meta_transform);
+
+        if should_load {
+            let task = IoTaskPool::get().spawn(load_fn(handle.clone()));
+
+            #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
+            self.pending_load_tasks.insert(handle.id().untyped(), task);
+
+            #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+            task.detach();
+        }
+
+        handle
     }
 
     pub(crate) fn get_or_create_path_handle_untyped(
@@ -358,12 +394,18 @@ impl AssetInfos {
     }
 
     /// Returns `true` if the asset should be removed from the collection.
-    pub(crate) fn process_handle_drop(&mut self, id: UntypedAssetId) -> bool {
+    pub(crate) fn process_handle_drop(
+        &mut self,
+        id: UntypedAssetId,
+        sender: &InternalAssetEventSender,
+    ) -> HandleDropResult {
         Self::process_handle_drop_internal(
             &mut self.infos,
             &mut self.path_to_id,
             &mut self.loader_dependants,
             &mut self.living_labeled_assets,
+            &mut self.pending_load_tasks,
+            sender,
             self.watching_for_changes,
             id,
         )
@@ -375,7 +417,7 @@ impl AssetInfos {
         loaded_asset_id: UntypedAssetId,
         loaded_asset: ErasedLoadedAsset,
         world: &mut World,
-        sender: &Sender<InternalAssetEvent>,
+        sender: &InternalAssetEventSender,
     ) {
         loaded_asset.value.insert(loaded_asset_id, world);
         let mut loading_deps = loaded_asset.dependencies;
@@ -435,6 +477,7 @@ impl AssetInfos {
         let rec_dep_load_state = match (loading_rec_deps.len(), failed_rec_deps.len()) {
             (0, 0) => {
                 sender
+                    .lock_blocking()
                     .send(InternalAssetEvent::LoadedWithDependencies {
                         id: loaded_asset_id,
                     })
@@ -522,6 +565,8 @@ impl AssetInfos {
                 }
             }
         }
+
+        self.pending_load_tasks.remove(&loaded_asset_id);
     }
 
     /// Recursively propagates loaded state up the dependency tree.
@@ -529,7 +574,7 @@ impl AssetInfos {
         infos: &mut AssetInfos,
         loaded_id: UntypedAssetId,
         waiting_id: UntypedAssetId,
-        sender: &Sender<InternalAssetEvent>,
+        sender: &InternalAssetEventSender,
     ) {
         let dependants_waiting_on_rec_load = if let Some(info) = infos.get_mut(waiting_id) {
             info.loading_rec_dependencies.remove(&loaded_id);
@@ -537,6 +582,7 @@ impl AssetInfos {
                 info.rec_dep_load_state = RecursiveDependencyLoadState::Loaded;
                 if info.load_state == LoadState::Loaded {
                     sender
+                        .lock_blocking()
                         .send(InternalAssetEvent::LoadedWithDependencies { id: waiting_id })
                         .unwrap();
                 }
@@ -606,6 +652,8 @@ impl AssetInfos {
         for waiting_id in dependants_waiting_on_rec_load {
             Self::propagate_failed_state(self, failed_id, waiting_id);
         }
+
+        self.pending_load_tasks.remove(&failed_id);
     }
 
     fn remove_dependants_and_labels(
@@ -637,30 +685,54 @@ impl AssetInfos {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn process_handle_drop_internal(
         infos: &mut HashMap<UntypedAssetId, AssetInfo>,
         path_to_id: &mut HashMap<AssetPath<'static>, TypeIdMap<UntypedAssetId>>,
         loader_dependants: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
         living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<Box<str>>>,
+        pending_load_tasks: &mut HashMap<UntypedAssetId, Task<()>>,
+        sender: &InternalAssetEventSender,
         watching_for_changes: bool,
         id: UntypedAssetId,
-    ) -> bool {
+    ) -> HandleDropResult {
         let Entry::Occupied(mut entry) = infos.entry(id) else {
             // Either the asset was already dropped, it doesn't exist, or it isn't managed by the asset server
             // None of these cases should result in a removal from the Assets collection
-            return false;
+            return HandleDropResult::NotDropped;
         };
 
         if entry.get_mut().handle_drops_to_skip > 0 {
             entry.get_mut().handle_drops_to_skip -= 1;
-            return false;
+            return HandleDropResult::NotDropped;
         }
 
         let type_id = entry.key().type_id();
 
+        if matches!(entry.get().load_state, LoadState::Loading) {
+            if let Some(task) = pending_load_tasks.remove(&id) {
+                // drop the task and send a cancel error to move this asset out of Loading state
+
+                // we need to ensure load tasks do not send results after we send the cancel (except on wasm where they cannot)
+                let sender = sender.lock_blocking();
+
+                drop(task);
+                let path = entry.get().path.clone().unwrap_or_default();
+                sender
+                    .send(InternalAssetEvent::Failed {
+                        id,
+                        path: path.clone(),
+                        error: AssetLoadError::Cancelled { path },
+                    })
+                    .unwrap();
+            }
+
+            return HandleDropResult::CantDropYet;
+        }
+
         let info = entry.remove();
         let Some(path) = &info.path else {
-            return true;
+            return HandleDropResult::Dropped;
         };
 
         if watching_for_changes {
@@ -680,7 +752,7 @@ impl AssetInfos {
             }
         };
 
-        true
+        HandleDropResult::Dropped
     }
 
     /// Consumes all current handle drop events. This will update information in [`AssetInfos`], but it
@@ -688,7 +760,7 @@ impl AssetInfos {
     /// This should only be called if `Assets` storage isn't being used (such as in [`AssetProcessor`](crate::processor::AssetProcessor))
     ///
     /// [`Assets`]: crate::Assets
-    pub(crate) fn consume_handle_drop_events(&mut self) {
+    pub(crate) fn consume_handle_drop_events(&mut self, sender: &InternalAssetEventSender) {
         for provider in self.handle_providers.values() {
             while let Ok(drop_event) = provider.drop_receiver.try_recv() {
                 let id = drop_event.id;
@@ -698,6 +770,8 @@ impl AssetInfos {
                         &mut self.path_to_id,
                         &mut self.loader_dependants,
                         &mut self.living_labeled_assets,
+                        &mut self.pending_load_tasks,
+                        sender,
                         self.watching_for_changes,
                         id.untyped(provider.type_id),
                     );
