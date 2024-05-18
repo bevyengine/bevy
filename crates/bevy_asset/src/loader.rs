@@ -568,6 +568,95 @@ impl<'a> LoadContext<'a> {
         handle
     }
 
+    async fn load_direct_untyped_internal(
+        &mut self,
+        path: AssetPath<'static>,
+        meta: Box<dyn AssetMetaDyn>,
+        loader: &dyn ErasedAssetLoader,
+        reader: &mut Reader<'_>,
+    ) -> Result<ErasedLoadedAsset, LoadDirectError> {
+        let loaded_asset = self
+            .asset_server
+            .load_with_meta_loader_and_reader(
+                &path,
+                meta,
+                loader,
+                reader,
+                false,
+                self.populate_hashes,
+            )
+            .await
+            .map_err(|error| LoadDirectError {
+                dependency: path.clone(),
+                error,
+            })?;
+        let info = loaded_asset
+            .meta
+            .as_ref()
+            .and_then(|m| m.processed_info().as_ref());
+        let hash = info.map(|i| i.full_hash).unwrap_or(Default::default());
+        self.loader_dependencies.insert(path, hash);
+        Ok(loaded_asset)
+    }
+
+    async fn load_direct_internal<A: Asset>(
+        &mut self,
+        path: AssetPath<'static>,
+        meta: Box<dyn AssetMetaDyn>,
+        loader: &dyn ErasedAssetLoader,
+        reader: &mut Reader<'_>,
+    ) -> Result<LoadedAsset<A>, LoadDirectError> {
+        self.load_direct_untyped_internal(path.clone(), meta, &*loader, &mut *reader)
+            .await
+            .and_then(move |untyped_asset| {
+                untyped_asset.downcast::<A>().map_err(|_| LoadDirectError {
+                    dependency: path.clone(),
+                    error: AssetLoadError::RequestedHandleTypeMismatch {
+                        path,
+                        requested: TypeId::of::<A>(),
+                        actual_asset_name: loader.asset_type_name(),
+                        loader_name: loader.type_name(),
+                    },
+                })
+            })
+    }
+
+    async fn load_direct_untyped_with_transform(
+        &mut self,
+        path: AssetPath<'static>,
+        meta_transform: impl FnOnce(&mut dyn AssetMetaDyn),
+    ) -> Result<ErasedLoadedAsset, LoadDirectError> {
+        let (mut meta, loader, mut reader) = self
+            .asset_server
+            .get_meta_loader_and_reader(&path, None)
+            .await
+            .map_err(|error| LoadDirectError {
+                dependency: path.clone(),
+                error,
+            })?;
+        meta_transform(&mut *meta);
+        self.load_direct_untyped_internal(path.clone(), meta, &*loader, &mut *reader)
+            .await
+    }
+
+    async fn load_direct_with_transform<A: Asset>(
+        &mut self,
+        path: AssetPath<'static>,
+        meta_transform: impl FnOnce(&mut dyn AssetMetaDyn),
+    ) -> Result<LoadedAsset<A>, LoadDirectError> {
+        let (mut meta, loader, mut reader) = self
+            .asset_server
+            .get_meta_loader_and_reader(&path, Some(TypeId::of::<A>()))
+            .await
+            .map_err(|error| LoadDirectError {
+                dependency: path.clone(),
+                error,
+            })?;
+        meta_transform(&mut *meta);
+        self.load_direct_internal(path.clone(), meta, &*loader, &mut *reader)
+            .await
+    }
+
     /// Loads the asset at the given `path` directly. This is an async function that will wait until the asset is fully loaded before
     /// returning. Use this if you need the _value_ of another asset in order to load the current asset. For example, if you are
     /// deriving a new asset from the referenced asset, or you are building a collection of assets. This will add the `path` as a
@@ -582,47 +671,8 @@ impl<'a> LoadContext<'a> {
         &mut self,
         path: impl Into<AssetPath<'b>>,
     ) -> Result<LoadedAsset<A>, LoadDirectError> {
-        let path = path.into().into_owned();
-        let to_error = |e: AssetLoadError| -> LoadDirectError {
-            LoadDirectError {
-                dependency: path.clone(),
-                error: e,
-            }
-        };
-        let loaded_asset = {
-            let (meta, loader, mut reader) = self
-                .asset_server
-                .get_meta_loader_and_reader(&path, Some(TypeId::of::<A>()))
-                .await
-                .map_err(to_error)?;
-            let untyped_asset = self
-                .asset_server
-                .load_with_meta_loader_and_reader(
-                    &path,
-                    meta,
-                    &*loader,
-                    &mut *reader,
-                    false,
-                    self.populate_hashes,
-                )
-                .await
-                .map_err(to_error)?;
-            untyped_asset.downcast::<A>().map_err(|_| {
-                to_error(AssetLoadError::RequestedHandleTypeMismatch {
-                    path: path.clone(),
-                    requested: TypeId::of::<A>(),
-                    actual_asset_name: loader.asset_type_name(),
-                    loader_name: loader.type_name(),
-                })
-            })?
-        };
-        let info = loaded_asset
-            .meta
-            .as_ref()
-            .and_then(|m| m.processed_info().as_ref());
-        let hash = info.map(|i| i.full_hash).unwrap_or(Default::default());
-        self.loader_dependencies.insert(path, hash);
-        Ok(loaded_asset)
+        self.load_direct_with_transform(path.into().into_owned(), |_| {})
+            .await
     }
 
     /// Loads the asset at the given `path` directly. This is an async function that will wait until the asset is fully loaded before
@@ -643,48 +693,10 @@ impl<'a> LoadContext<'a> {
         path: impl Into<AssetPath<'b>>,
         settings: impl Fn(&mut S) + Send + Sync + 'static,
     ) -> Result<LoadedAsset<A>, LoadDirectError> {
-        let path = path.into().into_owned();
-        let to_error = |e: AssetLoadError| -> LoadDirectError {
-            LoadDirectError {
-                dependency: path.clone(),
-                error: e,
-            }
-        };
-        let loaded_asset = {
-            let (mut meta, loader, mut reader) = self
-                .asset_server
-                .get_meta_loader_and_reader(&path, Some(TypeId::of::<A>()))
-                .await
-                .map_err(to_error)?;
-            meta_transform_settings(&mut *meta, &settings);
-            let untyped_asset = self
-                .asset_server
-                .load_with_meta_loader_and_reader(
-                    &path,
-                    meta,
-                    &*loader,
-                    &mut *reader,
-                    false,
-                    self.populate_hashes,
-                )
-                .await
-                .map_err(to_error)?;
-            untyped_asset.downcast::<A>().map_err(|_| {
-                to_error(AssetLoadError::RequestedHandleTypeMismatch {
-                    path: path.clone(),
-                    requested: TypeId::of::<A>(),
-                    actual_asset_name: loader.asset_type_name(),
-                    loader_name: loader.type_name(),
-                })
-            })?
-        };
-        let info = loaded_asset
-            .meta
-            .as_ref()
-            .and_then(|m| m.processed_info().as_ref());
-        let hash = info.map(|i| i.full_hash).unwrap_or(Default::default());
-        self.loader_dependencies.insert(path, hash);
-        Ok(loaded_asset)
+        self.load_direct_with_transform(path.into().into_owned(), move |meta| {
+            meta_transform_settings(meta, &settings)
+        })
+        .await
     }
 
     /// Loads the asset at the given `path` directly. This is an async function that will wait until the asset is fully loaded before
@@ -701,38 +713,8 @@ impl<'a> LoadContext<'a> {
         &mut self,
         path: impl Into<AssetPath<'b>>,
     ) -> Result<ErasedLoadedAsset, LoadDirectError> {
-        let path = path.into().into_owned();
-        let to_error = |e: AssetLoadError| -> LoadDirectError {
-            LoadDirectError {
-                dependency: path.clone(),
-                error: e,
-            }
-        };
-        let loaded_asset = {
-            let (meta, loader, mut reader) = self
-                .asset_server
-                .get_meta_loader_and_reader(&path, None)
-                .await
-                .map_err(to_error)?;
-            self.asset_server
-                .load_with_meta_loader_and_reader(
-                    &path,
-                    meta,
-                    &*loader,
-                    &mut *reader,
-                    false,
-                    self.populate_hashes,
-                )
-                .await
-                .map_err(to_error)?
-        };
-        let info = loaded_asset
-            .meta
-            .as_ref()
-            .and_then(|m| m.processed_info().as_ref());
-        let hash = info.map(|i| i.full_hash).unwrap_or(Default::default());
-        self.loader_dependencies.insert(path, hash);
-        Ok(loaded_asset)
+        self.load_direct_untyped_with_transform(path.into().into_owned(), |_| {})
+            .await
     }
 
     /// Loads the asset at the given `path` directly from the provided `reader`. This is an async function that will wait until the asset is fully loaded before
@@ -763,42 +745,8 @@ impl<'a> LoadContext<'a> {
 
         let meta = loader.default_meta();
 
-        let loaded_asset = self
-            .asset_server
-            .load_with_meta_loader_and_reader(
-                &path,
-                meta,
-                &*loader,
-                reader,
-                false,
-                self.populate_hashes,
-            )
+        self.load_direct_internal(path, meta, &*loader, reader)
             .await
-            .and_then(|asset| {
-                asset
-                    .downcast()
-                    .map_err(|_| AssetLoadError::RequestedHandleTypeMismatch {
-                        path: path.clone(),
-                        requested: TypeId::of::<A>(),
-                        actual_asset_name: loader.asset_type_name(),
-                        loader_name: loader.type_name(),
-                    })
-            })
-            .map_err(|error| LoadDirectError {
-                dependency: path.clone(),
-                error,
-            })?;
-
-        let info = loaded_asset
-            .meta
-            .as_ref()
-            .and_then(|m| m.processed_info().as_ref());
-
-        let hash = info.map(|i| i.full_hash).unwrap_or_default();
-
-        self.loader_dependencies.insert(path, hash);
-
-        Ok(loaded_asset)
     }
 
     /// Loads the asset at the given `path` directly from the provided `reader`. This is an async function that will wait until the asset is fully loaded before
@@ -834,40 +782,8 @@ impl<'a> LoadContext<'a> {
         let mut meta = loader.default_meta();
         meta_transform_settings(&mut *meta, &settings);
 
-        let loaded_asset = self
-            .asset_server
-            .load_with_meta_loader_and_reader(
-                &path,
-                meta,
-                &*loader,
-                reader,
-                false,
-                self.populate_hashes,
-            )
+        self.load_direct_internal(path, meta, &*loader, reader)
             .await
-            .and_then(|asset| {
-                asset
-                    .downcast()
-                    .map_err(|_| AssetLoadError::RequestedHandleTypeMismatch {
-                        path: path.clone(),
-                        requested: TypeId::of::<A>(),
-                        actual_asset_name: loader.asset_type_name(),
-                        loader_name: loader.type_name(),
-                    })
-            })
-            .map_err(|error| LoadDirectError {
-                dependency: path.clone(),
-                error,
-            })?;
-
-        let info = loaded_asset
-            .meta
-            .as_ref()
-            .and_then(|m| m.processed_info().as_ref());
-
-        let hash = info.map(|i| i.full_hash).unwrap_or_default();
-        self.loader_dependencies.insert(path, hash);
-        Ok(loaded_asset)
     }
 
     /// Loads the asset at the given `path` directly from the provided `reader`. This is an async function that will wait until the asset is fully loaded before
@@ -898,32 +814,8 @@ impl<'a> LoadContext<'a> {
 
         let meta = loader.default_meta();
 
-        let loaded_asset = self
-            .asset_server
-            .load_with_meta_loader_and_reader(
-                &path,
-                meta,
-                &*loader,
-                reader,
-                false,
-                self.populate_hashes,
-            )
+        self.load_direct_untyped_internal(path, meta, &*loader, reader)
             .await
-            .map_err(|error| LoadDirectError {
-                dependency: path.clone(),
-                error,
-            })?;
-
-        let info = loaded_asset
-            .meta
-            .as_ref()
-            .and_then(|m| m.processed_info().as_ref());
-
-        let hash = info.map(|i| i.full_hash).unwrap_or_default();
-
-        self.loader_dependencies.insert(path, hash);
-
-        Ok(loaded_asset)
     }
 }
 
