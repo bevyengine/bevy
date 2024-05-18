@@ -84,12 +84,14 @@ impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentP
     }
 
     fn ready_to_finalize(&self, app: &mut App) -> bool {
-        let render_app = app.sub_app(RenderApp);
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
+        };
         render_app.contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {
-        let render_app = app.sub_app(RenderApp);
+        let render_app = app.sub_app_mut(RenderApp);
 
         render_app
             .insert_resource(ComponentUniforms::<C>::default())
@@ -197,12 +199,14 @@ impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
     }
 
     fn ready_to_finalize(&self, app: &mut App) -> bool {
-        let render_app = app.sub_app(RenderApp);
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
+        };
         render_app.contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {
-        let render_app = app.sub_app(RenderApp);
+        let render_app = app.sub_app_mut(RenderApp);
 
         if self.only_extract_visible {
             render_app.add_systems(ExtractSchedule, extract_visible_components::<C>);

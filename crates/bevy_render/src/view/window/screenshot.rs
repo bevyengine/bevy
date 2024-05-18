@@ -143,12 +143,14 @@ impl Plugin for ScreenshotPlugin {
     }
 
     fn ready_to_finalize(&self, app: &mut App) -> bool {
-        let render_app = app.sub_app(RenderApp);
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
+        };
         render_app.contains_resource::<RenderDevice>()
     }
 
-    fn finalize(&self, app: &mut bevy_app::App) {
-        let render_app = app.sub_app(RenderApp);
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
 
         render_app.init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>();
     }

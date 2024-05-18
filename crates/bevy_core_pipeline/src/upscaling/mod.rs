@@ -18,7 +18,9 @@ impl Plugin for UpscalingPlugin {
     }
 
     fn ready_to_finalize(&self, app: &mut App) -> bool {
-        let render_app = app.sub_app(RenderApp);
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
+        };
         render_app.contains_resource::<RenderDevice>()
     }
 

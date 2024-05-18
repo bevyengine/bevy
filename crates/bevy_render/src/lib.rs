@@ -260,7 +260,6 @@ impl Plugin for RenderPlugin {
 
     /// Initializes the renderer.
     fn configure(&self, app: &mut App) {
-        println!("************************");
         match &self.render_creation {
             RenderCreation::Manual(device, queue, adapter_info, adapter, instance) => {
                 let future_renderer_resources_wrapper = Arc::new(Mutex::new(Some((
