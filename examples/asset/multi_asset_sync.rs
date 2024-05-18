@@ -2,16 +2,25 @@
 
 use std::{
     f32::consts::PI,
-    pin::Pin,
     sync::{
-        atomic::{AtomicU32, Ordering},
-        Arc, Mutex,
+        atomic::{AtomicBool, AtomicU32, Ordering},
+        Arc,
     },
-    task::{Context, Poll, Waker},
 };
 
 use bevy::{gltf::Gltf, prelude::*, tasks::AsyncComputeTaskPool};
+use event_listener::Event;
 use futures_lite::Future;
+
+/// [`States`] of asset loading.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, States, Default)]
+pub enum LoadingState {
+    /// Is loading.
+    #[default]
+    Loading,
+    /// Loading completed.
+    Loaded,
+}
 
 /// Holds a bunch of [`Gltf`]s that takes time to load.
 #[derive(Debug, Resource)]
@@ -34,31 +43,13 @@ pub struct AssetBarrierGuard(Arc<AssetBarrierInner>);
 #[derive(Debug, Resource)]
 pub struct AssetBarrierInner {
     count: AtomicU32,
-    /// This is not optimal, preferably use `event_listener::Event`
-    wakers: Mutex<Vec<Waker>>,
-}
-
-/// Future for [`AssetBarrier`] completion.
-#[must_use = "`Future`s do nothing unless polled."]
-#[derive(Debug, Resource, Deref)]
-pub struct AssetBarrierFuture(Arc<AssetBarrierInner>);
-
-impl Future for AssetBarrierFuture {
-    type Output = ();
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        if self.count.load(Ordering::Acquire) == 0 {
-            Poll::Ready(())
-        } else {
-            self.wakers.lock().unwrap().push(cx.waker().clone());
-            Poll::Pending
-        }
-    }
+    /// This can be omitted if async is not needed.
+    notify: Event,
 }
 
 /// State of loading asynchronously.
 #[derive(Debug, Resource)]
-pub struct AsyncLoadingState(Arc<Mutex<String>>);
+pub struct AsyncLoadingState(Arc<AtomicBool>);
 
 /// Entities that are to be removed once loading finished
 #[derive(Debug, Component)]
@@ -69,7 +60,7 @@ impl AssetBarrier {
     pub fn new() -> (AssetBarrier, AssetBarrierGuard) {
         let inner = Arc::new(AssetBarrierInner {
             count: AtomicU32::new(1),
-            wakers: Mutex::default(),
+            notify: Event::new(),
         });
         (AssetBarrier(inner.clone()), AssetBarrierGuard(inner))
     }
@@ -80,11 +71,24 @@ impl AssetBarrier {
     }
 
     /// Wait for all [`AssetBarrierGuard`]s to be dropped asynchronously.
-    pub fn wait_async(&self) -> AssetBarrierFuture {
-        AssetBarrierFuture(self.0.clone())
+    pub fn wait_async(&self) -> impl Future<Output = ()> + 'static {
+        let shared = self.0.clone();
+        async move {
+            loop {
+                // Acquire an event listener.
+                let listener = shared.notify.listen();
+                // If all barrier guards are dropped, return
+                if shared.count.load(Ordering::Acquire) == 0 {
+                    return;
+                }
+                // Wait for the last barrier guard to notify us
+                listener.await;
+            }
+        }
     }
 }
 
+// Increment count on clone.
 impl Clone for AssetBarrierGuard {
     fn clone(&self) -> Self {
         self.count.fetch_add(1, Ordering::AcqRel);
@@ -92,11 +96,13 @@ impl Clone for AssetBarrierGuard {
     }
 }
 
+// Decrement count on clone.
 impl Drop for AssetBarrierGuard {
     fn drop(&mut self) {
         let prev = self.count.fetch_sub(1, Ordering::AcqRel);
         if prev == 1 {
-            self.wakers.lock().unwrap().drain(..).for_each(|w| w.wake());
+            // Notify all listeners if count reaches 0.
+            self.notify.notify(usize::MAX);
         }
     }
 }
@@ -104,13 +110,24 @@ impl Drop for AssetBarrierGuard {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .init_state::<LoadingState>()
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 2000.,
         })
         .add_systems(Startup, setup)
+        // This showcases how to wait for assets synchronously.
         .add_systems(Update, wait_on_load)
-        .add_systems(Update, get_async_loading_state)
+        // This showcases how to wait for assets asynchronously.
+        .add_systems(
+            Update,
+            get_async_loading_state.run_if(in_state(LoadingState::Loading)),
+        )
+        // This showcases how to react to asynchronous world mutation synchronously.
+        .add_systems(
+            OnExit(LoadingState::Loading),
+            despawn_loading_state_entities,
+        )
         .run();
 }
 
@@ -132,14 +149,15 @@ fn setup(
     let future = barrier.wait_async();
     commands.insert_resource(barrier);
 
-    let loading_state = Arc::new(Mutex::new("Loading..".to_owned()));
+    let loading_state = Arc::new(AtomicBool::new(false));
     commands.insert_resource(AsyncLoadingState(loading_state.clone()));
 
     // await the `AssetBarrierFuture`.
     AsyncComputeTaskPool::get()
         .spawn(async move {
             future.await;
-            "Loading Complete!".clone_into(&mut loading_state.lock().unwrap());
+            // Notify via `AsyncLoadingState`
+            loading_state.store(true, Ordering::Release);
         })
         .detach();
 
@@ -159,7 +177,7 @@ fn setup(
             b.spawn(TextBundle {
                 text: Text {
                     sections: vec![TextSection {
-                        value: "".to_owned(),
+                        value: "Loading...".to_owned(),
                         style: TextStyle {
                             font_size: 64.0,
                             color: Color::BLACK,
@@ -201,11 +219,11 @@ fn setup(
     ));
 }
 
+// This showcases how to wait for assets synchronously.
 fn wait_on_load(
     mut commands: Commands,
     foxes: Res<OneHundredThings>,
     barrier: Option<Res<AssetBarrier>>,
-    loading: Query<Entity, With<Loading>>,
     gltfs: Res<Assets<Gltf>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -214,17 +232,16 @@ fn wait_on_load(
     if barrier.map(|b| b.is_ready()) != Some(true) {
         return;
     };
-    commands.entity(loading.single()).despawn();
-    commands.remove_resource::<AssetBarrier>();
-    // Plane
-    commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Plane3d::default().mesh().size(50000.0, 50000.0)),
-            material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-            ..default()
-        },
-        Loading,
-    ));
+
+    // Change color of plane to green
+    commands.spawn((PbrBundle {
+        mesh: meshes.add(Plane3d::default().mesh().size(50000.0, 50000.0)),
+        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
+        transform: Transform::from_translation(Vec3::Z * -0.01),
+        ..default()
+    },));
+
+    // Spawn our scenes.
     for i in 0..10 {
         for j in 0..10 {
             let index = i * 10 + j;
@@ -241,10 +258,30 @@ fn wait_on_load(
     }
 }
 
-fn get_async_loading_state(state: Res<AsyncLoadingState>, mut text: Query<&mut Text>) {
-    state
-        .0
-        .lock()
-        .unwrap()
-        .clone_into(&mut text.single_mut().sections[0].value);
+// This showcases how to wait for assets asynchronously.
+fn get_async_loading_state(
+    state: Res<AsyncLoadingState>,
+    mut change_state: ResMut<NextState<LoadingState>>,
+    mut text: Query<&mut Text>,
+) {
+    // Load the value written by the `Future`.
+    let is_loaded = state.0.load(Ordering::Acquire);
+
+    // If loaded, change the state.
+    if is_loaded {
+        change_state.set(LoadingState::Loaded);
+        text.single_mut().sections[0].value = "Loaded!".to_owned();
+    }
+}
+
+// This showcases how to react to asynchronous world mutation synchronously.
+fn despawn_loading_state_entities(mut commands: Commands, loading: Query<Entity, With<Loading>>) {
+    // Despawn entities in the loading phase.
+    for entity in loading.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
+
+    // Despawn resources used in the loading phase.
+    commands.remove_resource::<AssetBarrier>();
+    commands.remove_resource::<AsyncLoadingState>();
 }
