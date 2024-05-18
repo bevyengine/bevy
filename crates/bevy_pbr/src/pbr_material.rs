@@ -90,6 +90,13 @@ pub struct StandardMaterial {
     /// it just adds a value to the color seen on screen.
     pub emissive: Color,
 
+    /// The weight in which the camera exposure influences the emissive color.
+    /// A value of `0.0` means the emissive color is not affected by the camera exposure.
+    /// In opposition, a value of `1.0` means the emissive color is multiplied by the camera exposure.
+    ///
+    /// Defaults to `0.0`
+    pub emissive_exposure_weight: f32,
+
     /// The UV channel to use for the [`StandardMaterial::emissive_texture`].
     ///
     /// Defaults to [`UvChannel::Uv0`].
@@ -683,6 +690,7 @@ impl Default for StandardMaterial {
             base_color_channel: UvChannel::Uv0,
             base_color_texture: None,
             emissive: Color::BLACK,
+            emissive_exposure_weight: 0.0,
             emissive_channel: UvChannel::Uv0,
             emissive_texture: None,
             // Matches Blender's default roughness.
@@ -964,9 +972,12 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             flags |= StandardMaterialFlags::ATTENUATION_ENABLED;
         }
 
+        let mut emissive = LinearRgba::from(self.emissive).to_f32_array();
+        emissive[3] = self.emissive_exposure_weight;
+
         StandardMaterialUniform {
             base_color: LinearRgba::from(self.base_color).to_f32_array().into(),
-            emissive: LinearRgba::from(self.emissive).to_f32_array().into(),
+            emissive: emissive.into(),
             roughness: self.perceptual_roughness,
             metallic: self.metallic,
             reflectance: self.reflectance,
