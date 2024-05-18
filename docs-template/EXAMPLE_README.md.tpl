@@ -103,13 +103,13 @@ When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` mus
 To build an android app, you need to compile it to `so` first with `cargo-ndk`:
 
 ```sh
-cargo ndk -t <target_name> build --release
+cargo ndk -t <target_name> build
 ```
 
 For example, to compile to a 64-bit ARM platform, the command looks like this:
 
 ```sh
-cargo ndk -t arm64-v8a build --release
+cargo ndk -t arm64-v8a build
 ```
 
 After compile, move the compiled `so` file to `project_name/app/src/main/jniLibs/<target_name>` to link it.
@@ -117,7 +117,7 @@ After compile, move the compiled `so` file to `project_name/app/src/main/jniLibs
 You can use `-o` option in `cargo-ndk` directly set output folder(which will also set up <target_name> folder), for example project the command looks like this:
 
 ```sh
-cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build --release
+cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build
 ```
 
 Please reference `cargo-ndk` [README](https://crates.io/crates/cargo-ndk) for other options.
