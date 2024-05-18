@@ -1668,40 +1668,16 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
 
 /// Correctly scales and renormalizes an already normalized `normal` by the scale determined by its reciprocal `scale_recip`
 fn scale_normal(normal: Vec3, scale_recip: Vec3) -> Vec3 {
-    if scale_recip.is_finite() {
-        (normal * scale_recip).normalize_or_zero()
-    } else {
-        // This is basically just `normal * scale_recip` but with the added rule that `0. * anything == 0.`
-        // This is necessary because one of the components of `scale_recip` is infinite
-        let n = Vec3::new(
-            if normal.x == 0. {
-                0.
-            } else {
-                normal.x * scale_recip.x
-            },
-            if normal.y == 0. {
-                0.
-            } else {
-                normal.y * scale_recip.y
-            },
-            if normal.z == 0. {
-                0.
-            } else {
-                normal.z * scale_recip.z
-            },
-        );
+    // This is basically just `normal * scale_recip` but with the added rule that `0. * anything == 0.`
+    // This is necessary because one of the components of `scale_recip` is infinite
+    let n = Vec3::select(normal.cmpeq(Vec3::ZERO), Vec3::ZERO, normal * scale_recip);
 
-        // If n is finite, the normal was perpendicular to the flattened axis
-        // else the
-        if n.is_finite() {
-            n.normalize_or_zero()
-        } else {
-            Vec3::new(
-                if n.x.is_finite() { 0. } else { n.x.signum() },
-                if n.y.is_finite() { 0. } else { n.y.signum() },
-                if n.z.is_finite() { 0. } else { n.z.signum() },
-            )
-        }
+    // If n is finite, the normal was perpendicular to the flattened axis
+    // else the
+    if n.is_finite() {
+        n.normalize_or_zero()
+    } else {
+        Vec3::select(n.abs().cmpeq(Vec3::INFINITY), n.signum(), Vec3::ZERO)
     }
 }
 
