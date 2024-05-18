@@ -6,7 +6,7 @@ use bevy_ecs::{
     removal_detection::RemovedComponents,
     system::{NonSendMut, Query, SystemParamItem},
 };
-use bevy_utils::tracing::{error, debug, warn};
+use bevy_utils::tracing::{debug, error, warn};
 use bevy_window::{
     ClosingWindow, RawHandleWrapper, Window, WindowClosed, WindowClosing, WindowCreated,
     WindowMode, WindowResized,

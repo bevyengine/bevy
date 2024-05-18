@@ -3,7 +3,7 @@ mod render_device;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_tasks::ComputeTaskPool;
-use bevy_utils::tracing::{error, debug, info_span};
+use bevy_utils::tracing::{debug, error, info_span};
 pub use graph_runner::*;
 pub use render_device::*;
 
