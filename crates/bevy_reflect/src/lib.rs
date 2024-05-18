@@ -995,13 +995,6 @@ mod tests {
         let foo = Foo(123);
         let clone = foo.reflect_clone().unwrap();
         assert_eq!(foo, clone.take::<Foo>().unwrap());
-
-        #[derive(Reflect, Clone, Debug, PartialEq)]
-        struct Bar(usize);
-
-        let bar = Bar(123);
-        let clone = bar.reflect_clone();
-        assert!(clone.is_none());
     }
 
     #[test]
@@ -1017,6 +1010,125 @@ mod tests {
         let foo = Foo(123);
         let clone = foo.reflect_clone().unwrap();
         assert_eq!(Foo(321), clone.take::<Foo>().unwrap());
+    }
+
+    #[test]
+    fn should_not_clone_ignored_fields() {
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        struct Foo(#[reflect(ignore)] usize);
+
+        let foo = Foo(123);
+        let clone = foo.reflect_clone();
+        assert!(clone.is_none());
+    }
+
+    #[test]
+    fn should_clone_ignored_fields_with_clone_attributes() {
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        struct Foo(#[reflect(ignore, clone)] usize);
+
+        let foo = Foo(123);
+        let clone = foo.reflect_clone().unwrap();
+        assert_eq!(Foo(123), clone.take::<Foo>().unwrap());
+
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        struct Bar(#[reflect(ignore, clone = "clone_usize")] usize);
+
+        fn clone_usize(this: &usize) -> usize {
+            *this + 198
+        }
+
+        let bar = Bar(123);
+        let clone = bar.reflect_clone().unwrap();
+        assert_eq!(Bar(321), clone.take::<Bar>().unwrap());
+    }
+
+    #[test]
+    fn should_composite_reflect_clone() {
+        #[derive(Reflect, Debug, PartialEq)]
+        enum MyEnum {
+            Unit,
+            Tuple(
+                Foo,
+                #[reflect(ignore, clone)] Bar,
+                #[reflect(clone = "clone_baz")] Baz,
+            ),
+            Struct {
+                foo: Foo,
+                #[reflect(ignore, clone)]
+                bar: Bar,
+                #[reflect(clone = "clone_baz")]
+                baz: Baz,
+            },
+        }
+
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Foo {
+            #[reflect(clone = "clone_bar")]
+            bar: Bar,
+            baz: Baz,
+        }
+
+        #[derive(Reflect, Default, Clone, Debug, PartialEq)]
+        #[reflect(Clone)]
+        struct Bar(String);
+
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Baz(String);
+
+        fn clone_bar(bar: &Bar) -> Bar {
+            Bar(format!("{}!", bar.0))
+        }
+
+        fn clone_baz(baz: &Baz) -> Baz {
+            Baz(format!("{}!", baz.0))
+        }
+
+        let my_enum = MyEnum::Unit;
+        let clone = my_enum.reflect_clone().unwrap();
+        assert_eq!(MyEnum::Unit, clone.take::<MyEnum>().unwrap());
+
+        let my_enum = MyEnum::Tuple(
+            Foo {
+                bar: Bar("bar".to_string()),
+                baz: Baz("baz".to_string()),
+            },
+            Bar("bar".to_string()),
+            Baz("baz".to_string()),
+        );
+        let clone = my_enum.reflect_clone().unwrap();
+        assert_eq!(
+            MyEnum::Tuple(
+                Foo {
+                    bar: Bar("bar!".to_string()),
+                    baz: Baz("baz".to_string()),
+                },
+                Bar("bar".to_string()),
+                Baz("baz!".to_string()),
+            ),
+            clone.take::<MyEnum>().unwrap()
+        );
+
+        let my_enum = MyEnum::Struct {
+            foo: Foo {
+                bar: Bar("bar".to_string()),
+                baz: Baz("baz".to_string()),
+            },
+            bar: Bar("bar".to_string()),
+            baz: Baz("baz".to_string()),
+        };
+        let clone = my_enum.reflect_clone().unwrap();
+        assert_eq!(
+            MyEnum::Struct {
+                foo: Foo {
+                    bar: Bar("bar!".to_string()),
+                    baz: Baz("baz".to_string()),
+                },
+                bar: Bar("bar".to_string()),
+                baz: Baz("baz!".to_string()),
+            },
+            clone.take::<MyEnum>().unwrap()
+        );
     }
 
     #[test]
