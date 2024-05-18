@@ -162,6 +162,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
         }
     }
 
+    /// Updates if the plugin is ready to progress to the desired next [`PluginState`].
     fn ready(&self, app: &mut App, next_state: PluginState) -> bool {
         match next_state {
             PluginState::Building => self.ready_to_build(app),
@@ -185,13 +186,6 @@ impl<T: Fn(&mut App) + Send + Sync + 'static> Plugin for T {
     fn build(&self, app: &mut App) {
         self(app);
     }
-}
-
-/// A dummy plugin that's to temporarily occupy an entry in an app's plugin registry.
-pub(crate) struct PlaceholderPlugin;
-
-impl Plugin for PlaceholderPlugin {
-    fn build(&self, _app: &mut App) {}
 }
 
 /// A type representing an unsafe function that returns a mutable pointer to a [`Plugin`].
