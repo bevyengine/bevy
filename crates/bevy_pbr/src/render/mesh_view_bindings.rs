@@ -506,7 +506,7 @@ pub fn prepare_mesh_view_bind_groups(
                 .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
                 .unwrap_or(&fallback_ssao);
 
-            let layout = &mesh_pipeline.get_view_layout(
+            let layout = &mesh_pipeline.view_layouts.get_view_layout(
                 MeshPipelineViewLayoutKey::from(*msaa)
                     | MeshPipelineViewLayoutKey::from(prepass_textures),
             );
