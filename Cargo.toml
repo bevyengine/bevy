@@ -1010,7 +1010,7 @@ wasm = false
 name = "meshlet"
 path = "examples/3d/meshlet.rs"
 doc-scrape-examples = true
-required-features = ["meshlet_processor"]
+required-features = ["meshlet_processor", "asset_processor"]
 
 [package.metadata.example.meshlet]
 name = "Meshlet"

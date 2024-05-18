@@ -20,7 +20,10 @@ fn main() {
     App::new()
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins((
-            DefaultPlugins,
+            DefaultPlugins.set(AssetPlugin {
+                mode: AssetMode::Processed,
+                ..default()
+            }),
             MeshletPlugin,
             MaterialPlugin::<MeshletDebugMaterial>::default(),
             CameraControllerPlugin,
