@@ -26,9 +26,7 @@ impl<C: Component + GpuArrayBufferable> Plugin for GpuComponentArrayBufferPlugin
     }
 
     fn finalize(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app.sub_app(RenderApp);
 
         render_app
             .insert_resource(GpuArrayBuffer::<C>::new(

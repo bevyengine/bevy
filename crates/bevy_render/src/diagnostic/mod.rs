@@ -65,9 +65,7 @@ impl Plugin for RenderDiagnosticsPlugin {
     fn finalize(&self, app: &mut App) {
         let render_diagnostics_mutex = app.world().resource::<RenderDiagnosticsMutex>().clone();
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app.sub_app(RenderApp);
 
         let device = render_app.world().resource::<RenderDevice>();
         let queue = render_app.world().resource::<RenderQueue>();

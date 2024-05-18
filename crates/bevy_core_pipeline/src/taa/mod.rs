@@ -60,9 +60,7 @@ impl Plugin for TemporalAntiAliasPlugin {
     }
 
     fn finalize(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app.sub_app(RenderApp);
 
         render_app
             .init_resource::<TaaPipeline>()

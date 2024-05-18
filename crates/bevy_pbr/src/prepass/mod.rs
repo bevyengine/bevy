@@ -102,9 +102,7 @@ where
     }
 
     fn finalize(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app.sub_app(RenderApp);
 
         render_app
             .init_resource::<PrepassPipeline<M>>()
@@ -167,9 +165,7 @@ where
     fn finalize(&self, app: &mut App) {
         let no_prepass_plugin_loaded = !app.contains_resource::<AnyPrepassPluginLoaded>();
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app.sub_app(RenderApp);
 
         if no_prepass_plugin_loaded {
             render_app

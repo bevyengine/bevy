@@ -44,13 +44,12 @@ impl Plugin for WindowRenderPlugin {
     }
 
     fn ready_to_finalize(&self, app: &mut App) -> bool {
-        app.world().contains_resource::<RenderDevice>()
+        let render_app = app.sub_app(RenderApp);
+        render_app.contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app.sub_app(RenderApp);
 
         render_app
             .init_resource::<ScreenshotToScreenPipeline>()

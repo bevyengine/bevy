@@ -105,9 +105,7 @@ impl Plugin for Mesh2dRenderPlugin {
     }
 
     fn finalize(&self, app: &mut bevy_app::App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+        let render_app = app.sub_app(RenderApp);
 
         let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
