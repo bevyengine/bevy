@@ -3,7 +3,7 @@ mod render_device;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_tasks::ComputeTaskPool;
-use bevy_utils::tracing::{error, info, info_span};
+use bevy_utils::tracing::{error, debug, info_span};
 pub use graph_runner::*;
 pub use render_device::*;
 
@@ -185,7 +185,7 @@ pub async fn initialize_renderer(
         .expect(GPU_NOT_FOUND_ERROR_MESSAGE);
 
     let adapter_info = adapter.get_info();
-    info!("{:?}", adapter_info);
+    debug!("Adapter Info{:?}", adapter_info);
 
     #[cfg(feature = "wgpu_trace")]
     let trace_path = {

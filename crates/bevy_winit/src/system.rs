@@ -6,7 +6,7 @@ use bevy_ecs::{
     removal_detection::RemovedComponents,
     system::{NonSendMut, Query, SystemParamItem},
 };
-use bevy_utils::tracing::{error, info, warn};
+use bevy_utils::tracing::{error, debug, warn};
 use bevy_window::{
     ClosingWindow, RawHandleWrapper, Window, WindowClosed, WindowClosing, WindowCreated,
     WindowMode, WindowResized,
@@ -52,7 +52,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
             continue;
         }
 
-        info!(
+        debug!(
             "Creating new window {:?} ({:?})",
             window.title.as_str(),
             entity
@@ -110,7 +110,7 @@ pub(crate) fn despawn_windows(
         closing_events.send(WindowClosing { window });
     }
     for window in closed.read() {
-        info!("Closing window {:?}", window);
+        debug!("Closing window {:?}", window);
         // Guard to verify that the window is in fact actually gone,
         // rather than having the component added
         // and removed in the same frame.

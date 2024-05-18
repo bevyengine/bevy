@@ -78,7 +78,7 @@ use crate::{
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, AssetServer, Handle};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
-use bevy_utils::tracing::{debug, info};
+use bevy_utils::tracing::debug;
 use std::{
     ops::{Deref, DerefMut},
     sync::{Arc, Mutex},
@@ -284,7 +284,6 @@ impl Plugin for RenderPlugin {
                         Query<&RawHandleWrapper, With<PrimaryWindow>>,
                     > = SystemState::new(app.world_mut());
                     let primary_window = system_state.get(app.world()).get_single().ok().cloned();
-                    info!("Primary window: {primary_window:?}");
 
                     let settings = render_creation.clone();
                     let async_renderer = async move {
@@ -318,8 +317,6 @@ impl Plugin for RenderPlugin {
                             .await;
                         debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
                         debug!("Configured wgpu adapter Features: {:#?}", device.features());
-                        info!("Configured wgpu adapter Limits: {:#?}", device.limits());
-                        info!("Configured wgpu adapter Features: {:#?}", device.features());
 
                         let mut future_renderer_resources_inner =
                             future_renderer_resources_wrapper.lock().unwrap();
