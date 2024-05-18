@@ -35,15 +35,13 @@ impl AssetSaver for MeshletMeshGltfSaver {
         asset: SavedAsset<'a, RawGltf>,
         settings: &'a GltfLoaderSettings,
     ) -> Result<GltfLoaderSettings, GltfError> {
-        let mut meshlet_meshes = VecDeque::new();
+        #[cfg(not(feature = "meshlet_processor"))]
+        panic!("Converting GLTF files to use MeshletMeshes requires feature meshlet_processor.");
+
+        let mut meshlet_meshes: VecDeque<MeshletMesh> = VecDeque::new();
 
         for mesh in asset.gltf.meshes() {
             for primitive in mesh.primitives() {
-                #[cfg(not(feature = "meshlet_processor"))]
-                panic!(
-                    "Converting GLTF files to use MeshletMeshes requires feature meshlet_processor."
-                );
-
                 let mesh = load_mesh(&primitive, &asset.buffer_data)?;
 
                 #[cfg(feature = "meshlet_processor")]
