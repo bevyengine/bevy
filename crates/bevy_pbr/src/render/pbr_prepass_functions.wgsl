@@ -24,7 +24,6 @@ fn prepass_alpha_discard(in: VertexOutput) {
     var uv = in.uv;
 #endif  // STANDARD_MATERIAL_BASE_COLOR_UV_B
 
-#endif
     let uv_transform = pbr_bindings::material.uv_transform;
     uv = (uv_transform * vec3(uv, 1.0)).xy;
     if (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
