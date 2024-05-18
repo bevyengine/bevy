@@ -224,7 +224,7 @@ impl FromWorld for GpuPreprocessingSupport {
 
         if device.limits().max_compute_workgroup_size_x == 0 ||
             // filter lower end / older devices on Android as they crash when using GPU preprocessing
-            (cfg!(target_os = "android") && !device.features().contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING))
+            (cfg!(target_os = "android") && adapter.get_info().name.starts_with("Adreno (TM) 6"))
         {
             GpuPreprocessingSupport::None
         } else if !device
