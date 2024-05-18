@@ -299,8 +299,7 @@ fn rotate_model(
     time: Res<Time>,
 ) {
     for mut transform in query.iter_mut() {
-        transform.rotation =
-            Quat::from_euler(EulerRot::XYZ, 0.0, time.elapsed_seconds() * 1.0, 0.0);
+        transform.rotation = Quat::from_euler(EulerRot::XYZ, 0.0, time.elapsed_seconds(), 0.0);
     }
 }
 

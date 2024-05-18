@@ -47,7 +47,7 @@ pub const CORE_3D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 /// because of a silly bug whereby Naga assumes that all depth textures are
 /// `sampler2DShadow` and will cheerfully generate invalid GLSL that tries to
 /// perform non-percentage-closer-filtering with such a sampler. Therefore we
-/// disable depth of field entirely on WebGL 2.
+/// disable depth of field and screen space reflections entirely on WebGL 2.
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = false;
 
@@ -57,7 +57,7 @@ pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = false;
 /// because of a silly bug whereby Naga assumes that all depth textures are
 /// `sampler2DShadow` and will cheerfully generate invalid GLSL that tries to
 /// perform non-percentage-closer-filtering with such a sampler. Therefore we
-/// disable depth of field entirely on WebGL 2.
+/// disable depth of field and screen space reflections entirely on WebGL 2.
 #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
 pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
 
