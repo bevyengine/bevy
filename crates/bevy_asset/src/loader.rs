@@ -606,7 +606,7 @@ impl<'a> LoadContext<'a> {
         loader: &dyn ErasedAssetLoader,
         reader: &mut Reader<'_>,
     ) -> Result<LoadedAsset<A>, LoadDirectError> {
-        self.load_direct_untyped_internal(path.clone(), meta, &*loader, &mut *reader)
+        self.load_direct_untyped_internal(path.clone(), meta, loader, &mut *reader)
             .await
             .and_then(move |untyped_asset| {
                 untyped_asset.downcast::<A>().map_err(|_| LoadDirectError {
@@ -694,7 +694,7 @@ impl<'a> LoadContext<'a> {
         settings: impl Fn(&mut S) + Send + Sync + 'static,
     ) -> Result<LoadedAsset<A>, LoadDirectError> {
         self.load_direct_with_transform(path.into().into_owned(), move |meta| {
-            meta_transform_settings(meta, &settings)
+            meta_transform_settings(meta, &settings);
         })
         .await
     }
