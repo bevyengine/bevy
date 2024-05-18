@@ -1,5 +1,5 @@
 use super::CachedTexture;
-use crate::render_resource::TextureView;
+use crate::render_resource::{TextureFormat, TextureView};
 use bevy_color::LinearRgba;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -117,6 +117,44 @@ impl DepthAttachment {
                 store,
             }),
             stencil_ops: None,
+        }
+    }
+}
+
+/// A wrapper for a [`TextureView`] that is used as a [`RenderPassColorAttachment`] for a view
+/// targets final output texture.
+#[derive(Clone)]
+pub struct OutputColorAttachment {
+    pub view: TextureView,
+    pub format: TextureFormat,
+    is_first_call: Arc<AtomicBool>,
+}
+
+impl OutputColorAttachment {
+    pub fn new(view: TextureView, format: TextureFormat) -> Self {
+        Self {
+            view,
+            format,
+            is_first_call: Arc::new(AtomicBool::new(true)),
+        }
+    }
+
+    /// Get this texture view as an attachment. The attachment will be cleared with a value of
+    /// the provided `clear_color` if this is the first time calling this function, otherwise it
+    /// will be loaded.
+    pub fn get_attachment(&self, clear_color: Option<LinearRgba>) -> RenderPassColorAttachment {
+        let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
+
+        RenderPassColorAttachment {
+            view: &self.view,
+            resolve_target: None,
+            ops: Operations {
+                load: match (clear_color, first_call) {
+                    (Some(clear_color), true) => LoadOp::Clear(clear_color.into()),
+                    (None, _) | (Some(_), false) => LoadOp::Load,
+                },
+                store: StoreOp::Store,
+            },
         }
     }
 }

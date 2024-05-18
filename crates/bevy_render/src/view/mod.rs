@@ -19,10 +19,12 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
     texture::{
         BevyDefault, CachedTexture, ColorAttachment, DepthAttachment, GpuImage, TextureCache,
+        OutputColorAttachment
     },
     Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
+use bevy_color::LinearRgba;
 use bevy_ecs::prelude::*;
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -451,8 +453,7 @@ pub struct ViewTarget {
     /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
     /// This is shared across view targets with the same render target
     main_texture: Arc<AtomicUsize>,
-    out_texture: TextureView,
-    out_texture_format: TextureFormat,
+    out_texture: OutputColorAttachment,
 }
 
 pub struct PostProcessWrite<'a> {
@@ -644,13 +645,20 @@ impl ViewTarget {
     /// The final texture this view will render to.
     #[inline]
     pub fn out_texture(&self) -> &TextureView {
-        &self.out_texture
+        &self.out_texture.view
+    }
+
+    pub fn out_texture_color_attachment(
+        &self,
+        clear_color: Option<LinearRgba>,
+    ) -> RenderPassColorAttachment {
+        self.out_texture.get_attachment(clear_color)
     }
 
     /// The format of the final texture this view will render to
     #[inline]
     pub fn out_texture_format(&self) -> TextureFormat {
-        self.out_texture_format
+        self.out_texture.format
     }
 
     /// This will start a new "post process write", which assumes that the caller
@@ -802,12 +810,22 @@ pub fn prepare_view_targets(
     manual_texture_views: Res<ManualTextureViews>,
 ) {
     let mut textures = HashMap::default();
+    let mut output_textures = HashMap::default();
     for (entity, camera, view, texture_usage) in cameras.iter() {
         if let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target) {
-            if let (Some(out_texture_view), Some(out_texture_format)) = (
-                target.get_texture_view(&windows, &images, &manual_texture_views),
-                target.get_texture_format(&windows, &images, &manual_texture_views),
-            ) {
+            if let Some(out_texture) = output_textures.entry(target.clone()).or_insert_with(|| {
+                if let (Some(out_texture_view), Some(out_texture_format)) = (
+                    target.get_texture_view(&windows, &images, &manual_texture_views),
+                    target.get_texture_format(&windows, &images, &manual_texture_views),
+                ) {
+                    Some(OutputColorAttachment::new(
+                        out_texture_view.clone(),
+                        out_texture_format.add_srgb_suffix(),
+                    ))
+                } else {
+                    None
+                }
+            }) {
                 let size = Extent3d {
                     width: target_size.x,
                     height: target_size.y,
@@ -891,8 +909,7 @@ pub fn prepare_view_targets(
                     main_texture: main_textures.main_texture.clone(),
                     main_textures,
                     main_texture_format,
-                    out_texture: out_texture_view.clone(),
-                    out_texture_format: out_texture_format.add_srgb_suffix(),
+                    out_texture: out_texture.clone(),
                 });
             }
         }

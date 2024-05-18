@@ -35,7 +35,7 @@ use bevy_window::{
     WindowScaleFactorChanged,
 };
 use std::ops::Range;
-use wgpu::{BlendState, LoadOp, TextureFormat, TextureUsages};
+use wgpu::{BlendState, TextureFormat, TextureUsages};
 
 use super::{ClearColorConfig, Projection};
 
@@ -488,9 +488,8 @@ pub enum CameraOutputMode {
     Write {
         /// The blend state that will be used by the pipeline that writes the intermediate render textures to the final render target texture.
         blend_state: Option<BlendState>,
-        /// The color attachment load operation that will be used by the pipeline that writes the intermediate render textures to the final render
-        /// target texture.
-        color_attachment_load_op: LoadOp<wgpu::Color>,
+        /// The clear color operation to perform on the final render target texture.
+        clear_color: ClearColorConfig,
     },
     /// Skips writing the camera output to the configured render target. The output will remain in the
     /// Render Target's "intermediate" textures, which a camera with a higher order should write to the render target
@@ -505,7 +504,7 @@ impl Default for CameraOutputMode {
     fn default() -> Self {
         CameraOutputMode::Write {
             blend_state: None,
-            color_attachment_load_op: LoadOp::Clear(Default::default()),
+            clear_color: ClearColorConfig::Default,
         }
     }
 }
@@ -897,7 +896,7 @@ pub fn extract_cameras(
                     order: camera.order,
                     output_mode: camera.output_mode,
                     msaa_writeback: camera.msaa_writeback,
-                    clear_color: camera.clear_color.clone(),
+                    clear_color: camera.clear_color,
                     // this will be set in sort_cameras
                     sorted_camera_index_for_target: 0,
                     exposure: exposure
