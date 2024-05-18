@@ -52,7 +52,7 @@ use bevy_render::{
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{prelude::default, warn_once};
+use bevy_utils::{info_once, prelude::default, warn_once};
 use smallvec::SmallVec;
 
 use crate::{
@@ -802,7 +802,7 @@ fn extract_depth_of_field_settings(
     mut query: Extract<Query<(Entity, &DepthOfFieldSettings, &Projection)>>,
 ) {
     if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
-        warn_once!(
+        info_once!(
             "Disabling depth of field on this platform because depth textures aren't supported correctly"
         );
         return;

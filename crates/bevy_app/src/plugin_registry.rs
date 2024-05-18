@@ -10,7 +10,7 @@ pub enum PluginRegistryState {
     #[default]
     /// No plugin has been added.
     Idle,
-    /// Plugins are initialized.
+    /// Plugins are being initialized.
     Init,
     /// Plugins are being built.
     Building,
