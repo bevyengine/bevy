@@ -3010,7 +3010,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.ssr]
 name = "Screen Space Reflections"
-description = "Demonstrates screen space reflections"
+description = "Demonstrates screen space reflections with water ripples"
 category = "3D Rendering"
 wasm = false
 
