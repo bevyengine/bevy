@@ -18,7 +18,7 @@ pub enum PluginRegistryState {
     Configuring,
     /// Plugins are being finalized.
     Finalizing,
-    /// Plugins configuration is complete.
+    /// Plugin configuration is complete.
     Done,
     /// Plugins resources are cleaned up.
     Cleaned,
@@ -64,7 +64,7 @@ impl PluginRegistry {
         self.get::<T>().is_some()
     }
 
-    /// Returns the optional plugin by type
+    /// Returns a reference to the plugin of type `T` if it exists
     pub(crate) fn get<T: Plugin>(&self) -> Option<&T> {
         for p in &self.plugins {
             if let Some(t) = p.downcast_ref() {
