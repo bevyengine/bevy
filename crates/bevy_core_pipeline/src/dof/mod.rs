@@ -58,7 +58,7 @@ use smallvec::SmallVec;
 use crate::{
     core_3d::{
         graph::{Core3d, Node3d},
-        Camera3d,
+        Camera3d, DEPTH_TEXTURE_SAMPLING_SUPPORTED,
     },
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
@@ -885,23 +885,3 @@ impl DepthOfFieldPipelines {
         }
     }
 }
-
-/// Returns true if multisampled depth textures are supported on this platform.
-///
-/// In theory, Naga supports depth textures on WebGL 2. In practice, it doesn't,
-/// because of a silly bug whereby Naga assumes that all depth textures are
-/// `sampler2DShadow` and will cheerfully generate invalid GLSL that tries to
-/// perform non-percentage-closer-filtering with such a sampler. Therefore we
-/// disable depth of field entirely on WebGL 2.
-#[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = false;
-
-/// Returns true if multisampled depth textures are supported on this platform.
-///
-/// In theory, Naga supports depth textures on WebGL 2. In practice, it doesn't,
-/// because of a silly bug whereby Naga assumes that all depth textures are
-/// `sampler2DShadow` and will cheerfully generate invalid GLSL that tries to
-/// perform non-percentage-closer-filtering with such a sampler. Therefore we
-/// disable depth of field entirely on WebGL 2.
-#[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
-const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;

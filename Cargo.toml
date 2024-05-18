@@ -3012,7 +3012,7 @@ doc-scrape-examples = true
 name = "Screen Space Reflections"
 description = "Demonstrates screen space reflections"
 category = "3D Rendering"
-wasm = true
+wasm = false
 
 [[example]]
 name = "color_grading"

@@ -3,7 +3,10 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
-    core_3d::graph::{Core3d, Node3d},
+    core_3d::{
+        graph::{Core3d, Node3d},
+        DEPTH_TEXTURE_SAMPLING_SUPPORTED,
+    },
     fullscreen_vertex_shader,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
 };
@@ -35,7 +38,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::prelude::default;
+use bevy_utils::{info_once, prelude::default};
 
 use crate::{
     binding_arrays_are_usable, graph::NodePbr, prelude::EnvironmentMapLight,
@@ -82,6 +85,10 @@ pub struct ScreenSpaceReflectionsBundle {
 ///
 /// SSR is an approximation technique and produces artifacts in some situations.
 /// Hand-tuning the settings in this component will likely be useful.
+///
+/// Screen-space reflections are presently unsupported on WebGL 2 because of a
+/// bug whereby Naga doesn't generate correct GLSL when sampling depth buffers,
+/// which is required for screen-space raymarching.
 #[derive(Clone, Copy, Component, Reflect)]
 #[reflect(Component, Default)]
 pub struct ScreenSpaceReflectionsSettings {
@@ -482,6 +489,14 @@ impl ExtractComponent for ScreenSpaceReflectionsSettings {
     type Out = ScreenSpaceReflectionsUniform;
 
     fn extract_component(settings: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+        if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
+            info_once!(
+                "Disabling screen-space reflections on this platform because depth textures \
+                aren't supported correctly"
+            );
+            return None;
+        }
+
         Some((*settings).into())
     }
 }

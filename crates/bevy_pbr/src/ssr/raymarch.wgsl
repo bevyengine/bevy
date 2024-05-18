@@ -357,7 +357,7 @@ struct DepthRayMarch {
     use_sloppy_march: bool,
 
     /// When marching the depth buffer, we only have 2.5D information, and don't know how
-    /// thick surfaces are. We shall assume that the depth buffer fragments are litte squares
+    /// thick surfaces are. We shall assume that the depth buffer fragments are little squares
     /// with a constant thickness defined by this parameter.
     depth_thickness_linear_z: f32,
 
