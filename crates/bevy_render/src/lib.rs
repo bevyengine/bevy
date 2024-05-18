@@ -251,6 +251,7 @@ impl Plugin for RenderPlugin {
             return;
         }
 
+        // SAFETY: Render app needs to be initialized on the main thread.
         unsafe { initialize_render_app(app) };
     }
 
