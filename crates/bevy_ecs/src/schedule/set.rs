@@ -149,10 +149,6 @@ impl SystemSet for AnonymousSet {
 }
 
 /// Types that can be converted into a [`SystemSet`].
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a system set",
-    label = "invalid system set"
-)]
 pub trait IntoSystemSet<Marker>: Sized {
     /// The type of [`SystemSet`] this instance converts into.
     type Set: SystemSet;

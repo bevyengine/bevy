@@ -87,7 +87,7 @@ impl PluginState {
 ///     }
 /// }
 /// # fn damp_flickering() {}
-/// ```
+/// ````
 pub trait Plugin: Downcast + Any + Send + Sync {
     /// Returns required sub apps before finalizing.
     fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
