@@ -86,11 +86,9 @@ impl PluginRegistry {
             if *current_state < PluginState::Done {
                 let next_state = current_state.next();
 
-                if next_state == PluginState::Finalizing {
-                    if !plugin.check_required_sub_apps(app) {
-                        *current_state = PluginState::Done;
-                        continue;
-                    }
+                if next_state == PluginState::Finalizing && !plugin.check_required_sub_apps(app) {
+                    *current_state = PluginState::Done;
+                    continue;
                 }
 
                 if !plugin.ready(app, next_state) {

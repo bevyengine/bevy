@@ -218,7 +218,7 @@ impl App {
             self.update_plugins();
         }
 
-        self.cleanup_plugins()
+        self.cleanup_plugins();
     }
 
     /// Update all plugins. This is usually called by the event loop.
