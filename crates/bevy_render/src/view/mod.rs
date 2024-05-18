@@ -18,8 +18,8 @@ use crate::{
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        BevyDefault, CachedTexture, ColorAttachment, DepthAttachment, GpuImage, TextureCache,
-        OutputColorAttachment
+        BevyDefault, CachedTexture, ColorAttachment, DepthAttachment, GpuImage,
+        OutputColorAttachment, TextureCache,
     },
     Render, RenderApp, RenderSet,
 };
