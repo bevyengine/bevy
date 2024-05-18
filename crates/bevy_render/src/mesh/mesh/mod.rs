@@ -1669,15 +1669,15 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
 /// Correctly scales and renormalizes an already normalized `normal` by the scale determined by its reciprocal `scale_recip`
 fn scale_normal(normal: Vec3, scale_recip: Vec3) -> Vec3 {
     // This is basically just `normal * scale_recip` but with the added rule that `0. * anything == 0.`
-    // This is necessary because one of the components of `scale_recip` is infinite
+    // This is necessary because components of `scale_recip` may be infinities, which do not multiply to zero
     let n = Vec3::select(normal.cmpeq(Vec3::ZERO), Vec3::ZERO, normal * scale_recip);
 
-    // If n is finite, the normal was perpendicular to the flattened axis
-    // else the
+    // If n is finite, no component of `scale_recip` was infinite or the normal was perpendicular to the scale
+    // else the scale had at least one zero-component and the normal needs to point along the direction of that component
     if n.is_finite() {
         n.normalize_or_zero()
     } else {
-        Vec3::select(n.abs().cmpeq(Vec3::INFINITY), n.signum(), Vec3::ZERO)
+        Vec3::select(n.abs().cmpeq(Vec3::INFINITY), n.signum(), Vec3::ZERO).normalize()
     }
 }
 
