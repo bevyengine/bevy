@@ -12,6 +12,7 @@
 //! The app's [runner](bevy_app::App::runner) is set by `WinitPlugin` and handles the `winit` [`EventLoop`].
 //! See `winit_runner` for details.
 
+use bevy_window::RawHandleWrapperHolder;
 use std::marker::PhantomData;
 use winit::event_loop::EventLoop;
 #[cfg(target_os = "android")]
@@ -158,7 +159,16 @@ impl AppSendEvent for Vec<WinitEvent> {
 /// The parameters of the [`create_windows`] system.
 pub type CreateWindowParams<'w, 's, F = ()> = (
     Commands<'w, 's>,
-    Query<'w, 's, (Entity, &'static mut Window), F>,
+    Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static mut Window,
+            Option<&'static RawHandleWrapperHolder>,
+        ),
+        F,
+    >,
     EventWriter<'w, WindowCreated>,
     NonSendMut<'w, WinitWindows>,
     NonSendMut<'w, AccessKitAdapters>,

@@ -45,7 +45,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
         accessibility_requested,
     ): SystemParamItem<CreateWindowParams<F>>,
 ) {
-    for (entity, mut window) in &mut created_windows {
+    for (entity, mut window, handle_holder) in &mut created_windows {
         if winit_windows.get_window(entity).is_some() {
             continue;
         }
@@ -78,7 +78,11 @@ pub fn create_windows<F: QueryFilter + 'static>(
         });
 
         if let Ok(handle_wrapper) = RawHandleWrapper::new(winit_window) {
-            commands.entity(entity).insert(handle_wrapper);
+            let mut entity = commands.entity(entity);
+            entity.insert(handle_wrapper.clone());
+            if let Some(handle_holder) = handle_holder {
+                *handle_holder.0.lock().unwrap() = Some(handle_wrapper);
+            }
         }
 
         #[cfg(target_arch = "wasm32")]
