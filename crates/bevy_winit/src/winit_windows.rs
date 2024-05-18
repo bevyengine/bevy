@@ -320,7 +320,7 @@ pub fn get_best_videomode(monitor: &MonitorHandle) -> VideoMode {
 fn handle_cursor(window: &Window, winit_window: &WinitWindow) {
     // Do not set the grab mode on window creation if it's none. It can fail on mobile.
     if window.cursor.grab_mode != CursorGrabMode::None {
-        attempt_grab(&winit_window, window.cursor.grab_mode);
+        attempt_grab(winit_window, window.cursor.grab_mode);
     }
 
     winit_window.set_cursor_visible(window.cursor.visible);
