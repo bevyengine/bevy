@@ -260,7 +260,7 @@ mod tests {
     #[test]
     fn test_add() {
         let mut registry = PluginRegistry::default();
-        registry.add(Box::new(TestPlugin::default()));
+        registry.add(Box::<TestPlugin>::default());
 
         assert_eq!(registry.plugins.len(), 1);
 
@@ -277,7 +277,7 @@ mod tests {
     #[test]
     fn test_update() {
         let mut registry = PluginRegistry::default();
-        registry.add(Box::new(TestPlugin::default()));
+        registry.add(Box::<TestPlugin>::default());
 
         let mut app = App::new();
 
@@ -319,7 +319,7 @@ mod tests {
     #[test]
     fn test_cleanup() {
         let mut registry = PluginRegistry::default();
-        registry.add(Box::new(TestPlugin::default()));
+        registry.add(Box::<TestPlugin>::default());
 
         let mut app = App::new();
 
@@ -347,7 +347,7 @@ mod tests {
 
     impl Plugin for SubAppCreatorPlugin {
         fn build(&self, app: &mut App) {
-            app.insert_sub_app(DummyApp, SubApp::new("dummy"))
+            app.insert_sub_app(DummyApp, SubApp::new("dummy"));
         }
     }
 
@@ -404,7 +404,7 @@ mod tests {
     #[should_panic]
     fn cannot_cleanup_a_non_finalized_plugin() {
         let mut registry = PluginRegistry::default();
-        registry.add(Box::new(TestPlugin::default()));
+        registry.add(Box::<TestPlugin>::default());
 
         let mut app = App::new();
 
@@ -439,7 +439,7 @@ mod tests {
     #[should_panic]
     fn plugins_cannot_be_added_after_being_ready() {
         let mut registry = PluginRegistry::default();
-        registry.add(Box::new(TestPlugin::default()));
+        registry.add(Box::<TestPlugin>::default());
 
         let mut app = App::new();
         registry.update(&mut app);
