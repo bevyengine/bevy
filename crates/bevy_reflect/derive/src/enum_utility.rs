@@ -1,7 +1,7 @@
 use crate::derive_data::StructField;
-use crate::field_attributes::DefaultBehavior;
+use crate::field_attributes::{CloneBehavior, DefaultBehavior};
 use crate::{derive_data::ReflectEnum, utility::ident_or_index};
-use bevy_macro_utils::fq_std::{FQDefault, FQOption};
+use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQOption};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 
@@ -10,6 +10,10 @@ pub(crate) struct EnumVariantOutputData {
     ///
     /// For example, `Some` and `None` for the `Option` enum.
     pub variant_names: Vec<String>,
+    /// The pattern matching portion of each variant.
+    ///
+    /// For example, `Option::Some { 0: _0 }` and `Option::None {}` for the `Option` enum.
+    pub variant_patterns: Vec<proc_macro2::TokenStream>,
     /// The constructor portion of each variant.
     ///
     /// For example, `Option::Some { 0: value }` and `Option::None {}` for the `Option` enum.
@@ -30,6 +34,9 @@ pub(crate) struct VariantField<'a, 'b> {
 
 /// Trait used to control how enum variants are built.
 pub(crate) trait VariantBuilder: Sized {
+    /// The variant output data.
+    type Output;
+
     /// Returns the enum data.
     fn reflect_enum(&self) -> &ReflectEnum;
 
@@ -114,67 +121,83 @@ pub(crate) trait VariantBuilder: Sized {
 
     /// Returns a token stream that constructs an instance of an ignored field.
     ///
+    /// If the ignored field cannot be adequately handled, `None` should be returned.
+    ///
     /// # Parameters
     /// * `field`: The field to access
-    fn on_ignored_field(&self, field: VariantField) -> TokenStream {
-        match &field.field.attrs.default {
+    fn on_ignored_field(&self, field: VariantField) -> Option<TokenStream> {
+        Some(match &field.field.attrs.default {
             DefaultBehavior::Func(path) => quote! { #path() },
             _ => quote! { #FQDefault::default() },
-        }
+        })
     }
 
     /// Builds the enum variant output data.
-    fn build(&self, this: &Ident) -> EnumVariantOutputData {
-        let variants = self.reflect_enum().variants();
+    fn build(&self, this: &Ident) -> Self::Output;
+}
 
-        let mut variant_names = Vec::with_capacity(variants.len());
-        let mut variant_constructors = Vec::with_capacity(variants.len());
+fn build<V: VariantBuilder>(builder: &V, this: &Ident) -> Option<EnumVariantOutputData> {
+    let variants = builder.reflect_enum().variants();
 
-        for variant in variants {
-            let variant_ident = &variant.data.ident;
-            let variant_name = variant_ident.to_string();
-            let variant_path = self.reflect_enum().get_unit(variant_ident);
+    let mut variant_names = Vec::with_capacity(variants.len());
+    let mut variant_patterns = Vec::with_capacity(variants.len());
+    let mut variant_constructors = Vec::with_capacity(variants.len());
 
-            let fields = variant.fields();
+    for variant in variants {
+        let variant_ident = &variant.data.ident;
+        let variant_name = variant_ident.to_string();
+        let variant_path = builder.reflect_enum().get_unit(variant_ident);
 
-            let field_constructors = fields.iter().map(|field| {
-                let member = ident_or_index(field.data.ident.as_ref(), field.declaration_index);
-                let alias = format_ident!("_{}", member);
+        let fields = variant.fields();
 
-                let variant_field = VariantField {
-                    alias: &alias,
-                    variant_name: &variant_name,
-                    field,
-                };
+        let mut field_patterns = Vec::with_capacity(fields.len());
+        let mut field_constructors = Vec::with_capacity(fields.len());
 
-                let value = if field.attrs.ignore.is_ignored() {
-                    self.on_ignored_field(variant_field)
-                } else {
-                    self.on_active_field(this, variant_field)
-                };
+        for field in fields {
+            let member = ident_or_index(field.data.ident.as_ref(), field.declaration_index);
+            let alias = format_ident!("_{}", member);
 
-                let constructor = quote! {
-                    #member: #value
-                };
-
-                constructor
-            });
-
-            let constructor = quote! {
-                #variant_path {
-                    #( #field_constructors ),*
-                }
+            let variant_field = VariantField {
+                alias: &alias,
+                variant_name: &variant_name,
+                field,
             };
 
-            variant_names.push(variant_name);
-            variant_constructors.push(constructor);
+            let value = if field.attrs.ignore.is_ignored() {
+                builder.on_ignored_field(variant_field)?
+            } else {
+                builder.on_active_field(this, variant_field)
+            };
+
+            field_patterns.push(quote! {
+                #member: #alias
+            });
+
+            field_constructors.push(quote! {
+                #member: #value
+            });
         }
 
-        EnumVariantOutputData {
-            variant_names,
-            variant_constructors,
-        }
+        let pattern = quote! {
+            #variant_path { #( #field_patterns ),* }
+        };
+
+        let constructor = quote! {
+            #variant_path {
+                #( #field_constructors ),*
+            }
+        };
+
+        variant_names.push(variant_name);
+        variant_patterns.push(pattern);
+        variant_constructors.push(constructor);
     }
+
+    Some(EnumVariantOutputData {
+        variant_names,
+        variant_patterns,
+        variant_constructors,
+    })
 }
 
 /// Generates the enum variant output data needed to build the `FromReflect::from_reflect` implementation.
@@ -189,6 +212,8 @@ impl<'a> FromReflectVariantBuilder<'a> {
 }
 
 impl<'a> VariantBuilder for FromReflectVariantBuilder<'a> {
+    type Output = EnumVariantOutputData;
+
     fn reflect_enum(&self) -> &ReflectEnum {
         self.reflect_enum
     }
@@ -207,6 +232,10 @@ impl<'a> VariantBuilder for FromReflectVariantBuilder<'a> {
             <#field_ty as #bevy_reflect_path::FromReflect>::from_reflect(#alias)?
         }
     }
+
+    fn build(&self, this: &Ident) -> Self::Output {
+        build(self, this).expect("internal bevy_reflect error: ignored fields should be handled")
+    }
 }
 
 /// Generates the enum variant output data needed to build the `Reflect::try_apply` implementation.
@@ -221,6 +250,8 @@ impl<'a> TryApplyVariantBuilder<'a> {
 }
 
 impl<'a> VariantBuilder for TryApplyVariantBuilder<'a> {
+    type Output = EnumVariantOutputData;
+
     fn reflect_enum(&self) -> &ReflectEnum {
         self.reflect_enum
     }
@@ -262,5 +293,81 @@ impl<'a> VariantBuilder for TryApplyVariantBuilder<'a> {
                     to_type: ::core::convert::Into::into(<#field_ty as #bevy_reflect_path::TypePath>::type_path())
                 })?
         }
+    }
+
+    fn build(&self, this: &Ident) -> Self::Output {
+        build(self, this).expect("internal bevy_reflect error: ignored fields should be handled")
+    }
+}
+
+/// Generates the enum variant output data needed to build the `Reflect::reflect_clone` implementation.
+pub(crate) struct ReflectCloneVariantBuilder<'a> {
+    reflect_enum: &'a ReflectEnum<'a>,
+}
+
+impl<'a> ReflectCloneVariantBuilder<'a> {
+    pub fn new(reflect_enum: &'a ReflectEnum) -> Self {
+        Self { reflect_enum }
+    }
+}
+
+impl<'a> VariantBuilder for ReflectCloneVariantBuilder<'a> {
+    type Output = Option<EnumVariantOutputData>;
+    fn reflect_enum(&self) -> &ReflectEnum {
+        self.reflect_enum
+    }
+
+    fn access_field(&self, _ident: &Ident, field: VariantField) -> TokenStream {
+        let alias = field.alias;
+        quote!(#FQOption::Some(#alias))
+    }
+
+    fn unwrap_field(&self, field: VariantField) -> TokenStream {
+        let alias = field.alias;
+        quote!(#alias.unwrap())
+    }
+
+    fn construct_field(&self, field: VariantField) -> TokenStream {
+        let bevy_reflect_path = self.reflect_enum.meta().bevy_reflect_path();
+
+        let alias = field.alias;
+
+        match &field.field.attrs.clone {
+            CloneBehavior::Default => {
+                quote! {
+                    #bevy_reflect_path::Reflect::reflect_clone(#alias)?.take().ok()?
+                }
+            }
+            CloneBehavior::Trait => {
+                quote! {
+                    #FQClone::clone(#alias)
+                }
+            }
+            CloneBehavior::Func(clone_fn) => {
+                quote! {
+                    #clone_fn(#alias)
+                }
+            }
+        }
+    }
+
+    fn on_active_field(&self, _this: &Ident, field: VariantField) -> TokenStream {
+        self.construct_field(field)
+    }
+
+    fn on_ignored_field(&self, field: VariantField) -> Option<TokenStream> {
+        let alias = field.alias;
+
+        match &field.field.attrs.clone {
+            CloneBehavior::Default => None,
+            CloneBehavior::Trait => Some(quote! {
+                #FQClone::clone(#alias)
+            }),
+            CloneBehavior::Func(clone_fn) => Some(quote! { #clone_fn() }),
+        }
+    }
+
+    fn build(&self, this: &Ident) -> Self::Output {
+        build(self, this)
     }
 }

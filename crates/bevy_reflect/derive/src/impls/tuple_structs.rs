@@ -21,10 +21,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
     let where_clause_options = reflect_struct.where_clause_options();
     let get_type_registration_impl = reflect_struct.get_type_registration(&where_clause_options);
 
-    let clone_fn = reflect_struct
-        .meta()
-        .attrs()
-        .get_clone_impl(bevy_reflect_path);
+    let clone_fn = reflect_struct.get_clone_impl();
     let hash_fn = reflect_struct
         .meta()
         .attrs()

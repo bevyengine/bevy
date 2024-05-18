@@ -33,10 +33,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
         ..
     } = TryApplyVariantBuilder::new(reflect_enum).build(&ref_value);
 
-    let clone_fn = reflect_enum
-        .meta()
-        .attrs()
-        .get_clone_impl(bevy_reflect_path);
+    let clone_fn = reflect_enum.get_clone_impl();
     let hash_fn = reflect_enum
         .meta()
         .attrs()
