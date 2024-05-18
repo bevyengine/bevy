@@ -55,6 +55,10 @@ pub struct AsyncLoadingState(Arc<AtomicBool>);
 #[derive(Debug, Component)]
 pub struct Loading;
 
+/// Marker for the "Loading..." Text component.
+#[derive(Debug, Component)]
+pub struct LoadingText;
+
 impl AssetBarrier {
     /// Create an [`AssetBarrier`] with a [`AssetBarrierGuard`].
     pub fn new() -> (AssetBarrier, AssetBarrierGuard) {
@@ -174,21 +178,24 @@ fn setup(
             ..default()
         })
         .with_children(|b| {
-            b.spawn(TextBundle {
-                text: Text {
-                    sections: vec![TextSection {
-                        value: "Loading...".to_owned(),
-                        style: TextStyle {
-                            font_size: 64.0,
-                            color: Color::BLACK,
-                            ..Default::default()
-                        },
-                    }],
-                    justify: JustifyText::Right,
+            b.spawn((
+                TextBundle {
+                    text: Text {
+                        sections: vec![TextSection {
+                            value: "Loading...".to_owned(),
+                            style: TextStyle {
+                                font_size: 64.0,
+                                color: Color::BLACK,
+                                ..Default::default()
+                            },
+                        }],
+                        justify: JustifyText::Right,
+                        ..Default::default()
+                    },
                     ..Default::default()
                 },
-                ..Default::default()
-            });
+                LoadingText,
+            ));
         });
 
     // Camera
@@ -262,7 +269,7 @@ fn wait_on_load(
 fn get_async_loading_state(
     state: Res<AsyncLoadingState>,
     mut change_state: ResMut<NextState<LoadingState>>,
-    mut text: Query<&mut Text>,
+    mut text: Query<&mut Text, With<LoadingText>>,
 ) {
     // Load the value written by the `Future`.
     let is_loaded = state.0.load(Ordering::Acquire);
@@ -270,7 +277,9 @@ fn get_async_loading_state(
     // If loaded, change the state.
     if is_loaded {
         change_state.set(LoadingState::Loaded);
-        text.single_mut().sections[0].value = "Loaded!".to_owned();
+        if let Ok(mut text) = text.get_single_mut() {
+            "Loaded!".clone_into(&mut text.sections[0].value);
+        }
     }
 }
 
