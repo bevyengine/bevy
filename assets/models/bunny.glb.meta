@@ -1,0 +1,10 @@
+(
+    meta_format_version: "1.0",
+    asset: Process(
+        processor: "bevy_asset::processor::LoadAndSave<bevy_gltf::RawGltfLoader, bevy_gltf::meshlet::MeshletMeshGltfSaver>",
+        settings: (
+            loader_settings: (),
+            saver_settings: (),
+        ),
+    ),
+)

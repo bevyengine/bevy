@@ -14,16 +14,9 @@ use bevy::{
     render::render_resource::AsBindGroup,
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
-use std::{f32::consts::PI, path::Path, process::ExitCode};
+use std::f32::consts::PI;
 
-const ASSET_URL: &str = "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/bd869887bc5c9c6e74e353f657d342bef84bacd8/bunny.meshlet_mesh";
-
-fn main() -> ExitCode {
-    if !Path::new("./assets/models/bunny.meshlet_mesh").exists() {
-        eprintln!("ERROR: Asset at path <bevy>/assets/models/bunny.meshlet_mesh is missing. Please download it from {ASSET_URL}");
-        return ExitCode::FAILURE;
-    }
-
+fn main() {
     App::new()
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins((
@@ -34,8 +27,6 @@ fn main() -> ExitCode {
         ))
         .add_systems(Startup, setup)
         .run();
-
-    ExitCode::SUCCESS
 }
 
 fn setup(
@@ -80,11 +71,7 @@ fn setup(
         ..default()
     });
 
-    // A custom file format storing a [`bevy_render::mesh::Mesh`]
-    // that has been converted to a [`bevy_pbr::meshlet::MeshletMesh`]
-    // using [`bevy_pbr::meshlet::MeshletMesh::from_mesh`], which is
-    // a function only available when the `meshlet_processor` cargo feature is enabled.
-    let meshlet_mesh_handle = asset_server.load("models/bunny.meshlet_mesh");
+    let meshlet_mesh_handle = asset_server.load("models/bunny.glb#Mesh0/Primitive0");
     let debug_material = debug_materials.add(MeshletDebugMaterial::default());
 
     for x in -2..=2 {
