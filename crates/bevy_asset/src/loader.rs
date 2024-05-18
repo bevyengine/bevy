@@ -1,3 +1,4 @@
+use crate::meta::MetaTransform;
 use crate::{
     io::{AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader},
     meta::{
@@ -17,6 +18,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     any::{Any, TypeId},
     path::{Path, PathBuf},
+    sync::Arc,
 };
 use thiserror::Error;
 
@@ -308,6 +310,164 @@ pub enum DeserializeMetaError {
     DeserializeMinimal(SpannedError),
 }
 
+pub struct DirectLoadContext<'a, 'b, 'c> {
+    load_context: &'b mut LoadContext<'a>,
+    path: AssetPath<'static>,
+    reader: Option<&'b mut Reader<'c>>,
+    meta_transform: Option<MetaTransform>,
+    asset_type_id: Option<TypeId>,
+}
+
+impl<'a: 'c, 'b, 'c> DirectLoadContext<'a, 'b, 'c> {
+    fn with_transform(
+        mut self,
+        transform: impl Fn(&mut dyn AssetMetaDyn) + Send + Sync + 'static,
+    ) -> Self {
+        if let Some(prev_transform) = self.meta_transform {
+            self.meta_transform = Some(Box::new(move |meta| {
+                prev_transform(meta);
+                transform(meta);
+            }));
+        } else {
+            self.meta_transform = Some(Box::new(transform));
+        }
+        self
+    }
+
+    /// Configure the settings used to load the asset.
+    ///
+    /// If the settings type `S` does not match the settings expected by `A`'s asset loader, an error will be printed to the log
+    /// and the asset load will fail.
+    pub fn with_settings<S: Settings>(
+        self,
+        settings: impl Fn(&mut S) + Send + Sync + 'static,
+    ) -> Self {
+        self.with_transform(move |meta| meta_transform_settings(meta, &settings))
+    }
+
+    /// Specify the reader to use to read the asset data.
+    pub fn with_reader(mut self, reader: &'b mut Reader<'c>) -> Self {
+        self.reader = Some(reader);
+        self
+    }
+
+    /// Specify the output asset type.
+    pub fn with_asset_type<A: Asset>(mut self) -> Self {
+        self.asset_type_id = Some(TypeId::of::<A>());
+        self
+    }
+
+    /// Specify the output asset type.
+    pub fn with_asset_type_id(mut self, asset_type_id: TypeId) -> Self {
+        self.asset_type_id = Some(asset_type_id);
+        self
+    }
+
+    async fn load_internal(
+        self,
+    ) -> Result<(Arc<dyn ErasedAssetLoader>, ErasedLoadedAsset), LoadDirectError> {
+        enum ReaderRef<'a, 'b> {
+            Borrowed(&'a mut Reader<'b>),
+            Boxed(Box<Reader<'b>>),
+        }
+
+        impl<'a, 'b> ReaderRef<'a, 'b> {
+            pub fn as_mut(&mut self) -> &mut Reader {
+                match self {
+                    ReaderRef::Borrowed(r) => r,
+                    ReaderRef::Boxed(b) => &mut *b,
+                }
+            }
+        }
+
+        let (mut meta, loader, mut reader) = if let Some(reader) = self.reader {
+            let loader = if let Some(asset_type_id) = self.asset_type_id {
+                self.load_context
+                    .asset_server
+                    .get_asset_loader_with_asset_type_id(asset_type_id)
+                    .await
+                    .map_err(|error| LoadDirectError {
+                        dependency: self.path.clone(),
+                        error: error.into(),
+                    })?
+            } else {
+                self.load_context
+                    .asset_server
+                    .get_path_asset_loader(&self.path)
+                    .await
+                    .map_err(|error| LoadDirectError {
+                        dependency: self.path.clone(),
+                        error: error.into(),
+                    })?
+            };
+            let meta = loader.default_meta();
+            (meta, loader, ReaderRef::Borrowed(reader))
+        } else {
+            let (meta, loader, reader) = self
+                .load_context
+                .asset_server
+                .get_meta_loader_and_reader(&self.path, self.asset_type_id)
+                .await
+                .map_err(|error| LoadDirectError {
+                    dependency: self.path.clone(),
+                    error,
+                })?;
+            (meta, loader, ReaderRef::Boxed(reader))
+        };
+
+        if let Some(meta_transform) = self.meta_transform {
+            meta_transform(&mut *meta);
+        }
+
+        let asset = self
+            .load_context
+            .load_direct_internal(self.path.clone(), meta, &*loader, reader.as_mut())
+            .await?;
+        Ok((loader, asset))
+    }
+
+    /// Loads the asset at the given `path` directly. This is an async function that will wait until the asset is fully loaded before
+    /// returning. Use this if you need the _value_ of another asset in order to load the current asset. For example, if you are
+    /// deriving a new asset from the referenced asset, or you are building a collection of assets. This will add the `path` as a
+    /// "load dependency".
+    ///
+    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a [`LoadTransformAndSave`] preprocessor,
+    /// changing a "load dependency" will result in re-processing of the asset.
+    ///
+    /// [`Process`]: crate::processor::Process
+    /// [`LoadTransformAndSave`]: crate::processor::LoadTransformAndSave
+    pub async fn load<A: Asset>(self) -> Result<LoadedAsset<A>, LoadDirectError> {
+        let path = self.path.clone();
+        self.load_internal()
+            .await
+            .and_then(move |(loader, untyped_asset)| {
+                untyped_asset.downcast::<A>().map_err(|_| LoadDirectError {
+                    dependency: path.clone(),
+                    error: AssetLoadError::RequestedHandleTypeMismatch {
+                        path,
+                        requested: TypeId::of::<A>(),
+                        actual_asset_name: loader.asset_type_name(),
+                        loader_name: loader.type_name(),
+                    },
+                })
+            })
+    }
+
+    /// Loads the asset at the given `path` directly. This is an async function that will wait until the asset is fully loaded before
+    /// returning. Use this if you need the _value_ of another asset in order to load the current asset. For example, if you are
+    /// deriving a new asset from the referenced asset, or you are building a collection of assets. This will add the `path` as a
+    /// "load dependency".
+    ///
+    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a [`LoadTransformAndSave`] preprocessor,
+    /// changing a "load dependency" will result in re-processing of the asset.
+    ///
+    /// [`Process`]: crate::processor::Process
+    /// [`LoadTransformAndSave`]: crate::processor::LoadTransformAndSave
+    pub async fn load_untyped(self) -> Result<ErasedLoadedAsset, LoadDirectError> {
+        self.load_internal().await.map(|(_, asset)| asset)
+    }
+}
+
 /// A context that provides access to assets in [`AssetLoader`]s, tracks dependencies, and collects asset load state.
 /// Any asset state accessed by [`LoadContext`] will be tracked and stored for use in dependency events and asset preprocessing.
 pub struct LoadContext<'a> {
@@ -568,7 +728,7 @@ impl<'a> LoadContext<'a> {
         handle
     }
 
-    async fn load_direct_untyped_internal(
+    async fn load_direct_internal(
         &mut self,
         path: AssetPath<'static>,
         meta: Box<dyn AssetMetaDyn>,
@@ -599,66 +759,9 @@ impl<'a> LoadContext<'a> {
         Ok(loaded_asset)
     }
 
-    async fn load_direct_internal<A: Asset>(
-        &mut self,
-        path: AssetPath<'static>,
-        meta: Box<dyn AssetMetaDyn>,
-        loader: &dyn ErasedAssetLoader,
-        reader: &mut Reader<'_>,
-    ) -> Result<LoadedAsset<A>, LoadDirectError> {
-        self.load_direct_untyped_internal(path.clone(), meta, loader, &mut *reader)
-            .await
-            .and_then(move |untyped_asset| {
-                untyped_asset.downcast::<A>().map_err(|_| LoadDirectError {
-                    dependency: path.clone(),
-                    error: AssetLoadError::RequestedHandleTypeMismatch {
-                        path,
-                        requested: TypeId::of::<A>(),
-                        actual_asset_name: loader.asset_type_name(),
-                        loader_name: loader.type_name(),
-                    },
-                })
-            })
-    }
-
-    async fn load_direct_untyped_with_transform(
-        &mut self,
-        path: AssetPath<'static>,
-        meta_transform: impl FnOnce(&mut dyn AssetMetaDyn),
-    ) -> Result<ErasedLoadedAsset, LoadDirectError> {
-        let (mut meta, loader, mut reader) = self
-            .asset_server
-            .get_meta_loader_and_reader(&path, None)
-            .await
-            .map_err(|error| LoadDirectError {
-                dependency: path.clone(),
-                error,
-            })?;
-        meta_transform(&mut *meta);
-        self.load_direct_untyped_internal(path.clone(), meta, &*loader, &mut *reader)
-            .await
-    }
-
-    async fn load_direct_with_transform<A: Asset>(
-        &mut self,
-        path: AssetPath<'static>,
-        meta_transform: impl FnOnce(&mut dyn AssetMetaDyn),
-    ) -> Result<LoadedAsset<A>, LoadDirectError> {
-        let (mut meta, loader, mut reader) = self
-            .asset_server
-            .get_meta_loader_and_reader(&path, Some(TypeId::of::<A>()))
-            .await
-            .map_err(|error| LoadDirectError {
-                dependency: path.clone(),
-                error,
-            })?;
-        meta_transform(&mut *meta);
-        self.load_direct_internal(path.clone(), meta, &*loader, &mut *reader)
-            .await
-    }
-
-    /// Loads the asset at the given `path` directly. This is an async function that will wait until the asset is fully loaded before
-    /// returning. Use this if you need the _value_ of another asset in order to load the current asset. For example, if you are
+    /// Create a builder for loading assets at the given `path` directly.
+    /// This operation is asynchronous and will not complete until the asset is fully loaded.
+    /// Use this if you need the _value_ of another asset in order to load the current asset. For example, if you are
     /// deriving a new asset from the referenced asset, or you are building a collection of assets. This will add the `path` as a
     /// "load dependency".
     ///
@@ -667,155 +770,18 @@ impl<'a> LoadContext<'a> {
     ///
     /// [`Process`]: crate::processor::Process
     /// [`LoadTransformAndSave`]: crate::processor::LoadTransformAndSave
-    pub async fn load_direct<'b, A: Asset>(
+    #[must_use]
+    pub fn load_direct<'b, 'c>(
         &mut self,
         path: impl Into<AssetPath<'b>>,
-    ) -> Result<LoadedAsset<A>, LoadDirectError> {
-        self.load_direct_with_transform(path.into().into_owned(), |_| {})
-            .await
-    }
-
-    /// Loads the asset at the given `path` directly. This is an async function that will wait until the asset is fully loaded before
-    /// returning. Use this if you need the _value_ of another asset in order to load the current asset. For example, if you are
-    /// deriving a new asset from the referenced asset, or you are building a collection of assets. This will add the `path` as a
-    /// "load dependency".
-    ///
-    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a [`LoadTransformAndSave`] preprocessor,
-    /// changing a "load dependency" will result in re-processing of the asset.
-    ///
-    /// If the settings type `S` does not match the settings expected by `A`'s asset loader, an error will be printed to the log
-    /// and the asset load will fail.
-    ///
-    /// [`Process`]: crate::processor::Process
-    /// [`LoadTransformAndSave`]: crate::processor::LoadTransformAndSave
-    pub async fn load_direct_with_settings<'b, A: Asset, S: Settings + Default>(
-        &mut self,
-        path: impl Into<AssetPath<'b>>,
-        settings: impl Fn(&mut S) + Send + Sync + 'static,
-    ) -> Result<LoadedAsset<A>, LoadDirectError> {
-        self.load_direct_with_transform(path.into().into_owned(), move |meta| {
-            meta_transform_settings(meta, &settings);
-        })
-        .await
-    }
-
-    /// Loads the asset at the given `path` directly. This is an async function that will wait until the asset is fully loaded before
-    /// returning. Use this if you need the _value_ of another asset in order to load the current asset. For example, if you are
-    /// deriving a new asset from the referenced asset, or you are building a collection of assets. This will add the `path` as a
-    /// "load dependency".
-    ///
-    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a [`LoadTransformAndSave`] preprocessor,
-    /// changing a "load dependency" will result in re-processing of the asset.
-    ///
-    /// [`Process`]: crate::processor::Process
-    /// [`LoadTransformAndSave`]: crate::processor::LoadTransformAndSave
-    pub async fn load_direct_untyped<'b>(
-        &mut self,
-        path: impl Into<AssetPath<'b>>,
-    ) -> Result<ErasedLoadedAsset, LoadDirectError> {
-        self.load_direct_untyped_with_transform(path.into().into_owned(), |_| {})
-            .await
-    }
-
-    /// Loads the asset at the given `path` directly from the provided `reader`. This is an async function that will wait until the asset is fully loaded before
-    /// returning. Use this if you need the _value_ of another asset in order to load the current asset, and that value comes from your [`Reader`].
-    /// For example, if you are deriving a new asset from the referenced asset, or you are building a collection of assets. This will add the `path` as a
-    /// "load dependency".
-    ///
-    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a [`LoadTransformAndSave`] preprocessor,
-    /// changing a "load dependency" will result in re-processing of the asset.
-    ///
-    /// [`Process`]: crate::processor::Process
-    /// [`LoadTransformAndSave`]: crate::processor::LoadTransformAndSave
-    pub async fn load_direct_with_reader<'b, A: Asset>(
-        &mut self,
-        reader: &mut Reader<'_>,
-        path: impl Into<AssetPath<'b>>,
-    ) -> Result<LoadedAsset<A>, LoadDirectError> {
-        let path = path.into().into_owned();
-
-        let loader = self
-            .asset_server
-            .get_asset_loader_with_asset_type::<A>()
-            .await
-            .map_err(|error| LoadDirectError {
-                dependency: path.clone(),
-                error: error.into(),
-            })?;
-
-        let meta = loader.default_meta();
-
-        self.load_direct_internal(path, meta, &*loader, reader)
-            .await
-    }
-
-    /// Loads the asset at the given `path` directly from the provided `reader`. This is an async function that will wait until the asset is fully loaded before
-    /// returning. Use this if you need the _value_ of another asset in order to load the current asset, and that value comes from your [`Reader`].
-    /// For example, if you are deriving a new asset from the referenced asset, or you are building a collection of assets. This will add the `path` as a
-    /// "load dependency".
-    ///
-    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a [`LoadTransformAndSave`] preprocessor,
-    /// changing a "load dependency" will result in re-processing of the asset.
-    ///
-    /// If the settings type `S` does not match the settings expected by `A`'s asset loader, an error will be printed to the log
-    /// and the asset load will fail.
-    ///
-    /// [`Process`]: crate::processor::Process
-    /// [`LoadTransformAndSave`]: crate::processor::LoadTransformAndSave
-    pub async fn load_direct_with_reader_and_settings<'b, A: Asset, S: Settings + Default>(
-        &mut self,
-        reader: &mut Reader<'_>,
-        path: impl Into<AssetPath<'b>>,
-        settings: impl Fn(&mut S) + Send + Sync + 'static,
-    ) -> Result<LoadedAsset<A>, LoadDirectError> {
-        let path = path.into().into_owned();
-
-        let loader = self
-            .asset_server
-            .get_asset_loader_with_asset_type::<A>()
-            .await
-            .map_err(|error| LoadDirectError {
-                dependency: path.clone(),
-                error: error.into(),
-            })?;
-
-        let mut meta = loader.default_meta();
-        meta_transform_settings(&mut *meta, &settings);
-
-        self.load_direct_internal(path, meta, &*loader, reader)
-            .await
-    }
-
-    /// Loads the asset at the given `path` directly from the provided `reader`. This is an async function that will wait until the asset is fully loaded before
-    /// returning. Use this if you need the _value_ of another asset in order to load the current asset, and that value comes from your [`Reader`].
-    /// For example, if you are deriving a new asset from the referenced asset, or you are building a collection of assets. This will add the `path` as a
-    /// "load dependency".
-    ///
-    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a [`LoadTransformAndSave`] preprocessor,
-    /// changing a "load dependency" will result in re-processing of the asset.
-    ///
-    /// [`Process`]: crate::processor::Process
-    /// [`LoadTransformAndSave`]: crate::processor::LoadTransformAndSave
-    pub async fn load_direct_untyped_with_reader<'b>(
-        &mut self,
-        reader: &mut Reader<'_>,
-        path: impl Into<AssetPath<'b>>,
-    ) -> Result<ErasedLoadedAsset, LoadDirectError> {
-        let path = path.into().into_owned();
-
-        let loader = self
-            .asset_server
-            .get_path_asset_loader(&path)
-            .await
-            .map_err(|error| LoadDirectError {
-                dependency: path.clone(),
-                error: error.into(),
-            })?;
-
-        let meta = loader.default_meta();
-
-        self.load_direct_untyped_internal(path, meta, &*loader, reader)
-            .await
+    ) -> DirectLoadContext<'a, '_, 'c> {
+        DirectLoadContext {
+            load_context: self,
+            path: path.into().into_owned(),
+            reader: None,
+            meta_transform: None,
+            asset_type_id: None,
+        }
     }
 }
 

@@ -146,14 +146,16 @@ impl AssetLoader for CoolTextLoader {
         let ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
         let mut base_text = ron.text;
         for embedded in ron.embedded_dependencies {
-            let loaded = load_context.load_direct::<Text>(&embedded).await?;
+            let loaded = load_context.load_direct(&embedded).load::<Text>().await?;
             base_text.push_str(&loaded.get().0);
         }
         for (path, settings_override) in ron.dependencies_with_settings {
             let loaded = load_context
-                .load_direct_with_settings::<Text, _>(&path, move |settings| {
+                .load_direct(&path)
+                .with_settings(move |settings| {
                     *settings = settings_override.clone();
                 })
+                .load::<Text>()
                 .await?;
             base_text.push_str(&loaded.get().0);
         }
