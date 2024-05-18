@@ -268,7 +268,7 @@ fn wait_on_load(
 // This showcases how to wait for assets asynchronously.
 fn get_async_loading_state(
     state: Res<AsyncLoadingState>,
-    mut change_state: ResMut<NextState<LoadingState>>,
+    mut next_loading_state: ResMut<NextState<LoadingState>>,
     mut text: Query<&mut Text, With<LoadingText>>,
 ) {
     // Load the value written by the `Future`.
@@ -276,7 +276,7 @@ fn get_async_loading_state(
 
     // If loaded, change the state.
     if is_loaded {
-        change_state.set(LoadingState::Loaded);
+        next_loading_state.set(LoadingState::Loaded);
         if let Ok(mut text) = text.get_single_mut() {
             "Loaded!".clone_into(&mut text.sections[0].value);
         }
