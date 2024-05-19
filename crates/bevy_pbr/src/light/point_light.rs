@@ -22,29 +22,60 @@ use super::*;
 pub struct PointLight {
     /// The color of this light source.
     pub color: Color,
+
     /// Luminous power in lumens, representing the amount of light emitted by this source in all directions.
     pub intensity: f32,
+
     /// Cut-off for the light's area-of-effect. Fragments outside this range will not be affected by
     /// this light at all, so it's important to tune this together with `intensity` to prevent hard
     /// lighting cut-offs.
     pub range: f32,
+
     /// Simulates a light source coming from a spherical volume with the given radius. Only affects
     /// the size of specular highlights created by this light. Because of this, large values may not
     /// produce the intended result -- for example, light radius does not affect shadow softness or
     /// diffuse lighting.
     pub radius: f32,
+
     /// Whether this light casts shadows.
     pub shadows_enabled: bool,
+
+    /// Whether soft shadows are enabled, and if so, the size of the light.
+    ///
+    /// Soft shadows, also known as *percentage-closer soft shadows* or PCSS,
+    /// cause shadows to become blurrier (i.e. their penumbra increases in
+    /// radius) as they extend away from objects. The blurriness of the shadow
+    /// depends on the size of the light; larger lights result in larger
+    /// penumbras and therefore blurrier shadows.
+    ///
+    /// Currently, soft shadows are rather noisy if not using the temporal mode.
+    /// If you enable soft shadows, consider choosing
+    /// [`ShadowFilteringMethod::Temporal`] and enabling temporal antialiasing
+    /// (TAA) to smooth the noise out over time.
+    ///
+    /// Note that soft shadows are significantly more expensive to render than
+    /// hard shadows.
+    pub soft_shadow_size: Option<f32>,
+
     /// A bias used when sampling shadow maps to avoid "shadow-acne", or false shadow occlusions
     /// that happen as a result of shadow-map fragments not mapping 1:1 to screen-space fragments.
     /// Too high of a depth bias can lead to shadows detaching from their casters, or
     /// "peter-panning". This bias can be tuned together with `shadow_normal_bias` to correct shadow
     /// artifacts for a given scene.
     pub shadow_depth_bias: f32,
+
     /// A bias applied along the direction of the fragment's surface normal. It is scaled to the
     /// shadow map's texel size so that it can be small close to the camera and gets larger further
     /// away.
     pub shadow_normal_bias: f32,
+
+    /// The distance from the light to near Z plane in the shadow map.
+    ///
+    /// Objects closer than this distance to the light won't cast shadows.
+    /// Setting this higher increases the shadow map's precision.
+    ///
+    /// This only has an effect if shadows are enabled.
+    pub shadow_map_near_z: f32,
 }
 
 impl Default for PointLight {
@@ -58,8 +89,10 @@ impl Default for PointLight {
             range: 20.0,
             radius: 0.0,
             shadows_enabled: false,
+            soft_shadow_size: None,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
+            shadow_map_near_z: Self::DEFAULT_SHADOW_MAP_NEAR_Z,
         }
     }
 }
@@ -67,4 +100,5 @@ impl Default for PointLight {
 impl PointLight {
     pub const DEFAULT_SHADOW_DEPTH_BIAS: f32 = 0.08;
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
+    pub const DEFAULT_SHADOW_MAP_NEAR_Z: f32 = 0.1;
 }

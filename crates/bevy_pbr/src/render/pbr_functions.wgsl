@@ -366,7 +366,12 @@ fn apply_pbr_lighting(
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                 && (view_bindings::point_lights.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            shadow = shadows::fetch_spot_shadow(light_id, in.world_position, in.world_normal);
+            shadow = shadows::fetch_spot_shadow(
+                light_id,
+                in.world_position,
+                in.world_normal,
+                view_bindings::point_lights.data[light_id].shadow_map_near_z,
+            );
         }
 
         let light_contrib = lighting::spot_light(light_id, &lighting_input);

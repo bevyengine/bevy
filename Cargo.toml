@@ -3083,6 +3083,17 @@ description = "Demonstrates volumetric fog and lighting"
 category = "3D Rendering"
 wasm = true
 
+[[example]]
+name = "pcss"
+path = "examples/3d/pcss.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.pcss]
+name = "Percentage-closer soft shadows"
+description = "Demonstrates percentage-closer soft shadows (PCSS)"
+category = "3D Rendering"
+wasm = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"

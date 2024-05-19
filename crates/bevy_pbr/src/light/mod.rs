@@ -1767,13 +1767,6 @@ pub fn update_point_light_frusta(
         Or<(Changed<GlobalTransform>, Changed<PointLight>)>,
     >,
 ) {
-    let projection =
-        Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
-    let view_rotations = CUBE_MAP_FACES
-        .iter()
-        .map(|CubeMapFace { target, up }| Transform::IDENTITY.looking_at(*target, *up))
-        .collect::<Vec<_>>();
-
     for (entity, transform, point_light, mut cubemap_frusta) in &mut views {
         // The frusta are used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frusta are
@@ -1783,6 +1776,16 @@ pub fn update_point_light_frusta(
         if !point_light.shadows_enabled || !global_lights.entities.contains(&entity) {
             continue;
         }
+
+        let projection = Mat4::perspective_infinite_reverse_rh(
+            std::f32::consts::FRAC_PI_2,
+            1.0,
+            point_light.shadow_map_near_z,
+        );
+        let view_rotations = CUBE_MAP_FACES
+            .iter()
+            .map(|CubeMapFace { target, up }| Transform::IDENTITY.looking_at(*target, *up))
+            .collect::<Vec<_>>();
 
         // ignore scale because we don't want to effectively scale light radius and range
         // by applying those as a view transform to shadow map rendering of objects
@@ -1826,7 +1829,8 @@ pub fn update_spot_light_frusta(
         let view_backward = transform.back();
 
         let spot_view = spot_light_view_matrix(transform);
-        let spot_projection = spot_light_projection_matrix(spot_light.outer_angle);
+        let spot_projection =
+            spot_light_projection_matrix(spot_light.outer_angle, spot_light.shadow_map_near_z);
         let view_projection = spot_projection * spot_view.inverse();
 
         *frustum = Frustum::from_view_projection_custom_far(
