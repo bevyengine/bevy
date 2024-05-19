@@ -1101,7 +1101,7 @@ impl World {
         }
     }
 
-    /// Remove any default filter is specified for T.
+    /// Remove any default filter specified for T.
     pub fn unset_default_filter<T: Component>(&mut self) {
         let id = self.init_component::<T>();
         if let Some(mut filters) = self.get_resource_mut::<DefaultQueryFilters>() {
