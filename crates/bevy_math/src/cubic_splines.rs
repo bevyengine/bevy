@@ -42,7 +42,8 @@ use thiserror::Error;
 /// ```
 #[derive(Clone, Debug)]
 pub struct CubicBezier<P: VectorSpace> {
-    control_points: Vec<[P; 4]>,
+    /// The control points of the Bezier curve
+    pub control_points: Vec<[P; 4]>,
 }
 
 impl<P: VectorSpace> CubicBezier<P> {
@@ -114,7 +115,8 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
 /// ```
 #[derive(Clone, Debug)]
 pub struct CubicHermite<P: VectorSpace> {
-    control_points: Vec<(P, P)>,
+    /// The control points of the Hermite curve
+    pub control_points: Vec<(P, P)>,
 }
 impl<P: VectorSpace> CubicHermite<P> {
     /// Create a new Hermite curve from sets of control points.
@@ -181,8 +183,10 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicHermite<P> {
 /// ```
 #[derive(Clone, Debug)]
 pub struct CubicCardinalSpline<P: VectorSpace> {
-    tension: f32,
-    control_points: Vec<P>,
+    /// Tension
+    pub tension: f32,
+    /// The control points of the Cardinal spline
+    pub control_points: Vec<P>,
 }
 
 impl<P: VectorSpace> CubicCardinalSpline<P> {
@@ -269,7 +273,8 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
 /// ```
 #[derive(Clone, Debug)]
 pub struct CubicBSpline<P: VectorSpace> {
-    control_points: Vec<P>,
+    /// The control points of the spline
+    pub control_points: Vec<P>,
 }
 impl<P: VectorSpace> CubicBSpline<P> {
     /// Build a new B-Spline.
@@ -387,9 +392,12 @@ pub enum CubicNurbsError {
 /// ```
 #[derive(Clone, Debug)]
 pub struct CubicNurbs<P: VectorSpace> {
-    control_points: Vec<P>,
-    weights: Vec<f32>,
-    knots: Vec<f32>,
+    /// The control points of the NURBS
+    pub control_points: Vec<P>,
+    /// Weights
+    pub weights: Vec<f32>,
+    /// Knots
+    pub knots: Vec<f32>,
 }
 impl<P: VectorSpace> CubicNurbs<P> {
     /// Build a Non-Uniform Rational B-Spline.
@@ -592,7 +600,8 @@ impl<P: VectorSpace> RationalGenerator<P> for CubicNurbs<P> {
 /// The curve is C0 continuous, meaning it has no holes or jumps.
 #[derive(Clone, Debug)]
 pub struct LinearSpline<P: VectorSpace> {
-    points: Vec<P>,
+    /// The control points of the NURBS
+    pub points: Vec<P>,
 }
 impl<P: VectorSpace> LinearSpline<P> {
     /// Create a new linear spline
@@ -632,7 +641,8 @@ pub trait CubicGenerator<P: VectorSpace> {
 /// Segments can be chained together to form a longer compound curve.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct CubicSegment<P: VectorSpace> {
-    coeff: [P; 4],
+    /// Coefficients of the segment
+    pub coeff: [P; 4],
 }
 
 impl<P: VectorSpace> CubicSegment<P> {
@@ -790,7 +800,8 @@ impl CubicSegment<Vec2> {
 /// [`CubicBezier`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct CubicCurve<P: VectorSpace> {
-    segments: Vec<CubicSegment<P>>,
+    /// Segments of the curve
+    pub segments: Vec<CubicSegment<P>>,
 }
 
 impl<P: VectorSpace> CubicCurve<P> {
@@ -923,11 +934,11 @@ pub trait RationalGenerator<P: VectorSpace> {
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct RationalSegment<P: VectorSpace> {
     /// The coefficients matrix of the cubic curve.
-    coeff: [P; 4],
+    pub coeff: [P; 4],
     /// The homogeneous weight coefficients.
-    weight_coeff: [f32; 4],
+    pub weight_coeff: [f32; 4],
     /// The width of the domain of this segment.
-    knot_span: f32,
+    pub knot_span: f32,
 }
 
 impl<P: VectorSpace> RationalSegment<P> {
@@ -1049,7 +1060,8 @@ impl<P: VectorSpace> RationalSegment<P> {
 /// [`CubicNurbs`], or convert [`CubicCurve`] using `into/from`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RationalCurve<P: VectorSpace> {
-    segments: Vec<RationalSegment<P>>,
+    /// The segments in the curve
+    pub segments: Vec<RationalSegment<P>>,
 }
 
 impl<P: VectorSpace> RationalCurve<P> {

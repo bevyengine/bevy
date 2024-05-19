@@ -2,7 +2,7 @@ use bevy_math::{primitives::Cone, Vec3};
 use wgpu::PrimitiveTopology;
 
 use crate::{
-    mesh::{Indices, Mesh, Meshable},
+    mesh::{Indices, Mesh, MeshBuilder, Meshable},
     render_asset::RenderAssetUsages,
 };
 
@@ -43,9 +43,10 @@ impl ConeMeshBuilder {
         self.resolution = resolution;
         self
     }
+}
 
-    /// Builds a [`Mesh`] based on the configuration in `self`.
-    pub fn build(&self) -> Mesh {
+impl MeshBuilder for ConeMeshBuilder {
+    fn build(&self) -> Mesh {
         let half_height = self.cone.height / 2.0;
 
         // `resolution` vertices for the base, `resolution` vertices for the bottom of the lateral surface,
@@ -157,17 +158,11 @@ impl From<Cone> for Mesh {
     }
 }
 
-impl From<ConeMeshBuilder> for Mesh {
-    fn from(cone: ConeMeshBuilder) -> Self {
-        cone.build()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use bevy_math::{primitives::Cone, Vec2};
 
-    use crate::mesh::{Mesh, Meshable, VertexAttributeValues};
+    use crate::mesh::{primitives::MeshBuilder, Mesh, Meshable, VertexAttributeValues};
 
     /// Rounds floats to handle floating point error in tests.
     fn round_floats<const N: usize>(points: &mut [[f32; N]]) {
