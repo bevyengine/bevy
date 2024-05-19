@@ -1306,7 +1306,7 @@ mod tests {
 
         fn my_runner(mut app: App) -> AppExit {
             let my_state = MyState {};
-            app.world_mut().insert_resource(my_state);
+            app.insert_resource(my_state);
 
             for _ in 0..5 {
                 app.update();

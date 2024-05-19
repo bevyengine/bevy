@@ -925,8 +925,8 @@ mod tests {
             0,
             "SubText asset entities should be despawned when no more handles exist"
         );
-        let events = app.world_mut().remove_resource::<StoredEvents>().unwrap();
-        let id_results = app.world_mut().remove_resource::<IdResults>().unwrap();
+        let events = app.remove_resource::<StoredEvents>().unwrap();
+        let id_results = app.remove_resource::<IdResults>().unwrap();
         let expected_events = vec![
             AssetEvent::Added { id: a_id },
             AssetEvent::LoadedWithDependencies {
