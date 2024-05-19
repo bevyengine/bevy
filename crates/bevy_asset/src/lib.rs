@@ -364,7 +364,7 @@ impl AssetApp for App {
         self.world()
             .resource::<AssetServer>()
             .register_asset(&assets);
-        if self.world().contains_resource::<AssetProcessor>() {
+        if self.contains_resource::<AssetProcessor>() {
             let processor = self.world().resource::<AssetProcessor>();
             // The processor should have its own handle provider separate from the Asset storage
             // to ensure the id spaces are entirely separate. Not _strictly_ necessary, but

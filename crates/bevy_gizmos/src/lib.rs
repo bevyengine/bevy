@@ -206,7 +206,7 @@ pub trait AppGizmoBuilder {
 
 impl AppGizmoBuilder for App {
     fn init_gizmo_group<Config: GizmoConfigGroup>(&mut self) -> &mut Self {
-        if self.world().contains_resource::<GizmoStorage<Config, ()>>() {
+        if self.contains_resource::<GizmoStorage<Config, ()>>() {
             return self;
         }
 
