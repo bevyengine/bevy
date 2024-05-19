@@ -7,7 +7,6 @@ use bevy_ecs::{
     event::{event_update_system, ManualEventReader},
     intern::Interned,
     prelude::*,
-    query::DefaultQueryFilters,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
     system::SystemId,
 };
