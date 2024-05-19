@@ -2,9 +2,9 @@ use crate::derive_data::StructField;
 use crate::field_attributes::DefaultBehavior;
 use crate::{derive_data::ReflectEnum, utility::ident_or_index};
 use bevy_macro_utils::fq_std::{FQDefault, FQOption};
-use proc_macro2::Ident;
+use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
-use syn::Member;
+use syn::{Member, Path};
 
 pub(crate) struct EnumVariantOutputData {
     /// The names of each variant as a string.
@@ -27,56 +27,67 @@ struct VariantField<'a, 'b> {
     pub field: &'a StructField<'b>,
 }
 
-/// A builder for constructing [`EnumVariantOutputData`].
-///
-/// When a variant field needs to be constructed, the builder will:
-/// 1. Use `field_accessor` to access the field as an `Option<&dyn Reflect>`.
-/// 2. Use `field_unwrapper` to unwrap the field into a `&dyn Reflect`.
-/// 3. Use `field_constructor` to construct the field into a concrete value.
-struct EnumVariantOutputDataBuilder<'a> {
+/// Trait used to control how enum variants are built.
+trait VariantBuilder: Sized {
+    /// Returns a token stream that accesses a field of a variant as an `Option<dyn Reflect>`.
+    ///
+    /// The default implementation of this method will return a token stream
+    /// which gets the field dynamically so as to support `dyn Enum`.
+    ///
+    /// # Parameters
+    /// * `ident`: The identifier of the enum
+    /// * `field`: The field to access
+    fn access_field(&self, ident: &Ident, field: VariantField) -> proc_macro2::TokenStream {
+        match &field.field.data.ident {
+            Some(field_ident) => {
+                let name = field_ident.to_string();
+                quote!(#ident.field(#name))
+            }
+            None => {
+                if let Some(field_index) = field.field.reflection_index {
+                    quote!(#ident.field_at(#field_index))
+                } else {
+                    quote!(::core::compile_error!(
+                        "internal bevy_reflect error: field should be active"
+                    ))
+                }
+            }
+        }
+    }
+
+    /// Returns a token stream that unwraps a field of a variant as a `&dyn Reflect`
+    /// (from an `Option<dyn Reflect>`).
+    ///
+    /// # Parameters
+    /// * `ident`: The identifier of the enum
+    /// * `field`: The field to access
+    fn unwrap_field(&self, ident: &Ident, field: VariantField) -> proc_macro2::TokenStream;
+
+    /// Returns a token stream that constructs a field of a variant as a concrete type
+    /// (from a `&dyn Reflect`).
+    ///
+    /// # Parameters
+    /// * `ident`: The identifier of the enum
+    /// * `field`: The field to access
+    fn construct_field(&self, ident: &Ident, field: VariantField) -> proc_macro2::TokenStream;
+}
+
+struct EnumVariantOutputBuilder<'a, V: VariantBuilder> {
     /// A reference to the enum that is being reflected (e.g. `self`).
     this: &'a Ident,
     /// The reflect enum data.
     reflect_enum: &'a ReflectEnum<'a>,
-    /// A function to generate tokens that will extract the field value from the enum
-    /// as an `Option<&dyn Reflect>`.
-    field_accessor: Box<dyn Fn(&Ident, VariantField) -> proc_macro2::TokenStream + 'a>,
-    /// A function to generate tokens that will unwrap the accessed field value into a
-    /// `&dyn Reflect`.
-    field_unwrapper: Box<dyn Fn(&Ident, VariantField) -> proc_macro2::TokenStream + 'a>,
-    /// A function to generate tokens that will construct a new concrete value from the accessed field.
-    field_constructor: Box<dyn Fn(&Ident, VariantField) -> proc_macro2::TokenStream + 'a>,
+    /// The variant builder.
+    variant_builder: V,
 }
 
-impl<'a> EnumVariantOutputDataBuilder<'a> {
-    pub fn new(this: &'a Ident, reflect_enum: &'a ReflectEnum<'a>) -> Self {
+impl<'a, V: VariantBuilder> EnumVariantOutputBuilder<'a, V> {
+    pub fn new(this: &'a Ident, reflect_enum: &'a ReflectEnum<'a>, variant_builder: V) -> Self {
         Self {
             this,
             reflect_enum,
-            field_accessor: Box::new(Self::generate_dynamic_field_accessor),
-            field_unwrapper: Box::new(
-                |_, _| quote! {::core::compile_error!("internal bevy_reflect error: failed to define field unwrapper")},
-            ),
-            field_constructor: Box::new(
-                |_, _| quote! {::core::compile_error!("internal bevy_reflect error: failed to define field constructor")},
-            ),
+            variant_builder,
         }
-    }
-
-    pub fn with_field_unwrapper(
-        mut self,
-        unwrapper: impl Fn(&Ident, VariantField) -> proc_macro2::TokenStream + 'a,
-    ) -> Self {
-        self.field_unwrapper = Box::new(unwrapper);
-        self
-    }
-
-    pub fn with_field_constructor(
-        mut self,
-        constructor: impl Fn(&Ident, VariantField) -> proc_macro2::TokenStream + 'a,
-    ) -> Self {
-        self.field_constructor = Box::new(constructor);
-        self
     }
 
     pub fn build(self) -> EnumVariantOutputData {
@@ -135,10 +146,12 @@ impl<'a> EnumVariantOutputDataBuilder<'a> {
             };
         }
 
-        let field_accessor = (self.field_accessor)(self.this, variant_field);
+        let field_accessor = self.variant_builder.access_field(self.this, variant_field);
 
         let field_ident = format_ident!("__field");
-        let field_constructor = (self.field_constructor)(&field_ident, variant_field);
+        let field_constructor = self
+            .variant_builder
+            .construct_field(&field_ident, variant_field);
 
         match &field.attrs.default {
             DefaultBehavior::Func(path) => quote! {
@@ -156,41 +169,16 @@ impl<'a> EnumVariantOutputDataBuilder<'a> {
                 }
             },
             DefaultBehavior::Required => {
-                let field_unwrapper = (self.field_unwrapper)(&field_ident, variant_field);
+                let field_unwrapper = self
+                    .variant_builder
+                    .unwrap_field(&field_ident, variant_field);
 
                 quote! {{
+                    // `#field_ident` is used by both the unwrapper and constructor
                     let #field_ident = #field_accessor;
                     let #field_ident = #field_unwrapper;
                     #field_constructor
                 }}
-            }
-        }
-    }
-
-    /// Generates a dynamic field accessor for the given variant field.
-    ///
-    /// This will result in either `this.field("field_name")` or `this.field_at(index)`
-    /// depending on whether the field is named or unnamed.
-    ///
-    /// By using this accessor, we can extract the field dynamically from a `dyn Enum`
-    /// without having to know what it's concrete type is.
-    fn generate_dynamic_field_accessor(
-        this: &Ident,
-        variant_field: VariantField,
-    ) -> proc_macro2::TokenStream {
-        match &variant_field.field.data.ident {
-            Some(ident) => {
-                let name = ident.to_string();
-                quote!(#this.field(#name))
-            }
-            None => {
-                if let Some(index) = variant_field.field.reflection_index {
-                    quote!(#this.field_at(#index))
-                } else {
-                    quote!(::core::compile_error!(
-                        "internal bevy_reflect error: field should be active"
-                    ))
-                }
             }
         }
     }
@@ -201,22 +189,33 @@ pub(crate) fn generate_from_reflect_variants(
     reflect_enum: &ReflectEnum,
     this: &Ident,
 ) -> EnumVariantOutputData {
-    let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
+    struct FromReflectVariantBuilder<'a> {
+        bevy_reflect_path: &'a Path,
+    }
 
-    EnumVariantOutputDataBuilder::new(this, reflect_enum)
-        .with_field_unwrapper(|ident, _| {
-            quote! {
-                #ident?
-            }
-        })
-        .with_field_constructor(|ident, variant_field| {
-            let field_ty = &variant_field.field.data.ty;
+    impl<'a> VariantBuilder for FromReflectVariantBuilder<'a> {
+        fn unwrap_field(&self, ident: &Ident, _field: VariantField) -> TokenStream {
+            quote!(#ident?)
+        }
+
+        fn construct_field(&self, ident: &Ident, field: VariantField) -> TokenStream {
+            let bevy_reflect_path = self.bevy_reflect_path;
+            let field_ty = &field.field.data.ty;
 
             quote! {
                 <#field_ty as #bevy_reflect_path::FromReflect>::from_reflect(#ident)?
             }
-        })
-        .build()
+        }
+    }
+
+    EnumVariantOutputBuilder::new(
+        this,
+        reflect_enum,
+        FromReflectVariantBuilder {
+            bevy_reflect_path: reflect_enum.meta().bevy_reflect_path(),
+        },
+    )
+    .build()
 }
 
 /// Generates the enum variant output data needed to build the `Reflect::try_apply` implementation.
@@ -224,15 +223,19 @@ pub(crate) fn generate_try_apply_variants(
     reflect_enum: &ReflectEnum,
     this: &Ident,
 ) -> EnumVariantOutputData {
-    let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
+    struct TryApplyVariantBuilder<'a> {
+        bevy_reflect_path: &'a Path,
+    }
 
-    EnumVariantOutputDataBuilder::new(this, reflect_enum)
-        .with_field_unwrapper(|ident, variant_field| {
+    impl<'a> VariantBuilder for TryApplyVariantBuilder<'a> {
+        fn unwrap_field(&self, ident: &Ident, field: VariantField) -> TokenStream {
             let VariantField {
                 member,
                 variant_name,
                 ..
-            } = variant_field;
+            } = field;
+
+            let bevy_reflect_path = self.bevy_reflect_path;
 
             let field_name = match member {
                 Member::Named(member_ident) => format!("{member_ident}"),
@@ -245,9 +248,11 @@ pub(crate) fn generate_try_apply_variants(
                     field_name: ::core::convert::Into::into(#field_name)
                 })?
             }
-        })
-        .with_field_constructor(|ident, variant_field| {
-            let field_ty = &variant_field.field.data.ty;
+        }
+
+        fn construct_field(&self, ident: &Ident, field: VariantField) -> TokenStream {
+            let bevy_reflect_path = self.bevy_reflect_path;
+            let field_ty = &field.field.data.ty;
 
             quote! {
                 <#field_ty as #bevy_reflect_path::FromReflect>::from_reflect(#ident)
@@ -258,6 +263,15 @@ pub(crate) fn generate_try_apply_variants(
                         to_type: ::core::convert::Into::into(<#field_ty as #bevy_reflect_path::TypePath>::type_path())
                     })?
             }
-        })
-        .build()
+        }
+    }
+
+    EnumVariantOutputBuilder::new(
+        this,
+        reflect_enum,
+        TryApplyVariantBuilder {
+            bevy_reflect_path: reflect_enum.meta().bevy_reflect_path(),
+        },
+    )
+    .build()
 }
