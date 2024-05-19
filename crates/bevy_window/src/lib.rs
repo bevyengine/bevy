@@ -11,6 +11,8 @@
 //! The [`WindowPlugin`] sets up some global window-related parameters and
 //! is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
 
+use std::sync::{Arc, Mutex};
+
 use bevy_a11y::Focus;
 
 mod cursor;
@@ -112,7 +114,10 @@ impl Plugin for WindowPlugin {
             let initial_focus = app
                 .world_mut()
                 .spawn(primary_window.clone())
-                .insert(PrimaryWindow)
+                .insert((
+                    PrimaryWindow,
+                    RawHandleWrapperHolder(Arc::new(Mutex::new(None))),
+                ))
                 .id();
             if let Some(mut focus) = app.world_mut().get_resource_mut::<Focus>() {
                 **focus = Some(initial_focus);
