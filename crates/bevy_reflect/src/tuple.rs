@@ -596,6 +596,14 @@ macro_rules! impl_reflect_tuple {
                 Box::new(self.clone_dynamic())
             }
 
+            fn reflect_clone(&self) -> Option<Box<dyn Reflect>> {
+                Some(Box::new((
+                    $(
+                        self.$index.reflect_clone()?.take::<$name>().ok()?,
+                    )*
+                )))
+            }
+
             fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
                 crate::tuple_partial_eq(self, value)
             }
