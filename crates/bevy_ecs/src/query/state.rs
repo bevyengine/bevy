@@ -2050,8 +2050,8 @@ mod tests {
         world.spawn((B(0), C(0)));
         world.spawn(C(0));
 
-        world.default_with_filter::<B>();
-        world.default_without_filter::<C>();
+        world.set_default_with_filter::<B>();
+        world.set_default_without_filter::<C>();
 
         // With<B>, Without<C> only matches the first entity
         let mut query = QueryState::<()>::new(&mut world);

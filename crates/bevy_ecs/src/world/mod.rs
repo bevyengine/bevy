@@ -1077,7 +1077,7 @@ impl World {
 
     /// Add a [`With<T>`](crate::prelude::With) filter to [`DefaultQueryFilters`].
     /// Inserts the [`DefaultQueryFilters`] resource if it does not exist
-    pub fn default_with_filter<T: Component>(&mut self) {
+    pub fn set_default_with_filter<T: Component>(&mut self) {
         let id = self.init_component::<T>();
         if let Some(mut filters) = self.get_resource_mut::<DefaultQueryFilters>() {
             filters.with_untyped(id);
@@ -1090,7 +1090,7 @@ impl World {
 
     /// Add a [`Without<T>`](crate::prelude::Without) filter to [`DefaultQueryFilters`].
     /// Inserts the [`DefaultQueryFilters`] resource if it does not exist
-    pub fn default_without_filter<T: Component>(&mut self) {
+    pub fn set_default_without_filter<T: Component>(&mut self) {
         let id = self.init_component::<T>();
         if let Some(mut filters) = self.get_resource_mut::<DefaultQueryFilters>() {
             filters.without_untyped(id);
@@ -1098,6 +1098,14 @@ impl World {
             let mut filters = DefaultQueryFilters::default();
             filters.without_untyped(id);
             self.insert_resource(filters);
+        }
+    }
+
+    /// Remove any default filter is specified for T.
+    pub fn unset_default_filter<T: Component>(&mut self) {
+        let id = self.init_component::<T>();
+        if let Some(mut filters) = self.get_resource_mut::<DefaultQueryFilters>() {
+            filters.remove_untyped(id);
         }
     }
 

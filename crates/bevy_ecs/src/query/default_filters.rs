@@ -22,7 +22,8 @@ enum FilterKind {
 /// As a result, this resource should generally only be modified before the app starts (typically
 /// during plugin construction)
 ///
-/// See `World::default_with_filter` and `World::default_without_filter` for easier access
+/// See `World::set_default_with_filter`, `World::set_default_without_filter`, and
+/// `World::unset_default_filter` for easier access.
 ///
 /// ### Example
 ///
@@ -90,7 +91,7 @@ impl DefaultQueryFilters {
     }
 
     /// Remove a filter for the specified [`ComponentId`]
-    pub fn remove(&mut self, component_id: ComponentId) {
+    pub fn remove_untyped(&mut self, component_id: ComponentId) {
         self.0.remove(&component_id);
     }
 
