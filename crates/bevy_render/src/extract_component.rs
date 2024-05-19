@@ -87,7 +87,7 @@ impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentP
         let Some(render_app) = app.get_sub_app(RenderApp) else {
             return false;
         };
-        render_app.contains_resource::<RenderDevice>()
+        render_app.world().contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {
@@ -202,7 +202,7 @@ impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
         let Some(render_app) = app.get_sub_app(RenderApp) else {
             return false;
         };
-        render_app.contains_resource::<RenderDevice>()
+        render_app.world().contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {

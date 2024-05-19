@@ -100,7 +100,7 @@ where
         let Some(render_app) = app.get_sub_app(RenderApp) else {
             return false;
         };
-        render_app.contains_resource::<RenderDevice>()
+        render_app.world().contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {
@@ -163,7 +163,7 @@ where
         let Some(render_app) = app.get_sub_app(RenderApp) else {
             return false;
         };
-        render_app.contains_resource::<RenderDevice>()
+        render_app.world().contains_resource::<RenderDevice>()
     }
 
     fn finalize(&self, app: &mut App) {

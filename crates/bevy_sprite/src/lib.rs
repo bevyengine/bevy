@@ -136,8 +136,8 @@ impl Plugin for SpritePlugin {
         let Some(render_app) = app.get_sub_app(RenderApp) else {
             return false;
         };
-        render_app.contains_resource::<RenderDevice>()
-            && render_app.contains_resource::<DrawFunctions<Transparent2d>>()
+        render_app.world().contains_resource::<RenderDevice>()
+            && render_app.world().contains_resource::<DrawFunctions<Transparent2d>>()
     }
 
     fn finalize(&self, app: &mut App) {

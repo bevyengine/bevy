@@ -152,28 +152,6 @@ impl SubApp {
         self
     }
 
-    /// See [`App::contains_resource`].
-    pub fn contains_resource<R: Resource>(&self) -> bool {
-        self.world.contains_resource::<R>()
-    }
-
-    /// See [`App::insert_non_resource`].
-    pub fn insert_non_send_resource<R: 'static>(&mut self, resource: R) -> &mut Self {
-        self.world.insert_non_send_resource(resource);
-        self
-    }
-
-    /// See [`App::init_non_send_resource`].
-    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
-        self.world.init_non_send_resource::<R>();
-        self
-    }
-
-    /// See [`App::contains_non_send_resource`].
-    pub fn contains_non_send_resource<R: 'static>(&self) -> bool {
-        self.world.contains_non_send::<R>()
-    }
-
     /// See [`App::add_systems`].
     pub fn add_systems<M>(
         &mut self,
