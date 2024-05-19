@@ -292,6 +292,8 @@ impl Plugin for SmaaPlugin {
             SMAA_AREA_LUT_TEXTURE_HANDLE,
             "SMAAAreaLUT.ktx2",
             |bytes, _: String| Image::from_buffer(
+                #[cfg(all(debug_assertions, feature = "dds"))]
+                "SMAAAreaLUT",
                 bytes,
                 ImageType::Format(ImageFormat::Ktx2),
                 CompressedImageFormats::NONE,
@@ -307,6 +309,8 @@ impl Plugin for SmaaPlugin {
             SMAA_SEARCH_LUT_TEXTURE_HANDLE,
             "SMAASearchLUT.ktx2",
             |bytes, _: String| Image::from_buffer(
+                #[cfg(all(debug_assertions, feature = "dds"))]
+                "SMAASearchLUT",
                 bytes,
                 ImageType::Format(ImageFormat::Ktx2),
                 CompressedImageFormats::NONE,
