@@ -508,6 +508,16 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
             .iter()
             .flat_map(|f| f.without.ones().map(T::get_sparse_set_index))
     }
+
+    /// Returns true if the index is used by this `FilteredAccess` in any way
+    pub fn contains(&self, index: T) -> bool {
+        self.access().has_read(index.clone())
+            || self.access().has_archetypal(index.clone())
+            || self.filter_sets.iter().any(|f| {
+                f.with.contains(index.sparse_set_index())
+                    || f.without.contains(index.sparse_set_index())
+            })
+    }
 }
 
 #[derive(Clone, Eq, PartialEq)]

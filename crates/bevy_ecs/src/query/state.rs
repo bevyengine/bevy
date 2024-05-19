@@ -1669,10 +1669,7 @@ impl<D: QueryData, F: QueryFilter> From<QueryBuilder<'_, D, F>> for QueryState<D
 mod tests {
     use crate as bevy_ecs;
     use crate::{
-        component::Component,
-        prelude::*,
-        query::{DefaultQueryFilters, QueryEntityError},
-        world::FilteredEntityRef,
+        component::Component, prelude::*, query::QueryEntityError, world::FilteredEntityRef,
     };
 
     #[test]
@@ -2053,13 +2050,8 @@ mod tests {
         world.spawn((B(0), C(0)));
         world.spawn(C(0));
 
-        let b = world.component_id::<B>().unwrap();
-        let c = world.component_id::<C>().unwrap();
-
-        let mut default_filters = DefaultQueryFilters::default();
-        default_filters.with(b);
-        default_filters.without(c);
-        world.insert_resource(default_filters);
+        world.default_with_filter::<B>();
+        world.default_without_filter::<C>();
 
         // With<B>, Without<C> only matches the first entity
         let mut query = QueryState::<()>::new(&mut world);

@@ -1,82 +1,109 @@
 use crate as bevy_ecs;
 use crate::{component::ComponentId, query::FilteredAccess};
 use bevy_ecs_macros::Resource;
+use bevy_utils::HashMap;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 enum FilterKind {
     With,
     Without,
 }
 
-#[derive(PartialEq, Eq, Debug)]
-struct DefaultFilter {
-    component_id: ComponentId,
-    kind: FilterKind,
-}
-
 /// A list of default query filters, these can be used to globally exclude entities from queries.
-/// Each individual filter is only applied to queries that don't mention that component.
+/// Default filters are applied to any queries that does not explicitly mention that component.
 ///
-/// If for example we register a `Hidden` component using the `without` method, entities with this
-/// component will only be visible to a [`Query`](crate::prelude::Query) containing something like
-/// [`With<Hidden>`](crate::prelude::With) or [`Has<Hidden>`](crate::prelude::Has).
+/// If for example we register a `Hidden` component using the `without_untyped` method, entities
+/// with this component will only be visible to a [`Query`](crate::prelude::Query) containing
+/// something like [`With<Hidden>`](crate::prelude::With) or [`Has<Hidden>`](crate::prelude::Has).
+/// See below for a more detailed example.
 ///
-/// These filters are only applied to queries initialized after updating this resource,
-/// it should most likely only be modified before the app starts.
-#[derive(Resource, Default)]
-pub struct DefaultQueryFilters(Vec<DefaultFilter>);
+/// These filters are only applied to queries whose cache is generated after updating this resource,
+/// As a result, this resource should generally only be modified before the app starts (typically
+/// during plugin construction)
+///
+/// See `World::default_with_filter` and `World::default_without_filter` for easier access
+///
+/// ### Example
+///
+/// ```rust
+/// # use bevy_ecs::{prelude::*, query::DefaultQueryFilters};
+/// # #[derive(Component)]
+/// # struct Enabled;
+/// # #[derive(Component)]
+/// # struct TopSecret;
+/// #
+/// let mut world = World::new();
+/// let mut filters = DefaultQueryFilters::default();
+/// filters.with_untyped(world.init_component::<Enabled>());
+/// filters.without_untyped(world.init_component::<TopSecret>());
+/// world.insert_resource(filters);
+///
+/// // This entity is missing Enabled, so most queries won't see it
+/// let entity_a = world.spawn_empty().id();
+///
+/// // This entity has Enabled, and isn't TopSecret, so most queries see it
+/// let entity_b = world.spawn(Enabled).id();
+///
+/// // This entity is Enabled and TopSecret, so most queries won't see it
+/// let entity_c = world.spawn((Enabled, TopSecret)).id();
+///
+/// // This entity is TopSecret but not enabled, so only very specific queries will see it
+/// let entity_d = world.spawn(TopSecret).id();
+///
+/// // This query does not mention either of the markers, so it only gets entity_b
+/// let mut query = world.query::<Entity>();
+/// assert_eq!(1, query.iter(&world).count());
+/// assert_eq!(entity_b, query.get_single(&world).unwrap());
+///
+/// // This query only wants entities that aren't Enabled, but can't see TopSecret entities,
+/// // thus it only sees entity_a
+/// let mut query = world.query_filtered::<Entity, Without<Enabled>>();
+/// assert_eq!(1, query.iter(&world).count());
+/// assert_eq!(entity_a, query.get_single(&world).unwrap());
+///
+/// // This query only wants TopSecret entities, but still can't see entities that aren't Enabled,
+/// // thus it only sees entity_c
+/// let mut query = world.query_filtered::<Entity, With<TopSecret>>();
+/// assert_eq!(1, query.iter(&world).count());
+/// assert_eq!(entity_c, query.get_single(&world).unwrap());
+///
+/// // This query mentions both, so it gets results as if the filters don't exist
+/// let mut query = world.query::<(Entity, Has<Enabled>, Has<TopSecret>)>();
+/// assert_eq!(4, query.iter(&world).count());
+/// ```
+#[derive(Resource, Default, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
+pub struct DefaultQueryFilters(HashMap<ComponentId, FilterKind>);
 
 impl DefaultQueryFilters {
     /// Add a With filter to the default query filters.
     /// Removes any Without filter for this component if present.
-    pub fn with(&mut self, component_id: ComponentId) {
-        self.set(component_id, FilterKind::With);
+    pub fn with_untyped(&mut self, component_id: ComponentId) {
+        self.0.insert(component_id, FilterKind::With);
     }
 
     /// Add a Without filter to the default query filters.
     /// Removes any With filter for this component if present.
-    pub fn without(&mut self, component_id: ComponentId) {
-        self.set(component_id, FilterKind::Without);
+    pub fn without_untyped(&mut self, component_id: ComponentId) {
+        self.0.insert(component_id, FilterKind::Without);
     }
 
     /// Remove a filter for the specified [`ComponentId`]
     pub fn remove(&mut self, component_id: ComponentId) {
-        self.0.retain(|filter| filter.component_id != component_id);
-    }
-
-    fn set(&mut self, component_id: ComponentId, kind: FilterKind) {
-        if let Some(filter) = self
-            .0
-            .iter_mut()
-            .find(|filter| filter.component_id == component_id)
-        {
-            filter.kind = kind;
-        } else {
-            self.0.push(DefaultFilter { component_id, kind });
-        }
+        self.0.remove(&component_id);
     }
 
     pub(super) fn apply(&self, component_access: &mut FilteredAccess<ComponentId>) {
-        for filter in self.0.iter() {
-            if !contains_component(component_access, filter.component_id) {
-                match filter.kind {
-                    FilterKind::With => component_access.and_with(filter.component_id),
-                    FilterKind::Without => component_access.and_without(filter.component_id),
+        for (&component_id, kind) in self.0.iter() {
+            if !component_access.contains(component_id) {
+                match kind {
+                    FilterKind::With => component_access.and_with(component_id),
+                    FilterKind::Without => component_access.and_without(component_id),
                 }
             }
         }
     }
-}
-
-fn contains_component(
-    component_access: &FilteredAccess<ComponentId>,
-    component_id: ComponentId,
-) -> bool {
-    component_access.access().has_read(component_id)
-        || component_access.access().has_archetypal(component_id)
-        || component_access.filter_sets.iter().any(|f| {
-            f.with.contains(component_id.index()) || f.without.contains(component_id.index())
-        })
 }
 
 #[cfg(test)]
@@ -86,32 +113,23 @@ mod tests {
     #[test]
     fn test_set_filters() {
         let mut filters = DefaultQueryFilters::default();
-        filters.with(ComponentId::new(1));
-        filters.with(ComponentId::new(3));
-        filters.without(ComponentId::new(3));
+        filters.with_untyped(ComponentId::new(1));
+        filters.with_untyped(ComponentId::new(3));
+        filters.without_untyped(ComponentId::new(3));
 
         assert_eq!(2, filters.0.len());
+        assert_eq!(Some(&FilterKind::With), filters.0.get(&ComponentId::new(1)));
         assert_eq!(
-            DefaultFilter {
-                component_id: ComponentId::new(1),
-                kind: FilterKind::With
-            },
-            filters.0[0]
-        );
-        assert_eq!(
-            DefaultFilter {
-                component_id: ComponentId::new(3),
-                kind: FilterKind::Without
-            },
-            filters.0[1]
+            Some(&FilterKind::Without),
+            filters.0.get(&ComponentId::new(3))
         );
     }
 
     #[test]
     fn test_apply_filters() {
         let mut filters = DefaultQueryFilters::default();
-        filters.with(ComponentId::new(1));
-        filters.without(ComponentId::new(3));
+        filters.with_untyped(ComponentId::new(1));
+        filters.without_untyped(ComponentId::new(3));
 
         // A component access with an unrelated component
         let mut component_access = FilteredAccess::<ComponentId>::default();
