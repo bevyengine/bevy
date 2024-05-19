@@ -91,15 +91,12 @@ impl Default for PbrDeferredLightingDepthId {
 }
 
 impl Plugin for DeferredPbrLightingPlugin {
-    fn init(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.add_plugins((
             ExtractComponentPlugin::<PbrDeferredLightingDepthId>::default(),
             UniformComponentPlugin::<PbrDeferredLightingDepthId>::default(),
-        ));
-    }
-
-    fn setup(&self, app: &mut App) {
-        app.add_systems(PostUpdate, insert_deferred_lighting_pass_id_component);
+        ))
+        .add_systems(PostUpdate, insert_deferred_lighting_pass_id_component);
 
         load_internal_asset!(
             app,

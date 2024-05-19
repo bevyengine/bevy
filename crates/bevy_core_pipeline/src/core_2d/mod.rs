@@ -54,12 +54,9 @@ use self::graph::{Core2d, Node2d};
 pub struct Core2dPlugin;
 
 impl Plugin for Core2dPlugin {
-    fn init(&self, app: &mut App) {
-        app.add_plugins(ExtractComponentPlugin::<Camera2d>::default());
-    }
-
     fn setup(&self, app: &mut App) {
-        app.register_type::<Camera2d>();
+        app.register_type::<Camera2d>()
+            .add_plugins(ExtractComponentPlugin::<Camera2d>::default());
     }
 
     fn required_sub_apps(&self) -> Vec<InternedAppLabel> {

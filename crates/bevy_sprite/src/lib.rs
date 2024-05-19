@@ -89,14 +89,6 @@ pub type WithMesh2d = With<Mesh2dHandle>;
 pub type WithSprite = Or<(With<Sprite>, With<SpriteSource>)>;
 
 impl Plugin for SpritePlugin {
-    fn init(&self, app: &mut App) {
-        app.add_plugins((
-            Mesh2dRenderPlugin,
-            ColorMaterialPlugin,
-            ExtractComponentPlugin::<SpriteSource>::default(),
-        ));
-    }
-
     fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
@@ -113,6 +105,11 @@ impl Plugin for SpritePlugin {
             .register_type::<TextureAtlas>()
             .register_type::<Mesh2dHandle>()
             .register_type::<SpriteSource>()
+            .add_plugins((
+                Mesh2dRenderPlugin,
+                ColorMaterialPlugin,
+                ExtractComponentPlugin::<SpriteSource>::default(),
+            ))
             .add_systems(
                 PostUpdate,
                 (
@@ -140,9 +137,7 @@ impl Plugin for SpritePlugin {
             return false;
         };
         render_app.world().contains_resource::<RenderDevice>()
-            && render_app
-                .world()
-                .contains_resource::<DrawFunctions<Transparent2d>>()
+            && render_app.world().contains_resource::<DrawFunctions<Transparent2d>>()
     }
 
     fn finalize(&self, app: &mut App) {

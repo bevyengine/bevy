@@ -88,7 +88,7 @@ pub struct FrameCount(pub u32);
 pub struct FrameCountPlugin;
 
 impl Plugin for FrameCountPlugin {
-    fn init(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.init_resource::<FrameCount>();
         app.add_systems(Last, update_frame_count);
     }

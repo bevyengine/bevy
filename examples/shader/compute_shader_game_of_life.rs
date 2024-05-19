@@ -97,7 +97,7 @@ struct GameOfLifeComputePlugin;
 struct GameOfLifeLabel;
 
 impl Plugin for GameOfLifeComputePlugin {
-    fn setup(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
         // Extract the game of life image resource from the main world into the render world
         // for operation on by the compute shader and display on the sprite.
         app.add_plugins(ExtractResourcePlugin::<GameOfLifeImages>::default());

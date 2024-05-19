@@ -35,7 +35,7 @@ use super::Msaa;
 pub struct WindowRenderPlugin;
 
 impl Plugin for WindowRenderPlugin {
-    fn init(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.add_plugins(ScreenshotPlugin);
     }
 

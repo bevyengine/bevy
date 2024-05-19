@@ -17,10 +17,6 @@ pub const COLOR_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 pub struct ColorMaterialPlugin;
 
 impl Plugin for ColorMaterialPlugin {
-    fn init(&self, app: &mut App) {
-        app.add_plugins(Material2dPlugin::<ColorMaterial>::default());
-    }
-
     fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
@@ -29,7 +25,8 @@ impl Plugin for ColorMaterialPlugin {
             Shader::from_wgsl
         );
 
-        app.register_asset_reflect::<ColorMaterial>();
+        app.add_plugins(Material2dPlugin::<ColorMaterial>::default())
+            .register_asset_reflect::<ColorMaterial>();
     }
 
     fn ready_to_finalize(&self, app: &mut App) -> bool {

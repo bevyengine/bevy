@@ -94,14 +94,6 @@ static D65_LMS: Vec3 = vec3(0.975538, 1.01648, 1.08475);
 pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
-    fn init(&self, app: &mut App) {
-        app.add_plugins((
-            ExtractResourcePlugin::<Msaa>::default(),
-            VisibilityPlugin,
-            VisibilityRangePlugin,
-        ));
-    }
-
     fn setup(&self, app: &mut App) {
         load_internal_asset!(app, VIEW_TYPE_HANDLE, "view.wgsl", Shader::from_wgsl);
 
@@ -113,7 +105,13 @@ impl Plugin for ViewPlugin {
             .register_type::<Visibility>()
             .register_type::<VisibleEntities>()
             .register_type::<ColorGrading>()
-            .init_resource::<Msaa>();
+            .init_resource::<Msaa>()
+            // NOTE: windows.is_changed() handles cases where a window was resized
+            .add_plugins((
+                ExtractResourcePlugin::<Msaa>::default(),
+                VisibilityPlugin,
+                VisibilityRangePlugin,
+            ));
     }
 
     fn required_sub_apps(&self) -> Vec<InternedAppLabel> {

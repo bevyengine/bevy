@@ -248,8 +248,8 @@ impl<M: Material> Plugin for MaterialPlugin<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    fn init(&self, app: &mut App) {
-        app.add_plugins((
+    fn setup(&self, app: &mut App) {
+        app.init_asset::<M>().add_plugins((
             ExtractInstancesPlugin::<AssetId<M>>::extract_visible(),
             RenderAssetPlugin::<PreparedMaterial<M>>::default(),
         ));
@@ -262,10 +262,6 @@ where
         if self.prepass_enabled {
             app.add_plugins(PrepassPlugin::<M>::default());
         }
-    }
-
-    fn setup(&self, app: &mut App) {
-        app.init_asset::<M>();
     }
 
     fn required_sub_apps(&self) -> Vec<InternedAppLabel> {

@@ -88,18 +88,6 @@ pub const MORPH_HANDLE: Handle<Shader> = Handle::weak_from_u128(9709828135876073
 pub const MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES: usize = 10;
 
 impl Plugin for MeshRenderPlugin {
-    fn init(&self, app: &mut App) {
-        app.add_plugins((
-            BinnedRenderPhasePlugin::<Opaque3d, MeshPipeline>::default(),
-            BinnedRenderPhasePlugin::<AlphaMask3d, MeshPipeline>::default(),
-            BinnedRenderPhasePlugin::<Shadow, MeshPipeline>::default(),
-            BinnedRenderPhasePlugin::<Opaque3dDeferred, MeshPipeline>::default(),
-            BinnedRenderPhasePlugin::<AlphaMask3dDeferred, MeshPipeline>::default(),
-            SortedRenderPhasePlugin::<Transmissive3d, MeshPipeline>::default(),
-            SortedRenderPhasePlugin::<Transparent3d, MeshPipeline>::default(),
-        ));
-    }
-
     fn setup(&self, app: &mut App) {
         load_internal_asset!(app, FORWARD_IO_HANDLE, "forward_io.wgsl", Shader::from_wgsl);
         load_internal_asset!(
@@ -138,7 +126,16 @@ impl Plugin for MeshRenderPlugin {
         app.add_systems(
             PostUpdate,
             (no_automatic_skin_batching, no_automatic_morph_batching),
-        );
+        )
+        .add_plugins((
+            BinnedRenderPhasePlugin::<Opaque3d, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<AlphaMask3d, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<Shadow, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<Opaque3dDeferred, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<AlphaMask3dDeferred, MeshPipeline>::default(),
+            SortedRenderPhasePlugin::<Transmissive3d, MeshPipeline>::default(),
+            SortedRenderPhasePlugin::<Transparent3d, MeshPipeline>::default(),
+        ));
     }
 
     fn required_sub_apps(&self) -> Vec<InternedAppLabel> {

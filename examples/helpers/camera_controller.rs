@@ -11,7 +11,7 @@ use std::{f32::consts::*, fmt};
 pub struct CameraControllerPlugin;
 
 impl Plugin for CameraControllerPlugin {
-    fn setup(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
         app.add_systems(Update, run_camera_controller);
     }
 }

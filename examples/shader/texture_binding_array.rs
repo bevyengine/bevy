@@ -36,7 +36,7 @@ const TILE_ID: [usize; 16] = [
 struct GpuFeatureSupportChecker;
 
 impl Plugin for GpuFeatureSupportChecker {
-    fn setup(&self, _app: &mut App) {}
+    fn init(&self, _app: &mut App) {}
 
     fn finalize(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {

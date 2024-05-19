@@ -45,13 +45,6 @@ impl<M: UiMaterial> Plugin for UiMaterialPlugin<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    fn init(&self, app: &mut App) {
-        app.add_plugins((
-            ExtractComponentPlugin::<Handle<M>>::extract_visible(),
-            RenderAssetPlugin::<PreparedUiMaterial<M>>::default(),
-        ));
-    }
-
     fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
@@ -65,7 +58,10 @@ where
             "ui_material.wgsl",
             Shader::from_wgsl
         );
-        app.init_asset::<M>();
+        app.init_asset::<M>().add_plugins((
+            ExtractComponentPlugin::<Handle<M>>::extract_visible(),
+            RenderAssetPlugin::<PreparedUiMaterial<M>>::default(),
+        ));
     }
 
     fn required_sub_apps(&self) -> Vec<InternedAppLabel> {

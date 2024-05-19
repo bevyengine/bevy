@@ -23,10 +23,6 @@ pub const WIREFRAME_2D_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(69
 #[derive(Debug, Default)]
 pub struct Wireframe2dPlugin;
 impl Plugin for Wireframe2dPlugin {
-    fn init(&self, app: &mut App) {
-        app.add_plugins(Material2dPlugin::<Wireframe2dMaterial>::default());
-    }
-
     fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
@@ -40,6 +36,7 @@ impl Plugin for Wireframe2dPlugin {
             .register_type::<Wireframe2dConfig>()
             .register_type::<Wireframe2dColor>()
             .init_resource::<Wireframe2dConfig>()
+            .add_plugins(Material2dPlugin::<Wireframe2dMaterial>::default())
             .add_systems(Startup, setup_global_wireframe_material)
             .add_systems(
                 Update,

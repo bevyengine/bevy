@@ -133,14 +133,11 @@ pub const FOG_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(49135691933
 pub struct FogPlugin;
 
 impl Plugin for FogPlugin {
-    fn init(&self, app: &mut App) {
-        app.add_plugins(ExtractComponentPlugin::<FogSettings>::default());
-    }
-
     fn setup(&self, app: &mut App) {
         load_internal_asset!(app, FOG_SHADER_HANDLE, "fog.wgsl", Shader::from_wgsl);
 
         app.register_type::<FogSettings>();
+        app.add_plugins(ExtractComponentPlugin::<FogSettings>::default());
     }
 
     fn required_sub_apps(&self) -> Vec<InternedAppLabel> {

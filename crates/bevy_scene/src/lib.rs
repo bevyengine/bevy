@@ -95,5 +95,4 @@ impl Plugin for ScenePlugin {
 
 #[cfg(not(feature = "serialize"))]
 impl Plugin for ScenePlugin {
-    fn setup(&self, _: &mut App) {}
 }

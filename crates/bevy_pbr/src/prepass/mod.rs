@@ -134,13 +134,6 @@ impl<M: Material> Plugin for PrepassPlugin<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    fn init(&self, app: &mut App) {
-        app.add_plugins((
-            BinnedRenderPhasePlugin::<Opaque3dPrepass, MeshPipeline>::default(),
-            BinnedRenderPhasePlugin::<AlphaMask3dPrepass, MeshPipeline>::default(),
-        ));
-    }
-
     fn setup(&self, app: &mut App) {
         let no_prepass_plugin_loaded = !app.world().contains_resource::<AnyPrepassPluginLoaded>();
 
@@ -154,7 +147,11 @@ where
                         update_mesh_previous_global_transforms,
                         update_previous_view_data,
                     ),
-                );
+                )
+                .add_plugins((
+                    BinnedRenderPhasePlugin::<Opaque3dPrepass, MeshPipeline>::default(),
+                    BinnedRenderPhasePlugin::<AlphaMask3dPrepass, MeshPipeline>::default(),
+                ));
         }
     }
 

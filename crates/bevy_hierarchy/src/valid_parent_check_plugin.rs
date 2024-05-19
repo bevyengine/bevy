@@ -1,10 +1,12 @@
 use std::marker::PhantomData;
 
-#[cfg(feature = "bevy_app")]
-use crate::Parent;
 use bevy_ecs::prelude::*;
 #[cfg(feature = "bevy_app")]
-use bevy_utils::{get_short_name, HashSet};
+use {
+    bevy_app::App,
+    bevy_utils::{get_short_name, HashSet},
+    crate::Parent,
+};
 
 /// When enabled, runs [`check_hierarchy_component_has_valid_parent<T>`].
 ///
@@ -95,7 +97,7 @@ impl<T: Component> Default for ValidParentCheckPlugin<T> {
 
 #[cfg(feature = "bevy_app")]
 impl<T: Component> bevy_app::Plugin for ValidParentCheckPlugin<T> {
-    fn setup(&self, app: &mut bevy_app::App) {
+    fn setup(&self, app: &mut App) {
         app.init_resource::<ReportHierarchyIssue<T>>().add_systems(
             bevy_app::Last,
             check_hierarchy_component_has_valid_parent::<T>

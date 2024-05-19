@@ -243,18 +243,6 @@ pub const COLOR_OPERATIONS_SHADER_HANDLE: Handle<Shader> =
 impl Plugin for RenderPlugin {
     /// Creates the rendering sub-app.
     fn init(&self, app: &mut App) {
-        app.add_plugins((
-            ValidParentCheckPlugin::<view::InheritedVisibility>::default(),
-            WindowRenderPlugin,
-            CameraPlugin,
-            ViewPlugin,
-            MeshPlugin,
-            GlobalsPlugin,
-            MorphPlugin,
-            BatchingPlugin,
-            ExtractResourcePlugin::<RenderAssetBytesPerFrame>::default(),
-        ));
-
         // SAFETY: Plugins should be set up on the main thread.
         if matches!(
             self.render_creation,
@@ -361,7 +349,19 @@ impl Plugin for RenderPlugin {
             }
         };
 
-        app.init_resource::<RenderAssetBytesPerFrame>();
+        app.add_plugins((
+            ValidParentCheckPlugin::<view::InheritedVisibility>::default(),
+            WindowRenderPlugin,
+            CameraPlugin,
+            ViewPlugin,
+            MeshPlugin,
+            GlobalsPlugin,
+            MorphPlugin,
+            BatchingPlugin,
+        ));
+
+        app.init_resource::<RenderAssetBytesPerFrame>()
+            .add_plugins(ExtractResourcePlugin::<RenderAssetBytesPerFrame>::default());
 
         app.register_type::<alpha::AlphaMode>()
             // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy

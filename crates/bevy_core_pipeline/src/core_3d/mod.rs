@@ -97,13 +97,10 @@ use self::graph::{Core3d, Node3d};
 pub struct Core3dPlugin;
 
 impl Plugin for Core3dPlugin {
-    fn init(&self, app: &mut App) {
-        app.add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()));
-    }
-
     fn setup(&self, app: &mut App) {
         app.register_type::<Camera3d>()
             .register_type::<ScreenSpaceTransmissionQuality>()
+            .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()))
             .add_systems(PostUpdate, check_msaa);
     }
 

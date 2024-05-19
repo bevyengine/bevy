@@ -71,23 +71,6 @@ use bevy_render::prelude::Shader;
 pub struct CorePipelinePlugin;
 
 impl Plugin for CorePipelinePlugin {
-    fn init(&self, app: &mut App) {
-        app.add_plugins((
-            Core2dPlugin,
-            Core3dPlugin,
-            CopyDeferredLightingIdPlugin,
-            BlitPlugin,
-            MsaaWritebackPlugin,
-            TonemappingPlugin,
-            UpscalingPlugin,
-            BloomPlugin,
-            FxaaPlugin,
-            CASPlugin,
-            MotionBlurPlugin,
-            DepthOfFieldPlugin,
-        ));
-    }
-
     fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
@@ -99,6 +82,20 @@ impl Plugin for CorePipelinePlugin {
         app.register_type::<DepthPrepass>()
             .register_type::<NormalPrepass>()
             .register_type::<MotionVectorPrepass>()
-            .register_type::<DeferredPrepass>();
+            .register_type::<DeferredPrepass>()
+            .add_plugins((
+                Core2dPlugin,
+                Core3dPlugin,
+                CopyDeferredLightingIdPlugin,
+                BlitPlugin,
+                MsaaWritebackPlugin,
+                TonemappingPlugin,
+                UpscalingPlugin,
+                BloomPlugin,
+                FxaaPlugin,
+                CASPlugin,
+                MotionBlurPlugin,
+                DepthOfFieldPlugin,
+            ));
     }
 }

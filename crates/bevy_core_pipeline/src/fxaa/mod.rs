@@ -83,14 +83,11 @@ const FXAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(41827614651417
 /// Adds support for Fast Approximate Anti-Aliasing (FXAA)
 pub struct FxaaPlugin;
 impl Plugin for FxaaPlugin {
-    fn init(&self, app: &mut App) {
-        app.add_plugins(ExtractComponentPlugin::<Fxaa>::default());
-    }
-
     fn setup(&self, app: &mut App) {
         load_internal_asset!(app, FXAA_SHADER_HANDLE, "fxaa.wgsl", Shader::from_wgsl);
 
         app.register_type::<Fxaa>();
+        app.add_plugins(ExtractComponentPlugin::<Fxaa>::default());
     }
 
     fn required_sub_apps(&self) -> Vec<InternedAppLabel> {

@@ -37,14 +37,11 @@ pub struct FpsOverlayPlugin {
 }
 
 impl Plugin for FpsOverlayPlugin {
-    fn init(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         // TODO: Use plugin dependencies, see https://github.com/bevyengine/bevy/issues/69
         if !app.is_plugin_added::<FrameTimeDiagnosticsPlugin>() {
             app.add_plugins(FrameTimeDiagnosticsPlugin);
         }
-    }
-
-    fn setup(&self, app: &mut App) {
         app.insert_resource(self.config.clone())
             .add_systems(Startup, setup)
             .add_systems(

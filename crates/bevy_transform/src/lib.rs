@@ -96,10 +96,6 @@ pub enum TransformSystem {
 pub struct TransformPlugin;
 
 impl Plugin for TransformPlugin {
-    fn init(&self, app: &mut App) {
-        app.add_plugins(ValidParentCheckPlugin::<GlobalTransform>::default());
-    }
-
     fn setup(&self, app: &mut App) {
         // A set for `propagate_transforms` to mark it as ambiguous with `sync_simple_transforms`.
         // Used instead of the `SystemTypeSet` as that would not allow multiple instances of the system.
@@ -108,6 +104,7 @@ impl Plugin for TransformPlugin {
 
         app.register_type::<Transform>()
             .register_type::<GlobalTransform>()
+            .add_plugins(ValidParentCheckPlugin::<GlobalTransform>::default())
             .configure_sets(
                 PostStartup,
                 PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),

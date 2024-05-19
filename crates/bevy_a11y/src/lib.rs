@@ -106,7 +106,7 @@ pub enum AccessibilitySystem {
 pub struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
-    fn init(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.init_resource::<AccessibilityRequested>()
             .init_resource::<ManageAccessibilityUpdates>()
             .init_resource::<Focus>()

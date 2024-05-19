@@ -31,7 +31,7 @@ impl SteppingPlugin {
 }
 
 impl Plugin for SteppingPlugin {
-    fn setup(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
         app.add_systems(Startup, build_stepping_hint);
         if cfg!(not(feature = "bevy_debug_stepping")) {
             return;

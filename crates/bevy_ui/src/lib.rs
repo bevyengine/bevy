@@ -107,11 +107,6 @@ struct AmbiguousWithUpdateText2DLayout;
 pub type WithNode = With<Node>;
 
 impl Plugin for UiPlugin {
-    fn init(&self, app: &mut App) {
-        #[cfg(feature = "bevy_text")]
-        app.add_plugins(accessibility::AccessibilityPlugin);
-    }
-
     fn setup(&self, app: &mut App) {
         app.init_resource::<UiSurface>()
             .init_resource::<UiScale>()
@@ -238,6 +233,8 @@ fn build_text_interop(app: &mut App) {
                 .ambiguous_with(bevy_text::update_text2d_layout),
         ),
     );
+
+    app.add_plugins(accessibility::AccessibilityPlugin);
 
     app.configure_sets(
         PostUpdate,

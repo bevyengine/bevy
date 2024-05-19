@@ -156,7 +156,7 @@ fn print_light_count(time: Res<Time>, mut timer: Local<PrintingTimer>, lights: Q
 struct LogVisibleLights;
 
 impl Plugin for LogVisibleLights {
-    fn setup(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };

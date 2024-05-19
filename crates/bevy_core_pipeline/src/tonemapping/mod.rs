@@ -40,14 +40,6 @@ pub struct TonemappingLuts {
 pub struct TonemappingPlugin;
 
 impl Plugin for TonemappingPlugin {
-    fn init(&self, app: &mut App) {
-        app.add_plugins((
-            ExtractResourcePlugin::<TonemappingLuts>::default(),
-            ExtractComponentPlugin::<Tonemapping>::default(),
-            ExtractComponentPlugin::<DebandDither>::default(),
-        ));
-    }
-
     fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
@@ -96,8 +88,15 @@ impl Plugin for TonemappingPlugin {
             app.insert_resource(tonemapping_luts);
         }
 
+        app.add_plugins(ExtractResourcePlugin::<TonemappingLuts>::default());
+
         app.register_type::<Tonemapping>();
         app.register_type::<DebandDither>();
+
+        app.add_plugins((
+            ExtractComponentPlugin::<Tonemapping>::default(),
+            ExtractComponentPlugin::<DebandDither>::default(),
+        ));
     }
 
     fn required_sub_apps(&self) -> Vec<InternedAppLabel> {

@@ -114,7 +114,7 @@ pub struct Swap<Clear>(PhantomData<Clear>);
 /// # struct MyContext;
 /// struct ClearContextSetup;
 /// impl Plugin for ClearContextSetup {
-///     fn setup(&self,app: &mut App) {
+///     fn setup(&self, app: &mut App) {
 ///         app.init_resource::<GizmoStorage<DefaultGizmoConfigGroup, MyContext>>()
 ///            // Make sure this context starts/ends cleanly if inside another context. E.g. it
 ///            // should start after the parent context starts and end after the parent context ends.

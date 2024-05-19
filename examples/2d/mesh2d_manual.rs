@@ -278,7 +278,7 @@ pub const COLORED_MESH2D_SHADER_HANDLE: Handle<Shader> =
 pub struct RenderColoredMesh2dInstances(EntityHashMap<Entity, RenderMesh2dInstance>);
 
 impl Plugin for ColoredMesh2dPlugin {
-    fn setup(&self, app: &mut App) {
+    fn build(&self, app: &mut App) {
         // Load our custom shader
         let mut shaders = app.world_mut().resource_mut::<Assets<Shader>>();
         shaders.insert(
