@@ -17,18 +17,24 @@ struct DefaultFilter {
 /// A list of default query filters, these can be used to globally exclude entities from queries.
 /// Each individual filter is only applied to queries that don't mention that component.
 ///
+/// If for example we register a `Hidden` component using the `without` method, entities with this
+/// component will only be visible to a [`Query`](crate::prelude::Query) containing something like
+/// [`With<Hidden>`](crate::prelude::With) or [`Has<Hidden>`](crate::prelude::Has).
+///
 /// These filters are only applied to queries initialized after updating this resource,
 /// it should most likely only be modified before the app starts.
 #[derive(Resource, Default)]
 pub struct DefaultQueryFilters(Vec<DefaultFilter>);
 
 impl DefaultQueryFilters {
-    /// Add a With filter to the default query filters
+    /// Add a With filter to the default query filters.
+    /// Removes any Without filter for this component if present.
     pub fn with(&mut self, component_id: ComponentId) {
         self.set(component_id, FilterKind::With);
     }
 
-    /// Add a Without filter to the default query filters
+    /// Add a Without filter to the default query filters.
+    /// Removes any With filter for this component if present.
     pub fn without(&mut self, component_id: ComponentId) {
         self.set(component_id, FilterKind::Without);
     }
