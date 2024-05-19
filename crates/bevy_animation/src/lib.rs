@@ -1152,7 +1152,7 @@ where
 pub struct AnimationPlugin;
 
 impl Plugin for AnimationPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.init_asset::<AnimationClip>()
             .init_asset::<AnimationGraph>()
             .init_asset_loader::<AnimationGraphAssetLoader>()

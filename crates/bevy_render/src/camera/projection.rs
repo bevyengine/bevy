@@ -20,7 +20,7 @@ pub struct CameraProjectionPlugin<T: CameraProjection + Component + GetTypeRegis
     PhantomData<T>,
 );
 impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraProjectionPlugin<T> {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.register_type::<T>()
             .add_systems(
                 PostStartup,

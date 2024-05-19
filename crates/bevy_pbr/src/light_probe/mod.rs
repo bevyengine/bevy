@@ -297,7 +297,11 @@ impl LightProbe {
 }
 
 impl Plugin for LightProbePlugin {
-    fn build(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
+        app.add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new());
+    }
+
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             LIGHT_PROBE_SHADER_HANDLE,
@@ -319,8 +323,7 @@ impl Plugin for LightProbePlugin {
 
         app.register_type::<LightProbe>()
             .register_type::<EnvironmentMapLight>()
-            .register_type::<IrradianceVolume>()
-            .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new());
+            .register_type::<IrradianceVolume>();
     }
 
     fn required_sub_apps(&self) -> Vec<InternedAppLabel> {

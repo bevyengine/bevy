@@ -46,7 +46,7 @@ pub struct TimePlugin;
 pub struct TimeSystem;
 
 impl Plugin for TimePlugin {
-    fn build(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
         app.init_resource::<Time>()
             .init_resource::<Time<Real>>()
             .init_resource::<Time<Virtual>>()

@@ -45,16 +45,18 @@ const MAX_MIP_DIMENSION: u32 = 512;
 pub struct BloomPlugin;
 
 impl Plugin for BloomPlugin {
-    fn build(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
+        app.add_plugins((
+            ExtractComponentPlugin::<BloomSettings>::default(),
+            UniformComponentPlugin::<BloomUniforms>::default(),
+        ));
+    }
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(app, BLOOM_SHADER_HANDLE, "bloom.wgsl", Shader::from_wgsl);
 
         app.register_type::<BloomSettings>();
         app.register_type::<BloomPrefilterSettings>();
         app.register_type::<BloomCompositeMode>();
-        app.add_plugins((
-            ExtractComponentPlugin::<BloomSettings>::default(),
-            UniformComponentPlugin::<BloomUniforms>::default(),
-        ));
     }
 
     fn required_sub_apps(&self) -> Vec<InternedAppLabel> {

@@ -252,7 +252,7 @@ pub enum VisibilitySystems {
 pub struct VisibilityPlugin;
 
 impl Plugin for VisibilityPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn setup(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
         app.configure_sets(

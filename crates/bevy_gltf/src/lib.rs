@@ -53,7 +53,7 @@ impl GltfPlugin {
 }
 
 impl Plugin for GltfPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.register_type::<GltfExtras>()
             .init_asset::<Gltf>()
             .init_asset::<GltfNode>()

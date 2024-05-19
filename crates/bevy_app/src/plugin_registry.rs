@@ -12,8 +12,8 @@ pub enum PluginRegistryState {
     Idle,
     /// Plugins are being initialized.
     Init,
-    /// Plugins are being built.
-    Building,
+    /// Plugins are being set up.
+    SettingUp,
     /// Plugins are being configured.
     Configuring,
     /// Plugins are being finalized.
@@ -117,7 +117,7 @@ impl PluginRegistry {
             .min()
             .map(|s| match s {
                 PluginState::Idle | PluginState::Init => PluginRegistryState::Init,
-                PluginState::Building => PluginRegistryState::Building,
+                PluginState::SettingUp => PluginRegistryState::SettingUp,
                 PluginState::Finalizing => PluginRegistryState::Finalizing,
                 PluginState::Configuring => PluginRegistryState::Configuring,
                 PluginState::Done => PluginRegistryState::Done,
@@ -176,7 +176,7 @@ mod tests {
     #[derive(Clone, Copy, Debug, Default, Resource)]
     pub struct TestResource {
         init: usize,
-        built: usize,
+        setup: usize,
         configured: usize,
         finished: usize,
         cleaned: usize,
@@ -207,9 +207,9 @@ mod tests {
             app.world_mut().insert_resource(res);
         }
 
-        fn build(&self, app: &mut App) {
+        fn setup(&self, app: &mut App) {
             let mut res = app.world_mut().resource_mut::<TestResource>();
-            res.built += 1;
+            res.setup += 1;
         }
 
         fn configure(&self, app: &mut App) {
@@ -237,7 +237,7 @@ mod tests {
     pub struct PanicPlugin;
 
     impl Plugin for PanicPlugin {
-        fn build(&self, app: &mut App) {
+        fn init(&self, app: &mut App) {
             app.run();
         }
     }
@@ -287,10 +287,10 @@ mod tests {
         assert_plugin_status(&app, 1, 0, 0, 0, 0);
 
         registry.update(&mut app);
-        assert_eq!(registry.state(), PluginRegistryState::Building);
+        assert_eq!(registry.state(), PluginRegistryState::SettingUp);
         assert_eq!(
             registry.plugin_state("TestPlugin"),
-            Some(PluginState::Building)
+            Some(PluginState::SettingUp)
         );
         assert_plugin_status(&app, 1, 1, 0, 0, 0);
 
@@ -346,7 +346,7 @@ mod tests {
     pub struct SubAppCreatorPlugin;
 
     impl Plugin for SubAppCreatorPlugin {
-        fn build(&self, app: &mut App) {
+        fn init(&self, app: &mut App) {
             app.insert_sub_app(DummyApp, SubApp::new("dummy"));
         }
     }
@@ -417,7 +417,6 @@ mod tests {
     }
 
     impl Plugin for WaitingPlugin {
-        fn build(&self, _app: &mut App) {}
         fn ready_to_build(&self, _app: &mut App) -> bool {
             self.ready
         }
@@ -462,7 +461,7 @@ mod tests {
         let res = app.world().resource::<TestResource>();
 
         assert_eq!(res.init, init, "Wrong init status");
-        assert_eq!(res.built, built, "Wrong built status");
+        assert_eq!(res.setup, built, "Wrong built status");
         assert_eq!(res.configured, configured, "Wrong configured status");
         assert_eq!(res.finished, finished, "Wrong finished status");
         assert_eq!(res.cleaned, cleaned, "Wrong cleaned status");

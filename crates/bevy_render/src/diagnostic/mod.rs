@@ -47,7 +47,7 @@ use super::{RenderDevice, RenderQueue};
 pub struct RenderDiagnosticsPlugin;
 
 impl Plugin for RenderDiagnosticsPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         let render_diagnostics_mutex = RenderDiagnosticsMutex::default();
         app.insert_resource(render_diagnostics_mutex)
             .add_systems(PreUpdate, sync_diagnostics);

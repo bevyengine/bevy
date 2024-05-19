@@ -237,7 +237,7 @@ pub struct ViewVolumetricFogUniformOffset(u32);
 pub struct VolumetricFogUniformBuffer(pub DynamicUniformBuffer<VolumetricFogUniform>);
 
 impl Plugin for VolumetricFogPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             VOLUMETRIC_FOG_HANDLE,

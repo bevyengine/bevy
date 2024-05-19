@@ -147,9 +147,12 @@ impl<M: Material2d> Plugin for Material2dPlugin<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    fn build(&self, app: &mut App) {
-        app.init_asset::<M>()
-            .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>>::default());
+    fn init(&self, app: &mut App) {
+        app.add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>>::default());
+    }
+
+    fn setup(&self, app: &mut App) {
+        app.init_asset::<M>();
     }
 
     fn required_sub_apps(&self) -> Vec<InternedAppLabel> {

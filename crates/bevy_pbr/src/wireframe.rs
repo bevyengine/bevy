@@ -1,5 +1,5 @@
 use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin};
-use bevy_app::{Plugin, Startup, Update};
+use bevy_app::{App, Plugin, Startup, Update};
 use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::prelude::*;
@@ -23,7 +23,11 @@ pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(19259
 #[derive(Debug, Default)]
 pub struct WireframePlugin;
 impl Plugin for WireframePlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn init(&self, app: &mut App) {
+        app.add_plugins(MaterialPlugin::<WireframeMaterial>::default());
+    }
+
+    fn setup(&self, app: &mut bevy_app::App) {
         load_internal_asset!(
             app,
             WIREFRAME_SHADER_HANDLE,
@@ -36,7 +40,6 @@ impl Plugin for WireframePlugin {
             .register_type::<WireframeConfig>()
             .register_type::<WireframeColor>()
             .init_resource::<WireframeConfig>()
-            .add_plugins(MaterialPlugin::<WireframeMaterial>::default())
             .add_systems(Startup, setup_global_wireframe_material)
             .add_systems(
                 Update,

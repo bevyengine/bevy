@@ -32,7 +32,7 @@ use super::{BatchMeta, GetBatchData, GetFullBatchData};
 pub struct BatchingPlugin;
 
 impl Plugin for BatchingPlugin {
-    fn build(&self, _app: &mut App) {}
+    fn setup(&self, _app: &mut App) {}
 
     fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]

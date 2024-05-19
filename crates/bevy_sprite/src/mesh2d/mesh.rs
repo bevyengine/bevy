@@ -61,7 +61,7 @@ pub const MESH2D_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(49763
 pub const MESH2D_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2971387252468633715);
 
 impl Plugin for Mesh2dRenderPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn setup(&self, app: &mut bevy_app::App) {
         load_internal_asset!(
             app,
             MESH2D_VERTEX_OUTPUT,

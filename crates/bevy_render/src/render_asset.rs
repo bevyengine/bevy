@@ -133,7 +133,7 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Default
 impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
     for RenderAssetPlugin<A, AFTER>
 {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.init_resource::<CachedExtractRenderAssetSystemState<A>>();
     }
 

@@ -17,7 +17,7 @@ pub const GLOBALS_TYPE_HANDLE: Handle<Shader> = Handle::weak_from_u128(179246287
 pub struct GlobalsPlugin;
 
 impl Plugin for GlobalsPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(app, GLOBALS_TYPE_HANDLE, "globals.wgsl", Shader::from_wgsl);
         app.register_type::<GlobalsUniform>();
     }

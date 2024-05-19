@@ -106,7 +106,7 @@ pub enum AccessibilitySystem {
 pub struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn init(&self, app: &mut bevy_app::App) {
         app.init_resource::<AccessibilityRequested>()
             .init_resource::<ManageAccessibilityUpdates>()
             .init_resource::<Focus>()

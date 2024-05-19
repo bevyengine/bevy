@@ -21,14 +21,17 @@ use bevy_ecs::{entity::Entity, system::Resource};
 pub struct MeshPlugin;
 
 impl Plugin for MeshPlugin {
-    fn build(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
+        // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
+        app.add_plugins(RenderAssetPlugin::<GpuMesh, GpuImage>::default());
+    }
+
+    fn setup(&self, app: &mut App) {
         app.init_asset::<Mesh>()
             .init_asset::<skinning::SkinnedMeshInverseBindposes>()
             .register_asset_reflect::<Mesh>()
             .register_type::<skinning::SkinnedMesh>()
-            .register_type::<Vec<Entity>>()
-            // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
-            .add_plugins(RenderAssetPlugin::<GpuMesh, GpuImage>::default());
+            .register_type::<Vec<Entity>>();
     }
 
     fn required_sub_apps(&self) -> Vec<InternedAppLabel> {

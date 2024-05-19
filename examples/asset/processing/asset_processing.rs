@@ -53,7 +53,7 @@ fn main() {
 struct TextPlugin;
 
 impl Plugin for TextPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         embedded_asset!(app, "examples/asset/processing/", "e.txt");
         app.init_asset::<CoolText>()
             .init_asset::<Text>()

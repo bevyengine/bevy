@@ -112,7 +112,7 @@ bitflags! {
 pub struct PreprocessBindGroup(BindGroup);
 
 impl Plugin for GpuMeshPreprocessPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             MESH_PREPROCESS_SHADER_HANDLE,

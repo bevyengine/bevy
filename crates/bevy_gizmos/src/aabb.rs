@@ -29,7 +29,7 @@ use crate::{
 pub struct AabbGizmoPlugin;
 
 impl Plugin for AabbGizmoPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn setup(&self, app: &mut bevy_app::App) {
         app.register_type::<AabbGizmoConfigGroup>()
             .init_gizmo_group::<AabbGizmoConfigGroup>()
             .add_systems(

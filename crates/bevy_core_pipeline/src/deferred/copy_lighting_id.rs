@@ -29,7 +29,7 @@ pub const COPY_DEFERRED_LIGHTING_ID_SHADER_HANDLE: Handle<Shader> =
 pub struct CopyDeferredLightingIdPlugin;
 
 impl Plugin for CopyDeferredLightingIdPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             COPY_DEFERRED_LIGHTING_ID_SHADER_HANDLE,

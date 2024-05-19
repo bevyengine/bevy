@@ -546,9 +546,7 @@ impl App {
     /// # struct ImagePlugin {
     /// #    default_sampler: bool,
     /// # }
-    /// # impl Plugin for ImagePlugin {
-    /// #    fn build(&self, app: &mut App) {}
-    /// # }
+    /// # impl Plugin for ImagePlugin { }
     /// # let mut app = App::new();
     /// # app.add_plugins(ImagePlugin::default());
     /// let default_sampler = app.get_added_plugins::<ImagePlugin>()[0].default_sampler;
@@ -584,9 +582,7 @@ impl App {
     /// # // Dummies created to avoid using `bevy_log`,
     /// # // which pulls in too many dependencies and breaks rust-analyzer
     /// # pub struct LogPlugin;
-    /// # impl Plugin for LogPlugin {
-    /// #     fn build(&self, app: &mut App) {}
-    /// # }
+    /// # impl Plugin for LogPlugin { }
     /// App::new()
     ///     .add_plugins(MinimalPlugins);
     /// App::new()
@@ -989,20 +985,13 @@ mod tests {
     use crate::{App, AppExit, Plugin, PluginRegistryState, Update};
 
     struct PluginA;
-    impl Plugin for PluginA {
-        fn build(&self, _app: &mut App) {}
-    }
+    impl Plugin for PluginA {}
     struct PluginB;
-    impl Plugin for PluginB {
-        fn build(&self, _app: &mut App) {}
-    }
+    impl Plugin for PluginB {}
     struct PluginC<T>(T);
-    impl<T: Send + Sync + 'static> Plugin for PluginC<T> {
-        fn build(&self, _app: &mut App) {}
-    }
+    impl<T: Send + Sync + 'static> Plugin for PluginC<T> {}
     struct PluginD;
     impl Plugin for PluginD {
-        fn build(&self, _app: &mut App) {}
         fn is_unique(&self) -> bool {
             false
         }
@@ -1011,8 +1000,6 @@ mod tests {
     struct PluginE;
 
     impl Plugin for PluginE {
-        fn build(&self, _app: &mut App) {}
-
         fn finalize(&self, app: &mut App) {
             if app.is_plugin_added::<PluginA>() {
                 panic!("cannot run if PluginA is already registered");
@@ -1055,11 +1042,9 @@ mod tests {
     fn cant_call_app_run_from_plugin_build() {
         struct PluginRun;
         struct InnerPlugin;
-        impl Plugin for InnerPlugin {
-            fn build(&self, _: &mut App) {}
-        }
+        impl Plugin for InnerPlugin {}
         impl Plugin for PluginRun {
-            fn build(&self, app: &mut App) {
+            fn init(&self, app: &mut App) {
                 app.add_plugins(InnerPlugin).run();
             }
         }
@@ -1101,7 +1086,7 @@ mod tests {
         assert_eq!(app.plugins_state(), PluginRegistryState::Init);
 
         app.configure_plugins(); // Build
-        assert_eq!(app.plugins_state(), PluginRegistryState::Building);
+        assert_eq!(app.plugins_state(), PluginRegistryState::SettingUp);
         app.configure_plugins(); //
         assert_eq!(app.plugins_state(), PluginRegistryState::Finalizing);
         app.configure_plugins();

@@ -12,7 +12,7 @@ pub enum PluginState {
     /// Plugin is initialized.
     Init,
     /// Plugin is being built.
-    Building,
+    SettingUp,
     /// Plugin is being configured.
     Configuring,
     /// Plugin configuration is finishing.
@@ -27,8 +27,8 @@ impl PluginState {
     pub(crate) fn next(self) -> Self {
         match self {
             Self::Idle => Self::Init,
-            Self::Init => Self::Building,
-            Self::Building => Self::Configuring,
+            Self::Init => Self::SettingUp,
+            Self::SettingUp => Self::Configuring,
             Self::Configuring => Self::Finalizing,
             Self::Finalizing => Self::Done,
             s => unreachable!("Cannot handle {:?} state", s),
@@ -80,7 +80,7 @@ impl PluginState {
 /// }
 ///
 /// impl Plugin for AccessibilityPlugin {
-///     fn build(&self, app: &mut App) {
+///     fn init(&self, app: &mut App) {
 ///         if self.flicker_damping {
 ///             app.add_systems(PostUpdate, damp_flickering);
 ///         }
@@ -94,10 +94,16 @@ pub trait Plugin: Downcast + Any + Send + Sync {
         Vec::new()
     }
 
-    /// Pre-configures the [`App`] to which this plugin is added. This is usually executed before
+    /// Pre-configures the [`App`] to which this plugin is added. This is by convention executed before
     /// the event loop is started.
     fn init(&self, _app: &mut App) {
         // do nothing
+    }
+
+    /// Deprecated, see [`Plugin::init`]
+    #[deprecated = "Use `Plugin::init` instead"]
+    fn build(&self, app: &mut App) {
+        self.init(app);
     }
 
     /// Is the plugin ready to be built?
@@ -105,8 +111,8 @@ pub trait Plugin: Downcast + Any + Send + Sync {
         true
     }
 
-    /// Builds the [`Plugin`] resources. This is usually executed inside an event loop.
-    fn build(&self, _app: &mut App) {
+    /// Sets the [`Plugin`] resources and systems. This is by convention executed inside an event loop.
+    fn setup(&self, _app: &mut App) {
         // do nothing
     }
 
@@ -132,6 +138,12 @@ pub trait Plugin: Downcast + Any + Send + Sync {
         // do nothing
     }
 
+    /// Deprecated, see [`Plugin::finalize`]
+    #[deprecated = "Use `Plugin::finalize` instead"]
+    fn finish(&self, app: &mut App) {
+        self.finalize(app);
+    }
+
     /// Runs after all plugins are built and finished, but before the app schedule is executed.
     /// This can be useful if you have some resource that other plugins need during their build step,
     /// but after build you want to remove it and send it to another thread.
@@ -155,7 +167,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     fn update(&mut self, app: &mut App, state: PluginState) {
         match state {
             PluginState::Init => self.init(app),
-            PluginState::Building => self.build(app),
+            PluginState::SettingUp => self.setup(app),
             PluginState::Configuring => self.configure(app),
             PluginState::Finalizing => self.finalize(app),
             PluginState::Done => {}
@@ -166,7 +178,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     /// Updates if the plugin is ready to progress to the desired next [`PluginState`].
     fn ready(&self, app: &mut App, next_state: PluginState) -> bool {
         match next_state {
-            PluginState::Building => self.ready_to_build(app),
+            PluginState::SettingUp => self.ready_to_build(app),
             PluginState::Configuring => self.ready_to_configure(app),
             PluginState::Finalizing => self.ready_to_finalize(app),
             _ => true,
@@ -184,7 +196,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
 impl_downcast!(Plugin);
 
 impl<T: Fn(&mut App) + Send + Sync + 'static> Plugin for T {
-    fn build(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
         self(app);
     }
 }

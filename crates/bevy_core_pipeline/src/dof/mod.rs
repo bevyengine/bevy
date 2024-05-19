@@ -194,10 +194,12 @@ enum DofPass {
 }
 
 impl Plugin for DepthOfFieldPlugin {
-    fn build(&self, app: &mut App) {
-        load_internal_asset!(app, DOF_SHADER_HANDLE, "dof.wgsl", Shader::from_wgsl);
-
+    fn init(&self, app: &mut App) {
         app.add_plugins(UniformComponentPlugin::<DepthOfFieldUniform>::default());
+    }
+
+    fn setup(&self, app: &mut App) {
+        load_internal_asset!(app, DOF_SHADER_HANDLE, "dof.wgsl", Shader::from_wgsl);
     }
 
     fn required_sub_apps(&self) -> Vec<InternedAppLabel> {

@@ -56,7 +56,7 @@ fn receive(receiver: Res<MainWorldReceiver>) {
 // We need a plugin to organize all the systems and render node required for this example
 struct GpuReadbackPlugin;
 impl Plugin for GpuReadbackPlugin {
-    fn build(&self, _app: &mut App) {}
+    fn setup(&self, _app: &mut App) {}
 
     // The render device is only accessible inside finish().
     // So we need to initialize render resources here.

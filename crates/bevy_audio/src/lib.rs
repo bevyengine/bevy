@@ -75,7 +75,7 @@ pub struct AudioPlugin {
 }
 
 impl Plugin for AudioPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.register_type::<Volume>()
             .register_type::<GlobalVolume>()
             .register_type::<SpatialListener>()

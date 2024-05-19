@@ -121,17 +121,20 @@ pub const MOTION_BLUR_SHADER_HANDLE: Handle<Shader> =
 /// Adds support for per-object motion blur to the app. See [`MotionBlur`] for details.
 pub struct MotionBlurPlugin;
 impl Plugin for MotionBlurPlugin {
-    fn build(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
+        app.add_plugins((
+            ExtractComponentPlugin::<MotionBlur>::default(),
+            UniformComponentPlugin::<MotionBlur>::default(),
+        ));
+    }
+
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             MOTION_BLUR_SHADER_HANDLE,
             "motion_blur.wgsl",
             Shader::from_wgsl
         );
-        app.add_plugins((
-            ExtractComponentPlugin::<MotionBlur>::default(),
-            UniformComponentPlugin::<MotionBlur>::default(),
-        ));
     }
 
     fn required_sub_apps(&self) -> Vec<InternedAppLabel> {

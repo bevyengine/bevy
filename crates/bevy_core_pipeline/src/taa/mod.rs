@@ -43,7 +43,7 @@ const TAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(656865235226276
 pub struct TemporalAntiAliasPlugin;
 
 impl Plugin for TemporalAntiAliasPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(app, TAA_SHADER_HANDLE, "taa.wgsl", Shader::from_wgsl);
 
         app.insert_resource(Msaa::Off)

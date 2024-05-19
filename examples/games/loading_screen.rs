@@ -323,7 +323,7 @@ mod pipelines_ready {
 
     pub struct PipelinesReadyPlugin;
     impl Plugin for PipelinesReadyPlugin {
-        fn build(&self, app: &mut App) {
+        fn setup(&self, app: &mut App) {
             app.insert_resource(PipelinesReady::default());
 
             // In order to gain access to the pipelines status, we have to

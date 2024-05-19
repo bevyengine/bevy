@@ -119,7 +119,7 @@ pub struct RenderLightmaps {
 }
 
 impl Plugin for LightmapPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             LIGHTMAP_SHADER_HANDLE,

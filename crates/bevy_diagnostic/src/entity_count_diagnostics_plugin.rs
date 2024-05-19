@@ -12,7 +12,7 @@ use crate::{Diagnostic, DiagnosticPath, Diagnostics, RegisterDiagnostic};
 pub struct EntityCountDiagnosticsPlugin;
 
 impl Plugin for EntityCountDiagnosticsPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.register_diagnostic(Diagnostic::new(Self::ENTITY_COUNT))
             .add_systems(Update, Self::diagnostic_system);
     }

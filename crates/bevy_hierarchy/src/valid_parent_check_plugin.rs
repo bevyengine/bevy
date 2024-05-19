@@ -95,7 +95,7 @@ impl<T: Component> Default for ValidParentCheckPlugin<T> {
 
 #[cfg(feature = "bevy_app")]
 impl<T: Component> bevy_app::Plugin for ValidParentCheckPlugin<T> {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn setup(&self, app: &mut bevy_app::App) {
         app.init_resource::<ReportHierarchyIssue<T>>().add_systems(
             bevy_app::Last,
             check_hierarchy_component_has_valid_parent::<T>

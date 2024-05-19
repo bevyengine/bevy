@@ -43,7 +43,7 @@ fn main() {
 struct PostProcessPlugin;
 
 impl Plugin for PostProcessPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.add_plugins((
             // The settings will be a component that lives in the main world but will
             // be extracted to the render world every frame.

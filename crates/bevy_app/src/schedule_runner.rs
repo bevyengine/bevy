@@ -67,7 +67,7 @@ impl ScheduleRunnerPlugin {
 }
 
 impl Plugin for ScheduleRunnerPlugin {
-    fn build(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
         let run_mode = self.run_mode;
         app.set_runner(move |mut app: App| {
             app.configure_and_cleanup_plugins();

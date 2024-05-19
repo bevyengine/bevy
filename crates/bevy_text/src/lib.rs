@@ -84,7 +84,7 @@ pub enum YAxisOrientation {
 pub type WithText = With<Text>;
 
 impl Plugin for TextPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.init_asset::<Font>()
             .register_type::<Text>()
             .register_type::<Text2dBounds>()

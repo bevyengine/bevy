@@ -47,7 +47,7 @@ const GTAO_UTILS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(36646505
 pub struct ScreenSpaceAmbientOcclusionPlugin;
 
 impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             PREPROCESS_DEPTH_SHADER_HANDLE,

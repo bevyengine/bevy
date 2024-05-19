@@ -30,13 +30,15 @@ const SKYBOX_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(555947634232
 pub struct SkyboxPlugin;
 
 impl Plugin for SkyboxPlugin {
-    fn build(&self, app: &mut App) {
-        load_internal_asset!(app, SKYBOX_SHADER_HANDLE, "skybox.wgsl", Shader::from_wgsl);
-
+    fn init(&self, app: &mut App) {
         app.add_plugins((
             ExtractComponentPlugin::<Skybox>::default(),
             UniformComponentPlugin::<SkyboxUniforms>::default(),
         ));
+    }
+
+    fn setup(&self, app: &mut App) {
+        load_internal_asset!(app, SKYBOX_SHADER_HANDLE, "skybox.wgsl", Shader::from_wgsl);
     }
 
     fn required_sub_apps(&self) -> Vec<InternedAppLabel> {

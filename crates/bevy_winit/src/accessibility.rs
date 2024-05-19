@@ -214,20 +214,18 @@ pub struct AccessKitPlugin;
 impl Plugin for AccessKitPlugin {
     fn init(&self, app: &mut App) {
         app.init_non_send_resource::<AccessKitAdapters>()
-            .init_resource::<WinitActionHandlers>();
-    }
-
-    fn build(&self, app: &mut App) {
-        app.add_event::<ActionRequestWrapper>().add_systems(
-            PostUpdate,
-            (
-                poll_receivers,
-                update_accessibility_nodes.run_if(should_update_accessibility_nodes),
-                window_closed
-                    .before(poll_receivers)
-                    .before(update_accessibility_nodes),
-            )
-                .in_set(AccessibilitySystem::Update),
-        );
+            .init_resource::<WinitActionHandlers>()
+            .add_event::<ActionRequestWrapper>()
+            .add_systems(
+                PostUpdate,
+                (
+                    poll_receivers,
+                    update_accessibility_nodes.run_if(should_update_accessibility_nodes),
+                    window_closed
+                        .before(poll_receivers)
+                        .before(update_accessibility_nodes),
+                )
+                    .in_set(AccessibilitySystem::Update),
+            );
     }
 }

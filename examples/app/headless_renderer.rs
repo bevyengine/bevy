@@ -199,7 +199,7 @@ fn setup(
 /// Plugin for Render world part of work
 pub struct ImageCopyPlugin;
 impl Plugin for ImageCopyPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         let (s, r) = crossbeam_channel::unbounded();
 
         let render_app = app
@@ -273,7 +273,7 @@ fn setup_render_target(
 /// Setups image saver
 pub struct CaptureFramePlugin;
 impl Plugin for CaptureFramePlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         info!("Adding CaptureFramePlugin");
         app.add_systems(PostUpdate, update);
     }

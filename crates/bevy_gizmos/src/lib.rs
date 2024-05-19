@@ -116,30 +116,18 @@ const LINE_JOINT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11627807
 pub struct GizmoPlugin;
 
 impl Plugin for GizmoPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn init(&self, app: &mut App) {
         // Gizmos cannot work without either a 3D or 2D renderer.
         #[cfg(all(not(feature = "bevy_pbr"), not(feature = "bevy_sprite")))]
         bevy_utils::tracing::error!(
             "bevy_gizmos requires either bevy_pbr or bevy_sprite. Please enable one."
         );
 
-        load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            LINE_JOINT_SHADER_HANDLE,
-            "line_joints.wgsl",
-            Shader::from_wgsl
-        );
-
-        app.register_type::<GizmoConfig>()
-            .register_type::<GizmoConfigStore>()
-            .add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
-            .init_asset::<LineGizmo>()
-            .add_plugins(RenderAssetPlugin::<GpuLineGizmo>::default())
-            .init_resource::<LineGizmoHandles>()
-            // We insert the Resource GizmoConfigStore into the world implicitly here if it does not exist.
-            .init_gizmo_group::<DefaultGizmoConfigGroup>()
-            .add_plugins(AabbGizmoPlugin);
+        app.add_plugins((
+            UniformComponentPlugin::<LineGizmoUniform>::default(),
+            RenderAssetPlugin::<GpuLineGizmo>::default(),
+            AabbGizmoPlugin,
+        ));
 
         #[cfg(feature = "bevy_pbr")]
         app.add_plugins(LightGizmoPlugin);
@@ -150,12 +138,30 @@ impl Plugin for GizmoPlugin {
         } else {
             bevy_utils::tracing::warn!("bevy_sprite feature is enabled but bevy_sprite::SpritePlugin was not detected. Are you sure you loaded GizmoPlugin after SpritePlugin?");
         }
+
         #[cfg(feature = "bevy_pbr")]
         if app.is_plugin_added::<bevy_pbr::PbrPlugin>() {
             app.add_plugins(pipeline_3d::LineGizmo3dPlugin);
         } else {
             bevy_utils::tracing::warn!("bevy_pbr feature is enabled but bevy_pbr::PbrPlugin was not detected. Are you sure you loaded GizmoPlugin after PbrPlugin?");
         }
+    }
+
+    fn setup(&self, app: &mut App) {
+        load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            LINE_JOINT_SHADER_HANDLE,
+            "line_joints.wgsl",
+            Shader::from_wgsl
+        );
+
+        app.register_type::<GizmoConfig>()
+            .register_type::<GizmoConfigStore>()
+            .init_asset::<LineGizmo>()
+            .init_resource::<LineGizmoHandles>()
+            // We insert the Resource GizmoConfigStore into the world implicitly here if it does not exist.
+            .init_gizmo_group::<DefaultGizmoConfigGroup>();
     }
 
     fn required_sub_apps(&self) -> Vec<InternedAppLabel> {

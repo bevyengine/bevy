@@ -102,7 +102,14 @@ const CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE: Handle<Shader> =
 pub struct CASPlugin;
 
 impl Plugin for CASPlugin {
-    fn build(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
+        app.add_plugins((
+            ExtractComponentPlugin::<ContrastAdaptiveSharpeningSettings>::default(),
+            UniformComponentPlugin::<CASUniform>::default(),
+        ));
+    }
+
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE,
@@ -111,10 +118,6 @@ impl Plugin for CASPlugin {
         );
 
         app.register_type::<ContrastAdaptiveSharpeningSettings>();
-        app.add_plugins((
-            ExtractComponentPlugin::<ContrastAdaptiveSharpeningSettings>::default(),
-            UniformComponentPlugin::<CASUniform>::default(),
-        ));
     }
 
     fn required_sub_apps(&self) -> Vec<InternedAppLabel> {

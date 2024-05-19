@@ -114,7 +114,7 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 pub struct MeshletPlugin;
 
 impl Plugin for MeshletPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             MESHLET_BINDINGS_SHADER_HANDLE,

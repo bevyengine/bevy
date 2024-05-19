@@ -26,7 +26,7 @@ pub const MAX_MORPH_WEIGHTS: usize = 64;
 /// bevy mesh child entities (ie: glTF primitive).
 pub struct MorphPlugin;
 impl Plugin for MorphPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn setup(&self, app: &mut bevy_app::App) {
         app.register_type::<MorphWeights>()
             .register_type::<MeshMorphWeights>()
             .add_systems(PostUpdate, inherit_weights);

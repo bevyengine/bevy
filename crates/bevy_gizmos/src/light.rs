@@ -130,7 +130,7 @@ fn directional_light_gizmo(
 pub struct LightGizmoPlugin;
 
 impl Plugin for LightGizmoPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn setup(&self, app: &mut bevy_app::App) {
         app.register_type::<LightGizmoConfigGroup>()
             .init_gizmo_group::<LightGizmoConfigGroup>()
             .add_systems(

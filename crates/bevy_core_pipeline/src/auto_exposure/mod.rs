@@ -42,7 +42,12 @@ struct AutoExposureResources {
 }
 
 impl Plugin for AutoExposurePlugin {
-    fn build(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
+        app.add_plugins(RenderAssetPlugin::<GpuAutoExposureCompensationCurve>::default())
+            .add_plugins(ExtractComponentPlugin::<AutoExposureSettings>::default());
+    }
+
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             METERING_SHADER_HANDLE,
@@ -50,8 +55,7 @@ impl Plugin for AutoExposurePlugin {
             Shader::from_wgsl
         );
 
-        app.add_plugins(RenderAssetPlugin::<GpuAutoExposureCompensationCurve>::default())
-            .register_type::<AutoExposureCompensationCurve>()
+        app.register_type::<AutoExposureCompensationCurve>()
             .init_asset::<AutoExposureCompensationCurve>()
             .register_asset_reflect::<AutoExposureCompensationCurve>();
         app.world_mut()
@@ -59,7 +63,6 @@ impl Plugin for AutoExposurePlugin {
             .insert(&Handle::default(), AutoExposureCompensationCurve::default());
 
         app.register_type::<AutoExposureSettings>();
-        app.add_plugins(ExtractComponentPlugin::<AutoExposureSettings>::default());
     }
 
     fn required_sub_apps(&self) -> Vec<InternedAppLabel> {

@@ -23,7 +23,18 @@ use bevy_ecs::schedule::IntoSystemConfigs;
 pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
-    fn build(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
+        app.add_plugins((
+            CameraProjectionPlugin::<Projection>::default(),
+            CameraProjectionPlugin::<OrthographicProjection>::default(),
+            CameraProjectionPlugin::<PerspectiveProjection>::default(),
+            ExtractResourcePlugin::<ManualTextureViews>::default(),
+            ExtractResourcePlugin::<ClearColor>::default(),
+            ExtractComponentPlugin::<CameraMainTextureUsages>::default(),
+        ));
+    }
+
+    fn setup(&self, app: &mut App) {
         app.register_type::<Camera>()
             .register_type::<ClearColor>()
             .register_type::<CameraRenderGraph>()
@@ -32,15 +43,7 @@ impl Plugin for CameraPlugin {
             .register_type::<TemporalJitter>()
             .register_type::<MipBias>()
             .init_resource::<ManualTextureViews>()
-            .init_resource::<ClearColor>()
-            .add_plugins((
-                CameraProjectionPlugin::<Projection>::default(),
-                CameraProjectionPlugin::<OrthographicProjection>::default(),
-                CameraProjectionPlugin::<PerspectiveProjection>::default(),
-                ExtractResourcePlugin::<ManualTextureViews>::default(),
-                ExtractResourcePlugin::<ClearColor>::default(),
-                ExtractComponentPlugin::<CameraMainTextureUsages>::default(),
-            ));
+            .init_resource::<ClearColor>();
     }
 
     fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
@@ -51,7 +54,9 @@ impl Plugin for CameraPlugin {
         let Some(render_app) = app.get_sub_app(RenderApp) else {
             return false;
         };
-        render_app.world().contains_resource::<GpuPreprocessingSupport>()
+        render_app
+            .world()
+            .contains_resource::<GpuPreprocessingSupport>()
     }
 
     fn finalize(&self, app: &mut App) {

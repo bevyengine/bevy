@@ -73,7 +73,11 @@ impl ImagePlugin {
 }
 
 impl Plugin for ImagePlugin {
-    fn build(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
+        app.add_plugins(RenderAssetPlugin::<GpuImage>::default());
+    }
+
+    fn setup(&self, app: &mut App) {
         #[cfg(feature = "exr")]
         {
             app.init_asset_loader::<ExrTextureLoader>();
@@ -84,8 +88,7 @@ impl Plugin for ImagePlugin {
             app.init_asset_loader::<HdrTextureLoader>();
         }
 
-        app.add_plugins(RenderAssetPlugin::<GpuImage>::default())
-            .register_type::<Image>()
+        app.register_type::<Image>()
             .init_asset::<Image>()
             .register_asset_reflect::<Image>();
 

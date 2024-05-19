@@ -18,7 +18,7 @@ pub const BLIT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2312396983
 pub struct BlitPlugin;
 
 impl Plugin for BlitPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(app, BLIT_SHADER_HANDLE, "blit.wgsl", Shader::from_wgsl);
     }
 

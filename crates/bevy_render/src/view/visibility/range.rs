@@ -48,7 +48,7 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: usize = 64;
 pub struct VisibilityRangePlugin;
 
 impl Plugin for VisibilityRangePlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.register_type::<VisibilityRange>()
             .init_resource::<VisibleEntityRanges>()
             .add_systems(

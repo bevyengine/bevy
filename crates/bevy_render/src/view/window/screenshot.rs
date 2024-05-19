@@ -127,7 +127,7 @@ pub struct ScreenshotPlugin;
 const SCREENSHOT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11918575842344596158);
 
 impl Plugin for ScreenshotPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn setup(&self, app: &mut bevy_app::App) {
         app.init_resource::<ScreenshotManager>();
 
         load_internal_asset!(

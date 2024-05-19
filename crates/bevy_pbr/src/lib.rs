@@ -163,7 +163,37 @@ impl Default for PbrPlugin {
 }
 
 impl Plugin for PbrPlugin {
-    fn build(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
+        app.add_plugins((
+            MeshRenderPlugin {
+                use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
+            },
+            MaterialPlugin::<StandardMaterial> {
+                prepass_enabled: self.prepass_enabled,
+                ..Default::default()
+            },
+            ScreenSpaceAmbientOcclusionPlugin,
+            ExtractResourcePlugin::<AmbientLight>::default(),
+            FogPlugin,
+            ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
+            ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
+            LightmapPlugin,
+            LightProbePlugin,
+            PbrProjectionPlugin::<Projection>::default(),
+            PbrProjectionPlugin::<PerspectiveProjection>::default(),
+            PbrProjectionPlugin::<OrthographicProjection>::default(),
+            GpuMeshPreprocessPlugin {
+                use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
+            },
+            VolumetricFogPlugin,
+        ));
+
+        if self.add_default_deferred_lighting_plugin {
+            app.add_plugins(DeferredPbrLightingPlugin);
+        }
+    }
+
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             PBR_TYPES_SHADER_HANDLE,
@@ -298,29 +328,6 @@ impl Plugin for PbrPlugin {
             .init_resource::<PointLightShadowMap>()
             .register_type::<DefaultOpaqueRendererMethod>()
             .init_resource::<DefaultOpaqueRendererMethod>()
-            .add_plugins((
-                MeshRenderPlugin {
-                    use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
-                },
-                MaterialPlugin::<StandardMaterial> {
-                    prepass_enabled: self.prepass_enabled,
-                    ..Default::default()
-                },
-                ScreenSpaceAmbientOcclusionPlugin,
-                ExtractResourcePlugin::<AmbientLight>::default(),
-                FogPlugin,
-                ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
-                ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
-                LightmapPlugin,
-                LightProbePlugin,
-                PbrProjectionPlugin::<Projection>::default(),
-                PbrProjectionPlugin::<PerspectiveProjection>::default(),
-                PbrProjectionPlugin::<OrthographicProjection>::default(),
-                GpuMeshPreprocessPlugin {
-                    use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
-                },
-                VolumetricFogPlugin,
-            ))
             .configure_sets(
                 PostUpdate,
                 (
@@ -372,10 +379,6 @@ impl Plugin for PbrPlugin {
                         .after(VisibilitySystems::CheckVisibility),
                 ),
             );
-
-        if self.add_default_deferred_lighting_plugin {
-            app.add_plugins(DeferredPbrLightingPlugin);
-        }
 
         app.world_mut()
             .resource_mut::<Assets<StandardMaterial>>()
@@ -429,7 +432,7 @@ impl Plugin for PbrPlugin {
 /// [`CameraProjection`] specific PBR functionality.
 pub struct PbrProjectionPlugin<T: CameraProjection + Component>(PhantomData<T>);
 impl<T: CameraProjection + Component> Plugin for PbrProjectionPlugin<T> {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.add_systems(
             PostUpdate,
             build_directional_light_cascades::<T>
