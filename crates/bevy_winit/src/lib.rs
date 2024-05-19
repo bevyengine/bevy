@@ -276,8 +276,7 @@ pub fn winit_runner(mut app: App) -> AppExit {
         .remove_non_send_resource::<EventLoop<UserEvent>>()
         .unwrap();
 
-    app.world_mut()
-        .insert_non_send_resource(event_loop.create_proxy());
+    app.insert_non_send_resource(event_loop.create_proxy());
 
     let mut runner_state = WinitAppRunnerState::default();
 

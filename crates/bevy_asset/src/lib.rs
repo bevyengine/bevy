@@ -170,7 +170,7 @@ impl Plugin for AssetPlugin {
             }
             match self.mode {
                 AssetMode::Unprocessed => {
-                    let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
+                    let mut builders = app.resource_mut::<AssetSourceBuilders>();
                     let sources = builders.build_sources(watch, false);
 
                     app.insert_resource(AssetServer::new_with_meta_check(
@@ -183,7 +183,7 @@ impl Plugin for AssetPlugin {
                 AssetMode::Processed => {
                     #[cfg(feature = "asset_processor")]
                     {
-                        let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
+                        let mut builders = app.resource_mut::<AssetSourceBuilders>();
                         let processor = AssetProcessor::new(&mut builders);
                         let mut sources = builders.build_sources(false, watch);
                         sources.gate_on_processor(processor.data.clone());
@@ -200,7 +200,7 @@ impl Plugin for AssetPlugin {
                     }
                     #[cfg(not(feature = "asset_processor"))]
                     {
-                        let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
+                        let mut builders = app.resource_mut::<AssetSourceBuilders>();
                         let sources = builders.build_sources(false, watch);
                         app.insert_resource(AssetServer::new_with_meta_check(
                             sources,
@@ -906,7 +906,7 @@ mod tests {
         });
 
         {
-            let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
+            let mut texts = app.resource_mut::<Assets<CoolText>>();
             let a = texts.get_mut(a_id).unwrap();
             a.text = "Changed".to_string();
         }
@@ -1190,7 +1190,7 @@ mod tests {
         );
         // remove event is emitted
         app.update();
-        let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
+        let events = std::mem::take(&mut app.resource_mut::<StoredEvents>().0);
         let expected_events = vec![
             AssetEvent::Added { id },
             AssetEvent::Unused { id },
@@ -1211,14 +1211,14 @@ mod tests {
         // TODO: ideally it doesn't take two updates for the added event to emit
         app.update();
 
-        let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
+        let events = std::mem::take(&mut app.resource_mut::<StoredEvents>().0);
         let expected_events = vec![AssetEvent::Added { id: a_handle.id() }];
         assert_eq!(events, expected_events);
 
         gate_opener.open(dep_path);
         loop {
             app.update();
-            let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
+            let events = std::mem::take(&mut app.resource_mut::<StoredEvents>().0);
             if events.is_empty() {
                 continue;
             }
@@ -1232,7 +1232,7 @@ mod tests {
             break;
         }
         app.update();
-        let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
+        let events = std::mem::take(&mut app.resource_mut::<StoredEvents>().0);
         let expected_events = vec![AssetEvent::Added {
             id: dep_handle.id(),
         }];

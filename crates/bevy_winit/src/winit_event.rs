@@ -274,7 +274,6 @@ pub(crate) fn forward_winit_events(buffered_events: &mut Vec<WinitEvent>, app: &
             }
         }
     }
-    app.world_mut()
-        .resource_mut::<Events<WinitEvent>>()
+    app.resource_mut::<Events<WinitEvent>>()
         .send_batch(buffered_events.drain(..));
 }

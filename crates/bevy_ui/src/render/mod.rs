@@ -121,7 +121,7 @@ pub fn build_ui_render(app: &mut App) {
     // Render graph
     let ui_graph_2d = get_ui_graph(render_app);
     let ui_graph_3d = get_ui_graph(render_app);
-    let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();
+    let mut graph = render_app.resource_mut::<RenderGraph>();
 
     if let Some(graph_2d) = graph.get_sub_graph_mut(Core2d) {
         graph_2d.add_sub_graph(SubGraphUi, ui_graph_2d);

@@ -47,7 +47,7 @@ impl Plugin for CameraPlugin {
                 .add_systems(ExtractSchedule, extract_cameras)
                 .add_systems(Render, sort_cameras.in_set(RenderSet::ManageViews));
             let camera_driver_node = CameraDriverNode::new(render_app.world_mut());
-            let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
+            let mut render_graph = render_app.resource_mut::<RenderGraph>();
             render_graph.add_node(crate::graph::CameraDriverLabel, camera_driver_node);
         }
     }

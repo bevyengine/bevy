@@ -401,7 +401,7 @@ impl Plugin for PbrPlugin {
             .init_resource::<LightMeta>();
 
         let shadow_pass_node = ShadowPassNode::new(render_app.world_mut());
-        let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();
+        let mut graph = render_app.resource_mut::<RenderGraph>();
         let draw_3d_graph = graph.get_sub_graph_mut(Core3d).unwrap();
         draw_3d_graph.add_node(NodePbr::ShadowPass, shadow_pass_node);
         draw_3d_graph.add_node_edge(NodePbr::ShadowPass, Node3d::StartMainPass);

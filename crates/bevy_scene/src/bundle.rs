@@ -166,7 +166,7 @@ mod tests {
         );
 
         // let's try to delete the scene
-        let mut scene_spawner = app.world_mut().resource_mut::<SceneSpawner>();
+        let mut scene_spawner = app.resource_mut::<SceneSpawner>();
         scene_spawner.despawn(&scene_handle);
 
         // run the scene spawner system to despawn the scene
