@@ -501,7 +501,7 @@ impl App {
     ///
     /// let mut app = App::new();
     /// app.insert_resource(MyCounter { counter: 0 });
-    /// app.remove_resource::<MyCounter>();
+    /// assert!(app.remove_resource::<MyCounter>().is_some());
     /// ```
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
@@ -532,7 +532,7 @@ impl App {
     ///
     /// let mut app = App::new();
     /// app.insert_non_send_resource(MyCounter { counter: 0 });
-    /// app.remove_non_send_resource::<MyCounter>();
+    /// assert!(app.remove_non_send_resource::<MyCounter>().is_some());
     /// ```
     #[inline]
     pub fn remove_non_send_resource<R: 'static>(&mut self) -> Option<R> {
@@ -588,6 +588,127 @@ impl App {
     /// ```
     pub fn contains_non_send_resource<R: 'static>(&self) -> bool {
         self.main().contains_non_send_resource::<R>()
+    }
+
+    /// Gets a reference to the resource of the given type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_resource`](App::get_resource) instead if you want to handle this case.
+    ///
+    /// If you want to instead insert a value if the resource does not exist,
+    /// use [`get_resource_or_insert_with`](App::get_resource_or_insert_with).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// let mut app = App::new();
+    /// app.insert_non_send_resource(MyCounter { counter: 0 });
+    ///
+    /// assert!(app.contains_non_send_resource::<MyCounter>());
+    /// ```
+    pub fn resource<R: Resource>(&self) -> &R {
+        self.main().resource()
+    }
+
+    /// Gets a reference to the resource of the given type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_resource_ref`](App::get_resource_ref) instead if you want to handle this case.
+    ///
+    /// If you want to instead insert a value if the resource does not exist,
+    /// use [`get_resource_or_insert_with`](App::get_resource_or_insert_with).
+    pub fn resource_ref<R: Resource>(&self) -> Res<R> {
+        self.main().resource_ref()
+    }
+
+    /// Gets a mutable reference to the resource of the given type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_resource_mut`](App::get_resource_mut) instead if you want to handle this case.
+    ///
+    /// If you want to instead insert a value if the resource does not exist,
+    /// use [`get_resource_or_insert_with`](App::get_resource_or_insert_with).
+    pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
+        self.main_mut().resource_mut()
+    }
+
+    /// Gets a reference to the resource of the given type if it exists
+    pub fn get_resource<R: Resource>(&self) -> Option<&R> {
+        self.main().get_resource()
+    }
+
+    /// Gets a reference including change detection to the resource of the given type if it exists.
+    pub fn get_resource_ref<R: Resource>(&self) -> Option<Res<R>> {
+        self.main().get_resource_ref()
+    }
+
+    /// Gets a mutable reference to the resource of the given type if it exists
+    pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
+        self.main_mut().get_resource_mut()
+    }
+
+    /// Gets a mutable reference to the resource of type `T` if it exists,
+    /// otherwise inserts the resource using the result of calling `func`.
+    pub fn get_resource_or_insert_with<R: Resource>(
+        &mut self,
+        func: impl FnOnce() -> R,
+    ) -> Mut<'_, R> {
+        self.main_mut().get_resource_or_insert_with(func)
+    }
+
+    /// Gets an immutable reference to the non-send resource of the given type, if it exists.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_non_send_resource`](App::get_non_send_resource) instead if you want to handle this case.
+    ///
+    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    pub fn non_send_resource<R: 'static>(&self) -> &R {
+        self.main().non_send_resource()
+    }
+
+    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_non_send_resource_mut`](App::get_non_send_resource_mut) instead if you want to handle this case.
+    ///
+    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
+        self.main_mut().non_send_resource_mut()
+    }
+
+    /// Gets a reference to the non-send resource of the given type, if it exists.
+    /// Otherwise, returns `None`.
+    ///
+    /// # Panics
+    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    pub fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
+        self.main().get_non_send_resource()
+    }
+
+    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
+    /// Otherwise, returns `None`.
+    ///
+    /// # Panics
+    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
+        self.main_mut().get_non_send_resource_mut()
     }
 
     pub(crate) fn add_boxed_plugin(
