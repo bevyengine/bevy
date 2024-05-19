@@ -293,7 +293,7 @@ impl Plugin for SmaaPlugin {
             "SMAAAreaLUT.ktx2",
             |bytes, _: String| Image::from_buffer(
                 #[cfg(all(debug_assertions, feature = "dds"))]
-                "SMAAAreaLUT",
+                "SMAAAreaLUT".to_owned(),
                 bytes,
                 ImageType::Format(ImageFormat::Ktx2),
                 CompressedImageFormats::NONE,
@@ -310,7 +310,7 @@ impl Plugin for SmaaPlugin {
             "SMAASearchLUT.ktx2",
             |bytes, _: String| Image::from_buffer(
                 #[cfg(all(debug_assertions, feature = "dds"))]
-                "SMAASearchLUT",
+                "SMAASearchLUT".to_owned(),
                 bytes,
                 ImageType::Format(ImageFormat::Ktx2),
                 CompressedImageFormats::NONE,
