@@ -4,7 +4,7 @@ use std::f32::consts::PI;
 
 use crate::{self as bevy_gizmos, primitives::dim3::GizmoPrimitive3d};
 
-use bevy_app::{Plugin, PostUpdate};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_color::{
     palettes::basic::{BLUE, GREEN, RED},
     Color, Oklcha,
@@ -130,7 +130,7 @@ fn directional_light_gizmo(
 pub struct LightGizmoPlugin;
 
 impl Plugin for LightGizmoPlugin {
-    fn setup(&self, app: &mut bevy_app::App) {
+    fn setup(&self, app: &mut App) {
         app.register_type::<LightGizmoConfigGroup>()
             .init_gizmo_group::<LightGizmoConfigGroup>()
             .add_systems(

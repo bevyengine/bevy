@@ -80,7 +80,7 @@ pub struct App {
     /// [`ScheduleRunnerPlugin`]: https://docs.rs/bevy/latest/bevy/app/struct.ScheduleRunnerPlugin.html
     runner: RunnerFn,
 
-    /// Panics if a App::update() is called while plugins are being configured.
+    /// Panics if `App::update()` is called while plugins are being configured.
     plugin_build_depth: usize,
 }
 

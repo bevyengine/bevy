@@ -163,28 +163,6 @@ pub trait Plugin: Downcast + Any + Send + Sync {
         true
     }
 
-    /// Updates the plugin to a desired [`PluginState`].
-    fn update(&mut self, app: &mut App, state: PluginState) {
-        match state {
-            PluginState::Init => self.init(app),
-            PluginState::SettingUp => self.setup(app),
-            PluginState::Configuring => self.configure(app),
-            PluginState::Finalizing => self.finalize(app),
-            PluginState::Done => {}
-            s => panic!("Cannot handle {s:?} state"),
-        }
-    }
-
-    /// Updates if the plugin is ready to progress to the desired next [`PluginState`].
-    fn ready(&self, app: &mut App, next_state: PluginState) -> bool {
-        match next_state {
-            PluginState::SettingUp => self.ready_to_setup(app),
-            PluginState::Configuring => self.ready_to_configure(app),
-            PluginState::Finalizing => self.ready_to_finalize(app),
-            _ => true,
-        }
-    }
-
     /// Checks all required [`SubApp`]s.
     fn check_required_sub_apps(&mut self, app: &App) -> bool {
         self.required_sub_apps()

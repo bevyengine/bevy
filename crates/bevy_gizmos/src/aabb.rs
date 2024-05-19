@@ -2,7 +2,7 @@
 
 use crate as bevy_gizmos;
 
-use bevy_app::{Plugin, PostUpdate};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_color::{Color, Oklcha};
 use bevy_ecs::{
     component::Component,
@@ -29,7 +29,7 @@ use crate::{
 pub struct AabbGizmoPlugin;
 
 impl Plugin for AabbGizmoPlugin {
-    fn setup(&self, app: &mut bevy_app::App) {
+    fn setup(&self, app: &mut App) {
         app.register_type::<AabbGizmoConfigGroup>()
             .init_gizmo_group::<AabbGizmoConfigGroup>()
             .add_systems(

@@ -27,7 +27,7 @@ impl Plugin for WireframePlugin {
         app.add_plugins(MaterialPlugin::<WireframeMaterial>::default());
     }
 
-    fn setup(&self, app: &mut bevy_app::App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             WIREFRAME_SHADER_HANDLE,

@@ -91,12 +91,12 @@ impl PluginRegistry {
                     continue;
                 }
 
-                if !plugin.ready(app, next_state) {
+                if !is_plugin_ready(plugin, app, next_state) {
                     continue;
                 }
 
                 let result = catch_unwind(AssertUnwindSafe(|| {
-                    plugin.update(app, next_state);
+                    process_plugin(plugin, app, next_state);
                 }));
 
                 if let Err(payload) = result {
@@ -162,6 +162,28 @@ impl PluginRegistry {
         self.plugins = other.plugins;
         self.plugin_states = other.plugin_states;
         self.update_state();
+    }
+}
+
+/// Process the plugin to a desired [`PluginState`].
+fn process_plugin(plugin: &mut Box<dyn Plugin>, app: &mut App, state: PluginState) {
+    match state {
+        PluginState::Init => plugin.init(app),
+        PluginState::SettingUp => plugin.setup(app),
+        PluginState::Configuring => plugin.configure(app),
+        PluginState::Finalizing => plugin.finalize(app),
+        PluginState::Done => {}
+        s => panic!("Cannot handle {s:?} state during plugin processing"),
+    }
+}
+
+/// Checks if the plugin is ready to progress to the desired next [`PluginState`].
+fn is_plugin_ready(plugin: &Box<dyn Plugin>, app: &mut App, next_state: PluginState) -> bool {
+    match next_state {
+        PluginState::SettingUp => plugin.ready_to_setup(app),
+        PluginState::Configuring => plugin.ready_to_configure(app),
+        PluginState::Finalizing => plugin.ready_to_finalize(app),
+        _ => true,
     }
 }
 
