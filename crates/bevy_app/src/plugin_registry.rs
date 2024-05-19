@@ -417,7 +417,7 @@ mod tests {
     }
 
     impl Plugin for WaitingPlugin {
-        fn ready_to_build(&self, _app: &mut App) -> bool {
+        fn ready_to_setup(&self, _app: &mut App) -> bool {
             self.ready
         }
     }

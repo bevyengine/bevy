@@ -106,8 +106,8 @@ pub trait Plugin: Downcast + Any + Send + Sync {
         self.init(app);
     }
 
-    /// Is the plugin ready to be built?
-    fn ready_to_build(&self, _app: &mut App) -> bool {
+    /// Is the plugin ready to be set up?
+    fn ready_to_setup(&self, _app: &mut App) -> bool {
         true
     }
 
@@ -178,7 +178,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     /// Updates if the plugin is ready to progress to the desired next [`PluginState`].
     fn ready(&self, app: &mut App, next_state: PluginState) -> bool {
         match next_state {
-            PluginState::SettingUp => self.ready_to_build(app),
+            PluginState::SettingUp => self.ready_to_setup(app),
             PluginState::Configuring => self.ready_to_configure(app),
             PluginState::Finalizing => self.ready_to_finalize(app),
             _ => true,
