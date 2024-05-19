@@ -593,6 +593,14 @@ macro_rules! impl_reflect_tuple {
             fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
                 crate::tuple_try_apply(self, value)
             }
+
+            fn reflect_clone(&self) -> Option<Box<dyn Reflect>> {
+                Some(Box::new((
+                    $(
+                        self.$index.reflect_clone()?.take::<$name>().ok()?,
+                    )*
+                )))
+            }
         }
 
         impl<$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> Reflect for ($($name,)*) {

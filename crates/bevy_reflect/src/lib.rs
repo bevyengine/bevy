@@ -988,13 +988,19 @@ mod tests {
 
     #[test]
     fn should_reflect_clone() {
+        // Struct
         #[derive(Reflect, Clone, Debug, PartialEq)]
         #[reflect(Clone)]
         struct Foo(usize);
 
-        let foo = Foo(123);
-        let clone = foo.reflect_clone().unwrap();
-        assert_eq!(foo, clone.take::<Foo>().unwrap());
+        let value = Foo(123);
+        let clone = value.reflect_clone().expect("should reflect_clone struct");
+        assert_eq!(value, clone.take::<Foo>().unwrap());
+
+        // Tuple
+        let foo = (123, 4.56);
+        let clone = foo.reflect_clone().expect("should reflect_clone tuple");
+        assert_eq!(foo, clone.take::<(u32, f32)>().unwrap());
     }
 
     #[test]
