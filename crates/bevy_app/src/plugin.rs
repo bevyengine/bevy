@@ -173,8 +173,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
 
 impl_downcast!(Plugin);
 
-impl<T: Fn(&mut App) + Send + Sync + 'static> Plugin for T {
-}
+impl<T: Fn(&mut App) + Send + Sync + 'static> Plugin for T {}
 
 /// A type representing an unsafe function that returns a mutable pointer to a [`Plugin`].
 /// It is used for dynamically loading plugins.

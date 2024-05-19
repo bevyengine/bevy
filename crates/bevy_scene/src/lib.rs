@@ -94,5 +94,4 @@ impl Plugin for ScenePlugin {
 }
 
 #[cfg(not(feature = "serialize"))]
-impl Plugin for ScenePlugin {
-}
+impl Plugin for ScenePlugin {}
