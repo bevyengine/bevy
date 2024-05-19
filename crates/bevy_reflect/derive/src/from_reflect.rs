@@ -1,6 +1,6 @@
 use crate::container_attributes::REFLECT_DEFAULT;
 use crate::derive_data::ReflectEnum;
-use crate::enum_utility::{generate_from_reflect_variants, EnumVariantOutputData};
+use crate::enum_utility::{EnumVariantOutputData, FromReflectVariantBuilder, VariantBuilder};
 use crate::field_attributes::DefaultBehavior;
 use crate::utility::{ident_or_index, WhereClauseOptions};
 use crate::{ReflectMeta, ReflectStruct};
@@ -41,11 +41,12 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
 
     let ref_value = Ident::new("__param0", Span::call_site());
+
     let EnumVariantOutputData {
         variant_names,
         variant_constructors,
         ..
-    } = generate_from_reflect_variants(reflect_enum, &ref_value);
+    } = FromReflectVariantBuilder::new(reflect_enum).build(&ref_value);
 
     let (impl_generics, ty_generics, where_clause) = enum_path.generics().split_for_impl();
 

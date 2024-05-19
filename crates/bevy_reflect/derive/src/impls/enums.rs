@@ -1,5 +1,5 @@
 use crate::derive_data::{EnumVariantFields, ReflectEnum, StructField};
-use crate::enum_utility::{generate_try_apply_variants, EnumVariantOutputData};
+use crate::enum_utility::{EnumVariantOutputData, TryApplyVariantBuilder, VariantBuilder};
 use crate::impls::{impl_type_path, impl_typed};
 use bevy_macro_utils::fq_std::{FQAny, FQBox, FQOption, FQResult};
 use proc_macro2::{Ident, Span};
@@ -31,7 +31,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
         variant_names,
         variant_constructors,
         ..
-    } = generate_try_apply_variants(reflect_enum, &ref_value);
+    } = TryApplyVariantBuilder::new(reflect_enum).build(&ref_value);
 
     let hash_fn = reflect_enum
         .meta()
