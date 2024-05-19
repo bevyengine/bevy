@@ -33,7 +33,7 @@ use bevy_utils::tracing::error;
 pub struct LineGizmo2dPlugin;
 
 impl Plugin for LineGizmo2dPlugin {
-    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
     }
 

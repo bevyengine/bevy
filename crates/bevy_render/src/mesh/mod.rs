@@ -31,7 +31,7 @@ impl Plugin for MeshPlugin {
             .add_plugins(RenderAssetPlugin::<GpuMesh, GpuImage>::default());
     }
 
-    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
     }
 

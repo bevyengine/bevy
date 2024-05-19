@@ -200,7 +200,7 @@ impl Plugin for DepthOfFieldPlugin {
         app.add_plugins(UniformComponentPlugin::<DepthOfFieldUniform>::default());
     }
 
-    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
     }
 

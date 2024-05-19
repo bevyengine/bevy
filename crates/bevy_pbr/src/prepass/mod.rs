@@ -92,7 +92,7 @@ where
         );
     }
 
-    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
     }
 
@@ -135,7 +135,7 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        let no_prepass_plugin_loaded = !app.contains_resource::<AnyPrepassPluginLoaded>();
+        let no_prepass_plugin_loaded = !app.world().contains_resource::<AnyPrepassPluginLoaded>();
 
         if no_prepass_plugin_loaded {
             app.insert_resource(AnyPrepassPluginLoaded)
@@ -155,7 +155,7 @@ where
         }
     }
 
-    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
     }
 
@@ -167,7 +167,7 @@ where
     }
 
     fn finalize(&self, app: &mut App) {
-        let no_prepass_plugin_loaded = !app.contains_resource::<AnyPrepassPluginLoaded>();
+        let no_prepass_plugin_loaded = !app.world().contains_resource::<AnyPrepassPluginLoaded>();
 
         let render_app = app.sub_app_mut(RenderApp);
 

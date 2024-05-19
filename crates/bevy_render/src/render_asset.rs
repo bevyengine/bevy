@@ -137,7 +137,7 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
         app.init_resource::<CachedExtractRenderAssetSystemState<A>>();
     }
 
-    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
     }
 

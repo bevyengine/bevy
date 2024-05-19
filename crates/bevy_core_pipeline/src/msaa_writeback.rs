@@ -21,7 +21,7 @@ use bevy_render::{render_resource::*, RenderApp};
 pub struct MsaaWritebackPlugin;
 
 impl Plugin for MsaaWritebackPlugin {
-    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
     }
 

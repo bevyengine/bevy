@@ -394,7 +394,7 @@ where
     BPI: BinnedPhaseItem,
     GFBD: GetFullBatchData + Sync + Send + 'static,
 {
-    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
     }
 
@@ -452,7 +452,7 @@ where
     SPI: SortedPhaseItem + CachedRenderPipelinePhaseItem,
     GFBD: GetFullBatchData + Sync + Send + 'static,
 {
-    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
     }
 

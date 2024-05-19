@@ -323,7 +323,7 @@ impl Plugin for LightProbePlugin {
             .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new());
     }
 
-    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
     }
 

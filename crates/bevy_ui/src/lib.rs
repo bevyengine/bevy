@@ -180,7 +180,7 @@ impl Plugin for UiPlugin {
         build_text_interop(app);
     }
 
-    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
     }
 

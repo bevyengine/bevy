@@ -90,7 +90,7 @@ impl PluginState {
 /// ````
 pub trait Plugin: Downcast + Any + Send + Sync {
     /// Returns required sub apps before finalizing this plugin.
-    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
         Vec::new()
     }
 
@@ -175,7 +175,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
 
     /// Checks all required [`SubApp`]s.
     fn check_required_sub_apps(&mut self, app: &App) -> bool {
-        self.require_sub_apps()
+        self.required_sub_apps()
             .iter()
             .all(|s| app.contains_sub_app(*s))
     }

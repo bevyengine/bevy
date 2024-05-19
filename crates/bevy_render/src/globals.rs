@@ -22,7 +22,7 @@ impl Plugin for GlobalsPlugin {
         app.register_type::<GlobalsUniform>();
     }
 
-    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
     }
 

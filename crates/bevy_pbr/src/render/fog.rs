@@ -140,7 +140,7 @@ impl Plugin for FogPlugin {
         app.add_plugins(ExtractComponentPlugin::<FogSettings>::default());
     }
 
-    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
     }
 

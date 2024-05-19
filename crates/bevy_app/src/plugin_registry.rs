@@ -26,7 +26,7 @@ pub enum PluginRegistryState {
 
 /// Registry for all the [`App`] [`Plugin`]s
 #[derive(Default)]
-pub(crate) struct PluginRegistry {
+pub struct PluginRegistry {
     plugins: Vec<Box<dyn Plugin>>,
     plugin_states: HashMap<String, PluginState>,
     state: PluginRegistryState,
@@ -34,7 +34,7 @@ pub(crate) struct PluginRegistry {
 
 impl PluginRegistry {
     /// Returns the registry current state
-    pub(crate) fn state(&self) -> PluginRegistryState {
+    pub fn state(&self) -> PluginRegistryState {
         self.state
     }
 
@@ -52,7 +52,7 @@ impl PluginRegistry {
     }
 
     /// Returns all the plugin of a specified type.
-    pub(crate) fn get_all<T: Plugin>(&self) -> Vec<&T> {
+    pub fn get_all<T: Plugin>(&self) -> Vec<&T> {
         self.plugins
             .iter()
             .filter_map(|p| p.downcast_ref())
@@ -60,12 +60,12 @@ impl PluginRegistry {
     }
 
     /// Returns `true` if the registry contains the required plugin by type
-    pub(crate) fn contains<T: Plugin>(&self) -> bool {
+    pub fn contains<T: Plugin>(&self) -> bool {
         self.get::<T>().is_some()
     }
 
     /// Returns a reference to the plugin of type `T` if it exists
-    pub(crate) fn get<T: Plugin>(&self) -> Option<&T> {
+    pub fn get<T: Plugin>(&self) -> Option<&T> {
         for p in &self.plugins {
             if let Some(t) = p.downcast_ref() {
                 return Some(t);
@@ -192,7 +192,7 @@ mod tests {
             "TestPlugin"
         }
 
-        fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+        fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
             if self.require_sub_app {
                 return vec![DummyApp.intern()];
             }

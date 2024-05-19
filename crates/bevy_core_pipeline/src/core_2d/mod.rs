@@ -59,7 +59,7 @@ impl Plugin for Core2dPlugin {
             .add_plugins(ExtractComponentPlugin::<Camera2d>::default());
     }
 
-    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
     }
 

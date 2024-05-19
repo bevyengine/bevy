@@ -62,7 +62,7 @@ impl Plugin for AutoExposurePlugin {
         app.add_plugins(ExtractComponentPlugin::<AutoExposureSettings>::default());
     }
 
-    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
     }
 

@@ -70,7 +70,7 @@ impl Plugin for ScheduleRunnerPlugin {
     fn build(&self, app: &mut App) {
         let run_mode = self.run_mode;
         app.set_runner(move |mut app: App| {
-            app.update_and_clean_plugins();
+            app.configure_and_cleanup_plugins();
 
             match run_mode {
                 RunMode::Once => {

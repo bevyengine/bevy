@@ -118,7 +118,7 @@ impl Plugin for ImagePlugin {
         app.preregister_asset_loader::<ImageLoader>(IMG_FILE_EXTENSIONS);
     }
 
-    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
     }
 

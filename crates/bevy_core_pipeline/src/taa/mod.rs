@@ -50,7 +50,7 @@ impl Plugin for TemporalAntiAliasPlugin {
             .register_type::<TemporalAntiAliasSettings>();
     }
 
-    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
     }
 

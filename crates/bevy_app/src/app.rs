@@ -68,9 +68,9 @@ pub(crate) enum AppError {
 /// ```
 pub struct App {
     /// List of plugins that have been added.
-    pub(crate) plugin_registry: PluginRegistry,
+    plugin_registry: PluginRegistry,
 
-    pub(crate) sub_apps: SubApps,
+    sub_apps: SubApps,
     /// The function that will manage the app's lifecycle.
     ///
     /// Bevy provides the [`WinitPlugin`] and [`ScheduleRunnerPlugin`] for windowed and headless
@@ -78,10 +78,10 @@ pub struct App {
     ///
     /// [`WinitPlugin`]: https://docs.rs/bevy/latest/bevy/winit/struct.WinitPlugin.html
     /// [`ScheduleRunnerPlugin`]: https://docs.rs/bevy/latest/bevy/app/struct.ScheduleRunnerPlugin.html
-    pub(crate) runner: RunnerFn,
+    runner: RunnerFn,
 
-    /// Panics if an update is attempted while plugins are building.
-    pub(crate) plugin_build_depth: usize,
+    /// Panics if a App::update() is called while plugins are being configured.
+    plugin_build_depth: usize,
 }
 
 impl Debug for App {
@@ -138,8 +138,10 @@ impl App {
 
     /// Runs the default schedules of all sub-apps (starting with the "main" app) once.
     pub fn update(&mut self) {
+        // Configures all plugins if the plugin registry is still in the init phase.
+        // This means that `App::update` is called without calling `App::run`, usually inside tests or custom applications.
         if self.plugins_state() == PluginRegistryState::Init {
-            self.update_and_clean_plugins();
+            self.configure_and_cleanup_plugins();
         }
 
         if self.is_building_plugins() {
@@ -212,22 +214,22 @@ impl App {
         self
     }
 
-    /// Update all plugins. This is usually called by the event loop.
+    /// Configures and cleans all plugins. This is by convention called outside the event loop, since it would wait until all plugins are cleaned up.
     #[inline]
-    pub fn update_and_clean_plugins(&mut self) {
+    pub fn configure_and_cleanup_plugins(&mut self) {
         while !matches!(
             self.plugins_state(),
             PluginRegistryState::Idle | PluginRegistryState::Done
         ) {
-            self.update_plugins();
+            self.configure_plugins();
         }
 
         self.cleanup_plugins();
     }
 
-    /// Update all plugins. This is usually called by the event loop.
+    /// Configures all plugins. This is by convention called inside the event loop, so that each plugin configuration can progress in a cycle-by-cycle basis.
     #[inline]
-    pub fn update_plugins(&mut self) {
+    pub fn configure_plugins(&mut self) {
         if !matches!(
             self.plugins_state(),
             PluginRegistryState::Idle | PluginRegistryState::Done
@@ -243,12 +245,17 @@ impl App {
         }
     }
 
-    /// Clean up all plugins. This is usually called by the event loop.
+    /// Cleans up all plugins unneeded resources. This is by convention called inside the event loop, after all the plugins are configured properly.
     #[inline]
     pub fn cleanup_plugins(&mut self) {
         let mut plugin_registry = self.take_plugin_registry();
         plugin_registry.cleanup(self);
         self.insert_plugin_registry(plugin_registry);
+    }
+
+    /// Provides read-only access to the [`PluginRegistry`] for debugging purposes.
+    pub fn plugin_registry(&self) -> &PluginRegistry {
+        &self.plugin_registry
     }
 
     fn take_plugin_registry(&mut self) -> PluginRegistry {
@@ -462,36 +469,6 @@ impl App {
         self
     }
 
-    /// Returns `true` if the [`Resource`] exists in the app world.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// #[derive(Resource)]
-    /// struct MyCounter {
-    ///     counter: usize,
-    /// }
-    ///
-    /// impl Default for MyCounter {
-    ///     fn default() -> MyCounter {
-    ///         MyCounter {
-    ///             counter: 100
-    ///         }
-    ///     }
-    /// }
-    ///
-    /// let mut app = App::new();
-    /// app.insert_resource(MyCounter { counter: 0 });
-    ///
-    /// assert!(app.contains_resource::<MyCounter>());
-    /// ```
-    pub fn contains_resource<R: Resource>(&self) -> bool {
-        self.main().contains_resource::<R>()
-    }
-
     /// Inserts the [`!Send`](Send) resource into the app, overwriting any existing resource
     /// of the same type.
     ///
@@ -512,36 +489,15 @@ impl App {
     ///     .insert_non_send_resource(MyCounter { counter: 0 });
     /// ```
     pub fn insert_non_send_resource<R: 'static>(&mut self, resource: R) -> &mut Self {
-        self.main_mut().insert_non_send_resource(resource);
+        self.world_mut().insert_non_send_resource(resource);
         self
     }
 
     /// Inserts the [`!Send`](Send) resource into the app, initialized with its default value,
     /// if there is no existing instance of `R`.
-    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
-        self.main_mut().init_non_send_resource::<R>();
+    pub fn init_non_send_resource<R: 'static + Default>(&mut self) -> &mut Self {
+        self.world_mut().init_non_send_resource::<R>();
         self
-    }
-
-    /// Returns `true` if the [`!Send`](Send) resource exists in the app world.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// struct MyCounter {
-    ///     counter: usize,
-    /// }
-    ///
-    /// let mut app = App::new();
-    /// app.insert_non_send_resource(MyCounter { counter: 0 });
-    ///
-    /// assert!(app.contains_non_send_resource::<MyCounter>());
-    /// ```
-    pub fn contains_non_send_resource<R: 'static>(&self) -> bool {
-        self.main().contains_non_send_resource::<R>()
     }
 
     pub(crate) fn add_boxed_plugin(
@@ -938,7 +894,7 @@ impl App {
 type RunnerFn = Box<dyn FnOnce(App) -> AppExit>;
 
 fn run_once(mut app: App) -> AppExit {
-    app.update_and_clean_plugins();
+    app.configure_and_cleanup_plugins();
 
     app.update();
 
@@ -1114,7 +1070,7 @@ mod tests {
 
         assert_eq!(app.plugins_state(), PluginRegistryState::Init);
 
-        app.update_plugins();
+        app.configure_plugins();
     }
 
     #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
@@ -1139,22 +1095,21 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn plugin_cannot_be_added_during_finish() {
+    fn plugin_cannot_be_added_during_finalize() {
         let mut app = App::new();
         app.add_plugins(PluginA);
         assert_eq!(app.plugins_state(), PluginRegistryState::Init);
 
-        app.update_plugins(); // Build
+        app.configure_plugins(); // Build
         assert_eq!(app.plugins_state(), PluginRegistryState::Building);
-        app.update_plugins(); //
+        app.configure_plugins(); //
         assert_eq!(app.plugins_state(), PluginRegistryState::Finalizing);
-        app.update_plugins();
+        app.configure_plugins();
         assert_eq!(app.plugins_state(), PluginRegistryState::Done);
 
         app.add_plugins(PluginE);
 
-        app.update_plugins();
-        // app.finish();
+        app.configure_plugins();
     }
 
     #[test]
@@ -1274,7 +1229,7 @@ mod tests {
 
         fn my_runner(mut app: App) -> AppExit {
             let my_state = MyState {};
-            app.update_plugins();
+            app.configure_plugins();
             app.world_mut().insert_resource(my_state);
 
             for _ in 0..5 {

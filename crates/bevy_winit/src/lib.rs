@@ -341,7 +341,7 @@ fn handle_winit_event(
     match event {
         Event::AboutToWait => {
             if app.plugins_state() < PluginRegistryState::Done {
-                app.update_plugins();
+                app.configure_plugins();
 
                 if app.plugins_state() == PluginRegistryState::Done {
                     app.cleanup_plugins();

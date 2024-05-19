@@ -79,7 +79,7 @@ impl<C> Default for UniformComponentPlugin<C> {
 }
 
 impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentPlugin<C> {
-    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
     }
 
@@ -194,7 +194,7 @@ impl<C, F> ExtractComponentPlugin<C, F> {
 }
 
 impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
-    fn require_sub_apps(&self) -> Vec<InternedAppLabel> {
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
         vec![RenderApp.intern()]
     }
 
