@@ -1233,7 +1233,14 @@ impl World {
 
     /// Returns `true` if a resource of type `R` exists. Otherwise, returns `false`.
     #[inline]
+    #[deprecated = "Use `World::contains_non_send_resource` instead"]
     pub fn contains_non_send<R: 'static>(&self) -> bool {
+        self.contains_non_send_resource()
+    }
+
+    /// Returns `true` if a resource of type `R` exists. Otherwise, returns `false`.
+    #[inline]
+    pub fn contains_non_send_resource<R: 'static>(&self) -> bool {
         self.components
             .get_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.non_send_resources.get(component_id))

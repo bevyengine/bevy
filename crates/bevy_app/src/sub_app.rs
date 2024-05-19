@@ -203,7 +203,7 @@ impl SubApp {
 
     /// See [`App::contains_non_send_resource`].
     pub fn contains_non_send_resource<R: 'static>(&self) -> bool {
-        self.world.contains_non_send::<R>()
+        self.world.contains_non_send_resource::<R>()
     }
 
     /// See [`App::add_systems`].
