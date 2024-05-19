@@ -298,13 +298,25 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// See [`ReflectOwned`].
     fn reflect_owned(self: Box<Self>) -> ReflectOwned;
 
-    /// Clones the value as a `Reflect` trait object.
+    /// Clones `Self` into its dynamic representation.
     ///
-    /// When deriving `Reflect` for a struct, tuple struct or enum, the value is
-    /// cloned via [`Struct::clone_dynamic`], [`TupleStruct::clone_dynamic`],
-    /// or [`Enum::clone_dynamic`], respectively.
-    /// Implementors of other `Reflect` subtraits (e.g. [`List`], [`Map`]) should
-    /// use those subtraits' respective `clone_dynamic` methods.
+    /// For value types or types marked with `#[reflect_value]`,
+    /// this will simply return a clone of `Self`.
+    ///
+    /// Otherwise the associated dynamic type will be returned.
+    ///
+    /// For example, a [`List`] type will invoke [`List::clone_dynamic`], returning [`DynamicList`].
+    /// A [`Struct`] type will invoke [`Struct::clone_dynamic`], returning [`DynamicStruct`].
+    /// And so on.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::{Reflect, DynamicTuple};
+    /// let value = (1, true, 3.14);
+    /// let cloned = value.clone_value();
+    /// assert!(cloned.is::<DynamicTuple>())
+    /// ```
     fn clone_value(&self) -> Box<dyn Reflect>;
 
     /// Attempts to clone `Self` using reflection.
@@ -313,6 +325,15 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// this method attempts create a clone of `Self` directly, if possible.
     ///
     /// If the clone cannot be performed, `None` is returned.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::Reflect;
+    /// let value = (1, true, 3.14);
+    /// let cloned = value.reflect_clone().unwrap();
+    /// assert!(cloned.is::<(i32, bool, f64)>())
+    /// ```
     fn reflect_clone(&self) -> Option<Box<dyn Reflect>> {
         None
     }
