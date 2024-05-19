@@ -22,10 +22,6 @@ fn main() {
         .add_plugins((
             DefaultPlugins.set(AssetPlugin {
                 mode: AssetMode::Processed,
-                // This is just overriding the default paths to scope this to the correct example folder
-                // You can generally skip this in your own projects
-                file_path: "examples/3d/assets".to_string(),
-                processed_file_path: "examples/3d/imported_assets/Default".to_string(),
                 ..default()
             }),
             MeshletPlugin,

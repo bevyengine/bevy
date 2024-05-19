@@ -170,7 +170,7 @@ bevy_debug_stepping = [
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
 meshlet = ["bevy_pbr?/meshlet", "bevy_gltf?/meshlet"]
 
-# Enables processing meshes into meshlet meshes for bevy_pbr
+# Enables processing meshes into meshlet meshes
 meshlet_processor = [
   "bevy_pbr?/meshlet_processor",
   "bevy_gltf?/meshlet_processor",

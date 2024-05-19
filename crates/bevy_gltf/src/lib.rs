@@ -65,14 +65,9 @@ impl Plugin for GltfPlugin {
             .preregister_asset_loader::<GltfLoader>(&["gltf", "glb"]);
 
         #[cfg(feature = "meshlet")]
-        if let Some(processor) = app
-            .world()
-            .get_resource::<bevy_asset::processor::AssetProcessor>()
-        {
-            processor.register_processor::<bevy_asset::processor::LoadAndSave<RawGltfLoader, meshlet::MeshletMeshGltfSaver>>(
+        app.register_asset_processor::<bevy_asset::processor::LoadAndSave<RawGltfLoader, meshlet::MeshletMeshGltfSaver>>(
                 meshlet::MeshletMeshGltfSaver.into(),
             );
-        }
     }
 
     fn finish(&self, app: &mut App) {
