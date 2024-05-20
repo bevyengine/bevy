@@ -997,6 +997,18 @@ mod tests {
         let clone = value.reflect_clone().expect("should reflect_clone struct");
         assert_eq!(value, clone.take::<Foo>().unwrap());
 
+        // Generic Struct
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Bar<T, U>(T, #[reflect(ignore, clone)] PhantomData<U>);
+        #[derive(TypePath, Debug, PartialEq)]
+        struct Baz;
+
+        let value = Bar::<usize, Baz>(123, PhantomData);
+        let clone = value
+            .reflect_clone()
+            .expect("should reflect_clone generic struct");
+        assert_eq!(value, clone.take::<Bar<usize, Baz>>().unwrap());
+
         // Tuple
         let foo = (123, 4.56);
         let clone = foo.reflect_clone().expect("should reflect_clone tuple");
