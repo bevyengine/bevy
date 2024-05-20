@@ -1115,39 +1115,39 @@ impl<E: Event> ExactSizeIterator for SendBatchIds<E> {
     }
 }
 
-#[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash, Default)]
 struct EventTriggeredSchedules;
 
 #[derive(ScheduleLabel)]
-pub struct OnEvent<E: Event + Sized>(PhantomData<E>);
+pub struct OnEvent<E: Event + Sized, S: ScheduleLabel = EventTriggeredSchedules>(S, PhantomData<E>);
 
-impl<E: Event + Sized> Hash for OnEvent<E> {
+impl<E: Event + Sized, S: ScheduleLabel> Hash for OnEvent<E,S > {
     fn hash<H: Hasher>(&self, hasher: &mut H) {
         TypeId::of::<E>().hash(hasher)
     }
 }
 
-impl<E: Event + Sized> Default for OnEvent<E> {
+impl<S: ScheduleLabel + Default, E: Event + Sized> Default for OnEvent<E, S> {
     fn default() -> Self {
-        Self(PhantomData::default())
+        Self(S::default(), PhantomData::default())
     }
 }
 
-impl<E: Event + Sized> Debug for OnEvent<E> {
+impl<E: Event + Sized,S: ScheduleLabel> Debug for OnEvent<E, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Self::type_id(self).fmt(f)
     }
 }
 
-impl<E: Event + Sized> Clone for OnEvent<E> {
+impl<E: Event + Sized, S: ScheduleLabel + Clone> Clone for OnEvent<E, S> {
     fn clone(&self) -> Self {
-        Self(PhantomData::default())
+        Self(self.0.clone(), PhantomData::default())
     }
 }
 
-impl<E: Event + Sized> PartialEq<Self> for OnEvent<E> {
+impl<E: Event + Sized, S: ScheduleLabel + Eq> PartialEq<Self> for OnEvent<E, S> {
     fn eq(&self, other: &Self) -> bool {
-        true
+        self.0 == other.0
     }
 }
 
@@ -1156,7 +1156,7 @@ impl<E: Event + Sized> Eq for OnEvent<E> {
 }
 
 pub trait EventScheduler: Event + Sized {
-    fn setup_in_world(world: &mut World) {
+    fn setup_event_schedule(world: &mut World) {
         world.init_resource::<Events<Self>>();
         let mut schedules = world.get_resource_or_insert_with(|| Schedules::default());
         schedules.add_systems(EventTriggeredSchedules, (|world: &mut World| {
@@ -1172,9 +1172,29 @@ pub trait EventScheduler: Event + Sized {
             true
         }));
     }
+    fn setup_event_schedule_within_schedule<S: ScheduleLabel>(world: &mut World, schedule: S) {
+        world.init_resource::<Events<Self>>();
+        let mut schedules = world.get_resource_or_insert_with(|| Schedules::default());
+        schedules.add_systems(schedule, (|world: &mut World| {
+            eprintln!("Trying to run schedule");
+            let _ = world.try_run_schedule(OnEvent::<Self>::default());
+        }).run_if(|mut event: EventReader<Self>| {
+            if event.is_empty() {
+                eprintln!("No Event");
+                return false;
+            }
+            eprintln!("Yes Event");
+            event.clear();
+            true
+        }));
+    }
 
     fn on() -> OnEvent<Self> {
         OnEvent::default()
+    }
+
+    fn on_event_in_schedule<S: ScheduleLabel>(schedule: S) -> OnEvent<Self, S> {
+        OnEvent(schedule, PhantomData)
     }
 }
 
@@ -1619,7 +1639,7 @@ mod tests {
         world.init_resource::<Schedules>();
         world.init_resource::<ScheduleCounter>();
 
-        TestEvent::setup_in_world(&mut world);
+        TestEvent::setup_event_schedule(&mut world);
 
         let mut schedules = world.resource_mut::<Schedules>();
 
@@ -1630,6 +1650,30 @@ mod tests {
         assert_eq!(world.resource::<ScheduleCounter>().0, 0);
 
         world.run_schedule(EventTriggeredSchedules);
+
+        assert_eq!(world.resource::<ScheduleCounter>().0, 1);
+    }
+
+    #[derive(ScheduleLabel, PartialEq, Eq, Clone, Hash, Debug)]
+    struct ASchedule;
+
+    #[test]
+    fn type_based_event_scheduler_can_run_systems_in_sub_schedule() {
+        let mut world = World::new();
+        world.init_resource::<Schedules>();
+        world.init_resource::<ScheduleCounter>();
+
+        TestEvent::setup_event_schedule_within_schedule(&mut world, ASchedule);
+
+        let mut schedules = world.resource_mut::<Schedules>();
+
+        schedules.add_systems(TestEvent::on(), |mut counter: ResMut<ScheduleCounter>| counter.0 += 1);
+
+        world.send_event(TestEvent { i: 1 });
+
+        assert_eq!(world.resource::<ScheduleCounter>().0, 0);
+
+        world.run_schedule(ASchedule);
 
         assert_eq!(world.resource::<ScheduleCounter>().0, 1);
     }
