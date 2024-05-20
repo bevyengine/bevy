@@ -38,7 +38,7 @@ pub(crate) fn get_temp_source(
         Some(resource) => resource,
         None => match temporary_file_path {
             Some(path) => TempDirectory::Persist(path.into()),
-            None => TempDirectory::Delete(tempfile::tempdir()?),
+            None => TempDirectory::Delete(tempfile::TempDir::with_prefix("bevy")?),
         },
     };
 
