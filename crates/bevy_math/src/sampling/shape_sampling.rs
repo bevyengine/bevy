@@ -245,6 +245,7 @@ impl ShapeSample for Tetrahedron {
             1. - coords[2],
         );
 
+        // This is also a linear mapping, so probability density is still preserved.
         v0 * a + v1 * b + v2 * c + v3 * d
     }
 
@@ -262,7 +263,7 @@ impl ShapeSample for Tetrahedron {
             let idx = dist.sample(rng);
             triangles[idx].sample_interior(rng)
         } else {
-            // In this branch the triangle has zero surface area; just return a point that's on
+            // In this branch the tetrahedron has zero surface area; just return a point that's on
             // the tetrahedron.
             self.vertices[0]
         }
