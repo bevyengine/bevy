@@ -236,8 +236,12 @@ impl ShapeSample for Tetrahedron {
 
         // Now, convert a point from the fundamental tetrahedron into barycentric coordinates by
         // taking the four successive differences of coordinates; note that these telescope to sum
-        // to 1, and this transformation is linear, hence has constant Jacobian, hence preserves
-        // relative probability density.
+        // to 1, and this transformation is linear, hence preserves the probability density, since
+        // the latter comes from the Lebesgue measure.
+        //
+        // (See https://en.wikipedia.org/wiki/Lebesgue_measure#Properties — specifically, that
+        // Lebesgue measure of a linearly transformed set is its original measure times the
+        // determinant.)
         let (a, b, c, d) = (
             coords[0],
             coords[1] - coords[0],
