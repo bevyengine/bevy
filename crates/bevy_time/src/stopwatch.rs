@@ -4,6 +4,7 @@ use bevy_utils::Duration;
 
 /// A Stopwatch is a struct that track elapsed time when started.
 ///
+/// Note in order to advance the timer [`tick`](Stopwatch::tick) **MUST** be called
 /// # Examples
 ///
 /// ```

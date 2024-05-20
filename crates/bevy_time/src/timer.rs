@@ -10,6 +10,8 @@ use bevy_utils::Duration;
 /// exceeded, and can still be reset at any given point.
 ///
 /// Paused timers will not have elapsed time increased.
+///
+/// Note in order to advance the timer [`tick`](Timer::tick) **MUST** be called
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
