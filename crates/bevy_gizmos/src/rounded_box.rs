@@ -5,7 +5,7 @@
 
 use std::f32::consts::FRAC_PI_2;
 
-use crate::prelude::{GizmoConfigGroup, Gizmos};
+use crate::{circles::DEFAULT_CIRCLE_RESOLUTION, prelude::{GizmoConfigGroup, Gizmos}};
 use bevy_color::Color;
 use bevy_math::{Quat, Vec2, Vec3};
 use bevy_transform::components::Transform;
@@ -27,7 +27,7 @@ struct RoundedBoxConfig {
     rotation: Quat,
     color: Color,
     corner_radius: f32,
-    arc_segments: usize,
+    arc_resolution: usize,
 }
 
 impl<T: GizmoConfigGroup> RoundedRectBuilder<'_, '_, '_, T> {
@@ -38,10 +38,10 @@ impl<T: GizmoConfigGroup> RoundedRectBuilder<'_, '_, '_, T> {
         self
     }
 
-    /// Change the segments of the arcs at the corners of the rectangle.
+    /// Change the resolution of the arcs at the corners of the rectangle.
     /// The default value is 8
-    pub fn arc_segments(mut self, arc_segments: usize) -> Self {
-        self.config.arc_segments = arc_segments;
+    pub fn arc_resolution(mut self, arc_resolution: usize) -> Self {
+        self.config.arc_resolution = arc_resolution;
         self
     }
 }
@@ -53,10 +53,10 @@ impl<T: GizmoConfigGroup> RoundedCuboidBuilder<'_, '_, '_, T> {
         self
     }
 
-    /// Change the segments of the arcs at the edges of the cuboid.
+    /// Change the resolution of the arcs at the edges of the cuboid.
     /// The default value is 8
-    pub fn arc_segments(mut self, arc_segments: usize) -> Self {
-        self.config.arc_segments = arc_segments;
+    pub fn arc_resolution(mut self, arc_resolution: usize) -> Self {
+        self.config.arc_resolution = arc_resolution;
         self
     }
 }
@@ -117,7 +117,7 @@ impl<T: GizmoConfigGroup> Drop for RoundedRectBuilder<'_, '_, '_, T> {
         for chunk in vertices.chunks_exact(3) {
             self.gizmos
                 .short_arc_3d_between(chunk[1], chunk[0], chunk[2], config.color)
-                .resolution(config.arc_segments);
+                .resolution(config.arc_resolution);
         }
 
         let edges = if config.corner_radius > 0. {
@@ -190,7 +190,7 @@ impl<T: GizmoConfigGroup> Drop for RoundedCuboidBuilder<'_, '_, '_, T> {
                     size,
                     config.color,
                 )
-                .arc_segments(config.arc_segments)
+                .arc_resolution(config.arc_resolution)
                 .corner_radius(edge_radius);
 
             self.gizmos
@@ -200,7 +200,7 @@ impl<T: GizmoConfigGroup> Drop for RoundedCuboidBuilder<'_, '_, '_, T> {
                     size,
                     config.color,
                 )
-                .arc_segments(config.arc_segments)
+                .arc_resolution(config.arc_resolution)
                 .corner_radius(edge_radius);
         }
     }
@@ -221,8 +221,8 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # Builder methods
     ///
     /// - The corner radius can be adjusted with the `.corner_radius(...)` method.
-    /// - The number of segments of the arcs at each corner (i.e. the level of detail) can be adjusted with the
-    /// `.arc_segments(...)` method.
+    /// - The resolution of the arcs at each corner (i.e. the level of detail) can be adjusted with the
+    /// `.arc_resolution(...)` method.
     ///
     /// # Example
     /// ```
@@ -238,7 +238,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///         GREEN
     ///         )
     ///         .corner_radius(0.25)
-    ///         .arc_segments(10);
+    ///         .arc_resolution(10);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -257,7 +257,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
                 rotation,
                 color: color.into(),
                 corner_radius,
-                arc_segments: DEFAULT_ARC_SEGMENTS,
+                arc_resolution: DEFAULT_ARC_RESOLUTION,
             },
             size,
         }
@@ -277,8 +277,8 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # Builder methods
     ///
     /// - The corner radius can be adjusted with the `.corner_radius(...)` method.
-    /// - The number of segments of the arcs at each corner (i.e. the level of detail) can be adjusted with the
-    /// `.arc_segments(...)` method.
+    /// - The resolution of the arcs at each corner (i.e. the level of detail) can be adjusted with the
+    /// `.arc_resolution(...)` method.
     ///
     /// # Example
     /// ```
@@ -294,7 +294,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///         GREEN
     ///         )
     ///         .corner_radius(0.25)
-    ///         .arc_segments(10);
+    ///         .arc_resolution(10);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -313,7 +313,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
                 rotation: Quat::from_rotation_z(rotation),
                 color: color.into(),
                 corner_radius,
-                arc_segments: DEFAULT_ARC_SEGMENTS,
+                arc_resolution: DEFAULT_ARC_RESOLUTION,
             },
             size,
         }
@@ -333,8 +333,8 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # Builder methods
     ///
     /// - The edge radius can be adjusted with the `.edge_radius(...)` method.
-    /// - The number of segments of the arcs at each edge (i.e. the level of detail) can be adjusted with the
-    /// `.arc_segments(...)` method.
+    /// - The resolution of the arcs at each edge (i.e. the level of detail) can be adjusted with the
+    /// `.arc_resolution(...)` method.
     ///
     /// # Example
     /// ```
@@ -350,7 +350,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///         GREEN
     ///         )
     ///         .edge_radius(0.25)
-    ///         .arc_segments(10);
+    ///         .arc_resolution(10);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -369,12 +369,12 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
                 rotation,
                 color: color.into(),
                 corner_radius,
-                arc_segments: DEFAULT_ARC_SEGMENTS,
+                arc_resolution: DEFAULT_ARC_RESOLUTION,
             },
             size,
         }
     }
 }
 
-const DEFAULT_ARC_SEGMENTS: usize = 8;
+const DEFAULT_ARC_RESOLUTION: usize = DEFAULT_CIRCLE_RESOLUTION / 4;
 const DEFAULT_CORNER_RADIUS: f32 = 0.1;

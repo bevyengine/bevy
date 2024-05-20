@@ -51,7 +51,7 @@ fn point_light_gizmo(
         .resolution(16);
     gizmos
         .sphere(position, Quat::IDENTITY, point_light.range, color)
-        .circle_segments(32);
+        .resolution(32);
 }
 
 /// Draws a sphere for the radius, two cones for the inner and outer angles, plus two 3d arcs crossing the

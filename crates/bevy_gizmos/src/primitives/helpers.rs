@@ -24,37 +24,37 @@ pub(crate) fn rotate_then_translate_3d(rotation: Quat, translation: Vec3) -> imp
     move |v| rotation * v + translation
 }
 
-/// Calculates the `nth` coordinate of a circle segment.
+/// Calculates the `nth` coordinate of a circle.
 ///
-/// Given a circle's radiu and the number of segments, this function computes the position
+/// Given a circle's radiu and its resolution, this function computes the position
 /// of the `nth` point along the circumference of the circle. The rotation starts at `(0.0, radius)`
 /// and proceeds counter-clockwise.
-pub(crate) fn single_circle_coordinate(radius: f32, segments: usize, nth_point: usize) -> Vec2 {
-    let angle = nth_point as f32 * TAU / segments as f32;
+pub(crate) fn single_circle_coordinate(radius: f32, resolution: usize, nth_point: usize) -> Vec2 {
+    let angle = nth_point as f32 * TAU / resolution as f32;
     let (x, y) = angle.sin_cos();
     Vec2::new(x, y) * radius
 }
 
-/// Generates an iterator over the coordinates of a circle segment.
+/// Generates an iterator over the coordinates of a circle.
 ///
 /// This function creates an iterator that yields the positions of points approximating a
-/// circle with the given radius, divided into linear segments. The iterator produces `segments`
+/// circle with the given radius, divided into linear segments. The iterator produces `resolution`
 /// number of points.
-pub(crate) fn circle_coordinates(radius: f32, segments: usize) -> impl Iterator<Item = Vec2> {
+pub(crate) fn circle_coordinates(radius: f32, resolution: usize) -> impl Iterator<Item = Vec2> {
     (0..)
-        .map(move |p| single_circle_coordinate(radius, segments, p))
-        .take(segments)
+        .map(move |p| single_circle_coordinate(radius, resolution, p))
+        .take(resolution)
 }
 
 /// Draws a semi-sphere.
 ///
 /// This function draws a semi-sphere at the specified `center` point with the given `rotation`,
-/// `radius`, and `color`. The `segments` parameter determines the level of detail, and the `top`
+/// `radius`, and `color`. The `resolution` parameter determines the level of detail, and the `top`
 /// argument specifies the shape of the semi-sphere's tip.
 pub(crate) fn draw_semi_sphere<Config, Clear>(
     gizmos: &mut Gizmos<'_, '_, Config, Clear>,
     radius: f32,
-    segments: usize,
+    resolution: usize,
     rotation: Quat,
     center: Vec3,
     top: Vec3,
@@ -63,13 +63,13 @@ pub(crate) fn draw_semi_sphere<Config, Clear>(
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    circle_coordinates(radius, segments)
+    circle_coordinates(radius, resolution)
         .map(|p| Vec3::new(p.x, 0.0, p.y))
         .map(rotate_then_translate_3d(rotation, center))
         .for_each(|from| {
             gizmos
                 .short_arc_3d_between(center, from, top, color)
-                .resolution(segments / 2);
+                .resolution(resolution / 2);
         });
 }
 
@@ -81,7 +81,7 @@ pub(crate) fn draw_semi_sphere<Config, Clear>(
 pub(crate) fn draw_circle_3d<Config, Clear>(
     gizmos: &mut Gizmos<'_, '_, Config, Clear>,
     radius: f32,
-    segments: usize,
+    resolution: usize,
     rotation: Quat,
     translation: Vec3,
     color: Color,
@@ -89,8 +89,8 @@ pub(crate) fn draw_circle_3d<Config, Clear>(
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    let positions = (0..=segments)
-        .map(|frac| frac as f32 / segments as f32)
+    let positions = (0..=resolution)
+        .map(|frac| frac as f32 / resolution as f32)
         .map(|percentage| percentage * TAU)
         .map(|angle| Vec2::from(angle.sin_cos()) * radius)
         .map(|p| Vec3::new(p.x, 0.0, p.y))
@@ -102,7 +102,7 @@ pub(crate) fn draw_circle_3d<Config, Clear>(
 pub(crate) fn draw_cylinder_vertical_lines<Config, Clear>(
     gizmos: &mut Gizmos<'_, '_, Config, Clear>,
     radius: f32,
-    segments: usize,
+    resolution: usize,
     half_height: f32,
     rotation: Quat,
     center: Vec3,
@@ -111,7 +111,7 @@ pub(crate) fn draw_cylinder_vertical_lines<Config, Clear>(
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    circle_coordinates(radius, segments)
+    circle_coordinates(radius, resolution)
         .map(move |point_2d| {
             [1.0, -1.0]
                 .map(|sign| sign * half_height)

@@ -116,7 +116,7 @@ fn draw_example_collection(
             TURQUOISE,
         )
         .edge_radius(0.1)
-        .arc_segments(4);
+        .arc_resolution(4);
 
     for y in [0., 0.5, 1.] {
         gizmos.ray(
@@ -144,7 +144,7 @@ fn draw_example_collection(
         .resolution(64);
     my_gizmos
         .sphere(Vec3::ZERO, Quat::IDENTITY, 3.2, BLACK)
-        .circle_segments(64);
+        .resolution(64);
 
     gizmos.arrow(Vec3::ZERO, Vec3::ONE * 1.5, YELLOW);
 
