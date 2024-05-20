@@ -110,7 +110,15 @@ fn load_mesh<'a>(primitive: &Primitive<'a>, buffer_data: &Vec<Vec<u8>>) -> Resul
         && matches!(mesh.primitive_topology(), PrimitiveTopology::TriangleList)
     {
         debug!("Automatically calculating missing vertex normals for geometry.");
+        let vertex_count_before = mesh.count_vertices();
+        mesh.duplicate_vertices();
         mesh.compute_flat_normals();
+        let vertex_count_after = mesh.count_vertices();
+        if vertex_count_before != vertex_count_after {
+            debug!("Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}", vertex_count_before, vertex_count_after);
+        } else {
+            debug!("Missing vertex normals in indexed geometry, computing them as flat.");
+        }
     }
 
     if let Some(vertex_attribute) = reader
