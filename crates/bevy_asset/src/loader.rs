@@ -166,13 +166,12 @@ impl<A: Asset> LoadedAsset<A> {
         }
     }
 
-    /// Cast (and take ownership) of the [`Asset`] value of the given type. This will return [`Some`] if
-    /// the stored type matches `A` and [`None`] if it does not.
+    /// Cast (and take ownership) of the [`Asset`] value of the given type.
     pub fn take(self) -> A {
         self.value
     }
 
-    /// Retrieves a reference to the internal [`Asset`] type, if it matches the type `A`. Otherwise returns [`None`].
+    /// Retrieves a reference to the internal [`Asset`] type.
     pub fn get(&self) -> &A {
         &self.value
     }
