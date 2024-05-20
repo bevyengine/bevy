@@ -235,7 +235,7 @@ impl ShapeSample for Tetrahedron {
         coords.sort_by(|x, y| x.partial_cmp(y).unwrap());
 
         // Now, convert a point from the fundamental tetrahedron into barycentric coordinates by
-        // taking the four succesive differences of coordinates; note that these telescope to sum
+        // taking the four successive differences of coordinates; note that these telescope to sum
         // to 1, and this transformation is linear, hence has constant Jacobian, hence preserves
         // relative probability density.
         let (a, b, c, d) = (
