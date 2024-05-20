@@ -492,7 +492,8 @@ async fn load_gltf<'a, 'b, 'c>(
                         });
                     }
 
-                    let meshlet_mesh = BASE64_STANDARD.decode(version.as_str().unwrap())?;
+                    let meshlet_mesh = bevy_meshlet_mesh_extension.get("bytes").unwrap();
+                    let meshlet_mesh = BASE64_STANDARD.decode(meshlet_mesh.as_str().unwrap())?;
                     let meshlet_mesh = MeshletMesh::from_bytes(&meshlet_mesh).unwrap();
 
                     let meshlet_mesh =
