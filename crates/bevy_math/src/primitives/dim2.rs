@@ -538,7 +538,7 @@ impl Triangle2d {
     #[inline(always)]
     #[must_use]
     pub fn reversed(mut self) -> Self {
-        self.reverse;
+        self.reverse();
         self
     }
 }
