@@ -25,8 +25,7 @@ use std::{
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
-use bevy_ecs_macros::SystemSet;
-use crate::prelude::Schedules;
+use crate::prelude::{Schedules, SystemSet};
 use crate::schedule::IntoSystemConfigs;
 
 /// A type that can be stored in an [`Events<E>`] resource
@@ -1188,6 +1187,22 @@ pub trait EventScheduler: Event + Sized {
             true
         }));
     }
+    fn setup_event_schedule_within_schedule_with_set<S: ScheduleLabel, T: SystemSet>(world: &mut World, schedule: S, set: T) {
+        world.init_resource::<Events<Self>>();
+        let mut schedules = world.get_resource_or_insert_with(|| Schedules::default());
+        schedules.add_systems(schedule, (|world: &mut World| {
+            eprintln!("Trying to run schedule");
+            let _ = world.try_run_schedule(OnEvent::<Self>::default());
+        }).run_if(|mut event: EventReader<Self>| {
+            if event.is_empty() {
+                eprintln!("No Event");
+                return false;
+            }
+            eprintln!("Yes Event");
+            event.clear();
+            true
+        }).in_set(set));
+    }
 
     fn on() -> OnEvent<Self> {
         OnEvent::default()
@@ -1664,6 +1679,30 @@ mod tests {
         world.init_resource::<ScheduleCounter>();
 
         TestEvent::setup_event_schedule_within_schedule(&mut world, ASchedule);
+
+        let mut schedules = world.resource_mut::<Schedules>();
+
+        schedules.add_systems(TestEvent::on(), |mut counter: ResMut<ScheduleCounter>| counter.0 += 1);
+
+        world.send_event(TestEvent { i: 1 });
+
+        assert_eq!(world.resource::<ScheduleCounter>().0, 0);
+
+        world.run_schedule(ASchedule);
+
+        assert_eq!(world.resource::<ScheduleCounter>().0, 1);
+    }
+
+    #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
+    struct TestSet;
+
+    #[test]
+    fn type_based_event_scheduler_can_run_systems_in_sub_schedule_with_system_set() {
+        let mut world = World::new();
+        world.init_resource::<Schedules>();
+        world.init_resource::<ScheduleCounter>();
+
+        TestEvent::setup_event_schedule_within_schedule_with_set(&mut world, ASchedule, TestSet);
 
         let mut schedules = world.resource_mut::<Schedules>();
 
