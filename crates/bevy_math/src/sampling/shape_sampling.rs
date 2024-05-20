@@ -250,16 +250,14 @@ impl ShapeSample for Tetrahedron {
     }
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
-        // Filter out degenerate faces, since there are many ways a tetrahedron can degenerate.
-        let triangles: Vec<Triangle3d> = self
-            .faces()
-            .into_iter()
-            .filter(|t| !t.is_degenerate())
-            .collect();
+        let triangles = self.faces();
+        let areas = triangles.iter().map(|t| t.area());
 
-        if !triangles.is_empty() {
-            // Nondegenerate triangles have nonzero area, so this unwrap never fails.
-            let dist = WeightedIndex::new(triangles.iter().map(|t| t.area())).unwrap();
+        if areas.clone().sum::<f32>() > 0.0 {
+            // There is at least one triangle with nonzero area, so this unwrap succeeds.
+            let dist = WeightedIndex::new(areas).unwrap();
+
+            // Get a random index, then sample the interior of the associated triangle.
             let idx = dist.sample(rng);
             triangles[idx].sample_interior(rng)
         } else {
