@@ -5,7 +5,7 @@
 
 use std::f32::consts::FRAC_PI_2;
 
-use crate::{circles::DEFAULT_CIRCLE_RESOLUTION, prelude::{GizmoConfigGroup, Gizmos}};
+use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
 use bevy_math::{Quat, Vec2, Vec3};
 use bevy_transform::components::Transform;
@@ -376,5 +376,5 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     }
 }
 
-const DEFAULT_ARC_RESOLUTION: usize = DEFAULT_CIRCLE_RESOLUTION / 4;
+const DEFAULT_ARC_RESOLUTION: usize = 8;
 const DEFAULT_CORNER_RADIUS: f32 = 0.1;
