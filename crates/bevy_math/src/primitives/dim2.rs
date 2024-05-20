@@ -528,10 +528,18 @@ impl Triangle2d {
     }
 
     /// Reverse the [`WindingOrder`] of the triangle
-    /// by swapping the first and last vertices
+    /// by swapping the first and last vertices.
     #[inline(always)]
     pub fn reverse(&mut self) {
         self.vertices.swap(0, 2);
+    }
+
+    /// This triangle but reversed.
+    #[inline(always)]
+    #[must_use]
+    pub fn reversed(mut self) -> Self {
+        self.reverse;
+        self
     }
 }
 
