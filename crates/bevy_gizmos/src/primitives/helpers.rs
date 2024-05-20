@@ -69,7 +69,7 @@ pub(crate) fn draw_semi_sphere<Config, Clear>(
         .for_each(|from| {
             gizmos
                 .short_arc_3d_between(center, from, top, color)
-                .segments(segments / 2);
+                .resolution(segments / 2);
         });
 }
 

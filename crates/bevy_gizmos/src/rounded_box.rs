@@ -117,7 +117,7 @@ impl<T: GizmoConfigGroup> Drop for RoundedRectBuilder<'_, '_, '_, T> {
         for chunk in vertices.chunks_exact(3) {
             self.gizmos
                 .short_arc_3d_between(chunk[1], chunk[0], chunk[2], config.color)
-                .segments(config.arc_segments);
+                .resolution(config.arc_segments);
         }
 
         let edges = if config.corner_radius > 0. {

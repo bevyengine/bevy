@@ -370,8 +370,8 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Set the number of line-segments for this arc.
-    pub fn segments(mut self, segments: usize) -> Self {
-        self.segments.replace(segments);
+    pub fn resolution(mut self, resolution: usize) -> Self {
+        self.segments.replace(resolution);
         self
     }
 }

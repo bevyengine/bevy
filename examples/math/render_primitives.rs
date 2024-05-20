@@ -623,7 +623,7 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         PrimitiveSelected::CircleAndSphere => drop(
             gizmos
                 .primitive_3d(SPHERE, POSITION, rotation, color)
-                .segments(segments),
+                .resolution(segments),
         ),
         PrimitiveSelected::Ellipse => {}
         PrimitiveSelected::Triangle => {}
@@ -636,17 +636,17 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         PrimitiveSelected::Capsule => drop(
             gizmos
                 .primitive_3d(CAPSULE_3D, POSITION, rotation, color)
-                .segments(segments),
+                .resolution(segments),
         ),
         PrimitiveSelected::Cylinder => drop(
             gizmos
                 .primitive_3d(CYLINDER, POSITION, rotation, color)
-                .segments(segments),
+                .resolution(segments),
         ),
         PrimitiveSelected::Cone => drop(
             gizmos
                 .primitive_3d(CONE, POSITION, rotation, color)
-                .segments(segments),
+                .resolution(segments),
         ),
         PrimitiveSelected::ConicalFrustum => {
             gizmos.primitive_3d(CONICAL_FRUSTUM, POSITION, rotation, color);
@@ -655,8 +655,8 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         PrimitiveSelected::Torus => drop(
             gizmos
                 .primitive_3d(TORUS, POSITION, rotation, color)
-                .minor_segments(segments)
-                .major_segments(segments),
+                .minor_resolution(segments)
+                .major_resolution(segments),
         ),
     }
 }

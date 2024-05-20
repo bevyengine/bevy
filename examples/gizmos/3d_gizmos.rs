@@ -134,7 +134,7 @@ fn draw_example_collection(
             Quat::from_rotation_arc(Vec3::Y, Vec3::ONE.normalize()),
             ORANGE,
         )
-        .segments(10);
+        .resolution(10);
 
     // Circles have 32 line-segments by default.
     my_gizmos.circle(Vec3::ZERO, Dir3::Y, 3., BLACK);
