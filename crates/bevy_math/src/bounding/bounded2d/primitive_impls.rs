@@ -3,7 +3,7 @@
 use crate::{
     primitives::{
         BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, Ellipse, Line2d, Plane2d, Polygon,
-        Polyline2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
+        Polyline2d, Rectangle, RegularPolygon, Rhombus, Segment2d, Triangle2d,
     },
     Dir2, Mat2, Rotation2d, Vec2,
 };
@@ -62,6 +62,38 @@ impl Bounded2d for Ellipse {
         _rotation: impl Into<Rotation2d>,
     ) -> BoundingCircle {
         BoundingCircle::new(translation, self.semi_major())
+    }
+}
+
+impl Bounded2d for Rhombus {
+    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d {
+        let rotation_mat = rotation.into();
+
+        let [a, b, c, d] = [
+            rotation_mat * Vec2::new(self.half_diagonals.x, 0.0) + translation,
+            rotation_mat * Vec2::new(0.0, self.half_diagonals.y) + translation,
+            rotation_mat * Vec2::new(-self.half_diagonals.x, 0.0) + translation,
+            rotation_mat * Vec2::new(0.0, -self.half_diagonals.y) + translation,
+        ];
+
+        let min = Vec2::new(
+            a.x.min(b.x).min(c.x).min(d.x),
+            a.y.min(b.y).min(c.y).min(d.y),
+        );
+        let max = Vec2::new(
+            a.x.max(b.x).max(c.x).max(d.x),
+            a.y.max(b.y).max(c.y).max(d.y),
+        );
+
+        Aabb2d { min, max }
+    }
+
+    fn bounding_circle(
+        &self,
+        translation: Vec2,
+        _rotation: impl Into<Rotation2d>,
+    ) -> BoundingCircle {
+        BoundingCircle::new(translation, self.circumradius())
     }
 }
 
@@ -327,7 +359,7 @@ mod tests {
         bounding::Bounded2d,
         primitives::{
             Capsule2d, Circle, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Rectangle,
-            RegularPolygon, Segment2d, Triangle2d,
+            RegularPolygon, Rhombus, Segment2d, Triangle2d,
         },
         Dir2,
     };
@@ -356,6 +388,20 @@ mod tests {
         assert_eq!(aabb.max, Vec2::new(3.0, 1.5));
 
         let bounding_circle = ellipse.bounding_circle(translation, 0.0);
+        assert_eq!(bounding_circle.center, translation);
+        assert_eq!(bounding_circle.radius(), 1.0);
+    }
+
+    #[test]
+    fn rhombus() {
+        let rhombus = Rhombus::new(2.0, 1.0);
+        let translation = Vec2::new(2.0, 1.0);
+
+        let aabb = rhombus.aabb_2d(translation, std::f32::consts::FRAC_PI_4);
+        assert_eq!(aabb.min, Vec2::new(1.2928932, 0.29289323));
+        assert_eq!(aabb.max, Vec2::new(2.7071068, 1.7071068));
+
+        let bounding_circle = rhombus.bounding_circle(translation, std::f32::consts::FRAC_PI_4);
         assert_eq!(bounding_circle.center, translation);
         assert_eq!(bounding_circle.radius(), 1.0);
     }

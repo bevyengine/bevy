@@ -31,6 +31,14 @@ impl_reflect!(
 impl_reflect!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
     #[type_path = "bevy_math::primitives"]
+    struct Rhombus {
+        half_diagonals: Vec2,
+    }
+);
+
+impl_reflect!(
+    #[reflect(Debug, PartialEq, Serialize, Deserialize)]
+    #[type_path = "bevy_math::primitives"]
     struct Plane2d {
         normal: Dir2,
     }
