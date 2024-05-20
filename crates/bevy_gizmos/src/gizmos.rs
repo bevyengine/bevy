@@ -2,7 +2,7 @@
 
 use std::{iter, marker::PhantomData, mem};
 
-use crate::circles::DEFAULT_CIRCLE_SEGMENTS;
+use crate::circles::DEFAULT_CIRCLE_RESOLUTION;
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
     component::Tick,
@@ -494,7 +494,7 @@ where
             rotation: rotation.normalize(),
             radius,
             color: color.into(),
-            circle_segments: DEFAULT_CIRCLE_SEGMENTS,
+            circle_segments: DEFAULT_CIRCLE_RESOLUTION,
         }
     }
 
@@ -828,7 +828,7 @@ where
         for axis in Dir3::AXES {
             self.gizmos
                 .circle(self.position, self.rotation * axis, self.radius, self.color)
-                .segments(self.circle_segments);
+                .resolution(self.circle_segments);
         }
     }
 }

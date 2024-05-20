@@ -3,7 +3,7 @@
 //! Includes the implementation of [`Gizmos::arc_2d`],
 //! and assorted support items.
 
-use crate::circles::DEFAULT_CIRCLE_SEGMENTS;
+use crate::circles::DEFAULT_CIRCLE_RESOLUTION;
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
 use bevy_math::{Quat, Vec2, Vec3};
@@ -428,5 +428,5 @@ fn arc_3d_inner(
 
 // helper function for getting a default value for the resolution parameter
 fn resolution_from_angle(angle: f32) -> usize {
-    ((angle.abs() / TAU) * DEFAULT_CIRCLE_SEGMENTS as f32).ceil() as usize
+    ((angle.abs() / TAU) * DEFAULT_CIRCLE_RESOLUTION as f32).ceil() as usize
 }

@@ -12,7 +12,7 @@ use bevy_math::{Dir3, Quat, Vec3};
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 
-const DEFAULT_NUMBER_SEGMENTS: usize = 5;
+const DEFAULT_RESOLUTION: usize = 5;
 // length used to simulate infinite lines
 const INFINITE_LEN: f32 = 10_000.0;
 
@@ -110,7 +110,7 @@ where
             position,
             rotation,
             color: color.into(),
-            resolution: DEFAULT_NUMBER_SEGMENTS,
+            resolution: DEFAULT_RESOLUTION,
         }
     }
 }
@@ -525,7 +525,7 @@ where
             position,
             rotation,
             color: color.into(),
-            resolution: DEFAULT_NUMBER_SEGMENTS,
+            resolution: DEFAULT_RESOLUTION,
         }
     }
 }
@@ -638,7 +638,7 @@ where
             position,
             rotation,
             color: color.into(),
-            resolution: DEFAULT_NUMBER_SEGMENTS,
+            resolution: DEFAULT_RESOLUTION,
         }
     }
 }
@@ -769,8 +769,8 @@ where
             position,
             rotation,
             color: color.into(),
-            base_resolution: DEFAULT_NUMBER_SEGMENTS,
-            height_resolution: DEFAULT_NUMBER_SEGMENTS,
+            base_resolution: DEFAULT_RESOLUTION,
+            height_resolution: DEFAULT_RESOLUTION,
         }
     }
 }
@@ -884,7 +884,7 @@ where
             position,
             rotation,
             color: color.into(),
-            resolution: DEFAULT_NUMBER_SEGMENTS,
+            resolution: DEFAULT_RESOLUTION,
         }
     }
 }
@@ -1011,8 +1011,8 @@ where
             position,
             rotation,
             color: color.into(),
-            minor_resolution: DEFAULT_NUMBER_SEGMENTS,
-            major_resolution: DEFAULT_NUMBER_SEGMENTS,
+            minor_resolution: DEFAULT_RESOLUTION,
+            major_resolution: DEFAULT_RESOLUTION,
         }
     }
 }
