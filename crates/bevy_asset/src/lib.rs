@@ -511,7 +511,9 @@ mod tests {
             let mut embedded = String::new();
             for dep in ron.embedded_dependencies {
                 let loaded = load_context
-                    .load_direct::<CoolText>(&dep)
+                    .loader()
+                    .direct()
+                    .load::<CoolText>(&dep)
                     .await
                     .map_err(|_| Self::Error::CannotLoadDependency {
                         dependency: dep.into(),
@@ -525,7 +527,7 @@ mod tests {
                 dependencies: ron
                     .dependencies
                     .iter()
-                    .map(|p| load_context.load(p))
+                    .map(|p| load_context.loader().load(p))
                     .collect(),
                 sub_texts: ron
                     .sub_texts

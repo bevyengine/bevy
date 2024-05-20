@@ -342,12 +342,13 @@ async fn load_gltf<'a, 'b, 'c>(
                 path,
                 is_srgb,
                 sampler_descriptor,
-            } => {
-                load_context.load_with_settings(path, move |settings: &mut ImageLoaderSettings| {
+            } => load_context
+                .loader()
+                .with_settings(move |settings: &mut ImageLoaderSettings| {
                     settings.is_srgb = is_srgb;
                     settings.sampler = ImageSampler::Descriptor(sampler_descriptor.clone());
                 })
-            }
+                .load(path),
         };
         handles.push(handle);
     }
@@ -1475,7 +1476,7 @@ fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Ha
             } else {
                 let parent = load_context.path().parent().unwrap();
                 let image_path = parent.join(uri);
-                load_context.load(image_path)
+                load_context.loader().load(image_path)
             }
         }
     }

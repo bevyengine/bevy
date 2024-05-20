@@ -358,7 +358,7 @@ impl AssetLoader for AnimationGraphAssetLoader {
                     clip: serialized_node.clip.as_ref().map(|clip| match clip {
                         SerializedAnimationClip::AssetId(asset_id) => Handle::Weak(*asset_id),
                         SerializedAnimationClip::AssetPath(asset_path) => {
-                            load_context.load(asset_path)
+                            load_context.loader().load(asset_path)
                         }
                     }),
                     weight: serialized_node.weight,
