@@ -614,7 +614,7 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         .unwrap_or(Vec3::Z),
     );
     let color = Color::WHITE;
-    let segments = 10;
+    let resolution = 10;
 
     match state.get() {
         PrimitiveSelected::RectangleAndCuboid => {
@@ -623,7 +623,7 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         PrimitiveSelected::CircleAndSphere => drop(
             gizmos
                 .primitive_3d(SPHERE, POSITION, rotation, color)
-                .resolution(segments),
+                .resolution(resolution),
         ),
         PrimitiveSelected::Ellipse => {}
         PrimitiveSelected::Triangle => {}
@@ -636,17 +636,17 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         PrimitiveSelected::Capsule => drop(
             gizmos
                 .primitive_3d(CAPSULE_3D, POSITION, rotation, color)
-                .resolution(segments),
+                .resolution(resolution),
         ),
         PrimitiveSelected::Cylinder => drop(
             gizmos
                 .primitive_3d(CYLINDER, POSITION, rotation, color)
-                .resolution(segments),
+                .resolution(resolution),
         ),
         PrimitiveSelected::Cone => drop(
             gizmos
                 .primitive_3d(CONE, POSITION, rotation, color)
-                .resolution(segments),
+                .resolution(resolution),
         ),
         PrimitiveSelected::ConicalFrustum => {
             gizmos.primitive_3d(CONICAL_FRUSTUM, POSITION, rotation, color);
@@ -655,8 +655,8 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         PrimitiveSelected::Torus => drop(
             gizmos
                 .primitive_3d(TORUS, POSITION, rotation, color)
-                .minor_resolution(segments)
-                .major_resolution(segments),
+                .minor_resolution(resolution)
+                .major_resolution(resolution),
         ),
     }
 }

@@ -87,7 +87,7 @@ fn draw_example_collection(
         YELLOW_GREEN,
     );
 
-    // Arcs default amount of segments is linearly interpolated between
+    // Arcs default resolution is linearly interpolated between
     // 1 and 32, using the arc length as scalar.
     my_gizmos.arc_2d(Vec2::ZERO, sin / 10., PI / 2., 310., ORANGE_RED);
 
