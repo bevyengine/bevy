@@ -2,7 +2,7 @@ use bevy_math::{primitives::Plane3d, Dir3, Quat, Vec2, Vec3};
 use wgpu::PrimitiveTopology;
 
 use crate::{
-    mesh::{Indices, Mesh, Meshable},
+    mesh::{Indices, Mesh, MeshBuilder, Meshable},
     render_asset::RenderAssetUsages,
 };
 
@@ -65,9 +65,10 @@ impl PlaneMeshBuilder {
         self.plane.half_size = Vec2::new(width, height) / 2.0;
         self
     }
+}
 
-    /// Builds a [`Mesh`] based on the configuration in `self`.
-    pub fn build(&self) -> Mesh {
+impl MeshBuilder for PlaneMeshBuilder {
+    fn build(&self) -> Mesh {
         let rotation = Quat::from_rotation_arc(Vec3::Y, *self.plane.normal);
         let positions = vec![
             rotation * Vec3::new(self.plane.half_size.x, 0.0, -self.plane.half_size.y),
@@ -102,11 +103,5 @@ impl Meshable for Plane3d {
 impl From<Plane3d> for Mesh {
     fn from(plane: Plane3d) -> Self {
         plane.mesh().build()
-    }
-}
-
-impl From<PlaneMeshBuilder> for Mesh {
-    fn from(plane: PlaneMeshBuilder) -> Self {
-        plane.build()
     }
 }
