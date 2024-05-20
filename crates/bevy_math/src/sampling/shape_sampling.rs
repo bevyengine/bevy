@@ -215,6 +215,58 @@ impl ShapeSample for Triangle3d {
     }
 }
 
+impl ShapeSample for Tetrahedron {
+    type Output = Vec3;
+
+    fn sample_interior<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
+        // See: https://vcg.isti.cnr.it/activities/OLD/geometryegraphics/pointintetraedro.html
+
+        let [v0, v1, v2, v3] = self.vertices;
+
+        // Form a cube in parameter space to make barycentric coordinates later:
+        let mut u = rng.gen_range(0.0..=1.0);
+        let mut v = rng.gen_range(0.0..=1.0);
+        let mut w = rng.gen_range(0.0..=1.0);
+
+        // Reflect into lower triangular prism inside of cube in parameter space:
+        if u + v > 1. {
+            (u, v) = (1. - u, 1. - v);
+        }
+
+        // Now, cut that prism into three tetrahedra, folding in the two cut out by the planes
+        // v + w = 1 and u + v + w = 1 (note both branches satisfy u + v + w > 1)
+        if v + w > 1. {
+            (v, w) = (1. - w, 1. - u - v);
+        } else if u + v + w > 1. {
+            (u, w) = (1. - v - w, u + v + w - 1.);
+        }
+
+        // Complete this to barycentric coordinates:
+        let a = 1. - u - v - w;
+        v0 * a + v1 * u + v2 * v + v3 * w
+    }
+
+    fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
+        // Filter out degenerate faces, since there are many ways a tetrahedron can degenerate.
+        let triangles: Vec<Triangle3d> = self
+            .faces()
+            .into_iter()
+            .filter(|t| !t.is_degenerate())
+            .collect();
+
+        if !triangles.is_empty() {
+            // Nondegenerate triangles have nonzero area, so this unwrap never fails.
+            let dist = WeightedIndex::new(triangles.iter().map(|t| t.area())).unwrap();
+            let idx = dist.sample(rng);
+            triangles[idx].sample_interior(rng)
+        } else {
+            // In this branch the triangle has zero surface area; just return a point that's on
+            // the tetrahedron.
+            self.vertices[0]
+        }
+    }
+}
+
 impl ShapeSample for Cylinder {
     type Output = Vec3;
 
