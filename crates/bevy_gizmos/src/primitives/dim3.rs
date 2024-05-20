@@ -149,7 +149,14 @@ where
         });
 
         // draws one great circle of the sphere
-        draw_circle_3d(self.gizmos, *radius, *resolution, *rotation, *center, *color);
+        draw_circle_3d(
+            self.gizmos,
+            *radius,
+            *resolution,
+            *rotation,
+            *center,
+            *color,
+        );
     }
 }
 
