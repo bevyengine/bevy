@@ -4,7 +4,6 @@ use crate::{derive_data::ReflectEnum, utility::ident_or_index};
 use bevy_macro_utils::fq_std::{FQDefault, FQOption};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
-use syn::Member;
 
 pub(crate) struct EnumVariantOutputData {
     /// The names of each variant as a string.
@@ -19,8 +18,10 @@ pub(crate) struct EnumVariantOutputData {
 
 #[derive(Copy, Clone)]
 pub(crate) struct VariantField<'a, 'b> {
-    /// The pre-computed member for the field.
-    pub member: &'a Member,
+    /// The alias for the field.
+    ///
+    /// This should be used whenever the field needs to be referenced in a token stream.
+    pub alias: &'a Ident,
     /// The name of the variant that contains the field.
     pub variant_name: &'a str,
     /// The field data.
@@ -38,17 +39,17 @@ pub(crate) trait VariantBuilder: Sized {
     /// which gets the field dynamically so as to support `dyn Enum`.
     ///
     /// # Parameters
-    /// * `ident`: The identifier of the enum
+    /// * `this`: The identifier of the enum
     /// * `field`: The field to access
-    fn access_field(&self, ident: &Ident, field: VariantField) -> TokenStream {
+    fn access_field(&self, this: &Ident, field: VariantField) -> TokenStream {
         match &field.field.data.ident {
             Some(field_ident) => {
                 let name = field_ident.to_string();
-                quote!(#ident.field(#name))
+                quote!(#this.field(#name))
             }
             None => {
                 if let Some(field_index) = field.field.reflection_index {
-                    quote!(#ident.field_at(#field_index))
+                    quote!(#this.field_at(#field_index))
                 } else {
                     quote!(::core::compile_error!(
                         "internal bevy_reflect error: field should be active"
@@ -62,51 +63,49 @@ pub(crate) trait VariantBuilder: Sized {
     /// (from an `Option<dyn Reflect>`).
     ///
     /// # Parameters
-    /// * `ident`: The identifier of the enum
     /// * `field`: The field to access
-    fn unwrap_field(&self, ident: &Ident, field: VariantField) -> TokenStream;
+    fn unwrap_field(&self, field: VariantField) -> TokenStream;
 
     /// Returns a token stream that constructs a field of a variant as a concrete type
     /// (from a `&dyn Reflect`).
     ///
     /// # Parameters
-    /// * `ident`: The identifier of the enum
     /// * `field`: The field to access
-    fn construct_field(&self, ident: &Ident, field: VariantField) -> TokenStream;
+    fn construct_field(&self, field: VariantField) -> TokenStream;
 
     /// Returns a token stream that constructs an instance of an active field.
     ///
     /// # Parameters
-    /// * `ident`: The identifier of the enum
+    /// * `this`: The identifier of the enum
     /// * `field`: The field to access
-    fn on_active_field(&self, ident: &Ident, field: VariantField) -> TokenStream {
-        let field_accessor = self.access_field(ident, field);
+    fn on_active_field(&self, this: &Ident, field: VariantField) -> TokenStream {
+        let field_accessor = self.access_field(this, field);
 
-        let field_ident = format_ident!("__field");
-        let field_constructor = self.construct_field(&field_ident, field);
+        let alias = field.alias;
+        let field_constructor = self.construct_field(field);
 
         match &field.field.attrs.default {
             DefaultBehavior::Func(path) => quote! {
-                if let #FQOption::Some(#field_ident) = #field_accessor {
+                if let #FQOption::Some(#alias) = #field_accessor {
                     #field_constructor
                 } else {
                     #path()
                 }
             },
             DefaultBehavior::Default => quote! {
-                if let #FQOption::Some(#field_ident) = #field_accessor {
+                if let #FQOption::Some(#alias) = #field_accessor {
                     #field_constructor
                 } else {
                     #FQDefault::default()
                 }
             },
             DefaultBehavior::Required => {
-                let field_unwrapper = self.unwrap_field(&field_ident, field);
+                let field_unwrapper = self.unwrap_field(field);
 
                 quote! {{
-                    // `#field_ident` is used by both the unwrapper and constructor
-                    let #field_ident = #field_accessor;
-                    let #field_ident = #field_unwrapper;
+                    // `#alias` is used by both the unwrapper and constructor
+                    let #alias = #field_accessor;
+                    let #alias = #field_unwrapper;
                     #field_constructor
                 }}
             }
@@ -116,7 +115,6 @@ pub(crate) trait VariantBuilder: Sized {
     /// Returns a token stream that constructs an instance of an ignored field.
     ///
     /// # Parameters
-    /// * `ident`: The identifier of the enum
     /// * `field`: The field to access
     fn on_ignored_field(&self, field: VariantField) -> TokenStream {
         match &field.field.attrs.default {
@@ -141,9 +139,10 @@ pub(crate) trait VariantBuilder: Sized {
 
             let field_constructors = fields.iter().map(|field| {
                 let member = ident_or_index(field.data.ident.as_ref(), field.declaration_index);
+                let alias = format_ident!("_{}", member);
 
                 let variant_field = VariantField {
-                    member: &member,
+                    alias: &alias,
                     variant_name: &variant_name,
                     field,
                 };
@@ -194,16 +193,18 @@ impl<'a> VariantBuilder for FromReflectVariantBuilder<'a> {
         self.reflect_enum
     }
 
-    fn unwrap_field(&self, ident: &Ident, _field: VariantField) -> TokenStream {
-        quote!(#ident?)
+    fn unwrap_field(&self, field: VariantField) -> TokenStream {
+        let alias = field.alias;
+        quote!(#alias?)
     }
 
-    fn construct_field(&self, ident: &Ident, field: VariantField) -> TokenStream {
+    fn construct_field(&self, field: VariantField) -> TokenStream {
         let bevy_reflect_path = self.reflect_enum.meta().bevy_reflect_path();
         let field_ty = &field.field.data.ty;
+        let alias = field.alias;
 
         quote! {
-            <#field_ty as #bevy_reflect_path::FromReflect>::from_reflect(#ident)?
+            <#field_ty as #bevy_reflect_path::FromReflect>::from_reflect(#alias)?
         }
     }
 }
@@ -224,37 +225,39 @@ impl<'a> VariantBuilder for TryApplyVariantBuilder<'a> {
         self.reflect_enum
     }
 
-    fn unwrap_field(&self, ident: &Ident, field: VariantField) -> TokenStream {
+    fn unwrap_field(&self, field: VariantField) -> TokenStream {
         let VariantField {
-            member,
+            alias,
             variant_name,
+            field,
             ..
         } = field;
 
         let bevy_reflect_path = self.reflect_enum.meta().bevy_reflect_path();
 
-        let field_name = match member {
-            Member::Named(member_ident) => format!("{member_ident}"),
-            Member::Unnamed(member_index) => format!(".{}", member_index.index),
+        let field_name = match &field.data.ident {
+            Some(ident) => format!("{ident}"),
+            None => format!(".{}", field.declaration_index),
         };
 
         quote! {
-            #ident.ok_or(#bevy_reflect_path::ApplyError::MissingEnumField {
+            #alias.ok_or(#bevy_reflect_path::ApplyError::MissingEnumField {
                 variant_name: ::core::convert::Into::into(#variant_name),
                 field_name: ::core::convert::Into::into(#field_name)
             })?
         }
     }
 
-    fn construct_field(&self, ident: &Ident, field: VariantField) -> TokenStream {
+    fn construct_field(&self, field: VariantField) -> TokenStream {
         let bevy_reflect_path = self.reflect_enum.meta().bevy_reflect_path();
+        let alias = field.alias;
         let field_ty = &field.field.data.ty;
 
         quote! {
-            <#field_ty as #bevy_reflect_path::FromReflect>::from_reflect(#ident)
+            <#field_ty as #bevy_reflect_path::FromReflect>::from_reflect(#alias)
                 .ok_or(#bevy_reflect_path::ApplyError::MismatchedTypes {
                     from_type: ::core::convert::Into::into(
-                        #bevy_reflect_path::DynamicTypePath::reflect_type_path(#ident)
+                        #bevy_reflect_path::DynamicTypePath::reflect_type_path(#alias)
                     ),
                     to_type: ::core::convert::Into::into(<#field_ty as #bevy_reflect_path::TypePath>::type_path())
                 })?
