@@ -2,7 +2,7 @@ use crate::{
     component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick, TickCells},
     entity::Entity,
     query::DebugCheckedUnwrap,
-    storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
+    storage::{blob_vec::BlobVec, SparseSet},
 };
 use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
 use bevy_utils::HashMap;
@@ -513,7 +513,8 @@ impl Column {
 /// [`add_column`]: Self::add_column
 /// [`build`]: Self::build
 pub(crate) struct TableBuilder {
-    columns: SparseSet<ComponentId, Column>,
+    columns: Vec<Column>,
+    index_map: Vec<ComponentId>,
     capacity: usize,
 }
 
@@ -522,29 +523,30 @@ impl TableBuilder {
     /// with the capacity to hold `capacity` entities worth of components each.
     pub fn with_capacity(capacity: usize, column_capacity: usize) -> Self {
         Self {
-            columns: SparseSet::with_capacity(column_capacity),
+            columns: Vec::with_capacity(column_capacity),
+            index_map: Vec::with_capacity(column_capacity),
             capacity,
         }
     }
 
     #[must_use]
     pub fn add_column(mut self, component_info: &ComponentInfo) -> Self {
-        self.columns.insert(
-            component_info.id(),
-            Column::with_capacity(component_info, self.capacity),
-        );
+        self.columns.push(Column::with_capacity(component_info, self.capacity));
+        self.index_map.push(component_info.id());
         self
     }
 
     #[must_use]
     pub fn build(self) -> Table {
         Table {
-            columns: self.columns.into_immutable(),
+            columns: self.columns,
             entities: Vec::with_capacity(self.capacity),
+            index_map: self.index_map,
         }
     }
 }
 
+// TODO: DOCS
 /// A column-oriented [structure-of-arrays] based storage for [`Component`]s of entities
 /// in a [`World`].
 ///
@@ -558,8 +560,10 @@ impl TableBuilder {
 /// [`Component`]: crate::component::Component
 /// [`World`]: crate::world::World
 pub struct Table {
-    columns: ImmutableSparseSet<ComponentId, Column>,
+    columns: Vec<Column>,
     entities: Vec<Entity>,
+    /// `index_map[i]` is the [`ComponentId`] of the [`Column`] at index `i`
+    index_map: Vec<ComponentId>,
 }
 
 impl Table {
@@ -575,7 +579,7 @@ impl Table {
     /// # Safety
     /// `row` must be in-bounds
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) -> Option<Entity> {
-        for column in self.columns.values_mut() {
+        for mut column in self.columns {
             column.swap_remove_unchecked(row);
         }
         let is_last = row.as_usize() == self.entities.len() - 1;
@@ -603,8 +607,10 @@ impl Table {
         debug_assert!(row.as_usize() < self.entity_count());
         let is_last = row.as_usize() == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
-        for (component_id, column) in self.columns.iter_mut() {
-            if let Some(new_column) = new_table.get_column_mut(*component_id) {
+        for (column_idx, column) in self.columns.iter_mut().enumerate() {
+            // SAFETY: `self.index_map` is always the same size as `self.columns`
+            let component_id = self.index_map[column_idx];
+            if let Some(new_column) = new_table.get_column_mut(component_id) {
                 new_column.initialize_from_unchecked(column, row, new_row);
             } else {
                 // It's the caller's responsibility to drop these cases.
@@ -635,7 +641,9 @@ impl Table {
         debug_assert!(row.as_usize() < self.entity_count());
         let is_last = row.as_usize() == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
-        for (component_id, column) in self.columns.iter_mut() {
+        for (column_idx, column) in self.columns.iter_mut().enumerate() {
+            // SAFETY: `self.index_map` is always the same size as `self.columns`
+            let component_id = self.index_map[column_idx];
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
                 new_column.initialize_from_unchecked(column, row, new_row);
             } else {
@@ -666,7 +674,9 @@ impl Table {
         debug_assert!(row.as_usize() < self.entity_count());
         let is_last = row.as_usize() == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
-        for (component_id, column) in self.columns.iter_mut() {
+        for (column_idx, column) in self.columns.iter_mut().enumerate() {
+            // SAFETY: `self.index_map` is always the same size as `self.columns`
+            let component_id = self.index_map[column_idx];
             new_table
                 .get_column_mut(*component_id)
                 .debug_checked_unwrap()
@@ -704,6 +714,7 @@ impl Table {
         self.columns.get_mut(component_id)
     }
 
+    // TODO: use Archetypes instead?
     /// Checks if the table contains a [`Column`] for a given [`Component`].
     ///
     /// Returns `true` if the column is present, `false` otherwise.

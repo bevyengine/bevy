@@ -667,7 +667,16 @@ impl SparseSetIndex for ArchetypeComponentId {
 pub struct Archetypes {
     pub(crate) archetypes: Vec<Archetype>,
     archetype_component_count: usize,
+    /// find the archetype id by the components
     by_components: bevy_utils::HashMap<ArchetypeComponents, ArchetypeId>,
+    /// find all the archetypes that contain a component
+    by_component: bevy_utils::HashMap<ComponentId, bevy_utils::HashMap<ArchetypeId, ArchetypeRecord>>,
+}
+
+/// Metadata about how a component is stored in an [`Archetype`].
+pub struct ArchetypeRecord {
+    /// Index of the component in the archetype's [`Table`](crate::
+    pub(crate) column: usize,
 }
 
 impl Archetypes {
@@ -675,6 +684,7 @@ impl Archetypes {
         let mut archetypes = Archetypes {
             archetypes: Vec::new(),
             by_components: Default::default(),
+            by_component: Default::default(),
             archetype_component_count: 0,
         };
         // SAFETY: Empty archetype has no components
@@ -716,7 +726,7 @@ impl Archetypes {
         unsafe { self.archetypes.get_unchecked(ArchetypeId::EMPTY.index()) }
     }
 
-    /// Fetches an mutable reference to the archetype without any components.
+    /// Fetches a mutable reference to the archetype without any components.
     #[inline]
     pub(crate) fn empty_mut(&mut self) -> &mut Archetype {
         // SAFETY: empty archetype always exists
@@ -793,7 +803,7 @@ impl Archetypes {
 
         let archetypes = &mut self.archetypes;
         let archetype_component_count = &mut self.archetype_component_count;
-        *self
+        let archetype_id = *self
             .by_components
             .entry(archetype_identity)
             .or_insert_with(move || {
@@ -816,7 +826,14 @@ impl Archetypes {
                         .zip(sparse_set_archetype_components),
                 ));
                 id
-            })
+            });
+        table_components.iter().chain(sparse_set_components.iter()).for_each(|component_id| {
+            self.by_component
+                .entry(*component_id)
+                .or_insert_with(bevy_utils::HashSet::new)
+                .insert(archetype_id);
+        });
+        archetype_id
     }
 
     /// Returns the number of components that are stored in archetypes.
