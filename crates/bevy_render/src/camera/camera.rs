@@ -989,7 +989,9 @@ pub fn sort_cameras(
             }
         }
         if let Some(target) = &sorted_camera.target {
-            let count = target_counts.entry((target.clone(), sorted_camera.hdr)).or_insert(0usize);
+            let count = target_counts
+                .entry((target.clone(), sorted_camera.hdr))
+                .or_insert(0usize);
             let (_, mut camera) = cameras.get_mut(sorted_camera.entity).unwrap();
             camera.sorted_camera_index_for_target = *count;
             *count += 1;
