@@ -15,6 +15,7 @@ use bevy_utils::tracing::warn;
 use bevy_utils::tracing::Span;
 use fixedbitset::FixedBitSet;
 use std::{borrow::Borrow, fmt, mem::MaybeUninit, ptr};
+use bevy_utils::HashSet;
 
 use super::{
     NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,
@@ -150,7 +151,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
         let mut state = Self::new_uninitialized(world);
-        state.update_archetypes(world);
+        state.initialize_state(world, |state, archetype| {
+            // SAFETY: The state was just initialized from the `world` above, and the archetypes being added
+            // come directly from the same world.
+            unsafe {
+                state.new_archetype_internal(archetype);
+            }
+        });
         state
     }
 
@@ -160,7 +167,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         access: &mut Access<ArchetypeComponentId>,
     ) -> Self {
         let mut state = Self::new_uninitialized(world);
-        for archetype in world.archetypes.iter() {
+        state.initialize_state(world, |state, archetype| {
             // SAFETY: The state was just initialized from the `world` above, and the archetypes being added
             // come directly from the same world.
             unsafe {
@@ -168,9 +175,32 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     state.update_archetype_component_access(archetype, access);
                 }
             }
-        }
-        state.archetype_generation = world.archetypes.generation();
+        });
         state
+    }
+
+    fn initialize_state(&mut self, world: &mut World, mut f: impl FnMut(&mut Self, &Archetype)) {
+        if self.component_access.access().has_read_all() || self.component_access().access().has_write_all() {
+            for archetype in world.archetypes.iter() {
+                f(self, archetype);
+            }
+        } else {
+            // else, use the `ComponentIndex` to only iterate through the archetypes that match the query
+            let archetypes = world.archetypes();
+            let unique_archetypes: HashSet<&ArchetypeId> = self
+                .component_access()
+                .access()
+                .reads_and_writes()
+                .filter_map(|component_id| {
+                    archetypes.component_index().get(&component_id).map(|index| {
+                        index.keys()
+                    })
+                }).flatten().collect();
+            unique_archetypes.iter().filter_map(|archetype_id| archetypes.get(**archetype_id)).for_each(|archetype| {
+                f(self, archetype);
+            });
+        }
+        self.archetype_generation = world.archetypes.generation();
     }
 
     /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
@@ -213,7 +243,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// Creates a new [`QueryState`] from a given [`QueryBuilder`] and inherits its [`FilteredAccess`].
-    pub fn from_builder(builder: &mut QueryBuilder<D, F>) -> Self {
+    pub fn from_builder(builder: &mut QueryBuilder<D, F>) -> Self{
         let mut fetch_state = D::init_state(builder.world_mut());
         let filter_state = F::init_state(builder.world_mut());
         D::set_access(&mut fetch_state, builder.access());
@@ -234,6 +264,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 filter = std::any::type_name::<F>(),
             ),
         };
+        // TODO: use initialize_state?
         state.update_archetypes(builder.world());
         state
     }
@@ -1529,7 +1560,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn single<'w>(&mut self, world: &'w World) -> ROQueryItem<'w, D> {
         match self.get_single(world) {
             Ok(items) => items,
-            Err(error) => panic!("Cannot get single mutable query result: {error}"),
+            Err(error) => panic!("Cannot get single query result: {error}"),
         }
     }
 

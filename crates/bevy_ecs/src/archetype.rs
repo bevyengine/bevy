@@ -869,6 +869,11 @@ impl Archetypes {
             archetype.clear_entities();
         }
     }
+
+    /// Get the component index
+    pub(crate) fn component_index(&self) -> &ComponentIndex {
+        &self.by_component
+    }
 }
 
 impl Index<RangeFrom<ArchetypeGeneration>> for Archetypes {
