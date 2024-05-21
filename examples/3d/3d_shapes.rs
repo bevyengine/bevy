@@ -24,7 +24,8 @@ fn main() {
 #[derive(Component)]
 struct Shape;
 
-const X_EXTENT: f32 = 15.0;
+const X_EXTENT: f32 = 12.0;
+const Z_EXTENT: f32 = 5.0;
 
 fn setup(
     mut commands: Commands,
@@ -45,8 +46,16 @@ fn setup(
         meshes.add(Cone::default()),
         meshes.add(Sphere::default().mesh().ico(5).unwrap()),
         meshes.add(Sphere::default().mesh().uv(32, 18)),
+    ];
+
+    let extrusions = [
+        meshes.add(Extrusion::new(Rectangle::default(), 1.)),
+        meshes.add(Extrusion::new(Capsule2d::default(), 1.)),
+        meshes.add(Extrusion::new(Annulus::default(), 1.)),
         meshes.add(Extrusion::new(Circle::default(), 1.)),
-        meshes.add(Sphere::default().mesh().uv(32, 18)),
+        meshes.add(Extrusion::new(Ellipse::default(), 1.)),
+        meshes.add(Extrusion::new(RegularPolygon::default(), 1.)),
+        meshes.add(Extrusion::new(Triangle2d::default(), 1.)),
     ];
 
     let num_shapes = shapes.len();
@@ -59,7 +68,23 @@ fn setup(
                 transform: Transform::from_xyz(
                     -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT,
                     2.0,
-                    0.0,
+                    Z_EXTENT / 2.,
+                )
+                .with_rotation(Quat::from_rotation_x(-PI / 4.)),
+                ..default()
+            },
+            Shape,
+        ));
+    }
+    for (i, shape) in extrusions.into_iter().enumerate() {
+        commands.spawn((
+            PbrBundle {
+                mesh: shape,
+                material: debug_material.clone(),
+                transform: Transform::from_xyz(
+                    -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT,
+                    2.0,
+                    -Z_EXTENT / 2.,
                 )
                 .with_rotation(Quat::from_rotation_x(-PI / 4.)),
                 ..default()
