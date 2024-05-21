@@ -1,4 +1,4 @@
-//! Loads and renders a glTF file as a scene, and shows all the different gltf_extras.
+//! Loads and renders a glTF file as a scene, and shows all the different `gltf_extras`.
 
 use bevy::{
     gltf::{GltfExtras, GltfMaterialExtras, GltfMeshExtras, GltfSceneExtras},
@@ -62,28 +62,27 @@ fn check_for_gltf_extras(
         println!(
             "primitive extra for {:?} : {:?} (id: {})",
             extra.1, extra.2, extra.0
-        )
+        );
     }
 
     for extra in gltf_scene_extras_query.iter() {
         println!(
             "scene extra for {:?} : {:?} (id: {})",
             extra.1, extra.2, extra.0
-        )
+        );
     }
 
     for extra in gltf_mesh_extras_query.iter() {
         println!(
             "mesh extra for {:?} : {:?} (id: {})",
             extra.1, extra.2, extra.0
-        )
+        );
     }
 
     for extra in gltf_material_extras_query.iter() {
         println!(
             "material extra for {:?} : {:?} (id: {})",
             extra.1, extra.2, extra.0
-        )
+        );
     }
-    println!("")
 }
