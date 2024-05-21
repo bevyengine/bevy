@@ -254,11 +254,7 @@ impl GpuAllocationClass {
     /// This exists because copies in `wgpu` must begin and end on 4-byte
     /// boundaries, so we have to pad out allocations appropriately.
     fn aligned_unit_size(&self) -> u32 {
-        let mut unit_size = self.unit_size();
-        if unit_size % 4 != 0 {
-            unit_size += 4 - unit_size % 4;
-        }
-        unit_size
+        self.unit_size().next_multiple_of(4)
     }
 }
 
@@ -339,17 +335,18 @@ impl GpuAllocator {
         // necessary. (It's unfortunate that we incur a copy in that case…)
         let buffer = &self.slabs[&allocation.slab_id];
         let byte_offset = allocation.offset() as u64 * class.unit_size() as u64;
-        if contents.len() % 4 == 0 {
-            render_queue.write_buffer(buffer, byte_offset, contents);
-        } else {
-            let contents = contents
-                .iter()
-                .copied()
-                .chain(iter::repeat(0).take(4 - (contents.len() % 4)))
-                .collect::<Vec<_>>();
+        match contents.len() % 4 {
+            0 => render_queue.write_buffer(buffer, byte_offset, contents),
+            remainder => {
+                let contents = contents
+                    .iter()
+                    .copied()
+                    .chain(iter::repeat(0).take(4 - remainder))
+                    .collect::<Vec<_>>();
 
-            render_queue.write_buffer(buffer, byte_offset, &contents);
-        };
+                render_queue.write_buffer(buffer, byte_offset, &contents);
+            }
+        }
 
         allocation
     }
@@ -375,7 +372,7 @@ impl GpuAllocator {
         let mut slab_id = None;
         for slab_index in 0..class_allocator_data.free_large_slabs.len() {
             if self.slabs[&class_allocator_data.free_large_slabs[slab_index]].size()
-                >= contents.len() as u64 * 4
+                >= contents.len() as u64
             {
                 slab_id = Some(
                     class_allocator_data
