@@ -288,17 +288,17 @@ impl Rect {
     /// ```
     /// # use bevy_math::{Rect, Vec2};
     /// let r = Rect::new(0., 0., 5., 1.); // w=5 h=1
-    /// let r2 = r.inset(3.); // w=11 h=7
+    /// let r2 = r.inflate(3.); // w=11 h=7
     /// assert!(r2.min.abs_diff_eq(Vec2::splat(-3.), 1e-5));
     /// assert!(r2.max.abs_diff_eq(Vec2::new(8., 4.), 1e-5));
     ///
     /// let r = Rect::new(0., -1., 6., 7.); // w=6 h=8
-    /// let r2 = r.inset(-2.); // w=11 h=7
+    /// let r2 = r.inflate(-2.); // w=11 h=7
     /// assert!(r2.min.abs_diff_eq(Vec2::new(2., 1.), 1e-5));
     /// assert!(r2.max.abs_diff_eq(Vec2::new(4., 5.), 1e-5));
     /// ```
     #[inline]
-    pub fn inset(&self, inset: f32) -> Self {
+    pub fn inflate(&self, inset: f32) -> Self {
         let mut r = Self {
             min: self.min - inset,
             max: self.max + inset,
@@ -463,7 +463,7 @@ mod tests {
     fn rect_inset() {
         let r = Rect::from_center_size(Vec2::ZERO, Vec2::ONE); // [-0.5,-0.5] - [0.5,0.5]
 
-        let r2 = r.inset(0.3);
+        let r2 = r.inflate(0.3);
         assert!(r2.min.abs_diff_eq(Vec2::new(-0.8, -0.8), 1e-5));
         assert!(r2.max.abs_diff_eq(Vec2::new(0.8, 0.8), 1e-5));
     }
