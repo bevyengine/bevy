@@ -283,11 +283,11 @@ impl Rect {
         r
     }
 
-    /// Create a new rectangle with a constant inset.
+    /// Create a new rectangle by expanding it evenly on all sides.
     ///
-    /// The inset is the extra border on all sides. A positive inset produces a larger rectangle,
-    /// while a negative inset is allowed and produces a smaller rectangle. If the inset is negative
-    /// and its absolute value is larger than the rectangle half-size, the created rectangle is empty.
+    /// A positive expansion value produces a larger rectangle,
+    /// while a negative expansion value produces a smaller rectangle.
+    /// If this would result in zero or negative width or height, [`Rect::EMPTY`] is returned instead.
     ///
     /// # Examples
     ///
