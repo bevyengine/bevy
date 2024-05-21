@@ -765,6 +765,8 @@ impl Components {
 
 /// A value that tracks when a system ran relative to other systems.
 /// This is used to power change detection.
+///
+/// *Note* that a system that hasn't been run yet has a `Tick` of 0.
 #[derive(Copy, Clone, Default, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 pub struct Tick {
