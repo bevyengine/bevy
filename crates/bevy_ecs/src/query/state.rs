@@ -179,19 +179,35 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// We iterate through the required components, and return the smallest list of archetypes
     /// corresponding to a component.
     fn get_potential_archetypes(&self, archetypes: &Archetypes) -> Vec<ArchetypeId> {
+        // let a: Vec<_> = self.component_access.required.ones().filter_map(|idx| {
+        //     let component_id = ComponentId::get_sparse_set_index(idx);
+        //     archetypes.component_index().get(&component_id).map(|index| {
+        //         index.keys().collect::<Vec<_>>()
+        //     })
+        // }).collect();
+        // dbg!(&a);
+        // a.into_iter().min_by_key(|archetypes| archetypes.len())
+        //     // exclude archetypes that have already been processed
+        //     // .into_iter()
+        //     .map()
+        //     .filter_map(|id| Some(**id >= self.archetype_generation.0))
+        //     .copied()
+        //     // TODO: remove the allocation
+        //     .collect()
+
         self.component_access.required.ones().filter_map(|idx| {
             let component_id = ComponentId::get_sparse_set_index(idx);
             archetypes.component_index().get(&component_id).map(|index| {
                 index.keys()
             })
         }).min_by_key(|archetypes| archetypes.len())
-            // SAFETY: all required components must be in an archetype
-            .expect("No archetypes found for required components")
-            // exclude archetypes that have already been processed
-            .filter(|id| **id >= self.archetype_generation.0)
-            .copied()
-            // TODO: remove the allocation
-            .collect()
+            .map_or(vec![], |archetypes| {
+                archetypes
+                    // exclude archetypes that have already been processed
+                    .filter(|id| **id >= self.archetype_generation.0)
+                    .copied()
+                    .collect()
+            })
     }
 
     /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
