@@ -322,7 +322,6 @@ pub struct SparseSet<I, V: 'static> {
     sparse: SparseArray<I, NonMaxUsize>,
 }
 
-
 macro_rules! impl_sparse_set {
     ($ty:ident) => {
         impl<I: SparseSetIndex, V> $ty<I, V> {

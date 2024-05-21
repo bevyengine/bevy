@@ -25,11 +25,11 @@ use crate::{
     entity::{Entity, EntityLocation},
     storage::{SparseArray, SparseSetIndex, TableId, TableRow},
 };
+use bevy_utils::HashMap;
 use std::{
     hash::Hash,
     ops::{Index, IndexMut, RangeFrom},
 };
-use bevy_utils::HashMap;
 
 /// An opaque location within a [`Archetype`].
 ///
@@ -351,29 +351,33 @@ impl Archetype {
             // SAFETY: We are creating an archetype that includes this component so it must exist
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
-            component_infos.insert(component_id, ArchetypeComponentInfo {
-                storage_type: StorageType::Table,
-                archetype_component_id,
-            });
+            component_infos.insert(
+                component_id,
+                ArchetypeComponentInfo {
+                    storage_type: StorageType::Table,
+                    archetype_component_id,
+                },
+            );
             // NOTE: the `table_components` are sorted AND they were inserted in the `Table` in the same
             // sorted order, so the index of the `Column` in the `Table` is the same as the index of the
             // component in the `table_components` vector (and in the archetype's `components` list)
             component_index
                 .entry(component_id)
                 .or_insert_with(HashMap::new)
-                .insert(id, ArchetypeRecord {
-                    column: Some(idx),
-                });
+                .insert(id, ArchetypeRecord { column: Some(idx) });
         }
 
         for (component_id, archetype_component_id) in sparse_set_components {
             // SAFETY: We are creating an archetype that includes this component so it must exist
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
-            component_infos.insert(component_id, ArchetypeComponentInfo {
+            component_infos.insert(
+                component_id,
+                ArchetypeComponentInfo {
                     storage_type: StorageType::SparseSet,
                     archetype_component_id,
-            });
+                },
+            );
             component_index
                 .entry(component_id)
                 .or_insert_with(HashMap::new)
@@ -823,31 +827,32 @@ impl Archetypes {
         let archetypes = &mut self.archetypes;
         let archetype_component_count = &mut self.archetype_component_count;
         let component_index = &mut self.by_component;
-        let archetype_id = *self
-            .by_components
-            .entry(archetype_identity)
-            .or_insert_with(move || {
-                let id = ArchetypeId::new(archetypes.len());
-                let table_start = *archetype_component_count;
-                *archetype_component_count += table_components.len();
-                let table_archetype_components =
-                    (table_start..*archetype_component_count).map(ArchetypeComponentId);
-                let sparse_start = *archetype_component_count;
-                *archetype_component_count += sparse_set_components.len();
-                let sparse_set_archetype_components =
-                    (sparse_start..*archetype_component_count).map(ArchetypeComponentId);
-                archetypes.push(Archetype::new(
-                    components,
-                    component_index,
-                    id,
-                    table_id,
-                    table_components.into_iter().zip(table_archetype_components),
-                    sparse_set_components
-                        .into_iter()
-                        .zip(sparse_set_archetype_components),
-                ));
-                id
-            });
+        let archetype_id =
+            *self
+                .by_components
+                .entry(archetype_identity)
+                .or_insert_with(move || {
+                    let id = ArchetypeId::new(archetypes.len());
+                    let table_start = *archetype_component_count;
+                    *archetype_component_count += table_components.len();
+                    let table_archetype_components =
+                        (table_start..*archetype_component_count).map(ArchetypeComponentId);
+                    let sparse_start = *archetype_component_count;
+                    *archetype_component_count += sparse_set_components.len();
+                    let sparse_set_archetype_components =
+                        (sparse_start..*archetype_component_count).map(ArchetypeComponentId);
+                    archetypes.push(Archetype::new(
+                        components,
+                        component_index,
+                        id,
+                        table_id,
+                        table_components.into_iter().zip(table_archetype_components),
+                        sparse_set_components
+                            .into_iter()
+                            .zip(sparse_set_archetype_components),
+                    ));
+                    id
+                });
         archetype_id
     }
 

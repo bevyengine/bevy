@@ -2,7 +2,7 @@ use crate::{
     component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick, TickCells},
     entity::Entity,
     query::DebugCheckedUnwrap,
-    storage::{blob_vec::BlobVec},
+    storage::blob_vec::BlobVec,
 };
 use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
 use bevy_utils::HashMap;
@@ -533,9 +533,11 @@ impl TableBuilder {
 
     #[must_use]
     pub fn add_column(mut self, component_info: &ComponentInfo) -> Self {
-        self.columns.push(Column::with_capacity(component_info, self.capacity));
+        self.columns
+            .push(Column::with_capacity(component_info, self.capacity));
         self.index_map.push(component_info.id());
-        self.column_id_map.insert(component_info.id(), self.columns.len() - 1);
+        self.column_id_map
+            .insert(component_info.id(), self.columns.len() - 1);
         self
     }
 
@@ -570,7 +572,7 @@ pub struct Table {
     /// `index_map[i]` is the [`ComponentId`] of the [`Column`] at index `i`
     index_map: Vec<ComponentId>,
     // TODO: can remove this if we use the ComponentIndex in places where it's needed
-    column_id_map: HashMap<ComponentId, usize>
+    column_id_map: HashMap<ComponentId, usize>,
 }
 
 impl Table {
@@ -707,7 +709,9 @@ impl Table {
     /// [`Component`]: crate::component::Component
     #[inline]
     pub fn get_column(&self, component_id: ComponentId) -> Option<&Column> {
-        self.column_id_map.get(&component_id).and_then(|&idx| self.columns.get(idx))
+        self.column_id_map
+            .get(&component_id)
+            .and_then(|&idx| self.columns.get(idx))
     }
 
     /// Fetches a mutable reference to the [`Column`] for a given [`Component`] within the
@@ -718,7 +722,9 @@ impl Table {
     /// [`Component`]: crate::component::Component
     #[inline]
     pub(crate) fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut Column> {
-        self.column_id_map.get(&component_id).and_then(|&idx| self.columns.get_mut(idx))
+        self.column_id_map
+            .get(&component_id)
+            .and_then(|&idx| self.columns.get_mut(idx))
     }
 
     // TODO: options
