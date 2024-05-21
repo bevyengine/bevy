@@ -796,30 +796,30 @@ impl Archetypes {
 
         let archetypes = &mut self.archetypes;
         let archetype_component_count = &mut self.archetype_component_count;
-            *self
-                .by_components
-                .entry(archetype_identity)
-                .or_insert_with(move || {
-                    let id = ArchetypeId::new(archetypes.len());
-                    let table_start = *archetype_component_count;
-                    *archetype_component_count += table_components.len();
-                    let table_archetype_components =
-                        (table_start..*archetype_component_count).map(ArchetypeComponentId);
-                    let sparse_start = *archetype_component_count;
-                    *archetype_component_count += sparse_set_components.len();
-                    let sparse_set_archetype_components =
-                        (sparse_start..*archetype_component_count).map(ArchetypeComponentId);
-                    archetypes.push(Archetype::new(
-                        components,
-                        id,
-                        table_id,
-                        table_components.into_iter().zip(table_archetype_components),
-                        sparse_set_components
-                            .into_iter()
-                            .zip(sparse_set_archetype_components),
-                    ));
-                    id
-                })
+        *self
+            .by_components
+            .entry(archetype_identity)
+            .or_insert_with(move || {
+                let id = ArchetypeId::new(archetypes.len());
+                let table_start = *archetype_component_count;
+                *archetype_component_count += table_components.len();
+                let table_archetype_components =
+                    (table_start..*archetype_component_count).map(ArchetypeComponentId);
+                let sparse_start = *archetype_component_count;
+                *archetype_component_count += sparse_set_components.len();
+                let sparse_set_archetype_components =
+                    (sparse_start..*archetype_component_count).map(ArchetypeComponentId);
+                archetypes.push(Archetype::new(
+                    components,
+                    id,
+                    table_id,
+                    table_components.into_iter().zip(table_archetype_components),
+                    sparse_set_components
+                        .into_iter()
+                        .zip(sparse_set_archetype_components),
+                ));
+                id
+            })
     }
 
     /// Returns the number of components that are stored in archetypes.
