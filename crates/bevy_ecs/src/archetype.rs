@@ -23,7 +23,7 @@ use crate::{
     bundle::BundleId,
     component::{ComponentId, Components, StorageType},
     entity::{Entity, EntityLocation},
-    storage::{SparseArray, SparseSetIndex, TableId, TableRow},
+    storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
 };
 use bevy_utils::HashMap;
 use std::{
@@ -329,7 +329,7 @@ pub struct Archetype {
     table_id: TableId,
     edges: Edges,
     entities: Vec<ArchetypeEntity>,
-    components: HashMap<ComponentId, ArchetypeComponentInfo>,
+    components: ImmutableSparseSet<ComponentId, ArchetypeComponentInfo>,
     flags: ArchetypeFlags,
 }
 
@@ -346,12 +346,12 @@ impl Archetype {
         let (min_table, _) = table_components.size_hint();
         let (min_sparse, _) = sparse_set_components.size_hint();
         let mut flags = ArchetypeFlags::empty();
-        let mut component_infos = HashMap::with_capacity(min_table + min_sparse);
+        let mut archetype_components = SparseSet::with_capacity(min_table + min_sparse);
         for (idx, (component_id, archetype_component_id)) in table_components.enumerate() {
             // SAFETY: We are creating an archetype that includes this component so it must exist
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
-            component_infos.insert(
+            archetype_components.insert(
                 component_id,
                 ArchetypeComponentInfo {
                     storage_type: StorageType::Table,
@@ -360,7 +360,7 @@ impl Archetype {
             );
             // NOTE: the `table_components` are sorted AND they were inserted in the `Table` in the same
             // sorted order, so the index of the `Column` in the `Table` is the same as the index of the
-            // component in the `table_components` vector (and in the archetype's `components` list)
+            // component in the `table_components` vector
             component_index
                 .entry(component_id)
                 .or_insert_with(HashMap::new)
@@ -371,7 +371,7 @@ impl Archetype {
             // SAFETY: We are creating an archetype that includes this component so it must exist
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
-            component_infos.insert(
+            archetype_components.insert(
                 component_id,
                 ArchetypeComponentInfo {
                     storage_type: StorageType::SparseSet,
@@ -387,7 +387,7 @@ impl Archetype {
             id,
             table_id,
             entities: Vec::new(),
-            components: component_infos,
+            components: archetype_components.into_immutable(),
             edges: Default::default(),
             flags,
         }
@@ -450,7 +450,7 @@ impl Archetype {
     /// All of the IDs are unique.
     #[inline]
     pub fn components(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.components.keys().copied()
+        self.components.indices()
     }
 
     /// Returns the total number of components in the archetype
@@ -565,7 +565,7 @@ impl Archetype {
     /// Checks if the archetype contains a specific component. This runs in `O(1)` time.
     #[inline]
     pub fn contains(&self, component_id: ComponentId) -> bool {
-        self.components.contains_key(&component_id)
+        self.components.contains(component_id)
     }
 
     /// Gets the type of storage where a component in the archetype can be found.
@@ -574,7 +574,7 @@ impl Archetype {
     #[inline]
     pub fn get_storage_type(&self, component_id: ComponentId) -> Option<StorageType> {
         self.components
-            .get(&component_id)
+            .get(component_id)
             .map(|info| info.storage_type)
     }
 
@@ -587,7 +587,7 @@ impl Archetype {
         component_id: ComponentId,
     ) -> Option<ArchetypeComponentId> {
         self.components
-            .get(&component_id)
+            .get(component_id)
             .map(|info| info.archetype_component_id)
     }
 
@@ -665,10 +665,6 @@ struct ArchetypeComponents {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ArchetypeComponentId(usize);
 
-/// Maps a [`ComponentId`] to the list of [`Archetypes`]([`Archetype`]) that contain it,
-/// along with the index of the column in the [`Table`](crate::storage::table::Table) where the component is stored.
-pub type ComponentIndex = HashMap<ComponentId, HashMap<ArchetypeId, ArchetypeRecord>>;
-
 impl SparseSetIndex for ArchetypeComponentId {
     #[inline]
     fn sparse_set_index(&self) -> usize {
@@ -679,6 +675,10 @@ impl SparseSetIndex for ArchetypeComponentId {
         Self(value)
     }
 }
+
+/// Maps a [`ComponentId`] to the list of [`Archetypes`]([`Archetype`]) that contain it,
+/// along with the index of the column in the [`Table`](crate::storage::table::Table) where the component is stored.
+pub type ComponentIndex = HashMap<ComponentId, HashMap<ArchetypeId, ArchetypeRecord>>;
 
 /// The backing store of all [`Archetype`]s within a [`World`].
 ///
@@ -834,7 +834,7 @@ impl Archetypes {
                 .entry(archetype_identity)
                 .or_insert_with(move || {
                     let id = ArchetypeId::new(archetypes.len());
-                    let table_start = *archetype_component_count;
+                    let tale_start = *archetype_component_count;
                     *archetype_component_count += table_components.len();
                     let table_archetype_components =
                         (table_start..*archetype_component_count).map(ArchetypeComponentId);

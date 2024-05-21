@@ -1,3 +1,4 @@
+use crate::archetype::Archetypes;
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
     batching::BatchingStrategy,
@@ -15,7 +16,6 @@ use bevy_utils::tracing::warn;
 use bevy_utils::tracing::Span;
 use fixedbitset::FixedBitSet;
 use std::{borrow::Borrow, fmt, mem::MaybeUninit, ptr};
-use crate::archetype::{Archetypes};
 
 use super::{
     NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,
@@ -179,12 +179,17 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// We iterate through the required components, and return the smallest list of archetypes
     /// corresponding to a component.
     fn get_potential_archetypes(&self, archetypes: &Archetypes) -> Vec<ArchetypeId> {
-        self.component_access.required.ones().filter_map(|idx| {
-            let component_id = ComponentId::get_sparse_set_index(idx);
-            archetypes.component_index().get(&component_id).map(|index| {
-                index.keys()
+        self.component_access
+            .required
+            .ones()
+            .filter_map(|idx| {
+                let component_id = ComponentId::get_sparse_set_index(idx);
+                archetypes
+                    .component_index()
+                    .get(&component_id)
+                    .map(|index| index.keys())
             })
-        }).min_by_key(|archetypes| archetypes.len())
+            .min_by_key(|archetypes| archetypes.len())
             .map_or(vec![], |archetypes| {
                 archetypes
                     // exclude archetypes that have already been processed
@@ -234,7 +239,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// Creates a new [`QueryState`] from a given [`QueryBuilder`] and inherits its [`FilteredAccess`].
-    pub fn from_builder(builder: &mut QueryBuilder<D, F>) -> Self{
+    pub fn from_builder(builder: &mut QueryBuilder<D, F>) -> Self {
         let mut fetch_state = D::init_state(builder.world_mut());
         let filter_state = F::init_state(builder.world_mut());
         D::set_access(&mut fetch_state, builder.access());
@@ -255,7 +260,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 filter = std::any::type_name::<F>(),
             ),
         };
-        // TODO: use initialize_state?
         state.update_archetypes(builder.world());
         state
     }
@@ -341,19 +345,21 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ) {
         self.validate_world(world.id());
         if self.component_access.required.is_empty() {
-            let old_generation =
-                std::mem::replace(&mut self.archetype_generation, world.archetypes().generation());
+            let old_generation = std::mem::replace(
+                &mut self.archetype_generation,
+                world.archetypes().generation(),
+            );
             for archetype in &world.archetypes()[old_generation..] {
                 f(self, archetype)
             }
         } else {
-            let mut archetypes =  self.get_potential_archetypes(world.archetypes());
+            let mut archetypes = self.get_potential_archetypes(world.archetypes());
             archetypes.sort();
             for archetype_id in archetypes {
                 // SAFETY: get_potential_archetypes only returns archetype ids that are valid for the world
                 let archetype = &world.archetypes()[archetype_id];
                 f(self, archetype)
-            };
+            }
             self.archetype_generation = world.archetypes().generation();
         }
     }
