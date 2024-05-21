@@ -1,8 +1,9 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, DynamicTypePath, Enum, List, Map, Struct, Tuple, TupleStruct,
-    TypeInfo, TypePath, Typed, ValueInfo,
+    tuple_struct_debug, Array, DynamicTypePath, Enum, List, Map, ReflectCloneError, Struct, Tuple,
+    TupleStruct, TypeInfo, TypePath, Typed, ValueInfo,
 };
+use alloc::borrow::Cow;
 use std::{
     any::{Any, TypeId},
     fmt::Debug,
@@ -334,8 +335,10 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// let cloned = value.reflect_clone().unwrap();
     /// assert!(cloned.is::<(i32, bool, f64)>())
     /// ```
-    fn reflect_clone(&self) -> Option<Box<dyn Reflect>> {
-        None
+    fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
+        Err(ReflectCloneError::NotImplemented {
+            type_path: Cow::Owned(self.reflect_type_path().to_string()),
+        })
     }
 
     /// Returns a hash of the value (which includes the type).

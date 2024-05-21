@@ -9,7 +9,7 @@ use crate::custom_attributes::CustomAttributes;
 use crate::derive_data::ReflectTraitToImpl;
 use crate::utility;
 use crate::utility::terminated_parser;
-use bevy_macro_utils::fq_std::{FQAny, FQBox, FQClone, FQOption};
+use bevy_macro_utils::fq_std::{FQAny, FQBox, FQClone, FQOption, FQResult};
 use proc_macro2::{Ident, Span};
 use quote::quote_spanned;
 use syn::ext::IdentExt;
@@ -541,14 +541,14 @@ impl ContainerAttributes {
         match &self.clone {
             &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
                 #[inline]
-                fn reflect_clone(&self) -> #FQOption<#FQBox<dyn #bevy_reflect_path::Reflect>> {
-                    #FQOption::Some(#FQBox::new(#FQClone::clone(self)))
+                fn reflect_clone(&self) -> #FQResult<#FQBox<dyn #bevy_reflect_path::Reflect>, #bevy_reflect_path::ReflectCloneError> {
+                    #FQResult::Ok(#FQBox::new(#FQClone::clone(self)))
                 }
             }),
             &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
                 #[inline]
-                fn reflect_clone(&self) -> #FQOption<#FQBox<dyn #bevy_reflect_path::Reflect>> {
-                    #FQOption::Some(#FQBox::new(#impl_fn(self)))
+                fn reflect_clone(&self) -> #FQResult<#FQBox<dyn #bevy_reflect_path::Reflect>, #bevy_reflect_path::ReflectCloneError> {
+                    #FQResult::Ok(#FQBox::new(#impl_fn(self)))
                 }
             }),
             TraitImpl::NotImplemented => None,

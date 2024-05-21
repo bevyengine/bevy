@@ -6,9 +6,9 @@ use crate::{
     self as bevy_reflect, impl_type_path, map_apply, map_partial_eq, map_try_apply, ApplyError,
     Array, ArrayInfo, ArrayIter, DynamicMap, DynamicTypePath, FromReflect, FromType,
     GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter, Reflect,
-    ReflectDeserialize, ReflectFromPtr, ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned,
-    ReflectRef, ReflectSerialize, TypeInfo, TypePath, TypeRegistration, TypeRegistry, Typed,
-    ValueInfo,
+    ReflectCloneError, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect, ReflectKind,
+    ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, TypeInfo, TypePath, TypeRegistration,
+    TypeRegistry, Typed, ValueInfo,
 };
 use bevy_reflect_derive::{impl_reflect, impl_reflect_value};
 use std::fmt;
@@ -1219,8 +1219,8 @@ impl Reflect for Cow<'static, str> {
         Box::new(self.clone())
     }
 
-    fn reflect_clone(&self) -> Option<Box<dyn Reflect>> {
-        Some(Box::new(self.clone()))
+    fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
+        Ok(Box::new(self.clone()))
     }
 
     fn reflect_hash(&self) -> Option<u64> {
@@ -1408,8 +1408,8 @@ impl<T: FromReflect + Clone + TypePath + GetTypeRegistration> Reflect for Cow<'s
         Box::new(List::clone_dynamic(self))
     }
 
-    fn reflect_clone(&self) -> Option<Box<dyn Reflect>> {
-        Some(Box::new(self.clone()))
+    fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
+        Ok(Box::new(self.clone()))
     }
 
     fn reflect_hash(&self) -> Option<u64> {
@@ -1517,8 +1517,8 @@ impl Reflect for &'static str {
         Box::new(*self)
     }
 
-    fn reflect_clone(&self) -> Option<Box<dyn Reflect>> {
-        Some(Box::new(*self))
+    fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
+        Ok(Box::new(*self))
     }
 
     fn reflect_hash(&self) -> Option<u64> {
@@ -1631,8 +1631,8 @@ impl Reflect for &'static Path {
         Box::new(*self)
     }
 
-    fn reflect_clone(&self) -> Option<Box<dyn Reflect>> {
-        Some(Box::new(*self))
+    fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
+        Ok(Box::new(*self))
     }
 
     fn reflect_hash(&self) -> Option<u64> {
@@ -1740,8 +1740,8 @@ impl Reflect for Cow<'static, Path> {
         Box::new(self.clone())
     }
 
-    fn reflect_clone(&self) -> Option<Box<dyn Reflect>> {
-        Some(Box::new(self.clone()))
+    fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
+        Ok(Box::new(self.clone()))
     }
 
     fn reflect_hash(&self) -> Option<u64> {

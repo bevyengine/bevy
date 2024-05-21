@@ -14,7 +14,7 @@ use crate::{
     utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME,
     TYPE_PATH_ATTRIBUTE_NAME,
 };
-use bevy_macro_utils::fq_std::{FQBox, FQClone, FQOption};
+use bevy_macro_utils::fq_std::{FQBox, FQClone, FQOption, FQResult};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
@@ -520,6 +520,20 @@ impl<'a> StructField<'a> {
 
         info
     }
+
+    /// Returns a token stream for generating a `FieldId` for this field.
+    pub fn field_id(&self, bevy_reflect_path: &Path) -> proc_macro2::TokenStream {
+        match &self.data.ident {
+            Some(ident) => {
+                let name = ident.to_string();
+                quote!(#bevy_reflect_path::FieldId::Named(#name))
+            }
+            None => {
+                let index = self.declaration_index;
+                quote!(#bevy_reflect_path::FieldId::Unnamed(#index))
+            }
+        }
+    }
 }
 
 impl<'a> ReflectStruct<'a> {
@@ -635,16 +649,41 @@ impl<'a> ReflectStruct<'a> {
         let mut tokens = proc_macro2::TokenStream::new();
 
         for field in self.fields() {
+            let field_ty = &field.data.ty;
             let member = ident_or_index(field.data.ident.as_ref(), field.declaration_index);
 
             match &field.attrs.clone {
                 CloneBehavior::Default => {
-                    if field.attrs.ignore.is_ignored() {
-                        return None;
-                    }
+                    let value = if field.attrs.ignore.is_ignored() {
+                        let field_id = field.field_id(bevy_reflect_path);
+
+                        quote! {
+                            return #FQResult::Err(#bevy_reflect_path::ReflectCloneError::FieldNotClonable {
+                                field: #field_id,
+                                variant: #FQOption::None,
+                                container_type_path: ::std::borrow::Cow::Borrowed(
+                                    <Self as #bevy_reflect_path::TypePath>::type_path()
+                                )
+                            })
+                        }
+                    } else {
+                        quote! {
+                            #bevy_reflect_path::Reflect::reflect_clone(&self.#member)?
+                                .take()
+                                .map_err(|value| #bevy_reflect_path::ReflectCloneError::FailedDowncast {
+                                    expected: ::std::borrow::Cow::Borrowed(
+                                        <#field_ty as #bevy_reflect_path::TypePath>::type_path()
+                                    ),
+                                    received: ::std::borrow::Cow::Owned(
+                                        #bevy_reflect_path::DynamicTypePath::reflect_type_path(&*value)
+                                            .to_string()
+                                    ),
+                                })?
+                        }
+                    };
 
                     tokens.extend(quote! {
-                        #member: #bevy_reflect_path::Reflect::reflect_clone(&self.#member)?.take().ok()?,
+                        #member: #value,
                     });
                 }
                 CloneBehavior::Trait => {
@@ -662,8 +701,9 @@ impl<'a> ReflectStruct<'a> {
 
         Some(quote! {
             #[inline]
-            fn reflect_clone(&self) -> #FQOption<#FQBox<dyn #bevy_reflect_path::Reflect>> {
-                #FQOption::Some(#FQBox::new(Self {
+            fn reflect_clone(&self) -> #FQResult<#FQBox<dyn #bevy_reflect_path::Reflect>, #bevy_reflect_path::ReflectCloneError> {
+                #[allow(unreachable_code)]
+                #FQResult::Ok(#FQBox::new(Self {
                     #tokens
                 }))
             }
@@ -772,12 +812,13 @@ impl<'a> ReflectEnum<'a> {
             variant_patterns,
             variant_constructors,
             ..
-        } = ReflectCloneVariantBuilder::new(self).build(&this)?;
+        } = ReflectCloneVariantBuilder::new(self).build(&this);
 
         Some(quote! {
             #[inline]
-            fn reflect_clone(&#this) -> #FQOption<#FQBox<dyn #bevy_reflect_path::Reflect>> {
-                #FQOption::Some(#FQBox::new(match #this {
+            fn reflect_clone(&self) -> #FQResult<#FQBox<dyn #bevy_reflect_path::Reflect>, #bevy_reflect_path::ReflectCloneError> {
+                #[allow(unreachable_code)]
+                #FQResult::Ok(#FQBox::new(match #this {
                     #(#variant_patterns => #variant_constructors),*
                 }))
             }
