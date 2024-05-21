@@ -19,6 +19,12 @@ pub struct IRect {
 }
 
 impl IRect {
+    /// An empty `IRect`, represented by maximum and minimum corner points
+    /// with all `i32::MAX` values.
+    pub const EMPTY: Self = Self {
+        max: IVec2::MAX,
+        min: IVec2::MAX,
+    };
     /// Create a new rectangle from two corner points.
     ///
     /// The two points do not need to be the minimum and/or maximum corners.
