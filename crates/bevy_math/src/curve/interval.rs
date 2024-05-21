@@ -8,6 +8,7 @@ use thiserror::Error;
 
 /// A nonempty closed interval, possibly infinite in either direction.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Interval {
     start: f32,
     end: f32,
