@@ -337,7 +337,6 @@ impl Archetype {
     /// `table_components` and `sparse_set_components` must be sorted
     pub(crate) fn new(
         components: &Components,
-        component_index: &mut ComponentIndex,
         id: ArchetypeId,
         table_id: TableId,
         table_components: impl Iterator<Item = (ComponentId, ArchetypeComponentId)>,
@@ -347,7 +346,7 @@ impl Archetype {
         let (min_sparse, _) = sparse_set_components.size_hint();
         let mut flags = ArchetypeFlags::empty();
         let mut component_infos = HashMap::with_capacity(min_table + min_sparse);
-        for (idx, (component_id, archetype_component_id)) in table_components.enumerate() {
+        for (component_id, archetype_component_id) in table_components {
             // SAFETY: We are creating an archetype that includes this component so it must exist
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
@@ -358,13 +357,6 @@ impl Archetype {
                     archetype_component_id,
                 },
             );
-            // NOTE: the `table_components` are sorted AND they were inserted in the `Table` in the same
-            // sorted order, so the index of the `Column` in the `Table` is the same as the index of the
-            // component in the `table_components` vector (and in the archetype's `components` list)
-            component_index
-                .entry(component_id)
-                .or_insert_with(HashMap::new)
-                .insert(id, ArchetypeRecord { column: Some(idx) });
         }
 
         for (component_id, archetype_component_id) in sparse_set_components {
@@ -378,10 +370,6 @@ impl Archetype {
                     archetype_component_id,
                 },
             );
-            component_index
-                .entry(component_id)
-                .or_insert_with(HashMap::new)
-                .insert(id, ArchetypeRecord { column: None });
         }
         Self {
             id,
@@ -665,10 +653,6 @@ struct ArchetypeComponents {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ArchetypeComponentId(usize);
 
-/// Maps a [`ComponentId`] to the list of [`Archetypes`]([`Archetype`]) that contain it,
-/// along with the index of the column in the [`Table`](crate::storage::table::Table) where the component is stored.
-pub type ComponentIndex = HashMap<ComponentId, HashMap<ArchetypeId, ArchetypeRecord>>;
-
 impl SparseSetIndex for ArchetypeComponentId {
     #[inline]
     fn sparse_set_index(&self) -> usize {
@@ -691,15 +675,6 @@ pub struct Archetypes {
     archetype_component_count: usize,
     /// find the archetype id by the components
     by_components: HashMap<ArchetypeComponents, ArchetypeId>,
-    /// find all the archetypes that contain a component
-    by_component: ComponentIndex,
-}
-
-/// Metadata about how a component is stored in an [`Archetype`].
-pub struct ArchetypeRecord {
-    /// Index of the component in the archetype's [`Table`],
-    /// or None if the component is a sparse set component.
-    pub(crate) column: Option<usize>,
 }
 
 impl Archetypes {
@@ -707,7 +682,6 @@ impl Archetypes {
         let mut archetypes = Archetypes {
             archetypes: Vec::new(),
             by_components: Default::default(),
-            by_component: Default::default(),
             archetype_component_count: 0,
         };
         // SAFETY: Empty archetype has no components
@@ -826,7 +800,6 @@ impl Archetypes {
 
         let archetypes = &mut self.archetypes;
         let archetype_component_count = &mut self.archetype_component_count;
-        let component_index = &mut self.by_component;
         let archetype_id =
             *self
                 .by_components
@@ -843,7 +816,6 @@ impl Archetypes {
                         (sparse_start..*archetype_component_count).map(ArchetypeComponentId);
                     archetypes.push(Archetype::new(
                         components,
-                        component_index,
                         id,
                         table_id,
                         table_components.into_iter().zip(table_archetype_components),
