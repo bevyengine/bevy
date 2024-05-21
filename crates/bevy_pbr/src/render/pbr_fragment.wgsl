@@ -419,6 +419,9 @@ fn pbr_input_from_standard_material(
 #endif  // VERTEX_UVS
 
         // Take anisotropy into account.
+        //
+        // This code comes from the `KHR_materials_anisotropy` spec:
+        // <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_anisotropy/README.md#individual-lights>
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARD_MATERIAL_ANISOTROPY
 
@@ -439,6 +442,7 @@ fn pbr_input_from_standard_material(
             ).rgb;
 
             let anisotropy_direction_from_texture = normalize(anisotropy_texel.rg * 2.0 - 1.0);
+            // Rotate by the anisotropy direction.
             anisotropy_direction =
                 mat2x2(anisotropy_direction.xy, anisotropy_direction.yx * vec2(-1.0, 1.0)) *
                 anisotropy_direction_from_texture;
