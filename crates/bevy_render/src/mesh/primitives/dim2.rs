@@ -5,9 +5,12 @@ use crate::{
 };
 
 use super::{MeshBuilder, Meshable};
-use bevy_math::primitives::{
-    Annulus, Capsule2d, Circle, Ellipse, Rectangle, RegularPolygon, Triangle2d, Triangle3d,
-    WindingOrder,
+use bevy_math::{
+    primitives::{
+        Annulus, Capsule2d, Circle, Ellipse, Rectangle, RegularPolygon, Triangle2d, Triangle3d,
+        WindingOrder,
+    },
+    Vec2,
 };
 use wgpu::PrimitiveTopology;
 
@@ -52,7 +55,9 @@ impl CircleMeshBuilder {
 
 impl MeshBuilder for CircleMeshBuilder {
     fn build(&self) -> Mesh {
-        RegularPolygon::new(self.circle.radius, self.resolution).mesh()
+        RegularPolygon::new(self.circle.radius, self.resolution)
+            .mesh()
+            .build()
     }
 }
 
@@ -67,27 +72,30 @@ impl Meshable for Circle {
     }
 }
 
-impl From<Circle> for Mesh {
-    fn from(circle: Circle) -> Self {
-        circle.mesh().build()
-    }
+/// A builder used for creating a [`Mesh`] with a [`RegularPolygon`] shape.
+pub struct RegularPolygonMeshBuilder {
+    circumradius: f32,
+    sides: usize,
 }
 
-impl Meshable for RegularPolygon {
-    type Output = Mesh;
-
-    fn mesh(&self) -> Self::Output {
+impl MeshBuilder for RegularPolygonMeshBuilder {
+    fn build(&self) -> Mesh {
         // The ellipse mesh is just a regular polygon with two radii
-        Ellipse::new(self.circumcircle.radius, self.circumcircle.radius)
+        Ellipse::new(self.circumradius, self.circumradius)
             .mesh()
             .resolution(self.sides)
             .build()
     }
 }
 
-impl From<RegularPolygon> for Mesh {
-    fn from(polygon: RegularPolygon) -> Self {
-        polygon.mesh()
+impl Meshable for RegularPolygon {
+    type Output = RegularPolygonMeshBuilder;
+
+    fn mesh(&self) -> Self::Output {
+        RegularPolygonMeshBuilder {
+            circumradius: self.circumcircle.radius,
+            sides: self.sides,
+        }
     }
 }
 
@@ -175,12 +183,6 @@ impl Meshable for Ellipse {
             ellipse: *self,
             ..Default::default()
         }
-    }
-}
-
-impl From<Ellipse> for Mesh {
-    fn from(ellipse: Ellipse) -> Self {
-        ellipse.mesh().build()
     }
 }
 
@@ -291,17 +293,14 @@ impl Meshable for Annulus {
     }
 }
 
-impl From<Annulus> for Mesh {
-    fn from(annulus: Annulus) -> Self {
-        annulus.mesh().build()
-    }
+/// A builder used for creating a [`Mesh`] with a [`Triangle2d`] shape.
+pub struct Triangle2dMeshBuilder {
+    triangle: Triangle2d,
 }
 
-impl Meshable for Triangle2d {
-    type Output = Mesh;
-
-    fn mesh(&self) -> Self::Output {
-        let vertices_3d = self.vertices.map(|v| v.extend(0.));
+impl MeshBuilder for Triangle2dMeshBuilder {
+    fn build(&self) -> Mesh {
+        let vertices_3d = self.triangle.vertices.map(|v| v.extend(0.));
 
         let positions: Vec<_> = vertices_3d.into();
         let normals = vec![[0.0, 0.0, 1.0]; 3];
@@ -313,7 +312,7 @@ impl Meshable for Triangle2d {
         ))
         .into();
 
-        let is_ccw = self.winding_order() == WindingOrder::CounterClockwise;
+        let is_ccw = self.triangle.winding_order() == WindingOrder::CounterClockwise;
         let indices = if is_ccw {
             Indices::U32(vec![0, 1, 2])
         } else {
@@ -331,16 +330,21 @@ impl Meshable for Triangle2d {
     }
 }
 
-impl From<Triangle2d> for Mesh {
-    fn from(triangle: Triangle2d) -> Self {
-        triangle.mesh()
+impl Meshable for Triangle2d {
+    type Output = Triangle2dMeshBuilder;
+
+    fn mesh(&self) -> Self::Output {
+        Triangle2dMeshBuilder { triangle: *self }
     }
 }
 
-impl Meshable for Rectangle {
-    type Output = Mesh;
+/// A builder used for creating a [`Mesh`] with a [`Rectangle`] shape.
+pub struct RectangleMeshBuilder {
+    half_size: Vec2,
+}
 
-    fn mesh(&self) -> Self::Output {
+impl MeshBuilder for RectangleMeshBuilder {
+    fn build(&self) -> Mesh {
         let [hw, hh] = [self.half_size.x, self.half_size.y];
         let positions = vec![
             [hw, hh, 0.0],
@@ -363,9 +367,13 @@ impl Meshable for Rectangle {
     }
 }
 
-impl From<Rectangle> for Mesh {
-    fn from(rectangle: Rectangle) -> Self {
-        rectangle.mesh()
+impl Meshable for Rectangle {
+    type Output = RectangleMeshBuilder;
+
+    fn mesh(&self) -> Self::Output {
+        RectangleMeshBuilder {
+            half_size: self.half_size,
+        }
     }
 }
 
@@ -494,12 +502,6 @@ impl Meshable for Capsule2d {
             capsule: *self,
             ..Default::default()
         }
-    }
-}
-
-impl From<Capsule2d> for Mesh {
-    fn from(capsule: Capsule2d) -> Self {
-        capsule.mesh().build()
     }
 }
 

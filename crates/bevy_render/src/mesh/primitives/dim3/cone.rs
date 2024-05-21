@@ -152,12 +152,6 @@ impl Meshable for Cone {
     }
 }
 
-impl From<Cone> for Mesh {
-    fn from(cone: Cone) -> Self {
-        cone.mesh().build()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use bevy_math::{primitives::Cone, Vec2};

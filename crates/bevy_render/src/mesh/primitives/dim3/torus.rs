@@ -153,9 +153,3 @@ impl Meshable for Torus {
         }
     }
 }
-
-impl From<Torus> for Mesh {
-    fn from(torus: Torus) -> Self {
-        torus.mesh().build()
-    }
-}

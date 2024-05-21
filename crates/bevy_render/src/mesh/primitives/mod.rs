@@ -29,9 +29,8 @@ use super::Mesh;
 
 /// A trait for shapes that can be turned into a [`Mesh`](super::Mesh).
 pub trait Meshable {
-    /// The output of [`Self::mesh`]. This can either be a [`Mesh`](super::Mesh)
-    /// or a [`MeshBuilder`] used for creating a [`Mesh`](super::Mesh).
-    type Output;
+    /// The output of [`Self::mesh`]. This will be a [`MeshBuilder`] used for creating a [`Mesh`](super::Mesh).
+    type Output: MeshBuilder;
 
     /// Creates a [`Mesh`](super::Mesh) for a shape.
     fn mesh(&self) -> Self::Output;
@@ -46,5 +45,11 @@ pub trait MeshBuilder {
 impl<T: MeshBuilder> From<T> for Mesh {
     fn from(builder: T) -> Self {
         builder.build()
+    }
+}
+
+impl<T: Meshable> From<T> for Mesh {
+    fn from(meshable: T) -> Mesh {
+        meshable.mesh().build()
     }
 }

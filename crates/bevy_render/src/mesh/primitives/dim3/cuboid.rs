@@ -1,15 +1,18 @@
-use bevy_math::primitives::Cuboid;
+use bevy_math::{primitives::Cuboid, Vec3};
 use wgpu::PrimitiveTopology;
 
 use crate::{
-    mesh::{Indices, Mesh, Meshable},
+    mesh::{Indices, Mesh, MeshBuilder, Meshable},
     render_asset::RenderAssetUsages,
 };
 
-impl Meshable for Cuboid {
-    type Output = Mesh;
+/// A builder used for creating a [`Mesh`] with a [`Cuboid`] shape.
+pub struct CuboidMeshBuilder {
+    half_size: Vec3,
+}
 
-    fn mesh(&self) -> Self::Output {
+impl MeshBuilder for CuboidMeshBuilder {
+    fn build(&self) -> Mesh {
         let min = -self.half_size;
         let max = self.half_size;
 
@@ -71,8 +74,12 @@ impl Meshable for Cuboid {
     }
 }
 
-impl From<Cuboid> for Mesh {
-    fn from(cuboid: Cuboid) -> Self {
-        cuboid.mesh()
+impl Meshable for Cuboid {
+    type Output = CuboidMeshBuilder;
+
+    fn mesh(&self) -> Self::Output {
+        CuboidMeshBuilder {
+            half_size: self.half_size,
+        }
     }
 }

@@ -99,9 +99,3 @@ impl Meshable for Plane3d {
         PlaneMeshBuilder { plane: *self }
     }
 }
-
-impl From<Plane3d> for Mesh {
-    fn from(plane: Plane3d) -> Self {
-        plane.mesh().build()
-    }
-}

@@ -256,9 +256,3 @@ impl Meshable for Sphere {
         }
     }
 }
-
-impl From<Sphere> for Mesh {
-    fn from(sphere: Sphere) -> Self {
-        sphere.mesh().build()
-    }
-}
