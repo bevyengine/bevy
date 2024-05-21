@@ -179,22 +179,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// We iterate through the required components, and return the smallest list of archetypes
     /// corresponding to a component.
     fn get_potential_archetypes(&self, archetypes: &Archetypes) -> Vec<ArchetypeId> {
-        // let a: Vec<_> = self.component_access.required.ones().filter_map(|idx| {
-        //     let component_id = ComponentId::get_sparse_set_index(idx);
-        //     archetypes.component_index().get(&component_id).map(|index| {
-        //         index.keys().collect::<Vec<_>>()
-        //     })
-        // }).collect();
-        // dbg!(&a);
-        // a.into_iter().min_by_key(|archetypes| archetypes.len())
-        //     // exclude archetypes that have already been processed
-        //     // .into_iter()
-        //     .map()
-        //     .filter_map(|id| Some(**id >= self.archetype_generation.0))
-        //     .copied()
-        //     // TODO: remove the allocation
-        //     .collect()
-
         self.component_access.required.ones().filter_map(|idx| {
             let component_id = ComponentId::get_sparse_set_index(idx);
             archetypes.component_index().get(&component_id).map(|index| {
@@ -363,7 +347,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 f(self, archetype)
             }
         } else {
-            for archetype_id in self.get_potential_archetypes(world.archetypes()) {
+            let mut archetypes =  self.get_potential_archetypes(world.archetypes());
+            archetypes.sort();
+            for archetype_id in archetypes {
                 // SAFETY: get_potential_archetypes only returns archetype ids that are valid for the world
                 let archetype = &world.archetypes()[archetype_id];
                 f(self, archetype)
