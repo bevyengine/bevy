@@ -869,13 +869,15 @@ pub struct ComponentTicks {
 }
 
 impl ComponentTicks {
-    /// Returns `true` if the component or resource was added after the system last ran.
+    /// Returns `true` if the component or resource was added after the system last ran
+    /// (or the system is running for the first time).
     #[inline]
     pub fn is_added(&self, last_run: Tick, this_run: Tick) -> bool {
         self.added.is_newer_than(last_run, this_run)
     }
 
-    /// Returns `true` if the component or resource was added or mutably dereferenced after the system last ran.
+    /// Returns `true` if the component or resource was added or mutably dereferenced after the system last ran
+    /// (or the system is running for the first time).
     #[inline]
     pub fn is_changed(&self, last_run: Tick, this_run: Tick) -> bool {
         self.changed.is_newer_than(last_run, this_run)
