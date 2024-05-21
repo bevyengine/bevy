@@ -316,10 +316,10 @@ impl IRect {
     /// assert_eq!(r2.max, IVec2::new(3, 2));
     /// ```
     #[inline]
-    pub fn inflate(&self, inset: i32) -> Self {
+    pub fn inflate(&self, expansion: i32) -> Self {
         let mut r = Self {
-            min: self.min - inset,
-            max: self.max + inset,
+            min: self.min - expansion,
+            max: self.max + expansion,
         };
         // Collapse min over max to enforce invariants and ensure e.g. width() or
         // height() never return a negative value.

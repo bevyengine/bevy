@@ -313,15 +313,15 @@ impl URect {
     /// assert_eq!(r2.max, UVec2::splat(7));
     /// ```
     #[inline]
-    pub fn inflate(&self, inset: i32) -> Self {
+    pub fn inflate(&self, expansion: i32) -> Self {
         let mut r = Self {
             min: UVec2::new(
-                self.min.x.saturating_add_signed(-inset),
-                self.min.y.saturating_add_signed(-inset),
+                self.min.x.saturating_add_signed(-expansion),
+                self.min.y.saturating_add_signed(-expansion),
             ),
             max: UVec2::new(
-                self.max.x.saturating_add_signed(inset),
-                self.max.y.saturating_add_signed(inset),
+                self.max.x.saturating_add_signed(expansion),
+                self.max.y.saturating_add_signed(expansion),
             ),
         };
         // Collapse min over max to enforce invariants and ensure e.g. width() or
