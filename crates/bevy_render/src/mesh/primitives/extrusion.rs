@@ -7,6 +7,34 @@ use crate::mesh::{Indices, Mesh, VertexAttributeValues};
 
 use super::{MeshBuilder, Meshable};
 
+/// An enum representing segments of the perimeter of extrudable meshes
+pub enum PerimeterSegment {
+    /// This segment of the perimeter will be shaded smooth.
+    ///
+    /// You may want to use this for curved segments
+    Smooth {
+        /// The normal of the first vertex
+        first_normal: Vec2,
+        /// The normal of the last vertex
+        last_normal: Vec2,
+        /// A list of indices representing this segment of the perimeter of the mesh
+        ///
+        /// The indices must be ordered such that the *outside* of the mesh is to the right
+        /// when walking along the vertices of the mesh in the order provided by indices
+        indices: Vec<u32>,
+    },
+    /// This segment of the perimeter will be shaded flat.
+    ///
+    /// You may want to use this if there are sharp corners in the perimeter
+    Flat {
+        /// A list of indices representing this segment of the perimeter of the mesh
+        ///
+        /// The indices must be ordered such that the *outside* of the mesh is to the right
+        /// when walking along the vertices of the mesh in the order provided by indices
+        indices: Vec<u32>,
+    },
+}
+
 /// A trait for required for implementing `Meshable` for `Extrusion<T>`
 ///
 /// ## Warning
@@ -15,10 +43,7 @@ use super::{MeshBuilder, Meshable};
 /// and that your mesh has a [`Mesh::ATTRIBUTE_POSITION`] attribute
 pub trait Extrudable: MeshBuilder {
     /// A list of the indices each representing a part of the perimeter of the mesh.
-    ///
-    /// The indices must be ordered such that the *outside* of the mesh is to the right
-    /// when walking along the vertices of the mesh in the order provided by indices
-    fn perimeter_indices(&self) -> Vec<Indices>;
+    fn perimeter_indices(&self) -> Vec<PerimeterSegment>;
 }
 
 impl<P> Meshable for Extrusion<P>
@@ -45,7 +70,6 @@ where
 {
     base_builder: P::Output,
     half_depth: f32,
-    segments: usize,
 }
 
 impl<P> MeshBuilder for ExtrusionBuilder<P>
@@ -58,21 +82,7 @@ where
             self.base_builder.build(),
             self.base_builder.perimeter_indices(),
             self.half_depth,
-            self.segments,
         )
-    }
-}
-
-impl<P> ExtrusionBuilder<P>
-where
-    P: Primitive2d + Meshable,
-    P::Output: Extrudable,
-{
-    /// Sets the number of segments along the depth of the extrusion.
-    /// Must be greater than `0` for geometry to be generated.
-    pub fn segments(mut self, segments: usize) -> Self {
-        self.segments = segments;
-        self
     }
 }
 
@@ -108,7 +118,7 @@ impl ExtrusionBuilder<Capsule2d> {
     }
 }
 
-fn build_extrusion(cap: Mesh, perimeter: Vec<Indices>, half_depth: f32, _segments: usize) -> Mesh {
+fn build_extrusion(cap: Mesh, perimeter: Vec<PerimeterSegment>, half_depth: f32) -> Mesh {
     // Move the base mesh to the front
     let mut front_face = cap.translated_by(Vec3::new(0., 0., half_depth));
 
