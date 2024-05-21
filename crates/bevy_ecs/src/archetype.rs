@@ -834,7 +834,7 @@ impl Archetypes {
                 .entry(archetype_identity)
                 .or_insert_with(move || {
                     let id = ArchetypeId::new(archetypes.len());
-                    let tale_start = *archetype_component_count;
+                    let table_start = *archetype_component_count;
                     *archetype_component_count += table_components.len();
                     let table_archetype_components =
                         (table_start..*archetype_component_count).map(ArchetypeComponentId);
