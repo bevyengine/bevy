@@ -1,11 +1,8 @@
-use std::marker::PhantomData;
-
 use bevy_math::{
     cubic_splines::{CubicGenerator, CubicHermite},
     curve::*,
     FloatExt, Quat, Vec3, Vec4, VectorSpace,
 };
-use bevy_reflect::Reflect;
 
 /// A wrapper struct that gives the enclosed type the property of being [`Interpolable`] with
 /// naïve step interpolation. `self.interpolate(other, t)` is such that `self` is returned when
