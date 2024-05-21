@@ -1,4 +1,4 @@
-use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode};
+use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfSceneExtras, GltfMeshExtras, GltfMaterialExtras, GltfNode};
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{AnimationTarget, AnimationTargetId};
 use bevy_asset::{
@@ -622,7 +622,10 @@ async fn load_gltf<'a, 'b, 'c>(
         let mut node_index_to_entity_map = HashMap::new();
         let mut entity_to_skin_index_map = EntityHashMap::default();
         let mut scene_load_context = load_context.begin_labeled_asset();
-        world
+
+        
+        
+        let world_root_id = world
             .spawn(SpatialBundle::INHERITED_IDENTITY)
             .with_children(|parent| {
                 for node in scene.nodes() {
@@ -647,7 +650,15 @@ async fn load_gltf<'a, 'b, 'c>(
                         return;
                     }
                 }
+            }).id();
+
+        if let Some(extras) = scene.extras().as_ref() {
+            world.entity_mut(world_root_id).insert(GltfSceneExtras {
+                value: extras.get().to_string(),
             });
+        }    
+        
+
         if let Some(Err(err)) = err {
             return Err(err);
         }
@@ -1228,10 +1239,19 @@ fn load_node(
 
     let mut morph_weights = None;
 
+    /*if let Some(mesh) = gltf_node.mesh() {
+        if let Some(extras) = mesh.extras().as_ref() {
+            node.insert(super::GltfMeshExtras {
+                value: extras.get().to_string(),
+            });
+        }
+    };*/
+
     node.with_children(|parent| {
         // Only include meshes in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_meshes flag
         if !settings.load_meshes.is_empty() {
             if let Some(mesh) = gltf_node.mesh() {
+                
                 // append primitives
                 for primitive in mesh.primitives() {
                     let material = primitive.material();
@@ -1247,6 +1267,7 @@ fn load_node(
                         load_material(&material, load_context, document, is_scale_inverted);
                     }
 
+                   
                     let primitive_label = primitive_label(&mesh, &primitive);
                     let bounds = primitive.bounding_box();
 
@@ -1256,6 +1277,7 @@ fn load_node(
                         material: load_context.get_label_handle(&material_label),
                         ..Default::default()
                     });
+
                     let target_count = primitive.morph_targets().len();
                     if target_count != 0 {
                         let weights = match mesh.weights() {
@@ -1280,8 +1302,22 @@ fn load_node(
                         Vec3::from_slice(&bounds.max),
                     ));
 
+
                     if let Some(extras) = primitive.extras() {
                         mesh_entity.insert(GltfExtras {
+                            value: extras.get().to_string(),
+                        });
+                    }
+
+                    // Add gltf extras to the mesh entity
+                    if let Some(extras) = mesh.extras() {
+                        mesh_entity.insert(GltfMeshExtras {
+                            value: extras.get().to_string(),
+                        });
+                    }
+
+                    if let Some(extras) = material.extras() {
+                        mesh_entity.insert(GltfMaterialExtras {
                             value: extras.get().to_string(),
                         });
                     }
