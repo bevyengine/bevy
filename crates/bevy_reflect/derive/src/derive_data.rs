@@ -18,7 +18,7 @@ use syn::token::Comma;
 use crate::enum_utility::{EnumVariantOutputData, ReflectCloneVariantBuilder, VariantBuilder};
 use crate::field_attributes::CloneBehavior;
 use crate::generics::generate_generics;
-use bevy_macro_utils::fq_std::{FQBox, FQClone, FQOption};
+use bevy_macro_utils::fq_std::{FQClone, FQOption, FQResult};
 use syn::{
     parse_str, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput, Field, Fields,
     GenericParam, Generics, Ident, LitStr, Member, Meta, Path, PathSegment, Type, TypeParam,
@@ -561,6 +561,20 @@ impl<'a> StructField<'a> {
             None => Member::Unnamed(self.declaration_index.into()),
         }
     }
+
+    /// Returns a token stream for generating a `FieldId` for this field.
+    pub fn field_id(&self, bevy_reflect_path: &Path) -> proc_macro2::TokenStream {
+        match &self.data.ident {
+            Some(ident) => {
+                let name = ident.to_string();
+                quote!(#bevy_reflect_path::FieldId::Named(#bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(#name)))
+            }
+            None => {
+                let index = self.declaration_index;
+                quote!(#bevy_reflect_path::FieldId::Unnamed(#index))
+            }
+        }
+    }
 }
 
 impl<'a> ReflectStruct<'a> {
@@ -681,17 +695,43 @@ impl<'a> ReflectStruct<'a> {
         let mut tokens = proc_macro2::TokenStream::new();
 
         for field in self.fields().iter() {
+            let field_ty = field.reflected_type();
             let member = field.to_member();
             let accessor = self.access_for_field(field, false);
 
             match &field.attrs.clone {
                 CloneBehavior::Default => {
-                    if field.attrs.ignore.is_ignored() {
-                        return None;
-                    }
+                    let value = if field.attrs.ignore.is_ignored() {
+                        let field_id = field.field_id(bevy_reflect_path);
+
+                        quote! {
+                            return #FQResult::Err(#bevy_reflect_path::ReflectCloneError::FieldNotClonable {
+                                field: #field_id,
+                                variant: #FQOption::None,
+                                container_type_path:  #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(
+                                    <Self as #bevy_reflect_path::TypePath>::type_path()
+                                )
+                            })
+                        }
+                    } else {
+                        quote! {
+                            #bevy_reflect_path::PartialReflect::reflect_clone(#accessor)?
+                                .take()
+                                .map_err(|value| #bevy_reflect_path::ReflectCloneError::FailedDowncast {
+                                    expected: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(
+                                        <#field_ty as #bevy_reflect_path::TypePath>::type_path()
+                                    ),
+                                    received: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Owned(
+                                        #bevy_reflect_path::__macro_exports::alloc_utils::ToString::to_string(
+                                            #bevy_reflect_path::DynamicTypePath::reflect_type_path(&*value)
+                                        )
+                                    ),
+                                })?
+                        }
+                    };
 
                     tokens.extend(quote! {
-                        #member: #bevy_reflect_path::PartialReflect::reflect_clone(#accessor)?.take().ok()?,
+                        #member: #value,
                     });
                 }
                 CloneBehavior::Trait => {
@@ -727,8 +767,9 @@ impl<'a> ReflectStruct<'a> {
 
         Some(quote! {
             #[inline]
-            fn reflect_clone(&self) -> #FQOption<#FQBox<dyn #bevy_reflect_path::Reflect>> {
-                #FQOption::Some(#FQBox::new(#ctor))
+            #[allow(unreachable_code, reason = "Ignored fields without a `clone` attribute will early-return with an error")]
+            fn reflect_clone(&self) -> #FQResult<#bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect>, #bevy_reflect_path::ReflectCloneError> {
+                 #FQResult::Ok(#bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#ctor))
             }
         })
     }
@@ -888,7 +929,7 @@ impl<'a> ReflectEnum<'a> {
             variant_patterns,
             variant_constructors,
             ..
-        } = ReflectCloneVariantBuilder::new(self).build(&this)?;
+        } = ReflectCloneVariantBuilder::new(self).build(&this);
 
         let inner = quote! {
             match #this {
@@ -899,18 +940,19 @@ impl<'a> ReflectEnum<'a> {
         let body = if self.meta.is_remote_wrapper() {
             quote! {
                 let #this = <Self as #bevy_reflect_path::ReflectRemote>::as_remote(self);
-                #FQOption::Some(#FQBox::new(<Self as #bevy_reflect_path::ReflectRemote>::into_wrapper(#inner)))
+                #FQResult::Ok(#bevy_reflect_path::__macro_exports::alloc_utils::Box::new(<Self as #bevy_reflect_path::ReflectRemote>::into_wrapper(#inner)))
             }
         } else {
             quote! {
                 let #this = self;
-                #FQOption::Some(#FQBox::new(#inner))
+                #FQResult::Ok(#bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#inner))
             }
         };
 
         Some(quote! {
             #[inline]
-            fn reflect_clone(&self) -> #FQOption<#FQBox<dyn #bevy_reflect_path::Reflect>> {
+            #[allow(unreachable_code, reason = "Ignored fields without a `clone` attribute will early-return with an error")]
+            fn reflect_clone(&self) -> #FQResult<#bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect>, #bevy_reflect_path::ReflectCloneError> {
                 #body
             }
         })

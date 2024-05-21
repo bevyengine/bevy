@@ -1,9 +1,11 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, set_debug, struct_debug, tuple_debug,
-    tuple_struct_debug, DynamicTypePath, DynamicTyped, OpaqueInfo, ReflectKind,
+    tuple_struct_debug, DynamicTypePath, DynamicTyped, OpaqueInfo, ReflectCloneError, ReflectKind,
     ReflectKindMismatchError, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, Typed,
 };
+use alloc::borrow::Cow;
 use alloc::boxed::Box;
+use alloc::string::ToString;
 use core::{
     any::{Any, TypeId},
     fmt::Debug,
@@ -226,7 +228,7 @@ where
     /// For example, a [`List`] type will invoke [`List::clone_dynamic`], returning [`DynamicList`].
     /// A [`Struct`] type will invoke [`Struct::clone_dynamic`], returning [`DynamicStruct`].
     /// And so on.
-    /// 
+    ///
     /// If the dynamic behavior is not desired, a concrete clone can be obtained using [`PartialReflect::reflect_clone`].
     ///
     /// # Example
@@ -251,7 +253,7 @@ where
     /// Unlike [`PartialReflect::clone_value`], which often returns a dynamic representation of `Self`,
     /// this method attempts create a clone of `Self` directly, if possible.
     ///
-    /// If the clone cannot be performed, `None` is returned.
+    /// If the clone cannot be performed, an appropriate [`ReflectCloneError`] is returned.
     ///
     /// # Example
     ///
@@ -261,8 +263,10 @@ where
     /// let cloned = value.reflect_clone().unwrap();
     /// assert!(cloned.is::<(i32, bool, f64)>())
     /// ```
-    fn reflect_clone(&self) -> Option<Box<dyn Reflect>> {
-        None
+    fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
+        Err(ReflectCloneError::NotImplemented {
+            type_path: Cow::Owned(self.reflect_type_path().to_string()),
+        })
     }
 
     /// Returns a hash of the value (which includes the type).

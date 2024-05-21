@@ -11,9 +11,10 @@ use crate::{
     utility::{reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell},
     ApplyError, Array, ArrayInfo, ArrayIter, DynamicMap, DynamicSet, DynamicTypePath, FromReflect,
     FromType, Generics, GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter,
-    MaybeTyped, OpaqueInfo, PartialReflect, Reflect, ReflectDeserialize, ReflectFromPtr,
-    ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, Set,
-    SetInfo, TypeInfo, TypeParamInfo, TypePath, TypeRegistration, TypeRegistry, Typed,
+    MaybeTyped, OpaqueInfo, PartialReflect, Reflect, ReflectCloneError, ReflectDeserialize,
+    ReflectFromPtr, ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
+    ReflectSerialize, Set, SetInfo, TypeInfo, TypeParamInfo, TypePath, TypeRegistration,
+    TypeRegistry, Typed,
 };
 use alloc::{
     borrow::{Cow, ToOwned},
@@ -51,10 +52,42 @@ impl_reflect_opaque!(char(
     Deserialize,
     Default
 ));
-impl_reflect_opaque!(u8(Clone, Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_opaque!(u16(Clone, Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_opaque!(u32(Clone, Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_opaque!(u64(Clone, Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_opaque!(u8(
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_opaque!(u16(
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_opaque!(u32(
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_opaque!(u64(
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
 impl_reflect_opaque!(u128(
     Clone,
     Debug,
@@ -73,10 +106,42 @@ impl_reflect_opaque!(usize(
     Deserialize,
     Default
 ));
-impl_reflect_opaque!(i8(Clone, Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_opaque!(i16(Clone, Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_opaque!(i32(Clone, Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_opaque!(i64(Clone, Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_opaque!(i8(
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_opaque!(i16(
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_opaque!(i32(
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_opaque!(i64(
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
 impl_reflect_opaque!(i128(
     Clone,
     Debug,
@@ -95,8 +160,22 @@ impl_reflect_opaque!(isize(
     Deserialize,
     Default
 ));
-impl_reflect_opaque!(f32(Clone, Debug, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_opaque!(f64(Clone, Debug, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_opaque!(f32(
+    Clone,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_opaque!(f64(
+    Clone,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
 impl_type_path!(str);
 impl_reflect_opaque!(::alloc::string::String(
     Clone,
@@ -1638,6 +1717,10 @@ impl PartialReflect for Cow<'static, str> {
         Box::new(self.clone())
     }
 
+    fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
+        Ok(Box::new(self.clone()))
+    }
+
     fn reflect_hash(&self) -> Option<u64> {
         let mut hasher = reflect_hasher();
         Hash::hash(&Any::type_id(self), &mut hasher);
@@ -1826,6 +1909,10 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> Parti
         Box::new(List::clone_dynamic(self))
     }
 
+    fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
+        Ok(Box::new(self.clone()))
+    }
+
     fn reflect_hash(&self) -> Option<u64> {
         crate::list_hash(self)
     }
@@ -1933,6 +2020,10 @@ impl PartialReflect for &'static str {
 
     fn clone_value(&self) -> Box<dyn PartialReflect> {
         Box::new(*self)
+    }
+
+    fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
+        Ok(Box::new(*self))
     }
 
     fn reflect_hash(&self) -> Option<u64> {
@@ -2074,6 +2165,10 @@ impl PartialReflect for &'static Path {
         Box::new(*self)
     }
 
+    fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
+        Ok(Box::new(*self))
+    }
+
     fn reflect_hash(&self) -> Option<u64> {
         let mut hasher = reflect_hasher();
         Hash::hash(&Any::type_id(self), &mut hasher);
@@ -2211,6 +2306,10 @@ impl PartialReflect for Cow<'static, Path> {
 
     fn clone_value(&self) -> Box<dyn PartialReflect> {
         Box::new(self.clone())
+    }
+
+    fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
+        Ok(Box::new(self.clone()))
     }
 
     fn reflect_hash(&self) -> Option<u64> {

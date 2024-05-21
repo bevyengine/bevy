@@ -568,6 +568,7 @@ extern crate alloc;
 extern crate self as bevy_reflect;
 
 mod array;
+mod error;
 mod fields;
 mod from_reflect;
 #[cfg(feature = "functions")]
@@ -633,6 +634,7 @@ pub mod prelude {
 
 pub use array::*;
 pub use enums::*;
+pub use error::*;
 pub use fields::*;
 pub use from_reflect::*;
 pub use generics::*;
@@ -1098,12 +1100,70 @@ mod tests {
 
     #[test]
     fn should_not_clone_ignored_fields() {
+        // Tuple Struct
         #[derive(Reflect, Clone, Debug, PartialEq)]
         struct Foo(#[reflect(ignore)] usize);
 
         let foo = Foo(123);
         let clone = foo.reflect_clone();
-        assert!(clone.is_none());
+        assert_eq!(
+            clone.unwrap_err(),
+            ReflectCloneError::FieldNotClonable {
+                field: FieldId::Unnamed(0),
+                variant: None,
+                container_type_path: Cow::Borrowed(Foo::type_path()),
+            }
+        );
+
+        // Struct
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        struct Bar {
+            #[reflect(ignore)]
+            value: usize,
+        }
+
+        let bar = Bar { value: 123 };
+        let clone = bar.reflect_clone();
+        assert_eq!(
+            clone.unwrap_err(),
+            ReflectCloneError::FieldNotClonable {
+                field: FieldId::Named(Cow::Borrowed("value")),
+                variant: None,
+                container_type_path: Cow::Borrowed(Bar::type_path()),
+            }
+        );
+
+        // Enum
+        #[derive(Reflect, Clone, Debug, PartialEq)]
+        enum Baz {
+            Tuple(#[reflect(ignore)] usize),
+            Struct {
+                #[reflect(ignore)]
+                value: usize,
+            },
+        }
+
+        let baz = Baz::Tuple(123);
+        let clone = baz.reflect_clone();
+        assert_eq!(
+            clone.unwrap_err(),
+            ReflectCloneError::FieldNotClonable {
+                field: FieldId::Unnamed(0),
+                variant: Some(Cow::Borrowed("Tuple")),
+                container_type_path: Cow::Borrowed(Baz::type_path()),
+            }
+        );
+
+        let baz = Baz::Struct { value: 123 };
+        let clone = baz.reflect_clone();
+        assert_eq!(
+            clone.unwrap_err(),
+            ReflectCloneError::FieldNotClonable {
+                field: FieldId::Named(Cow::Borrowed("value")),
+                variant: Some(Cow::Borrowed("Struct")),
+                container_type_path: Cow::Borrowed(Baz::type_path()),
+            }
+        );
     }
 
     #[test]
