@@ -1,8 +1,8 @@
 use crate::components::{Children, Parent};
 use bevy_ecs::{
     entity::Entity,
-    system::{Command, EntityCommands},
-    world::{EntityWorldMut, World},
+    system::EntityCommands,
+    world::{Command, EntityWorldMut, World},
 };
 use bevy_utils::tracing::debug;
 
@@ -139,8 +139,8 @@ impl<'w> DespawnRecursiveExt for EntityWorldMut<'w> {
 mod tests {
     use bevy_ecs::{
         component::Component,
-        system::{CommandQueue, Commands},
-        world::World,
+        system::Commands,
+        world::{CommandQueue, World},
     };
 
     use super::DespawnRecursiveExt;

@@ -1,118 +1,7 @@
 use std::f32::consts::PI;
 
-use super::{InvalidDirectionError, Primitive2d, WindingOrder};
-use crate::Vec2;
-
-/// A normalized vector pointing in a direction in 2D space
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct Direction2d(Vec2);
-impl Primitive2d for Direction2d {}
-
-impl Direction2d {
-    /// A unit vector pointing along the positive X axis.
-    pub const X: Self = Self(Vec2::X);
-    /// A unit vector pointing along the positive Y axis.
-    pub const Y: Self = Self(Vec2::Y);
-    /// A unit vector pointing along the negative X axis.
-    pub const NEG_X: Self = Self(Vec2::NEG_X);
-    /// A unit vector pointing along the negative Y axis.
-    pub const NEG_Y: Self = Self(Vec2::NEG_Y);
-
-    /// Create a direction from a finite, nonzero [`Vec2`].
-    ///
-    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
-    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
-    pub fn new(value: Vec2) -> Result<Self, InvalidDirectionError> {
-        Self::new_and_length(value).map(|(dir, _)| dir)
-    }
-
-    /// Create a [`Direction2d`] from a [`Vec2`] that is already normalized.
-    ///
-    /// # Warning
-    ///
-    /// `value` must be normalized, i.e it's length must be `1.0`.
-    pub fn new_unchecked(value: Vec2) -> Self {
-        debug_assert!(value.is_normalized());
-
-        Self(value)
-    }
-
-    /// Create a direction from a finite, nonzero [`Vec2`], also returning its original length.
-    ///
-    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
-    /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
-    pub fn new_and_length(value: Vec2) -> Result<(Self, f32), InvalidDirectionError> {
-        let length = value.length();
-        let direction = (length.is_finite() && length > 0.0).then_some(value / length);
-
-        direction
-            .map(|dir| (Self(dir), length))
-            .ok_or(InvalidDirectionError::from_length(length))
-    }
-
-    /// Create a direction from its `x` and `y` components.
-    ///
-    /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
-    /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
-    pub fn from_xy(x: f32, y: f32) -> Result<Self, InvalidDirectionError> {
-        Self::new(Vec2::new(x, y))
-    }
-}
-
-impl TryFrom<Vec2> for Direction2d {
-    type Error = InvalidDirectionError;
-
-    fn try_from(value: Vec2) -> Result<Self, Self::Error> {
-        Self::new(value)
-    }
-}
-
-impl std::ops::Deref for Direction2d {
-    type Target = Vec2;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl std::ops::Neg for Direction2d {
-    type Output = Self;
-    fn neg(self) -> Self::Output {
-        Self(-self.0)
-    }
-}
-
-#[cfg(feature = "approx")]
-impl approx::AbsDiffEq for Direction2d {
-    type Epsilon = f32;
-    fn default_epsilon() -> f32 {
-        f32::EPSILON
-    }
-    fn abs_diff_eq(&self, other: &Self, epsilon: f32) -> bool {
-        self.as_ref().abs_diff_eq(other.as_ref(), epsilon)
-    }
-}
-
-#[cfg(feature = "approx")]
-impl approx::RelativeEq for Direction2d {
-    fn default_max_relative() -> f32 {
-        f32::EPSILON
-    }
-    fn relative_eq(&self, other: &Self, epsilon: f32, max_relative: f32) -> bool {
-        self.as_ref()
-            .relative_eq(other.as_ref(), epsilon, max_relative)
-    }
-}
-
-#[cfg(feature = "approx")]
-impl approx::UlpsEq for Direction2d {
-    fn default_max_ulps() -> u32 {
-        4
-    }
-    fn ulps_eq(&self, other: &Self, epsilon: f32, max_ulps: u32) -> bool {
-        self.as_ref().ulps_eq(other.as_ref(), epsilon, max_ulps)
-    }
-}
+use super::{Measured2d, Primitive2d, WindingOrder};
+use crate::{Dir2, Vec2};
 
 /// A circle primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -143,19 +32,6 @@ impl Circle {
         2.0 * self.radius
     }
 
-    /// Get the area of the circle
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        PI * self.radius.powi(2)
-    }
-
-    /// Get the perimeter or circumference of the circle
-    #[inline(always)]
-    #[doc(alias = "circumference")]
-    pub fn perimeter(&self) -> f32 {
-        2.0 * PI * self.radius
-    }
-
     /// Finds the point on the circle that is closest to the given `point`.
     ///
     /// If the point is outside the circle, the returned point will be on the perimeter of the circle.
@@ -173,6 +49,21 @@ impl Circle {
             let dir_to_point = point / distance_squared.sqrt();
             self.radius * dir_to_point
         }
+    }
+}
+
+impl Measured2d for Circle {
+    /// Get the area of the circle
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        PI * self.radius.powi(2)
+    }
+
+    /// Get the perimeter or circumference of the circle
+    #[inline(always)]
+    #[doc(alias = "circumference")]
+    fn perimeter(&self) -> f32 {
+        2.0 * PI * self.radius
     }
 }
 
@@ -217,22 +108,191 @@ impl Ellipse {
         }
     }
 
+    #[inline(always)]
+    /// Returns the [eccentricity](https://en.wikipedia.org/wiki/Eccentricity_(mathematics)) of the ellipse.
+    /// It can be thought of as a measure of how "stretched" or elongated the ellipse is.
+    ///
+    /// The value should be in the range [0, 1), where 0 represents a circle, and 1 represents a parabola.
+    pub fn eccentricity(&self) -> f32 {
+        let a = self.semi_major();
+        let b = self.semi_minor();
+
+        (a * a - b * b).sqrt() / a
+    }
+
+    #[inline(always)]
+    /// Get the focal length of the ellipse. This corresponds to the distance between one of the foci and the center of the ellipse.
+    ///
+    /// The focal length of an ellipse is related to its eccentricity by `eccentricity = focal_length / semi_major`
+    pub fn focal_length(&self) -> f32 {
+        let a = self.semi_major();
+        let b = self.semi_minor();
+
+        (a * a - b * b).sqrt()
+    }
+
     /// Returns the length of the semi-major axis. This corresponds to the longest radius of the ellipse.
     #[inline(always)]
-    pub fn semi_major(self) -> f32 {
+    pub fn semi_major(&self) -> f32 {
         self.half_size.max_element()
     }
 
     /// Returns the length of the semi-minor axis. This corresponds to the shortest radius of the ellipse.
     #[inline(always)]
-    pub fn semi_minor(self) -> f32 {
+    pub fn semi_minor(&self) -> f32 {
         self.half_size.min_element()
     }
+}
 
+impl Measured2d for Ellipse {
     /// Get the area of the ellipse
     #[inline(always)]
-    pub fn area(&self) -> f32 {
+    fn area(&self) -> f32 {
         PI * self.half_size.x * self.half_size.y
+    }
+
+    #[inline(always)]
+    /// Get an approximation for the perimeter or circumference of the ellipse.
+    ///
+    /// The approximation is reasonably precise with a relative error less than 0.007%, getting more precise as the eccentricity of the ellipse decreases.
+    fn perimeter(&self) -> f32 {
+        let a = self.semi_major();
+        let b = self.semi_minor();
+
+        // In the case that `a == b`, the ellipse is a circle
+        if a / b - 1. < 1e-5 {
+            return PI * (a + b);
+        };
+
+        // In the case that `a` is much larger than `b`, the ellipse is a line
+        if a / b > 1e4 {
+            return 4. * a;
+        };
+
+        // These values are  the result of (0.5 choose n)^2 where n is the index in the array
+        // They could be calculated on the fly but hardcoding them yields more accurate and faster results
+        // because the actual calculation for these values involves factorials and numbers > 10^23
+        const BINOMIAL_COEFFICIENTS: [f32; 21] = [
+            1.,
+            0.25,
+            0.015625,
+            0.00390625,
+            0.0015258789,
+            0.00074768066,
+            0.00042057037,
+            0.00025963783,
+            0.00017140154,
+            0.000119028846,
+            0.00008599834,
+            0.00006414339,
+            0.000049109784,
+            0.000038430585,
+            0.000030636627,
+            0.000024815668,
+            0.000020380836,
+            0.000016942893,
+            0.000014236736,
+            0.000012077564,
+            0.000010333865,
+        ];
+
+        // The algorithm used here is the Gauss-Kummer infinite series expansion of the elliptic integral expression for the perimeter of ellipses
+        // For more information see https://www.wolframalpha.com/input/?i=gauss-kummer+series
+        // We only use the terms up to `i == 20` for this approximation
+        let h = ((a - b) / (a + b)).powi(2);
+
+        PI * (a + b)
+            * (0..=20)
+                .map(|i| BINOMIAL_COEFFICIENTS[i] * h.powi(i as i32))
+                .sum::<f32>()
+    }
+}
+
+/// A primitive shape formed by the region between two circles, also known as a ring.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[doc(alias = "Ring")]
+pub struct Annulus {
+    /// The inner circle of the annulus
+    pub inner_circle: Circle,
+    /// The outer circle of the annulus
+    pub outer_circle: Circle,
+}
+impl Primitive2d for Annulus {}
+
+impl Default for Annulus {
+    /// Returns the default [`Annulus`] with radii of `0.5` and `1.0`.
+    fn default() -> Self {
+        Self {
+            inner_circle: Circle::new(0.5),
+            outer_circle: Circle::new(1.0),
+        }
+    }
+}
+
+impl Annulus {
+    /// Create a new [`Annulus`] from the radii of the inner and outer circle
+    #[inline(always)]
+    pub const fn new(inner_radius: f32, outer_radius: f32) -> Self {
+        Self {
+            inner_circle: Circle::new(inner_radius),
+            outer_circle: Circle::new(outer_radius),
+        }
+    }
+
+    /// Get the diameter of the annulus
+    #[inline(always)]
+    pub fn diameter(&self) -> f32 {
+        self.outer_circle.diameter()
+    }
+
+    /// Get the thickness of the annulus
+    #[inline(always)]
+    pub fn thickness(&self) -> f32 {
+        self.outer_circle.radius - self.inner_circle.radius
+    }
+
+    /// Finds the point on the annulus that is closest to the given `point`:
+    ///
+    /// - If the point is outside of the annulus completely, the returned point will be on the outer perimeter.
+    /// - If the point is inside of the inner circle (hole) of the annulus, the returned point will be on the inner perimeter.
+    /// - Otherwise, the returned point is overlapping the annulus and returned as is.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec2) -> Vec2 {
+        let distance_squared = point.length_squared();
+
+        if self.inner_circle.radius.powi(2) <= distance_squared {
+            if distance_squared <= self.outer_circle.radius.powi(2) {
+                // The point is inside the annulus.
+                point
+            } else {
+                // The point is outside the annulus and closer to the outer perimeter.
+                // Find the closest point on the perimeter of the annulus.
+                let dir_to_point = point / distance_squared.sqrt();
+                self.outer_circle.radius * dir_to_point
+            }
+        } else {
+            // The point is outside the annulus and closer to the inner perimeter.
+            // Find the closest point on the perimeter of the annulus.
+            let dir_to_point = point / distance_squared.sqrt();
+            self.inner_circle.radius * dir_to_point
+        }
+    }
+}
+
+impl Measured2d for Annulus {
+    /// Get the area of the annulus
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        PI * (self.outer_circle.radius.powi(2) - self.inner_circle.radius.powi(2))
+    }
+
+    /// Get the perimeter or circumference of the annulus,
+    /// which is the sum of the perimeters of the inner and outer circles.
+    #[inline(always)]
+    #[doc(alias = "circumference")]
+    fn perimeter(&self) -> f32 {
+        2.0 * PI * (self.outer_circle.radius + self.inner_circle.radius)
     }
 }
 
@@ -242,16 +302,14 @@ impl Ellipse {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Plane2d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
-    pub normal: Direction2d,
+    pub normal: Dir2,
 }
 impl Primitive2d for Plane2d {}
 
 impl Default for Plane2d {
     /// Returns the default [`Plane2d`] with a normal pointing in the `+Y` direction.
     fn default() -> Self {
-        Self {
-            normal: Direction2d::Y,
-        }
+        Self { normal: Dir2::Y }
     }
 }
 
@@ -264,7 +322,7 @@ impl Plane2d {
     #[inline(always)]
     pub fn new(normal: Vec2) -> Self {
         Self {
-            normal: Direction2d::new(normal).expect("normal must be nonzero and finite"),
+            normal: Dir2::new(normal).expect("normal must be nonzero and finite"),
         }
     }
 }
@@ -277,7 +335,7 @@ impl Plane2d {
 pub struct Line2d {
     /// The direction of the line. The line extends infinitely in both the given direction
     /// and its opposite direction
-    pub direction: Direction2d,
+    pub direction: Dir2,
 }
 impl Primitive2d for Line2d {}
 
@@ -287,7 +345,7 @@ impl Primitive2d for Line2d {}
 #[doc(alias = "LineSegment2d")]
 pub struct Segment2d {
     /// The direction of the line segment
-    pub direction: Direction2d,
+    pub direction: Dir2,
     /// Half the length of the line segment. The segment extends by this amount in both
     /// the given direction and its opposite direction
     pub half_length: f32,
@@ -297,7 +355,7 @@ impl Primitive2d for Segment2d {}
 impl Segment2d {
     /// Create a new `Segment2d` from a direction and full length of the segment
     #[inline(always)]
-    pub fn new(direction: Direction2d, length: f32) -> Self {
+    pub fn new(direction: Dir2, length: f32) -> Self {
         Self {
             direction,
             half_length: length / 2.0,
@@ -316,7 +374,7 @@ impl Segment2d {
 
         (
             // We are dividing by the length here, so the vector is normalized.
-            Self::new(Direction2d::new_unchecked(diff / length), length),
+            Self::new(Dir2::new_unchecked(diff / length), length),
             (point1 + point2) / 2.,
         )
     }
@@ -419,25 +477,6 @@ impl Triangle2d {
         }
     }
 
-    /// Get the area of the triangle
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        let [a, b, c] = self.vertices;
-        (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y)).abs() / 2.0
-    }
-
-    /// Get the perimeter of the triangle
-    #[inline(always)]
-    pub fn perimeter(&self) -> f32 {
-        let [a, b, c] = self.vertices;
-
-        let ab = a.distance(b);
-        let bc = b.distance(c);
-        let ca = c.distance(a);
-
-        ab + bc + ca
-    }
-
     /// Get the [`WindingOrder`] of the triangle
     #[inline(always)]
     #[doc(alias = "orientation")]
@@ -489,10 +528,31 @@ impl Triangle2d {
     }
 
     /// Reverse the [`WindingOrder`] of the triangle
-    /// by swapping the second and third vertices
+    /// by swapping the first and last vertices
     #[inline(always)]
     pub fn reverse(&mut self) {
-        self.vertices.swap(1, 2);
+        self.vertices.swap(0, 2);
+    }
+}
+
+impl Measured2d for Triangle2d {
+    /// Get the area of the triangle
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        let [a, b, c] = self.vertices;
+        (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y)).abs() / 2.0
+    }
+
+    /// Get the perimeter of the triangle
+    #[inline(always)]
+    fn perimeter(&self) -> f32 {
+        let [a, b, c] = self.vertices;
+
+        let ab = a.distance(b);
+        let bc = b.distance(c);
+        let ca = c.distance(a);
+
+        ab + bc + ca
     }
 }
 
@@ -538,22 +598,19 @@ impl Rectangle {
         }
     }
 
+    /// Create a `Rectangle` from a single length.
+    /// The resulting `Rectangle` will be the same size in every direction.
+    #[inline(always)]
+    pub fn from_length(length: f32) -> Self {
+        Self {
+            half_size: Vec2::splat(length / 2.0),
+        }
+    }
+
     /// Get the size of the rectangle
     #[inline(always)]
     pub fn size(&self) -> Vec2 {
         2.0 * self.half_size
-    }
-
-    /// Get the area of the rectangle
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        4.0 * self.half_size.x * self.half_size.y
-    }
-
-    /// Get the perimeter of the rectangle
-    #[inline(always)]
-    pub fn perimeter(&self) -> f32 {
-        4.0 * (self.half_size.x + self.half_size.y)
     }
 
     /// Finds the point on the rectangle that is closest to the given `point`.
@@ -564,6 +621,20 @@ impl Rectangle {
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         // Clamp point coordinates to the rectangle
         point.clamp(-self.half_size, self.half_size)
+    }
+}
+
+impl Measured2d for Rectangle {
+    /// Get the area of the rectangle
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        4.0 * self.half_size.x * self.half_size.y
+    }
+
+    /// Get the perimeter of the rectangle
+    #[inline(always)]
+    fn perimeter(&self) -> f32 {
+        4.0 * (self.half_size.x + self.half_size.y)
     }
 }
 
@@ -652,10 +723,13 @@ impl RegularPolygon {
     ///
     /// # Panics
     ///
-    /// Panics if `circumradius` is non-positive
+    /// Panics if `circumradius` is negative
     #[inline(always)]
     pub fn new(circumradius: f32, sides: usize) -> Self {
-        assert!(circumradius > 0.0, "polygon has a non-positive radius");
+        assert!(
+            circumradius.is_sign_positive(),
+            "polygon has a negative radius"
+        );
         assert!(sides > 2, "polygon has less than 3 sides");
 
         Self {
@@ -686,20 +760,6 @@ impl RegularPolygon {
     #[inline(always)]
     pub fn side_length(&self) -> f32 {
         2.0 * self.circumradius() * (PI / self.sides as f32).sin()
-    }
-
-    /// Get the area of the regular polygon
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        let angle: f32 = 2.0 * PI / (self.sides as f32);
-        (self.sides as f32) * self.circumradius().powi(2) * angle.sin() / 2.0
-    }
-
-    /// Get the perimeter of the regular polygon.
-    /// This is the sum of its sides
-    #[inline(always)]
-    pub fn perimeter(&self) -> f32 {
-        self.sides as f32 * self.side_length()
     }
 
     /// Get the internal angle of the regular polygon in degrees.
@@ -755,6 +815,22 @@ impl RegularPolygon {
     }
 }
 
+impl Measured2d for RegularPolygon {
+    /// Get the area of the regular polygon
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        let angle: f32 = 2.0 * PI / (self.sides as f32);
+        (self.sides as f32) * self.circumradius().powi(2) * angle.sin() / 2.0
+    }
+
+    /// Get the perimeter of the regular polygon.
+    /// This is the sum of its sides
+    #[inline(always)]
+    fn perimeter(&self) -> f32 {
+        self.sides as f32 * self.side_length()
+    }
+}
+
 /// A 2D capsule primitive, also known as a stadium or pill shape.
 ///
 /// A two-dimensional capsule is defined as a neighborhood of points at a distance (radius) from a line
@@ -798,31 +874,6 @@ mod tests {
     use approx::assert_relative_eq;
 
     #[test]
-    fn direction_creation() {
-        assert_eq!(Direction2d::new(Vec2::X * 12.5), Ok(Direction2d::X));
-        assert_eq!(
-            Direction2d::new(Vec2::new(0.0, 0.0)),
-            Err(InvalidDirectionError::Zero)
-        );
-        assert_eq!(
-            Direction2d::new(Vec2::new(f32::INFINITY, 0.0)),
-            Err(InvalidDirectionError::Infinite)
-        );
-        assert_eq!(
-            Direction2d::new(Vec2::new(f32::NEG_INFINITY, 0.0)),
-            Err(InvalidDirectionError::Infinite)
-        );
-        assert_eq!(
-            Direction2d::new(Vec2::new(f32::NAN, 0.0)),
-            Err(InvalidDirectionError::NaN)
-        );
-        assert_eq!(
-            Direction2d::new_and_length(Vec2::X * 6.5),
-            Ok((Direction2d::X, 6.5))
-        );
-    }
-
-    #[test]
     fn rectangle_closest_point() {
         let rectangle = Rectangle::new(2.0, 2.0);
         assert_eq!(rectangle.closest_point(Vec2::X * 10.0), Vec2::X);
@@ -848,6 +899,20 @@ mod tests {
     }
 
     #[test]
+    fn annulus_closest_point() {
+        let annulus = Annulus::new(1.5, 2.0);
+        assert_eq!(annulus.closest_point(Vec2::X * 10.0), Vec2::X * 2.0);
+        assert_eq!(
+            annulus.closest_point(Vec2::NEG_ONE),
+            Vec2::NEG_ONE.normalize() * 1.5
+        );
+        assert_eq!(
+            annulus.closest_point(Vec2::new(1.55, 0.85)),
+            Vec2::new(1.55, 0.85)
+        );
+    }
+
+    #[test]
     fn circle_math() {
         let circle = Circle { radius: 3.0 };
         assert_eq!(circle.diameter(), 6.0, "incorrect diameter");
@@ -856,9 +921,41 @@ mod tests {
     }
 
     #[test]
+    fn annulus_math() {
+        let annulus = Annulus::new(2.5, 3.5);
+        assert_eq!(annulus.diameter(), 7.0, "incorrect diameter");
+        assert_eq!(annulus.thickness(), 1.0, "incorrect thickness");
+        assert_eq!(annulus.area(), 18.849556, "incorrect area");
+        assert_eq!(annulus.perimeter(), 37.699112, "incorrect perimeter");
+    }
+
+    #[test]
     fn ellipse_math() {
         let ellipse = Ellipse::new(3.0, 1.0);
         assert_eq!(ellipse.area(), 9.424778, "incorrect area");
+
+        assert_eq!(ellipse.eccentricity(), 0.94280905, "incorrect eccentricity");
+
+        let line = Ellipse::new(1., 0.);
+        assert_eq!(line.eccentricity(), 1., "incorrect line eccentricity");
+
+        let circle = Ellipse::new(2., 2.);
+        assert_eq!(circle.eccentricity(), 0., "incorrect circle eccentricity");
+    }
+
+    #[test]
+    fn ellipse_perimeter() {
+        let circle = Ellipse::new(1., 1.);
+        assert_relative_eq!(circle.perimeter(), 6.2831855);
+
+        let line = Ellipse::new(75_000., 0.5);
+        assert_relative_eq!(line.perimeter(), 300_000.);
+
+        let ellipse = Ellipse::new(0.5, 2.);
+        assert_relative_eq!(ellipse.perimeter(), 8.578423);
+
+        let ellipse = Ellipse::new(5., 3.);
+        assert_relative_eq!(ellipse.perimeter(), 25.526999);
     }
 
     #[test]
@@ -882,9 +979,9 @@ mod tests {
         assert_eq!(cw_triangle.winding_order(), WindingOrder::Clockwise);
 
         let ccw_triangle = Triangle2d::new(
-            Vec2::new(0.0, 2.0),
             Vec2::new(-1.0, -1.0),
             Vec2::new(-0.5, -1.2),
+            Vec2::new(0.0, 2.0),
         );
         assert_eq!(ccw_triangle.winding_order(), WindingOrder::CounterClockwise);
 

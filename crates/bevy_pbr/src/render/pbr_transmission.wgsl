@@ -3,10 +3,12 @@
 #import bevy_pbr::{
     lighting,
     prepass_utils,
-    utils::{PI, interleaved_gradient_noise},
+    utils::interleaved_gradient_noise,
     utils,
     mesh_view_bindings as view_bindings,
 };
+
+#import bevy_render::maths::PI
 
 #import bevy_core_pipeline::tonemapping::{
     approximate_inverse_tone_mapping

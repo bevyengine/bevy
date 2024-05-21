@@ -1,5 +1,8 @@
 //! This example illustrates how to load and play an audio file, and control where the sounds seems to come from.
-use bevy::prelude::*;
+use bevy::{
+    color::palettes::basic::{BLUE, LIME, RED},
+    prelude::*,
+};
 
 fn main() {
     App::new()
@@ -22,11 +25,8 @@ fn setup(
     // sound emitter
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::UVSphere {
-                radius: 0.2,
-                ..default()
-            }),
-            material: materials.add(Color::BLUE),
+            mesh: meshes.add(Sphere::new(0.2).mesh().uv(32, 18)),
+            material: materials.add(Color::from(BLUE)),
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
             ..default()
         },
@@ -43,29 +43,24 @@ fn setup(
         .with_children(|parent| {
             // left ear indicator
             parent.spawn(PbrBundle {
-                mesh: meshes.add(shape::Cube { size: 0.2 }),
-                material: materials.add(Color::RED),
+                mesh: meshes.add(Cuboid::new(0.2, 0.2, 0.2)),
+                material: materials.add(Color::from(RED)),
                 transform: Transform::from_translation(listener.left_ear_offset),
                 ..default()
             });
 
             // right ear indicator
             parent.spawn(PbrBundle {
-                mesh: meshes.add(shape::Cube { size: 0.2 }),
-                material: materials.add(Color::GREEN),
+                mesh: meshes.add(Cuboid::new(0.2, 0.2, 0.2)),
+                material: materials.add(Color::from(LIME)),
                 transform: Transform::from_translation(listener.right_ear_offset),
                 ..default()
             });
         });
 
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 1_000_000.0,
-            shadows_enabled: true,
-            ..default()
-        },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
+    commands.spawn(DirectionalLightBundle {
+        transform: Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 

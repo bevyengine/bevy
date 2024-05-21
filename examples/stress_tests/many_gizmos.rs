@@ -71,8 +71,8 @@ fn system(config: Res<Config>, time: Res<Time>, mut draw: Gizmos) {
             let angle = i as f32 / (config.line_count / SYSTEM_COUNT) as f32 * TAU;
 
             let vector = Vec2::from(angle.sin_cos()).extend(time.elapsed_seconds().sin());
-            let start_color = Color::rgb(vector.x, vector.z, 0.5);
-            let end_color = Color::rgb(-vector.z, -vector.y, 0.5);
+            let start_color = LinearRgba::rgb(vector.x, vector.z, 0.5);
+            let end_color = LinearRgba::rgb(-vector.z, -vector.y, 0.5);
 
             draw.line_gradient(vector, -vector, start_color, end_color);
         }

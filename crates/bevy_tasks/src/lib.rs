@@ -1,4 +1,9 @@
 #![doc = include_str!("../README.md")]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 mod slice;
 pub use slice::{ParallelSlice, ParallelSliceMut};
@@ -6,14 +11,14 @@ pub use slice::{ParallelSlice, ParallelSliceMut};
 mod task;
 pub use task::Task;
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
 mod task_pool;
-#[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
 pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
 
-#[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
+#[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
 mod single_threaded_task_pool;
-#[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
+#[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
 pub use single_threaded_task_pool::{FakeTask, Scope, TaskPool, TaskPoolBuilder, ThreadExecutor};
 
 mod usages;
@@ -21,15 +26,16 @@ mod usages;
 pub use usages::tick_global_task_pools_on_main_thread;
 pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
 mod thread_executor;
-#[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
 pub use thread_executor::{ThreadExecutor, ThreadExecutorTicker};
 
 #[cfg(feature = "async-io")]
 pub use async_io::block_on;
 #[cfg(not(feature = "async-io"))]
 pub use futures_lite::future::block_on;
+pub use futures_lite::future::poll_once;
 
 mod iter;
 pub use iter::ParallelIterator;

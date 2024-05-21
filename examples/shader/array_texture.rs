@@ -33,20 +33,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 150_000.0,
-            ..Default::default()
-        },
-        transform: Transform::from_xyz(-3.0, 2.0, -1.0),
-        ..Default::default()
-    });
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 150_000.0,
-            ..Default::default()
-        },
-        transform: Transform::from_xyz(3.0, 2.0, 1.0),
+    commands.spawn(DirectionalLightBundle {
+        transform: Transform::from_xyz(3.0, 2.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..Default::default()
     });
 
@@ -66,7 +54,7 @@ fn create_array_texture(
     mut materials: ResMut<Assets<ArrayTextureMaterial>>,
 ) {
     if loading_texture.is_loaded
-        || asset_server.load_state(loading_texture.handle.clone()) != LoadState::Loaded
+        || asset_server.load_state(loading_texture.handle.id()) != LoadState::Loaded
     {
         return;
     }
@@ -78,7 +66,7 @@ fn create_array_texture(
     image.reinterpret_stacked_2d_as_array(array_layers);
 
     // Spawn some cubes using the array texture
-    let mesh_handle = meshes.add(shape::Cube { size: 1.0 });
+    let mesh_handle = meshes.add(Cuboid::default());
     let material_handle = materials.add(ArrayTextureMaterial {
         array_texture: loading_texture.handle.clone(),
     });

@@ -1,3 +1,5 @@
+#![allow(unsafe_code)]
+
 //! This example show how you can create components dynamically, spawn entities with those components
 //! as well as query for entities with those components.
 
@@ -7,7 +9,7 @@ use bevy::prelude::*;
 use bevy::{
     ecs::{
         component::{ComponentDescriptor, ComponentId, ComponentInfo, StorageType},
-        query::{QueryBuilder, QueryData},
+        query::QueryData,
         world::FilteredEntityMut,
     },
     ptr::{Aligned, OwningPtr},
@@ -23,12 +25,12 @@ Enter a command with no parameters for usage.";
 
 const COMPONENT_PROMPT: &str = "
 comp, c   Create new components
-    Enter a comma seperated list of type names optionally followed by a size in u64s.
+    Enter a comma separated list of type names optionally followed by a size in u64s.
     e.g. CompA 3, CompB, CompC 2";
 
 const ENTITY_PROMPT: &str = "
 spawn, s  Spawn entities
-    Enter a comma seperated list of components optionally followed by values.
+    Enter a comma separated list of components optionally followed by values.
     e.g. CompA 0 1 0, CompB, CompC 1";
 
 const QUERY_PROMPT: &str = "

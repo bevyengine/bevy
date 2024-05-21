@@ -48,9 +48,15 @@ impl IntoSystemConfigs<()> for BoxedSystem<(), ()> {
     }
 }
 
-/// Stores configuration for a single generic node.
+/// Stores configuration for a single generic node (a system or a system set)
+///
+/// The configuration includes the node itself, scheduling metadata
+/// (hierarchy: in which sets is the node contained,
+/// dependencies: before/after which other nodes should this node run)
+/// and the run conditions associated with this node.
 pub struct NodeConfig<T> {
     pub(crate) node: T,
+    /// Hierarchy and dependency metadata for this node
     pub(crate) graph_info: GraphInfo,
     pub(crate) conditions: Vec<BoxedCondition>,
 }
@@ -83,7 +89,7 @@ impl SystemConfigs {
         Self::NodeConfig(SystemConfig {
             node: system,
             graph_info: GraphInfo {
-                sets,
+                hierarchy: sets,
                 ..Default::default()
             },
             conditions: Vec::new(),
@@ -96,7 +102,7 @@ impl<T> NodeConfigs<T> {
     pub fn in_set_inner(&mut self, set: InternedSystemSet) {
         match self {
             Self::NodeConfig(config) => {
-                config.graph_info.sets.push(set);
+                config.graph_info.hierarchy.push(set);
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
@@ -419,7 +425,7 @@ where
     ///
     /// Ordering constraints will be applied between the successive elements.
     ///
-    /// If the preceeding node on a edge has deferred parameters, a [`apply_deferred`](crate::schedule::apply_deferred)
+    /// If the preceding node on a edge has deferred parameters, a [`apply_deferred`](crate::schedule::apply_deferred)
     /// will be inserted on the edge. If this behavior is not desired consider using
     /// [`chain_ignore_deferred`](Self::chain_ignore_deferred) instead.
     fn chain(self) -> SystemConfigs {

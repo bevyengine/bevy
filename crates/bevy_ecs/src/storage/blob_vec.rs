@@ -165,7 +165,7 @@ impl BlobVec {
             // - the layout of the ptr was `array_layout(self.item_layout, self.capacity)`
             // - `item_layout.size() > 0` and `new_capacity > 0`, so the layout size is non-zero
             // - "new_size, when rounded up to the nearest multiple of layout.align(), must not overflow (i.e., the rounded value must be less than usize::MAX)",
-            // since the item size is always a multiple of its align, the rounding cannot happen
+            // since the item size is always a multiple of its alignment, the rounding cannot happen
             // here and the overflow is handled in `array_layout`
             unsafe {
                 std::alloc::realloc(
@@ -208,7 +208,7 @@ impl BlobVec {
 
         // Pointer to the value in the vector that will get replaced.
         // SAFETY: The caller ensures that `index` fits in this vector.
-        let destination = NonNull::from(self.get_unchecked_mut(index));
+        let destination = NonNull::from(unsafe { self.get_unchecked_mut(index) });
         let source = value.as_ptr();
 
         if let Some(drop) = self.drop {
@@ -226,7 +226,7 @@ impl BlobVec {
             //   that the element will not get observed or double dropped later.
             // - If a panic occurs, `self.len` will remain `0`, which ensures a double-drop
             //   does not occur. Instead, all elements will be forgotten.
-            let old_value = OwningPtr::new(destination);
+            let old_value = unsafe { OwningPtr::new(destination) };
 
             // This closure will run in case `drop()` panics,
             // which ensures that `value` does not get forgotten.
@@ -249,7 +249,13 @@ impl BlobVec {
         //   so it must still be initialized and it is safe to transfer ownership into the vector.
         // - `source` and `destination` were obtained from different memory locations,
         //   both of which we have exclusive access to, so they are guaranteed not to overlap.
-        std::ptr::copy_nonoverlapping::<u8>(source, destination.as_ptr(), self.item_layout.size());
+        unsafe {
+            std::ptr::copy_nonoverlapping::<u8>(
+                source,
+                destination.as_ptr(),
+                self.item_layout.size(),
+            );
+        }
     }
 
     /// Appends an element to the back of the vector.
@@ -304,7 +310,11 @@ impl BlobVec {
         // - `new_len` is less than the old len, so it must fit in this vector's allocation.
         // - `size` is a multiple of the erased type's alignment,
         //   so adding a multiple of `size` will preserve alignment.
-        self.get_ptr_mut().byte_add(new_len * size).promote()
+        // - The removed element lives as long as this vector's mutable reference.
+        let p = unsafe { self.get_ptr_mut().byte_add(new_len * size) };
+        // SAFETY: The removed element is unreachable by this vector so it's safe to promote the
+        // `PtrMut` to an `OwningPtr`.
+        unsafe { p.promote() }
     }
 
     /// Removes the value at `index` and copies the value stored into `ptr`.
@@ -357,8 +367,9 @@ impl BlobVec {
         // - The caller ensures that `index` fits in this vector,
         //   so this operation will not overflow the original allocation.
         // - `size` is a multiple of the erased type's alignment,
-        //  so adding a multiple of `size` will preserve alignment.
-        self.get_ptr().byte_add(index * size)
+        //   so adding a multiple of `size` will preserve alignment.
+        // - The element at `index` outlives this vector's reference.
+        unsafe { self.get_ptr().byte_add(index * size) }
     }
 
     /// Returns a mutable reference to the element at `index`, without doing bounds checking.
@@ -373,8 +384,9 @@ impl BlobVec {
         // - The caller ensures that `index` fits in this vector,
         //   so this operation will not overflow the original allocation.
         // - `size` is a multiple of the erased type's alignment,
-        //  so adding a multiple of `size` will preserve alignment.
-        self.get_ptr_mut().byte_add(index * size)
+        //   so adding a multiple of `size` will preserve alignment.
+        // - The element at `index` outlives this vector's mutable reference.
+        unsafe { self.get_ptr_mut().byte_add(index * size) }
     }
 
     /// Gets a [`Ptr`] to the start of the vec
@@ -397,7 +409,7 @@ impl BlobVec {
     /// The type `T` must be the type of the items in this [`BlobVec`].
     pub unsafe fn get_slice<T>(&self) -> &[UnsafeCell<T>] {
         // SAFETY: the inner data will remain valid for as long as 'self.
-        std::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, self.len)
+        unsafe { std::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, self.len) }
     }
 
     /// Clears the vector, removing (and dropping) all values.
@@ -415,6 +427,7 @@ impl BlobVec {
                 // * 0 <= `i` < `len`, so `i * size` must be in bounds for the allocation.
                 // * `size` is a multiple of the erased type's alignment,
                 //   so adding a multiple of `size` will preserve alignment.
+                // * The item lives until it's dropped.
                 // * The item is left unreachable so it can be safely promoted to an `OwningPtr`.
                 // NOTE: `self.get_unchecked_mut(i)` cannot be used here, since the `debug_assert`
                 // would panic due to `self.len` being set to 0.
@@ -502,9 +515,11 @@ mod tests {
     use super::BlobVec;
     use std::{alloc::Layout, cell::RefCell, mem, rc::Rc};
 
-    // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
-        x.drop_as::<T>();
+        // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
+        unsafe {
+            x.drop_as::<T>();
+        }
     }
 
     /// # Safety
@@ -698,7 +713,10 @@ mod tests {
         let mut q = world.query::<&Zst>();
         for zst in q.iter(&world) {
             // Ensure that the references returned are properly aligned.
-            assert_eq!(zst as *const Zst as usize % mem::align_of::<Zst>(), 0);
+            assert_eq!(
+                std::ptr::from_ref::<Zst>(zst) as usize % mem::align_of::<Zst>(),
+                0
+            );
             count += 1;
         }
 

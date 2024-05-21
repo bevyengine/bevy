@@ -3,6 +3,7 @@
 //! [`std::cell::SyncUnsafeCell`]: https://doc.rust-lang.org/nightly/std/cell/struct.SyncUnsafeCell.html
 
 pub use core::cell::UnsafeCell;
+use core::ptr;
 
 /// [`UnsafeCell`], but [`Sync`].
 ///
@@ -72,13 +73,13 @@ impl<T: ?Sized> SyncUnsafeCell<T> {
         // We can just cast the pointer from `SyncUnsafeCell<T>` to `T` because
         // of #[repr(transparent)] on both SyncUnsafeCell and UnsafeCell.
         // See UnsafeCell::raw_get.
-        this as *const T as *mut T
+        (this as *const T).cast_mut()
     }
 
     #[inline]
     /// Returns a `&mut SyncUnsafeCell<T>` from a `&mut T`.
     pub fn from_mut(t: &mut T) -> &mut SyncUnsafeCell<T> {
-        let ptr = t as *mut T as *mut SyncUnsafeCell<T>;
+        let ptr = ptr::from_mut(t) as *mut SyncUnsafeCell<T>;
         // SAFETY: `ptr` must be safe to mutably dereference, since it was originally
         // obtained from a mutable reference. `SyncUnsafeCell` has the same representation
         // as the original type `T`, since the former is annotated with #[repr(transparent)].
@@ -100,12 +101,14 @@ impl<T> SyncUnsafeCell<[T]> {
     /// assert_eq!(slice_cell.len(), 3);
     /// ```
     pub fn as_slice_of_cells(&self) -> &[SyncUnsafeCell<T>] {
+        let self_ptr: *const SyncUnsafeCell<[T]> = ptr::from_ref(self);
+        let slice_ptr = self_ptr as *const [SyncUnsafeCell<T>];
         // SAFETY: `UnsafeCell<T>` and `SyncUnsafeCell<T>` have #[repr(transparent)]
         // therefore:
         // - `SyncUnsafeCell<T>` has the same layout as `T`
         // - `SyncUnsafeCell<[T]>` has the same layout as `[T]`
         // - `SyncUnsafeCell<[T]>` has the same layout as `[SyncUnsafeCell<T>]`
-        unsafe { &*(self as *const SyncUnsafeCell<[T]> as *const [SyncUnsafeCell<T>]) }
+        unsafe { &*slice_ptr }
     }
 }
 

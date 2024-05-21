@@ -1,10 +1,8 @@
 use std::fmt::Debug;
 
-use bevy_utils::{
-    petgraph::{algo::TarjanScc, graphmap::NodeTrait, prelude::*},
-    HashMap, HashSet,
-};
+use bevy_utils::{HashMap, HashSet};
 use fixedbitset::FixedBitSet;
+use petgraph::{algo::TarjanScc, graphmap::NodeTrait, prelude::*};
 
 use crate::schedule::set::*;
 
@@ -75,9 +73,12 @@ pub(crate) enum Ambiguity {
     IgnoreAll,
 }
 
+/// Metadata about how the node fits in the schedule graph
 #[derive(Clone, Default)]
 pub(crate) struct GraphInfo {
-    pub(crate) sets: Vec<InternedSystemSet>,
+    /// the sets that the node belongs to (hierarchy)
+    pub(crate) hierarchy: Vec<InternedSystemSet>,
+    /// the sets that the node depends on (must run before or after)
     pub(crate) dependencies: Vec<Dependency>,
     pub(crate) ambiguous_with: Ambiguity,
 }

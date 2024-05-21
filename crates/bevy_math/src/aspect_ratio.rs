@@ -1,6 +1,9 @@
 //! Provides a simple aspect ratio struct to help with calculations.
 
+use crate::Vec2;
+
 /// An `AspectRatio` is the ratio of width to height.
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 pub struct AspectRatio(f32);
 
 impl AspectRatio {
@@ -14,6 +17,13 @@ impl AspectRatio {
     #[inline]
     pub fn from_pixels(x: u32, y: u32) -> Self {
         Self::new(x as f32, y as f32)
+    }
+}
+
+impl From<Vec2> for AspectRatio {
+    #[inline]
+    fn from(value: Vec2) -> Self {
+        Self::new(value.x, value.y)
     }
 }
 

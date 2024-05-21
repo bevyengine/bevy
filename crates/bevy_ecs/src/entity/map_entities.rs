@@ -3,7 +3,8 @@ use crate::{
     identifier::masks::{IdentifierMask, HIGH_MASK},
     world::World,
 };
-use bevy_utils::EntityHashMap;
+
+use super::EntityHashMap;
 
 /// Operation to map all contained [`Entity`] fields in a type to new values.
 ///
@@ -11,7 +12,7 @@ use bevy_utils::EntityHashMap;
 /// as references in components copied from another world will be invalid. This trait
 /// allows defining custom mappings for these references via [`EntityMappers`](EntityMapper), which
 /// inject the entity mapping strategy between your `MapEntities` type and the current world
-/// (usually by using an [`EntityHashMap<Entity, Entity>`] between source entities and entities in the
+/// (usually by using an [`EntityHashMap<Entity>`] between source entities and entities in the
 /// current world).
 ///
 /// Implementing this trait correctly is required for properly loading components
@@ -47,7 +48,7 @@ pub trait MapEntities {
 
 /// An implementor of this trait knows how to map an [`Entity`] into another [`Entity`].
 ///
-/// Usually this is done by using an [`EntityHashMap<Entity, Entity>`] to map source entities
+/// Usually this is done by using an [`EntityHashMap<Entity>`] to map source entities
 /// (mapper inputs) to the current world's entities (mapper outputs).
 ///
 /// More generally, this can be used to map [`Entity`] references between any two [`Worlds`](World).
@@ -56,10 +57,10 @@ pub trait MapEntities {
 ///
 /// ```
 /// # use bevy_ecs::entity::{Entity, EntityMapper};
-/// # use bevy_utils::EntityHashMap;
+/// # use bevy_ecs::entity::EntityHashMap;
 /// #
 /// pub struct SimpleEntityMapper {
-///   map: EntityHashMap<Entity, Entity>,
+///   map: EntityHashMap<Entity>,
 /// }
 ///
 /// // Example implementation of EntityMapper where we map an entity to another entity if it exists
@@ -97,7 +98,7 @@ impl EntityMapper for SceneEntityMapper<'_> {
     }
 }
 
-/// A wrapper for [`EntityHashMap<Entity, Entity>`], augmenting it with the ability to allocate new [`Entity`] references in a destination
+/// A wrapper for [`EntityHashMap<Entity>`], augmenting it with the ability to allocate new [`Entity`] references in a destination
 /// world. These newly allocated references are guaranteed to never point to any living entity in that world.
 ///
 /// References are allocated by returning increasing generations starting from an internally initialized base
@@ -110,9 +111,9 @@ pub struct SceneEntityMapper<'m> {
     /// or over the network. This is required as [`Entity`] identifiers are opaque; you cannot and do not want to reuse
     /// identifiers directly.
     ///
-    /// On its own, a [`EntityHashMap<Entity, Entity>`] is not capable of allocating new entity identifiers, which is needed to map references
+    /// On its own, a [`EntityHashMap<Entity>`] is not capable of allocating new entity identifiers, which is needed to map references
     /// to entities that lie outside the source entity set. This functionality can be accessed through [`SceneEntityMapper::world_scope()`].
-    map: &'m mut EntityHashMap<Entity, Entity>,
+    map: &'m mut EntityHashMap<Entity>,
     /// A base [`Entity`] used to allocate new references.
     dead_start: Entity,
     /// The number of generations this mapper has allocated thus far.
@@ -120,27 +121,18 @@ pub struct SceneEntityMapper<'m> {
 }
 
 impl<'m> SceneEntityMapper<'m> {
-    #[deprecated(
-        since = "0.13.0",
-        note = "please use `EntityMapper::map_entity` instead"
-    )]
-    /// Returns the corresponding mapped entity or reserves a new dead entity ID in the current world if it is absent.
-    pub fn get_or_reserve(&mut self, entity: Entity) -> Entity {
-        self.map_entity(entity)
-    }
-
-    /// Gets a reference to the underlying [`EntityHashMap<Entity, Entity>`].
-    pub fn get_map(&'m self) -> &'m EntityHashMap<Entity, Entity> {
+    /// Gets a reference to the underlying [`EntityHashMap<Entity>`].
+    pub fn get_map(&'m self) -> &'m EntityHashMap<Entity> {
         self.map
     }
 
-    /// Gets a mutable reference to the underlying [`EntityHashMap<Entity, Entity>`].
-    pub fn get_map_mut(&'m mut self) -> &'m mut EntityHashMap<Entity, Entity> {
+    /// Gets a mutable reference to the underlying [`EntityHashMap<Entity>`].
+    pub fn get_map_mut(&'m mut self) -> &'m mut EntityHashMap<Entity> {
         self.map
     }
 
     /// Creates a new [`SceneEntityMapper`], spawning a temporary base [`Entity`] in the provided [`World`]
-    fn new(map: &'m mut EntityHashMap<Entity, Entity>, world: &mut World) -> Self {
+    fn new(map: &'m mut EntityHashMap<Entity>, world: &mut World) -> Self {
         Self {
             map,
             // SAFETY: Entities data is kept in a valid state via `EntityMapper::world_scope`
@@ -160,14 +152,14 @@ impl<'m> SceneEntityMapper<'m> {
         assert!(entities.reserve_generations(self.dead_start.index(), self.generations));
     }
 
-    /// Creates an [`SceneEntityMapper`] from a provided [`World`] and [`EntityHashMap<Entity, Entity>`], then calls the
+    /// Creates an [`SceneEntityMapper`] from a provided [`World`] and [`EntityHashMap<Entity>`], then calls the
     /// provided function with it. This allows one to allocate new entity references in this [`World`] that are
     /// guaranteed to never point at a living entity now or in the future. This functionality is useful for safely
     /// mapping entity identifiers that point at entities outside the source world. The passed function, `f`, is called
     /// within the scope of this world. Its return value is then returned from `world_scope` as the generic type
     /// parameter `R`.
     pub fn world_scope<R>(
-        entity_map: &'m mut EntityHashMap<Entity, Entity>,
+        entity_map: &'m mut EntityHashMap<Entity>,
         world: &mut World,
         f: impl FnOnce(&mut World, &mut Self) -> R,
     ) -> R {
@@ -180,10 +172,8 @@ impl<'m> SceneEntityMapper<'m> {
 
 #[cfg(test)]
 mod tests {
-    use bevy_utils::EntityHashMap;
-
     use crate::{
-        entity::{Entity, EntityMapper, SceneEntityMapper},
+        entity::{Entity, EntityHashMap, EntityMapper, SceneEntityMapper},
         world::World,
     };
 

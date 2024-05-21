@@ -9,7 +9,7 @@ use crate::{
 };
 
 use bevy_utils::all_tuples;
-use std::{any::TypeId, borrow::Cow, marker::PhantomData};
+use std::{borrow::Cow, marker::PhantomData};
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::{info_span, Span};
@@ -284,12 +284,15 @@ impl<Param: SystemParam> SystemState<Param> {
     /// This method only accesses world metadata.
     #[inline]
     pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
+        assert_eq!(self.world_id, world.id(), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
+
         let archetypes = world.archetypes();
         let old_generation =
             std::mem::replace(&mut self.archetype_generation, archetypes.generation());
 
         for archetype in &archetypes[old_generation..] {
-            Param::new_archetype(&mut self.param_state, archetype, &mut self.meta);
+            // SAFETY: The assertion above ensures that the param_state was initialized from `world`.
+            unsafe { Param::new_archetype(&mut self.param_state, archetype, &mut self.meta) };
         }
     }
 
@@ -343,7 +346,8 @@ impl<Param: SystemParam> SystemState<Param> {
         world: UnsafeWorldCell<'w>,
     ) -> SystemParamItem<'w, 's, Param> {
         let change_tick = world.increment_change_tick();
-        self.fetch(world, change_tick)
+        // SAFETY: The invariants are uphold by the caller.
+        unsafe { self.fetch(world, change_tick) }
     }
 
     /// # Safety
@@ -356,7 +360,9 @@ impl<Param: SystemParam> SystemState<Param> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> SystemParamItem<'w, 's, Param> {
-        let param = Param::get_param(&mut self.param_state, &self.meta, world, change_tick);
+        // SAFETY: The invariants are uphold by the caller.
+        let param =
+            unsafe { Param::get_param(&mut self.param_state, &self.meta, world, change_tick) };
         self.meta.last_run = change_tick;
         param
     }
@@ -454,11 +460,6 @@ where
     }
 
     #[inline]
-    fn type_id(&self) -> TypeId {
-        TypeId::of::<F>()
-    }
-
-    #[inline]
     fn component_access(&self) -> &Access<ComponentId> {
         self.system_meta.component_access_set.combined_access()
     }
@@ -495,12 +496,14 @@ where
         //   if the world does not match.
         // - All world accesses used by `F::Param` have been registered, so the caller
         //   will ensure that there are no data access conflicts.
-        let params = F::Param::get_param(
-            self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
-            &self.system_meta,
-            world,
-            change_tick,
-        );
+        let params = unsafe {
+            F::Param::get_param(
+                self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
+                &self.system_meta,
+                world,
+                change_tick,
+            )
+        };
         let out = self.func.run(input, params);
         self.system_meta.last_run = change_tick;
         out
@@ -527,7 +530,8 @@ where
 
         for archetype in &archetypes[old_generation..] {
             let param_state = self.param_state.as_mut().unwrap();
-            F::Param::new_archetype(param_state, archetype, &mut self.system_meta);
+            // SAFETY: The assertion above ensures that the param_state was initialized from `world`.
+            unsafe { F::Param::new_archetype(param_state, archetype, &mut self.system_meta) };
         }
     }
 
@@ -541,7 +545,7 @@ where
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
-        let set = crate::schedule::SystemTypeSet::<F>::new();
+        let set = crate::schedule::SystemTypeSet::<Self>::new();
         vec![set.intern()]
     }
 
@@ -695,3 +699,44 @@ macro_rules! impl_system_function {
 // Note that we rely on the highest impl to be <= the highest order of the tuple impls
 // of `SystemParam` created.
 all_tuples!(impl_system_function, 0, 16, F);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn into_system_type_id_consistency() {
+        fn test<T, In, Out, Marker>(function: T)
+        where
+            T: IntoSystem<In, Out, Marker> + Copy,
+        {
+            fn reference_system() {}
+
+            use std::any::TypeId;
+
+            let system = IntoSystem::into_system(function);
+
+            assert_eq!(
+                system.type_id(),
+                function.system_type_id(),
+                "System::type_id should be consistent with IntoSystem::system_type_id"
+            );
+
+            assert_eq!(
+                system.type_id(),
+                TypeId::of::<T::System>(),
+                "System::type_id should be consistent with TypeId::of::<T::System>()"
+            );
+
+            assert_ne!(
+                system.type_id(),
+                IntoSystem::into_system(reference_system).type_id(),
+                "Different systems should have different TypeIds"
+            );
+        }
+
+        fn function_system() {}
+
+        test(function_system);
+    }
+}

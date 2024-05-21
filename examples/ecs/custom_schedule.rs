@@ -33,14 +33,14 @@ fn main() {
     //
     // Note that we modify `MainScheduleOrder` directly in `main` and not in a startup system. The reason for this is
     // that the `MainScheduleOrder` cannot be modified from systems that are run as part of the `Main` schedule.
-    let mut main_schedule_order = app.world.resource_mut::<MainScheduleOrder>();
+    let mut main_schedule_order = app.world_mut().resource_mut::<MainScheduleOrder>();
     main_schedule_order.insert_after(Update, SingleThreadedUpdate);
 
     // Adding a custom startup schedule works similarly, but needs to use `insert_startup_after`
     // instead of `insert_after`.
     app.add_schedule(Schedule::new(CustomStartup));
 
-    let mut main_schedule_order = app.world.resource_mut::<MainScheduleOrder>();
+    let mut main_schedule_order = app.world_mut().resource_mut::<MainScheduleOrder>();
     main_schedule_order.insert_startup_after(PreStartup, CustomStartup);
 
     app.add_systems(SingleThreadedUpdate, single_threaded_update_system)

@@ -1,5 +1,10 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
@@ -21,6 +26,7 @@ mod geometry;
 mod layout;
 mod render;
 mod stack;
+mod texture_slice;
 mod ui_node;
 
 pub use focus::*;
@@ -39,13 +45,20 @@ pub mod prelude {
         geometry::*, node_bundles::*, ui_material::*, ui_node::*, widget::Button, widget::Label,
         Interaction, UiMaterialPlugin, UiScale,
     };
+    // `bevy_sprite` re-exports for texture slicing
+    #[doc(hidden)]
+    pub use bevy_sprite::{BorderRect, ImageScaleMode, SliceScaleMode, TextureSlicer};
 }
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
-use bevy_render::RenderApp;
+use bevy_render::{
+    view::{check_visibility, VisibilitySystems},
+    RenderApp,
+};
 use bevy_transform::TransformSystem;
+use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::{update_clipping_system, update_target_camera_system};
@@ -88,45 +101,30 @@ struct AmbiguousWithTextSystem;
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 struct AmbiguousWithUpdateText2DLayout;
 
+/// A convenient alias for `With<Node>`, for use with
+/// [`bevy_render::view::VisibleEntities`].
+pub type WithNode = With<Node>;
+
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<UiSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
-            .register_type::<AlignContent>()
-            .register_type::<AlignItems>()
-            .register_type::<AlignSelf>()
             .register_type::<BackgroundColor>()
             .register_type::<CalculatedClip>()
             .register_type::<ContentSize>()
-            .register_type::<Direction>()
-            .register_type::<Display>()
-            .register_type::<FlexDirection>()
-            .register_type::<FlexWrap>()
             .register_type::<FocusPolicy>()
-            .register_type::<GridAutoFlow>()
-            .register_type::<GridPlacement>()
-            .register_type::<GridTrack>()
             .register_type::<Interaction>()
-            .register_type::<JustifyContent>()
-            .register_type::<JustifyItems>()
-            .register_type::<JustifySelf>()
             .register_type::<Node>()
-            // NOTE: used by Style::aspect_ratio
-            .register_type::<Option<f32>>()
-            .register_type::<Overflow>()
-            .register_type::<OverflowAxis>()
-            .register_type::<PositionType>()
             .register_type::<RelativeCursorPosition>()
-            .register_type::<RepeatedGridTrack>()
             .register_type::<Style>()
             .register_type::<TargetCamera>()
             .register_type::<UiImage>()
             .register_type::<UiImageSize>()
             .register_type::<UiRect>()
             .register_type::<UiScale>()
-            .register_type::<Val>()
             .register_type::<BorderColor>()
+            .register_type::<BorderRadius>()
             .register_type::<widget::Button>()
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
@@ -139,6 +137,7 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
+                check_visibility::<WithNode>.in_set(VisibilitySystems::CheckVisibility),
                 update_target_camera_system.before(UiSystem::Layout),
                 apply_deferred
                     .after(update_target_camera_system)
@@ -168,6 +167,11 @@ impl Plugin for UiPlugin {
                     .before(UiSystem::Layout)
                     .in_set(AmbiguousWithTextSystem)
                     .in_set(AmbiguousWithUpdateText2DLayout),
+                (
+                    texture_slice::compute_slices_on_asset_event,
+                    texture_slice::compute_slices_on_image_change,
+                )
+                    .after(UiSystem::Layout),
             ),
         );
 
@@ -178,7 +182,7 @@ impl Plugin for UiPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 

@@ -5,8 +5,8 @@ use crate::{
     },
     renderer::RenderContext,
 };
-use bevy_ecs::{prelude::World, system::Resource};
-use bevy_utils::{define_label, intern::Interned, HashMap};
+use bevy_ecs::{define_label, intern::Interned, prelude::World, system::Resource};
+use bevy_utils::HashMap;
 use std::fmt::Debug;
 
 use super::{EdgeExistence, InternedRenderLabel, IntoRenderNodeArray};
@@ -678,7 +678,7 @@ mod tests {
     use bevy_utils::HashSet;
 
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-    enum TestLabels {
+    enum TestLabel {
         A,
         B,
         C,
@@ -742,53 +742,53 @@ mod tests {
     #[test]
     fn test_graph_edges() {
         let mut graph = RenderGraph::default();
-        graph.add_node(TestLabels::A, TestNode::new(0, 1));
-        graph.add_node(TestLabels::B, TestNode::new(0, 1));
-        graph.add_node(TestLabels::C, TestNode::new(1, 1));
-        graph.add_node(TestLabels::D, TestNode::new(1, 0));
+        graph.add_node(TestLabel::A, TestNode::new(0, 1));
+        graph.add_node(TestLabel::B, TestNode::new(0, 1));
+        graph.add_node(TestLabel::C, TestNode::new(1, 1));
+        graph.add_node(TestLabel::D, TestNode::new(1, 0));
 
-        graph.add_slot_edge(TestLabels::A, "out_0", TestLabels::C, "in_0");
-        graph.add_node_edge(TestLabels::B, TestLabels::C);
-        graph.add_slot_edge(TestLabels::C, 0, TestLabels::D, 0);
+        graph.add_slot_edge(TestLabel::A, "out_0", TestLabel::C, "in_0");
+        graph.add_node_edge(TestLabel::B, TestLabel::C);
+        graph.add_slot_edge(TestLabel::C, 0, TestLabel::D, 0);
 
         assert!(
-            input_nodes(TestLabels::A, &graph).is_empty(),
+            input_nodes(TestLabel::A, &graph).is_empty(),
             "A has no inputs"
         );
         assert_eq!(
-            output_nodes(TestLabels::A, &graph),
-            HashSet::from_iter((TestLabels::C,).into_array()),
+            output_nodes(TestLabel::A, &graph),
+            HashSet::from_iter((TestLabel::C,).into_array()),
             "A outputs to C"
         );
 
         assert!(
-            input_nodes(TestLabels::B, &graph).is_empty(),
+            input_nodes(TestLabel::B, &graph).is_empty(),
             "B has no inputs"
         );
         assert_eq!(
-            output_nodes(TestLabels::B, &graph),
-            HashSet::from_iter((TestLabels::C,).into_array()),
+            output_nodes(TestLabel::B, &graph),
+            HashSet::from_iter((TestLabel::C,).into_array()),
             "B outputs to C"
         );
 
         assert_eq!(
-            input_nodes(TestLabels::C, &graph),
-            HashSet::from_iter((TestLabels::A, TestLabels::B).into_array()),
+            input_nodes(TestLabel::C, &graph),
+            HashSet::from_iter((TestLabel::A, TestLabel::B).into_array()),
             "A and B input to C"
         );
         assert_eq!(
-            output_nodes(TestLabels::C, &graph),
-            HashSet::from_iter((TestLabels::D,).into_array()),
+            output_nodes(TestLabel::C, &graph),
+            HashSet::from_iter((TestLabel::D,).into_array()),
             "C outputs to D"
         );
 
         assert_eq!(
-            input_nodes(TestLabels::D, &graph),
-            HashSet::from_iter((TestLabels::C,).into_array()),
+            input_nodes(TestLabel::D, &graph),
+            HashSet::from_iter((TestLabel::C,).into_array()),
             "C inputs to D"
         );
         assert!(
-            output_nodes(TestLabels::D, &graph).is_empty(),
+            output_nodes(TestLabel::D, &graph).is_empty(),
             "D has no outputs"
         );
     }
@@ -812,12 +812,12 @@ mod tests {
 
         let mut graph = RenderGraph::default();
 
-        graph.add_node(TestLabels::A, MyNode { value: 42 });
+        graph.add_node(TestLabel::A, MyNode { value: 42 });
 
-        let node: &MyNode = graph.get_node(TestLabels::A).unwrap();
+        let node: &MyNode = graph.get_node(TestLabel::A).unwrap();
         assert_eq!(node.value, 42, "node value matches");
 
-        let result: Result<&TestNode, RenderGraphError> = graph.get_node(TestLabels::A);
+        let result: Result<&TestNode, RenderGraphError> = graph.get_node(TestLabel::A);
         assert_eq!(
             result.unwrap_err(),
             RenderGraphError::WrongNodeType,
@@ -829,17 +829,17 @@ mod tests {
     fn test_slot_already_occupied() {
         let mut graph = RenderGraph::default();
 
-        graph.add_node(TestLabels::A, TestNode::new(0, 1));
-        graph.add_node(TestLabels::B, TestNode::new(0, 1));
-        graph.add_node(TestLabels::C, TestNode::new(1, 1));
+        graph.add_node(TestLabel::A, TestNode::new(0, 1));
+        graph.add_node(TestLabel::B, TestNode::new(0, 1));
+        graph.add_node(TestLabel::C, TestNode::new(1, 1));
 
-        graph.add_slot_edge(TestLabels::A, 0, TestLabels::C, 0);
+        graph.add_slot_edge(TestLabel::A, 0, TestLabel::C, 0);
         assert_eq!(
-            graph.try_add_slot_edge(TestLabels::B, 0, TestLabels::C, 0),
+            graph.try_add_slot_edge(TestLabel::B, 0, TestLabel::C, 0),
             Err(RenderGraphError::NodeInputSlotAlreadyOccupied {
-                node: TestLabels::C.intern(),
+                node: TestLabel::C.intern(),
                 input_slot: 0,
-                occupied_by_node: TestLabels::A.intern(),
+                occupied_by_node: TestLabel::A.intern(),
             }),
             "Adding to a slot that is already occupied should return an error"
         );
@@ -849,16 +849,16 @@ mod tests {
     fn test_edge_already_exists() {
         let mut graph = RenderGraph::default();
 
-        graph.add_node(TestLabels::A, TestNode::new(0, 1));
-        graph.add_node(TestLabels::B, TestNode::new(1, 0));
+        graph.add_node(TestLabel::A, TestNode::new(0, 1));
+        graph.add_node(TestLabel::B, TestNode::new(1, 0));
 
-        graph.add_slot_edge(TestLabels::A, 0, TestLabels::B, 0);
+        graph.add_slot_edge(TestLabel::A, 0, TestLabel::B, 0);
         assert_eq!(
-            graph.try_add_slot_edge(TestLabels::A, 0, TestLabels::B, 0),
+            graph.try_add_slot_edge(TestLabel::A, 0, TestLabel::B, 0),
             Err(RenderGraphError::EdgeAlreadyExists(Edge::SlotEdge {
-                output_node: TestLabels::A.intern(),
+                output_node: TestLabel::A.intern(),
                 output_index: 0,
-                input_node: TestLabels::B.intern(),
+                input_node: TestLabel::B.intern(),
                 input_index: 0,
             })),
             "Adding to a duplicate edge should return an error"
@@ -885,30 +885,30 @@ mod tests {
         }
 
         let mut graph = RenderGraph::default();
-        graph.add_node(TestLabels::A, SimpleNode);
-        graph.add_node(TestLabels::B, SimpleNode);
-        graph.add_node(TestLabels::C, SimpleNode);
+        graph.add_node(TestLabel::A, SimpleNode);
+        graph.add_node(TestLabel::B, SimpleNode);
+        graph.add_node(TestLabel::C, SimpleNode);
 
-        graph.add_node_edges((TestLabels::A, TestLabels::B, TestLabels::C));
+        graph.add_node_edges((TestLabel::A, TestLabel::B, TestLabel::C));
 
         assert_eq!(
-            output_nodes(TestLabels::A, &graph),
-            HashSet::from_iter((TestLabels::B,).into_array()),
+            output_nodes(TestLabel::A, &graph),
+            HashSet::from_iter((TestLabel::B,).into_array()),
             "A -> B"
         );
         assert_eq!(
-            input_nodes(TestLabels::B, &graph),
-            HashSet::from_iter((TestLabels::A,).into_array()),
+            input_nodes(TestLabel::B, &graph),
+            HashSet::from_iter((TestLabel::A,).into_array()),
             "A -> B"
         );
         assert_eq!(
-            output_nodes(TestLabels::B, &graph),
-            HashSet::from_iter((TestLabels::C,).into_array()),
+            output_nodes(TestLabel::B, &graph),
+            HashSet::from_iter((TestLabel::C,).into_array()),
             "B -> C"
         );
         assert_eq!(
-            input_nodes(TestLabels::C, &graph),
-            HashSet::from_iter((TestLabels::B,).into_array()),
+            input_nodes(TestLabel::C, &graph),
+            HashSet::from_iter((TestLabel::B,).into_array()),
             "B -> C"
         );
     }

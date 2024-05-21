@@ -83,6 +83,11 @@ impl RemovedComponentEvents {
         }
     }
 
+    /// Returns an iterator over components and their entity events.
+    pub fn iter(&self) -> impl Iterator<Item = (&ComponentId, &Events<RemovedComponentEntity>)> {
+        self.event_sets.iter()
+    }
+
     /// Gets the event storage for a given component.
     pub fn get(
         &self,
@@ -99,7 +104,8 @@ impl RemovedComponentEvents {
     }
 }
 
-/// A [`SystemParam`] that grants access to the entities that had their `T` [`Component`] removed.
+/// A [`SystemParam`] that yields entities that had their `T` [`Component`]
+/// removed or have been despawned with it.
 ///
 /// This acts effectively the same as an [`EventReader`](crate::event::EventReader).
 ///

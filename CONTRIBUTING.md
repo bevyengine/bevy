@@ -76,25 +76,33 @@ Check out our dedicated [Bevy Organization document](/docs/the_bevy_organization
 
 ### Classifying PRs
 
-Our merge strategy relies on the classification of PRs on two axes:
+[Labels](https://github.com/bevyengine/bevy/labels) are our primary tool to organize work.
+Each label has a prefix denoting its category:
 
-* How controversial are the design decisions.
-* How complex is the implementation.
+* **D:** Difficulty. In order, these are:
+  * `D-Trivial`: typos, obviously incorrect one-line bug fixes, code reorganization, renames
+  * `D-Straightforward`: simple bug fixes and API improvements, docs, test and examples
+  * `D-Modest`: new features, refactors, challenging bug fixes
+  * `D-Complex`: rewrites and unusually complex features
+  * When applied to an issue, these labels reflect the estimated level of expertise (not time) required to fix the issue.
+  * When applied to a PR, these labels reflect the estimated level of expertise required to *review* the PR.
+  * The `D-Domain-Expert` and `D-Domain-Agnostic` labels are modifiers, which describe if unusually high or low degrees of domain-specific knowledge are required.
+  * The `D-Unsafe` label is applied to any code that touches `unsafe` Rust, which requires special skills and scrutiny.
+* **X:** Controversiality. In order, these are:
+  * `X-Uncontroversial`: everyone should agree that this is a good idea
+  * `X-Contentious`: there's real design thought needed to ensure that this is the right path forward
+  * `X-Controversial`: there's active disagreement and/or large-scale architectural implications involved
+  * `X-Blessed`: work that was controversial, but whose controversial (but perhaps not technical) elements have been endorsed by the relevant decision makers.
+* **A:** Area (e.g. A-Animation, A-ECS, A-Rendering, ...).
+* **C:** Category (e.g. C-Breaking-Change, C-Code-Quality, C-Docs, ...).
+* **O:** Operating System (e.g. O-Linux, O-Web, O-Windows, ...).
+* **P:** Priority (e.g. P-Critical, P-High, ...)
+  * Most work is not explicitly categorized by priority: volunteer work mostly occurs on an ad hoc basis depending on contributor interests
+* **S:** Status (e.g. S-Blocked, S-Needs-Review, S-Needs-Design, ...).
 
-Each [label](https://github.com/bevyengine/bevy/labels) has a prefix denoting its category:
-
-* A: Area (e.g. A-Animation, A-ECS, A-Rendering).
-* C: Category (e.g. C-Breaking-Change, C-Code-Quality, C-Docs).
-* D: Difficulty (e.g. D-Complex, D-Good-First-Issue).
-* O: Operating System (e.g. O-Linux, O-Web, O-Windows).
-* P: Priority (e.g. P-Critical, P-High).
-* S: Status (e.g. S-Blocked, S-Controversial, S-Needs-Design).
-
-PRs with non-trivial design decisions are given the [`S-Controversial`] label. This indicates that
-the PR needs more thorough design review or an [RFC](https://github.com/bevyengine/rfcs), if complex enough.
-
-PRs that are non-trivial to review are given the [`D-Complex`] label. This indicates that the PR
-should be reviewed more thoroughly and by people with experience in the area that the PR touches.
+The rules for how PRs get merged depend on their classification by controversy and difficulty.
+More difficult PRs will require more careful review from experts,
+while more controversial PRs will require rewrites to reduce the costs involved and/or sign-off from Subject Matter Experts and Maintainers.
 
 When making PRs, try to split out more controversial changes from less controversial ones, in order to make your work easier to review and merge.
 It is also a good idea to try and split out simple changes from more complex changes if it is not helpful for them to be reviewed together.
@@ -155,6 +163,35 @@ We use [Milestones](https://github.com/bevyengine/bevy/milestones) to track issu
 
 There are also two priority labels: [`P-Critical`](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AP-Critical) and [`P-High`](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AP-High) that can be used to find issues and PRs that need to be resolved urgently.
 
+### Closing PRs and Issues
+
+From time to time, PRs are unsuitable to be merged in a way that cannot be readily fixed.
+Rather than leaving these PRs open in limbo indefinitely, they should simply be closed.
+
+This might happen if:
+
+1. The PR is spam or malicious.
+2. The work has already been done elsewhere or is otherwise fully obsolete.
+3. The PR was successfully adopted.
+4. The work is particularly low quality, and the author is resistant to coaching.
+5. The work adds features or abstraction of limited value, especially in a way that could easily be recreated outside of the engine.
+6. The work has been sitting in review for so long and accumulated so many conflicts that it would be simpler to redo it from scratch.
+7. The PR is pointlessly large, and should be broken into multiple smaller PRs for easier review.
+
+PRs that are `S-Adopt-Me` should be left open, but only if they're genuinely more useful to rebase rather than simply use as a reference.
+
+There are several paths for PRs to be closed:
+
+1. Obviously, authors may close their own PRs for any reason at any time.
+2. If a PR is clearly spam or malicious, anyone with triage rights is encouraged to close out the PR and report it to Github.
+3. If the work has already been done elsewhere, adopted or otherwise obsoleted, anyone with triage rights is encouraged to close out the PR with an explanatory comment.
+4. Anyone may nominate a PR for closure, by bringing it to the attention of the author and / or one of the SMEs / maintainers. Let them press the button, but this is generally well-received and helpful.
+5. SMEs or maintainers may and are encouraged to unilaterally close PRs that fall into one or more of the remaining categories.
+6. In the case of PRs where some members of the community (other than the author) are in favor and some are opposed, any two relevant SMEs or maintainers may act in concert to close the PR.
+
+When closing a PR, check if it has an issue linked.
+If it does not, you should strongly consider creating an issue and linking the now-closed PR to help make sure the previous work can be discovered and credited.
+
 ## Making changes to Bevy
 
 Most changes don't require much "process". If your change is relatively straightforward, just do the following:
@@ -188,6 +225,49 @@ No matter your experience level with Bevy or Rust or your level of commitment, t
 Take a look at the sections that follow to pick a route (or five) that appeal to you.
 
 If you ever find yourself at a loss for what to do, or in need of mentorship or advice on how to contribute to Bevy, feel free to ask in [Discord] and one of our more experienced community members will be happy to help.
+
+### Join a working group
+
+Active initiatives in Bevy are organized into temporary working groups: choosing one of those and asking how to help can be a fantastic way to get up to speed and be immediately useful.
+
+Working groups are public, open-membership groups that work together to tackle a broad-but-scoped initiative.
+The work that they do is coordinated in a forum-channel on [Discord](https://discord.gg/bevy), although they also create issues and may use project boards for tangible work that needs to be done.
+
+There are no special requirements to be a member, and no formal membership list or leadership.
+Anyone can help, and you should expect to compromise and work together with others to bring a shared vision to life.
+Working groups are *spaces*, not clubs.
+
+### Start a working group
+
+When tackling a complex initiative, friends and allies can make things go much more smoothly.
+
+To start a working group:
+
+1. Decide what the working group is going to focus on. This should be tightly focused and achievable!
+2. Gather at least 3 people including yourself who are willing to be in the working group.
+3. Ping the `@Maintainer` role on Discord in [#engine-dev](https://discord.com/channels/691052431525675048/692572690833473578) announcing your mutual intent and a one or two sentence description of your plans.
+
+The maintainers will briefly evaluate the proposal in consultation with the relevant SMEs and give you a thumbs up or down on whether this is something Bevy can and wants to explore right now.
+You don't need a concrete plan at this stage, just a sensible argument for both "why is this something that could be useful to Bevy" and "why there aren't any serious barriers in implementing this in the near future".
+If they're in favor, a maintainer will create a forum channel for you and you're off to the races.
+
+Your initial task is writing up a design doc: laying out the scope of work and general implementation strategy.
+Here's a [solid example of a design doc](https://github.com/bevyengine/bevy/issues/12365), although feel free to use whatever format works best for your team.
+
+Once that's ready, get a sign-off on the broad vision and goals from the appropriate SMEs and maintainers.
+This is the primary review step: maintainers and SMEs should be broadly patient and supportive even if they're skeptical until a proper design doc is in hand to evaluate.
+
+With a sign-off in hand, post the design doc to [Github Discussions](https://github.com/bevyengine/bevy/discussions) with the [`C-Design-Doc` label](https://github.com/bevyengine/bevy/discussions?discussions_q=is%3Aopen+label%3A%22C-Design+Doc%22) for archival purposes and begin work on implementation.
+Post PRs that you need review on in your group's forum thread, ask for advice, and share the load.
+Controversial PRs are still `S-Controversial`, but with a sign-off-in-priniciple, things should go more smoothly.
+
+If work peters out and the initiative dies, maintainers can wind down working groups (in consultation with SMEs and the working group itself).
+This is normal and expected: projects fail for all sorts of reasons!
+However, it's important to both keep the number of working groups relatively small and ensure they're active:
+they serve a vital role in onboarding new contributors.
+
+Once your implementation work laid out in your initial design doc is complete, it's time to wind down the working group.
+Feel free to make another one though to tackle the next step in your grand vision!
 
 ### Battle-testing Bevy
 
@@ -277,6 +357,11 @@ With the sheer volume of activity in Bevy's community, reviewing others work wit
 You don't need to be an Elder Rustacean to be useful here: anyone can catch missing tests, unclear docs, logic errors, and so on.
 If you have specific skills (e.g. advanced familiarity with `unsafe` code, rendering knowledge or web development experience) or personal experience with a problem, try to prioritize those areas to ensure we can get appropriate expertise where we need it.
 
+When you find (or make) a PR that you don't feel comfortable reviewing, but you *can* think of someone who does, consider using Github's "Request review" functionality (in the top-right of the PR screen) to bring the work to their attention.
+If they're not a Bevy Org member, you'll need to ping them in the thread directly: that's fine too!
+Almost everyone working on Bevy is a volunteer: this should be treated as a gentle nudge, rather than an assignment of work.
+Consider checking the Git history for appropriate reviewers, or ask on Discord for suggestions.
+
 Focus on giving constructive, actionable feedback that results in real improvements to code quality or end-user experience.
 If you don't understand why an approach was taken, please ask!
 
@@ -285,7 +370,16 @@ Larger changes deserve a comment in the main thread, or a pull request to the or
 When in doubt about a matter of architectural philosophy, refer back to [*What we're trying to build*](#what-were-trying-to-build) for guidance.
 
 Once you're happy with the work and feel you're reasonably qualified to assess quality in this particular area, leave your `Approved` review on the PR.
-If you're new to GitHub, check out the [Pull Request Review documentation](https://docs.github.com/en/github/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/about-pull-request-reviews). Anyone can leave reviews ... no special permissions are required!
+If you're new to GitHub, check out the [Pull Request Review documentation](https://docs.github.com/en/github/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/about-pull-request-reviews).
+**Anyone** can and should leave reviews ... no special permissions are required!
+
+It's okay to leave an approval even if you aren't 100% confident on all areas of the PR: just be sure to note your limitations.
+When maintainers are evaluating the PR to be merged, they'll make sure that there's good coverage on all of the critical areas.
+If you can only check that the math is correct, and another reviewer can check everything *but* the math, we're in good shape!
+
+Similarly, if there are areas that would be *good* to fix but aren't severe, please consider leaving an approval.
+The author can address them immediately, or spin it out into follow-up issues or PRs.
+Large PRs are much more draining for both reviewers and authors, so try to push for a smaller scope with clearly tracked follow-ups.
 
 There are three main places you can check for things to review:
 
@@ -334,19 +428,19 @@ If you're new to Bevy, here's the workflow we use:
     * `cargo run -p ci -- doc` - to run doc tests and doc checks.
     * `cargo run -p ci -- compile` - to check that everything that must compile still does (examples and benches), and that some that shouldn't still don't ([`crates/bevy_ecs_compile_fail_tests`](./crates/bevy_ecs_compile_fail_tests)).
     * to get more information on commands available and what is run, check the [tools/ci crate](./tools/ci).
-
 4. When working with Markdown (`.md`) files, Bevy's CI will check markdown files (like this one) using [markdownlint](https://github.com/DavidAnson/markdownlint).
 To locally lint your files using the same workflow as our CI:
    1. Install [markdownlint-cli](https://github.com/igorshubovych/markdownlint-cli).
    2. Run `markdownlint -f -c .github/linters/.markdown-lint.yml .` in the root directory of the Bevy project.
-
 5. When working with Toml (`.toml`) files, Bevy's CI will check toml files using [taplo](https://taplo.tamasfe.dev/): `taplo fmt --check --diff`
    1. If you use VSCode, install [Even better toml](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml) and format your files.
    2. If you want to use the cli tool, install [taplo-cli](https://taplo.tamasfe.dev/cli/installation/cargo.html) and run `taplo fmt --check --diff` to check for the formatting. Fix any issues by running `taplo fmt` in the root directory of the Bevy project.
-
-6. Push your changes to your fork on Github and open a Pull Request.
-7. Respond to any CI failures or review feedback. While CI failures must be fixed before we can merge your PR, you do not need to *agree* with all feedback from your reviews, merely acknowledge that it was given. If you cannot come to an agreement, leave the thread open and defer to a Maintainer or Project Lead's final judgement.
-8. When your PR is ready to merge, a Maintainer or Project Lead will review it and suggest final changes. If those changes are minimal they may even apply them directly to speed up merging.
+6. Check for typos. Bevy's CI will check for them using [typos](https://github.com/crate-ci/typos).
+   1. If you use VSCode, install [Typos Spell Checker](https://marketplace.visualstudio.com/items?itemName=tekumara.typos-vscode).
+   2. You can also use the cli tool. Install [typos-cli](https://github.com/crate-ci/typos?tab=readme-ov-file#install) and run `typos` to check for typos, and fix them by running `typos -w`.
+7. Push your changes to your fork on Github and open a Pull Request.
+8. Respond to any CI failures or review feedback. While CI failures must be fixed before we can merge your PR, you do not need to *agree* with all feedback from your reviews, merely acknowledge that it was given. If you cannot come to an agreement, leave the thread open and defer to a Maintainer or Project Lead's final judgement.
+9. When your PR is ready to merge, a Maintainer or Project Lead will review it and suggest final changes. If those changes are minimal they may even apply them directly to speed up merging.
 
 If you end up adding a new official Bevy crate to the `bevy` repo:
 

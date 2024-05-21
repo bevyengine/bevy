@@ -23,3 +23,11 @@
 @group(2) @binding(17) var diffuse_transmission_texture: texture_2d<f32>;
 @group(2) @binding(18) var diffuse_transmission_sampler: sampler;
 #endif
+#ifdef PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED
+@group(2) @binding(19) var clearcoat_texture: texture_2d<f32>;
+@group(2) @binding(20) var clearcoat_sampler: sampler;
+@group(2) @binding(21) var clearcoat_roughness_texture: texture_2d<f32>;
+@group(2) @binding(22) var clearcoat_roughness_sampler: sampler;
+@group(2) @binding(23) var clearcoat_normal_texture: texture_2d<f32>;
+@group(2) @binding(24) var clearcoat_normal_sampler: sampler;
+#endif

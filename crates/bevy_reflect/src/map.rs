@@ -1,13 +1,12 @@
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
-use std::hash::Hash;
 
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
 use crate::{
-    self as bevy_reflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
-    TypePathTable,
+    self as bevy_reflect, ApplyError, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
+    TypeInfo, TypePath, TypePathTable,
 };
 
 /// A trait used to power [map-like] operations via [reflection].
@@ -107,11 +106,8 @@ pub struct MapInfo {
 
 impl MapInfo {
     /// Create a new [`MapInfo`].
-    pub fn new<
-        TMap: Map + TypePath,
-        TKey: Hash + Reflect + TypePath,
-        TValue: Reflect + TypePath,
-    >() -> Self {
+    pub fn new<TMap: Map + TypePath, TKey: Reflect + TypePath, TValue: Reflect + TypePath>() -> Self
+    {
         Self {
             type_path: TypePathTable::of::<TMap>(),
             type_id: TypeId::of::<TMap>(),
@@ -349,9 +345,17 @@ impl Reflect for DynamicMap {
         map_apply(self, value);
     }
 
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        map_try_apply(self, value)
+    }
+
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
+    }
+
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Map
     }
 
     fn reflect_ref(&self) -> ReflectRef {
@@ -413,7 +417,7 @@ impl<'a> Iterator for MapIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let value = self.map.get_at(self.index);
-        self.index += 1;
+        self.index += value.is_some() as usize;
         value
     }
 
@@ -502,17 +506,37 @@ pub fn map_debug(dyn_map: &dyn Map, f: &mut Formatter<'_>) -> std::fmt::Result {
 /// This function panics if `b` is not a reflected map.
 #[inline]
 pub fn map_apply<M: Map>(a: &mut M, b: &dyn Reflect) {
+    if let Err(err) = map_try_apply(a, b) {
+        panic!("{err}");
+    }
+}
+
+/// Tries to apply the elements of reflected map `b` to the corresponding elements of map `a`
+/// and returns a Result.
+///
+/// If a key from `b` does not exist in `a`, the value is cloned and inserted.
+///
+/// # Errors
+///
+/// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a reflected map or if
+/// applying elements to each other fails.
+#[inline]
+pub fn map_try_apply<M: Map>(a: &mut M, b: &dyn Reflect) -> Result<(), ApplyError> {
     if let ReflectRef::Map(map_value) = b.reflect_ref() {
         for (key, b_value) in map_value.iter() {
             if let Some(a_value) = a.get_mut(key) {
-                a_value.apply(b_value);
+                a_value.try_apply(b_value)?;
             } else {
                 a.insert_boxed(key.clone_value(), b_value.clone_value());
             }
         }
     } else {
-        panic!("Attempted to apply a non-map type to a map type.");
+        return Err(ApplyError::MismatchedKinds {
+            from_kind: b.reflect_kind(),
+            to_kind: ReflectKind::Map,
+        });
     }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -582,7 +606,7 @@ mod tests {
         assert_eq!(key, &1usize);
         assert_eq!(value, &mut values[2].to_owned());
 
-        *value = values[0].to_owned();
+        value.clone_from(&values[0].to_owned());
 
         assert_eq!(
             map.get(&1usize as &dyn Reflect)
@@ -593,5 +617,28 @@ mod tests {
         );
 
         assert!(map.get_at(2).is_none());
+    }
+
+    #[test]
+    fn next_index_increment() {
+        let values = ["first", "last"];
+        let mut map = DynamicMap::default();
+        map.insert(0usize, values[0]);
+        map.insert(1usize, values[1]);
+
+        let mut iter = map.iter();
+        let size = iter.len();
+
+        for _ in 0..2 {
+            let prev_index = iter.index;
+            assert!(iter.next().is_some());
+            assert_eq!(prev_index, iter.index - 1);
+        }
+
+        // When None we should no longer increase index
+        for _ in 0..2 {
+            assert!(iter.next().is_none());
+            assert_eq!(size, iter.index);
+        }
     }
 }

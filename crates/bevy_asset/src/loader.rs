@@ -9,7 +9,7 @@ use crate::{
     UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::world::World;
-use bevy_utils::{BoxedFuture, CowArc, HashMap, HashSet};
+use bevy_utils::{BoxedFuture, ConditionalSendFuture, CowArc, HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
 use futures_lite::AsyncReadExt;
 use ron::error::SpannedError;
@@ -35,9 +35,10 @@ pub trait AssetLoader: Send + Sync + 'static {
         reader: &'a mut Reader,
         settings: &'a Self::Settings,
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>>;
+    ) -> impl ConditionalSendFuture<Output = Result<Self::Asset, Self::Error>>;
 
     /// Returns a list of extensions supported by this [`AssetLoader`], without the preceding dot.
+    /// Note that users of this [`AssetLoader`] may choose to load files with a non-matching extension.
     fn extensions(&self) -> &[&str] {
         &[]
     }
@@ -256,7 +257,7 @@ pub struct LoadDirectError {
 }
 
 /// An error that occurs while deserializing [`AssetMeta`].
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum DeserializeMetaError {
     #[error("Failed to deserialize asset meta: {0:?}")]
     DeserializeSettings(#[from] SpannedError),
