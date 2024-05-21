@@ -1,13 +1,23 @@
 use bevy_math::{
     primitives::{Annulus, Capsule2d, Circle, Ellipse, Extrusion, Primitive2d},
-    Vec3,
+    Vec2, Vec3,
 };
 
 use crate::mesh::{Indices, Mesh, VertexAttributeValues};
 
 use super::{MeshBuilder, Meshable};
 
-pub trait Extrudable {
+/// A trait for required for implementing `Meshable` for `Extrusion<T>`
+///
+/// ## Warning
+///
+/// By implementing this trait you guarantee that the `primitive_topology` of the mesh returned by this builder is [`PrimitiveTopology::TriangleList`](wgpu::PrimitiveTopology::TriangleList)
+/// and that your mesh has a [`Mesh::ATTRIBUTE_POSITION`] attribute
+pub trait Extrudable: MeshBuilder {
+    /// A list of the indices each representing a part of the perimeter of the mesh.
+    ///
+    /// The indices must be ordered such that the *outside* of the mesh is to the right
+    /// when walking along the vertices of the mesh in the order provided by indices
     fn perimeter_indices(&self) -> Vec<Indices>;
 }
 
@@ -92,7 +102,6 @@ impl ExtrusionBuilder<Annulus> {
 
 impl ExtrusionBuilder<Capsule2d> {
     /// Sets the number of vertices used for each hemicircle at the ends of the extrusion.
-    /// The total number of vertices for the extruded capsule mesh will be four times the resolution.
     pub fn resolution(mut self, resolution: usize) -> Self {
         self.base_builder.resolution = resolution;
         self
@@ -100,24 +109,34 @@ impl ExtrusionBuilder<Capsule2d> {
 }
 
 fn build_extrusion(cap: Mesh, perimeter: Vec<Indices>, half_depth: f32, _segments: usize) -> Mesh {
-    let mut cap = cap.translated_by(Vec3::new(0., 0., half_depth));
-    if let Some(VertexAttributeValues::Float32x2(uvs)) = cap.attribute_mut(Mesh::ATTRIBUTE_UV_0) {
+    // Move the base mesh to the front
+    let mut front_face = cap.translated_by(Vec3::new(0., 0., half_depth));
+
+    // Move the uvs of the front face to be between (0., 0.) and (0.5, 0.5)
+    if let Some(VertexAttributeValues::Float32x2(uvs)) =
+        front_face.attribute_mut(Mesh::ATTRIBUTE_UV_0)
+    {
         for uv in uvs {
             *uv = uv.map(|coord| coord * 0.5);
         }
     }
 
-    let opposite_cap = {
-        let topology = cap.primitive_topology();
-        let mut cap = cap.clone().scaled_by(Vec3::new(1., 1., -1.));
-        if let Some(VertexAttributeValues::Float32x2(uvs)) = cap.attribute_mut(Mesh::ATTRIBUTE_UV_0)
+    let back_face = {
+        let topology = front_face.primitive_topology();
+        // Flip the normals, etc. and move mesh to the back
+        let mut back_face = front_face.clone().scaled_by(Vec3::new(1., 1., -1.));
+
+        // Move the uvs of the back face to be between (0.5, 0.) and (1., 0.5)
+        if let Some(VertexAttributeValues::Float32x2(uvs)) =
+            back_face.attribute_mut(Mesh::ATTRIBUTE_UV_0)
         {
             for uv in uvs {
                 *uv = [uv[0] + 0.5, uv[1]]
             }
         }
 
-        if let Some(indices) = cap.indices_mut() {
+        // By swapping the first and second indices of each triangle we invert the winding order thus making the mesh visible from the other side
+        if let Some(indices) = back_face.indices_mut() {
             match topology {
                 wgpu::PrimitiveTopology::TriangleList => match indices {
                     Indices::U16(indices) => {
@@ -132,12 +151,18 @@ fn build_extrusion(cap: Mesh, perimeter: Vec<Indices>, half_depth: f32, _segment
                 }
             };
         }
-        cap
+        back_face
     };
 
-    let barrel_skin = {
+    // An extrusion of depth 0 does not need a mantel
+    if half_depth == 0. {
+        front_face.merge(back_face);
+        return front_face;
+    }
+
+    let mantel = {
         let Some(VertexAttributeValues::Float32x3(cap_verts)) =
-            cap.attribute(Mesh::ATTRIBUTE_POSITION)
+            front_face.attribute(Mesh::ATTRIBUTE_POSITION)
         else {
             panic!("The cap mesh did not have a vertex attribute");
         };
@@ -195,16 +220,16 @@ fn build_extrusion(cap: Mesh, perimeter: Vec<Indices>, half_depth: f32, _segment
             uv_x += uv_delta;
         }
 
-        Mesh::new(cap.primitive_topology(), cap.asset_usage)
+        Mesh::new(front_face.primitive_topology(), front_face.asset_usage)
             .with_inserted_indices(Indices::U32(indices))
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
             .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
             .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     };
 
-    cap.merge(opposite_cap);
-    cap.merge(barrel_skin);
-    cap
+    front_face.merge(back_face);
+    front_face.merge(mantel);
+    front_face
 }
 
 impl<P> From<Extrusion<P>> for Mesh
