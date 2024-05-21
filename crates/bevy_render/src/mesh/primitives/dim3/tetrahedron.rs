@@ -28,7 +28,7 @@ impl Meshable for Tetrahedron {
         for face in faces {
             positions.extend(face.vertices);
 
-            let face_normal: Vec3 = face.normal().map_or(Vec3::ZERO, |n| n.into());
+            let face_normal = triangle3d::normal_vec(&face);
             normals.extend(vec![face_normal; 3]);
 
             let face_uvs = triangle3d::uv_coords(&face);
