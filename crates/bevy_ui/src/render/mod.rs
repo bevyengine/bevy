@@ -581,7 +581,7 @@ pub fn extract_uinode_outlines(
 
         // Calculate the outline rects.
         let inner_rect = Rect::from_center_size(Vec2::ZERO, node.size() + 2. * node.outline_offset);
-        let outer_rect = inner_rect.inset(node.outline_width());
+        let outer_rect = inner_rect.inflate(node.outline_width());
         let outline_edges = [
             // Left edge
             Rect::new(
