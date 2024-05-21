@@ -686,7 +686,7 @@ pub struct Archetypes {
     pub(crate) archetypes: Vec<Archetype>,
     archetype_component_count: usize,
     /// find the archetype id by the components
-    by_components: bevy_utils::HashMap<ArchetypeComponents, ArchetypeId>,
+    by_components: HashMap<ArchetypeComponents, ArchetypeId>,
     /// find all the archetypes that contain a component
     by_component: ComponentIndex,
 }
