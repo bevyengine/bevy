@@ -1402,7 +1402,6 @@ macro_rules! impl_system_param_tuple {
             type State = ($($param::State,)*);
             type Item<'w, 's> = ($($param::Item::<'w, 's>,)*);
 
-
             #[inline]
             fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
                 (($($param::init_state(_world, _system_meta),)*))
