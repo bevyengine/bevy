@@ -297,17 +297,17 @@ impl URect {
     /// ```
     /// # use bevy_math::{URect, UVec2};
     /// let r = URect::new(4, 4, 6, 6); // w=2 h=2
-    /// let r2 = r.inset(1); // w=4 h=4
+    /// let r2 = r.inflate(1); // w=4 h=4
     /// assert_eq!(r2.min, UVec2::splat(3));
     /// assert_eq!(r2.max, UVec2::splat(7));
     ///
     /// let r = URect::new(4, 4, 8, 8); // w=4 h=4
-    /// let r2 = r.inset(-1); // w=2 h=2
+    /// let r2 = r.inflate(-1); // w=2 h=2
     /// assert_eq!(r2.min, UVec2::splat(5));
     /// assert_eq!(r2.max, UVec2::splat(7));
     /// ```
     #[inline]
-    pub fn inset(&self, inset: i32) -> Self {
+    pub fn inflate(&self, inset: i32) -> Self {
         let mut r = Self {
             min: UVec2::new(
                 self.min.x.saturating_add_signed(-inset),
@@ -454,7 +454,7 @@ mod tests {
     fn rect_inset() {
         let r = URect::from_center_size(UVec2::splat(6), UVec2::splat(6)); // [3, 3] - [9, 9]
 
-        let r2 = r.inset(2);
+        let r2 = r.inflate(2);
         assert_eq!(r2.min, UVec2::new(1, 1));
         assert_eq!(r2.max, UVec2::new(11, 11));
     }
