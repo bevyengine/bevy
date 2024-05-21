@@ -19,6 +19,12 @@ pub struct Rect {
 }
 
 impl Rect {
+    /// An empty `Rect`, represented by maximum and minimum corner points
+    /// with all `f32::MAX` values.
+    pub const EMPTY: Self = Self {
+        max: Vec2::MAX,
+        min: Vec2::MAX,
+    };
     /// Create a new rectangle from two corner points.
     ///
     /// The two points do not need to be the minimum and/or maximum corners.
