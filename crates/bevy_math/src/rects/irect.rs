@@ -300,17 +300,17 @@ impl IRect {
     /// ```
     /// # use bevy_math::{IRect, IVec2};
     /// let r = IRect::new(0, 0, 5, 1); // w=5 h=1
-    /// let r2 = r.inset(3); // w=11 h=7
+    /// let r2 = r.inflate(3); // w=11 h=7
     /// assert_eq!(r2.min, IVec2::splat(-3));
     /// assert_eq!(r2.max, IVec2::new(8, 4));
     ///
     /// let r = IRect::new(0, -1, 4, 3); // w=4 h=4
-    /// let r2 = r.inset(-1); // w=2 h=2
+    /// let r2 = r.inflate(-1); // w=2 h=2
     /// assert_eq!(r2.min, IVec2::new(1, 0));
     /// assert_eq!(r2.max, IVec2::new(3, 2));
     /// ```
     #[inline]
-    pub fn inset(&self, inset: i32) -> Self {
+    pub fn inflate(&self, inset: i32) -> Self {
         let mut r = Self {
             min: self.min - inset,
             max: self.max + inset,
@@ -451,7 +451,7 @@ mod tests {
     fn rect_inset() {
         let r = IRect::from_center_size(IVec2::ZERO, IVec2::splat(4)); // [-2,-2] - [2,2]
 
-        let r2 = r.inset(2);
+        let r2 = r.inflate(2);
         assert_eq!(r2.min, IVec2::new(-4, -4));
         assert_eq!(r2.max, IVec2::new(4, 4));
     }
