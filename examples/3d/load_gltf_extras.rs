@@ -1,16 +1,17 @@
-//! Loads and renders a glTF file as a scene.
+//! Loads and renders a glTF file as a scene, and shows all the different gltf_extras.
 
 use bevy::{
-    gltf::{GltfExtras, GltfMaterialExtras, GltfMeshExtras, GltfSceneExtras}, pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap}, prelude::*
+    gltf::{GltfExtras, GltfMaterialExtras, GltfMeshExtras, GltfSceneExtras},
+    pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
+    prelude::*,
 };
-use std::f32::consts::*;
 
 fn main() {
     App::new()
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (animate_light_direction, check_for_gltf_extras))
+        .add_systems(Update, check_for_gltf_extras)
         .run();
 }
 
@@ -51,41 +52,38 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 }
 
-fn animate_light_direction(
-    time: Res<Time>,
-    mut query: Query<&mut Transform, With<DirectionalLight>>,
-) {
-    for mut transform in &mut query {
-        transform.rotation = Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            time.elapsed_seconds() * PI / 5.0,
-            -FRAC_PI_4,
-        );
-    }
-}
-
-
 fn check_for_gltf_extras(
     gltf_extras_query: Query<(Entity, Option<&Name>, &GltfExtras)>,
-    gltf_scene_extras_query: Query<(Entity, Option<&Name>,&GltfSceneExtras)>,
+    gltf_scene_extras_query: Query<(Entity, Option<&Name>, &GltfSceneExtras)>,
     gltf_mesh_extras_query: Query<(Entity, Option<&Name>, &GltfMeshExtras)>,
     gltf_material_extras_query: Query<(Entity, Option<&Name>, &GltfMaterialExtras)>,
 ) {
     for extra in gltf_extras_query.iter() {
-        println!("primitive extra for {:?} : {:?} (id: {})", extra.1, extra.2, extra.0)
+        println!(
+            "primitive extra for {:?} : {:?} (id: {})",
+            extra.1, extra.2, extra.0
+        )
     }
 
     for extra in gltf_scene_extras_query.iter() {
-        println!("scene extra for {:?} : {:?} (id: {})", extra.1, extra.2, extra.0)
+        println!(
+            "scene extra for {:?} : {:?} (id: {})",
+            extra.1, extra.2, extra.0
+        )
     }
 
     for extra in gltf_mesh_extras_query.iter() {
-        println!("mesh extra for {:?} : {:?} (id: {})", extra.1, extra.2, extra.0)
+        println!(
+            "mesh extra for {:?} : {:?} (id: {})",
+            extra.1, extra.2, extra.0
+        )
     }
 
     for extra in gltf_material_extras_query.iter() {
-        println!("material extra for {:?} : {:?} (id: {})", extra.1, extra.2, extra.0)
+        println!(
+            "material extra for {:?} : {:?} (id: {})",
+            extra.1, extra.2, extra.0
+        )
     }
     println!("")
 }
