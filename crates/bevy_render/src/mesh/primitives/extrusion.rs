@@ -1,4 +1,78 @@
-use crate::mesh::{Indices, Mesh};
+use bevy_math::{
+    primitives::{Circle, Extrusion, Primitive2d},
+    Vec3,
+};
+
+use crate::mesh::{Indices, Mesh, VertexAttributeValues};
+
+use super::{MeshBuilder, Meshable};
+
+pub trait Extrudable {
+    fn perimeter_indices(&self) -> Vec<Indices>;
+}
+
+impl<P> Meshable for Extrusion<P>
+where
+    P: Primitive2d + Meshable,
+    P::Output: Extrudable,
+{
+    type Output = ExtrusionBuilder<P>;
+
+    fn mesh(&self) -> Self::Output {
+        ExtrusionBuilder {
+            base_builder: self.base_shape.mesh(),
+            half_depth: self.half_depth,
+            segments: 1,
+        }
+    }
+}
+
+/// A builder used for creating a [`Mesh`] with an [`Extrusion`] shape.
+pub struct ExtrusionBuilder<P>
+where
+    P: Primitive2d + Meshable,
+    P::Output: Extrudable,
+{
+    base_builder: P::Output,
+    half_depth: f32,
+    segments: usize,
+}
+
+impl<P> MeshBuilder for ExtrusionBuilder<P>
+where
+    P: Primitive2d + Meshable,
+    P::Output: Extrudable,
+{
+    fn build(&self) -> Mesh {
+        build_extrusion(
+            self.base_builder.build(),
+            self.base_builder.perimeter_indices(),
+            self.half_depth,
+            self.segments,
+        )
+    }
+}
+
+impl<P> ExtrusionBuilder<P>
+where
+    P: Primitive2d + Meshable,
+    P::Output: Extrudable,
+{
+    /// Sets the number of segments along the depth of the extrusion.
+    /// Must be greater than `0` for geometry to be generated.
+    pub fn segments(mut self, segments: usize) -> Self {
+        self.segments = segments;
+        self
+    }
+}
+
+impl ExtrusionBuilder<Circle> {
+    /// Sets the number of vertices used for the circle mesh at each end of the extrusion.
+    pub fn resolution(mut self, resolution: usize) -> Self {
+        self.base_builder.resolution = resolution;
+        self
+    }
+}
 
 fn build_extrusion(cap: Mesh, perimeter: Vec<Indices>, half_depth: f32, _segments: usize) -> Mesh {
     let mut cap = cap.translated_by(Vec3::new(0., 0., half_depth));
@@ -106,4 +180,14 @@ fn build_extrusion(cap: Mesh, perimeter: Vec<Indices>, half_depth: f32, _segment
     cap.merge(opposite_cap);
     cap.merge(barrel_skin);
     cap
+}
+
+impl<P> From<Extrusion<P>> for Mesh
+where
+    P: Primitive2d + Meshable,
+    P::Output: Extrudable,
+{
+    fn from(value: Extrusion<P>) -> Self {
+        value.mesh().build()
+    }
 }

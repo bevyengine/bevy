@@ -83,3 +83,9 @@ impl Meshable for Cuboid {
         }
     }
 }
+
+impl From<Cuboid> for Mesh {
+    fn from(cuboid: Cuboid) -> Self {
+        cuboid.mesh().build()
+    }
+}

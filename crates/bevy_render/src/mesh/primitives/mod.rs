@@ -25,6 +25,9 @@ pub use dim2::{CircleMeshBuilder, EllipseMeshBuilder};
 mod dim3;
 pub use dim3::*;
 
+mod extrusion;
+pub use extrusion::*;
+
 use super::Mesh;
 
 /// A trait for shapes that can be turned into a [`Mesh`](super::Mesh).
@@ -45,11 +48,5 @@ pub trait MeshBuilder {
 impl<T: MeshBuilder> From<T> for Mesh {
     fn from(builder: T) -> Self {
         builder.build()
-    }
-}
-
-impl<T: Meshable> From<T> for Mesh {
-    fn from(meshable: T) -> Mesh {
-        meshable.mesh().build()
     }
 }

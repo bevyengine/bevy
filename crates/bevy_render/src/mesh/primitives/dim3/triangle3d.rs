@@ -89,6 +89,12 @@ pub(crate) fn uv_coords(triangle: &Triangle3d) -> [[f32; 2]; 3] {
     }
 }
 
+impl From<Triangle3d> for Mesh {
+    fn from(triangle: Triangle3d) -> Self {
+        triangle.mesh().build()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::uv_coords;

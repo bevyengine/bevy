@@ -4,7 +4,7 @@ use crate::{
     render_asset::RenderAssetUsages,
 };
 
-use super::{MeshBuilder, Meshable};
+use super::{Extrudable, MeshBuilder, Meshable};
 use bevy_math::{
     primitives::{
         Annulus, Capsule2d, Circle, Ellipse, Rectangle, RegularPolygon, Triangle2d, Triangle3d,
@@ -23,6 +23,14 @@ pub struct CircleMeshBuilder {
     /// The default is `32`.
     #[doc(alias = "vertices")]
     pub resolution: usize,
+}
+
+impl Extrudable for CircleMeshBuilder {
+    fn perimeter_indices(&self) -> Vec<Indices> {
+        vec![Indices::U32(
+            (0..self.resolution as u32).chain([0]).collect(),
+        )]
+    }
 }
 
 impl Default for CircleMeshBuilder {
@@ -72,6 +80,12 @@ impl Meshable for Circle {
     }
 }
 
+impl From<Circle> for Mesh {
+    fn from(circle: Circle) -> Self {
+        circle.mesh().build()
+    }
+}
+
 /// A builder used for creating a [`Mesh`] with a [`RegularPolygon`] shape.
 pub struct RegularPolygonMeshBuilder {
     circumradius: f32,
@@ -96,6 +110,12 @@ impl Meshable for RegularPolygon {
             circumradius: self.circumcircle.radius,
             sides: self.sides,
         }
+    }
+}
+
+impl From<RegularPolygon> for Mesh {
+    fn from(polygon: RegularPolygon) -> Self {
+        polygon.mesh().build()
     }
 }
 
@@ -183,6 +203,12 @@ impl Meshable for Ellipse {
             ellipse: *self,
             ..Default::default()
         }
+    }
+}
+
+impl From<Ellipse> for Mesh {
+    fn from(ellipse: Ellipse) -> Self {
+        ellipse.mesh().build()
     }
 }
 
@@ -293,6 +319,12 @@ impl Meshable for Annulus {
     }
 }
 
+impl From<Annulus> for Mesh {
+    fn from(annulus: Annulus) -> Self {
+        annulus.mesh().build()
+    }
+}
+
 /// A builder used for creating a [`Mesh`] with a [`Triangle2d`] shape.
 pub struct Triangle2dMeshBuilder {
     triangle: Triangle2d,
@@ -338,6 +370,12 @@ impl Meshable for Triangle2d {
     }
 }
 
+impl From<Triangle2d> for Mesh {
+    fn from(triangle: Triangle2d) -> Self {
+        triangle.mesh().build()
+    }
+}
+
 /// A builder used for creating a [`Mesh`] with a [`Rectangle`] shape.
 pub struct RectangleMeshBuilder {
     half_size: Vec2,
@@ -374,6 +412,12 @@ impl Meshable for Rectangle {
         RectangleMeshBuilder {
             half_size: self.half_size,
         }
+    }
+}
+
+impl From<Rectangle> for Mesh {
+    fn from(rectangle: Rectangle) -> Self {
+        rectangle.mesh().build()
     }
 }
 
@@ -502,6 +546,12 @@ impl Meshable for Capsule2d {
             capsule: *self,
             ..Default::default()
         }
+    }
+}
+
+impl From<Capsule2d> for Mesh {
+    fn from(capsule: Capsule2d) -> Self {
+        capsule.mesh().build()
     }
 }
 
