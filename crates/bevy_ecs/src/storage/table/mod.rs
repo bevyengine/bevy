@@ -2,7 +2,7 @@ use crate::{
     component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick, TickCells},
     entity::Entity,
     query::DebugCheckedUnwrap,
-    storage::{blob_vec::BlobVec, SparseSet},
+    storage::{blob_vec::BlobVec},
 };
 use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
 use bevy_utils::HashMap;
@@ -80,7 +80,7 @@ impl TableId {
     }
 }
 
-/// A opaque newtype for rows in [`Table`]s. Specifies a single row in a specific table.
+/// An opaque newtype for rows in [`Table`]s. Specifies a single row in a specific table.
 ///
 /// Values of this type are retrievable from [`Archetype::entity_table_row`] and can be
 /// used alongside [`Archetype::table_id`] to fetch the exact table and row where an
@@ -515,6 +515,7 @@ impl Column {
 pub(crate) struct TableBuilder {
     columns: Vec<Column>,
     index_map: Vec<ComponentId>,
+    column_id_map: HashMap<ComponentId, usize>,
     capacity: usize,
 }
 
@@ -525,6 +526,7 @@ impl TableBuilder {
         Self {
             columns: Vec::with_capacity(column_capacity),
             index_map: Vec::with_capacity(column_capacity),
+            column_id_map: HashMap::with_capacity(column_capacity),
             capacity,
         }
     }
@@ -533,6 +535,7 @@ impl TableBuilder {
     pub fn add_column(mut self, component_info: &ComponentInfo) -> Self {
         self.columns.push(Column::with_capacity(component_info, self.capacity));
         self.index_map.push(component_info.id());
+        self.column_id_map.insert(component_info.id(), self.columns.len() - 1);
         self
     }
 
@@ -542,6 +545,7 @@ impl TableBuilder {
             columns: self.columns,
             entities: Vec::with_capacity(self.capacity),
             index_map: self.index_map,
+            column_id_map: self.column_id_map,
         }
     }
 }
@@ -562,8 +566,11 @@ impl TableBuilder {
 pub struct Table {
     columns: Vec<Column>,
     entities: Vec<Entity>,
+    // TODO: might not be needed as we can rely on the ComponentIndex
     /// `index_map[i]` is the [`ComponentId`] of the [`Column`] at index `i`
     index_map: Vec<ComponentId>,
+    // TODO: can remove this if we use the ComponentIndex in places where it's needed
+    column_id_map: HashMap<ComponentId, usize>
 }
 
 impl Table {
@@ -579,7 +586,7 @@ impl Table {
     /// # Safety
     /// `row` must be in-bounds
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) -> Option<Entity> {
-        for mut column in self.columns {
+        for column in &mut self.columns {
             column.swap_remove_unchecked(row);
         }
         let is_last = row.as_usize() == self.entities.len() - 1;
@@ -644,7 +651,7 @@ impl Table {
         for (column_idx, column) in self.columns.iter_mut().enumerate() {
             // SAFETY: `self.index_map` is always the same size as `self.columns`
             let component_id = self.index_map[column_idx];
-            if let Some(new_column) = new_table.get_column_mut(*component_id) {
+            if let Some(new_column) = new_table.get_column_mut(component_id) {
                 new_column.initialize_from_unchecked(column, row, new_row);
             } else {
                 column.swap_remove_unchecked(row);
@@ -678,7 +685,7 @@ impl Table {
             // SAFETY: `self.index_map` is always the same size as `self.columns`
             let component_id = self.index_map[column_idx];
             new_table
-                .get_column_mut(*component_id)
+                .get_column_mut(component_id)
                 .debug_checked_unwrap()
                 .initialize_from_unchecked(column, row, new_row);
         }
@@ -700,7 +707,7 @@ impl Table {
     /// [`Component`]: crate::component::Component
     #[inline]
     pub fn get_column(&self, component_id: ComponentId) -> Option<&Column> {
-        self.columns.get(component_id)
+        self.column_id_map.get(&component_id).and_then(|&idx| self.columns.get(idx))
     }
 
     /// Fetches a mutable reference to the [`Column`] for a given [`Component`] within the
@@ -711,10 +718,13 @@ impl Table {
     /// [`Component`]: crate::component::Component
     #[inline]
     pub(crate) fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut Column> {
-        self.columns.get_mut(component_id)
+        self.column_id_map.get(&component_id).and_then(|&idx| self.columns.get_mut(idx))
     }
 
-    // TODO: use Archetypes instead?
+    // TODO: options
+    //  - be ok with O(n)
+    //  - add a map from component_id to the column index
+    //  - use the Archetypes' ComponentIndex
     /// Checks if the table contains a [`Column`] for a given [`Component`].
     ///
     /// Returns `true` if the column is present, `false` otherwise.
@@ -722,7 +732,7 @@ impl Table {
     /// [`Component`]: crate::component::Component
     #[inline]
     pub fn has_column(&self, component_id: ComponentId) -> bool {
-        self.columns.contains(component_id)
+        self.column_id_map.contains_key(&component_id)
     }
 
     /// Reserves `additional` elements worth of capacity within the table.
@@ -733,7 +743,7 @@ impl Table {
             // use entities vector capacity as driving capacity for all related allocations
             let new_capacity = self.entities.capacity();
 
-            for column in self.columns.values_mut() {
+            for column in &mut self.columns {
                 column.reserve_exact(new_capacity - column.len());
             }
         }
@@ -747,7 +757,7 @@ impl Table {
         self.reserve(1);
         let index = self.entities.len();
         self.entities.push(entity);
-        for column in self.columns.values_mut() {
+        for column in &mut self.columns {
             column.data.set_len(self.entities.len());
             column.added_ticks.push(UnsafeCell::new(Tick::new(0)));
             column.changed_ticks.push(UnsafeCell::new(Tick::new(0)));
@@ -783,20 +793,20 @@ impl Table {
     }
 
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
-        for column in self.columns.values_mut() {
+        for column in &mut self.columns {
             column.check_change_ticks(change_tick);
         }
     }
 
     /// Iterates over the [`Column`]s of the [`Table`].
     pub fn iter(&self) -> impl Iterator<Item = &Column> {
-        self.columns.values()
+        self.columns.iter()
     }
 
     /// Clears all of the stored components in the [`Table`].
     pub(crate) fn clear(&mut self) {
         self.entities.clear();
-        for column in self.columns.values_mut() {
+        for column in &mut self.columns {
             column.clear();
         }
     }

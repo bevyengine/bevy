@@ -15,14 +15,6 @@ pub(crate) struct SparseArray<I, V = I> {
     marker: PhantomData<I>,
 }
 
-/// A space-optimized version of [`SparseArray`] that cannot be changed
-/// after construction.
-#[derive(Debug)]
-pub(crate) struct ImmutableSparseArray<I, V = I> {
-    values: Box<[Option<V>]>,
-    marker: PhantomData<I>,
-}
-
 impl<I: SparseSetIndex, V> Default for SparseArray<I, V> {
     fn default() -> Self {
         Self::new()
@@ -62,7 +54,6 @@ macro_rules! impl_sparse_array {
 }
 
 impl_sparse_array!(SparseArray);
-impl_sparse_array!(ImmutableSparseArray);
 
 impl<I: SparseSetIndex, V> SparseArray<I, V> {
     /// Inserts `value` at `index` in the array.
@@ -101,14 +92,6 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
     /// Removes all of the values stored within.
     pub fn clear(&mut self) {
         self.values.clear();
-    }
-
-    /// Converts the [`SparseArray`] into an immutable variant.
-    pub(crate) fn into_immutable(self) -> ImmutableSparseArray<I, V> {
-        ImmutableSparseArray {
-            values: self.values.into_boxed_slice(),
-            marker: PhantomData,
-        }
     }
 }
 
@@ -339,14 +322,6 @@ pub struct SparseSet<I, V: 'static> {
     sparse: SparseArray<I, NonMaxUsize>,
 }
 
-/// A space-optimized version of [`SparseSet`] that cannot be changed
-/// after construction.
-#[derive(Debug)]
-pub(crate) struct ImmutableSparseSet<I, V: 'static> {
-    dense: Box<[V]>,
-    indices: Box<[I]>,
-    sparse: ImmutableSparseArray<I, NonMaxUsize>,
-}
 
 macro_rules! impl_sparse_set {
     ($ty:ident) => {
@@ -413,7 +388,6 @@ macro_rules! impl_sparse_set {
 }
 
 impl_sparse_set!(SparseSet);
-impl_sparse_set!(ImmutableSparseSet);
 
 impl<I: SparseSetIndex, V> Default for SparseSet<I, V> {
     fn default() -> Self {
@@ -511,15 +485,6 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         self.dense.clear();
         self.indices.clear();
         self.sparse.clear();
-    }
-
-    /// Converts the sparse set into its immutable variant.
-    pub(crate) fn into_immutable(self) -> ImmutableSparseSet<I, V> {
-        ImmutableSparseSet {
-            dense: self.dense.into_boxed_slice(),
-            indices: self.indices.into_boxed_slice(),
-            sparse: self.sparse.into_immutable(),
-        }
     }
 }
 
