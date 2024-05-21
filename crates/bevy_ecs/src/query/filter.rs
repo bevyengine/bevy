@@ -521,6 +521,8 @@ all_tuples!(impl_or_query_filter, 0, 15, F, S);
 /// To retain all results without filtering but still check whether they were added after the
 /// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
 ///
+/// **Note** that this includes changes that happened before the first time this `Query` was run.
+///
 /// # Deferred
 ///
 /// Note, that entity modifications issued with [`Commands`](crate::system::Commands)
@@ -725,6 +727,8 @@ impl<T: Component> QueryFilter for Added<T> {
 ///
 /// To retain all results without filtering but still check whether they were changed after the
 /// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
+///
+/// **Note** that this includes changes that happened before the first time this `Query` was run.
 ///
 /// # Deferred
 ///
