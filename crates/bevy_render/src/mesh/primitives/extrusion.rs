@@ -1,5 +1,5 @@
 use bevy_math::{
-    primitives::{Circle, Extrusion, Primitive2d},
+    primitives::{Annulus, Capsule2d, Circle, Ellipse, Extrusion, Primitive2d},
     Vec3,
 };
 
@@ -68,6 +68,31 @@ where
 
 impl ExtrusionBuilder<Circle> {
     /// Sets the number of vertices used for the circle mesh at each end of the extrusion.
+    pub fn resolution(mut self, resolution: usize) -> Self {
+        self.base_builder.resolution = resolution;
+        self
+    }
+}
+
+impl ExtrusionBuilder<Ellipse> {
+    /// Sets the number of vertices used for the ellipse mesh at each end of the extrusion.
+    pub fn resolution(mut self, resolution: usize) -> Self {
+        self.base_builder.resolution = resolution;
+        self
+    }
+}
+
+impl ExtrusionBuilder<Annulus> {
+    /// Sets the number of vertices used in constructing the concentric circles of the annulus mesh at each end of the extrusion.
+    pub fn resolution(mut self, resolution: usize) -> Self {
+        self.base_builder.resolution = resolution;
+        self
+    }
+}
+
+impl ExtrusionBuilder<Capsule2d> {
+    /// Sets the number of vertices used for each hemicircle at the ends of the extrusion.
+    /// The total number of vertices for the extruded capsule mesh will be four times the resolution.
     pub fn resolution(mut self, resolution: usize) -> Self {
         self.base_builder.resolution = resolution;
         self
