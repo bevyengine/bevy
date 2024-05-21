@@ -546,10 +546,6 @@ impl Archetype {
         self.entities.is_empty()
     }
 
-    // TODO:
-    //  - either do this in O(n) right now (iterate through components)
-    //  - add a map from ComponentId to index in self.components
-    //  - add an extra argument to this function that is the ComponentIndex
     /// Checks if the archetype contains a specific component. This runs in `O(1)` time.
     #[inline]
     pub fn contains(&self, component_id: ComponentId) -> bool {
@@ -800,7 +796,6 @@ impl Archetypes {
 
         let archetypes = &mut self.archetypes;
         let archetype_component_count = &mut self.archetype_component_count;
-        let archetype_id =
             *self
                 .by_components
                 .entry(archetype_identity)
@@ -824,8 +819,7 @@ impl Archetypes {
                             .zip(sparse_set_archetype_components),
                     ));
                     id
-                });
-        archetype_id
+                })
     }
 
     /// Returns the number of components that are stored in archetypes.
