@@ -25,14 +25,6 @@ pub struct CircleMeshBuilder {
     pub resolution: usize,
 }
 
-impl Extrudable for CircleMeshBuilder {
-    fn perimeter_indices(&self) -> Vec<Indices> {
-        vec![Indices::U32(
-            (0..self.resolution as u32).chain([0]).collect(),
-        )]
-    }
-}
-
 impl Default for CircleMeshBuilder {
     fn default() -> Self {
         Self {
@@ -69,6 +61,14 @@ impl MeshBuilder for CircleMeshBuilder {
     }
 }
 
+impl Extrudable for CircleMeshBuilder {
+    fn perimeter_indices(&self) -> Vec<Indices> {
+        vec![Indices::U32(
+            (0..self.resolution as u32).chain([0]).collect(),
+        )]
+    }
+}
+
 impl Meshable for Circle {
     type Output = CircleMeshBuilder;
 
@@ -99,6 +99,12 @@ impl MeshBuilder for RegularPolygonMeshBuilder {
             .mesh()
             .resolution(self.sides)
             .build()
+    }
+}
+
+impl Extrudable for RegularPolygonMeshBuilder {
+    fn perimeter_indices(&self) -> Vec<Indices> {
+        vec![Indices::U32((0..self.sides as u32).chain([0]).collect())]
     }
 }
 
@@ -192,6 +198,14 @@ impl MeshBuilder for EllipseMeshBuilder {
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
         .with_inserted_indices(Indices::U32(indices))
+    }
+}
+
+impl Extrudable for EllipseMeshBuilder {
+    fn perimeter_indices(&self) -> Vec<Indices> {
+        vec![Indices::U32(
+            (0..self.resolution as u32).chain([0]).collect(),
+        )]
     }
 }
 
@@ -308,6 +322,16 @@ impl MeshBuilder for AnnulusMeshBuilder {
     }
 }
 
+impl Extrudable for AnnulusMeshBuilder {
+    fn perimeter_indices(&self) -> Vec<Indices> {
+        let vert_count = 2 * self.resolution as u32;
+        vec![
+            Indices::U32((0..vert_count).step_by(2).chain([0]).rev().collect()), // Inner hole
+            Indices::U32((1..vert_count).step_by(2).chain([1]).collect()),       // Outer perimeter
+        ]
+    }
+}
+
 impl Meshable for Annulus {
     type Output = AnnulusMeshBuilder;
 
@@ -362,6 +386,17 @@ impl MeshBuilder for Triangle2dMeshBuilder {
     }
 }
 
+impl Extrudable for Triangle2dMeshBuilder {
+    fn perimeter_indices(&self) -> Vec<Indices> {
+        let is_ccw = self.triangle.winding_order() == WindingOrder::CounterClockwise;
+        if is_ccw {
+            vec![Indices::U32(vec![0, 1, 2, 0])]
+        } else {
+            vec![Indices::U32(vec![2, 1, 0, 2])]
+        }
+    }
+}
+
 impl Meshable for Triangle2d {
     type Output = Triangle2dMeshBuilder;
 
@@ -402,6 +437,12 @@ impl MeshBuilder for RectangleMeshBuilder {
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+    }
+}
+
+impl Extrudable for RectangleMeshBuilder {
+    fn perimeter_indices(&self) -> Vec<Indices> {
+        vec![Indices::U32(vec![0, 1, 2, 3, 0])]
     }
 }
 
@@ -535,6 +576,20 @@ impl MeshBuilder for Capsule2dMeshBuilder {
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
         .with_inserted_indices(Indices::U32(indices))
+    }
+}
+
+impl Extrudable for Capsule2dMeshBuilder {
+    fn perimeter_indices(&self) -> Vec<Indices> {
+        let resolution = self.resolution as u32;
+        let top_semi_indices = (0..resolution).collect();
+        let bottom_semi_indices = (resolution..(2 * resolution)).collect();
+        vec![
+            Indices::U32(top_semi_indices),                 // Top semi-circle
+            Indices::U32(vec![resolution - 1, resolution]), // Left edge
+            Indices::U32(bottom_semi_indices),              // Bottom semi-circle
+            Indices::U32(vec![2 * resolution - 1, 0]),      // Right edge
+        ]
     }
 }
 
