@@ -457,7 +457,7 @@ mod tests {
     }
 
     #[test]
-    fn rect_inset() {
+    fn rect_inflate() {
         let r = URect::from_center_size(UVec2::splat(6), UVec2::splat(6)); // [3, 3] - [9, 9]
 
         let r2 = r.inflate(2);

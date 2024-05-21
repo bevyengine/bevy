@@ -466,7 +466,7 @@ mod tests {
     }
 
     #[test]
-    fn rect_inset() {
+    fn rect_inflate() {
         let r = Rect::from_center_size(Vec2::ZERO, Vec2::ONE); // [-0.5,-0.5] - [0.5,0.5]
 
         let r2 = r.inflate(0.3);

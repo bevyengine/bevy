@@ -454,7 +454,7 @@ mod tests {
     }
 
     #[test]
-    fn rect_inset() {
+    fn rect_inflate() {
         let r = IRect::from_center_size(IVec2::ZERO, IVec2::splat(4)); // [-2,-2] - [2,2]
 
         let r2 = r.inflate(2);
