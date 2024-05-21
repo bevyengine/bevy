@@ -261,6 +261,8 @@ where
 }
 
 /// A [`Curve`] which takes a constant value over its domain.
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ConstantCurve<T>
 where
     T: Clone,
@@ -285,6 +287,7 @@ where
 }
 
 /// A [`Curve`] defined by a function.
+#[derive(Clone, Debug)]
 pub struct FunctionCurve<T, F>
 where
     F: Fn(f32) -> T,
@@ -309,6 +312,8 @@ where
 }
 
 /// A [`Curve`] that is defined by neighbor interpolation over a set of samples.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct SampleCurve<T>
 where
     T: Interpolable,
@@ -385,6 +390,8 @@ where
 }
 
 /// A [`Curve`] that is defined by interpolation over unevenly spaced samples.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct UnevenSampleCurve<T>
 where
     T: Interpolable,
@@ -482,6 +489,7 @@ where
 
 /// A [`Curve`] whose samples are defined by mapping samples from another curve through a
 /// given function.
+#[derive(Clone, Debug)]
 pub struct MapCurve<S, T, C, F>
 where
     C: Curve<S>,
@@ -536,6 +544,7 @@ where
 }
 
 /// A [`Curve`] whose sample space is mapped onto that of some base curve's before sampling.
+#[derive(Clone, Debug)]
 pub struct ReparamCurve<T, C, F>
 where
     C: Curve<T>,
@@ -596,6 +605,7 @@ where
 ///
 /// Briefly, the point is that the curve just absorbs new functions instead of rebasing
 /// itself inside new structs.
+#[derive(Clone, Debug)]
 pub struct MapReparamCurve<S, T, C, F, G>
 where
     C: Curve<S>,
@@ -657,6 +667,8 @@ where
 }
 
 /// A [`Curve`] that is the graph of another curve over its parameter space.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct GraphCurve<T, C>
 where
     C: Curve<T>,
@@ -681,6 +693,8 @@ where
 }
 
 /// A [`Curve`] that combines the data from two constituent curves into a tuple output type.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct ProductCurve<S, T, C, D>
 where
     C: Curve<S>,
