@@ -85,9 +85,46 @@ fn load_and_reconstruct_view_space_position(uv: vec2<f32>, sample_mip_level: f32
     return reconstruct_view_space_position(depth, uv);
 }
 
+fn updateSectors(
+    min_horizon: f32,
+    max_horizon: f32,
+    samples_per_slice: f32,
+    bitmask: u32,
+) -> u32 {
+    let start_horizon = u32(min_horizon * samples_per_slice);
+    let angle_horizon = u32(ceil((max_horizon - min_horizon) * samples_per_slice));
+
+    let all_samples_mask = 0xFFFFFFFFu >> (32 - (2 * #SAMPLES_PER_SLICE_SIDE));
+    let angle_horizon_bitmask = select(0u, all_samples_mask >> (#SAMPLES_PER_SLICE_SIDE * 2 - angle_horizon), angle_horizon > 0);
+    let current_occluded_bitmask = angle_horizon_bitmask << start_horizon;
+
+    return bitmask | current_occluded_bitmask;
+}
+
+fn processSample(
+    delta_position: vec3<f32>,
+    view_vec: vec3<f32>,
+    sampling_direction: f32,
+    n: f32,
+    samples_per_slice: f32,
+    bitmask: ptr<function, u32>,
+) {
+    let delta_position_back_face = delta_position - view_vec * bitcast<f32>(#THICKNESS);
+
+    var front_back_horizon = vec2(
+        fast_acos(dot(normalize(delta_position), view_vec)),
+        fast_acos(dot(normalize(delta_position_back_face), view_vec)),
+    );
+
+    front_back_horizon = saturate(((sampling_direction * -front_back_horizon) - n + HALF_PI) / PI);
+    front_back_horizon = select(front_back_horizon.xy, front_back_horizon.yx, sampling_direction >= 0.0);
+
+    *bitmask = updateSectors(front_back_horizon.x, front_back_horizon.y, samples_per_slice, *bitmask);
+}
+
 @compute
 @workgroup_size(8, 8, 1)
-fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
+fn ssao(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let slice_count = f32(#SLICE_COUNT);
     let samples_per_slice_side = f32(#SAMPLES_PER_SLICE_SIDE);
     let effect_radius = 0.5 * 1.457;
@@ -125,10 +162,15 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let cos_norm = saturate(dot(projected_normal, view_vec) / projected_normal_length);
         let n = sign_norm * fast_acos(cos_norm);
 
+#if METHOD == 0
         let min_cos_horizon_1 = cos(n + HALF_PI);
         let min_cos_horizon_2 = cos(n - HALF_PI);
         var cos_horizon_1 = min_cos_horizon_1;
         var cos_horizon_2 = min_cos_horizon_2;
+#else
+        var bitmask = 0u;
+#endif
+
         let sample_mul = vec2<f32>(omega.x, -omega.y) * sample_scale;
         for (var sample_t = 0.0; sample_t < samples_per_slice_side; sample_t += 1.0) {
             var sample_noise = (slice_t + sample_t * samples_per_slice_side) * 0.6180339887498948482;
@@ -145,6 +187,8 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
             let sample_difference_1 = sample_position_1 - pixel_position;
             let sample_difference_2 = sample_position_2 - pixel_position;
+
+#if METHOD == 0
             let sample_distance_1 = length(sample_difference_1);
             let sample_distance_2 = length(sample_difference_2);
             var sample_cos_horizon_1 = dot(sample_difference_1 / sample_distance_1, view_vec);
@@ -157,15 +201,26 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
             cos_horizon_1 = max(cos_horizon_1, sample_cos_horizon_1);
             cos_horizon_2 = max(cos_horizon_2, sample_cos_horizon_2);
+#else
+            processSample(sample_difference_1, view_vec, -1.0, n, samples_per_slice_side * 2.0, &bitmask);
+            processSample(sample_difference_2, view_vec, 1.0, n, samples_per_slice_side * 2.0, &bitmask);
+#endif
         }
 
+#if METHOD == 0
         let horizon_1 = fast_acos(cos_horizon_1);
         let horizon_2 = -fast_acos(cos_horizon_2);
         let v1 = (cos_norm + 2.0 * horizon_1 * sin(n) - cos(2.0 * horizon_1 - n)) / 4.0;
         let v2 = (cos_norm + 2.0 * horizon_2 * sin(n) - cos(2.0 * horizon_2 - n)) / 4.0;
         visibility += projected_normal_length * (v1 + v2);
+#else
+        visibility += f32(countOneBits(bitmask)) * (1.0 / (samples_per_slice_side * 2.0));
+#endif
     }
     visibility /= slice_count;
+#if METHOD == 1
+    visibility = 1.0 - visibility;
+#endif
     visibility = clamp(visibility, 0.03, 1.0);
 
     textureStore(ambient_occlusion, pixel_coordinates, vec4<f32>(visibility, 0.0, 0.0, 0.0));
