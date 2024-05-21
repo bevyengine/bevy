@@ -3,7 +3,7 @@
 //! Includes the implementation of [`Gizmos::arc_2d`],
 //! and assorted support items.
 
-use crate::circles::DEFAULT_CIRCLE_SEGMENTS;
+use crate::circles::DEFAULT_CIRCLE_RESOLUTION;
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
 use bevy_math::{Quat, Vec2, Vec3};
@@ -42,7 +42,7 @@ where
     ///     // You may want to increase this for larger arcs.
     ///     gizmos
     ///         .arc_2d(Vec2::ZERO, 0., PI / 4., 5., RED)
-    ///         .segments(64);
+    ///         .resolution(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -62,7 +62,7 @@ where
             arc_angle,
             radius,
             color: color.into(),
-            segments: None,
+            resolution: None,
         }
     }
 }
@@ -79,7 +79,7 @@ where
     arc_angle: f32,
     radius: f32,
     color: Color,
-    segments: Option<usize>,
+    resolution: Option<usize>,
 }
 
 impl<Config, Clear> Arc2dBuilder<'_, '_, '_, Config, Clear>
@@ -87,9 +87,9 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Set the number of line-segments for this arc.
-    pub fn segments(mut self, segments: usize) -> Self {
-        self.segments.replace(segments);
+    /// Set the number of lines used to approximate the geometry of this arc.
+    pub fn resolution(mut self, resolution: usize) -> Self {
+        self.resolution.replace(resolution);
         self
     }
 }
@@ -104,12 +104,17 @@ where
             return;
         }
 
-        let segments = self
-            .segments
-            .unwrap_or_else(|| segments_from_angle(self.arc_angle));
+        let resolution = self
+            .resolution
+            .unwrap_or_else(|| resolution_from_angle(self.arc_angle));
 
-        let positions = arc_2d_inner(self.direction_angle, self.arc_angle, self.radius, segments)
-            .map(|vec2| (vec2 + self.position));
+        let positions = arc_2d_inner(
+            self.direction_angle,
+            self.arc_angle,
+            self.radius,
+            resolution,
+        )
+        .map(|vec2| (vec2 + self.position));
         self.gizmos.linestrip_2d(positions, self.color);
     }
 }
@@ -118,12 +123,12 @@ fn arc_2d_inner(
     direction_angle: f32,
     arc_angle: f32,
     radius: f32,
-    segments: usize,
+    resolution: usize,
 ) -> impl Iterator<Item = Vec2> {
-    (0..segments + 1).map(move |i| {
+    (0..resolution + 1).map(move |i| {
         let start = direction_angle - arc_angle / 2.;
 
-        let angle = start + (i as f32 * (arc_angle / segments as f32));
+        let angle = start + (i as f32 * (arc_angle / resolution as f32));
         Vec2::from(angle.sin_cos()) * radius
     })
 }
@@ -155,8 +160,8 @@ where
     /// - `color`: color of the arc
     ///
     /// # Builder methods
-    /// The number of segments of the arc (i.e. the level of detail) can be adjusted with the
-    /// `.segments(...)` method.
+    /// The resolution of the arc (i.e. the level of detail) can be adjusted with the
+    /// `.resolution(...)` method.
     ///
     /// # Example
     /// ```
@@ -177,7 +182,7 @@ where
     ///          rotation,
     ///          ORANGE
     ///          )
-    ///          .segments(100);
+    ///          .resolution(100);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -198,7 +203,7 @@ where
             angle,
             radius,
             color: color.into(),
-            segments: None,
+            resolution: None,
         }
     }
 
@@ -212,8 +217,8 @@ where
     /// - `color`: color of the arc
     ///
     /// # Builder methods
-    /// The number of segments of the arc (i.e. the level of detail) can be adjusted with the
-    /// `.segments(...)` method.
+    /// The resolution of the arc (i.e. the level of detail) can be adjusted with the
+    /// `.resolution(...)` method.
     ///
     /// # Examples
     /// ```
@@ -228,7 +233,7 @@ where
     ///        Vec3::ZERO,
     ///        ORANGE
     ///        )
-    ///        .segments(100);
+    ///        .resolution(100);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -259,8 +264,8 @@ where
     /// - `color`: color of the arc
     ///
     /// # Builder methods
-    /// The number of segments of the arc (i.e. the level of detail) can be adjusted with the
-    /// `.segments(...)` method.
+    /// The resolution of the arc (i.e. the level of detail) can be adjusted with the
+    /// `.resolution(...)` method.
     ///
     /// # Examples
     /// ```
@@ -275,7 +280,7 @@ where
     ///        Vec3::ZERO,
     ///        ORANGE
     ///        )
-    ///        .segments(100);
+    ///        .resolution(100);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -334,7 +339,7 @@ where
             angle,
             radius,
             color: color.into(),
-            segments: None,
+            resolution: None,
         }
     }
 }
@@ -361,7 +366,7 @@ where
     angle: f32,
     radius: f32,
     color: Color,
-    segments: Option<usize>,
+    resolution: Option<usize>,
 }
 
 impl<Config, Clear> Arc3dBuilder<'_, '_, '_, Config, Clear>
@@ -369,9 +374,9 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Set the number of line-segments for this arc.
-    pub fn segments(mut self, segments: usize) -> Self {
-        self.segments.replace(segments);
+    /// Set the number of lines for this arc.
+    pub fn resolution(mut self, resolution: usize) -> Self {
+        self.resolution.replace(resolution);
         self
     }
 }
@@ -386,9 +391,9 @@ where
             return;
         }
 
-        let segments = self
-            .segments
-            .unwrap_or_else(|| segments_from_angle(self.angle));
+        let resolution = self
+            .resolution
+            .unwrap_or_else(|| resolution_from_angle(self.angle));
 
         let positions = arc_3d_inner(
             self.start_vertex,
@@ -396,7 +401,7 @@ where
             self.rotation,
             self.angle,
             self.radius,
-            segments,
+            resolution,
         );
         self.gizmos.linestrip(positions, self.color);
     }
@@ -408,20 +413,20 @@ fn arc_3d_inner(
     rotation: Quat,
     angle: f32,
     radius: f32,
-    segments: usize,
+    resolution: usize,
 ) -> impl Iterator<Item = Vec3> {
     // drawing arcs bigger than TAU degrees or smaller than -TAU degrees makes no sense since
-    // we won't see the overlap and we would just decrease the level of details since the segments
+    // we won't see the overlap and we would just decrease the level of details since the resolution
     // would be larger
     let angle = angle.clamp(-TAU, TAU);
-    (0..=segments)
-        .map(move |frac| frac as f32 / segments as f32)
+    (0..=resolution)
+        .map(move |frac| frac as f32 / resolution as f32)
         .map(move |percentage| angle * percentage)
         .map(move |frac_angle| Quat::from_axis_angle(Vec3::Y, frac_angle) * start_vertex)
         .map(move |p| rotation * (p * radius) + center)
 }
 
-// helper function for getting a default value for the segments parameter
-fn segments_from_angle(angle: f32) -> usize {
-    ((angle.abs() / TAU) * DEFAULT_CIRCLE_SEGMENTS as f32).ceil() as usize
+// helper function for getting a default value for the resolution parameter
+fn resolution_from_angle(angle: f32) -> usize {
+    ((angle.abs() / TAU) * DEFAULT_CIRCLE_RESOLUTION as f32).ceil() as usize
 }

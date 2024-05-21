@@ -4,7 +4,7 @@ use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::SortedRenderPhase,
+    render_phase::ViewSortedRenderPhases,
     render_resource::RenderPassDescriptor,
     renderer::RenderContext,
     view::ViewTarget,
@@ -16,20 +16,25 @@ use bevy_utils::tracing::info_span;
 pub struct MainTransparentPass2dNode {}
 
 impl ViewNode for MainTransparentPass2dNode {
-    type ViewQuery = (
-        &'static ExtractedCamera,
-        &'static SortedRenderPhase<Transparent2d>,
-        &'static ViewTarget,
-    );
+    type ViewQuery = (&'static ExtractedCamera, &'static ViewTarget);
 
     fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, transparent_phase, target): bevy_ecs::query::QueryItem<'w, Self::ViewQuery>,
+        (camera, target): bevy_ecs::query::QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
+        let Some(transparent_phases) =
+            world.get_resource::<ViewSortedRenderPhases<Transparent2d>>()
+        else {
+            return Ok(());
+        };
+
         let view_entity = graph.view_entity();
+        let Some(transparent_phase) = transparent_phases.get(&view_entity) else {
+            return Ok(());
+        };
 
         // This needs to run at least once to clear the background color, even if there are no items to render
         {
