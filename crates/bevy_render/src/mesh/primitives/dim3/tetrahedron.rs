@@ -4,7 +4,6 @@ use crate::{
     render_asset::RenderAssetUsages,
 };
 use bevy_math::primitives::{Tetrahedron, Triangle3d};
-use bevy_math::Vec3;
 use wgpu::PrimitiveTopology;
 
 impl Meshable for Tetrahedron {
