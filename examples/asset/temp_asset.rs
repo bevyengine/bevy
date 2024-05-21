@@ -5,7 +5,7 @@
 use bevy::{
     asset::{
         saver::{AssetSaver, ErasedAssetSaver},
-        AssetPath, ErasedLoadedAsset, LoadedAsset,
+        AssetPath, ErasedLoadedAsset, LoadedAsset, TempDirectory,
     },
     prelude::*,
     tasks::{block_on, IoTaskPool, Task},
@@ -25,7 +25,11 @@ fn main() {
 }
 
 /// Attempt to save an asset to the temporary asset source.
-fn save_temp_asset(assets: Res<AssetServer>, mut commands: Commands) {
+fn save_temp_asset(
+    assets: Res<AssetServer>,
+    mut commands: Commands,
+    temp_directory: Res<TempDirectory>,
+) {
     // This is the asset we will attempt to save.
     let my_text_asset = TextAsset("Hello World!".to_owned());
 
@@ -34,6 +38,10 @@ fn save_temp_asset(assets: Res<AssetServer>, mut commands: Commands) {
     let path = AssetPath::from("temp://message.txt").into_owned();
     let server = assets.clone();
 
+    // We use Bevy's IoTaskPool to run the saving task asynchronously. This ensures
+    // our application doesn't block during the (potentially lengthy!) saving process.
+    // In this example, the asset is small so the blocking time will be short, but
+    // that wont always be the case, especially for large assets.
     let task = IoTaskPool::get().spawn(async move {
         save_asset(my_text_asset, path, server, TextSaver)
             .await
@@ -43,6 +51,13 @@ fn save_temp_asset(assets: Res<AssetServer>, mut commands: Commands) {
     // To ensure the task completes before we try loading, we will manually poll this task
     // so we can react to its completion.
     commands.spawn(SavingTask(task));
+
+    // You can check the logged path to see the temporary directory yourself. Note
+    // that the directory will be deleted once this example quits.
+    info!(
+        "Temporary Assets will be saved in {:?}",
+        temp_directory.path()
+    );
 }
 
 /// Poll the save tasks until completion, and then start loading our temporary text asset.
@@ -52,7 +67,9 @@ fn wait_until_temp_saved(
     mut commands: Commands,
 ) {
     for (entity, mut task) in tasks.iter_mut() {
+        // Check our SavingTask to see if it's done...
         if let Some(()) = block_on(future::poll_once(&mut task.0)) {
+            // ...and if so, load the temporary asset!
             commands.insert_resource(MyTempText {
                 text: assets.load("temp://message.txt"),
             });

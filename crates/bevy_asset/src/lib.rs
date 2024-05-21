@@ -51,6 +51,9 @@ pub use path::*;
 pub use reflect::*;
 pub use server::*;
 
+#[cfg(not(target_arch = "wasm32"))]
+pub use temp::TempDirectory;
+
 /// Rusty Object Notation, a crate used to serialize and deserialize bevy assets.
 pub use ron;
 
