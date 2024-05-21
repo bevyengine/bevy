@@ -15,7 +15,7 @@ use bevy_utils::tracing::warn;
 use bevy_utils::tracing::Span;
 use fixedbitset::FixedBitSet;
 use std::{borrow::Borrow, fmt, mem::MaybeUninit, ptr};
-use bevy_utils::HashSet;
+use crate::archetype::{Archetypes};
 
 use super::{
     NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,
@@ -151,13 +151,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
         let mut state = Self::new_uninitialized(world);
-        state.initialize_state(world, |state, archetype| {
-            // SAFETY: The state was just initialized from the `world` above, and the archetypes being added
-            // come directly from the same world.
-            unsafe {
-                state.new_archetype_internal(archetype);
-            }
-        });
+        state.update_archetypes(world);
         state
     }
 
@@ -167,9 +161,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         access: &mut Access<ArchetypeComponentId>,
     ) -> Self {
         let mut state = Self::new_uninitialized(world);
-        state.initialize_state(world, |state, archetype| {
-            // SAFETY: The state was just initialized from the `world` above, and the archetypes being added
-            // come directly from the same world.
+        state.update_archetypes_with(world, |state, archetype| {
+            // SAFETY: The validate_world call ensures that the world is the same the QueryState
+            // was initialized from.
             unsafe {
                 if state.new_archetype_internal(archetype) {
                     state.update_archetype_component_access(archetype, access);
@@ -179,28 +173,25 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         state
     }
 
-    fn initialize_state(&mut self, world: &mut World, mut f: impl FnMut(&mut Self, &Archetype)) {
-        if self.component_access.access().has_read_all() || self.component_access().access().has_write_all() {
-            for archetype in world.archetypes.iter() {
-                f(self, archetype);
-            }
-        } else {
-            // else, use the `ComponentIndex` to only iterate through the archetypes that match the query
-            let archetypes = world.archetypes();
-            let unique_archetypes: HashSet<&ArchetypeId> = self
-                .component_access()
-                .access()
-                .reads_and_writes()
-                .filter_map(|component_id| {
-                    archetypes.component_index().get(&component_id).map(|index| {
-                        index.keys()
-                    })
-                }).flatten().collect();
-            unique_archetypes.iter().filter_map(|archetype_id| archetypes.get(**archetype_id)).for_each(|archetype| {
-                f(self, archetype);
-            });
-        }
-        self.archetype_generation = world.archetypes.generation();
+    /// Get a list of archetypes that could potentially be matched by this query,
+    /// if at least one component is required.
+    ///
+    /// We iterate through the required components, and return the smallest list of archetypes
+    /// corresponding to a component.
+    fn get_potential_archetypes(&self, archetypes: &Archetypes) -> Vec<ArchetypeId> {
+        self.component_access.required.ones().filter_map(|idx| {
+            let component_id = ComponentId::get_sparse_set_index(idx);
+            archetypes.component_index().get(&component_id).map(|index| {
+                index.keys()
+            })
+        }).min_by_key(|archetypes| archetypes.len())
+            // SAFETY: all required components must be in an archetype
+            .expect("No archetypes found for required components")
+            // exclude archetypes that have already been processed
+            .filter(|id| **id >= self.archetype_generation.0)
+            .copied()
+            // TODO: remove the allocation
+            .collect()
     }
 
     /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
@@ -339,6 +330,32 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
     }
 
+    fn update_archetypes_with(&mut self, world: &World, f: impl FnMut(&mut Self, &Archetype)) {
+        self.update_archetypes_unsafe_world_cell_with(world.as_unsafe_world_cell_readonly(), f);
+    }
+
+    fn update_archetypes_unsafe_world_cell_with(
+        &mut self,
+        world: UnsafeWorldCell,
+        mut f: impl FnMut(&mut Self, &Archetype),
+    ) {
+        self.validate_world(world.id());
+        if self.component_access.required.is_empty() {
+            let old_generation =
+                std::mem::replace(&mut self.archetype_generation, world.archetypes().generation());
+            for archetype in &world.archetypes()[old_generation..] {
+                f(self, archetype)
+            }
+        } else {
+            for archetype_id in self.get_potential_archetypes(world.archetypes()) {
+                // SAFETY: get_potential_archetypes only returns archetype ids that are valid for the world
+                let archetype = &world.archetypes()[archetype_id];
+                f(self, archetype)
+            };
+            self.archetype_generation = world.archetypes().generation();
+        }
+    }
+
     /// Updates the state's internal view of the [`World`]'s archetypes. If this is not called before querying data,
     /// the results may not accurately reflect what is in the `world`.
     ///
@@ -371,18 +388,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// If `world` does not match the one used to call `QueryState::new` for this instance.
     pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
-        self.validate_world(world.id());
-        let archetypes = world.archetypes();
-        let old_generation =
-            std::mem::replace(&mut self.archetype_generation, archetypes.generation());
-
-        for archetype in &archetypes[old_generation..] {
+        self.update_archetypes_unsafe_world_cell_with(world, |state, archetype| {
             // SAFETY: The validate_world call ensures that the world is the same the QueryState
             // was initialized from.
             unsafe {
-                self.new_archetype_internal(archetype);
+                state.new_archetype_internal(archetype);
             }
-        }
+        });
     }
 
     /// # Panics

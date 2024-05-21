@@ -620,7 +620,7 @@ impl Archetype {
 /// This is used in archetype update methods to limit archetype updates to the
 /// ones added since the last time the method ran.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct ArchetypeGeneration(ArchetypeId);
+pub struct ArchetypeGeneration(pub(crate) ArchetypeId);
 
 impl ArchetypeGeneration {
     /// The first archetype.
@@ -699,6 +699,7 @@ pub struct Archetypes {
 pub struct ArchetypeRecord {
     /// Index of the component in the archetype's [`Table`],
     /// or None if the component is a sparse set component.
+    #[allow(dead_code)]
     pub(crate) column: Option<usize>,
 }
 
