@@ -215,6 +215,63 @@ impl ShapeSample for Triangle3d {
     }
 }
 
+impl ShapeSample for Tetrahedron {
+    type Output = Vec3;
+
+    fn sample_interior<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
+        let [v0, v1, v2, v3] = self.vertices;
+
+        // Generate a random point in a cube:
+        let mut coords: [f32; 3] = [
+            rng.gen_range(0.0..1.0),
+            rng.gen_range(0.0..1.0),
+            rng.gen_range(0.0..1.0),
+        ];
+
+        // The cube is broken into six tetrahedra of the form 0 <= c_0 <= c_1 <= c_2 <= 1,
+        // where c_i are the three euclidean coordinates in some permutation. (Since 3! = 6,
+        // there are six of them). Sorting the coordinates folds these six tetrahedra into the
+        // tetrahedron 0 <= x <= y <= z <= 1 (i.e. a fundamental domain of the permutation action).
+        coords.sort_by(|x, y| x.partial_cmp(y).unwrap());
+
+        // Now, convert a point from the fundamental tetrahedron into barycentric coordinates by
+        // taking the four successive differences of coordinates; note that these telescope to sum
+        // to 1, and this transformation is linear, hence preserves the probability density, since
+        // the latter comes from the Lebesgue measure.
+        //
+        // (See https://en.wikipedia.org/wiki/Lebesgue_measure#Properties — specifically, that
+        // Lebesgue measure of a linearly transformed set is its original measure times the
+        // determinant.)
+        let (a, b, c, d) = (
+            coords[0],
+            coords[1] - coords[0],
+            coords[2] - coords[1],
+            1. - coords[2],
+        );
+
+        // This is also a linear mapping, so probability density is still preserved.
+        v0 * a + v1 * b + v2 * c + v3 * d
+    }
+
+    fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
+        let triangles = self.faces();
+        let areas = triangles.iter().map(|t| t.area());
+
+        if areas.clone().sum::<f32>() > 0.0 {
+            // There is at least one triangle with nonzero area, so this unwrap succeeds.
+            let dist = WeightedIndex::new(areas).unwrap();
+
+            // Get a random index, then sample the interior of the associated triangle.
+            let idx = dist.sample(rng);
+            triangles[idx].sample_interior(rng)
+        } else {
+            // In this branch the tetrahedron has zero surface area; just return a point that's on
+            // the tetrahedron.
+            self.vertices[0]
+        }
+    }
+}
+
 impl ShapeSample for Cylinder {
     type Output = Vec3;
 
