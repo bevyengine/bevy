@@ -496,7 +496,7 @@ pub struct StandardMaterial {
     ///
     /// This parameter causes the roughness to vary according to the
     /// [`StandardMaterial::anisotropy_strength`]. The rotation is applied in
-    /// tangent-bitangent space; thus, mesh tangents mush be present for this
+    /// tangent-bitangent space; thus, mesh tangents must be present for this
     /// parameter to have any meaning.
     ///
     /// This parameter has no effect if
