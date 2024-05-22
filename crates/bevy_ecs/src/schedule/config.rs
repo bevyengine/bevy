@@ -288,10 +288,6 @@ impl<T> NodeConfigs<T> {
 ///     )
 /// );
 /// ```
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` does not describe a valid system configuration",
-    label = "invalid system configuration"
-)]
 pub trait IntoSystemConfigs<Marker>
 where
     Self: Sized,
@@ -566,10 +562,6 @@ impl SystemSetConfig {
 pub type SystemSetConfigs = NodeConfigs<InternedSystemSet>;
 
 /// Types that can convert into a [`SystemSetConfigs`].
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` does not describe a valid system set configuration",
-    label = "invalid system set configuration"
-)]
 pub trait IntoSystemSetConfigs
 where
     Self: Sized,

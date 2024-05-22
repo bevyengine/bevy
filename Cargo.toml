@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.78.0"
+rust-version = "1.77.0"
 
 [workspace]
 exclude = [
@@ -2064,6 +2064,17 @@ doc-scrape-examples = true
 [package.metadata.example.reflection]
 name = "Reflection"
 description = "Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types"
+category = "Reflection"
+wasm = false
+
+[[example]]
+name = "custom_attributes"
+path = "examples/reflection/custom_attributes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_attributes]
+name = "Custom Attributes"
+description = "Registering and accessing custom attributes on reflected types"
 category = "Reflection"
 wasm = false
 

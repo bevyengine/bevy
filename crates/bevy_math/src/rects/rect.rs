@@ -19,6 +19,15 @@ pub struct Rect {
 }
 
 impl Rect {
+    /// An empty `Rect`, represented by maximum and minimum corner points
+    /// at `Vec2::NEG_INFINITY` and `Vec2::INFINITY`, respectively.
+    /// This is so the `Rect` has a infinitely negative size.
+    /// This is useful, because when taking a union B of a non-empty `Rect` A and
+    /// this empty `Rect`, B will simply equal A.
+    pub const EMPTY: Self = Self {
+        max: Vec2::NEG_INFINITY,
+        min: Vec2::INFINITY,
+    };
     /// Create a new rectangle from two corner points.
     ///
     /// The two points do not need to be the minimum and/or maximum corners.
@@ -277,31 +286,31 @@ impl Rect {
         r
     }
 
-    /// Create a new rectangle with a constant inset.
+    /// Create a new rectangle by expanding it evenly on all sides.
     ///
-    /// The inset is the extra border on all sides. A positive inset produces a larger rectangle,
-    /// while a negative inset is allowed and produces a smaller rectangle. If the inset is negative
-    /// and its absolute value is larger than the rectangle half-size, the created rectangle is empty.
+    /// A positive expansion value produces a larger rectangle,
+    /// while a negative expansion value produces a smaller rectangle.
+    /// If this would result in zero or negative width or height, [`Rect::EMPTY`] is returned instead.
     ///
     /// # Examples
     ///
     /// ```
     /// # use bevy_math::{Rect, Vec2};
     /// let r = Rect::new(0., 0., 5., 1.); // w=5 h=1
-    /// let r2 = r.inset(3.); // w=11 h=7
+    /// let r2 = r.inflate(3.); // w=11 h=7
     /// assert!(r2.min.abs_diff_eq(Vec2::splat(-3.), 1e-5));
     /// assert!(r2.max.abs_diff_eq(Vec2::new(8., 4.), 1e-5));
     ///
     /// let r = Rect::new(0., -1., 6., 7.); // w=6 h=8
-    /// let r2 = r.inset(-2.); // w=11 h=7
+    /// let r2 = r.inflate(-2.); // w=11 h=7
     /// assert!(r2.min.abs_diff_eq(Vec2::new(2., 1.), 1e-5));
     /// assert!(r2.max.abs_diff_eq(Vec2::new(4., 5.), 1e-5));
     /// ```
     #[inline]
-    pub fn inset(&self, inset: f32) -> Self {
+    pub fn inflate(&self, expansion: f32) -> Self {
         let mut r = Self {
-            min: self.min - inset,
-            max: self.max + inset,
+            min: self.min - expansion,
+            max: self.max + expansion,
         };
         // Collapse min over max to enforce invariants and ensure e.g. width() or
         // height() never return a negative value.
@@ -460,10 +469,10 @@ mod tests {
     }
 
     #[test]
-    fn rect_inset() {
+    fn rect_inflate() {
         let r = Rect::from_center_size(Vec2::ZERO, Vec2::ONE); // [-0.5,-0.5] - [0.5,0.5]
 
-        let r2 = r.inset(0.3);
+        let r2 = r.inflate(0.3);
         assert!(r2.min.abs_diff_eq(Vec2::new(-0.8, -0.8), 1e-5));
         assert!(r2.max.abs_diff_eq(Vec2::new(0.8, 0.8), 1e-5));
     }
