@@ -27,6 +27,7 @@ mod folder;
 mod handle;
 mod id;
 mod loader;
+mod loader_builders;
 mod path;
 mod reflect;
 mod server;
@@ -40,6 +41,9 @@ pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
 pub use handle::*;
 pub use id::*;
 pub use loader::*;
+pub use loader_builders::{
+    DirectNestedLoader, NestedLoader, UntypedDirectNestedLoader, UntypedNestedLoader,
+};
 pub use path::*;
 pub use reflect::*;
 pub use server::*;
@@ -511,7 +515,9 @@ mod tests {
             let mut embedded = String::new();
             for dep in ron.embedded_dependencies {
                 let loaded = load_context
-                    .load_direct::<CoolText>(&dep)
+                    .loader()
+                    .direct()
+                    .load::<CoolText>(&dep)
                     .await
                     .map_err(|_| Self::Error::CannotLoadDependency {
                         dependency: dep.into(),
