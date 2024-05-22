@@ -14,7 +14,9 @@ use bevy_ecs::{entity::Entity, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_math::{Affine2, Mat4, Vec3};
 #[cfg(feature = "meshlet")]
-use bevy_pbr::experimental::meshlet::{MeshletMesh, MESHLET_MESH_ASSET_VERSION};
+use bevy_pbr::experimental::meshlet::{
+    MaterialMeshletMeshBundle, MeshletMesh, MESHLET_MESH_ASSET_VERSION,
+};
 use bevy_pbr::{
     DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle, SpotLight,
     SpotLightBundle, StandardMaterial, UvChannel, MAX_JOINTS,
@@ -1356,14 +1358,26 @@ fn load_node(
                     let primitive_label = primitive_label(&mesh, &primitive);
                     let bounds = primitive.bounding_box();
 
-                    // TODO: Handle meshlet meshes
+                    let mut mesh_entity = if primitive
+                        .extensions()
+                        .map(|extensions| extensions.contains_key("BEVY_meshlet_mesh"))
+                        .unwrap_or(false)
+                    {
+                        parent.spawn(MaterialMeshletMeshBundle::<StandardMaterial> {
+                            // TODO: handle missing label handle errors here?
+                            meshlet_mesh: load_context.get_label_handle(&primitive_label),
+                            material: load_context.get_label_handle(&material_label),
+                            ..Default::default()
+                        })
+                    } else {
+                        parent.spawn(PbrBundle {
+                            // TODO: handle missing label handle errors here?
+                            mesh: load_context.get_label_handle(&primitive_label),
+                            material: load_context.get_label_handle(&material_label),
+                            ..Default::default()
+                        })
+                    };
 
-                    let mut mesh_entity = parent.spawn(PbrBundle {
-                        // TODO: handle missing label handle errors here?
-                        mesh: load_context.get_label_handle(&primitive_label),
-                        material: load_context.get_label_handle(&material_label),
-                        ..Default::default()
-                    });
                     let target_count = primitive.morph_targets().len();
                     if target_count != 0 {
                         let weights = match mesh.weights() {
