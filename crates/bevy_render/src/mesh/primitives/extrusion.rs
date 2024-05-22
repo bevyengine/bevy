@@ -280,7 +280,7 @@ fn build_extrusion(cap: Mesh, perimeter: Vec<PerimeterSegment>, half_depth: f32)
                         let n = {
                             let ab = Vec2::from_slice(&b) - Vec2::from_slice(&a);
                             let bc = Vec2::from_slice(&c) - Vec2::from_slice(&b);
-                            let n = (ab + bc) / 2.;
+                            let n = ab + bc;
                             Vec2::new(n.y, -n.x).normalize().extend(0.).to_array()
                         };
                         normals.extend_from_slice(&[n; 2]);
