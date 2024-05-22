@@ -765,6 +765,8 @@ impl Components {
 
 /// A value that tracks when a system ran relative to other systems.
 /// This is used to power change detection.
+///
+/// *Note* that a system that hasn't been run yet has a `Tick` of 0.
 #[derive(Copy, Clone, Default, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 pub struct Tick {
@@ -869,13 +871,15 @@ pub struct ComponentTicks {
 }
 
 impl ComponentTicks {
-    /// Returns `true` if the component or resource was added after the system last ran.
+    /// Returns `true` if the component or resource was added after the system last ran
+    /// (or the system is running for the first time).
     #[inline]
     pub fn is_added(&self, last_run: Tick, this_run: Tick) -> bool {
         self.added.is_newer_than(last_run, this_run)
     }
 
-    /// Returns `true` if the component or resource was added or mutably dereferenced after the system last ran.
+    /// Returns `true` if the component or resource was added or mutably dereferenced after the system last ran
+    /// (or the system is running for the first time).
     #[inline]
     pub fn is_changed(&self, last_run: Tick, this_run: Tick) -> bool {
         self.changed.is_newer_than(last_run, this_run)
