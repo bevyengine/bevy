@@ -182,7 +182,17 @@ pub enum StorageType {
 /// The type used for [`Component`] lifecycle hooks such as `on_add`, `on_insert` or `on_remove`
 pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity, ComponentId);
 
-/// Lifecycle hooks for a given [`Component`], stored in its [`ComponentInfo`]
+/// [`World`]-mutating functions that run as part of lifecycle events of a [`Component`].
+///
+/// Hooks are functions that run when a component is added, overwritten, or removed from an entity.
+/// These are intended to be used for structural side effects that need to happen when a component is added or removed,
+/// and are not intended for general-purpose logic.
+///
+/// For example, you might use a hook to update a cached index when a component is added,
+/// to clean up resources when a component is removed,
+/// or to keep hierarchical data structures across entities in sync.
+///
+/// This information is stored in the [`ComponentInfo`] of the associated component.
 #[derive(Debug, Clone, Default)]
 pub struct ComponentHooks {
     pub(crate) on_add: Option<ComponentHook>,
@@ -195,6 +205,8 @@ impl ComponentHooks {
     /// An `on_add` hook will always run before `on_insert` hooks. Spawning an entity counts as
     /// adding all of its components.
     ///
+    /// # Panics
+    ///
     /// Will panic if the component already has an `on_add` hook
     pub fn on_add(&mut self, hook: ComponentHook) -> &mut Self {
         self.try_on_add(hook)
@@ -202,8 +214,16 @@ impl ComponentHooks {
     }
 
     /// Register a [`ComponentHook`] that will be run when this component is added (with `.insert`)
-    /// or replaced. The hook won't run if the component is already present and is only mutated.
+    /// or replaced.
+    ///
     /// An `on_insert` hook always runs after any `on_add` hooks (if the entity didn't already have the component).
+    ///
+    /// # Warning
+    ///
+    /// The hook won't run if the component is already present and is only mutated, such as in a system via a query.
+    /// As a result, this is *not* an appropriate mechanism for reliably updating indexes and other caches.
+    ///
+    /// # Panics
     ///
     /// Will panic if the component already has an `on_insert` hook
     pub fn on_insert(&mut self, hook: ComponentHook) -> &mut Self {
@@ -214,13 +234,18 @@ impl ComponentHooks {
     /// Register a [`ComponentHook`] that will be run when this component is removed from an entity.
     /// Despawning an entity counts as removing all of its components.
     ///
+    /// # Panics
+    ///
     /// Will panic if the component already has an `on_remove` hook
     pub fn on_remove(&mut self, hook: ComponentHook) -> &mut Self {
         self.try_on_remove(hook)
             .expect("Component id: {:?}, already has an on_remove hook")
     }
 
-    /// Fallible version of [`Self::on_add`].
+    /// Attempt to register a [`ComponentHook`] that will be run when this component is added to an entity.
+    ///
+    /// This is a fallible version of [`Self::on_add`].
+    ///
     /// Returns `None` if the component already has an `on_add` hook.
     pub fn try_on_add(&mut self, hook: ComponentHook) -> Option<&mut Self> {
         if self.on_add.is_some() {
@@ -230,7 +255,10 @@ impl ComponentHooks {
         Some(self)
     }
 
-    /// Fallible version of [`Self::on_insert`].
+    /// Attempt to register a [`ComponentHook`] that will be run when this component is added (with `.insert`)
+    ///
+    /// This is a fallible version of [`Self::on_insert`].
+    ///
     /// Returns `None` if the component already has an `on_insert` hook.
     pub fn try_on_insert(&mut self, hook: ComponentHook) -> Option<&mut Self> {
         if self.on_insert.is_some() {
@@ -240,7 +268,10 @@ impl ComponentHooks {
         Some(self)
     }
 
-    /// Fallible version of [`Self::on_remove`].
+    /// Attempt to register a [`ComponentHook`] that will be run when this component is removed from an entity.
+    ///
+    /// This is a fallible version of [`Self::on_remove`].
+    ///
     /// Returns `None` if the component already has an `on_remove` hook.
     pub fn try_on_remove(&mut self, hook: ComponentHook) -> Option<&mut Self> {
         if self.on_remove.is_some() {
