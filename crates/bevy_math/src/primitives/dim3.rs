@@ -786,6 +786,14 @@ impl Triangle3d {
         self.vertices.swap(0, 2);
     }
 
+    /// This triangle but reversed.
+    #[inline(always)]
+    #[must_use]
+    pub fn reversed(mut self) -> Triangle3d {
+        self.reverse();
+        self
+    }
+
     /// Get the centroid of the triangle.
     ///
     /// This function finds the geometric center of the triangle by averaging the vertices:
@@ -914,6 +922,22 @@ impl Tetrahedron {
     #[inline(always)]
     pub fn centroid(&self) -> Vec3 {
         (self.vertices[0] + self.vertices[1] + self.vertices[2] + self.vertices[3]) / 4.0
+    }
+
+    /// Get the triangles that form the faces of this tetrahedron.
+    ///
+    /// Note that the orientations of the faces are determined by that of the tetrahedron; if the
+    /// signed volume of this tetrahedron is positive, then the triangles' normals will point
+    /// outward, and if the signed volume is negative they will point inward.
+    #[inline(always)]
+    pub fn faces(&self) -> [Triangle3d; 4] {
+        let [a, b, c, d] = self.vertices;
+        [
+            Triangle3d::new(b, c, d),
+            Triangle3d::new(a, c, d).reversed(),
+            Triangle3d::new(a, b, d),
+            Triangle3d::new(a, b, c).reversed(),
+        ]
     }
 }
 
