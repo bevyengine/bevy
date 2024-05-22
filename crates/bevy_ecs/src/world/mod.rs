@@ -8,6 +8,7 @@ mod spawn_batch;
 pub mod unsafe_world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
+use crate::component::ComponentInitializer;
 pub use crate::world::command_queue::CommandQueue;
 pub use deferred_world::DeferredWorld;
 pub use entity_ref::{
@@ -204,6 +205,15 @@ impl World {
     #[inline]
     pub fn bundles(&self) -> &Bundles {
         &self.bundles
+    }
+
+    /// Creates a [`ComponentInitializer`] for this world.
+    #[inline]
+    pub fn component_initializer(&mut self) -> ComponentInitializer {
+        ComponentInitializer {
+            components: &mut self.components,
+            storages: &mut self.storages,
+        }
     }
 
     /// Retrieves this world's [`RemovedComponentEvents`] collection
