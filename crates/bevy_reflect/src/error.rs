@@ -30,7 +30,7 @@ pub enum ReflectCloneError {
     /// [deriving `Reflect`]: derive@crate::Reflect
     #[error(
         "field `{}` cannot be made clonable for `Reflect::reflect_clone` (are you missing a `#[reflect(clone)]` attribute?)",
-        full_path(.field, .variant, .container_type_path)
+        full_path(.field, .variant.as_deref(), .container_type_path)
     )]
     FieldNotClonable {
         field: FieldId,
@@ -51,8 +51,8 @@ pub enum ReflectCloneError {
 
 fn full_path(
     field: &FieldId,
-    variant: &Option<Cow<'static, str>>,
-    container_type_path: &Cow<'static, str>,
+    variant: Option<&str>,
+    container_type_path: &str,
 ) -> alloc::string::String {
     match variant {
         Some(variant) => format!("{}::{}::{}", container_type_path, variant, field),
