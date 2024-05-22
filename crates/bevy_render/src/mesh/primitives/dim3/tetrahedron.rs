@@ -14,7 +14,7 @@ impl Meshable for Tetrahedron {
 
         // If the tetrahedron has negative orientation, reverse all the triangles so that
         // they still face outward.
-        if self.signed_volume() < 0.0 {
+        if self.signed_volume().is_sign_negative() {
             faces.iter_mut().for_each(Triangle3d::reverse);
         }
 
