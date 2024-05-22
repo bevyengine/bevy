@@ -68,7 +68,7 @@ impl PluginGroup for DefaultPlugins {
 
         #[cfg(feature = "bevy_winit")]
         {
-            group = group.add(bevy_winit::WinitPlugin::<bevy_winit::WakeUp>::default());
+            group = group.add::<bevy_winit::WinitPlugin>(bevy_winit::WinitPlugin::default());
         }
 
         #[cfg(feature = "bevy_render")]

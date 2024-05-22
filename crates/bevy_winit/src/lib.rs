@@ -52,8 +52,11 @@ pub static ANDROID_APP: std::sync::OnceLock<android_activity::AndroidApp> =
 /// This plugin will add systems and resources that sync with the `winit` backend and also
 /// replace the existing [`App`] runner with one that constructs an [event loop](EventLoop) to
 /// receive window and input events from the OS.
+///
+/// The `T` event type can be used to pass custom events to the `winit`'s loop, and handled as events
+/// in systems.
 #[derive(Default)]
-pub struct WinitPlugin<T: Event> {
+pub struct WinitPlugin<T: Event = WakeUp> {
     /// Allows the window (and the event loop) to be created on any thread
     /// instead of only the main thread.
     ///

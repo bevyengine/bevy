@@ -42,7 +42,7 @@ use crate::{
 
 /// Persistent state that is used to run the [`App`] according to the current
 /// [`UpdateMode`].
-pub struct WinitAppRunnerState<T: Event> {
+struct WinitAppRunnerState<T: Event> {
     /// The running app.
     app: App,
     /// Exit value once the loop is finished.

@@ -1,4 +1,4 @@
-//! Shows how to create a custom event that can be handled by the event loop.
+//! Shows how to create a custom event that can be handled by `winit`'s event loop.
 
 use bevy::prelude::*;
 use bevy::winit::{EventLoopProxy, WakeUp, WinitPlugin};
@@ -27,6 +27,8 @@ fn main() {
         .add_plugins(
             DefaultPlugins
                 .build()
+                // Only one event type can be handled at once
+                // so we must disable the default event type
                 .disable::<WinitPlugin<WakeUp>>()
                 .add(winit_plugin),
         )
