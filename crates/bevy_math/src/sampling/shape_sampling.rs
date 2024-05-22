@@ -85,6 +85,35 @@ impl ShapeSample for Sphere {
     }
 }
 
+impl ShapeSample for Annulus {
+    type Output = Vec2;
+
+    fn sample_interior<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
+        let inner_radius = self.inner_circle.radius;
+        let outer_radius = self.outer_circle.radius;
+
+        // Like random sampling for a circle, radius is weighted by the square.
+        let r_squared = rng.gen_range((inner_radius * inner_radius)..(outer_radius * outer_radius));
+        let r = r_squared.sqrt();
+        let theta = rng.gen_range(0.0..TAU);
+
+        Vec2::new(r * theta.cos(), r * theta.sin())
+    }
+
+    fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
+        let total_perimeter = self.inner_circle.perimeter() + self.outer_circle.perimeter();
+        let inner_prob = (self.inner_circle.perimeter() / total_perimeter) as f64;
+
+        // Sample from boundary circles, choosing which one by weighting by perimeter:
+        let inner = rng.gen_bool(inner_prob);
+        if inner {
+            self.inner_circle.sample_boundary(rng)
+        } else {
+            self.outer_circle.sample_boundary(rng)
+        }
+    }
+}
+
 impl ShapeSample for Rectangle {
     type Output = Vec2;
 
