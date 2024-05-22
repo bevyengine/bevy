@@ -248,9 +248,12 @@ mod tests {
     }
 
     // the order of the combinations is not guaranteed, but each unique combination is present
-    fn check_combinations<T: Ord + Hash + Debug, const K: usize>(values: HashSet<[&T; K]>, expected: HashSet<[&T; K]>) {
+    fn check_combinations<T: Ord + Hash + Debug, const K: usize>(
+        values: HashSet<[&T; K]>,
+        expected: HashSet<[&T; K]>,
+    ) {
         values.iter().for_each(|pair| {
-            let mut sorted = pair.clone();
+            let mut sorted = *pair;
             sorted.sort();
             assert!(expected.contains(&sorted),
                     "the results of iter_combinations should contain this combination {:?}. Expected: {:?}, got: {:?}",
@@ -277,17 +280,20 @@ mod tests {
                 [&A(2), &A(3)],
                 [&A(2), &A(4)],
                 [&A(3), &A(4)],
-            ])
+            ]),
         );
         let mut a_query = world.query::<&A>();
 
         let values: HashSet<[&A; 3]> = a_query.iter_combinations(&world).collect();
-        check_combinations(values, HashSet::from([
-            [&A(1), &A(2), &A(3)],
-            [&A(1), &A(2), &A(4)],
-            [&A(1), &A(3), &A(4)],
-            [&A(2), &A(3), &A(4)],
-        ]));
+        check_combinations(
+            values,
+            HashSet::from([
+                [&A(1), &A(2), &A(3)],
+                [&A(1), &A(2), &A(4)],
+                [&A(1), &A(3), &A(4)],
+                [&A(2), &A(3), &A(4)],
+            ]),
+        );
 
         let mut b_query = world.query::<&B>();
         assert_eq!(
@@ -313,14 +319,11 @@ mod tests {
         let values: HashSet<[&A; 2]> = a_wout_b.iter_combinations(&world).collect();
         check_combinations(
             values,
-            HashSet::from([[&A(2), &A(3)], [&A(2), &A(4)], [&A(3), &A(4)]])
+            HashSet::from([[&A(2), &A(3)], [&A(2), &A(4)], [&A(3), &A(4)]]),
         );
 
         let values: HashSet<[&A; 3]> = a_wout_b.iter_combinations(&world).collect();
-        check_combinations(
-            values,
-            HashSet::from([[&A(2), &A(3), &A(4)]])
-        );
+        check_combinations(values, HashSet::from([[&A(2), &A(3), &A(4)]]));
 
         let mut query = world.query_filtered::<&A, Or<(With<A>, With<B>)>>();
         let values: HashSet<[&A; 2]> = query.iter_combinations(&world).collect();
@@ -333,7 +336,7 @@ mod tests {
                 [&A(2), &A(3)],
                 [&A(2), &A(4)],
                 [&A(3), &A(4)],
-            ])
+            ]),
         );
 
         let mut query = world.query_filtered::<&mut A, Without<B>>();
@@ -345,10 +348,7 @@ mod tests {
         }
 
         let values: HashSet<[&A; 3]> = a_wout_b.iter_combinations(&world).collect();
-        check_combinations(
-            values,
-            HashSet::from([[&A(12), &A(103), &A(1004)]])
-        );
+        check_combinations(values, HashSet::from([[&A(12), &A(103), &A(1004)]]));
 
         // Check if Added<T>, Changed<T> works
         let mut world = World::new();
@@ -385,13 +385,17 @@ mod tests {
 
         world.spawn_batch((1..=4).map(Sparse));
 
-        let values: HashSet<[&Sparse; 3]> =  world.query::<&Sparse>().iter_combinations(&world).collect();
-        check_combinations(values, HashSet::from([
-            [&Sparse(1), &Sparse(2), &Sparse(3)],
-            [&Sparse(1), &Sparse(2), &Sparse(4)],
-            [&Sparse(1), &Sparse(3), &Sparse(4)],
-            [&Sparse(2), &Sparse(3), &Sparse(4)],
-        ]));
+        let values: HashSet<[&Sparse; 3]> =
+            world.query::<&Sparse>().iter_combinations(&world).collect();
+        check_combinations(
+            values,
+            HashSet::from([
+                [&Sparse(1), &Sparse(2), &Sparse(3)],
+                [&Sparse(1), &Sparse(2), &Sparse(4)],
+                [&Sparse(1), &Sparse(3), &Sparse(4)],
+                [&Sparse(2), &Sparse(3), &Sparse(4)],
+            ]),
+        );
     }
 
     #[test]

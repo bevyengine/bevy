@@ -107,7 +107,6 @@ impl<'me, D: QueryData, F: QueryFilter> From<&'me mut QueryState<D, F>>
 }
 
 impl<'me, D: QueryData, F: QueryFilter> QueryStateView<'me, D, F> {
-
     /// Updates the state's internal view of the `world`'s archetypes. If this is not called before querying data,
     /// the results may not accurately reflect what is in the `world`.
     ///
@@ -178,8 +177,8 @@ impl<'me, D: QueryData, F: QueryFilter> QueryStateView<'me, D, F> {
     /// # Safety
     /// `archetype` must be from the `World` this state was initialized from.
     unsafe fn new_archetype_internal(&mut self, archetype: &Archetype) -> bool {
-        if D::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
-            && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))
+        if D::matches_component_set(self.fetch_state, &|id| archetype.contains(id))
+            && F::matches_component_set(self.filter_state, &|id| archetype.contains(id))
             && self.matches_component_set(&|id| archetype.contains(id))
         {
             let archetype_index = archetype.id().index();

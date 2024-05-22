@@ -75,6 +75,7 @@ mod tests {
         world::{EntityRef, Mut, World},
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
+    use bevy_utils::HashSet;
     use std::num::NonZeroU32;
     use std::{
         any::TypeId,
@@ -84,7 +85,6 @@ mod tests {
             Arc, Mutex,
         },
     };
-    use bevy_utils::HashSet;
 
     #[derive(Component, Resource, Debug, PartialEq, Eq, Hash, Clone, Copy)]
     struct A(usize);
@@ -402,7 +402,9 @@ mod tests {
         world
             .query::<(Entity, &A)>()
             .iter(&world)
-            .for_each(|(e, &i)| {results.insert((e, i));});
+            .for_each(|(e, &i)| {
+                results.insert((e, i));
+            });
         assert!(results.contains(&(e, A(123))));
         assert!(results.contains(&(f, A(456))));
     }
@@ -928,12 +930,19 @@ mod tests {
                 .collect::<HashSet<Entity>>()
         }
 
-        assert_eq!(get_filtered::<Changed<A>>(&mut world), HashSet::from([e1, e3]));
+        assert_eq!(
+            get_filtered::<Changed<A>>(&mut world),
+            HashSet::from([e1, e3])
+        );
 
         // ensure changing an entity's archetypes also moves its changed state
         world.entity_mut(e1).insert(C);
 
-        assert_eq!(get_filtered::<Changed<A>>(&mut world), HashSet::from([e3, e1]), "changed entities list should not change");
+        assert_eq!(
+            get_filtered::<Changed<A>>(&mut world),
+            HashSet::from([e3, e1]),
+            "changed entities list should not change"
+        );
 
         // spawning a new A entity should not change existing changed state
         world.entity_mut(e1).insert((A(0), B(0)));
@@ -1053,11 +1062,20 @@ mod tests {
         let e4 = world.spawn_empty().id();
 
         world.entity_mut(e4).insert(SparseStored(0));
-        assert_eq!(get_filtered::<Changed<SparseStored>>(&mut world), HashSet::from([e4]));
-        assert_eq!(get_filtered::<Added<SparseStored>>(&mut world), HashSet::from([e4]));
+        assert_eq!(
+            get_filtered::<Changed<SparseStored>>(&mut world),
+            HashSet::from([e4])
+        );
+        assert_eq!(
+            get_filtered::<Added<SparseStored>>(&mut world),
+            HashSet::from([e4])
+        );
 
         world.entity_mut(e4).insert(A(1));
-        assert_eq!(get_filtered::<Changed<SparseStored>>(&mut world), HashSet::from([e4]));
+        assert_eq!(
+            get_filtered::<Changed<SparseStored>>(&mut world),
+            HashSet::from([e4])
+        );
 
         world.clear_trackers();
 
@@ -1066,7 +1084,10 @@ mod tests {
         world.entity_mut(e4).insert(SparseStored(0));
 
         assert!(get_filtered::<Added<SparseStored>>(&mut world).is_empty());
-        assert_eq!(get_filtered::<Changed<SparseStored>>(&mut world), HashSet::from([e4]));
+        assert_eq!(
+            get_filtered::<Changed<SparseStored>>(&mut world),
+            HashSet::from([e4])
+        );
     }
 
     #[test]
