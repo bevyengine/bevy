@@ -21,7 +21,7 @@ pub struct Rect {
 impl Rect {
     /// An empty `Rect`, represented by maximum and minimum corner points
     /// at `Vec2::NEG_INFINITY` and `Vec2::INFINITY`, respectively.
-    /// This is so the `Rect` has a infinitly negative size.
+    /// This is so the `Rect` has a infinitely negative size.
     pub const EMPTY: Self = Self {
         max: Vec2::NEG_INFINITY,
         min: Vec2::INFINITY,
