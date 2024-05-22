@@ -17,7 +17,7 @@ impl MeshBuilder for Triangle3dMeshBuilder {
         let uvs: Vec<_> = uv_coords(&self.triangle).into();
 
         // Every vertex has the normal of the face of the triangle (or zero if the triangle is degenerate).
-        let normal: Vec3 = self.triangle.normal().map_or(Vec3::ZERO, |n| n.into());
+        let normal: Vec3 = normal_vec(&self.triangle);
         let normals = vec![normal; 3];
 
         let indices = Indices::U32(vec![0, 1, 2]);
@@ -39,6 +39,12 @@ impl Meshable for Triangle3d {
     fn mesh(&self) -> Self::Output {
         Triangle3dMeshBuilder { triangle: *self }
     }
+}
+
+/// The normal of a [`Triangle3d`] with zeroing so that a [`Vec3`] is always obtained for meshing.
+#[inline]
+pub(crate) fn normal_vec(triangle: &Triangle3d) -> Vec3 {
+    triangle.normal().map_or(Vec3::ZERO, |n| n.into())
 }
 
 /// Unskewed uv-coordinates for a [`Triangle3d`].

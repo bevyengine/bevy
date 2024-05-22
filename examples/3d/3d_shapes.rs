@@ -40,6 +40,7 @@ fn setup(
 
     let shapes = [
         meshes.add(Cuboid::default()),
+        meshes.add(Tetrahedron::default()),
         meshes.add(Capsule3d::default()),
         meshes.add(Torus::default()),
         meshes.add(Cylinder::default()),
