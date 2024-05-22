@@ -2278,8 +2278,8 @@ unsafe fn remove_bundle_from_archetype(
         // this Bundle removal result is cached. just return that!
         result
     } else {
-        let mut next_table_components: Vec<ComponentId>;
-        let mut next_sparse_set_components: Vec<ComponentId>;
+        let mut next_table_components;
+        let mut next_sparse_set_components;
         let next_table_id;
         {
             let current_archetype = &mut archetypes[archetype_id];
@@ -2304,13 +2304,12 @@ unsafe fn remove_bundle_from_archetype(
                 }
             }
 
-            // sort removed components so we can do an efficient "sorted remove".
+            // sort removed components so we can do an efficient "sorted remove". archetype
+            // components are already sorted
             removed_table_components.sort();
             removed_sparse_set_components.sort();
             next_table_components = current_archetype.table_components().collect();
             next_sparse_set_components = current_archetype.sparse_set_components().collect();
-            next_table_components.sort();
-            next_sparse_set_components.sort();
             sorted_remove(&mut next_table_components, &removed_table_components);
             sorted_remove(
                 &mut next_sparse_set_components,
