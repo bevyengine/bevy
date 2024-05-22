@@ -24,7 +24,8 @@ fn main() {
 #[derive(Component)]
 struct Shape;
 
-const X_EXTENT: f32 = 12.0;
+const SHAPES_X_EXTENT: f32 = 12.0;
+const EXTRUSION_X_EXTENT: f32 = 15.0;
 const Z_EXTENT: f32 = 5.0;
 
 fn setup(
@@ -67,7 +68,7 @@ fn setup(
                 mesh: shape,
                 material: debug_material.clone(),
                 transform: Transform::from_xyz(
-                    -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT,
+                    -SHAPES_X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * SHAPES_X_EXTENT,
                     2.0,
                     Z_EXTENT / 2.,
                 )
@@ -77,13 +78,17 @@ fn setup(
             Shape,
         ));
     }
+
+    let num_extrusions = extrusions.len();
+
     for (i, shape) in extrusions.into_iter().enumerate() {
         commands.spawn((
             PbrBundle {
                 mesh: shape,
                 material: debug_material.clone(),
                 transform: Transform::from_xyz(
-                    -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT,
+                    -EXTRUSION_X_EXTENT / 2.
+                        + i as f32 / (num_extrusions - 1) as f32 * EXTRUSION_X_EXTENT,
                     2.0,
                     -Z_EXTENT / 2.,
                 )
