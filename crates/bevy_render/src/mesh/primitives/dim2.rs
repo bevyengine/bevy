@@ -61,7 +61,7 @@ impl MeshBuilder for CircleMeshBuilder {
 }
 
 impl Extrudable for CircleMeshBuilder {
-    fn perimeter_indices(&self) -> Vec<PerimeterSegment> {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
         vec![PerimeterSegment::Smooth {
             first_normal: Vec2::Y,
             last_normal: Vec2::Y,
@@ -104,7 +104,7 @@ impl MeshBuilder for RegularPolygonMeshBuilder {
 }
 
 impl Extrudable for RegularPolygonMeshBuilder {
-    fn perimeter_indices(&self) -> Vec<PerimeterSegment> {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
         vec![PerimeterSegment::Flat {
             indices: (0..self.sides as u32).chain([0]).collect(),
         }]
@@ -205,7 +205,7 @@ impl MeshBuilder for EllipseMeshBuilder {
 }
 
 impl Extrudable for EllipseMeshBuilder {
-    fn perimeter_indices(&self) -> Vec<PerimeterSegment> {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
         vec![PerimeterSegment::Smooth {
             first_normal: Vec2::Y,
             last_normal: Vec2::Y,
@@ -328,7 +328,7 @@ impl MeshBuilder for AnnulusMeshBuilder {
 }
 
 impl Extrudable for AnnulusMeshBuilder {
-    fn perimeter_indices(&self) -> Vec<PerimeterSegment> {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
         let vert_count = 2 * self.resolution as u32;
         vec![
             PerimeterSegment::Smooth {
@@ -400,7 +400,7 @@ impl MeshBuilder for Triangle2dMeshBuilder {
 }
 
 impl Extrudable for Triangle2dMeshBuilder {
-    fn perimeter_indices(&self) -> Vec<PerimeterSegment> {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
         let is_ccw = self.triangle.winding_order() == WindingOrder::CounterClockwise;
         if is_ccw {
             vec![PerimeterSegment::Flat {
@@ -458,7 +458,7 @@ impl MeshBuilder for RectangleMeshBuilder {
 }
 
 impl Extrudable for RectangleMeshBuilder {
-    fn perimeter_indices(&self) -> Vec<PerimeterSegment> {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
         vec![PerimeterSegment::Flat {
             indices: vec![0, 1, 2, 3, 0],
         }]
@@ -599,7 +599,7 @@ impl MeshBuilder for Capsule2dMeshBuilder {
 }
 
 impl Extrudable for Capsule2dMeshBuilder {
-    fn perimeter_indices(&self) -> Vec<PerimeterSegment> {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
         let resolution = self.resolution as u32;
         let top_semi_indices = (0..resolution).collect();
         let bottom_semi_indices = (resolution..(2 * resolution)).collect();

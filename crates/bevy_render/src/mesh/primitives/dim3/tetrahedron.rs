@@ -6,6 +6,7 @@ use crate::{
 use bevy_math::primitives::{Tetrahedron, Triangle3d};
 use wgpu::PrimitiveTopology;
 
+/// A builder used for creating a [`Mesh`] with a [`Tetrahedron`] shape.
 pub struct TetrahedronMeshBuilder {
     tetrahedron: Tetrahedron,
 }
