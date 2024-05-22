@@ -22,6 +22,8 @@ impl Rect {
     /// An empty `Rect`, represented by maximum and minimum corner points
     /// at `Vec2::NEG_INFINITY` and `Vec2::INFINITY`, respectively.
     /// This is so the `Rect` has a infinitely negative size.
+    /// This is useful, because when taking a union B of a non-empty `Rect` A and
+    /// this empty `Rect`, B will simply equal A.
     pub const EMPTY: Self = Self {
         max: Vec2::NEG_INFINITY,
         min: Vec2::INFINITY,
