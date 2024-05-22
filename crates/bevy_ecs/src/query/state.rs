@@ -350,7 +350,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 world.archetypes().generation(),
             );
             for archetype in &world.archetypes()[old_generation..] {
-                f(self, archetype)
+                f(self, archetype);
             }
         } else {
             let mut archetypes = self.get_potential_archetypes(world.archetypes());
@@ -358,7 +358,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             for archetype_id in archetypes {
                 // SAFETY: get_potential_archetypes only returns archetype ids that are valid for the world
                 let archetype = &world.archetypes()[archetype_id];
-                f(self, archetype)
+                f(self, archetype);
             }
             self.archetype_generation = world.archetypes().generation();
         }
