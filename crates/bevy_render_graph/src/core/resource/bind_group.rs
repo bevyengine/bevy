@@ -37,14 +37,13 @@ impl RenderGraphBindGroupLayoutMeta {
                     BufferBindingType::Uniform => false,
                     BufferBindingType::Storage { read_only } => !read_only,
                 },
-                BindingType::Sampler(_) => false,
-                BindingType::Texture { .. } => false,
+                BindingType::Sampler(_)
+                | BindingType::Texture { .. }
+                | BindingType::AccelerationStructure => false,
                 BindingType::StorageTexture { access, .. } => match access {
-                    StorageTextureAccess::WriteOnly => true,
                     StorageTextureAccess::ReadOnly => false,
-                    StorageTextureAccess::ReadWrite => true,
+                    StorageTextureAccess::ReadWrite | StorageTextureAccess::WriteOnly => true,
                 },
-                BindingType::AccelerationStructure => false,
             };
             if writes_entry {
                 writes.insert(entry.binding);
@@ -157,7 +156,7 @@ impl<'g> IntoRenderResource<'g> for &[BindGroupLayoutEntry] {
     }
 }
 
-pub(crate) fn make_bind_group<'n, 'g: 'n>(
+pub(in crate::core) fn make_bind_group<'n, 'g: 'n>(
     ctx: &NodeContext<'n, 'g>,
     render_device: &RenderDevice,
     descriptor: &RenderGraphBindGroupDescriptor<'g>,
@@ -279,7 +278,7 @@ impl<'g> RenderGraphBindGroupMeta<'g> {
         }
     }
 
-    pub(crate) fn dependencies(&self) -> RenderDependencies<'g> {
+    pub(in crate::core) fn dependencies(&self) -> RenderDependencies<'g> {
         fn dep<'g, R: WriteRenderResource>(
             deps: &mut RenderDependencies<'g>,
             resource: RenderHandle<'g, R>,
@@ -313,7 +312,7 @@ impl<'g> RenderGraphBindGroupMeta<'g> {
             let write = self.writes.contains(&entry.binding);
             match &entry.resource {
                 RenderGraphBindingResource::Buffer(buffer) => {
-                    dep(&mut dependencies, buffer.buffer, write)
+                    dep(&mut dependencies, buffer.buffer, write);
                 }
                 RenderGraphBindingResource::BufferArray(buffers) => deps(
                     &mut dependencies,
@@ -329,10 +328,10 @@ impl<'g> RenderGraphBindGroupMeta<'g> {
                     }
                 }
                 RenderGraphBindingResource::TextureView(texture_view) => {
-                    dep(&mut dependencies, *texture_view, write)
+                    dep(&mut dependencies, *texture_view, write);
                 }
                 RenderGraphBindingResource::TextureViewArray(texture_views) => {
-                    deps(&mut dependencies, texture_views.iter().copied(), write)
+                    deps(&mut dependencies, texture_views.iter().copied(), write);
                 }
             }
         }

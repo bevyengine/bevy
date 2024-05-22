@@ -1,5 +1,7 @@
 pub mod resource;
-pub(crate) mod setup;
+mod setup;
+
+pub use setup::RenderGraphPlugin;
 
 use bevy_utils::HashMap;
 pub use setup::RenderGraphSetup;
@@ -22,10 +24,7 @@ use resource::{IntoRenderResource, RenderHandle, RenderResource, RenderResources
 use crate::deps;
 
 use self::resource::{
-    bind_group::{
-        make_bind_group, RenderGraphBindGroupDescriptor, RenderGraphBindGroupLayoutMeta,
-        RenderGraphBindGroupMeta,
-    },
+    bind_group::{make_bind_group, RenderGraphBindGroupLayoutMeta, RenderGraphBindGroupMeta},
     pipeline::{
         CachedRenderGraphPipelines, RenderGraphComputePipelineDescriptor, RenderGraphPipelines,
         RenderGraphRenderPipelineDescriptor,
@@ -146,7 +145,7 @@ impl<'g> RenderGraph<'g> {
             &mut resource_cache.bind_group_layouts,
             world,
             render_device,
-            &self,
+            self,
             |_, render_device, _, meta| {
                 render_device.create_bind_group_layout(
                     meta.descriptor.label.as_deref(),
@@ -159,7 +158,7 @@ impl<'g> RenderGraph<'g> {
         //MUST be after bind group layouts
         let mut pipelines = mem::take(&mut self.pipelines);
         pipelines.create_queued_pipelines(
-            &self,
+            self,
             &mut resource_cache.pipelines,
             pipeline_cache,
             world,
@@ -170,7 +169,7 @@ impl<'g> RenderGraph<'g> {
         textures.create_queued_resources(
             world,
             render_device,
-            &self,
+            self,
             |_, render_device, _, descriptor| render_device.create_texture(descriptor),
         );
         self.textures = textures;
@@ -180,7 +179,7 @@ impl<'g> RenderGraph<'g> {
             &mut resource_cache.samplers,
             world,
             render_device,
-            &self,
+            self,
             |_, render_device, _, descriptor| render_device.create_sampler(&descriptor.0),
         );
         self.samplers = samplers;
@@ -191,7 +190,7 @@ impl<'g> RenderGraph<'g> {
         texture_views.create_queued_resources(
             world,
             render_device,
-            &self,
+            self,
             |world, _, render_graph, descriptor| {
                 let mut deps = RenderDependencies::new();
                 deps.write(descriptor.texture);
@@ -217,7 +216,7 @@ impl<'g> RenderGraph<'g> {
         buffers.create_queued_resources(
             world,
             render_device,
-            &self,
+            self,
             |_, render_device, _, descriptor| render_device.create_buffer(descriptor),
         );
         self.buffers = buffers;
@@ -228,10 +227,10 @@ impl<'g> RenderGraph<'g> {
         bind_groups.create_queued_resources(
             world,
             render_device,
-            &self,
-            |world, render_device, render_graph, meta| {
+            self,
+            |world, render_device, graph, meta| {
                 let context = NodeContext {
-                    graph: &render_graph,
+                    graph,
                     world,
                     dependencies: meta.dependencies(),
                     pipeline_cache: None,
@@ -410,7 +409,7 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
         descriptor: RenderGraphBindGroupLayoutMeta,
         bind_group_layout: Cow<'g, BindGroupLayout>,
     ) -> RenderHandle<'g, BindGroupLayout> {
-        let id = self.graph.bind_group_layouts.import(
+        let id = self.graph.bind_group_layouts.import_resource(
             &mut self.graph.resources,
             None,
             descriptor,
@@ -428,10 +427,10 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
             .descriptor
             .entries
             .sort_by_key(|entry| entry.binding);
-        let id = self
-            .graph
-            .bind_group_layouts
-            .new(&mut self.graph.resources, None, descriptor);
+        let id =
+            self.graph
+                .bind_group_layouts
+                .new_resource(&mut self.graph.resources, None, descriptor);
         RenderHandle::new(id)
     }
 
@@ -451,7 +450,7 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
         descriptor: RenderGraphBindGroupMeta<'g>,
         bind_group: Cow<'g, BindGroup>,
     ) -> RenderHandle<'g, BindGroup> {
-        let id = self.graph.bind_groups.import(
+        let id = self.graph.bind_groups.import_resource(
             &mut self.graph.resources,
             Some(descriptor.dependencies()),
             descriptor,
@@ -466,10 +465,11 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
         mut meta: RenderGraphBindGroupMeta<'g>,
     ) -> RenderHandle<'g, BindGroup> {
         meta.descriptor.entries.sort_by_key(|entry| entry.binding);
-        let id =
-            self.graph
-                .bind_groups
-                .new(&mut self.graph.resources, Some(meta.dependencies()), meta);
+        let id = self.graph.bind_groups.new_resource(
+            &mut self.graph.resources,
+            Some(meta.dependencies()),
+            meta,
+        );
         RenderHandle::new(id)
     }
 
@@ -487,10 +487,12 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
         descriptor: TextureDescriptor<'static>,
         texture: Cow<'g, Texture>,
     ) -> RenderHandle<'g, Texture> {
-        let id = self
-            .graph
-            .textures
-            .import(&mut self.graph.resources, None, descriptor, texture);
+        let id = self.graph.textures.import_resource(
+            &mut self.graph.resources,
+            None,
+            descriptor,
+            texture,
+        );
         RenderHandle::new(id)
     }
 
@@ -499,7 +501,7 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
         let id = self
             .graph
             .textures
-            .new(&mut self.graph.resources, None, descriptor);
+            .new_resource(&mut self.graph.resources, None, descriptor);
         RenderHandle::new(id)
     }
 
@@ -525,7 +527,7 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
         mut descriptor: RenderGraphTextureViewDescriptor<'g>,
         texture_view: Cow<'g, TextureView>,
     ) -> RenderHandle<'g, TextureView> {
-        let id = self.graph.texture_views.import(
+        let id = self.graph.texture_views.import_resource(
             &mut self.graph.resources,
             Some(deps![&mut descriptor.texture]),
             descriptor,
@@ -539,7 +541,7 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
         &mut self,
         mut descriptor: RenderGraphTextureViewDescriptor<'g>,
     ) -> RenderHandle<'g, TextureView> {
-        let id = self.graph.texture_views.new(
+        let id = self.graph.texture_views.new_resource(
             &mut self.graph.resources,
             Some(deps![&mut descriptor.texture]),
             descriptor,
@@ -561,10 +563,12 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
         descriptor: RenderGraphSamplerDescriptor,
         sampler: Cow<'g, Sampler>,
     ) -> RenderHandle<'g, Sampler> {
-        let id = self
-            .graph
-            .samplers
-            .import(&mut self.graph.resources, None, descriptor, sampler);
+        let id = self.graph.samplers.import_resource(
+            &mut self.graph.resources,
+            None,
+            descriptor,
+            sampler,
+        );
         RenderHandle::new(id)
     }
 
@@ -576,7 +580,7 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
         let id = self
             .graph
             .samplers
-            .new(&mut self.graph.resources, None, descriptor);
+            .new_resource(&mut self.graph.resources, None, descriptor);
         RenderHandle::new(id)
     }
 
@@ -594,10 +598,10 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
         descriptor: BufferDescriptor<'static>,
         buffer: Cow<'g, Buffer>,
     ) -> RenderHandle<'g, Buffer> {
-        let id = self
-            .graph
-            .buffers
-            .import(&mut self.graph.resources, None, descriptor, buffer);
+        let id =
+            self.graph
+                .buffers
+                .import_resource(&mut self.graph.resources, None, descriptor, buffer);
         RenderHandle::new(id)
     }
 
@@ -606,7 +610,7 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
         let id = self
             .graph
             .buffers
-            .new(&mut self.graph.resources, None, descriptor);
+            .new_resource(&mut self.graph.resources, None, descriptor);
         RenderHandle::new(id)
     }
 
@@ -720,61 +724,61 @@ impl<'n, 'g: 'n> NodeContext<'n, 'g> {
             .unwrap_or_else(|| panic!("Unable to locate render graph resource: {:?}", resource))
     }
 
-    fn get_texture(&self, texture: RenderHandle<'n, Texture>) -> Option<&Texture> {
+    fn get_texture(&self, texture: RenderHandle<'g, Texture>) -> Option<&Texture> {
         self.graph.textures.get(texture.id())
     }
 
     fn get_texture_view(
         &self,
-        texture_view: RenderHandle<'n, TextureView>,
+        texture_view: RenderHandle<'g, TextureView>,
     ) -> Option<&TextureView> {
         self.graph.texture_views.get(texture_view.id())
     }
 
-    fn get_sampler(&self, sampler: RenderHandle<'n, Sampler>) -> Option<&Sampler> {
+    fn get_sampler(&self, sampler: RenderHandle<'g, Sampler>) -> Option<&Sampler> {
         self.graph.samplers.get(sampler.id())
     }
 
-    fn get_buffer(&self, buffer: RenderHandle<'n, Buffer>) -> Option<&Buffer> {
+    fn get_buffer(&self, buffer: RenderHandle<'g, Buffer>) -> Option<&Buffer> {
         self.graph.buffers.get(buffer.id())
     }
 
     fn get_render_pipeline(
         &self,
-        render_pipeline: RenderHandle<'n, RenderPipeline>,
+        render_pipeline: RenderHandle<'g, RenderPipeline>,
     ) -> Option<&RenderPipeline> {
         self.graph
             .pipelines
-            .get_render_pipeline(&self.pipeline_cache.unwrap(), render_pipeline.id())
+            .get_render_pipeline(self.pipeline_cache.unwrap(), render_pipeline.id())
     }
 
     fn get_compute_pipeline(
         &self,
-        compute_pipeline: RenderHandle<'n, ComputePipeline>,
+        compute_pipeline: RenderHandle<'g, ComputePipeline>,
     ) -> Option<&ComputePipeline> {
         self.graph
             .pipelines
-            .get_compute_pipeline(&self.pipeline_cache.unwrap(), compute_pipeline.id())
+            .get_compute_pipeline(self.pipeline_cache.unwrap(), compute_pipeline.id())
     }
 
     fn get_bind_group_layout(
         &self,
-        bind_group_layout: RenderHandle<'n, BindGroupLayout>,
+        bind_group_layout: RenderHandle<'g, BindGroupLayout>,
     ) -> Option<&BindGroupLayout> {
         self.graph.bind_group_layouts.get(bind_group_layout.id())
     }
 
-    fn get_bind_group(&self, bind_group: RenderHandle<'n, BindGroup>) -> Option<&BindGroup> {
+    fn get_bind_group(&self, bind_group: RenderHandle<'g, BindGroup>) -> Option<&BindGroup> {
         self.graph.bind_groups.get(bind_group.id())
     }
 }
 
 impl<'n, 'g: 'n> NodeContext<'n, 'g> {
-    pub fn world_resource<R: Resource>(&self) -> &R {
+    pub fn world_resource<R: Resource>(&self) -> &'n R {
         self.world.resource()
     }
 
-    pub fn get_world_resource<R: Resource>(&self) -> Option<&R> {
+    pub fn get_world_resource<R: Resource>(&self) -> Option<&'n R> {
         self.world.get_resource()
     }
 

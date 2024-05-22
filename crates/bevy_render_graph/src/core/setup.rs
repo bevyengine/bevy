@@ -65,7 +65,7 @@ fn run_render_graph(world: &mut World) {
             );
 
             render_graph.borrow_cached_resources(&cached_resources);
-            render_graph.run(&world, &render_device, render_queue, &pipeline_cache);
+            render_graph.run(world, render_device, render_queue, &pipeline_cache);
         });
     });
 }

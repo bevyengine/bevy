@@ -58,12 +58,12 @@ impl UsagesRenderResource for Texture {
     }
 
     #[inline]
-    fn has_usages<'g>(meta: &Self::Meta<'g>, usages: &Self::Usages) -> bool {
+    fn has_usages(meta: &Self::Meta<'_>, usages: &Self::Usages) -> bool {
         meta.usage.contains(*usages)
     }
 
     #[inline]
-    fn add_usages<'g>(meta: &mut Self::Meta<'g>, usages: Self::Usages) {
+    fn add_usages(meta: &mut Self::Meta<'_>, usages: Self::Usages) {
         meta.usage.insert(usages);
     }
 }
@@ -188,7 +188,7 @@ impl CacheRenderResource for Sampler {
 
     #[inline]
     fn key_from_meta<'b, 'g: 'b>(meta: &'b Self::Meta<'g>) -> &'b Self::Key {
-        &meta
+        meta
     }
 }
 

@@ -48,11 +48,11 @@ impl UsagesRenderResource for Buffer {
         graph.get_buffer_meta_mut(resource)
     }
 
-    fn has_usages<'g>(descriptor: &Self::Meta<'g>, usages: &Self::Usages) -> bool {
+    fn has_usages(descriptor: &Self::Meta<'_>, usages: &Self::Usages) -> bool {
         descriptor.usage.contains(*usages)
     }
 
-    fn add_usages<'g>(descriptor: &mut Self::Meta<'g>, usages: Self::Usages) {
+    fn add_usages(descriptor: &mut Self::Meta<'_>, usages: Self::Usages) {
         descriptor.usage.insert(usages);
     }
 }

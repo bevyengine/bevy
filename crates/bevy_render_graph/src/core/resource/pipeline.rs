@@ -1,18 +1,16 @@
 use std::borrow::{Borrow, Cow};
 
 use bevy_asset::Handle;
-use bevy_ecs::{system::Resource, world::World};
+use bevy_ecs::world::World;
 use bevy_utils::HashMap;
 
 use bevy_render::{
-    mesh::MeshVertexBufferLayoutRef,
     prelude::Shader,
     render_resource::{
         BindGroupLayout, CachedComputePipelineId, CachedRenderPipelineId, ComputePipeline,
         ComputePipelineDescriptor, DepthStencilState, FragmentState, MultisampleState,
         PipelineCache, PrimitiveState, PushConstantRange, RenderPipeline, RenderPipelineDescriptor,
-        ShaderDefVal, SpecializedComputePipeline, SpecializedMeshPipeline,
-        SpecializedRenderPipeline, VertexState,
+        ShaderDefVal, VertexState,
     },
 };
 
@@ -24,13 +22,13 @@ use super::{
 };
 
 #[derive(Default)]
-pub struct CachedRenderGraphPipelines {
+pub(in crate::core) struct CachedRenderGraphPipelines {
     cached_render_pipelines: HashMap<RenderPipelineDescriptor, CachedRenderPipelineId>,
     cached_compute_pipelines: HashMap<ComputePipelineDescriptor, CachedComputePipelineId>,
 }
 
 #[derive(Default)]
-pub struct RenderGraphPipelines<'g> {
+pub(in crate::core) struct RenderGraphPipelines<'g> {
     render_pipelines: HashMap<RenderResourceId, RenderPipelineMeta<'g>>,
     existing_render_pipelines: HashMap<Cow<'g, RenderPipeline>, RenderResourceId>,
     queued_render_pipelines: HashMap<
@@ -99,35 +97,6 @@ impl<'g> RenderGraphRenderPipelineDescriptor<'g> {
             fragment,
         }
     }
-
-    // pub fn from_raw(
-    //     descriptor: RenderPipelineDescriptor,
-    //     graph: &mut RenderGraphBuilder<'g>,
-    // ) -> Self {
-    //     let RenderPipelineDescriptor {
-    //         label,
-    //         layout,
-    //         push_constant_ranges,
-    //         vertex,
-    //         primitive,
-    //         depth_stencil,
-    //         multisample,
-    //         fragment,
-    //     } = descriptor;
-    //     Self {
-    //         label,
-    //         layout: layout
-    //             .into_iter()
-    //             .map(|layout| graph.into_resource(layout))
-    //             .collect(),
-    //         push_constant_ranges,
-    //         vertex,
-    //         primitive,
-    //         depth_stencil,
-    //         multisample,
-    //         fragment,
-    //     }
-    // }
 }
 
 /// Describes a compute pipeline in the render graph.
@@ -166,31 +135,6 @@ impl<'g> RenderGraphComputePipelineDescriptor<'g> {
             entry_point,
         }
     }
-
-    // pub fn from_raw(
-    //     descriptor: ComputePipelineDescriptor,
-    //     graph: &mut RenderGraphBuilder<'g>,
-    // ) -> Self {
-    //     let ComputePipelineDescriptor {
-    //         label,
-    //         layout,
-    //         push_constant_ranges,
-    //         shader,
-    //         shader_defs,
-    //         entry_point,
-    //     } = descriptor;
-    //     Self {
-    //         label,
-    //         layout: layout
-    //             .into_iter()
-    //             .map(|layout| graph.into_resource(layout))
-    //             .collect(),
-    //         push_constant_ranges,
-    //         shader,
-    //         shader_defs,
-    //         entry_point,
-    //     }
-    // }
 }
 
 enum DirectOrCached<'g, D: Clone, C> {
@@ -292,7 +236,7 @@ impl<'g> RenderGraphPipelines<'g> {
         id
     }
 
-    pub fn create_queued_pipelines(
+    pub(in crate::core) fn create_queued_pipelines(
         &mut self,
         graph: &RenderGraph<'g>,
         local_cache: &mut CachedRenderGraphPipelines,
@@ -431,19 +375,6 @@ impl<'g> IntoRenderResource<'g> for RenderGraphRenderPipelineDescriptor<'g> {
     }
 }
 
-// impl<'g> IntoRenderResource<'g> for RenderPipelineDescriptor {
-//     type Resource = RenderPipeline;
-//
-//     #[inline]
-//     fn into_render_resource(
-//         self,
-//         graph: &mut RenderGraphBuilder<'g>,
-//     ) -> RenderHandle<'g, Self::Resource> {
-//         let descriptor = RenderGraphRenderPipelineDescriptor::from_raw(self, graph);
-//         graph.new_render_pipeline(descriptor)
-//     }
-// }
-
 impl RenderResource for ComputePipeline {
     const RESOURCE_TYPE: ResourceType = ResourceType::ComputePipeline;
     type Meta<'g> = RenderGraphComputePipelineDescriptor<'g>;
@@ -484,69 +415,3 @@ impl<'g> IntoRenderResource<'g> for RenderGraphComputePipelineDescriptor<'g> {
         graph.new_compute_pipeline(self)
     }
 }
-
-// impl<'g> IntoRenderResource<'g> for ComputePipelineDescriptor {
-//     type Resource = ComputePipeline;
-//
-//     fn into_render_resource(
-//         self,
-//         graph: &mut RenderGraphBuilder<'g>,
-//     ) -> RenderHandle<'g, Self::Resource> {
-//         let descriptor = RenderGraphComputePipelineDescriptor::from_raw(self, graph);
-//         graph.new_compute_pipeline(descriptor)
-//     }
-// }
-
-// pub struct SpecializeRenderPipeline<P: SpecializedRenderPipeline + Resource>(pub P::Key);
-
-// impl<'g, P: SpecializedRenderPipeline + Resource> IntoRenderResource<'g>
-//     for SpecializeRenderPipeline<P>
-// {
-//     type Resource = RenderPipeline;
-//
-//     fn into_render_resource(
-//         self,
-//         graph: &mut RenderGraphBuilder<'g>,
-//     ) -> RenderHandle<'g, Self::Resource> {
-//         let layout = graph.world_resource::<P>();
-//         let descriptor = layout.specialize(self.0);
-//         graph.new_resource(descriptor)
-//     }
-// }
-
-// pub struct SpecializeComputePipeline<P: SpecializedComputePipeline + Resource>(pub P::Key);
-//
-// impl<'g, P: SpecializedComputePipeline + Resource> IntoRenderResource<'g>
-//     for SpecializeComputePipeline<P>
-// {
-//     type Resource = ComputePipeline;
-//
-//     fn into_render_resource(
-//         self,
-//         graph: &mut RenderGraphBuilder<'g>,
-//     ) -> RenderHandle<'g, Self::Resource> {
-//         let layout = graph.world_resource::<P>();
-//         let descriptor = layout.specialize(self.0);
-//         graph.new_resource(descriptor)
-//     }
-// }
-//
-// pub struct SpecializeMeshPipeline<P: SpecializedMeshPipeline + Resource>(
-//     pub P::Key,
-//     pub MeshVertexBufferLayoutRef,
-// );
-//
-// impl<'g, P: SpecializedMeshPipeline + Resource> IntoRenderResource<'g>
-//     for SpecializeMeshPipeline<P>
-// {
-//     type Resource = RenderPipeline;
-//
-//     fn into_render_resource(
-//         self,
-//         graph: &mut RenderGraphBuilder<'g>,
-//     ) -> RenderHandle<'g, Self::Resource> {
-//         let layout = graph.world_resource::<P>();
-//         let descriptor = layout.specialize(self.0, &self.1).unwrap();
-//         graph.new_resource(descriptor)
-//     }
-// }

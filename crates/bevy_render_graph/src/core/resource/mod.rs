@@ -157,7 +157,7 @@ pub trait RenderResource: Sized + Send + Sync + Clone + Hash + Eq + 'static {
     const RESOURCE_TYPE: ResourceType;
     type Meta<'g>: Clone;
 
-    fn import<'b, 'g>(
+    fn import<'g>(
         graph: &mut RenderGraphBuilder<'_, 'g>,
         meta: Self::Meta<'g>,
         resource: Cow<'g, Self>,
@@ -192,8 +192,8 @@ pub trait UsagesRenderResource: RenderResource {
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'a mut Self::Meta<'g>>;
 
-    fn has_usages<'g>(meta: &Self::Meta<'g>, usages: &Self::Usages) -> bool;
-    fn add_usages<'g>(meta: &mut Self::Meta<'g>, usages: Self::Usages);
+    fn has_usages(meta: &Self::Meta<'_>, usages: &Self::Usages) -> bool;
+    fn add_usages(meta: &mut Self::Meta<'_>, usages: Self::Usages);
 }
 
 struct RenderResourceMeta<'g, R: RenderResource> {
@@ -214,7 +214,7 @@ where
 }
 
 #[allow(clippy::type_complexity)]
-pub struct RenderResources<'g, R: RenderResource> {
+pub(super) struct RenderResources<'g, R: RenderResource> {
     resources: HashMap<RenderResourceId, RenderResourceMeta<'g, R>>,
     existing_resources: HashMap<Cow<'g, R>, RenderResourceId>,
     queued_resources: HashMap<RenderResourceId, R::Meta<'g>>,
@@ -231,7 +231,7 @@ impl<'g, R: RenderResource> Default for RenderResources<'g, R> {
 }
 
 impl<'g, R: RenderResource> RenderResources<'g, R> {
-    pub fn import(
+    pub fn import_resource(
         &mut self,
         tracker: &mut ResourceTracker<'g>,
         dependencies: Option<RenderDependencies<'g>>,
@@ -250,7 +250,7 @@ impl<'g, R: RenderResource> RenderResources<'g, R> {
             })
     }
 
-    pub fn new(
+    pub fn new_resource(
         &mut self,
         tracker: &mut ResourceTracker<'g>,
         dependencies: Option<RenderDependencies<'g>>,
