@@ -41,6 +41,9 @@ pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
 pub use handle::*;
 pub use id::*;
 pub use loader::*;
+pub use loader_builders::{
+    DirectNestedLoader, NestedLoader, UntypedDirectNestedLoader, UntypedNestedLoader,
+};
 pub use path::*;
 pub use reflect::*;
 pub use server::*;
@@ -438,9 +441,6 @@ mod tests {
             AssetReader, AssetReaderError, AssetSource, AssetSourceId, Reader,
         },
         loader::{AssetLoader, LoadContext},
-        loader_builders::{
-            DirectNestedLoader, NestedLoader, UntypedDirectNestedLoader, UntypedNestedLoader,
-        },
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
         AssetPlugin, AssetServer, Assets, DependencyLoadState, LoadState,
         RecursiveDependencyLoadState,
