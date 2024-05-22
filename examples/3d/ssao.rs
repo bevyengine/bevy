@@ -213,21 +213,20 @@ fn update(
         Some(ScreenSpaceAmbientOcclusionQualityLevel::Ultra) => ("", "", "", "", "*"),
         _ => unreachable!(),
     };
-    let (g, v) = match ssao_settings.map(|s| s.method) {
-        None => ("", "*"),
-        Some(ScreenSpaceAmbientOcclusionMethod::Gtao) => ("*", ""),
-        Some(ScreenSpaceAmbientOcclusionMethod::Vbao { .. }) => ("", "*"),
-    };
 
-    text.push_str("SSAO Method:\n");
-    text.push_str(&format!("(G) {g}GTAO{g}\n"));
-    text.push_str(&format!("(V) {v}VBAO{v}\n\n"));
+    if let Some(method) = ssao_settings.map(|s| s.method) {
+        let (g, v) = match method {
+            ScreenSpaceAmbientOcclusionMethod::Gtao => ("*", ""),
+            ScreenSpaceAmbientOcclusionMethod::Vbao { .. } => ("", "*"),
+        };
 
-    if let Some(thickness) = ssao_settings.and_then(|s| match s.method {
-        ScreenSpaceAmbientOcclusionMethod::Gtao => None,
-        ScreenSpaceAmbientOcclusionMethod::Vbao { thickness } => Some(thickness),
-    }) {
-        text.push_str(&format!("VBAO Thickness: {} (Up/Down)\n\n", thickness));
+        text.push_str("SSAO Method:\n");
+        text.push_str(&format!("(G) {g}GTAO{g}\n"));
+        text.push_str(&format!("(V) {v}VBAO{v}\n\n"));
+
+        if let ScreenSpaceAmbientOcclusionMethod::Vbao { thickness } = method {
+            text.push_str(&format!("VBAO Thickness: {} (Up/Down)\n\n", thickness));
+        }
     }
 
     text.push_str("SSAO Quality:\n");

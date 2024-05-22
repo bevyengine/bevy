@@ -226,7 +226,6 @@ fn ssao(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
 #if METHOD == 0
     visibility /= slice_count;
-    visibility = 1.0 - visibility;
 #else
     visibility = 1.0 - f32(occluded_sample_count) / (slice_count * 2.0 * samples_per_slice_side);
 #endif
