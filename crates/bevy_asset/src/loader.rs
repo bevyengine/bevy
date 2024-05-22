@@ -464,7 +464,7 @@ impl<'a> LoadContext<'a> {
     /// Retrieves a handle for the asset at the given path and adds that path as a dependency of the asset.
     /// If the current context is a normal [`AssetServer::load`], an actual asset load will be kicked off immediately, which ensures the load happens
     /// as soon as possible.
-    /// "Normal loads" kicked from within a normal Bevy App will generally configure the context to kick off loads immediately.  
+    /// "Normal loads" kicked from within a normal Bevy App will generally configure the context to kick off loads immediately.
     /// If the current context is configured to not load dependencies automatically (ex: [`AssetProcessor`](crate::processor::AssetProcessor)),
     /// a load will not be kicked off automatically. It is then the calling context's responsibility to begin a load if necessary.
     pub fn load<'b, A: Asset>(&mut self, path: impl Into<AssetPath<'b>>) -> Handle<A> {
@@ -495,7 +495,7 @@ impl<'a> LoadContext<'a> {
 
     /// Loads the [`Asset`] of type `A` at the given `path` with the given [`AssetLoader::Settings`] settings `S`. This is a "deferred"
     /// load. If the settings type `S` does not match the settings expected by `A`'s asset loader, an error will be printed to the log
-    /// and the asset load will fail.  
+    /// and the asset load will fail.
     pub fn load_with_settings<'b, A: Asset, S: Settings + Default>(
         &mut self,
         path: impl Into<AssetPath<'b>>,
