@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeEntity, Archetypes},
     component::Tick,
-    entity::{Entities, Entity},
+    entity::{Entities, Entity, EntityHashSet},
     query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, StorageId},
     storage::{Table, TableRow, Tables},
     world::unsafe_world_cell::UnsafeWorldCell,
@@ -13,6 +13,7 @@ use std::{
     iter::FusedIterator,
     mem::MaybeUninit,
     ops::Range,
+    vec::IntoIter,
 };
 
 use super::{QueryData, QueryFilter, ReadOnlyQueryData};
@@ -1123,6 +1124,83 @@ where
         // of any previously returned unique references first, thus preventing aliasing.
         unsafe { self.fetch_next_aliased_unchecked().map(D::shrink) }
     }
+
+    /// Checks for uniqueness in the `Entity` iterator `I`, returning a new Iterator on success.
+    /// Return `self` on failure.
+    /// This new iterator allows for mutable iteration without `fetch_next`.
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use std::ops::{Deref, DerefMut};
+    /// #
+    /// # #[derive(Component, Clone, Copy)]
+    /// # struct PartValue(usize);
+    /// #
+    /// # impl Deref for PartValue {
+    /// #     type Target = usize;
+    /// #
+    /// #     fn deref(&self) -> &Self::Target {
+    /// #         &self.0
+    /// #     }
+    /// # }
+    /// #
+    /// # impl DerefMut for PartValue {
+    /// #     fn deref_mut(&mut self) -> &mut Self::Target {
+    /// #         &mut self.0
+    /// #     }
+    /// # }
+    /// #
+    /// # let mut world = World::new();
+    /// #
+    /// // Mutable `Iterator` trait iteration.
+    /// fn system(mut query: Query<&mut PartValue>) {
+    /// #   let entity_list: Vec<Entity> = Vec::new();
+    /// #
+    ///     let mut unique_iter = query.iter_many_mut(entity_list)
+    ///         .entities_all_unique()
+    ///         .expect("the entity_list only contains unique entities");
+    ///     
+    ///     for mut part_value in unique_iter {
+    ///         **part_value += 1;
+    ///     }
+    /// }
+    /// #
+    /// # let mut schedule = Schedule::default();
+    /// # schedule.add_systems((system));
+    /// # schedule.run(&mut world);
+    /// ```
+    #[inline(always)]
+    pub fn entities_all_unique(
+        self,
+    ) -> Result<
+        QueryManyUniqueIter<'w, 's, D, F, IntoIter<I::Item>>,
+        QueryManyIter<'w, 's, D, F, IntoIter<I::Item>>,
+    > {
+        let mut used = EntityHashSet::default();
+        let entities: Vec<_> = self.entity_iter.collect();
+
+        if entities.iter().all(move |e| used.insert(*e.borrow())) {
+            return Ok(QueryManyUniqueIter {
+                entity_iter: entities.into_iter(),
+                entities: self.entities,
+                tables: self.tables,
+                archetypes: self.archetypes,
+                fetch: self.fetch,
+                filter: self.filter,
+                query_state: self.query_state,
+            });
+        }
+
+        Err(QueryManyIter {
+            entity_iter: entities.into_iter(),
+            entities: self.entities,
+            tables: self.tables,
+            archetypes: self.archetypes,
+            fetch: self.fetch,
+            filter: self.filter,
+            query_state: self.query_state,
+        })
+    }
 }
 
 impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator> Iterator
@@ -1159,6 +1237,118 @@ where
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryManyIter").finish()
     }
+}
+
+/// An [`Iterator`] over the query items generated from an iterator of unique [`Entity`]s.
+///
+/// Items are returned in the order of the provided iterator.
+/// Entities that don't match the query are skipped.
+///
+/// In contrast with `QueryManyIter`, this allows for mutable iteration without a `fetch_next` method.
+///
+/// This struct is created by the [`QueryManyIter::entities_all_unique`] method.
+pub struct QueryManyUniqueIter<'w, 's, D: QueryData, F: QueryFilter, I: Iterator>
+where
+    I::Item: Borrow<Entity>,
+{
+    entity_iter: I,
+    entities: &'w Entities,
+    tables: &'w Tables,
+    archetypes: &'w Archetypes,
+    fetch: D::Fetch<'w>,
+    filter: F::Fetch<'w>,
+    query_state: &'s QueryState<D, F>,
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> QueryManyUniqueIter<'w, 's, D, F, I>
+where
+    I::Item: Borrow<Entity>,
+{
+    // Entities are guaranteed to be unique, so no lifetime shrinking needed for mutable iteration.
+    #[inline(always)]
+    fn fetch_next(&mut self) -> Option<D::Item<'w>> {
+        for entity in self.entity_iter.by_ref() {
+            let entity = *entity.borrow();
+            let Some(location) = self.entities.get(entity) else {
+                continue;
+            };
+
+            if !self
+                .query_state
+                .matched_archetypes
+                .contains(location.archetype_id.index())
+            {
+                continue;
+            }
+            let (archetype, table);
+            // SAFETY:
+            // `tables` and `archetypes` belong to the same world that the [`QueryIter`]
+            // was initialized for.
+            unsafe {
+                archetype = self
+                    .archetypes
+                    .get(location.archetype_id)
+                    .debug_checked_unwrap();
+                table = self.tables.get(location.table_id).debug_checked_unwrap();
+            }
+            // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
+            // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
+            unsafe {
+                D::set_archetype(
+                    &mut self.fetch,
+                    &self.query_state.fetch_state,
+                    archetype,
+                    table,
+                );
+            }
+            // SAFETY: `table` is from the world that `fetch/filter` were created for,
+            // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
+            unsafe {
+                F::set_archetype(
+                    &mut self.filter,
+                    &self.query_state.filter_state,
+                    archetype,
+                    table,
+                );
+            }
+
+            // SAFETY: set_archetype was called prior.
+            // `location.archetype_row` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
+            if unsafe { F::filter_fetch(&mut self.filter, entity, location.table_row) } {
+                // SAFETY:
+                // - set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
+                // - fetch is only called once for each entity.
+                return Some(unsafe { D::fetch(&mut self.fetch, entity, location.table_row) });
+            }
+        }
+        None
+    }
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> Iterator
+    for QueryManyUniqueIter<'w, 's, D, F, I>
+where
+    I::Item: Borrow<Entity>,
+{
+    type Item = D::Item<'w>;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.fetch_next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (_, max_size) = self.entity_iter.size_hint();
+        (0, max_size)
+    }
+}
+
+// This is correct as [`QueryManyIter`] always returns `None` once exhausted.
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> FusedIterator
+    for QueryManyUniqueIter<'w, 's, D, F, I>
+where
+    I::Item: Borrow<Entity>,
+{
 }
 
 /// An iterator over `K`-sized combinations of query items without repetition.
