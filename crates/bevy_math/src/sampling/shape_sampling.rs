@@ -1,3 +1,43 @@
+//! The [`ShapeSample`] trait, allowing random sampling from geometric shapes.
+//!
+//! At the most basic level, this allows sampling random points from the interior and boundary of
+//! geometric primitives. For example:
+//! ```
+//! # use bevy_math::primitives::*;
+//! # use bevy_math::ShapeSample;
+//! # use rand::SeedableRng;
+//! # use rand::rngs::StdRng;
+//! // Get some `Rng`:
+//! let rng = &mut StdRng::from_entropy();
+//! // Make a circle of radius 2:
+//! let circle = Circle::new(2.0);
+//! // Get a point inside this circle uniformly at random:
+//! let interior_pt = circle.sample_interior(rng);
+//! // Get a point on the circle's boundary uniformly at random:
+//! let boundary_pt = circle.sample_boundary(rng);
+//! ```
+//!
+//! For repeated sampling, `ShapeSample` also includes methods for accessing a [`Distribution`]:
+//! ```
+//! # use bevy_math::primitives::*;
+//! # use bevy_math::{Vec2, ShapeSample};
+//! # use rand::SeedableRng;
+//! # use rand::rngs::StdRng;
+//! # use rand::distributions::Distribution;
+//! # let rng1 = StdRng::from_entropy();
+//! # let rng2 = StdRng::from_entropy();
+//! // Use a rectangle this time:
+//! let rectangle = Rectangle::new(1.0, 2.0);
+//! // Get an iterator that spits out random interior points:
+//! let interior_iter = rectangle.interior_dist().sample_iter(rng1);
+//! // Collect random interior points from the iterator:
+//! let interior_pts: Vec<Vec2> = interior_iter.take(1000).collect();
+//! // Similarly, get an iterator over many random boundary points and collect them:
+//! let boundary_pts: Vec<Vec2> = rectangle.boundary_dist().sample_iter(rng2).take(1000).collect();
+//! ```
+//!
+//! In any case, the [`Rng`] used as the source of randomness must be provided explicitly.
+
 use std::f32::consts::{PI, TAU};
 
 use crate::{primitives::*, NormedVectorSpace, Vec2, Vec3};
@@ -39,6 +79,72 @@ pub trait ShapeSample {
     /// println!("{:?}", square.sample_boundary(&mut rand::thread_rng()));
     /// ```
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output;
+
+    /// Extract a [`Distribution`] whose samples are points of this shape's interior, taken uniformly.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::prelude::*;
+    /// # use rand::distributions::Distribution;
+    /// let square = Rectangle::new(2.0, 2.0);
+    /// let rng = rand::thread_rng();
+    ///
+    /// // Iterate over points randomly drawn from `square`'s interior:
+    /// for random_val in square.interior_dist().sample_iter(rng).take(5) {
+    ///     println!("{:?}", random_val);
+    /// }
+    /// ```
+    fn interior_dist(self) -> impl Distribution<Self::Output>
+    where
+        Self: Sized,
+    {
+        InteriorOf(self)
+    }
+
+    /// Extract a [`Distribution`] whose samples are points of this shape's boundary, taken uniformly.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::prelude::*;
+    /// # use rand::distributions::Distribution;
+    /// let square = Rectangle::new(2.0, 2.0);
+    /// let rng = rand::thread_rng();
+    ///
+    /// // Iterate over points randomly drawn from `square`'s boundary:
+    /// for random_val in square.boundary_dist().sample_iter(rng).take(5) {
+    ///     println!("{:?}", random_val);
+    /// }
+    /// ```
+    fn boundary_dist(self) -> impl Distribution<Self::Output>
+    where
+        Self: Sized,
+    {
+        BoundaryOf(self)
+    }
+}
+
+#[derive(Clone, Copy)]
+/// A wrapper struct that allows interior sampling from a [`ShapeSample`] type directly as
+/// a [`Distribution`].
+pub struct InteriorOf<T: ShapeSample>(pub T);
+
+#[derive(Clone, Copy)]
+/// A wrapper struct that allows boundary sampling from a [`ShapeSample`] type directly as
+/// a [`Distribution`].
+pub struct BoundaryOf<T: ShapeSample>(pub T);
+
+impl<T: ShapeSample> Distribution<<T as ShapeSample>::Output> for InteriorOf<T> {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> <T as ShapeSample>::Output {
+        self.0.sample_interior(rng)
+    }
+}
+
+impl<T: ShapeSample> Distribution<<T as ShapeSample>::Output> for BoundaryOf<T> {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> <T as ShapeSample>::Output {
+        self.0.sample_boundary(rng)
+    }
 }
 
 impl ShapeSample for Circle {

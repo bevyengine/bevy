@@ -2,7 +2,7 @@
 //!
 //! To use this, the "rand" feature must be enabled.
 
-mod shape_sampling;
+pub mod shape_sampling;
 pub mod standard;
 
 pub use shape_sampling::*;
