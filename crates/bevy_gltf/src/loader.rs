@@ -1476,7 +1476,7 @@ fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Ha
             } else {
                 let parent = load_context.path().parent().unwrap();
                 let image_path = parent.join(uri);
-                load_context.loader().load(image_path)
+                load_context.load(image_path)
             }
         }
     }

@@ -288,9 +288,7 @@ impl AssetLoader for ShaderLoader {
         // collect and store file dependencies
         for import in &shader.imports {
             if let ShaderImport::AssetPath(asset_path) = import {
-                shader
-                    .file_dependencies
-                    .push(load_context.loader().load(asset_path));
+                shader.file_dependencies.push(load_context.load(asset_path));
             }
         }
         Ok(shader)

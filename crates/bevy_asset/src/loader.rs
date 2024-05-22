@@ -1,12 +1,10 @@
 use crate::{
     io::{AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader},
-    meta::{
-        meta_transform_settings, AssetHash, AssetMeta, AssetMetaDyn, MetaTransform,
-        ProcessedInfoMinimal, Settings,
-    },
+    loader_builders::NestedLoader,
+    meta::{AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfoMinimal, Settings},
     path::AssetPath,
-    Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, LoadedUntypedAsset,
-    UntypedAssetId, UntypedHandle,
+    Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, UntypedAssetId,
+    UntypedHandle,
 };
 use bevy_ecs::world::World;
 use bevy_utils::{BoxedFuture, ConditionalSendFuture, CowArc, HashMap, HashSet};
@@ -17,7 +15,6 @@ use serde::{Deserialize, Serialize};
 use std::{
     any::{Any, TypeId},
     path::{Path, PathBuf},
-    sync::Arc,
 };
 use thiserror::Error;
 
@@ -308,282 +305,17 @@ pub enum DeserializeMetaError {
     DeserializeMinimal(SpannedError),
 }
 
-/// A builder for loading nested assets inside a `LoadContext`.
-pub struct NestedLoader<'a, 'b> {
-    load_context: &'b mut LoadContext<'a>,
-    meta_transform: Option<MetaTransform>,
-    asset_type_id: Option<TypeId>,
-}
-
-impl<'a, 'b> NestedLoader<'a, 'b> {
-    fn with_transform(
-        mut self,
-        transform: impl Fn(&mut dyn AssetMetaDyn) + Send + Sync + 'static,
-    ) -> Self {
-        if let Some(prev_transform) = self.meta_transform {
-            self.meta_transform = Some(Box::new(move |meta| {
-                prev_transform(meta);
-                transform(meta);
-            }));
-        } else {
-            self.meta_transform = Some(Box::new(transform));
-        }
-        self
-    }
-
-    /// Configure the settings used to load the asset.
-    ///
-    /// If the settings type `S` does not match the settings expected by `A`'s asset loader, an error will be printed to the log
-    /// and the asset load will fail.
-    #[must_use]
-    pub fn with_settings<S: Settings>(
-        self,
-        settings: impl Fn(&mut S) + Send + Sync + 'static,
-    ) -> Self {
-        self.with_transform(move |meta| meta_transform_settings(meta, &settings))
-    }
-
-    /// Specify the output asset type.
-    #[must_use]
-    pub fn with_asset_type<A: Asset>(mut self) -> Self {
-        self.asset_type_id = Some(TypeId::of::<A>());
-        self
-    }
-
-    /// Specify the output asset type.
-    #[must_use]
-    pub fn with_asset_type_id(mut self, asset_type_id: TypeId) -> Self {
-        self.asset_type_id = Some(asset_type_id);
-        self
-    }
-
-    /// Load assets directly, rather than creating handles.
-    #[must_use]
-    pub fn direct<'c>(self) -> DirectNestedLoader<'a, 'b, 'c> {
-        DirectNestedLoader {
-            base: self,
-            reader: None,
-        }
-    }
-
-    /// Load assets without static type information.
-    ///
-    /// If you need to specify the type of asset, but cannot do it statically,
-    /// use `.with_asset_type_id()`.
-    #[must_use]
-    pub fn untyped(self) -> UntypedNestedLoader<'a, 'b> {
-        UntypedNestedLoader { base: self }
-    }
-
-    /// Retrieves a handle for the asset at the given path and adds that path as a dependency of the asset.
-    /// If the current context is a normal [`AssetServer::load`], an actual asset load will be kicked off immediately, which ensures the load happens
-    /// as soon as possible.
-    /// "Normal loads" kicked from within a normal Bevy App will generally configure the context to kick off loads immediately.
-    /// If the current context is configured to not load dependencies automatically (ex: [`AssetProcessor`](crate::processor::AssetProcessor)),
-    /// a load will not be kicked off automatically. It is then the calling context's responsibility to begin a load if necessary.
-    pub fn load<'c, A: Asset>(self, path: impl Into<AssetPath<'c>>) -> Handle<A> {
-        let path = path.into().to_owned();
-        let handle = if self.load_context.should_load_dependencies {
-            self.load_context
-                .asset_server
-                .load_with_meta_transform(path, self.meta_transform)
-        } else {
-            self.load_context
-                .asset_server
-                .get_or_create_path_handle(path, None)
-        };
-        self.load_context.dependencies.insert(handle.id().untyped());
-        handle
-    }
-}
-
-/// A builder for loading untyped nested assets inside a `LoadContext`.
-pub struct UntypedNestedLoader<'a, 'b> {
-    base: NestedLoader<'a, 'b>,
-}
-
-impl<'a, 'b> UntypedNestedLoader<'a, 'b> {
-    /// Retrieves a handle for the asset at the given path and adds that path as a dependency of the asset without knowing its type.
-    pub fn load<'c>(self, path: impl Into<AssetPath<'c>>) -> Handle<LoadedUntypedAsset> {
-        let path = path.into().to_owned();
-        let handle = if self.base.load_context.should_load_dependencies {
-            self.base
-                .load_context
-                .asset_server
-                .load_untyped_with_meta_transform(path, self.base.meta_transform)
-        } else {
-            self.base
-                .load_context
-                .asset_server
-                .get_or_create_path_handle(path, self.base.meta_transform)
-        };
-        self.base
-            .load_context
-            .dependencies
-            .insert(handle.id().untyped());
-        handle
-    }
-}
-
-/// A builder for directly loading nested assets inside a `LoadContext`.
-pub struct DirectNestedLoader<'a, 'b, 'c> {
-    base: NestedLoader<'a, 'b>,
-    reader: Option<&'b mut Reader<'c>>,
-}
-
-impl<'a: 'c, 'b, 'c> DirectNestedLoader<'a, 'b, 'c> {
-    /// Specify the reader to use to read the asset data.
-    #[must_use]
-    pub fn with_reader(mut self, reader: &'b mut Reader<'c>) -> Self {
-        self.reader = Some(reader);
-        self
-    }
-
-    /// Load the asset without providing static type information.
-    ///
-    /// If you need to specify the type of asset, but cannot do it statically,
-    /// use `.with_asset_type_id()`.
-    #[must_use]
-    pub fn untyped(self) -> UntypedDirectNestedLoader<'a, 'b, 'c> {
-        UntypedDirectNestedLoader { base: self }
-    }
-
-    async fn load_internal(
-        self,
-        path: &AssetPath<'static>,
-    ) -> Result<(Arc<dyn ErasedAssetLoader>, ErasedLoadedAsset), LoadDirectError> {
-        enum ReaderRef<'a, 'b> {
-            Borrowed(&'a mut Reader<'b>),
-            Boxed(Box<Reader<'b>>),
-        }
-
-        impl<'a, 'b> ReaderRef<'a, 'b> {
-            pub fn as_mut(&mut self) -> &mut Reader {
-                match self {
-                    ReaderRef::Borrowed(r) => r,
-                    ReaderRef::Boxed(b) => &mut *b,
-                }
-            }
-        }
-
-        let (mut meta, loader, mut reader) = if let Some(reader) = self.reader {
-            let loader = if let Some(asset_type_id) = self.base.asset_type_id {
-                self.base
-                    .load_context
-                    .asset_server
-                    .get_asset_loader_with_asset_type_id(asset_type_id)
-                    .await
-                    .map_err(|error| LoadDirectError {
-                        dependency: path.clone(),
-                        error: error.into(),
-                    })?
-            } else {
-                self.base
-                    .load_context
-                    .asset_server
-                    .get_path_asset_loader(path)
-                    .await
-                    .map_err(|error| LoadDirectError {
-                        dependency: path.clone(),
-                        error: error.into(),
-                    })?
-            };
-            let meta = loader.default_meta();
-            (meta, loader, ReaderRef::Borrowed(reader))
-        } else {
-            let (meta, loader, reader) = self
-                .base
-                .load_context
-                .asset_server
-                .get_meta_loader_and_reader(path, self.base.asset_type_id)
-                .await
-                .map_err(|error| LoadDirectError {
-                    dependency: path.clone(),
-                    error,
-                })?;
-            (meta, loader, ReaderRef::Boxed(reader))
-        };
-
-        if let Some(meta_transform) = self.base.meta_transform {
-            meta_transform(&mut *meta);
-        }
-
-        let asset = self
-            .base
-            .load_context
-            .load_direct_internal(path.clone(), meta, &*loader, reader.as_mut())
-            .await?;
-        Ok((loader, asset))
-    }
-
-    /// Loads the asset at the given `path` directly. This is an async function that will wait until the asset is fully loaded before
-    /// returning. Use this if you need the _value_ of another asset in order to load the current asset. For example, if you are
-    /// deriving a new asset from the referenced asset, or you are building a collection of assets. This will add the `path` as a
-    /// "load dependency".
-    ///
-    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a [`LoadTransformAndSave`] preprocessor,
-    /// changing a "load dependency" will result in re-processing of the asset.
-    ///
-    /// [`Process`]: crate::processor::Process
-    /// [`LoadTransformAndSave`]: crate::processor::LoadTransformAndSave
-    pub async fn load<A: Asset>(
-        mut self,
-        path: impl Into<AssetPath<'c>>,
-    ) -> Result<LoadedAsset<A>, LoadDirectError> {
-        self.base.asset_type_id = Some(TypeId::of::<A>());
-        let path = path.into().into_owned();
-        self.load_internal(&path)
-            .await
-            .and_then(move |(loader, untyped_asset)| {
-                untyped_asset.downcast::<A>().map_err(|_| LoadDirectError {
-                    dependency: path.clone(),
-                    error: AssetLoadError::RequestedHandleTypeMismatch {
-                        path,
-                        requested: TypeId::of::<A>(),
-                        actual_asset_name: loader.asset_type_name(),
-                        loader_name: loader.type_name(),
-                    },
-                })
-            })
-    }
-}
-
-/// A builder for directly loading untyped nested assets inside a `LoadContext`.
-pub struct UntypedDirectNestedLoader<'a, 'b, 'c> {
-    base: DirectNestedLoader<'a, 'b, 'c>,
-}
-
-impl<'a: 'c, 'b, 'c> UntypedDirectNestedLoader<'a, 'b, 'c> {
-    /// Loads the asset at the given `path` directly. This is an async function that will wait until the asset is fully loaded before
-    /// returning. Use this if you need the _value_ of another asset in order to load the current asset. For example, if you are
-    /// deriving a new asset from the referenced asset, or you are building a collection of assets. This will add the `path` as a
-    /// "load dependency".
-    ///
-    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a [`LoadTransformAndSave`] preprocessor,
-    /// changing a "load dependency" will result in re-processing of the asset.
-    ///
-    /// [`Process`]: crate::processor::Process
-    /// [`LoadTransformAndSave`]: crate::processor::LoadTransformAndSave
-    pub async fn load<'d>(
-        self,
-        path: impl Into<AssetPath<'d>>,
-    ) -> Result<ErasedLoadedAsset, LoadDirectError> {
-        let path = path.into().into_owned();
-        self.base.load_internal(&path).await.map(|(_, asset)| asset)
-    }
-}
-
 /// A context that provides access to assets in [`AssetLoader`]s, tracks dependencies, and collects asset load state.
 /// Any asset state accessed by [`LoadContext`] will be tracked and stored for use in dependency events and asset preprocessing.
 pub struct LoadContext<'a> {
-    asset_server: &'a AssetServer,
-    should_load_dependencies: bool,
+    pub(crate) asset_server: &'a AssetServer,
+    pub(crate) should_load_dependencies: bool,
     populate_hashes: bool,
     asset_path: AssetPath<'static>,
-    dependencies: HashSet<UntypedAssetId>,
+    pub(crate) dependencies: HashSet<UntypedAssetId>,
     /// Direct dependencies used by this loader.
-    loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
-    labeled_assets: HashMap<CowArc<'static, str>, LabeledAsset>,
+    pub(crate) loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
+    pub(crate) labeled_assets: HashMap<CowArc<'static, str>, LabeledAsset>,
 }
 
 impl<'a> LoadContext<'a> {
@@ -782,7 +514,7 @@ impl<'a> LoadContext<'a> {
         handle
     }
 
-    async fn load_direct_internal(
+    pub(crate) async fn load_direct_internal(
         &mut self,
         path: AssetPath<'static>,
         meta: Box<dyn AssetMetaDyn>,
@@ -816,11 +548,19 @@ impl<'a> LoadContext<'a> {
     /// Create a builder for loading nested assets in this context.
     #[must_use]
     pub fn loader(&mut self) -> NestedLoader<'a, '_> {
-        NestedLoader {
-            load_context: self,
-            meta_transform: None,
-            asset_type_id: None,
-        }
+        NestedLoader::new(self)
+    }
+
+    /// Retrieves a handle for the asset at the given path and adds that path as a dependency of the asset.
+    /// If the current context is a normal [`AssetServer::load`], an actual asset load will be kicked off immediately, which ensures the load happens
+    /// as soon as possible.
+    /// "Normal loads" kicked from within a normal Bevy App will generally configure the context to kick off loads immediately.
+    /// If the current context is configured to not load dependencies automatically (ex: [`AssetProcessor`](crate::processor::AssetProcessor)),
+    /// a load will not be kicked off automatically. It is then the calling context's responsibility to begin a load if necessary.
+    ///
+    /// If you need to override asset settings, asset type, or load directly, please see [`LoadContext::loader`].
+    pub fn load<'b, A: Asset>(&mut self, path: impl Into<AssetPath<'b>>) -> Handle<A> {
+        self.loader().load(path)
     }
 }
 

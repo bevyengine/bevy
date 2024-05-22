@@ -27,6 +27,7 @@ mod folder;
 mod handle;
 mod id;
 mod loader;
+mod loader_builders;
 mod path;
 mod reflect;
 mod server;
@@ -437,6 +438,9 @@ mod tests {
             AssetReader, AssetReaderError, AssetSource, AssetSourceId, Reader,
         },
         loader::{AssetLoader, LoadContext},
+        loader_builders::{
+            DirectNestedLoader, NestedLoader, UntypedDirectNestedLoader, UntypedNestedLoader,
+        },
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
         AssetPlugin, AssetServer, Assets, DependencyLoadState, LoadState,
         RecursiveDependencyLoadState,
@@ -527,7 +531,7 @@ mod tests {
                 dependencies: ron
                     .dependencies
                     .iter()
-                    .map(|p| load_context.loader().load(p))
+                    .map(|p| load_context.load(p))
                     .collect(),
                 sub_texts: ron
                     .sub_texts

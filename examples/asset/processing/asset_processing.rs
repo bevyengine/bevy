@@ -169,7 +169,7 @@ impl AssetLoader for CoolTextLoader {
             dependencies: ron
                 .dependencies
                 .iter()
-                .map(|p| load_context.loader().load(p))
+                .map(|p| load_context.load(p))
                 .collect(),
         })
     }
