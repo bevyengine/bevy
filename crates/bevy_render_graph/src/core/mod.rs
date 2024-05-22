@@ -1,6 +1,7 @@
 pub mod resource;
 pub(crate) mod setup;
 
+use bevy_utils::HashMap;
 pub use setup::RenderGraphSetup;
 
 use std::{borrow::Cow, mem};
@@ -8,10 +9,9 @@ use std::{borrow::Cow, mem};
 use bevy_ecs::{system::Resource, world::World};
 use bevy_render::{
     render_resource::{
-        BindGroup, BindGroupLayout, BindGroupLayoutEntry, Buffer, BufferDescriptor, CommandEncoder,
+        BindGroup, BindGroupLayout, Buffer, BufferDescriptor, CommandEncoder,
         CommandEncoderDescriptor, ComputePass, ComputePassDescriptor, ComputePipeline,
-        ComputePipelineDescriptor, PipelineCache, RenderPipeline, RenderPipelineDescriptor,
-        Sampler, Texture, TextureDescriptor, TextureView, TextureViewDescriptor,
+        PipelineCache, RenderPipeline, Sampler, Texture, TextureDescriptor, TextureView,
     },
     renderer::{RenderDevice, RenderQueue},
     settings::{WgpuFeatures, WgpuLimits},
@@ -19,15 +19,20 @@ use bevy_render::{
 
 use resource::{IntoRenderResource, RenderHandle, RenderResource, RenderResources};
 
+use crate::deps;
+
 use self::resource::{
-    bind_group::{RenderGraphBindGroupDescriptor, RenderGraphBindGroups},
+    bind_group::{
+        make_bind_group, RenderGraphBindGroupDescriptor, RenderGraphBindGroupLayoutMeta,
+        RenderGraphBindGroupMeta,
+    },
     pipeline::{
         CachedRenderGraphPipelines, RenderGraphComputePipelineDescriptor, RenderGraphPipelines,
         RenderGraphRenderPipelineDescriptor,
     },
-    texture::{RenderGraphSamplerDescriptor, RenderGraphTextureView, RenderGraphTextureViews},
-    CachedResources, DescribedRenderResource, RenderDependencies, RenderResourceGeneration,
-    RenderResourceId, ResourceTracker, UsagesRenderResource,
+    texture::{RenderGraphSamplerDescriptor, RenderGraphTextureViewDescriptor},
+    CachedResources, RenderDependencies, RenderResourceGeneration, RenderResourceId,
+    ResourceTracker, UsagesRenderResource,
 };
 
 pub type Label<'a> = Option<Cow<'a, str>>;
@@ -39,12 +44,13 @@ struct RenderGraphCachedResources {
     pipelines: CachedRenderGraphPipelines,
 }
 
-pub struct RenderGraph<'g> {
+#[derive(Default)]
+struct RenderGraph<'g> {
     resources: ResourceTracker<'g>,
     bind_group_layouts: RenderResources<'g, BindGroupLayout>,
-    bind_groups: RenderGraphBindGroups<'g>,
+    bind_groups: RenderResources<'g, BindGroup>,
     textures: RenderResources<'g, Texture>,
-    texture_views: RenderGraphTextureViews<'g>,
+    texture_views: RenderResources<'g, TextureView>,
     samplers: RenderResources<'g, Sampler>,
     buffers: RenderResources<'g, Buffer>,
     pipelines: RenderGraphPipelines<'g>,
@@ -59,32 +65,30 @@ struct Node<'g> {
 
 #[allow(clippy::type_complexity)]
 enum NodeRunner<'g> {
-    Raw(Box<dyn FnOnce(NodeContext, &RenderDevice, &RenderQueue, &mut CommandEncoder) + Send + 'g>),
+    Raw(
+        Box<
+            dyn FnOnce(NodeContext<'_, 'g>, &RenderDevice, &RenderQueue, &mut CommandEncoder)
+                + Send
+                + 'g,
+        >,
+    ),
     //todo: possibility of auto-merging render passes?
     //Render(Box<dyn FnOnce(NodeContext, &RenderDevice, &RenderQueue, &mut RenderPass) + 'g>),
-    Compute(Box<dyn for<'n> FnOnce(&'n NodeContext, &mut ComputePass<'n>) + Send + 'g>),
+    Compute(Box<dyn for<'n> FnOnce(&'n NodeContext<'n, 'g>, &mut ComputePass<'n>) + Send + 'g>),
 }
 
 impl<'g> RenderGraph<'g> {
     fn new() -> Self {
-        Self {
-            resources: ResourceTracker::default(),
-            bind_group_layouts: RenderResources::new(|device, desc: &Vec<BindGroupLayoutEntry>| {
-                device.create_bind_group_layout(None, desc)
-            }),
-            bind_groups: RenderGraphBindGroups::new(),
-            textures: RenderResources::new(RenderDevice::create_texture),
-            texture_views: RenderGraphTextureViews::new(),
-            samplers: RenderResources::new(|device, RenderGraphSamplerDescriptor(desc)| {
-                device.create_sampler(desc)
-            }),
-            buffers: RenderResources::new(RenderDevice::create_buffer),
-            pipelines: RenderGraphPipelines::new(),
-            nodes: Vec::new(),
-        }
+        Default::default()
     }
 
-    fn run(mut self, world: &World, render_device: &RenderDevice, render_queue: &RenderQueue) {
+    fn run(
+        mut self,
+        world: &'g World,
+        render_device: &RenderDevice,
+        render_queue: &RenderQueue,
+        pipeline_cache: &PipelineCache,
+    ) {
         let mut encoder = render_device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("render_graph_command_encoder"),
         });
@@ -104,13 +108,13 @@ impl<'g> RenderGraph<'g> {
                     graph: &self,
                     world,
                     dependencies,
-                    // entity: entity_ref,
+                    pipeline_cache: Some(pipeline_cache),
                 };
 
                 match runner {
                     NodeRunner::Raw(f) => (f)(context, render_device, render_queue, &mut encoder),
                     // NodeRunner::Render(f) => {
-                    //     let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor { label:  gg, color_attachments: (), depth_stencil_attachment: (), timestamp_writes: (), occlusion_query_set: () })
+                    //     let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor { label: gg, color_attachments: (), depth_stencil_attachment: (), timestamp_writes: (), occlusion_query_set: () })
                     // },
                     NodeRunner::Compute(f) => {
                         let mut compute_pass = encoder.begin_compute_pass(&ComputePassDescriptor {
@@ -137,44 +141,129 @@ impl<'g> RenderGraph<'g> {
         world: &World,
         // view_entity: EntityRef<'g>,
     ) {
-        self.bind_group_layouts
-            .create_queued_resources_cached(&mut resource_cache.bind_group_layouts, render_device);
+        let mut bind_group_layouts = mem::take(&mut self.bind_group_layouts);
+        bind_group_layouts.create_queued_resources_cached(
+            &mut resource_cache.bind_group_layouts,
+            world,
+            render_device,
+            &self,
+            |_, render_device, _, meta| {
+                render_device.create_bind_group_layout(
+                    meta.descriptor.label.as_deref(),
+                    &meta.descriptor.entries,
+                )
+            },
+        );
+        self.bind_group_layouts = bind_group_layouts;
 
+        //MUST be after bind group layouts
         let mut pipelines = mem::take(&mut self.pipelines);
         pipelines.create_queued_pipelines(
-            self,
+            &self,
             &mut resource_cache.pipelines,
             pipeline_cache,
             world,
         );
         self.pipelines = pipelines;
 
-        self.textures.create_queued_resources(render_device);
+        let mut textures = mem::take(&mut self.textures);
+        textures.create_queued_resources(
+            world,
+            render_device,
+            &self,
+            |_, render_device, _, descriptor| render_device.create_texture(descriptor),
+        );
+        self.textures = textures;
 
-        let mut texture_views = std::mem::take(&mut self.texture_views);
-        texture_views.create_queued_resources(self, world /*, view_entity*/);
+        let mut samplers = mem::take(&mut self.samplers);
+        samplers.create_queued_resources_cached(
+            &mut resource_cache.samplers,
+            world,
+            render_device,
+            &self,
+            |_, render_device, _, descriptor| render_device.create_sampler(&descriptor.0),
+        );
+        self.samplers = samplers;
+
+        //MUST be after textures
+        let mut texture_views = mem::take(&mut self.texture_views);
+        let mut texture_view_cache = HashMap::new();
+        texture_views.create_queued_resources(
+            world,
+            render_device,
+            &self,
+            |world, _, render_graph, descriptor| {
+                let mut deps = RenderDependencies::new();
+                deps.write(descriptor.texture);
+                let context = NodeContext {
+                    graph: render_graph,
+                    world,
+                    dependencies: deps,
+                    pipeline_cache: None,
+                };
+                texture_view_cache
+                    .entry(descriptor.clone())
+                    .or_insert_with(|| {
+                        context
+                            .get(descriptor.texture)
+                            .create_view(&descriptor.descriptor)
+                    })
+                    .clone() //TODO: hopefully unnecessary clone
+            },
+        );
         self.texture_views = texture_views;
 
-        self.samplers
-            .create_queued_resources_cached(&mut resource_cache.samplers, render_device);
-        self.buffers.create_queued_resources(render_device);
+        let mut buffers = mem::take(&mut self.buffers);
+        buffers.create_queued_resources(
+            world,
+            render_device,
+            &self,
+            |_, render_device, _, descriptor| render_device.create_buffer(descriptor),
+        );
+        self.buffers = buffers;
 
-        let mut bind_groups = std::mem::take(&mut self.bind_groups);
-        bind_groups.create_queued_bind_groups(self, world, render_device /*, view_entity*/);
+        //MUST be last
+        let mut bind_groups = mem::take(&mut self.bind_groups);
+        let mut bind_group_cache = HashMap::new();
+        bind_groups.create_queued_resources(
+            world,
+            render_device,
+            &self,
+            |world, render_device, render_graph, meta| {
+                let context = NodeContext {
+                    graph: &render_graph,
+                    world,
+                    dependencies: meta.dependencies(),
+                    pipeline_cache: None,
+                };
+                bind_group_cache
+                    .entry(meta.descriptor.clone()) //TODO: hopefully unnecessary clone
+                    .or_insert_with(|| make_bind_group(&context, render_device, &meta.descriptor))
+                    .clone()
+            },
+        );
         self.bind_groups = bind_groups;
+    }
+
+    fn borrow_cached_resources(&mut self, resource_cache: &'g RenderGraphCachedResources) {
+        self.bind_group_layouts
+            .borrow_cached_resources(&resource_cache.bind_group_layouts);
+        self.samplers
+            .borrow_cached_resources(&resource_cache.samplers);
     }
 }
 
-pub struct RenderGraphBuilder<'g> {
-    graph: RenderGraph<'g>,
-    resource_cache: &'g mut RenderGraphCachedResources,
-    pipeline_cache: &'g mut PipelineCache,
+pub struct RenderGraphBuilder<'b, 'g: 'b> {
+    graph: &'b mut RenderGraph<'g>,
+    resource_cache: &'b mut RenderGraphCachedResources,
+    pipeline_cache: &'b mut PipelineCache,
     world: &'g World,
     // view_entity: EntityRef<'g>,
-    render_device: &'g RenderDevice,
+    render_device: &'b RenderDevice,
 }
 
-impl<'g> RenderGraphBuilder<'g> {
+impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
+    #[inline]
     pub fn new_resource<R: IntoRenderResource<'g>>(
         &mut self,
         resource: R,
@@ -182,48 +271,31 @@ impl<'g> RenderGraphBuilder<'g> {
         R::into_render_resource(resource, self)
     }
 
-    pub fn into_resource<R: RenderResource>(&mut self, resource: R) -> RenderHandle<'g, R> {
-        self.new_resource(Cow::Owned(resource))
+    #[inline]
+    pub fn into_resource<R: RenderResource>(
+        &mut self,
+        meta: R::Meta<'g>,
+        resource: R,
+    ) -> RenderHandle<'g, R> {
+        R::import(self, meta, Cow::Owned(resource))
     }
 
-    pub fn as_resource<R: RenderResource>(&mut self, resource: &'g R) -> RenderHandle<'g, R> {
-        self.new_resource(Cow::Borrowed(resource))
+    #[inline]
+    pub fn as_resource<R: RenderResource>(
+        &mut self,
+        meta: R::Meta<'g>,
+        resource: &'g R,
+    ) -> RenderHandle<'g, R> {
+        R::import(self, meta, Cow::Borrowed(resource))
     }
 
-    pub fn get_descriptor<R: DescribedRenderResource>(
-        &self,
-        resource: RenderHandle<'g, R>,
-    ) -> Option<&R::Descriptor> {
-        R::get_descriptor(self, resource)
+    #[inline]
+    pub fn meta<R: RenderResource>(&self, resource: RenderHandle<'g, R>) -> &R::Meta<'g> {
+        R::get_meta(self, resource)
+            .unwrap_or_else(|| panic!("No descriptor found for resource: {:?}", resource))
     }
 
-    pub fn descriptor<R: DescribedRenderResource>(
-        &self,
-        resource: RenderHandle<'g, R>,
-    ) -> &R::Descriptor {
-        self.get_descriptor(resource)
-            .unwrap_or_else(|| panic!("Descriptor not found for resource: {:?}", resource))
-    }
-
-    pub fn get_layout(
-        &self,
-        bind_group: RenderHandle<'g, BindGroup>,
-    ) -> Option<RenderHandle<'g, BindGroupLayout>> {
-        self.graph.bind_groups.get_layout(bind_group.id())
-    }
-
-    pub fn layout(
-        &self,
-        bind_group: RenderHandle<'g, BindGroup>,
-    ) -> RenderHandle<'g, BindGroupLayout> {
-        self.get_layout(bind_group).unwrap_or_else(|| {
-            panic!(
-                "No BindGroupLayout handle associated with BindGroup: {:?}",
-                bind_group
-            )
-        })
-    }
-
+    #[inline]
     pub fn is_fresh<R: RenderResource>(&self, resource: RenderHandle<'g, R>) -> bool {
         self.graph.generation(resource.id()) == 0
     }
@@ -233,19 +305,14 @@ impl<'g> RenderGraphBuilder<'g> {
         resource: RenderHandle<'g, R>,
         usages: R::Usages,
     ) -> &mut Self {
-        let desc = R::get_descriptor_mut(self, resource);
+        let desc = R::get_meta_mut(self, resource);
         if let Some(desc) = desc {
             R::add_usages(desc, usages);
-        } else {
-            let has_usages = R::get_descriptor(self, resource)
-                .map(|desc| R::has_usages(desc, &usages))
-                .unwrap_or(true); //if no descriptor available, defer to wgpu to detect incorrect usage (warn?)
-            if !has_usages {
-                panic!(
-                    "Descriptor for resource {:?} does not contain necessary usages: {:?}",
-                    resource, usages
-                )
-            }
+        } else if !R::has_usages(self.meta(resource), &usages) {
+            panic!(
+                "Descriptor for resource {:?} does not contain necessary usages: {:?}",
+                resource, usages
+            )
         }
         self
     }
@@ -254,7 +321,9 @@ impl<'g> RenderGraphBuilder<'g> {
         &mut self,
         label: Label<'g>,
         dependencies: RenderDependencies<'g>,
-        node: impl FnOnce(NodeContext, &RenderDevice, &RenderQueue, &mut CommandEncoder) + Send + 'g,
+        node: impl FnOnce(NodeContext<'_, 'g>, &RenderDevice, &RenderQueue, &mut CommandEncoder)
+            + Send
+            + 'g,
     ) -> &mut Self {
         //get + save dependency generations here, since they're not stored in RenderDependencies.
         //This is to make creating a RenderDependencies (and cloning!) a pure operation.
@@ -286,33 +355,24 @@ impl<'g> RenderGraphBuilder<'g> {
         self
     }
 
+    #[inline]
     pub fn features(&self) -> WgpuFeatures {
         self.render_device.features()
     }
 
+    #[inline]
     pub fn limits(&self) -> WgpuLimits {
         self.render_device.limits()
     }
-
-    fn create_queued_resources(&mut self) {
-        self.graph.create_queued_resources(
-            self.resource_cache,
-            self.pipeline_cache,
-            self.render_device,
-            self.world,
-        );
-    }
-
-    fn run(self, render_queue: &RenderQueue) {
-        self.graph.run(self.world, self.render_device, render_queue);
-    }
 }
 
-impl<'g> RenderGraphBuilder<'g> {
+impl<'g> RenderGraphBuilder<'_, 'g> {
+    #[inline]
     pub fn world_resource<R: Resource>(&self) -> &'g R {
         self.world.resource()
     }
 
+    #[inline]
     pub fn get_world_resource<R: Resource>(&self) -> Option<&'g R> {
         self.world.get_resource()
     }
@@ -337,20 +397,22 @@ impl<'g> RenderGraphBuilder<'g> {
     //     self.view_entity
     // }
 
+    #[inline]
     pub fn world(&self) -> &'g World {
         self.world
     }
 }
 
-impl<'g> RenderGraphBuilder<'g> {
+impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
     #[inline]
-    fn new_bind_group_layout_direct(
+    fn import_bind_group_layout(
         &mut self,
-        descriptor: Option<Vec<BindGroupLayoutEntry>>,
+        descriptor: RenderGraphBindGroupLayoutMeta,
         bind_group_layout: Cow<'g, BindGroupLayout>,
     ) -> RenderHandle<'g, BindGroupLayout> {
-        let id = self.graph.bind_group_layouts.new_direct(
+        let id = self.graph.bind_group_layouts.import(
             &mut self.graph.resources,
+            None,
             descriptor,
             bind_group_layout,
         );
@@ -358,106 +420,114 @@ impl<'g> RenderGraphBuilder<'g> {
     }
 
     #[inline]
-    fn new_bind_group_layout_descriptor(
+    fn new_bind_group_layout(
         &mut self,
-        mut descriptor: Vec<BindGroupLayoutEntry>,
+        mut descriptor: RenderGraphBindGroupLayoutMeta,
     ) -> RenderHandle<'g, BindGroupLayout> {
-        descriptor.sort_by_key(|entry| entry.binding);
+        descriptor
+            .descriptor
+            .entries
+            .sort_by_key(|entry| entry.binding);
         let id = self
             .graph
             .bind_group_layouts
-            .new_from_descriptor(&mut self.graph.resources, descriptor);
+            .new(&mut self.graph.resources, None, descriptor);
         RenderHandle::new(id)
     }
 
     #[inline]
-    fn get_bind_group_layout_descriptor(
+    fn get_bind_group_layout_meta(
         &self,
         bind_group_layout: RenderHandle<'g, BindGroupLayout>,
-    ) -> Option<&Vec<BindGroupLayoutEntry>> {
+    ) -> Option<&RenderGraphBindGroupLayoutMeta> {
         self.graph
             .bind_group_layouts
-            .get_descriptor(bind_group_layout.id())
+            .get_meta(bind_group_layout.id())
     }
 
     #[inline]
-    fn new_bind_group_direct(
+    fn import_bind_group(
         &mut self,
-        dependencies: RenderDependencies<'g>,
-        layout: Option<RenderHandle<'g, BindGroupLayout>>,
+        descriptor: RenderGraphBindGroupMeta<'g>,
         bind_group: Cow<'g, BindGroup>,
     ) -> RenderHandle<'g, BindGroup> {
-        let id = self.graph.bind_groups.new_direct(
+        let id = self.graph.bind_groups.import(
             &mut self.graph.resources,
-            dependencies,
-            layout,
+            Some(descriptor.dependencies()),
+            descriptor,
             bind_group,
         );
         RenderHandle::new(id)
     }
 
     #[inline]
-    fn new_bind_group_descriptor(
+    fn new_bind_group(
         &mut self,
-        mut descriptor: RenderGraphBindGroupDescriptor<'g>,
+        mut meta: RenderGraphBindGroupMeta<'g>,
     ) -> RenderHandle<'g, BindGroup> {
-        descriptor.entries.sort_by_key(|entry| entry.binding);
-        let id = self
-            .graph
-            .bind_groups
-            .new_from_descriptor(&mut self.graph.resources, descriptor);
+        meta.descriptor.entries.sort_by_key(|entry| entry.binding);
+        let id =
+            self.graph
+                .bind_groups
+                .new(&mut self.graph.resources, Some(meta.dependencies()), meta);
         RenderHandle::new(id)
     }
 
     #[inline]
-    fn new_texture_direct(
+    fn get_bind_group_meta(
+        &self,
+        bind_group: RenderHandle<'g, BindGroup>,
+    ) -> Option<&RenderGraphBindGroupMeta<'g>> {
+        self.graph.bind_groups.get_meta(bind_group.id())
+    }
+
+    #[inline]
+    fn import_texture(
         &mut self,
-        descriptor: Option<TextureDescriptor<'static>>,
+        descriptor: TextureDescriptor<'static>,
         texture: Cow<'g, Texture>,
     ) -> RenderHandle<'g, Texture> {
         let id = self
             .graph
             .textures
-            .new_direct(&mut self.graph.resources, descriptor, texture);
+            .import(&mut self.graph.resources, None, descriptor, texture);
         RenderHandle::new(id)
     }
 
     #[inline]
-    fn new_texture_descriptor(
-        &mut self,
-        descriptor: TextureDescriptor<'static>,
-    ) -> RenderHandle<'g, Texture> {
+    fn new_texture(&mut self, descriptor: TextureDescriptor<'static>) -> RenderHandle<'g, Texture> {
         let id = self
             .graph
             .textures
-            .new_from_descriptor(&mut self.graph.resources, descriptor);
+            .new(&mut self.graph.resources, None, descriptor);
         RenderHandle::new(id)
     }
 
     #[inline]
-    fn get_texture_descriptor(
+    fn get_texture_meta(
         &self,
         texture: RenderHandle<'g, Texture>,
     ) -> Option<&TextureDescriptor<'static>> {
-        self.graph.textures.get_descriptor(texture.id())
+        self.graph.textures.get_meta(texture.id())
     }
 
     #[inline]
-    fn get_texture_descriptor_mut(
+    fn get_texture_meta_mut(
         &mut self,
         texture: RenderHandle<'g, Texture>,
     ) -> Option<&mut TextureDescriptor<'static>> {
-        self.graph.textures.get_descriptor_mut(texture.id())
+        self.graph.textures.get_meta_mut(texture.id())
     }
 
     #[inline]
-    fn new_texture_view_direct(
+    fn import_texture_view(
         &mut self,
-        descriptor: Option<TextureViewDescriptor<'static>>,
+        mut descriptor: RenderGraphTextureViewDescriptor<'g>,
         texture_view: Cow<'g, TextureView>,
     ) -> RenderHandle<'g, TextureView> {
-        let id = self.graph.texture_views.new_direct(
+        let id = self.graph.texture_views.import(
             &mut self.graph.resources,
+            Some(deps![&mut descriptor.texture]),
             descriptor,
             texture_view,
         );
@@ -465,106 +535,104 @@ impl<'g> RenderGraphBuilder<'g> {
     }
 
     #[inline]
-    fn new_texture_view_descriptor(
+    fn new_texture_view(
         &mut self,
-        texture_view: RenderGraphTextureView<'g>,
+        mut descriptor: RenderGraphTextureViewDescriptor<'g>,
     ) -> RenderHandle<'g, TextureView> {
-        let id = self
-            .graph
-            .texture_views
-            .new_from_descriptor(&mut self.graph.resources, texture_view);
+        let id = self.graph.texture_views.new(
+            &mut self.graph.resources,
+            Some(deps![&mut descriptor.texture]),
+            descriptor,
+        );
         RenderHandle::new(id)
     }
 
     #[inline]
-    fn get_texture_view_descriptor(
+    fn get_texture_view_meta(
         &self,
         texture_view: RenderHandle<'g, TextureView>,
-    ) -> Option<&TextureViewDescriptor<'static>> {
-        self.graph.texture_views.get_descriptor(texture_view.id())
+    ) -> Option<&RenderGraphTextureViewDescriptor<'g>> {
+        self.graph.texture_views.get_meta(texture_view.id())
     }
 
     #[inline]
-    fn new_sampler_direct(
+    fn import_sampler(
         &mut self,
-        descriptor: Option<RenderGraphSamplerDescriptor>,
+        descriptor: RenderGraphSamplerDescriptor,
         sampler: Cow<'g, Sampler>,
     ) -> RenderHandle<'g, Sampler> {
         let id = self
             .graph
             .samplers
-            .new_direct(&mut self.graph.resources, descriptor, sampler);
+            .import(&mut self.graph.resources, None, descriptor, sampler);
         RenderHandle::new(id)
     }
 
     #[inline]
-    fn new_sampler_descriptor(
+    fn new_sampler(
         &mut self,
         descriptor: RenderGraphSamplerDescriptor,
     ) -> RenderHandle<'g, Sampler> {
         let id = self
             .graph
             .samplers
-            .new_from_descriptor(&mut self.graph.resources, descriptor);
+            .new(&mut self.graph.resources, None, descriptor);
         RenderHandle::new(id)
     }
 
     #[inline]
-    fn get_sampler_descriptor(
+    fn get_sampler_meta(
         &self,
         sampler: RenderHandle<'g, Sampler>,
     ) -> Option<&RenderGraphSamplerDescriptor> {
-        self.graph.samplers.get_descriptor(sampler.id())
+        self.graph.samplers.get_meta(sampler.id())
     }
 
     #[inline]
-    fn new_buffer_direct(
+    fn import_buffer(
         &mut self,
-        descriptor: Option<BufferDescriptor<'static>>,
+        descriptor: BufferDescriptor<'static>,
         buffer: Cow<'g, Buffer>,
     ) -> RenderHandle<'g, Buffer> {
         let id = self
             .graph
             .buffers
-            .new_direct(&mut self.graph.resources, descriptor, buffer);
+            .import(&mut self.graph.resources, None, descriptor, buffer);
         RenderHandle::new(id)
     }
 
     #[inline]
-    fn new_buffer_descriptor(
-        &mut self,
-        descriptor: BufferDescriptor<'static>,
-    ) -> RenderHandle<'g, Buffer> {
+    fn new_buffer(&mut self, descriptor: BufferDescriptor<'static>) -> RenderHandle<'g, Buffer> {
         let id = self
             .graph
             .buffers
-            .new_from_descriptor(&mut self.graph.resources, descriptor);
+            .new(&mut self.graph.resources, None, descriptor);
         RenderHandle::new(id)
     }
 
     #[inline]
-    fn get_buffer_descriptor(
+    fn get_buffer_meta(
         &self,
         buffer: RenderHandle<'g, Buffer>,
     ) -> Option<&BufferDescriptor<'static>> {
-        self.graph.buffers.get_descriptor(buffer.id())
+        self.graph.buffers.get_meta(buffer.id())
     }
 
     #[inline]
-    fn get_buffer_descriptor_mut(
+    fn get_buffer_meta_mut(
         &mut self,
         buffer: RenderHandle<'g, Buffer>,
     ) -> Option<&mut BufferDescriptor<'static>> {
-        self.graph.buffers.get_descriptor_mut(buffer.id())
+        self.graph.buffers.get_meta_mut(buffer.id())
     }
 
     #[inline]
-    fn new_render_pipeline_direct(
+    fn import_render_pipeline(
         &mut self,
-        descriptor: Option<RenderPipelineDescriptor>,
+        descriptor: RenderGraphRenderPipelineDescriptor<'g>,
         render_pipeline: Cow<'g, RenderPipeline>,
     ) -> RenderHandle<'g, RenderPipeline> {
-        let id = self.graph.pipelines.new_render_pipeline_direct(
+        let id = self.graph.pipelines.import_render_pipeline(
             &mut self.graph.resources,
             descriptor,
             render_pipeline,
@@ -573,35 +641,34 @@ impl<'g> RenderGraphBuilder<'g> {
     }
 
     #[inline]
-    fn new_render_pipeline_descriptor(
+    fn new_render_pipeline(
         &mut self,
         descriptor: RenderGraphRenderPipelineDescriptor<'g>,
     ) -> RenderHandle<'g, RenderPipeline> {
         let id = self
             .graph
             .pipelines
-            .new_render_pipeline_descriptor(&mut self.graph.resources, descriptor);
+            .new_render_pipeline(&mut self.graph.resources, descriptor);
         RenderHandle::new(id)
     }
 
     #[inline]
-    fn get_render_pipeline_descriptor(
+    fn get_render_pipeline_meta(
         &self,
         render_pipeline: RenderHandle<'g, RenderPipeline>,
-    ) -> Option<&RenderPipelineDescriptor> {
-        self.graph.pipelines.get_render_pipeline_descriptor(
-            self.world_resource::<PipelineCache>(),
-            render_pipeline.id(),
-        )
+    ) -> Option<&RenderGraphRenderPipelineDescriptor<'g>> {
+        self.graph
+            .pipelines
+            .get_render_pipeline_meta(render_pipeline.id())
     }
 
     #[inline]
-    fn new_compute_pipeline_direct(
+    fn import_compute_pipeline(
         &mut self,
-        descriptor: Option<ComputePipelineDescriptor>,
+        descriptor: RenderGraphComputePipelineDescriptor<'g>,
         compute_pipeline: Cow<'g, ComputePipeline>,
     ) -> RenderHandle<'g, ComputePipeline> {
-        let id = self.graph.pipelines.new_compute_pipeline_direct(
+        let id = self.graph.pipelines.import_compute_pipeline(
             &mut self.graph.resources,
             descriptor,
             compute_pipeline,
@@ -610,38 +677,37 @@ impl<'g> RenderGraphBuilder<'g> {
     }
 
     #[inline]
-    fn new_compute_pipeline_descriptor(
+    fn new_compute_pipeline(
         &mut self,
         descriptor: RenderGraphComputePipelineDescriptor<'g>,
     ) -> RenderHandle<'g, ComputePipeline> {
         let id = self
             .graph
             .pipelines
-            .new_compute_pipeline_descriptor(&mut self.graph.resources, descriptor);
+            .new_compute_pipeline(&mut self.graph.resources, descriptor);
         RenderHandle::new(id)
     }
 
     #[inline]
-    fn get_compute_pipeline_descriptor(
+    fn get_compute_pipeline_meta(
         &self,
         compute_pipeline: RenderHandle<'g, ComputePipeline>,
-    ) -> Option<&ComputePipelineDescriptor> {
-        self.graph.pipelines.get_compute_pipeline_descriptor(
-            self.world_resource::<PipelineCache>(),
-            compute_pipeline.id(),
-        )
+    ) -> Option<&RenderGraphComputePipelineDescriptor<'g>> {
+        self.graph
+            .pipelines
+            .get_compute_pipeline_meta(compute_pipeline.id())
     }
 }
 
 #[derive(Clone)]
-pub struct NodeContext<'n> {
-    graph: &'n RenderGraph<'n>,
+pub struct NodeContext<'n, 'g: 'n> {
+    graph: &'n RenderGraph<'g>,
     world: &'n World,
-    dependencies: RenderDependencies<'n>,
-    // entity: EntityRef<'g>,
+    dependencies: RenderDependencies<'g>,
+    pipeline_cache: Option<&'n PipelineCache>, //Jank
 }
 
-impl<'g> NodeContext<'g> {
+impl<'n, 'g: 'n> NodeContext<'n, 'g> {
     pub fn get<R: RenderResource>(&self, resource: RenderHandle<'g, R>) -> &R {
         if !self.dependencies.includes(resource) {
             panic!(
@@ -650,67 +716,65 @@ impl<'g> NodeContext<'g> {
             );
         }
 
-        R::get_from_store(self, resource)
+        R::get(self, resource)
             .unwrap_or_else(|| panic!("Unable to locate render graph resource: {:?}", resource))
     }
 
-    fn get_texture(&self, texture: RenderHandle<'g, Texture>) -> Option<&Texture> {
+    fn get_texture(&self, texture: RenderHandle<'n, Texture>) -> Option<&Texture> {
         self.graph.textures.get(texture.id())
     }
 
     fn get_texture_view(
         &self,
-        texture_view: RenderHandle<'g, TextureView>,
+        texture_view: RenderHandle<'n, TextureView>,
     ) -> Option<&TextureView> {
         self.graph.texture_views.get(texture_view.id())
     }
 
-    fn get_sampler(&self, sampler: RenderHandle<'g, Sampler>) -> Option<&Sampler> {
+    fn get_sampler(&self, sampler: RenderHandle<'n, Sampler>) -> Option<&Sampler> {
         self.graph.samplers.get(sampler.id())
     }
 
-    fn get_buffer(&self, buffer: RenderHandle<'g, Buffer>) -> Option<&Buffer> {
+    fn get_buffer(&self, buffer: RenderHandle<'n, Buffer>) -> Option<&Buffer> {
         self.graph.buffers.get(buffer.id())
     }
 
     fn get_render_pipeline(
         &self,
-        render_pipeline: RenderHandle<'g, RenderPipeline>,
+        render_pipeline: RenderHandle<'n, RenderPipeline>,
     ) -> Option<&RenderPipeline> {
-        let pipeline_cache = self.world.resource::<PipelineCache>();
         self.graph
             .pipelines
-            .get_render_pipeline(pipeline_cache, render_pipeline.id())
+            .get_render_pipeline(&self.pipeline_cache.unwrap(), render_pipeline.id())
     }
 
     fn get_compute_pipeline(
         &self,
-        compute_pipeline: RenderHandle<'g, ComputePipeline>,
+        compute_pipeline: RenderHandle<'n, ComputePipeline>,
     ) -> Option<&ComputePipeline> {
-        let pipeline_cache = self.world.resource::<PipelineCache>();
         self.graph
             .pipelines
-            .get_compute_pipeline(pipeline_cache, compute_pipeline.id())
+            .get_compute_pipeline(&self.pipeline_cache.unwrap(), compute_pipeline.id())
     }
 
     fn get_bind_group_layout(
         &self,
-        bind_group_layout: RenderHandle<'g, BindGroupLayout>,
+        bind_group_layout: RenderHandle<'n, BindGroupLayout>,
     ) -> Option<&BindGroupLayout> {
         self.graph.bind_group_layouts.get(bind_group_layout.id())
     }
 
-    fn get_bind_group(&self, bind_group: RenderHandle<'g, BindGroup>) -> Option<&BindGroup> {
+    fn get_bind_group(&self, bind_group: RenderHandle<'n, BindGroup>) -> Option<&BindGroup> {
         self.graph.bind_groups.get(bind_group.id())
     }
 }
 
-impl<'g> NodeContext<'g> {
+impl<'n, 'g: 'n> NodeContext<'n, 'g> {
     pub fn world_resource<R: Resource>(&self) -> &R {
         self.world.resource()
     }
 
-    pub fn get_world_resource<R: Resource>(&self) -> Option<&'g R> {
+    pub fn get_world_resource<R: Resource>(&self) -> Option<&R> {
         self.world.get_resource()
     }
 

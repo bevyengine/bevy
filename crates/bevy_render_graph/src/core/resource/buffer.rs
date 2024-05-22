@@ -5,72 +5,54 @@ use bevy_render::render_resource::{Buffer, BufferDescriptor, BufferUsages};
 use crate::core::{NodeContext, RenderGraphBuilder};
 
 use super::{
-    DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource, RenderHandle,
-    RenderResource, ResourceType, UsagesRenderResource, WriteRenderResource,
+    IntoRenderResource, RenderHandle, RenderResource, ResourceType, UsagesRenderResource,
+    WriteRenderResource,
 };
 
 impl RenderResource for Buffer {
     const RESOURCE_TYPE: ResourceType = ResourceType::Buffer;
-    fn new_direct<'g>(
-        graph: &mut RenderGraphBuilder<'g>,
+    type Meta<'g> = BufferDescriptor<'static>;
+
+    fn import<'g>(
+        graph: &mut RenderGraphBuilder<'_, 'g>,
+        meta: Self::Meta<'g>,
         resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self> {
-        graph.new_buffer_direct(None, resource)
+        graph.import_buffer(meta, resource)
     }
 
-    fn get_from_store<'a>(
-        context: &'a NodeContext,
-        resource: RenderHandle<'a, Self>,
-    ) -> Option<&'a Self> {
+    fn get<'n, 'g: 'n>(
+        context: &'n NodeContext<'n, 'g>,
+        resource: RenderHandle<'g, Self>,
+    ) -> Option<&'n Self> {
         context.get_buffer(resource)
+    }
+
+    fn get_meta<'a, 'b: 'a, 'g: 'b>(
+        graph: &'a RenderGraphBuilder<'b, 'g>,
+        resource: RenderHandle<'g, Self>,
+    ) -> Option<&'a Self::Meta<'g>> {
+        graph.get_buffer_meta(resource)
     }
 }
 
 impl WriteRenderResource for Buffer {}
 
-impl DescribedRenderResource for Buffer {
-    type Descriptor = BufferDescriptor<'static>;
-
-    fn new_with_descriptor<'g>(
-        graph: &mut RenderGraphBuilder<'g>,
-        descriptor: Self::Descriptor,
-        resource: Cow<'g, Self>,
-    ) -> RenderHandle<'g, Self> {
-        graph.new_buffer_direct(Some(descriptor), resource)
-    }
-
-    fn get_descriptor<'a, 'g: 'a>(
-        graph: &'a RenderGraphBuilder<'g>,
-        resource: RenderHandle<'g, Self>,
-    ) -> Option<&'a Self::Descriptor> {
-        graph.get_buffer_descriptor(resource)
-    }
-}
-
-impl FromDescriptorRenderResource for Buffer {
-    fn new_from_descriptor<'g>(
-        graph: &mut RenderGraphBuilder<'g>,
-        descriptor: Self::Descriptor,
-    ) -> RenderHandle<'g, Self> {
-        graph.new_buffer_descriptor(descriptor)
-    }
-}
-
 impl UsagesRenderResource for Buffer {
     type Usages = BufferUsages;
 
-    fn get_descriptor_mut<'a, 'g: 'a>(
-        graph: &'a mut RenderGraphBuilder<'g>,
+    fn get_meta_mut<'a, 'b: 'a, 'g: 'b>(
+        graph: &'a mut RenderGraphBuilder<'b, 'g>,
         resource: RenderHandle<'g, Self>,
-    ) -> Option<&'a mut Self::Descriptor> {
-        graph.get_buffer_descriptor_mut(resource)
+    ) -> Option<&'a mut Self::Meta<'g>> {
+        graph.get_buffer_meta_mut(resource)
     }
 
-    fn has_usages<'g>(descriptor: &Self::Descriptor, usages: &Self::Usages) -> bool {
+    fn has_usages<'g>(descriptor: &Self::Meta<'g>, usages: &Self::Usages) -> bool {
         descriptor.usage.contains(*usages)
     }
 
-    fn add_usages<'g>(descriptor: &mut Self::Descriptor, usages: Self::Usages) {
+    fn add_usages<'g>(descriptor: &mut Self::Meta<'g>, usages: Self::Usages) {
         descriptor.usage.insert(usages);
     }
 }
@@ -80,8 +62,8 @@ impl<'g> IntoRenderResource<'g> for BufferDescriptor<'static> {
 
     fn into_render_resource(
         self,
-        graph: &mut RenderGraphBuilder<'g>,
+        graph: &mut RenderGraphBuilder<'_, 'g>,
     ) -> RenderHandle<'g, Self::Resource> {
-        graph.new_buffer_descriptor(self)
+        graph.new_buffer(self)
     }
 }

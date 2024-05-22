@@ -17,13 +17,13 @@ pub struct RenderGraphPlugin;
 
 #[derive(Resource, ExtractResource, Clone)]
 pub struct RenderGraphSetup {
-    configurator: Arc<dyn Fn(&mut RenderGraphBuilder) + Send + Sync + 'static>,
+    configurator: Arc<dyn Fn(RenderGraphBuilder) + Send + Sync + 'static>,
 }
 
 impl RenderGraphSetup {
     pub fn set_render_graph(
         &mut self,
-        configurator: impl Fn(&mut RenderGraphBuilder) + Send + Sync + 'static,
+        configurator: impl Fn(RenderGraphBuilder) + Send + Sync + 'static,
     ) {
         self.configurator = Arc::new(configurator);
     }
@@ -40,24 +40,32 @@ impl Plugin for RenderGraphPlugin {
 }
 
 fn run_render_graph(world: &mut World) {
-    world.resource_scope::<RenderGraphCachedResources, ()>(|world, mut resource_cache| {
+    world.resource_scope::<RenderGraphCachedResources, ()>(|world, mut cached_resources| {
         world.resource_scope::<PipelineCache, ()>(|world, mut pipeline_cache| {
             let render_device = world.resource::<RenderDevice>();
             let render_queue = world.resource::<RenderQueue>();
+            let mut render_graph = RenderGraph::new();
 
-            let mut builder = RenderGraphBuilder {
-                graph: RenderGraph::new(),
-                resource_cache: &mut resource_cache,
+            let builder = RenderGraphBuilder {
+                graph: &mut render_graph,
+                resource_cache: &mut cached_resources,
                 pipeline_cache: &mut pipeline_cache,
                 world,
                 render_device,
             };
 
             let configurator = world.resource::<RenderGraphSetup>().configurator.deref();
-            (configurator)(&mut builder);
+            (configurator)(builder);
 
-            builder.create_queued_resources();
-            builder.run(render_queue);
+            render_graph.create_queued_resources(
+                &mut cached_resources,
+                &mut pipeline_cache,
+                render_device,
+                world,
+            );
+
+            render_graph.borrow_cached_resources(&cached_resources);
+            render_graph.run(&world, &render_device, render_queue, &pipeline_cache);
         });
     });
 }

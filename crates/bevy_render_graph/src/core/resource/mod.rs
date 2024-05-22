@@ -5,6 +5,7 @@ use std::{
     marker::PhantomData,
 };
 
+use bevy_ecs::world::World;
 use bevy_utils::{HashMap, HashSet};
 use std::hash::Hash;
 
@@ -23,6 +24,7 @@ pub struct ResourceTracker<'g> {
     resources: Vec<ResourceInfo<'g>>,
 }
 
+#[derive(PartialEq, Eq, Debug)]
 pub enum ResourceType {
     BindGroupLayout,
     BindGroup,
@@ -52,6 +54,14 @@ impl<'g> ResourceTracker<'g> {
                 u32::MAX
             );
         }
+
+        if dependencies.as_ref().is_some_and(|deps| {
+            deps.iter()
+                .any(|id| self.resources[id.id as usize].resource_type == resource_type)
+        }) {
+            panic!("Resources cannot directly depend on a resource of the same type");
+        }
+
         let id = self.next_id;
         self.next_id += 1;
         self.resources.push(ResourceInfo {
@@ -103,7 +113,7 @@ impl<'g> ResourceTracker<'g> {
     }
 
     //There's probably a better way of doing this. Basically flood-filling a graph that may have cycles (but should never really in practice)
-    pub(super) fn collect_many_dependencies(
+    fn collect_many_dependencies(
         &self,
         dependencies: &RenderDependencies<'g>,
     ) -> RenderDependencies<'g> {
@@ -143,184 +153,143 @@ impl<'g> ResourceTracker<'g> {
     }
 }
 
-pub trait RenderResource: Sized + Send + Sync + Clone + 'static {
+pub trait RenderResource: Sized + Send + Sync + Clone + Hash + Eq + 'static {
     const RESOURCE_TYPE: ResourceType;
+    type Meta<'g>: Clone;
 
-    fn new_direct<'g>(
-        graph: &mut RenderGraphBuilder<'g>,
+    fn import<'b, 'g>(
+        graph: &mut RenderGraphBuilder<'_, 'g>,
+        meta: Self::Meta<'g>,
         resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self>;
 
-    fn get_from_store<'a>(
-        context: &'a NodeContext<'a>,
-        resource: RenderHandle<'a, Self>,
-    ) -> Option<&'a Self>;
+    // fn new<'g>(graph: &mut RenderGraphBuilder<'g>, meta: Self::Meta<'g>) -> RenderHandle<'g, Self>;
+
+    fn get<'n, 'g: 'n>(
+        context: &'n NodeContext<'n, 'g>,
+        resource: RenderHandle<'g, Self>,
+    ) -> Option<&'n Self>;
+
+    fn get_meta<'a, 'b: 'a, 'g: 'b>(
+        graph: &'a RenderGraphBuilder<'b, 'g>,
+        resource: RenderHandle<'g, Self>,
+    ) -> Option<&'a Self::Meta<'g>>;
 }
 
 pub trait WriteRenderResource: RenderResource {}
 
-pub trait DescribedRenderResource: RenderResource {
-    type Descriptor: Send + Sync + 'static;
+pub trait CacheRenderResource: RenderResource {
+    type Key: Clone + Hash + Eq + 'static;
 
-    fn new_with_descriptor<'g>(
-        graph: &mut RenderGraphBuilder<'g>,
-        descriptor: Self::Descriptor,
-        resource: Cow<'g, Self>,
-    ) -> RenderHandle<'g, Self>;
-
-    fn get_descriptor<'a, 'g: 'a>(
-        graph: &'a RenderGraphBuilder<'g>,
-        resource: RenderHandle<'g, Self>,
-    ) -> Option<&'a Self::Descriptor>;
+    fn key_from_meta<'a, 'g: 'a>(meta: &'a Self::Meta<'g>) -> &'a Self::Key;
 }
 
-pub trait FromDescriptorRenderResource: DescribedRenderResource {
-    fn new_from_descriptor<'g>(
-        graph: &mut RenderGraphBuilder<'g>,
-        descriptor: Self::Descriptor,
-    ) -> RenderHandle<'g, Self>;
-}
-
-pub trait UsagesRenderResource: DescribedRenderResource {
+pub trait UsagesRenderResource: RenderResource {
     type Usages: Send + Sync + Debug + 'static;
 
-    fn get_descriptor_mut<'b, 'g: 'b>(
-        graph: &'b mut RenderGraphBuilder<'g>,
+    fn get_meta_mut<'a, 'b: 'a, 'g: 'b>(
+        graph: &'a mut RenderGraphBuilder<'b, 'g>,
         resource: RenderHandle<'g, Self>,
-    ) -> Option<&'b mut Self::Descriptor>;
+    ) -> Option<&'a mut Self::Meta<'g>>;
 
-    fn has_usages(descriptor: &Self::Descriptor, usages: &Self::Usages) -> bool;
-    fn add_usages(descriptor: &mut Self::Descriptor, usages: Self::Usages);
+    fn has_usages<'g>(meta: &Self::Meta<'g>, usages: &Self::Usages) -> bool;
+    fn add_usages<'g>(meta: &mut Self::Meta<'g>, usages: Self::Usages);
 }
 
-struct RenderResourceMeta<'g, R: DescribedRenderResource> {
-    pub descriptor: Option<R::Descriptor>,
+struct RenderResourceMeta<'g, R: RenderResource> {
+    pub meta: R::Meta<'g>,
     pub resource: Cow<'g, R>,
 }
 
-impl<'g, R: DescribedRenderResource + Clone> Clone for RenderResourceMeta<'g, R>
+impl<'g, R: RenderResource + Clone> Clone for RenderResourceMeta<'g, R>
 where
-    R::Descriptor: Clone,
+    R::Meta<'g>: Clone,
 {
     fn clone(&self) -> Self {
         Self {
-            descriptor: self.descriptor.clone(),
+            meta: self.meta.clone(),
             resource: self.resource.clone(),
         }
     }
 }
 
-pub enum NewRenderResource<'g, R: FromDescriptorRenderResource> {
-    FromDescriptor(R::Descriptor),
-    Resource(Option<R::Descriptor>, Cow<'g, R>),
-}
-
 #[allow(clippy::type_complexity)]
-pub struct RenderResources<'g, R: DescribedRenderResource> {
+pub struct RenderResources<'g, R: RenderResource> {
     resources: HashMap<RenderResourceId, RenderResourceMeta<'g, R>>,
     existing_resources: HashMap<Cow<'g, R>, RenderResourceId>,
-    queued_resources: HashMap<RenderResourceId, R::Descriptor>,
-    resource_factory: Box<dyn Fn(&RenderDevice, &R::Descriptor) -> R>,
+    queued_resources: HashMap<RenderResourceId, R::Meta<'g>>,
 }
 
-impl<'g, R: DescribedRenderResource> RenderResources<'g, R> {
-    pub fn new(factory: impl Fn(&RenderDevice, &R::Descriptor) -> R + 'static) -> Self {
+impl<'g, R: RenderResource> Default for RenderResources<'g, R> {
+    fn default() -> Self {
         Self {
             resources: Default::default(),
             existing_resources: Default::default(),
             queued_resources: Default::default(),
-            resource_factory: Box::new(factory),
         }
     }
+}
 
-    pub fn new_direct(
+impl<'g, R: RenderResource> RenderResources<'g, R> {
+    pub fn import(
         &mut self,
-        tracker: &mut ResourceTracker,
-        descriptor: Option<R::Descriptor>,
+        tracker: &mut ResourceTracker<'g>,
+        dependencies: Option<RenderDependencies<'g>>,
+        meta: R::Meta<'g>,
         resource: Cow<'g, R>,
-    ) -> RenderResourceId
-    where
-        Cow<'g, R>: Clone + Hash + Eq,
-    {
+    ) -> RenderResourceId {
         self.existing_resources
             .get(&resource)
             .copied()
             .unwrap_or_else(|| {
-                let id = tracker.new_resource(R::RESOURCE_TYPE, None);
+                let id = tracker.new_resource(R::RESOURCE_TYPE, dependencies);
                 self.existing_resources.insert(resource.clone(), id);
-                self.resources.insert(
-                    id,
-                    RenderResourceMeta {
-                        descriptor,
-                        resource,
-                    },
-                );
+                self.resources
+                    .insert(id, RenderResourceMeta { meta, resource });
                 id
             })
     }
 
-    pub fn new_from_descriptor(
+    pub fn new(
         &mut self,
-        tracker: &mut ResourceTracker,
-        descriptor: R::Descriptor,
+        tracker: &mut ResourceTracker<'g>,
+        dependencies: Option<RenderDependencies<'g>>,
+        meta: R::Meta<'g>,
     ) -> RenderResourceId {
-        let id = tracker.new_resource(R::RESOURCE_TYPE, None);
-        self.queued_resources.insert(id, descriptor);
+        let id = tracker.new_resource(R::RESOURCE_TYPE, dependencies);
+        self.queued_resources.insert(id, meta);
         id
     }
 
-    pub fn create_queued_resources(&mut self, render_device: &RenderDevice) {
-        for (id, descriptor) in self.queued_resources.drain() {
-            let resource = (self.resource_factory)(render_device, &descriptor);
+    pub fn create_queued_resources<
+        F: FnMut(&World, &RenderDevice, &RenderGraph<'g>, &R::Meta<'g>) -> R,
+    >(
+        &mut self,
+        world: &World,
+        render_device: &RenderDevice,
+        render_graph: &RenderGraph<'g>,
+        mut f: F,
+    ) {
+        for (id, meta) in self.queued_resources.drain() {
+            let resource = (f)(world, render_device, render_graph, &meta);
             self.resources.insert(
                 id,
                 RenderResourceMeta {
-                    descriptor: Some(descriptor),
+                    meta,
                     resource: Cow::Owned(resource),
                 },
             );
         }
     }
 
-    pub fn create_queued_resources_cached(
-        &mut self,
-        cache: &mut CachedResources<R>,
-        render_device: &RenderDevice,
-    ) where
-        R::Descriptor: Clone + Hash + Eq,
-    {
-        for (_, descriptor) in &self.queued_resources {
-            cache
-                .cached_resources
-                .entry(descriptor.clone())
-                .or_insert_with(|| (self.resource_factory)(render_device, descriptor));
-        }
-    }
-
-    pub fn borrow_cached_resources(&mut self, cache: &'g CachedResources<R>)
-    where
-        R::Descriptor: Clone + Hash + Eq,
-    {
-        for (id, descriptor) in self.queued_resources.drain() {
-            if let Some(resource) = cache.cached_resources.get(&descriptor) {
-                self.resources.insert(
-                    id,
-                    RenderResourceMeta {
-                        descriptor: Some(descriptor),
-                        resource: Cow::Borrowed(resource),
-                    },
-                );
-            }
-        }
-    }
-
-    pub fn get_descriptor(&self, id: RenderResourceId) -> Option<&R::Descriptor> {
-        let check_normal = self
-            .resources
-            .get(&id)
-            .and_then(|meta| meta.descriptor.as_ref());
+    pub fn get_meta(&self, id: RenderResourceId) -> Option<&R::Meta<'g>> {
+        let check_normal = self.resources.get(&id).map(|res| &res.meta);
         let check_queued = self.queued_resources.get(&id);
         check_normal.or(check_queued)
+    }
+
+    pub fn get_meta_mut(&mut self, id: RenderResourceId) -> Option<&mut R::Meta<'g>> {
+        self.queued_resources.get_mut(&id)
     }
 
     pub fn get(&self, id: RenderResourceId) -> Option<&R> {
@@ -328,29 +297,45 @@ impl<'g, R: DescribedRenderResource> RenderResources<'g, R> {
     }
 }
 
-impl<'g, R: UsagesRenderResource> RenderResources<'g, R> {
-    pub fn get_descriptor_mut(&mut self, id: RenderResourceId) -> Option<&mut R::Descriptor> {
-        self.queued_resources.get_mut(&id)
+impl<'g, R: CacheRenderResource> RenderResources<'g, R> {
+    pub fn create_queued_resources_cached<
+        F: FnMut(&World, &RenderDevice, &RenderGraph<'g>, &R::Meta<'g>) -> R,
+    >(
+        &mut self,
+        cache: &mut CachedResources<R>,
+        world: &World,
+        render_device: &RenderDevice,
+        render_graph: &RenderGraph<'g>,
+        mut f: F,
+    ) {
+        for (_, meta) in &self.queued_resources {
+            cache
+                .cached_resources
+                .entry(R::key_from_meta(meta).clone())
+                .or_insert_with(|| (f)(world, render_device, render_graph, meta));
+        }
     }
 
-    pub fn add_usages(&mut self, id: RenderResourceId, usages: R::Usages) {
-        if let Some(descriptor) = self.queued_resources.get_mut(&id) {
-            R::add_usages(descriptor, usages);
+    pub fn borrow_cached_resources(&mut self, cache: &'g CachedResources<R>) {
+        for (id, meta) in self.queued_resources.drain() {
+            if let Some(resource) = cache.cached_resources.get(R::key_from_meta(&meta)) {
+                self.resources.insert(
+                    id,
+                    RenderResourceMeta {
+                        meta,
+                        resource: Cow::Borrowed(resource),
+                    },
+                );
+            }
         }
     }
 }
 
-pub struct CachedResources<R: DescribedRenderResource>
-where
-    R::Descriptor: Clone + Hash + Eq,
-{
-    cached_resources: HashMap<R::Descriptor, R>,
+pub struct CachedResources<R: CacheRenderResource> {
+    cached_resources: HashMap<R::Key, R>,
 }
 
-impl<R: DescribedRenderResource> Default for CachedResources<R>
-where
-    R::Descriptor: Clone + Hash + Eq,
-{
+impl<R: CacheRenderResource> Default for CachedResources<R> {
     fn default() -> Self {
         Self {
             cached_resources: Default::default(),
@@ -363,49 +348,21 @@ pub trait IntoRenderResource<'g> {
 
     fn into_render_resource(
         self,
-        graph: &mut RenderGraphBuilder<'g>,
+        graph: &mut RenderGraphBuilder<'_, 'g>,
     ) -> RenderHandle<'g, Self::Resource>;
 }
 
-impl<'g, R: RenderResource, F: FnOnce(&RenderDevice) -> R> IntoRenderResource<'g> for F {
-    type Resource = R;
-
-    fn into_render_resource(
-        self,
-        graph: &mut RenderGraphBuilder<'g>,
-    ) -> RenderHandle<'g, Self::Resource> {
-        let resource = (self)(graph.render_device);
-        graph.into_resource(resource)
-    }
-}
-
-impl<'g, R: FromDescriptorRenderResource> IntoRenderResource<'g> for NewRenderResource<'g, R> {
-    type Resource = R;
-
-    fn into_render_resource(self, graph: &mut RenderGraphBuilder<'g>) -> RenderHandle<'g, R> {
-        match self {
-            NewRenderResource::FromDescriptor(descriptor) => {
-                R::new_from_descriptor(graph, descriptor)
-            }
-
-            NewRenderResource::Resource(Some(descriptor), resource) => {
-                R::new_with_descriptor(graph, descriptor, resource)
-            }
-            NewRenderResource::Resource(None, resource) => R::new_direct(graph, resource),
-        }
-    }
-}
-
-impl<'g, R: RenderResource> IntoRenderResource<'g> for Cow<'g, R> {
-    type Resource = R;
-
-    fn into_render_resource(
-        self,
-        graph: &mut RenderGraphBuilder<'g>,
-    ) -> RenderHandle<'g, Self::Resource> {
-        R::new_direct(graph, self)
-    }
-}
+// impl<'g, R: RenderResource, F: FnOnce(&RenderDevice) -> R> IntoRenderResource<'g> for F {
+//     type Resource = R;
+//
+//     fn into_render_resource(
+//         self,
+//         graph: &mut RenderGraphBuilder<'g>,
+//     ) -> RenderHandle<'g, Self::Resource> {
+//         let resource = (self)(graph.render_device);
+//         graph.into_resource(resource)
+//     }
+// }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct RenderResourceId {
@@ -466,7 +423,7 @@ impl<'g, R: RenderResource> RenderHandle<'g, R> {
 pub struct RenderDependencies<'g> {
     reads: HashSet<RenderResourceId>,
     writes: HashSet<RenderResourceId>,
-    data: PhantomData<RenderGraph<'g>>,
+    data: PhantomData<&'g ()>,
 }
 
 impl<'g> RenderDependencies<'g> {

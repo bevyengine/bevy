@@ -1,10 +1,8 @@
-use bevy_ecs::world::World;
 use bevy_math::FloatOrd;
-use bevy_utils::HashMap;
-use std::borrow::{Borrow, Cow};
+use std::borrow::Cow;
 use std::hash::Hash;
 
-use crate::core::{NodeContext, RenderGraph, RenderGraphBuilder};
+use crate::core::{NodeContext, RenderGraphBuilder};
 
 use bevy_render::render_resource::{
     FilterMode, Sampler, SamplerBindingType, SamplerDescriptor, Texture, TextureDescriptor,
@@ -12,82 +10,61 @@ use bevy_render::render_resource::{
 };
 
 use super::{
-    deps, DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource,
-    NewRenderResource, RenderHandle, RenderResource, RenderResourceId, RenderResourceMeta,
-    ResourceTracker, ResourceType, UsagesRenderResource, WriteRenderResource,
+    CacheRenderResource, IntoRenderResource, RenderHandle, RenderResource, ResourceType,
+    UsagesRenderResource, WriteRenderResource,
 };
 
 impl RenderResource for Texture {
     const RESOURCE_TYPE: ResourceType = ResourceType::Texture;
+    type Meta<'g> = TextureDescriptor<'static>;
 
     #[inline]
-    fn new_direct<'g>(
-        graph: &mut RenderGraphBuilder<'g>,
+    fn import<'g>(
+        graph: &mut RenderGraphBuilder<'_, 'g>,
+        meta: Self::Meta<'g>,
         resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self> {
-        graph.new_texture_direct(None, resource)
+        graph.import_texture(meta, resource)
     }
 
     #[inline]
-    fn get_from_store<'a>(
-        context: &'a NodeContext,
-        resource: RenderHandle<'a, Self>,
-    ) -> Option<&'a Self> {
+    fn get<'n, 'g: 'n>(
+        context: &'n NodeContext<'n, 'g>,
+        resource: RenderHandle<'g, Self>,
+    ) -> Option<&'n Self> {
         context.get_texture(resource)
+    }
+
+    #[inline]
+    fn get_meta<'a, 'b: 'a, 'g: 'b>(
+        graph: &'a RenderGraphBuilder<'b, 'g>,
+        resource: RenderHandle<'g, Self>,
+    ) -> Option<&'a Self::Meta<'g>> {
+        graph.get_texture_meta(resource)
     }
 }
 
 impl WriteRenderResource for Texture {}
 
-impl DescribedRenderResource for Texture {
-    type Descriptor = TextureDescriptor<'static>;
-
-    #[inline]
-    fn new_with_descriptor<'g>(
-        graph: &mut RenderGraphBuilder<'g>,
-        descriptor: Self::Descriptor,
-        resource: Cow<'g, Self>,
-    ) -> RenderHandle<'g, Self> {
-        graph.new_texture_direct(Some(descriptor), resource)
-    }
-
-    fn get_descriptor<'a, 'g: 'a>(
-        graph: &'a RenderGraphBuilder<'g>,
-        resource: RenderHandle<'g, Self>,
-    ) -> Option<&'a Self::Descriptor> {
-        graph.get_texture_descriptor(resource)
-    }
-}
-
-impl FromDescriptorRenderResource for Texture {
-    #[inline]
-    fn new_from_descriptor<'g>(
-        graph: &mut RenderGraphBuilder<'g>,
-        descriptor: Self::Descriptor,
-    ) -> RenderHandle<'g, Self> {
-        graph.new_texture_descriptor(descriptor)
-    }
-}
-
 impl UsagesRenderResource for Texture {
     type Usages = TextureUsages;
 
     #[inline]
-    fn get_descriptor_mut<'a, 'g: 'a>(
-        graph: &'a mut RenderGraphBuilder<'g>,
+    fn get_meta_mut<'a, 'b: 'a, 'g: 'b>(
+        graph: &'a mut RenderGraphBuilder<'b, 'g>,
         resource: RenderHandle<'g, Self>,
-    ) -> Option<&'a mut Self::Descriptor> {
-        graph.get_texture_descriptor_mut(resource)
+    ) -> Option<&'a mut Self::Meta<'g>> {
+        graph.get_texture_meta_mut(resource)
     }
 
     #[inline]
-    fn has_usages<'g>(descriptor: &Self::Descriptor, usages: &Self::Usages) -> bool {
-        descriptor.usage.contains(*usages)
+    fn has_usages<'g>(meta: &Self::Meta<'g>, usages: &Self::Usages) -> bool {
+        meta.usage.contains(*usages)
     }
 
     #[inline]
-    fn add_usages<'g>(descriptor: &mut Self::Descriptor, usages: Self::Usages) {
-        descriptor.usage.insert(usages);
+    fn add_usages<'g>(meta: &mut Self::Meta<'g>, usages: Self::Usages) {
+        meta.usage.insert(usages);
     }
 }
 
@@ -97,225 +74,121 @@ impl<'g> IntoRenderResource<'g> for TextureDescriptor<'static> {
     #[inline]
     fn into_render_resource(
         self,
-        graph: &mut RenderGraphBuilder<'g>,
+        graph: &mut RenderGraphBuilder<'_, 'g>,
     ) -> RenderHandle<'g, Self::Resource> {
-        graph.new_texture_descriptor(self)
+        graph.new_texture(self)
     }
 }
 
-pub struct RenderGraphTextureView<'g> {
-    texture: RenderHandle<'g, Texture>,
-    descriptor: TextureViewDescriptor<'static>,
+#[derive(Clone, PartialEq, Eq)]
+pub struct RenderGraphTextureViewDescriptor<'g> {
+    pub texture: RenderHandle<'g, Texture>,
+    pub descriptor: TextureViewDescriptor<'static>,
 }
 
-#[derive(Default)]
-pub struct RenderGraphTextureViews<'g> {
-    texture_views: HashMap<RenderResourceId, RenderResourceMeta<'g, TextureView>>,
-    queued_texture_views: HashMap<RenderResourceId, RenderGraphTextureView<'g>>,
-    existing_borrows: HashMap<*const TextureView, RenderResourceId>,
-}
-
-impl<'g> RenderGraphTextureViews<'g> {
-    pub fn new() -> Self {
-        Default::default()
-    }
-
-    pub fn new_direct(
-        &mut self,
-        tracker: &mut ResourceTracker,
-        descriptor: Option<TextureViewDescriptor<'static>>,
-        resource: Cow<'g, TextureView>,
-    ) -> RenderResourceId {
-        match resource {
-            Cow::Borrowed(texture_view) => {
-                if let Some(id) = self
-                    .existing_borrows
-                    .get(&(texture_view as *const TextureView))
-                {
-                    *id
-                } else {
-                    let id = tracker.new_resource(ResourceType::TextureView, None);
-                    self.texture_views.insert(
-                        id,
-                        RenderResourceMeta {
-                            descriptor,
-                            resource: Cow::Borrowed(texture_view),
-                        },
-                    );
-                    self.existing_borrows
-                        .insert(texture_view as *const TextureView, id);
-                    id
-                }
-            }
-            Cow::Owned(texture_view) => {
-                let id = tracker.new_resource(ResourceType::TextureView, None);
-                self.texture_views.insert(
-                    id,
-                    RenderResourceMeta {
-                        descriptor,
-                        resource: Cow::Owned(texture_view),
-                    },
-                );
-                id
-            }
-        }
-    }
-
-    pub fn new_from_descriptor(
-        &mut self,
-        tracker: &mut ResourceTracker<'g>,
-        descriptor: RenderGraphTextureView<'g>,
-    ) -> RenderResourceId {
-        let id = tracker.new_resource(ResourceType::TextureView, Some(deps![&descriptor.texture]));
-        self.queued_texture_views.insert(id, descriptor);
-        id
-    }
-
-    pub fn create_queued_resources(
-        &mut self,
-        graph: &RenderGraph<'g>,
-        world: &World,
-        // view_entity: EntityRef,
-    ) {
-        for (id, queued_view) in self.queued_texture_views.drain() {
-            let context = NodeContext {
-                graph,
-                world,
-                dependencies: deps![&queued_view.texture], // entity: view_entity,
-            };
-            let texture_view = context
-                .get(queued_view.texture)
-                .create_view(&queued_view.descriptor);
-            self.texture_views.insert(
-                id,
-                RenderResourceMeta {
-                    descriptor: Some(queued_view.descriptor),
-                    resource: Cow::Owned(texture_view),
-                },
-            );
-        }
-    }
-
-    pub fn get_descriptor(&self, id: RenderResourceId) -> Option<&TextureViewDescriptor<'static>> {
-        let check_normal = self
-            .texture_views
-            .get(&id)
-            .and_then(|meta| meta.descriptor.as_ref());
-        let check_queued = self
-            .queued_texture_views
-            .get(&id)
-            .map(|queued_view| &queued_view.descriptor);
-        check_normal.or(check_queued)
-    }
-
-    pub fn get(&self, id: RenderResourceId) -> Option<&TextureView> {
-        self.texture_views
-            .get(&id)
-            .map(|meta| meta.resource.borrow())
+impl<'g> Hash for RenderGraphTextureViewDescriptor<'g> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.texture.hash(state);
+        let TextureViewDescriptor {
+            label: _,
+            format,
+            dimension,
+            aspect,
+            base_mip_level,
+            mip_level_count,
+            base_array_layer,
+            array_layer_count,
+        } = &self.descriptor;
+        format.hash(state);
+        dimension.hash(state);
+        aspect.hash(state);
+        base_mip_level.hash(state);
+        mip_level_count.hash(state);
+        base_array_layer.hash(state);
+        array_layer_count.hash(state);
     }
 }
 
 impl RenderResource for TextureView {
     const RESOURCE_TYPE: ResourceType = ResourceType::TextureView;
+    type Meta<'g> = RenderGraphTextureViewDescriptor<'g>;
 
     #[inline]
-    fn new_direct<'g>(
-        graph: &mut RenderGraphBuilder<'g>,
+    fn import<'g>(
+        graph: &mut RenderGraphBuilder<'_, 'g>,
+        meta: Self::Meta<'g>,
         resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self> {
-        graph.new_texture_view_direct(None, resource)
+        graph.import_texture_view(meta, resource)
     }
 
     #[inline]
-    fn get_from_store<'a>(
-        context: &'a NodeContext,
-        resource: RenderHandle<'a, Self>,
-    ) -> Option<&'a Self> {
+    fn get<'n, 'g: 'n>(
+        context: &'n NodeContext<'n, 'g>,
+        resource: RenderHandle<'g, Self>,
+    ) -> Option<&'n Self> {
         context.get_texture_view(resource)
+    }
+
+    #[inline]
+    fn get_meta<'a, 'b: 'a, 'g: 'b>(
+        graph: &'a RenderGraphBuilder<'a, 'g>,
+        resource: RenderHandle<'g, Self>,
+    ) -> Option<&'a Self::Meta<'g>> {
+        graph.get_texture_view_meta(resource)
     }
 }
 
 impl WriteRenderResource for TextureView {}
 
-impl DescribedRenderResource for TextureView {
-    type Descriptor = TextureViewDescriptor<'static>;
-
-    #[inline]
-    fn new_with_descriptor<'g>(
-        graph: &mut RenderGraphBuilder<'g>,
-        descriptor: Self::Descriptor,
-        resource: Cow<'g, Self>,
-    ) -> RenderHandle<'g, Self> {
-        graph.new_texture_view_direct(Some(descriptor), resource)
-    }
-
-    #[inline]
-    fn get_descriptor<'a, 'g: 'a>(
-        graph: &'a RenderGraphBuilder<'g>,
-        resource: RenderHandle<'g, Self>,
-    ) -> Option<&'a Self::Descriptor> {
-        graph.get_texture_view_descriptor(resource)
-    }
-}
-
-impl<'g> IntoRenderResource<'g> for RenderGraphTextureView<'g> {
+impl<'g> IntoRenderResource<'g> for RenderGraphTextureViewDescriptor<'g> {
     type Resource = TextureView;
 
+    #[inline]
     fn into_render_resource(
         self,
-        graph: &mut RenderGraphBuilder<'g>,
+        graph: &mut RenderGraphBuilder<'_, 'g>,
     ) -> RenderHandle<'g, Self::Resource> {
-        graph.new_texture_view_descriptor(self)
+        graph.new_texture_view(self)
     }
 }
 
 impl RenderResource for Sampler {
     const RESOURCE_TYPE: ResourceType = ResourceType::Sampler;
+    type Meta<'g> = RenderGraphSamplerDescriptor;
 
     #[inline]
-    fn new_direct<'g>(
-        graph: &mut RenderGraphBuilder<'g>,
+    fn import<'g>(
+        graph: &mut RenderGraphBuilder<'_, 'g>,
+        meta: Self::Meta<'g>,
         resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self> {
-        graph.new_sampler_direct(None, resource)
+        graph.import_sampler(meta, resource)
     }
 
     #[inline]
-    fn get_from_store<'a>(
-        context: &'a NodeContext,
-        resource: RenderHandle<'a, Self>,
-    ) -> Option<&'a Self> {
+    fn get<'n, 'g: 'n>(
+        context: &'n NodeContext<'n, 'g>,
+        resource: RenderHandle<'g, Self>,
+    ) -> Option<&'n Self> {
         context.get_sampler(resource)
     }
-}
-
-impl DescribedRenderResource for Sampler {
-    type Descriptor = RenderGraphSamplerDescriptor;
 
     #[inline]
-    fn new_with_descriptor<'g>(
-        graph: &mut RenderGraphBuilder<'g>,
-        descriptor: Self::Descriptor,
-        resource: Cow<'g, Self>,
-    ) -> RenderHandle<'g, Self> {
-        graph.new_sampler_direct(Some(descriptor), resource)
-    }
-
-    fn get_descriptor<'a, 'g: 'a>(
-        graph: &'a RenderGraphBuilder<'g>,
+    fn get_meta<'a, 'b: 'a, 'g: 'b>(
+        graph: &'a RenderGraphBuilder<'b, 'g>,
         resource: RenderHandle<'g, Self>,
-    ) -> Option<&'a Self::Descriptor> {
-        graph.get_sampler_descriptor(resource)
+    ) -> Option<&'a Self::Meta<'g>> {
+        graph.get_sampler_meta(resource)
     }
 }
 
-impl FromDescriptorRenderResource for Sampler {
+impl CacheRenderResource for Sampler {
+    type Key = RenderGraphSamplerDescriptor;
+
     #[inline]
-    fn new_from_descriptor<'g>(
-        graph: &mut RenderGraphBuilder<'g>,
-        descriptor: Self::Descriptor,
-    ) -> RenderHandle<'g, Self> {
-        graph.new_sampler_descriptor(descriptor)
+    fn key_from_meta<'b, 'g: 'b>(meta: &'b Self::Meta<'g>) -> &'b Self::Key {
+        &meta
     }
 }
 
@@ -392,23 +265,23 @@ impl Eq for RenderGraphSamplerDescriptor {}
 impl<'g> IntoRenderResource<'g> for RenderGraphSamplerDescriptor {
     type Resource = Sampler;
 
+    #[inline]
     fn into_render_resource(
         self,
-        graph: &mut RenderGraphBuilder<'g>,
+        graph: &mut RenderGraphBuilder<'_, 'g>,
     ) -> RenderHandle<'g, Self::Resource> {
-        graph.new_resource(NewRenderResource::FromDescriptor(self))
+        graph.new_sampler(self)
     }
 }
 
 impl<'g> IntoRenderResource<'g> for SamplerDescriptor<'static> {
     type Resource = Sampler;
 
+    #[inline]
     fn into_render_resource(
         self,
-        graph: &mut RenderGraphBuilder<'g>,
+        graph: &mut RenderGraphBuilder<'_, 'g>,
     ) -> RenderHandle<'g, Self::Resource> {
-        graph.new_resource(NewRenderResource::FromDescriptor(
-            RenderGraphSamplerDescriptor(self),
-        ))
+        graph.new_sampler(RenderGraphSamplerDescriptor(self))
     }
 }

@@ -1,71 +1,132 @@
 use std::{
-    borrow::{Borrow, Cow},
+    borrow::Cow,
     hash::Hash,
     ops::{Deref, Range},
+    rc::Rc,
 };
-
-use bevy_ecs::world::World;
-use bevy_utils::HashMap;
 
 use bevy_render::{
     render_resource::{
-        BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutEntry, BindingResource, Buffer,
-        BufferAddress, BufferBinding, BufferSize, Sampler, TextureView,
+        BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutEntry, BindingResource,
+        BindingType, Buffer, BufferAddress, BufferBinding, BufferBindingType, BufferSize, Sampler,
+        StorageTextureAccess, TextureView,
     },
     renderer::RenderDevice,
 };
+use bevy_utils::HashSet;
 
-use crate::core::{Label, NodeContext, RenderGraph, RenderGraphBuilder};
+use crate::core::{Label, NodeContext, RenderGraphBuilder};
 
 use super::{
-    DescribedRenderResource, FromDescriptorRenderResource, IntoRenderResource, RenderDependencies,
-    RenderHandle, RenderResource, RenderResourceId, ResourceTracker, ResourceType,
-    WriteRenderResource,
+    CacheRenderResource, IntoRenderResource, RenderDependencies, RenderHandle, RenderResource,
+    ResourceType, WriteRenderResource,
 };
+
+#[derive(Clone)]
+pub struct RenderGraphBindGroupLayoutMeta {
+    pub descriptor: RenderGraphBindGroupLayoutDescriptor,
+    writes: Rc<HashSet<u32>>,
+}
+
+impl RenderGraphBindGroupLayoutMeta {
+    pub fn new(descriptor: RenderGraphBindGroupLayoutDescriptor) -> Self {
+        let mut writes = HashSet::new();
+        for entry in &descriptor.entries {
+            let writes_entry = match entry.ty {
+                BindingType::Buffer { ty, .. } => match ty {
+                    BufferBindingType::Uniform => false,
+                    BufferBindingType::Storage { read_only } => !read_only,
+                },
+                BindingType::Sampler(_) => false,
+                BindingType::Texture { .. } => false,
+                BindingType::StorageTexture { access, .. } => match access {
+                    StorageTextureAccess::WriteOnly => true,
+                    StorageTextureAccess::ReadOnly => false,
+                    StorageTextureAccess::ReadWrite => true,
+                },
+                BindingType::AccelerationStructure => false,
+            };
+            if writes_entry {
+                writes.insert(entry.binding);
+            }
+        }
+
+        RenderGraphBindGroupLayoutMeta {
+            descriptor,
+            writes: Rc::new(writes),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct RenderGraphBindGroupLayoutDescriptor {
+    pub label: Label<'static>,
+    pub entries: Vec<BindGroupLayoutEntry>,
+}
+
+impl Hash for RenderGraphBindGroupLayoutDescriptor {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.entries.hash(state);
+    }
+}
+
+impl PartialEq for RenderGraphBindGroupLayoutDescriptor {
+    fn eq(&self, other: &Self) -> bool {
+        self.entries == other.entries
+    }
+}
+
+impl Eq for RenderGraphBindGroupLayoutDescriptor {}
 
 impl RenderResource for BindGroupLayout {
     const RESOURCE_TYPE: ResourceType = ResourceType::BindGroupLayout;
+    type Meta<'g> = RenderGraphBindGroupLayoutMeta;
 
-    fn new_direct<'g>(
-        graph: &mut RenderGraphBuilder<'g>,
+    #[inline]
+    fn import<'g>(
+        graph: &mut RenderGraphBuilder<'_, 'g>,
+        meta: Self::Meta<'g>,
         resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self> {
-        graph.new_bind_group_layout_direct(None, resource)
+        graph.import_bind_group_layout(meta, resource)
     }
 
-    fn get_from_store<'a>(
-        context: &'a NodeContext<'a>,
-        resource: RenderHandle<'a, Self>,
-    ) -> Option<&'a Self> {
+    #[inline]
+    fn get<'n, 'g: 'n>(
+        context: &'n NodeContext<'n, 'g>,
+        resource: RenderHandle<'g, Self>,
+    ) -> Option<&'n Self> {
         context.get_bind_group_layout(resource)
     }
-}
 
-impl DescribedRenderResource for BindGroupLayout {
-    type Descriptor = Vec<BindGroupLayoutEntry>;
-
-    fn new_with_descriptor<'g>(
-        graph: &mut RenderGraphBuilder<'g>,
-        descriptor: Self::Descriptor,
-        resource: Cow<'g, Self>,
-    ) -> RenderHandle<'g, Self> {
-        graph.new_bind_group_layout_direct(Some(descriptor), resource)
-    }
-
-    fn get_descriptor<'a, 'g: 'a>(
-        graph: &'a RenderGraphBuilder<'g>,
+    #[inline]
+    fn get_meta<'a, 'b: 'a, 'g: 'b>(
+        graph: &'a RenderGraphBuilder<'b, 'g>,
         resource: RenderHandle<'g, Self>,
-    ) -> Option<&'a Self::Descriptor> {
-        graph.get_bind_group_layout_descriptor(resource)
+    ) -> Option<&'a Self::Meta<'g>> {
+        graph.get_bind_group_layout_meta(resource)
     }
 }
 
-impl FromDescriptorRenderResource for BindGroupLayout {
-    fn new_from_descriptor<'g>(
-        graph: &mut RenderGraphBuilder<'g>,
-        descriptor: Self::Descriptor,
-    ) -> RenderHandle<'g, Self> {
-        graph.new_bind_group_layout_descriptor(descriptor)
+impl CacheRenderResource for BindGroupLayout {
+    type Key = RenderGraphBindGroupLayoutDescriptor;
+
+    #[inline]
+    fn key_from_meta<'a, 'g: 'a>(meta: &'a Self::Meta<'g>) -> &'a Self::Key {
+        &meta.descriptor
+    }
+}
+
+impl<'g> IntoRenderResource<'g> for RenderGraphBindGroupLayoutDescriptor {
+    type Resource = BindGroupLayout;
+
+    #[inline]
+    fn into_render_resource(
+        mut self,
+        graph: &mut RenderGraphBuilder<'_, 'g>,
+    ) -> RenderHandle<'g, Self::Resource> {
+        self.entries.sort_by_key(|entry| entry.binding);
+        graph.new_bind_group_layout(RenderGraphBindGroupLayoutMeta::new(self))
     }
 }
 
@@ -74,11 +135,13 @@ impl<'g> IntoRenderResource<'g> for Vec<BindGroupLayoutEntry> {
 
     #[inline]
     fn into_render_resource(
-        mut self,
-        graph: &mut RenderGraphBuilder<'g>,
+        self,
+        graph: &mut RenderGraphBuilder<'_, 'g>,
     ) -> RenderHandle<'g, Self::Resource> {
-        self.sort_by_key(|entry| entry.binding);
-        graph.new_bind_group_layout_descriptor(self)
+        graph.new_resource(RenderGraphBindGroupLayoutDescriptor {
+            label: None,
+            entries: self,
+        })
     }
 }
 
@@ -88,131 +151,23 @@ impl<'g> IntoRenderResource<'g> for &[BindGroupLayoutEntry] {
     #[inline]
     fn into_render_resource(
         self,
-        graph: &mut RenderGraphBuilder<'g>,
+        graph: &mut RenderGraphBuilder<'_, 'g>,
     ) -> RenderHandle<'g, Self::Resource> {
         graph.new_resource(Vec::from(self))
     }
 }
 
-#[derive(Default)]
-pub struct RenderGraphBindGroups<'g> {
-    bind_groups: HashMap<RenderResourceId, RenderGraphBindGroupMeta<'g>>,
-    existing_bind_groups: HashMap<Cow<'g, BindGroup>, RenderResourceId>,
-    queued_bind_groups: HashMap<RenderResourceId, RenderGraphBindGroupDescriptor<'g>>,
-}
-
-struct RenderGraphBindGroupMeta<'g> {
-    layout: Option<RenderHandle<'g, BindGroupLayout>>,
-    bind_group: Cow<'g, BindGroup>,
-}
-
-impl<'g> RenderGraphBindGroups<'g> {
-    pub fn new() -> Self {
-        Default::default()
-    }
-
-    pub fn new_direct(
-        &mut self,
-        tracker: &mut ResourceTracker<'g>,
-        mut dependencies: RenderDependencies<'g>,
-        layout: Option<RenderHandle<'g, BindGroupLayout>>,
-        bind_group: Cow<'g, BindGroup>,
-    ) -> RenderResourceId {
-        self.existing_bind_groups
-            .get(&bind_group)
-            .copied()
-            .unwrap_or_else(|| {
-                if let Some(layout) = layout {
-                    dependencies.read(layout);
-                }
-                let id = tracker.new_resource(ResourceType::BindGroup, Some(dependencies));
-                self.existing_bind_groups.insert(bind_group.clone(), id);
-                self.bind_groups
-                    .insert(id, RenderGraphBindGroupMeta { layout, bind_group });
-                id
-            })
-    }
-
-    pub fn new_from_descriptor(
-        &mut self,
-        tracker: &mut ResourceTracker<'g>,
-        descriptor: RenderGraphBindGroupDescriptor<'g>,
-    ) -> RenderResourceId {
-        let mut dependencies = descriptor.dependencies.clone();
-        dependencies.read(descriptor.layout);
-        let id = tracker.new_resource(ResourceType::BindGroup, Some(dependencies));
-        self.queued_bind_groups.insert(id, descriptor);
-        id
-    }
-
-    pub fn create_queued_bind_groups(
-        &mut self,
-        graph: &RenderGraph,
-        world: &World,
-        render_device: &RenderDevice,
-        // view_entity: EntityRef<'g>,
-    ) {
-        let mut bind_group_cache = HashMap::new();
-        for (
-            id,
-            RenderGraphBindGroupDescriptor {
-                label,
-                layout,
-                dependencies,
-                entries,
-            },
-        ) in self.queued_bind_groups.drain()
-        {
-            let context = NodeContext {
-                graph,
-                world,
-                dependencies,
-                // entity: view_entity,
-            };
-
-            let bind_group = bind_group_cache
-                .entry(entries)
-                .or_insert_with_key(|bindings| {
-                    make_bind_group(context, render_device, label, layout, bindings)
-                });
-            self.bind_groups.insert(
-                id,
-                RenderGraphBindGroupMeta {
-                    layout: Some(layout),
-                    bind_group: Cow::Owned(bind_group.clone()),
-                },
-            );
-        }
-    }
-
-    pub fn get(&self, id: RenderResourceId) -> Option<&BindGroup> {
-        self.bind_groups
-            .get(&id)
-            .map(|meta| meta.bind_group.borrow())
-    }
-
-    pub fn get_layout(&self, id: RenderResourceId) -> Option<RenderHandle<'g, BindGroupLayout>> {
-        let check_normal = self.bind_groups.get(&id).and_then(|meta| meta.layout);
-        let check_queued = self.queued_bind_groups.get(&id).map(|queued| queued.layout);
-        check_normal.or(check_queued)
-    }
-}
-
-fn make_bind_group<'n>(
-    ctx: NodeContext<'n>,
+pub(crate) fn make_bind_group<'n, 'g: 'n>(
+    ctx: &NodeContext<'n, 'g>,
     render_device: &RenderDevice,
-    label: Label<'n>,
-    layout: RenderHandle<'n, BindGroupLayout>,
-    entries: &[RenderGraphBindGroupEntry<'n>],
+    descriptor: &RenderGraphBindGroupDescriptor<'g>,
 ) -> BindGroup {
-    #[inline]
     fn push_ref<T>(vec: &mut Vec<T>, item: T) -> Range<usize> {
         let i_fst = vec.len();
         vec.push(item);
         i_fst..vec.len()
     }
 
-    #[inline]
     fn push_many_ref<T>(vec: &mut Vec<T>, items: impl IntoIterator<Item = T>) -> Range<usize> {
         let i_fst = vec.len();
         vec.extend(items);
@@ -221,17 +176,15 @@ fn make_bind_group<'n>(
 
     let ctx_ref = &ctx;
 
-    let raw_layout = ctx.get(layout);
+    let raw_layout = ctx.get(descriptor.layout);
 
-    let mut buffers = Vec::with_capacity(entries.len());
-    let mut samplers = Vec::with_capacity(entries.len());
-    let mut texture_views = Vec::with_capacity(entries.len());
-    let mut indices: Vec<Range<usize>> = Vec::with_capacity(entries.len());
+    let mut buffers = Vec::with_capacity(descriptor.entries.len());
+    let mut samplers = Vec::with_capacity(descriptor.entries.len());
+    let mut texture_views = Vec::with_capacity(descriptor.entries.len());
+    let mut indices: Vec<Range<usize>> = Vec::with_capacity(descriptor.entries.len());
 
-    entries
-        .iter()
-        .enumerate()
-        .for_each(|(i, RenderGraphBindGroupEntry { resource, .. })| {
+    descriptor.entries.iter().enumerate().for_each(
+        |(i, RenderGraphBindGroupEntry { resource, .. })| {
             indices[i] = match resource {
                 RenderGraphBindingResource::Buffer(buffer_binding) => push_ref(
                     &mut buffers,
@@ -271,9 +224,11 @@ fn make_bind_group<'n>(
                     )
                 }
             };
-        });
+        },
+    );
 
-    let raw_entries: Vec<BindGroupEntry<'_>> = entries
+    let raw_entries: Vec<BindGroupEntry<'_>> = descriptor
+        .entries
         .iter()
         .enumerate()
         .map(
@@ -303,20 +258,110 @@ fn make_bind_group<'n>(
         )
         .collect();
 
-    render_device.create_bind_group(label.as_deref(), raw_layout, &raw_entries)
+    render_device.create_bind_group(descriptor.label.as_deref(), raw_layout, &raw_entries)
 }
 
+#[derive(Clone)]
+pub struct RenderGraphBindGroupMeta<'g> {
+    pub descriptor: RenderGraphBindGroupDescriptor<'g>,
+    writes: Rc<HashSet<u32>>,
+}
+
+impl<'g> RenderGraphBindGroupMeta<'g> {
+    pub fn new(
+        graph: &mut RenderGraphBuilder<'_, 'g>,
+        descriptor: RenderGraphBindGroupDescriptor<'g>,
+    ) -> Self {
+        let layout_meta = graph.meta(descriptor.layout);
+        Self {
+            descriptor,
+            writes: layout_meta.writes.clone(),
+        }
+    }
+
+    pub(crate) fn dependencies(&self) -> RenderDependencies<'g> {
+        fn dep<'g, R: WriteRenderResource>(
+            deps: &mut RenderDependencies<'g>,
+            resource: RenderHandle<'g, R>,
+            is_mut: bool,
+        ) {
+            if is_mut {
+                deps.write(resource);
+            } else {
+                deps.read(resource);
+            }
+        }
+
+        fn deps<'g, R: WriteRenderResource>(
+            deps: &mut RenderDependencies<'g>,
+            resources: impl Iterator<Item = RenderHandle<'g, R>>,
+            is_mut: bool,
+        ) {
+            if is_mut {
+                for resource in resources {
+                    deps.write(resource);
+                }
+            } else {
+                for resource in resources {
+                    deps.read(resource);
+                }
+            }
+        }
+
+        let mut dependencies = RenderDependencies::new();
+        for entry in &self.descriptor.entries {
+            let write = self.writes.contains(&entry.binding);
+            match &entry.resource {
+                RenderGraphBindingResource::Buffer(buffer) => {
+                    dep(&mut dependencies, buffer.buffer, write)
+                }
+                RenderGraphBindingResource::BufferArray(buffers) => deps(
+                    &mut dependencies,
+                    buffers.iter().map(|buffer| buffer.buffer),
+                    write,
+                ),
+                RenderGraphBindingResource::Sampler(sampler_binding) => {
+                    dependencies.read(*sampler_binding);
+                }
+                RenderGraphBindingResource::SamplerArray(samplers) => {
+                    for sampler in samplers.iter() {
+                        dependencies.read(*sampler);
+                    }
+                }
+                RenderGraphBindingResource::TextureView(texture_view) => {
+                    dep(&mut dependencies, *texture_view, write)
+                }
+                RenderGraphBindingResource::TextureViewArray(texture_views) => {
+                    deps(&mut dependencies, texture_views.iter().copied(), write)
+                }
+            }
+        }
+
+        dependencies
+    }
+}
+
+#[derive(Clone)]
 pub struct RenderGraphBindGroupDescriptor<'g> {
     pub label: Label<'g>,
     pub layout: RenderHandle<'g, BindGroupLayout>,
-    ///Note: This is not ideal, since we would like to create the dependencies automatically from
-    ///the binding list. This isn't possible currently because we'd have to dereference a bind
-    ///group layout possibly before it's created. Possible solutions: leave as is, or add Layout information to each entr
-    ///so we can infer read/write usage for each binding and maybe create the layout automatically
-    ///as well. That might be too verbose though.
-    pub dependencies: RenderDependencies<'g>,
     pub entries: Vec<RenderGraphBindGroupEntry<'g>>,
 }
+
+impl<'g> Hash for RenderGraphBindGroupDescriptor<'g> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.layout.hash(state);
+        self.entries.hash(state);
+    }
+}
+
+impl<'g> PartialEq for RenderGraphBindGroupDescriptor<'g> {
+    fn eq(&self, other: &Self) -> bool {
+        self.layout == other.layout && self.entries == other.entries
+    }
+}
+
+impl<'g> Eq for RenderGraphBindGroupDescriptor<'g> {}
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct RenderGraphBindGroupEntry<'g> {
@@ -343,19 +388,28 @@ pub struct RenderGraphBufferBinding<'g> {
 
 impl RenderResource for BindGroup {
     const RESOURCE_TYPE: ResourceType = ResourceType::BindGroup;
+    type Meta<'g> = RenderGraphBindGroupMeta<'g>;
 
-    fn new_direct<'g>(
-        graph: &mut RenderGraphBuilder<'g>,
+    fn import<'g>(
+        graph: &mut RenderGraphBuilder<'_, 'g>,
+        meta: Self::Meta<'g>,
         resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self> {
-        graph.new_bind_group_direct(Default::default(), None, resource)
+        graph.import_bind_group(meta, resource)
     }
 
-    fn get_from_store<'a>(
-        context: &'a NodeContext<'a>,
-        resource: RenderHandle<'a, Self>,
-    ) -> Option<&'a Self> {
+    fn get<'n, 'g: 'n>(
+        context: &'n NodeContext<'n, 'g>,
+        resource: RenderHandle<'g, Self>,
+    ) -> Option<&'n Self> {
         context.get_bind_group(resource)
+    }
+
+    fn get_meta<'a, 'b: 'a, 'g: 'b>(
+        graph: &'a RenderGraphBuilder<'b, 'g>,
+        resource: RenderHandle<'g, Self>,
+    ) -> Option<&'a Self::Meta<'g>> {
+        graph.get_bind_group_meta(resource)
     }
 }
 
@@ -366,8 +420,9 @@ impl<'g> IntoRenderResource<'g> for RenderGraphBindGroupDescriptor<'g> {
 
     fn into_render_resource(
         self,
-        graph: &mut RenderGraphBuilder<'g>,
+        graph: &mut RenderGraphBuilder<'_, 'g>,
     ) -> RenderHandle<'g, Self::Resource> {
-        graph.new_bind_group_descriptor(self)
+        let meta = RenderGraphBindGroupMeta::new(graph, self);
+        graph.new_bind_group(meta)
     }
 }

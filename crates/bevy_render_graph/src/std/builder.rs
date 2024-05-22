@@ -21,19 +21,19 @@ use crate::core::{
 //require a rework of how resource metadata is stored in order to function. At present, these
 //mainly serve as an example of the kind of tools this rewrite enables.
 
-pub struct BindGroupBuilder<'b, 'g: 'b> {
+pub struct BindGroupBuilder<'a, 'b: 'a, 'g: 'b> {
     label: Label<'g>,
-    graph: &'b mut RenderGraphBuilder<'g>,
+    graph: &'a mut RenderGraphBuilder<'b, 'g>,
     shader_stages: ShaderStages,
     layout: Vec<BindGroupLayoutEntry>,
     entries: Vec<RenderGraphBindGroupEntry<'g>>,
     dependencies: RenderDependencies<'g>,
 }
 
-impl<'b, 'g: 'b> BindGroupBuilder<'b, 'g> {
+impl<'a, 'b: 'a, 'g: 'b> BindGroupBuilder<'a, 'b, 'g> {
     pub fn new(
         label: Label<'g>,
-        graph: &'b mut RenderGraphBuilder<'g>,
+        graph: &'a mut RenderGraphBuilder<'b, 'g>,
         shader_stages: ShaderStages,
     ) -> Self {
         Self {
@@ -52,7 +52,7 @@ impl<'b, 'g: 'b> BindGroupBuilder<'b, 'g> {
     }
 
     pub fn sampler(&mut self, sampler: RenderHandle<'g, Sampler>) -> &mut Self {
-        let descriptor = self.graph.descriptor(sampler);
+        let descriptor = self.graph.meta(sampler);
         self.layout.push(BindGroupLayoutEntry {
             binding: self.layout.len() as u32,
             visibility: self.shader_stages,
@@ -111,7 +111,6 @@ impl<'b, 'g: 'b> BindGroupBuilder<'b, 'g> {
         let bind_group = self.graph.new_resource(RenderGraphBindGroupDescriptor {
             label: self.label,
             layout,
-            dependencies: self.dependencies,
             entries: self.entries,
         });
         (layout, bind_group)
@@ -122,33 +121,32 @@ impl<'b, 'g: 'b> BindGroupBuilder<'b, 'g> {
     ) -> (
         RenderHandle<'g, BindGroupLayout>,
         RenderHandle<'g, BindGroup>,
-        &'b mut RenderGraphBuilder<'g>,
+        &'a mut RenderGraphBuilder<'b, 'g>,
     ) {
         let layout = self.graph.new_resource(self.layout);
         let bind_group = self.graph.new_resource(RenderGraphBindGroupDescriptor {
             label: self.label,
             layout,
-            dependencies: self.dependencies,
             entries: self.entries,
         });
         (layout, bind_group, self.graph)
     }
 }
 
-pub struct ComputePass<'b, 'g: 'b> {
+pub struct ComputePass<'a, 'b: 'a, 'g: 'b> {
     label: Label<'static>,
     entry_point: Cow<'static, str>,
-    bind_group: BindGroupBuilder<'b, 'g>,
+    bind_group: BindGroupBuilder<'a, 'b, 'g>,
     shader: Handle<Shader>,
     shader_defs: Vec<ShaderDefVal>,
     dispatch_size: UVec3,
 }
 
-impl<'b, 'g: 'b> ComputePass<'b, 'g> {
+impl<'a, 'b: 'a, 'g: 'b> ComputePass<'a, 'b, 'g> {
     pub fn new(
         label: Label<'static>,
         entry_point: Cow<'static, str>,
-        graph: &'b mut RenderGraphBuilder<'g>,
+        graph: &'a mut RenderGraphBuilder<'b, 'g>,
         shader: Handle<Shader>,
     ) -> Self {
         Self {
