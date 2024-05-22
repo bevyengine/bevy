@@ -6,7 +6,14 @@ use crate::{
     storage::{Table, TableRow, Tables},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-use std::{borrow::Borrow, cmp::Ordering, iter::FusedIterator, mem::MaybeUninit, ops::Range};
+use std::{
+    borrow::Borrow,
+    cmp::Ordering,
+    fmt::{self, Debug, Formatter},
+    iter::FusedIterator,
+    mem::MaybeUninit,
+    ops::Range,
+};
 
 use super::{QueryData, QueryFilter, ReadOnlyQueryData};
 
@@ -857,6 +864,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
 // This is correct as [`QueryIter`] always returns `None` once exhausted.
 impl<'w, 's, D: QueryData, F: QueryFilter> FusedIterator for QueryIter<'w, 's, D, F> {}
 
+impl<'w, 's, D: QueryData, F: QueryFilter> Debug for QueryIter<'w, 's, D, F> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("QueryIter").finish()
+    }
+}
+
 /// An [`Iterator`] over sorted query results of a [`Query`](crate::system::Query).
 ///
 /// This struct is created by the [`QueryIter::sort`], [`QueryIter::sort_unstable`],
@@ -983,6 +996,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> FusedIterator
 where
     I: FusedIterator<Item = Entity>,
 {
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>> Debug
+    for QuerySortedIter<'w, 's, D, F, I>
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("QuerySortedIter").finish()
+    }
 }
 
 /// An [`Iterator`] over the query items generated from an iterator of [`Entity`]s.
@@ -1129,6 +1150,15 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator> FusedIterator
 where
     I::Item: Borrow<Entity>,
 {
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> Debug for QueryManyIter<'w, 's, D, F, I>
+where
+    I::Item: Borrow<Entity>,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("QueryManyIter").finish()
+    }
 }
 
 /// An iterator over `K`-sized combinations of query items without repetition.
@@ -1362,6 +1392,14 @@ where
 impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, const K: usize> FusedIterator
     for QueryCombinationIter<'w, 's, D, F, K>
 {
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> Debug
+    for QueryCombinationIter<'w, 's, D, F, K>
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("QueryCombinationIter").finish()
+    }
 }
 
 struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
