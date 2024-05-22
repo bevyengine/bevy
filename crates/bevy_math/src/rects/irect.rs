@@ -20,9 +20,12 @@ pub struct IRect {
 
 impl IRect {
     /// An empty `IRect`, represented by maximum and minimum corner points
-    /// with all `i32::MAX` values.
+    /// with `max == IVec2::MIN` and `min == IVec2::MAX`, so the
+    /// rect has an extremely large negative size.
+    /// This is useful, because when taking a union B of a non-empty `IRect` A and
+    /// this empty `IRect`, B will simply equal A.
     pub const EMPTY: Self = Self {
-        max: IVec2::MAX,
+        max: IVec2::MIN,
         min: IVec2::MAX,
     };
     /// Create a new rectangle from two corner points.
