@@ -48,8 +48,9 @@ impl PerimeterSegment {
     }
     fn indices_per_segment(&self) -> usize {
         match self {
-            PerimeterSegment::Smooth { indices, .. } => 6 * (indices.len() - 1),
-            PerimeterSegment::Flat { indices } => 6 * (indices.len() - 1),
+            PerimeterSegment::Smooth { indices, .. } | PerimeterSegment::Flat { indices } => {
+                6 * (indices.len() - 1)
+            }
         }
     }
 }
@@ -167,7 +168,7 @@ where
                 back_face.attribute_mut(Mesh::ATTRIBUTE_UV_0)
             {
                 for uv in uvs {
-                    *uv = [uv[0] + 0.5, uv[1]]
+                    *uv = [uv[0] + 0.5, uv[1]];
                 }
             }
 
@@ -176,10 +177,10 @@ where
                 match topology {
                     wgpu::PrimitiveTopology::TriangleList => match indices {
                         Indices::U16(indices) => {
-                            indices.chunks_exact_mut(3).for_each(|arr| arr.swap(1, 0))
+                            indices.chunks_exact_mut(3).for_each(|arr| arr.swap(1, 0));
                         }
                         Indices::U32(indices) => {
-                            indices.chunks_exact_mut(3).for_each(|arr| arr.swap(1, 0))
+                            indices.chunks_exact_mut(3).for_each(|arr| arr.swap(1, 0));
                         }
                     },
                     _ => {
@@ -273,7 +274,7 @@ where
                             positions.push(p);
                             positions.push([p[0], p[1], -p[2]]);
                             uvs.extend_from_slice(&[[uv_start, 0.5], [uv_start, 1.]]);
-                            normals.extend_from_slice(&[first_normal.extend(0.).to_array(); 2])
+                            normals.extend_from_slice(&[first_normal.extend(0.).to_array(); 2]);
                         }
                         for i in 1..(skin_indices.len() - 1) {
                             let uv_x = uv_start + uv_delta * i as f32;
@@ -302,7 +303,7 @@ where
                                 [uv_start + uv_segment_delta, 0.5],
                                 [uv_start + uv_segment_delta, 1.],
                             ]);
-                            normals.extend_from_slice(&[last_normal.extend(0.).to_array(); 2])
+                            normals.extend_from_slice(&[last_normal.extend(0.).to_array(); 2]);
                         }
 
                         for i in 0..(skin_indices.len() as u32 - 1) {
