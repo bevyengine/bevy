@@ -26,7 +26,8 @@
 @group(0) @binding(4) var depth_differences: texture_storage_2d<r32uint, write>;
 @group(0) @binding(5) var<uniform> globals: Globals;
 @group(1) @binding(0) var point_clamp_sampler: sampler;
-@group(1) @binding(1) var<uniform> view: View;
+@group(1) @binding(1) var linear_point_clamp_sampler: sampler;
+@group(1) @binding(2) var<uniform> view: View;
 
 fn load_noise(pixel_coordinates: vec2<i32>) -> vec2<f32> {
     var index = textureLoad(hilbert_index_lut, pixel_coordinates % 64, 0).r;
@@ -87,7 +88,7 @@ fn reconstruct_view_space_position(depth: f32, uv: vec2<f32>) -> vec3<f32> {
 }
 
 fn load_and_reconstruct_view_space_position(uv: vec2<f32>, sample_mip_level: f32) -> vec3<f32> {
-    let depth = textureSampleLevel(preprocessed_depth, point_clamp_sampler, uv, sample_mip_level).r;
+    let depth = textureSampleLevel(preprocessed_depth, linear_point_clamp_sampler, uv, sample_mip_level).r;
     return reconstruct_view_space_position(depth, uv);
 }
 

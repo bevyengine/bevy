@@ -353,6 +353,7 @@ struct SsaoPipelines {
 
     hilbert_index_lut: TextureView,
     point_clamp_sampler: Sampler,
+    linear_point_clamp_sampler: Sampler,
 }
 
 impl FromWorld for SsaoPipelines {
@@ -391,6 +392,14 @@ impl FromWorld for SsaoPipelines {
             address_mode_v: AddressMode::ClampToEdge,
             ..Default::default()
         });
+        let linear_point_clamp_sampler = render_device.create_sampler(&SamplerDescriptor {
+            min_filter: FilterMode::Linear,
+            mag_filter: FilterMode::Linear,
+            mipmap_filter: FilterMode::Nearest,
+            address_mode_u: AddressMode::ClampToEdge,
+            address_mode_v: AddressMode::ClampToEdge,
+            ..Default::default()
+        });
 
         let common_bind_group_layout = render_device.create_bind_group_layout(
             "ssao_common_bind_group_layout",
@@ -398,6 +407,7 @@ impl FromWorld for SsaoPipelines {
                 ShaderStages::COMPUTE,
                 (
                     sampler(SamplerBindingType::NonFiltering),
+                    sampler(SamplerBindingType::Filtering),
                     uniform_buffer::<ViewUniform>(true),
                 ),
             ),
@@ -423,7 +433,7 @@ impl FromWorld for SsaoPipelines {
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::COMPUTE,
                 (
-                    texture_2d(TextureSampleType::Float { filterable: false }),
+                    texture_2d(TextureSampleType::Float { filterable: true }),
                     texture_2d(TextureSampleType::Float { filterable: false }),
                     texture_2d(TextureSampleType::Uint),
                     texture_storage_2d(TextureFormat::R16Float, StorageTextureAccess::WriteOnly),
@@ -482,6 +492,7 @@ impl FromWorld for SsaoPipelines {
 
             hilbert_index_lut,
             point_clamp_sampler,
+            linear_point_clamp_sampler,
         }
     }
 }
@@ -716,7 +727,11 @@ fn prepare_ssao_bind_groups(
         let common_bind_group = render_device.create_bind_group(
             "ssao_common_bind_group",
             &pipelines.common_bind_group_layout,
-            &BindGroupEntries::sequential((&pipelines.point_clamp_sampler, view_uniforms.clone())),
+            &BindGroupEntries::sequential((
+                &pipelines.point_clamp_sampler,
+                &pipelines.linear_point_clamp_sampler,
+                view_uniforms.clone(),
+            )),
         );
 
         let create_depth_view = |mip_level| {
