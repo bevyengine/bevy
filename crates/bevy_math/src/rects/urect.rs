@@ -20,9 +20,10 @@ pub struct URect {
 
 impl URect {
     /// An empty `URect`, represented by maximum and minimum corner points
-    /// with all `u32::MAX` values.
+    /// with `max == UVec2::MIN` and `min == UVec2::MAX`, so the
+    /// rect has an extremely large negative size.
     pub const EMPTY: Self = Self {
-        max: UVec2::MAX,
+        max: UVec2::MIN,
         min: UVec2::MAX,
     };
     /// Create a new rectangle from two corner points.
