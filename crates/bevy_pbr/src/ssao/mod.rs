@@ -208,7 +208,14 @@ impl PartialEq for ScreenSpaceAmbientOcclusionMethod {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Gtao, Self::Gtao) => true,
-            (Self::Vbao { thickness: st }, Self::Vbao { thickness: ot }) => st == ot,
+            (
+                Self::Vbao {
+                    thickness: self_thickess,
+                },
+                Self::Vbao {
+                    thickness: other_thickness,
+                },
+            ) => self_thickess == other_thickness,
             _ => false,
         }
     }
@@ -491,7 +498,7 @@ impl SpecializedComputePipeline for SsaoPipelines {
     fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor {
         let (slice_count, samples_per_slice_side) = key.ssao_settings.quality_level.sample_counts();
 
-        let shader_defs = vec![
+        let mut shader_defs = vec![
             ShaderDefVal::Int("SLICE_COUNT".to_string(), slice_count as i32),
             ShaderDefVal::Int(
                 "SAMPLES_PER_SLICE_SIDE".to_string(),
@@ -515,6 +522,10 @@ impl SpecializedComputePipeline for SsaoPipelines {
                 },
             ),
         ];
+
+        if key.temporal_jitter {
+            shader_defs.push("TEMPORAL_JITTER".into());
+        }
 
         ComputePipelineDescriptor {
             label: Some("ssao_ssao_pipeline".into()),

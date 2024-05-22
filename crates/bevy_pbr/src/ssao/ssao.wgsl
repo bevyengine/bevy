@@ -5,6 +5,12 @@
 // Source code heavily based on XeGTAO v1.30 from Intel
 // https://github.com/GameTechDev/XeGTAO/blob/0d177ce06bfa642f64d8af4de1197ad1bcb862d4/Source/Rendering/Shaders/XeGTAO.hlsli
 
+// Visibility Bitmask Ambient Occlusion (VBAO)
+// Paper: https://ar5iv.labs.arxiv.org/html/2301.11376
+
+// Source code based on the existing XeGTAO implementation and
+// https://cdrinmatane.github.io/posts/ssaovb-code/
+
 #import bevy_pbr::gtao_utils::fast_acos
 
 #import bevy_render::{
@@ -94,11 +100,7 @@ fn updateSectors(
     let start_horizon = u32(min_horizon * samples_per_slice);
     let angle_horizon = u32(ceil((max_horizon - min_horizon) * samples_per_slice));
 
-    let all_samples_mask = 0xFFFFFFFFu >> (32 - (2 * #SAMPLES_PER_SLICE_SIDE));
-    let angle_horizon_bitmask = select(0u, all_samples_mask >> (#SAMPLES_PER_SLICE_SIDE * 2 - angle_horizon), angle_horizon > 0);
-    let current_occluded_bitmask = angle_horizon_bitmask << start_horizon;
-
-    return bitmask | current_occluded_bitmask;
+    return insertBits(bitmask, 0xFFFFFFFFu, start_horizon, angle_horizon);
 }
 
 fn processSample(
@@ -147,6 +149,9 @@ fn ssao(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let sample_scale = (-0.5 * effect_radius * view.projection[0][0]) / pixel_position.z;
 
     var visibility = 0.0;
+#if METHOD == 1
+    var occluded_sample_count = 0u;
+#endif
     for (var slice_t = 0.0; slice_t < slice_count; slice_t += 1.0) {
         let slice = slice_t + noise.x;
         let phi = (PI / slice_count) * slice;
@@ -214,13 +219,17 @@ fn ssao(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let v2 = (cos_norm + 2.0 * horizon_2 * sin(n) - cos(2.0 * horizon_2 - n)) / 4.0;
         visibility += projected_normal_length * (v1 + v2);
 #else
-        visibility += f32(countOneBits(bitmask)) * (1.0 / (samples_per_slice_side * 2.0));
+        occluded_sample_count += countOneBits(bitmask);
 #endif
     }
+
+#if METHOD == 0
     visibility /= slice_count;
-#if METHOD == 1
     visibility = 1.0 - visibility;
+#else
+    visibility = 1.0 - f32(occluded_sample_count) / (slice_count * 2.0 * samples_per_slice_side);
 #endif
+
     visibility = clamp(visibility, 0.03, 1.0);
 
     textureStore(ambient_occlusion, pixel_coordinates, vec4<f32>(visibility, 0.0, 0.0, 0.0));
