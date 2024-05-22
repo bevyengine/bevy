@@ -1211,33 +1211,6 @@ mod tests {
     }
 
     #[test]
-    fn complex_triangle_math() {
-        let [a, b, c] = [Vec3::ZERO, Vec3::new(1., 1., 0.5), Vec3::new(-3., 2.5, 1.)];
-        let triangle = Triangle3d::new(a, b, c);
-
-        assert!(!triangle.is_degenerate(), "incorrectly found degenerate");
-        assert_eq!(triangle.area(), 3.0233467, "incorrect area");
-        assert_eq!(triangle.perimeter(), 9.832292, "incorrect perimeter");
-        assert_eq!(
-            triangle.circumcenter(),
-            Vec3::new(-1., 1.75, 0.75),
-            "incorrect circumcenter"
-        );
-        assert_eq!(
-            triangle.normal(),
-            Ok(Dir3::new_unchecked(Vec3::new(
-                -0.04134491,
-                -0.4134491,
-                0.90958804
-            ))),
-            "incorrect normal"
-        );
-
-        let degenerate = Triangle3d::new(Vec3::NEG_ONE, Vec3::ZERO, Vec3::ONE);
-        assert!(degenerate.is_degenerate(), "did not find degenerate");
-    }
-
-    #[test]
     fn extrusion_math() {
         let circle = Circle::new(0.75);
         let cylinder = Extrusion::new(circle, 2.5);
@@ -1314,6 +1287,28 @@ mod tests {
             acute_triangle.circumcenter(),
             Vec3::new(0.5, 2.475, 0.0),
             "incorrect circumcenter"
+        );
+
+        // Arbitrary triangle tests
+        let [a, b, c] = [Vec3::ZERO, Vec3::new(1., 1., 0.5), Vec3::new(-3., 2.5, 1.)];
+        let triangle = Triangle3d::new(a, b, c);
+
+        assert!(!triangle.is_degenerate(), "incorrectly found degenerate");
+        assert_eq!(triangle.area(), 3.0233467, "incorrect area");
+        assert_eq!(triangle.perimeter(), 9.832292, "incorrect perimeter");
+        assert_eq!(
+            triangle.circumcenter(),
+            Vec3::new(-1., 1.75, 0.75),
+            "incorrect circumcenter"
+        );
+        assert_eq!(
+            triangle.normal(),
+            Ok(Dir3::new_unchecked(Vec3::new(
+                -0.04134491,
+                -0.4134491,
+                0.90958804
+            ))),
+            "incorrect normal"
         );
 
         // Degenerate triangle tests

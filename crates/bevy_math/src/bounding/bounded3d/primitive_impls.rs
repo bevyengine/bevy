@@ -611,12 +611,10 @@ mod tests {
         assert_eq!(bounding_sphere.radius(), 1.5);
     }
 
+    #[test]
     fn triangle3d() {
-        // let bs = zero_degenerate_triangle.bounding_sphere(Vec3::ZERO, Quat::IDENTITY); // DIVISION BY ZERO
-        // assert_eq!(bs.center, Vec3::ZERO, "incorrect bounding sphere center");
-        // assert_eq!(bs.sphere.radius, 0.0, "incorrect bounding sphere radius");
-
         let zero_degenerate_triangle = Triangle3d::new(Vec3::ZERO, Vec3::ZERO, Vec3::ZERO);
+
         let br = zero_degenerate_triangle.aabb_3d(Vec3::ZERO, Quat::IDENTITY);
         assert_eq!(
             br.center(),
@@ -649,15 +647,15 @@ mod tests {
             "incorrect bounding box half extents"
         );
 
-        let common_degenerate_triangle = Triangle3d::new(Vec3::NEG_X, Vec3::ZERO, Vec3::X);
-        let bs = common_degenerate_triangle.bounding_sphere(Vec3::ZERO, Quat::IDENTITY);
+        let collinear_degenerate_triangle = Triangle3d::new(Vec3::NEG_X, Vec3::ZERO, Vec3::X);
+        let bs = collinear_degenerate_triangle.bounding_sphere(Vec3::ZERO, Quat::IDENTITY);
         assert_eq!(
             bs.center,
             Vec3::ZERO.into(),
             "incorrect bounding sphere center"
         );
         assert_eq!(bs.sphere.radius, 1.0, "incorrect bounding sphere radius");
-        let br = common_degenerate_triangle.aabb_3d(Vec3::ZERO, Quat::IDENTITY);
+        let br = collinear_degenerate_triangle.aabb_3d(Vec3::ZERO, Quat::IDENTITY);
         assert_eq!(
             br.center(),
             Vec3::ZERO.into(),
@@ -668,5 +666,18 @@ mod tests {
             Vec3::new(1.0, 0.0, 0.0).into(),
             "incorrect bounding box half extents"
         );
+    }
+
+    #[test]
+    #[should_panic]
+    fn degenerate_bounding_sphere_should_panic() {
+        let zero_degenerate_triangle = Triangle3d::new(Vec3::ZERO, Vec3::ZERO, Vec3::ZERO);
+        let bs = zero_degenerate_triangle.bounding_sphere(Vec3::ZERO, Quat::IDENTITY); // DIVISION BY ZERO
+        assert_eq!(
+            bs.center,
+            Vec3::ZERO.into(),
+            "incorrect bounding sphere center"
+        );
+        assert_eq!(bs.sphere.radius, 0.0, "incorrect bounding sphere radius");
     }
 }
