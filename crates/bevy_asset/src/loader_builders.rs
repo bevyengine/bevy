@@ -1,3 +1,6 @@
+//! Implementations of the builder-pattern used for loading dependent assets via
+//! [`LoadContext::loader`].
+
 use crate::{
     io::Reader,
     meta::{meta_transform_settings, AssetMetaDyn, MetaTransform, Settings},
