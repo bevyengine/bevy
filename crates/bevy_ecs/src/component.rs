@@ -193,6 +193,44 @@ pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity, ComponentId);
 /// or to keep hierarchical data structures across entities in sync.
 ///
 /// This information is stored in the [`ComponentInfo`] of the associated component.
+///
+/// # Example
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+/// use bevy_utils::HashSet;
+///
+/// #[derive(Component)]
+/// struct MyTrackedComponent;
+///
+/// #[derive(Resource, Default)]
+/// struct TrackedEntities(HashSet<Entity>);
+///
+/// let mut world = World::new();
+/// world.init_resource::<TrackedEntities>();
+///
+/// // No entities with `MyTrackedComponent` have been added yet, so we can safely add component hooks
+/// let mut tracked_component_query = world.query::<&MyTrackedComponent>();
+/// assert!(tracked_component_query.iter(&world).next().is_none());
+///
+/// world.register_component_hooks::<MyTrackedComponent>().on_add(|mut world, entity, _component_id| {
+///    let mut tracked_entities = world.resource_mut::<TrackedEntities>();
+///   tracked_entities.0.insert(entity);
+/// });
+///
+/// world.register_component_hooks::<MyTrackedComponent>().on_remove(|mut world, entity, _component_id| {
+///   let mut tracked_entities = world.resource_mut::<TrackedEntities>();
+///   tracked_entities.0.remove(&entity);
+/// });
+///
+/// let entity = world.spawn(MyTrackedComponent).id();
+/// let tracked_entities = world.resource::<TrackedEntities>();
+/// assert!(tracked_entities.0.contains(&entity));
+///
+/// world.despawn(entity);
+/// let tracked_entities = world.resource::<TrackedEntities>();
+/// assert!(!tracked_entities.0.contains(&entity));
+/// ```
 #[derive(Debug, Clone, Default)]
 pub struct ComponentHooks {
     pub(crate) on_add: Option<ComponentHook>,
