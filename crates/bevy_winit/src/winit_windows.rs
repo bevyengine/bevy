@@ -11,7 +11,7 @@ use winit::{
     dpi::{LogicalSize, PhysicalPosition},
     event_loop::ActiveEventLoop,
     monitor::{MonitorHandle, VideoModeHandle},
-    window::{CursorGrabMode as WinitCursorGrabMode, Fullscreen, WindowId, Window as WinitWindow}
+    window::{CursorGrabMode as WinitCursorGrabMode, Fullscreen, Window as WinitWindow, WindowId},
 };
 
 use crate::{
@@ -55,9 +55,8 @@ impl WinitWindows {
         winit_window_attributes = winit_window_attributes.with_visible(false);
 
         winit_window_attributes = match window.mode {
-            WindowMode::BorderlessFullscreen => winit_window_attributes.with_fullscreen(Some(
-                Fullscreen::Borderless(event_loop.primary_monitor()),
-            )),
+            WindowMode::BorderlessFullscreen => winit_window_attributes
+                .with_fullscreen(Some(Fullscreen::Borderless(event_loop.primary_monitor()))),
             mode @ (WindowMode::Fullscreen | WindowMode::SizedFullscreen) => {
                 if let Some(primary_monitor) = event_loop.primary_monitor() {
                     let videomode = match mode {
@@ -70,8 +69,7 @@ impl WinitWindows {
                         _ => unreachable!(),
                     };
 
-                    winit_window_attributes
-                        .with_fullscreen(Some(Fullscreen::Exclusive(videomode)))
+                    winit_window_attributes.with_fullscreen(Some(Fullscreen::Exclusive(videomode)))
                 } else {
                     warn!("Could not determine primary monitor, ignoring exclusive fullscreen request for window {:?}", window.title);
                     winit_window_attributes
@@ -270,10 +268,7 @@ impl WinitWindows {
     /// Remove a window from winit.
     ///
     /// This should mostly just be called when the window is closing.
-    pub fn remove_window(
-        &mut self,
-        entity: Entity,
-    ) -> Option<WindowWrapper<WinitWindow>> {
+    pub fn remove_window(&mut self, entity: Entity) -> Option<WindowWrapper<WinitWindow>> {
         let winit_id = self.entity_to_winit.remove(&entity)?;
         self.winit_to_entity.remove(&winit_id);
         self.windows.remove(&winit_id)
@@ -283,11 +278,7 @@ impl WinitWindows {
 /// Gets the "best" video mode which fits the given dimensions.
 ///
 /// The heuristic for "best" prioritizes width, height, and refresh rate in that order.
-pub fn get_fitting_videomode(
-    monitor: &MonitorHandle,
-    width: u32,
-    height: u32,
-) -> VideoModeHandle {
+pub fn get_fitting_videomode(monitor: &MonitorHandle, width: u32, height: u32) -> VideoModeHandle {
     let mut modes = monitor.video_modes().collect::<Vec<_>>();
 
     fn abs_diff(a: u32, b: u32) -> u32 {
