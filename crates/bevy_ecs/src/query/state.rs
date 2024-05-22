@@ -76,7 +76,6 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
 
 /// View into a [`QueryState`] to get around split-borrow issues.
 pub struct QueryStateView<'me, D: QueryData, F: QueryFilter = ()> {
-    world_id: WorldId,
     archetype_generation: &'me mut ArchetypeGeneration,
     /// Metadata about the [`Table`](crate::storage::Table)s matched by this query.
     matched_tables: &'me mut FixedBitSet,
@@ -89,8 +88,6 @@ pub struct QueryStateView<'me, D: QueryData, F: QueryFilter = ()> {
     matched_storage_ids: &'me mut Vec<StorageId>,
     fetch_state: &'me D::State,
     filter_state: &'me F::State,
-    #[cfg(feature = "trace")]
-    par_iter_span: &'me Span,
 }
 
 impl<'me, D: QueryData, F: QueryFilter> From<&'me mut QueryState<D, F>>
@@ -98,7 +95,6 @@ impl<'me, D: QueryData, F: QueryFilter> From<&'me mut QueryState<D, F>>
 {
     fn from(value: &'me mut QueryState<D, F>) -> Self {
         Self {
-            world_id: value.world_id,
             archetype_generation: &mut value.archetype_generation,
             matched_tables: &mut value.matched_tables,
             matched_archetypes: &mut value.matched_archetypes,
@@ -106,13 +102,26 @@ impl<'me, D: QueryData, F: QueryFilter> From<&'me mut QueryState<D, F>>
             matched_storage_ids: &mut value.matched_storage_ids,
             fetch_state: &value.fetch_state,
             filter_state: &value.filter_state,
-            #[cfg(feature = "trace")]
-            par_iter_span: &value.par_iter_span,
         }
     }
 }
 
 impl<'me, D: QueryData, F: QueryFilter> QueryStateView<'me, D, F> {
+
+    /// Updates the state's internal view of the `world`'s archetypes. If this is not called before querying data,
+    /// the results may not accurately reflect what is in the `world`.
+    ///
+    /// This is only required if a `manual` method (such as [`Self::get_manual`]) is being called, and it only needs to
+    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
+    /// non-`manual` methods such as [`QueryState::get`] do not need to call this as it will be automatically called for them.
+    ///
+    /// # Note
+    ///
+    /// This method only accesses world metadata.
+    ///
+    /// # Panics
+    ///
+    /// If `world` does not match the one used to call `QueryState::new` for this instance.
     fn update_archetypes_unsafe_world_cell_with(
         &mut self,
         world: UnsafeWorldCell,
@@ -126,6 +135,10 @@ impl<'me, D: QueryData, F: QueryFilter> QueryStateView<'me, D, F> {
                 f(self, archetype);
             }
         } else {
+            // skip if we are already up to date
+            if *self.archetype_generation == world.archetypes().generation() {
+                return;
+            }
             // if there are required components, we can optimize by only iterating through archetypes
             // that contain at least one of the required components
             let potential_archetypes = self
