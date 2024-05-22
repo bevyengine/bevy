@@ -147,6 +147,7 @@ fn setup(
                 material: materials.add(StandardMaterial {
                     base_color: RED.into(),
                     emissive: Color::linear_rgba(713.0, 0.0, 0.0, 0.0),
+                    emissive_exposure_weight: 1.0,
                     ..default()
                 }),
                 ..default()
@@ -175,6 +176,7 @@ fn setup(
                 material: materials.add(StandardMaterial {
                     base_color: LIME.into(),
                     emissive: Color::linear_rgba(0.0, 713.0, 0.0, 0.0),
+                    emissive_exposure_weight: 1.0,
                     ..default()
                 }),
                 ..default()
