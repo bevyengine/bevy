@@ -780,6 +780,34 @@ impl Triangle3d {
         ab.cross(ac).length() < 10e-7
     }
 
+    /// Checks if the triangle is acute, meaning all angles are less than 90 degrees
+    #[inline(always)]
+    pub fn is_acute(&self) -> bool {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let bc = c - b;
+        let ca = a - c;
+
+        // a^2 + b^2 < c^2 for an acute triangle
+        let mut side_lengths = [ab.length(), bc.length(), ca.length()];
+        side_lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        side_lengths[0].powf(2.) + side_lengths[1].powf(2.) > side_lengths[2].powf(2.)
+    }
+
+    /// Checks if the triangle is obtuse, meaning one angle is greater than 90 degrees
+    #[inline(always)]
+    pub fn is_obtuse(&self) -> bool {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let bc = c - b;
+        let ca = a - c;
+
+        // a^2 + b^2 > c^2 for an obtuse triangle
+        let mut side_lengths = [ab.length(), bc.length(), ca.length()];
+        side_lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        side_lengths[0].powf(2.) + side_lengths[1].powf(2.) < side_lengths[2].powf(2.)
+    }
+
     /// Reverse the triangle by swapping the first and last vertices.
     #[inline(always)]
     pub fn reverse(&mut self) {
@@ -1288,6 +1316,11 @@ mod tests {
             Vec3::new(0.5, 2.475, 0.0),
             "incorrect circumcenter"
         );
+
+        assert!(acute_triangle.is_acute());
+        assert!(!acute_triangle.is_obtuse());
+        assert!(!obtuse_triangle.is_acute());
+        assert!(obtuse_triangle.is_obtuse());
 
         // Arbitrary triangle tests
         let [a, b, c] = [Vec3::ZERO, Vec3::new(1., 1., 0.5), Vec3::new(-3., 2.5, 1.)];

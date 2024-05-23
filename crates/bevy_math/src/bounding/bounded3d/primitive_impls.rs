@@ -323,31 +323,15 @@ impl Bounded3d for Triangle3d {
     /// The [`Triangle3d`] implements the minimal bounding sphere calculation. For acute triangles, the circumcenter is used as
     /// the center of the sphere. For the others, the bounding sphere is the minimal sphere
     /// that contains the largest side of the triangle.
-    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
-        if self.is_degenerate() {
+    fn bounding_sphere(&self, translation: Vec3, _: Quat) -> BoundingSphere {
+        if self.is_degenerate() || self.is_obtuse() {
             let (p1, p2) = self.largest_side();
-            let mid_point = (p1 + p2) / 2.0;
-            let (segment, _) = Segment3d::from_points(p1, p2);
-            return segment.bounding_sphere(mid_point, rotation);
-        }
-
-        let [a, b, c] = self.vertices;
-
-        let side_opposite_to_non_acute = if (b - a).dot(c - a) <= 0.0 {
-            Some((b, c))
-        } else if (c - b).dot(a - b) <= 0.0 {
-            Some((c, a))
-        } else if (a - c).dot(b - c) <= 0.0 {
-            Some((a, b))
-        } else {
-            None
-        };
-
-        if let Some((p1, p2)) = side_opposite_to_non_acute {
             let mid_point = (p1 + p2) / 2.0;
             let radius = mid_point.distance(p1);
             BoundingSphere::new(mid_point + translation, radius)
         } else {
+            let [a, _, _] = self.vertices;
+
             let circumcenter = self.circumcenter();
             let radius = circumcenter.distance(a);
             BoundingSphere::new(circumcenter + translation, radius)
@@ -627,6 +611,14 @@ mod tests {
             "incorrect bounding box half extents"
         );
 
+        let bs = zero_degenerate_triangle.bounding_sphere(Vec3::ZERO, Quat::IDENTITY);
+        assert_eq!(
+            bs.center,
+            Vec3::ZERO.into(),
+            "incorrect bounding sphere center"
+        );
+        assert_eq!(bs.sphere.radius, 0.0, "incorrect bounding sphere radius");
+
         let dup_degenerate_triangle = Triangle3d::new(Vec3::ZERO, Vec3::X, Vec3::X);
         let bs = dup_degenerate_triangle.bounding_sphere(Vec3::ZERO, Quat::IDENTITY);
         assert_eq!(
@@ -666,18 +658,5 @@ mod tests {
             Vec3::new(1.0, 0.0, 0.0).into(),
             "incorrect bounding box half extents"
         );
-    }
-
-    #[test]
-    #[should_panic]
-    fn degenerate_bounding_sphere_should_panic() {
-        let zero_degenerate_triangle = Triangle3d::new(Vec3::ZERO, Vec3::ZERO, Vec3::ZERO);
-        let bs = zero_degenerate_triangle.bounding_sphere(Vec3::ZERO, Quat::IDENTITY); // DIVISION BY ZERO
-        assert_eq!(
-            bs.center,
-            Vec3::ZERO.into(),
-            "incorrect bounding sphere center"
-        );
-        assert_eq!(bs.sphere.radius, 0.0, "incorrect bounding sphere radius");
     }
 }
