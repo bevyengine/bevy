@@ -33,7 +33,7 @@ target_sdk_version = 33
 
 Please reference `cargo-apk` [README](https://crates.io/crates/cargo-apk) for other Android Manifest fields.
 
-For this exmaple, you can replace the `Cargo.toml` with the one within this folder.
+For this example, you can replace the `Cargo.toml` with the one within this folder.
 
 Please refer example [README](../../README.md#debugging) for debugging instructions.
 
