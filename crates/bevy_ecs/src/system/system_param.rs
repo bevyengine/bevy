@@ -979,8 +979,9 @@ pub struct NonSendRes<'w, T: 'static> {
     this_run: Tick,
 }
 
+/// See [`NonSendRes`]
 #[deprecated = "Use `NonSendRes` instead"]
-pub type NonSend<'w, T: 'static> = NonSendRes<'w, T>;
+pub type NonSend<'w, T> = NonSendRes<'w, T>;
 
 // SAFETY: Only reads a single World non-send resource
 unsafe impl<'w, T> ReadOnlySystemParam for NonSendRes<'w, T> {}

@@ -8,6 +8,7 @@ use crate::{
 use bevy_ptr::{Ptr, UnsafeCellDeref};
 use std::mem;
 use std::ops::{Deref, DerefMut};
+use crate::prelude::NonSendRes;
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
 ///
@@ -621,8 +622,9 @@ pub struct NonSendResMut<'w, T: ?Sized + 'static> {
     pub(crate) ticks: TicksMut<'w>,
 }
 
+/// See [`NonSendResMut`]
 #[deprecated = "Use `NonSendResMut` instead"]
-pub type NonSendMut<'w, T: ?Sized + 'static> = NonSendResMut<'w, T>;
+pub type NonSendMut<'w, T> = NonSendResMut<'w, T>;
 
 change_detection_impl!(NonSendResMut<'w, T>, T,);
 change_detection_mut_impl!(NonSendResMut<'w, T>, T,);
