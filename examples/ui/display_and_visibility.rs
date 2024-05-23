@@ -54,7 +54,7 @@ impl TargetUpdate for Target<Display> {
         style.display = match style.display {
             Display::Flex => Display::None,
             Display::None => Display::Flex,
-            Display::Grid => unreachable!(),
+            Display::Block | Display::Grid => unreachable!(),
         };
         format!("{}::{:?} ", Self::NAME, style.display)
     }

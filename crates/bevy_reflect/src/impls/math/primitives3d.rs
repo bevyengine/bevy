@@ -1,6 +1,6 @@
 use crate as bevy_reflect;
 use crate::{ReflectDeserialize, ReflectSerialize};
-use bevy_math::{primitives::*, Dir3, Vec3};
+use bevy_math::{primitives::*, Dir3, Vec2, Vec3};
 use bevy_reflect_derive::impl_reflect;
 
 impl_reflect!(
@@ -15,6 +15,15 @@ impl_reflect!(
     #[reflect(Debug, PartialEq, Serialize, Deserialize)]
     #[type_path = "bevy_math::primitives"]
     struct Plane3d {
+        normal: Dir3,
+        half_size: Vec2,
+    }
+);
+
+impl_reflect!(
+    #[reflect(Debug, PartialEq, Serialize, Deserialize)]
+    #[type_path = "bevy_math::primitives"]
+    struct InfinitePlane3d {
         normal: Dir3,
     }
 );

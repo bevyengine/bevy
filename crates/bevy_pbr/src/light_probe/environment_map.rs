@@ -60,7 +60,7 @@ use bevy_render::{
         TextureSampleType, TextureView,
     },
     renderer::RenderDevice,
-    texture::{FallbackImage, Image},
+    texture::{FallbackImage, GpuImage, Image},
 };
 
 use std::num::NonZeroU32;
@@ -116,7 +116,7 @@ pub struct EnvironmentMapIds {
 /// A reflection probe is a type of environment map that specifies the light
 /// surrounding a region in space. For more information, see
 /// [`crate::environment_map`].
-#[derive(Bundle)]
+#[derive(Bundle, Clone)]
 pub struct ReflectionProbeBundle {
     /// Contains a transform that specifies the position of this reflection probe in space.
     pub spatial: SpatialBundle,
@@ -213,7 +213,7 @@ impl<'a> RenderViewEnvironmentMapBindGroupEntries<'a> {
     /// specular binding arrays respectively, as well as the sampler.
     pub(crate) fn get(
         render_view_environment_maps: Option<&RenderViewLightProbes<EnvironmentMapLight>>,
-        images: &'a RenderAssets<Image>,
+        images: &'a RenderAssets<GpuImage>,
         fallback_image: &'a FallbackImage,
         render_device: &RenderDevice,
     ) -> RenderViewEnvironmentMapBindGroupEntries<'a> {
@@ -283,7 +283,7 @@ impl LightProbeComponent for EnvironmentMapLight {
     // view.
     type ViewLightProbeInfo = EnvironmentMapViewLightProbeInfo;
 
-    fn id(&self, image_assets: &RenderAssets<Image>) -> Option<Self::AssetId> {
+    fn id(&self, image_assets: &RenderAssets<GpuImage>) -> Option<Self::AssetId> {
         if image_assets.get(&self.diffuse_map).is_none()
             || image_assets.get(&self.specular_map).is_none()
         {
@@ -302,7 +302,7 @@ impl LightProbeComponent for EnvironmentMapLight {
 
     fn create_render_view_light_probes(
         view_component: Option<&EnvironmentMapLight>,
-        image_assets: &RenderAssets<Image>,
+        image_assets: &RenderAssets<GpuImage>,
     ) -> RenderViewLightProbes<Self> {
         let mut render_view_light_probes = RenderViewLightProbes::new();
 

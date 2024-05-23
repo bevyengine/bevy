@@ -1,6 +1,6 @@
 use proc_macro::{TokenStream, TokenTree};
 use quote::{quote, quote_spanned};
-use rustc_hash::FxHashSet;
+use std::collections::HashSet;
 use syn::{spanned::Spanned, Ident};
 
 /// Finds an identifier that will not conflict with the specified set of tokens.
@@ -15,7 +15,7 @@ pub fn ensure_no_collision(value: Ident, haystack: TokenStream) -> Ident {
         // List of token streams that will be visited in future loop iterations.
         let mut unvisited = vec![haystack];
         // Identifiers we have found while searching tokens.
-        let mut found = FxHashSet::default();
+        let mut found = HashSet::new();
         while let Some(tokens) = unvisited.pop() {
             for t in tokens {
                 match t {

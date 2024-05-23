@@ -81,7 +81,7 @@ impl Plugin for BloomPlugin {
             .add_render_graph_node::<ViewNodeRunner<BloomNode>>(Core2d, Node2d::Bloom)
             .add_render_graph_edges(
                 Core2d,
-                (Node2d::MainPass, Node2d::Bloom, Node2d::Tonemapping),
+                (Node2d::EndMainPass, Node2d::Bloom, Node2d::Tonemapping),
             );
     }
 

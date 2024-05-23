@@ -10,6 +10,7 @@ use crate::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages, RenderAssets},
     render_resource::{Buffer, TextureView, VertexBufferLayout},
     renderer::RenderDevice,
+    texture::GpuImage,
 };
 use bevy_asset::{Asset, Handle};
 use bevy_derive::EnumVariantMeta;
@@ -92,7 +93,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// ## Other examples
 ///
 /// For further visualization, explanation, and examples, see the built-in Bevy examples,
-/// and the [implementation of the built-in shapes](https://github.com/bevyengine/bevy/tree/main/crates/bevy_render/src/mesh/shape).
+/// and the [implementation of the built-in shapes](https://github.com/bevyengine/bevy/tree/main/crates/bevy_render/src/mesh/primitives).
 /// In particular, [generate_custom_mesh](https://github.com/bevyengine/bevy/blob/main/examples/3d/generate_custom_mesh.rs)
 /// teaches you to access modify a Mesh's attributes after creating it.
 ///
@@ -121,8 +122,8 @@ pub struct Mesh {
     primitive_topology: PrimitiveTopology,
     /// `std::collections::BTreeMap` with all defined vertex attributes (Positions, Normals, ...)
     /// for this mesh. Attribute ids to attribute values.
-    /// Uses a BTreeMap because, unlike HashMap, it has a defined iteration order,
-    /// which allows easy stable VertexBuffers (i.e. same buffer order)
+    /// Uses a [`BTreeMap`] because, unlike `HashMap`, it has a defined iteration order,
+    /// which allows easy stable `VertexBuffers` (i.e. same buffer order)
     #[reflect(ignore)]
     attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
     indices: Option<Indices>,
@@ -543,15 +544,44 @@ impl Mesh {
     }
 
     /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of a mesh.
+    /// If the mesh is indexed, this defaults to smooth normals. Otherwise, it defaults to flat
+    /// normals.
     ///
     /// # Panics
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     ///
-    /// FIXME: The should handle more cases since this is called as a part of gltf
+    /// FIXME: This should handle more cases since this is called as a part of gltf
+    /// mesh loading where we can't really blame users for loading meshes that might
+    /// not conform to the limitations here!
+    pub fn compute_normals(&mut self) {
+        assert!(
+            matches!(self.primitive_topology, PrimitiveTopology::TriangleList),
+            "`compute_normals` can only work on `TriangleList`s"
+        );
+        if self.indices().is_none() {
+            self.compute_flat_normals();
+        } else {
+            self.compute_smooth_normals();
+        }
+    }
+
+    /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of a mesh.
+    ///
+    /// # Panics
+    /// Panics if [`Indices`] are set or [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    /// Consider calling [`Mesh::duplicate_vertices`] or exporting your mesh with normal
+    /// attributes.
+    ///
+    /// FIXME: This should handle more cases since this is called as a part of gltf
     /// mesh loading where we can't really blame users for loading meshes that might
     /// not conform to the limitations here!
     pub fn compute_flat_normals(&mut self) {
+        assert!(
+            self.indices().is_none(),
+            "`compute_flat_normals` can't work on indexed geometry. Consider calling either `Mesh::compute_smooth_normals` or `Mesh::duplicate_vertices` followed by `Mesh::compute_flat_normals`."
+        );
         assert!(
             matches!(self.primitive_topology, PrimitiveTopology::TriangleList),
             "`compute_flat_normals` can only work on `TriangleList`s"
@@ -563,64 +593,111 @@ impl Mesh {
             .as_float3()
             .expect("`Mesh::ATTRIBUTE_POSITION` vertex attributes should be of type `float3`");
 
-        match self.indices() {
-            Some(indices) => {
-                let mut count: usize = 0;
-                let mut corners = [0_usize; 3];
-                let mut normals = vec![[0.0f32; 3]; positions.len()];
-                let mut adjacency_counts = vec![0_usize; positions.len()];
+        let normals: Vec<_> = positions
+            .chunks_exact(3)
+            .map(|p| face_normal(p[0], p[1], p[2]))
+            .flat_map(|normal| [normal; 3])
+            .collect();
 
-                for i in indices.iter() {
-                    corners[count % 3] = i;
-                    count += 1;
-                    if count % 3 == 0 {
-                        let normal = face_normal(
-                            positions[corners[0]],
-                            positions[corners[1]],
-                            positions[corners[2]],
-                        );
-                        for corner in corners {
-                            normals[corner] =
-                                (Vec3::from(normal) + Vec3::from(normals[corner])).into();
-                            adjacency_counts[corner] += 1;
-                        }
-                    }
-                }
+        self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    }
 
-                // average (smooth) normals for shared vertices...
-                // TODO: support different methods of weighting the average
-                for i in 0..normals.len() {
-                    let count = adjacency_counts[i];
-                    if count > 0 {
-                        normals[i] = (Vec3::from(normals[i]) / (count as f32)).normalize().into();
-                    }
-                }
+    /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of an indexed mesh, smoothing normals for shared
+    /// vertices.
+    ///
+    /// # Panics
+    /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    /// Panics if the mesh does not have indices defined.
+    ///
+    /// FIXME: This should handle more cases since this is called as a part of gltf
+    /// mesh loading where we can't really blame users for loading meshes that might
+    /// not conform to the limitations here!
+    pub fn compute_smooth_normals(&mut self) {
+        assert!(
+            matches!(self.primitive_topology, PrimitiveTopology::TriangleList),
+            "`compute_smooth_normals` can only work on `TriangleList`s"
+        );
+        assert!(
+            self.indices().is_some(),
+            "`compute_smooth_normals` can only work on indexed meshes"
+        );
 
-                self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-            }
-            None => {
-                let normals: Vec<_> = positions
-                    .chunks_exact(3)
-                    .map(|p| face_normal(p[0], p[1], p[2]))
-                    .flat_map(|normal| [normal; 3])
-                    .collect();
+        let positions = self
+            .attribute(Mesh::ATTRIBUTE_POSITION)
+            .unwrap()
+            .as_float3()
+            .expect("`Mesh::ATTRIBUTE_POSITION` vertex attributes should be of type `float3`");
 
-                self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        let mut normals = vec![Vec3::ZERO; positions.len()];
+        let mut adjacency_counts = vec![0_usize; positions.len()];
+
+        self.indices()
+            .unwrap()
+            .iter()
+            .collect::<Vec<usize>>()
+            .chunks_exact(3)
+            .for_each(|face| {
+                let [a, b, c] = [face[0], face[1], face[2]];
+                let normal = Vec3::from(face_normal(positions[a], positions[b], positions[c]));
+                [a, b, c].iter().for_each(|pos| {
+                    normals[*pos] += normal;
+                    adjacency_counts[*pos] += 1;
+                });
+            });
+
+        // average (smooth) normals for shared vertices...
+        // TODO: support different methods of weighting the average
+        for i in 0..normals.len() {
+            let count = adjacency_counts[i];
+            if count > 0 {
+                normals[i] = (normals[i] / (count as f32)).normalize();
             }
         }
+
+        self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    }
+
+    /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
+    /// If the mesh is indexed, this defaults to smooth normals. Otherwise, it defaults to flat
+    /// normals.
+    ///
+    /// (Alternatively, you can use [`Mesh::compute_normals`] to mutate an existing mesh in-place)
+    ///
+    /// # Panics
+    /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    #[must_use]
+    pub fn with_computed_normals(mut self) -> Self {
+        self.compute_normals();
+        self
     }
 
     /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
     ///
-    /// (Alternatively, you can use [`Mesh::with_computed_flat_normals`] to mutate an existing mesh in-place)
+    /// (Alternatively, you can use [`Mesh::compute_flat_normals`] to mutate an existing mesh in-place)
     ///
     /// # Panics
-    /// Panics if [`Indices`] are set or [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3` or
-    /// if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
-    /// Consider calling [`Mesh::with_duplicated_vertices`] or export your mesh with normal attributes.
+    /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    /// Panics if the mesh has indices defined
     #[must_use]
     pub fn with_computed_flat_normals(mut self) -> Self {
         self.compute_flat_normals();
+        self
+    }
+
+    /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
+    ///
+    /// (Alternatively, you can use [`Mesh::compute_smooth_normals`] to mutate an existing mesh in-place)
+    ///
+    /// # Panics
+    /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    /// Panics if the mesh does not have indices defined.
+    #[must_use]
+    pub fn with_computed_smooth_normals(mut self) -> Self {
+        self.compute_smooth_normals();
         self
     }
 
@@ -734,10 +811,9 @@ impl Mesh {
     /// Transforms the vertex positions, normals, and tangents of the mesh in place by the given [`Transform`].
     pub fn transform_by(&mut self, transform: Transform) {
         // Needed when transforming normals and tangents
-        let covector_scale = transform.scale.yzx() * transform.scale.zxy();
-
+        let scale_recip = 1. / transform.scale;
         debug_assert!(
-            covector_scale != Vec3::ZERO,
+            transform.scale.yzx() * transform.scale.zxy() != Vec3::ZERO,
             "mesh transform scale cannot be zero on more than one axis"
         );
 
@@ -763,8 +839,9 @@ impl Mesh {
         {
             // Transform normals, taking into account non-uniform scaling and rotation
             normals.iter_mut().for_each(|normal| {
-                let scaled_normal = Vec3::from_slice(normal) * covector_scale;
-                *normal = (transform.rotation * scaled_normal.normalize_or_zero()).to_array();
+                *normal = (transform.rotation
+                    * scale_normal(Vec3::from_array(*normal), scale_recip))
+                .to_array();
             });
         }
 
@@ -773,7 +850,7 @@ impl Mesh {
         {
             // Transform tangents, taking into account non-uniform scaling and rotation
             tangents.iter_mut().for_each(|tangent| {
-                let scaled_tangent = Vec3::from_slice(tangent) * covector_scale;
+                let scaled_tangent = Vec3::from_slice(tangent) * transform.scale;
                 *tangent = (transform.rotation * scaled_tangent.normalize_or_zero()).to_array();
             });
         }
@@ -851,10 +928,9 @@ impl Mesh {
     /// Scales the vertex positions, normals, and tangents of the mesh in place by the given [`Vec3`].
     pub fn scale_by(&mut self, scale: Vec3) {
         // Needed when transforming normals and tangents
-        let covector_scale = scale.yzx() * scale.zxy();
-
+        let scale_recip = 1. / scale;
         debug_assert!(
-            covector_scale != Vec3::ZERO,
+            scale.yzx() * scale.zxy() != Vec3::ZERO,
             "mesh transform scale cannot be zero on more than one axis"
         );
 
@@ -877,8 +953,7 @@ impl Mesh {
         {
             // Transform normals, taking into account non-uniform scaling
             normals.iter_mut().for_each(|normal| {
-                let scaled_normal = Vec3::from_slice(normal) * covector_scale;
-                *normal = scaled_normal.normalize_or_zero().to_array();
+                *normal = scale_normal(Vec3::from_array(*normal), scale_recip).to_array();
             });
         }
 
@@ -887,7 +962,7 @@ impl Mesh {
         {
             // Transform tangents, taking into account non-uniform scaling
             tangents.iter_mut().for_each(|tangent| {
-                let scaled_tangent = Vec3::from_slice(tangent) * covector_scale;
+                let scaled_tangent = Vec3::from_slice(tangent) * scale;
                 *tangent = scaled_tangent.normalize_or_zero().to_array();
             });
         }
@@ -1400,18 +1475,18 @@ bitflags! {
     /// go upward. This allows the PBR bits in the downstream crate `bevy_pbr`
     /// to coexist in the same field without any shifts.
     #[derive(Clone, Debug)]
-    pub struct BaseMeshPipelineKey: u32 {
-        const MORPH_TARGETS = 1 << 31;
+    pub struct BaseMeshPipelineKey: u64 {
+        const MORPH_TARGETS = 1 << (u64::BITS - 1);
     }
 }
 
 impl BaseMeshPipelineKey {
-    pub const PRIMITIVE_TOPOLOGY_MASK_BITS: u32 = 0b111;
-    pub const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u32 =
-        31 - Self::PRIMITIVE_TOPOLOGY_MASK_BITS.count_ones();
+    pub const PRIMITIVE_TOPOLOGY_MASK_BITS: u64 = 0b111;
+    pub const PRIMITIVE_TOPOLOGY_SHIFT_BITS: u64 =
+        (u64::BITS - 1 - Self::PRIMITIVE_TOPOLOGY_MASK_BITS.count_ones()) as u64;
 
     pub fn from_primitive_topology(primitive_topology: PrimitiveTopology) -> Self {
-        let primitive_topology_bits = ((primitive_topology as u32)
+        let primitive_topology_bits = ((primitive_topology as u64)
             & Self::PRIMITIVE_TOPOLOGY_MASK_BITS)
             << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
         Self::from_bits_retain(primitive_topology_bits)
@@ -1421,11 +1496,11 @@ impl BaseMeshPipelineKey {
         let primitive_topology_bits = (self.bits() >> Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS)
             & Self::PRIMITIVE_TOPOLOGY_MASK_BITS;
         match primitive_topology_bits {
-            x if x == PrimitiveTopology::PointList as u32 => PrimitiveTopology::PointList,
-            x if x == PrimitiveTopology::LineList as u32 => PrimitiveTopology::LineList,
-            x if x == PrimitiveTopology::LineStrip as u32 => PrimitiveTopology::LineStrip,
-            x if x == PrimitiveTopology::TriangleList as u32 => PrimitiveTopology::TriangleList,
-            x if x == PrimitiveTopology::TriangleStrip as u32 => PrimitiveTopology::TriangleStrip,
+            x if x == PrimitiveTopology::PointList as u64 => PrimitiveTopology::PointList,
+            x if x == PrimitiveTopology::LineList as u64 => PrimitiveTopology::LineList,
+            x if x == PrimitiveTopology::LineStrip as u64 => PrimitiveTopology::LineStrip,
+            x if x == PrimitiveTopology::TriangleList as u64 => PrimitiveTopology::TriangleList,
+            x if x == PrimitiveTopology::TriangleStrip as u64 => PrimitiveTopology::TriangleStrip,
             _ => PrimitiveTopology::default(),
         }
     }
@@ -1463,64 +1538,85 @@ pub enum GpuBufferInfo {
     NonIndexed,
 }
 
-impl RenderAsset for Mesh {
-    type PreparedAsset = GpuMesh;
+impl RenderAsset for GpuMesh {
+    type SourceAsset = Mesh;
     type Param = (
         SRes<RenderDevice>,
-        SRes<RenderAssets<Image>>,
+        SRes<RenderAssets<GpuImage>>,
         SResMut<MeshVertexBufferLayouts>,
     );
 
-    fn asset_usage(&self) -> RenderAssetUsages {
-        self.asset_usage
+    #[inline]
+    fn asset_usage(mesh: &Self::SourceAsset) -> RenderAssetUsages {
+        mesh.asset_usage
+    }
+
+    fn byte_len(mesh: &Self::SourceAsset) -> Option<usize> {
+        let mut vertex_size = 0;
+        for attribute_data in mesh.attributes.values() {
+            let vertex_format = attribute_data.attribute.format;
+            vertex_size += vertex_format.get_size() as usize;
+        }
+
+        let vertex_count = mesh.count_vertices();
+        let index_bytes = mesh.get_index_buffer_bytes().map(<[_]>::len).unwrap_or(0);
+        Some(vertex_size * vertex_count + index_bytes)
     }
 
     /// Converts the extracted mesh a into [`GpuMesh`].
     fn prepare_asset(
-        self,
+        mesh: Self::SourceAsset,
         (render_device, images, ref mut mesh_vertex_buffer_layouts): &mut SystemParamItem<
             Self::Param,
         >,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>> {
-        let vertex_buffer_data = self.get_vertex_buffer_data();
+    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        let morph_targets = match mesh.morph_targets.as_ref() {
+            Some(mt) => {
+                let Some(target_image) = images.get(mt) else {
+                    return Err(PrepareAssetError::RetryNextUpdate(mesh));
+                };
+                Some(target_image.texture_view.clone())
+            }
+            None => None,
+        };
+
+        let vertex_buffer_data = mesh.get_vertex_buffer_data();
         let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("Mesh Vertex Buffer"),
             contents: &vertex_buffer_data,
         });
 
-        let buffer_info = if let Some(data) = self.get_index_buffer_bytes() {
+        let buffer_info = if let Some(data) = mesh.get_index_buffer_bytes() {
             GpuBufferInfo::Indexed {
                 buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
                     usage: BufferUsages::INDEX,
                     contents: data,
                     label: Some("Mesh Index Buffer"),
                 }),
-                count: self.indices().unwrap().len() as u32,
-                index_format: self.indices().unwrap().into(),
+                count: mesh.indices().unwrap().len() as u32,
+                index_format: mesh.indices().unwrap().into(),
             }
         } else {
             GpuBufferInfo::NonIndexed
         };
 
         let mesh_vertex_buffer_layout =
-            self.get_mesh_vertex_buffer_layout(mesh_vertex_buffer_layouts);
+            mesh.get_mesh_vertex_buffer_layout(mesh_vertex_buffer_layouts);
 
-        let mut key_bits = BaseMeshPipelineKey::from_primitive_topology(self.primitive_topology());
+        let mut key_bits = BaseMeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
         key_bits.set(
             BaseMeshPipelineKey::MORPH_TARGETS,
-            self.morph_targets.is_some(),
+            mesh.morph_targets.is_some(),
         );
 
         Ok(GpuMesh {
             vertex_buffer,
-            vertex_count: self.count_vertices() as u32,
+            vertex_count: mesh.count_vertices() as u32,
             buffer_info,
             key_bits,
             layout: mesh_vertex_buffer_layout,
-            morph_targets: self
-                .morph_targets
-                .and_then(|mt| images.get(&mt).map(|i| i.texture_view.clone())),
+            morph_targets,
         })
     }
 }
@@ -1646,10 +1742,27 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
     Ok(mikktspace_mesh.tangents)
 }
 
+/// Correctly scales and renormalizes an already normalized `normal` by the scale determined by its reciprocal `scale_recip`
+fn scale_normal(normal: Vec3, scale_recip: Vec3) -> Vec3 {
+    // This is basically just `normal * scale_recip` but with the added rule that `0. * anything == 0.`
+    // This is necessary because components of `scale_recip` may be infinities, which do not multiply to zero
+    let n = Vec3::select(normal.cmpeq(Vec3::ZERO), Vec3::ZERO, normal * scale_recip);
+
+    // If n is finite, no component of `scale_recip` was infinite or the normal was perpendicular to the scale
+    // else the scale had at least one zero-component and the normal needs to point along the direction of that component
+    if n.is_finite() {
+        n.normalize_or_zero()
+    } else {
+        Vec3::select(n.abs().cmpeq(Vec3::INFINITY), n.signum(), Vec3::ZERO).normalize()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Mesh;
-    use crate::render_asset::RenderAssetUsages;
+    use crate::{mesh::VertexAttributeValues, render_asset::RenderAssetUsages};
+    use bevy_math::Vec3;
+    use bevy_transform::components::Transform;
     use wgpu::PrimitiveTopology;
 
     #[test]
@@ -1660,5 +1773,57 @@ mod tests {
             RenderAssetUsages::default(),
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0, 0.0]]);
+    }
+
+    #[test]
+    fn transform_mesh() {
+        let mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            vec![[-1., -1., 2.], [1., -1., 2.], [0., 1., 2.]],
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_NORMAL,
+            vec![
+                Vec3::new(-1., -1., 1.).normalize().to_array(),
+                Vec3::new(1., -1., 1.).normalize().to_array(),
+                [0., 0., 1.],
+            ],
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0., 0.], [1., 0.], [0.5, 1.]]);
+
+        let mesh = mesh.transformed_by(
+            Transform::from_translation(Vec3::splat(-2.)).with_scale(Vec3::new(2., 0., -1.)),
+        );
+
+        if let Some(VertexAttributeValues::Float32x3(positions)) =
+            mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+        {
+            // All positions are first scaled resulting in `vec![[-2, 0., -2.], [2., 0., -2.], [0., 0., -2.]]`
+            // and then shifted by `-2.` along each axis
+            assert_eq!(
+                positions,
+                &vec![[-4.0, -2.0, -4.0], [0.0, -2.0, -4.0], [-2.0, -2.0, -4.0]]
+            );
+        } else {
+            panic!("Mesh does not have a position attribute");
+        }
+
+        if let Some(VertexAttributeValues::Float32x3(normals)) =
+            mesh.attribute(Mesh::ATTRIBUTE_NORMAL)
+        {
+            assert_eq!(normals, &vec![[0., -1., 0.], [0., -1., 0.], [0., 0., -1.]]);
+        } else {
+            panic!("Mesh does not have a normal attribute");
+        }
+
+        if let Some(VertexAttributeValues::Float32x2(uvs)) = mesh.attribute(Mesh::ATTRIBUTE_UV_0) {
+            assert_eq!(uvs, &vec![[0., 0.], [1., 0.], [0.5, 1.]]);
+        } else {
+            panic!("Mesh does not have a uv attribute");
+        }
     }
 }

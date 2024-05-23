@@ -9,7 +9,7 @@ pub struct TaskPoolThreadAssignmentPolicy {
     pub min_threads: usize,
     /// Under no circumstance use more than this many threads for this pool
     pub max_threads: usize,
-    /// Target using this percentage of total cores, clamped by min_threads and max_threads. It is
+    /// Target using this percentage of total cores, clamped by `min_threads` and `max_threads`. It is
     /// permitted to use 1.0 to try to use all remaining threads
     pub percent: f32,
 }
@@ -34,11 +34,11 @@ impl TaskPoolThreadAssignmentPolicy {
 /// set up [`TaskPoolPlugin`](super::TaskPoolPlugin)
 #[derive(Clone, Debug)]
 pub struct TaskPoolOptions {
-    /// If the number of physical cores is less than min_total_threads, force using
-    /// min_total_threads
+    /// If the number of physical cores is less than `min_total_threads`, force using
+    /// `min_total_threads`
     pub min_total_threads: usize,
-    /// If the number of physical cores is greater than max_total_threads, force using
-    /// max_total_threads
+    /// If the number of physical cores is greater than `max_total_threads`, force using
+    /// `max_total_threads`
     pub max_total_threads: usize,
 
     /// Used to determine number of IO threads to allocate

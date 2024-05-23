@@ -334,7 +334,7 @@ fn quit(
         .distance(cursor_world_pos)
         < BEVY_LOGO_RADIUS
     {
-        app_exit.send(AppExit);
+        app_exit.send(AppExit::Success);
     }
 }
 

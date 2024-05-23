@@ -2,7 +2,12 @@
 
 #import bevy_pbr::{
     mesh_view_bindings as bindings,
-    utils::{hsv2rgb, rand_f},
+    utils::rand_f,
+}
+
+#import bevy_render::{
+   color_operations::hsv_to_rgb,
+   maths::PI_2,
 }
 
 // NOTE: Keep in sync with bevy_pbr/src/light.rs
@@ -78,7 +83,11 @@ fn cluster_debug_visualization(
     if (z_slice & 1u) == 1u {
         z_slice = z_slice + bindings::lights.cluster_dimensions.z / 2u;
     }
-    let slice_color = hsv2rgb(f32(z_slice) / f32(bindings::lights.cluster_dimensions.z + 1u), 1.0, 0.5);
+    let slice_color = hsv_to_rgb(
+        f32(z_slice) / f32(bindings::lights.cluster_dimensions.z + 1u) * PI_2,
+        1.0,
+        0.5
+    );
     output_color = vec4<f32>(
         (1.0 - cluster_overlay_alpha) * output_color.rgb + cluster_overlay_alpha * slice_color,
         output_color.a
@@ -96,7 +105,7 @@ fn cluster_debug_visualization(
     // NOTE: Visualizes the cluster to which the fragment belongs
     let cluster_overlay_alpha = 0.1;
     var rng = cluster_index;
-    let cluster_color = hsv2rgb(rand_f(&rng), 1.0, 0.5);
+    let cluster_color = hsv_to_rgb(rand_f(&rng) * PI_2, 1.0, 0.5);
     output_color = vec4<f32>(
         (1.0 - cluster_overlay_alpha) * output_color.rgb + cluster_overlay_alpha * cluster_color,
         output_color.a

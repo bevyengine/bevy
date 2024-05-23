@@ -92,8 +92,7 @@ pub enum SceneSpawnError {
         and registering the type using `app.register_type::<T>()`"
     )]
     UnregisteredType {
-        /// The [type name] for the unregistered type.
-        /// [type name]: std::any::type_name
+        /// The [type name](std::any::type_name) for the unregistered type.
         std_type_name: String,
     },
     /// Scene contains an unregistered type which has a `TypePath`.

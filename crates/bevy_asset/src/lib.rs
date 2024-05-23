@@ -27,6 +27,7 @@ mod folder;
 mod handle;
 mod id;
 mod loader;
+mod loader_builders;
 mod path;
 mod reflect;
 mod server;
@@ -40,6 +41,9 @@ pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
 pub use handle::*;
 pub use id::*;
 pub use loader::*;
+pub use loader_builders::{
+    DirectNestedLoader, NestedLoader, UntypedDirectNestedLoader, UntypedNestedLoader,
+};
 pub use path::*;
 pub use reflect::*;
 pub use server::*;
@@ -55,18 +59,17 @@ use bevy_app::{App, Last, Plugin, PreUpdate};
 use bevy_ecs::{
     reflect::AppTypeRegistry,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet},
-    system::Resource,
     world::FromWorld,
 };
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use bevy_utils::{tracing::error, HashSet};
 use std::{any::TypeId, sync::Arc};
 
-#[cfg(all(feature = "file_watcher", not(feature = "multi-threaded")))]
+#[cfg(all(feature = "file_watcher", not(feature = "multi_threaded")))]
 compile_error!(
     "The \"file_watcher\" feature for hot reloading requires the \
-    \"multi-threaded\" feature to be functional.\n\
-    Consider either disabling the \"file_watcher\" feature or enabling \"multi-threaded\""
+    \"multi_threaded\" feature to be functional.\n\
+    Consider either disabling the \"file_watcher\" feature or enabling \"multi_threaded\""
 );
 
 /// Provides "asset" loading and processing functionality. An [`Asset`] is a "runtime value" that is loaded from an [`AssetSource`],
@@ -90,6 +93,8 @@ pub struct AssetPlugin {
     pub watch_for_changes_override: Option<bool>,
     /// The [`AssetMode`] to use for this server.
     pub mode: AssetMode,
+    /// How/If asset meta files should be checked.
+    pub meta_check: AssetMetaCheck,
 }
 
 #[derive(Debug)]
@@ -118,8 +123,7 @@ pub enum AssetMode {
 
 /// Configures how / if meta files will be checked. If an asset's meta file is not checked, the default meta for the asset
 /// will be used.
-// TODO: To avoid breaking Bevy 0.12 users in 0.12.1, this is a Resource. In Bevy 0.13 this should be changed to a field on AssetPlugin (if it is still needed).
-#[derive(Debug, Default, Clone, Resource)]
+#[derive(Debug, Default, Clone)]
 pub enum AssetMetaCheck {
     /// Always check if assets have meta files. If the meta does not exist, the default meta will be used.
     #[default]
@@ -137,6 +141,7 @@ impl Default for AssetPlugin {
             file_path: Self::DEFAULT_UNPROCESSED_FILE_PATH.to_string(),
             processed_file_path: Self::DEFAULT_PROCESSED_FILE_PATH.to_string(),
             watch_for_changes_override: None,
+            meta_check: AssetMetaCheck::default(),
         }
     }
 }
@@ -171,16 +176,11 @@ impl Plugin for AssetPlugin {
                 AssetMode::Unprocessed => {
                     let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
                     let sources = builders.build_sources(watch, false);
-                    let meta_check = app
-                        .world()
-                        .get_resource::<AssetMetaCheck>()
-                        .cloned()
-                        .unwrap_or_else(AssetMetaCheck::default);
 
                     app.insert_resource(AssetServer::new_with_meta_check(
                         sources,
                         AssetServerMode::Unprocessed,
-                        meta_check,
+                        self.meta_check.clone(),
                         watch,
                     ));
                 }
@@ -514,12 +514,15 @@ mod tests {
             let mut ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
             let mut embedded = String::new();
             for dep in ron.embedded_dependencies {
-                let loaded = load_context.load_direct(&dep).await.map_err(|_| {
-                    Self::Error::CannotLoadDependency {
+                let loaded = load_context
+                    .loader()
+                    .direct()
+                    .load::<CoolText>(&dep)
+                    .await
+                    .map_err(|_| Self::Error::CannotLoadDependency {
                         dependency: dep.into(),
-                    }
-                })?;
-                let cool = loaded.get::<CoolText>().unwrap();
+                    })?;
+                let cool = loaded.get();
                 embedded.push_str(&cool.text);
             }
             Ok(CoolText {
@@ -659,8 +662,8 @@ mod tests {
     #[test]
     fn load_dependencies() {
         // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-        #[cfg(not(feature = "multi-threaded"))]
-        panic!("This test requires the \"multi-threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi-threaded");
+        #[cfg(not(feature = "multi_threaded"))]
+        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
 
         let dir = Dir::default();
 
@@ -980,8 +983,8 @@ mod tests {
     #[test]
     fn failure_load_states() {
         // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-        #[cfg(not(feature = "multi-threaded"))]
-        panic!("This test requires the \"multi-threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi-threaded");
+        #[cfg(not(feature = "multi_threaded"))]
+        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
 
         let dir = Dir::default();
 
@@ -1071,13 +1074,13 @@ mod tests {
             let d_id = c_text.dependencies[0].id();
             let d_text = get::<CoolText>(world, d_id);
             let (d_load, d_deps, d_rec_deps) = asset_server.get_load_states(d_id).unwrap();
-            if d_load != LoadState::Failed {
+            if !matches!(d_load, LoadState::Failed(_)) {
                 // wait until d has exited the loading state
                 return None;
             }
 
             assert!(d_text.is_none());
-            assert_eq!(d_load, LoadState::Failed);
+            assert!(matches!(d_load, LoadState::Failed(_)));
             assert_eq!(d_deps, DependencyLoadState::Failed);
             assert_eq!(d_rec_deps, RecursiveDependencyLoadState::Failed);
 
@@ -1145,8 +1148,8 @@ mod tests {
     #[test]
     fn manual_asset_management() {
         // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-        #[cfg(not(feature = "multi-threaded"))]
-        panic!("This test requires the \"multi-threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi-threaded");
+        #[cfg(not(feature = "multi_threaded"))]
+        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
 
         let dir = Dir::default();
         let dep_path = "dep.cool.ron";
@@ -1246,8 +1249,8 @@ mod tests {
     #[test]
     fn load_folder() {
         // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-        #[cfg(not(feature = "multi-threaded"))]
-        panic!("This test requires the \"multi-threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi-threaded");
+        #[cfg(not(feature = "multi_threaded"))]
+        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
 
         let dir = Dir::default();
 
@@ -1384,7 +1387,7 @@ mod tests {
             // Check what just failed
             for error in errors.read() {
                 let (load_state, _, _) = server.get_load_states(error.id).unwrap();
-                assert_eq!(load_state, LoadState::Failed);
+                assert!(matches!(load_state, LoadState::Failed(_)));
                 assert_eq!(*error.path.source(), AssetSourceId::Name("unstable".into()));
                 match &error.error {
                     AssetLoadError::AssetReaderError(read_error) => match read_error {

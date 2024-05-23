@@ -6,7 +6,7 @@ use bevy_math::Mat4;
 use bevy_render::{
     batching::NoAutomaticBatching,
     mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-    render_resource::{BufferUsages, BufferVec},
+    render_resource::{BufferUsages, RawBufferVec},
     renderer::{RenderDevice, RenderQueue},
     view::ViewVisibility,
     Extract,
@@ -36,13 +36,13 @@ pub struct SkinIndices(EntityHashMap<SkinIndex>);
 // Notes on implementation: see comment on top of the `extract_skins` system.
 #[derive(Resource)]
 pub struct SkinUniform {
-    pub buffer: BufferVec<Mat4>,
+    pub buffer: RawBufferVec<Mat4>,
 }
 
 impl Default for SkinUniform {
     fn default() -> Self {
         Self {
-            buffer: BufferVec::new(BufferUsages::UNIFORM),
+            buffer: RawBufferVec::new(BufferUsages::UNIFORM),
         }
     }
 }

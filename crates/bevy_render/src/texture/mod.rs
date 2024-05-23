@@ -84,7 +84,7 @@ impl Plugin for ImagePlugin {
             app.init_asset_loader::<HdrTextureLoader>();
         }
 
-        app.add_plugins(RenderAssetPlugin::<Image>::default())
+        app.add_plugins(RenderAssetPlugin::<GpuImage>::default())
             .register_type::<Image>()
             .init_asset::<Image>()
             .register_asset_reflect::<Image>();

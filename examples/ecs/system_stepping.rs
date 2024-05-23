@@ -1,4 +1,6 @@
 //! Demonstrate stepping through systems in order of execution.
+//!
+//! To run this example, you must enable the `bevy_debug_stepping` feature.
 
 use bevy::{ecs::schedule::Stepping, log::LogPlugin, prelude::*};
 

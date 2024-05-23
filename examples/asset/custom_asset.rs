@@ -20,7 +20,7 @@ struct CustomAssetLoader;
 /// Possible errors that can be produced by [`CustomAssetLoader`]
 #[non_exhaustive]
 #[derive(Debug, Error)]
-pub enum CustomAssetLoaderError {
+enum CustomAssetLoaderError {
     /// An [IO](std::io) Error
     #[error("Could not load asset: {0}")]
     Io(#[from] std::io::Error),
@@ -58,10 +58,10 @@ struct Blob {
 #[derive(Default)]
 struct BlobAssetLoader;
 
-/// Possible errors that can be produced by [`CustomAssetLoader`]
+/// Possible errors that can be produced by [`BlobAssetLoader`]
 #[non_exhaustive]
 #[derive(Debug, Error)]
-pub enum BlobAssetLoaderError {
+enum BlobAssetLoaderError {
     /// An [IO](std::io) Error
     #[error("Could not load file: {0}")]
     Io(#[from] std::io::Error),

@@ -252,14 +252,14 @@ fn cycle_filter_methods(
             let filter_method_string;
             *filter_method = match *filter_method {
                 ShadowFilteringMethod::Hardware2x2 => {
-                    filter_method_string = "Castano13".to_string();
-                    ShadowFilteringMethod::Castano13
+                    filter_method_string = "Gaussian".to_string();
+                    ShadowFilteringMethod::Gaussian
                 }
-                ShadowFilteringMethod::Castano13 => {
-                    filter_method_string = "Jimenez14".to_string();
-                    ShadowFilteringMethod::Jimenez14
+                ShadowFilteringMethod::Gaussian => {
+                    filter_method_string = "Temporal".to_string();
+                    ShadowFilteringMethod::Temporal
                 }
-                ShadowFilteringMethod::Jimenez14 => {
+                ShadowFilteringMethod::Temporal => {
                     filter_method_string = "Hardware2x2".to_string();
                     ShadowFilteringMethod::Hardware2x2
                 }

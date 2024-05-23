@@ -69,6 +69,7 @@ impl Plugin for TemporalAntiAliasPlugin {
                 (
                     Node3d::EndMainPass,
                     Node3d::Taa,
+                    Node3d::MotionBlur, // Run MB after TAA, else TAA will add motion artifacts
                     Node3d::Bloom,
                     Node3d::Tonemapping,
                 ),
@@ -85,7 +86,7 @@ impl Plugin for TemporalAntiAliasPlugin {
 }
 
 /// Bundle to apply temporal anti-aliasing.
-#[derive(Bundle, Default)]
+#[derive(Bundle, Default, Clone)]
 pub struct TemporalAntiAliasBundle {
     pub settings: TemporalAntiAliasSettings,
     pub jitter: TemporalJitter,

@@ -1,14 +1,13 @@
 use crate::{
+    mesh::primitives::dim3::triangle3d,
     mesh::{Indices, Mesh},
     render_asset::RenderAssetUsages,
 };
 
-use super::Meshable;
-use bevy_math::{
-    primitives::{
-        Annulus, Capsule2d, Circle, Ellipse, Rectangle, RegularPolygon, Triangle2d, WindingOrder,
-    },
-    Vec2,
+use super::{MeshBuilder, Meshable};
+use bevy_math::primitives::{
+    Annulus, Capsule2d, Circle, Ellipse, Rectangle, RegularPolygon, Triangle2d, Triangle3d,
+    WindingOrder,
 };
 use wgpu::PrimitiveTopology;
 
@@ -49,9 +48,10 @@ impl CircleMeshBuilder {
         self.resolution = resolution;
         self
     }
+}
 
-    /// Builds a [`Mesh`] based on the configuration in `self`.
-    pub fn build(&self) -> Mesh {
+impl MeshBuilder for CircleMeshBuilder {
+    fn build(&self) -> Mesh {
         RegularPolygon::new(self.circle.radius, self.resolution).mesh()
     }
 }
@@ -70,12 +70,6 @@ impl Meshable for Circle {
 impl From<Circle> for Mesh {
     fn from(circle: Circle) -> Self {
         circle.mesh().build()
-    }
-}
-
-impl From<CircleMeshBuilder> for Mesh {
-    fn from(circle: CircleMeshBuilder) -> Self {
-        circle.build()
     }
 }
 
@@ -134,9 +128,10 @@ impl EllipseMeshBuilder {
         self.resolution = resolution;
         self
     }
+}
 
-    /// Builds a [`Mesh`] based on the configuration in `self`.
-    pub fn build(&self) -> Mesh {
+impl MeshBuilder for EllipseMeshBuilder {
+    fn build(&self) -> Mesh {
         let mut indices = Vec::with_capacity((self.resolution - 2) * 3);
         let mut positions = Vec::with_capacity(self.resolution);
         let normals = vec![[0.0, 0.0, 1.0]; self.resolution];
@@ -189,12 +184,6 @@ impl From<Ellipse> for Mesh {
     }
 }
 
-impl From<EllipseMeshBuilder> for Mesh {
-    fn from(ellipse: EllipseMeshBuilder) -> Self {
-        ellipse.build()
-    }
-}
-
 /// A builder for creating a [`Mesh`] with an [`Annulus`] shape.
 pub struct AnnulusMeshBuilder {
     /// The [`Annulus`] shape.
@@ -230,9 +219,10 @@ impl AnnulusMeshBuilder {
         self.resolution = resolution;
         self
     }
+}
 
-    /// Builds a [`Mesh`] based on the configuration in `self`.
-    pub fn build(&self) -> Mesh {
+impl MeshBuilder for AnnulusMeshBuilder {
+    fn build(&self) -> Mesh {
         let inner_radius = self.annulus.inner_circle.radius;
         let outer_radius = self.annulus.outer_circle.radius;
 
@@ -307,35 +297,27 @@ impl From<Annulus> for Mesh {
     }
 }
 
-impl From<AnnulusMeshBuilder> for Mesh {
-    fn from(builder: AnnulusMeshBuilder) -> Self {
-        builder.build()
-    }
-}
-
 impl Meshable for Triangle2d {
     type Output = Mesh;
 
     fn mesh(&self) -> Self::Output {
-        let [a, b, c] = self.vertices;
+        let vertices_3d = self.vertices.map(|v| v.extend(0.));
 
-        let positions = vec![[a.x, a.y, 0.0], [b.x, b.y, 0.0], [c.x, c.y, 0.0]];
+        let positions: Vec<_> = vertices_3d.into();
         let normals = vec![[0.0, 0.0, 1.0]; 3];
 
-        // The extents of the bounding box of the triangle,
-        // used to compute the UV coordinates of the points.
-        let extents = a.min(b).min(c).abs().max(a.max(b).max(c)) * Vec2::new(1.0, -1.0);
-        let uvs = vec![
-            a / extents / 2.0 + 0.5,
-            b / extents / 2.0 + 0.5,
-            c / extents / 2.0 + 0.5,
-        ];
+        let uvs: Vec<_> = triangle3d::uv_coords(&Triangle3d::new(
+            vertices_3d[0],
+            vertices_3d[1],
+            vertices_3d[2],
+        ))
+        .into();
 
         let is_ccw = self.winding_order() == WindingOrder::CounterClockwise;
         let indices = if is_ccw {
             Indices::U32(vec![0, 1, 2])
         } else {
-            Indices::U32(vec![0, 2, 1])
+            Indices::U32(vec![2, 1, 0])
         };
 
         Mesh::new(
@@ -426,9 +408,10 @@ impl Capsule2dMeshBuilder {
         self.resolution = resolution;
         self
     }
+}
 
-    /// Builds a [`Mesh`] based on the configuration in `self`.
-    pub fn build(&self) -> Mesh {
+impl MeshBuilder for Capsule2dMeshBuilder {
+    fn build(&self) -> Mesh {
         // The resolution is the number of vertices for one semicircle
         let resolution = self.resolution as u32;
         let vertex_count = 2 * self.resolution;
@@ -517,12 +500,6 @@ impl Meshable for Capsule2d {
 impl From<Capsule2d> for Mesh {
     fn from(capsule: Capsule2d) -> Self {
         capsule.mesh().build()
-    }
-}
-
-impl From<Capsule2dMeshBuilder> for Mesh {
-    fn from(capsule: Capsule2dMeshBuilder) -> Self {
-        capsule.build()
     }
 }
 

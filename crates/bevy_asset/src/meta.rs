@@ -71,7 +71,7 @@ pub enum AssetAction<LoaderSettings, ProcessSettings> {
 pub struct ProcessedInfo {
     /// A hash of the asset bytes and the asset .meta data
     pub hash: AssetHash,
-    /// A hash of the asset bytes, the asset .meta data, and the `full_hash` of every process_dependency
+    /// A hash of the asset bytes, the asset .meta data, and the `full_hash` of every `process_dependency`
     pub full_hash: AssetHash,
     /// Information about the "process dependencies" used to process this asset.
     pub process_dependencies: Vec<ProcessDependencyInfo>,
@@ -208,21 +208,26 @@ impl AssetLoader for () {
     }
 }
 
+pub(crate) fn meta_transform_settings<S: Settings>(
+    meta: &mut dyn AssetMetaDyn,
+    settings: &(impl Fn(&mut S) + Send + Sync + 'static),
+) {
+    if let Some(loader_settings) = meta.loader_settings_mut() {
+        if let Some(loader_settings) = loader_settings.downcast_mut::<S>() {
+            settings(loader_settings);
+        } else {
+            error!(
+                "Configured settings type {} does not match AssetLoader settings type",
+                std::any::type_name::<S>(),
+            );
+        }
+    }
+}
+
 pub(crate) fn loader_settings_meta_transform<S: Settings>(
     settings: impl Fn(&mut S) + Send + Sync + 'static,
 ) -> MetaTransform {
-    Box::new(move |meta| {
-        if let Some(loader_settings) = meta.loader_settings_mut() {
-            if let Some(loader_settings) = loader_settings.downcast_mut::<S>() {
-                settings(loader_settings);
-            } else {
-                error!(
-                    "Configured settings type {} does not match AssetLoader settings type",
-                    std::any::type_name::<S>(),
-                );
-            }
-        }
-    })
+    Box::new(move |meta| meta_transform_settings(meta, &settings))
 }
 
 pub type AssetHash = [u8; 32];

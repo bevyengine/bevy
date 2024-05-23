@@ -5,6 +5,11 @@ use crate::{
 use async_broadcast::RecvError;
 use bevy_tasks::IoTaskPool;
 use bevy_utils::tracing::{error, warn};
+#[cfg(feature = "trace")]
+use bevy_utils::{
+    tracing::{info_span, instrument::Instrument},
+    ConditionalSendFuture,
+};
 use bevy_utils::{HashMap, TypeIdMap};
 use std::{any::TypeId, sync::Arc};
 use thiserror::Error;
@@ -30,6 +35,8 @@ impl AssetLoaders {
         let loader_asset_type = TypeId::of::<L::Asset>();
         let loader_asset_type_name = std::any::type_name::<L::Asset>();
 
+        #[cfg(feature = "trace")]
+        let loader = InstrumentedAssetLoader(loader);
         let loader = Arc::new(loader);
 
         let (loader_index, is_new) =
@@ -41,7 +48,7 @@ impl AssetLoaders {
 
         if is_new {
             let mut duplicate_extensions = Vec::new();
-            for extension in loader.extensions() {
+            for extension in AssetLoader::extensions(&*loader) {
                 let list = self
                     .extension_to_loaders
                     .entry((*extension).into())
@@ -289,6 +296,34 @@ impl MaybeAssetLoader {
             MaybeAssetLoader::Ready(loader) => Ok(loader),
             MaybeAssetLoader::Pending { mut receiver, .. } => Ok(receiver.recv().await?),
         }
+    }
+}
+
+#[cfg(feature = "trace")]
+struct InstrumentedAssetLoader<T>(T);
+
+#[cfg(feature = "trace")]
+impl<T: AssetLoader> AssetLoader for InstrumentedAssetLoader<T> {
+    type Asset = T::Asset;
+    type Settings = T::Settings;
+    type Error = T::Error;
+
+    fn load<'a>(
+        &'a self,
+        reader: &'a mut crate::io::Reader,
+        settings: &'a Self::Settings,
+        load_context: &'a mut crate::LoadContext,
+    ) -> impl ConditionalSendFuture<Output = Result<Self::Asset, Self::Error>> {
+        let span = info_span!(
+            "asset loading",
+            loader = std::any::type_name::<T>(),
+            asset = load_context.asset_path().to_string(),
+        );
+        self.0.load(reader, settings, load_context).instrument(span)
+    }
+
+    fn extensions(&self) -> &[&str] {
+        self.0.extensions()
     }
 }
 

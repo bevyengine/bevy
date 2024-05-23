@@ -51,7 +51,7 @@ pub(crate) struct AssetIndexAllocator {
     /// A monotonically increasing index.
     next_index: AtomicU32,
     recycled_queue_sender: Sender<AssetIndex>,
-    /// This receives every recycled AssetIndex. It serves as a buffer/queue to store indices ready for reuse.
+    /// This receives every recycled [`AssetIndex`]. It serves as a buffer/queue to store indices ready for reuse.
     recycled_queue_receiver: Receiver<AssetIndex>,
     recycled_sender: Sender<AssetIndex>,
     recycled_receiver: Receiver<AssetIndex>,

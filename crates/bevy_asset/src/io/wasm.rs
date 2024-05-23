@@ -37,7 +37,7 @@ impl HttpWasmAssetReader {
     }
 }
 
-fn js_value_to_err<'a>(context: &'a str) -> impl FnOnce(JsValue) -> std::io::Error + 'a {
+fn js_value_to_err(context: &str) -> impl FnOnce(JsValue) -> std::io::Error + '_ {
     move |value| {
         let message = match JSON::stringify(&value) {
             Ok(js_str) => format!("Failed to {context}: {js_str}"),
@@ -81,7 +81,7 @@ impl HttpWasmAssetReader {
                 Ok(reader)
             }
             404 => Err(AssetReaderError::NotFound(path)),
-            status => Err(AssetReaderError::HttpError(status as u16)),
+            status => Err(AssetReaderError::HttpError(status)),
         }
     }
 }
@@ -94,7 +94,7 @@ impl AssetReader for HttpWasmAssetReader {
 
     async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
         let meta_path = get_meta_path(&self.root_path.join(path));
-        Ok(self.fetch_bytes(meta_path).await?)
+        self.fetch_bytes(meta_path).await
     }
 
     async fn read_directory<'a>(

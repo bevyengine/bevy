@@ -3,7 +3,6 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
-use bevy_render::camera::Camera;
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::extract_resource::{ExtractResource, ExtractResourcePlugin};
 use bevy_render::render_asset::{RenderAssetUsages, RenderAssets};
@@ -11,11 +10,13 @@ use bevy_render::render_resource::binding_types::{
     sampler, texture_2d, texture_3d, uniform_buffer,
 };
 use bevy_render::renderer::RenderDevice;
-use bevy_render::texture::{CompressedImageFormats, Image, ImageSampler, ImageType};
-use bevy_render::view::{ViewTarget, ViewUniform};
+use bevy_render::texture::{CompressedImageFormats, GpuImage, Image, ImageSampler, ImageType};
+use bevy_render::view::{ExtractedView, ViewTarget, ViewUniform};
+use bevy_render::{camera::Camera, texture::FallbackImage};
 use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
 #[cfg(not(feature = "tonemapping_luts"))]
 use bevy_utils::tracing::error;
+use bitflags::bitflags;
 
 mod node;
 
@@ -149,7 +150,7 @@ pub enum Tonemapping {
     AgX,
     /// By Tomasz Stachowiak
     /// Has little hue shifting in the darks and mids, but lots in the brights. Brights desaturate across the spectrum.
-    /// Is sort of between Reinhard and ReinhardLuminance. Conceptually similar to reinhard-jodie.
+    /// Is sort of between Reinhard and `ReinhardLuminance`. Conceptually similar to reinhard-jodie.
     /// Designed as a compromise if you want e.g. decent skin tones in low light, but can't afford to re-do your
     /// VFX to look good without hue shifting.
     SomewhatBoringDisplayTransform,
@@ -179,10 +180,27 @@ impl Tonemapping {
     }
 }
 
+bitflags! {
+    /// Various flags describing what tonemapping needs to do.
+    ///
+    /// This allows the shader to skip unneeded steps.
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+    pub struct TonemappingPipelineKeyFlags: u8 {
+        /// The hue needs to be changed.
+        const HUE_ROTATE                = 0x01;
+        /// The white balance needs to be adjusted.
+        const WHITE_BALANCE             = 0x02;
+        /// Saturation/contrast/gamma/gain/lift for one or more sections
+        /// (shadows, midtones, highlights) need to be adjusted.
+        const SECTIONAL_COLOR_GRADING   = 0x04;
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TonemappingPipelineKey {
     deband_dither: DebandDither,
     tonemapping: Tonemapping,
+    flags: TonemappingPipelineKeyFlags,
 }
 
 impl SpecializedRenderPipeline for TonemappingPipeline {
@@ -192,6 +210,23 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
         let mut shader_defs = Vec::new();
         if let DebandDither::Enabled = key.deband_dither {
             shader_defs.push("DEBAND_DITHER".into());
+        }
+
+        // Define shader flags depending on the color grading options in use.
+        if key.flags.contains(TonemappingPipelineKeyFlags::HUE_ROTATE) {
+            shader_defs.push("HUE_ROTATE".into());
+        }
+        if key
+            .flags
+            .contains(TonemappingPipelineKeyFlags::WHITE_BALANCE)
+        {
+            shader_defs.push("WHITE_BALANCE".into());
+        }
+        if key
+            .flags
+            .contains(TonemappingPipelineKeyFlags::SECTIONAL_COLOR_GRADING)
+        {
+            shader_defs.push("SECTIONAL_COLOR_GRADING".into());
         }
 
         match key.tonemapping {
@@ -292,12 +327,38 @@ pub fn prepare_view_tonemapping_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TonemappingPipeline>>,
     upscaling_pipeline: Res<TonemappingPipeline>,
-    view_targets: Query<(Entity, Option<&Tonemapping>, Option<&DebandDither>), With<ViewTarget>>,
+    view_targets: Query<
+        (
+            Entity,
+            &ExtractedView,
+            Option<&Tonemapping>,
+            Option<&DebandDither>,
+        ),
+        With<ViewTarget>,
+    >,
 ) {
-    for (entity, tonemapping, dither) in view_targets.iter() {
+    for (entity, view, tonemapping, dither) in view_targets.iter() {
+        // As an optimization, we omit parts of the shader that are unneeded.
+        let mut flags = TonemappingPipelineKeyFlags::empty();
+        flags.set(
+            TonemappingPipelineKeyFlags::HUE_ROTATE,
+            view.color_grading.global.hue != 0.0,
+        );
+        flags.set(
+            TonemappingPipelineKeyFlags::WHITE_BALANCE,
+            view.color_grading.global.temperature != 0.0 || view.color_grading.global.tint != 0.0,
+        );
+        flags.set(
+            TonemappingPipelineKeyFlags::SECTIONAL_COLOR_GRADING,
+            view.color_grading
+                .all_sections()
+                .any(|section| *section != default()),
+        );
+
         let key = TonemappingPipelineKey {
             deband_dither: *dither.unwrap_or(&DebandDither::Disabled),
             tonemapping: *tonemapping.unwrap_or(&Tonemapping::None),
+            flags,
         };
         let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);
 
@@ -319,9 +380,10 @@ pub enum DebandDither {
 }
 
 pub fn get_lut_bindings<'a>(
-    images: &'a RenderAssets<Image>,
+    images: &'a RenderAssets<GpuImage>,
     tonemapping_luts: &'a TonemappingLuts,
     tonemapping: &Tonemapping,
+    fallback_image: &'a FallbackImage,
 ) -> (&'a TextureView, &'a Sampler) {
     let image = match tonemapping {
         // AgX lut texture used when tonemapping doesn't need a texture since it's very small (32x32x32)
@@ -334,7 +396,7 @@ pub fn get_lut_bindings<'a>(
         Tonemapping::TonyMcMapface => &tonemapping_luts.tony_mc_mapface,
         Tonemapping::BlenderFilmic => &tonemapping_luts.blender_filmic,
     };
-    let lut_image = images.get(image).unwrap();
+    let lut_image = images.get(image).unwrap_or(&fallback_image.d3);
     (&lut_image.texture_view, &lut_image.sampler)
 }
 

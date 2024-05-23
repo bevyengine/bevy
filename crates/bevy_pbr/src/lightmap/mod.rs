@@ -40,13 +40,15 @@ use bevy_ecs::{
 };
 use bevy_math::{uvec2, vec4, Rect, UVec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::mesh::GpuMesh;
+use bevy_render::texture::GpuImage;
 use bevy_render::{
     mesh::Mesh, render_asset::RenderAssets, render_resource::Shader, texture::Image,
     view::ViewVisibility, Extract, ExtractSchedule, RenderApp,
 };
 use bevy_utils::HashSet;
 
-use crate::RenderMeshInstances;
+use crate::{ExtractMeshesSet, RenderMeshInstances};
 
 /// The ID of the lightmap shader.
 pub const LIGHTMAP_SHADER_HANDLE: Handle<Shader> =
@@ -130,10 +132,9 @@ impl Plugin for LightmapPlugin {
             return;
         };
 
-        render_app.init_resource::<RenderLightmaps>().add_systems(
-            ExtractSchedule,
-            extract_lightmaps.after(crate::extract_meshes),
-        );
+        render_app
+            .init_resource::<RenderLightmaps>()
+            .add_systems(ExtractSchedule, extract_lightmaps.after(ExtractMeshesSet));
     }
 }
 
@@ -143,8 +144,8 @@ fn extract_lightmaps(
     mut render_lightmaps: ResMut<RenderLightmaps>,
     lightmaps: Extract<Query<(Entity, &ViewVisibility, &Lightmap)>>,
     render_mesh_instances: Res<RenderMeshInstances>,
-    images: Res<RenderAssets<Image>>,
-    meshes: Res<RenderAssets<Mesh>>,
+    images: Res<RenderAssets<GpuImage>>,
+    meshes: Res<RenderAssets<GpuMesh>>,
 ) {
     // Clear out the old frame's data.
     render_lightmaps.render_lightmaps.clear();
@@ -157,8 +158,8 @@ fn extract_lightmaps(
         if !view_visibility.get()
             || images.get(&lightmap.image).is_none()
             || !render_mesh_instances
-                .get(&entity)
-                .and_then(|mesh_instance| meshes.get(mesh_instance.mesh_asset_id))
+                .mesh_asset_id(entity)
+                .and_then(|mesh_asset_id| meshes.get(mesh_asset_id))
                 .is_some_and(|mesh| mesh.layout.0.contains(Mesh::ATTRIBUTE_UV_1.id))
         {
             continue;

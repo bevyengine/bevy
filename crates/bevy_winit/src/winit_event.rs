@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 #![allow(missing_docs)]
 
 use bevy_app::App;

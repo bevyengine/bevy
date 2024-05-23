@@ -39,9 +39,11 @@ fn setup(
 
     let shapes = [
         meshes.add(Cuboid::default()),
+        meshes.add(Tetrahedron::default()),
         meshes.add(Capsule3d::default()),
         meshes.add(Torus::default()),
         meshes.add(Cylinder::default()),
+        meshes.add(Cone::default()),
         meshes.add(Sphere::default().mesh().ico(5).unwrap()),
         meshes.add(Sphere::default().mesh().uv(32, 18)),
     ];
@@ -70,6 +72,7 @@ fn setup(
             shadows_enabled: true,
             intensity: 10_000_000.,
             range: 100.0,
+            shadow_depth_bias: 0.2,
             ..default()
         },
         transform: Transform::from_xyz(8.0, 16.0, 8.0),

@@ -30,7 +30,7 @@ use bevy::{
     prelude::*,
     render::{
         camera::{Exposure, TemporalJitter},
-        view::ColorGrading,
+        view::{ColorGrading, ColorGradingGlobal},
     },
 };
 
@@ -137,8 +137,8 @@ fn setup(
     ));
 
     // Candle Flame
-    let scaled_white = LinearRgba::from(ANTIQUE_WHITE) * 80.;
-    let scaled_orange = LinearRgba::from(ORANGE_RED) * 16.;
+    let scaled_white = LinearRgba::from(ANTIQUE_WHITE) * 20.;
+    let scaled_orange = LinearRgba::from(ORANGE_RED) * 4.;
     let emissive = LinearRgba {
         red: scaled_white.red + scaled_orange.red,
         green: scaled_white.green + scaled_orange.green,
@@ -345,7 +345,10 @@ fn setup(
             },
             transform: Transform::from_xyz(1.0, 1.8, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
             color_grading: ColorGrading {
-                post_saturation: 1.2,
+                global: ColorGradingGlobal {
+                    post_saturation: 1.2,
+                    ..default()
+                },
                 ..default()
             },
             tonemapping: Tonemapping::TonyMcMapface,

@@ -5,6 +5,38 @@ use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,
     RawWindowHandle, WindowHandle,
 };
+use std::{any::Any, marker::PhantomData, ops::Deref, sync::Arc};
+
+/// A wrapper over a window.
+///
+/// This allows us to extend the lifetime of the window, so it doesn't get eagerly dropped while a
+/// pipelined renderer still has frames in flight that need to draw to it.
+///
+/// This is achieved by storing a shared reference to the window in the [`RawHandleWrapper`],
+/// which gets picked up by the renderer during extraction.
+#[derive(Debug)]
+pub struct WindowWrapper<W> {
+    reference: Arc<dyn Any + Send + Sync>,
+    ty: PhantomData<W>,
+}
+
+impl<W: Send + Sync + 'static> WindowWrapper<W> {
+    /// Creates a `WindowWrapper` from a window.
+    pub fn new(window: W) -> WindowWrapper<W> {
+        WindowWrapper {
+            reference: Arc::new(window),
+            ty: PhantomData,
+        }
+    }
+}
+
+impl<W: 'static> Deref for WindowWrapper<W> {
+    type Target = W;
+
+    fn deref(&self) -> &Self::Target {
+        self.reference.downcast_ref::<W>().unwrap()
+    }
+}
 
 /// A wrapper over [`RawWindowHandle`] and [`RawDisplayHandle`] that allows us to safely pass it across threads.
 ///
@@ -13,6 +45,7 @@ use raw_window_handle::{
 /// thread-safe.
 #[derive(Debug, Clone, Component)]
 pub struct RawHandleWrapper {
+    _window: Arc<dyn Any + Send + Sync>,
     /// Raw handle to a window.
     pub window_handle: RawWindowHandle,
     /// Raw handle to the display server.
@@ -20,6 +53,17 @@ pub struct RawHandleWrapper {
 }
 
 impl RawHandleWrapper {
+    /// Creates a `RawHandleWrapper` from a `WindowWrapper`.
+    pub fn new<W: HasWindowHandle + HasDisplayHandle + 'static>(
+        window: &WindowWrapper<W>,
+    ) -> Result<RawHandleWrapper, HandleError> {
+        Ok(RawHandleWrapper {
+            _window: window.reference.clone(),
+            window_handle: window.window_handle()?.as_raw(),
+            display_handle: window.display_handle()?.as_raw(),
+        })
+    }
+
     /// Returns a [`HasWindowHandle`] + [`HasDisplayHandle`] impl, which exposes [`WindowHandle`] and [`DisplayHandle`].
     ///
     /// # Safety

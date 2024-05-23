@@ -69,7 +69,7 @@ impl<'a> AccessError<'a> {
     }
 
     /// If the [`Access`] was created with a parser or an offset was manually provided,
-    /// returns the offset of the [`Access`] in it's path string.
+    /// returns the offset of the [`Access`] in its path string.
     pub const fn offset(&self) -> Option<&usize> {
         self.offset.as_ref()
     }

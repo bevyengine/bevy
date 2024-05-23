@@ -1,11 +1,11 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
-    component::{ComponentId, Tick},
+    batching::BatchingStrategy,
+    component::{ComponentId, Components, Tick},
     entity::Entity,
     prelude::FromWorld,
     query::{
-        Access, BatchingStrategy, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter,
-        QueryIter, QueryParIter,
+        Access, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter,
     },
     storage::{SparseSetIndex, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
@@ -161,8 +161,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ) -> Self {
         let mut state = Self::new_uninitialized(world);
         for archetype in world.archetypes.iter() {
-            if state.new_archetype_internal(archetype) {
-                state.update_archetype_component_access(archetype, access);
+            // SAFETY: The state was just initialized from the `world` above, and the archetypes being added
+            // come directly from the same world.
+            unsafe {
+                if state.new_archetype_internal(archetype) {
+                    state.update_archetype_component_access(archetype, access);
+                }
             }
         }
         state.archetype_generation = world.archetypes.generation();
@@ -171,7 +175,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
     ///
-    /// `new_archetype` and it's variants must be called on all of the World's archetypes before the
+    /// `new_archetype` and its variants must be called on all of the World's archetypes before the
     /// state can return valid query results.
     fn new_uninitialized(world: &mut World) -> Self {
         let fetch_state = D::init_state(world);
@@ -208,7 +212,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
     }
 
-    /// Creates a new [`QueryState`] from a given [`QueryBuilder`] and inherits it's [`FilteredAccess`].
+    /// Creates a new [`QueryState`] from a given [`QueryBuilder`] and inherits its [`FilteredAccess`].
     pub fn from_builder(builder: &mut QueryBuilder<D, F>) -> Self {
         let mut fetch_state = D::init_state(builder.world_mut());
         let filter_state = F::init_state(builder.world_mut());
@@ -342,7 +346,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             std::mem::replace(&mut self.archetype_generation, archetypes.generation());
 
         for archetype in &archetypes[old_generation..] {
-            self.new_archetype_internal(archetype);
+            // SAFETY: The validate_world call ensures that the world is the same the QueryState
+            // was initialized from.
+            unsafe {
+                self.new_archetype_internal(archetype);
+            }
         }
     }
 
@@ -371,13 +379,19 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// (if applicable, i.e. if the archetype has any intersecting [`ComponentId`] with the current [`QueryState`]).
     ///
     /// The passed in `access` will be updated with any new accesses introduced by the new archetype.
-    pub fn new_archetype(
+    ///
+    /// # Safety
+    /// `archetype` must be from the `World` this state was initialized from.
+    pub unsafe fn new_archetype(
         &mut self,
         archetype: &Archetype,
         access: &mut Access<ArchetypeComponentId>,
     ) {
-        if self.new_archetype_internal(archetype) {
-            self.update_archetype_component_access(archetype, access);
+        // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from.
+        let matches = unsafe { self.new_archetype_internal(archetype) };
+        if matches {
+            // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from.
+            unsafe { self.update_archetype_component_access(archetype, access) };
         }
     }
 
@@ -386,7 +400,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// Returns `true` if the given `archetype` matches the query. Otherwise, returns `false`.
     /// If there is no match, then there is no need to update the query's [`FilteredAccess`].
-    fn new_archetype_internal(&mut self, archetype: &Archetype) -> bool {
+    ///
+    /// # Safety
+    /// `archetype` must be from the `World` this state was initialized from.
+    unsafe fn new_archetype_internal(&mut self, archetype: &Archetype) -> bool {
         if D::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
             && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))
             && self.matches_component_set(&|id| archetype.contains(id))
@@ -431,7 +448,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// For the given `archetype`, adds any component accessed used by this query's underlying [`FilteredAccess`] to `access`.
     ///
     /// The passed in `access` will be updated with any new accesses introduced by the new archetype.
-    pub fn update_archetype_component_access(
+    ///
+    /// # Safety
+    /// `archetype` must be from the `World` this state was initialized from.
+    pub unsafe fn update_archetype_component_access(
         &mut self,
         archetype: &Archetype,
         access: &mut Access<ArchetypeComponentId>,
@@ -456,8 +476,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// You might end up with a mix of archetypes that only matched the original query + archetypes that only match
     /// the new [`QueryState`]. Most of the safe methods on [`QueryState`] call [`QueryState::update_archetypes`] internally, so this
     /// best used through a [`Query`](crate::system::Query).
-    pub fn transmute<NewD: QueryData>(&self, world: &World) -> QueryState<NewD> {
-        self.transmute_filtered::<NewD, ()>(world)
+    pub fn transmute<NewD: QueryData>(&self, components: &Components) -> QueryState<NewD> {
+        self.transmute_filtered::<NewD, ()>(components)
     }
 
     /// Creates a new [`QueryState`] with the same underlying [`FilteredAccess`], matched tables and archetypes
@@ -466,11 +486,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Panics if `NewD` or `NewF` require accesses that this query does not have.
     pub fn transmute_filtered<NewD: QueryData, NewF: QueryFilter>(
         &self,
-        world: &World,
+        components: &Components,
     ) -> QueryState<NewD, NewF> {
         let mut component_access = FilteredAccess::default();
-        let mut fetch_state = NewD::get_state(world).expect("Could not create fetch_state, Please initialize all referenced components before transmuting.");
-        let filter_state = NewF::get_state(world).expect("Could not create filter_state, Please initialize all referenced components before transmuting.");
+        let mut fetch_state = NewD::get_state(components).expect("Could not create fetch_state, Please initialize all referenced components before transmuting.");
+        let filter_state = NewF::get_state(components).expect("Could not create filter_state, Please initialize all referenced components before transmuting.");
 
         NewD::set_access(&mut fetch_state, &self.component_access);
         NewD::update_component_access(&fetch_state, &mut component_access);
@@ -524,10 +544,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Will panic if `NewD` contains accesses not in `Q` or `OtherQ`.
     pub fn join<OtherD: QueryData, NewD: QueryData>(
         &self,
-        world: &World,
+        components: &Components,
         other: &QueryState<OtherD>,
     ) -> QueryState<NewD, ()> {
-        self.join_filtered::<_, (), NewD, ()>(world, other)
+        self.join_filtered::<_, (), NewD, ()>(components, other)
     }
 
     /// Use this to combine two queries. The data accessed will be the intersection
@@ -543,7 +563,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         NewF: QueryFilter,
     >(
         &self,
-        world: &World,
+        components: &Components,
         other: &QueryState<OtherD, OtherF>,
     ) -> QueryState<NewD, NewF> {
         if self.world_id != other.world_id {
@@ -551,9 +571,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
 
         let mut component_access = FilteredAccess::default();
-        let mut new_fetch_state = NewD::get_state(world)
+        let mut new_fetch_state = NewD::get_state(components)
             .expect("Could not create fetch_state, Please initialize all referenced components before transmuting.");
-        let new_filter_state = NewF::get_state(world)
+        let new_filter_state = NewF::get_state(components)
             .expect("Could not create filter_state, Please initialize all referenced components before transmuting.");
 
         NewD::set_access(&mut new_fetch_state, &self.component_access);
@@ -1373,72 +1393,124 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// with a mismatched [`WorldId`] is unsound.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
-    #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
-    pub(crate) unsafe fn par_for_each_unchecked_manual<
-        'w,
-        FN: Fn(D::Item<'w>) + Send + Sync + Clone,
-    >(
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+    pub(crate) unsafe fn par_fold_init_unchecked_manual<'w, T, FN, INIT>(
         &self,
+        init_accum: INIT,
         world: UnsafeWorldCell<'w>,
         batch_size: usize,
         func: FN,
         last_run: Tick,
         this_run: Tick,
-    ) {
+    ) where
+        FN: Fn(T, D::Item<'w>) -> T + Send + Sync + Clone,
+        INIT: Fn() -> T + Sync + Send + Clone,
+    {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-        // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
+        // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter,QueryState::par_fold_init_unchecked_manual
+        use arrayvec::ArrayVec;
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
             // SAFETY: We only access table data that has been registered in `self.archetype_component_access`.
             let tables = unsafe { &world.storages().tables };
             let archetypes = world.archetypes();
-            for storage_id in &self.matched_storage_ids {
+            let mut batch_queue = ArrayVec::new();
+            let mut queue_entity_count = 0;
+
+            // submit a list of storages which smaller than batch_size as single task
+            let submit_batch_queue = |queue: &mut ArrayVec<StorageId, 128>| {
+                if queue.is_empty() {
+                    return;
+                }
+                let queue = std::mem::take(queue);
+                let mut func = func.clone();
+                let init_accum = init_accum.clone();
+                scope.spawn(async move {
+                    #[cfg(feature = "trace")]
+                    let _span = self.par_iter_span.enter();
+                    let mut iter = self.iter_unchecked_manual(world, last_run, this_run);
+                    let mut accum = init_accum();
+                    for storage_id in queue {
+                        if D::IS_DENSE && F::IS_DENSE {
+                            let id = storage_id.table_id;
+                            let table = &world.storages().tables.get(id).debug_checked_unwrap();
+                            accum = iter.fold_over_table_range(
+                                accum,
+                                &mut func,
+                                table,
+                                0..table.entity_count(),
+                            );
+                        } else {
+                            let id = storage_id.archetype_id;
+                            let archetype = world.archetypes().get(id).debug_checked_unwrap();
+                            accum = iter.fold_over_archetype_range(
+                                accum,
+                                &mut func,
+                                archetype,
+                                0..archetype.len(),
+                            );
+                        }
+                    }
+                });
+            };
+
+            // submit single storage larger than batch_size
+            let submit_single = |count, storage_id: StorageId| {
+                for offset in (0..count).step_by(batch_size) {
+                    let mut func = func.clone();
+                    let init_accum = init_accum.clone();
+                    let len = batch_size.min(count - offset);
+                    let batch = offset..offset + len;
+                    scope.spawn(async move {
+                        #[cfg(feature = "trace")]
+                        let _span = self.par_iter_span.enter();
+                        let accum = init_accum();
+                        if D::IS_DENSE && F::IS_DENSE {
+                            let id = storage_id.table_id;
+                            let table = world.storages().tables.get(id).debug_checked_unwrap();
+                            self.iter_unchecked_manual(world, last_run, this_run)
+                                .fold_over_table_range(accum, &mut func, table, batch);
+                        } else {
+                            let id = storage_id.archetype_id;
+                            let archetype = world.archetypes().get(id).debug_checked_unwrap();
+                            self.iter_unchecked_manual(world, last_run, this_run)
+                                .fold_over_archetype_range(accum, &mut func, archetype, batch);
+                        }
+                    });
+                }
+            };
+
+            let storage_entity_count = |storage_id: StorageId| -> usize {
                 if D::IS_DENSE && F::IS_DENSE {
-                    let table_id = storage_id.table_id;
-                    let table = &tables[table_id];
-                    if table.is_empty() {
-                        continue;
-                    }
-
-                    let mut offset = 0;
-                    while offset < table.entity_count() {
-                        let mut func = func.clone();
-                        let len = batch_size.min(table.entity_count() - offset);
-                        let batch = offset..offset + len;
-                        scope.spawn(async move {
-                            #[cfg(feature = "trace")]
-                            let _span = self.par_iter_span.enter();
-                            let table =
-                                &world.storages().tables.get(table_id).debug_checked_unwrap();
-                            self.iter_unchecked_manual(world, last_run, this_run)
-                                .for_each_in_table_range(&mut func, table, batch);
-                        });
-                        offset += batch_size;
-                    }
+                    tables[storage_id.table_id].entity_count()
                 } else {
-                    let archetype_id = storage_id.archetype_id;
-                    let archetype = &archetypes[archetype_id];
-                    if archetype.is_empty() {
-                        continue;
-                    }
+                    archetypes[storage_id.archetype_id].len()
+                }
+            };
 
-                    let mut offset = 0;
-                    while offset < archetype.len() {
-                        let mut func = func.clone();
-                        let len = batch_size.min(archetype.len() - offset);
-                        let batch = offset..offset + len;
-                        scope.spawn(async move {
-                            #[cfg(feature = "trace")]
-                            let _span = self.par_iter_span.enter();
-                            let archetype =
-                                world.archetypes().get(archetype_id).debug_checked_unwrap();
-                            self.iter_unchecked_manual(world, last_run, this_run)
-                                .for_each_in_archetype_range(&mut func, archetype, batch);
-                        });
-                        offset += batch_size;
-                    }
+            for storage_id in &self.matched_storage_ids {
+                let count = storage_entity_count(*storage_id);
+
+                // skip empty storage
+                if count == 0 {
+                    continue;
+                }
+                // immediately submit large storage
+                if count >= batch_size {
+                    submit_single(count, *storage_id);
+                    continue;
+                }
+                // merge small storage
+                batch_queue.push(*storage_id);
+                queue_entity_count += count;
+
+                // submit batch_queue
+                if queue_entity_count >= batch_size || batch_queue.is_full() {
+                    submit_batch_queue(&mut batch_queue);
+                    queue_entity_count = 0;
                 }
             }
+            submit_batch_queue(&mut batch_queue);
         });
     }
 
@@ -1707,7 +1779,7 @@ mod tests {
         world.spawn((A(1), B(0)));
 
         let query_state = world.query::<(&A, &B)>();
-        let mut new_query_state = query_state.transmute::<&A>(&world);
+        let mut new_query_state = query_state.transmute::<&A>(world.components());
         assert_eq!(new_query_state.iter(&world).len(), 1);
         let a = new_query_state.single(&world);
 
@@ -1721,7 +1793,7 @@ mod tests {
         world.spawn((A(1), B(0), C(0)));
 
         let query_state = world.query_filtered::<(&A, &B), Without<C>>();
-        let mut new_query_state = query_state.transmute::<&A>(&world);
+        let mut new_query_state = query_state.transmute::<&A>(world.components());
         // even though we change the query to not have Without<C>, we do not get the component with C.
         let a = new_query_state.single(&world);
 
@@ -1735,7 +1807,7 @@ mod tests {
         let entity = world.spawn(A(10)).id();
 
         let q = world.query::<()>();
-        let mut q = q.transmute::<Entity>(&world);
+        let mut q = q.transmute::<Entity>(world.components());
         assert_eq!(q.single(&world), entity);
     }
 
@@ -1745,11 +1817,11 @@ mod tests {
         world.spawn(A(10));
 
         let q = world.query::<&A>();
-        let mut new_q = q.transmute::<Ref<A>>(&world);
+        let mut new_q = q.transmute::<Ref<A>>(world.components());
         assert!(new_q.single(&world).is_added());
 
         let q = world.query::<Ref<A>>();
-        let _ = q.transmute::<&A>(&world);
+        let _ = q.transmute::<&A>(world.components());
     }
 
     #[test]
@@ -1758,8 +1830,8 @@ mod tests {
         world.spawn(A(0));
 
         let q = world.query::<&mut A>();
-        let _ = q.transmute::<Ref<A>>(&world);
-        let _ = q.transmute::<&A>(&world);
+        let _ = q.transmute::<Ref<A>>(world.components());
+        let _ = q.transmute::<&A>(world.components());
     }
 
     #[test]
@@ -1768,7 +1840,7 @@ mod tests {
         world.spawn(A(0));
 
         let q: QueryState<EntityMut<'_>> = world.query::<EntityMut>();
-        let _ = q.transmute::<EntityRef>(&world);
+        let _ = q.transmute::<EntityRef>(world.components());
     }
 
     #[test]
@@ -1777,8 +1849,8 @@ mod tests {
         world.spawn((A(0), B(0)));
 
         let query_state = world.query::<(Option<&A>, &B)>();
-        let _ = query_state.transmute::<Option<&A>>(&world);
-        let _ = query_state.transmute::<&B>(&world);
+        let _ = query_state.transmute::<Option<&A>>(world.components());
+        let _ = query_state.transmute::<&B>(world.components());
     }
 
     #[test]
@@ -1792,7 +1864,7 @@ mod tests {
         world.spawn(A(0));
 
         let query_state = world.query::<&A>();
-        let mut _new_query_state = query_state.transmute::<(&A, &B)>(&world);
+        let mut _new_query_state = query_state.transmute::<(&A, &B)>(world.components());
     }
 
     #[test]
@@ -1804,7 +1876,7 @@ mod tests {
         world.spawn(A(0));
 
         let query_state = world.query::<&A>();
-        let mut _new_query_state = query_state.transmute::<&mut A>(&world);
+        let mut _new_query_state = query_state.transmute::<&mut A>(world.components());
     }
 
     #[test]
@@ -1816,7 +1888,7 @@ mod tests {
         world.spawn(C(0));
 
         let query_state = world.query::<Option<&A>>();
-        let mut new_query_state = query_state.transmute::<&A>(&world);
+        let mut new_query_state = query_state.transmute::<&A>(world.components());
         let x = new_query_state.single(&world);
         assert_eq!(x.0, 1234);
     }
@@ -1830,15 +1902,15 @@ mod tests {
         world.init_component::<A>();
 
         let q = world.query::<EntityRef>();
-        let _ = q.transmute::<&A>(&world);
+        let _ = q.transmute::<&A>(world.components());
     }
 
     #[test]
     fn can_transmute_filtered_entity() {
         let mut world = World::new();
         let entity = world.spawn((A(0), B(1))).id();
-        let query =
-            QueryState::<(Entity, &A, &B)>::new(&mut world).transmute::<FilteredEntityRef>(&world);
+        let query = QueryState::<(Entity, &A, &B)>::new(&mut world)
+            .transmute::<FilteredEntityRef>(world.components());
 
         let mut query = query;
         // Our result is completely untyped
@@ -1855,7 +1927,7 @@ mod tests {
         let entity_a = world.spawn(A(0)).id();
 
         let mut query = QueryState::<(Entity, &A, Has<B>)>::new(&mut world)
-            .transmute_filtered::<(Entity, Has<B>), Added<A>>(&world);
+            .transmute_filtered::<(Entity, Has<B>), Added<A>>(world.components());
 
         assert_eq!((entity_a, false), query.single(&world));
 
@@ -1875,7 +1947,7 @@ mod tests {
         let entity_a = world.spawn(A(0)).id();
 
         let mut detection_query = QueryState::<(Entity, &A)>::new(&mut world)
-            .transmute_filtered::<Entity, Changed<A>>(&world);
+            .transmute_filtered::<Entity, Changed<A>>(world.components());
 
         let mut change_query = QueryState::<&mut A>::new(&mut world);
         assert_eq!(entity_a, detection_query.single(&world));
@@ -1898,7 +1970,7 @@ mod tests {
         world.init_component::<A>();
         world.init_component::<B>();
         let query = QueryState::<&A>::new(&mut world);
-        let _new_query = query.transmute_filtered::<Entity, Changed<B>>(&world);
+        let _new_query = query.transmute_filtered::<Entity, Changed<B>>(world.components());
     }
 
     #[test]
@@ -1911,7 +1983,8 @@ mod tests {
 
         let query_1 = QueryState::<&A, Without<C>>::new(&mut world);
         let query_2 = QueryState::<&B, Without<C>>::new(&mut world);
-        let mut new_query: QueryState<Entity, ()> = query_1.join_filtered(&world, &query_2);
+        let mut new_query: QueryState<Entity, ()> =
+            query_1.join_filtered(world.components(), &query_2);
 
         assert_eq!(new_query.single(&world), entity_ab);
     }
@@ -1926,7 +1999,8 @@ mod tests {
 
         let query_1 = QueryState::<&A>::new(&mut world);
         let query_2 = QueryState::<&B, Without<C>>::new(&mut world);
-        let mut new_query: QueryState<Entity, ()> = query_1.join_filtered(&world, &query_2);
+        let mut new_query: QueryState<Entity, ()> =
+            query_1.join_filtered(world.components(), &query_2);
 
         assert!(new_query.get(&world, entity_ab).is_ok());
         // should not be able to get entity with c.
@@ -1942,7 +2016,7 @@ mod tests {
         world.init_component::<C>();
         let query_1 = QueryState::<&A>::new(&mut world);
         let query_2 = QueryState::<&B>::new(&mut world);
-        let _query: QueryState<&C> = query_1.join(&world, &query_2);
+        let _query: QueryState<&C> = query_1.join(world.components(), &query_2);
     }
 
     #[test]
@@ -1956,6 +2030,6 @@ mod tests {
         let mut world = World::new();
         let query_1 = QueryState::<&A, Without<C>>::new(&mut world);
         let query_2 = QueryState::<&B, Without<C>>::new(&mut world);
-        let _: QueryState<Entity, Changed<C>> = query_1.join_filtered(&world, &query_2);
+        let _: QueryState<Entity, Changed<C>> = query_1.join_filtered(world.components(), &query_2);
     }
 }

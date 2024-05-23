@@ -1,12 +1,15 @@
 use crate::{
-    camera::CameraProjection,
-    camera::{ManualTextureViewHandle, ManualTextureViews},
+    batching::gpu_preprocessing::GpuPreprocessingSupport,
+    camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
     prelude::Image,
     primitives::Frustum,
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
-    view::{ColorGrading, ExtractedView, ExtractedWindows, RenderLayers, VisibleEntities},
+    texture::GpuImage,
+    view::{
+        ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, RenderLayers, VisibleEntities,
+    },
     Extract,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
@@ -17,6 +20,7 @@ use bevy_ecs::{
     entity::Entity,
     event::EventReader,
     prelude::With,
+    query::Has,
     reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut, Resource},
 };
@@ -24,7 +28,7 @@ use bevy_math::{vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::tracing::warn;
+use bevy_utils::{tracing::warn, warn_once};
 use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
@@ -142,8 +146,8 @@ impl Default for Exposure {
     }
 }
 
-/// Parameters based on physical camera characteristics for calculating
-/// EV100 values for use with [`Exposure`].
+/// Parameters based on physical camera characteristics for calculating EV100
+/// values for use with [`Exposure`]. This is also used for depth of field.
 #[derive(Clone, Copy)]
 pub struct PhysicalCameraParameters {
     /// <https://en.wikipedia.org/wiki/F-number>
@@ -152,6 +156,15 @@ pub struct PhysicalCameraParameters {
     pub shutter_speed_s: f32,
     /// <https://en.wikipedia.org/wiki/Film_speed>
     pub sensitivity_iso: f32,
+    /// The height of the [image sensor format] in meters.
+    ///
+    /// Focal length is derived from the FOV and this value. The default is
+    /// 18.66mm, matching the [Super 35] format, which is popular in cinema.
+    ///
+    /// [image sensor format]: https://en.wikipedia.org/wiki/Image_sensor_format
+    ///
+    /// [Super 35]: https://en.wikipedia.org/wiki/Super_35
+    pub sensor_height: f32,
 }
 
 impl PhysicalCameraParameters {
@@ -169,6 +182,7 @@ impl Default for PhysicalCameraParameters {
             aperture_f_stops: 1.0,
             shutter_speed_s: 1.0 / 125.0,
             sensitivity_iso: 100.0,
+            sensor_height: 0.01866,
         }
     }
 }
@@ -482,7 +496,7 @@ pub enum CameraOutputMode {
     /// Render Target's "intermediate" textures, which a camera with a higher order should write to the render target
     /// using [`CameraOutputMode::Write`]. The "skip" mode can easily prevent render results from being displayed, or cause
     /// them to be lost. Only use this if you know what you are doing!
-    /// In camera setups with multiple active cameras rendering to the same RenderTarget, the Skip mode can be used to remove
+    /// In camera setups with multiple active cameras rendering to the same [`RenderTarget`], the Skip mode can be used to remove
     /// unnecessary / redundant writes to the final output texture, removing unnecessary render passes.
     Skip,
 }
@@ -581,7 +595,7 @@ impl NormalizedRenderTarget {
     pub fn get_texture_view<'a>(
         &self,
         windows: &'a ExtractedWindows,
-        images: &'a RenderAssets<Image>,
+        images: &'a RenderAssets<GpuImage>,
         manual_texture_views: &'a ManualTextureViews,
     ) -> Option<&'a TextureView> {
         match self {
@@ -601,7 +615,7 @@ impl NormalizedRenderTarget {
     pub fn get_texture_format<'a>(
         &self,
         windows: &'a ExtractedWindows,
-        images: &'a RenderAssets<Image>,
+        images: &'a RenderAssets<GpuImage>,
         manual_texture_views: &'a ManualTextureViews,
     ) -> Option<TextureFormat> {
         match self {
@@ -755,6 +769,20 @@ pub fn camera_system<T: CameraProjection + Component>(
                         }
                     }
                 }
+                // This check is needed because when changing WindowMode to SizedFullscreen, the viewport may have invalid
+                // arguments due to a sudden change on the window size to a lower value.
+                // If the size of the window is lower, the viewport will match that lower value.
+                if let Some(viewport) = &mut camera.viewport {
+                    let target_info = &new_computed_target_info;
+                    if let Some(target) = target_info {
+                        if viewport.physical_size.x > target.physical_size.x {
+                            viewport.physical_size.x = target.physical_size.x;
+                        }
+                        if viewport.physical_size.y > target.physical_size.y {
+                            viewport.physical_size.y = target.physical_size.y;
+                        }
+                    }
+                }
                 camera.computed.target_info = new_computed_target_info;
                 if let Some(size) = camera.logical_viewport_size() {
                     camera_projection.update(size.x, size.y);
@@ -813,9 +841,11 @@ pub fn extract_cameras(
             Option<&TemporalJitter>,
             Option<&RenderLayers>,
             Option<&Projection>,
+            Has<GpuCulling>,
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
+    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
 ) {
     let primary_window = primary_window.iter().next();
     for (
@@ -830,9 +860,10 @@ pub fn extract_cameras(
         temporal_jitter,
         render_layers,
         projection,
+        gpu_culling,
     ) in query.iter()
     {
-        let color_grading = *color_grading.unwrap_or(&ColorGrading::default());
+        let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
 
         if !camera.is_active {
             continue;
@@ -895,11 +926,21 @@ pub fn extract_cameras(
             }
 
             if let Some(render_layers) = render_layers {
-                commands.insert(*render_layers);
+                commands.insert(render_layers.clone());
             }
 
             if let Some(perspective) = projection {
                 commands.insert(perspective.clone());
+            }
+
+            if gpu_culling {
+                if *gpu_preprocessing_support == GpuPreprocessingSupport::Culling {
+                    commands.insert(GpuCulling);
+                } else {
+                    warn_once!(
+                        "GPU culling isn't supported on this platform; ignoring `GpuCulling`."
+                    );
+                }
             }
         }
     }

@@ -5,8 +5,14 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        render_asset::RenderAssets, render_resource::*, renderer::RenderDevice,
-        texture::FallbackImage, RenderApp,
+        render_asset::RenderAssets,
+        render_resource::{
+            binding_types::{sampler, texture_2d},
+            *,
+        },
+        renderer::RenderDevice,
+        texture::{FallbackImage, GpuImage},
+        RenderApp,
     },
 };
 use std::{num::NonZeroU32, process::exit};
@@ -92,7 +98,7 @@ impl AsBindGroup for BindlessMaterial {
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        image_assets: &RenderAssets<Image>,
+        image_assets: &RenderAssets<GpuImage>,
         fallback_image: &FallbackImage,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
         // retrieve the render resources from handles
@@ -133,7 +139,7 @@ impl AsBindGroup for BindlessMaterial {
         &self,
         _: &BindGroupLayout,
         _: &RenderDevice,
-        _: &RenderAssets<Image>,
+        _: &RenderAssets<GpuImage>,
         _: &FallbackImage,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
         // we implement as_bind_group directly because
@@ -145,29 +151,36 @@ impl AsBindGroup for BindlessMaterial {
     where
         Self: Sized,
     {
-        vec![
-            // @group(2) @binding(0) var textures: binding_array<texture_2d<f32>>;
-            BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Texture {
-                    sample_type: TextureSampleType::Float { filterable: true },
-                    view_dimension: TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: NonZeroU32::new(MAX_TEXTURE_COUNT as u32),
-            },
-            // @group(2) @binding(1) var nearest_sampler: sampler;
-            BindGroupLayoutEntry {
-                binding: 1,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                count: None,
-                // Note: as textures, multiple samplers can also be bound onto one binding slot.
-                // One may need to pay attention to the limit of sampler binding amount on some platforms.
-                // count: NonZeroU32::new(MAX_TEXTURE_COUNT as u32),
-            },
-        ]
+        BindGroupLayoutEntries::with_indices(
+            // The layout entries will only be visible in the fragment stage
+            ShaderStages::FRAGMENT,
+            (
+                // Screen texture
+                //
+                // @group(2) @binding(0) var textures: binding_array<texture_2d<f32>>;
+                (
+                    0,
+                    texture_2d(TextureSampleType::Float { filterable: true })
+                        .count(NonZeroU32::new(MAX_TEXTURE_COUNT as u32).unwrap()),
+                ),
+                // Sampler
+                //
+                // @group(2) @binding(1) var nearest_sampler: sampler;
+                //
+                // Note: as with textures, multiple samplers can also be bound
+                // onto one binding slot:
+                //
+                // ```
+                // sampler(SamplerBindingType::Filtering)
+                //     .count(NonZeroU32::new(MAX_TEXTURE_COUNT as u32).unwrap()),
+                // ```
+                //
+                // One may need to pay attention to the limit of sampler binding
+                // amount on some platforms.
+                (1, sampler(SamplerBindingType::Filtering)),
+            ),
+        )
+        .to_vec()
     }
 }
 

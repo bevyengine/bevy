@@ -26,7 +26,10 @@ pub mod graph {
         MainTransparentPass,
         EndMainPass,
         Taa,
+        MotionBlur,
         Bloom,
+        AutoExposure,
+        DepthOfField,
         Tonemapping,
         Fxaa,
         Upscaling,
@@ -47,7 +50,7 @@ pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use bevy_math::FloatOrd;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
@@ -56,8 +59,9 @@ use bevy_render::{
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
-        sort_phase_system, BinnedPhaseItem, BinnedRenderPhase, CachedRenderPipelinePhaseItem,
-        DrawFunctionId, DrawFunctions, PhaseItem, SortedPhaseItem, SortedRenderPhase,
+        sort_phase_system, BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId,
+        DrawFunctions, PhaseItem, PhaseItemExtraIndex, SortedPhaseItem, ViewBinnedRenderPhases,
+        ViewSortedRenderPhases,
     },
     render_resource::{
         BindGroupId, CachedRenderPipelineId, Extent3d, FilterMode, Sampler, SamplerDescriptor,
@@ -69,7 +73,6 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::warn, HashMap};
-use nonmax::NonMaxU32;
 
 use crate::{
     core_3d::main_transmissive_pass_3d_node::MainTransmissivePass3dNode,
@@ -78,6 +81,7 @@ use crate::{
         AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT,
         DEFERRED_PREPASS_FORMAT,
     },
+    dof::DepthOfFieldNode,
     prepass::{
         node::PrepassNode, AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass,
         NormalPrepass, Opaque3dPrepass, OpaqueNoLightmap3dBinKey, ViewPrepassTextures,
@@ -150,6 +154,7 @@ impl Plugin for Core3dPlugin {
                 Node3d::MainTransparentPass,
             )
             .add_render_graph_node::<EmptyNode>(Core3d, Node3d::EndMainPass)
+            .add_render_graph_node::<ViewNodeRunner<DepthOfFieldNode>>(Core3d, Node3d::DepthOfField)
             .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(Core3d, Node3d::Tonemapping)
             .add_render_graph_node::<EmptyNode>(Core3d, Node3d::EndMainPassPostProcessing)
             .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(Core3d, Node3d::Upscaling)
@@ -182,8 +187,9 @@ pub struct Opaque3d {
     pub representative_entity: Entity,
     /// The ranges of instances.
     pub batch_range: Range<u32>,
-    /// The dynamic offset.
-    pub dynamic_offset: Option<NonMaxU32>,
+    /// An extra index, which is either a dynamic offset or an index in the
+    /// indirect parameters list.
+    pub extra_index: PhaseItemExtraIndex,
 }
 
 /// Data that must be identical in order to batch meshes together.
@@ -228,14 +234,12 @@ impl PhaseItem for Opaque3d {
         &mut self.batch_range
     }
 
-    #[inline]
-    fn dynamic_offset(&self) -> Option<NonMaxU32> {
-        self.dynamic_offset
+    fn extra_index(&self) -> PhaseItemExtraIndex {
+        self.extra_index
     }
 
-    #[inline]
-    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
-        &mut self.dynamic_offset
+    fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
+        (&mut self.batch_range, &mut self.extra_index)
     }
 }
 
@@ -247,13 +251,13 @@ impl BinnedPhaseItem for Opaque3d {
         key: Self::BinKey,
         representative_entity: Entity,
         batch_range: Range<u32>,
-        dynamic_offset: Option<NonMaxU32>,
+        extra_index: PhaseItemExtraIndex,
     ) -> Self {
         Opaque3d {
             key,
             representative_entity,
             batch_range,
-            dynamic_offset,
+            extra_index,
         }
     }
 }
@@ -269,7 +273,7 @@ pub struct AlphaMask3d {
     pub key: OpaqueNoLightmap3dBinKey,
     pub representative_entity: Entity,
     pub batch_range: Range<u32>,
-    pub dynamic_offset: Option<NonMaxU32>,
+    pub extra_index: PhaseItemExtraIndex,
 }
 
 impl PhaseItem for AlphaMask3d {
@@ -294,13 +298,13 @@ impl PhaseItem for AlphaMask3d {
     }
 
     #[inline]
-    fn dynamic_offset(&self) -> Option<NonMaxU32> {
-        self.dynamic_offset
+    fn extra_index(&self) -> PhaseItemExtraIndex {
+        self.extra_index
     }
 
     #[inline]
-    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
-        &mut self.dynamic_offset
+    fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
+        (&mut self.batch_range, &mut self.extra_index)
     }
 }
 
@@ -312,13 +316,13 @@ impl BinnedPhaseItem for AlphaMask3d {
         key: Self::BinKey,
         representative_entity: Entity,
         batch_range: Range<u32>,
-        dynamic_offset: Option<NonMaxU32>,
+        extra_index: PhaseItemExtraIndex,
     ) -> Self {
         Self {
             key,
             representative_entity,
             batch_range,
-            dynamic_offset,
+            extra_index,
         }
     }
 }
@@ -336,7 +340,7 @@ pub struct Transmissive3d {
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
-    pub dynamic_offset: Option<NonMaxU32>,
+    pub extra_index: PhaseItemExtraIndex,
 }
 
 impl PhaseItem for Transmissive3d {
@@ -372,13 +376,13 @@ impl PhaseItem for Transmissive3d {
     }
 
     #[inline]
-    fn dynamic_offset(&self) -> Option<NonMaxU32> {
-        self.dynamic_offset
+    fn extra_index(&self) -> PhaseItemExtraIndex {
+        self.extra_index
     }
 
     #[inline]
-    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
-        &mut self.dynamic_offset
+    fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
+        (&mut self.batch_range, &mut self.extra_index)
     }
 }
 
@@ -410,7 +414,7 @@ pub struct Transparent3d {
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
-    pub dynamic_offset: Option<NonMaxU32>,
+    pub extra_index: PhaseItemExtraIndex,
 }
 
 impl PhaseItem for Transparent3d {
@@ -435,13 +439,13 @@ impl PhaseItem for Transparent3d {
     }
 
     #[inline]
-    fn dynamic_offset(&self) -> Option<NonMaxU32> {
-        self.dynamic_offset
+    fn extra_index(&self) -> PhaseItemExtraIndex {
+        self.extra_index
     }
 
     #[inline]
-    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
-        &mut self.dynamic_offset
+    fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
+        (&mut self.batch_range, &mut self.extra_index)
     }
 }
 
@@ -469,23 +473,43 @@ impl CachedRenderPipelinePhaseItem for Transparent3d {
 
 pub fn extract_core_3d_camera_phases(
     mut commands: Commands,
+    mut opaque_3d_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
+    mut alpha_mask_3d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
+    mut transmissive_3d_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
+    mut transparent_3d_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     cameras_3d: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
+    mut live_entities: Local<EntityHashSet>,
 ) {
+    live_entities.clear();
+
     for (entity, camera) in &cameras_3d {
-        if camera.is_active {
-            commands.get_or_spawn(entity).insert((
-                BinnedRenderPhase::<Opaque3d>::default(),
-                BinnedRenderPhase::<AlphaMask3d>::default(),
-                SortedRenderPhase::<Transmissive3d>::default(),
-                SortedRenderPhase::<Transparent3d>::default(),
-            ));
+        if !camera.is_active {
+            continue;
         }
+
+        commands.get_or_spawn(entity);
+
+        opaque_3d_phases.insert_or_clear(entity);
+        alpha_mask_3d_phases.insert_or_clear(entity);
+        transmissive_3d_phases.insert_or_clear(entity);
+        transparent_3d_phases.insert_or_clear(entity);
+
+        live_entities.insert(entity);
     }
+
+    opaque_3d_phases.retain(|entity, _| live_entities.contains(entity));
+    alpha_mask_3d_phases.retain(|entity, _| live_entities.contains(entity));
+    transmissive_3d_phases.retain(|entity, _| live_entities.contains(entity));
+    transparent_3d_phases.retain(|entity, _| live_entities.contains(entity));
 }
 
 // Extract the render phases for the prepass
 pub fn extract_camera_prepass_phase(
     mut commands: Commands,
+    mut opaque_3d_prepass_phases: ResMut<ViewBinnedRenderPhases<Opaque3dPrepass>>,
+    mut alpha_mask_3d_prepass_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
+    mut opaque_3d_deferred_phases: ResMut<ViewBinnedRenderPhases<Opaque3dDeferred>>,
+    mut alpha_mask_3d_deferred_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
     cameras_3d: Extract<
         Query<
             (
@@ -499,60 +523,79 @@ pub fn extract_camera_prepass_phase(
             With<Camera3d>,
         >,
     >,
+    mut live_entities: Local<EntityHashSet>,
 ) {
+    live_entities.clear();
+
     for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass) in
         cameras_3d.iter()
     {
-        if camera.is_active {
-            let mut entity = commands.get_or_spawn(entity);
+        if !camera.is_active {
+            continue;
+        }
 
-            if depth_prepass || normal_prepass || motion_vector_prepass {
-                entity.insert((
-                    BinnedRenderPhase::<Opaque3dPrepass>::default(),
-                    BinnedRenderPhase::<AlphaMask3dPrepass>::default(),
-                ));
-            }
+        if depth_prepass || normal_prepass || motion_vector_prepass {
+            opaque_3d_prepass_phases.insert_or_clear(entity);
+            alpha_mask_3d_prepass_phases.insert_or_clear(entity);
+        } else {
+            opaque_3d_prepass_phases.remove(&entity);
+            alpha_mask_3d_prepass_phases.remove(&entity);
+        }
 
-            if deferred_prepass {
-                entity.insert((
-                    BinnedRenderPhase::<Opaque3dDeferred>::default(),
-                    BinnedRenderPhase::<AlphaMask3dDeferred>::default(),
-                ));
-            }
+        if deferred_prepass {
+            opaque_3d_deferred_phases.insert_or_clear(entity);
+            alpha_mask_3d_deferred_phases.insert_or_clear(entity);
+        } else {
+            opaque_3d_deferred_phases.remove(&entity);
+            alpha_mask_3d_deferred_phases.remove(&entity);
+        }
 
-            if depth_prepass {
-                entity.insert(DepthPrepass);
-            }
-            if normal_prepass {
-                entity.insert(NormalPrepass);
-            }
-            if motion_vector_prepass {
-                entity.insert(MotionVectorPrepass);
-            }
-            if deferred_prepass {
-                entity.insert(DeferredPrepass);
-            }
+        live_entities.insert(entity);
+
+        let mut entity = commands.get_or_spawn(entity);
+
+        if depth_prepass {
+            entity.insert(DepthPrepass);
+        }
+        if normal_prepass {
+            entity.insert(NormalPrepass);
+        }
+        if motion_vector_prepass {
+            entity.insert(MotionVectorPrepass);
+        }
+        if deferred_prepass {
+            entity.insert(DeferredPrepass);
         }
     }
+
+    opaque_3d_prepass_phases.retain(|entity, _| live_entities.contains(entity));
+    alpha_mask_3d_prepass_phases.retain(|entity, _| live_entities.contains(entity));
+    opaque_3d_deferred_phases.retain(|entity, _| live_entities.contains(entity));
+    alpha_mask_3d_deferred_phases.retain(|entity, _| live_entities.contains(entity));
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn prepare_core_3d_depth_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
-    views_3d: Query<
-        (Entity, &ExtractedCamera, Option<&DepthPrepass>, &Camera3d),
-        (
-            With<BinnedRenderPhase<Opaque3d>>,
-            With<BinnedRenderPhase<AlphaMask3d>>,
-            With<SortedRenderPhase<Transmissive3d>>,
-            With<SortedRenderPhase<Transparent3d>>,
-        ),
-    >,
+    opaque_3d_phases: Res<ViewBinnedRenderPhases<Opaque3d>>,
+    alpha_mask_3d_phases: Res<ViewBinnedRenderPhases<AlphaMask3d>>,
+    transmissive_3d_phases: Res<ViewSortedRenderPhases<Transmissive3d>>,
+    transparent_3d_phases: Res<ViewSortedRenderPhases<Transparent3d>>,
+    views_3d: Query<(Entity, &ExtractedCamera, Option<&DepthPrepass>, &Camera3d)>,
 ) {
     let mut render_target_usage = HashMap::default();
-    for (_, camera, depth_prepass, camera_3d) in &views_3d {
+    for (view, camera, depth_prepass, camera_3d) in &views_3d {
+        if !opaque_3d_phases.contains_key(&view)
+            || !alpha_mask_3d_phases.contains_key(&view)
+            || !transmissive_3d_phases.contains_key(&view)
+            || !transparent_3d_phases.contains_key(&view)
+        {
+            continue;
+        };
+
         // Default usage required to write to the depth texture
         let mut usage: TextureUsages = camera_3d.depth_texture_usages.into();
         if depth_prepass.is_some() {
@@ -617,27 +660,30 @@ pub struct ViewTransmissionTexture {
     pub sampler: Sampler,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn prepare_core_3d_transmission_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views_3d: Query<
-        (
-            Entity,
-            &ExtractedCamera,
-            &Camera3d,
-            &ExtractedView,
-            &SortedRenderPhase<Transmissive3d>,
-        ),
-        (
-            With<BinnedRenderPhase<Opaque3d>>,
-            With<BinnedRenderPhase<AlphaMask3d>>,
-            With<SortedRenderPhase<Transparent3d>>,
-        ),
-    >,
+    opaque_3d_phases: Res<ViewBinnedRenderPhases<Opaque3d>>,
+    alpha_mask_3d_phases: Res<ViewBinnedRenderPhases<AlphaMask3d>>,
+    transmissive_3d_phases: Res<ViewSortedRenderPhases<Transmissive3d>>,
+    transparent_3d_phases: Res<ViewSortedRenderPhases<Transparent3d>>,
+    views_3d: Query<(Entity, &ExtractedCamera, &Camera3d, &ExtractedView)>,
 ) {
     let mut textures = HashMap::default();
-    for (entity, camera, camera_3d, view, transmissive_3d_phase) in &views_3d {
+    for (entity, camera, camera_3d, view) in &views_3d {
+        if !opaque_3d_phases.contains_key(&entity)
+            || !alpha_mask_3d_phases.contains_key(&entity)
+            || !transparent_3d_phases.contains_key(&entity)
+        {
+            continue;
+        };
+
+        let Some(transmissive_3d_phase) = transmissive_3d_phases.get(&entity) else {
+            continue;
+        };
+
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
@@ -717,27 +763,24 @@ pub fn check_msaa(
 }
 
 // Prepares the textures used by the prepass
+#[allow(clippy::too_many_arguments)]
 pub fn prepare_prepass_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
-    views_3d: Query<
-        (
-            Entity,
-            &ExtractedCamera,
-            Has<DepthPrepass>,
-            Has<NormalPrepass>,
-            Has<MotionVectorPrepass>,
-            Has<DeferredPrepass>,
-        ),
-        Or<(
-            With<BinnedRenderPhase<Opaque3dPrepass>>,
-            With<BinnedRenderPhase<AlphaMask3dPrepass>>,
-            With<BinnedRenderPhase<Opaque3dDeferred>>,
-            With<BinnedRenderPhase<AlphaMask3dDeferred>>,
-        )>,
-    >,
+    opaque_3d_prepass_phases: Res<ViewBinnedRenderPhases<Opaque3dPrepass>>,
+    alpha_mask_3d_prepass_phases: Res<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
+    opaque_3d_deferred_phases: Res<ViewBinnedRenderPhases<Opaque3dDeferred>>,
+    alpha_mask_3d_deferred_phases: Res<ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
+    views_3d: Query<(
+        Entity,
+        &ExtractedCamera,
+        Has<DepthPrepass>,
+        Has<NormalPrepass>,
+        Has<MotionVectorPrepass>,
+        Has<DeferredPrepass>,
+    )>,
 ) {
     let mut depth_textures = HashMap::default();
     let mut normal_textures = HashMap::default();
@@ -747,6 +790,14 @@ pub fn prepare_prepass_textures(
     for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass) in
         &views_3d
     {
+        if !opaque_3d_prepass_phases.contains_key(&entity)
+            && !alpha_mask_3d_prepass_phases.contains_key(&entity)
+            && !opaque_3d_deferred_phases.contains_key(&entity)
+            && !alpha_mask_3d_deferred_phases.contains_key(&entity)
+        {
+            continue;
+        };
+
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
