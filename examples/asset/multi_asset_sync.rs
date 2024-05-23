@@ -12,6 +12,32 @@ use bevy::{gltf::Gltf, prelude::*, tasks::AsyncComputeTaskPool};
 use event_listener::Event;
 use futures_lite::Future;
 
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .init_state::<LoadingState>()
+        .insert_resource(AmbientLight {
+            color: Color::WHITE,
+            brightness: 2000.,
+        })
+        .add_systems(Startup, setup_assets)
+        .add_systems(Startup, setup_scene)
+        .add_systems(Startup, setup_ui)
+        // This showcases how to wait for assets synchronously.
+        .add_systems(Update, wait_on_load.run_if(assets_loaded))
+        // This showcases how to wait for assets asynchronously.
+        .add_systems(
+            Update,
+            get_async_loading_state.run_if(in_state(LoadingState::Loading)),
+        )
+        // This showcases how to react to asynchronous world mutation synchronously.
+        .add_systems(
+            OnExit(LoadingState::Loading),
+            despawn_loading_state_entities,
+        )
+        .run();
+}
+
 /// [`States`] of asset loading.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, States, Default)]
 pub enum LoadingState {
@@ -100,7 +126,7 @@ impl Clone for AssetBarrierGuard {
     }
 }
 
-// Decrement count on clone.
+// Decrement count on drop.
 impl Drop for AssetBarrierGuard {
     fn drop(&mut self) {
         let prev = self.count.fetch_sub(1, Ordering::AcqRel);
@@ -111,36 +137,7 @@ impl Drop for AssetBarrierGuard {
     }
 }
 
-fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .init_state::<LoadingState>()
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 2000.,
-        })
-        .add_systems(Startup, setup)
-        // This showcases how to wait for assets synchronously.
-        .add_systems(Update, wait_on_load)
-        // This showcases how to wait for assets asynchronously.
-        .add_systems(
-            Update,
-            get_async_loading_state.run_if(in_state(LoadingState::Loading)),
-        )
-        // This showcases how to react to asynchronous world mutation synchronously.
-        .add_systems(
-            OnExit(LoadingState::Loading),
-            despawn_loading_state_entities,
-        )
-        .run();
-}
-
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
     let (barrier, guard) = AssetBarrier::new();
     commands.insert_resource(OneHundredThings(std::array::from_fn(|i| match i % 5 {
         0 => asset_server.load_acquire("models/GolfBall/GolfBall.glb", guard.clone()),
@@ -164,7 +161,9 @@ fn setup(
             loading_state.store(true, Ordering::Release);
         })
         .detach();
+}
 
+fn setup_ui(mut commands: Commands) {
     // Display the result of async loading.
     commands
         .spawn(NodeBundle {
@@ -197,7 +196,13 @@ fn setup(
                 LoadingText,
             ));
         });
+}
 
+fn setup_scene(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
     // Camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(10.0, 10.0, 15.0)
@@ -226,20 +231,22 @@ fn setup(
     ));
 }
 
+// A run condition for all assets being loaded.
+fn assets_loaded(barrier: Option<Res<AssetBarrier>>) -> bool {
+    // If our barrier isn't ready, return early and wait another cycle
+    barrier.map(|b| b.is_ready()) == Some(true)
+}
+
 // This showcases how to wait for assets synchronously.
+//
+// This function only runs if `assets_loaded` returns true.
 fn wait_on_load(
     mut commands: Commands,
     foxes: Res<OneHundredThings>,
-    barrier: Option<Res<AssetBarrier>>,
     gltfs: Res<Assets<Gltf>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // If our barrier isn't ready, return early and wait another cycle
-    if barrier.map(|b| b.is_ready()) != Some(true) {
-        return;
-    };
-
     // Change color of plane to green
     commands.spawn((PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(50000.0, 50000.0)),
@@ -283,7 +290,7 @@ fn get_async_loading_state(
     }
 }
 
-// This showcases how to react to asynchronous world mutation synchronously.
+// This showcases how to react to asynchronous world mutations synchronously.
 fn despawn_loading_state_entities(mut commands: Commands, loading: Query<Entity, With<Loading>>) {
     // Despawn entities in the loading phase.
     for entity in loading.iter() {
