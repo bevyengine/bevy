@@ -2,7 +2,8 @@
 //! in [_HWB - A More Intuitive Hue-Based Color Model_] by _Smith et al_.
 //!
 //! [_HWB - A More Intuitive Hue-Based Color Model_]: https://web.archive.org/web/20240226005220/http://alvyray.com/Papers/CG/HWB_JGTv208.pdf
-use crate::{Alpha, ClampColor, Hue, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza};
+use crate::{Alpha, ColorToComponents, Hue, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza};
+use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
 
 /// Color in Hue-Whiteness-Blackness (HWB) color space with alpha.
@@ -124,21 +125,57 @@ impl Hue for Hwba {
     }
 }
 
-impl ClampColor for Hwba {
-    fn clamped(&self) -> Self {
+impl ColorToComponents for Hwba {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.hue, self.whiteness, self.blackness, self.alpha]
+    }
+
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
+        [self.hue, self.whiteness, self.blackness]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.hue, self.whiteness, self.blackness, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.hue, self.whiteness, self.blackness)
+    }
+
+    fn from_f32_array(color: [f32; 4]) -> Self {
         Self {
-            hue: self.hue.rem_euclid(360.),
-            whiteness: self.whiteness.clamp(0., 1.),
-            blackness: self.blackness.clamp(0., 1.),
-            alpha: self.alpha.clamp(0., 1.),
+            hue: color[0],
+            whiteness: color[1],
+            blackness: color[2],
+            alpha: color[3],
         }
     }
 
-    fn is_within_bounds(&self) -> bool {
-        (0. ..=360.).contains(&self.hue)
-            && (0. ..=1.).contains(&self.whiteness)
-            && (0. ..=1.).contains(&self.blackness)
-            && (0. ..=1.).contains(&self.alpha)
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
+        Self {
+            hue: color[0],
+            whiteness: color[1],
+            blackness: color[2],
+            alpha: 1.0,
+        }
+    }
+
+    fn from_vec4(color: Vec4) -> Self {
+        Self {
+            hue: color[0],
+            whiteness: color[1],
+            blackness: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_vec3(color: Vec3) -> Self {
+        Self {
+            hue: color[0],
+            whiteness: color[1],
+            blackness: color[2],
+            alpha: 1.0,
+        }
     }
 }
 
@@ -290,22 +327,5 @@ mod tests {
             assert_approx_eq!(color.hwb.blackness, hwb2.blackness, 0.001);
             assert_approx_eq!(color.hwb.alpha, hwb2.alpha, 0.001);
         }
-    }
-
-    #[test]
-    fn test_clamp() {
-        let color_1 = Hwba::hwb(361., 2., -1.);
-        let color_2 = Hwba::hwb(250.2762, 1., 0.67);
-        let mut color_3 = Hwba::hwb(-50., 1., 1.);
-
-        assert!(!color_1.is_within_bounds());
-        assert_eq!(color_1.clamped(), Hwba::hwb(1., 1., 0.));
-
-        assert!(color_2.is_within_bounds());
-        assert_eq!(color_2, color_2.clamped());
-
-        color_3.clamp();
-        assert!(color_3.is_within_bounds());
-        assert_eq!(color_3, Hwba::hwb(310., 1., 1.));
     }
 }

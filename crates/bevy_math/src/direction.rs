@@ -92,6 +92,8 @@ impl Dir2 {
     pub const NEG_X: Self = Self(Vec2::NEG_X);
     /// A unit vector pointing along the negative Y axis.
     pub const NEG_Y: Self = Self(Vec2::NEG_Y);
+    /// The directional axes.
+    pub const AXES: [Self; 2] = [Self::X, Self::Y];
 
     /// Create a direction from a finite, nonzero [`Vec2`].
     ///
@@ -140,6 +142,35 @@ impl Dir2 {
     /// Returns the inner [`Vec2`]
     pub const fn as_vec2(&self) -> Vec2 {
         self.0
+    }
+
+    /// Performs a spherical linear interpolation between `self` and `rhs`
+    /// based on the value `s`.
+    ///
+    /// This corresponds to interpolating between the two directions at a constant angular velocity.
+    ///
+    /// When `s == 0.0`, the result will be equal to `self`.
+    /// When `s == 1.0`, the result will be equal to `rhs`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::Dir2;
+    /// # use approx::{assert_relative_eq, RelativeEq};
+    /// #
+    /// let dir1 = Dir2::X;
+    /// let dir2 = Dir2::Y;
+    ///
+    /// let result1 = dir1.slerp(dir2, 1.0 / 3.0);
+    /// assert_relative_eq!(result1, Dir2::from_xy(0.75_f32.sqrt(), 0.5).unwrap());
+    ///
+    /// let result2 = dir1.slerp(dir2, 0.5);
+    /// assert_relative_eq!(result2, Dir2::from_xy(0.5_f32.sqrt(), 0.5_f32.sqrt()).unwrap());
+    /// ```
+    #[inline]
+    pub fn slerp(self, rhs: Self, s: f32) -> Self {
+        let angle = self.angle_between(rhs.0);
+        Rotation2d::radians(angle * s) * self
     }
 }
 
@@ -254,6 +285,8 @@ impl Dir3 {
     pub const NEG_Y: Self = Self(Vec3::NEG_Y);
     /// A unit vector pointing along the negative Z axis.
     pub const NEG_Z: Self = Self(Vec3::NEG_Z);
+    /// The directional axes.
+    pub const AXES: [Self; 3] = [Self::X, Self::Y, Self::Z];
 
     /// Create a direction from a finite, nonzero [`Vec3`].
     ///
@@ -302,6 +335,39 @@ impl Dir3 {
     /// Returns the inner [`Vec3`]
     pub const fn as_vec3(&self) -> Vec3 {
         self.0
+    }
+
+    /// Performs a spherical linear interpolation between `self` and `rhs`
+    /// based on the value `s`.
+    ///
+    /// This corresponds to interpolating between the two directions at a constant angular velocity.
+    ///
+    /// When `s == 0.0`, the result will be equal to `self`.
+    /// When `s == 1.0`, the result will be equal to `rhs`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::Dir3;
+    /// # use approx::{assert_relative_eq, RelativeEq};
+    /// #
+    /// let dir1 = Dir3::X;
+    /// let dir2 = Dir3::Y;
+    ///
+    /// let result1 = dir1.slerp(dir2, 1.0 / 3.0);
+    /// assert_relative_eq!(
+    ///     result1,
+    ///     Dir3::from_xyz(0.75_f32.sqrt(), 0.5, 0.0).unwrap(),
+    ///     epsilon = 0.000001
+    /// );
+    ///
+    /// let result2 = dir1.slerp(dir2, 0.5);
+    /// assert_relative_eq!(result2, Dir3::from_xyz(0.5_f32.sqrt(), 0.5_f32.sqrt(), 0.0).unwrap());
+    /// ```
+    #[inline]
+    pub fn slerp(self, rhs: Self, s: f32) -> Self {
+        let quat = Quat::IDENTITY.slerp(Quat::from_rotation_arc(self.0, rhs.0), s);
+        Dir3(quat.mul_vec3(self.0))
     }
 }
 
@@ -419,6 +485,8 @@ impl Dir3A {
     pub const NEG_Y: Self = Self(Vec3A::NEG_Y);
     /// A unit vector pointing along the negative Z axis.
     pub const NEG_Z: Self = Self(Vec3A::NEG_Z);
+    /// The directional axes.
+    pub const AXES: [Self; 3] = [Self::X, Self::Y, Self::Z];
 
     /// Create a direction from a finite, nonzero [`Vec3A`].
     ///
@@ -467,6 +535,42 @@ impl Dir3A {
     /// Returns the inner [`Vec3A`]
     pub const fn as_vec3a(&self) -> Vec3A {
         self.0
+    }
+
+    /// Performs a spherical linear interpolation between `self` and `rhs`
+    /// based on the value `s`.
+    ///
+    /// This corresponds to interpolating between the two directions at a constant angular velocity.
+    ///
+    /// When `s == 0.0`, the result will be equal to `self`.
+    /// When `s == 1.0`, the result will be equal to `rhs`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::Dir3A;
+    /// # use approx::{assert_relative_eq, RelativeEq};
+    /// #
+    /// let dir1 = Dir3A::X;
+    /// let dir2 = Dir3A::Y;
+    ///
+    /// let result1 = dir1.slerp(dir2, 1.0 / 3.0);
+    /// assert_relative_eq!(
+    ///     result1,
+    ///     Dir3A::from_xyz(0.75_f32.sqrt(), 0.5, 0.0).unwrap(),
+    ///     epsilon = 0.000001
+    /// );
+    ///
+    /// let result2 = dir1.slerp(dir2, 0.5);
+    /// assert_relative_eq!(result2, Dir3A::from_xyz(0.5_f32.sqrt(), 0.5_f32.sqrt(), 0.0).unwrap());
+    /// ```
+    #[inline]
+    pub fn slerp(self, rhs: Self, s: f32) -> Self {
+        let quat = Quat::IDENTITY.slerp(
+            Quat::from_rotation_arc(Vec3::from(self.0), Vec3::from(rhs.0)),
+            s,
+        );
+        Dir3A(quat.mul_vec3a(self.0))
     }
 }
 
@@ -576,6 +680,7 @@ impl approx::UlpsEq for Dir3A {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use approx::assert_relative_eq;
 
     #[test]
     fn dir2_creation() {
@@ -597,6 +702,24 @@ mod tests {
             Err(InvalidDirectionError::NaN)
         );
         assert_eq!(Dir2::new_and_length(Vec2::X * 6.5), Ok((Dir2::X, 6.5)));
+    }
+
+    #[test]
+    fn dir2_slerp() {
+        assert_relative_eq!(
+            Dir2::X.slerp(Dir2::Y, 0.5),
+            Dir2::from_xy(0.5_f32.sqrt(), 0.5_f32.sqrt()).unwrap()
+        );
+        assert_eq!(Dir2::Y.slerp(Dir2::X, 0.0), Dir2::Y);
+        assert_relative_eq!(Dir2::X.slerp(Dir2::Y, 1.0), Dir2::Y);
+        assert_relative_eq!(
+            Dir2::Y.slerp(Dir2::X, 1.0 / 3.0),
+            Dir2::from_xy(0.5, 0.75_f32.sqrt()).unwrap()
+        );
+        assert_relative_eq!(
+            Dir2::X.slerp(Dir2::Y, 2.0 / 3.0),
+            Dir2::from_xy(0.5, 0.75_f32.sqrt()).unwrap()
+        );
     }
 
     #[test]
@@ -628,6 +751,25 @@ mod tests {
     }
 
     #[test]
+    fn dir3_slerp() {
+        assert_relative_eq!(
+            Dir3::X.slerp(Dir3::Y, 0.5),
+            Dir3::from_xyz(0.5f32.sqrt(), 0.5f32.sqrt(), 0.0).unwrap()
+        );
+        assert_relative_eq!(Dir3::Y.slerp(Dir3::Z, 0.0), Dir3::Y);
+        assert_relative_eq!(Dir3::Z.slerp(Dir3::X, 1.0), Dir3::X, epsilon = 0.000001);
+        assert_relative_eq!(
+            Dir3::X.slerp(Dir3::Z, 1.0 / 3.0),
+            Dir3::from_xyz(0.75f32.sqrt(), 0.0, 0.5).unwrap(),
+            epsilon = 0.000001
+        );
+        assert_relative_eq!(
+            Dir3::Z.slerp(Dir3::Y, 2.0 / 3.0),
+            Dir3::from_xyz(0.0, 0.75f32.sqrt(), 0.5).unwrap()
+        );
+    }
+
+    #[test]
     fn dir3a_creation() {
         assert_eq!(Dir3A::new(Vec3A::X * 12.5), Ok(Dir3A::X));
         assert_eq!(
@@ -652,6 +794,25 @@ mod tests {
         assert!(
             (Quat::from_rotation_z(std::f32::consts::FRAC_PI_2) * Dir3A::X)
                 .abs_diff_eq(Vec3A::Y, 10e-6)
+        );
+    }
+
+    #[test]
+    fn dir3a_slerp() {
+        assert_relative_eq!(
+            Dir3A::X.slerp(Dir3A::Y, 0.5),
+            Dir3A::from_xyz(0.5f32.sqrt(), 0.5f32.sqrt(), 0.0).unwrap()
+        );
+        assert_relative_eq!(Dir3A::Y.slerp(Dir3A::Z, 0.0), Dir3A::Y);
+        assert_relative_eq!(Dir3A::Z.slerp(Dir3A::X, 1.0), Dir3A::X, epsilon = 0.000001);
+        assert_relative_eq!(
+            Dir3A::X.slerp(Dir3A::Z, 1.0 / 3.0),
+            Dir3A::from_xyz(0.75f32.sqrt(), 0.0, 0.5).unwrap(),
+            epsilon = 0.000001
+        );
+        assert_relative_eq!(
+            Dir3A::Z.slerp(Dir3A::Y, 2.0 / 3.0),
+            Dir3A::from_xyz(0.0, 0.75f32.sqrt(), 0.5).unwrap()
         );
     }
 }

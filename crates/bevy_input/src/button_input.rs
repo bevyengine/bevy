@@ -5,10 +5,6 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::HashSet;
 use std::hash::Hash;
 
-// unused import, but needed for intra doc link to work
-#[allow(unused_imports)]
-use bevy_ecs::schedule::State;
-
 /// A "press-able" input of type `T`.
 ///
 /// ## Usage
@@ -23,8 +19,8 @@ use bevy_ecs::schedule::State;
 /// ## Multiple systems
 ///
 /// In case multiple systems are checking for [`ButtonInput::just_pressed`] or [`ButtonInput::just_released`]
-/// but only one should react, for example in the case of triggering
-/// [`State`] change, you should consider clearing the input state, either by:
+/// but only one should react, for example when modifying a
+/// [`Resource`], you should consider clearing the input state, either by:
 ///
 /// * Using [`ButtonInput::clear_just_pressed`] or [`ButtonInput::clear_just_released`] instead.
 /// * Calling [`ButtonInput::clear`] or [`ButtonInput::reset`] immediately after the state change.

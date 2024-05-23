@@ -14,7 +14,7 @@ use std::{borrow::Cow, marker::PhantomData};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::{info_span, Span};
 
-use super::{In, IntoSystem, ReadOnlySystem};
+use super::{In, IntoSystem, ReadOnlySystem, SystemBuilder};
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -198,6 +198,16 @@ impl<Param: SystemParam> SystemState<Param> {
             meta,
             param_state,
             world_id: world.id(),
+            archetype_generation: ArchetypeGeneration::initial(),
+        }
+    }
+
+    // Create a [`SystemState`] from a [`SystemBuilder`]
+    pub(crate) fn from_builder(builder: SystemBuilder<Param>) -> Self {
+        Self {
+            meta: builder.meta,
+            param_state: builder.state,
+            world_id: builder.world.id(),
             archetype_generation: ArchetypeGeneration::initial(),
         }
     }
@@ -397,6 +407,23 @@ where
     marker: PhantomData<fn() -> Marker>,
 }
 
+impl<Marker, F> FunctionSystem<Marker, F>
+where
+    F: SystemParamFunction<Marker>,
+{
+    // Create a [`FunctionSystem`] from a [`SystemBuilder`]
+    pub(crate) fn from_builder(builder: SystemBuilder<F::Param>, func: F) -> Self {
+        Self {
+            func,
+            param_state: Some(builder.state),
+            system_meta: builder.meta,
+            world_id: Some(builder.world.id()),
+            archetype_generation: ArchetypeGeneration::initial(),
+            marker: PhantomData,
+        }
+    }
+}
+
 // De-initializes the cloned system.
 impl<Marker, F> Clone for FunctionSystem<Marker, F>
 where
@@ -523,9 +550,17 @@ where
 
     #[inline]
     fn initialize(&mut self, world: &mut World) {
-        self.world_id = Some(world.id());
+        if let Some(id) = self.world_id {
+            assert_eq!(
+                id,
+                world.id(),
+                "System built with a different world than the one it was added to.",
+            );
+        } else {
+            self.world_id = Some(world.id());
+            self.param_state = Some(F::Param::init_state(world, &mut self.system_meta));
+        }
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
-        self.param_state = Some(F::Param::init_state(world, &mut self.system_meta));
     }
 
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
