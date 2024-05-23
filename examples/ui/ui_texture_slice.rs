@@ -44,10 +44,16 @@ fn button_system(
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let image = asset_server.load("textures/fantasy_ui_borders/panel-border-010.png");
+    let image = asset_server.load("textures/fantasy_ui_borders/panel-border-020.png");
 
+    //TextureSlicer now supports non-symmetrical slices
     let slicer = TextureSlicer {
-        border: BorderRect::square(22.0),
+        border: BorderRect {
+            left: 44.0,
+            right: 20.0,
+            top: 44.0,
+            bottom: 20.0,
+        },
         center_scale_mode: SliceScaleMode::Stretch,
         sides_scale_mode: SliceScaleMode::Stretch,
         max_corner_scale: 1.0,
@@ -66,7 +72,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .with_children(|parent| {
-            for [w, h] in [[150.0, 150.0], [300.0, 150.0], [150.0, 300.0]] {
+            for [w, h] in [[200.0, 200.0], [300.0, 200.0], [200.0, 300.0]] {
                 parent
                     .spawn((
                         ButtonBundle {
