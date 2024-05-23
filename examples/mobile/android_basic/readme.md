@@ -33,7 +33,7 @@ Please refer `cargo-apk` [README](https://crates.io/crates/cargo-apk) for other 
 
 For this exmaple, you can replace the `Cargo.toml` with the one within this folder.
 
-After setup, you can run it on a device setup for Android development:
+After setup, you can run it on a device for Android development:
 
 ```sh
 cargo apk run -p bevy_mobile_example
