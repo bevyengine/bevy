@@ -681,18 +681,10 @@ pub(crate) fn spot_light_projection_matrix(angle: f32) -> Mat4 {
     Mat4::perspective_infinite_reverse_rh(angle * 2.0, 1.0, POINT_LIGHT_NEAR_Z)
 }
 
+#[derive(Default)]
 pub struct PrepareLightsWarningEmitted {
     max_directional_lights: bool,
     max_cascades_per_light: bool,
-}
-
-impl Default for PrepareLightsWarningEmitted {
-    fn default() -> Self {
-        Self {
-            max_directional_lights: false,
-            max_cascades_per_light: false,
-        }
-    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -770,7 +762,7 @@ pub fn prepare_lights(
             directional_lights.len(),
             MAX_DIRECTIONAL_LIGHTS
         );
-        (*warning_emitted).max_directional_lights = true;
+        warning_emitted.max_directional_lights = true;
     }
 
     if !warning_emitted.max_cascades_per_light
@@ -782,7 +774,7 @@ pub fn prepare_lights(
             "The number of cascades configured for a directional light exceeds the supported limit of {}.",
             MAX_CASCADES_PER_LIGHT
         );
-        (*warning_emitted).max_cascades_per_light = true;
+        warning_emitted.max_cascades_per_light = true;
     }
 
     let point_light_count = point_lights
