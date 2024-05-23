@@ -3,8 +3,9 @@ use std::borrow::Cow;
 use bevy_asset::Handle;
 use bevy_math::UVec3;
 use bevy_render::render_resource::{
-    BindGroup, BindGroupLayout, BindGroupLayoutEntry, BindingType, Buffer, Sampler, Shader,
-    ShaderDefVal, ShaderStages, TextureView,
+    BindGroup, BindGroupLayout, BindGroupLayoutEntry, BindingType, Buffer, BufferUsages, Sampler,
+    Shader, ShaderDefVal, ShaderStages, TextureDimension, TextureFormat, TextureSampleType,
+    TextureUsages, TextureView, TextureViewDimension,
 };
 
 use crate::core::{
@@ -12,7 +13,8 @@ use crate::core::{
         bind_group::{
             RenderGraphBindGroupDescriptor, RenderGraphBindGroupEntry, RenderGraphBindingResource,
         },
-        RenderDependencies, RenderHandle,
+        texture::RenderGraphTextureViewDescriptor,
+        RenderHandle,
     },
     Label, RenderGraphBuilder,
 };
@@ -27,7 +29,6 @@ pub struct BindGroupBuilder<'a, 'b: 'a, 'g: 'b> {
     shader_stages: ShaderStages,
     layout: Vec<BindGroupLayoutEntry>,
     entries: Vec<RenderGraphBindGroupEntry<'g>>,
-    dependencies: RenderDependencies<'g>,
 }
 
 impl<'a, 'b: 'a, 'g: 'b> BindGroupBuilder<'a, 'b, 'g> {
@@ -42,7 +43,6 @@ impl<'a, 'b: 'a, 'g: 'b> BindGroupBuilder<'a, 'b, 'g> {
             shader_stages,
             layout: Vec::new(),
             entries: Vec::new(),
-            dependencies: RenderDependencies::new(),
         }
     }
 
@@ -63,12 +63,118 @@ impl<'a, 'b: 'a, 'g: 'b> BindGroupBuilder<'a, 'b, 'g> {
             binding: self.entries.len() as u32,
             resource: RenderGraphBindingResource::Sampler(sampler),
         });
-        self.dependencies.read(sampler);
         self
     }
 
-    pub fn texture(&mut self, texture: RenderHandle<'g, TextureView>) -> &mut Self {
+    pub fn texture(&mut self, texture_view: RenderHandle<'g, TextureView>) -> &mut Self {
+        let RenderGraphTextureViewDescriptor {
+            texture,
+            descriptor,
+        } = self.graph.meta(texture_view).clone();
+        self.graph
+            .add_usages(texture, TextureUsages::TEXTURE_BINDING);
+        let texture_descriptor = self.graph.meta(texture);
+        self.layout.push(BindGroupLayoutEntry {
+            binding: self.layout.len() as u32,
+            visibility: self.shader_stages,
+            ty: BindingType::Texture {
+                sample_type: todo!(),
+                view_dimension: descriptor.dimension.unwrap_or_else(|| {
+                    match texture_descriptor.dimension {
+                        TextureDimension::D1 => TextureViewDimension::D1,
+                        TextureDimension::D2 => TextureViewDimension::D2,
+                        TextureDimension::D3 => TextureViewDimension::D3,
+                    }
+                }),
+                multisampled: texture_descriptor.sample_count != 1,
+            },
+            count: None,
+        });
+        self.entries.push(RenderGraphBindGroupEntry {
+            binding: self.entries.len() as u32,
+            resource: RenderGraphBindingResource::TextureView(texture_view),
+        });
         self
+    }
+
+    fn sample_type_from_format(texture_format: TextureFormat) -> TextureSampleType {
+        match texture_format {
+            TextureFormat::R8Unorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::R8Snorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::R8Uint => TextureSampleType::Uint,
+            TextureFormat::R8Sint => TextureSampleType::Sint,
+            TextureFormat::R16Uint => TextureSampleType::Uint,
+            TextureFormat::R16Sint => TextureSampleType::Sint,
+            TextureFormat::R16Unorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::R16Snorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::R16Float => TextureSampleType::Float { filterable: true },
+            TextureFormat::Rg8Unorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::Rg8Snorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::Rg8Uint => TextureSampleType::Uint,
+            TextureFormat::Rg8Sint => TextureSampleType::Sint,
+            TextureFormat::R32Uint => TextureSampleType::Uint,
+            TextureFormat::R32Sint => TextureSampleType::Sint,
+            TextureFormat::R32Float => TextureSampleType::Float { filterable: true },
+            TextureFormat::Rg16Uint => TextureSampleType::Uint,
+            TextureFormat::Rg16Sint => TextureSampleType::Sint,
+            TextureFormat::Rg16Unorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::Rg16Snorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::Rg16Float => TextureSampleType::Float { filterable: true },
+            TextureFormat::Rgba8Unorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::Rgba8UnormSrgb => TextureSampleType::Float { filterable: true },
+            TextureFormat::Rgba8Snorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::Rgba8Uint => TextureSampleType::Uint,
+            TextureFormat::Rgba8Sint => TextureSampleType::Sint,
+            TextureFormat::Bgra8Unorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::Bgra8UnormSrgb => TextureSampleType::Float { filterable: true },
+            TextureFormat::Rgb9e5Ufloat => TextureSampleType::Float { filterable: true },
+            TextureFormat::Rgb10a2Uint => TextureSampleType::Uint,
+            TextureFormat::Rgb10a2Unorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::Rg11b10Float => TextureSampleType::Float { filterable: true },
+            TextureFormat::Rg32Uint => TextureSampleType::Uint,
+            TextureFormat::Rg32Sint => TextureSampleType::Sint,
+            TextureFormat::Rg32Float => TextureSampleType::Float { filterable: true },
+            TextureFormat::Rgba16Uint => TextureSampleType::Uint,
+            TextureFormat::Rgba16Sint => TextureSampleType::Sint,
+            TextureFormat::Rgba16Unorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::Rgba16Snorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::Rgba16Float => TextureSampleType::Float { filterable: true },
+            TextureFormat::Rgba32Uint => TextureSampleType::Uint,
+            TextureFormat::Rgba32Sint => TextureSampleType::Sint,
+            TextureFormat::Rgba32Float => TextureSampleType::Float { filterable: true },
+            TextureFormat::Stencil8 => TextureSampleType::Depth,
+            TextureFormat::Depth16Unorm => TextureSampleType::Depth,
+            TextureFormat::Depth24Plus => TextureSampleType::Depth,
+            TextureFormat::Depth24PlusStencil8 => TextureSampleType::Depth,
+            TextureFormat::Depth32Float => TextureSampleType::Depth,
+            TextureFormat::Depth32FloatStencil8 => TextureSampleType::Depth,
+            TextureFormat::NV12 => TextureSampleType::Float { filterable: true },
+            TextureFormat::Bc1RgbaUnorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::Bc1RgbaUnormSrgb => TextureSampleType::Float { filterable: true },
+            TextureFormat::Bc2RgbaUnorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::Bc2RgbaUnormSrgb => TextureSampleType::Float { filterable: true },
+            TextureFormat::Bc3RgbaUnorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::Bc3RgbaUnormSrgb => TextureSampleType::Float { filterable: true },
+            TextureFormat::Bc4RUnorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::Bc4RSnorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::Bc5RgUnorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::Bc5RgSnorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::Bc6hRgbUfloat => TextureSampleType::Float { filterable: true },
+            TextureFormat::Bc6hRgbFloat => TextureSampleType::Float { filterable: true },
+            TextureFormat::Bc7RgbaUnorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::Bc7RgbaUnormSrgb => TextureSampleType::Float { filterable: true },
+            TextureFormat::Etc2Rgb8Unorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::Etc2Rgb8UnormSrgb => TextureSampleType::Float { filterable: true },
+            TextureFormat::Etc2Rgb8A1Unorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::Etc2Rgb8A1UnormSrgb => TextureSampleType::Float { filterable: true },
+            TextureFormat::Etc2Rgba8Unorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::Etc2Rgba8UnormSrgb => TextureSampleType::Float { filterable: true },
+            TextureFormat::EacR11Unorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::EacR11Snorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::EacRg11Unorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::EacRg11Snorm => TextureSampleType::Float { filterable: true },
+            TextureFormat::Astc { .. } => TextureSampleType::Float { filterable: true },
+        }
     }
 
     pub fn read_storage_texture(&mut self, texture: RenderHandle<'g, TextureView>) -> &mut Self {
@@ -93,11 +199,23 @@ impl<'a, 'b: 'a, 'g: 'b> BindGroupBuilder<'a, 'b, 'g> {
         self
     }
 
-    pub fn read_buffer(&mut self, buffer: RenderHandle<'g, Buffer>) -> &mut Self {
+    pub fn uniform_buffer(&mut self, buffer: RenderHandle<'g, Buffer>) -> &mut Self {
+        self.graph.add_usages(buffer, BufferUsages::UNIFORM);
         self
     }
 
-    pub fn write_buffer(&mut self, buffer: RenderHandle<'g, Buffer>) -> &mut Self {
+    pub fn read_storage_buffer(&mut self, buffer: RenderHandle<'g, Buffer>) -> &mut Self {
+        self.graph.add_usages(buffer, BufferUsages::STORAGE);
+        self
+    }
+
+    pub fn write_storage_buffer(&mut self, buffer: RenderHandle<'g, Buffer>) -> &mut Self {
+        self.graph.add_usages(buffer, BufferUsages::STORAGE);
+        self
+    }
+
+    pub fn read_write_storage_buffer(&mut self, buffer: RenderHandle<'g, Buffer>) -> &mut Self {
+        self.graph.add_usages(buffer, BufferUsages::STORAGE);
         self
     }
 
@@ -180,13 +298,15 @@ impl<'a, 'b: 'a, 'g: 'b> ComputePass<'a, 'b, 'g> {
         self
     }
 
-    pub fn read_buffer(&mut self, buffer: RenderHandle<'g, Buffer>) -> &mut Self {
-        self
-    }
-
-    pub fn write_buffer(&mut self, buffer: RenderHandle<'g, Buffer>) -> &mut Self {
-        self
-    }
+    // pub fn read_buffer(&mut self, buffer: RenderHandle<'g, Buffer>) -> &mut Self {
+    //     self.bind_group.read_buffer(buffer);
+    //     self
+    // }
+    //
+    // pub fn write_buffer(&mut self, buffer: RenderHandle<'g, Buffer>) -> &mut Self {
+    //     self.bind_group.write_buffer(buffer);
+    //     self
+    // }
 
     pub fn dispatch(&mut self, size: UVec3) -> &mut Self {
         self.dispatch_size = size;
@@ -229,6 +349,5 @@ impl<'a, 'b: 'a, 'g: 'b> ComputePass<'a, 'b, 'g> {
         //         );
         //     },
         // );
-        todo!()
     }
 }
