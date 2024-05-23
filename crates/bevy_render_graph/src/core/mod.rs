@@ -747,18 +747,22 @@ impl<'n, 'g: 'n> NodeContext<'n, 'g> {
         &self,
         render_pipeline: RenderHandle<'g, RenderPipeline>,
     ) -> Option<&RenderPipeline> {
-        self.graph
-            .pipelines
-            .get_render_pipeline(self.pipeline_cache.unwrap(), render_pipeline.id())
+        self.graph.pipelines.get_render_pipeline(
+            self.pipeline_cache
+                .expect("No PipelineCache present in NodeContext"),
+            render_pipeline.id(),
+        )
     }
 
     fn get_compute_pipeline(
         &self,
         compute_pipeline: RenderHandle<'g, ComputePipeline>,
     ) -> Option<&ComputePipeline> {
-        self.graph
-            .pipelines
-            .get_compute_pipeline(self.pipeline_cache.unwrap(), compute_pipeline.id())
+        self.graph.pipelines.get_compute_pipeline(
+            self.pipeline_cache
+                .expect("No PipelineCache present in NodeContext"),
+            compute_pipeline.id(),
+        )
     }
 
     fn get_bind_group_layout(

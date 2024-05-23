@@ -157,7 +157,7 @@ impl<'g> IntoRenderResource<'g> for &[BindGroupLayoutEntry] {
 }
 
 pub(in crate::core) fn make_bind_group<'n, 'g: 'n>(
-    ctx: &NodeContext<'n, 'g>,
+    context: &NodeContext<'n, 'g>,
     render_device: &RenderDevice,
     descriptor: &RenderGraphBindGroupDescriptor<'g>,
 ) -> BindGroup {
@@ -173,9 +173,7 @@ pub(in crate::core) fn make_bind_group<'n, 'g: 'n>(
         i_fst..vec.len()
     }
 
-    let ctx_ref = &ctx;
-
-    let raw_layout = ctx.get(descriptor.layout);
+    let raw_layout = context.get(descriptor.layout);
 
     let mut buffers = Vec::with_capacity(descriptor.entries.len());
     let mut samplers = Vec::with_capacity(descriptor.entries.len());
@@ -188,7 +186,7 @@ pub(in crate::core) fn make_bind_group<'n, 'g: 'n>(
                 RenderGraphBindingResource::Buffer(buffer_binding) => push_ref(
                     &mut buffers,
                     BufferBinding {
-                        buffer: ctx_ref.get(buffer_binding.buffer).deref(),
+                        buffer: context.get(buffer_binding.buffer).deref(),
                         offset: buffer_binding.offset,
                         size: buffer_binding.size,
                     },
@@ -196,30 +194,30 @@ pub(in crate::core) fn make_bind_group<'n, 'g: 'n>(
                 RenderGraphBindingResource::BufferArray(buffer_bindings) => push_many_ref(
                     &mut buffers,
                     buffer_bindings.iter().map(|buffer_binding| BufferBinding {
-                        buffer: ctx_ref.get(buffer_binding.buffer).deref(),
+                        buffer: context.get(buffer_binding.buffer).deref(),
                         offset: buffer_binding.offset,
                         size: buffer_binding.size,
                     }),
                 ),
                 RenderGraphBindingResource::Sampler(sampler_binding) => {
-                    push_ref(&mut samplers, ctx_ref.get(*sampler_binding).deref())
+                    push_ref(&mut samplers, context.get(*sampler_binding).deref())
                 }
                 RenderGraphBindingResource::SamplerArray(sampler_bindings) => push_many_ref(
                     &mut samplers,
                     sampler_bindings
                         .iter()
-                        .map(|sampler| ctx_ref.get(*sampler).deref()),
+                        .map(|sampler| context.get(*sampler).deref()),
                 ),
                 RenderGraphBindingResource::TextureView(texture_view_binding) => push_ref(
                     &mut texture_views,
-                    ctx_ref.get(*texture_view_binding).deref(),
+                    context.get(*texture_view_binding).deref(),
                 ),
                 RenderGraphBindingResource::TextureViewArray(texture_view_bindings) => {
                     push_many_ref(
                         &mut texture_views,
                         texture_view_bindings
                             .iter()
-                            .map(|texture_view| ctx_ref.get(*texture_view).deref()),
+                            .map(|texture_view| context.get(*texture_view).deref()),
                     )
                 }
             };
