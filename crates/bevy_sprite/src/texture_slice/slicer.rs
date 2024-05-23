@@ -129,7 +129,10 @@ impl TextureSlicer {
                     bl_corner.draw_size.x,
                     render_size.y - bl_corner.draw_size.y - tl_corner.draw_size.y,
                 ),
-                offset: vec2(-render_size.x + tl_corner.draw_size.x, -tl_corner.draw_size.y + bl_corner.draw_size.y) / 2.0,
+                offset: vec2(
+                    -render_size.x + tl_corner.draw_size.x,
+                    -tl_corner.draw_size.y + bl_corner.draw_size.y,
+                ) / 2.0,
             },
             // right
             TextureSlice {
@@ -144,7 +147,10 @@ impl TextureSlicer {
                     br_corner.draw_size.x,
                     render_size.y - (tr_corner.draw_size.y + br_corner.draw_size.y),
                 ),
-                offset: vec2(render_size.x - br_corner.draw_size.x, -tr_corner.draw_size.y + br_corner.draw_size.y) / 2.0,
+                offset: vec2(
+                    render_size.x - br_corner.draw_size.x,
+                    -tr_corner.draw_size.y + br_corner.draw_size.y,
+                ) / 2.0,
             },
         ]
     }
@@ -171,7 +177,10 @@ impl TextureSlicer {
                     render_size.x - (tl_corner.draw_size.x + tr_corner.draw_size.x),
                     tl_corner.draw_size.y,
                 ),
-                offset: vec2(tl_corner.draw_size.x - tr_corner.draw_size.x, render_size.y - tl_corner.draw_size.y) / 2.0,
+                offset: vec2(
+                    tl_corner.draw_size.x - tr_corner.draw_size.x,
+                    render_size.y - tl_corner.draw_size.y,
+                ) / 2.0,
             },
             // Bottom
             TextureSlice {
@@ -186,7 +195,10 @@ impl TextureSlicer {
                     render_size.x - (bl_corner.draw_size.x + br_corner.draw_size.x),
                     bl_corner.draw_size.y,
                 ),
-                offset: vec2(bl_corner.draw_size.x - br_corner.draw_size.x, -render_size.y + bl_corner.draw_size.y) / 2.0,
+                offset: vec2(
+                    bl_corner.draw_size.x - br_corner.draw_size.x,
+                    -render_size.y + bl_corner.draw_size.y,
+                ) / 2.0,
             },
         ]
     }
