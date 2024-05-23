@@ -36,6 +36,7 @@ pub struct CommandQueue {
     pub(crate) cursor: usize,
 }
 
+#[derive(Clone)]
 pub struct RawCommandQueue {
     pub(crate) bytes: *mut Vec<MaybeUninit<u8>>,
     pub(crate) cursor: *mut usize,
@@ -103,15 +104,35 @@ impl CommandQueue {
             cursor: addr_of_mut!(self.cursor),
         }
     }
+
+    pub unsafe fn into_raw(mut self) -> RawCommandQueue {
+        let queue = RawCommandQueue {
+            bytes: addr_of_mut!(self.bytes),
+            cursor: addr_of_mut!(self.cursor),
+        };
+
+        std::mem::forget(self);
+        queue
+    }
 }
 
 impl RawCommandQueue {
+    pub fn new() -> Self {
+        Self {
+            bytes: Box::into_raw(Box::new(Vec::<MaybeUninit<u8>>::new())),
+            cursor: Box::into_raw(Box::new(0usize)),
+        }
+    }
     /// SAFETY: caller must ensure this is not used in such a way that it could escape an apply context or world borrow
     pub unsafe fn clone_unsafe(&self) -> Self {
         Self {
             bytes: self.bytes,
             cursor: self.cursor,
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        (unsafe { *self.cursor }) >= (unsafe { &*self.bytes }).len()
     }
     /// Push a [`Command`] onto the queue.
     #[inline]

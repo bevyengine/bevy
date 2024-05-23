@@ -569,7 +569,7 @@ impl<'w> UnsafeWorldCell<'w> {
         // SAFETY:
         // - caller ensures there are no existing mutable references
         // - caller ensures that we have permission to access the queue
-        unsafe { (*self.0).command_queue.get_raw() }
+        unsafe { (*(*self.0).command_queue).clone() }
     }
 }
 
