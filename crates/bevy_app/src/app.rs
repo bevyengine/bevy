@@ -455,7 +455,7 @@ impl App {
         self
     }
 
-    /// Inserts the [`!Send`](Send) resource into the app, overwriting any existing resource
+    /// Inserts the [`NonSendRes`] resource into the app, overwriting any existing resource
     /// of the same type.
     ///
     /// There is also an [`init_non_send_resource`](Self::init_non_send_resource) for
@@ -479,7 +479,7 @@ impl App {
         self
     }
 
-    /// Inserts the [`!Send`](Send) resource into the app, initialized with its default value,
+    /// Inserts the [`NonSendRes`] resource into the app, initialized with its default value,
     /// if there is no existing instance of `R`.
     pub fn init_non_send_resource<R: 'static + Default>(&mut self) -> &mut Self {
         self.world_mut().init_non_send_resource::<R>();

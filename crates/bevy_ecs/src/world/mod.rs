@@ -1138,7 +1138,7 @@ impl World {
         });
     }
 
-    /// Initializes a new `!Send` resource and returns the [`ComponentId`] created for it.
+    /// Initializes a new [`NonSendRes`] resource and returns the [`ComponentId`] created for it.
     ///
     /// If the resource already exists, nothing happens.
     ///
@@ -1169,7 +1169,7 @@ impl World {
         component_id
     }
 
-    /// Inserts a new `!Send` resource with the given `value`.
+    /// Inserts a new [`NonSendRes`] resource with the given `value`.
     ///
     /// `NonSendRes` resources cannot be sent across threads,
     /// and do not need the `Send + Sync` bounds.
@@ -1198,7 +1198,7 @@ impl World {
         unsafe { Some(ptr.read::<R>()) }
     }
 
-    /// Removes a `!Send` resource from the world and returns it, if present.
+    /// Removes a [`NonSendRes`] resource from the world and returns it, if present.
     ///
     /// `NonSendRes` resources cannot be sent across threads,
     /// and do not need the `Send + Sync` bounds.
@@ -1231,7 +1231,7 @@ impl World {
             .unwrap_or(false)
     }
 
-    /// Returns `true` if a `!Send` resource of type `R` exists. Otherwise returns `false`.
+    /// Returns `true` if a [`NonSendRes`] resource of type `R` exists. Otherwise returns `false`.
     #[inline]
     pub fn contains_non_send_resource<R: 'static>(&self) -> bool {
         self.components
@@ -1800,7 +1800,7 @@ impl World {
         }
     }
 
-    /// Inserts a new `!Send` resource with the given `value`. Will replace the value if it already
+    /// Inserts a new [`NonSendRes`] resource with the given `value`. Will replace the value if it already
     /// existed.
     ///
     /// **You should prefer to use the typed API [`World::insert_non_send_resource`] where possible and only
@@ -2346,7 +2346,7 @@ impl World {
             })
     }
 
-    /// Gets a `!Send` resource to the resource with the id [`ComponentId`] if it exists.
+    /// Gets a [`NonSendRes`] resource to the resource with the id [`ComponentId`] if it exists.
     /// The returned pointer must not be used to modify the resource, and must not be
     /// dereferenced after the immutable borrow of the [`World`] ends.
     ///
@@ -2366,7 +2366,7 @@ impl World {
         }
     }
 
-    /// Gets a `!Send` resource to the resource with the id [`ComponentId`] if it exists.
+    /// Gets a [`NonSendRes`] resource to the resource with the id [`ComponentId`] if it exists.
     /// The returned pointer may be used to modify the resource, as long as the mutable borrow
     /// of the [`World`] is still valid.
     ///

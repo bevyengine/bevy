@@ -228,7 +228,7 @@ impl<'w> DeferredWorld<'w> {
         unsafe { self.world.get_resource_mut_by_id(component_id) }
     }
 
-    /// Gets a `!Send` resource to the resource with the id [`ComponentId`] if it exists.
+    /// Gets a [`NonSendRes`] resource to the resource with the id [`ComponentId`] if it exists.
     /// The returned pointer may be used to modify the resource, as long as the mutable borrow
     /// of the [`World`] is still valid.
     ///

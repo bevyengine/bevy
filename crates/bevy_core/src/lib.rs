@@ -58,7 +58,7 @@ impl Plugin for TaskPoolPlugin {
         _app.add_systems(Last, tick_global_task_pools);
     }
 }
-/// A dummy type that is [`!Send`](Send), to force systems to run on the main thread.
+/// A dummy type that is `!Send`, to force systems to run on the main thread.
 pub struct NonSendMarker(PhantomData<*mut ()>);
 
 /// A system used to check and advanced our task pools.
