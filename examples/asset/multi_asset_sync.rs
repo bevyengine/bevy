@@ -23,9 +23,11 @@ fn main() {
         .add_systems(Startup, setup_assets)
         .add_systems(Startup, setup_scene)
         .add_systems(Startup, setup_ui)
-        // This showcases how to wait for assets synchronously.
+        // This showcases how to wait for assets using sync code.
+        // This approach polls a value in a system.
         .add_systems(Update, wait_on_load.run_if(assets_loaded))
-        // This showcases how to wait for assets asynchronously.
+        // This showcases how to wait for assets using async
+        // by spawning a `Future` in `AsyncComputeTaskPool`.
         .add_systems(
             Update,
             get_async_loading_state.run_if(in_state(LoadingState::Loading)),
@@ -237,7 +239,7 @@ fn assets_loaded(barrier: Option<Res<AssetBarrier>>) -> bool {
     barrier.map(|b| b.is_ready()) == Some(true)
 }
 
-// This showcases how to wait for assets synchronously.
+// This showcases how to wait for assets using sync code and systems.
 //
 // This function only runs if `assets_loaded` returns true.
 fn wait_on_load(
@@ -272,7 +274,7 @@ fn wait_on_load(
     }
 }
 
-// This showcases how to wait for assets asynchronously.
+// This showcases how to wait for assets using async.
 fn get_async_loading_state(
     state: Res<AsyncLoadingState>,
     mut next_loading_state: ResMut<NextState<LoadingState>>,
