@@ -224,10 +224,6 @@ impl AssetLoader for RawGltfLoader {
 
         Ok(RawGltf { gltf, buffer_data })
     }
-
-    fn extensions(&self) -> &[&str] {
-        &["gltf", "glb"]
-    }
 }
 
 /// Loads an entire glTF file.
