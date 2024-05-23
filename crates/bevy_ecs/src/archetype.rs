@@ -605,19 +605,19 @@ impl Archetype {
         self.flags().contains(ArchetypeFlags::ON_REMOVE_HOOK)
     }
 
-    /// Returns true if any of the components in this archetype have `OnAdd` observer
+    /// Returns true if any of the components in this archetype have at least one `OnAdd` observer
     #[inline]
     pub fn has_add_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_ADD_OBSERVER)
     }
 
-    /// Returns true if any of the components in this archetype have `OnInsert` observer
+    /// Returns true if any of the components in this archetype have at least one `OnInsert` observer
     #[inline]
     pub fn has_insert_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_INSERT_OBSERVER)
     }
 
-    /// Returns true if any of the components in this archetype have `OnRemove` observer
+    /// Returns true if any of the components in this archetype have at least one `OnRemove` observer
     #[inline]
     pub fn has_remove_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_REMOVE_OBSERVER)
