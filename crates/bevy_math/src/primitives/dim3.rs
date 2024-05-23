@@ -789,9 +789,13 @@ impl Triangle3d {
         let ca = a - c;
 
         // a^2 + b^2 < c^2 for an acute triangle
-        let mut side_lengths = [ab.length(), bc.length(), ca.length()];
+        let mut side_lengths = [
+            ab.length_squared(),
+            bc.length_squared(),
+            ca.length_squared(),
+        ];
         side_lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        side_lengths[0].powf(2.) + side_lengths[1].powf(2.) > side_lengths[2].powf(2.)
+        side_lengths[0] + side_lengths[1] > side_lengths[2]
     }
 
     /// Checks if the triangle is obtuse, meaning one angle is greater than 90 degrees
@@ -803,9 +807,13 @@ impl Triangle3d {
         let ca = a - c;
 
         // a^2 + b^2 > c^2 for an obtuse triangle
-        let mut side_lengths = [ab.length(), bc.length(), ca.length()];
+        let mut side_lengths = [
+            ab.length_squared(),
+            bc.length_squared(),
+            ca.length_squared(),
+        ];
         side_lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        side_lengths[0].powf(2.) + side_lengths[1].powf(2.) < side_lengths[2].powf(2.)
+        side_lengths[0] + side_lengths[1] < side_lengths[2]
     }
 
     /// Reverse the triangle by swapping the first and last vertices.

@@ -527,6 +527,54 @@ impl Triangle2d {
         (Circle { radius }, center)
     }
 
+    /// Checks if the triangle is degenerate, meaning it has zero area.
+    ///
+    /// A triangle is degenerate if the cross product of the vectors `ab` and `ac` has a length less than `10e-7`.
+    /// This indicates that the three vertices are collinear or nearly collinear.
+    #[inline(always)]
+    pub fn is_degenerate(&self) -> bool {
+        let [a, b, c] = self.vertices;
+        let ab = (b - a).extend(0.);
+        let ac = (c - a).extend(0.);
+        ab.cross(ac).length() < 10e-7
+    }
+
+    /// Checks if the triangle is acute, meaning all angles are less than 90 degrees
+    #[inline(always)]
+    pub fn is_acute(&self) -> bool {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let bc = c - b;
+        let ca = a - c;
+
+        // a^2 + b^2 < c^2 for an acute triangle
+        let mut side_lengths = [
+            ab.length_squared(),
+            bc.length_squared(),
+            ca.length_squared(),
+        ];
+        side_lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        side_lengths[0] + side_lengths[1] > side_lengths[2]
+    }
+
+    /// Checks if the triangle is obtuse, meaning one angle is greater than 90 degrees
+    #[inline(always)]
+    pub fn is_obtuse(&self) -> bool {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let bc = c - b;
+        let ca = a - c;
+
+        // a^2 + b^2 > c^2 for an obtuse triangle
+        let mut side_lengths = [
+            ab.length_squared(),
+            bc.length_squared(),
+            ca.length_squared(),
+        ];
+        side_lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        side_lengths[0] + side_lengths[1] < side_lengths[2]
+    }
+
     /// Reverse the [`WindingOrder`] of the triangle
     /// by swapping the first and last vertices.
     #[inline(always)]
@@ -975,6 +1023,20 @@ mod tests {
         );
         assert_eq!(triangle.area(), 21.0, "incorrect area");
         assert_eq!(triangle.perimeter(), 22.097439, "incorrect perimeter");
+
+        let degenerate_triangle =
+            Triangle2d::new(Vec2::new(-1., 0.), Vec2::new(0., 0.), Vec2::new(1., 0.));
+        assert!(degenerate_triangle.is_degenerate());
+
+        let acute_triangle =
+            Triangle2d::new(Vec2::new(-1., 0.), Vec2::new(1., 0.), Vec2::new(0., 5.));
+        let obtuse_triangle =
+            Triangle2d::new(Vec2::new(-1., 0.), Vec2::new(1., 0.), Vec2::new(0., 0.5));
+
+        assert!(acute_triangle.is_acute());
+        assert!(!acute_triangle.is_obtuse());
+        assert!(!obtuse_triangle.is_acute());
+        assert!(obtuse_triangle.is_obtuse());
     }
 
     #[test]
