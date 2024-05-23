@@ -1403,7 +1403,6 @@ description = "Demonstrates how to process and load custom assets"
 category = "Assets"
 wasm = false
 
-
 [[example]]
 name = "repeated_texture"
 path = "examples/asset/repeated_texture.rs"
