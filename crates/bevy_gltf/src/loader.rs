@@ -601,7 +601,7 @@ async fn load_gltf<'a, 'b, 'c>(
         .skins()
         .map(|gltf_skin| {
             let reader = gltf_skin.reader(|buffer| Some(&buffer_data[buffer.index()]));
-            let inverse_bindposes: Vec<Mat4> = reader
+            let local_to_bone_bind_matrices: Vec<Mat4> = reader
                 .read_inverse_bind_matrices()
                 .unwrap()
                 .map(|mat| Mat4::from_cols_array_2d(&mat))
@@ -609,7 +609,7 @@ async fn load_gltf<'a, 'b, 'c>(
 
             load_context.add_labeled_asset(
                 skin_label(&gltf_skin),
-                SkinnedMeshInverseBindposes::from(inverse_bindposes),
+                SkinnedMeshInverseBindposes::from(local_to_bone_bind_matrices),
             )
         })
         .collect();

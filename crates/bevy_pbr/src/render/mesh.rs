@@ -250,22 +250,22 @@ impl Plugin for MeshRenderPlugin {
 
 #[derive(Component)]
 pub struct MeshTransforms {
-    pub transform: Affine3,
-    pub previous_transform: Affine3,
+    pub world_from_local: Affine3,
+    pub previous_world_from_local: Affine3,
     pub flags: u32,
 }
 
 #[derive(ShaderType, Clone)]
 pub struct MeshUniform {
     // Affine 4x3 matrices transposed to 3x4
-    pub transform: [Vec4; 3],
-    pub previous_transform: [Vec4; 3],
+    pub world_from_local: [Vec4; 3],
+    pub previous_world_from_local: [Vec4; 3],
     // 3x3 matrix packed in mat2x4 and f32 as:
     //   [0].xyz, [1].x,
     //   [1].yz, [2].xy
     //   [2].z
-    pub inverse_transpose_model_a: [Vec4; 2],
-    pub inverse_transpose_model_b: f32,
+    pub local_from_world_transpose_a: [Vec4; 2],
+    pub local_from_world_transpose_b: f32,
     pub flags: u32,
     // Four 16-bit unsigned normalized UV values packed into a `UVec2`:
     //
@@ -287,7 +287,7 @@ pub struct MeshUniform {
 #[repr(C)]
 pub struct MeshInputUniform {
     /// Affine 4x3 matrix transposed to 3x4.
-    pub transform: [Vec4; 3],
+    pub world_from_local: [Vec4; 3],
     /// Four 16-bit unsigned normalized UV values packed into a `UVec2`:
     ///
     /// ```text
@@ -334,14 +334,14 @@ pub struct MeshCullingDataBuffer(RawBufferVec<MeshCullingData>);
 
 impl MeshUniform {
     pub fn new(mesh_transforms: &MeshTransforms, maybe_lightmap_uv_rect: Option<Rect>) -> Self {
-        let (inverse_transpose_model_a, inverse_transpose_model_b) =
-            mesh_transforms.transform.inverse_transpose_3x3();
+        let (local_from_world_transpose_a, local_from_world_transpose_b) =
+            mesh_transforms.world_from_local.inverse_transpose_3x3();
         Self {
-            transform: mesh_transforms.transform.to_transpose(),
-            previous_transform: mesh_transforms.previous_transform.to_transpose(),
-            lightmap_uv_rect: lightmap::pack_lightmap_uv_rect(maybe_lightmap_uv_rect),
-            inverse_transpose_model_a,
-            inverse_transpose_model_b,
+            world_from_local: mesh_transforms.world_from_local.to_transpose(),
+            previous_world_from_local: mesh_transforms.previous_world_from_local.to_transpose(),
+            lightmap_uv_rect: pack_lightmap_uv_rect(maybe_lightmap_uv_rect),
+            local_from_world_transpose_a,
+            local_from_world_transpose_b,
             flags: mesh_transforms.flags,
         }
     }
@@ -468,7 +468,7 @@ pub struct RenderMeshInstanceGpuBuilder {
     /// Data that will be placed on the [`RenderMeshInstanceGpu`].
     pub shared: RenderMeshInstanceShared,
     /// The current transform.
-    pub transform: Affine3,
+    pub world_from_local: Affine3,
     /// Four 16-bit unsigned normalized UV values packed into a [`UVec2`]:
     ///
     /// ```text
@@ -611,7 +611,7 @@ impl RenderMeshInstancesCpu {
         self.get(&entity)
             .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
-                translation: render_mesh_instance.transforms.transform.translation,
+                translation: render_mesh_instance.transforms.world_from_local.translation,
             })
     }
 }
@@ -688,7 +688,7 @@ impl RenderMeshInstanceGpuBuilder {
     ) -> usize {
         // Push the mesh input uniform.
         let current_uniform_index = current_input_buffer.push(MeshInputUniform {
-            transform: self.transform.to_transpose(),
+            world_from_local: self.world_from_local.to_transpose(),
             lightmap_uv_rect: self.lightmap_uv_rect,
             flags: self.mesh_flags.bits(),
             previous_input_index: match self.previous_input_index {
@@ -701,7 +701,7 @@ impl RenderMeshInstanceGpuBuilder {
         render_mesh_instances.insert(
             entity,
             RenderMeshInstanceGpu {
-                translation: self.transform.translation,
+                translation: self.world_from_local.translation,
                 shared: self.shared,
                 current_uniform_index: (current_uniform_index as u32)
                     .try_into()
@@ -823,13 +823,15 @@ pub fn extract_meshes_for_cpu_building(
                 no_automatic_batching,
             );
 
-            let transform = transform.affine();
+            let world_from_local = transform.affine();
             queue.push((
                 entity,
                 RenderMeshInstanceCpu {
                     transforms: MeshTransforms {
-                        transform: (&transform).into(),
-                        previous_transform: (&previous_transform.map(|t| t.0).unwrap_or(transform))
+                        world_from_local: (&world_from_local).into(),
+                        previous_world_from_local: (&previous_transform
+                            .map(|t| t.0)
+                            .unwrap_or(world_from_local))
                             .into(),
                         flags: mesh_flags.bits(),
                     },
@@ -959,7 +961,7 @@ pub fn extract_meshes_for_gpu_building(
 
             let gpu_mesh_instance_builder = RenderMeshInstanceGpuBuilder {
                 shared,
-                transform: (&transform.affine()).into(),
+                world_from_local: (&transform.affine()).into(),
                 lightmap_uv_rect,
                 mesh_flags,
                 previous_input_index,

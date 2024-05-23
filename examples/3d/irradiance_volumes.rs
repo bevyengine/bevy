@@ -50,7 +50,7 @@ static CLICK_TO_MOVE_HELP_TEXT: &str = "Left click: Move the object";
 
 static GIZMO_COLOR: Color = Color::Srgba(YELLOW);
 
-static VOXEL_TRANSFORM: Mat4 = Mat4::from_cols_array_2d(&[
+static VOXEL_FROM_WORLD: Mat4 = Mat4::from_cols_array_2d(&[
     [-42.317566, 0.0, 0.0, 0.0],
     [0.0, 0.0, 44.601563, 0.0],
     [0.0, 16.73776, 0.0, 0.0],
@@ -132,8 +132,8 @@ struct VoxelVisualizationExtension {
 
 #[derive(ShaderType, Debug, Clone)]
 struct VoxelVisualizationIrradianceVolumeInfo {
-    transform: Mat4,
-    inverse_transform: Mat4,
+    world_from_voxel: Mat4,
+    voxel_from_world: Mat4,
     resolution: UVec3,
     intensity: f32,
 }
@@ -247,7 +247,7 @@ fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
 fn spawn_irradiance_volume(commands: &mut Commands, assets: &ExampleAssets) {
     commands
         .spawn(SpatialBundle {
-            transform: Transform::from_matrix(VOXEL_TRANSFORM),
+            transform: Transform::from_matrix(VOXEL_FROM_WORLD),
             ..SpatialBundle::default()
         })
         .insert(IrradianceVolume {
@@ -581,8 +581,8 @@ fn create_cubes(
             base: StandardMaterial::from(Color::from(RED)),
             extension: VoxelVisualizationExtension {
                 irradiance_volume_info: VoxelVisualizationIrradianceVolumeInfo {
-                    transform: VOXEL_TRANSFORM.inverse(),
-                    inverse_transform: VOXEL_TRANSFORM,
+                    world_from_voxel: VOXEL_FROM_WORLD.inverse(),
+                    voxel_from_world: VOXEL_FROM_WORLD,
                     resolution: uvec3(
                         resolution.width,
                         resolution.height,

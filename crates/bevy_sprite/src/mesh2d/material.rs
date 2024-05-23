@@ -444,7 +444,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
 
             mesh_instance.material_bind_group_id = material_2d.get_bind_group_id();
 
-            let mesh_z = mesh_instance.transforms.transform.translation.z;
+            let mesh_z = mesh_instance.transforms.world_from_local.translation.z;
             transparent_phase.add(Transparent2d {
                 entity: *visible_entity,
                 draw_function: draw_transparent_2d,

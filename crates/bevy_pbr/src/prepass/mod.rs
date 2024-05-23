@@ -196,8 +196,8 @@ struct AnyPrepassPluginLoaded;
 
 #[derive(Component, ShaderType, Clone)]
 pub struct PreviousViewData {
-    pub inverse_view: Mat4,
-    pub view_proj: Mat4,
+    pub view_from_world: Mat4,
+    pub clip_from_world: Mat4,
 }
 
 #[cfg(not(feature = "meshlet"))]
@@ -210,10 +210,10 @@ pub fn update_previous_view_data(
     query: Query<(Entity, &Camera, &GlobalTransform), PreviousViewFilter>,
 ) {
     for (entity, camera, camera_transform) in &query {
-        let inverse_view = camera_transform.compute_matrix().inverse();
+        let view_from_world = camera_transform.compute_matrix().inverse();
         commands.entity(entity).try_insert(PreviousViewData {
-            inverse_view,
-            view_proj: camera.projection_matrix() * inverse_view,
+            view_from_world,
+            clip_from_world: camera.clip_from_view() * view_from_world,
         });
     }
 }
@@ -643,19 +643,19 @@ pub fn prepare_previous_view_uniforms(
     };
 
     for (entity, camera, maybe_previous_view_uniforms) in views_iter {
-        let view_projection = match maybe_previous_view_uniforms {
+        let prev_view_data = match maybe_previous_view_uniforms {
             Some(previous_view) => previous_view.clone(),
             None => {
-                let inverse_view = camera.transform.compute_matrix().inverse();
+                let view_from_world = camera.world_from_view.compute_matrix().inverse();
                 PreviousViewData {
-                    inverse_view,
-                    view_proj: camera.projection * inverse_view,
+                    view_from_world,
+                    clip_from_world: camera.clip_from_view * view_from_world,
                 }
             }
         };
 
         commands.entity(entity).insert(PreviousViewUniformOffset {
-            offset: writer.write(&view_projection),
+            offset: writer.write(&prev_view_data),
         });
     }
 }

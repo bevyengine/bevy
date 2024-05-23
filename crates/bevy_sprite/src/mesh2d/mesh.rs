@@ -152,31 +152,31 @@ impl Plugin for Mesh2dRenderPlugin {
 
 #[derive(Component)]
 pub struct Mesh2dTransforms {
-    pub transform: Affine3,
+    pub world_from_local: Affine3,
     pub flags: u32,
 }
 
 #[derive(ShaderType, Clone)]
 pub struct Mesh2dUniform {
     // Affine 4x3 matrix transposed to 3x4
-    pub transform: [Vec4; 3],
+    pub world_from_local: [Vec4; 3],
     // 3x3 matrix packed in mat2x4 and f32 as:
     //   [0].xyz, [1].x,
     //   [1].yz, [2].xy
     //   [2].z
-    pub inverse_transpose_model_a: [Vec4; 2],
-    pub inverse_transpose_model_b: f32,
+    pub local_from_world_transpose_a: [Vec4; 2],
+    pub local_from_world_transpose_b: f32,
     pub flags: u32,
 }
 
 impl From<&Mesh2dTransforms> for Mesh2dUniform {
     fn from(mesh_transforms: &Mesh2dTransforms) -> Self {
-        let (inverse_transpose_model_a, inverse_transpose_model_b) =
-            mesh_transforms.transform.inverse_transpose_3x3();
+        let (local_from_world_transpose_a, local_from_world_transpose_b) =
+            mesh_transforms.world_from_local.inverse_transpose_3x3();
         Self {
-            transform: mesh_transforms.transform.to_transpose(),
-            inverse_transpose_model_a,
-            inverse_transpose_model_b,
+            world_from_local: mesh_transforms.world_from_local.to_transpose(),
+            local_from_world_transpose_a,
+            local_from_world_transpose_b,
             flags: mesh_transforms.flags,
         }
     }
@@ -232,7 +232,7 @@ pub fn extract_mesh2d(
             entity,
             RenderMesh2dInstance {
                 transforms: Mesh2dTransforms {
-                    transform: (&transform.affine()).into(),
+                    world_from_local: (&transform.affine()).into(),
                     flags: MeshFlags::empty().bits(),
                 },
                 mesh_asset_id: handle.0.id(),

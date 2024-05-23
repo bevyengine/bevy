@@ -29,15 +29,15 @@ fn inverse_transpose_3x3m(in: mat3x3<f32>) -> mat3x3<f32> {
 }
 
 fn skin_normals(
-    model: mat4x4<f32>,
+    world_from_local: mat4x4<f32>,
     normal: vec3<f32>,
 ) -> vec3<f32> {
     return normalize(
         inverse_transpose_3x3m(
             mat3x3<f32>(
-                model[0].xyz,
-                model[1].xyz,
-                model[2].xyz
+                world_from_local[0].xyz,
+                world_from_local[1].xyz,
+                world_from_local[2].xyz
             )
         ) * normal
     );

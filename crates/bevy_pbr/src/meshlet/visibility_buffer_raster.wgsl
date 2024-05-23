@@ -50,9 +50,9 @@ fn vertex(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     let instance_id = meshlet_cluster_instance_ids[cluster_id];
     let instance_uniform = meshlet_instance_uniforms[instance_id];
 
-    let model = affine3_to_square(instance_uniform.model);
-    let world_position = mesh_position_local_to_world(model, vec4(vertex.position, 1.0));
-    var clip_position = view.view_proj * vec4(world_position.xyz, 1.0);
+    let world_from_local = affine3_to_square(instance_uniform.model);
+    let world_position = mesh_position_local_to_world(world_from_local, vec4(vertex.position, 1.0));
+    var clip_position = view.clip_from_world * vec4(world_position.xyz, 1.0);
 #ifdef DEPTH_CLAMP_ORTHO
     let unclamped_clip_depth = clip_position.z;
     clip_position.z = min(clip_position.z, 1.0);

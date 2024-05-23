@@ -125,7 +125,7 @@ fn world_to_directional_light_local(
     let light = &view_bindings::lights.directional_lights[light_id];
     let cascade = &(*light).cascades[cascade_index];
 
-    let offset_position_clip = (*cascade).view_projection * offset_position;
+    let offset_position_clip = (*cascade).clip_from_world * offset_position;
     if (offset_position_clip.w <= 0.0) {
         return vec4(0.0);
     }

@@ -218,8 +218,8 @@ impl From<Affine3A> for GlobalTransform {
 }
 
 impl From<Mat4> for GlobalTransform {
-    fn from(matrix: Mat4) -> Self {
-        Self(Affine3A::from_mat4(matrix))
+    fn from(world_from_local: Mat4) -> Self {
+        Self(Affine3A::from_mat4(world_from_local))
     }
 }
 

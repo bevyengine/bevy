@@ -41,7 +41,7 @@ fn vertex(
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
-    out.position = view.view_proj * vec4(vertex_position, 1.0);
+    out.position = view.clip_from_world * vec4(vertex_position, 1.0);
     out.color = vertex_color;
     out.flags = flags;
     out.radius = radius;

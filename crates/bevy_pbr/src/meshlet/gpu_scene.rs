@@ -128,8 +128,8 @@ pub fn extract_meshlet_meshes(
             flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
         }
         let transforms = MeshTransforms {
-            transform: (&transform).into(),
-            previous_transform: (&previous_transform).into(),
+            world_from_local: (&transform).into(),
+            previous_world_from_local: (&previous_transform).into(),
             flags: flags.bits(),
         };
         gpu_scene

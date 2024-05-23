@@ -75,8 +75,8 @@ impl Transform {
     /// Extracts the translation, rotation, and scale from `matrix`. It must be a 3d affine
     /// transformation matrix.
     #[inline]
-    pub fn from_matrix(matrix: Mat4) -> Self {
-        let (scale, rotation, translation) = matrix.to_scale_rotation_translation();
+    pub fn from_matrix(world_from_local: Mat4) -> Self {
+        let (scale, rotation, translation) = world_from_local.to_scale_rotation_translation();
 
         Transform {
             translation,
