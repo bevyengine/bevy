@@ -1,3 +1,4 @@
+use super::super::circle_iterator::*;
 use bevy_math::{primitives::Torus, Vec3};
 use wgpu::PrimitiveTopology;
 
@@ -76,25 +77,26 @@ impl MeshBuilder for TorusMeshBuilder {
         let mut normals: Vec<[f32; 3]> = Vec::with_capacity(n_vertices);
         let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(n_vertices);
 
-        let segment_stride = 2.0 * std::f32::consts::PI / self.major_resolution as f32;
-        let side_stride = 2.0 * std::f32::consts::PI / self.minor_resolution as f32;
+        let major_iter = CircleIterator::new(self.major_resolution)
+            .cycle()
+            .take(self.major_resolution + 1);
+        let minor_circle: Vec<_> = CircleIterator::new(self.minor_resolution)
+            .cycle()
+            .take(self.minor_resolution + 1)
+            .collect();
 
-        for segment in 0..=self.major_resolution {
-            let theta = segment_stride * segment as f32;
-
-            for side in 0..=self.minor_resolution {
-                let phi = side_stride * side as f32;
-
+        for (segment, theta) in major_iter.enumerate() {
+            for (side, phi) in minor_circle.iter().enumerate() {
                 let position = Vec3::new(
-                    theta.cos() * (self.torus.major_radius + self.torus.minor_radius * phi.cos()),
-                    self.torus.minor_radius * phi.sin(),
-                    theta.sin() * (self.torus.major_radius + self.torus.minor_radius * phi.cos()),
+                    theta.x * (self.torus.major_radius + self.torus.minor_radius * phi.x),
+                    self.torus.minor_radius * phi.y,
+                    theta.y * (self.torus.major_radius + self.torus.minor_radius * phi.x),
                 );
 
                 let center = Vec3::new(
-                    self.torus.major_radius * theta.cos(),
+                    self.torus.major_radius * theta.x,
                     0.,
-                    self.torus.major_radius * theta.sin(),
+                    self.torus.major_radius * theta.y,
                 );
                 let normal = (position - center).normalize();
 

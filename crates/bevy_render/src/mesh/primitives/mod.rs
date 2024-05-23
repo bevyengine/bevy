@@ -22,7 +22,9 @@
 mod dim2;
 pub use dim2::*;
 
+mod circle_iterator;
 mod dim3;
+
 pub use dim3::*;
 
 use super::Mesh;
