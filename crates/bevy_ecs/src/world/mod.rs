@@ -112,7 +112,7 @@ pub struct World {
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
-    pub(crate) command_queue: Box<CommandQueue>,
+    pub(crate) command_queue: RawCommandQueue,
 }
 
 impl Default for World {
@@ -130,7 +130,7 @@ impl Default for World {
             change_tick: AtomicU32::new(1),
             last_change_tick: Tick::new(0),
             last_check_tick: Tick::new(0),
-            command_queue: Box::new(CommandQueue::default()),
+            command_queue: RawCommandQueue::new(),
         }
     }
 }
@@ -216,7 +216,7 @@ impl World {
     /// Use [`World::flush_commands`] to apply all queued commands
     #[inline]
     pub fn commands(&mut self) -> Commands {
-        Commands::new_from_entities(&mut self.command_queue, &self.entities)
+        Commands::new_raw_from_entities(self.command_queue.clone(), &self.entities)
     }
 
     /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
@@ -1873,11 +1873,7 @@ impl World {
     pub fn flush_commands(&mut self) {
         if !self.command_queue.is_empty() {
             // SAFETY: A reference is always a valid pointer
-            unsafe {
-                self.command_queue
-                    .get_raw()
-                    .apply_or_drop_queued(Some(self))
-            };
+            unsafe { self.command_queue.clone().apply_or_drop_queued(Some(self)) };
         }
     }
 
