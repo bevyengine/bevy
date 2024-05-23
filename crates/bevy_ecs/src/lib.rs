@@ -1425,11 +1425,11 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "Attempted to access or drop non-send resource bevy_ecs::tests::NonSendA from thread"
+        expected = "Attempted to access or drop non-send resource bevy_ecs::tests::NonSendResA from thread"
     )]
     fn non_send_resource_drop_from_different_thread() {
         let mut world = World::default();
-        world.insert_non_send_resource(NonSendA::default());
+        world.insert_non_send_resource(NonSendResA::default());
 
         let thread = std::thread::spawn(move || {
             // Dropping the non-send resource on a different thread
@@ -1445,7 +1445,7 @@ mod tests {
     #[test]
     fn non_send_resource_drop_from_same_thread() {
         let mut world = World::default();
-        world.insert_non_send_resource(NonSendA::default());
+        world.insert_non_send_resource(NonSendResA::default());
         drop(world);
     }
 
