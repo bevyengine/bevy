@@ -67,8 +67,6 @@ impl Measured2d for Circle {
     }
 }
 
-const HALF_PI: f32 = PI / 2.0;
-
 /// A primitive representing an arc between two points on a circle.
 ///
 /// An arc has no area.

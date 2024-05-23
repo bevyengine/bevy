@@ -4,7 +4,6 @@ use bevy::{
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
 };
-use std::f32::consts::PI;
 
 fn main() {
     App::new()
@@ -13,24 +12,7 @@ fn main() {
         .run();
 }
 
-struct Shape {
-    mesh: Mesh2dHandle,
-    transform: Transform,
-}
-
-impl Shape {
-    fn new(mesh: Handle<Mesh>, transform: Transform) -> Self {
-        Self {
-            mesh: Mesh2dHandle(mesh),
-            transform,
-        }
-    }
-}
-impl From<Handle<Mesh>> for Shape {
-    fn from(mesh: Handle<Mesh>) -> Self {
-        Self::new(mesh, default())
-    }
-}
+const X_EXTENT: f32 = 800.;
 
 fn setup(
     mut commands: Commands,
@@ -55,17 +37,13 @@ fn setup(
         ))),
     ];
     let num_shapes = shapes.len();
-    let x_extent = num_shapes as f32 * 100.0;
 
     for (i, shape) in shapes.into_iter().enumerate() {
         // Distribute colors evenly across the rainbow.
         let color = Color::hsl(360. * i as f32 / num_shapes as f32, 0.95, 0.7);
 
-        let mut transform = shape.transform;
-        // Distribute shapes from -x_extent to +x_extent.
-        transform.translation.x += -x_extent / 2. + i as f32 / (num_shapes - 1) as f32 * x_extent;
         commands.spawn(MaterialMesh2dBundle {
-            mesh: shape.mesh,
+            mesh: shape,
             material: materials.add(color),
             transform: Transform::from_xyz(
                 // Distribute shapes from -X_EXTENT/2 to +X_EXTENT/2.

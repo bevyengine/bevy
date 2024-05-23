@@ -2,11 +2,11 @@
 
 use crate::{
     primitives::{
-        Arc, Arc2d, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, CircularSector,
-        CircularSegment, Direction2d, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Rectangle,
-        RegularPolygon, Segment2d, Triangle2d,
+        Arc2d, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, CircularSector, CircularSegment,
+        Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Segment2d,
+        Triangle2d,
     },
-    Dir2, Mat2, Vec2,
+    Dir2, Mat2, Rotation2d, Vec2,
 };
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 

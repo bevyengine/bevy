@@ -9,8 +9,8 @@ use crate::{
 use super::{MeshBuilder, Meshable};
 use bevy_math::{
     primitives::{
-        Annulus, Capsule2d, Circle, CircularSegment, Ellipse, Rectangle, RegularPolygon,
-        Triangle2d, Triangle3d, WindingOrder,
+        Annulus, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Rectangle,
+        RegularPolygon, Triangle2d, Triangle3d, WindingOrder,
     },
     FloatExt, Vec2,
 };
@@ -75,12 +75,6 @@ impl Meshable for Circle {
 impl From<Circle> for Mesh {
     fn from(circle: Circle) -> Self {
         circle.mesh().build()
-    }
-}
-
-impl From<CircleMeshBuilder> for Mesh {
-    fn from(circle: CircleMeshBuilder) -> Self {
-        circle.build()
     }
 }
 
