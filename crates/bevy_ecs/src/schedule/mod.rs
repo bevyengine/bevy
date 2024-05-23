@@ -740,8 +740,8 @@ mod tests {
         fn empty_system() {}
         fn res_system(_res: Res<R>) {}
         fn resmut_system(_res: ResMut<R>) {}
-        fn nonsend_system(_ns: NonSend<R>) {}
-        fn nonsendmut_system(_ns: NonSendMut<R>) {}
+        fn nonsendres_system(_ns: NonSendRes<R>) {}
+        fn nonsendresmut_system(_ns: NonSendResMut<R>) {}
         fn read_component_system(_query: Query<&A>) {}
         fn write_component_system(_query: Query<&mut A>) {}
         fn with_filtered_component_system(_query: Query<&mut A, With<B>>) {}
@@ -763,7 +763,7 @@ mod tests {
 
             let mut schedule = Schedule::default();
             schedule
-                // nonsendmut system deliberately conflicts with resmut system
+                // nonsendresmut system deliberately conflicts with resmut system
                 .add_systems((resmut_system, write_component_system, event_writer_system));
 
             let _ = schedule.initialize(&mut world);
@@ -784,8 +784,8 @@ mod tests {
                 empty_system,
                 res_system,
                 res_system,
-                nonsend_system,
-                nonsend_system,
+                nonsendres_system,
+                nonsendres_system,
                 read_component_system,
                 read_component_system,
                 event_reader_system,
@@ -838,7 +838,7 @@ mod tests {
             world.insert_resource(R);
 
             let mut schedule = Schedule::default();
-            schedule.add_systems((nonsendmut_system, nonsend_system));
+            schedule.add_systems((nonsendresmut_system, nonsendres_system));
 
             let _ = schedule.initialize(&mut world);
 
@@ -940,7 +940,7 @@ mod tests {
             schedule.add_systems((
                 resmut_system.ambiguous_with_all(),
                 res_system,
-                nonsend_system,
+                nonsendres_system,
             ));
 
             let _ = schedule.initialize(&mut world);
@@ -960,7 +960,7 @@ mod tests {
             schedule.add_systems((
                 resmut_system.ambiguous_with(IgnoreMe),
                 res_system.in_set(IgnoreMe),
-                nonsend_system.in_set(IgnoreMe),
+                nonsendres_system.in_set(IgnoreMe),
             ));
 
             let _ = schedule.initialize(&mut world);

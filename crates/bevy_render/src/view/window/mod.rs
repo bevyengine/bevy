@@ -440,10 +440,10 @@ const DEFAULT_DESIRED_MAXIMUM_FRAME_LATENCY: u32 = 2;
 
 /// Creates window surfaces.
 pub fn create_surfaces(
-    // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
+    // By accessing a `NonSendRes` resource, we tell the scheduler to put this system on the main thread,
     // which is necessary for some OS's
     #[cfg(any(target_os = "macos", target_os = "ios"))] _marker: Option<
-        NonSend<bevy_core::NonSendMarker>,
+        NonSendRes<bevy_core::NonSendMarker>,
     >,
     windows: Res<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,

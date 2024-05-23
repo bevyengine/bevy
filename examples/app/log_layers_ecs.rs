@@ -34,7 +34,7 @@ struct CapturedLogEvents(mpsc::Receiver<LogEvent>);
 
 /// Transfers information from the `LogEvents` resource to [`Events<LogEvent>`](LogEvent).
 fn transfer_log_events(
-    receiver: NonSend<CapturedLogEvents>,
+    receiver: NonSendRes<CapturedLogEvents>,
     mut log_events: EventWriter<LogEvent>,
 ) {
     // Make sure to use `try_iter()` and not `iter()` to prevent blocking.

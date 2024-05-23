@@ -135,7 +135,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// then consider applying a `map_unchanged` beforehand to allow changing only the relevant
     /// field and prevent unnecessary copying and cloning.
     /// See the docs of [`Mut::map_unchanged`], [`MutUntyped::map_unchanged`],
-    /// [`ResMut::map_unchanged`] or [`NonSendMut::map_unchanged`] for an example
+    /// [`ResMut::map_unchanged`] or [`NonSendResMut::map_unchanged`] for an example
     ///
     /// If you need the previous value, use [`replace_if_neq`](DetectChangesMut::replace_if_neq).
     ///
@@ -191,7 +191,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// then consider applying a [`map_unchanged`](Mut::map_unchanged) beforehand to allow
     /// changing only the relevant field and prevent unnecessary copying and cloning.
     /// See the docs of [`Mut::map_unchanged`], [`MutUntyped::map_unchanged`],
-    /// [`ResMut::map_unchanged`] or [`NonSendMut::map_unchanged`] for an example
+    /// [`ResMut::map_unchanged`] or [`NonSendResMut::map_unchanged`] for an example
     ///
     /// If you don't need the previous value, use [`set_if_neq`](DetectChangesMut::set_if_neq).
     ///
@@ -615,21 +615,24 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
 ///
 /// Panics when used as a `SystemParameter` if the resource does not exist.
 ///
-/// Use `Option<NonSendMut<T>>` instead if the resource might not always exist.
-pub struct NonSendMut<'w, T: ?Sized + 'static> {
+/// Use `Option<NonSendResMut<T>>` instead if the resource might not always exist.
+pub struct NonSendResMut<'w, T: ?Sized + 'static> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
 }
 
-change_detection_impl!(NonSendMut<'w, T>, T,);
-change_detection_mut_impl!(NonSendMut<'w, T>, T,);
-impl_methods!(NonSendMut<'w, T>, T,);
-impl_debug!(NonSendMut<'w, T>,);
+#[deprecated = "Use `NonSendResMut` instead"]
+pub type NonSendMut<'w, T: ?Sized + 'static> = NonSendResMut<'w, T>;
 
-impl<'w, T: 'static> From<NonSendMut<'w, T>> for Mut<'w, T> {
-    /// Convert this `NonSendMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
-    /// while losing the specificity of `NonSendMut`.
-    fn from(other: NonSendMut<'w, T>) -> Mut<'w, T> {
+change_detection_impl!(NonSendResMut<'w, T>, T,);
+change_detection_mut_impl!(NonSendResMut<'w, T>, T,);
+impl_methods!(NonSendResMut<'w, T>, T,);
+impl_debug!(NonSendResMut<'w, T>,);
+
+impl<'w, T: 'static> From<NonSendResMut<'w, T>> for Mut<'w, T> {
+    /// Convert this `NonSendResMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
+    /// while losing the specificity of `NonSendResMut`.
+    fn from(other: NonSendResMut<'w, T>) -> Mut<'w, T> {
         Mut {
             value: other.value,
             ticks: other.ticks,
@@ -1034,7 +1037,7 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         change_detection::{
-            Mut, NonSendMut, Ref, ResMut, TicksMut, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
+            Mut, NonSendResMut, Ref, ResMut, TicksMut, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
         },
         component::{Component, ComponentTicks, Tick},
         system::{IntoSystem, Query, System},
@@ -1205,7 +1208,7 @@ mod tests {
             this_run: Tick::new(4),
         };
         let mut res = R {};
-        let non_send_mut = NonSendMut {
+        let non_send_mut = NonSendResMut {
             value: &mut res,
             ticks,
         };

@@ -726,7 +726,7 @@ impl Components {
         }
     }
 
-    /// Initializes a [non-send resource](crate::system::NonSend) of type `T` with this instance.
+    /// Initializes a [non-send resource](crate::system::NonSendRes) of type `T` with this instance.
     /// If a resource of this type has already been initialized, this will return
     /// the ID of the pre-existing resource.
     #[inline]

@@ -1,4 +1,4 @@
-pub use crate::change_detection::{NonSendMut, Res, ResMut};
+pub use crate::change_detection::{NonSendResMut, Res, ResMut};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
@@ -971,29 +971,30 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
 ///
 /// Panics when used as a `SystemParameter` if the resource does not exist.
 ///
-/// Use `Option<NonSend<T>>` instead if the resource might not always exist.
-pub struct NonSend<'w, T: 'static> {
+/// Use `Option<NonSendRes<T>>` instead if the resource might not always exist.
+pub struct NonSendRes<'w, T: 'static> {
     pub(crate) value: &'w T,
     ticks: ComponentTicks,
     last_run: Tick,
     this_run: Tick,
 }
 
-pub type NonSend2<'w, T: 'static> = NonSend<'w, T>;
+#[deprecated = "Use `NonSendRes` instead"]
+pub type NonSend<'w, T: 'static> = NonSendRes<'w, T>;
 
 // SAFETY: Only reads a single World non-send resource
-unsafe impl<'w, T> ReadOnlySystemParam for NonSend<'w, T> {}
+unsafe impl<'w, T> ReadOnlySystemParam for NonSendRes<'w, T> {}
 
-impl<'w, T> Debug for NonSend<'w, T>
+impl<'w, T> Debug for NonSendRes<'w, T>
 where
     T: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("NonSend").field(&self.value).finish()
+        f.debug_tuple("NonSendRes").field(&self.value).finish()
     }
 }
 
-impl<'w, T: 'static> NonSend<'w, T> {
+impl<'w, T: 'static> NonSendRes<'w, T> {
     /// Returns `true` if the resource was added after the system last ran.
     pub fn is_added(&self) -> bool {
         self.ticks.is_added(self.last_run, self.this_run)
@@ -1005,15 +1006,15 @@ impl<'w, T: 'static> NonSend<'w, T> {
     }
 }
 
-impl<'w, T> Deref for NonSend<'w, T> {
+impl<'w, T> Deref for NonSendRes<'w, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
         self.value
     }
 }
-impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
-    fn from(nsm: NonSendMut<'a, T>) -> Self {
+impl<'a, T> From<NonSendResMut<'a, T>> for NonSendRes<'a, T> {
+    fn from(nsm: NonSendResMut<'a, T>) -> Self {
         Self {
             value: nsm.value,
             ticks: ComponentTicks {
@@ -1027,10 +1028,10 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
 }
 
 // SAFETY: NonSendComponentId and ArchetypeComponentId access is applied to SystemMeta. If this
-// NonSend conflicts with any prior access, a panic will occur.
-unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
+// `NonSendRes` conflicts with any prior access, a panic will occur.
+unsafe impl<'a, T: 'static> SystemParam for NonSendRes<'a, T> {
     type State = ComponentId;
-    type Item<'w, 's> = NonSend<'w, T>;
+    type Item<'w, 's> = NonSendRes<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
@@ -1041,7 +1042,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         let combined_access = system_meta.component_access_set.combined_access();
         assert!(
             !combined_access.has_write(component_id),
-            "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
+            "error[B0002]: NonSendRes<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
             std::any::type_name::<T>(),
             system_meta.name,
         );
@@ -1076,7 +1077,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
                 )
             });
 
-        NonSend {
+        NonSendRes {
             value: ptr.deref(),
             ticks: ticks.read(),
             last_run: system_meta.last_run,
@@ -1086,15 +1087,15 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
 }
 
 // SAFETY: Only reads a single World non-send resource
-unsafe impl<T: 'static> ReadOnlySystemParam for Option<NonSend<'_, T>> {}
+unsafe impl<T: 'static> ReadOnlySystemParam for Option<NonSendRes<'_, T>> {}
 
-// SAFETY: this impl defers to `NonSend`, which initializes and validates the correct world access.
-unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
+// SAFETY: this impl defers to `NonSendRes`, which initializes and validates the correct world access.
+unsafe impl<T: 'static> SystemParam for Option<NonSendRes<'_, T>> {
     type State = ComponentId;
-    type Item<'w, 's> = Option<NonSend<'w, T>>;
+    type Item<'w, 's> = Option<NonSendRes<'w, T>>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        NonSend::<T>::init_state(world, system_meta)
+        NonSendRes::<T>::init_state(world, system_meta)
     }
 
     #[inline]
@@ -1106,7 +1107,7 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
     ) -> Self::Item<'w, 's> {
         world
             .get_non_send_with_ticks(component_id)
-            .map(|(ptr, ticks)| NonSend {
+            .map(|(ptr, ticks)| NonSendRes {
                 value: ptr.deref(),
                 ticks: ticks.read(),
                 last_run: system_meta.last_run,
@@ -1115,11 +1116,11 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
     }
 }
 
-// SAFETY: NonSendMut ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this
-// NonSendMut conflicts with any prior access, a panic will occur.
-unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
+// SAFETY: NonSendResMut ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this
+// NonSendResMut conflicts with any prior access, a panic will occur.
+unsafe impl<'a, T: 'static> SystemParam for NonSendResMut<'a, T> {
     type State = ComponentId;
-    type Item<'w, 's> = NonSendMut<'w, T>;
+    type Item<'w, 's> = NonSendResMut<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
@@ -1130,11 +1131,11 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         let combined_access = system_meta.component_access_set.combined_access();
         if combined_access.has_write(component_id) {
             panic!(
-                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
+                "error[B0002]: NonSendResMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
                 std::any::type_name::<T>(), system_meta.name);
         } else if combined_access.has_read(component_id) {
             panic!(
-                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
+                "error[B0002]: NonSendResMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
                 std::any::type_name::<T>(), system_meta.name);
         }
         system_meta
@@ -1167,20 +1168,20 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
                     std::any::type_name::<T>()
                 )
             });
-        NonSendMut {
+        NonSendResMut {
             value: ptr.assert_unique().deref_mut(),
             ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
         }
     }
 }
 
-// SAFETY: this impl defers to `NonSendMut`, which initializes and validates the correct world access.
-unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
+// SAFETY: this impl defers to `NonSendResMut`, which initializes and validates the correct world access.
+unsafe impl<'a, T: 'static> SystemParam for Option<NonSendResMut<'a, T>> {
     type State = ComponentId;
-    type Item<'w, 's> = Option<NonSendMut<'w, T>>;
+    type Item<'w, 's> = Option<NonSendResMut<'w, T>>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        NonSendMut::<T>::init_state(world, system_meta)
+        NonSendResMut::<T>::init_state(world, system_meta)
     }
 
     #[inline]
@@ -1192,7 +1193,7 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
     ) -> Self::Item<'w, 's> {
         world
             .get_non_send_with_ticks(component_id)
-            .map(|(ptr, ticks)| NonSendMut {
+            .map(|(ptr, ticks)| NonSendResMut {
                 value: ptr.assert_unique().deref_mut(),
                 ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
             })
@@ -1736,7 +1737,7 @@ mod tests {
     // Regression test for https://github.com/bevyengine/bevy/issues/10207.
     #[test]
     fn param_set_non_send_first() {
-        fn non_send_param_set(mut p: ParamSet<(NonSend<*mut u8>, ())>) {
+        fn non_send_param_set(mut p: ParamSet<(NonSendRes<*mut u8>, ())>) {
             let _ = p.p0();
             p.p1();
         }
@@ -1751,7 +1752,7 @@ mod tests {
     // Regression test for https://github.com/bevyengine/bevy/issues/10207.
     #[test]
     fn param_set_non_send_second() {
-        fn non_send_param_set(mut p: ParamSet<((), NonSendMut<*mut u8>)>) {
+        fn non_send_param_set(mut p: ParamSet<((), NonSendResMut<*mut u8>)>) {
             p.p0();
             let _ = p.p1();
         }

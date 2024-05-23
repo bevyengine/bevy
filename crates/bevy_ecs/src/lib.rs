@@ -53,7 +53,7 @@ pub mod prelude {
             IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
         },
         system::{
-            Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
+            Commands, Deferred, In, IntoSystem, Local, NonSendRes, NonSendResMut, ParallelCommands,
             ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource, System, SystemParamFunction,
         },
         world::{EntityMut, EntityRef, EntityWorldMut, FromWorld, World},

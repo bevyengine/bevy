@@ -246,8 +246,8 @@ pub type CreateWindowParams<'w, 's, F = ()> = (
     Commands<'w, 's>,
     Query<'w, 's, (Entity, &'static mut Window), F>,
     EventWriter<'w, WindowCreated>,
-    NonSendMut<'w, WinitWindows>,
-    NonSendMut<'w, AccessKitAdapters>,
+    NonSendResMut<'w, WinitWindows>,
+    NonSendResMut<'w, AccessKitAdapters>,
     ResMut<'w, WinitActionHandlers>,
     Res<'w, AccessibilityRequested>,
 );
@@ -256,7 +256,7 @@ pub type CreateWindowParams<'w, 's, F = ()> = (
 ///
 /// The `EventLoopProxy` can be used to request a redraw from outside bevy.
 ///
-/// Use `NonSend<EventLoopProxy>` to receive this resource.
+/// Use `NonSendRes<EventLoopProxy>` to receive this resource.
 pub type EventLoopProxy = winit::event_loop::EventLoopProxy<UserEvent>;
 
 type UserEvent = RequestRedraw;
@@ -292,9 +292,9 @@ pub fn winit_runner(mut app: App) -> AppExit {
 
     let mut event_writer_system_state: SystemState<(
         EventWriter<WindowResized>,
-        NonSend<WinitWindows>,
+        NonSendRes<WinitWindows>,
         Query<(&mut Window, &mut CachedWindow)>,
-        NonSend<AccessKitAdapters>,
+        NonSendRes<AccessKitAdapters>,
     )> = SystemState::new(app.world_mut());
 
     let mut create_window =
@@ -341,9 +341,9 @@ fn handle_winit_event(
     create_window: &mut SystemState<CreateWindowParams<Added<Window>>>,
     event_writer_system_state: &mut SystemState<(
         EventWriter<WindowResized>,
-        NonSend<WinitWindows>,
+        NonSendRes<WinitWindows>,
         Query<(&mut Window, &mut CachedWindow)>,
-        NonSend<AccessKitAdapters>,
+        NonSendRes<AccessKitAdapters>,
     )>,
     focused_windows_state: &mut SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)>,
     redraw_event_reader: &mut ManualEventReader<RequestRedraw>,

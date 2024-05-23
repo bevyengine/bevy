@@ -353,7 +353,7 @@ mod tests {
 
     #[test]
     fn non_send_resources() {
-        fn non_send_count_down(mut ns: NonSendMut<Counter>) {
+        fn non_send_count_down(mut ns: NonSendResMut<Counter>) {
             ns.0 -= 1;
         }
 

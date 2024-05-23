@@ -1138,7 +1138,7 @@ impl World {
         });
     }
 
-    /// Initializes a new non-send resource and returns the [`ComponentId`] created for it.
+    /// Initializes a new `!Send` resource and returns the [`ComponentId`] created for it.
     ///
     /// If the resource already exists, nothing happens.
     ///
@@ -1169,11 +1169,11 @@ impl World {
         component_id
     }
 
-    /// Inserts a new non-send resource with the given `value`.
+    /// Inserts a new `!Send` resource with the given `value`.
     ///
-    /// `NonSend` resources cannot be sent across threads,
+    /// `NonSendRes` resources cannot be sent across threads,
     /// and do not need the `Send + Sync` bounds.
-    /// Systems with `NonSend` resources are always scheduled on the main thread.
+    /// Systems with `NonSendRes` resources are always scheduled on the main thread.
     ///
     /// # Panics
     /// If a value is already present, this function will panic if called
@@ -1200,9 +1200,9 @@ impl World {
 
     /// Removes a `!Send` resource from the world and returns it, if present.
     ///
-    /// `NonSend` resources cannot be sent across threads,
+    /// `NonSendRes` resources cannot be sent across threads,
     /// and do not need the `Send + Sync` bounds.
-    /// Systems with `NonSend` resources are always scheduled on the main thread.
+    /// Systems with `NonSendRes` resources are always scheduled on the main thread.
     ///
     /// Returns `None` if a value was not previously present.
     ///

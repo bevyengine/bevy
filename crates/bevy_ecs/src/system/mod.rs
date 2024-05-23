@@ -89,8 +89,8 @@
 //! - [`Local`]
 //! - [`EventReader`](crate::event::EventReader)
 //! - [`EventWriter`](crate::event::EventWriter)
-//! - [`NonSend`] and `Option<NonSend>`
-//! - [`NonSendMut`] and `Option<NonSendMut>`
+//! - [`NonSendRes`] and `Option<NonSendRes>`
+//! - [`NonSendResMut`] and `Option<NonSendResMut>`
 //! - [`RemovedComponents`](crate::removal_detection::RemovedComponents)
 //! - [`SystemName`]
 //! - [`SystemChangeTick`]
@@ -351,7 +351,7 @@ mod tests {
             Schedule,
         },
         system::{
-            Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
+            Commands, In, IntoSystem, Local, NonSendRes, NonSendResMut, ParamSet, Query, Res, ResMut,
             Resource, StaticSystemParam, System, SystemState,
         },
         world::{FromWorld, World},
@@ -851,11 +851,11 @@ mod tests {
         world.insert_non_send_resource(NotSend1(std::rc::Rc::new(0)));
 
         fn sys(
-            op: Option<NonSend<NotSend1>>,
-            mut _op2: Option<NonSendMut<NotSend2>>,
+            op: Option<NonSendRes<NotSend1>>,
+            mut _op2: Option<NonSendResMut<NotSend2>>,
             mut system_ran: ResMut<SystemRan>,
         ) {
-            op.expect("NonSend should exist");
+            op.expect("NonSendRes should exist");
             *system_ran = SystemRan::Yes;
         }
 
@@ -878,8 +878,8 @@ mod tests {
         world.insert_non_send_resource(NotSend2(std::rc::Rc::new(2)));
 
         fn sys(
-            _op: NonSend<NotSend1>,
-            mut _op2: NonSendMut<NotSend2>,
+            _op: NonSendRes<NotSend1>,
+            mut _op2: NonSendResMut<NotSend2>,
             mut system_ran: ResMut<SystemRan>,
         ) {
             *system_ran = SystemRan::Yes;

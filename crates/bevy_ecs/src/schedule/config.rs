@@ -14,7 +14,7 @@ fn new_condition<M>(condition: impl Condition<M>) -> BoxedCondition {
     let condition_system = IntoSystem::into_system(condition);
     assert!(
         condition_system.is_send(),
-        "Condition `{}` accesses `NonSend` resources. This is not currently supported.",
+        "Condition `{}` accesses `NonSendRes` resources. This is not currently supported.",
         condition_system.name()
     );
 
