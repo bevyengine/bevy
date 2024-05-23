@@ -29,7 +29,7 @@ build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
 target_sdk_version = 33
 ```
 
-Please reference `cargo-apk` [README](https://crates.io/crates/cargo-apk) for other Android Manifest fields.
+Please refer `cargo-apk` [README](https://crates.io/crates/cargo-apk) for other Android Manifest fields.
 
 For this exmaple, you can replace the `Cargo.toml` with the one within this folder.
 
