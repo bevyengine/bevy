@@ -50,4 +50,3 @@ To use a different API, the following fields must be updated in Cargo.toml:
 target_sdk_version = >>API<<
 min_sdk_version = >>API or less<<
 ```
-
