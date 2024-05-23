@@ -323,7 +323,7 @@ impl AssetServer {
         self.load_with_meta_transform(path, Some(loader_settings_meta_transform(settings)), guard)
     }
 
-    fn load_with_meta_transform<'a, A: Asset, G: Send + Sync + 'static>(
+    pub(crate) fn load_with_meta_transform<'a, A: Asset, G: Send + Sync + 'static>(
         &self,
         path: impl Into<AssetPath<'a>>,
         meta_transform: Option<MetaTransform>,
