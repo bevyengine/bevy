@@ -48,8 +48,8 @@ fn run_render_graph(world: &mut World) {
 
             let builder = RenderGraphBuilder {
                 graph: &mut render_graph,
-                resource_cache: &mut cached_resources,
-                pipeline_cache: &mut pipeline_cache,
+                // resource_cache: &mut cached_resources,
+                // pipeline_cache: &mut pipeline_cache,
                 world,
                 render_device,
             };

@@ -73,13 +73,18 @@ impl<'a, 'b: 'a, 'g: 'b> BindGroupBuilder<'a, 'b, 'g> {
         } = self.graph.meta(texture_view).clone();
         self.graph
             .add_usages(texture, TextureUsages::TEXTURE_BINDING);
+        let features = self.graph.features();
         let texture_descriptor = self.graph.meta(texture);
         self.layout.push(BindGroupLayoutEntry {
             binding: self.layout.len() as u32,
             visibility: self.shader_stages,
             ty: BindingType::Texture {
-                sample_type: todo!(),
-                view_dimension: descriptor.dimension.unwrap_or_else(|| {
+                sample_type: descriptor
+                    .format
+                    .unwrap_or(texture_descriptor.format)
+                    .sample_type(Some(descriptor.aspect), Some(features))
+                    .expect("Unable to determine texture sample type from format"),
+                view_dimension: descriptor.dimension.unwrap_or({
                     match texture_descriptor.dimension {
                         TextureDimension::D1 => TextureViewDimension::D1,
                         TextureDimension::D2 => TextureViewDimension::D2,
@@ -95,86 +100,6 @@ impl<'a, 'b: 'a, 'g: 'b> BindGroupBuilder<'a, 'b, 'g> {
             resource: RenderGraphBindingResource::TextureView(texture_view),
         });
         self
-    }
-
-    fn sample_type_from_format(texture_format: TextureFormat) -> TextureSampleType {
-        match texture_format {
-            TextureFormat::R8Unorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::R8Snorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::R8Uint => TextureSampleType::Uint,
-            TextureFormat::R8Sint => TextureSampleType::Sint,
-            TextureFormat::R16Uint => TextureSampleType::Uint,
-            TextureFormat::R16Sint => TextureSampleType::Sint,
-            TextureFormat::R16Unorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::R16Snorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::R16Float => TextureSampleType::Float { filterable: true },
-            TextureFormat::Rg8Unorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::Rg8Snorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::Rg8Uint => TextureSampleType::Uint,
-            TextureFormat::Rg8Sint => TextureSampleType::Sint,
-            TextureFormat::R32Uint => TextureSampleType::Uint,
-            TextureFormat::R32Sint => TextureSampleType::Sint,
-            TextureFormat::R32Float => TextureSampleType::Float { filterable: true },
-            TextureFormat::Rg16Uint => TextureSampleType::Uint,
-            TextureFormat::Rg16Sint => TextureSampleType::Sint,
-            TextureFormat::Rg16Unorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::Rg16Snorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::Rg16Float => TextureSampleType::Float { filterable: true },
-            TextureFormat::Rgba8Unorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::Rgba8UnormSrgb => TextureSampleType::Float { filterable: true },
-            TextureFormat::Rgba8Snorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::Rgba8Uint => TextureSampleType::Uint,
-            TextureFormat::Rgba8Sint => TextureSampleType::Sint,
-            TextureFormat::Bgra8Unorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::Bgra8UnormSrgb => TextureSampleType::Float { filterable: true },
-            TextureFormat::Rgb9e5Ufloat => TextureSampleType::Float { filterable: true },
-            TextureFormat::Rgb10a2Uint => TextureSampleType::Uint,
-            TextureFormat::Rgb10a2Unorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::Rg11b10Float => TextureSampleType::Float { filterable: true },
-            TextureFormat::Rg32Uint => TextureSampleType::Uint,
-            TextureFormat::Rg32Sint => TextureSampleType::Sint,
-            TextureFormat::Rg32Float => TextureSampleType::Float { filterable: true },
-            TextureFormat::Rgba16Uint => TextureSampleType::Uint,
-            TextureFormat::Rgba16Sint => TextureSampleType::Sint,
-            TextureFormat::Rgba16Unorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::Rgba16Snorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::Rgba16Float => TextureSampleType::Float { filterable: true },
-            TextureFormat::Rgba32Uint => TextureSampleType::Uint,
-            TextureFormat::Rgba32Sint => TextureSampleType::Sint,
-            TextureFormat::Rgba32Float => TextureSampleType::Float { filterable: true },
-            TextureFormat::Stencil8 => TextureSampleType::Depth,
-            TextureFormat::Depth16Unorm => TextureSampleType::Depth,
-            TextureFormat::Depth24Plus => TextureSampleType::Depth,
-            TextureFormat::Depth24PlusStencil8 => TextureSampleType::Depth,
-            TextureFormat::Depth32Float => TextureSampleType::Depth,
-            TextureFormat::Depth32FloatStencil8 => TextureSampleType::Depth,
-            TextureFormat::NV12 => TextureSampleType::Float { filterable: true },
-            TextureFormat::Bc1RgbaUnorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::Bc1RgbaUnormSrgb => TextureSampleType::Float { filterable: true },
-            TextureFormat::Bc2RgbaUnorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::Bc2RgbaUnormSrgb => TextureSampleType::Float { filterable: true },
-            TextureFormat::Bc3RgbaUnorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::Bc3RgbaUnormSrgb => TextureSampleType::Float { filterable: true },
-            TextureFormat::Bc4RUnorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::Bc4RSnorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::Bc5RgUnorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::Bc5RgSnorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::Bc6hRgbUfloat => TextureSampleType::Float { filterable: true },
-            TextureFormat::Bc6hRgbFloat => TextureSampleType::Float { filterable: true },
-            TextureFormat::Bc7RgbaUnorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::Bc7RgbaUnormSrgb => TextureSampleType::Float { filterable: true },
-            TextureFormat::Etc2Rgb8Unorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::Etc2Rgb8UnormSrgb => TextureSampleType::Float { filterable: true },
-            TextureFormat::Etc2Rgb8A1Unorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::Etc2Rgb8A1UnormSrgb => TextureSampleType::Float { filterable: true },
-            TextureFormat::Etc2Rgba8Unorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::Etc2Rgba8UnormSrgb => TextureSampleType::Float { filterable: true },
-            TextureFormat::EacR11Unorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::EacR11Snorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::EacRg11Unorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::EacRg11Snorm => TextureSampleType::Float { filterable: true },
-            TextureFormat::Astc { .. } => TextureSampleType::Float { filterable: true },
-        }
     }
 
     pub fn read_storage_texture(&mut self, texture: RenderHandle<'g, TextureView>) -> &mut Self {

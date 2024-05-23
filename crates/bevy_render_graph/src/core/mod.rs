@@ -254,8 +254,8 @@ impl<'g> RenderGraph<'g> {
 
 pub struct RenderGraphBuilder<'b, 'g: 'b> {
     graph: &'b mut RenderGraph<'g>,
-    resource_cache: &'b mut RenderGraphCachedResources,
-    pipeline_cache: &'b mut PipelineCache,
+    // resource_cache: &'b mut RenderGraphCachedResources,
+    // pipeline_cache: &'b mut PipelineCache,
     world: &'g World,
     // view_entity: EntityRef<'g>,
     render_device: &'b RenderDevice,
