@@ -32,6 +32,7 @@ impl<'w, T: 'static> ObserverBuilder<'w, T> {
     }
 
     /// Constructs an [`ObserverBuilder`] with a dynamic trigger id.
+    ///
     /// # Safety
     /// Caller must ensure that the component associated with `id` is accessible as T
     #[must_use]
@@ -79,7 +80,7 @@ impl<'w, T: 'static> ObserverBuilder<'w, T> {
         unsafe { std::mem::transmute(self) }
     }
 
-    /// Add [`ComponentId`] in `T` to the list of components listened to by this observer.
+    /// Add all of the [`ComponentId`]s in `B` to the list of components listened to by this observer.
     /// For examples an `OnRemove` observer would trigger when any component in `B` was removed.
     pub fn components<B: Bundle>(&mut self) -> &mut Self {
         B::get_component_ids(self.commands.components(), &mut |id| {
@@ -128,7 +129,7 @@ impl<'w, T: 'static> ObserverBuilder<'w, T> {
         entity
     }
 
-    /// Spawns the resulting observer into the world using an [`ObserverRunner`] callback.
+    /// Spawns the resulting observer into the world using a custom [`ObserverRunner`] callback.
     /// This is not advised unless you want to override the default runner behaviour.
     pub fn runner(&mut self, runner: ObserverRunner) -> Entity {
         let entity = self.commands.spawn_empty().id();
