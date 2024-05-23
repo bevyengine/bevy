@@ -1881,7 +1881,7 @@ impl World {
             unsafe {
                 self.command_queue
                     .clone_unsafe()
-                    .apply_or_drop_queued(Some(self));
+                    .apply_or_drop_queued(Some(self.into()));
             };
         }
     }

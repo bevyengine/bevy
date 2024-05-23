@@ -56,7 +56,6 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub fn commands(&mut self) -> Commands {
         // SAFETY: &mut self ensure that there are no outstanding accesses to the queue
-        // let queue = todo!();
         let command_queue = unsafe { self.world.get_raw_command_queue() };
         Commands::new_raw_from_entities(command_queue, self.world.entities())
     }

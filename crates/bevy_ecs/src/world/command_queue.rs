@@ -1,6 +1,10 @@
 use crate::system::{SystemBuffer, SystemMeta};
 
-use std::{fmt::Debug, mem::MaybeUninit, ptr::addr_of_mut};
+use std::{
+    fmt::Debug,
+    mem::MaybeUninit,
+    ptr::{addr_of_mut, NonNull},
+};
 
 use bevy_ptr::{OwningPtr, Unaligned};
 use bevy_utils::tracing::warn;
@@ -14,8 +18,11 @@ struct CommandMeta {
     /// `world` is optional to allow this one function pointer to perform double-duty as a drop.
     ///
     /// Advances `cursor` by the size of `T` in bytes.
-    consume_command_and_get_size:
-        unsafe fn(value: OwningPtr<Unaligned>, world: Option<*mut World>, cursor: *mut usize),
+    consume_command_and_get_size: unsafe fn(
+        value: OwningPtr<Unaligned>,
+        world: Option<NonNull<World>>,
+        cursor: NonNull<usize>,
+    ),
 }
 
 /// Densely and efficiently stores a queue of heterogenous types implementing [`Command`].
@@ -39,8 +46,8 @@ pub struct CommandQueue {
 /// Wraps pointers to a [`CommandQueue`], used internally to avoid stacked borrow rules when
 /// partially applying queues recursively
 pub(crate) struct RawCommandQueue {
-    pub(crate) bytes: *mut Vec<MaybeUninit<u8>>,
-    pub(crate) cursor: *mut usize,
+    pub(crate) bytes: NonNull<Vec<MaybeUninit<u8>>>,
+    pub(crate) cursor: NonNull<usize>,
 }
 
 // CommandQueue needs to implement Debug manually, rather than deriving it, because the derived impl just prints
@@ -70,7 +77,7 @@ impl CommandQueue {
         C: Command,
     {
         // SAFETY: CommandQueue has a unique mutable borrow
-        unsafe { self.get_raw() }.push(command)
+        unsafe { self.get_raw() }.push(command);
     }
     /// Execute the queued [`Command`]s in the world after applying any commands in the world's internal queue.
     /// This clears the queue.
@@ -84,7 +91,7 @@ impl CommandQueue {
 
         // SAFETY: A reference is always a valid pointer
         unsafe {
-            self.get_raw().apply_or_drop_queued(Some(world));
+            self.get_raw().apply_or_drop_queued(Some(world.into()));
         }
     }
 
@@ -106,8 +113,8 @@ impl CommandQueue {
     /// Caller must ensure the raw queue does not outlive self
     pub(crate) unsafe fn get_raw(&mut self) -> RawCommandQueue {
         RawCommandQueue {
-            bytes: addr_of_mut!(self.bytes),
-            cursor: addr_of_mut!(self.cursor),
+            bytes: NonNull::new_unchecked(addr_of_mut!(self.bytes)),
+            cursor: NonNull::new_unchecked(addr_of_mut!(self.cursor)),
         }
     }
 }
@@ -115,9 +122,12 @@ impl CommandQueue {
 impl RawCommandQueue {
     /// Returns a new `RawCommandQueue` instance.
     pub fn new() -> Self {
-        Self {
-            bytes: Box::into_raw(Box::new(Vec::<MaybeUninit<u8>>::new())),
-            cursor: Box::into_raw(Box::new(0usize)),
+        // SAFETY: Pointers returned by `Box::into_raw` are guaranteed to be non null
+        unsafe {
+            Self {
+                bytes: NonNull::new_unchecked(Box::into_raw(Box::default())),
+                cursor: NonNull::new_unchecked(Box::into_raw(Box::new(0usize))),
+            }
         }
     }
 
@@ -135,7 +145,8 @@ impl RawCommandQueue {
 
     /// Returns true if the queue is empty.
     pub fn is_empty(&self) -> bool {
-        (unsafe { *self.cursor }) >= (unsafe { &*self.bytes }).len()
+        // SAFETY: Pointers are guaranteed to be valid by requirements on `.clone_unsafe`
+        (unsafe { *self.cursor.as_ref() }) >= (unsafe { self.bytes.as_ref() }).len()
     }
 
     /// Push a [`Command`] onto the queue.
@@ -154,23 +165,25 @@ impl RawCommandQueue {
         }
 
         let meta = CommandMeta {
-            consume_command_and_get_size: |command, world, cursor| {
+            consume_command_and_get_size: |command, world, mut cursor| {
                 // SAFETY: Pointer is assured to be valid in `CommandQueue.apply_or_drop_queued`
-                unsafe { *cursor += std::mem::size_of::<C>() }
+                unsafe { *cursor.as_mut() += std::mem::size_of::<C>() }
 
                 // SAFETY: According to the invariants of `CommandMeta.consume_command_and_get_size`,
                 // `command` must point to a value of type `C`.
                 let command: C = unsafe { command.read_unaligned() };
                 match world {
                     // Apply command to the provided world...
-                    Some(world) => command.apply(unsafe { &mut *world }),
+                    // SAFETY: Calller ensures pointer is not null
+                    Some(mut world) => command.apply(unsafe { world.as_mut() }),
                     // ...or discard it.
                     None => drop(command),
                 }
             },
         };
 
-        let bytes = unsafe { &mut *self.bytes };
+        // SAFETY: There are no oustanding references to self.bytes
+        let bytes = unsafe { self.bytes.as_mut() };
 
         let old_len = bytes.len();
 
@@ -204,16 +217,17 @@ impl RawCommandQueue {
     /// This clears the queue.
     /// SAFETY: Caller must ensure that `queue` is a valid pointer
     #[inline]
-    pub(crate) unsafe fn apply_or_drop_queued(&mut self, world: Option<*mut World>) {
+    pub(crate) unsafe fn apply_or_drop_queued(&mut self, world: Option<NonNull<World>>) {
         // SAFETY: If this is the command queue on world, world will not be dropped as we have a mutable reference
         // If this is not the command queue on world we have exclusive ownership and self will not be mutated
-        while *self.cursor < (*self.bytes).len() {
+        while *self.cursor.as_ref() < self.bytes.as_ref().len() {
             // SAFETY: The cursor is either at the start of the buffer, or just after the previous command.
             // Since we know that the cursor is in bounds, it must point to the start of a new command.
             let meta = unsafe {
-                (*self.bytes)
+                self.bytes
+                    .as_mut()
                     .as_mut_ptr()
-                    .add(*self.cursor)
+                    .add(*self.cursor.as_ref())
                     .cast::<CommandMeta>()
                     .read_unaligned()
             };
@@ -222,14 +236,18 @@ impl RawCommandQueue {
             // SAFETY: For most types of `Command`, the pointer immediately following the metadata
             // is guaranteed to be in bounds. If the command is a zero-sized type (ZST), then the cursor
             // might be 1 byte past the end of the buffer, which is safe.
-            unsafe { *self.cursor += std::mem::size_of::<CommandMeta>() };
+            unsafe { *self.cursor.as_mut() += std::mem::size_of::<CommandMeta>() };
             // Construct an owned pointer to the command.
             // SAFETY: It is safe to transfer ownership out of `self.bytes`, since the increment of `cursor` above
             // guarantees that nothing stored in the buffer will get observed after this function ends.
             // `cmd` points to a valid address of a stored command, so it must be non-null.
             let cmd = unsafe {
                 OwningPtr::<Unaligned>::new(std::ptr::NonNull::new_unchecked(
-                    (*self.bytes).as_mut_ptr().add(*self.cursor).cast(),
+                    self.bytes
+                        .as_mut()
+                        .as_mut_ptr()
+                        .add(*self.cursor.as_ref())
+                        .cast(),
                 ))
             };
             // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
@@ -244,8 +262,8 @@ impl RawCommandQueue {
         // Reset the buffer, so it can be reused after this function ends.
         // SAFETY: `set_len(0)` is always valid.
         unsafe {
-            (*self.bytes).set_len(0);
-            *self.cursor = 0;
+            self.bytes.as_mut().set_len(0);
+            *self.cursor.as_mut() = 0;
         };
     }
 }

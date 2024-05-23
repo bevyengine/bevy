@@ -76,6 +76,7 @@ const _: () = {
     pub struct FetchState {
         state: <__StructFieldsAlias<'static, 'static> as bevy_ecs::system::SystemParam>::State,
     }
+    // SAFETY: Only reads Entities
     unsafe impl bevy_ecs::system::SystemParam for Commands<'_, '_> {
         type State = FetchState;
         type Item<'w, 's> = Commands<'w, 's>;
@@ -95,13 +96,14 @@ const _: () = {
             archetype: &bevy_ecs::archetype::Archetype,
             system_meta: &mut bevy_ecs::system::SystemMeta,
         ) {
+            // SAFETY: Caller guarantees the archetype is from the world used in `init_state`
             unsafe {
                 <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::new_archetype(
                     &mut state.state,
                     archetype,
                     system_meta,
-                )
-            }
+                );
+            };
         }
         fn apply(
             state: &mut Self::State,
@@ -127,6 +129,7 @@ const _: () = {
             }
         }
     }
+    // SAFETY: Only reads Entities
     unsafe impl<'w, 's> bevy_ecs::system::ReadOnlySystemParam for Commands<'w, 's>
     where
         Deferred<'s, CommandQueue>: bevy_ecs::system::ReadOnlySystemParam,
@@ -209,7 +212,7 @@ impl<'w, 's> Commands<'w, 's> {
             InternalQueue::CommandQueue(queue) => queue.bytes.append(&mut other.bytes),
             InternalQueue::RawCommandQueue(queue) => {
                 // SAFETY: Pointers in `RawCommandQueue` are never null
-                unsafe { &mut *queue.bytes }.append(&mut other.bytes);
+                unsafe { queue.bytes.as_mut() }.append(&mut other.bytes);
             }
         }
     }
@@ -472,7 +475,7 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator + Send + Sync + 'static,
         I::Item: Bundle,
     {
-        self.push(spawn_batch(bundles_iter))
+        self.push(spawn_batch(bundles_iter));
     }
 
     /// Push a [`Command`] onto the queue.
