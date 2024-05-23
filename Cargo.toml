@@ -359,7 +359,6 @@ argh = "0.1.12"
 thiserror = "1.0"
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
-once_cell = "1.16"
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = ["Window"] }
 

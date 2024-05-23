@@ -166,18 +166,20 @@ fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
 // Pause audio when app goes into background and resume when it returns.
 // This is handled by the OS on iOS, but not on Android.
 fn handle_lifetime(
-    mut lifetime_events: EventReader<AppLifecycle>,
-    music_controller_q: Query<&AudioSink>,
+    mut lifecycle_events: EventReader<AppLifecycle>,
+    music_controller: Query<&AudioSink>,
 ) {
-    let Ok(music_controller) = music_controller_q.get_single() else {
+    let Ok(music_controller) = music_controller.get_single() else {
         return;
     };
 
-    for event in lifetime_events.read() {
+    for event in lifecycle_events.read() {
         match event {
+            AppLifecycle::Idle => {}
+            AppLifecycle::WillSuspend => {}
             AppLifecycle::Suspended => music_controller.pause(),
+            AppLifecycle::WillResume => {}
             AppLifecycle::Running => music_controller.play(),
-            _ => (),
         }
     }
 }

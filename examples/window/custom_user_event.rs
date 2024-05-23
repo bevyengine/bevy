@@ -3,6 +3,7 @@
 use bevy::prelude::*;
 use bevy::winit::{EventLoopProxy, WakeUp, WinitPlugin};
 use std::fmt::Formatter;
+use std::sync::OnceLock;
 
 #[derive(Default, Debug, Event)]
 enum CustomEvent {
@@ -20,6 +21,8 @@ impl std::fmt::Display for CustomEvent {
     }
 }
 
+static EVENT_LOOP_PROXY: OnceLock<EventLoopProxy<CustomEvent>> = OnceLock::new();
+
 fn main() {
     let winit_plugin = WinitPlugin::<CustomEvent>::default();
 
@@ -36,8 +39,9 @@ fn main() {
             Startup,
             (
                 setup,
+                expose_event_loop_proxy,
                 #[cfg(target_arch = "wasm32")]
-                wasm::expose_event_loop_proxy,
+                wasm::setup_js_closure,
             ),
         )
         .add_systems(Update, (send_event, handle_event))
@@ -48,16 +52,28 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
 
-fn send_event(
-    input: Res<ButtonInput<KeyCode>>,
-    event_loop_proxy: NonSend<EventLoopProxy<CustomEvent>>,
-) {
+fn send_event(input: Res<ButtonInput<KeyCode>>) {
+    let Some(event_loop_proxy) = EVENT_LOOP_PROXY.get() else {
+        return;
+    };
+
     if input.just_pressed(KeyCode::Space) {
         let _ = event_loop_proxy.send_event(CustomEvent::WakeUp);
     }
+
+    // This simulates sending a custom event through an external thread.
+    #[cfg(not(target_arch = "wasm32"))]
     if input.just_pressed(KeyCode::KeyE) {
-        let _ = event_loop_proxy.send_event(CustomEvent::Key('e'));
+        let handler = std::thread::spawn(|| {
+            let _ = event_loop_proxy.send_event(CustomEvent::Key('e'));
+        });
+
+        handler.join().unwrap();
     }
+}
+
+fn expose_event_loop_proxy(event_loop_proxy: NonSend<EventLoopProxy<CustomEvent>>) {
+    EVENT_LOOP_PROXY.set((*event_loop_proxy).clone()).unwrap();
 }
 
 fn handle_event(mut events: EventReader<CustomEvent>) {
@@ -66,24 +82,17 @@ fn handle_event(mut events: EventReader<CustomEvent>) {
     }
 }
 
+/// Since the [`EventLoopProxy`] can be exposed to the javascript environment, it can
+/// be used to send events inside the loop, to be handled by a system or simply to wake up
+/// the loop if that's currently waiting for a timeout or a user event.
 #[cfg(target_arch = "wasm32")]
 pub(crate) mod wasm {
-    use std::sync::{Arc, Mutex};
-
-    use bevy::{ecs::system::NonSend, winit::EventLoopProxy};
-    use once_cell::sync::Lazy;
-
-    use crate::CustomEvent;
+    use crate::{CustomEvent, EVENT_LOOP_PROXY};
     use wasm_bindgen::prelude::*;
     use wasm_bindgen::JsCast;
     use web_sys::KeyboardEvent;
 
-    pub static EVENT_LOOP_PROXY: Lazy<Arc<Mutex<Option<EventLoopProxy<CustomEvent>>>>> =
-        Lazy::new(|| Arc::new(Mutex::new(None)));
-
-    pub(crate) fn expose_event_loop_proxy(event_loop_proxy: NonSend<EventLoopProxy<CustomEvent>>) {
-        *EVENT_LOOP_PROXY.lock().unwrap() = Some((*event_loop_proxy).clone());
-
+    pub(crate) fn setup_js_closure() {
         let window = web_sys::window().unwrap();
         let document = window.document().unwrap();
 
@@ -102,8 +111,7 @@ pub(crate) mod wasm {
     }
 
     fn send_custom_event(ch: char) -> Result<(), String> {
-        let proxy = EVENT_LOOP_PROXY.lock().unwrap();
-        if let Some(proxy) = &*proxy {
+        if let Some(proxy) = EVENT_LOOP_PROXY.get() {
             proxy
                 .send_event(CustomEvent::Key(ch))
                 .map_err(|_| "Failed to send event".to_string())
