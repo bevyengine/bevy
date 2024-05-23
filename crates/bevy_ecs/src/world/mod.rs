@@ -136,6 +136,15 @@ impl Default for World {
     }
 }
 
+impl Drop for World {
+    fn drop(&mut self) {
+        // SAFETY: Not passing a pointer so the argument is always valid
+        unsafe { self.command_queue.apply_or_drop_queued(None) };
+        // SAFETY: Pointers in internal command queue are only invalidated here
+        drop(unsafe { Box::from_raw(self.command_queue.bytes.as_ptr()) });
+    }
+}
+
 impl World {
     /// Creates a new empty [`World`].
     ///
