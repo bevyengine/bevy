@@ -1,4 +1,5 @@
 use core::fmt;
+use proc_macro2::Span;
 
 use crate::container_attributes::{ContainerAttributes, FromReflectAttrs, TypePathAttrs};
 use crate::field_attributes::FieldAttributes;
@@ -183,7 +184,7 @@ impl<'a> ReflectDerive<'a> {
         input: &'a DeriveInput,
         provenance: ReflectProvenance,
     ) -> Result<Self, syn::Error> {
-        let mut traits = ContainerAttributes::default();
+        let mut container_attributes = ContainerAttributes::default();
         // Should indicate whether `#[reflect_value]` was used.
         let mut reflect_mode = None;
         // Should indicate whether `#[type_path = "..."]` was used.
@@ -205,9 +206,7 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Normal);
-                    let new_traits =
-                        ContainerAttributes::parse_meta_list(meta_list, provenance.trait_)?;
-                    traits.merge(new_traits)?;
+                    container_attributes.parse_meta_list(meta_list, provenance.trait_)?;
                 }
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
                     if !matches!(reflect_mode, None | Some(ReflectMode::Value)) {
@@ -218,9 +217,7 @@ impl<'a> ReflectDerive<'a> {
                     }
 
                     reflect_mode = Some(ReflectMode::Value);
-                    let new_traits =
-                        ContainerAttributes::parse_meta_list(meta_list, provenance.trait_)?;
-                    traits.merge(new_traits)?;
+                    container_attributes.parse_meta_list(meta_list, provenance.trait_)?;
                 }
                 Meta::Path(path) if path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
                     if !matches!(reflect_mode, None | Some(ReflectMode::Value)) {
@@ -296,7 +293,7 @@ impl<'a> ReflectDerive<'a> {
             generics: &input.generics,
         };
 
-        let meta = ReflectMeta::new(type_path, traits);
+        let meta = ReflectMeta::new(type_path, container_attributes);
 
         if provenance.source == ReflectImplSource::ImplRemoteType
             && meta.type_path_attrs().should_auto_derive()
@@ -439,7 +436,7 @@ impl<'a> ReflectMeta<'a> {
         Self { docs, ..self }
     }
 
-    /// The registered reflect traits on this struct.
+    /// The registered reflect attributes on this struct.
     pub fn attrs(&self) -> &ContainerAttributes {
         &self.attrs
     }
@@ -482,6 +479,44 @@ impl<'a> ReflectMeta<'a> {
     #[cfg(feature = "documentation")]
     pub fn doc(&self) -> &crate::documentation::Documentation {
         &self.docs
+    }
+}
+
+impl<'a> StructField<'a> {
+    /// Generates a `TokenStream` for `NamedField` or `UnnamedField` construction.
+    pub fn to_info_tokens(&self, bevy_reflect_path: &Path) -> proc_macro2::TokenStream {
+        let name = match &self.data.ident {
+            Some(ident) => ident.to_string().to_token_stream(),
+            None => self.reflection_index.to_token_stream(),
+        };
+
+        let field_info = if self.data.ident.is_some() {
+            quote! {
+                #bevy_reflect_path::NamedField
+            }
+        } else {
+            quote! {
+                #bevy_reflect_path::UnnamedField
+            }
+        };
+
+        let ty = &self.data.ty;
+        let custom_attributes = self.attrs.custom_attributes.to_tokens(bevy_reflect_path);
+
+        #[allow(unused_mut)] // Needs mutability for the feature gate
+        let mut info = quote! {
+            #field_info::new::<#ty>(#name).with_custom_attributes(#custom_attributes)
+        };
+
+        #[cfg(feature = "documentation")]
+        {
+            let docs = &self.doc;
+            info.extend(quote! {
+                .with_docs(#docs)
+            });
+        }
+
+        info
     }
 }
 
@@ -540,6 +575,53 @@ impl<'a> ReflectStruct<'a> {
     pub fn where_clause_options(&self) -> WhereClauseOptions {
         WhereClauseOptions::new_with_fields(self.meta(), self.active_types().into_boxed_slice())
     }
+
+    /// Generates a `TokenStream` for `TypeInfo::Struct` or `TypeInfo::TupleStruct` construction.
+    pub fn to_info_tokens(&self, is_tuple: bool) -> proc_macro2::TokenStream {
+        let bevy_reflect_path = self.meta().bevy_reflect_path();
+
+        let (info_variant, info_struct) = if is_tuple {
+            (
+                Ident::new("TupleStruct", Span::call_site()),
+                Ident::new("TupleStructInfo", Span::call_site()),
+            )
+        } else {
+            (
+                Ident::new("Struct", Span::call_site()),
+                Ident::new("StructInfo", Span::call_site()),
+            )
+        };
+
+        let field_infos = self
+            .active_fields()
+            .map(|field| field.to_info_tokens(bevy_reflect_path));
+
+        let custom_attributes = self
+            .meta
+            .attrs
+            .custom_attributes()
+            .to_tokens(bevy_reflect_path);
+
+        #[allow(unused_mut)] // Needs mutability for the feature gate
+        let mut info = quote! {
+            #bevy_reflect_path::#info_struct::new::<Self>(&[
+                #(#field_infos),*
+            ])
+            .with_custom_attributes(#custom_attributes)
+        };
+
+        #[cfg(feature = "documentation")]
+        {
+            let docs = self.meta().doc();
+            info.extend(quote! {
+                .with_docs(#docs)
+            });
+        }
+
+        quote! {
+            #bevy_reflect_path::TypeInfo::#info_variant(#info)
+        }
+    }
 }
 
 impl<'a> ReflectEnum<'a> {
@@ -593,6 +675,42 @@ impl<'a> ReflectEnum<'a> {
             Some(self.active_fields().map(|field| &field.data.ty)),
         )
     }
+
+    /// Generates a `TokenStream` for `TypeInfo::Enum` construction.
+    pub fn to_info_tokens(&self) -> proc_macro2::TokenStream {
+        let bevy_reflect_path = self.meta().bevy_reflect_path();
+
+        let variants = self
+            .variants
+            .iter()
+            .map(|variant| variant.to_info_tokens(bevy_reflect_path));
+
+        let custom_attributes = self
+            .meta
+            .attrs
+            .custom_attributes()
+            .to_tokens(bevy_reflect_path);
+
+        #[allow(unused_mut)] // Needs mutability for the feature gate
+        let mut info = quote! {
+            #bevy_reflect_path::EnumInfo::new::<Self>(&[
+                #(#variants),*
+            ])
+            .with_custom_attributes(#custom_attributes)
+        };
+
+        #[cfg(feature = "documentation")]
+        {
+            let docs = self.meta().doc();
+            info.extend(quote! {
+                .with_docs(#docs)
+            });
+        }
+
+        quote! {
+            #bevy_reflect_path::TypeInfo::Enum(#info)
+        }
+    }
 }
 
 impl<'a> EnumVariant<'a> {
@@ -609,6 +727,57 @@ impl<'a> EnumVariant<'a> {
         match &self.fields {
             EnumVariantFields::Named(fields) | EnumVariantFields::Unnamed(fields) => fields,
             EnumVariantFields::Unit => &[],
+        }
+    }
+
+    /// Generates a `TokenStream` for `VariantInfo` construction.
+    pub fn to_info_tokens(&self, bevy_reflect_path: &Path) -> proc_macro2::TokenStream {
+        let variant_name = &self.data.ident.to_string();
+
+        let (info_variant, info_struct) = match &self.fields {
+            EnumVariantFields::Unit => (
+                Ident::new("Unit", Span::call_site()),
+                Ident::new("UnitVariantInfo", Span::call_site()),
+            ),
+            EnumVariantFields::Unnamed(..) => (
+                Ident::new("Tuple", Span::call_site()),
+                Ident::new("TupleVariantInfo", Span::call_site()),
+            ),
+            EnumVariantFields::Named(..) => (
+                Ident::new("Struct", Span::call_site()),
+                Ident::new("StructVariantInfo", Span::call_site()),
+            ),
+        };
+
+        let fields = self
+            .active_fields()
+            .map(|field| field.to_info_tokens(bevy_reflect_path));
+
+        let args = match &self.fields {
+            EnumVariantFields::Unit => quote!(#variant_name),
+            _ => {
+                quote!( #variant_name , &[#(#fields),*] )
+            }
+        };
+
+        let custom_attributes = self.attrs.custom_attributes.to_tokens(bevy_reflect_path);
+
+        #[allow(unused_mut)] // Needs mutability for the feature gate
+        let mut info = quote! {
+            #bevy_reflect_path::#info_struct::new(#args)
+                .with_custom_attributes(#custom_attributes)
+        };
+
+        #[cfg(feature = "documentation")]
+        {
+            let docs = &self.doc;
+            info.extend(quote! {
+                .with_docs(#docs)
+            });
+        }
+
+        quote! {
+            #bevy_reflect_path::VariantInfo::#info_variant(#info)
         }
     }
 }

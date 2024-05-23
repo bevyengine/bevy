@@ -268,12 +268,12 @@ mod aabb3d_tests {
             min: Vec3A::new(-0.5, -1., -0.5),
             max: Vec3A::new(1., 1., 2.),
         };
-        assert!((aabb.center() - Vec3A::new(0.25, 0., 0.75)).length() < std::f32::EPSILON);
+        assert!((aabb.center() - Vec3A::new(0.25, 0., 0.75)).length() < f32::EPSILON);
         let aabb = Aabb3d {
             min: Vec3A::new(5., 5., -10.),
             max: Vec3A::new(10., 10., -5.),
         };
-        assert!((aabb.center() - Vec3A::new(7.5, 7.5, -7.5)).length() < std::f32::EPSILON);
+        assert!((aabb.center() - Vec3A::new(7.5, 7.5, -7.5)).length() < f32::EPSILON);
     }
 
     #[test]
@@ -282,7 +282,7 @@ mod aabb3d_tests {
             min: Vec3A::new(-0.5, -1., -0.5),
             max: Vec3A::new(1., 1., 2.),
         };
-        assert!((aabb.half_size() - Vec3A::new(0.75, 1., 1.25)).length() < std::f32::EPSILON);
+        assert!((aabb.half_size() - Vec3A::new(0.75, 1., 1.25)).length() < f32::EPSILON);
     }
 
     #[test]
@@ -291,12 +291,12 @@ mod aabb3d_tests {
             min: Vec3A::new(-1., -1., -1.),
             max: Vec3A::new(1., 1., 1.),
         };
-        assert!((aabb.visible_area() - 12.).abs() < std::f32::EPSILON);
+        assert!((aabb.visible_area() - 12.).abs() < f32::EPSILON);
         let aabb = Aabb3d {
             min: Vec3A::new(0., 0., 0.),
             max: Vec3A::new(1., 0.5, 0.25),
         };
-        assert!((aabb.visible_area() - 0.875).abs() < std::f32::EPSILON);
+        assert!((aabb.visible_area() - 0.875).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -328,8 +328,8 @@ mod aabb3d_tests {
             max: Vec3A::new(0.75, 1., 2.),
         };
         let merged = a.merge(&b);
-        assert!((merged.min - Vec3A::new(-2., -1., -1.)).length() < std::f32::EPSILON);
-        assert!((merged.max - Vec3A::new(1., 1., 2.)).length() < std::f32::EPSILON);
+        assert!((merged.min - Vec3A::new(-2., -1., -1.)).length() < f32::EPSILON);
+        assert!((merged.max - Vec3A::new(1., 1., 2.)).length() < f32::EPSILON);
         assert!(merged.contains(&a));
         assert!(merged.contains(&b));
         assert!(!a.contains(&merged));
@@ -343,8 +343,8 @@ mod aabb3d_tests {
             max: Vec3A::new(1., 1., 1.),
         };
         let padded = a.grow(Vec3A::ONE);
-        assert!((padded.min - Vec3A::new(-2., -2., -2.)).length() < std::f32::EPSILON);
-        assert!((padded.max - Vec3A::new(2., 2., 2.)).length() < std::f32::EPSILON);
+        assert!((padded.min - Vec3A::new(-2., -2., -2.)).length() < f32::EPSILON);
+        assert!((padded.max - Vec3A::new(2., 2., 2.)).length() < f32::EPSILON);
         assert!(padded.contains(&a));
         assert!(!a.contains(&padded));
     }
@@ -356,8 +356,8 @@ mod aabb3d_tests {
             max: Vec3A::new(2., 2., 2.),
         };
         let shrunk = a.shrink(Vec3A::ONE);
-        assert!((shrunk.min - Vec3A::new(-1., -1., -1.)).length() < std::f32::EPSILON);
-        assert!((shrunk.max - Vec3A::new(1., 1., 1.)).length() < std::f32::EPSILON);
+        assert!((shrunk.min - Vec3A::new(-1., -1., -1.)).length() < f32::EPSILON);
+        assert!((shrunk.max - Vec3A::new(1., 1., 1.)).length() < f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
     }
@@ -369,8 +369,8 @@ mod aabb3d_tests {
             max: Vec3A::ONE,
         };
         let scaled = a.scale_around_center(Vec3A::splat(2.));
-        assert!((scaled.min - Vec3A::splat(-2.)).length() < std::f32::EPSILON);
-        assert!((scaled.max - Vec3A::splat(2.)).length() < std::f32::EPSILON);
+        assert!((scaled.min - Vec3A::splat(-2.)).length() < f32::EPSILON);
+        assert!((scaled.max - Vec3A::splat(2.)).length() < f32::EPSILON);
         assert!(!a.contains(&scaled));
         assert!(scaled.contains(&a));
     }
@@ -671,8 +671,8 @@ mod bounding_sphere_tests {
         let a = BoundingSphere::new(Vec3::ONE, 5.);
         let b = BoundingSphere::new(Vec3::new(1., 1., -4.), 1.);
         let merged = a.merge(&b);
-        assert!((merged.center - Vec3A::new(1., 1., 0.5)).length() < std::f32::EPSILON);
-        assert!((merged.radius() - 5.5).abs() < std::f32::EPSILON);
+        assert!((merged.center - Vec3A::new(1., 1., 0.5)).length() < f32::EPSILON);
+        assert!((merged.radius() - 5.5).abs() < f32::EPSILON);
         assert!(merged.contains(&a));
         assert!(merged.contains(&b));
         assert!(!a.contains(&merged));
@@ -704,7 +704,7 @@ mod bounding_sphere_tests {
     fn grow() {
         let a = BoundingSphere::new(Vec3::ONE, 5.);
         let padded = a.grow(1.25);
-        assert!((padded.radius() - 6.25).abs() < std::f32::EPSILON);
+        assert!((padded.radius() - 6.25).abs() < f32::EPSILON);
         assert!(padded.contains(&a));
         assert!(!a.contains(&padded));
     }
@@ -713,7 +713,7 @@ mod bounding_sphere_tests {
     fn shrink() {
         let a = BoundingSphere::new(Vec3::ONE, 5.);
         let shrunk = a.shrink(0.5);
-        assert!((shrunk.radius() - 4.5).abs() < std::f32::EPSILON);
+        assert!((shrunk.radius() - 4.5).abs() < f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
     }
@@ -722,7 +722,7 @@ mod bounding_sphere_tests {
     fn scale_around_center() {
         let a = BoundingSphere::new(Vec3::ONE, 5.);
         let scaled = a.scale_around_center(2.);
-        assert!((scaled.radius() - 10.).abs() < std::f32::EPSILON);
+        assert!((scaled.radius() - 10.).abs() < f32::EPSILON);
         assert!(!a.contains(&scaled));
         assert!(scaled.contains(&a));
     }

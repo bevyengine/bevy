@@ -6,4 +6,7 @@
         "foo/c.cool.ron",
         "embedded://asset_processing/e.txt"
     ],
+    dependencies_with_settings: [
+        ("embedded://asset_processing/e.txt", (text_override: Some("E"))),
+    ],
 )

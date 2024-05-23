@@ -43,7 +43,7 @@ pub mod prelude {
             Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
             Projection,
         },
-        mesh::{morph::MorphWeights, primitives::Meshable, Mesh},
+        mesh::{morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
         texture::{image_texture_conversion::IntoDynamicImageError, Image, ImagePlugin},
@@ -96,7 +96,7 @@ use std::{
 pub struct RenderPlugin {
     pub render_creation: RenderCreation,
     /// If `true`, disables asynchronous pipeline compilation.
-    /// This has no effect on macOS, Wasm, iOS, or without the `multi-threaded` feature.
+    /// This has no effect on macOS, Wasm, iOS, or without the `multi_threaded` feature.
     pub synchronous_pipeline_compilation: bool,
 }
 

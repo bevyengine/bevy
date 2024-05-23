@@ -8,10 +8,11 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["ecs", "game", "bevy"]
 categories = ["game-engines", "data-structures"]
+rust-version = "1.77.0"
 
 [features]
 trace = []
-multi-threaded = ["bevy_tasks/multi-threaded", "arrayvec"]
+multi_threaded = ["bevy_tasks/multi_threaded", "arrayvec"]
 bevy_debug_stepping = []
 default = ["bevy_reflect"]
 

@@ -1,4 +1,7 @@
-use crate::{Alpha, ClampColor, Hue, Hwba, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza};
+use crate::{
+    Alpha, ColorToComponents, Hue, Hwba, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza,
+};
+use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
 
 /// Color in Hue-Saturation-Value (HSV) color space with alpha.
@@ -120,24 +123,6 @@ impl Hue for Hsva {
     }
 }
 
-impl ClampColor for Hsva {
-    fn clamped(&self) -> Self {
-        Self {
-            hue: self.hue.rem_euclid(360.),
-            saturation: self.saturation.clamp(0., 1.),
-            value: self.value.clamp(0., 1.),
-            alpha: self.alpha.clamp(0., 1.),
-        }
-    }
-
-    fn is_within_bounds(&self) -> bool {
-        (0. ..=360.).contains(&self.hue)
-            && (0. ..=1.).contains(&self.saturation)
-            && (0. ..=1.).contains(&self.value)
-            && (0. ..=1.).contains(&self.alpha)
-    }
-}
-
 impl From<Hsva> for Hwba {
     fn from(
         Hsva {
@@ -169,6 +154,60 @@ impl From<Hwba> for Hsva {
         let saturation = 1. - (whiteness / value);
 
         Hsva::new(hue, saturation, value, alpha)
+    }
+}
+
+impl ColorToComponents for Hsva {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.hue, self.saturation, self.value, self.alpha]
+    }
+
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
+        [self.hue, self.saturation, self.value]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.hue, self.saturation, self.value, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.hue, self.saturation, self.value)
+    }
+
+    fn from_f32_array(color: [f32; 4]) -> Self {
+        Self {
+            hue: color[0],
+            saturation: color[1],
+            value: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
+        Self {
+            hue: color[0],
+            saturation: color[1],
+            value: color[2],
+            alpha: 1.0,
+        }
+    }
+
+    fn from_vec4(color: Vec4) -> Self {
+        Self {
+            hue: color[0],
+            saturation: color[1],
+            value: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_vec3(color: Vec3) -> Self {
+        Self {
+            hue: color[0],
+            saturation: color[1],
+            value: color[2],
+            alpha: 1.0,
+        }
     }
 }
 
@@ -257,22 +296,5 @@ mod tests {
             assert_approx_eq!(color.hsv.value, hsv2.value, 0.001);
             assert_approx_eq!(color.hsv.alpha, hsv2.alpha, 0.001);
         }
-    }
-
-    #[test]
-    fn test_clamp() {
-        let color_1 = Hsva::hsv(361., 2., -1.);
-        let color_2 = Hsva::hsv(250.2762, 1., 0.67);
-        let mut color_3 = Hsva::hsv(-50., 1., 1.);
-
-        assert!(!color_1.is_within_bounds());
-        assert_eq!(color_1.clamped(), Hsva::hsv(1., 1., 0.));
-
-        assert!(color_2.is_within_bounds());
-        assert_eq!(color_2, color_2.clamped());
-
-        color_3.clamp();
-        assert!(color_3.is_within_bounds());
-        assert_eq!(color_3, Hsva::hsv(310., 1., 1.));
     }
 }

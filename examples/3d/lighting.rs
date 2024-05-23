@@ -17,6 +17,7 @@ fn main() {
             aperture_f_stops: 1.0,
             shutter_speed_s: 1.0 / 125.0,
             sensitivity_iso: 100.0,
+            sensor_height: 0.01866,
         }))
         .add_systems(Startup, setup)
         .add_systems(Update, (update_exposure, movement, animate_light_direction))
@@ -145,7 +146,7 @@ fn setup(
                 mesh: meshes.add(Sphere::new(0.1).mesh().uv(32, 18)),
                 material: materials.add(StandardMaterial {
                     base_color: RED.into(),
-                    emissive: Color::linear_rgba(713.0, 0.0, 0.0, 0.0),
+                    emissive: Color::linear_rgba(4.0, 0.0, 0.0, 0.0),
                     ..default()
                 }),
                 ..default()
@@ -173,7 +174,7 @@ fn setup(
                 mesh: meshes.add(Capsule3d::new(0.1, 0.125)),
                 material: materials.add(StandardMaterial {
                     base_color: LIME.into(),
-                    emissive: Color::linear_rgba(0.0, 713.0, 0.0, 0.0),
+                    emissive: Color::linear_rgba(0.0, 4.0, 0.0, 0.0),
                     ..default()
                 }),
                 ..default()
