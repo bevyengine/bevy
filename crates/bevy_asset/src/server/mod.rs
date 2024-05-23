@@ -281,6 +281,8 @@ impl AssetServer {
     ///
     /// The guard item should notify the caller in its [`Drop`] implementation. See example `multi_asset_sync`.
     /// Synchronously this can be a [`Arc<AtomicU32>`] that decrements its counter, asynchronously this can be a `Barrier`.
+    /// This function only guarantees the asset referenced by the [`Handle`] is loaded. If your asset is separated into
+    /// multiple files, sub-assets referenced by the main asset might still be loading, depend on the implementation of the [`AssetLoader`].
     ///
     /// Additionally, you can check the asset's load state by reading [`AssetEvent`] events, calling [`AssetServer::load_state`], or checking
     /// the [`Assets`] storage to see if the [`Asset`] exists yet.
@@ -309,6 +311,9 @@ impl AssetServer {
 
     /// Begins loading an [`Asset`] of type `A` stored at `path` while holding a guard item.
     /// The guard item is dropped when either the asset is loaded or loading has failed.
+    ///
+    /// This function only guarantees the asset referenced by the [`Handle`] is loaded. If your asset is separated into
+    /// multiple files, sub-assets referenced by the main asset might still be loading, depend on the implementation of the [`AssetLoader`].
     ///
     /// The given `settings` function will override the asset's
     /// [`AssetLoader`] settings. The type `S` _must_ match the configured [`AssetLoader::Settings`] or `settings` changes
