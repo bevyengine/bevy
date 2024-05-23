@@ -514,12 +514,14 @@ macro_rules! impl_tuple_query_filter {
 all_tuples!(impl_tuple_query_filter, 0, 15, F);
 all_tuples!(impl_or_query_filter, 0, 15, F, S);
 
-/// A filter on a component that only retains results added after the system last ran.
+/// A filter on a component that only retains results the first time after they have been added.
 ///
 /// A common use for this filter is one-time initialization.
 ///
 /// To retain all results without filtering but still check whether they were added after the
 /// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
+///
+/// **Note** that this includes changes that happened before the first time this `Query` was run.
 ///
 /// # Deferred
 ///
@@ -716,7 +718,7 @@ impl<T: Component> QueryFilter for Added<T> {
     }
 }
 
-/// A filter on a component that only retains results added or mutably dereferenced after the system last ran.
+/// A filter on a component that only retains results the first time after they have been added or mutably dereferenced.
 ///
 /// A common use for this filter is avoiding redundant work when values have not changed.
 ///
@@ -725,6 +727,8 @@ impl<T: Component> QueryFilter for Added<T> {
 ///
 /// To retain all results without filtering but still check whether they were changed after the
 /// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
+///
+/// **Note** that this includes changes that happened before the first time this `Query` was run.
 ///
 /// # Deferred
 ///

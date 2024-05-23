@@ -27,6 +27,7 @@ mod folder;
 mod handle;
 mod id;
 mod loader;
+mod loader_builders;
 mod path;
 mod reflect;
 mod server;
@@ -40,6 +41,9 @@ pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
 pub use handle::*;
 pub use id::*;
 pub use loader::*;
+pub use loader_builders::{
+    DirectNestedLoader, NestedLoader, UntypedDirectNestedLoader, UntypedNestedLoader,
+};
 pub use path::*;
 pub use reflect::*;
 pub use server::*;
@@ -510,12 +514,15 @@ mod tests {
             let mut ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
             let mut embedded = String::new();
             for dep in ron.embedded_dependencies {
-                let loaded = load_context.load_direct(&dep).await.map_err(|_| {
-                    Self::Error::CannotLoadDependency {
+                let loaded = load_context
+                    .loader()
+                    .direct()
+                    .load::<CoolText>(&dep)
+                    .await
+                    .map_err(|_| Self::Error::CannotLoadDependency {
                         dependency: dep.into(),
-                    }
-                })?;
-                let cool = loaded.get::<CoolText>().unwrap();
+                    })?;
+                let cool = loaded.get();
                 embedded.push_str(&cool.text);
             }
             Ok(CoolText {

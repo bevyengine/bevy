@@ -5,6 +5,7 @@ use crate::{
     change_detection::{Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Tick},
     entity::Entities,
+    prelude::QueryBuilder,
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QueryState,
         ReadOnlyQueryData,
@@ -175,6 +176,19 @@ pub unsafe trait SystemParam: Sized {
     ) -> Self::Item<'world, 'state>;
 }
 
+/// A parameter that can be built with [`SystemBuilder`](crate::system::builder::SystemBuilder)
+pub trait BuildableSystemParam: SystemParam {
+    /// A mutable reference to this type will be passed to the builder function
+    type Builder<'b>;
+
+    /// Constructs [`SystemParam::State`] for `Self` using a given builder function
+    fn build(
+        world: &mut World,
+        meta: &mut SystemMeta,
+        func: impl FnOnce(&mut Self::Builder<'_>),
+    ) -> Self::State;
+}
+
 /// A [`SystemParam`] that only reads a given [`World`].
 ///
 /// # Safety
@@ -231,6 +245,35 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         // so the caller ensures that `world` has permission to access any
         // world data that the query needs.
         unsafe { Query::new(world, state, system_meta.last_run, change_tick) }
+    }
+}
+
+impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static> BuildableSystemParam
+    for Query<'w, 's, D, F>
+{
+    type Builder<'b> = QueryBuilder<'b, D, F>;
+
+    #[inline]
+    fn build(
+        world: &mut World,
+        system_meta: &mut SystemMeta,
+        build: impl FnOnce(&mut Self::Builder<'_>),
+    ) -> Self::State {
+        let mut builder = QueryBuilder::new(world);
+        build(&mut builder);
+        let state = builder.build();
+        assert_component_access_compatibility(
+            &system_meta.name,
+            std::any::type_name::<D>(),
+            std::any::type_name::<F>(),
+            &system_meta.component_access_set,
+            &state.component_access,
+            world,
+        );
+        system_meta
+            .component_access_set
+            .add(state.component_access.clone());
+        state
     }
 }
 
@@ -774,6 +817,20 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         Local(state.get())
+    }
+}
+
+impl<'w, T: FromWorld + Send + 'static> BuildableSystemParam for Local<'w, T> {
+    type Builder<'b> = T;
+
+    fn build(
+        world: &mut World,
+        _meta: &mut SystemMeta,
+        func: impl FnOnce(&mut Self::Builder<'_>),
+    ) -> Self::State {
+        let mut value = T::from_world(world);
+        func(&mut value);
+        SyncCell::new(value)
     }
 }
 

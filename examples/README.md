@@ -165,6 +165,7 @@ Example | Description
 [Update glTF Scene](../examples/3d/update_gltf_scene.rs) | Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 [Vertex Colors](../examples/3d/vertex_colors.rs) | Shows the use of vertex colors
 [Visibility range](../examples/3d/visibility_range.rs) | Demonstrates visibility ranges
+[Volumetric fog](../examples/3d/volumetric_fog.rs) | Demonstrates volumetric fog and lighting
 [Wireframe](../examples/3d/wireframe.rs) | Showcases wireframe rendering
 
 ## Animation
@@ -322,6 +323,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Custom Attributes](../examples/reflection/custom_attributes.rs) | Registering and accessing custom attributes on reflected types
 [Dynamic Types](../examples/reflection/dynamic_types.rs) | How dynamic types are used with reflection
 [Generic Reflection](../examples/reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection
 [Reflection](../examples/reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types

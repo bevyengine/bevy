@@ -224,7 +224,6 @@ fn apply_pbr_lighting(
 ) -> vec4<f32> {
     var output_color: vec4<f32> = in.material.base_color;
 
-    // TODO use .a for exposure compensation in HDR
     let emissive = in.material.emissive;
 
     // calculate non-linear roughness from linear perceptualRoughness
@@ -306,7 +305,7 @@ fn apply_pbr_lighting(
     transmissive_lighting_input.V = -in.V;
     transmissive_lighting_input.diffuse_color = diffuse_transmissive_color;
     transmissive_lighting_input.F0_ = vec3(0.0);
-    transmissive_lighting_input.F_ab = vec2(0.0);
+    transmissive_lighting_input.F_ab = vec2(0.1);
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     transmissive_lighting_input.layers[LAYER_CLEARCOAT].NdotV = 0.0;
     transmissive_lighting_input.layers[LAYER_CLEARCOAT].N = vec3(0.0);
@@ -398,10 +397,10 @@ fn apply_pbr_lighting(
     // directional lights (direct)
     let n_directional_lights = view_bindings::lights.n_directional_lights;
     for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
-        // check the directional light render layers intersect the view render layers
-        // note this is not necessary for point and spot lights, as the relevant lights are filtered in `assign_lights_to_clusters`
+        // check if this light should be skipped, which occurs if this light does not intersect with the view
+        // note point and spot lights aren't skippable, as the relevant lights are filtered in `assign_lights_to_clusters`
         let light = &view_bindings::lights.directional_lights[i];
-        if ((*light).render_layers & view_bindings::view.render_layers) == 0u {
+        if (*light).skip != 0u {
             continue;
         }
 
@@ -564,6 +563,8 @@ fn apply_pbr_lighting(
     emissive_light = emissive_light * (0.04 + (1.0 - 0.04) * pow(1.0 - clearcoat_NdotV, 5.0));
 #endif
 
+    emissive_light = emissive_light * mix(1.0, view_bindings::view.exposure, emissive.a);
+
 #ifdef STANDARD_MATERIAL_SPECULAR_TRANSMISSION
     transmitted_light += transmission::specular_transmissive_light(in.world_position, in.frag_coord.xyz, view_z, in.N, in.V, F0, ior, thickness, perceptual_roughness, specular_transmissive_color, specular_transmitted_environment_light).rgb;
 
@@ -585,7 +586,7 @@ fn apply_pbr_lighting(
 
     // Total light
     output_color = vec4<f32>(
-        view_bindings::view.exposure * (transmitted_light + direct_light + indirect_light + emissive_light),
+        (view_bindings::view.exposure * (transmitted_light + direct_light + indirect_light)) + emissive_light,
         output_color.a
     );
 

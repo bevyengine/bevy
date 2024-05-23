@@ -528,10 +528,18 @@ impl Triangle2d {
     }
 
     /// Reverse the [`WindingOrder`] of the triangle
-    /// by swapping the first and last vertices
+    /// by swapping the first and last vertices.
     #[inline(always)]
     pub fn reverse(&mut self) {
         self.vertices.swap(0, 2);
+    }
+
+    /// This triangle but reversed.
+    #[inline(always)]
+    #[must_use]
+    pub fn reversed(mut self) -> Self {
+        self.reverse();
+        self
     }
 }
 
@@ -723,10 +731,13 @@ impl RegularPolygon {
     ///
     /// # Panics
     ///
-    /// Panics if `circumradius` is non-positive
+    /// Panics if `circumradius` is negative
     #[inline(always)]
     pub fn new(circumradius: f32, sides: usize) -> Self {
-        assert!(circumradius > 0.0, "polygon has a non-positive radius");
+        assert!(
+            circumradius.is_sign_positive(),
+            "polygon has a negative radius"
+        );
         assert!(sides > 2, "polygon has less than 3 sides");
 
         Self {
