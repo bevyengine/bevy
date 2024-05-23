@@ -806,7 +806,7 @@ impl<'n, 'g: 'n> NodeContext<'n, 'g> {
     //     self.entity
     // }
 
-    pub fn world(&'g self) -> &'g World {
+    pub fn world(&self) -> &World {
         self.world
     }
 }
