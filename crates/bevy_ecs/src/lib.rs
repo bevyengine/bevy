@@ -93,7 +93,7 @@ mod tests {
 
     #[allow(dead_code)]
     #[derive(Default)]
-    struct NonSendA(usize, PhantomData<*mut ()>);
+    struct NonSendResA(usize, PhantomData<*mut ()>);
 
     #[derive(Component, Clone, Debug)]
     struct DropCk(Arc<AtomicUsize>);

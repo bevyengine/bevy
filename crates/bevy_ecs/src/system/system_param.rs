@@ -979,6 +979,8 @@ pub struct NonSend<'w, T: 'static> {
     this_run: Tick,
 }
 
+pub type NonSend2<'w, T: 'static> = NonSend<'w, T>;
+
 // SAFETY: Only reads a single World non-send resource
 unsafe impl<'w, T> ReadOnlySystemParam for NonSend<'w, T> {}
 
