@@ -155,7 +155,7 @@ impl RawCommandQueue {
 
         let meta = CommandMeta {
             consume_command_and_get_size: |command, world, cursor| {
-                // SAFETY: Pointer is assured to be valud in `CommandQueue.apply_or_drop_queued`
+                // SAFETY: Pointer is assured to be valid in `CommandQueue.apply_or_drop_queued`
                 unsafe { *cursor += std::mem::size_of::<C>() }
 
                 // SAFETY: According to the invariants of `CommandMeta.consume_command_and_get_size`,
