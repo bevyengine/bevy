@@ -8,7 +8,6 @@ use crate::{
 use bevy_ptr::{Ptr, UnsafeCellDeref};
 use std::mem;
 use std::ops::{Deref, DerefMut};
-use crate::prelude::NonSendRes;
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
 ///
