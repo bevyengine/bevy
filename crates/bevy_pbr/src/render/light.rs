@@ -6,7 +6,6 @@ use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::mesh::Mesh;
 use bevy_render::{
-    DownlevelFlags,
     camera::Camera,
     diagnostic::RecordDiagnostics,
     mesh::GpuMesh,
@@ -15,10 +14,10 @@ use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,
     render_resource::*,
-    renderer::{RenderContext, RenderDevice, RenderAdapter, RenderQueue},
+    renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     texture::*,
     view::{ExtractedView, RenderLayers, ViewVisibility, VisibleEntities, WithMesh},
-    Extract,
+    DownlevelFlags, Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 #[cfg(feature = "trace")]
@@ -684,14 +683,14 @@ pub(crate) fn spot_light_projection_matrix(angle: f32) -> Mat4 {
 
 pub struct PrepareLightsWarningEmitted {
     max_directional_lights: bool,
-    max_cascades_per_light: bool
+    max_cascades_per_light: bool,
 }
 
 impl Default for PrepareLightsWarningEmitted {
     fn default() -> Self {
         Self {
             max_directional_lights: false,
-            max_cascades_per_light: false
+            max_cascades_per_light: false,
         }
     }
 }

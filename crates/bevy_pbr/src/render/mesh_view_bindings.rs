@@ -16,16 +16,16 @@ use bevy_ecs::{
 };
 use bevy_math::Vec4;
 use bevy_render::{
-    DownlevelFlags,
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
-    renderer::{RenderDevice, RenderAdapter},
+    renderer::{RenderAdapter, RenderDevice},
     texture::{BevyDefault, FallbackImage, FallbackImageMsaa, FallbackImageZero, GpuImage},
     view::{
         Msaa, RenderVisibilityRanges, ViewUniform, ViewUniforms,
         VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
     },
+    DownlevelFlags,
 };
 
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
@@ -366,7 +366,7 @@ impl FromWorld for MeshPipelineViewLayouts {
                 visibility_ranges_buffer_binding_type,
                 key,
                 render_device,
-                render_adapter
+                render_adapter,
             );
             #[cfg(debug_assertions)]
             let texture_count: usize = entries
@@ -414,7 +414,7 @@ pub fn generate_view_layouts(
             visibility_ranges_buffer_binding_type,
             key,
             render_device,
-            render_adapter
+            render_adapter,
         );
 
         #[cfg(debug_assertions)]
