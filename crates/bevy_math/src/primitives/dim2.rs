@@ -127,7 +127,7 @@ impl Arc2d {
         }
     }
 
-    /// Create a new [`Arc2d`] from a `radius` and a number of `turns` of a circle.
+    /// Create a new [`Arc2d`] from a `radius` and a `fraction` of a single turn.
     ///
     /// For instance, `0.5` turns is a semicircle.
     #[inline(always)]
