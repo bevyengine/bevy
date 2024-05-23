@@ -19,13 +19,13 @@ struct Mine {
     size: f32,
 }
 
-#[derive(Component)]
+#[derive(Trigger)]
 struct TriggerMines {
     pos: Vec2,
     radius: f32,
 }
 
-#[derive(Component)]
+#[derive(Trigger)]
 struct Explode;
 
 fn setup(world: &mut World) {
@@ -44,35 +44,35 @@ fn setup(world: &mut World) {
         },
     ));
 
-    // Pre-register all our components, resource and event types.
+    // Pre-register all our components, resource and trigger types.
     world.init_resource::<SpatialIndex>();
     world.init_component::<Mine>();
-    world.init_component::<TriggerMines>();
-    world.init_component::<Explode>();
+    world.init_trigger::<TriggerMines>();
+    world.init_trigger::<Explode>();
 
-    // Observers are triggered when a certain event is fired, each event is represented by a component type.
+    // Observers run when a certain trigger is fired, each trigger is represented by a type.
     // This observer runs whenever `TriggerMines` is fired, observers run systems which can be defined as closures.
     world.observer(
         |observer: Observer<TriggerMines>,
          mines: Query<&Mine>,
          index: Res<SpatialIndex>,
          mut commands: Commands| {
-            // You can access the event data via the `Observer`
+            // You can access the trigger data via the `Observer`
             let trigger = observer.data();
             // Access resources
             for e in index.get_nearby(trigger.pos) {
                 // Run queries
                 let mine = mines.get(e).unwrap();
                 if mine.pos.distance(trigger.pos) < mine.size + trigger.radius {
-                    // And queue commands, including firing additional events
-                    // Here we fire the `Explode` event at entity `e`
-                    commands.event(Explode).entity(e).emit();
+                    // And queue commands, including firing additional triggers
+                    // Here we fire the `Explode` trigger at entity `e`
+                    commands.trigger(Explode).entity(e).emit();
                 }
             }
         },
     );
 
-    // Observers can also listen for events triggering for a specific component.
+    // Observers can also listen for triggers for a specific component.
     // This observer runs whenever the `Mine` component is added to an entity, and places it in a simple spatial index.
     world.observer(
         |observer: Observer<OnAdd, Mine>, query: Query<&Mine>, mut index: ResMut<SpatialIndex>| {
@@ -100,11 +100,11 @@ fn setup(world: &mut World) {
                 ),
                 size: 4.0 + rand::random::<f32>() * 16.0,
             })
-            // Observers can also listen to events targeting a specific entity.
-            // This observer listens to `Explode` events targeted at our mine.
+            // Observers can also listen to triggers targeting a specific entity.
+            // This observer listens to `Explode` triggers targeted at our mine.
             .observe(
                 |observer: Observer<Explode>, query: Query<&Mine>, mut commands: Commands| {
-                    // If an event is targeting a specific entity you can access it with `.source()`
+                    // If a trigger is targeting a specific entity you can access it with `.source()`
                     let source = observer.source();
                     let Some(mut entity) = commands.get_entity(source) else {
                         return;
@@ -112,9 +112,9 @@ fn setup(world: &mut World) {
                     println!("Boom! {:?} exploded.", source.index());
                     entity.despawn();
                     let mine = query.get(source).unwrap();
-                    // Fire another event to cascade into other mines.
+                    // Fire another trigger to cascade into other mines.
                     commands
-                        .event(TriggerMines {
+                        .trigger(TriggerMines {
                             pos: mine.pos,
                             radius: mine.size,
                         })
@@ -178,7 +178,7 @@ fn draw_shapes(mut gizmos: Gizmos, mines: Query<&Mine>) {
     }
 }
 
-// Fire an initial `TriggerMines` event on click
+// Fire an initial `TriggerMines` trigger on click
 fn handle_click(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     camera: Query<(&Camera, &GlobalTransform)>,
@@ -193,7 +193,7 @@ fn handle_click(
         .map(|ray| ray.origin.truncate())
     {
         if mouse_button_input.just_pressed(MouseButton::Left) {
-            commands.event(TriggerMines { pos, radius: 1.0 }).emit();
+            commands.trigger(TriggerMines { pos, radius: 1.0 }).emit();
         }
     }
 }

@@ -6,7 +6,7 @@ use crate::{
     component::ComponentId,
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
-    observer::{EventBuilder, Observers},
+    observer::{Observers, Trigger, TriggerBuilder},
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
     system::{Commands, Query, Resource},
@@ -367,9 +367,9 @@ impl<'w> DeferredWorld<'w> {
         Observers::invoke(self.reborrow(), event, source, components, data);
     }
 
-    /// Constructs an [`EventBuilder`] for an ECS event.
-    pub fn ecs_event<E: Component>(&mut self, data: E) -> EventBuilder<E> {
-        EventBuilder::new(data, self.commands())
+    /// Constructs an [`TriggerBuilder`] for an ECS [`Trigger`].
+    pub fn trigger<T: Trigger>(&mut self, data: T) -> TriggerBuilder<T> {
+        TriggerBuilder::new(data, self.commands())
     }
 
     /// Gets an [`UnsafeWorldCell`] containing the underlying world.

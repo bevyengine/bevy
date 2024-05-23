@@ -1202,29 +1202,29 @@ impl<E: Component, B: Bundle, C: ObserverSystem<E, B>> Command for Observe<E, B,
     }
 }
 
-/// A [`Command`] that emits an event to be received by observers.
+/// A [`Command`] that emits a trigger to be received by observers.
 #[derive(Debug)]
-pub(crate) struct EmitEcsEvent<E> {
-    /// [`ComponentId`] for this event.
-    event: ComponentId,
+pub(crate) struct EmitTrigger<T> {
+    /// [`ComponentId`] for this trigger.
+    trigger: ComponentId,
     /// Entities to trigger observers for.
     entities: Vec<Entity>,
     /// Components to trigger observers for.
     components: Vec<ComponentId>,
-    /// Data for the event.
-    data: E,
+    /// Data for the trigger.
+    data: T,
 }
 
-impl<E> EmitEcsEvent<E> {
-    // SAFETY: Caller must ensure the type represented by `event` is accessible as `E`.
+impl<T> EmitTrigger<T> {
+    // SAFETY: Caller must ensure the type represented by `trigger` is accessible as `T`.
     pub(crate) unsafe fn new(
-        event: ComponentId,
+        trigger: ComponentId,
         entities: Vec<Entity>,
         components: Vec<ComponentId>,
-        data: E,
+        data: T,
     ) -> Self {
         Self {
-            event,
+            trigger,
             entities,
             components,
             data,
@@ -1232,15 +1232,15 @@ impl<E> EmitEcsEvent<E> {
     }
 }
 
-impl<E: Send + 'static> Command for EmitEcsEvent<E> {
+impl<T: Send + 'static> Command for EmitTrigger<T> {
     fn apply(mut self, world: &mut World) {
         let mut world = DeferredWorld::from(world);
 
         if self.entities.is_empty() {
-            // SAFETY: E is accessible as the type represented by self.event, ensured in `Self::new`
+            // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
             unsafe {
                 world.trigger_observers_with_data(
-                    self.event,
+                    self.trigger,
                     Entity::PLACEHOLDER,
                     self.components.iter().cloned(),
                     &mut self.data,
@@ -1248,10 +1248,10 @@ impl<E: Send + 'static> Command for EmitEcsEvent<E> {
             };
         } else {
             for &target in &self.entities {
-                // SAFETY: E is accessible as the type represented by self.event, ensured in `Self::new`
+                // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
                 unsafe {
                     world.trigger_observers_with_data(
-                        self.event,
+                        self.trigger,
                         target,
                         self.components.iter().cloned(),
                         &mut self.data,

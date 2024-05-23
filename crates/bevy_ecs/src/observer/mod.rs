@@ -6,31 +6,34 @@ mod runner;
 
 use std::marker::PhantomData;
 
-pub use builder::*;
-pub(crate) use entity_observer::*;
-pub use runner::*;
-
 use crate::{
     archetype::ArchetypeFlags,
     query::DebugCheckedUnwrap,
-    system::{EmitEcsEvent, IntoObserverSystem},
+    system::{EmitTrigger, IntoObserverSystem},
     world::*,
 };
+pub use bevy_ecs_macros::Trigger;
+pub use builder::*;
+pub(crate) use entity_observer::*;
+pub use runner::*;
 
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{EntityHashMap, HashMap};
 
 use crate::{component::ComponentId, prelude::*, world::DeferredWorld};
 
+/// Trait implemented for types that are used as ECS triggers observed by [`Observer`]
+pub trait Trigger: Component {}
+
 /// Type used in callbacks registered for observers.
-pub struct Observer<'w, E, B: Bundle = ()> {
-    data: &'w mut E,
+pub struct Observer<'w, T, B: Bundle = ()> {
+    data: &'w mut T,
     trigger: ObserverTrigger,
     _marker: PhantomData<B>,
 }
 
-impl<'w, E, B: Bundle> Observer<'w, E, B> {
-    pub(crate) fn new(data: &'w mut E, trigger: ObserverTrigger) -> Self {
+impl<'w, T, B: Bundle> Observer<'w, T, B> {
+    pub(crate) fn new(data: &'w mut T, trigger: ObserverTrigger) -> Self {
         Self {
             data,
             trigger,
@@ -38,22 +41,22 @@ impl<'w, E, B: Bundle> Observer<'w, E, B> {
         }
     }
 
-    /// Returns the event id for the triggering event
-    pub fn event(&self) -> ComponentId {
-        self.trigger.event
+    /// Returns the trigger id for the triggering trigger
+    pub fn trigger(&self) -> ComponentId {
+        self.trigger.trigger
     }
 
-    /// Returns a reference to the data associated with the event that triggered the observer.
-    pub fn data(&self) -> &E {
+    /// Returns a reference to the data associated with the trigger that triggered the observer.
+    pub fn data(&self) -> &T {
         self.data
     }
 
-    /// Returns a mutable reference to the data associated with the event that triggered the observer.
-    pub fn data_mut(&mut self) -> &mut E {
+    /// Returns a mutable reference to the data associated with the trigger that triggered the observer.
+    pub fn data_mut(&mut self) -> &mut T {
         self.data
     }
 
-    /// Returns a pointer to the data associated with the event that triggered the observer.
+    /// Returns a pointer to the data associated with the trigger that triggered the observer.
     pub fn data_ptr(&self) -> Ptr {
         Ptr::from(&self.data)
     }
@@ -66,7 +69,7 @@ impl<'w, E, B: Bundle> Observer<'w, E, B> {
 
 #[derive(Default, Clone)]
 pub(crate) struct ObserverDescriptor {
-    events: Vec<ComponentId>,
+    triggers: Vec<ComponentId>,
     components: Vec<ComponentId>,
     sources: Vec<Entity>,
 }
@@ -74,77 +77,77 @@ pub(crate) struct ObserverDescriptor {
 /// Metadata for the source triggering an [`Observer`],
 pub struct ObserverTrigger {
     observer: Entity,
-    event: ComponentId,
+    trigger: ComponentId,
     source: Entity,
 }
 
 // Map between an observer entity and it's runner
 type ObserverMap = EntityHashMap<Entity, ObserverRunner>;
 
-/// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular event targeted at a specific component.
+/// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular trigger targeted at a specific component.
 #[derive(Default, Debug)]
 pub struct CachedComponentObservers {
-    // Observers listening to events targeting this component
+    // Observers listening to triggers targeting this component
     map: ObserverMap,
-    // Observers listening to events targeting this component on a specific entity
+    // Observers listening to triggers targeting this component on a specific entity
     entity_map: EntityHashMap<Entity, ObserverMap>,
 }
 
-/// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular event.
+/// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular trigger.
 #[derive(Default, Debug)]
 pub struct CachedObservers {
-    // Observers listening for any time this event is fired
+    // Observers listening for any time this trigger is fired
     map: ObserverMap,
-    // Observers listening for this event fired at a specific component
+    // Observers listening for this trigger fired at a specific component
     component_observers: HashMap<ComponentId, CachedComponentObservers>,
-    // Observers listening for this event fired at a specific entity
+    // Observers listening for this trigger fired at a specific entity
     entity_observers: EntityHashMap<Entity, ObserverMap>,
 }
 
-/// Metadata for observers. Stores a cache mapping event ids to the registered observers.
+/// Metadata for observers. Stores a cache mapping trigger ids to the registered observers.
 #[derive(Default, Debug)]
 pub struct Observers {
-    // Cached ECS observers to save a lookup most common events.
+    // Cached ECS observers to save a lookup most common triggers.
     on_add: CachedObservers,
     on_insert: CachedObservers,
     on_remove: CachedObservers,
-    // Map from event type to set of observers
+    // Map from trigger type to set of observers
     cache: HashMap<ComponentId, CachedObservers>,
 }
 
 impl Observers {
-    pub(crate) fn get_observers(&mut self, event: ComponentId) -> &mut CachedObservers {
-        match event {
+    pub(crate) fn get_observers(&mut self, trigger: ComponentId) -> &mut CachedObservers {
+        match trigger {
             ON_ADD => &mut self.on_add,
             ON_INSERT => &mut self.on_insert,
             ON_REMOVE => &mut self.on_remove,
-            _ => self.cache.entry(event).or_default(),
+            _ => self.cache.entry(trigger).or_default(),
         }
     }
 
-    pub(crate) fn try_get_observers(&self, event: ComponentId) -> Option<&CachedObservers> {
-        match event {
+    pub(crate) fn try_get_observers(&self, trigger: ComponentId) -> Option<&CachedObservers> {
+        match trigger {
             ON_ADD => Some(&self.on_add),
             ON_INSERT => Some(&self.on_insert),
             ON_REMOVE => Some(&self.on_remove),
-            _ => self.cache.get(&event),
+            _ => self.cache.get(&trigger),
         }
     }
 
-    pub(crate) fn invoke<E>(
+    pub(crate) fn invoke<T>(
         mut world: DeferredWorld,
-        event: ComponentId,
+        trigger: ComponentId,
         source: Entity,
         components: impl Iterator<Item = ComponentId>,
-        data: &mut E,
+        data: &mut T,
     ) {
         // SAFETY: You cannot get a mutable reference to `observers` from `DeferredWorld`
         let (mut world, observers) = unsafe {
             let world = world.as_unsafe_world_cell();
             // SAFETY: There are no outstanding world references
-            world.increment_event_id();
+            world.increment_trigger_id();
             let observers = world.observers();
-            let Some(observers) = observers.try_get_observers(event) else {
+            let Some(observers) = observers.try_get_observers(trigger) else {
                 return;
             };
             // SAFETY: The only outstanding reference to world is `observers`
@@ -156,24 +159,24 @@ impl Observers {
                 world.reborrow(),
                 ObserverTrigger {
                     observer,
-                    event,
+                    trigger,
                     source,
                 },
                 data.into(),
             );
         };
 
-        // Trigger observers listening for any kind of this event
+        // Trigger observers listening for any kind of this trigger
         observers.map.iter().for_each(&mut trigger_observer);
 
-        // Trigger entity observers listening for this kind of event
+        // Trigger entity observers listening for this kind of trigger
         if source != Entity::PLACEHOLDER {
             if let Some(map) = observers.entity_observers.get(&source) {
                 map.iter().for_each(&mut trigger_observer);
             }
         }
 
-        // Trigger observers listening to this event targeting a specific component
+        // Trigger observers listening to this trigger targeting a specific component
         components.for_each(|id| {
             if let Some(component_observers) = observers.component_observers.get(&id) {
                 component_observers
@@ -190,8 +193,8 @@ impl Observers {
         });
     }
 
-    pub(crate) fn is_archetype_cached(event: ComponentId) -> Option<ArchetypeFlags> {
-        match event {
+    pub(crate) fn is_archetype_cached(trigger: ComponentId) -> Option<ArchetypeFlags> {
+        match trigger {
             ON_ADD => Some(ArchetypeFlags::ON_ADD_OBSERVER),
             ON_INSERT => Some(ArchetypeFlags::ON_INSERT_OBSERVER),
             ON_REMOVE => Some(ArchetypeFlags::ON_REMOVE_OBSERVER),
@@ -226,25 +229,31 @@ impl Observers {
 
 impl World {
     /// Construct an [`ObserverBuilder`]
-    pub fn observer_builder<E: Component>(&mut self) -> ObserverBuilder<E> {
-        self.init_component::<E>();
+    pub fn observer_builder<T: Trigger>(&mut self) -> ObserverBuilder<T> {
+        self.init_trigger::<T>();
         ObserverBuilder::new(self.commands())
     }
 
     /// Spawn an [`Observer`] and returns it's [`Entity`].
-    pub fn observer<E: Component, B: Bundle, M>(
+    pub fn observer<T: Component, B: Bundle, M>(
         &mut self,
-        system: impl IntoObserverSystem<E, B, M>,
+        system: impl IntoObserverSystem<T, B, M>,
     ) -> Entity {
-        // Ensure components are registered with the world
+        // Ensure triggers are registered with the world
+        // Note: this sidesteps init_trigger
         B::component_ids(&mut self.components, &mut self.storages, &mut |_| {});
         ObserverBuilder::new(self.commands()).run(system)
     }
 
-    /// Constructs an [`EventBuilder`].
-    pub fn ecs_event<E: Component>(&mut self, event: E) -> EventBuilder<E> {
-        self.init_component::<E>();
-        EventBuilder::new(event, self.commands())
+    /// Registers `T` as a [`Trigger`]
+    pub fn init_trigger<T: Trigger>(&mut self) {
+        self.init_component::<T>();
+    }
+
+    /// Constructs a [`TriggerBuilder`].
+    pub fn trigger<T: Trigger>(&mut self, trigger: T) -> TriggerBuilder<T> {
+        self.init_component::<T>();
+        TriggerBuilder::new(trigger, self.commands())
     }
 
     /// Register an observer to the cache, called when an observer is created
@@ -261,8 +270,8 @@ impl World {
         };
         let descriptor = &observer_component.descriptor;
 
-        for &event in &descriptor.events {
-            let cache = observers.get_observers(event);
+        for &trigger in &descriptor.triggers {
+            let cache = observers.get_observers(trigger);
 
             if descriptor.components.is_empty() && descriptor.sources.is_empty() {
                 cache.map.insert(entity, observer_component.runner);
@@ -280,13 +289,13 @@ impl World {
                             .component_observers
                             .entry(component)
                             .or_insert_with(|| {
-                                if let Some(flag) = Observers::is_archetype_cached(event) {
+                                if let Some(flag) = Observers::is_archetype_cached(trigger) {
                                     archetypes.update_flags(component, flag, true);
                                 }
                                 CachedComponentObservers::default()
                             });
                     if descriptor.sources.is_empty() {
-                        // Register for all events targeting the component
+                        // Register for all triggers targeting the component
                         observers.map.insert(entity, observer_component.runner);
                     } else {
                         // Register for each targeted entity
@@ -305,8 +314,8 @@ impl World {
         let archetypes = &mut self.archetypes;
         let observers = &mut self.observers;
 
-        for &event in &descriptor.events {
-            let cache = observers.get_observers(event);
+        for &trigger in &descriptor.triggers {
+            let cache = observers.get_observers(trigger);
             if descriptor.components.is_empty() && descriptor.sources.is_empty() {
                 cache.map.remove(&entity);
             } else if descriptor.components.is_empty() {
@@ -341,7 +350,7 @@ impl World {
 
                     if observers.map.is_empty() && observers.entity_map.is_empty() {
                         cache.component_observers.remove(component);
-                        if let Some(flag) = Observers::is_archetype_cached(event) {
+                        if let Some(flag) = Observers::is_archetype_cached(trigger) {
                             archetypes.update_flags(*component, flag, false);
                         }
                     }
@@ -357,7 +366,7 @@ mod tests {
 
     use crate as bevy_ecs;
     use crate::component::ComponentDescriptor;
-    use crate::observer::EventBuilder;
+    use crate::observer::TriggerBuilder;
     use crate::prelude::*;
 
     use super::ObserverBuilder;
@@ -371,8 +380,8 @@ mod tests {
     #[derive(Component)]
     struct C;
 
-    #[derive(Component)]
-    struct EventA;
+    #[derive(Trigger)]
+    struct TriggerA;
 
     #[derive(Resource, Default)]
     struct R(usize);
@@ -464,14 +473,14 @@ mod tests {
     }
 
     #[test]
-    fn observer_multiple_events() {
+    fn observer_multiple_triggerss() {
         let mut world = World::new();
         world.init_resource::<R>();
         world.init_component::<A>();
 
         world
             .observer_builder::<OnAdd>()
-            .on_event::<OnRemove>()
+            .on_trigger::<OnRemove>()
             .run(|_: Observer<_, A>, mut res: ResMut<R>| res.0 += 1);
 
         let entity = world.spawn(A).id();
@@ -520,17 +529,17 @@ mod tests {
     fn observer_no_source() {
         let mut world = World::new();
         world.init_resource::<R>();
-        world.init_component::<EventA>();
+        world.init_trigger::<TriggerA>();
 
         world
             .spawn_empty()
-            .observe(|_: Observer<EventA>| panic!("Event routed to non-targeted entity."));
-        world.observer(move |obs: Observer<EventA>, mut res: ResMut<R>| {
+            .observe(|_: Observer<TriggerA>| panic!("Trigger routed to non-targeted entity."));
+        world.observer(move |obs: Observer<TriggerA>, mut res: ResMut<R>| {
             assert_eq!(obs.source(), Entity::PLACEHOLDER);
             res.0 += 1;
         });
 
-        world.ecs_event(EventA).emit();
+        world.trigger(TriggerA).emit();
         world.flush();
         assert_eq!(1, world.resource::<R>().0);
     }
@@ -539,21 +548,21 @@ mod tests {
     fn observer_entity_routing() {
         let mut world = World::new();
         world.init_resource::<R>();
-        world.init_component::<EventA>();
+        world.init_trigger::<TriggerA>();
 
         world
             .spawn_empty()
-            .observe(|_: Observer<EventA>| panic!("Event routed to non-targeted entity."));
+            .observe(|_: Observer<TriggerA>| panic!("Trigger routed to non-targeted entity."));
         let entity = world
             .spawn_empty()
-            .observe(|_: Observer<EventA>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Observer<TriggerA>, mut res: ResMut<R>| res.0 += 1)
             .id();
-        world.observer(move |obs: Observer<EventA>, mut res: ResMut<R>| {
+        world.observer(move |obs: Observer<TriggerA>, mut res: ResMut<R>| {
             assert_eq!(obs.source(), entity);
             res.0 += 1;
         });
 
-        world.ecs_event(EventA).entity(entity).emit();
+        world.trigger(TriggerA).entity(entity).emit();
         world.flush();
         assert_eq!(2, world.resource::<R>().0);
     }
@@ -576,23 +585,23 @@ mod tests {
         });
         let entity = entity.flush();
 
-        world.ecs_event(EventA).entity(entity).emit();
+        world.trigger(TriggerA).entity(entity).emit();
         world.flush();
         assert_eq!(1, world.resource::<R>().0);
     }
 
     #[test]
-    fn observer_dynamic_event() {
+    fn observer_dynamic_trigger() {
         let mut world = World::new();
         world.init_resource::<R>();
 
-        let event = world.init_component_with_descriptor(ComponentDescriptor::new::<EventA>());
-        // SAFETY: we registered `event` above
-        unsafe { ObserverBuilder::new_with_id(event, world.commands()) }
-            .run(|_: Observer<EventA>, mut res: ResMut<R>| res.0 += 1);
+        let trigger = world.init_component_with_descriptor(ComponentDescriptor::new::<TriggerA>());
+        // SAFETY: we registered `trigger` above
+        unsafe { ObserverBuilder::new_with_id(trigger, world.commands()) }
+            .run(|_: Observer<TriggerA>, mut res: ResMut<R>| res.0 += 1);
 
-        // SAFETY: we registered `event` above
-        unsafe { EventBuilder::new_with_id(event, EventA, world.commands()) }.emit();
+        // SAFETY: we registered `trigger` above
+        unsafe { TriggerBuilder::new_with_id(trigger, TriggerA, world.commands()) }.emit();
         world.flush();
         assert_eq!(1, world.resource::<R>().0);
     }

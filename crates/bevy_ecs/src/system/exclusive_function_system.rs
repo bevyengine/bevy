@@ -127,6 +127,13 @@ where
     }
 
     #[inline]
+    fn queue_deferred(&mut self, _world: crate::world::DeferredWorld) {
+        // "pure" exclusive systems do not have any buffers to apply.
+        // Systems made by piping a normal system with an exclusive system
+        // might have buffers to apply, but this is handled by `PipeSystem`.
+    }
+
+    #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
         self.param_state = Some(F::Param::init(world, &mut self.system_meta));

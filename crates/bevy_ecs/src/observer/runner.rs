@@ -12,18 +12,18 @@ use super::*;
 pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut);
 
 /// Equivalent to [`BoxedSystem`](crate::system::BoxedSystem) for [`ObserverSystem`].
-pub type BoxedObserverSystem<E = (), B = ()> = Box<dyn ObserverSystem<E, B>>;
+pub type BoxedObserverSystem<T = (), B = ()> = Box<dyn ObserverSystem<T, B>>;
 
 pub(crate) struct ObserverComponent {
     pub(crate) descriptor: ObserverDescriptor,
     pub(crate) runner: ObserverRunner,
-    pub(crate) last_event_id: u32,
+    pub(crate) last_trigger_id: u32,
 }
 
 #[derive(Component)]
 #[component(storage = "SparseSet")]
 // This used to be in `ObserverComponent` but MIRI recently got a new lint that complained about the type erasure
-pub(crate) struct ObserverSystemComponent<E: 'static, B: Bundle>(BoxedObserverSystem<E, B>);
+pub(crate) struct ObserverSystemComponent<T: 'static, B: Bundle>(BoxedObserverSystem<T, B>);
 
 impl Component for ObserverComponent {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
@@ -46,18 +46,18 @@ impl Component for ObserverComponent {
 }
 
 impl ObserverComponent {
-    pub(crate) fn from<E: 'static, B: Bundle, M>(
+    pub(crate) fn from<T: 'static, B: Bundle, M>(
         world: &mut World,
         descriptor: ObserverDescriptor,
-        system: impl IntoObserverSystem<E, B, M>,
-    ) -> (Self, ObserverSystemComponent<E, B>) {
+        system: impl IntoObserverSystem<T, B, M>,
+    ) -> (Self, ObserverSystemComponent<T, B>) {
         let mut system = IntoObserverSystem::into_system(system);
         assert!(
             !system.is_exclusive(),
             "Cannot run exclusive systems in Observers"
         );
         system.initialize(world);
-        let system: BoxedObserverSystem<E, B> = Box::new(system);
+        let system: BoxedObserverSystem<T, B> = Box::new(system);
         (
             Self {
                 descriptor,
@@ -75,19 +75,19 @@ impl ObserverComponent {
 
                     // TODO: Move this check into the observer cache to avoid dynamic dispatch
                     // SAFETY: We only access world metadata
-                    let last_event = unsafe { world.world_metadata() }.last_event_id();
-                    if state.last_event_id == last_event {
+                    let last_trigger = unsafe { world.world_metadata() }.last_trigger_id();
+                    if state.last_trigger_id == last_trigger {
                         return;
                     }
-                    state.last_event_id = last_event;
+                    state.last_trigger_id = last_trigger;
 
-                    // SAFETY: Caller ensures `ptr` is castable to `&mut E`
-                    let observer: Observer<E, B> =
+                    let observer: Observer<T, B> =
+                    // SAFETY: Caller ensures `ptr` is castable to `&mut T`
                         Observer::new(unsafe { ptr.deref_mut() }, trigger);
                     // SAFETY: Observer was triggered so must have an `ObserverSystemComponent`
                     let system = unsafe {
                         &mut observer_cell
-                            .get_mut::<ObserverSystemComponent<E, B>>()
+                            .get_mut::<ObserverSystemComponent<T, B>>()
                             .debug_checked_unwrap()
                             .0
                     };
@@ -104,7 +104,7 @@ impl ObserverComponent {
                         system.queue_deferred(world.into_deferred());
                     }
                 },
-                last_event_id: 0,
+                last_trigger_id: 0,
             },
             ObserverSystemComponent(system),
         )
@@ -114,7 +114,7 @@ impl ObserverComponent {
         Self {
             descriptor,
             runner,
-            last_event_id: 0,
+            last_trigger_id: 0,
         }
     }
 }
