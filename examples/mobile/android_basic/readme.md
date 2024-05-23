@@ -11,7 +11,7 @@ cargo install cargo-apk
 
 Please refer example [README](../../README.md#setup) for NDK/SDK related instructions.
 
-### Build & Run
+## Build & Run
 
 When using `cargo-apk`, it must use `NativeActivity`, so you need to edit it in `Cargo.toml` manually like this:
 
@@ -41,7 +41,7 @@ cargo apk run -p bevy_mobile_example
 
 Please refer example [README](../../README.md#debugging) for debugging instructions.
 
-### Old phones
+## Old phones
 
 Bevy by default targets Android API level 33 in its examples which is the <!-- markdown-link-check-disable -->
 [Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). <!-- markdown-link-check-enable -->
