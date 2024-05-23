@@ -7,11 +7,12 @@ use crate::{
     component::ComponentId,
     entity::{Entities, Entity},
     system::{RunSystemWithInput, SystemId},
-    world::{Command, CommandQueue, EntityWorldMut, FromWorld, RawCommandQueue, World},
+    world::command_queue::RawCommandQueue,
+    world::{Command, CommandQueue, EntityWorldMut, FromWorld, World},
 };
 use bevy_utils::tracing::{error, info};
 pub use parallel_scope::*;
-use std::{marker::PhantomData, mem::MaybeUninit};
+use std::marker::PhantomData;
 
 /// A [`Command`] queue to perform structural changes to the [`World`].
 ///
@@ -161,17 +162,13 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    pub fn new_raw_from_entities(queue: RawCommandQueue, entities: &'w Entities) -> Self {
+    /// Returns a new `Commands` instance from a [`RawCommandQueue`] and an [`Entities`] reference.
+    ///
+    /// This is used when constructing [`Commands`] from a [`DeferredWorld`](crate::world::DeferredWorld).
+    pub(crate) fn new_raw_from_entities(queue: RawCommandQueue, entities: &'w Entities) -> Self {
         Self {
             queue: InternalQueue::RawCommandQueue(queue),
             entities,
-        }
-    }
-
-    pub fn bytes_mut(&mut self) -> &mut Vec<MaybeUninit<u8>> {
-        match &mut self.queue {
-            InternalQueue::CommandQueue(queue) => &mut queue.bytes,
-            InternalQueue::RawCommandQueue(queue) => unsafe { &mut *queue.bytes },
         }
     }
 
@@ -198,6 +195,7 @@ impl<'w, 's> Commands<'w, 's> {
             queue: match &mut self.queue {
                 InternalQueue::CommandQueue(queue) => InternalQueue::CommandQueue(queue.reborrow()),
                 InternalQueue::RawCommandQueue(queue) => {
+                    // SAFETY: Returned value's lifetime is tied to self so won't outlive it
                     InternalQueue::RawCommandQueue(unsafe { queue.clone_unsafe() })
                 }
             },
@@ -207,7 +205,13 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Take all commands from `other` and append them to `self`, leaving `other` empty
     pub fn append(&mut self, other: &mut CommandQueue) {
-        self.bytes_mut().append(&mut other.bytes);
+        match &mut self.queue {
+            InternalQueue::CommandQueue(queue) => queue.bytes.append(&mut other.bytes),
+            InternalQueue::RawCommandQueue(queue) => {
+                // SAFETY: Pointers in `RawCommandQueue` are never null
+                unsafe { &mut *queue.bytes }.append(&mut other.bytes);
+            }
+        }
     }
 
     /// Pushes a [`Command`] to the queue for creating a new empty [`Entity`],
@@ -471,6 +475,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.push(spawn_batch(bundles_iter))
     }
 
+    /// Push a [`Command`] onto the queue.
     pub fn push<C: Command>(&mut self, command: C) {
         match &mut self.queue {
             InternalQueue::CommandQueue(queue) => {

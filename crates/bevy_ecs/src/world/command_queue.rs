@@ -36,8 +36,9 @@ pub struct CommandQueue {
     pub(crate) cursor: usize,
 }
 
-#[derive(Clone)]
-pub struct RawCommandQueue {
+/// Wraps pointers to a [`CommandQueue`], used internally to avoid stacked borrow rules when
+/// partially applying queues recursively
+pub(crate) struct RawCommandQueue {
     pub(crate) bytes: *mut Vec<MaybeUninit<u8>>,
     pub(crate) cursor: *mut usize,
 }
@@ -98,32 +99,33 @@ impl CommandQueue {
         self.cursor >= self.bytes.len()
     }
 
-    pub unsafe fn get_raw(&mut self) -> RawCommandQueue {
+    /// Returns a [`RawCommandQueue`] instance sharing the underlying command queue.
+    ///
+    /// # Safety
+    ///
+    /// Caller must ensure the raw queue does not outlive self
+    pub(crate) unsafe fn get_raw(&mut self) -> RawCommandQueue {
         RawCommandQueue {
             bytes: addr_of_mut!(self.bytes),
             cursor: addr_of_mut!(self.cursor),
         }
     }
-
-    pub unsafe fn into_raw(mut self) -> RawCommandQueue {
-        let queue = RawCommandQueue {
-            bytes: addr_of_mut!(self.bytes),
-            cursor: addr_of_mut!(self.cursor),
-        };
-
-        std::mem::forget(self);
-        queue
-    }
 }
 
 impl RawCommandQueue {
+    /// Returns a new `RawCommandQueue` instance.
     pub fn new() -> Self {
         Self {
             bytes: Box::into_raw(Box::new(Vec::<MaybeUninit<u8>>::new())),
             cursor: Box::into_raw(Box::new(0usize)),
         }
     }
-    /// SAFETY: caller must ensure this is not used in such a way that it could escape an apply context or world borrow
+
+    /// Returns a new `RawCommandQueue` instance pointing at the same underlying queue.
+    ///
+    /// # Safety
+    ///
+    /// Caller must ensure that the clone does not outlive the original buffer
     pub unsafe fn clone_unsafe(&self) -> Self {
         Self {
             bytes: self.bytes,
@@ -131,9 +133,11 @@ impl RawCommandQueue {
         }
     }
 
+    /// Returns true if the queue is empty.
     pub fn is_empty(&self) -> bool {
         (unsafe { *self.cursor }) >= (unsafe { &*self.bytes }).len()
     }
+
     /// Push a [`Command`] onto the queue.
     #[inline]
     pub fn push<C>(&mut self, command: C)

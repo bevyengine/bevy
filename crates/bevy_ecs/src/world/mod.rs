@@ -1,6 +1,6 @@
 //! Defines the [`World`] and APIs for accessing it directly.
 
-mod command_queue;
+pub(crate) mod command_queue;
 mod deferred_world;
 mod entity_ref;
 pub mod error;
@@ -8,7 +8,7 @@ mod spawn_batch;
 pub mod unsafe_world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
-pub use crate::world::command_queue::{CommandQueue, RawCommandQueue};
+pub use crate::world::command_queue::CommandQueue;
 pub use deferred_world::DeferredWorld;
 pub use entity_ref::{
     EntityMut, EntityRef, EntityWorldMut, Entry, FilteredEntityMut, FilteredEntityRef,
@@ -31,6 +31,7 @@ use crate::{
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::{Commands, Res, Resource},
+    world::command_queue::RawCommandQueue,
     world::error::TryRunScheduleError,
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -216,7 +217,11 @@ impl World {
     /// Use [`World::flush_commands`] to apply all queued commands
     #[inline]
     pub fn commands(&mut self) -> Commands {
-        Commands::new_raw_from_entities(self.command_queue.clone(), &self.entities)
+        Commands::new_raw_from_entities(
+            // SAFETY: Return value is tied to lifetime of self so won't outlive it
+            unsafe { self.command_queue.clone_unsafe() },
+            &self.entities,
+        )
     }
 
     /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
@@ -1873,7 +1878,11 @@ impl World {
     pub fn flush_commands(&mut self) {
         if !self.command_queue.is_empty() {
             // SAFETY: A reference is always a valid pointer
-            unsafe { self.command_queue.clone().apply_or_drop_queued(Some(self)) };
+            unsafe {
+                self.command_queue
+                    .clone_unsafe()
+                    .apply_or_drop_queued(Some(self));
+            };
         }
     }
 
