@@ -13,7 +13,6 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
-use bevy_render::renderer::RenderAdapter;
 use bevy_render::{
     batching::{
         gpu_preprocessing::{
@@ -1065,13 +1064,12 @@ impl FromWorld for MeshPipeline {
     fn from_world(world: &mut World) -> Self {
         let mut system_state: SystemState<(
             Res<RenderDevice>,
-            Res<RenderAdapter>,
             Res<DefaultImageSampler>,
             Res<RenderQueue>,
             Res<MeshPipelineViewLayouts>,
         )> = SystemState::new(world);
 
-        let (render_device, render_adapter, default_sampler, render_queue, view_layouts) =
+        let (render_device, default_sampler, render_queue, view_layouts) =
             system_state.get_mut(world);
 
         let clustered_forward_buffer_binding_type = render_device

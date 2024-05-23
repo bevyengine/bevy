@@ -4,8 +4,6 @@ use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_render::renderer::RenderAdapter;
-use bevy_render::renderer::RenderDevice;
 use bevy_render::mesh::Mesh;
 use bevy_render::{
     DownlevelFlags,
@@ -17,7 +15,7 @@ use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,
     render_resource::*,
-    renderer::{RenderContext, RenderQueue},
+    renderer::{RenderContext, RenderDevice, RenderAdapter, RenderQueue},
     texture::*,
     view::{ExtractedView, RenderLayers, ViewVisibility, VisibleEntities, WithMesh},
     Extract,
@@ -1277,7 +1275,10 @@ pub fn prepare_lights(
             }
         }
 
-        let point_light_texture_descriptor = if true
+        let point_light_texture_descriptor = if render_adapter
+            .get_downlevel_capabilities()
+            .flags
+            .contains(DownlevelFlags::CUBE_ARRAY_TEXTURES)
         {
             &TextureViewDescriptor {
                 label: Some("point_light_shadow_map_array_texture_view"),
