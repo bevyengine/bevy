@@ -182,7 +182,7 @@ impl RawCommandQueue {
             },
         };
 
-        // SAFETY: There are no oustanding references to self.bytes
+        // SAFETY: There are no outstanding references to self.bytes
         let bytes = unsafe { self.bytes.as_mut() };
 
         let old_len = bytes.len();
