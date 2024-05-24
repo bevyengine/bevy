@@ -117,7 +117,7 @@ impl<'ctx, 'builder> NestedLoader<'ctx, 'builder> {
         let handle = if self.load_context.should_load_dependencies {
             self.load_context
                 .asset_server
-                .load_with_meta_transform(path, self.meta_transform)
+                .load_with_meta_transform(path, self.meta_transform, ())
         } else {
             self.load_context
                 .asset_server
