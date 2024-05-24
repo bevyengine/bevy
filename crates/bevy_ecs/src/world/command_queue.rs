@@ -44,7 +44,8 @@ pub struct CommandQueue {
 }
 
 /// Wraps pointers to a [`CommandQueue`], used internally to avoid stacked borrow rules when
-/// partially applying queues recursively
+/// partially applying the world's command queue recursively
+#[derive(Clone)]
 pub(crate) struct RawCommandQueue {
     pub(crate) bytes: NonNull<Vec<MaybeUninit<u8>>>,
     pub(crate) cursor: NonNull<usize>,
@@ -76,7 +77,7 @@ impl CommandQueue {
     where
         C: Command,
     {
-        // SAFETY: self is garunteed to live for the lifetime of this method
+        // SAFETY: self is guaranteed to live for the lifetime of this method
         unsafe {
             self.get_raw().push(command);
         }
@@ -121,8 +122,8 @@ impl CommandQueue {
 }
 
 impl RawCommandQueue {
-    /// Returns a new `RawCommandQueue` instance.
-    pub fn new() -> Self {
+    /// Returns a new `RawCommandQueue` instance, this must be manually dropped.
+    pub(crate) fn new() -> Self {
         // SAFETY: Pointers returned by `Box::into_raw` are guaranteed to be non null
         unsafe {
             Self {
@@ -132,16 +133,10 @@ impl RawCommandQueue {
         }
     }
 
-    /// Returns a new `RawCommandQueue` instance pointing at the same underlying queue.
-    pub fn clone(&self) -> Self {
-        Self {
-            bytes: self.bytes,
-            cursor: self.cursor,
-        }
-    }
-
     /// Returns true if the queue is empty.
-    /// 
+    ///
+    /// # Safety
+    ///
     /// * Caller ensures that `bytes` and `cursor` point to valid memory
     pub unsafe fn is_empty(&self) -> bool {
         // SAFETY: Pointers are guaranteed to be valid by requirements on `.clone_unsafe`
@@ -151,6 +146,8 @@ impl RawCommandQueue {
     /// Push a [`Command`] onto the queue.
     ///
     /// # Safety
+    ///
+    /// * Caller ensures that `self` has not outlived the underlying queue
     #[inline]
     pub unsafe fn push<C>(&mut self, command: C)
     where

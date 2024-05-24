@@ -142,6 +142,8 @@ impl Drop for World {
         unsafe { self.command_queue.apply_or_drop_queued(None) };
         // SAFETY: Pointers in internal command queue are only invalidated here
         drop(unsafe { Box::from_raw(self.command_queue.bytes.as_ptr()) });
+        // SAFETY: Pointers in internal command queue are only invalidated here
+        drop(unsafe { Box::from_raw(self.command_queue.cursor.as_ptr()) });
     }
 }
 
@@ -1882,7 +1884,7 @@ impl World {
     /// This does not apply commands from any systems, only those stored in the world.
     #[inline]
     pub fn flush_commands(&mut self) {
-        // SAFETY: a raw command queue constructed RawComamndQueue::new is always valid
+        // SAFETY: `self.command_queue` is only de-allocated in `World`'s `Drop`
         if !unsafe { self.command_queue.is_empty() } {
             unsafe {
                 self.command_queue
