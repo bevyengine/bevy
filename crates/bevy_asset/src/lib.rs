@@ -445,7 +445,7 @@ mod tests {
         AssetPlugin, AssetServer, Assets, DependencyLoadState, LoadState,
         RecursiveDependencyLoadState,
     };
-    use bevy_app::{App, AppExit, Update};
+    use bevy_app::{App, Update};
     use bevy_core::TaskPoolPlugin;
     use bevy_ecs::prelude::*;
     use bevy_ecs::{
@@ -1526,11 +1526,6 @@ mod tests {
         let lock = Arc::new(AtomicBool::new(false));
         let lock_check = lock.clone();
         let final_check = lock.clone();
-        app.add_systems(Update, move |mut event: EventWriter<AppExit>| {
-            if lock_check.load(Ordering::Acquire) {
-                event.send(AppExit::Success);
-            }
-        });
         AsyncComputeTaskPool::get()
             .spawn(async move {
                 let mut reader = Vec::new();
@@ -1547,7 +1542,9 @@ mod tests {
                 lock.store(true, Ordering::Release);
             })
             .detach();
-        app.run();
+        run_app_until(&mut app, |_| {
+            lock_check.load(Ordering::Acquire).then_some(())
+        });
         assert!(final_check.load(Ordering::Acquire));
     }
 
