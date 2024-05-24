@@ -7,7 +7,7 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
-use core::fmt::{self, Formatter, Pointer};
+use core::fmt::{self, Debug, Formatter, Pointer};
 use core::{
     cell::UnsafeCell, marker::PhantomData, mem::ManuallyDrop, num::NonZeroUsize, ptr::NonNull,
 };
@@ -256,6 +256,12 @@ macro_rules! impl_ptr {
             #[inline]
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
                 Pointer::fmt(&self.0, f)
+            }
+        }
+
+        impl<A: IsAligned> Debug for $ptr<'_, A> {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                Debug::fmt(&self.0, f)
             }
         }
     };
