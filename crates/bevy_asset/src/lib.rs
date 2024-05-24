@@ -1509,14 +1509,14 @@ mod tests {
     embedded_dependencies: [],
     sub_texts: [],
 )"#;
-//         let b_path = "foo/b.cool.ron";
-//         let b_ron = r#"
-// (
-//     text: "b",
-//     dependencies: [],
-//     embedded_dependencies: [],
-//     sub_texts: [],
-// )"#;
+        //         let b_path = "foo/b.cool.ron";
+        //         let b_ron = r#"
+        // (
+        //     text: "b",
+        //     dependencies: [],
+        //     embedded_dependencies: [],
+        //     sub_texts: [],
+        // )"#;
 
         dir.insert_asset_text(Path::new(a_path), a_ron);
 
@@ -1541,7 +1541,7 @@ mod tests {
 
                 // asset_server.read_stream(b_path, &mut reader).await.unwrap();
                 // assert_eq!(reader, b_ron.as_bytes());
-                
+
                 lock.store(true, Ordering::Release);
             })
             .detach();
