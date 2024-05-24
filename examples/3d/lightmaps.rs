@@ -35,12 +35,6 @@ fn add_lightmaps_to_meshes(
 ) {
     let exposure = 250.0;
     for (entity, name, material) in meshes.iter() {
-        if &**name == "Light" {
-            materials.get_mut(material).unwrap().emissive =
-                LinearRgba::from(Srgba::WHITE * exposure);
-            continue;
-        }
-
         if &**name == "large_box" {
             materials.get_mut(material).unwrap().lightmap_exposure = exposure;
             commands.entity(entity).insert(Lightmap {

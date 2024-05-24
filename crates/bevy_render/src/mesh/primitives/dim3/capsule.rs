@@ -1,5 +1,5 @@
 use crate::{
-    mesh::{Indices, Mesh, Meshable},
+    mesh::{Indices, Mesh, MeshBuilder, Meshable},
     render_asset::RenderAssetUsages,
 };
 use bevy_math::{primitives::Capsule3d, Vec2, Vec3};
@@ -91,9 +91,10 @@ impl Capsule3dMeshBuilder {
         self.uv_profile = uv_profile;
         self
     }
+}
 
-    /// Builds a [`Mesh`] based on the configuration in `self`.
-    pub fn build(&self) -> Mesh {
+impl MeshBuilder for Capsule3dMeshBuilder {
+    fn build(&self) -> Mesh {
         // code adapted from https://behreajj.medium.com/making-a-capsule-mesh-via-script-in-five-3d-environments-c2214abf02db
         let Capsule3dMeshBuilder {
             capsule,
@@ -435,11 +436,5 @@ impl Meshable for Capsule3d {
 impl From<Capsule3d> for Mesh {
     fn from(capsule: Capsule3d) -> Self {
         capsule.mesh().build()
-    }
-}
-
-impl From<Capsule3dMeshBuilder> for Mesh {
-    fn from(capsule: Capsule3dMeshBuilder) -> Self {
-        capsule.build()
     }
 }
