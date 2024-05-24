@@ -46,12 +46,19 @@ pub enum PerimeterSegment {
 }
 
 impl PerimeterSegment {
+    /// Returns the amount of vertices each 'layer' of the extrusion should include for this perimeter segment.
+    ///
+    /// A layer is the set of vertices sharing a common Z value or depth.
     fn vertices_per_layer(&self) -> usize {
         match self {
             PerimeterSegment::Smooth { indices, .. } => indices.len(),
             PerimeterSegment::Flat { indices } => 2 * (indices.len() - 1),
         }
     }
+
+    /// Returns the amount of indices each 'segment' of the extrusion should include for this perimeter segment.
+    ///
+    /// A segment is the set of faces on the mantel of the extrusion between two layers of vertices.
     fn indices_per_segment(&self) -> usize {
         match self {
             PerimeterSegment::Smooth { indices, .. } | PerimeterSegment::Flat { indices } => {
@@ -65,7 +72,8 @@ impl PerimeterSegment {
 ///
 /// ## Warning
 ///
-/// By implementing this trait you guarantee that the `primitive_topology` of the mesh returned by this builder is [`PrimitiveTopology::TriangleList`](wgpu::PrimitiveTopology::TriangleList)
+/// By implementing this trait you guarantee that the `primitive_topology` of the mesh returned by
+/// this builder is [`PrimitiveTopology::TriangleList`](wgpu::PrimitiveTopology::TriangleList)
 /// and that your mesh has a [`Mesh::ATTRIBUTE_POSITION`] attribute.
 pub trait Extrudable: MeshBuilder {
     /// A list of the indices each representing a part of the perimeter of the mesh.
