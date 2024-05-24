@@ -62,7 +62,9 @@ impl AssetSaver for MeshletMeshGltfSaver {
         settings: &'a GltfLoaderSettings,
     ) -> Result<GltfLoaderSettings, GltfError> {
         #[cfg(not(feature = "meshlet_processor"))]
-        panic!("Converting GLTF files to use MeshletMeshes requires feature meshlet_processor.");
+        panic!(
+            "Converting GLTF files to use MeshletMeshes requires cargo feature meshlet_processor."
+        );
 
         // Convert each primitive to a meshlet mesh
         let mut meshlet_meshes: VecDeque<MeshletMesh> = VecDeque::new();

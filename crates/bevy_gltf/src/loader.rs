@@ -1359,13 +1359,16 @@ fn load_node(
                         .map(|extensions| extensions.contains_key("BEVY_meshlet_mesh"))
                         .unwrap_or(false)
                     {
-                        #[cfg(feature = "meshlet")]
-                        parent.spawn(MaterialMeshletMeshBundle::<StandardMaterial> {
-                            // TODO: handle missing label handle errors here?
-                            meshlet_mesh: load_context.get_label_handle(&primitive_label),
-                            material: load_context.get_label_handle(&material_label),
-                            ..Default::default()
-                        })
+                        if cfg!(feature = "meshlet") {
+                            parent.spawn(MaterialMeshletMeshBundle::<StandardMaterial> {
+                                // TODO: handle missing label handle errors here?
+                                meshlet_mesh: load_context.get_label_handle(&primitive_label),
+                                material: load_context.get_label_handle(&material_label),
+                                ..Default::default()
+                            })
+                        } else {
+                            panic!("glTF file contained a MeshletMesh, but the meshlet cargo feature is not enabled.")
+                        }
                     } else {
                         parent.spawn(PbrBundle {
                             // TODO: handle missing label handle errors here?
