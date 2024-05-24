@@ -279,6 +279,14 @@ pub trait AssetApp {
     fn register_asset_loader<L: AssetLoader>(&mut self, loader: L) -> &mut Self;
     /// Registers the given `processor` in the [`App`]'s [`AssetProcessor`].
     fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self;
+    /// Registers the given `processor` in the [`App`]'s [`AssetProcessor`] along with an extra alias.
+    ///
+    /// This alias can be used in meta files to refer to this asset processor without using the full type name.
+    fn register_asset_processor_with_alias<P: Process>(
+        &mut self,
+        processor: P,
+        alias: &'static str,
+    ) -> &mut Self;
     /// Registers the given [`AssetSourceBuilder`] with the given `id`.
     ///
     /// Note that asset sources must be registered before adding [`AssetPlugin`] to your application,
@@ -323,6 +331,17 @@ impl AssetApp for App {
     fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self {
         if let Some(asset_processor) = self.world().get_resource::<AssetProcessor>() {
             asset_processor.register_processor(processor);
+        }
+        self
+    }
+
+    fn register_asset_processor_with_alias<P: Process>(
+        &mut self,
+        processor: P,
+        alias: &'static str,
+    ) -> &mut Self {
+        if let Some(asset_processor) = self.world().get_resource::<AssetProcessor>() {
+            asset_processor.register_processor_with_alias(processor, alias);
         }
         self
     }

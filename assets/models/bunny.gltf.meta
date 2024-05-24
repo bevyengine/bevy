@@ -1,7 +1,7 @@
 (
     meta_format_version: "1.0",
     asset: Process(
-        processor: "bevy_asset::processor::process::LoadAndSave<bevy_gltf::loader::RawGltfLoader, bevy_gltf::meshlet::MeshletMeshGltfSaver>",
+        processor: "MeshletMeshProcessor",
         settings: (
             loader_settings: (),
             saver_settings: (),

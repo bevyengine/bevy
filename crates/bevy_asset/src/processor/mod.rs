@@ -489,6 +489,16 @@ impl AssetProcessor {
         process_plans.insert(std::any::type_name::<P>(), Arc::new(processor));
     }
 
+    /// Register a new asset processor with an alias.
+    pub fn register_processor_with_alias<P: Process>(&self, processor: P, alias: &'static str) {
+        let mut process_plans = self.data.processors.write();
+        #[cfg(feature = "trace")]
+        let processor = InstrumentedAssetProcessor(processor);
+        let processor = Arc::new(processor);
+        process_plans.insert(alias, processor.clone());
+        process_plans.insert(std::any::type_name::<P>(), processor);
+    }
+
     /// Set the default processor for the given `extension`. Make sure `P` is registered with [`AssetProcessor::register_processor`].
     pub fn set_default_processor<P: Process>(&self, extension: &str) {
         let mut default_processors = self.data.default_processors.write();
