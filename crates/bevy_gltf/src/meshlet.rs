@@ -2,7 +2,6 @@ use crate::{
     get_primitive_topology, vertex_attributes::convert_attribute, GltfError, GltfLoader,
     GltfLoaderSettings, RawGltf,
 };
-use base64::{prelude::BASE64_STANDARD, Engine};
 use bevy_asset::{
     io::Writer,
     saver::{AssetSaver, SavedAsset},
@@ -17,9 +16,13 @@ use bevy_utils::{
     tracing::{debug, warn},
     HashMap,
 };
-use gltf::{mesh::util::ReadIndices, Primitive};
-use serde_json::{json, Map};
-use std::{collections::VecDeque, ops::Deref};
+use gltf::{
+    json::{Buffer, Index},
+    mesh::util::ReadIndices,
+    Primitive,
+};
+use serde_json::json;
+use std::{collections::VecDeque, iter, ops::Deref};
 
 pub struct MeshletMeshGltfSaver;
 
@@ -39,7 +42,6 @@ impl AssetSaver for MeshletMeshGltfSaver {
         panic!("Converting GLTF files to use MeshletMeshes requires feature meshlet_processor.");
 
         let mut meshlet_meshes: VecDeque<MeshletMesh> = VecDeque::new();
-
         for mesh in asset.gltf.meshes() {
             for primitive in mesh.primitives() {
                 let mesh = load_mesh(&primitive, &asset.buffer_data)?;
@@ -53,32 +55,75 @@ impl AssetSaver for MeshletMeshGltfSaver {
         }
 
         let mut gltf = asset.gltf.deref().clone().into_json();
+        let mut glb_buffer = match gltf.buffers.get(0) {
+            Some(buffer) if buffer.uri.is_none() => asset.buffer_data[0].clone(),
+            _ => Vec::new(),
+        };
+
+        if let Some(Buffer { uri: Some(_), .. }) = gltf.buffers.get(0) {
+            for buffer_view in &mut gltf.buffer_views {
+                buffer_view.buffer = Index::new(buffer_view.buffer.value() as u32 + 1);
+            }
+        }
 
         for mesh in &mut gltf.meshes {
             for primitive in &mut mesh.primitives {
-                let meshlet_mesh_bytes = meshlet_meshes.pop_front().unwrap();
-                let meshlet_mesh_bytes = meshlet_mesh_bytes.into_bytes().expect("TODO");
-                let meshlet_mesh_bytes = BASE64_STANDARD.encode(meshlet_mesh_bytes);
+                let meshlet_mesh = meshlet_meshes.pop_front().unwrap();
+                let mut meshlet_mesh_bytes = meshlet_mesh.into_bytes().expect("TODO");
 
-                if primitive.extensions.is_none() {
-                    primitive.extensions =
-                        Some(gltf::json::extensions::mesh::Primitive { others: Map::new() });
-                }
+                let extension = json!({
+                    "version": MESHLET_MESH_ASSET_VERSION,
+                    "byteOffset": glb_buffer.len(),
+                    "byteLength": meshlet_mesh_bytes.len(),
+                });
+                primitive
+                    .extensions
+                    .get_or_insert(Default::default())
+                    .others
+                    .insert("BEVY_meshlet_mesh".to_owned(), extension);
 
-                primitive.extensions.as_mut().unwrap().others.insert(
-                    "BEVY_meshlet_mesh".to_owned(),
-                    json!({
-                        "version": MESHLET_MESH_ASSET_VERSION,
-                        "bytes": meshlet_mesh_bytes,
-                    }),
-                );
+                glb_buffer.append(&mut meshlet_mesh_bytes);
 
                 // TODO: Remove primitive indices, attributes, buffer views, and buffers
             }
         }
 
-        let bytes = gltf.to_vec().expect("TODO");
-        writer.write_all(&bytes).await?;
+        glb_buffer.extend(iter::repeat(0x00u8).take(glb_buffer.len() % 4));
+
+        match gltf.buffers.get_mut(0) {
+            Some(buffer) if buffer.uri.is_none() => {
+                buffer.byte_length = glb_buffer.len().into();
+            }
+            _ => {
+                let buffer = Buffer {
+                    byte_length: glb_buffer.len().into(),
+                    name: None,
+                    uri: None,
+                    extensions: None,
+                    extras: None,
+                };
+                gltf.buffers.insert(0, buffer);
+            }
+        }
+
+        let mut gltf_bytes = gltf.to_vec().expect("TODO");
+        gltf_bytes.extend(iter::repeat(0x20u8).take(gltf_bytes.len() % 4));
+
+        let json_len = gltf_bytes.len() as u32;
+        let bin_len = glb_buffer.len() as u32;
+        let file_size = 28 + json_len + bin_len;
+
+        writer.write_all(&0x46546C67u32.to_le_bytes()).await?;
+        writer.write_all(&2u32.to_le_bytes()).await?;
+        writer.write_all(&file_size.to_le_bytes()).await?;
+
+        writer.write_all(&json_len.to_le_bytes()).await?;
+        writer.write_all(&0x4E4F534Au32.to_le_bytes()).await?;
+        writer.write_all(&gltf_bytes).await?;
+
+        writer.write_all(&bin_len.to_le_bytes()).await?;
+        writer.write_all(&0x004E4942u32.to_le_bytes()).await?;
+        writer.write_all(&glb_buffer).await?;
 
         Ok(settings.clone())
     }

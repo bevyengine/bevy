@@ -1,6 +1,4 @@
 use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode, RawGltf};
-#[cfg(feature = "meshlet")]
-use base64::{prelude::BASE64_STANDARD, Engine};
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{AnimationTarget, AnimationTargetId};
 use bevy_asset::{
@@ -483,16 +481,18 @@ async fn load_gltf<'a, 'b, 'c>(
                 .and_then(|extensions| extensions.get("BEVY_meshlet_mesh"))
             {
                 Some(bevy_meshlet_mesh_extension) => {
-                    let version = bevy_meshlet_mesh_extension.get("version").unwrap();
-                    if version.as_u64().unwrap() != MESHLET_MESH_ASSET_VERSION {
-                        return Err(GltfError::MeshletMeshWrongVersion {
-                            found: version.as_u64().unwrap(),
-                        });
+                    let version = bevy_meshlet_mesh_extension["version"].as_u64().unwrap();
+                    if version != MESHLET_MESH_ASSET_VERSION {
+                        return Err(GltfError::MeshletMeshWrongVersion { found: version });
                     }
 
-                    let meshlet_mesh = bevy_meshlet_mesh_extension.get("bytes").unwrap();
-                    let meshlet_mesh = BASE64_STANDARD.decode(meshlet_mesh.as_str().unwrap())?;
-                    let meshlet_mesh = MeshletMesh::from_bytes(&meshlet_mesh).unwrap();
+                    let byte_offset =
+                        bevy_meshlet_mesh_extension["byteOffset"].as_u64().unwrap() as usize;
+                    let byte_length =
+                        bevy_meshlet_mesh_extension["byteLength"].as_u64().unwrap() as usize;
+
+                    let meshlet_mesh =
+                        MeshletMesh::from_bytes(&buffer_data[0][byte_offset..byte_length]).unwrap();
 
                     let meshlet_mesh =
                         Some(load_context.add_labeled_asset(primitive_label, meshlet_mesh));
