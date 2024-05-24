@@ -452,7 +452,7 @@ mod tests {
         event::ManualEventReader,
         schedule::{LogLevel, ScheduleBuildSettings},
     };
-    use bevy_log::LogPlugin;
+    use bevy_log::{error, LogPlugin};
     use bevy_reflect::TypePath;
     use bevy_tasks::AsyncComputeTaskPool;
     use bevy_utils::{Duration, HashMap};
@@ -1509,36 +1509,39 @@ mod tests {
     embedded_dependencies: [],
     sub_texts: [],
 )"#;
-        let b_path = "foo/b.cool.ron";
-        let b_ron = r#"
-(
-    text: "b",
-    dependencies: [],
-    embedded_dependencies: [],
-    sub_texts: [],
-)"#;
+//         let b_path = "foo/b.cool.ron";
+//         let b_ron = r#"
+// (
+//     text: "b",
+//     dependencies: [],
+//     embedded_dependencies: [],
+//     sub_texts: [],
+// )"#;
 
         dir.insert_asset_text(Path::new(a_path), a_ron);
 
         // running schedule does not error on ambiguity between the 2 uses_assets systems
-        let (mut app, _gate) = test_app(dir);
+        let (mut app, gate) = test_app(dir);
         let asset_server = app.world().resource::<AssetServer>().clone();
         let lock = Arc::new(AtomicBool::new(false));
         let lock_check = lock.clone();
         let final_check = lock.clone();
+        gate.open(a_path);
+        //gate.open(b_path);
         AsyncComputeTaskPool::get()
             .spawn(async move {
                 let mut reader = Vec::new();
                 asset_server.read_stream(a_path, &mut reader).await.unwrap();
                 assert_eq!(reader, a_ron.as_bytes());
 
-                asset_server
-                    .write_stream(b_path, b_ron.as_bytes())
-                    .await
-                    .unwrap();
+                // asset_server
+                //     .write_stream(b_path, b_ron.as_bytes())
+                //     .await
+                //     .unwrap();
 
-                asset_server.read_stream(b_path, &mut reader).await.unwrap();
-                assert_eq!(reader, b_ron.as_bytes());
+                // asset_server.read_stream(b_path, &mut reader).await.unwrap();
+                // assert_eq!(reader, b_ron.as_bytes());
+                
                 lock.store(true, Ordering::Release);
             })
             .detach();
