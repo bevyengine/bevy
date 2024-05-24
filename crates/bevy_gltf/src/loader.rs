@@ -121,6 +121,8 @@ pub enum GltfError {
 pub struct RawGltfLoader;
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
+///
+/// This is the default asset loader for .gltf and .glb files.
 pub struct GltfLoader {
     /// List of compressed image formats handled by the loader.
     pub supported_compressed_formats: CompressedImageFormats,
