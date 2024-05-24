@@ -162,7 +162,7 @@ pub struct GltfPrimitive {
     pub mesh: Handle<Mesh>,
     /// Meshlet topology to be rendered.
     ///
-    /// If this is Some, then `mesh` is Handle::default().
+    /// If this is Some, then `mesh` is [`Handle::default()`].
     #[cfg(feature = "meshlet")]
     pub meshlet_mesh: Option<Handle<bevy_pbr::experimental::meshlet::MeshletMesh>>,
     /// Material to apply to the `mesh`.

@@ -715,7 +715,8 @@ async fn load_gltf<'a, 'b, 'c>(
     })
 }
 
-fn load_mesh_primitive<'c>(
+#[allow(clippy::too_many_arguments)]
+fn load_mesh_primitive(
     primitive_label: &str,
     gltf_mesh: &gltf::Mesh,
     primitive: &Primitive,
@@ -724,7 +725,7 @@ fn load_mesh_primitive<'c>(
     meshes_on_non_skinned_nodes: &HashSet<usize>,
     buffer_data: &Vec<Vec<u8>>,
     loader: &GltfLoader,
-    load_context: &mut LoadContext<'c>,
+    load_context: &mut LoadContext<'_>,
     file_name: &String,
 ) -> Result<Mesh, GltfError> {
     let primitive_topology = get_primitive_topology(primitive.mode())?;

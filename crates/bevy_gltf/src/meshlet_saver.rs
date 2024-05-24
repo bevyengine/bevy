@@ -82,7 +82,7 @@ impl AssetSaver for MeshletMeshGltfSaver {
         let mut gltf = asset.gltf.deref().clone().into_json();
 
         // Clone the GLB BIN buffer, if it exists, or make a new buffer
-        let mut glb_buffer = match gltf.buffers.get(0) {
+        let mut glb_buffer = match gltf.buffers.first() {
             Some(buffer) if buffer.uri.is_none() => asset.buffer_data[0].clone(),
             _ => Vec::new(),
         };
@@ -90,7 +90,7 @@ impl AssetSaver for MeshletMeshGltfSaver {
         // If there was not an existing GLB BIN buffer, but there were other buffers,
         // increment each buffer view's buffer index to account for the GLB BIN buffer
         // that we're going to add at index 0
-        if let Some(Buffer { uri: Some(_), .. }) = gltf.buffers.get(0) {
+        if let Some(Buffer { uri: Some(_), .. }) = gltf.buffers.first() {
             for buffer_view in &mut gltf.buffer_views {
                 buffer_view.buffer = Index::new(buffer_view.buffer.value() as u32 + 1);
             }
@@ -171,13 +171,13 @@ impl AssetSaver for MeshletMeshGltfSaver {
     }
 }
 
-fn load_mesh<'a>(primitive: &Primitive<'a>, buffer_data: &Vec<Vec<u8>>) -> Result<Mesh, GltfError> {
+fn load_mesh(primitive: &Primitive<'_>, buffer_data: &Vec<Vec<u8>>) -> Result<Mesh, GltfError> {
     let primitive_topology = get_primitive_topology(primitive.mode())?;
 
     let mut mesh = Mesh::new(primitive_topology, RenderAssetUsages::default());
 
     for (semantic, accessor) in primitive.attributes() {
-        match convert_attribute(semantic, accessor, &buffer_data, &HashMap::new()) {
+        match convert_attribute(semantic, accessor, buffer_data, &HashMap::new()) {
             Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
             Err(err) => warn!("{}", err),
         }
