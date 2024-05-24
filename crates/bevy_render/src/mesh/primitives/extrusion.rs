@@ -7,32 +7,32 @@ use crate::mesh::{Indices, Mesh, VertexAttributeValues};
 
 use super::{MeshBuilder, Meshable};
 
-/// An enum representing segments of the perimeter of extrudable meshes
+/// A type representing a segment of the perimeter of an extrudable mesh.
 pub enum PerimeterSegment {
     /// This segment of the perimeter will be shaded smooth.
     ///
-    /// You may want to use this for curved segments
+    /// This has the effect of rendering the segment's faces with softened edges, so it is appropriate for curved shapes.
     Smooth {
-        /// The normal of the first vertex
+        /// The normal of the first vertex.
         first_normal: Vec2,
-        /// The normal of the last vertex
+        /// The normal of the last vertex.
         last_normal: Vec2,
-        /// A list of indices representing this segment of the perimeter of the mesh
+        /// A list of indices representing this segment of the perimeter of the mesh.
         ///
         /// The indices must be ordered such that the *outside* of the mesh is to the right
-        /// when walking along the vertices of the mesh in the order provided by indices
+        /// when walking along the vertices of the mesh in the order provided by the indices.
         ///
         /// For geometry to be rendered, you must provide at least two indices.
         indices: Vec<u32>,
     },
     /// This segment of the perimeter will be shaded flat.
     ///
-    /// You may want to use this if there are sharp corners in the perimeter
+    /// This has the effect of rendering the segment's faces with hard edges.
     Flat {
-        /// A list of indices representing this segment of the perimeter of the mesh
+        /// A list of indices representing this segment of the perimeter of the mesh.
         ///
         /// The indices must be ordered such that the *outside* of the mesh is to the right
-        /// when walking along the vertices of the mesh in the order provided by indices
+        /// when walking along the vertices of the mesh in the order provided by indices.
         ///
         /// For geometry to be rendered, you must provide at least two indices.
         indices: Vec<u32>,
@@ -55,12 +55,12 @@ impl PerimeterSegment {
     }
 }
 
-/// A trait for required for implementing `Meshable` for `Extrusion<T>`
+/// A trait for required for implementing `Meshable` for `Extrusion<T>`.
 ///
 /// ## Warning
 ///
 /// By implementing this trait you guarantee that the `primitive_topology` of the mesh returned by this builder is [`PrimitiveTopology::TriangleList`](wgpu::PrimitiveTopology::TriangleList)
-/// and that your mesh has a [`Mesh::ATTRIBUTE_POSITION`] attribute
+/// and that your mesh has a [`Mesh::ATTRIBUTE_POSITION`] attribute.
 pub trait Extrudable: MeshBuilder {
     /// A list of the indices each representing a part of the perimeter of the mesh.
     fn perimeter(&self) -> Vec<PerimeterSegment>;
@@ -96,7 +96,7 @@ where
     P: Primitive2d + Meshable,
     P::Output: Extrudable,
 {
-    /// Create a new `ExtrusionBuilder<P>` from a given `base_shape` and the full `depth` of the extrusion
+    /// Create a new `ExtrusionBuilder<P>` from a given `base_shape` and the full `depth` of the extrusion.
     pub fn new(base_shape: &P, depth: f32) -> Self {
         Self {
             base_builder: base_shape.mesh(),
@@ -184,7 +184,7 @@ where
                         }
                     },
                     _ => {
-                        panic!("Meshes used with Extrusions must have a primitive topology of either `PrimitiveTopology::TriangleList`");
+                        panic!("Meshes used with Extrusions must have a primitive topology of `PrimitiveTopology::TriangleList`");
                     }
                 };
             }
@@ -201,7 +201,7 @@ where
             let Some(VertexAttributeValues::Float32x3(cap_verts)) =
                 front_face.attribute(Mesh::ATTRIBUTE_POSITION)
             else {
-                panic!("The base mesh did not have a vertex attribute");
+                panic!("The base mesh did not have vertex positions");
             };
 
             let perimeter = self.base_builder.perimeter();
