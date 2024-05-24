@@ -52,7 +52,10 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Plane3d::default().mesh().size(20., 20.)),
-            material: materials.add(LinearRgba::rgb(0.3, 0.5, 0.3)),
+            material: materials.add(StandardMaterial {
+                base_color: LinearRgba::rgb(0.3, 0.5, 0.3).into(),
+                ..default()
+            }),
             ..default()
         },
         Ground,

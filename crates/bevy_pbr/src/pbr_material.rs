@@ -1,5 +1,5 @@
 use bevy_asset::Asset;
-use bevy_color::Alpha;
+use bevy_color::{Alpha, ColorToComponents};
 use bevy_math::{Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -972,12 +972,12 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             flags |= StandardMaterialFlags::ATTENUATION_ENABLED;
         }
 
-        let mut emissive = LinearRgba::from(self.emissive).to_f32_array();
+        let mut emissive = self.emissive.to_vec4();
         emissive[3] = self.emissive_exposure_weight;
 
         StandardMaterialUniform {
-            base_color: LinearRgba::from(self.base_color).to_f32_array().into(),
-            emissive: self.emissive.to_f32_array().into(),
+            base_color: LinearRgba::from(self.base_color).to_vec4(),
+            emissive: self.emissive.to_vec4(),
             roughness: self.perceptual_roughness,
             metallic: self.metallic,
             reflectance: self.reflectance,
