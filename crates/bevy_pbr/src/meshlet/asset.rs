@@ -19,6 +19,9 @@ pub const MESHLET_MESH_ASSET_VERSION: u64 = 0;
 /// The conversion step is very slow, and is meant to be ran once ahead of time, and not during runtime. This type of mesh is not suitable for
 /// dynamically generated geometry.
 ///
+/// In addition to converting individual meshes via code, asset processing can be used to convert whole glTF scenes.
+/// See `MeshletMeshGltfSaver` for details.
+///
 /// There are restrictions on the [`crate::Material`] functionality that can be used with this type of mesh.
 /// * Materials have no control over the vertex shader or vertex attributes.
 /// * Materials must be opaque. Transparent, alpha masked, and transmissive materials are not supported.

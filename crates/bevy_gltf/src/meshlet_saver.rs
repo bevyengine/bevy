@@ -24,6 +24,29 @@ use gltf::{
 use serde_json::json;
 use std::{collections::VecDeque, iter, ops::Deref};
 
+/// An [`AssetSaver`] that converts all mesh primitives in a glTF file into [`MeshletMesh`]s.
+///
+/// Only certain types of meshes and materials are supported. See [`MeshletMesh`] and [`MeshletMesh::from_mesh`]
+/// for more details.
+///
+/// Using this asset saver requires enabling the `meshlet_processor` cargo feature in addition to `asset_processor`.
+///
+/// Use only glTF Binary (.glb) or glTF Embedded (.gltf without additional .bin) files.
+/// Using glTF Seperate files (.gltf with additional .bin) will lead to unnecessary data in the final processed asset.
+///
+/// Example asset meta file:
+/// ```
+/// (
+///     meta_format_version: "1.0",
+///     asset: Process(
+///         processor: "MeshletMeshProcessor",
+///         settings: (
+///             loader_settings: (),
+///             saver_settings: (),
+///         ),
+///     ),
+/// )
+/// ```
 pub struct MeshletMeshGltfSaver;
 
 impl AssetSaver for MeshletMeshGltfSaver {
@@ -41,6 +64,7 @@ impl AssetSaver for MeshletMeshGltfSaver {
         #[cfg(not(feature = "meshlet_processor"))]
         panic!("Converting GLTF files to use MeshletMeshes requires feature meshlet_processor.");
 
+        // Convert each primitive to a meshlet mesh
         let mut meshlet_meshes: VecDeque<MeshletMesh> = VecDeque::new();
         for mesh in asset.gltf.meshes() {
             for primitive in mesh.primitives() {
@@ -54,18 +78,26 @@ impl AssetSaver for MeshletMeshGltfSaver {
             }
         }
 
+        // Create a mutable copy of the gltf asset
         let mut gltf = asset.gltf.deref().clone().into_json();
+
+        // Clone the GLB BIN buffer, if it exists, or make a new buffer
         let mut glb_buffer = match gltf.buffers.get(0) {
             Some(buffer) if buffer.uri.is_none() => asset.buffer_data[0].clone(),
             _ => Vec::new(),
         };
 
+        // If there was not an existing GLB BIN buffer, but there were other buffers,
+        // increment each buffer view's buffer index to account for the GLB BIN buffer
+        // that we're going to add at index 0
         if let Some(Buffer { uri: Some(_), .. }) = gltf.buffers.get(0) {
             for buffer_view in &mut gltf.buffer_views {
                 buffer_view.buffer = Index::new(buffer_view.buffer.value() as u32 + 1);
             }
         }
 
+        // For each primitive, append the serialized meshlet mesh to the GLB BIN buffer,
+        // and add a custom extension pointing to the newly added slice of the buffer
         for mesh in &mut gltf.meshes {
             for primitive in &mut mesh.primitives {
                 let meshlet_mesh = meshlet_meshes.pop_front().unwrap();
@@ -76,6 +108,7 @@ impl AssetSaver for MeshletMeshGltfSaver {
                     "byteOffset": glb_buffer.len(),
                     "byteLength": meshlet_mesh_bytes.len(),
                 });
+
                 primitive
                     .extensions
                     .get_or_insert(Default::default())
@@ -88,12 +121,16 @@ impl AssetSaver for MeshletMeshGltfSaver {
             }
         }
 
+        // Pad GLB BIN buffer if needed
         glb_buffer.extend(iter::repeat(0x00u8).take(glb_buffer.len() % 4));
 
         match gltf.buffers.get_mut(0) {
+            // If there was an existing GLB BIN buffer, update it's size to account
+            // for the newly added meshlet mesh data
             Some(buffer) if buffer.uri.is_none() => {
                 buffer.byte_length = glb_buffer.len().into();
             }
+            // Else insert a new GLB BIN buffer
             _ => {
                 let buffer = Buffer {
                     byte_length: glb_buffer.len().into(),
@@ -106,21 +143,26 @@ impl AssetSaver for MeshletMeshGltfSaver {
             }
         }
 
+        // Pad JSON buffer if needed
         let mut gltf_bytes = gltf.to_vec().expect("TODO");
         gltf_bytes.extend(iter::repeat(0x20u8).take(gltf_bytes.len() % 4));
 
+        // Calculate total GLB file size (headers, including chunk headers, plus JSON and BIN chunk)
         let json_len = gltf_bytes.len() as u32;
         let bin_len = glb_buffer.len() as u32;
         let file_size = 28 + json_len + bin_len;
 
+        // Write file header
         writer.write_all(&0x46546C67u32.to_le_bytes()).await?;
         writer.write_all(&2u32.to_le_bytes()).await?;
         writer.write_all(&file_size.to_le_bytes()).await?;
 
+        // Write JSON chunk
         writer.write_all(&json_len.to_le_bytes()).await?;
         writer.write_all(&0x4E4F534Au32.to_le_bytes()).await?;
         writer.write_all(&gltf_bytes).await?;
 
+        // Write BIN chunk
         writer.write_all(&bin_len.to_le_bytes()).await?;
         writer.write_all(&0x004E4942u32.to_le_bytes()).await?;
         writer.write_all(&glb_buffer).await?;

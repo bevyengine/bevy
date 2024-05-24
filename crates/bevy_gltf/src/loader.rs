@@ -117,7 +117,7 @@ pub enum GltfError {
     },
 }
 
-/// Loads glTF files.
+/// Loads glTF files as a [`RawGltf`].
 pub struct RawGltfLoader;
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
