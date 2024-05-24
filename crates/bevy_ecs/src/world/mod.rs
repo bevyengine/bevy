@@ -226,11 +226,8 @@ impl World {
     /// Use [`World::flush_commands`] to apply all queued commands
     #[inline]
     pub fn commands(&mut self) -> Commands {
-        Commands::new_raw_from_entities(
-            // SAFETY: Return value is tied to lifetime of self so won't outlive it
-            unsafe { self.command_queue.clone_unsafe() },
-            &self.entities,
-        )
+        // SAFETY: command_queue is stored on world and always valid while the world exists
+        unsafe { Commands::new_raw_from_entities(self.command_queue.clone(), &self.entities) }
     }
 
     /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
@@ -1885,11 +1882,11 @@ impl World {
     /// This does not apply commands from any systems, only those stored in the world.
     #[inline]
     pub fn flush_commands(&mut self) {
-        if !self.command_queue.is_empty() {
-            // SAFETY: A reference is always a valid pointer
+        // SAFETY: a raw command queue constructed RawComamndQueue::new is always valid
+        if !unsafe { self.command_queue.is_empty() } {
             unsafe {
                 self.command_queue
-                    .clone_unsafe()
+                    .clone()
                     .apply_or_drop_queued(Some(self.into()));
             };
         }

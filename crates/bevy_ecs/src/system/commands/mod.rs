@@ -168,7 +168,11 @@ impl<'w, 's> Commands<'w, 's> {
     /// Returns a new `Commands` instance from a [`RawCommandQueue`] and an [`Entities`] reference.
     ///
     /// This is used when constructing [`Commands`] from a [`DeferredWorld`](crate::world::DeferredWorld).
-    pub(crate) fn new_raw_from_entities(queue: RawCommandQueue, entities: &'w Entities) -> Self {
+    /// 
+    /// # Safety
+    /// 
+    /// * `queue` must live for 'w
+    pub(crate) unsafe fn new_raw_from_entities(queue: RawCommandQueue, entities: &'w Entities) -> Self {
         Self {
             queue: InternalQueue::RawCommandQueue(queue),
             entities,
@@ -198,8 +202,7 @@ impl<'w, 's> Commands<'w, 's> {
             queue: match &mut self.queue {
                 InternalQueue::CommandQueue(queue) => InternalQueue::CommandQueue(queue.reborrow()),
                 InternalQueue::RawCommandQueue(queue) => {
-                    // SAFETY: Returned value's lifetime is tied to self so won't outlive it
-                    InternalQueue::RawCommandQueue(unsafe { queue.clone_unsafe() })
+                    InternalQueue::RawCommandQueue(queue.clone())
                 }
             },
             entities: self.entities,
@@ -485,7 +488,9 @@ impl<'w, 's> Commands<'w, 's> {
                 queue.push(command);
             }
             InternalQueue::RawCommandQueue(queue) => {
-                queue.push(command);
+                // SAFETY: We only ever push to the RawCommandQueue stored on world
+                // which is always valid for the lifetime of the world
+                unsafe { queue.push(command); }
             }
         }
     }
