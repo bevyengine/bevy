@@ -76,8 +76,10 @@ impl CommandQueue {
     where
         C: Command,
     {
-        // SAFETY: CommandQueue has a unique mutable borrow
-        unsafe { self.get_raw() }.push(command);
+        // SAFETY: self is garunteed to live for the lifetime of this method
+        unsafe {
+            self.get_raw().push(command);
+        }
     }
     /// Execute the queued [`Command`]s in the world after applying any commands in the world's internal queue.
     /// This clears the queue.
@@ -107,14 +109,13 @@ impl CommandQueue {
     }
 
     /// Returns a [`RawCommandQueue`] instance sharing the underlying command queue.
-    ///
-    /// # Safety
-    ///
-    /// Caller must ensure the raw queue does not outlive self
-    pub(crate) unsafe fn get_raw(&mut self) -> RawCommandQueue {
-        RawCommandQueue {
-            bytes: NonNull::new_unchecked(addr_of_mut!(self.bytes)),
-            cursor: NonNull::new_unchecked(addr_of_mut!(self.cursor)),
+    pub(crate) fn get_raw(&mut self) -> RawCommandQueue {
+        // SAFETY: self is always valid memory
+        unsafe {
+            RawCommandQueue {
+                bytes: NonNull::new_unchecked(addr_of_mut!(self.bytes)),
+                cursor: NonNull::new_unchecked(addr_of_mut!(self.cursor)),
+            }
         }
     }
 }
@@ -132,11 +133,7 @@ impl RawCommandQueue {
     }
 
     /// Returns a new `RawCommandQueue` instance pointing at the same underlying queue.
-    ///
-    /// # Safety
-    ///
-    /// Caller must ensure that the clone does not outlive the original buffer
-    pub unsafe fn clone_unsafe(&self) -> Self {
+    pub fn clone(&self) -> Self {
         Self {
             bytes: self.bytes,
             cursor: self.cursor,
@@ -144,14 +141,18 @@ impl RawCommandQueue {
     }
 
     /// Returns true if the queue is empty.
-    pub fn is_empty(&self) -> bool {
+    /// 
+    /// * Caller ensures that `bytes` and `cursor` point to valid memory
+    pub unsafe fn is_empty(&self) -> bool {
         // SAFETY: Pointers are guaranteed to be valid by requirements on `.clone_unsafe`
         (unsafe { *self.cursor.as_ref() }) >= (unsafe { self.bytes.as_ref() }).len()
     }
 
     /// Push a [`Command`] onto the queue.
+    ///
+    /// # Safety
     #[inline]
-    pub fn push<C>(&mut self, command: C)
+    pub unsafe fn push<C>(&mut self, command: C)
     where
         C: Command,
     {
