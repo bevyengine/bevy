@@ -5,7 +5,8 @@ use crate::{
     folder::LoadedFolder,
     io::{
         AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId, AssetSources,
-        ErasedAssetReader, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader,
+        AssetWriterError, ErasedAssetReader, MissingAssetSourceError, MissingAssetWriterError,
+        MissingProcessedAssetReaderError, MissingProcessedAssetWriterError, Reader,
     },
     loader::{AssetLoader, ErasedAssetLoader, LoadContext, LoadedAsset},
     meta::{
@@ -22,6 +23,7 @@ use bevy_tasks::IoTaskPool;
 use bevy_utils::tracing::{error, info};
 use bevy_utils::{CowArc, HashSet};
 use crossbeam_channel::{Receiver, Sender};
+use futures_io::{AsyncRead, AsyncWrite};
 use futures_lite::StreamExt;
 use info::*;
 use loaders::*;
@@ -1104,6 +1106,60 @@ impl AssetServer {
             })
         })
     }
+
+    /// Low level function that reads a file from an [`AssetSource`] into an [`AsyncWrite`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_asset::AssetServer;
+    /// # async fn read(asset_server: &AssetServer) {
+    /// let mut vec = Vec::new();
+    /// asset_server.read_stream("config/config.json", &mut vec).await;
+    /// # }
+    /// ```
+    pub async fn read_stream(
+        &self,
+        path: impl Into<AssetPath<'static>>,
+        sink: impl AsyncWrite,
+    ) -> Result<(), AssetReadError> {
+        let path: AssetPath = path.into();
+        let source = self.get_source(path.source())?;
+        let asset_reader = match self.data.mode {
+            AssetServerMode::Unprocessed { .. } => source.reader(),
+            AssetServerMode::Processed { .. } => source.processed_reader()?,
+        };
+        let reader = asset_reader.read(path.path()).await?;
+        futures_lite::io::copy(reader, sink).await?;
+        Ok(())
+    }
+
+    /// Low level function that writes to a file from an [`AssetSource`] from an [`AsyncRead`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_asset::AssetServer;
+    /// # async fn write(asset_server: &AssetServer) {
+    /// let mut json = br#"{"bevy": "awesome"}"#;
+    /// asset_server.write_stream("config/config.json", json.as_slice()).await;
+    /// # }
+    /// ```
+    pub async fn write_stream(
+        &self,
+        path: impl Into<AssetPath<'static>>,
+        stream: impl AsyncRead,
+    ) -> Result<(), AssetWriteError> {
+        let path: AssetPath = path.into();
+        let source = self.get_source(path.source())?;
+        let asset_writer = match self.data.mode {
+            AssetServerMode::Unprocessed { .. } => source.writer()?,
+            AssetServerMode::Processed { .. } => source.processed_writer()?,
+        };
+        let writer = asset_writer.write(path.path()).await?;
+        futures_lite::io::copy(stream, writer).await?;
+        Ok(())
+    }
 }
 
 /// A system that manages internal [`AssetServer`] events, such as finalizing asset loads.
@@ -1336,6 +1392,34 @@ pub enum AssetLoadError {
         label: String,
         all_labels: Vec<String>,
     },
+}
+
+/// An error that occurs during an [`AssetServer::read_stream`].
+#[derive(Error, Debug)]
+pub enum AssetReadError {
+    #[error(transparent)]
+    MissingAssetSourceError(#[from] MissingAssetSourceError),
+    #[error(transparent)]
+    MissingProcessedAssetReaderError(#[from] MissingProcessedAssetReaderError),
+    #[error(transparent)]
+    AssetReaderError(#[from] AssetReaderError),
+    #[error(transparent)]
+    IoError(#[from] std::io::Error),
+}
+
+/// An error that occurs during an [`AssetServer::write_stream`].
+#[derive(Error, Debug)]
+pub enum AssetWriteError {
+    #[error(transparent)]
+    MissingAssetSourceError(#[from] MissingAssetSourceError),
+    #[error(transparent)]
+    MissingAssetWriterError(#[from] MissingAssetWriterError),
+    #[error(transparent)]
+    MissingProcessedAssetWriterError(#[from] MissingProcessedAssetWriterError),
+    #[error(transparent)]
+    AssetWriterError(#[from] AssetWriterError),
+    #[error(transparent)]
+    IoError(#[from] std::io::Error),
 }
 
 #[derive(Error, Debug, Clone)]
