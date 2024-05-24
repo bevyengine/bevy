@@ -32,7 +32,7 @@ use std::{collections::VecDeque, iter, ops::Deref};
 /// Using this asset saver requires enabling the `meshlet_processor` cargo feature in addition to `asset_processor`.
 ///
 /// Use only glTF Binary (.glb) or glTF Embedded (.gltf without additional .bin) files.
-/// Using glTF Seperate files (.gltf with additional .bin) will lead to unnecessary data in the final processed asset.
+/// Using glTF Separate files (.gltf with additional .bin) will lead to unnecessary data in the final processed asset.
 ///
 /// Example asset meta file:
 /// ```

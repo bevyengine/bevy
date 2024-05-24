@@ -150,25 +150,21 @@ pub struct GltfLoader {
 /// );
 /// ```
 #[derive(Serialize, Deserialize, Clone)]
+#[serde(default)]
 pub struct GltfLoaderSettings {
     /// If empty, the gltf mesh nodes will be skipped.
     ///
     /// Otherwise, nodes will be loaded and retained in RAM/VRAM according to the active flags.
-    #[serde(skip)]
     pub load_meshes: RenderAssetUsages,
     /// If empty, the gltf materials will be skipped.
     ///
     /// Otherwise, materials will be loaded and retained in RAM/VRAM according to the active flags.
-    #[serde(skip)]
     pub load_materials: RenderAssetUsages,
     /// If true, the loader will spawn cameras for gltf camera nodes.
-    #[serde(skip)]
     pub load_cameras: bool,
     /// If true, the loader will spawn lights for gltf light nodes.
-    #[serde(skip)]
     pub load_lights: bool,
     /// If true, the loader will include the root of the gltf root node.
-    #[serde(skip)]
     pub include_source: bool,
 }
 
