@@ -364,6 +364,7 @@ futures-lite = "2.0.1"
 crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 thiserror = "1.0"
+event-listener = "5.3.0"
 
 [[example]]
 name = "hello_world"
@@ -426,6 +427,17 @@ doc-scrape-examples = true
 [package.metadata.example.mesh2d]
 name = "Mesh 2D"
 description = "Renders a 2d mesh"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "mesh2d_arcs"
+path = "examples/2d/mesh2d_arcs.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mesh2d_arcs]
+name = "Arc 2D Meshes"
+description = "Demonstrates UV-mapping of the circular segment and sector primitives"
 category = "2D Rendering"
 wasm = true
 
@@ -1417,6 +1429,18 @@ doc-scrape-examples = true
 [package.metadata.example.repeated_texture]
 name = "Repeated texture configuration"
 description = "How to configure the texture to repeat instead of the default clamp to edges"
+category = "Assets"
+wasm = true
+
+# Assets
+[[example]]
+name = "multi_asset_sync"
+path = "examples/asset/multi_asset_sync.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.multi_asset_sync]
+name = "Mult-asset synchronization"
+description = "Demonstrates how to wait for multiple assets to be loaded."
 category = "Assets"
 wasm = true
 
