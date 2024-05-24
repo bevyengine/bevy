@@ -19,7 +19,8 @@ use bevy_math::FloatOrd;
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
-        AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline, SortedRenderPhase,
+        AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline,
+        ViewSortedRenderPhases,
     },
     render_resource::*,
     texture::BevyDefault,
@@ -257,15 +258,16 @@ fn queue_line_gizmos_2d(
     msaa: Res<Msaa>,
     line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
-    mut views: Query<(
-        &ExtractedView,
-        &mut SortedRenderPhase<Transparent2d>,
-        Option<&RenderLayers>,
-    )>,
+    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
+    mut views: Query<(Entity, &ExtractedView, Option<&RenderLayers>)>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo2d>().unwrap();
 
-    for (view, mut transparent_phase, render_layers) in &mut views {
+    for (view_entity, view, render_layers) in &mut views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+            continue;
+        };
+
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
@@ -310,18 +312,19 @@ fn queue_line_joint_gizmos_2d(
     msaa: Res<Msaa>,
     line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
-    mut views: Query<(
-        &ExtractedView,
-        &mut SortedRenderPhase<Transparent2d>,
-        Option<&RenderLayers>,
-    )>,
+    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
+    mut views: Query<(Entity, &ExtractedView, Option<&RenderLayers>)>,
 ) {
     let draw_function = draw_functions
         .read()
         .get_id::<DrawLineJointGizmo2d>()
         .unwrap();
 
-    for (view, mut transparent_phase, render_layers) in &mut views {
+    for (view_entity, view, render_layers) in &mut views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+            continue;
+        };
+
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
