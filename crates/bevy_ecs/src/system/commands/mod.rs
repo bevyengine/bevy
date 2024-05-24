@@ -488,8 +488,8 @@ impl<'w, 's> Commands<'w, 's> {
                 queue.push(command);
             }
             InternalQueue::RawCommandQueue(queue) => {
-                // SAFETY: We only ever push to the RawCommandQueue stored on world
-                // which is always valid for the lifetime of the world
+                // SAFETY: `RawCommandQueue` is only every constructed in `Commands::new_raw_from_entities`
+                // where the caller of that has ensured that `queue` outlives `self`
                 unsafe { queue.push(command); }
             }
         }
