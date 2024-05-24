@@ -168,11 +168,14 @@ impl<'w, 's> Commands<'w, 's> {
     /// Returns a new `Commands` instance from a [`RawCommandQueue`] and an [`Entities`] reference.
     ///
     /// This is used when constructing [`Commands`] from a [`DeferredWorld`](crate::world::DeferredWorld).
-    /// 
+    ///
     /// # Safety
-    /// 
+    ///
     /// * `queue` must live for 'w
-    pub(crate) unsafe fn new_raw_from_entities(queue: RawCommandQueue, entities: &'w Entities) -> Self {
+    pub(crate) unsafe fn new_raw_from_entities(
+        queue: RawCommandQueue,
+        entities: &'w Entities,
+    ) -> Self {
         Self {
             queue: InternalQueue::RawCommandQueue(queue),
             entities,
@@ -490,7 +493,9 @@ impl<'w, 's> Commands<'w, 's> {
             InternalQueue::RawCommandQueue(queue) => {
                 // SAFETY: `RawCommandQueue` is only every constructed in `Commands::new_raw_from_entities`
                 // where the caller of that has ensured that `queue` outlives `self`
-                unsafe { queue.push(command); }
+                unsafe {
+                    queue.push(command);
+                }
             }
         }
     }
