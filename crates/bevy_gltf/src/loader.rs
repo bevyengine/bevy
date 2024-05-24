@@ -1359,6 +1359,7 @@ fn load_node(
                         .map(|extensions| extensions.contains_key("BEVY_meshlet_mesh"))
                         .unwrap_or(false)
                     {
+                        #[cfg(feature = "meshlet")]
                         parent.spawn(MaterialMeshletMeshBundle::<StandardMaterial> {
                             // TODO: handle missing label handle errors here?
                             meshlet_mesh: load_context.get_label_handle(&primitive_label),
