@@ -213,7 +213,10 @@ impl RawCommandQueue {
     /// If `world` is [`Some`], this will apply the queued [commands](`Command`).
     /// If `world` is [`None`], this will drop the queued [commands](`Command`) (without applying them).
     /// This clears the queue.
-    /// SAFETY: Caller must ensure that `queue` is a valid pointer
+    ///
+    /// # Safety
+    ///
+    /// * Caller ensures that `self` has not outlived the underlying queue
     #[inline]
     pub(crate) unsafe fn apply_or_drop_queued(&mut self, world: Option<NonNull<World>>) {
         // SAFETY: If this is the command queue on world, world will not be dropped as we have a mutable reference

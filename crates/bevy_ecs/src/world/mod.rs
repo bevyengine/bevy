@@ -1886,6 +1886,7 @@ impl World {
     pub fn flush_commands(&mut self) {
         // SAFETY: `self.command_queue` is only de-allocated in `World`'s `Drop`
         if !unsafe { self.command_queue.is_empty() } {
+            // SAFETY: `self.command_queue` is only de-allocated in `World`'s `Drop`
             unsafe {
                 self.command_queue
                     .clone()
