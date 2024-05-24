@@ -26,7 +26,7 @@ use crate::{
 /// an ordered list of [`CommandBuffer`]s to execute. These [`CommandBuffer`] will be submitted to the GPU
 /// sequentially in the order that the tasks were submitted. (which is the order of the [`RenderGraph`])
 ///
-/// `CommandBuffer`: wgpu::CommandBuffer
+/// [`CommandBuffer`]: wgpu::CommandBuffer
 pub(crate) struct RenderGraphRunner;
 
 #[derive(Error, Debug)]
