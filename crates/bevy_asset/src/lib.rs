@@ -445,7 +445,7 @@ mod tests {
         AssetPlugin, AssetServer, Assets, DependencyLoadState, LoadState,
         RecursiveDependencyLoadState,
     };
-    use bevy_app::{App, Update};
+    use bevy_app::{App, AppExit, Update};
     use bevy_core::TaskPoolPlugin;
     use bevy_ecs::prelude::*;
     use bevy_ecs::{
@@ -454,10 +454,17 @@ mod tests {
     };
     use bevy_log::LogPlugin;
     use bevy_reflect::TypePath;
+    use bevy_tasks::AsyncComputeTaskPool;
     use bevy_utils::{Duration, HashMap};
     use futures_lite::AsyncReadExt;
     use serde::{Deserialize, Serialize};
-    use std::{path::Path, sync::Arc};
+    use std::{
+        path::Path,
+        sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        },
+    };
     use thiserror::Error;
 
     #[derive(Asset, TypePath, Debug, Default)]
@@ -1481,9 +1488,67 @@ mod tests {
                 ..Default::default()
             });
         });
+    }
+
+    #[test]
+    fn stream_io() {
+        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
+        #[cfg(not(feature = "multi_threaded"))]
+        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
+
+        let dir = Dir::default();
+
+        let a_path = "a.cool.ron";
+        let a_ron = r#"
+(
+    text: "a",
+    dependencies: [
+        "foo/b.cool.ron",
+        "c.cool.ron",
+    ],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#;
+        let b_path = "foo/b.cool.ron";
+        let b_ron = r#"
+(
+    text: "b",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#;
+
+        dir.insert_asset_text(Path::new(a_path), a_ron);
 
         // running schedule does not error on ambiguity between the 2 uses_assets systems
-        app.world_mut().run_schedule(Update);
+        let (mut app, _gate) = test_app(dir);
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let lock = Arc::new(AtomicBool::new(false));
+        let lock_check = lock.clone();
+        let final_check = lock.clone();
+        app.add_systems(Update, move |mut event: EventWriter<AppExit>| {
+            if lock_check.load(Ordering::Acquire) {
+                event.send(AppExit::Success);
+            }
+        });
+        AsyncComputeTaskPool::get()
+            .spawn(async move {
+                let mut reader = Vec::new();
+                asset_server.read_stream(a_path, &mut reader).await.unwrap();
+                assert_eq!(reader, a_ron.as_bytes());
+
+                asset_server
+                    .write_stream(b_path, b_ron.as_bytes())
+                    .await
+                    .unwrap();
+
+                asset_server.read_stream(b_path, &mut reader).await.unwrap();
+                assert_eq!(reader, b_ron.as_bytes());
+                lock.store(true, Ordering::Release);
+            })
+            .detach();
+        app.run();
+        assert!(final_check.load(Ordering::Acquire));
     }
 
     // validate the Asset derive macro for various asset types
