@@ -16,7 +16,7 @@ use bevy_utils::HashMap;
 
 mod loader;
 #[cfg(feature = "meshlet")]
-mod meshlet;
+mod meshlet_saver;
 mod vertex_attributes;
 pub use loader::*;
 
@@ -65,8 +65,8 @@ impl Plugin for GltfPlugin {
             .preregister_asset_loader::<GltfLoader>(&["gltf", "glb"]);
 
         #[cfg(feature = "meshlet")]
-        app.register_asset_processor_with_alias::<bevy_asset::processor::LoadAndSave<RawGltfLoader, meshlet::MeshletMeshGltfSaver>>(
-                meshlet::MeshletMeshGltfSaver.into(),
+        app.register_asset_processor_with_alias::<bevy_asset::processor::LoadAndSave<RawGltfLoader, meshlet_saver::MeshletMeshGltfSaver>>(
+                meshlet_saver::MeshletMeshGltfSaver.into(),
                 "MeshletMeshProcessor"
             );
     }
