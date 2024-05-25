@@ -977,7 +977,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
 
         StandardMaterialUniform {
             base_color: LinearRgba::from(self.base_color).to_vec4(),
-            emissive: self.emissive.to_vec4(),
+            emissive,
             roughness: self.perceptual_roughness,
             metallic: self.metallic,
             reflectance: self.reflectance,
