@@ -37,7 +37,7 @@ pub enum PlaybackMode {
     Once,
     /// Repeat the sound forever.
     Loop,
-    /// Despawn the entity when the sound finishes playing.
+    /// Despawn the entity and its children when the sound finishes playing.
     Despawn,
     /// Remove the audio components from the entity, when the sound finishes playing.
     Remove,
@@ -250,6 +250,15 @@ where
     /// query for the [`AudioSink`][crate::AudioSink] component.
     /// Changes to this component will *not* be applied to already-playing audio.
     pub settings: PlaybackSettings,
+}
+
+impl<T: Asset + Decodable> Clone for AudioSourceBundle<T> {
+    fn clone(&self) -> Self {
+        Self {
+            source: self.source.clone(),
+            settings: self.settings,
+        }
+    }
 }
 
 impl<T: Decodable + Asset> Default for AudioSourceBundle<T> {

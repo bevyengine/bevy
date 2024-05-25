@@ -2,7 +2,7 @@
 
 struct Mesh2d {
     // Affine 4x3 matrix transposed to 3x4
-    // Use bevy_render::maths::affine_to_square to unpack
+    // Use bevy_render::maths::affine3_to_square to unpack
     model: mat3x4<f32>,
     // 3x3 matrix packed in mat2x4 and f32 as:
     // [0].xyz, [1].x,

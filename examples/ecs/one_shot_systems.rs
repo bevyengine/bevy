@@ -15,15 +15,17 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_systems(Startup, (count_entities, setup))
-        .add_systems(PostUpdate, count_entities)
-        .add_systems(Update, evaluate_callbacks)
+        .add_plugins(DefaultPlugins)
+        .add_systems(
+            Startup,
+            (
+                setup_ui,
+                setup_with_commands,
+                setup_with_world.after(setup_ui), // since we run `system_b` once in world it needs to run after `setup_ui`
+            ),
+        )
+        .add_systems(Update, (trigger_system, evaluate_callbacks).chain())
         .run();
-}
-
-// Any ordinary system can be run via commands.run_system or world.run_system.
-fn count_entities(all_entities: Query<()>) {
-    dbg!(all_entities.iter().count());
 }
 
 #[derive(Component)]
@@ -32,28 +34,95 @@ struct Callback(SystemId);
 #[derive(Component)]
 struct Triggered;
 
-fn setup(world: &mut World) {
-    let button_pressed_id = world.register_system(button_pressed);
-    world.spawn((Callback(button_pressed_id), Triggered));
-    // This entity does not have a Triggered component, so its callback won't run.
-    let slider_toggled_id = world.register_system(slider_toggled);
-    world.spawn(Callback(slider_toggled_id));
-    world.run_system_once(count_entities);
+#[derive(Component)]
+struct A;
+#[derive(Component)]
+struct B;
+
+fn setup_with_commands(mut commands: Commands) {
+    let system_id = commands.register_one_shot_system(system_a);
+    commands.spawn((Callback(system_id), A));
 }
 
-fn button_pressed() {
-    println!("A button was pressed!");
+fn setup_with_world(world: &mut World) {
+    // We can run it once manually
+    world.run_system_once(system_b);
+    // Or with a Callback
+    let system_id = world.register_system(system_b);
+    world.spawn((Callback(system_id), B));
 }
 
-fn slider_toggled() {
-    println!("A slider was toggled!");
+/// Tag entities that have callbacks we want to run with the `Triggered` component.
+fn trigger_system(
+    mut commands: Commands,
+    query_a: Query<Entity, With<A>>,
+    query_b: Query<Entity, With<B>>,
+    input: Res<ButtonInput<KeyCode>>,
+) {
+    if input.just_pressed(KeyCode::KeyA) {
+        let entity = query_a.single();
+        commands.entity(entity).insert(Triggered);
+    }
+    if input.just_pressed(KeyCode::KeyB) {
+        let entity = query_b.single();
+        commands.entity(entity).insert(Triggered);
+    }
 }
 
-/// Runs the systems associated with each `Callback` component if the entity also has a Triggered component.
+/// Runs the systems associated with each `Callback` component if the entity also has a `Triggered` component.
 ///
 /// This could be done in an exclusive system rather than using `Commands` if preferred.
-fn evaluate_callbacks(query: Query<&Callback, With<Triggered>>, mut commands: Commands) {
-    for callback in query.iter() {
+fn evaluate_callbacks(query: Query<(Entity, &Callback), With<Triggered>>, mut commands: Commands) {
+    for (entity, callback) in query.iter() {
         commands.run_system(callback.0);
+        commands.entity(entity).remove::<Triggered>();
     }
+}
+
+fn system_a(mut query: Query<&mut Text>) {
+    let mut text = query.single_mut();
+    text.sections[2].value = String::from("A");
+    info!("A: One shot system registered with Commands was triggered");
+}
+
+fn system_b(mut query: Query<&mut Text>) {
+    let mut text = query.single_mut();
+    text.sections[2].value = String::from("B");
+    info!("B: One shot system registered with World was triggered");
+}
+
+fn setup_ui(mut commands: Commands) {
+    commands.spawn(Camera2dBundle::default());
+    commands.spawn(
+        TextBundle::from_sections([
+            TextSection::new(
+                "Press A or B to trigger a one-shot system\n",
+                TextStyle {
+                    font_size: 25.0,
+                    ..default()
+                },
+            ),
+            TextSection::new(
+                "Last Triggered: ",
+                TextStyle {
+                    font_size: 20.0,
+                    ..default()
+                },
+            ),
+            TextSection::new(
+                "-",
+                TextStyle {
+                    font_size: 20.0,
+                    color: bevy::color::palettes::css::ORANGE.into(),
+                    ..default()
+                },
+            ),
+        ])
+        .with_text_justify(JustifyText::Center)
+        .with_style(Style {
+            align_self: AlignSelf::Center,
+            justify_self: JustifySelf::Center,
+            ..default()
+        }),
+    );
 }

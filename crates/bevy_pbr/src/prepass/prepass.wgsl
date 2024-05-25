@@ -4,7 +4,8 @@
     prepass_io::{Vertex, VertexOutput, FragmentOutput},
     skinning,
     morph,
-    mesh_view_bindings::{view, previous_view_proj},
+    mesh_view_bindings::view,
+    view_transformations::position_world_to_clip,
 }
 
 #ifdef DEFERRED_PREPASS
@@ -50,15 +51,16 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var model = mesh_functions::get_model_matrix(vertex_no_morph.instance_index);
 #endif // SKINNED
 
-    out.position = mesh_functions::mesh_position_local_to_clip(model, vec4(vertex.position, 1.0));
+    out.world_position = mesh_functions::mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
+    out.position = position_world_to_clip(out.world_position.xyz);
 #ifdef DEPTH_CLAMP_ORTHO
     out.clip_position_unclamped = out.position;
     out.position.z = min(out.position.z, 1.0);
 #endif // DEPTH_CLAMP_ORTHO
 
-#ifdef VERTEX_UVS
+#ifdef VERTEX_UVS_A
     out.uv = vertex.uv;
-#endif // VERTEX_UVS
+#endif // VERTEX_UVS_A
 
 #ifdef VERTEX_UVS_B
     out.uv_b = vertex.uv_b;
@@ -90,8 +92,6 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #ifdef VERTEX_COLORS
     out.color = vertex.color;
 #endif
-
-    out.world_position = mesh_functions::mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
 
 #ifdef MOTION_VECTOR_PREPASS
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
@@ -127,7 +127,7 @@ fn fragment(in: VertexOutput) -> FragmentOutput {
 #ifdef MOTION_VECTOR_PREPASS
     let clip_position_t = view.unjittered_view_proj * in.world_position;
     let clip_position = clip_position_t.xy / clip_position_t.w;
-    let previous_clip_position_t = prepass_bindings::previous_view_proj * in.previous_world_position;
+    let previous_clip_position_t = prepass_bindings::previous_view_uniforms.view_proj * in.previous_world_position;
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;
     // These motion vectors are used as offsets to UV positions and are stored
     // in the range -1,1 to allow offsetting from the one corner to the

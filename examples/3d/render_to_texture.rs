@@ -64,7 +64,7 @@ fn setup(
 
     let cube_handle = meshes.add(Cuboid::new(4.0, 4.0, 4.0));
     let cube_material_handle = materials.add(StandardMaterial {
-        base_color: Color::rgb(0.8, 0.7, 0.6),
+        base_color: Color::srgb(0.8, 0.7, 0.6),
         reflectance: 0.02,
         unlit: false,
         ..default()
@@ -82,23 +82,19 @@ fn setup(
             ..default()
         },
         FirstPassCube,
-        first_pass_layer,
+        first_pass_layer.clone(),
     ));
 
     // Light
-    // NOTE: we add the light to all layers so it affects both the rendered-to-texture cube, and the cube on which we display the texture
+    // NOTE: we add the light to both layers so it affects both the rendered-to-texture cube, and the cube on which we display the texture
     // Setting the layer to RenderLayers::layer(0) would cause the main view to be lit, but the rendered-to-texture cube to be unlit.
     // Setting the layer to RenderLayers::layer(1) would cause the rendered-to-texture cube to be lit, but the main view to be unlit.
     commands.spawn((
         PointLightBundle {
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
-            point_light: PointLight {
-                intensity: 150_000.0,
-                ..default()
-            },
             ..default()
         },
-        RenderLayers::all(),
+        RenderLayers::layer(0).with(1),
     ));
 
     commands.spawn((

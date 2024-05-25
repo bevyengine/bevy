@@ -1,17 +1,17 @@
 use bevy_asset::Assets;
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 use bevy_render::{
     batching::NoAutomaticBatching,
     mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-    render_resource::{BufferUsages, BufferVec},
+    render_resource::{BufferUsages, RawBufferVec},
     renderer::{RenderDevice, RenderQueue},
     view::ViewVisibility,
     Extract,
 };
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::EntityHashMap;
 
 /// Maximum number of joints supported for skinned meshes.
 pub const MAX_JOINTS: usize = 256;
@@ -31,18 +31,18 @@ impl SkinIndex {
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
-pub struct SkinIndices(EntityHashMap<Entity, SkinIndex>);
+pub struct SkinIndices(EntityHashMap<SkinIndex>);
 
 // Notes on implementation: see comment on top of the `extract_skins` system.
 #[derive(Resource)]
 pub struct SkinUniform {
-    pub buffer: BufferVec<Mat4>,
+    pub buffer: RawBufferVec<Mat4>,
 }
 
 impl Default for SkinUniform {
     fn default() -> Self {
         Self {
-            buffer: BufferVec::new(BufferUsages::UNIFORM),
+            buffer: RawBufferVec::new(BufferUsages::UNIFORM),
         }
     }
 }
@@ -146,6 +146,6 @@ pub fn no_automatic_skin_batching(
     query: Query<Entity, (With<SkinnedMesh>, Without<NoAutomaticBatching>)>,
 ) {
     for entity in &query {
-        commands.entity(entity).insert(NoAutomaticBatching);
+        commands.entity(entity).try_insert(NoAutomaticBatching);
     }
 }

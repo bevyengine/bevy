@@ -2,8 +2,9 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::{RenderPhase, TrackedRenderPass},
+    render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::{CommandEncoderDescriptor, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::ViewDepthTexture,
@@ -21,9 +22,8 @@ pub struct PrepassNode;
 
 impl ViewNode for PrepassNode {
     type ViewQuery = (
+        Entity,
         &'static ExtractedCamera,
-        &'static RenderPhase<Opaque3dPrepass>,
-        &'static RenderPhase<AlphaMask3dPrepass>,
         &'static ViewDepthTexture,
         &'static ViewPrepassTextures,
         Option<&'static DeferredPrepass>,
@@ -33,16 +33,28 @@ impl ViewNode for PrepassNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (
-            camera,
-            opaque_prepass_phase,
-            alpha_mask_prepass_phase,
-            view_depth_texture,
-            view_prepass_textures,
-            deferred_prepass,
-        ): QueryItem<'w, Self::ViewQuery>,
+        (view, camera, view_depth_texture, view_prepass_textures, deferred_prepass): QueryItem<
+            'w,
+            Self::ViewQuery,
+        >,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
+        let (Some(opaque_prepass_phases), Some(alpha_mask_prepass_phases)) = (
+            world.get_resource::<ViewBinnedRenderPhases<Opaque3dPrepass>>(),
+            world.get_resource::<ViewBinnedRenderPhases<AlphaMask3dPrepass>>(),
+        ) else {
+            return Ok(());
+        };
+
+        let (Some(opaque_prepass_phase), Some(alpha_mask_prepass_phase)) = (
+            opaque_prepass_phases.get(&view),
+            alpha_mask_prepass_phases.get(&view),
+        ) else {
+            return Ok(());
+        };
+
+        let diagnostics = render_context.diagnostic_recorder();
+
         let mut color_attachments = vec![
             view_prepass_textures
                 .normal
@@ -83,25 +95,31 @@ impl ViewNode for PrepassNode {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
+
             let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
+            let pass_span = diagnostics.pass_span(&mut render_pass, "prepass");
+
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
             }
 
             // Opaque draws
-            if !opaque_prepass_phase.items.is_empty() {
+            if !opaque_prepass_phase.batchable_keys.is_empty()
+                || !opaque_prepass_phase.unbatchable_keys.is_empty()
+            {
                 #[cfg(feature = "trace")]
                 let _opaque_prepass_span = info_span!("opaque_prepass").entered();
                 opaque_prepass_phase.render(&mut render_pass, world, view_entity);
             }
 
             // Alpha masked draws
-            if !alpha_mask_prepass_phase.items.is_empty() {
+            if !alpha_mask_prepass_phase.is_empty() {
                 #[cfg(feature = "trace")]
                 let _alpha_mask_prepass_span = info_span!("alpha_mask_prepass").entered();
                 alpha_mask_prepass_phase.render(&mut render_pass, world, view_entity);
             }
 
+            pass_span.end(&mut render_pass);
             drop(render_pass);
 
             // Copy prepass depth to the main depth texture if deferred isn't going to

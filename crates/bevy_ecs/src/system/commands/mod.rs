@@ -1,66 +1,24 @@
-mod command_queue;
 mod parallel_scope;
 
+use super::{Deferred, IntoSystem, RegisterSystem, Resource};
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
+    component::ComponentId,
     entity::{Entities, Entity},
     system::{RunSystemWithInput, SystemId},
-    world::{EntityWorldMut, FromWorld, World},
+    world::{Command, CommandQueue, EntityWorldMut, FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
-pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
-
-use super::{Deferred, Resource, SystemBuffer, SystemMeta};
-
-/// A [`World`] mutation.
-///
-/// Should be used with [`Commands::add`].
-///
-/// # Usage
-///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::system::Command;
-/// // Our world resource
-/// #[derive(Resource, Default)]
-/// struct Counter(u64);
-///
-/// // Our custom command
-/// struct AddToCounter(u64);
-///
-/// impl Command for AddToCounter {
-///     fn apply(self, world: &mut World) {
-///         let mut counter = world.get_resource_or_insert_with(Counter::default);
-///         counter.0 += self.0;
-///     }
-/// }
-///
-/// fn some_system(mut commands: Commands) {
-///     commands.add(AddToCounter(42));
-/// }
-/// ```
-pub trait Command: Send + 'static {
-    /// Applies this command, causing it to mutate the provided `world`.
-    ///
-    /// This method is used to define what a command "does" when it is ultimately applied.
-    /// Because this method takes `self`, you can store data or settings on the type that implements this trait.
-    /// This data is set by the system or other source of the command, and then ultimately read in this method.
-    fn apply(self, world: &mut World);
-}
 
 /// A [`Command`] queue to perform structural changes to the [`World`].
 ///
 /// Since each command requires exclusive access to the `World`,
 /// all queued commands are automatically applied in sequence
-/// when the [`apply_deferred`] system runs.
-///
-/// The command queue of an individual system can also be manually applied
-/// by calling [`System::apply_deferred`].
-/// Similarly, the command queue of a schedule can be manually applied via [`Schedule::apply_deferred`].
+/// when the `apply_deferred` system runs (see [`apply_deferred`] documentation for more details).
 ///
 /// Each command can be used to modify the [`World`] in arbitrary ways:
 /// * spawning or despawning entities
@@ -106,22 +64,11 @@ pub trait Command: Send + 'static {
 /// # }
 /// ```
 ///
-/// [`System::apply_deferred`]: crate::system::System::apply_deferred
 /// [`apply_deferred`]: crate::schedule::apply_deferred
-/// [`Schedule::apply_deferred`]: crate::schedule::Schedule::apply_deferred
 #[derive(SystemParam)]
 pub struct Commands<'w, 's> {
     queue: Deferred<'s, CommandQueue>,
     entities: &'w Entities,
-}
-
-impl SystemBuffer for CommandQueue {
-    #[inline]
-    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
-        #[cfg(feature = "trace")]
-        let _span_guard = _system_meta.commands_span.enter();
-        self.apply(world);
-    }
 }
 
 impl<'w, 's> Commands<'w, 's> {
@@ -458,12 +405,12 @@ impl<'w, 's> Commands<'w, 's> {
     /// Spawning a specific `entity` value is rarely the right choice. Most apps should use [`Commands::spawn_batch`].
     /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
     /// worked out to share an ID space (which doesn't happen by default).
-    pub fn insert_or_spawn_batch<I, B>(&mut self, bundles: I)
+    pub fn insert_or_spawn_batch<I, B>(&mut self, bundles_iter: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle,
     {
-        self.queue.push(insert_or_spawn_batch(bundles));
+        self.queue.push(insert_or_spawn_batch(bundles_iter));
     }
 
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with an inferred value.
@@ -574,6 +521,69 @@ impl<'w, 's> Commands<'w, 's> {
             .push(RunSystemWithInput::new_with_input(id, input));
     }
 
+    /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
+    ///
+    /// It's possible to register the same systems more than once, they'll be stored separately.
+    ///
+    /// This is different from adding systems to a [`Schedule`](crate::schedule::Schedule),
+    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
+    /// This allows for running systems in a push-based fashion.
+    /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
+    /// due to its better performance and ability to run non-conflicting systems simultaneously.
+    ///
+    /// If you want to prevent Commands from registering the same system multiple times, consider using [`Local`](crate::system::Local)
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::CommandQueue, system::SystemId};
+    ///
+    /// #[derive(Resource)]
+    /// struct Counter(i32);
+    ///
+    /// fn register_system(mut local_system: Local<Option<SystemId>>, mut commands: Commands) {
+    ///     if let Some(system) = *local_system {
+    ///         commands.run_system(system);
+    ///     } else {
+    ///         *local_system = Some(commands.register_one_shot_system(increment_counter));
+    ///     }
+    /// }
+    ///
+    /// fn increment_counter(mut value: ResMut<Counter>) {
+    ///     value.0 += 1;
+    /// }
+    ///
+    /// # let mut world = World::default();
+    /// # world.insert_resource(Counter(0));
+    /// # let mut queue_1 = CommandQueue::default();
+    /// # let systemid = {
+    /// #   let mut commands = Commands::new(&mut queue_1, &world);
+    /// #   commands.register_one_shot_system(increment_counter)
+    /// # };
+    /// # let mut queue_2 = CommandQueue::default();
+    /// # {
+    /// #   let mut commands = Commands::new(&mut queue_2, &world);
+    /// #   commands.run_system(systemid);
+    /// # }
+    /// # queue_1.append(&mut queue_2);
+    /// # queue_1.apply(&mut world);
+    /// # assert_eq!(1, world.resource::<Counter>().0);
+    /// # bevy_ecs::system::assert_is_system(register_system);
+    /// ```
+    pub fn register_one_shot_system<
+        I: 'static + Send,
+        O: 'static + Send,
+        M,
+        S: IntoSystem<I, O, M> + 'static,
+    >(
+        &mut self,
+        system: S,
+    ) -> SystemId<I, O> {
+        let entity = self.spawn_empty().id();
+        self.queue.push(RegisterSystem::new(system, entity));
+        SystemId::from_entity(entity)
+    }
+
     /// Pushes a generic [`Command`] to the command queue.
     ///
     /// `command` can be a built-in command, custom struct that implements [`Command`] or a closure
@@ -581,7 +591,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # Example
     ///
     /// ```
-    /// # use bevy_ecs::{system::Command, prelude::*};
+    /// # use bevy_ecs::{world::Command, prelude::*};
     /// #[derive(Resource, Default)]
     /// struct Counter(u64);
     ///
@@ -818,13 +828,13 @@ impl EntityCommands<'_> {
     ///   commands.entity(player.entity)
     ///    // You can try_insert individual components:
     ///     .try_insert(Defense(10))
-    ///     
+    ///
     ///    // You can also insert tuples of components:
     ///     .try_insert(CombatBundle {
     ///         health: Health(100),
     ///         strength: Strength(40),
     ///     });
-    ///    
+    ///
     ///    // Suppose this occurs in a parallel adjacent system or process
     ///    commands.entity(player.entity)
     ///      .despawn();
@@ -879,6 +889,11 @@ impl EntityCommands<'_> {
         T: Bundle,
     {
         self.add(remove::<T>)
+    }
+
+    /// Removes a component from the entity.
+    pub fn remove_by_id(&mut self, component_id: ComponentId) -> &mut Self {
+        self.add(remove_by_id(component_id))
     }
 
     /// Despawns the entity.
@@ -1025,13 +1040,13 @@ where
 /// A [`Command`] that consumes an iterator of [`Bundle`]s to spawn a series of entities.
 ///
 /// This is more efficient than spawning the entities individually.
-fn spawn_batch<I, B>(bundles: I) -> impl Command
+fn spawn_batch<I, B>(bundles_iter: I) -> impl Command
 where
     I: IntoIterator<Item = B> + Send + Sync + 'static,
     B: Bundle,
 {
     move |world: &mut World| {
-        world.spawn_batch(bundles);
+        world.spawn_batch(bundles_iter);
     }
 }
 
@@ -1039,13 +1054,13 @@ where
 /// If any entities do not already exist in the world, they will be spawned.
 ///
 /// This is more efficient than inserting the bundles individually.
-fn insert_or_spawn_batch<I, B>(bundles: I) -> impl Command
+fn insert_or_spawn_batch<I, B>(bundles_iter: I) -> impl Command
 where
     I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
     B: Bundle,
 {
     move |world: &mut World| {
-        if let Err(invalid_entities) = world.insert_or_spawn_batch(bundles) {
+        if let Err(invalid_entities) = world.insert_or_spawn_batch(bundles_iter) {
             error!(
                 "Failed to 'insert or spawn' bundle of type {} into the following invalid entities: {:?}",
                 std::any::type_name::<B>(),
@@ -1072,7 +1087,7 @@ fn insert<T: Bundle>(bundle: T) -> impl EntityCommand {
         if let Some(mut entity) = world.get_entity_mut(entity) {
             entity.insert(bundle);
         } else {
-            panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.", std::any::type_name::<T>(), entity);
+            panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/#b0003", std::any::type_name::<T>(), entity);
         }
     }
 }
@@ -1086,16 +1101,28 @@ fn try_insert(bundle: impl Bundle) -> impl EntityCommand {
     }
 }
 
-/// A [`Command`] that removes components from an entity.
+/// An [`EntityCommand`] that removes components from an entity.
 /// For a [`Bundle`] type `T`, this will remove any components in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
 fn remove<T: Bundle>(entity: Entity, world: &mut World) {
-    if let Some(mut entity_mut) = world.get_entity_mut(entity) {
-        entity_mut.remove::<T>();
+    if let Some(mut entity) = world.get_entity_mut(entity) {
+        entity.remove::<T>();
     }
 }
 
-/// A [`Command`] that removes components from an entity.
+/// An [`EntityCommand`] that removes components with a provided [`ComponentId`] from an entity.
+/// # Panics
+///
+/// Panics if the provided [`ComponentId`] does not exist in the [`World`].
+fn remove_by_id(component_id: ComponentId) -> impl EntityCommand {
+    move |entity: Entity, world: &mut World| {
+        if let Some(mut entity) = world.get_entity_mut(entity) {
+            entity.remove_by_id(component_id);
+        }
+    }
+}
+
+/// An [`EntityCommand`] that removes components from an entity.
 /// For a [`Bundle`] type `T`, this will remove all components except those in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
 fn retain<T: Bundle>(entity: Entity, world: &mut World) {
@@ -1138,14 +1165,18 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         component::Component,
-        system::{CommandQueue, Commands, Resource},
-        world::World,
+        system::{Commands, Resource},
+        world::{CommandQueue, World},
     };
-    use std::sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
+    use std::{
+        any::TypeId,
+        sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        },
     };
 
+    #[allow(dead_code)]
     #[derive(Component)]
     #[component(storage = "SparseSet")]
     struct SparseDropCk(DropCk);
@@ -1248,6 +1279,59 @@ mod tests {
             .entity(entity)
             .remove::<W<u32>>()
             .remove::<(W<u32>, W<u64>, SparseDropCk, DropCk)>();
+
+        assert_eq!(dense_is_dropped.load(Ordering::Relaxed), 0);
+        assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 0);
+        command_queue.apply(&mut world);
+        assert_eq!(dense_is_dropped.load(Ordering::Relaxed), 1);
+        assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 1);
+
+        let results_after = world
+            .query::<(&W<u32>, &W<u64>)>()
+            .iter(&world)
+            .map(|(a, b)| (a.0, b.0))
+            .collect::<Vec<_>>();
+        assert_eq!(results_after, vec![]);
+        let results_after_u64 = world
+            .query::<&W<u64>>()
+            .iter(&world)
+            .map(|v| v.0)
+            .collect::<Vec<_>>();
+        assert_eq!(results_after_u64, vec![]);
+    }
+
+    #[test]
+    fn remove_components_by_id() {
+        let mut world = World::default();
+
+        let mut command_queue = CommandQueue::default();
+        let (dense_dropck, dense_is_dropped) = DropCk::new_pair();
+        let (sparse_dropck, sparse_is_dropped) = DropCk::new_pair();
+        let sparse_dropck = SparseDropCk(sparse_dropck);
+
+        let entity = Commands::new(&mut command_queue, &world)
+            .spawn((W(1u32), W(2u64), dense_dropck, sparse_dropck))
+            .id();
+        command_queue.apply(&mut world);
+        let results_before = world
+            .query::<(&W<u32>, &W<u64>)>()
+            .iter(&world)
+            .map(|(a, b)| (a.0, b.0))
+            .collect::<Vec<_>>();
+        assert_eq!(results_before, vec![(1u32, 2u64)]);
+
+        // test component removal
+        Commands::new(&mut command_queue, &world)
+            .entity(entity)
+            .remove_by_id(world.components().get_id(TypeId::of::<W<u32>>()).unwrap())
+            .remove_by_id(world.components().get_id(TypeId::of::<W<u64>>()).unwrap())
+            .remove_by_id(world.components().get_id(TypeId::of::<DropCk>()).unwrap())
+            .remove_by_id(
+                world
+                    .components()
+                    .get_id(TypeId::of::<SparseDropCk>())
+                    .unwrap(),
+            );
 
         assert_eq!(dense_is_dropped.load(Ordering::Relaxed), 0);
         assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 0);

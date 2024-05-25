@@ -1,4 +1,6 @@
 //! A simplified implementation of the classic game "Breakout".
+//!
+//! Demonstrates Bevy's stepping capabilities if compiled with the `bevy_debug_stepping` feature.
 
 use bevy::{
     math::bounding::{Aabb2d, BoundingCircle, BoundingVolume, IntersectsVolume},
@@ -10,7 +12,7 @@ mod stepping;
 
 // These constants are defined in `Transform` units.
 // Using the default 2D camera they correspond 1:1 with screen pixels.
-const PADDLE_SIZE: Vec3 = Vec3::new(120.0, 20.0, 0.0);
+const PADDLE_SIZE: Vec2 = Vec2::new(120.0, 20.0);
 const GAP_BETWEEN_PADDLE_AND_FLOOR: f32 = 60.0;
 const PADDLE_SPEED: f32 = 500.0;
 // How close can the paddle get to the wall
@@ -41,13 +43,13 @@ const GAP_BETWEEN_BRICKS_AND_SIDES: f32 = 20.0;
 const SCOREBOARD_FONT_SIZE: f32 = 40.0;
 const SCOREBOARD_TEXT_PADDING: Val = Val::Px(5.0);
 
-const BACKGROUND_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
-const PADDLE_COLOR: Color = Color::rgb(0.3, 0.3, 0.7);
-const BALL_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
-const BRICK_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
-const WALL_COLOR: Color = Color::rgb(0.8, 0.8, 0.8);
-const TEXT_COLOR: Color = Color::rgb(0.5, 0.5, 1.0);
-const SCORE_COLOR: Color = Color::rgb(1.0, 0.5, 0.5);
+const BACKGROUND_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
+const PADDLE_COLOR: Color = Color::srgb(0.3, 0.3, 0.7);
+const BALL_COLOR: Color = Color::srgb(1.0, 0.5, 0.5);
+const BRICK_COLOR: Color = Color::srgb(0.5, 0.5, 1.0);
+const WALL_COLOR: Color = Color::srgb(0.8, 0.8, 0.8);
+const TEXT_COLOR: Color = Color::srgb(0.5, 0.5, 1.0);
+const SCORE_COLOR: Color = Color::srgb(1.0, 0.5, 0.5);
 
 fn main() {
     App::new()
@@ -58,7 +60,7 @@ fn main() {
                 .add_schedule(FixedUpdate)
                 .at(Val::Percent(35.0), Val::Percent(50.0)),
         )
-        .insert_resource(Scoreboard { score: 0 })
+        .insert_resource(Score(0))
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_event::<CollisionEvent>()
         .add_systems(Startup, setup)
@@ -75,7 +77,7 @@ fn main() {
                 // `chain`ing systems together runs them in order
                 .chain(),
         )
-        .add_systems(Update, (update_scoreboard, bevy::window::close_on_esc))
+        .add_systems(Update, update_scoreboard)
         .run();
 }
 
@@ -97,7 +99,7 @@ struct CollisionEvent;
 #[derive(Component)]
 struct Brick;
 
-#[derive(Resource)]
+#[derive(Resource, Deref)]
 struct CollisionSound(Handle<AudioSource>);
 
 // This bundle is a collection of the components that define a "wall" in our game
@@ -118,6 +120,7 @@ enum WallLocation {
 }
 
 impl WallLocation {
+    /// Location of the *center* of the wall, used in `transform.translation()`
     fn position(&self) -> Vec2 {
         match self {
             WallLocation::Left => Vec2::new(LEFT_WALL, 0.),
@@ -127,6 +130,7 @@ impl WallLocation {
         }
     }
 
+    /// (x, y) dimensions of the wall, used in `transform.scale()`
     fn size(&self) -> Vec2 {
         let arena_height = TOP_WALL - BOTTOM_WALL;
         let arena_width = RIGHT_WALL - LEFT_WALL;
@@ -173,10 +177,8 @@ impl WallBundle {
 }
 
 // This resource tracks the game's score
-#[derive(Resource)]
-struct Scoreboard {
-    score: usize,
-}
+#[derive(Resource, Deref, DerefMut)]
+struct Score(usize);
 
 #[derive(Component)]
 struct ScoreboardUi;
@@ -202,7 +204,7 @@ fn setup(
         SpriteBundle {
             transform: Transform {
                 translation: Vec3::new(0.0, paddle_y, 0.0),
-                scale: PADDLE_SIZE,
+                scale: PADDLE_SIZE.extend(1.0),
                 ..default()
             },
             sprite: Sprite {
@@ -350,27 +352,26 @@ fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>
     }
 }
 
-fn update_scoreboard(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text, With<ScoreboardUi>>) {
+fn update_scoreboard(score: Res<Score>, mut query: Query<&mut Text, With<ScoreboardUi>>) {
     let mut text = query.single_mut();
-    text.sections[1].value = scoreboard.score.to_string();
+    text.sections[1].value = score.to_string();
 }
 
 fn check_for_collisions(
     mut commands: Commands,
-    mut scoreboard: ResMut<Scoreboard>,
+    mut score: ResMut<Score>,
     mut ball_query: Query<(&mut Velocity, &Transform), With<Ball>>,
     collider_query: Query<(Entity, &Transform, Option<&Brick>), With<Collider>>,
     mut collision_events: EventWriter<CollisionEvent>,
 ) {
     let (mut ball_velocity, ball_transform) = ball_query.single_mut();
 
-    // check collision with walls
-    for (collider_entity, transform, maybe_brick) in &collider_query {
-        let collision = collide_with_side(
+    for (collider_entity, collider_transform, maybe_brick) in &collider_query {
+        let collision = ball_collision(
             BoundingCircle::new(ball_transform.translation.truncate(), BALL_DIAMETER / 2.),
             Aabb2d::new(
-                transform.translation.truncate(),
-                transform.scale.truncate() / 2.,
+                collider_transform.translation.truncate(),
+                collider_transform.scale.truncate() / 2.,
             ),
         );
 
@@ -380,16 +381,16 @@ fn check_for_collisions(
 
             // Bricks should be despawned and increment the scoreboard on collision
             if maybe_brick.is_some() {
-                scoreboard.score += 1;
                 commands.entity(collider_entity).despawn();
+                **score += 1;
             }
 
-            // reflect the ball when it collides
+            // Reflect the ball's velocity when it collides
             let mut reflect_x = false;
             let mut reflect_y = false;
 
-            // only reflect if the ball's velocity is going in the opposite direction of the
-            // collision
+            // Reflect only if the velocity is in the opposite direction of the collision
+            // This prevents the ball from getting stuck inside the bar
             match collision {
                 Collision::Left => reflect_x = ball_velocity.x > 0.0,
                 Collision::Right => reflect_x = ball_velocity.x < 0.0,
@@ -397,12 +398,12 @@ fn check_for_collisions(
                 Collision::Bottom => reflect_y = ball_velocity.y > 0.0,
             }
 
-            // reflect velocity on the x-axis if we hit something on the x-axis
+            // Reflect velocity on the x-axis if we hit something on the x-axis
             if reflect_x {
                 ball_velocity.x = -ball_velocity.x;
             }
 
-            // reflect velocity on the y-axis if we hit something on the y-axis
+            // Reflect velocity on the y-axis if we hit something on the y-axis
             if reflect_y {
                 ball_velocity.y = -ball_velocity.y;
             }
@@ -420,7 +421,7 @@ fn play_collision_sound(
         // This prevents events staying active on the next frame.
         collision_events.clear();
         commands.spawn(AudioBundle {
-            source: sound.0.clone(),
+            source: sound.clone(),
             // auto-despawn the entity when playback finishes
             settings: PlaybackSettings::DESPAWN,
         });
@@ -435,14 +436,14 @@ enum Collision {
     Bottom,
 }
 
-// Returns `Some` if `ball` collides with `wall`. The returned `Collision` is the
-// side of `wall` that `ball` hit.
-fn collide_with_side(ball: BoundingCircle, wall: Aabb2d) -> Option<Collision> {
-    if !ball.intersects(&wall) {
+// Returns `Some` if `ball` collides with `bounding_box`.
+// The returned `Collision` is the side of `bounding_box` that `ball` hit.
+fn ball_collision(ball: BoundingCircle, bounding_box: Aabb2d) -> Option<Collision> {
+    if !ball.intersects(&bounding_box) {
         return None;
     }
 
-    let closest = wall.closest_point(ball.center());
+    let closest = bounding_box.closest_point(ball.center());
     let offset = ball.center() - closest;
     let side = if offset.x.abs() > offset.y.abs() {
         if offset.x < 0. {

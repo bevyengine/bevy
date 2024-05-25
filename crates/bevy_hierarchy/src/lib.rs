@@ -1,3 +1,10 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! Parent-child relationships for Bevy entities.
 //!
 //! You should use the tools in this crate
@@ -81,16 +88,15 @@ use bevy_app::prelude::*;
 /// Check the [crate-level documentation] for all the features.
 ///
 /// [crate-level documentation]: crate
+#[cfg(feature = "bevy_app")]
 #[derive(Default)]
 pub struct HierarchyPlugin;
 
 #[cfg(feature = "bevy_app")]
-use bevy_utils::smallvec::SmallVec;
 impl Plugin for HierarchyPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Children>()
             .register_type::<Parent>()
-            .register_type::<SmallVec<[bevy_ecs::entity::Entity; 8]>>()
             .add_event::<HierarchyEvent>();
     }
 }

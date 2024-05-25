@@ -1,7 +1,9 @@
-use crate::{measurement::AvailableSpace, ContentSize, Measure, Node, UiImage, UiScale};
+use crate::{
+    measurement::AvailableSpace, ContentSize, Measure, Node, NodeMeasure, UiImage, UiScale,
+};
 use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
-use bevy_math::Vec2;
+use bevy_math::{UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
 use bevy_sprite::{TextureAtlas, TextureAtlasLayout};
@@ -16,12 +18,12 @@ pub struct UiImageSize {
     /// The size of the image's texture
     ///
     /// This field is updated automatically by [`update_image_content_size_system`]
-    size: Vec2,
+    size: UVec2,
 }
 
 impl UiImageSize {
     /// The size of the image's texture
-    pub fn size(&self) -> Vec2 {
+    pub fn size(&self) -> UVec2 {
         self.size
     }
 }
@@ -72,6 +74,7 @@ pub fn update_image_content_size_system(
     windows: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
     textures: Res<Assets<Image>>,
+
     atlases: Res<Assets<TextureAtlasLayout>>,
     mut query: Query<
         (
@@ -92,7 +95,7 @@ pub fn update_image_content_size_system(
     for (mut content_size, image, mut image_size, atlas_image) in &mut query {
         if let Some(size) = match atlas_image {
             Some(atlas) => atlas.texture_rect(&atlases).map(|t| t.size()),
-            None => textures.get(&image.texture).map(|t| t.size_f32()),
+            None => textures.get(&image.texture).map(|t| t.size()),
         } {
             // Update only if size or scale factor has changed to avoid needless layout calculations
             if size != image_size.size
@@ -100,10 +103,10 @@ pub fn update_image_content_size_system(
                 || content_size.is_added()
             {
                 image_size.size = size;
-                content_size.set(ImageMeasure {
+                content_size.set(NodeMeasure::Image(ImageMeasure {
                     // multiply the image size by the scale factor to get the physical size
-                    size: size * combined_scale_factor,
-                });
+                    size: size.as_vec2() * combined_scale_factor,
+                }));
             }
         }
     }

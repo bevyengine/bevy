@@ -7,7 +7,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
 };
 use bevy_render::{
-    camera::ExposureSettings,
+    camera::Exposure,
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
         UniformComponentPlugin,
@@ -18,7 +18,7 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
-    texture::{BevyDefault, Image},
+    texture::{BevyDefault, GpuImage, Image},
     view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
@@ -38,10 +38,9 @@ impl Plugin for SkyboxPlugin {
             UniformComponentPlugin::<SkyboxUniforms>::default(),
         ));
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-
         render_app
             .init_resource::<SpecializedRenderPipelines<SkyboxPipeline>>()
             .add_systems(
@@ -54,12 +53,10 @@ impl Plugin for SkyboxPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-
-        let render_device = render_app.world.resource::<RenderDevice>().clone();
-
+        let render_device = render_app.world().resource::<RenderDevice>().clone();
         render_app.insert_resource(SkyboxPipeline::new(&render_device));
     }
 }
@@ -80,21 +77,25 @@ pub struct Skybox {
 }
 
 impl ExtractComponent for Skybox {
-    type QueryData = (&'static Self, Option<&'static ExposureSettings>);
+    type QueryData = (&'static Self, Option<&'static Exposure>);
     type QueryFilter = ();
     type Out = (Self, SkyboxUniforms);
 
-    fn extract_component(
-        (skybox, exposure_settings): QueryItem<'_, Self::QueryData>,
-    ) -> Option<Self::Out> {
-        let exposure = exposure_settings
+    fn extract_component((skybox, exposure): QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+        let exposure = exposure
             .map(|e| e.exposure())
-            .unwrap_or_else(|| ExposureSettings::default().exposure());
+            .unwrap_or_else(|| Exposure::default().exposure());
 
         Some((
             skybox.clone(),
             SkyboxUniforms {
                 brightness: skybox.brightness * exposure,
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+                _wasm_padding_8b: 0,
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+                _wasm_padding_12b: 0,
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+                _wasm_padding_16b: 0,
             },
         ))
     }
@@ -104,6 +105,12 @@ impl ExtractComponent for Skybox {
 #[derive(Component, ShaderType, Clone)]
 pub struct SkyboxUniforms {
     brightness: f32,
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    _wasm_padding_8b: u32,
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    _wasm_padding_12b: u32,
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    _wasm_padding_16b: u32,
 }
 
 #[derive(Resource)]
@@ -229,7 +236,7 @@ fn prepare_skybox_bind_groups(
     pipeline: Res<SkyboxPipeline>,
     view_uniforms: Res<ViewUniforms>,
     skybox_uniforms: Res<ComponentUniforms<SkyboxUniforms>>,
-    images: Res<RenderAssets<Image>>,
+    images: Res<RenderAssets<GpuImage>>,
     render_device: Res<RenderDevice>,
     views: Query<(Entity, &Skybox, &DynamicUniformIndex<SkyboxUniforms>)>,
 ) {

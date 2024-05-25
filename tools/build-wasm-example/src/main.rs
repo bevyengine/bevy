@@ -1,3 +1,5 @@
+//! Tool used to build Bevy examples for wasm.
+
 use std::{fs::File, io::Write};
 
 use clap::{Parser, ValueEnum};
@@ -48,7 +50,7 @@ fn main() {
     let mut features: Vec<&str> = cli.features.iter().map(|f| f.as_str()).collect();
     if let Some(frames) = cli.frames {
         let mut file = File::create("ci_testing_config.ron").unwrap();
-        file.write_fmt(format_args!("(exit_after: Some({frames}))"))
+        file.write_fmt(format_args!("(events: [({frames}, AppExit)])"))
             .unwrap();
         features.push("bevy_ci_testing");
     }
@@ -71,13 +73,10 @@ fn main() {
             parameters.push("--features");
             parameters.push(&features_string);
         }
-        let mut cmd = cmd!(
+        let cmd = cmd!(
             sh,
             "cargo build {parameters...} --profile release --target wasm32-unknown-unknown --example {example}"
         );
-        if matches!(cli.api, WebApi::Webgpu) {
-            cmd = cmd.env("RUSTFLAGS", "--cfg=web_sys_unstable_apis");
-        }
         cmd.run().expect("Error building example");
 
         cmd!(

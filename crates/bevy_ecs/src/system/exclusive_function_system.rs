@@ -100,24 +100,23 @@ where
     }
 
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
-        #[cfg(feature = "trace")]
-        let _span_guard = self.system_meta.system_span.enter();
+        world.last_change_tick_scope(self.system_meta.last_run, |world| {
+            #[cfg(feature = "trace")]
+            let _span_guard = self.system_meta.system_span.enter();
 
-        let saved_last_tick = world.last_change_tick;
-        world.last_change_tick = self.system_meta.last_run;
+            let params = F::Param::get_param(
+                self.param_state.as_mut().expect(PARAM_MESSAGE),
+                &self.system_meta,
+            );
+            let out = self.func.run(world, input, params);
 
-        let params = F::Param::get_param(
-            self.param_state.as_mut().expect(PARAM_MESSAGE),
-            &self.system_meta,
-        );
-        let out = self.func.run(world, input, params);
+            world.flush_commands();
+            let change_tick = world.change_tick.get_mut();
+            self.system_meta.last_run.set(*change_tick);
+            *change_tick = change_tick.wrapping_add(1);
 
-        let change_tick = world.change_tick.get_mut();
-        self.system_meta.last_run.set(*change_tick);
-        *change_tick = change_tick.wrapping_add(1);
-        world.last_change_tick = saved_last_tick;
-
-        out
+            out
+        })
     }
 
     #[inline]
@@ -145,7 +144,7 @@ where
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
-        let set = crate::schedule::SystemTypeSet::<F>::new();
+        let set = crate::schedule::SystemTypeSet::<Self>::new();
         vec![set.intern()]
     }
 

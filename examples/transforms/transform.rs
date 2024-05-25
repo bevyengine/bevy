@@ -2,7 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::prelude::*;
+use bevy::{color::palettes::basic::YELLOW, prelude::*};
 
 // A struct for additional data of for a moving cube.
 #[derive(Component)]
@@ -47,7 +47,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Sphere::new(3.0).mesh().ico(32).unwrap()),
-            material: materials.add(Color::YELLOW),
+            material: materials.add(Color::from(YELLOW)),
             transform: Transform::from_translation(Vec3::ZERO),
             ..default()
         },
@@ -86,12 +86,8 @@ fn setup(
     });
 
     // Add a light source for better 3d visibility.
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 150_000.0,
-            ..default()
-        },
-        transform: Transform::from_translation(Vec3::ONE * 3.0),
+    commands.spawn(DirectionalLightBundle {
+        transform: Transform::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 }

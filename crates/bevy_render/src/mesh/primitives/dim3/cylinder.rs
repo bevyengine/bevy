@@ -2,7 +2,7 @@ use bevy_math::primitives::Cylinder;
 use wgpu::PrimitiveTopology;
 
 use crate::{
-    mesh::{Indices, Mesh, Meshable},
+    mesh::{Indices, Mesh, MeshBuilder, Meshable},
     render_asset::RenderAssetUsages,
 };
 
@@ -58,9 +58,10 @@ impl CylinderMeshBuilder {
         self.segments = segments;
         self
     }
+}
 
-    /// Builds a [`Mesh`] based on the configuration in `self`.
-    pub fn build(&self) -> Mesh {
+impl MeshBuilder for CylinderMeshBuilder {
+    fn build(&self) -> Mesh {
         let resolution = self.resolution;
         let segments = self.segments;
 
@@ -172,11 +173,5 @@ impl Meshable for Cylinder {
 impl From<Cylinder> for Mesh {
     fn from(cylinder: Cylinder) -> Self {
         cylinder.mesh().build()
-    }
-}
-
-impl From<CylinderMeshBuilder> for Mesh {
-    fn from(cylinder: CylinderMeshBuilder) -> Self {
-        cylinder.build()
     }
 }

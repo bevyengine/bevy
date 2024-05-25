@@ -5,12 +5,14 @@ use crate::{
     },
     renderer::RenderContext,
 };
+pub use bevy_ecs::label::DynEq;
 use bevy_ecs::{
+    define_label,
+    intern::Interned,
     query::{QueryItem, QueryState, ReadOnlyQueryData},
     world::{FromWorld, World},
 };
-pub use bevy_utils::label::DynEq;
-use bevy_utils::{all_tuples_with_size, define_label, intern::Interned};
+use bevy_utils::all_tuples_with_size;
 use downcast_rs::{impl_downcast, Downcast};
 use std::fmt::Debug;
 use thiserror::Error;

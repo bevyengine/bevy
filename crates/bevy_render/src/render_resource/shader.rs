@@ -2,7 +2,7 @@ use super::ShaderDefVal;
 use crate::define_atomic_id;
 use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::TypePath;
-use bevy_utils::{tracing::error, BoxedFuture};
+use bevy_utils::tracing::error;
 use futures_lite::AsyncReadExt;
 use std::{borrow::Cow, marker::Copy};
 use thiserror::Error;
@@ -259,43 +259,39 @@ impl AssetLoader for ShaderLoader {
     type Asset = Shader;
     type Settings = ();
     type Error = ShaderLoaderError;
-    fn load<'a>(
+    async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
+        reader: &'a mut Reader<'_>,
         _settings: &'a Self::Settings,
-        load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Shader, Self::Error>> {
-        Box::pin(async move {
-            let ext = load_context.path().extension().unwrap().to_str().unwrap();
-            let path = load_context.asset_path().to_string();
-            // On windows, the path will inconsistently use \ or /.
-            // TODO: remove this once AssetPath forces cross-platform "slash" consistency. See #10511
-            let path = path.replace(std::path::MAIN_SEPARATOR, "/");
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
-            let mut shader = match ext {
-                "spv" => Shader::from_spirv(bytes, load_context.path().to_string_lossy()),
-                "wgsl" => Shader::from_wgsl(String::from_utf8(bytes)?, path),
-                "vert" => {
-                    Shader::from_glsl(String::from_utf8(bytes)?, naga::ShaderStage::Vertex, path)
-                }
-                "frag" => {
-                    Shader::from_glsl(String::from_utf8(bytes)?, naga::ShaderStage::Fragment, path)
-                }
-                "comp" => {
-                    Shader::from_glsl(String::from_utf8(bytes)?, naga::ShaderStage::Compute, path)
-                }
-                _ => panic!("unhandled extension: {ext}"),
-            };
-
-            // collect and store file dependencies
-            for import in &shader.imports {
-                if let ShaderImport::AssetPath(asset_path) = import {
-                    shader.file_dependencies.push(load_context.load(asset_path));
-                }
+        load_context: &'a mut LoadContext<'_>,
+    ) -> Result<Shader, Self::Error> {
+        let ext = load_context.path().extension().unwrap().to_str().unwrap();
+        let path = load_context.asset_path().to_string();
+        // On windows, the path will inconsistently use \ or /.
+        // TODO: remove this once AssetPath forces cross-platform "slash" consistency. See #10511
+        let path = path.replace(std::path::MAIN_SEPARATOR, "/");
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        let mut shader = match ext {
+            "spv" => Shader::from_spirv(bytes, load_context.path().to_string_lossy()),
+            "wgsl" => Shader::from_wgsl(String::from_utf8(bytes)?, path),
+            "vert" => Shader::from_glsl(String::from_utf8(bytes)?, naga::ShaderStage::Vertex, path),
+            "frag" => {
+                Shader::from_glsl(String::from_utf8(bytes)?, naga::ShaderStage::Fragment, path)
             }
-            Ok(shader)
-        })
+            "comp" => {
+                Shader::from_glsl(String::from_utf8(bytes)?, naga::ShaderStage::Compute, path)
+            }
+            _ => panic!("unhandled extension: {ext}"),
+        };
+
+        // collect and store file dependencies
+        for import in &shader.imports {
+            if let ShaderImport::AssetPath(asset_path) = import {
+                shader.file_dependencies.push(load_context.load(asset_path));
+            }
+        }
+        Ok(shader)
     }
 
     fn extensions(&self) -> &[&str] {

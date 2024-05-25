@@ -20,7 +20,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// ## Usage
 ///
 /// The event is read inside of the [`mouse_button_input_system`]
-/// to update the [`Input<MouseButton>`](ButtonInput<MouseButton>) resource.
+/// to update the [`ButtonInput<MouseButton>`] resource.
 #[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(

@@ -52,6 +52,9 @@ pub trait System: Send + Sync + 'static {
     /// can be called in parallel with other systems and may break Rust's aliasing rules
     /// if used incorrectly, making it unsafe to call.
     ///
+    /// Unlike [`System::run`], this will not apply deferred parameters, which must be independently
+    /// applied by calling [`System::apply_deferred`] at later point in time.
+    ///
     /// # Safety
     ///
     /// - The caller must ensure that `world` has permission to access any world data
@@ -66,14 +69,18 @@ pub trait System: Send + Sync + 'static {
     ///
     /// For [read-only](ReadOnlySystem) systems, see [`run_readonly`], which can be called using `&World`.
     ///
+    /// Unlike [`System::run_unsafe`], this will apply deferred parameters *immediately*.
+    ///
     /// [`run_readonly`]: ReadOnlySystem::run_readonly
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
-        let world = world.as_unsafe_world_cell();
-        self.update_archetype_component_access(world);
+        let world_cell = world.as_unsafe_world_cell();
+        self.update_archetype_component_access(world_cell);
         // SAFETY:
         // - We have exclusive access to the entire world.
         // - `update_archetype_component_access` has been called.
-        unsafe { self.run_unsafe(input, world) }
+        let ret = unsafe { self.run_unsafe(input, world_cell) };
+        self.apply_deferred(world);
+        ret
     }
 
     /// Applies any [`Deferred`](crate::system::Deferred) system parameters (or other system buffers) of this system to the world.
@@ -98,6 +105,8 @@ pub trait System: Send + Sync + 'static {
     fn check_change_tick(&mut self, change_tick: Tick);
 
     /// Returns the system's default [system sets](crate::schedule::SystemSet).
+    ///
+    /// Each system will create a default system set that contains the system.
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         Vec::new()
     }
@@ -169,7 +178,7 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// Trait used to run a system immediately on a [`World`].
 ///
 /// # Warning
-/// This function is not an efficient method of running systems and its meant to be used as a utility
+/// This function is not an efficient method of running systems and it's meant to be used as a utility
 /// for testing and/or diagnostics.
 ///
 /// Systems called through [`run_system_once`](RunSystemOnce::run_system_once) do not hold onto any state,
@@ -283,9 +292,7 @@ impl RunSystemOnce for &mut World {
     ) -> Out {
         let mut system: T::System = IntoSystem::into_system(system);
         system.initialize(self);
-        let out = system.run(input, self);
-        system.apply_deferred(self);
-        out
+        system.run(input, self)
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::{
-    primitives::{Direction2d, Direction3d, Plane2d, Plane3d},
-    Vec2, Vec3,
+    primitives::{InfinitePlane3d, Plane2d},
+    Dir2, Dir3, Vec2, Vec3,
 };
 
 /// An infinite half-line starting at `origin` and going in `direction` in 2D space.
@@ -10,7 +10,7 @@ pub struct Ray2d {
     /// The origin of the ray.
     pub origin: Vec2,
     /// The direction of the ray.
-    pub direction: Direction2d,
+    pub direction: Dir2,
 }
 
 impl Ray2d {
@@ -23,8 +23,7 @@ impl Ray2d {
     pub fn new(origin: Vec2, direction: Vec2) -> Self {
         Self {
             origin,
-            direction: Direction2d::new(direction)
-                .expect("ray direction must be nonzero and finite"),
+            direction: Dir2::new(direction).expect("ray direction must be nonzero and finite"),
         }
     }
 
@@ -55,7 +54,7 @@ pub struct Ray3d {
     /// The origin of the ray.
     pub origin: Vec3,
     /// The direction of the ray.
-    pub direction: Direction3d,
+    pub direction: Dir3,
 }
 
 impl Ray3d {
@@ -68,8 +67,7 @@ impl Ray3d {
     pub fn new(origin: Vec3, direction: Vec3) -> Self {
         Self {
             origin,
-            direction: Direction3d::new(direction)
-                .expect("ray direction must be nonzero and finite"),
+            direction: Dir3::new(direction).expect("ray direction must be nonzero and finite"),
         }
     }
 
@@ -81,7 +79,7 @@ impl Ray3d {
 
     /// Get the distance to a plane if the ray intersects it
     #[inline]
-    pub fn intersect_plane(&self, plane_origin: Vec3, plane: Plane3d) -> Option<f32> {
+    pub fn intersect_plane(&self, plane_origin: Vec3, plane: InfinitePlane3d) -> Option<f32> {
         let denominator = plane.normal.dot(*self.direction);
         if denominator.abs() > f32::EPSILON {
             let distance = (plane_origin - self.origin).dot(*plane.normal) / denominator;
@@ -143,37 +141,40 @@ mod tests {
 
         // Orthogonal, and test that an inverse plane_normal has the same result
         assert_eq!(
-            ray.intersect_plane(Vec3::Z, Plane3d::new(Vec3::Z)),
+            ray.intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::Z)),
             Some(1.0)
         );
         assert_eq!(
-            ray.intersect_plane(Vec3::Z, Plane3d::new(Vec3::NEG_Z)),
+            ray.intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::NEG_Z)),
             Some(1.0)
         );
         assert!(ray
-            .intersect_plane(Vec3::NEG_Z, Plane3d::new(Vec3::Z))
+            .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::Z))
             .is_none());
         assert!(ray
-            .intersect_plane(Vec3::NEG_Z, Plane3d::new(Vec3::NEG_Z))
+            .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::NEG_Z))
             .is_none());
 
         // Diagonal
         assert_eq!(
-            ray.intersect_plane(Vec3::Z, Plane3d::new(Vec3::ONE)),
+            ray.intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::ONE)),
             Some(1.0)
         );
         assert!(ray
-            .intersect_plane(Vec3::NEG_Z, Plane3d::new(Vec3::ONE))
+            .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::ONE))
             .is_none());
 
         // Parallel
         assert!(ray
-            .intersect_plane(Vec3::X, Plane3d::new(Vec3::X))
+            .intersect_plane(Vec3::X, InfinitePlane3d::new(Vec3::X))
             .is_none());
 
         // Parallel with simulated rounding error
         assert!(ray
-            .intersect_plane(Vec3::X, Plane3d::new(Vec3::X + Vec3::Z * f32::EPSILON))
+            .intersect_plane(
+                Vec3::X,
+                InfinitePlane3d::new(Vec3::X + Vec3::Z * f32::EPSILON)
+            )
             .is_none());
     }
 }

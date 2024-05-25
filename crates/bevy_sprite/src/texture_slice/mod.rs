@@ -86,7 +86,7 @@ impl TextureSlice {
             remaining_columns -= size_y;
         }
         if slices.len() > 1_000 {
-            bevy_log::warn!("One of your tiled textures has generated {} slices. You might want to use higher stretch values to avoid a great performance cost", slices.len());
+            bevy_utils::tracing::warn!("One of your tiled textures has generated {} slices. You might want to use higher stretch values to avoid a great performance cost", slices.len());
         }
         slices
     }
