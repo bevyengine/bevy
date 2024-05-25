@@ -12,7 +12,7 @@ fn main() {
         .run();
 }
 
-const X_EXTENT: f32 = 600.;
+const X_EXTENT: f32 = 800.;
 
 fn setup(
     mut commands: Commands,
@@ -23,6 +23,8 @@ fn setup(
 
     let shapes = [
         Mesh2dHandle(meshes.add(Circle { radius: 50.0 })),
+        Mesh2dHandle(meshes.add(CircularSector::new(50.0, 1.0))),
+        Mesh2dHandle(meshes.add(CircularSegment::new(50.0, 1.25))),
         Mesh2dHandle(meshes.add(Ellipse::new(25.0, 50.0))),
         Mesh2dHandle(meshes.add(Annulus::new(25.0, 50.0))),
         Mesh2dHandle(meshes.add(Capsule2d::new(25.0, 50.0))),
