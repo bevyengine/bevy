@@ -33,17 +33,17 @@ pub const MESHLET_MESH_ASSET_VERSION: u64 = 0;
 #[derive(Asset, TypePath, Serialize, Deserialize, Clone)]
 pub struct MeshletMesh {
     /// The total amount of triangles summed across all LOD 0 meshlets in the mesh.
-    pub worst_case_meshlet_triangles: u64,
+    pub(crate) worst_case_meshlet_triangles: u64,
     /// Raw vertex data bytes for the overall mesh.
-    pub vertex_data: Arc<[u8]>,
+    pub(crate) vertex_data: Arc<[u8]>,
     /// Indices into `vertex_data`.
-    pub vertex_ids: Arc<[u32]>,
+    pub(crate) vertex_ids: Arc<[u32]>,
     /// Indices into `vertex_ids`.
-    pub indices: Arc<[u8]>,
+    pub(crate) indices: Arc<[u8]>,
     /// The list of meshlets making up this mesh.
-    pub meshlets: Arc<[Meshlet]>,
+    pub(crate) meshlets: Arc<[Meshlet]>,
     /// Spherical bounding volumes.
-    pub bounding_spheres: Arc<[MeshletBoundingSpheres]>,
+    pub(crate) bounding_spheres: Arc<[MeshletBoundingSpheres]>,
 }
 
 impl MeshletMesh {
@@ -63,7 +63,7 @@ impl MeshletMesh {
 /// A single meshlet within a [`MeshletMesh`].
 #[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
-pub struct Meshlet {
+pub(crate) struct Meshlet {
     /// The offset within the parent mesh's [`MeshletMesh::vertex_ids`] buffer where the indices for this meshlet begin.
     pub start_vertex_id: u32,
     /// The offset within the parent mesh's [`MeshletMesh::indices`] buffer where the indices for this meshlet begin.
@@ -75,7 +75,7 @@ pub struct Meshlet {
 /// Bounding spheres used for culling and choosing level of detail for a [`Meshlet`].
 #[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
-pub struct MeshletBoundingSpheres {
+pub(crate) struct MeshletBoundingSpheres {
     /// The bounding sphere used for frustum and occlusion culling for this meshlet.
     pub self_culling: MeshletBoundingSphere,
     /// The bounding sphere used for determining if this meshlet is at the correct level of detail for a given view.
@@ -87,7 +87,7 @@ pub struct MeshletBoundingSpheres {
 /// A spherical bounding volume used for a [`Meshlet`].
 #[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
-pub struct MeshletBoundingSphere {
+pub(crate) struct MeshletBoundingSphere {
     pub center: Vec3,
     pub radius: f32,
 }
