@@ -4,6 +4,7 @@ mod cuboid;
 mod cylinder;
 mod plane;
 mod sphere;
+mod tetrahedron;
 mod torus;
 pub(crate) mod triangle3d;
 

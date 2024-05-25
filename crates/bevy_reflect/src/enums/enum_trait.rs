@@ -1,7 +1,9 @@
+use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
 use crate::{DynamicEnum, Reflect, TypePath, TypePathTable, VariantInfo, VariantType};
 use bevy_utils::HashMap;
 use std::any::{Any, TypeId};
 use std::slice::Iter;
+use std::sync::Arc;
 
 /// A trait used to power [enum-like] operations via [reflection].
 ///
@@ -138,6 +140,7 @@ pub struct EnumInfo {
     variants: Box<[VariantInfo]>,
     variant_names: Box<[&'static str]>,
     variant_indices: HashMap<&'static str, usize>,
+    custom_attributes: Arc<CustomAttributes>,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
@@ -164,6 +167,7 @@ impl EnumInfo {
             variants: variants.to_vec().into_boxed_slice(),
             variant_names,
             variant_indices,
+            custom_attributes: Arc::new(CustomAttributes::default()),
             #[cfg(feature = "documentation")]
             docs: None,
         }
@@ -173,6 +177,14 @@ impl EnumInfo {
     #[cfg(feature = "documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
+    }
+
+    /// Sets the custom attributes for this enum.
+    pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
+        Self {
+            custom_attributes: Arc::new(custom_attributes),
+            ..self
+        }
     }
 
     /// A slice containing the names of all variants in order.
@@ -251,6 +263,8 @@ impl EnumInfo {
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
+
+    impl_custom_attribute_methods!(self.custom_attributes, "enum");
 }
 
 /// An iterator over the fields in the current enum variant.

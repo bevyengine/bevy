@@ -14,8 +14,6 @@
 //!
 //! [Depth of field]: https://en.wikipedia.org/wiki/Depth_of_field
 
-use std::f32::INFINITY;
-
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_derive::{Deref, DerefMut};
@@ -453,7 +451,7 @@ impl Default for DepthOfFieldSettings {
             aperture_f_stops: physical_camera_default.aperture_f_stops,
             sensor_height: physical_camera_default.sensor_height,
             max_circle_of_confusion_diameter: 64.0,
-            max_depth: INFINITY,
+            max_depth: f32::INFINITY,
             mode: DepthOfFieldMode::Bokeh,
         }
     }
