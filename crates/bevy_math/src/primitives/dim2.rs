@@ -1014,7 +1014,7 @@ impl Rhombus {
             if xintercept.abs() * self.half_diagonals.y + yintercept.abs() * self.half_diagonals.x
                 <= diagonals_mult
             {
-                // The interception betwen the side and the normal is in the perimeter of the rhombus
+                // The interception between the side and the normal is in the perimeter of the rhombus
                 Vec2::new(xintercept, yintercept)
             } else {
                 // Point is in one of the axys or close to it

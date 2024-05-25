@@ -3,8 +3,8 @@
 use crate::{
     primitives::{
         Arc2d, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, CircularSector, CircularSegment,
-        Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus, Segment2d,
-        Triangle2d,
+        Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus,
+        Segment2d, Triangle2d,
     },
     Dir2, Mat2, Rotation2d, Vec2,
 };
