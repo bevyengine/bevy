@@ -187,23 +187,18 @@ impl Bounded2d for Rhombus {
     fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d {
         let rotation_mat = rotation.into();
 
-        let [a, b, c, d] = [
-            rotation_mat * Vec2::new(self.half_diagonals.x, 0.0) + translation,
-            rotation_mat * Vec2::new(0.0, self.half_diagonals.y) + translation,
-            rotation_mat * Vec2::new(-self.half_diagonals.x, 0.0) + translation,
-            rotation_mat * Vec2::new(0.0, -self.half_diagonals.y) + translation,
+        let [rotated_x_half_diagonal, rotated_y_half_diagonal] = [
+            rotation_mat * Vec2::new(self.half_diagonals.x, 0.0),
+            rotation_mat * Vec2::new(0.0, self.half_diagonals.y),
         ];
+        let aabb_half_extent = rotated_x_half_diagonal
+            .abs()
+            .max(rotated_y_half_diagonal.abs());
 
-        let min = Vec2::new(
-            a.x.min(b.x).min(c.x).min(d.x),
-            a.y.min(b.y).min(c.y).min(d.y),
-        );
-        let max = Vec2::new(
-            a.x.max(b.x).max(c.x).max(d.x),
-            a.y.max(b.y).max(c.y).max(d.y),
-        );
-
-        Aabb2d { min, max }
+        Aabb2d {
+            min: -aabb_half_extent + translation,
+            max: aabb_half_extent + translation,
+        }
     }
 
     fn bounding_circle(
@@ -813,6 +808,17 @@ mod tests {
         let bounding_circle = rhombus.bounding_circle(translation, std::f32::consts::FRAC_PI_4);
         assert_eq!(bounding_circle.center, translation);
         assert_eq!(bounding_circle.radius(), 1.0);
+
+        let rhombus = Rhombus::new(0.0, 0.0);
+        let translation = Vec2::new(0.0, 0.0);
+
+        let aabb = rhombus.aabb_2d(translation, std::f32::consts::FRAC_PI_4);
+        assert_eq!(aabb.min, Vec2::new(0.0, 0.0));
+        assert_eq!(aabb.max, Vec2::new(0.0, 0.0));
+
+        let bounding_circle = rhombus.bounding_circle(translation, std::f32::consts::FRAC_PI_4);
+        assert_eq!(bounding_circle.center, translation);
+        assert_eq!(bounding_circle.radius(), 0.0);
     }
 
     #[test]

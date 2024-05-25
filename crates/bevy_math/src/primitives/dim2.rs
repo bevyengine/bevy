@@ -957,10 +957,27 @@ impl Rhombus {
         }
     }
 
+    /// Create a new `Rhombus` from a side length with all inner angles equal.
+    #[inline(always)]
+    pub fn from_side(side: f32) -> Self {
+        Self {
+            half_diagonals: Vec2::new(side.hypot(side) / 2.0, side.hypot(side) / 2.0),
+        }
+    }
+
+    /// Create a new `Rhombus` from a given inradius with all inner angles equal.
+    #[inline(always)]
+    pub fn from_inradius(inradius: f32) -> Self {
+        let half_diagonal = inradius * 2.0 / std::f32::consts::SQRT_2;
+        Self {
+            half_diagonals: Vec2::new(half_diagonal, half_diagonal),
+        }
+    }
+
     /// Get the length of each side of the rhombus
     #[inline(always)]
     pub fn side(&self) -> f32 {
-        (self.half_diagonals.x.powi(2) + self.half_diagonals.y.powi(2)).sqrt()
+        self.half_diagonals.x.hypot(self.half_diagonals.y)
     }
 
     /// Get the radius of the circumcircle on which all vertices
@@ -975,10 +992,7 @@ impl Rhombus {
     #[inline(always)]
     #[doc(alias = "apothem")]
     pub fn inradius(&self) -> f32 {
-        let horizontal_diagonal = self.half_diagonals.x * 2.0;
-        let vertical_diagonal = self.half_diagonals.y * 2.0;
-        (horizontal_diagonal * vertical_diagonal)
-            / (2.0 * (horizontal_diagonal.powi(2) + vertical_diagonal.powi(2)).sqrt())
+        ((self.half_diagonals.x * self.half_diagonals.y) / self.side()).max(0.0)
     }
 
     /// Finds the point on the rhombus that is closest to the given `point`.
@@ -1032,13 +1046,13 @@ impl Measured2d for Rhombus {
     /// Get the area of the rhombus
     #[inline(always)]
     fn area(&self) -> f32 {
-        (self.half_diagonals.x * 2.0) * (self.half_diagonals.y * 2.0) / 2.0
+        2.0 * self.half_diagonals.x * self.half_diagonals.y
     }
 
     /// Get the perimeter of the rhombus
     #[inline(always)]
     fn perimeter(&self) -> f32 {
-        2.0 * ((self.half_diagonals.x * 2.0).powi(2) + (self.half_diagonals.y * 2.0).powi(2)).sqrt()
+        4.0 * self.side()
     }
 }
 
@@ -1751,6 +1765,20 @@ mod tests {
         assert_eq!(rhombus.area(), 6.0, "incorrect area");
         assert_eq!(rhombus.perimeter(), 10.0, "incorrect perimeter");
         assert_eq!(rhombus.side(), 2.5, "incorrect side");
+        assert_eq!(rhombus.inradius(), 1.2, "incorrect inradius");
+        assert_eq!(rhombus.circumradius(), 2.0, "incorrect circumradius");
+        let rhombus = Rhombus::new(0.0, 0.0);
+        assert_eq!(rhombus.area(), 0.0, "incorrect area");
+        assert_eq!(rhombus.perimeter(), 0.0, "incorrect perimeter");
+        assert_eq!(rhombus.side(), 0.0, "incorrect side");
+        assert_eq!(rhombus.inradius(), 0.0, "incorrect inradius");
+        assert_eq!(rhombus.circumradius(), 0.0, "incorrect circumradius");
+        let rhombus = Rhombus::from_side(std::f32::consts::SQRT_2);
+        assert_eq!(rhombus, Rhombus::new(2.0, 2.0));
+        assert_eq!(
+            rhombus,
+            Rhombus::from_inradius(std::f32::consts::FRAC_1_SQRT_2)
+        );
     }
 
     #[test]

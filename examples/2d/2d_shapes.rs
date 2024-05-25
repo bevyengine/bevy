@@ -12,7 +12,7 @@ fn main() {
         .run();
 }
 
-const X_EXTENT: f32 = 640.;
+const X_EXTENT: f32 = 900.;
 
 fn setup(
     mut commands: Commands,
