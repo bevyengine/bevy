@@ -319,6 +319,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Random Sampling](../examples/math/random_sampling.rs) | Demonstrates how to sample random points from mathematical primitives
 [Rendering Primitives](../examples/math/render_primitives.rs) | Shows off rendering for all math primitives as both Meshes and Gizmos
 
 ## Reflection
