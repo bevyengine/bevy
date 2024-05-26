@@ -4,6 +4,7 @@ use bevy::{
     input::mouse::{MouseButtonInput, MouseMotion},
     math::prelude::*,
     prelude::*,
+    render::mesh::SphereKind,
 };
 use rand::{distributions::Distribution, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -97,7 +98,13 @@ fn setup(
     });
 
     // Store the mesh and material for sample points in resources:
-    commands.insert_resource(PointMesh(meshes.add(Sphere::new(0.03))));
+    commands.insert_resource(PointMesh(
+        meshes.add(
+            Sphere::new(0.03)
+                .mesh()
+                .kind(SphereKind::Ico { subdivisions: 3 }),
+        ),
+    ));
     commands.insert_resource(PointMaterial(materials.add(StandardMaterial {
         base_color: Color::srgb(1.0, 0.8, 0.8),
         metallic: 0.8,
@@ -172,6 +179,14 @@ fn handle_keypress(
             },
             SamplePoint,
         ));
+
+        // NOTE: The point is inside the cube created at setup just because of how the
+        // scene is constructed; in general, you would want to use something like
+        // `cube_transform.transform_point(sample)` to get the position of where the sample
+        // would be after adjusting for the position and orientation of the cube.
+        //
+        // If the spawned point also needed to follow the position of the cube as it moved,
+        // then making it a child entity of the cube would be a good approach.
     }
 
     // D => generate many samples
@@ -202,6 +217,9 @@ fn handle_keypress(
                 SamplePoint,
             ));
         }
+
+        // NOTE: See the previous note above regarding the positioning of these samples
+        // relative to the transform of the cube containing them.
     }
 
     // M => toggle mode between interior and boundary.
