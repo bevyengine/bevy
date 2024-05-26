@@ -11,6 +11,8 @@ use crate::{IRect, URect, Vec2};
 #[repr(C)]
 #[derive(Default, Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect), reflect(Debug, PartialEq, Default))]
+#[cfg_attr(all(feature = "serialize", feature = "reflect"), reflect(Serialize, Deserialize))]
 pub struct Rect {
     /// The minimum corner point of the rect.
     pub min: Vec2,

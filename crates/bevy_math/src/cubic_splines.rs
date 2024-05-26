@@ -41,6 +41,7 @@ use thiserror::Error;
 /// let positions: Vec<_> = bezier.iter_positions(100).collect();
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect), reflect(Debug))]
 pub struct CubicBezier<P: VectorSpace> {
     /// The control points of the Bezier curve
     pub control_points: Vec<[P; 4]>,
@@ -114,6 +115,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
 /// let positions: Vec<_> = hermite.iter_positions(100).collect();
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect), reflect(Debug))]
 pub struct CubicHermite<P: VectorSpace> {
     /// The control points of the Hermite curve
     pub control_points: Vec<(P, P)>,
@@ -182,6 +184,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicHermite<P> {
 /// let positions: Vec<_> = cardinal.iter_positions(100).collect();
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect), reflect(Debug))]
 pub struct CubicCardinalSpline<P: VectorSpace> {
     /// Tension
     pub tension: f32,
@@ -272,6 +275,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
 /// let positions: Vec<_> = b_spline.iter_positions(100).collect();
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect), reflect(Debug))]
 pub struct CubicBSpline<P: VectorSpace> {
     /// The control points of the spline
     pub control_points: Vec<P>,
@@ -391,6 +395,7 @@ pub enum CubicNurbsError {
 /// let positions: Vec<_> = nurbs.iter_positions(100).collect();
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect), reflect(Debug))]
 pub struct CubicNurbs<P: VectorSpace> {
     /// The control points of the NURBS
     pub control_points: Vec<P>,
@@ -640,6 +645,7 @@ pub trait CubicGenerator<P: VectorSpace> {
 ///
 /// Segments can be chained together to form a longer compound curve.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect), reflect(Debug, Default))]
 pub struct CubicSegment<P: VectorSpace> {
     /// Coefficients of the segment
     pub coeff: [P; 4],
@@ -799,6 +805,7 @@ impl CubicSegment<Vec2> {
 /// Use any struct that implements the [`CubicGenerator`] trait to create a new curve, such as
 /// [`CubicBezier`].
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect), reflect(Debug))]
 pub struct CubicCurve<P: VectorSpace> {
     /// Segments of the curve
     pub segments: Vec<CubicSegment<P>>,
@@ -932,6 +939,7 @@ pub trait RationalGenerator<P: VectorSpace> {
 ///
 /// Segments can be chained together to form a longer compound curve.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect), reflect(Debug, Default))]
 pub struct RationalSegment<P: VectorSpace> {
     /// The coefficients matrix of the cubic curve.
     pub coeff: [P; 4],
@@ -1059,6 +1067,7 @@ impl<P: VectorSpace> RationalSegment<P> {
 /// Use any struct that implements the [`RationalGenerator`] trait to create a new curve, such as
 /// [`CubicNurbs`], or convert [`CubicCurve`] using `into/from`.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect), reflect(Debug))]
 pub struct RationalCurve<P: VectorSpace> {
     /// The segments in the curve
     pub segments: Vec<RationalSegment<P>>,
