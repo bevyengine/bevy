@@ -599,6 +599,17 @@ pub struct ConicalFrustum {
 }
 impl Primitive3d for ConicalFrustum {}
 
+impl Default for ConicalFrustum {
+    /// Returns the default [`ConicalFrustum`] with a top radius of `0.25`, bottom radius of `0.5`, and a height of `0.5`.
+    fn default() -> Self {
+        Self {
+            radius_top: 0.25,
+            radius_bottom: 0.5,
+            height: 0.5,
+        }
+    }
+}
+
 /// The type of torus determined by the minor and major radii
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TorusKind {
@@ -780,10 +791,54 @@ impl Triangle3d {
         ab.cross(ac).length() < 10e-7
     }
 
+    /// Checks if the triangle is acute, meaning all angles are less than 90 degrees
+    #[inline(always)]
+    pub fn is_acute(&self) -> bool {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let bc = c - b;
+        let ca = a - c;
+
+        // a^2 + b^2 < c^2 for an acute triangle
+        let mut side_lengths = [
+            ab.length_squared(),
+            bc.length_squared(),
+            ca.length_squared(),
+        ];
+        side_lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        side_lengths[0] + side_lengths[1] > side_lengths[2]
+    }
+
+    /// Checks if the triangle is obtuse, meaning one angle is greater than 90 degrees
+    #[inline(always)]
+    pub fn is_obtuse(&self) -> bool {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let bc = c - b;
+        let ca = a - c;
+
+        // a^2 + b^2 > c^2 for an obtuse triangle
+        let mut side_lengths = [
+            ab.length_squared(),
+            bc.length_squared(),
+            ca.length_squared(),
+        ];
+        side_lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        side_lengths[0] + side_lengths[1] < side_lengths[2]
+    }
+
     /// Reverse the triangle by swapping the first and last vertices.
     #[inline(always)]
     pub fn reverse(&mut self) {
         self.vertices.swap(0, 2);
+    }
+
+    /// This triangle but reversed.
+    #[inline(always)]
+    #[must_use]
+    pub fn reversed(mut self) -> Triangle3d {
+        self.reverse();
+        self
     }
 
     /// Get the centroid of the triangle.
@@ -915,6 +970,22 @@ impl Tetrahedron {
     pub fn centroid(&self) -> Vec3 {
         (self.vertices[0] + self.vertices[1] + self.vertices[2] + self.vertices[3]) / 4.0
     }
+
+    /// Get the triangles that form the faces of this tetrahedron.
+    ///
+    /// Note that the orientations of the faces are determined by that of the tetrahedron; if the
+    /// signed volume of this tetrahedron is positive, then the triangles' normals will point
+    /// outward, and if the signed volume is negative they will point inward.
+    #[inline(always)]
+    pub fn faces(&self) -> [Triangle3d; 4] {
+        let [a, b, c, d] = self.vertices;
+        [
+            Triangle3d::new(b, c, d),
+            Triangle3d::new(a, c, d).reversed(),
+            Triangle3d::new(a, b, d),
+            Triangle3d::new(a, b, c).reversed(),
+        ]
+    }
 }
 
 impl Measured3d for Tetrahedron {
@@ -986,7 +1057,7 @@ mod tests {
     // Reference values were computed by hand and/or with external tools
 
     use super::*;
-    use crate::Quat;
+    use crate::{InvalidDirectionError, Quat};
     use approx::assert_relative_eq;
 
     #[test]
@@ -1187,7 +1258,90 @@ mod tests {
     }
 
     #[test]
+    fn extrusion_math() {
+        let circle = Circle::new(0.75);
+        let cylinder = Extrusion::new(circle, 2.5);
+        assert_eq!(cylinder.area(), 15.315264, "incorrect surface area");
+        assert_eq!(cylinder.volume(), 4.417865, "incorrect volume");
+
+        let annulus = crate::primitives::Annulus::new(0.25, 1.375);
+        let tube = Extrusion::new(annulus, 0.333);
+        assert_eq!(tube.area(), 14.886437, "incorrect surface area");
+        assert_eq!(tube.volume(), 1.9124937, "incorrect volume");
+
+        let polygon = crate::primitives::RegularPolygon::new(3.8, 7);
+        let regular_prism = Extrusion::new(polygon, 1.25);
+        assert_eq!(regular_prism.area(), 107.8808, "incorrect surface area");
+        assert_eq!(regular_prism.volume(), 49.392204, "incorrect volume");
+    }
+
+    #[test]
     fn triangle_math() {
+        // Default triangle tests
+        let mut default_triangle = Triangle3d::default();
+        let reverse_default_triangle = Triangle3d::new(
+            Vec3::new(0.5, -0.5, 0.0),
+            Vec3::new(-0.5, -0.5, 0.0),
+            Vec3::new(0.0, 0.5, 0.0),
+        );
+        assert_eq!(default_triangle.area(), 0.5, "incorrect area");
+        assert_relative_eq!(
+            default_triangle.perimeter(),
+            1.0 + 2.0 * 1.25_f32.sqrt(),
+            epsilon = 10e-9
+        );
+        assert_eq!(default_triangle.normal(), Ok(Dir3::Z), "incorrect normal");
+        assert!(
+            !default_triangle.is_degenerate(),
+            "incorrect degenerate check"
+        );
+        assert_eq!(
+            default_triangle.centroid(),
+            Vec3::new(0.0, -0.16666667, 0.0),
+            "incorrect centroid"
+        );
+        assert_eq!(
+            default_triangle.largest_side(),
+            (Vec3::new(0.0, 0.5, 0.0), Vec3::new(-0.5, -0.5, 0.0))
+        );
+        default_triangle.reverse();
+        assert_eq!(
+            default_triangle, reverse_default_triangle,
+            "incorrect reverse"
+        );
+        assert_eq!(
+            default_triangle.circumcenter(),
+            Vec3::new(0.0, -0.125, 0.0),
+            "incorrect circumcenter"
+        );
+
+        // Custom triangle tests
+        let right_triangle = Triangle3d::new(Vec3::ZERO, Vec3::X, Vec3::Y);
+        let obtuse_triangle = Triangle3d::new(Vec3::NEG_X, Vec3::X, Vec3::new(0.0, 0.1, 0.0));
+        let acute_triangle = Triangle3d::new(Vec3::ZERO, Vec3::X, Vec3::new(0.5, 5.0, 0.0));
+
+        assert_eq!(
+            right_triangle.circumcenter(),
+            Vec3::new(0.5, 0.5, 0.0),
+            "incorrect circumcenter"
+        );
+        assert_eq!(
+            obtuse_triangle.circumcenter(),
+            Vec3::new(0.0, -4.95, 0.0),
+            "incorrect circumcenter"
+        );
+        assert_eq!(
+            acute_triangle.circumcenter(),
+            Vec3::new(0.5, 2.475, 0.0),
+            "incorrect circumcenter"
+        );
+
+        assert!(acute_triangle.is_acute());
+        assert!(!acute_triangle.is_obtuse());
+        assert!(!obtuse_triangle.is_acute());
+        assert!(obtuse_triangle.is_obtuse());
+
+        // Arbitrary triangle tests
         let [a, b, c] = [Vec3::ZERO, Vec3::new(1., 1., 0.5), Vec3::new(-3., 2.5, 1.)];
         let triangle = Triangle3d::new(a, b, c);
 
@@ -1209,25 +1363,53 @@ mod tests {
             "incorrect normal"
         );
 
-        let degenerate = Triangle3d::new(Vec3::NEG_ONE, Vec3::ZERO, Vec3::ONE);
-        assert!(degenerate.is_degenerate(), "did not find degenerate");
-    }
+        // Degenerate triangle tests
+        let zero_degenerate_triangle = Triangle3d::new(Vec3::ZERO, Vec3::ZERO, Vec3::ZERO);
+        assert!(
+            zero_degenerate_triangle.is_degenerate(),
+            "incorrect degenerate check"
+        );
+        assert_eq!(
+            zero_degenerate_triangle.normal(),
+            Err(InvalidDirectionError::Zero),
+            "incorrect normal"
+        );
+        assert_eq!(
+            zero_degenerate_triangle.largest_side(),
+            (Vec3::ZERO, Vec3::ZERO),
+            "incorrect largest side"
+        );
 
-    #[test]
-    fn extrusion_math() {
-        let circle = Circle::new(0.75);
-        let cylinder = Extrusion::new(circle, 2.5);
-        assert_eq!(cylinder.area(), 15.315264, "incorrect surface area");
-        assert_eq!(cylinder.volume(), 4.417865, "incorrect volume");
+        let dup_degenerate_triangle = Triangle3d::new(Vec3::ZERO, Vec3::X, Vec3::X);
+        assert!(
+            dup_degenerate_triangle.is_degenerate(),
+            "incorrect degenerate check"
+        );
+        assert_eq!(
+            dup_degenerate_triangle.normal(),
+            Err(InvalidDirectionError::Zero),
+            "incorrect normal"
+        );
+        assert_eq!(
+            dup_degenerate_triangle.largest_side(),
+            (Vec3::ZERO, Vec3::X),
+            "incorrect largest side"
+        );
 
-        let annulus = crate::primitives::Annulus::new(0.25, 1.375);
-        let tube = Extrusion::new(annulus, 0.333);
-        assert_eq!(tube.area(), 14.886437, "incorrect surface area");
-        assert_eq!(tube.volume(), 1.9124937, "incorrect volume");
-
-        let polygon = crate::primitives::RegularPolygon::new(3.8, 7);
-        let regular_prism = Extrusion::new(polygon, 1.25);
-        assert_eq!(regular_prism.area(), 107.8808, "incorrect surface area");
-        assert_eq!(regular_prism.volume(), 49.392204, "incorrect volume");
+        let collinear_degenerate_triangle = Triangle3d::new(Vec3::NEG_X, Vec3::ZERO, Vec3::X);
+        assert!(
+            collinear_degenerate_triangle.is_degenerate(),
+            "incorrect degenerate check"
+        );
+        assert_eq!(
+            collinear_degenerate_triangle.normal(),
+            Err(InvalidDirectionError::Zero),
+            "incorrect normal"
+        );
+        assert_eq!(
+            collinear_degenerate_triangle.largest_side(),
+            (Vec3::NEG_X, Vec3::X),
+            "incorrect largest side"
+        );
     }
 }

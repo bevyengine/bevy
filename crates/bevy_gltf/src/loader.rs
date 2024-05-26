@@ -342,12 +342,13 @@ async fn load_gltf<'a, 'b, 'c>(
                 path,
                 is_srgb,
                 sampler_descriptor,
-            } => {
-                load_context.load_with_settings(path, move |settings: &mut ImageLoaderSettings| {
+            } => load_context
+                .loader()
+                .with_settings(move |settings: &mut ImageLoaderSettings| {
                     settings.is_srgb = is_srgb;
                     settings.sampler = ImageSampler::Descriptor(sampler_descriptor.clone());
                 })
-            }
+                .load(path),
         };
         handles.push(handle);
     }
@@ -994,8 +995,7 @@ fn load_material(
 
         // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
         let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
-        let scaled_emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
-        let emissive = Color::from(scaled_emissive);
+        let emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
 
         StandardMaterial {
             base_color: Color::linear_rgba(color[0], color[1], color[2], color[3]),
