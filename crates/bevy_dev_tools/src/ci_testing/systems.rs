@@ -8,6 +8,7 @@ use bevy_window::PrimaryWindow;
 pub(crate) fn send_events(world: &mut World, mut current_frame: Local<u32>) {
     let mut config = world.resource_mut::<CiTestingConfig>();
 
+    // Take all events for the current frame, leaving all the remaining alone.
     let events = std::mem::take(&mut config.events);
     let (to_run, remaining): (Vec<_>, _) = events
         .into_iter()
