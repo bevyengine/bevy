@@ -532,6 +532,8 @@ fn apply_pbr_lighting(
     // light in the call to `specular_transmissive_light()` below
     var specular_transmitted_environment_light = vec3<f32>(0.0);
 
+#ifdef ENVIRONMENT_MAP
+
 #ifdef STANDARD_MATERIAL_DIFFUSE_OR_SPECULAR_TRANSMISSION
     // NOTE: We use the diffuse transmissive color, inverted normal and view vectors,
     // and the following simplified values for the transmitted environment light contribution
@@ -583,6 +585,8 @@ fn apply_pbr_lighting(
 #endif  // STANDARD_MATERIAL_SPECULAR_TRANSMISSION
 
 #endif  // STANDARD_MATERIAL_SPECULAR_OR_DIFFUSE_TRANSMISSION
+
+#endif  // ENVIRONMENT_MAP
 
     var emissive_light = emissive.rgb * output_color.a;
 
