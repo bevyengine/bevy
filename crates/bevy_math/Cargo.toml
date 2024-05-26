@@ -34,8 +34,6 @@ glam = { version = "0.27", features = ["approx"] }
 
 [features]
 default = ["rand"]
-# Enable reflection for math types.
-reflect = ["dep:bevy_reflect"]
 serialize = ["dep:serde", "glam/serde"]
 # Enable approx for glam types to approximate floating point equality comparisons and assertions
 approx = ["dep:approx", "glam/approx"]
