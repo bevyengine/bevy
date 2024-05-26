@@ -1,17 +1,13 @@
 use std::ops::Deref;
 
-use bevy_render::{
-    render_resource::{
-        Buffer, BufferUsages, CommandEncoder, ImageCopyBuffer, ImageDataLayout, Texture,
-        TextureUsages,
-    },
-    renderer::{RenderDevice, RenderQueue},
+use bevy_render::render_resource::{
+    Buffer, BufferUsages, ImageCopyBuffer, ImageDataLayout, Texture, TextureUsages,
 };
 
 use crate::{
     core::{
         resource::{RenderHandle, UsagesRenderResource},
-        NodeContext, RenderGraphBuilder,
+        RenderGraphBuilder,
     },
     deps,
 };
@@ -30,7 +26,7 @@ pub fn copy_texture_to_texture<'g>(
     graph.add_node(
         Some("copy_texture_to_texture".into()),
         deps![&src, &mut dst],
-        move |ctx, _, _, cmds| {
+        move |ctx, cmds, _| {
             cmds.copy_texture_to_texture(
                 ctx.get(src).as_image_copy(),
                 ctx.get(dst).as_image_copy(),
@@ -57,7 +53,7 @@ pub fn copy_texture_to_buffer<'g>(
     graph.add_node(
         Some("copy_texture_to_buffer".into()),
         deps![&src, &mut dst],
-        move |ctx, _, _, cmds| {
+        move |ctx, cmds, _| {
             cmds.copy_texture_to_buffer(
                 ctx.get(src).as_image_copy(),
                 ImageCopyBuffer {
@@ -87,7 +83,7 @@ pub fn copy_buffer_to_texture<'g>(
     graph.add_node(
         Some("copy_buffer_to_texture".into()),
         deps![&src, &mut dst],
-        move |ctx, _, _, cmds| {
+        move |ctx, cmds, _| {
             cmds.copy_buffer_to_texture(
                 ImageCopyBuffer {
                     buffer: ctx.get(src).deref(),
@@ -113,8 +109,9 @@ pub fn copy_buffer_to_buffer<'g>(
     graph.add_node(
         Some("copy_buffer_to_buffer".into()),
         deps![&src, &mut dst],
-        move |ctx, _, _, cmds| {
+        move |ctx, cmds, _| {
             cmds.copy_buffer_to_buffer(ctx.get(src).deref(), 0, ctx.get(dst).deref(), 0, size);
+            //TODO: size and offsets are probably incorrect considering alignment, need to round up?
         },
     );
 }

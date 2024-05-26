@@ -1,12 +1,11 @@
-use std::{borrow::Cow, num::NonZeroU64};
+use std::{borrow::Cow, mem, num::NonZeroU64};
 
 use bevy_asset::Handle;
 use bevy_math::UVec3;
 use bevy_render::render_resource::{
     BindGroup, BindGroupLayout, BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType,
     BufferUsages, Sampler, Shader, ShaderDefVal, ShaderStages, StorageTextureAccess,
-    TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
-    TextureView, TextureViewDescriptor, TextureViewDimension,
+    TextureDimension, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
 };
 
 use crate::core::{
@@ -235,19 +234,14 @@ impl<'a, 'b: 'a, 'g: 'b> BindGroupBuilder<'a, 'b, 'g> {
         self
     }
 
-    pub fn build(
-        self,
-    ) -> (
-        RenderHandle<'g, BindGroupLayout>,
-        RenderHandle<'g, BindGroup>,
-    ) {
-        let layout = self.graph.new_resource(self.layout);
+    pub fn build(&mut self) -> RenderHandle<'g, BindGroup> {
+        let layout = self.graph.new_resource(mem::take(&mut self.layout));
         let bind_group = self.graph.new_resource(RenderGraphBindGroupDescriptor {
-            label: self.label,
+            label: mem::take(&mut self.label),
             layout,
-            entries: self.entries,
+            entries: mem::take(&mut self.entries),
         });
-        (layout, bind_group)
+        bind_group
     }
 
     pub fn build_and_return_graph(

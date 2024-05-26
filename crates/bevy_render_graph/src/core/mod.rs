@@ -65,13 +65,7 @@ struct Node<'g> {
 
 #[allow(clippy::type_complexity)]
 enum NodeRunner<'g> {
-    Raw(
-        Box<
-            dyn FnOnce(NodeContext<'_, 'g>, &RenderDevice, &RenderQueue, &mut CommandEncoder)
-                + Send
-                + 'g,
-        >,
-    ),
+    Raw(Box<dyn FnOnce(NodeContext<'_, 'g>, &mut CommandEncoder, &RenderDevice) + Send + 'g>),
     //todo: possibility of auto-merging render passes?
     //Render(Box<dyn FnOnce(NodeContext, &RenderDevice, &RenderQueue, &mut RenderPass) + 'g>),
     Compute(Box<dyn for<'n> FnOnce(&'n NodeContext<'n, 'g>, &mut ComputePass<'n>) + Send + 'g>),
@@ -112,7 +106,7 @@ impl<'g> RenderGraph<'g> {
                 };
 
                 match runner {
-                    NodeRunner::Raw(f) => (f)(context, render_device, render_queue, &mut encoder),
+                    NodeRunner::Raw(f) => (f)(context, &mut encoder, render_device),
                     // NodeRunner::Render(f) => {
                     //     let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor { label: gg, color_attachments: (), depth_stencil_attachment: (), timestamp_writes: (), occlusion_query_set: () })
                     // },
@@ -314,9 +308,7 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
         &mut self,
         label: Label<'g>,
         dependencies: RenderDependencies<'g>,
-        node: impl FnOnce(NodeContext<'_, 'g>, &RenderDevice, &RenderQueue, &mut CommandEncoder)
-            + Send
-            + 'g,
+        node: impl FnOnce(NodeContext<'_, 'g>, &mut CommandEncoder, &RenderDevice) + Send + 'g,
     ) -> &mut Self {
         //get + save dependency generations here, since they're not stored in RenderDependencies.
         //This is to make creating a RenderDependencies (and cloning!) a pure operation.
