@@ -1,0 +1,43 @@
+//! Utilities for testing in CI environments.
+
+mod config;
+mod systems;
+
+pub use self::config::*;
+
+use bevy_app::prelude::*;
+use std::time::Duration;
+use bevy_time::TimeUpdateStrategy;
+
+pub struct CiTestingPlugin;
+
+impl Plugin for CiTestingPlugin {
+    fn build(&self, app: &mut App) {
+        #[cfg(not(target_arch = "wasm32"))]
+        let config: CiTestingConfig = {
+            let filename = std::env::var("CI_TESTING_CONFIG")
+                .unwrap_or_else(|_| "ci_testing_config.ron".to_string());
+            ron::from_str(
+                &std::fs::read_to_string(filename)
+                    .expect("error reading CI testing configuration file"),
+            )
+            .expect("error deserializing CI testing configuration file")
+        };
+        #[cfg(target_arch = "wasm32")]
+        let config: CiTestingConfig = {
+            let config = include_str!("../../../ci_testing_config.ron");
+            ron::from_str(config).expect("error deserializing CI testing configuration file")
+        };
+
+        if let Some(fixed_frame_time) = config.setup.fixed_frame_time {
+            app.world_mut()
+                .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f32(
+                    fixed_frame_time,
+                )));
+        }
+    
+        app.add_event::<CiTestingCustomEvent>()
+            .insert_resource(config)
+            .add_systems(Update, systems::send_events);
+    }
+}
