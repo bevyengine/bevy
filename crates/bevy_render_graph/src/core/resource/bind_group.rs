@@ -82,7 +82,7 @@ impl RenderResource for BindGroupLayout {
     type Meta<'g> = RenderGraphBindGroupLayoutMeta;
 
     #[inline]
-    fn import<'g>(
+    fn import_resource<'g>(
         graph: &mut RenderGraphBuilder<'_, 'g>,
         meta: Self::Meta<'g>,
         resource: Cow<'g, Self>,
@@ -116,6 +116,18 @@ impl CacheRenderResource for BindGroupLayout {
     }
 }
 
+impl<'g> IntoRenderResource<'g> for RenderGraphBindGroupLayoutMeta {
+    type Resource = BindGroupLayout;
+
+    #[inline]
+    fn into_render_resource(
+        self,
+        graph: &mut RenderGraphBuilder<'_, 'g>,
+    ) -> RenderHandle<'g, Self::Resource> {
+        graph.new_bind_group_layout(self)
+    }
+}
+
 impl<'g> IntoRenderResource<'g> for RenderGraphBindGroupLayoutDescriptor {
     type Resource = BindGroupLayout;
 
@@ -125,7 +137,7 @@ impl<'g> IntoRenderResource<'g> for RenderGraphBindGroupLayoutDescriptor {
         graph: &mut RenderGraphBuilder<'_, 'g>,
     ) -> RenderHandle<'g, Self::Resource> {
         self.entries.sort_by_key(|entry| entry.binding);
-        graph.new_bind_group_layout(RenderGraphBindGroupLayoutMeta::new(self))
+        graph.new_resource(RenderGraphBindGroupLayoutMeta::new(self))
     }
 }
 
@@ -378,16 +390,17 @@ pub enum RenderGraphBindingResource<'g> {
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct RenderGraphBufferBinding<'g> {
-    buffer: RenderHandle<'g, Buffer>,
-    offset: BufferAddress,
-    size: Option<BufferSize>,
+    pub buffer: RenderHandle<'g, Buffer>,
+    pub offset: BufferAddress,
+    pub size: Option<BufferSize>,
 }
 
 impl RenderResource for BindGroup {
     const RESOURCE_TYPE: ResourceType = ResourceType::BindGroup;
     type Meta<'g> = RenderGraphBindGroupMeta<'g>;
 
-    fn import<'g>(
+    #[inline]
+    fn import_resource<'g>(
         graph: &mut RenderGraphBuilder<'_, 'g>,
         meta: Self::Meta<'g>,
         resource: Cow<'g, Self>,
@@ -395,6 +408,7 @@ impl RenderResource for BindGroup {
         graph.import_bind_group(meta, resource)
     }
 
+    #[inline]
     fn get<'n, 'g: 'n>(
         context: &'n NodeContext<'n, 'g>,
         resource: RenderHandle<'g, Self>,
@@ -402,6 +416,7 @@ impl RenderResource for BindGroup {
         context.get_bind_group(resource)
     }
 
+    #[inline]
     fn get_meta<'a, 'b: 'a, 'g: 'b>(
         graph: &'a RenderGraphBuilder<'b, 'g>,
         resource: RenderHandle<'g, Self>,
@@ -411,6 +426,17 @@ impl RenderResource for BindGroup {
 }
 
 impl WriteRenderResource for BindGroup {}
+
+impl<'g> IntoRenderResource<'g> for RenderGraphBindGroupMeta<'g> {
+    type Resource = BindGroup;
+
+    fn into_render_resource(
+        self,
+        graph: &mut RenderGraphBuilder<'_, 'g>,
+    ) -> RenderHandle<'g, Self::Resource> {
+        graph.new_bind_group(self)
+    }
+}
 
 impl<'g> IntoRenderResource<'g> for RenderGraphBindGroupDescriptor<'g> {
     type Resource = BindGroup;

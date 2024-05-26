@@ -25,6 +25,7 @@ use crate::deps;
 
 use self::resource::{
     bind_group::{make_bind_group, RenderGraphBindGroupLayoutMeta, RenderGraphBindGroupMeta},
+    buffer::RenderGraphBufferMeta,
     pipeline::{
         CachedRenderGraphPipelines, RenderGraphComputePipelineDescriptor, RenderGraphPipelines,
         RenderGraphRenderPipelineDescriptor,
@@ -191,9 +192,9 @@ impl<'g> RenderGraph<'g> {
             world,
             render_device,
             self,
-            |world, _, render_graph, descriptor| {
+            |world, _, render_graph, meta| {
                 let mut deps = RenderDependencies::new();
-                deps.write(descriptor.texture);
+                deps.write(meta.texture);
                 let context = NodeContext {
                     graph: render_graph,
                     world,
@@ -201,24 +202,17 @@ impl<'g> RenderGraph<'g> {
                     pipeline_cache: None,
                 };
                 texture_view_cache
-                    .entry(descriptor.clone())
-                    .or_insert_with(|| {
-                        context
-                            .get(descriptor.texture)
-                            .create_view(&descriptor.descriptor)
-                    })
+                    .entry(meta.clone())
+                    .or_insert_with(|| context.get(meta.texture).create_view(&meta.descriptor))
                     .clone() //TODO: hopefully unnecessary clone
             },
         );
         self.texture_views = texture_views;
 
         let mut buffers = mem::take(&mut self.buffers);
-        buffers.create_queued_resources(
-            world,
-            render_device,
-            self,
-            |_, render_device, _, descriptor| render_device.create_buffer(descriptor),
-        );
+        buffers.create_queued_resources(world, render_device, self, |_, render_device, _, meta| {
+            render_device.create_buffer(&meta.descriptor)
+        });
         self.buffers = buffers;
 
         //MUST be last
@@ -276,7 +270,7 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
         meta: R::Meta<'g>,
         resource: R,
     ) -> RenderHandle<'g, R> {
-        R::import(self, meta, Cow::Owned(resource))
+        R::import_resource(self, meta, Cow::Owned(resource))
     }
 
     #[inline]
@@ -285,7 +279,7 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
         meta: R::Meta<'g>,
         resource: &'g R,
     ) -> RenderHandle<'g, R> {
-        R::import(self, meta, Cow::Borrowed(resource))
+        R::import_resource(self, meta, Cow::Borrowed(resource))
     }
 
     #[inline]
@@ -595,30 +589,27 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
     #[inline]
     fn import_buffer(
         &mut self,
-        descriptor: BufferDescriptor<'static>,
+        meta: RenderGraphBufferMeta,
         buffer: Cow<'g, Buffer>,
     ) -> RenderHandle<'g, Buffer> {
-        let id =
-            self.graph
-                .buffers
-                .import_resource(&mut self.graph.resources, None, descriptor, buffer);
-        RenderHandle::new(id)
-    }
-
-    #[inline]
-    fn new_buffer(&mut self, descriptor: BufferDescriptor<'static>) -> RenderHandle<'g, Buffer> {
         let id = self
             .graph
             .buffers
-            .new_resource(&mut self.graph.resources, None, descriptor);
+            .import_resource(&mut self.graph.resources, None, meta, buffer);
         RenderHandle::new(id)
     }
 
     #[inline]
-    fn get_buffer_meta(
-        &self,
-        buffer: RenderHandle<'g, Buffer>,
-    ) -> Option<&BufferDescriptor<'static>> {
+    fn new_buffer(&mut self, meta: RenderGraphBufferMeta) -> RenderHandle<'g, Buffer> {
+        let id = self
+            .graph
+            .buffers
+            .new_resource(&mut self.graph.resources, None, meta);
+        RenderHandle::new(id)
+    }
+
+    #[inline]
+    fn get_buffer_meta(&self, buffer: RenderHandle<'g, Buffer>) -> Option<&RenderGraphBufferMeta> {
         self.graph.buffers.get_meta(buffer.id())
     }
 
@@ -626,7 +617,7 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
     fn get_buffer_meta_mut(
         &mut self,
         buffer: RenderHandle<'g, Buffer>,
-    ) -> Option<&mut BufferDescriptor<'static>> {
+    ) -> Option<&mut RenderGraphBufferMeta> {
         self.graph.buffers.get_meta_mut(buffer.id())
     }
 

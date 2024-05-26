@@ -1,17 +1,19 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, num::NonZeroU64};
 
 use bevy_asset::Handle;
 use bevy_math::UVec3;
 use bevy_render::render_resource::{
-    BindGroup, BindGroupLayout, BindGroupLayoutEntry, BindingType, Buffer, BufferUsages, Sampler,
-    Shader, ShaderDefVal, ShaderStages, TextureDimension, TextureFormat, TextureSampleType,
-    TextureUsages, TextureView, TextureViewDimension,
+    BindGroup, BindGroupLayout, BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType,
+    BufferUsages, Sampler, Shader, ShaderDefVal, ShaderStages, StorageTextureAccess,
+    TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+    TextureView, TextureViewDescriptor, TextureViewDimension,
 };
 
 use crate::core::{
     resource::{
         bind_group::{
             RenderGraphBindGroupDescriptor, RenderGraphBindGroupEntry, RenderGraphBindingResource,
+            RenderGraphBufferBinding,
         },
         texture::RenderGraphTextureViewDescriptor,
         RenderHandle,
@@ -84,13 +86,13 @@ impl<'a, 'b: 'a, 'g: 'b> BindGroupBuilder<'a, 'b, 'g> {
                     .unwrap_or(texture_descriptor.format)
                     .sample_type(Some(descriptor.aspect), Some(features))
                     .expect("Unable to determine texture sample type from format"),
-                view_dimension: descriptor.dimension.unwrap_or({
+                view_dimension: descriptor.dimension.unwrap_or(
                     match texture_descriptor.dimension {
                         TextureDimension::D1 => TextureViewDimension::D1,
                         TextureDimension::D2 => TextureViewDimension::D2,
                         TextureDimension::D3 => TextureViewDimension::D3,
-                    }
-                }),
+                    },
+                ),
                 multisampled: texture_descriptor.sample_count != 1,
             },
             count: None,
@@ -102,30 +104,119 @@ impl<'a, 'b: 'a, 'g: 'b> BindGroupBuilder<'a, 'b, 'g> {
         self
     }
 
-    pub fn read_storage_texture(&mut self, texture: RenderHandle<'g, TextureView>) -> &mut Self {
-        self
+    #[inline]
+    pub fn read_storage_texture(
+        &mut self,
+        texture_view: RenderHandle<'g, TextureView>,
+    ) -> &mut Self {
+        self.storage_texture(texture_view, StorageTextureAccess::ReadOnly)
     }
 
-    //would infer texture format and dimension from metadata stored in graph.
-    pub fn write_storage_texture(&mut self, texture: RenderHandle<'g, TextureView>) -> &mut Self {
-        // self.graph
-        //     .add_usages(texture, TextureUsages::STORAGE_BINDING);
-        // let descriptor = self.graph.descriptor_of(texture);
-        // self.layout.push(BindGroupLayoutEntry {
-        //     binding: self.layout.len(),
-        //     visibility: self.shader_stages,
-        //     ty: BindingType::StorageTexture {
-        //         access: StorageTextureAccess::ReadWrite,
-        //         format: (),
-        //         view_dimension: (),
-        //     },
-        //     count: todo!(),
-        // });
+    #[inline]
+    pub fn write_storage_texture(
+        &mut self,
+        texture_view: RenderHandle<'g, TextureView>,
+    ) -> &mut Self {
+        self.storage_texture(texture_view, StorageTextureAccess::WriteOnly)
+    }
+
+    #[inline]
+    pub fn read_write_storage_texture(
+        &mut self,
+        texture_view: RenderHandle<'g, TextureView>,
+    ) -> &mut Self {
+        self.storage_texture(texture_view, StorageTextureAccess::ReadWrite)
+    }
+
+    pub fn storage_texture(
+        &mut self,
+        texture_view: RenderHandle<'g, TextureView>,
+        access: StorageTextureAccess,
+    ) -> &mut Self {
+        let RenderGraphTextureViewDescriptor {
+            texture,
+            descriptor:
+                TextureViewDescriptor {
+                    format: view_format,
+                    dimension: view_dimension,
+                    ..
+                },
+        } = *self.graph.meta(texture_view);
+        self.graph
+            .add_usages(texture, TextureUsages::STORAGE_BINDING);
+        let texture_descriptor = self.graph.meta(texture);
+        self.layout.push(BindGroupLayoutEntry {
+            binding: self.layout.len() as u32,
+            visibility: self.shader_stages,
+            ty: BindingType::StorageTexture {
+                access,
+                format: view_format.unwrap_or(texture_descriptor.format),
+                view_dimension: view_dimension.unwrap_or({
+                    match texture_descriptor.dimension {
+                        TextureDimension::D1 => TextureViewDimension::D1,
+                        TextureDimension::D2 => TextureViewDimension::D2,
+                        TextureDimension::D3 => TextureViewDimension::D3,
+                    }
+                }),
+            },
+            count: None,
+        });
+        self.entries.push(RenderGraphBindGroupEntry {
+            binding: self.entries.len() as u32,
+            resource: RenderGraphBindingResource::TextureView(texture_view),
+        });
         self
     }
 
     pub fn uniform_buffer(&mut self, buffer: RenderHandle<'g, Buffer>) -> &mut Self {
         self.graph.add_usages(buffer, BufferUsages::UNIFORM);
+
+        self.layout.push(BindGroupLayoutEntry {
+            binding: self.layout.len() as u32,
+            visibility: self.shader_stages,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        });
+        self.entries.push(RenderGraphBindGroupEntry {
+            binding: self.entries.len() as u32,
+            resource: RenderGraphBindingResource::Buffer(RenderGraphBufferBinding {
+                buffer,
+                offset: 0,
+                size: None,
+            }),
+        });
+        self
+    }
+
+    pub fn dynamic_uniform_buffer(
+        &mut self,
+        buffer: RenderHandle<'g, Buffer>,
+        offset: u64,
+        binding_size: NonZeroU64,
+    ) -> &mut Self {
+        self.graph.add_usages(buffer, BufferUsages::UNIFORM);
+        self.layout.push(BindGroupLayoutEntry {
+            binding: self.layout.len() as u32,
+            visibility: self.shader_stages,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: true,
+                min_binding_size: Some(binding_size),
+            },
+            count: None,
+        });
+        self.entries.push(RenderGraphBindGroupEntry {
+            binding: self.layout.len() as u32,
+            resource: RenderGraphBindingResource::Buffer(RenderGraphBufferBinding {
+                buffer,
+                offset,
+                size: Some(binding_size),
+            }),
+        });
         self
     }
 

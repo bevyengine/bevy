@@ -19,7 +19,7 @@ impl RenderResource for Texture {
     type Meta<'g> = TextureDescriptor<'static>;
 
     #[inline]
-    fn import<'g>(
+    fn import_resource<'g>(
         graph: &mut RenderGraphBuilder<'_, 'g>,
         meta: Self::Meta<'g>,
         resource: Cow<'g, Self>,
@@ -114,7 +114,7 @@ impl RenderResource for TextureView {
     type Meta<'g> = RenderGraphTextureViewDescriptor<'g>;
 
     #[inline]
-    fn import<'g>(
+    fn import_resource<'g>(
         graph: &mut RenderGraphBuilder<'_, 'g>,
         meta: Self::Meta<'g>,
         resource: Cow<'g, Self>,
@@ -158,7 +158,7 @@ impl RenderResource for Sampler {
     type Meta<'g> = RenderGraphSamplerDescriptor;
 
     #[inline]
-    fn import<'g>(
+    fn import_resource<'g>(
         graph: &mut RenderGraphBuilder<'_, 'g>,
         meta: Self::Meta<'g>,
         resource: Cow<'g, Self>,

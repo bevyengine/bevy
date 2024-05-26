@@ -155,13 +155,18 @@ impl<'g> ResourceTracker<'g> {
 
 pub trait RenderResource: Sized + Send + Sync + Clone + Hash + Eq + 'static {
     const RESOURCE_TYPE: ResourceType;
-    type Meta<'g>: Clone;
+    type Meta<'g>: Clone + IntoRenderResource<'g, Resource = Self>; //todo: reformat to trait method?
 
-    fn import<'g>(
+    fn import_resource<'g>(
         graph: &mut RenderGraphBuilder<'_, 'g>,
         meta: Self::Meta<'g>,
         resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self>;
+
+    // fn new_resource<'g>(
+    //     graph: &mut RenderGraphBuilder<'_, 'g>,
+    //     meta: Self::Meta<'g>,
+    // ) -> RenderHandle<'g, Self>;
 
     // fn new<'g>(graph: &mut RenderGraphBuilder<'g>, meta: Self::Meta<'g>) -> RenderHandle<'g, Self>;
 

@@ -338,7 +338,7 @@ impl RenderResource for RenderPipeline {
     type Meta<'g> = RenderGraphRenderPipelineDescriptor<'g>;
 
     #[inline]
-    fn import<'g>(
+    fn import_resource<'g>(
         graph: &mut RenderGraphBuilder<'_, 'g>,
         meta: Self::Meta<'g>,
         resource: Cow<'g, Self>,
@@ -380,7 +380,7 @@ impl RenderResource for ComputePipeline {
     type Meta<'g> = RenderGraphComputePipelineDescriptor<'g>;
 
     #[inline]
-    fn import<'g>(
+    fn import_resource<'g>(
         graph: &mut RenderGraphBuilder<'_, 'g>,
         meta: RenderGraphComputePipelineDescriptor<'g>,
         resource: Cow<'g, Self>,
@@ -408,6 +408,7 @@ impl RenderResource for ComputePipeline {
 impl<'g> IntoRenderResource<'g> for RenderGraphComputePipelineDescriptor<'g> {
     type Resource = ComputePipeline;
 
+    #[inline]
     fn into_render_resource(
         self,
         graph: &mut RenderGraphBuilder<'_, 'g>,
