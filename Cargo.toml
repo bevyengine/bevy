@@ -2970,6 +2970,17 @@ description = "Shows off rendering for all math primitives as both Meshes and Gi
 category = "Math"
 wasm = true
 
+[[example]]
+name = "sampling_primitives"
+path = "examples/math/sampling_primitives.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sampling_primitives]
+name = "Sampling Primitives"
+description = "Demonstrates all the primitives which can be sampled."
+category = "Math"
+wasm = true
+
 # Gizmos
 [[example]]
 name = "2d_gizmos"
