@@ -82,11 +82,8 @@ fn sd_rounded_box(point: vec2<f32>, size: vec2<f32>, corner_radii: vec4<f32>) ->
     // w and z are swapped above so that both pairs are in left to right order, otherwise this second 
     // select statement would return the incorrect value for the bottom pair.
     let radius = select(rs.x, rs.y, 0.0 < point.x);
-    // The geometric size of the box is 1 greater than the pixel size. Since
-    // pixels are measured from their centers
-    let geometric_size = size + 1.0;
     // Vector from the corner closest to the point, to the point.
-    let corner_to_point = abs(point) - 0.5 * geometric_size;
+    let corner_to_point = abs(point) - 0.5 * size;
     // Vector from the center of the radius circle to the point.
     let q = corner_to_point + radius;
     // Length from center of the radius circle to the point, zeros a component if the point is not 
@@ -125,19 +122,8 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
 
 // get alpha for antialiasing for sdf
 fn antialias(distance: f32) -> f32 {
-    let fborder = fwidth(distance) * 0.25;
-    let dx = dpdx(distance);
-    let dy = dpdy(distance);
-
-    return smoothstep(fborder, -fborder, distance);
-    
-    // doesn't work well
-    // let distance_change = length(vec2(dpdx(distance), dpdy(distance)));
-    // let pixel_distance = distance / distance_change;
-    // return saturate(0.5 - pixel_distance);
-
-    // return 1.0 - smoothstep(0.0, 1.0, distance);
-    
+    // Using the fwidth was causing artifacts, so just use the distance.
+    return clamp(0.0, 1.0, 0.5 - distance);
 }
 
 fn draw(in: VertexOutput) -> vec4<f32> {
@@ -163,7 +149,7 @@ fn draw(in: VertexOutput) -> vec4<f32> {
     // Signed distance from the border (the intersection of the rect with its border).
     // Points inside the border have negative signed distance. Any point outside the border, whether 
     // outside the outside edge, or inside the inner edge have positive signed distance.
-    let border_distance = max(external_distance, -internal_distance);
+    let border_distance = select(max(external_distance, -internal_distance), -internal_distance, internal_distance <= 0);
 
     if enabled(in.flags, BORDER) {   
         // The item is a border
@@ -176,7 +162,6 @@ fn draw(in: VertexOutput) -> vec4<f32> {
     // The item is a rectangle, draw normally with anti-aliasing at the edges.
     let t = antialias(external_distance);
     return vec4(color.rgb, color.a * t);
-
 }
 
 @fragment
