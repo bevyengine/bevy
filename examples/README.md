@@ -320,6 +320,7 @@ Example | Description
 Example | Description
 --- | ---
 [Rendering Primitives](../examples/math/render_primitives.rs) | Shows off rendering for all math primitives as both Meshes and Gizmos
+[Sampling Primitives](../examples/math/sampling_primitives.rs) | Demonstrates all the primitives which can be sampled.
 
 ## Reflection
 
