@@ -250,7 +250,7 @@ pub struct MaterialMeshletMeshBundle<M: Material> {
     pub visibility: Visibility,
     #[doc = include_doc!(inherited_visibility)]
     pub inherited_visibility: InheritedVisibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    #[doc = include_doc!(view_visibility)]
     pub view_visibility: ViewVisibility,
 }
 

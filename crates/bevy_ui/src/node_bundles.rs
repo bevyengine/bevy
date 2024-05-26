@@ -53,7 +53,7 @@ pub struct NodeBundle {
     pub visibility: Visibility,
     #[doc = include_doc!(inherited_visibility)]
     pub inherited_visibility: InheritedVisibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    #[doc = include_doc!(view_visibility)]
     pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
@@ -116,7 +116,7 @@ pub struct ImageBundle {
     pub visibility: Visibility,
     #[doc = include_doc!(inherited_visibility)]
     pub inherited_visibility: InheritedVisibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    #[doc = include_doc!(view_visibility)]
     pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
@@ -166,7 +166,7 @@ pub struct AtlasImageBundle {
     pub visibility: Visibility,
     #[doc = include_doc!(inherited_visibility)]
     pub inherited_visibility: InheritedVisibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    #[doc = include_doc!(view_visibility)]
     pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
@@ -207,7 +207,7 @@ pub struct TextBundle {
     pub visibility: Visibility,
     #[doc = include_doc!(inherited_visibility)]
     pub inherited_visibility: InheritedVisibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    #[doc = include_doc!(view_visibility)]
     pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
@@ -335,7 +335,7 @@ pub struct ButtonBundle {
     pub visibility: Visibility,
     #[doc = include_doc!(inherited_visibility)]
     pub inherited_visibility: InheritedVisibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    #[doc = include_doc!(view_visibility)]
     pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
@@ -391,7 +391,7 @@ pub struct MaterialNodeBundle<M: UiMaterial> {
     pub visibility: Visibility,
     #[doc = include_doc!(inherited_visibility)]
     pub inherited_visibility: InheritedVisibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    #[doc = include_doc!(view_visibility)]
     pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,

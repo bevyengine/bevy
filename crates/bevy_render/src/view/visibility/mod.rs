@@ -13,7 +13,7 @@ use bevy_ecs::{prelude::*, query::QueryFilter};
 use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystem};
-use bevy_utils::{Parallel, TypeIdMap};
+use bevy_utils::{include_doc, Parallel, TypeIdMap};
 
 use crate::{
     camera::{Camera, CameraProjection},
@@ -141,11 +141,11 @@ impl ViewVisibility {
 ///   * You may use the [`VisibilityBundle`] to guarantee this.
 #[derive(Bundle, Debug, Clone, Default)]
 pub struct VisibilityBundle {
-    /// The visibility of the entity.
+    #[doc = include_doc!(visibility)]
     pub visibility: Visibility,
-    // The inherited visibility of the entity.
+    #[doc = include_doc!(inherited_visibility)]
     pub inherited_visibility: InheritedVisibility,
-    // The computed visibility of the entity.
+		#[doc = include_doc!(view_visibility)]
     pub view_visibility: ViewVisibility,
 }
 
