@@ -20,4 +20,10 @@ macro_rules! include_doc {
             "/../../inline-docs/inherited_visibility.md"
         ))
     };
+		(visibility) => {
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../inline-docs/visibility.md"
+        ))
+    };
 }

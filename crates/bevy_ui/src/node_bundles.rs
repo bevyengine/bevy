@@ -49,7 +49,7 @@ pub struct NodeBundle {
     /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub global_transform: GlobalTransform,
-    /// Describes the visibility properties of the node
+    #[doc = include_doc!(visibility)]
     pub visibility: Visibility,
     #[doc = include_doc!(inherited_visibility)]
     pub inherited_visibility: InheritedVisibility,
@@ -112,7 +112,7 @@ pub struct ImageBundle {
     ///
     /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
     pub global_transform: GlobalTransform,
-    /// Describes the visibility properties of the node
+    #[doc = include_doc!(visibility)]
     pub visibility: Visibility,
     #[doc = include_doc!(inherited_visibility)]
     pub inherited_visibility: InheritedVisibility,
@@ -162,7 +162,7 @@ pub struct AtlasImageBundle {
     ///
     /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
     pub global_transform: GlobalTransform,
-    /// Describes the visibility properties of the node
+    #[doc = include_doc!(visibility)]
     pub visibility: Visibility,
     #[doc = include_doc!(inherited_visibility)]
     pub inherited_visibility: InheritedVisibility,
@@ -203,7 +203,7 @@ pub struct TextBundle {
     ///
     /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
     pub global_transform: GlobalTransform,
-    /// Describes the visibility properties of the node
+    #[doc = include_doc!(visibility)]
     pub visibility: Visibility,
     #[doc = include_doc!(inherited_visibility)]
     pub inherited_visibility: InheritedVisibility,
@@ -331,7 +331,7 @@ pub struct ButtonBundle {
     ///
     /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
     pub global_transform: GlobalTransform,
-    /// Describes the visibility properties of the node
+    #[doc = include_doc!(visibility)]
     pub visibility: Visibility,
     #[doc = include_doc!(inherited_visibility)]
     pub inherited_visibility: InheritedVisibility,
@@ -387,7 +387,7 @@ pub struct MaterialNodeBundle<M: UiMaterial> {
     /// This field is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub global_transform: GlobalTransform,
-    /// Describes the visibility properties of the node
+    #[doc = include_doc!(visibility)]
     pub visibility: Visibility,
     #[doc = include_doc!(inherited_visibility)]
     pub inherited_visibility: InheritedVisibility,
