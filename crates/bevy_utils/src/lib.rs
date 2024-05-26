@@ -25,6 +25,7 @@ mod cow_arc;
 mod default;
 mod once;
 mod parallel_queue;
+mod include_doc;
 
 pub use ahash::{AHasher, RandomState};
 pub use bevy_utils_proc_macros::*;
