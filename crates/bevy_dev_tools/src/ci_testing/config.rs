@@ -6,7 +6,7 @@ use serde::Deserialize;
 /// It gets used when the `bevy_ci_testing` feature is enabled to automatically
 /// exit a Bevy app when run through the CI. This is needed because otherwise
 /// Bevy apps would be stuck in the game loop and wouldn't allow the CI to progress.
-#[derive(Deserialize, Resource)]
+#[derive(Deserialize, Resource, PartialEq, Debug)]
 pub struct CiTestingConfig {
     /// The setup for this test.
     #[serde(default)]
@@ -17,7 +17,7 @@ pub struct CiTestingConfig {
 }
 
 /// Setup for a test.
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, PartialEq, Debug)]
 pub struct CiTestingSetup {
     /// The time in seconds to update for each frame.
     /// Set with the `TimeUpdateStrategy::ManualDuration(f32)` resource.
@@ -25,11 +25,11 @@ pub struct CiTestingSetup {
 }
 
 /// An event to send at a given frame, used for CI testing.
-#[derive(Deserialize)]
+#[derive(Deserialize, PartialEq, Debug)]
 pub struct CiTestingEventOnFrame(pub u32, pub CiTestingEvent);
 
 /// An event to send, used for CI testing.
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, PartialEq, Debug)]
 pub enum CiTestingEvent {
     Screenshot,
     AppExit,
@@ -39,3 +39,38 @@ pub enum CiTestingEvent {
 /// A custom event that can be configured from a configuration file for CI testing.
 #[derive(Event)]
 pub struct CiTestingCustomEvent(pub String);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deserialize() {
+        const INPUT: &str = r#"
+(
+    setup: (
+        fixed_frame_time: Some(0.03),
+    ),
+    events: [
+        (100, Custom("Hello, world!")),
+        (200, Screenshot),
+        (300, AppExit),
+    ],
+)"#;
+
+        let expected = CiTestingConfig {
+            setup: CiTestingSetup {
+                fixed_frame_time: Some(0.03),
+            },
+            events: vec![
+                CiTestingEventOnFrame(100, CiTestingEvent::Custom("Hello, world!".into())),
+                CiTestingEventOnFrame(200, CiTestingEvent::Screenshot),
+                CiTestingEventOnFrame(300, CiTestingEvent::AppExit),
+            ],
+        };
+
+        let config: CiTestingConfig = ron::from_str(INPUT).unwrap();
+
+        assert_eq!(config, expected);
+    }
+}
