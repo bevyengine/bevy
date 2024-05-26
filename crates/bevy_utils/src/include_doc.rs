@@ -3,7 +3,7 @@
 ///
 /// ```rust
 /// use bevy_utils::include_doc;
-/// 
+///
 /// struct MyType {
 ///   /// Inherited visibility of an entity.
 ///   inherited_visibility_duplicated: i32,
@@ -15,6 +15,9 @@
 #[macro_export]
 macro_rules! include_doc {
     (inherited_visibility) => {
-			include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../inline-docs/inherited_visibility.md"))
-		};
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../inline-docs/inherited_visibility.md"
+        ))
+    };
 }
