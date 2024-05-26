@@ -29,6 +29,8 @@ use crate::prelude::{Mat2, Vec2};
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(all(feature = "serialize", feature = "reflect"), reflect(Serialize, Deserialize))]
 pub struct Rotation2d {
     /// The cosine of the rotation angle in radians.
     ///
