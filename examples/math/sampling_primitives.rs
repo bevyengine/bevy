@@ -142,7 +142,7 @@ impl SampledShapes {
     }
 }
 
-/// Enum wrapping the individual
+/// Enum listing the shapes that can be sampled
 #[derive(Clone, Copy)]
 enum Shape {
     Cuboid,
