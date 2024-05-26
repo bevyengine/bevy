@@ -116,7 +116,6 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 
         let view_layout = self
             .mesh_pipeline
-            .view_layouts
             .get_view_layout(key.view_key.into())
             .clone();
 
@@ -210,7 +209,6 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
 
         let view_layout = self
             .mesh_pipeline
-            .view_layouts
             .get_view_layout(key.view_key.into())
             .clone();
 
