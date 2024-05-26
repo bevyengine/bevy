@@ -1,6 +1,6 @@
 use crate::color_difference::EuclideanDistance;
 use crate::{
-    impl_componentwise_vector_space, Alpha, ColorToComponents, LinearRgba, Luminance, Mix,
+    impl_componentwise_vector_space, Alpha, ColorToComponents, Gray, LinearRgba, Luminance, Mix,
     StandardColor, Xyza,
 };
 use bevy_math::{Vec3, Vec4};
@@ -312,6 +312,11 @@ impl EuclideanDistance for Srgba {
         let db = self.blue - other.blue;
         dr * dr + dg * dg + db * db
     }
+}
+
+impl Gray for Srgba {
+    const BLACK: Self = Self::BLACK;
+    const WHITE: Self = Self::WHITE;
 }
 
 impl ColorToComponents for Srgba {

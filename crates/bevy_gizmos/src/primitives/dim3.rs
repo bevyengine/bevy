@@ -6,7 +6,7 @@ use std::f32::consts::TAU;
 use bevy_color::Color;
 use bevy_math::primitives::{
     BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
-    Polyline3d, Primitive3d, Segment3d, Sphere, Tetrahedron, Torus,
+    Polyline3d, Primitive3d, Segment3d, Sphere, Tetrahedron, Torus, Triangle3d,
 };
 use bevy_math::{Dir3, Quat, Vec3};
 
@@ -400,6 +400,34 @@ where
                 .iter()
                 .copied()
                 .map(rotate_then_translate_3d(rotation, position)),
+            color,
+        );
+    }
+}
+
+// triangle 3d
+
+impl<'w, 's, Config, Clear> GizmoPrimitive3d<Triangle3d> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = () where Self: 'a;
+
+    fn primitive_3d(
+        &mut self,
+        primitive: Triangle3d,
+        position: Vec3,
+        rotation: Quat,
+        color: impl Into<Color>,
+    ) -> Self::Output<'_> {
+        if !self.enabled {
+            return;
+        }
+
+        let [a, b, c] = primitive.vertices;
+        self.linestrip(
+            [a, b, c, a].map(rotate_then_translate_3d(rotation, position)),
             color,
         );
     }
