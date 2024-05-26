@@ -79,11 +79,14 @@ fn sd_rounded_box(point: vec2<f32>, size: vec2<f32>, corner_radii: vec4<f32>) ->
     // If 0.0 < y then select bottom left (w) and bottom right corner radius (z).
     // Else select top left (x) and top right corner radius (y).
     let rs = select(corner_radii.xy, corner_radii.wz, 0.0 < point.y);
-    // w and z are swapped so that both pairs are in left to right order, otherwise this second 
+    // w and z are swapped above so that both pairs are in left to right order, otherwise this second 
     // select statement would return the incorrect value for the bottom pair.
     let radius = select(rs.x, rs.y, 0.0 < point.x);
+    // The geometric size of the box is 1 greater than the pixel size. Since
+    // pixels are measured from their centers
+    let geometric_size = size + 1.0;
     // Vector from the corner closest to the point, to the point.
-    let corner_to_point = abs(point) - 0.5 * size;
+    let corner_to_point = abs(point) - 0.5 * geometric_size;
     // Vector from the center of the radius circle to the point.
     let q = corner_to_point + radius;
     // Length from center of the radius circle to the point, zeros a component if the point is not 
