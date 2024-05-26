@@ -145,8 +145,6 @@ impl MeshBuilder for CylinderMeshBuilder {
             }
         };
 
-        // top
-
         build_cap(true);
         build_cap(false);
 
