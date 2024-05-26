@@ -3,11 +3,14 @@ use std::f32::consts::{FRAC_PI_2, FRAC_PI_3, PI};
 use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{Dir2, Vec2};
 
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
+use bevy_reflect::prelude::*;
+
 /// A circle primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect), reflect(Debug, PartialEq))]
-#[cfg_attr(all(feature = "serialize", feature = "reflect"), reflect(Serialize, Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(all(feature = "serialize", feature = "bevy_reflect"), reflect(Serialize, Deserialize))]
 pub struct Circle {
     /// The radius of the circle
     pub radius: f32,

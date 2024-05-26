@@ -1,6 +1,6 @@
 use crate::{IVec2, Rect, URect};
 
-#[cfg(feature = "reflect")]
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
 /// A rectangle defined by two opposite corners.
@@ -14,8 +14,8 @@ use bevy_reflect::prelude::*;
 #[repr(C)]
 #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect), reflect(Debug, PartialEq, Hash, Default))]
-#[cfg_attr(all(feature = "serialize", feature = "reflect"), reflect(Serialize, Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect), reflect(Debug, PartialEq, Hash, Default))]
+#[cfg_attr(all(feature = "serialize", feature = "bevy_reflect"), reflect(Serialize, Deserialize))]
 pub struct IRect {
     /// The minimum corner point of the rect.
     pub min: IVec2,

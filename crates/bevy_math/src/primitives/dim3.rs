@@ -3,11 +3,14 @@ use std::f32::consts::{FRAC_PI_3, PI};
 use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
 use crate::{Dir3, InvalidDirectionError, Mat3, Vec2, Vec3};
 
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
+use bevy_reflect::prelude::*;
+
 /// A sphere primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect), reflect(Debug, PartialEq))]
-#[cfg_attr(all(feature = "serialize", feature = "reflect"), reflect(Serialize, Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(all(feature = "serialize", feature = "bevy_reflect"), reflect(Serialize, Deserialize))]
 pub struct Sphere {
     /// The radius of the sphere
     pub radius: f32,
