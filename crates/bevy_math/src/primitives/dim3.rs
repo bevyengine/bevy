@@ -82,12 +82,12 @@ impl Measured3d for Sphere {
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "reflect",
+    feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
     reflect(Debug, PartialEq)
 )]
 #[cfg_attr(
-    all(feature = "serialize", feature = "reflect"),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Plane3d {
@@ -154,12 +154,12 @@ impl Plane3d {
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "reflect",
+    feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
     reflect(Debug, PartialEq)
 )]
 #[cfg_attr(
-    all(feature = "serialize", feature = "reflect"),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct InfinitePlane3d {
@@ -220,12 +220,12 @@ impl InfinitePlane3d {
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "reflect",
+    feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
     reflect(Debug, PartialEq)
 )]
 #[cfg_attr(
-    all(feature = "serialize", feature = "reflect"),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Line3d {
@@ -239,12 +239,12 @@ impl Primitive3d for Line3d {}
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "reflect",
+    feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
     reflect(Debug, PartialEq)
 )]
 #[cfg_attr(
-    all(feature = "serialize", feature = "reflect"),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Segment3d {
@@ -302,7 +302,7 @@ impl Segment3d {
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "reflect",
+    feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
     reflect(Debug, PartialEq)
 )]
@@ -363,12 +363,12 @@ impl BoxedPolyline3d {
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "reflect",
+    feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
     reflect(Debug, PartialEq)
 )]
 #[cfg_attr(
-    all(feature = "serialize", feature = "reflect"),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Cuboid {
@@ -455,12 +455,12 @@ impl Measured3d for Cuboid {
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "reflect",
+    feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
     reflect(Debug, PartialEq)
 )]
 #[cfg_attr(
-    all(feature = "serialize", feature = "reflect"),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Cylinder {
@@ -533,12 +533,12 @@ impl Measured3d for Cylinder {
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "reflect",
+    feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
     reflect(Debug, PartialEq)
 )]
 #[cfg_attr(
-    all(feature = "serialize", feature = "reflect"),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Capsule3d {
@@ -601,12 +601,12 @@ impl Measured3d for Capsule3d {
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "reflect",
+    feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
     reflect(Debug, PartialEq)
 )]
 #[cfg_attr(
-    all(feature = "serialize", feature = "reflect"),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Cone {
@@ -679,12 +679,12 @@ impl Measured3d for Cone {
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "reflect",
+    feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
     reflect(Debug, PartialEq)
 )]
 #[cfg_attr(
-    all(feature = "serialize", feature = "reflect"),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct ConicalFrustum {
@@ -730,12 +730,12 @@ pub enum TorusKind {
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "reflect",
+    feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
     reflect(Debug, PartialEq)
 )]
 #[cfg_attr(
-    all(feature = "serialize", feature = "reflect"),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Torus {
@@ -841,12 +841,12 @@ impl Measured3d for Torus {
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "reflect",
+    feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
     reflect(Debug, PartialEq)
 )]
 #[cfg_attr(
-    all(feature = "serialize", feature = "reflect"),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Triangle3d {
@@ -1034,12 +1034,12 @@ impl Measured2d for Triangle3d {
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "reflect",
+    feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
     reflect(Debug, PartialEq)
 )]
 #[cfg_attr(
-    all(feature = "serialize", feature = "reflect"),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Tetrahedron {
