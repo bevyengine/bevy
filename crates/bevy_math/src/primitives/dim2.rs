@@ -962,6 +962,15 @@ impl Measured2d for Annulus {
 /// A rhombus primitive, also known as a diamond shape.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(bevy_reflect::Reflect),
+    reflect(Debug, PartialEq)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 #[doc(alias = "Diamond")]
 pub struct Rhombus {
     /// Size of the horizontal and vertical diagonals of the rhombus
