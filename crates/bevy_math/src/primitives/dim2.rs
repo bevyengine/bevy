@@ -961,7 +961,7 @@ impl Rhombus {
     #[inline(always)]
     pub fn from_side(side: f32) -> Self {
         Self {
-            half_diagonals: Vec2::new(side.hypot(side) / 2.0, side.hypot(side) / 2.0),
+            half_diagonals: Vec2::splat(side.hypot(side) / 2.0),
         }
     }
 
@@ -977,7 +977,7 @@ impl Rhombus {
     /// Get the length of each side of the rhombus
     #[inline(always)]
     pub fn side(&self) -> f32 {
-        self.half_diagonals.x.hypot(self.half_diagonals.y)
+        self.half_diagonals.length()
     }
 
     /// Get the radius of the circumcircle on which all vertices
@@ -992,7 +992,12 @@ impl Rhombus {
     #[inline(always)]
     #[doc(alias = "apothem")]
     pub fn inradius(&self) -> f32 {
-        ((self.half_diagonals.x * self.half_diagonals.y) / self.side()).max(0.0)
+        let side = self.side();
+        if side == 0.0 {
+            0.0
+        } else {
+            (self.half_diagonals.x * self.half_diagonals.y) / self.side()
+        }
     }
 
     /// Finds the point on the rhombus that is closest to the given `point`.
@@ -1001,44 +1006,38 @@ impl Rhombus {
     /// Otherwise, it will be inside the rhombus and returned as is.
     #[inline(always)]
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
-        let diagonals_mult = self.half_diagonals.x * self.half_diagonals.y;
+        // Fold the problem into the positive quadrant
+        let point_abs = point.abs();
+        let half_diagonals = self.half_diagonals.abs(); // to ensure correct sign
 
-        // Point is inside the rhombus
-        if point.x.abs() * self.half_diagonals.y + point.y.abs() * self.half_diagonals.x
-            <= diagonals_mult
-        {
-            point
-        } else {
-            // Equation of the line that contains the side in the points quadrant
-            let [m, b] = [
-                (-point.x * point.y).signum() * self.half_diagonals.y / self.half_diagonals.x,
-                point.y.signum() * self.half_diagonals.y,
-            ];
-
-            let inv_m = -1.0 / m;
-
-            // Normal of the line mx+b that passes through the point
-            let side_normal = [inv_m, point.y - inv_m * point.x];
-
-            // Intersection of the side normal and the side line rounded to 4 decimal places
-            let xintercept =
-                (((b - side_normal[1]) / (side_normal[0] - m)) * 10000.0).round() / 10000.0;
-            let yintercept = ((m * xintercept + b) * 10000.0).round() / 10000.0;
-
-            if xintercept.abs() * self.half_diagonals.y + yintercept.abs() * self.half_diagonals.x
-                <= diagonals_mult
-            {
-                // The interception between the side and the normal is in the perimeter of the rhombus
-                Vec2::new(xintercept, yintercept)
-            } else {
-                // Point is in one of the axys or close to it
-                if point.x.abs() > point.y.abs() {
-                    Vec2::new(point.x.signum() * self.half_diagonals.x, 0.0)
-                } else {
-                    Vec2::new(0.0, point.y.signum() * self.half_diagonals.y)
-                }
-            }
+        // The unnormalised normal vector perpendicular to the side of the rhombus
+        let normal = Vec2::new(half_diagonals.y, half_diagonals.x);
+        let normal_magnitude_squared = normal.length_squared();
+        if normal_magnitude_squared == 0.0 {
+            return Vec2::ZERO; // A null Rhombus has only one point anyway.
         }
+
+        // The last term corresponds to normal.dot(rhombus_vertex)
+        let distance_unnormalised = normal.dot(point_abs) - half_diagonals.x * half_diagonals.y;
+
+        // The point is already inside so we simply return it.
+        if distance_unnormalised <= 0.0 {
+            return point;
+        }
+
+        // Clamp the point to the edge
+        let mut result = point_abs - normal * distance_unnormalised / normal_magnitude_squared;
+
+        // Clamp the point back to the positive quadrant
+        // if it's outside, it needs to be clamped to either vertex
+        if result.x <= 0.0 {
+            result = Vec2::new(0.0, half_diagonals.y);
+        } else if result.y <= 0.0 {
+            result = Vec2::new(half_diagonals.x, 0.0);
+        }
+
+        // Finally, we restore the signs of the original vector
+        result.copysign(point)
     }
 }
 
@@ -1740,6 +1739,11 @@ mod tests {
             rhombus.closest_point(Vec2::new(-0.55, 0.35)),
             Vec2::new(-0.5, 0.25)
         );
+
+        let rhombus = Rhombus::new(0.0, 0.0);
+        assert_eq!(rhombus.closest_point(Vec2::X * 10.0), Vec2::ZERO);
+        assert_eq!(rhombus.closest_point(Vec2::NEG_ONE * 0.2), Vec2::ZERO);
+        assert_eq!(rhombus.closest_point(Vec2::new(-0.55, 0.35)), Vec2::ZERO);
     }
 
     #[test]
