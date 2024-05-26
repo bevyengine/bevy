@@ -394,10 +394,12 @@ where
 
         if layout.0.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
+            shader_defs.push("VERTEX_UVS_A".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(1));
         }
 
         if layout.0.contains(Mesh::ATTRIBUTE_UV_1) {
+            shader_defs.push("VERTEX_UVS".into());
             shader_defs.push("VERTEX_UVS_B".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_1.at_shader_location(2));
         }
@@ -698,10 +700,17 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_prepass_material_meshes<M: Material>(
-    opaque_draw_functions: Res<DrawFunctions<Opaque3dPrepass>>,
-    alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask3dPrepass>>,
-    opaque_deferred_draw_functions: Res<DrawFunctions<Opaque3dDeferred>>,
-    alpha_mask_deferred_draw_functions: Res<DrawFunctions<AlphaMask3dDeferred>>,
+    (
+        opaque_draw_functions,
+        alpha_mask_draw_functions,
+        opaque_deferred_draw_functions,
+        alpha_mask_deferred_draw_functions,
+    ): (
+        Res<DrawFunctions<Opaque3dPrepass>>,
+        Res<DrawFunctions<AlphaMask3dPrepass>>,
+        Res<DrawFunctions<Opaque3dDeferred>>,
+        Res<DrawFunctions<AlphaMask3dDeferred>>,
+    ),
     prepass_pipeline: Res<PrepassPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
@@ -711,25 +720,20 @@ pub fn queue_prepass_material_meshes<M: Material>(
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     render_lightmaps: Res<RenderLightmaps>,
+    mut opaque_prepass_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dPrepass>>,
+    mut alpha_mask_prepass_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
+    mut opaque_deferred_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dDeferred>>,
+    mut alpha_mask_deferred_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
     mut views: Query<
         (
-            &ExtractedView,
+            Entity,
             &VisibleEntities,
-            Option<&mut BinnedRenderPhase<Opaque3dPrepass>>,
-            Option<&mut BinnedRenderPhase<AlphaMask3dPrepass>>,
-            Option<&mut BinnedRenderPhase<Opaque3dDeferred>>,
-            Option<&mut BinnedRenderPhase<AlphaMask3dDeferred>>,
             Option<&DepthPrepass>,
             Option<&NormalPrepass>,
             Option<&MotionVectorPrepass>,
             Option<&DeferredPrepass>,
         ),
-        Or<(
-            With<BinnedRenderPhase<Opaque3dPrepass>>,
-            With<BinnedRenderPhase<AlphaMask3dPrepass>>,
-            With<BinnedRenderPhase<Opaque3dDeferred>>,
-            With<BinnedRenderPhase<AlphaMask3dDeferred>>,
-        )>,
+        With<ExtractedView>,
     >,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -751,18 +755,35 @@ pub fn queue_prepass_material_meshes<M: Material>(
         .get_id::<DrawPrepass<M>>()
         .unwrap();
     for (
-        _view,
+        view,
         visible_entities,
-        mut opaque_phase,
-        mut alpha_mask_phase,
-        mut opaque_deferred_phase,
-        mut alpha_mask_deferred_phase,
         depth_prepass,
         normal_prepass,
         motion_vector_prepass,
         deferred_prepass,
     ) in &mut views
     {
+        let (
+            mut opaque_phase,
+            mut alpha_mask_phase,
+            mut opaque_deferred_phase,
+            mut alpha_mask_deferred_phase,
+        ) = (
+            opaque_prepass_render_phases.get_mut(&view),
+            alpha_mask_prepass_render_phases.get_mut(&view),
+            opaque_deferred_render_phases.get_mut(&view),
+            alpha_mask_deferred_render_phases.get_mut(&view),
+        );
+
+        // Skip if there's no place to put the mesh.
+        if opaque_phase.is_none()
+            && alpha_mask_phase.is_none()
+            && opaque_deferred_phase.is_none()
+            && alpha_mask_deferred_phase.is_none()
+        {
+            continue;
+        }
+
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
         if depth_prepass.is_some() {
             view_key |= MeshPipelineKey::DEPTH_PREPASS;

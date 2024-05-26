@@ -95,10 +95,12 @@ fn compute_histogram(
     @builtin(local_invocation_index) local_invocation_index: u32
 ) {
     // Clear the workgroup shared histogram
-    histogram_shared[local_invocation_index] = 0u;
+    if local_invocation_index < 64 {
+        histogram_shared[local_invocation_index] = 0u;
+    }
 
     // Wait for all workgroup threads to clear the shared histogram
-    storageBarrier();
+    workgroupBarrier();
 
     let dim = vec2<u32>(textureDimensions(tex_color));
     let uv = vec2<f32>(global_invocation_id.xy) / vec2<f32>(dim);

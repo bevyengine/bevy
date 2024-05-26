@@ -22,6 +22,7 @@ use bevy_ecs::prelude::ReflectResource;
 /// ```
 /// use bevy_state::prelude::*;
 /// use bevy_ecs::prelude::*;
+/// use bevy_state_macros::States;
 ///
 /// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 /// enum GameState {

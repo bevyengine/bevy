@@ -75,7 +75,7 @@ impl<'a> Iterator for TupleFieldIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let value = self.tuple.field(self.index);
-        self.index += 1;
+        self.index += value.is_some() as usize;
         value
     }
 
@@ -709,3 +709,24 @@ macro_rules! impl_type_path_tuple {
 }
 
 all_tuples!(impl_type_path_tuple, 0, 12, P);
+
+#[cfg(test)]
+mod tests {
+    use super::Tuple;
+
+    #[test]
+    fn next_index_increment() {
+        let mut iter = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11).iter_fields();
+        let size = iter.len();
+        iter.index = size - 1;
+        let prev_index = iter.index;
+        assert!(iter.next().is_some());
+        assert_eq!(prev_index, iter.index - 1);
+
+        // When None we should no longer increase index
+        assert!(iter.next().is_none());
+        assert_eq!(size, iter.index);
+        assert!(iter.next().is_none());
+        assert_eq!(size, iter.index);
+    }
+}

@@ -2,7 +2,7 @@
 //! derived from: <https://sotrh.github.io/learn-wgpu/showcase/windowless/#a-triangle-without-a-window>
 //! It follows this steps:
 //! 1. Render from camera to gpu-image render target
-//! 2. Copy form gpu image to buffer using `ImageCopyDriver` node in `RenderGraph`
+//! 2. Copy from gpu image to buffer using `ImageCopyDriver` node in `RenderGraph`
 //! 3. Copy from buffer to channel using `receive_image_from_buffer` after `RenderSet::Render`
 //! 4. Save from channel to random named file using `scene::update` at `PostUpdate` in `MainWorld`
 //! 5. Exit if `single_image` setting is set
@@ -13,8 +13,7 @@ use bevy::{
     prelude::*,
     render::{
         camera::RenderTarget,
-        render_asset::RenderAssetUsages,
-        render_asset::RenderAssets,
+        render_asset::{RenderAssetUsages, RenderAssets},
         render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
         render_resource::{
             Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d,
@@ -22,7 +21,7 @@ use bevy::{
             TextureUsages,
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
-        texture::BevyDefault,
+        texture::{BevyDefault, TextureFormatPixelInfo},
         Extract, Render, RenderApp, RenderSet,
     },
 };
@@ -361,6 +360,10 @@ impl render_graph::Node for ImageCopyDriver {
             let block_dimensions = src_image.texture_format.block_dimensions();
             let block_size = src_image.texture_format.block_copy_size(None).unwrap();
 
+            // Calculating correct size of image row because
+            // copy_texture_to_buffer can copy image only by rows aligned wgpu::COPY_BYTES_PER_ROW_ALIGNMENT
+            // That's why image in buffer can be little bit wider
+            // This should be taken into account at copy from buffer stage
             let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row(
                 (src_image.size.x as usize / block_dimensions.0 as usize) * block_size as usize,
             );
@@ -492,7 +495,24 @@ fn update(
                 for image in images_to_save.iter() {
                     // Fill correct data from channel to image
                     let img_bytes = images.get_mut(image.id()).unwrap();
-                    img_bytes.data.clone_from(&image_data);
+
+                    // We need to ensure that this works regardless of the image dimensions
+                    // If the image became wider when copying from the texture to the buffer,
+                    // then the data is reduced to its original size when copying from the buffer to the image.
+                    let row_bytes = img_bytes.width() as usize
+                        * img_bytes.texture_descriptor.format.pixel_size();
+                    let aligned_row_bytes = RenderDevice::align_copy_bytes_per_row(row_bytes);
+                    if row_bytes == aligned_row_bytes {
+                        img_bytes.data.clone_from(&image_data);
+                    } else {
+                        // shrink data to original image size
+                        img_bytes.data = image_data
+                            .chunks(aligned_row_bytes)
+                            .take(img_bytes.height() as usize)
+                            .flat_map(|row| &row[..row_bytes.min(row.len())])
+                            .cloned()
+                            .collect();
+                    }
 
                     // Create RGBA Image Buffer
                     let img = match img_bytes.clone().try_into_dynamic() {

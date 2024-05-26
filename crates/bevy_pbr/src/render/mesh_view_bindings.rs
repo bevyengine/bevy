@@ -29,6 +29,7 @@ use bevy_render::{
 
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 use bevy_render::render_resource::binding_types::texture_cube;
+#[cfg(debug_assertions)]
 use bevy_utils::warn_once;
 use environment_map::EnvironmentMapLight;
 
@@ -368,6 +369,7 @@ impl FromWorld for MeshPipelineViewLayouts {
                 key,
                 render_device,
             );
+            #[cfg(debug_assertions)]
             let texture_count: usize = entries
                 .iter()
                 .filter(|entry| matches!(entry.ty, BindingType::Texture { .. }))

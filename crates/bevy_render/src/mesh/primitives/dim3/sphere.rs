@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use crate::{
-    mesh::{Indices, Mesh, Meshable},
+    mesh::{Indices, Mesh, MeshBuilder, Meshable},
     render_asset::RenderAssetUsages,
 };
 use bevy_math::primitives::Sphere;
@@ -73,19 +73,6 @@ impl SphereMeshBuilder {
     pub const fn kind(mut self, kind: SphereKind) -> Self {
         self.kind = kind;
         self
-    }
-
-    /// Builds a [`Mesh`] according to the configuration in `self`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the sphere is a [`SphereKind::Ico`] with a subdivision count
-    /// that is greater than or equal to `80` because there will be too many vertices.
-    pub fn build(&self) -> Mesh {
-        match self.kind {
-            SphereKind::Ico { subdivisions } => self.ico(subdivisions).unwrap(),
-            SphereKind::Uv { sectors, stacks } => self.uv(sectors, stacks),
-        }
     }
 
     /// Creates an icosphere mesh with the given number of subdivisions.
@@ -244,6 +231,21 @@ impl SphereMeshBuilder {
     }
 }
 
+impl MeshBuilder for SphereMeshBuilder {
+    /// Builds a [`Mesh`] according to the configuration in `self`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the sphere is a [`SphereKind::Ico`] with a subdivision count
+    /// that is greater than or equal to `80` because there will be too many vertices.
+    fn build(&self) -> Mesh {
+        match self.kind {
+            SphereKind::Ico { subdivisions } => self.ico(subdivisions).unwrap(),
+            SphereKind::Uv { sectors, stacks } => self.uv(sectors, stacks),
+        }
+    }
+}
+
 impl Meshable for Sphere {
     type Output = SphereMeshBuilder;
 
@@ -258,11 +260,5 @@ impl Meshable for Sphere {
 impl From<Sphere> for Mesh {
     fn from(sphere: Sphere) -> Self {
         sphere.mesh().build()
-    }
-}
-
-impl From<SphereMeshBuilder> for Mesh {
-    fn from(sphere: SphereMeshBuilder) -> Self {
-        sphere.build()
     }
 }

@@ -493,6 +493,7 @@ mod impls {
 
     #[cfg(feature = "bevy_math")]
     mod math {
+        mod cubic_splines;
         mod direction;
         mod primitives2d;
         mod primitives3d;
@@ -511,6 +512,7 @@ mod impls {
     mod uuid;
 }
 
+pub mod attributes;
 mod enums;
 pub mod serde;
 pub mod std_traits;
