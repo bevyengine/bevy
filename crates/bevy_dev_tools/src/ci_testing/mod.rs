@@ -9,6 +9,15 @@ use bevy_app::prelude::*;
 use bevy_time::TimeUpdateStrategy;
 use std::time::Duration;
 
+/// A plugin that instruments continuous integration testing by automatically executing user-defined actions.
+/// 
+/// This plugin reads a [`ron`] file specified with the `CI_TESTING_CONFIG` environmental variable
+/// (`ci_testing_config.ron` by default) and executes its specified actions. For a reference of the
+/// allowed configuration, see [`CiTestingConfig`].
+/// 
+/// This plugin is included within `DefaultPlugins` and `MinimalPlugins` when the `bevy_ci_testing`
+/// feature is enabled. It is recommended to only used this plugin during testing (manual or
+/// automatic), and disable it during regular development and for production builds.
 pub struct CiTestingPlugin;
 
 impl Plugin for CiTestingPlugin {
