@@ -30,11 +30,11 @@ impl Plugin for CiTestingPlugin {
             ron::from_str(config).expect("error deserializing CI testing configuration file")
         };
 
+        // Configure a fixed frame time if specified.
         if let Some(fixed_frame_time) = config.setup.fixed_frame_time {
-            app.world_mut()
-                .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f32(
-                    fixed_frame_time,
-                )));
+            app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f32(
+                fixed_frame_time,
+            )));
         }
 
         app.add_event::<CiTestingCustomEvent>()
