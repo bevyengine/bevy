@@ -1,9 +1,9 @@
+use super::config::*;
 use bevy_app::AppExit;
 use bevy_ecs::prelude::*;
 use bevy_render::view::screenshot::ScreenshotManager;
 use bevy_utils::tracing::{debug, info, warn};
 use bevy_window::PrimaryWindow;
-use super::config::*;
 
 pub(crate) fn send_events(world: &mut World, mut current_frame: Local<u32>) {
     let mut config = world.resource_mut::<CiTestingConfig>();
