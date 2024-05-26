@@ -32,8 +32,15 @@ use bevy_reflect::prelude::*;
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect), reflect(Debug, PartialEq))]
-#[cfg_attr(all(feature = "serialize", feature = "bevy_reflect"), reflect(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(bevy_reflect::Reflect),
+    reflect(Debug, PartialEq)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Rotation2d {
     /// The cosine of the rotation angle in radians.
     ///

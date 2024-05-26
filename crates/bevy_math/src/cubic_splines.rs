@@ -648,7 +648,11 @@ pub trait CubicGenerator<P: VectorSpace> {
 ///
 /// Segments can be chained together to form a longer compound curve.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect), reflect(Debug, Default))]
+#[cfg_attr(
+    feature = "reflect",
+    derive(bevy_reflect::Reflect),
+    reflect(Debug, Default)
+)]
 pub struct CubicSegment<P: VectorSpace> {
     /// Coefficients of the segment
     pub coeff: [P; 4],
@@ -942,7 +946,11 @@ pub trait RationalGenerator<P: VectorSpace> {
 ///
 /// Segments can be chained together to form a longer compound curve.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect), reflect(Debug, Default))]
+#[cfg_attr(
+    feature = "reflect",
+    derive(bevy_reflect::Reflect),
+    reflect(Debug, Default)
+)]
 pub struct RationalSegment<P: VectorSpace> {
     /// The coefficients matrix of the cubic curve.
     pub coeff: [P; 4],
