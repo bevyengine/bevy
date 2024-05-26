@@ -95,7 +95,7 @@ impl Dir2 {
     /// The directional axes.
     pub const AXES: [Self; 2] = [Self::X, Self::Y];
 
-    /// Create a direction from a finite, nonzero [`Vec2`].
+    /// Create a direction from a finite, nonzero [`Vec2`], normalizing it.
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
     /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
@@ -118,7 +118,8 @@ impl Dir2 {
         Self(value)
     }
 
-    /// Create a direction from a finite, nonzero [`Vec2`], also returning its original length.
+    /// Create a direction from a finite, nonzero [`Vec2`], normalizing it and
+    /// also returning its original length.
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
     /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
@@ -233,7 +234,7 @@ impl std::ops::Mul<Dir2> for Rotation2d {
     }
 }
 
-#[cfg(feature = "approx")]
+#[cfg(any(feature = "approx", test))]
 impl approx::AbsDiffEq for Dir2 {
     type Epsilon = f32;
     fn default_epsilon() -> f32 {
@@ -244,7 +245,7 @@ impl approx::AbsDiffEq for Dir2 {
     }
 }
 
-#[cfg(feature = "approx")]
+#[cfg(any(feature = "approx", test))]
 impl approx::RelativeEq for Dir2 {
     fn default_max_relative() -> f32 {
         f32::EPSILON
@@ -255,7 +256,7 @@ impl approx::RelativeEq for Dir2 {
     }
 }
 
-#[cfg(feature = "approx")]
+#[cfg(any(feature = "approx", test))]
 impl approx::UlpsEq for Dir2 {
     fn default_max_ulps() -> u32 {
         4
@@ -288,7 +289,7 @@ impl Dir3 {
     /// The directional axes.
     pub const AXES: [Self; 3] = [Self::X, Self::Y, Self::Z];
 
-    /// Create a direction from a finite, nonzero [`Vec3`].
+    /// Create a direction from a finite, nonzero [`Vec3`], normalizing it.
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
     /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
@@ -311,7 +312,8 @@ impl Dir3 {
         Self(value)
     }
 
-    /// Create a direction from a finite, nonzero [`Vec3`], also returning its original length.
+    /// Create a direction from a finite, nonzero [`Vec3`], normalizing it and
+    /// also returning its original length.
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
     /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
@@ -488,7 +490,7 @@ impl Dir3A {
     /// The directional axes.
     pub const AXES: [Self; 3] = [Self::X, Self::Y, Self::Z];
 
-    /// Create a direction from a finite, nonzero [`Vec3A`].
+    /// Create a direction from a finite, nonzero [`Vec3A`], normalizing it.
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
     /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
@@ -511,7 +513,8 @@ impl Dir3A {
         Self(value)
     }
 
-    /// Create a direction from a finite, nonzero [`Vec3A`], also returning its original length.
+    /// Create a direction from a finite, nonzero [`Vec3A`], normalizing it and
+    /// also returning its original length.
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
     /// of the given vector is zero (or very close to zero), infinite, or `NaN`.
