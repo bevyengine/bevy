@@ -1,5 +1,8 @@
 use crate::{IRect, URect, Vec2};
 
+#[cfg(feature = "reflect")]
+use bevy_reflect::prelude::*;
+
 /// A rectangle defined by two opposite corners.
 ///
 /// The rectangle is axis aligned, and defined by its minimum and maximum coordinates,

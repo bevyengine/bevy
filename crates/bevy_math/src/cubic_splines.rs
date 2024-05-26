@@ -6,6 +6,9 @@ use crate::{Vec2, VectorSpace};
 
 use thiserror::Error;
 
+#[cfg(feature = "reflect")]
+use bevy_reflect::prelude::*;
+
 /// A spline composed of a single cubic Bezier curve.
 ///
 /// Useful for user-drawn curves with local control, or animation easing. See
