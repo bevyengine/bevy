@@ -124,14 +124,7 @@ struct SampledShapes(Vec<(Shape, Vec3)>);
 
 impl SampledShapes {
     fn new() -> Self {
-        let shapes = vec![
-            Shape::Cuboid,
-            Shape::Sphere,
-            Shape::Capsule,
-            Shape::Cylinder,
-            Shape::Tetrahedron,
-            Shape::Triangle,
-        ];
+        let shapes = Shape::list_all_shapes();
 
         let n_shapes = shapes.len();
 
@@ -151,6 +144,20 @@ enum Shape {
     Cylinder,
     Tetrahedron,
     Triangle,
+}
+
+impl Shape {
+    /// Return a vector containing all implemented shapes
+    fn list_all_shapes() -> Vec<Shape> {
+        vec![
+            Shape::Cuboid,
+            Shape::Sphere,
+            Shape::Capsule,
+            Shape::Cylinder,
+            Shape::Tetrahedron,
+            Shape::Triangle,
+        ]
+    }
 }
 
 impl ShapeSample for Shape {
