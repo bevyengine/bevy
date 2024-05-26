@@ -123,6 +123,23 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
     return sd_rounded_box(inner_point, inner_size, r);
 }
 
+// get alpha for antialiasing for sdf
+fn antialias(distance: f32) -> f32 {
+    let fborder = fwidth(distance) * 0.25;
+    let dx = dpdx(distance);
+    let dy = dpdy(distance);
+
+    return smoothstep(fborder, -fborder, distance);
+    
+    // doesn't work well
+    // let distance_change = length(vec2(dpdx(distance), dpdy(distance)));
+    // let pixel_distance = distance / distance_change;
+    // return saturate(0.5 - pixel_distance);
+
+    // return 1.0 - smoothstep(0.0, 1.0, distance);
+    
+}
+
 fn draw(in: VertexOutput) -> vec4<f32> {
     let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
 
@@ -148,29 +165,18 @@ fn draw(in: VertexOutput) -> vec4<f32> {
     // outside the outside edge, or inside the inner edge have positive signed distance.
     let border_distance = max(external_distance, -internal_distance);
 
-    // The `fwidth` function returns an approximation of the rate of change of the signed distance 
-    // value that is used to ensure that the smooth alpha transition created by smoothstep occurs 
-    // over a range of distance values that is proportional to how quickly the distance is changing.
-    let fborder = fwidth(border_distance);
-    let fexternal = fwidth(external_distance);
-
     if enabled(in.flags, BORDER) {   
         // The item is a border
-
-        // At external edges with no border, `border_distance` is equal to zero. 
-        // This select statement ensures we only perform anti-aliasing where a non-zero width border 
-        // is present, otherwise an outline about the external boundary would be drawn even without 
-        // a border.
-        let t = 1. - select(step(0.0, border_distance), smoothstep(0.0, fborder, border_distance), external_distance < internal_distance);
+        let t = antialias(border_distance);
 
         // Blend mode ALPHA_BLENDING is used for UI elements, so we don't premultiply alpha here.
         return vec4(color.rgb, color.a * t);
     }
 
     // The item is a rectangle, draw normally with anti-aliasing at the edges.
-    let t = 1. - smoothstep(0.0, fexternal, external_distance);
-
+    let t = antialias(external_distance);
     return vec4(color.rgb, color.a * t);
+
 }
 
 @fragment
