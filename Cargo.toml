@@ -1446,7 +1446,7 @@ doc-scrape-examples = true
 name = "Temporary assets"
 description = "How to use the temporary asset source"
 category = "Assets"
-wasm = false
+wasm = true
 
 # Async Tasks
 [[example]]

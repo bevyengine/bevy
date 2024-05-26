@@ -32,7 +32,6 @@ mod path;
 mod reflect;
 mod server;
 
-#[cfg(not(target_arch = "wasm32"))]
 mod temp;
 
 pub use assets::*;
@@ -50,8 +49,6 @@ pub use loader_builders::{
 pub use path::*;
 pub use reflect::*;
 pub use server::*;
-
-#[cfg(not(target_arch = "wasm32"))]
 pub use temp::TempDirectory;
 
 /// Rusty Object Notation, a crate used to serialize and deserialize bevy assets.
@@ -178,21 +175,18 @@ impl Plugin for AssetPlugin {
             embedded.register_source(&mut sources);
         }
 
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            match temp::get_temp_source(app.world_mut(), self.temporary_file_path.clone()) {
-                Ok(source) => {
-                    let mut sources = app
-                        .world_mut()
-                        .get_resource_or_insert_with::<AssetSourceBuilders>(Default::default);
+        match temp::get_temp_source(app.world_mut(), self.temporary_file_path.clone()) {
+            Ok(source) => {
+                let mut sources = app
+                    .world_mut()
+                    .get_resource_or_insert_with::<AssetSourceBuilders>(Default::default);
 
-                    sources.insert("temp", source);
-                }
-                Err(error) => {
-                    error!("Could not setup temp:// AssetSource due to an IO Error: {error}");
-                }
-            };
-        }
+                sources.insert("temp", source);
+            }
+            Err(error) => {
+                error!("Could not setup temp:// AssetSource due to an IO Error: {error}");
+            }
+        };
 
         {
             let mut watch = cfg!(feature = "watch");

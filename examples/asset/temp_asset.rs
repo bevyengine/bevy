@@ -8,10 +8,9 @@ use bevy::{
         AssetPath, ErasedLoadedAsset, LoadedAsset, TempDirectory,
     },
     prelude::*,
-    tasks::{block_on, IoTaskPool, Task},
+    tasks::IoTaskPool,
 };
 
-use futures_lite::future;
 use text_asset::{TextAsset, TextLoader, TextSaver};
 
 fn main() {
@@ -25,13 +24,10 @@ fn main() {
 }
 
 /// Attempt to save an asset to the temporary asset source.
-fn save_temp_asset(
-    assets: Res<AssetServer>,
-    mut commands: Commands,
-    temp_directory: Res<TempDirectory>,
-) {
+fn save_temp_asset(assets: Res<AssetServer>, temp_directory: Res<TempDirectory>) {
     // This is the asset we will attempt to save.
-    let my_text_asset = TextAsset("Hello World!".to_owned());
+    let my_text_asset =
+        TextAsset("Hello World!\nPress the Down Arrow Key to Discard the Asset".to_owned());
 
     // To ensure the `Task` can outlive this function, we must provide owned versions
     // of the `AssetServer` and our desired path.
@@ -41,16 +37,16 @@ fn save_temp_asset(
     // We use Bevy's IoTaskPool to run the saving task asynchronously. This ensures
     // our application doesn't block during the (potentially lengthy!) saving process.
     // In this example, the asset is small so the blocking time will be short, but
-    // that wont always be the case, especially for large assets.
-    let task = IoTaskPool::get().spawn(async move {
-        save_asset(my_text_asset, path, server, TextSaver)
-            .await
-            .unwrap();
-    });
-
-    // To ensure the task completes before we try loading, we will manually poll this task
-    // so we can react to its completion.
-    commands.spawn(SavingTask(task));
+    // that won't always be the case, especially for large assets.
+    IoTaskPool::get()
+        .spawn(async move {
+            info!("Saving my asset...");
+            save_asset(my_text_asset, path, server, TextSaver)
+                .await
+                .expect("Should've saved...");
+            info!("...Saved!");
+        })
+        .detach();
 
     // You can check the logged path to see the temporary directory yourself. Note
     // that the directory will be deleted once this example quits.
@@ -63,19 +59,19 @@ fn save_temp_asset(
 /// Poll the save tasks until completion, and then start loading our temporary text asset.
 fn wait_until_temp_saved(
     assets: Res<AssetServer>,
-    mut tasks: Query<(Entity, &mut SavingTask)>,
     mut commands: Commands,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
-    for (entity, mut task) in tasks.iter_mut() {
-        // Check our SavingTask to see if it's done...
-        if let Some(()) = block_on(future::poll_once(&mut task.0)) {
-            // ...and if so, load the temporary asset!
-            commands.insert_resource(MyTempText {
-                text: assets.load("temp://message.txt"),
-            });
+    if keyboard_input.just_pressed(KeyCode::ArrowUp) {
+        info!("Loading Asset...");
+        commands.insert_resource(MyTempText {
+            text: assets.load("temp://message.txt"),
+        });
+    }
 
-            commands.entity(entity).despawn_recursive();
-        }
+    if keyboard_input.just_pressed(KeyCode::ArrowDown) {
+        info!("Discarding Asset...");
+        commands.remove_resource::<MyTempText>();
     }
 }
 
@@ -83,14 +79,17 @@ fn wait_until_temp_saved(
 fn setup_ui(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 
-    commands.spawn((TextBundle::from_section("Loading...", default())
-        .with_text_justify(JustifyText::Center)
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            bottom: Val::Percent(50.),
-            right: Val::Percent(50.),
-            ..default()
-        }),));
+    commands.spawn((TextBundle::from_section(
+        "Press the Up Arrow Key to Load The Asset...",
+        default(),
+    )
+    .with_text_justify(JustifyText::Center)
+    .with_style(Style {
+        position_type: PositionType::Absolute,
+        bottom: Val::Percent(50.),
+        right: Val::Percent(50.),
+        ..default()
+    }),));
 }
 
 /// Once the [`TextAsset`] is loaded, update our display text to its contents.
@@ -103,7 +102,7 @@ fn display_text(
         .as_ref()
         .and_then(|resource| texts.get(&resource.text))
         .map(|text| text.0.as_str())
-        .unwrap_or("Loading...");
+        .unwrap_or("Press the Up Arrow Key to Load The Asset...");
 
     for mut text in query.iter_mut() {
         *text = Text::from_section(message, default());
@@ -128,9 +127,6 @@ async fn save_asset<A: Asset>(
 
     Some(())
 }
-
-#[derive(Component)]
-struct SavingTask(Task<()>);
 
 #[derive(Resource)]
 struct MyTempText {

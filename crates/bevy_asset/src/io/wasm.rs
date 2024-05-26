@@ -8,6 +8,10 @@ use wasm_bindgen::{prelude::wasm_bindgen, JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::Response;
 
+mod opfs;
+
+pub use opfs::*;
+
 /// Represents the global object in the JavaScript context
 #[wasm_bindgen]
 extern "C" {

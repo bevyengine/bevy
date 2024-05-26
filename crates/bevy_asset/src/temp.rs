@@ -22,6 +22,7 @@ impl TempDirectory {
     /// Try to create a new [`TempDirectory`] resource, which uses a randomly created
     /// directory in the user's temporary directory. This can fail if the platform does not
     /// provide an appropriate temporary directory, or the directory itself could not be created.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn new_transient() -> std::io::Result<Self> {
         let directory = TempDirectoryKind::new_transient()?;
 
@@ -42,6 +43,7 @@ impl TempDirectory {
     }
 
     /// Persist the current temporary asset directory after application exit.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn persist(&mut self) -> &mut Self {
         self.directory.persist();
 
@@ -56,6 +58,7 @@ enum TempDirectoryKind {
     /// Note that this is not _guaranteed_ to succeed, so it is possible to leak files from this
     /// option until the underlying OS cleans temporary directories. For secure files, consider using
     /// [`tempfile`](tempfile::tempfile) directly.
+    #[cfg(not(target_arch = "wasm32"))]
     Delete(tempfile::TempDir),
     /// Will not delete the temporary directory on exit, leaving cleanup the responsibility of
     /// the user or their system.
@@ -63,6 +66,7 @@ enum TempDirectoryKind {
 }
 
 impl TempDirectoryKind {
+    #[cfg(not(target_arch = "wasm32"))]
     fn new_transient() -> std::io::Result<Self> {
         let directory = tempfile::TempDir::with_prefix("bevy_")?;
         Ok(Self::Delete(directory))
@@ -74,11 +78,13 @@ impl TempDirectoryKind {
 
     fn path(&self) -> &Path {
         match self {
+            #[cfg(not(target_arch = "wasm32"))]
             Self::Delete(x) => x.as_ref(),
             Self::Persist(x) => x.as_ref(),
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn persist(&mut self) -> &mut Self {
         let mut swap = Self::Persist(PathBuf::new());
 
@@ -103,7 +109,17 @@ pub(crate) fn get_temp_source(
         Some(resource) => resource,
         None => match temporary_file_path {
             Some(path) => TempDirectory::new_persistent(path),
-            None => TempDirectory::new_transient()?,
+            None => {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    TempDirectory::new_transient()?
+                }
+
+                #[cfg(target_arch = "wasm32")]
+                {
+                    TempDirectory::new_persistent("bevy_temp")
+                }
+            }
         },
     };
 
@@ -134,8 +150,20 @@ struct TempAssetReader {
 impl TempAssetReader {
     fn get_default(path: String) -> impl FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync {
         move || {
-            let mut getter = AssetSource::get_default_reader(path.clone());
-            let inner = getter();
+            let inner = {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    let mut getter = AssetSource::get_default_reader(path.clone());
+                    getter()
+                }
+
+                #[cfg(target_arch = "wasm32")]
+                {
+                    Box::new(crate::io::wasm::OriginPrivateFileSystem::new(
+                        path.clone().into(),
+                    ))
+                }
+            };
 
             Box::new(Self { inner })
         }
@@ -180,9 +208,21 @@ impl TempAssetWriter {
     fn get_default(
         path: String,
     ) -> impl FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync {
-        move |condition| {
-            let mut getter = AssetSource::get_default_writer(path.clone());
-            let inner = getter(condition)?;
+        move |_condition| {
+            let inner = {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    let mut getter = AssetSource::get_default_writer(path.clone());
+                    getter(_condition)?
+                }
+
+                #[cfg(target_arch = "wasm32")]
+                {
+                    Box::new(crate::io::wasm::OriginPrivateFileSystem::new(
+                        path.clone().into(),
+                    ))
+                }
+            };
 
             Some(Box::new(Self { inner }))
         }

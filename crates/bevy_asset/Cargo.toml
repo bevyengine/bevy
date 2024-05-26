@@ -51,9 +51,19 @@ web-sys = { version = "0.3", features = [
   "Window",
   "Response",
   "WorkerGlobalScope",
+  "Navigator",
+  "StorageManager",
+  "FileSystemFileHandle",
+  "FileSystemDirectoryHandle",
+  "FileSystemGetDirectoryOptions",
+  "FileSystemGetFileOptions",
+  "File",
+  "FileSystemWritableFileStream",
+  "FileSystemRemoveOptions",
 ] }
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
+async-channel = "2.2.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 notify-debouncer-full = { version = "0.3.1", optional = true }
