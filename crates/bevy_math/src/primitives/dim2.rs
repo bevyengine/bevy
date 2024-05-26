@@ -996,7 +996,7 @@ impl Rhombus {
         if side == 0.0 {
             0.0
         } else {
-            (self.half_diagonals.x * self.half_diagonals.y) / self.side()
+            (self.half_diagonals.x * self.half_diagonals.y) / side
         }
     }
 
