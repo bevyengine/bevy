@@ -51,7 +51,7 @@ pub struct NodeBundle {
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
-    /// Inherited visibility of an entity.
+    #[doc = include_doc!(inherited_visibility)]
     pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub view_visibility: ViewVisibility,
@@ -164,7 +164,7 @@ pub struct AtlasImageBundle {
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
-    /// Inherited visibility of an entity.
+    #[doc = include_doc!(inherited_visibility)]
     pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub view_visibility: ViewVisibility,
@@ -205,7 +205,7 @@ pub struct TextBundle {
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
-    /// Inherited visibility of an entity.
+    #[doc = include_doc!(inherited_visibility)]
     pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub view_visibility: ViewVisibility,
@@ -333,7 +333,7 @@ pub struct ButtonBundle {
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
-    /// Inherited visibility of an entity.
+    #[doc = include_doc!(inherited_visibility)]
     pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub view_visibility: ViewVisibility,
@@ -389,7 +389,7 @@ pub struct MaterialNodeBundle<M: UiMaterial> {
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
-    /// Inherited visibility of an entity.
+    #[doc = include_doc!(inherited_visibility)]
     pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub view_visibility: ViewVisibility,

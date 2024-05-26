@@ -25,7 +25,7 @@ use bevy_render::{
 };
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, SpriteSource, TextureAtlasLayout};
 use bevy_transform::prelude::{GlobalTransform, Transform};
-use bevy_utils::HashSet;
+use bevy_utils::{include_doc, HashSet};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 
 /// The maximum width and height of text. The text will wrap according to the specified size.
@@ -79,7 +79,7 @@ pub struct Text2dBundle {
     pub global_transform: GlobalTransform,
     /// The visibility properties of the text.
     pub visibility: Visibility,
-    /// Inherited visibility of an entity.
+    #[doc = include_doc!(inherited_visibility)]
     pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub view_visibility: ViewVisibility,

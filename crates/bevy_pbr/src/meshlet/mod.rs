@@ -248,7 +248,7 @@ pub struct MaterialMeshletMeshBundle<M: Material> {
     pub global_transform: GlobalTransform,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
-    /// Inherited visibility of an entity.
+    #[doc = include_doc!(inherited_visibility)]
     pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub view_visibility: ViewVisibility,
