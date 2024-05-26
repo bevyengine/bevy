@@ -81,8 +81,8 @@ fn hybrid_root_finder_find_root(
 
     if ((*root_finder).linear_steps > 0u) {
         let candidate_t = mix(
-            (*root_finder).min_t,
-            (*root_finder).max_t,
+            min_t,
+            max_t,
             pow(
                 (*root_finder).jitter / f32((*root_finder).linear_steps),
                 (*root_finder).linear_march_exponent
