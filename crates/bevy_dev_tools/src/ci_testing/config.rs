@@ -19,8 +19,11 @@ pub struct CiTestingConfig {
 /// Setup for a test.
 #[derive(Deserialize, Default, PartialEq, Debug)]
 pub struct CiTestingSetup {
-    /// The time in seconds to update for each frame.
-    /// Set with the `TimeUpdateStrategy::ManualDuration(f32)` resource.
+    /// The amount of time in seconds between frame updates.
+    ///
+    /// This is set through the [`TimeUpdateStrategy::ManualDuration`] resource.
+    ///
+    /// [`TimeUpdateStrategy::ManualDuration`]: bevy_time::TimeUpdateStrategy::ManualDuration
     pub fixed_frame_time: Option<f32>,
 }
 
@@ -31,8 +34,14 @@ pub struct CiTestingEventOnFrame(pub u32, pub CiTestingEvent);
 /// An event to send, used for CI testing.
 #[derive(Deserialize, PartialEq, Debug)]
 pub enum CiTestingEvent {
+    /// Takes a screenshot of the entire screen, and saves the results to
+    /// `screenshot-{current_frame}.png`.
     Screenshot,
+    /// Stops the program by sending [`AppExit::Success`].
+    ///
+    /// [`AppExit::Success`]: bevy_app::AppExit::Success
     AppExit,
+    /// Sends a [`CiTestingCustomEvent`] using the given [`String`].
     Custom(String),
 }
 
