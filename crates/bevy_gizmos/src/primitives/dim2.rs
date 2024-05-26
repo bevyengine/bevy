@@ -7,7 +7,7 @@ use super::helpers::*;
 use bevy_color::Color;
 use bevy_math::primitives::{
     Annulus, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, Ellipse, Line2d, Plane2d, Polygon,
-    Polyline2d, Primitive2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
+    Polyline2d, Primitive2d, Rectangle, RegularPolygon, Rhombus, Segment2d, Triangle2d,
 };
 use bevy_math::{Dir2, Mat2, Vec2};
 
@@ -135,6 +135,38 @@ where
         let color = color.into();
         self.primitive_2d(primitive.inner_circle, position, angle, color);
         self.primitive_2d(primitive.outer_circle, position, angle, color);
+    }
+}
+
+// rhombus 2d
+
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<Rhombus> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = () where Self: 'a;
+
+    fn primitive_2d(
+        &mut self,
+        primitive: Rhombus,
+        position: Vec2,
+        angle: f32,
+        color: impl Into<Color>,
+    ) -> Self::Output<'_> {
+        if !self.enabled {
+            return;
+        }
+
+        let [a, b, c, d] =
+            [(1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0)].map(|(sign_x, sign_y)| {
+                Vec2::new(
+                    primitive.half_diagonals.x * sign_x,
+                    primitive.half_diagonals.y * sign_y,
+                )
+            });
+        let positions = [a, b, c, d, a].map(rotate_then_translate_2d(angle, position));
+        self.linestrip_2d(positions, color);
     }
 }
 
