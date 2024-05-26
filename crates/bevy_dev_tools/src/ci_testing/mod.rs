@@ -6,8 +6,8 @@ mod systems;
 pub use self::config::*;
 
 use bevy_app::prelude::*;
-use std::time::Duration;
 use bevy_time::TimeUpdateStrategy;
+use std::time::Duration;
 
 pub struct CiTestingPlugin;
 
@@ -23,6 +23,7 @@ impl Plugin for CiTestingPlugin {
             )
             .expect("error deserializing CI testing configuration file")
         };
+
         #[cfg(target_arch = "wasm32")]
         let config: CiTestingConfig = {
             let config = include_str!("../../../ci_testing_config.ron");
@@ -35,7 +36,7 @@ impl Plugin for CiTestingPlugin {
                     fixed_frame_time,
                 )));
         }
-    
+
         app.add_event::<CiTestingCustomEvent>()
             .insert_resource(config)
             .add_systems(Update, systems::send_events);
