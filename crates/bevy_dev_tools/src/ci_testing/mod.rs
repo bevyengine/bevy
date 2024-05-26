@@ -35,7 +35,7 @@ impl Plugin for CiTestingPlugin {
 
         #[cfg(target_arch = "wasm32")]
         let config: CiTestingConfig = {
-            let config = include_str!("../../../ci_testing_config.ron");
+            let config = include_str!("../../../../ci_testing_config.ron");
             ron::from_str(config).expect("error deserializing CI testing configuration file")
         };
 
