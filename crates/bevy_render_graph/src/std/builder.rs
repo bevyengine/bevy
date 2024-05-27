@@ -1,4 +1,4 @@
-use std::{borrow::Cow, mem, num::NonZeroU64};
+use std::{borrow::Cow, mem, num::NonZeroU64, ops::Deref};
 
 use bevy_asset::Handle;
 use bevy_math::UVec3;
@@ -8,16 +8,20 @@ use bevy_render::render_resource::{
     TextureDimension, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
 };
 
-use crate::core::{
-    resource::{
-        bind_group::{
-            RenderGraphBindGroupDescriptor, RenderGraphBindGroupEntry, RenderGraphBindingResource,
-            RenderGraphBufferBinding,
+use crate::{
+    core::{
+        resource::{
+            bind_group::{
+                RenderGraphBindGroupDescriptor, RenderGraphBindGroupEntry,
+                RenderGraphBindingResource, RenderGraphBufferBinding,
+            },
+            pipeline::RenderGraphComputePipelineDescriptor,
+            texture::RenderGraphTextureViewDescriptor,
+            RenderDependencies, RenderHandle,
         },
-        texture::RenderGraphTextureViewDescriptor,
-        RenderHandle,
+        Label, RenderGraphBuilder,
     },
-    Label, RenderGraphBuilder,
+    deps,
 };
 
 //NOTE: these utilities are in an extremely experimental state, and at least BindGroupBuilder will
@@ -341,28 +345,36 @@ impl<'a, 'b: 'a, 'g: 'b> ComputePass<'a, 'b, 'g> {
         self.dispatch(UVec3 { x, y, z })
     }
 
-    pub fn build(&mut self) {
-        // let (layout, mut bind_group, graph) = self.bind_group.build_and_return_graph();
+    pub fn build(&mut self) { //evil compiler error, bind group borrows `self` when it shouldn't
+
+        // let bind_group = self.bind_group.build();
+        // let graph = self.bind_group.internal_graph();
         // let pipeline = graph.new_resource(RenderGraphComputePipelineDescriptor {
         //     label: self.label.clone(),
-        //     layout: vec![layout],
+        //     layout: vec![graph.meta(bind_group).descriptor.layout],
         //     push_constant_ranges: Vec::new(),
-        //     shader: self.shader,
-        //     shader_defs: self.shader_defs,
-        //     entry_point: self.entry_point,
+        //     shader: mem::take(&mut self.shader),
+        //     shader_defs: mem::take(&mut self.shader_defs),
+        //     entry_point: mem::take(&mut self.entry_point),
         // });
         //
+        // let mut dependencies = RenderDependencies::new();
+        // if graph.meta(bind_group).writes_any() {
+        //     dependencies.write(bind_group);
+        // } else {
+        //     dependencies.read(bind_group);
+        // }
+        // dependencies.read(pipeline);
+        //
+        // let dispatch_size = self.dispatch_size;
+        //
         // graph.add_compute_node(
-        //     self.label,
-        //     deps![&mut bind_group, &pipeline],
+        //     mem::take(&mut self.label),
+        //     dependencies,
         //     move |ctx, pass| {
         //         pass.set_bind_group(0, ctx.get(bind_group).deref(), &[]);
         //         pass.set_pipeline(ctx.get(pipeline).deref());
-        //         pass.dispatch_workgroups(
-        //             self.dispatch_size.x,
-        //             self.dispatch_size.y,
-        //             self.dispatch_size.z,
-        //         );
+        //         pass.dispatch_workgroups(dispatch_size.x, dispatch_size.y, dispatch_size.z);
         //     },
         // );
     }

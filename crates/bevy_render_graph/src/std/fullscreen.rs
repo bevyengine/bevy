@@ -5,22 +5,13 @@ use bevy_asset::{embedded_asset, AssetServer, Handle};
 use bevy_color::LinearRgba;
 use bevy_render::render_resource::{
     BindGroup, BlendState, ColorTargetState, ColorWrites, FragmentState, LoadOp, Operations,
-    RenderPassColorAttachment, RenderPassDescriptor, Sampler, SamplerDescriptor, Shader,
-    ShaderStages, StoreOp, TextureView, VertexState,
+    RenderPassColorAttachment, RenderPassDescriptor, Shader, StoreOp, TextureView, VertexState,
 };
 
-use crate::{
-    core::{
-        resource::{
-            bind_group::RenderGraphBindGroupDescriptor,
-            pipeline::RenderGraphRenderPipelineDescriptor, RenderDependencies, RenderHandle,
-        },
-        RenderGraphBuilder,
-    },
-    deps,
+use crate::core::{
+    resource::{pipeline::RenderGraphRenderPipelineDescriptor, RenderDependencies, RenderHandle},
+    RenderGraphBuilder,
 };
-
-use super::BindGroupBuilder;
 
 pub struct FullscreenPlugin;
 
