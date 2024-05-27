@@ -98,6 +98,15 @@ impl Measured2d for Circle {
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[doc(alias("CircularArc", "CircleArc"))]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Arc2d {
     /// The radius of the circle
     pub radius: f32,
@@ -256,6 +265,15 @@ impl Arc2d {
 /// We recommend normalizing circular sectors to have an angle in [0, 2π].
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct CircularSector {
     /// The arc defining the sector
     #[cfg_attr(feature = "serialize", serde(flatten))]
@@ -386,6 +404,15 @@ impl CircularSector {
 /// We recommend normalizing circular segments to have an angle in [0, 2π].
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct CircularSegment {
     /// The arc defining the segment
     #[cfg_attr(feature = "serialize", serde(flatten))]
@@ -1217,6 +1244,10 @@ impl Segment2d {
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Polyline2d<const N: usize> {
     /// The vertices of the polyline
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
@@ -1538,6 +1569,10 @@ impl Measured2d for Rectangle {
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Polygon<const N: usize> {
     /// The vertices of the `Polygon`
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]

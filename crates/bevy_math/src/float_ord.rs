@@ -4,6 +4,9 @@ use std::{
     ops::Neg,
 };
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
+
 /// A wrapper for floats that implements [`Ord`], [`Eq`], and [`Hash`] traits.
 ///
 /// This is a work around for the fact that the IEEE 754-2008 standard,
@@ -14,6 +17,7 @@ use std::{
 /// Wrapping a float with `FloatOrd` breaks conformance with the standard
 /// by sorting `NaN` as less than all other numbers and equal to any other `NaN`.
 #[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct FloatOrd(pub f32);
 
 impl PartialOrd for FloatOrd {

@@ -607,6 +607,7 @@ impl<P: VectorSpace> RationalGenerator<P> for CubicNurbs<P> {
 /// ### Continuity
 /// The curve is C0 continuous, meaning it has no holes or jumps.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct LinearSpline<P: VectorSpace> {
     /// The control points of the NURBS
     pub points: Vec<P>,
