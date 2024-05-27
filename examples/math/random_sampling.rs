@@ -250,9 +250,7 @@ fn handle_mouse(
     if !mouse_pressed.0 {
         return;
     }
-    let displacement = motion_events
-        .read()
-        .fold(0., |acc, mouse_motion| acc + mouse_motion.delta.x);
+    let displacement: f32 = motion_events.read().map(|motion| motion.delta.x).sum();
     let mut camera_transform = camera.single_mut();
-    camera_transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(-displacement / 75.));
+    camera_transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(-displacement / 150.));
 }
