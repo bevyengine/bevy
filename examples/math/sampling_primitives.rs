@@ -694,6 +694,6 @@ fn update_lights(
     let saturation = (counter.0 as f32 / MAX_POINTS as f32).min(2.0);
     let intensity = 40_000.0 * saturation;
     for mut light in lights.iter_mut() {
-        light.intensity = intensity;
+        light.intensity = light.intensity.lerp(intensity, 0.04);
     }
 }
