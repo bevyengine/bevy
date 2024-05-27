@@ -108,7 +108,7 @@ const TETRAHEDRON: Tetrahedron = Tetrahedron {
 
 /// Resource for the random sampling mode, telling whether to sample the interior or the boundary.
 #[derive(Resource)]
-enum Mode {
+enum SamplingMode {
     Interior,
     Boundary,
 }
@@ -407,7 +407,7 @@ fn setup(
     commands.insert_resource(PointCounter(0));
 
     // The mode starts with interior points.
-    commands.insert_resource(Mode::Interior);
+    commands.insert_resource(SamplingMode::Interior);
 
     // Points spawn automatically by default.
     commands.insert_resource(SpawningMode::Automatic);
@@ -421,7 +421,7 @@ fn setup(
 fn handle_keypress(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut mode: ResMut<Mode>,
+    mut mode: ResMut<SamplingMode>,
     mut spawn_mode: ResMut<SpawningMode>,
     samples: Query<Entity, With<SamplePoint>>,
     shapes: Res<SampledShapes>,
@@ -452,8 +452,8 @@ fn handle_keypress(
     // M => toggle mode between interior and boundary.
     if keyboard.just_pressed(KeyCode::KeyM) {
         match *mode {
-            Mode::Interior => *mode = Mode::Boundary,
-            Mode::Boundary => *mode = Mode::Interior,
+            SamplingMode::Interior => *mode = SamplingMode::Boundary,
+            SamplingMode::Boundary => *mode = SamplingMode::Interior,
         }
     }
 
@@ -557,7 +557,7 @@ fn handle_mouse(
 #[allow(clippy::too_many_arguments)]
 fn spawn_points(
     mut commands: Commands,
-    mode: ResMut<Mode>,
+    mode: ResMut<SamplingMode>,
     shapes: Res<SampledShapes>,
     mut random_source: ResMut<RandomSource>,
     sample_mesh: Res<PointMesh>,
@@ -589,8 +589,8 @@ fn spawn_points(
         // Get a single random Vec3:
         let sample: Vec3 = *offset
             + match *mode {
-                Mode::Interior => shape.sample_interior(rng),
-                Mode::Boundary => shape.sample_boundary(rng),
+                SamplingMode::Interior => shape.sample_interior(rng),
+                SamplingMode::Boundary => shape.sample_boundary(rng),
             };
 
         // Spawn a sphere at the random location:
@@ -598,8 +598,8 @@ fn spawn_points(
             PbrBundle {
                 mesh: sample_mesh.0.clone(),
                 material: match *mode {
-                    Mode::Interior => sample_material.interior.clone(),
-                    Mode::Boundary => sample_material.boundary.clone(),
+                    SamplingMode::Interior => sample_material.interior.clone(),
+                    SamplingMode::Boundary => sample_material.boundary.clone(),
                 },
                 transform: Transform::from_translation(sample).with_scale(Vec3::ZERO),
                 ..default()
