@@ -42,6 +42,7 @@
 //! # use bevy_asset::prelude::*;
 //! # use bevy_scene::prelude::*;
 //! # use bevy_transform::prelude::*;
+//! # use bevy_gltf::Gltf;
 //!
 //! // Holds the scene handle
 //! #[derive(Resource)]
