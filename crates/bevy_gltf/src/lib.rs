@@ -81,6 +81,7 @@
 //! ```
 //!
 //! ## Asset Labels
+//!
 //! The GLTF loader let's you specify labels that let you target specific parts of the GLTF.
 //!
 //! Be careful when using this feature, if you misspell a label it will simply ignore it without warning.
