@@ -158,7 +158,7 @@ fn draw(in: VertexOutput) -> vec4<f32> {
     let t = select(1.0 - step(0.0, border_distance), antialias(border_distance), external_distance < internal_distance);
 
     // Blend mode ALPHA_BLENDING is used for UI elements, so we don't premultiply alpha here.
-    return vec4(color.rgb, color.a * t);
+    return vec4(color.rgb, clamp(color.a * t, 0.0, 1.0));
 }
 
 fn draw_background(in: VertexOutput) -> vec4<f32> {
@@ -168,7 +168,7 @@ fn draw_background(in: VertexOutput) -> vec4<f32> {
     // When drawing the background only draw the internal area and not the border.
     let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
     let t = antialias(internal_distance);
-    return vec4(color.rgb, color.a * t);
+    return vec4(color.rgb, clamp(color.a * t, 0.0, 1.0));
 }
 
 @fragment
