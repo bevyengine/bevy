@@ -24,7 +24,7 @@ fn main() {
 #[derive(Component)]
 struct Shape;
 
-const SHAPES_X_EXTENT: f32 = 12.0;
+const SHAPES_X_EXTENT: f32 = 15.0;
 const EXTRUSION_X_EXTENT: f32 = 15.0;
 const Z_EXTENT: f32 = 5.0;
 
@@ -46,6 +46,7 @@ fn setup(
         meshes.add(Torus::default()),
         meshes.add(Cylinder::default()),
         meshes.add(Cone::default()),
+        meshes.add(ConicalFrustum::default()),
         meshes.add(Sphere::default().mesh().ico(5).unwrap()),
         meshes.add(Sphere::default().mesh().uv(32, 18)),
     ];

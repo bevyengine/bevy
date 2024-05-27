@@ -1,3 +1,5 @@
+use std::f32::consts::FRAC_PI_2;
+
 use crate::{
     mesh::{primitives::dim3::triangle3d, Indices, Mesh, PerimeterSegment},
     render_asset::RenderAssetUsages,
@@ -6,10 +8,10 @@ use crate::{
 use super::{Extrudable, MeshBuilder, Meshable};
 use bevy_math::{
     primitives::{
-        Annulus, Capsule2d, Circle, Ellipse, Rectangle, RegularPolygon, Triangle2d, Triangle3d,
-        WindingOrder,
+        Annulus, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Rectangle,
+        RegularPolygon, Rhombus, Triangle2d, Triangle3d, WindingOrder,
     },
-    Vec2,
+    FloatExt, Vec2,
 };
 use wgpu::PrimitiveTopology;
 
@@ -87,10 +89,301 @@ impl From<Circle> for Mesh {
     }
 }
 
+/// Specifies how to generate UV-mappings for the [`CircularSector`] and [`CircularSegment`] shapes.
+///
+/// Currently the only variant is `Mask`, which is good for showing a portion of a texture that includes
+/// the entire circle, particularly the same texture will be displayed with different fractions of a
+/// complete circle.
+///
+/// It's expected that more will be added in the future, such as a variant that causes the texture to be
+/// scaled to fit the bounding box of the shape, which would be good for packed textures only including the
+/// portion of the circle that is needed to display.
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub enum CircularMeshUvMode {
+    /// Treats the shape as a mask over a circle of equal size and radius,
+    /// with the center of the circle at the center of the texture.
+    Mask {
+        /// Angle by which to rotate the shape when generating the UV map.
+        angle: f32,
+    },
+}
+
+impl Default for CircularMeshUvMode {
+    fn default() -> Self {
+        CircularMeshUvMode::Mask { angle: 0.0 }
+    }
+}
+
+/// A builder used for creating a [`Mesh`] with a [`CircularSector`] shape.
+///
+/// The resulting mesh will have a UV-map such that the center of the circle is
+/// at the center of the texture.
+#[derive(Clone, Debug)]
+pub struct CircularSectorMeshBuilder {
+    /// The sector shape.
+    pub sector: CircularSector,
+    /// The number of vertices used for the arc portion of the sector mesh.
+    /// The default is `32`.
+    #[doc(alias = "vertices")]
+    pub resolution: usize,
+    /// The UV mapping mode
+    pub uv_mode: CircularMeshUvMode,
+}
+
+impl Default for CircularSectorMeshBuilder {
+    fn default() -> Self {
+        Self {
+            sector: CircularSector::default(),
+            resolution: 32,
+            uv_mode: CircularMeshUvMode::default(),
+        }
+    }
+}
+
+impl CircularSectorMeshBuilder {
+    /// Creates a new [`CircularSectorMeshBuilder`] from a given sector
+    #[inline]
+    pub fn new(sector: CircularSector) -> Self {
+        Self {
+            sector,
+            ..Self::default()
+        }
+    }
+
+    /// Sets the number of vertices used for the sector mesh.
+    #[inline]
+    #[doc(alias = "vertices")]
+    pub const fn resolution(mut self, resolution: usize) -> Self {
+        self.resolution = resolution;
+        self
+    }
+
+    /// Sets the uv mode used for the sector mesh
+    #[inline]
+    pub const fn uv_mode(mut self, uv_mode: CircularMeshUvMode) -> Self {
+        self.uv_mode = uv_mode;
+        self
+    }
+
+    /// Builds a [`Mesh`] based on the configuration in `self`.
+    pub fn build(&self) -> Mesh {
+        let mut indices = Vec::with_capacity((self.resolution - 1) * 3);
+        let mut positions = Vec::with_capacity(self.resolution + 1);
+        let normals = vec![[0.0, 0.0, 1.0]; self.resolution + 1];
+        let mut uvs = Vec::with_capacity(self.resolution + 1);
+
+        let CircularMeshUvMode::Mask { angle: uv_angle } = self.uv_mode;
+
+        // Push the center of the circle.
+        positions.push([0.0; 3]);
+        uvs.push([0.5; 2]);
+
+        let first_angle = FRAC_PI_2 - self.sector.half_angle();
+        let last_angle = FRAC_PI_2 + self.sector.half_angle();
+        let last_i = (self.resolution - 1) as f32;
+        for i in 0..self.resolution {
+            let angle = f32::lerp(first_angle, last_angle, i as f32 / last_i);
+
+            // Compute the vertex
+            let vertex = self.sector.radius() * Vec2::from_angle(angle);
+            // Compute the UV coordinate by taking the modified angle's unit vector, negating the Y axis, and rescaling and centering it at (0.5, 0.5).
+            // We accomplish the Y axis flip by negating the angle.
+            let uv =
+                Vec2::from_angle(-(angle + uv_angle)).mul_add(Vec2::splat(0.5), Vec2::splat(0.5));
+
+            positions.push([vertex.x, vertex.y, 0.0]);
+            uvs.push([uv.x, uv.y]);
+        }
+
+        for i in 1..(self.resolution as u32) {
+            // Index 0 is the center.
+            indices.extend_from_slice(&[0, i, i + 1]);
+        }
+
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+        .with_inserted_indices(Indices::U32(indices))
+    }
+}
+
+impl Meshable for CircularSector {
+    type Output = CircularSectorMeshBuilder;
+
+    fn mesh(&self) -> Self::Output {
+        CircularSectorMeshBuilder {
+            sector: *self,
+            ..Default::default()
+        }
+    }
+}
+
+impl From<CircularSector> for Mesh {
+    /// Converts this sector into a [`Mesh`] using a default [`CircularSectorMeshBuilder`].
+    ///
+    /// See the documentation of [`CircularSectorMeshBuilder`] for more details.
+    fn from(sector: CircularSector) -> Self {
+        sector.mesh().build()
+    }
+}
+
+impl From<CircularSectorMeshBuilder> for Mesh {
+    fn from(sector: CircularSectorMeshBuilder) -> Self {
+        sector.build()
+    }
+}
+
+/// A builder used for creating a [`Mesh`] with a [`CircularSegment`] shape.
+///
+/// The resulting mesh will have a UV-map such that the center of the circle is
+/// at the center of the texture.
+#[derive(Clone, Copy, Debug)]
+pub struct CircularSegmentMeshBuilder {
+    /// The segment shape.
+    pub segment: CircularSegment,
+    /// The number of vertices used for the arc portion of the segment mesh.
+    /// The default is `32`.
+    #[doc(alias = "vertices")]
+    pub resolution: usize,
+    /// The UV mapping mode
+    pub uv_mode: CircularMeshUvMode,
+}
+
+impl Default for CircularSegmentMeshBuilder {
+    fn default() -> Self {
+        Self {
+            segment: CircularSegment::default(),
+            resolution: 32,
+            uv_mode: CircularMeshUvMode::default(),
+        }
+    }
+}
+
+impl CircularSegmentMeshBuilder {
+    /// Creates a new [`CircularSegmentMeshBuilder`] from a given segment
+    #[inline]
+    pub fn new(segment: CircularSegment) -> Self {
+        Self {
+            segment,
+            ..Self::default()
+        }
+    }
+
+    /// Sets the number of vertices used for the segment mesh.
+    #[inline]
+    #[doc(alias = "vertices")]
+    pub const fn resolution(mut self, resolution: usize) -> Self {
+        self.resolution = resolution;
+        self
+    }
+
+    /// Sets the uv mode used for the segment mesh
+    #[inline]
+    pub const fn uv_mode(mut self, uv_mode: CircularMeshUvMode) -> Self {
+        self.uv_mode = uv_mode;
+        self
+    }
+
+    /// Builds a [`Mesh`] based on the configuration in `self`.
+    pub fn build(&self) -> Mesh {
+        let mut indices = Vec::with_capacity((self.resolution - 1) * 3);
+        let mut positions = Vec::with_capacity(self.resolution + 1);
+        let normals = vec![[0.0, 0.0, 1.0]; self.resolution + 1];
+        let mut uvs = Vec::with_capacity(self.resolution + 1);
+
+        let CircularMeshUvMode::Mask { angle: uv_angle } = self.uv_mode;
+
+        // Push the center of the chord.
+        let midpoint_vertex = self.segment.chord_midpoint();
+        positions.push([midpoint_vertex.x, midpoint_vertex.y, 0.0]);
+        // Compute the UV coordinate of the midpoint vertex.
+        // This is similar to the computation inside the loop for the arc vertices,
+        // but the vertex angle is PI/2, and we must scale by the ratio of the apothem to the radius
+        // to correctly position the vertex.
+        let midpoint_uv = Vec2::from_angle(-uv_angle - FRAC_PI_2).mul_add(
+            Vec2::splat(0.5 * (self.segment.apothem() / self.segment.radius())),
+            Vec2::splat(0.5),
+        );
+        uvs.push([midpoint_uv.x, midpoint_uv.y]);
+
+        let first_angle = FRAC_PI_2 - self.segment.half_angle();
+        let last_angle = FRAC_PI_2 + self.segment.half_angle();
+        let last_i = (self.resolution - 1) as f32;
+        for i in 0..self.resolution {
+            let angle = f32::lerp(first_angle, last_angle, i as f32 / last_i);
+
+            // Compute the vertex
+            let vertex = self.segment.radius() * Vec2::from_angle(angle);
+            // Compute the UV coordinate by taking the modified angle's unit vector, negating the Y axis, and rescaling and centering it at (0.5, 0.5).
+            // We accomplish the Y axis flip by negating the angle.
+            let uv =
+                Vec2::from_angle(-(angle + uv_angle)).mul_add(Vec2::splat(0.5), Vec2::splat(0.5));
+
+            positions.push([vertex.x, vertex.y, 0.0]);
+            uvs.push([uv.x, uv.y]);
+        }
+
+        for i in 1..(self.resolution as u32) {
+            // Index 0 is the midpoint of the chord.
+            indices.extend_from_slice(&[0, i, i + 1]);
+        }
+
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+        .with_inserted_indices(Indices::U32(indices))
+    }
+}
+
+impl Meshable for CircularSegment {
+    type Output = CircularSegmentMeshBuilder;
+
+    fn mesh(&self) -> Self::Output {
+        CircularSegmentMeshBuilder {
+            segment: *self,
+            ..Default::default()
+        }
+    }
+}
+
+impl From<CircularSegment> for Mesh {
+    /// Converts this sector into a [`Mesh`] using a default [`CircularSegmentMeshBuilder`].
+    ///
+    /// See the documentation of [`CircularSegmentMeshBuilder`] for more details.
+    fn from(segment: CircularSegment) -> Self {
+        segment.mesh().build()
+    }
+}
+
+impl From<CircularSegmentMeshBuilder> for Mesh {
+    fn from(sector: CircularSegmentMeshBuilder) -> Self {
+        sector.build()
+    }
+}
+
 /// A builder used for creating a [`Mesh`] with a [`RegularPolygon`] shape.
 pub struct RegularPolygonMeshBuilder {
     circumradius: f32,
     sides: usize,
+}
+impl Meshable for RegularPolygon {
+    type Output = RegularPolygonMeshBuilder;
+
+    fn mesh(&self) -> Self::Output {
+        Self::Output {
+            circumradius: self.circumcircle.radius,
+            sides: self.sides,
+        }
+    }
 }
 
 impl MeshBuilder for RegularPolygonMeshBuilder {
@@ -108,17 +401,6 @@ impl Extrudable for RegularPolygonMeshBuilder {
         vec![PerimeterSegment::Flat {
             indices: (0..self.sides as u32).chain([0]).collect(),
         }]
-    }
-}
-
-impl Meshable for RegularPolygon {
-    type Output = RegularPolygonMeshBuilder;
-
-    fn mesh(&self) -> Self::Output {
-        RegularPolygonMeshBuilder {
-            circumradius: self.circumcircle.radius,
-            sides: self.sides,
-        }
     }
 }
 
@@ -362,11 +644,49 @@ impl From<Annulus> for Mesh {
     }
 }
 
+impl Meshable for Rhombus {
+    type Output = Mesh;
+
+    fn mesh(&self) -> Self::Output {
+        let [hhd, vhd] = [self.half_diagonals.x, self.half_diagonals.y];
+        let positions = vec![
+            [hhd, 0.0, 0.0],
+            [-hhd, 0.0, 0.0],
+            [0.0, vhd, 0.0],
+            [0.0, -vhd, 0.0],
+        ];
+        let normals = vec![[0.0, 0.0, 1.0]; 4];
+        let uvs = vec![[1.0, 0.5], [0.0, 0.5], [0.5, 0.0], [0.5, 1.0]];
+        let indices = Indices::U32(vec![1, 0, 2, 1, 3, 0]);
+
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_indices(indices)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+    }
+}
+
+impl From<Rhombus> for Mesh {
+    fn from(rhombus: Rhombus) -> Self {
+        rhombus.mesh()
+    }
+}
+
 /// A builder used for creating a [`Mesh`] with a [`Triangle2d`] shape.
 pub struct Triangle2dMeshBuilder {
     triangle: Triangle2d,
 }
+impl Meshable for Triangle2d {
+    type Output = Triangle2dMeshBuilder;
 
+    fn mesh(&self) -> Self::Output {
+        Self::Output { triangle: *self }
+    }
+}
 impl MeshBuilder for Triangle2dMeshBuilder {
     fn build(&self) -> Mesh {
         let vertices_3d = self.triangle.vertices.map(|v| v.extend(0.));
@@ -411,14 +731,6 @@ impl Extrudable for Triangle2dMeshBuilder {
                 indices: vec![2, 1, 0, 2],
             }]
         }
-    }
-}
-
-impl Meshable for Triangle2d {
-    type Output = Triangle2dMeshBuilder;
-
-    fn mesh(&self) -> Self::Output {
-        Triangle2dMeshBuilder { triangle: *self }
     }
 }
 
