@@ -20,7 +20,7 @@
 //!     commands.spawn(SceneBundle {
 //!         // The `#Scene0` label here is very important. Keep reading for more details
 //!         scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
-//!         // You can use the Tranform to give it a position
+//!         // You can use the transform to give it a position
 //!         transform: Transform::from_xyz(2.0, 0.0, -5.0),
 //!         ..Default::default()
 //!     });
@@ -83,7 +83,7 @@
 //! ## Asset Labels
 //! The GLTF loader let's you specify labels that let you target specific parts of the GLTF.
 //!
-//! Be careful when using this feature, if you mispell a label it will simply ignore it wihtout warning.
+//! Be careful when using this feature, if you misspell a label it will simply ignore it without warning.
 //!
 //! Here's the list of supported labels (`{}` is the index in the file):
 //!
