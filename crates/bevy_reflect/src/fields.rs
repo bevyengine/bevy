@@ -1,5 +1,6 @@
 use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
 use crate::{Reflect, TypePath, TypePathTable};
+use core::fmt::{Debug, Display, Formatter};
 use std::any::{Any, TypeId};
 use std::sync::Arc;
 
@@ -158,4 +159,20 @@ impl UnnamedField {
     }
 
     impl_custom_attribute_methods!(self.custom_attributes, "field");
+}
+
+/// A representation of a field's accessor.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FieldId {
+    Named(&'static str),
+    Unnamed(usize),
+}
+
+impl Display for FieldId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Named(name) => Display::fmt(name, f),
+            Self::Unnamed(index) => Display::fmt(index, f),
+        }
+    }
 }

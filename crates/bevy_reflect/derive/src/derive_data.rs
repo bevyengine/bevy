@@ -2,17 +2,19 @@ use core::fmt;
 use proc_macro2::Span;
 
 use crate::container_attributes::{ContainerAttributes, FromReflectAttrs, TypePathAttrs};
-use crate::field_attributes::FieldAttributes;
+use crate::field_attributes::{CloneBehavior, FieldAttributes};
 use crate::type_path::parse_path_no_leading_colon;
-use crate::utility::{StringExpr, WhereClauseOptions};
+use crate::utility::{ident_or_index, StringExpr, WhereClauseOptions};
 use quote::{quote, ToTokens};
 use syn::token::Comma;
 
+use crate::enum_utility::{EnumVariantOutputData, ReflectCloneVariantBuilder, VariantBuilder};
 use crate::serialization::SerializationDataDef;
 use crate::{
     utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME,
     TYPE_PATH_ATTRIBUTE_NAME,
 };
+use bevy_macro_utils::fq_std::{FQBox, FQClone, FQOption, FQResult};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
@@ -518,6 +520,20 @@ impl<'a> StructField<'a> {
 
         info
     }
+
+    /// Returns a token stream for generating a `FieldId` for this field.
+    pub fn field_id(&self, bevy_reflect_path: &Path) -> proc_macro2::TokenStream {
+        match &self.data.ident {
+            Some(ident) => {
+                let name = ident.to_string();
+                quote!(#bevy_reflect_path::FieldId::Named(#name))
+            }
+            None => {
+                let index = self.declaration_index;
+                quote!(#bevy_reflect_path::FieldId::Unnamed(#index))
+            }
+        }
+    }
 }
 
 impl<'a> ReflectStruct<'a> {
@@ -622,6 +638,77 @@ impl<'a> ReflectStruct<'a> {
             #bevy_reflect_path::TypeInfo::#info_variant(#info)
         }
     }
+    /// Returns the `Reflect::reflect_clone` impl, if any, as a `TokenStream`.
+    pub fn get_clone_impl(&self) -> Option<proc_macro2::TokenStream> {
+        let bevy_reflect_path = self.meta().bevy_reflect_path();
+
+        if let container_clone @ Some(_) = self.meta().attrs().get_clone_impl(bevy_reflect_path) {
+            return container_clone;
+        }
+
+        let mut tokens = proc_macro2::TokenStream::new();
+
+        for field in self.fields() {
+            let field_ty = &field.data.ty;
+            let member = ident_or_index(field.data.ident.as_ref(), field.declaration_index);
+
+            match &field.attrs.clone {
+                CloneBehavior::Default => {
+                    let value = if field.attrs.ignore.is_ignored() {
+                        let field_id = field.field_id(bevy_reflect_path);
+
+                        quote! {
+                            return #FQResult::Err(#bevy_reflect_path::ReflectCloneError::FieldNotClonable {
+                                field: #field_id,
+                                variant: #FQOption::None,
+                                container_type_path: ::std::borrow::Cow::Borrowed(
+                                    <Self as #bevy_reflect_path::TypePath>::type_path()
+                                )
+                            })
+                        }
+                    } else {
+                        quote! {
+                            #bevy_reflect_path::Reflect::reflect_clone(&self.#member)?
+                                .take()
+                                .map_err(|value| #bevy_reflect_path::ReflectCloneError::FailedDowncast {
+                                    expected: ::std::borrow::Cow::Borrowed(
+                                        <#field_ty as #bevy_reflect_path::TypePath>::type_path()
+                                    ),
+                                    received: ::std::borrow::Cow::Owned(
+                                        #bevy_reflect_path::DynamicTypePath::reflect_type_path(&*value)
+                                            .to_string()
+                                    ),
+                                })?
+                        }
+                    };
+
+                    tokens.extend(quote! {
+                        #member: #value,
+                    });
+                }
+                CloneBehavior::Trait => {
+                    tokens.extend(quote! {
+                        #member: #FQClone::clone(&self.#member),
+                    });
+                }
+                CloneBehavior::Func(clone_fn) => {
+                    tokens.extend(quote! {
+                        #member: #clone_fn(&self.#member),
+                    });
+                }
+            }
+        }
+
+        Some(quote! {
+            #[inline]
+            fn reflect_clone(&self) -> #FQResult<#FQBox<dyn #bevy_reflect_path::Reflect>, #bevy_reflect_path::ReflectCloneError> {
+                #[allow(unreachable_code)]
+                #FQResult::Ok(#FQBox::new(Self {
+                    #tokens
+                }))
+            }
+        })
+    }
 }
 
 impl<'a> ReflectEnum<'a> {
@@ -710,6 +797,32 @@ impl<'a> ReflectEnum<'a> {
         quote! {
             #bevy_reflect_path::TypeInfo::Enum(#info)
         }
+    }
+
+    /// Returns the `Reflect::reflect_clone` impl, if any, as a `TokenStream`.
+    pub fn get_clone_impl(&self) -> Option<proc_macro2::TokenStream> {
+        let bevy_reflect_path = self.meta().bevy_reflect_path();
+
+        if let container_clone @ Some(_) = self.meta().attrs().get_clone_impl(bevy_reflect_path) {
+            return container_clone;
+        }
+
+        let this = Ident::new("self", Span::call_site());
+        let EnumVariantOutputData {
+            variant_patterns,
+            variant_constructors,
+            ..
+        } = ReflectCloneVariantBuilder::new(self).build(&this);
+
+        Some(quote! {
+            #[inline]
+            fn reflect_clone(&self) -> #FQResult<#FQBox<dyn #bevy_reflect_path::Reflect>, #bevy_reflect_path::ReflectCloneError> {
+                #[allow(unreachable_code)]
+                #FQResult::Ok(#FQBox::new(match #this {
+                    #(#variant_patterns => #variant_constructors),*
+                }))
+            }
+        })
     }
 }
 

@@ -1,8 +1,9 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, DynamicTypePath, Enum, List, Map, Struct, Tuple, TupleStruct,
-    TypeInfo, TypePath, Typed, ValueInfo,
+    tuple_struct_debug, Array, DynamicTypePath, Enum, List, Map, ReflectCloneError, Struct, Tuple,
+    TupleStruct, TypeInfo, TypePath, Typed, ValueInfo,
 };
+use alloc::borrow::Cow;
 use std::{
     any::{Any, TypeId},
     fmt::Debug,
@@ -298,14 +299,47 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// See [`ReflectOwned`].
     fn reflect_owned(self: Box<Self>) -> ReflectOwned;
 
-    /// Clones the value as a `Reflect` trait object.
+    /// Clones `Self` into its dynamic representation.
     ///
-    /// When deriving `Reflect` for a struct, tuple struct or enum, the value is
-    /// cloned via [`Struct::clone_dynamic`], [`TupleStruct::clone_dynamic`],
-    /// or [`Enum::clone_dynamic`], respectively.
-    /// Implementors of other `Reflect` subtraits (e.g. [`List`], [`Map`]) should
-    /// use those subtraits' respective `clone_dynamic` methods.
+    /// For value types or types marked with `#[reflect_value]`,
+    /// this will simply return a clone of `Self`.
+    ///
+    /// Otherwise the associated dynamic type will be returned.
+    ///
+    /// For example, a [`List`] type will invoke [`List::clone_dynamic`], returning [`DynamicList`].
+    /// A [`Struct`] type will invoke [`Struct::clone_dynamic`], returning [`DynamicStruct`].
+    /// And so on.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::{Reflect, DynamicTuple};
+    /// let value = (1, true, 3.14);
+    /// let cloned = value.clone_value();
+    /// assert!(cloned.is::<DynamicTuple>())
+    /// ```
     fn clone_value(&self) -> Box<dyn Reflect>;
+
+    /// Attempts to clone `Self` using reflection.
+    ///
+    /// Unlike [`Reflect::clone_value`], which often returns a dynamic representation of `Self`,
+    /// this method attempts create a clone of `Self` directly, if possible.
+    ///
+    /// If the clone cannot be performed, `None` is returned.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::Reflect;
+    /// let value = (1, true, 3.14);
+    /// let cloned = value.reflect_clone().unwrap();
+    /// assert!(cloned.is::<(i32, bool, f64)>())
+    /// ```
+    fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
+        Err(ReflectCloneError::NotImplemented {
+            type_path: Cow::Owned(self.reflect_type_path().to_string()),
+        })
+    }
 
     /// Returns a hash of the value (which includes the type).
     ///

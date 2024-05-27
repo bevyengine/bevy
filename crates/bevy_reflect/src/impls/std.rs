@@ -6,9 +6,9 @@ use crate::{
     self as bevy_reflect, impl_type_path, map_apply, map_partial_eq, map_try_apply, ApplyError,
     Array, ArrayInfo, ArrayIter, DynamicMap, DynamicTypePath, FromReflect, FromType,
     GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter, Reflect,
-    ReflectDeserialize, ReflectFromPtr, ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned,
-    ReflectRef, ReflectSerialize, TypeInfo, TypePath, TypeRegistration, TypeRegistry, Typed,
-    ValueInfo,
+    ReflectCloneError, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect, ReflectKind,
+    ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, TypeInfo, TypePath, TypeRegistration,
+    TypeRegistry, Typed, ValueInfo,
 };
 use bevy_reflect_derive::{impl_reflect, impl_reflect_value};
 use std::fmt;
@@ -21,6 +21,7 @@ use std::{
 };
 
 impl_reflect_value!(bool(
+    Clone,
     Debug,
     Hash,
     PartialEq,
@@ -29,6 +30,7 @@ impl_reflect_value!(bool(
     Default
 ));
 impl_reflect_value!(char(
+    Clone,
     Debug,
     Hash,
     PartialEq,
@@ -36,11 +38,44 @@ impl_reflect_value!(char(
     Deserialize,
     Default
 ));
-impl_reflect_value!(u8(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(u16(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(u32(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(u64(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(u8(
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_value!(u16(
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_value!(u32(
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_value!(u64(
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
 impl_reflect_value!(u128(
+    Clone,
     Debug,
     Hash,
     PartialEq,
@@ -49,6 +84,7 @@ impl_reflect_value!(u128(
     Default
 ));
 impl_reflect_value!(usize(
+    Clone,
     Debug,
     Hash,
     PartialEq,
@@ -56,11 +92,44 @@ impl_reflect_value!(usize(
     Deserialize,
     Default
 ));
-impl_reflect_value!(i8(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(i16(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(i32(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(i64(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(i8(
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_value!(i16(
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_value!(i32(
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_value!(i64(
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
 impl_reflect_value!(i128(
+    Clone,
     Debug,
     Hash,
     PartialEq,
@@ -69,6 +138,7 @@ impl_reflect_value!(i128(
     Default
 ));
 impl_reflect_value!(isize(
+    Clone,
     Debug,
     Hash,
     PartialEq,
@@ -76,10 +146,25 @@ impl_reflect_value!(isize(
     Deserialize,
     Default
 ));
-impl_reflect_value!(f32(Debug, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(f64(Debug, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_value!(f32(
+    Clone,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
+impl_reflect_value!(f64(
+    Clone,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default
+));
 impl_type_path!(str);
 impl_reflect_value!(::alloc::string::String(
+    Clone,
     Debug,
     Hash,
     PartialEq,
@@ -88,6 +173,7 @@ impl_reflect_value!(::alloc::string::String(
     Default
 ));
 impl_reflect_value!(::std::path::PathBuf(
+    Clone,
     Debug,
     Hash,
     PartialEq,
@@ -95,17 +181,18 @@ impl_reflect_value!(::std::path::PathBuf(
     Deserialize,
     Default
 ));
-impl_reflect_value!(::std::any::TypeId(Debug, Hash, PartialEq,));
-impl_reflect_value!(::std::collections::BTreeSet<T: Ord + Eq + Clone + Send + Sync>());
-impl_reflect_value!(::std::collections::HashSet<T: Hash + Eq + Clone + Send + Sync, S: TypePath + Clone + Send + Sync>());
-impl_reflect_value!(::bevy_utils::hashbrown::HashSet<T: Hash + Eq + Clone + Send + Sync, S: TypePath + Clone + Send + Sync>());
-impl_reflect_value!(::core::ops::Range<T: Clone + Send + Sync>());
-impl_reflect_value!(::core::ops::RangeInclusive<T: Clone + Send + Sync>());
-impl_reflect_value!(::core::ops::RangeFrom<T: Clone + Send + Sync>());
-impl_reflect_value!(::core::ops::RangeTo<T: Clone + Send + Sync>());
-impl_reflect_value!(::core::ops::RangeToInclusive<T: Clone + Send + Sync>());
-impl_reflect_value!(::core::ops::RangeFull());
+impl_reflect_value!(::std::any::TypeId(Clone, Debug, Hash, PartialEq,));
+impl_reflect_value!(::std::collections::BTreeSet<T: Ord + Eq + Clone + Send + Sync>(Clone));
+impl_reflect_value!(::std::collections::HashSet<T: Hash + Eq + Clone + Send + Sync, S: TypePath + Clone + Send + Sync>(Clone));
+impl_reflect_value!(::bevy_utils::hashbrown::HashSet<T: Hash + Eq + Clone + Send + Sync, S: TypePath + Clone + Send + Sync>(Clone));
+impl_reflect_value!(::core::ops::Range<T: Clone + Send + Sync>(Clone));
+impl_reflect_value!(::core::ops::RangeInclusive<T: Clone + Send + Sync>(Clone));
+impl_reflect_value!(::core::ops::RangeFrom<T: Clone + Send + Sync>(Clone));
+impl_reflect_value!(::core::ops::RangeTo<T: Clone + Send + Sync>(Clone));
+impl_reflect_value!(::core::ops::RangeToInclusive<T: Clone + Send + Sync>(Clone));
+impl_reflect_value!(::core::ops::RangeFull(Clone));
 impl_reflect_value!(::bevy_utils::Duration(
+    Clone,
     Debug,
     Hash,
     PartialEq,
@@ -113,8 +200,9 @@ impl_reflect_value!(::bevy_utils::Duration(
     Deserialize,
     Default
 ));
-impl_reflect_value!(::bevy_utils::Instant(Debug, Hash, PartialEq));
+impl_reflect_value!(::bevy_utils::Instant(Clone, Debug, Hash, PartialEq));
 impl_reflect_value!(::core::num::NonZeroI128(
+    Clone,
     Debug,
     Hash,
     PartialEq,
@@ -122,6 +210,7 @@ impl_reflect_value!(::core::num::NonZeroI128(
     Deserialize
 ));
 impl_reflect_value!(::core::num::NonZeroU128(
+    Clone,
     Debug,
     Hash,
     PartialEq,
@@ -129,6 +218,7 @@ impl_reflect_value!(::core::num::NonZeroU128(
     Deserialize
 ));
 impl_reflect_value!(::core::num::NonZeroIsize(
+    Clone,
     Debug,
     Hash,
     PartialEq,
@@ -136,6 +226,7 @@ impl_reflect_value!(::core::num::NonZeroIsize(
     Deserialize
 ));
 impl_reflect_value!(::core::num::NonZeroUsize(
+    Clone,
     Debug,
     Hash,
     PartialEq,
@@ -143,6 +234,7 @@ impl_reflect_value!(::core::num::NonZeroUsize(
     Deserialize
 ));
 impl_reflect_value!(::core::num::NonZeroI64(
+    Clone,
     Debug,
     Hash,
     PartialEq,
@@ -150,6 +242,7 @@ impl_reflect_value!(::core::num::NonZeroI64(
     Deserialize
 ));
 impl_reflect_value!(::core::num::NonZeroU64(
+    Clone,
     Debug,
     Hash,
     PartialEq,
@@ -157,6 +250,7 @@ impl_reflect_value!(::core::num::NonZeroU64(
     Deserialize
 ));
 impl_reflect_value!(::core::num::NonZeroU32(
+    Clone,
     Debug,
     Hash,
     PartialEq,
@@ -164,6 +258,7 @@ impl_reflect_value!(::core::num::NonZeroU32(
     Deserialize
 ));
 impl_reflect_value!(::core::num::NonZeroI32(
+    Clone,
     Debug,
     Hash,
     PartialEq,
@@ -171,6 +266,7 @@ impl_reflect_value!(::core::num::NonZeroI32(
     Deserialize
 ));
 impl_reflect_value!(::core::num::NonZeroI16(
+    Clone,
     Debug,
     Hash,
     PartialEq,
@@ -178,6 +274,7 @@ impl_reflect_value!(::core::num::NonZeroI16(
     Deserialize
 ));
 impl_reflect_value!(::core::num::NonZeroU16(
+    Clone,
     Debug,
     Hash,
     PartialEq,
@@ -185,6 +282,7 @@ impl_reflect_value!(::core::num::NonZeroU16(
     Deserialize
 ));
 impl_reflect_value!(::core::num::NonZeroU8(
+    Clone,
     Debug,
     Hash,
     PartialEq,
@@ -192,20 +290,22 @@ impl_reflect_value!(::core::num::NonZeroU8(
     Deserialize
 ));
 impl_reflect_value!(::core::num::NonZeroI8(
+    Clone,
     Debug,
     Hash,
     PartialEq,
     Serialize,
     Deserialize
 ));
-impl_reflect_value!(::core::num::Wrapping<T: Clone + Send + Sync>());
-impl_reflect_value!(::core::num::Saturating<T: Clone + Send + Sync>());
-impl_reflect_value!(::std::sync::Arc<T: Send + Sync>);
+impl_reflect_value!(::core::num::Wrapping<T: Clone + Send + Sync>(Clone));
+impl_reflect_value!(::core::num::Saturating<T: Clone + Send + Sync>(Clone));
+impl_reflect_value!(::std::sync::Arc<T: Send + Sync>(Clone));
 
 // `Serialize` and `Deserialize` only for platforms supported by serde:
 // https://github.com/serde-rs/serde/blob/3ffb86fc70efd3d329519e2dddfa306cc04f167c/serde/src/de/impls.rs#L1732
 #[cfg(any(unix, windows))]
 impl_reflect_value!(::std::ffi::OsString(
+    Clone,
     Debug,
     Hash,
     PartialEq,
@@ -213,8 +313,8 @@ impl_reflect_value!(::std::ffi::OsString(
     Deserialize
 ));
 #[cfg(not(any(unix, windows)))]
-impl_reflect_value!(::std::ffi::OsString(Debug, Hash, PartialEq));
-impl_reflect_value!(::alloc::collections::BinaryHeap<T: Clone>);
+impl_reflect_value!(::std::ffi::OsString(Clone, Debug, Hash, PartialEq));
+impl_reflect_value!(::alloc::collections::BinaryHeap<T: Clone>(Clone));
 
 impl_type_path!(::bevy_utils::NoOpHash);
 impl_type_path!(::bevy_utils::EntityHash);
@@ -1119,6 +1219,10 @@ impl Reflect for Cow<'static, str> {
         Box::new(self.clone())
     }
 
+    fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
+        Ok(Box::new(self.clone()))
+    }
+
     fn reflect_hash(&self) -> Option<u64> {
         let mut hasher = reflect_hasher();
         Hash::hash(&std::any::Any::type_id(self), &mut hasher);
@@ -1304,6 +1408,10 @@ impl<T: FromReflect + Clone + TypePath + GetTypeRegistration> Reflect for Cow<'s
         Box::new(List::clone_dynamic(self))
     }
 
+    fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
+        Ok(Box::new(self.clone()))
+    }
+
     fn reflect_hash(&self) -> Option<u64> {
         crate::list_hash(self)
     }
@@ -1407,6 +1515,10 @@ impl Reflect for &'static str {
 
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(*self)
+    }
+
+    fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
+        Ok(Box::new(*self))
     }
 
     fn reflect_hash(&self) -> Option<u64> {
@@ -1519,6 +1631,10 @@ impl Reflect for &'static Path {
         Box::new(*self)
     }
 
+    fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
+        Ok(Box::new(*self))
+    }
+
     fn reflect_hash(&self) -> Option<u64> {
         let mut hasher = reflect_hasher();
         Hash::hash(&std::any::Any::type_id(self), &mut hasher);
@@ -1622,6 +1738,10 @@ impl Reflect for Cow<'static, Path> {
 
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone())
+    }
+
+    fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
+        Ok(Box::new(self.clone()))
     }
 
     fn reflect_hash(&self) -> Option<u64> {

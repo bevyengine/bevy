@@ -3,8 +3,8 @@ use bevy_utils::all_tuples;
 
 use crate::{
     self as bevy_reflect, utility::GenericTypePathCell, ApplyError, FromReflect,
-    GetTypeRegistration, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
-    TypeRegistration, TypeRegistry, Typed, UnnamedField,
+    GetTypeRegistration, Reflect, ReflectCloneError, ReflectMut, ReflectOwned, ReflectRef,
+    TypeInfo, TypePath, TypeRegistration, TypeRegistry, Typed, UnnamedField,
 };
 use crate::{ReflectKind, TypePathTable};
 use std::any::{Any, TypeId};
@@ -594,6 +594,16 @@ macro_rules! impl_reflect_tuple {
 
             fn clone_value(&self) -> Box<dyn Reflect> {
                 Box::new(self.clone_dynamic())
+            }
+
+            fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
+                Ok(Box::new((
+                    $(
+                        self.$index.reflect_clone()?
+                            .take::<$name>()
+                            .expect("`Reflect::reflect_clone` should return the same type"),
+                    )*
+                )))
             }
 
             fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
