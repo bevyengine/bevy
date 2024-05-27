@@ -203,14 +203,15 @@ mod tests {
     #[derive(Debug, Deserialize, Default, PartialEq)]
     struct ComplexInput {
         arg0: Option<usize>,
-        gold: SetGold
+        gold: SetGold,
+        text_input: String,
     }
 
     #[test]
     fn complex_input() {
-        let input = "Some(100) --gold (gold : 200)";
+        let input = "Some(100) --gold (gold : 200) --text_input \"Some text\"";
         let mut deserializer = CliDeserializer::from_str(input).unwrap();
         let set_gold = ComplexInput::deserialize(deserializer).unwrap();
-        assert_eq!(set_gold, ComplexInput { arg0: Some(100), gold: SetGold { gold: 200 } });
+        assert_eq!(set_gold, ComplexInput { arg0: Some(100), gold: SetGold { gold: 200 }, text_input: "Some text".to_string() });
     }
 }
