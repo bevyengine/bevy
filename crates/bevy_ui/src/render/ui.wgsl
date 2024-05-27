@@ -165,7 +165,7 @@ fn draw_background(in: VertexOutput) -> vec4<f32> {
     let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
     let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
 
-    /// When drawing the background only draw the internal area and not the border.
+    // When drawing the background only draw the internal area and not the border.
     let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
     let t = antialias(internal_distance);
     return vec4(color.rgb, color.a * t);
