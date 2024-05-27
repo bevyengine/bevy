@@ -263,7 +263,6 @@ fn add_button_for_value(
                 align_items: AlignItems::Center,
                 padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
                 margin: UiRect::right(Val::Px(12.0)),
-
                 ..default()
             },
             border_color: BorderColor(Color::WHITE),
