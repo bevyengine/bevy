@@ -479,14 +479,14 @@ fn handle_keypress(
 
     // +/- => zoom camera.
     if keyboard.just_pressed(KeyCode::NumpadSubtract) || keyboard.just_pressed(KeyCode::Minus) {
-        camera_rig.distance -= MAX_CAMERA_DISTANCE / 15.0;
+        camera_rig.distance += MAX_CAMERA_DISTANCE / 15.0;
         camera_rig.distance = camera_rig
             .distance
             .clamp(MIN_CAMERA_DISTANCE, MAX_CAMERA_DISTANCE);
     }
 
     if keyboard.just_pressed(KeyCode::NumpadAdd) {
-        camera_rig.distance += MAX_CAMERA_DISTANCE / 15.0;
+        camera_rig.distance -= MAX_CAMERA_DISTANCE / 15.0;
         camera_rig.distance = camera_rig
             .distance
             .clamp(MIN_CAMERA_DISTANCE, MAX_CAMERA_DISTANCE);
