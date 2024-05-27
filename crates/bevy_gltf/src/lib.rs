@@ -15,7 +15,11 @@
 //! Here's how to spawn a simple gltf scene
 //!
 //! ```
-//! # use bevy::prelude*;
+//! # use bevy_ecs::prelude::*;
+//! # use bevy_asset::prelude::*;
+//! # use bevy_scene::prelude::*;
+//! # use bevy_transform::prelude::*;
+//!
 //! fn spawn_gltf(mut commands: Commands, asset_server: Res<AssetServer>) {
 //!     commands.spawn(SceneBundle {
 //!         // The `#Scene0` label here is very important. Keep reading for more details
@@ -26,7 +30,6 @@
 //!     });
 //! }
 //! ```
-//!
 //! # Loading parts of a gLTF asset
 //!
 //! ## Using `Gltf`
