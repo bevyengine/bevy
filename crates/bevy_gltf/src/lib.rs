@@ -27,7 +27,7 @@
 //! }
 //! ```
 //!
-//! # Loading parts of a GLTF asset
+//! # Loading parts of a gLTF asset
 //!
 //! ## Using `Gltf`
 //!
@@ -82,22 +82,22 @@
 //!
 //! ## Asset Labels
 //!
-//! The GLTF loader let's you specify labels that let you target specific parts of the GLTF.
+//! The gLTF loader let's you specify labels that let you target specific parts of the gLTF.
 //!
 //! Be careful when using this feature, if you misspell a label it will simply ignore it without warning.
 //!
 //! Here's the list of supported labels (`{}` is the index in the file):
 //!
-//! - `Scene{}`: GLTF Scene as a Bevy `Scene`
-//! - `Node{}`: GLTF Node as a `GltfNode`
-//! - `Mesh{}`: GLTF Mesh as a `GltfMesh`
-//! - `Mesh{}/Primitive{}`: GLTF Primitive as a Bevy `Mesh`
-//! - `Mesh{}/Primitive{}/MorphTargets`: Morph target animation data for a GLTF Primitive
-//! - `Texture{}`: GLTF Texture as a Bevy `Image`
-//! - `Material{}`: GLTF Material as a Bevy `StandardMaterial`
-//! - `DefaultMaterial`: as above, if the GLTF file contains a default material with no index
-//! - `Animation{}`: GLTF Animation as Bevy `AnimationClip`
-//! - `Skin{}`: GLTF mesh skin as Bevy `SkinnedMeshInverseBindposes`
+//! - `Scene{}`: gLTF Scene as a Bevy `Scene`
+//! - `Node{}`: gLTF Node as a `GltfNode`
+//! - `Mesh{}`: gLTF Mesh as a `GltfMesh`
+//! - `Mesh{}/Primitive{}`: gLTF Primitive as a Bevy `Mesh`
+//! - `Mesh{}/Primitive{}/MorphTargets`: Morph target animation data for a gLTF Primitive
+//! - `Texture{}`: gLTF Texture as a Bevy `Image`
+//! - `Material{}`: gLTF Material as a Bevy `StandardMaterial`
+//! - `DefaultMaterial`: as above, if the gLTF file contains a default material with no index
+//! - `Animation{}`: gLTF Animation as Bevy `AnimationClip`
+//! - `Skin{}`: gLTF mesh skin as Bevy `SkinnedMeshInverseBindposes`
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
