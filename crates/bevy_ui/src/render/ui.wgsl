@@ -149,7 +149,7 @@ fn draw(in: VertexOutput) -> vec4<f32> {
     // Signed distance from the border (the intersection of the rect with its border).
     // Points inside the border have negative signed distance. Any point outside the border, whether 
     // outside the outside edge, or inside the inner edge have positive signed distance.
-    let border_distance = select(max(external_distance, -internal_distance), -internal_distance, internal_distance < 0);
+    let border_distance = max(external_distance, -internal_distance);
 
     // The item is a border
     let t = antialias(border_distance);
