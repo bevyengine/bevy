@@ -24,6 +24,8 @@ fn main() {
                 handle_keypress,
                 spawn_points,
                 despawn_points,
+                animate_spawning,
+                animate_despawning,
                 update_camera,
                 update_lights,
             ),
@@ -53,7 +55,11 @@ const POINTS_PER_FRAME: usize = 3;
 
 /// Color used for the inside points
 const INSIDE_POINT_COLOR: LinearRgba = LinearRgba::rgb(0.855, 1.1, 0.01);
+/// Color used for the points on the boundary
 const BOUNDARY_POINT_COLOR: LinearRgba = LinearRgba::rgb(0.08, 0.2, 0.90);
+
+/// Time (in seconds) for the spawning/despawning animation
+const ANIMATION_TIME: f32 = 1.0;
 
 const SMALL_3D: f32 = 0.5;
 const BIG_3D: f32 = 1.0;
@@ -218,6 +224,18 @@ struct PointMaterial {
 /// Marker component for sampled points.
 #[derive(Component)]
 struct SamplePoint;
+
+/// Component for animating the spawn animation of lights
+#[derive(Component)]
+struct SpawningPoint {
+    progress: f32,
+}
+
+/// Marker component for lights which should change intensity.
+#[derive(Component)]
+struct DespawningPoint {
+    progress: f32,
+}
 
 /// Marker component for lights which should change intensity.
 #[derive(Component)]
@@ -574,10 +592,11 @@ fn spawn_points(
                     Mode::Interior => sample_material.interior.clone(),
                     Mode::Boundary => sample_material.boundary.clone(),
                 },
-                transform: Transform::from_translation(sample),
+                transform: Transform::from_translation(sample).with_scale(Vec3::ZERO),
                 ..default()
             },
             SamplePoint,
+            SpawningPoint { progress: 0.0 },
         ));
     }
 }
@@ -606,8 +625,47 @@ fn despawn_points(
         .iter()
         .skip(skip)
         .take(despawn_amount)
-        .map(|entity| commands.entity(entity).despawn())
+        .map(|entity| {
+            commands
+                .entity(entity)
+                .insert(DespawningPoint { progress: 0.0 })
+                .remove::<SpawningPoint>();
+        })
         .count();
+}
+
+fn animate_spawning(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut samples: Query<(Entity, &mut Transform, &mut SpawningPoint), With<SamplePoint>>,
+) {
+    let dt = time.delta_seconds();
+
+    for (entity, mut transform, mut point) in samples.iter_mut() {
+        point.progress += dt / ANIMATION_TIME;
+        transform.scale = Vec3::splat(point.progress.min(1.0));
+        if point.progress >= 1.0 {
+            commands.entity(entity).remove::<SpawningPoint>();
+        }
+    }
+}
+
+fn animate_despawning(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut samples: Query<(Entity, &mut Transform, &mut DespawningPoint), With<SamplePoint>>,
+) {
+    let dt = time.delta_seconds();
+
+    for (entity, mut transform, mut point) in samples.iter_mut() {
+        point.progress += dt / ANIMATION_TIME;
+        // If the point is already smaller than expected, jump ahead with the despawning progress to avoid sudden jumps in size
+        point.progress = f32::max(point.progress, 1.0 - transform.scale.x);
+        transform.scale = Vec3::splat((1.0 - point.progress).max(0.0));
+        if point.progress >= 1.0 {
+            commands.entity(entity).despawn();
+        }
+    }
 }
 
 fn update_camera(mut camera: Query<(&mut Transform, &CameraRig), Changed<CameraRig>>) {
