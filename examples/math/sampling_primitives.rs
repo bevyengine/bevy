@@ -61,6 +61,9 @@ const BOUNDARY_POINT_COLOR: LinearRgba = LinearRgba::rgb(0.08, 0.2, 0.90);
 /// Time (in seconds) for the spawning/despawning animation
 const ANIMATION_TIME: f32 = 1.0;
 
+/// Color for the sky and the sky-light
+const SKY_COLOR: Color = Color::srgb(0.02, 0.06, 0.15);
+
 const SMALL_3D: f32 = 0.5;
 const BIG_3D: f32 = 1.0;
 
@@ -283,26 +286,30 @@ fn setup(
         ..default()
     });
 
+    let shape_material = materials.add(StandardMaterial {
+        base_color: Color::srgba(0.2, 0.1, 0.6, 0.3),
+        reflectance: 0.0,
+        alpha_mode: AlphaMode::Blend,
+        cull_mode: None,
+        ..default()
+    });
+
     // Spawn shapes to be sampled
     for (shape, translation) in shapes.0.iter() {
         // The sampled shape shown transparently:
         commands.spawn(PbrBundle {
             mesh: meshes.add(shape.mesh()),
-            material: materials.add(StandardMaterial {
-                base_color: Color::srgba(0.2, 0.1, 0.6, 0.3),
-                alpha_mode: AlphaMode::Blend,
-                cull_mode: None,
-                ..default()
-            }),
+            material: shape_material.clone(),
             transform: Transform::from_translation(*translation),
             ..default()
         });
 
-        // The sampled shape shown transparently:
+        // Lights which work as the bulk lighting of the fireflies:
         commands.spawn((
             PointLightBundle {
                 point_light: PointLight {
-                    range: 3.0,
+                    range: 4.0,
+                    radius: 0.6,
                     intensity: 1.0,
                     shadows_enabled: false,
                     color: Color::LinearRgba(INSIDE_POINT_COLOR),
@@ -315,11 +322,11 @@ fn setup(
         ));
     }
 
-    // A light:
+    // Global light:
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            color: Color::srgb(0.05, 0.25, 0.5),
-            intensity: 1_000.0,
+            color: SKY_COLOR,
+            intensity: 2_000.0,
             shadows_enabled: false,
             ..default()
         },
@@ -332,7 +339,7 @@ fn setup(
         Camera3dBundle {
             camera: Camera {
                 hdr: true, // HDR is required for bloom
-                clear_color: ClearColorConfig::Custom(Color::srgb(0.02, 0.06, 0.15)),
+                clear_color: ClearColorConfig::Custom(SKY_COLOR),
                 ..default()
             },
             tonemapping: Tonemapping::TonyMcMapface,
@@ -355,11 +362,13 @@ fn setup(
     commands.insert_resource(PointMaterial {
         interior: materials.add(StandardMaterial {
             base_color: Color::BLACK,
+            reflectance: 0.05,
             emissive: 2.5 * INSIDE_POINT_COLOR,
             ..default()
         }),
         boundary: materials.add(StandardMaterial {
             base_color: Color::BLACK,
+            reflectance: 0.05,
             emissive: 1.5 * BOUNDARY_POINT_COLOR,
             ..default()
         }),
