@@ -50,7 +50,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: 1000.0,
         })
-        .insert(VolumetricFogSettings::default());
+        .insert(VolumetricFogSettings {
+            ambient_intensity: 0.0,
+            ..default()
+        });
 
     // Add the help text.
     commands.spawn(
