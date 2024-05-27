@@ -228,7 +228,7 @@ struct PointMaterial {
 #[derive(Component)]
 struct SamplePoint;
 
-/// Component for animating the spawn animation of lights
+/// Component for animating the spawn animation of lights.
 #[derive(Component)]
 struct SpawningPoint {
     progress: f32,
@@ -251,11 +251,11 @@ struct MousePressed(bool);
 /// Camera movement component.
 #[derive(Component)]
 struct CameraRig {
-    /// Rotation around the vertical axis of the camera (radians)
-    /// positive changes makes the camera look more from the right
+    /// Rotation around the vertical axis of the camera (radians).
+    /// Positive changes makes the camera look more from the right.
     pub yaw: f32,
-    /// Rotation around the horizontal axis of the camera (radians) (-pi/2; pi/2)
-    /// positive looks down from above
+    /// Rotation around the horizontal axis of the camera (radians) (-pi/2; pi/2).
+    /// Positive looks down from above.
     pub pitch: f32,
     /// Distance from the center, smaller distance causes more zoom.
     pub distance: f32,
@@ -400,16 +400,16 @@ fn setup(
         }),
     );
 
-    // No points are scheduled to spawn initially
+    // No points are scheduled to spawn initially.
     commands.insert_resource(SpawnQueue(0));
 
-    // No points have been spawned initially
+    // No points have been spawned initially.
     commands.insert_resource(PointCounter(0));
 
     // The mode starts with interior points.
     commands.insert_resource(Mode::Interior);
 
-    // Points spawn automatically by default
+    // Points spawn automatically by default.
     commands.insert_resource(SpawningMode::Automatic);
 
     // Starting mouse-pressed state is false.
