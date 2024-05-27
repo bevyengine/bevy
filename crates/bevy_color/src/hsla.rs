@@ -1,5 +1,5 @@
 use crate::{
-    Alpha, ColorToComponents, Hsva, Hue, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba,
+    Alpha, ColorToComponents, Gray, Hsva, Hue, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba,
     StandardColor, Xyza,
 };
 use bevy_math::{Vec3, Vec4};
@@ -117,6 +117,11 @@ impl Mix for Hsla {
             alpha: self.alpha * n_factor + other.alpha * factor,
         }
     }
+}
+
+impl Gray for Hsla {
+    const BLACK: Self = Self::new(0., 0., 0., 1.);
+    const WHITE: Self = Self::new(0., 0., 1., 1.);
 }
 
 impl Alpha for Hsla {

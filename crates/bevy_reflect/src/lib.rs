@@ -490,16 +490,6 @@ mod type_registry;
 mod impls {
     #[cfg(feature = "glam")]
     mod glam;
-
-    #[cfg(feature = "bevy_math")]
-    mod math {
-        mod cubic_splines;
-        mod direction;
-        mod primitives2d;
-        mod primitives3d;
-        mod rect;
-        mod rotation2d;
-    }
     #[cfg(feature = "petgraph")]
     mod petgraph;
     #[cfg(feature = "smallvec")]

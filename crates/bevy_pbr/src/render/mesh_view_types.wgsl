@@ -138,3 +138,16 @@ struct LightProbes {
     // The intensity of the environment map associated with the view.
     intensity_for_view: f32,
 };
+
+// Settings for screen space reflections.
+//
+// For more information on these settings, see the documentation for
+// `bevy_pbr::ssr::ScreenSpaceReflectionsSettings`.
+struct ScreenSpaceReflectionsSettings {
+    perceptual_roughness_threshold: f32,
+    thickness: f32,
+    linear_steps: u32,
+    linear_march_exponent: f32,
+    bisection_steps: u32,
+    use_secant: u32,
+};

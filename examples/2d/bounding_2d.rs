@@ -103,22 +103,22 @@ fn render_shapes(mut gizmos: Gizmos, query: Query<(&Shape, &Transform)>) {
         let rotation = transform.rotation.to_euler(EulerRot::YXZ).2;
         match shape {
             Shape::Rectangle(r) => {
-                gizmos.primitive_2d(*r, translation, rotation, color);
+                gizmos.primitive_2d(r, translation, rotation, color);
             }
             Shape::Circle(c) => {
-                gizmos.primitive_2d(*c, translation, rotation, color);
+                gizmos.primitive_2d(c, translation, rotation, color);
             }
             Shape::Triangle(t) => {
-                gizmos.primitive_2d(*t, translation, rotation, color);
+                gizmos.primitive_2d(t, translation, rotation, color);
             }
             Shape::Line(l) => {
-                gizmos.primitive_2d(*l, translation, rotation, color);
+                gizmos.primitive_2d(l, translation, rotation, color);
             }
             Shape::Capsule(c) => {
-                gizmos.primitive_2d(*c, translation, rotation, color);
+                gizmos.primitive_2d(c, translation, rotation, color);
             }
             Shape::Polygon(p) => {
-                gizmos.primitive_2d(*p, translation, rotation, color);
+                gizmos.primitive_2d(p, translation, rotation, color);
             }
         }
     }
