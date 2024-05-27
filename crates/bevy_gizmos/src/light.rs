@@ -41,7 +41,7 @@ fn point_light_gizmo(
     let position = transform.translation();
     gizmos
         .primitive_3d(
-            Sphere {
+            &Sphere {
                 radius: point_light.radius,
             },
             position,
@@ -65,7 +65,7 @@ fn spot_light_gizmo(
     let (_, rotation, translation) = transform.to_scale_rotation_translation();
     gizmos
         .primitive_3d(
-            Sphere {
+            &Sphere {
                 radius: spot_light.radius,
             },
             translation,
@@ -80,7 +80,7 @@ fn spot_light_gizmo(
         let position = translation + rotation * Vec3::NEG_Z * height / 2.0;
         gizmos
             .primitive_3d(
-                Cone {
+                &Cone {
                     radius: spot_light.range * angle.sin(),
                     height,
                 },

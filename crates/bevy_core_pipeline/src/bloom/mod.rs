@@ -2,7 +2,7 @@ mod downsampling_pipeline;
 mod settings;
 mod upsampling_pipeline;
 
-use bevy_color::LinearRgba;
+use bevy_color::{Gray, LinearRgba};
 pub use settings::{BloomCompositeMode, BloomPrefilterSettings, BloomSettings};
 
 use crate::{

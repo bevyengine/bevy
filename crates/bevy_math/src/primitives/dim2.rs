@@ -3,9 +3,23 @@ use std::f32::consts::{FRAC_PI_2, FRAC_PI_3, PI};
 use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{Dir2, Vec2};
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// A circle primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Circle {
     /// The radius of the circle
     pub radius: f32,
@@ -703,6 +717,15 @@ mod arc_tests {
 /// An ellipse primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Ellipse {
     /// Half of the width and height of the ellipse.
     ///
@@ -844,6 +867,15 @@ impl Measured2d for Ellipse {
 /// A primitive shape formed by the region between two circles, also known as a ring.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 #[doc(alias = "Ring")]
 pub struct Annulus {
     /// The inner circle of the annulus
@@ -929,10 +961,154 @@ impl Measured2d for Annulus {
     }
 }
 
+/// A rhombus primitive, also known as a diamond shape.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+#[doc(alias = "Diamond")]
+pub struct Rhombus {
+    /// Size of the horizontal and vertical diagonals of the rhombus
+    pub half_diagonals: Vec2,
+}
+impl Primitive2d for Rhombus {}
+
+impl Default for Rhombus {
+    /// Returns the default [`Rhombus`] with a half-horizontal and half-vertical diagonal of `0.5`.
+    fn default() -> Self {
+        Self {
+            half_diagonals: Vec2::splat(0.5),
+        }
+    }
+}
+
+impl Rhombus {
+    /// Create a new `Rhombus` from a vertical and horizontal diagonal sizes.
+    #[inline(always)]
+    pub fn new(horizontal_diagonal: f32, vertical_diagonal: f32) -> Self {
+        Self {
+            half_diagonals: Vec2::new(horizontal_diagonal / 2.0, vertical_diagonal / 2.0),
+        }
+    }
+
+    /// Create a new `Rhombus` from a side length with all inner angles equal.
+    #[inline(always)]
+    pub fn from_side(side: f32) -> Self {
+        Self {
+            half_diagonals: Vec2::splat(side.hypot(side) / 2.0),
+        }
+    }
+
+    /// Create a new `Rhombus` from a given inradius with all inner angles equal.
+    #[inline(always)]
+    pub fn from_inradius(inradius: f32) -> Self {
+        let half_diagonal = inradius * 2.0 / std::f32::consts::SQRT_2;
+        Self {
+            half_diagonals: Vec2::new(half_diagonal, half_diagonal),
+        }
+    }
+
+    /// Get the length of each side of the rhombus
+    #[inline(always)]
+    pub fn side(&self) -> f32 {
+        self.half_diagonals.length()
+    }
+
+    /// Get the radius of the circumcircle on which all vertices
+    /// of the rhombus lie
+    #[inline(always)]
+    pub fn circumradius(&self) -> f32 {
+        self.half_diagonals.x.max(self.half_diagonals.y)
+    }
+
+    /// Get the radius of the largest circle that can
+    /// be drawn within the rhombus
+    #[inline(always)]
+    #[doc(alias = "apothem")]
+    pub fn inradius(&self) -> f32 {
+        let side = self.side();
+        if side == 0.0 {
+            0.0
+        } else {
+            (self.half_diagonals.x * self.half_diagonals.y) / side
+        }
+    }
+
+    /// Finds the point on the rhombus that is closest to the given `point`.
+    ///
+    /// If the point is outside the rhombus, the returned point will be on the perimeter of the rhombus.
+    /// Otherwise, it will be inside the rhombus and returned as is.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec2) -> Vec2 {
+        // Fold the problem into the positive quadrant
+        let point_abs = point.abs();
+        let half_diagonals = self.half_diagonals.abs(); // to ensure correct sign
+
+        // The unnormalised normal vector perpendicular to the side of the rhombus
+        let normal = Vec2::new(half_diagonals.y, half_diagonals.x);
+        let normal_magnitude_squared = normal.length_squared();
+        if normal_magnitude_squared == 0.0 {
+            return Vec2::ZERO; // A null Rhombus has only one point anyway.
+        }
+
+        // The last term corresponds to normal.dot(rhombus_vertex)
+        let distance_unnormalised = normal.dot(point_abs) - half_diagonals.x * half_diagonals.y;
+
+        // The point is already inside so we simply return it.
+        if distance_unnormalised <= 0.0 {
+            return point;
+        }
+
+        // Clamp the point to the edge
+        let mut result = point_abs - normal * distance_unnormalised / normal_magnitude_squared;
+
+        // Clamp the point back to the positive quadrant
+        // if it's outside, it needs to be clamped to either vertex
+        if result.x <= 0.0 {
+            result = Vec2::new(0.0, half_diagonals.y);
+        } else if result.y <= 0.0 {
+            result = Vec2::new(half_diagonals.x, 0.0);
+        }
+
+        // Finally, we restore the signs of the original vector
+        result.copysign(point)
+    }
+}
+
+impl Measured2d for Rhombus {
+    /// Get the area of the rhombus
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        2.0 * self.half_diagonals.x * self.half_diagonals.y
+    }
+
+    /// Get the perimeter of the rhombus
+    #[inline(always)]
+    fn perimeter(&self) -> f32 {
+        4.0 * self.side()
+    }
+}
+
 /// An unbounded plane in 2D space. It forms a separating surface through the origin,
 /// stretching infinitely far
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Plane2d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Dir2,
@@ -965,6 +1141,11 @@ impl Plane2d {
 /// For a finite line: [`Segment2d`]
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Line2d {
     /// The direction of the line. The line extends infinitely in both the given direction
     /// and its opposite direction
@@ -975,6 +1156,11 @@ impl Primitive2d for Line2d {}
 /// A segment of a line along a direction in 2D space.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 #[doc(alias = "LineSegment2d")]
 pub struct Segment2d {
     /// The direction of the line segment
@@ -1030,6 +1216,7 @@ impl Segment2d {
 /// For a version without generics: [`BoxedPolyline2d`]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 pub struct Polyline2d<const N: usize> {
     /// The vertices of the polyline
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
@@ -1086,6 +1273,15 @@ impl BoxedPolyline2d {
 /// A triangle in 2D space
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Triangle2d {
     /// The vertices of the triangle
     pub vertices: [Vec2; 3],
@@ -1248,6 +1444,15 @@ impl Measured2d for Triangle2d {
 /// A rectangle primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 #[doc(alias = "Quad")]
 pub struct Rectangle {
     /// Half of the width and height of the rectangle
@@ -1332,6 +1537,7 @@ impl Measured2d for Rectangle {
 /// For a version without generics: [`BoxedPolygon`]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 pub struct Polygon<const N: usize> {
     /// The vertices of the `Polygon`
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
@@ -1388,6 +1594,15 @@ impl BoxedPolygon {
 /// A polygon where all vertices lie on a circle, equally far apart.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct RegularPolygon {
     /// The circumcircle on which all vertices lie
     pub circumcircle: Circle,
@@ -1525,6 +1740,15 @@ impl Measured2d for RegularPolygon {
 /// A two-dimensional capsule is defined as a neighborhood of points at a distance (radius) from a line
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 #[doc(alias = "stadium", alias = "pill")]
 pub struct Capsule2d {
     /// The radius of the capsule
@@ -1602,6 +1826,25 @@ mod tests {
     }
 
     #[test]
+    fn rhombus_closest_point() {
+        let rhombus = Rhombus::new(2.0, 1.0);
+        assert_eq!(rhombus.closest_point(Vec2::X * 10.0), Vec2::X);
+        assert_eq!(
+            rhombus.closest_point(Vec2::NEG_ONE * 0.2),
+            Vec2::NEG_ONE * 0.2
+        );
+        assert_eq!(
+            rhombus.closest_point(Vec2::new(-0.55, 0.35)),
+            Vec2::new(-0.5, 0.25)
+        );
+
+        let rhombus = Rhombus::new(0.0, 0.0);
+        assert_eq!(rhombus.closest_point(Vec2::X * 10.0), Vec2::ZERO);
+        assert_eq!(rhombus.closest_point(Vec2::NEG_ONE * 0.2), Vec2::ZERO);
+        assert_eq!(rhombus.closest_point(Vec2::new(-0.55, 0.35)), Vec2::ZERO);
+    }
+
+    #[test]
     fn circle_math() {
         let circle = Circle { radius: 3.0 };
         assert_eq!(circle.diameter(), 6.0, "incorrect diameter");
@@ -1616,6 +1859,28 @@ mod tests {
         assert_eq!(annulus.thickness(), 1.0, "incorrect thickness");
         assert_eq!(annulus.area(), 18.849556, "incorrect area");
         assert_eq!(annulus.perimeter(), 37.699112, "incorrect perimeter");
+    }
+
+    #[test]
+    fn rhombus_math() {
+        let rhombus = Rhombus::new(3.0, 4.0);
+        assert_eq!(rhombus.area(), 6.0, "incorrect area");
+        assert_eq!(rhombus.perimeter(), 10.0, "incorrect perimeter");
+        assert_eq!(rhombus.side(), 2.5, "incorrect side");
+        assert_eq!(rhombus.inradius(), 1.2, "incorrect inradius");
+        assert_eq!(rhombus.circumradius(), 2.0, "incorrect circumradius");
+        let rhombus = Rhombus::new(0.0, 0.0);
+        assert_eq!(rhombus.area(), 0.0, "incorrect area");
+        assert_eq!(rhombus.perimeter(), 0.0, "incorrect perimeter");
+        assert_eq!(rhombus.side(), 0.0, "incorrect side");
+        assert_eq!(rhombus.inradius(), 0.0, "incorrect inradius");
+        assert_eq!(rhombus.circumradius(), 0.0, "incorrect circumradius");
+        let rhombus = Rhombus::from_side(std::f32::consts::SQRT_2);
+        assert_eq!(rhombus, Rhombus::new(2.0, 2.0));
+        assert_eq!(
+            rhombus,
+            Rhombus::from_inradius(std::f32::consts::FRAC_1_SQRT_2)
+        );
     }
 
     #[test]
