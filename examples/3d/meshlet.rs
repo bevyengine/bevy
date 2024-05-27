@@ -8,8 +8,7 @@ mod camera_controller;
 use bevy::{
     pbr::{
         experimental::meshlet::{MaterialMeshletMeshBundle, MeshletPlugin},
-        CascadeShadowConfigBuilder, DirectionalLightShadowMap, ScreenSpaceReflectionsBundle,
-        ScreenSpaceReflectionsSettings,
+        CascadeShadowConfigBuilder, DirectionalLightShadowMap,
     },
     prelude::*,
     render::render_resource::AsBindGroup,
@@ -58,14 +57,6 @@ fn setup(
             intensity: 150.0,
         },
         CameraController::default(),
-        ScreenSpaceReflectionsBundle {
-            settings: ScreenSpaceReflectionsSettings {
-                perceptual_roughness_threshold: 0.1,
-                thickness: 0.1,
-                ..Default::default()
-            },
-            ..Default::default()
-        },
     ));
 
     commands.spawn(DirectionalLightBundle {
@@ -132,8 +123,8 @@ fn setup(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
         material: standard_materials.add(StandardMaterial {
-            base_color: Color::BLACK,
-            perceptual_roughness: 0.0,
+            base_color: Color::WHITE,
+            perceptual_roughness: 1.0,
             ..default()
         }),
         ..default()
