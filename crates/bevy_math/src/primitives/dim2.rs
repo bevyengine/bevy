@@ -3,16 +3,18 @@ use std::f32::consts::{FRAC_PI_2, FRAC_PI_3, PI};
 use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{Dir2, Vec2};
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
-use bevy_reflect::prelude::*;
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// A circle primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -717,8 +719,8 @@ mod arc_tests {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -867,8 +869,8 @@ impl Measured2d for Ellipse {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -964,8 +966,8 @@ impl Measured2d for Annulus {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -1100,8 +1102,8 @@ impl Measured2d for Rhombus {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -1139,11 +1141,7 @@ impl Plane2d {
 /// For a finite line: [`Segment2d`]
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
-)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
@@ -1158,11 +1156,7 @@ impl Primitive2d for Line2d {}
 /// A segment of a line along a direction in 2D space.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
-)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
@@ -1222,11 +1216,7 @@ impl Segment2d {
 /// For a version without generics: [`BoxedPolyline2d`]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
-)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 pub struct Polyline2d<const N: usize> {
     /// The vertices of the polyline
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
@@ -1285,8 +1275,8 @@ impl BoxedPolyline2d {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -1456,8 +1446,8 @@ impl Measured2d for Triangle2d {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -1547,11 +1537,7 @@ impl Measured2d for Rectangle {
 /// For a version without generics: [`BoxedPolygon`]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
-)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 pub struct Polygon<const N: usize> {
     /// The vertices of the `Polygon`
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
@@ -1610,8 +1596,8 @@ impl BoxedPolygon {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -1756,8 +1742,8 @@ impl Measured2d for RegularPolygon {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),

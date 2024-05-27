@@ -2,8 +2,10 @@ use glam::FloatExt;
 
 use crate::prelude::{Mat2, Vec2};
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
-use bevy_reflect::prelude::*;
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// A counterclockwise 2D rotation in radians.
 ///
@@ -34,8 +36,8 @@ use bevy_reflect::prelude::*;
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),

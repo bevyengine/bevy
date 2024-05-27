@@ -1,7 +1,9 @@
 use crate::{IRect, Rect, UVec2};
 
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::prelude::*;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// A rectangle defined by two opposite corners.
 ///
@@ -16,7 +18,7 @@ use bevy_reflect::prelude::*;
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
+    derive(Reflect),
     reflect(Debug, PartialEq, Hash, Default)
 )]
 #[cfg_attr(

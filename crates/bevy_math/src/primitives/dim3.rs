@@ -3,16 +3,18 @@ use std::f32::consts::{FRAC_PI_3, PI};
 use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
 use crate::{Dir3, InvalidDirectionError, Mat3, Vec2, Vec3};
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
-use bevy_reflect::prelude::*;
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// A sphere primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -83,8 +85,8 @@ impl Measured3d for Sphere {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -155,8 +157,8 @@ impl Plane3d {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -219,11 +221,7 @@ impl InfinitePlane3d {
 /// For a finite line: [`Segment3d`]
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
-)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
@@ -238,11 +236,7 @@ impl Primitive3d for Line3d {}
 #[doc(alias = "LineSegment3d")]
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
-)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
@@ -301,11 +295,7 @@ impl Segment3d {
 /// For a version without generics: [`BoxedPolyline3d`]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
-)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 pub struct Polyline3d<const N: usize> {
     /// The vertices of the polyline
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
@@ -364,8 +354,8 @@ impl BoxedPolyline3d {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -456,8 +446,8 @@ impl Measured3d for Cuboid {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -534,8 +524,8 @@ impl Measured3d for Cylinder {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -602,8 +592,8 @@ impl Measured3d for Capsule3d {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -680,8 +670,8 @@ impl Measured3d for Cone {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -731,8 +721,8 @@ pub enum TorusKind {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -842,8 +832,8 @@ impl Measured3d for Torus {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -1035,8 +1025,8 @@ impl Measured2d for Triangle3d {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    derive(bevy_reflect::Reflect),
-    reflect(Debug, PartialEq)
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
