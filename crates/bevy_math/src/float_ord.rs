@@ -20,7 +20,7 @@ use bevy_reflect::Reflect;
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, ParialEq, Hash)
+    reflect(Debug, PartialEq, Hash)
 )]
 pub struct FloatOrd(pub f32);
 
