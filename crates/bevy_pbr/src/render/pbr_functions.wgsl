@@ -218,6 +218,23 @@ fn calculate_view(
     return V;
 }
 
+// Diffuse strength is inversely related to metallicity, specular and diffuse transmission
+fn calculate_diffuse_color(
+    base_color: vec3<f32>,
+    metallic: f32,
+    specular_transmission: f32,
+    diffuse_transmission: f32
+) -> vec3<f32> {
+    return base_color * (1.0 - metallic) * (1.0 - specular_transmission) *
+        (1.0 - diffuse_transmission);
+}
+
+// Remapping [0,1] reflectance to F0
+// See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
+fn calculate_F0(base_color: vec3<f32>, metallic: f32, reflectance: f32) -> vec3<f32> {
+    return 0.16 * reflectance * reflectance * (1.0 - metallic) + base_color * metallic;
+}
+
 #ifndef PREPASS_FRAGMENT
 fn apply_pbr_lighting(
     in: pbr_types::PbrInput,
@@ -232,6 +249,7 @@ fn apply_pbr_lighting(
     let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
     let ior = in.material.ior;
     let thickness = in.material.thickness;
+    let reflectance = in.material.reflectance;
     let diffuse_transmission = in.material.diffuse_transmission;
     let specular_transmission = in.material.specular_transmission;
 
@@ -255,8 +273,12 @@ fn apply_pbr_lighting(
     let clearcoat_R = reflect(-in.V, clearcoat_N);
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
-    // Diffuse strength is inversely related to metallicity, specular and diffuse transmission
-    let diffuse_color = output_color.rgb * (1.0 - metallic) * (1.0 - specular_transmission) * (1.0 - diffuse_transmission);
+    let diffuse_color = calculate_diffuse_color(
+        output_color.rgb,
+        metallic,
+        specular_transmission,
+        diffuse_transmission
+    );
 
     // Diffuse transmissive strength is inversely related to metallicity and specular transmission, but directly related to diffuse transmission
     let diffuse_transmissive_color = output_color.rgb * (1.0 - metallic) * (1.0 - specular_transmission) * diffuse_transmission;
@@ -264,7 +286,7 @@ fn apply_pbr_lighting(
     // Calculate the world position of the second Lambertian lobe used for diffuse transmission, by subtracting material thickness
     let diffuse_transmissive_lobe_world_position = in.world_position - vec4<f32>(in.world_normal, 0.0) * thickness;
 
-    let F0 = lighting::F0(in.material.reflectance, metallic, output_color.rgb);
+    let F0 = calculate_F0(output_color.rgb, metallic, reflectance);
     let F_ab = lighting::F_AB(perceptual_roughness, NdotV);
 
     var direct_light: vec3<f32> = vec3<f32>(0.0);
@@ -439,8 +461,6 @@ fn apply_pbr_lighting(
 #endif
     }
 
-    var indirect_light = vec3(0.0f);
-
 #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
     // NOTE: We use the diffuse transmissive color, the second Lambertian lobe's calculated
     // world position, inverted normal and view vectors, and the following simplified
@@ -464,6 +484,8 @@ fn apply_pbr_lighting(
     // any more diffuse indirect light. This avoids double-counting if, for
     // example, both lightmaps and irradiance volumes are present.
 
+    var indirect_light = vec3(0.0f);
+
 #ifdef LIGHTMAP
     if (all(indirect_light == vec3(0.0f))) {
         indirect_light += in.lightmap_light * diffuse_color;
@@ -480,19 +502,37 @@ fn apply_pbr_lighting(
 #endif
 
     // Environment map light (indirect)
-    //
-    // Note that up until this point, we have only accumulated diffuse light.
-    // This call is the first call that can accumulate specular light.
 #ifdef ENVIRONMENT_MAP
-    let environment_light =
-        environment_map::environment_map_light(&lighting_input, any(indirect_light != vec3(0.0f)));
 
-    indirect_light += environment_light.diffuse * diffuse_occlusion +
-        environment_light.specular * specular_occlusion;
+    // If screen space reflections are going to be used for this material, don't
+    // accumulate environment map light yet. The SSR shader will do it.
+#ifdef SCREEN_SPACE_REFLECTIONS
+    let use_ssr = perceptual_roughness <=
+        view_bindings::ssr_settings.perceptual_roughness_threshold;
+#else   // SCREEN_SPACE_REFLECTIONS
+    let use_ssr = false;
+#endif  // SCREEN_SPACE_REFLECTIONS
+
+    if (!use_ssr) {
+        let environment_light = environment_map::environment_map_light(
+            &lighting_input,
+            any(indirect_light != vec3(0.0f))
+        );
+
+        indirect_light += environment_light.diffuse * diffuse_occlusion +
+            environment_light.specular * specular_occlusion;
+    }
+
+#endif  // ENVIRONMENT_MAP
+
+    // Ambient light (indirect)
+    indirect_light += ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, diffuse_occlusion);
 
     // we'll use the specular component of the transmitted environment
     // light in the call to `specular_transmissive_light()` below
     var specular_transmitted_environment_light = vec3<f32>(0.0);
+
+#ifdef ENVIRONMENT_MAP
 
 #ifdef STANDARD_MATERIAL_DIFFUSE_OR_SPECULAR_TRANSMISSION
     // NOTE: We use the diffuse transmissive color, inverted normal and view vectors,
@@ -539,19 +579,14 @@ fn apply_pbr_lighting(
 
 #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
     transmitted_light += transmitted_environment_light.diffuse * diffuse_transmissive_color;
-#endif
+#endif  // STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
 #ifdef STANDARD_MATERIAL_SPECULAR_TRANSMISSION
     specular_transmitted_environment_light = transmitted_environment_light.specular * specular_transmissive_color;
-#endif
-#endif // STANDARD_MATERIAL_DIFFUSE_OR_SPECULAR_TRANSMISSION
-#else
-    // If there's no environment map light, there's no transmitted environment
-    // light specular component, so we can just hardcode it to zero.
-    let specular_transmitted_environment_light = vec3<f32>(0.0);
-#endif
+#endif  // STANDARD_MATERIAL_SPECULAR_TRANSMISSION
 
-    // Ambient light (indirect)
-    indirect_light += ambient::ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, diffuse_occlusion);
+#endif  // STANDARD_MATERIAL_SPECULAR_OR_DIFFUSE_TRANSMISSION
+
+#endif  // ENVIRONMENT_MAP
 
     var emissive_light = emissive.rgb * output_color.a;
 

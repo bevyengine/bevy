@@ -3039,6 +3039,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "ssr"
+path = "examples/3d/ssr.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ssr]
+name = "Screen Space Reflections"
+description = "Demonstrates screen space reflections with water ripples"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "color_grading"
 path = "examples/3d/color_grading.rs"
 doc-scrape-examples = true
