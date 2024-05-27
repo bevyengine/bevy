@@ -837,7 +837,7 @@ impl Components {
 ///
 /// *Note* that a system that hasn't been run yet has a `Tick` of 0.
 #[derive(Copy, Clone, Default, Debug, Eq, Hash, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Hash, PartialEq))]
 pub struct Tick {
     tick: u32,
 }
