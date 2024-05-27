@@ -51,6 +51,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             brightness: 1000.0,
         })
         .insert(VolumetricFogSettings {
+            // This value is explicitly set to 0 since we have no environment map light
             ambient_intensity: 0.0,
             ..default()
         });
