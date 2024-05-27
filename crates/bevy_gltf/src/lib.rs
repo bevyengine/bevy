@@ -9,6 +9,94 @@
 //! for loading glTF 2.0 (a standard 3D scene definition format) files in Bevy.
 //!
 //! The [glTF 2.0 specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html) defines the format of the glTF files.
+//!
+//! # Quick Start
+//!
+//! Here's how to spawn a simple gltf scene
+//!
+//! ```
+//! # use bevy::prelude*;
+//! fn spawn_gltf(mut commands: Commands, asset_server: Res<AssetServer>) {
+//!     commands.spawn(SceneBundle {
+//!         // The `#Scene0` label here is very important. Keep reading for more details
+//!         scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
+//!         // You can use the Tranform to give it a position
+//!         transform: Transform::from_xyz(2.0, 0.0, -5.0),
+//!         ..Default::default()
+//!     });
+//! }
+//! ```
+//!
+//! # Loading parts of a GLTF asset
+//!
+//! ## Using `Gltf`
+//!
+//! If you want to access part of the asset, you can load the entire `Gltf` using the `AssetServer`.
+//! Once the `Handle<Gltf>` is loaded you can then use it to access named parts of it.
+//!
+//! ```
+//! # use bevy_ecs::prelude::*;
+//! # use bevy_asset::prelude::*;
+//! # use bevy_scene::prelude::*;
+//! # use bevy_transform::prelude::*;
+//!
+//! // Holds the scene handle
+//! #[derive(Resource)]
+//! struct HelmetScene(Handle<Gltf>);
+//!
+//! fn load_gltf(mut commands: Commands, asset_server: Res<AssetServer>) {
+//!     let gltf = asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0");
+//!     commands.insert_resource(HelmetScene(gltf));
+//! }
+//!
+//! fn spawn_gltf_objects(
+//!     mut commands: Commands,
+//!     helmet_scene: Res<HelmetScene>,
+//!     gltf_assets: Res<Assets<Gltf>>,
+//!     mut loaded: Local<bool>,
+//! ) {
+//!     // Only do this once
+//!     if *loaded {
+//!         return;
+//!     }
+//!     // Wait until the scene is loaded
+//!     let Some(gltf) = gltf_assets.get(&helmet_scene.0) else {
+//!         return;
+//!     };
+//!     *loaded = true;
+//!
+//!     commands.spawn(SceneBundle {
+//!         // Gets the first scene in the file
+//!         scene: gltf.scenes[0].clone(),
+//!         ..Default::default()
+//!     });
+//!
+//!     commands.spawn(SceneBundle {
+//!         // Gets the scene named "Lenses_low"
+//!         scene: gltf.named_scenes["Lenses_low"].clone(),
+//!         transform: Transform::from_xyz(1.0, 2.0, 3.0),
+//!         ..Default::default()
+//!     });
+//! }
+//! ```
+//!
+//! ## Asset Labels
+//! The GLTF loader let's you specify labels that let you target specific parts of the GLTF.
+//!
+//! Be careful when using this feature, if you mispell a label it will simply ignore it wihtout warning.
+//!
+//! Here's the list of supported labels (`{}` is the index in the file):
+//!
+//! - `Scene{}`: GLTF Scene as a Bevy `Scene`
+//! - `Node{}`: GLTF Node as a `GltfNode`
+//! - `Mesh{}`: GLTF Mesh as a `GltfMesh`
+//! - `Mesh{}/Primitive{}`: GLTF Primitive as a Bevy `Mesh`
+//! - `Mesh{}/Primitive{}/MorphTargets`: Morph target animation data for a GLTF Primitive
+//! - `Texture{}`: GLTF Texture as a Bevy `Image`
+//! - `Material{}`: GLTF Material as a Bevy `StandardMaterial`
+//! - `DefaultMaterial`: as above, if the GLTF file contains a default material with no index
+//! - `Animation{}`: GLTF Animation as Bevy `AnimationClip`
+//! - `Skin{}`: GLTF mesh skin as Bevy `SkinnedMeshInverseBindposes`
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
