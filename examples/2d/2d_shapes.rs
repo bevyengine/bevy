@@ -12,7 +12,7 @@ fn main() {
         .run();
 }
 
-const X_EXTENT: f32 = 800.;
+const X_EXTENT: f32 = 900.;
 
 fn setup(
     mut commands: Commands,
@@ -28,6 +28,7 @@ fn setup(
         Mesh2dHandle(meshes.add(Ellipse::new(25.0, 50.0))),
         Mesh2dHandle(meshes.add(Annulus::new(25.0, 50.0))),
         Mesh2dHandle(meshes.add(Capsule2d::new(25.0, 50.0))),
+        Mesh2dHandle(meshes.add(Rhombus::new(75.0, 100.0))),
         Mesh2dHandle(meshes.add(Rectangle::new(50.0, 100.0))),
         Mesh2dHandle(meshes.add(RegularPolygon::new(50.0, 6))),
         Mesh2dHandle(meshes.add(Triangle2d::new(
