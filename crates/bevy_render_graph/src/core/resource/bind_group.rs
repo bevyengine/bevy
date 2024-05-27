@@ -29,6 +29,12 @@ pub struct RenderGraphBindGroupLayoutMeta {
 }
 
 impl RenderGraphBindGroupLayoutMeta {
+    pub fn writes_any(&self) -> bool {
+        !self.writes.is_empty()
+    }
+}
+
+impl RenderGraphBindGroupLayoutMeta {
     pub fn new(descriptor: RenderGraphBindGroupLayoutDescriptor) -> Self {
         let mut writes = HashSet::new();
         for entry in &descriptor.entries {
@@ -274,6 +280,12 @@ pub(in crate::core) fn make_bind_group<'n, 'g: 'n>(
 pub struct RenderGraphBindGroupMeta<'g> {
     pub descriptor: RenderGraphBindGroupDescriptor<'g>,
     writes: Rc<HashSet<u32>>,
+}
+
+impl<'g> RenderGraphBindGroupMeta<'g> {
+    pub fn writes_any(&self) -> bool {
+        !self.writes.is_empty()
+    }
 }
 
 impl<'g> RenderGraphBindGroupMeta<'g> {

@@ -2,6 +2,7 @@ use std::ops::Deref;
 
 use bevy_app::Plugin;
 use bevy_asset::{embedded_asset, AssetServer, Handle};
+use bevy_color::LinearRgba;
 use bevy_render::render_resource::{
     BindGroup, BlendState, ColorTargetState, ColorWrites, FragmentState, LoadOp, Operations,
     RenderPassColorAttachment, RenderPassDescriptor, Sampler, SamplerDescriptor, Shader,
@@ -12,7 +13,7 @@ use crate::{
     core::{
         resource::{
             bind_group::RenderGraphBindGroupDescriptor,
-            pipeline::RenderGraphRenderPipelineDescriptor, RenderHandle,
+            pipeline::RenderGraphRenderPipelineDescriptor, RenderDependencies, RenderHandle,
         },
         RenderGraphBuilder,
     },
@@ -55,8 +56,9 @@ pub fn fullscreen_shader_vertex_state(graph: &RenderGraphBuilder) -> VertexState
 pub fn fullscreen_pass<'g>(
     graph: &mut RenderGraphBuilder<'_, 'g>,
     shader: Handle<Shader>,
-    mut target: RenderHandle<'g, TextureView>,
+    target: RenderHandle<'g, TextureView>,
     blend: Option<BlendState>,
+    clear_color: Option<LinearRgba>,
     bind_groups: &[RenderHandle<'g, BindGroup>],
 ) {
     let format = graph
@@ -65,7 +67,7 @@ pub fn fullscreen_pass<'g>(
         .format
         .unwrap_or_else(|| graph.meta(graph.meta(target).texture).format);
     let pipeline = graph.new_resource(RenderGraphRenderPipelineDescriptor {
-        label: Some("blit_pipeline".into()),
+        label: Some("fullscreen_pass_pipeline".into()),
         layout: bind_groups
             .iter()
             .map(|bind_group| graph.meta(*bind_group).descriptor.layout)
@@ -78,7 +80,7 @@ pub fn fullscreen_pass<'g>(
         fragment: Some(FragmentState {
             shader,
             shader_defs: Vec::new(),
-            entry_point: "blit_frag".into(),
+            entry_point: "fullscreen_frag".into(),
             targets: vec![Some(ColorTargetState {
                 format,
                 blend,
@@ -87,19 +89,46 @@ pub fn fullscreen_pass<'g>(
         }),
     });
 
+    let should_clear = graph.is_fresh(target);
+    let ops = if should_clear {
+        if let Some(clear_color) = clear_color {
+            Operations {
+                load: LoadOp::Clear(clear_color.into()),
+                store: StoreOp::Store,
+            }
+        } else {
+            Operations {
+                load: LoadOp::Load,
+                store: StoreOp::Store,
+            }
+        }
+    } else {
+        Operations {
+            load: LoadOp::Load,
+            store: StoreOp::Store,
+        }
+    };
+
+    let mut dependencies = RenderDependencies::new();
+    dependencies.write(target);
+    for bind_group in bind_groups {
+        if graph.meta(*bind_group).writes_any() {
+            dependencies.write(*bind_group);
+        } else {
+            dependencies.read(*bind_group);
+        }
+    }
+
     graph.add_node(
-        Some("blit_node".into()),
-        deps![&mut target],
+        Some("fullscreen_pass".into()),
+        dependencies,
         move |ctx, cmds, _| {
             let mut render_pass = cmds.begin_render_pass(&RenderPassDescriptor {
-                label: Some("blit_pass"),
+                label: Some("fullscreen_pass"),
                 color_attachments: &[Some(RenderPassColorAttachment {
                     view: ctx.get(target).deref(),
                     resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Load,
-                        store: StoreOp::Store,
-                    },
+                    ops,
                 })],
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
@@ -115,6 +144,7 @@ pub mod blit {
     use std::ops::Deref;
 
     use bevy_asset::{AssetServer, Handle};
+    use bevy_color::LinearRgba;
     use bevy_render::render_resource::{
         BlendState, ColorTargetState, ColorWrites, FragmentState, LoadOp, Operations,
         RenderPassColorAttachment, RenderPassDescriptor, Sampler, SamplerDescriptor, Shader,
@@ -137,11 +167,12 @@ pub mod blit {
         src_dst: SrcDst<'g, TextureView>,
         sampler: Option<RenderHandle<'g, Sampler>>,
         blend: Option<BlendState>,
+        clear_color: Option<LinearRgba>,
     ) {
         let shader = graph
             .world_resource::<AssetServer>()
             .load("embedded://bevy_render_graph/std/blit.wgsl");
-        custom(graph, shader, src_dst, sampler, blend);
+        custom(graph, shader, src_dst, sampler, blend, clear_color);
     }
 
     pub fn custom<'g>(
@@ -150,6 +181,7 @@ pub mod blit {
         src_dst: SrcDst<'g, TextureView>,
         sampler: Option<RenderHandle<'g, Sampler>>,
         blend: Option<BlendState>,
+        clear_color: Option<LinearRgba>,
     ) {
         let sampler = sampler.unwrap_or_else(|| graph.new_resource(SamplerDescriptor::default()));
         let bind_group = BindGroupBuilder::new(
@@ -162,10 +194,10 @@ pub mod blit {
         .build();
 
         let format = graph
-            .meta(src_dst.src)
+            .meta(src_dst.dst)
             .descriptor
             .format
-            .unwrap_or_else(|| graph.meta(graph.meta(src_dst.src).texture).format);
+            .unwrap_or_else(|| graph.meta(graph.meta(src_dst.dst).texture).format);
         let pipeline = graph.new_resource(RenderGraphRenderPipelineDescriptor {
             label: Some("blit_pipeline".into()),
             layout: vec![graph.meta(bind_group).descriptor.layout],
@@ -187,6 +219,26 @@ pub mod blit {
             }),
         });
 
+        let should_clear = graph.is_fresh(src_dst.dst);
+        let ops = if should_clear {
+            if let Some(clear_color) = clear_color {
+                Operations {
+                    load: LoadOp::Clear(clear_color.into()),
+                    store: StoreOp::Store,
+                }
+            } else {
+                Operations {
+                    load: LoadOp::Load,
+                    store: StoreOp::Store,
+                }
+            }
+        } else {
+            Operations {
+                load: LoadOp::Load,
+                store: StoreOp::Store,
+            }
+        };
+
         graph.add_node(
             Some("blit_node".into()),
             deps![src_dst],
@@ -196,10 +248,7 @@ pub mod blit {
                     color_attachments: &[Some(RenderPassColorAttachment {
                         view: ctx.get(src_dst.dst).deref(),
                         resolve_target: None,
-                        ops: Operations {
-                            load: LoadOp::Load,
-                            store: StoreOp::Store,
-                        },
+                        ops,
                     })],
                     depth_stencil_attachment: None,
                     timestamp_writes: None,
