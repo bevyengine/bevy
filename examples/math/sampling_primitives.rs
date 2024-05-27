@@ -638,15 +638,16 @@ fn despawn_points(
             commands
                 .entity(entity)
                 .insert(DespawningPoint { progress: 0.0 })
-                .remove::<SpawningPoint>();
-        })
+                .remove::<SpawningPoint>()
+                .remove::<SamplePoint>();
+    })
         .count();
 }
 
 fn animate_spawning(
     mut commands: Commands,
     time: Res<Time>,
-    mut samples: Query<(Entity, &mut Transform, &mut SpawningPoint), With<SamplePoint>>,
+    mut samples: Query<(Entity, &mut Transform, &mut SpawningPoint)>,
 ) {
     let dt = time.delta_seconds();
 
@@ -662,7 +663,7 @@ fn animate_spawning(
 fn animate_despawning(
     mut commands: Commands,
     time: Res<Time>,
-    mut samples: Query<(Entity, &mut Transform, &mut DespawningPoint), With<SamplePoint>>,
+    mut samples: Query<(Entity, &mut Transform, &mut DespawningPoint)>,
 ) {
     let dt = time.delta_seconds();
 
