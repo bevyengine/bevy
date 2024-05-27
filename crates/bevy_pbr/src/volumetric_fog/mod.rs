@@ -113,7 +113,7 @@ pub struct VolumetricFogSettings {
 
     /// The brightness of the ambient light.
     ///
-    /// If there's no ambient light, set this to 0.
+    /// If there's no environment map light, set this to 0.
     ///
     /// Defaults to 0.1.
     pub ambient_intensity: f32,
