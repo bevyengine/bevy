@@ -149,22 +149,30 @@ fn draw(in: VertexOutput) -> vec4<f32> {
     // Signed distance from the border (the intersection of the rect with its border).
     // Points inside the border have negative signed distance. Any point outside the border, whether 
     // outside the outside edge, or inside the inner edge have positive signed distance.
-    let border_distance = select(max(external_distance, -internal_distance), -internal_distance, internal_distance <= 0);
+    let border_distance = select(max(external_distance, -internal_distance), -internal_distance, internal_distance < 0);
 
-    if enabled(in.flags, BORDER) {   
-        // The item is a border
-        let t = antialias(border_distance);
+    // The item is a border
+    let t = antialias(border_distance);
 
-        // Blend mode ALPHA_BLENDING is used for UI elements, so we don't premultiply alpha here.
-        return vec4(color.rgb, color.a * t);
-    }
+    // Blend mode ALPHA_BLENDING is used for UI elements, so we don't premultiply alpha here.
+    return vec4(color.rgb, color.a * t);
+}
 
-    // The item is a rectangle, draw normally with anti-aliasing at the edges.
-    let t = antialias(external_distance);
+fn draw_background(in: VertexOutput) -> vec4<f32> {
+    let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
+    let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
+
+    /// When drawing the background only draw the internal area and not the border.
+    let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
+    let t = antialias(internal_distance);
     return vec4(color.rgb, color.a * t);
 }
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    return draw(in);
+    if enabled(in.flags, BORDER) {
+        return draw(in);    
+    } else {
+        return draw_background(in);
+    }
 }
