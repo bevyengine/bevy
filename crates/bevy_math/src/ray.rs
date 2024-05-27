@@ -3,9 +3,19 @@ use crate::{
     Dir2, Dir3, Vec2, Vec3,
 };
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// An infinite half-line starting at `origin` and going in `direction` in 2D space.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Deserialize, Serialize)
+)]
 pub struct Ray2d {
     /// The origin of the ray.
     pub origin: Vec2,
@@ -50,6 +60,11 @@ impl Ray2d {
 /// An infinite half-line starting at `origin` and going in `direction` in 3D space.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Deserialize, Serialize)
+)]
 pub struct Ray3d {
     /// The origin of the ray.
     pub origin: Vec3,
