@@ -189,7 +189,7 @@ pub trait CacheRenderResource: RenderResource {
     fn key_from_meta<'a, 'g: 'a>(meta: &'a Self::Meta<'g>) -> &'a Self::Key;
 }
 
-pub trait UsagesRenderResource: RenderResource {
+pub trait UsagesRenderResource: WriteRenderResource {
     type Usages: Send + Sync + Debug + 'static;
 
     fn get_meta_mut<'a, 'b: 'a, 'g: 'b>(
