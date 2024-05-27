@@ -122,7 +122,7 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
 
 // get alpha for antialiasing for sdf
 fn antialias(distance: f32) -> f32 {
-    // Using the fwidth was causing artifacts, so just use the distance.
+    // Using the fwidth(distance) was causing artifacts, so just use the distance.
     return clamp(0.0, 1.0, 0.5 - distance);
 }
 
@@ -151,8 +151,11 @@ fn draw(in: VertexOutput) -> vec4<f32> {
     // outside the outside edge, or inside the inner edge have positive signed distance.
     let border_distance = max(external_distance, -internal_distance);
 
-    // The item is a border
-    let t = antialias(border_distance);
+    // At external edges with no border, `border_distance` is equal to zero. 
+    // This select statement ensures we only perform anti-aliasing where a non-zero width border 
+    // is present, otherwise an outline about the external boundary would be drawn even without 
+    // a border.
+    let t = select(1.0 - step(0.0, border_distance), antialias(border_distance), external_distance < internal_distance);
 
     // Blend mode ALPHA_BLENDING is used for UI elements, so we don't premultiply alpha here.
     return vec4(color.rgb, color.a * t);
