@@ -443,7 +443,7 @@ fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         PrimitiveSelected::Plane => gizmos.primitive_2d(&PLANE_2D, POSITION, angle, color),
         PrimitiveSelected::Line => drop(gizmos.primitive_2d(&LINE2D, POSITION, angle, color)),
         PrimitiveSelected::Segment => {
-            drop(gizmos.primitive_2d(&SEGMENT_2D, POSITION, angle, color))
+            drop(gizmos.primitive_2d(&SEGMENT_2D, POSITION, angle, color));
         }
         PrimitiveSelected::Polyline => gizmos.primitive_2d(&POLYLINE_2D, POSITION, angle, color),
         PrimitiveSelected::Polygon => gizmos.primitive_2d(&POLYGON_2D, POSITION, angle, color),
