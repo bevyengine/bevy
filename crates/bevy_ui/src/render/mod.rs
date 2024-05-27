@@ -289,6 +289,7 @@ pub fn extract_uinode_background_colors(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn extract_uinode_images(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
