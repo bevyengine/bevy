@@ -34,8 +34,8 @@ pub struct BindGroupBuilder<'a, 'b: 'a, 'g: 'b> {
 
 impl<'a, 'b: 'a, 'g: 'b> BindGroupBuilder<'a, 'b, 'g> {
     pub fn new(
-        label: Label<'g>,
         graph: &'a mut RenderGraphBuilder<'b, 'g>,
+        label: Label<'g>,
         shader_stages: ShaderStages,
     ) -> Self {
         Self {
@@ -45,6 +45,10 @@ impl<'a, 'b: 'a, 'g: 'b> BindGroupBuilder<'a, 'b, 'g> {
             layout: Vec::new(),
             entries: Vec::new(),
         }
+    }
+
+    pub fn internal_graph(&mut self) -> &mut RenderGraphBuilder<'b, 'g> {
+        self.graph
     }
 
     pub fn set_shader_stages(&mut self, shader_stages: ShaderStages) -> &mut Self {
@@ -220,17 +224,41 @@ impl<'a, 'b: 'a, 'g: 'b> BindGroupBuilder<'a, 'b, 'g> {
     }
 
     pub fn read_storage_buffer(&mut self, buffer: RenderHandle<'g, Buffer>) -> &mut Self {
-        self.graph.add_usages(buffer, BufferUsages::STORAGE);
-        self
+        self.storage_buffer(buffer, true)
     }
 
     pub fn write_storage_buffer(&mut self, buffer: RenderHandle<'g, Buffer>) -> &mut Self {
-        self.graph.add_usages(buffer, BufferUsages::STORAGE);
-        self
+        self.storage_buffer(buffer, false)
     }
 
     pub fn read_write_storage_buffer(&mut self, buffer: RenderHandle<'g, Buffer>) -> &mut Self {
+        self.storage_buffer(buffer, false)
+    }
+
+    pub fn storage_buffer(
+        &mut self,
+        buffer: RenderHandle<'g, Buffer>,
+        read_only: bool,
+    ) -> &mut Self {
         self.graph.add_usages(buffer, BufferUsages::STORAGE);
+        self.layout.push(BindGroupLayoutEntry {
+            binding: self.layout.len() as u32,
+            visibility: self.shader_stages,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        });
+        self.entries.push(RenderGraphBindGroupEntry {
+            binding: self.entries.len() as u32,
+            resource: RenderGraphBindingResource::Buffer(RenderGraphBufferBinding {
+                buffer,
+                offset: 0,
+                size: None,
+            }),
+        });
         self
     }
 
@@ -242,22 +270,6 @@ impl<'a, 'b: 'a, 'g: 'b> BindGroupBuilder<'a, 'b, 'g> {
             entries: mem::take(&mut self.entries),
         });
         bind_group
-    }
-
-    pub fn build_and_return_graph(
-        self,
-    ) -> (
-        RenderHandle<'g, BindGroupLayout>,
-        RenderHandle<'g, BindGroup>,
-        &'a mut RenderGraphBuilder<'b, 'g>,
-    ) {
-        let layout = self.graph.new_resource(self.layout);
-        let bind_group = self.graph.new_resource(RenderGraphBindGroupDescriptor {
-            label: self.label,
-            layout,
-            entries: self.entries,
-        });
-        (layout, bind_group, self.graph)
     }
 }
 
@@ -272,15 +284,15 @@ pub struct ComputePass<'a, 'b: 'a, 'g: 'b> {
 
 impl<'a, 'b: 'a, 'g: 'b> ComputePass<'a, 'b, 'g> {
     pub fn new(
-        label: Label<'static>,
-        entry_point: Cow<'static, str>,
         graph: &'a mut RenderGraphBuilder<'b, 'g>,
+        label: Label<'static>,
         shader: Handle<Shader>,
+        entry_point: Cow<'static, str>,
     ) -> Self {
         Self {
             label: label.clone(),
             entry_point,
-            bind_group: BindGroupBuilder::new(label, graph, ShaderStages::COMPUTE),
+            bind_group: BindGroupBuilder::new(graph, label, ShaderStages::COMPUTE),
             shader,
             dispatch_size: UVec3::ONE,
             shader_defs: Vec::new(),
@@ -302,21 +314,15 @@ impl<'a, 'b: 'a, 'g: 'b> ComputePass<'a, 'b, 'g> {
         self
     }
 
-    //would infer texture format and dimension from metadata stored in graph.
     pub fn write_storage_texture(&mut self, texture: RenderHandle<'g, TextureView>) -> &mut Self {
         self.bind_group.write_storage_texture(texture);
         self
     }
 
-    // pub fn read_buffer(&mut self, buffer: RenderHandle<'g, Buffer>) -> &mut Self {
-    //     self.bind_group.read_buffer(buffer);
-    //     self
-    // }
-    //
-    // pub fn write_buffer(&mut self, buffer: RenderHandle<'g, Buffer>) -> &mut Self {
-    //     self.bind_group.write_buffer(buffer);
-    //     self
-    // }
+    pub fn define(&mut self, defines: &[ShaderDefVal]) -> &mut Self {
+        self.shader_defs.extend_from_slice(defines);
+        self
+    }
 
     pub fn dispatch(&mut self, size: UVec3) -> &mut Self {
         self.dispatch_size = size;
@@ -335,7 +341,7 @@ impl<'a, 'b: 'a, 'g: 'b> ComputePass<'a, 'b, 'g> {
         self.dispatch(UVec3 { x, y, z })
     }
 
-    pub fn build(self) {
+    pub fn build(&mut self) {
         // let (layout, mut bind_group, graph) = self.bind_group.build_and_return_graph();
         // let pipeline = graph.new_resource(RenderGraphComputePipelineDescriptor {
         //     label: self.label.clone(),

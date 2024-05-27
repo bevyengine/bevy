@@ -55,8 +55,60 @@ pub fn fullscreen_shader_vertex_state(graph: &RenderGraphBuilder) -> VertexState
 pub fn fullscreen_pass<'g>(
     graph: &mut RenderGraphBuilder<'_, 'g>,
     shader: Handle<Shader>,
-    target: RenderHandle<'g, TextureView>,
+    mut target: RenderHandle<'g, TextureView>,
+    blend: Option<BlendState>,
+    bind_groups: &[RenderHandle<'g, BindGroup>],
 ) {
+    let format = graph
+        .meta(target)
+        .descriptor
+        .format
+        .unwrap_or_else(|| graph.meta(graph.meta(target).texture).format);
+    let pipeline = graph.new_resource(RenderGraphRenderPipelineDescriptor {
+        label: Some("blit_pipeline".into()),
+        layout: bind_groups
+            .iter()
+            .map(|bind_group| graph.meta(*bind_group).descriptor.layout)
+            .collect(),
+        push_constant_ranges: Vec::new(),
+        vertex: fullscreen_shader_vertex_state(graph),
+        primitive: Default::default(),
+        depth_stencil: Default::default(),
+        multisample: Default::default(),
+        fragment: Some(FragmentState {
+            shader,
+            shader_defs: Vec::new(),
+            entry_point: "blit_frag".into(),
+            targets: vec![Some(ColorTargetState {
+                format,
+                blend,
+                write_mask: ColorWrites::all(),
+            })],
+        }),
+    });
+
+    graph.add_node(
+        Some("blit_node".into()),
+        deps![&mut target],
+        move |ctx, cmds, _| {
+            let mut render_pass = cmds.begin_render_pass(&RenderPassDescriptor {
+                label: Some("blit_pass"),
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    view: ctx.get(target).deref(),
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Load,
+                        store: StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+            render_pass.set_pipeline(ctx.get(pipeline).deref());
+            render_pass.draw(0..3, 0..1);
+        },
+    );
 }
 
 pub mod blit {
@@ -75,47 +127,45 @@ pub mod blit {
             RenderGraphBuilder,
         },
         deps,
-        std::BindGroupBuilder,
+        std::{BindGroupBuilder, SrcDst},
     };
 
     use super::fullscreen_shader_vertex_state;
 
     pub fn one<'g>(
         graph: &mut RenderGraphBuilder<'_, 'g>,
-        src: RenderHandle<'g, TextureView>,
-        dst: RenderHandle<'g, TextureView>,
+        src_dst: SrcDst<'g, TextureView>,
         sampler: Option<RenderHandle<'g, Sampler>>,
         blend: Option<BlendState>,
     ) {
         let shader = graph
             .world_resource::<AssetServer>()
             .load("embedded://bevy_render_graph/std/blit.wgsl");
-        custom(graph, shader, src, dst, sampler, blend);
+        custom(graph, shader, src_dst, sampler, blend);
     }
 
     pub fn custom<'g>(
         graph: &mut RenderGraphBuilder<'_, 'g>,
         shader: Handle<Shader>,
-        src: RenderHandle<'g, TextureView>,
-        mut dst: RenderHandle<'g, TextureView>,
+        src_dst: SrcDst<'g, TextureView>,
         sampler: Option<RenderHandle<'g, Sampler>>,
         blend: Option<BlendState>,
     ) {
         let sampler = sampler.unwrap_or_else(|| graph.new_resource(SamplerDescriptor::default()));
         let bind_group = BindGroupBuilder::new(
-            Some("blit_bind_group".into()),
             graph,
+            Some("blit_bind_group".into()),
             ShaderStages::FRAGMENT,
         )
-        .texture(src)
+        .texture(src_dst.src)
         .sampler(sampler)
         .build();
 
         let format = graph
-            .meta(src)
+            .meta(src_dst.src)
             .descriptor
             .format
-            .unwrap_or_else(|| graph.meta(graph.meta(src).texture).format);
+            .unwrap_or_else(|| graph.meta(graph.meta(src_dst.src).texture).format);
         let pipeline = graph.new_resource(RenderGraphRenderPipelineDescriptor {
             label: Some("blit_pipeline".into()),
             layout: vec![graph.meta(bind_group).descriptor.layout],
@@ -139,12 +189,12 @@ pub mod blit {
 
         graph.add_node(
             Some("blit_node".into()),
-            deps![&src, &mut dst],
+            deps![src_dst],
             move |ctx, cmds, _| {
                 let mut render_pass = cmds.begin_render_pass(&RenderPassDescriptor {
                     label: Some("blit_pass"),
                     color_attachments: &[Some(RenderPassColorAttachment {
-                        view: ctx.get(dst).deref(),
+                        view: ctx.get(src_dst.dst).deref(),
                         resolve_target: None,
                         ops: Operations {
                             load: LoadOp::Load,
