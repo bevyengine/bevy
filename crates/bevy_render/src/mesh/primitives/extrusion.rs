@@ -328,7 +328,10 @@ where
                                 let ab = Vec2::from_slice(&b) - Vec2::from_slice(&a);
                                 let bc = Vec2::from_slice(&c) - Vec2::from_slice(&b);
                                 let n = ab.normalize_or_zero() + bc.normalize_or_zero();
-                                Vec2::new(n.y, -n.x).normalize().extend(0.).to_array()
+                                Vec2::new(n.y, -n.x)
+                                    .normalize_or_zero()
+                                    .extend(0.)
+                                    .to_array()
                             };
                             normals.extend_from_slice(&[n; 2]);
                         }

@@ -484,7 +484,7 @@ fn spawn_primitive_2d(
         Some(RECTANGLE.mesh().build()),
         Some(CIRCLE.mesh().build()),
         Some(ELLIPSE.mesh().build()),
-        Some(TRIANGLE_2D.mesh()),
+        Some(TRIANGLE_2D.mesh().build()),
         None, // plane
         None, // line
         None, // segment
@@ -531,7 +531,7 @@ fn spawn_primitive_3d(
         Some(CUBOID.mesh().build()),
         Some(SPHERE.mesh().build()),
         None, // ellipse
-        Some(TRIANGLE_3D.mesh()),
+        Some(TRIANGLE_3D.mesh().build()),
         Some(PLANE_3D.mesh().build()),
         None, // line
         None, // segment
@@ -543,7 +543,7 @@ fn spawn_primitive_3d(
         None, // cone
         None, // conical frustum
         Some(TORUS.mesh().build()),
-        Some(TETRAHEDRON.mesh()),
+        Some(TETRAHEDRON.mesh().into()),
     ]
     .into_iter()
     .zip(PrimitiveSelected::ALL)
