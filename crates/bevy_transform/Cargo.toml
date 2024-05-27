@@ -10,15 +10,15 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.14.0-dev", optional = true }
 bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev", features = [
   "bevy_reflect",
-] }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
+], optional = true }
+bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev", optional = true }
 bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
   "bevy",
-] }
+], optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 thiserror = "1.0"
 
@@ -30,6 +30,15 @@ bevy_math = { path = "../bevy_math", version = "0.14.0-dev", features = [
 approx = "0.5.1"
 
 [features]
+bevy_app = ["dep:bevy_app"]
+bevy_ecs = ["dep:bevy_ecs"]
+bevy_hierarchy = ["dep:bevy_hierarchy"]
+bevy_reflect = ["dep:bevy_reflect"]
+
+# Turning off default features leaves you with a barebones
+# definition of transform.
+default = ["bevy_app", "bevy_ecs", "bevy_hierarchy", "bevy_reflect"]
+
 serialize = ["dep:serde", "bevy_math/serialize"]
 
 [lints]

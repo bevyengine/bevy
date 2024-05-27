@@ -5,28 +5,42 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
+#[cfg(all(feature = "bevy_hierarchy", feature = "bevy_ecs"))]
 pub mod commands;
+
 /// The basic components of the transform crate
 pub mod components;
+
+#[cfg(all(feature = "bevy_hierarchy", feature = "bevy_ecs"))]
 pub mod helper;
+
 /// Systems responsible for transform propagation
+#[cfg(all(feature = "bevy_hierarchy", feature = "bevy_ecs"))]
 pub mod systems;
 
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{
-        commands::BuildChildrenTransformExt, components::*, helper::TransformHelper,
-        TransformBundle, TransformPlugin, TransformPoint,
-    };
+    pub use crate::{components::*, TransformBundle, TransformPlugin, TransformPoint};
+
+    #[cfg(all(feature = "bevy_hierarchy", feature = "bevy_ecs"))]
+    #[doc(hidden)]
+    pub use crate::{commands::BuildChildrenTransformExt, helper::TransformHelper};
 }
 
+#[cfg(feature = "bevy_app")]
 use bevy_app::prelude::*;
+
+#[cfg(feature = "bevy_ecs")]
 use bevy_ecs::prelude::*;
+
+#[cfg(feature = "bevy_hierarchy")]
 use bevy_hierarchy::ValidParentCheckPlugin;
 use bevy_math::{Affine3A, Mat4, Vec3};
 
 use prelude::{GlobalTransform, Transform};
+
+#[cfg(all(feature = "bevy_hierarchy", feature = "bevy_ecs"))]
 use systems::{propagate_transforms, sync_simple_transforms};
 
 /// A [`Bundle`] of the [`Transform`] and [`GlobalTransform`]
@@ -50,7 +64,8 @@ use systems::{propagate_transforms, sync_simple_transforms};
 /// This system runs during [`PostUpdate`]. If you
 /// update the [`Transform`] of an entity in this schedule or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
-#[derive(Bundle, Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "bevy_ecs", derive(Bundle))]
 pub struct TransformBundle {
     /// The transform of the entity.
     pub local: Transform,
@@ -85,7 +100,8 @@ impl From<Transform> for TransformBundle {
     }
 }
 /// Set enum for the systems relating to transform propagation
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+#[cfg_attr(feature = "bevy_ecs", derive(SystemSet))]
 pub enum TransformSystem {
     /// Propagates changes in transform to children's [`GlobalTransform`]
     TransformPropagate,
@@ -95,6 +111,7 @@ pub enum TransformSystem {
 #[derive(Default)]
 pub struct TransformPlugin;
 
+#[cfg(feature = "bevy_app")]
 impl Plugin for TransformPlugin {
     fn build(&self, app: &mut App) {
         // A set for `propagate_transforms` to mark it as ambiguous with `sync_simple_transforms`.
