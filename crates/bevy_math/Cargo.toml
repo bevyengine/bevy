@@ -21,7 +21,7 @@ rand = { version = "0.8", features = [
 smallvec = { version = "1.11" }
 
 bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
-  "glam"
+  "glam",
 ], optional = true }
 
 [dev-dependencies]
