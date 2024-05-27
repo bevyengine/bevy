@@ -640,7 +640,7 @@ fn despawn_points(
                 .insert(DespawningPoint { progress: 0.0 })
                 .remove::<SpawningPoint>()
                 .remove::<SamplePoint>();
-    })
+        })
         .count();
 }
 
