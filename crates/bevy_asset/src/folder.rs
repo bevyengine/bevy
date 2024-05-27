@@ -14,25 +14,25 @@ pub struct LoadedFolder {
     pub handles: Vec<UntypedHandle>,
 }
 
-/// loads assets of type T from a given [`LoadedFolder`] handle. Returns None if the folder inaccessible. 
-/// 
+/// loads assets of type T from a given [`LoadedFolder`] handle. Returns None if the folder inaccessible.
+///
 /// [`LoadedFolder`]: crate::LoadedFolder
 pub fn load_assets_in<T: Asset>(
     folders: &Res<Assets<LoadedFolder>>,
-    folder_handle: &Handle<LoadedFolder>
-) -> Option<Vec<Handle<T>>>{
+    folder_handle: &Handle<LoadedFolder>,
+) -> Option<Vec<Handle<T>>> {
     let typeid = TypeId::of::<T>();
 
-     if let Some(folder) = folders.get(folder_handle) {
+    if let Some(folder) = folders.get(folder_handle) {
         let handles: Vec<Handle<T>> = folder
-        .handles
-        .clone()
-        .into_iter()
-        .filter(|handle| handle.type_id() == typeid)
-        .map(|handle| handle.typed::<T>())
-        .collect::<Vec<_>>();
+            .handles
+            .clone()
+            .into_iter()
+            .filter(|handle| handle.type_id() == typeid)
+            .map(|handle| handle.typed::<T>())
+            .collect::<Vec<_>>();
         Some(handles)
-     } else {
-         None
-     }
+    } else {
+        None
+    }
 }
