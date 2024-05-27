@@ -1,26 +1,9 @@
-use bevy_utils::hashbrown::HashMap;
-use serde::de::{self, Deserializer, Visitor};
-use serde::{forward_to_deserialize_any, Deserialize};
+use nom::{
+    branch::alt, bytes::complete::{is_not, tag, take_while, take_while1}, character::complete::{char, space0}, combinator::{opt, recognize}, multi::many0, sequence::{delimited, preceded}, IResult
+};
+use serde::{de::{self, Deserialize, Deserializer, IntoDeserializer, MapAccess, Visitor}, forward_to_deserialize_any};
+use std::collections::HashMap;
 use std::fmt;
-use std::str::FromStr;
-
-#[derive(Debug, Deserialize, Default)]
-struct Vec3 {
-    x: f32,
-    y: f32,
-    z: f32,
-}
-
-#[derive(Debug, Deserialize, Default)]
-struct SetGold {
-    gold: usize,
-}
-
-#[derive(Debug, Deserialize, Default)]
-struct ComplexMove {
-    target: Vec3,
-    name: String,
-}
 
 struct CliDeserializer<'a> {
     input: &'a str,
@@ -32,296 +15,130 @@ impl<'a> CliDeserializer<'a> {
     }
 }
 
-impl<'de> Deserializer<'de> for CliDeserializer<'de> {
-    type Error = de::value::Error;
+fn is_not_space(c: char) -> bool {
+    c != ' ' && c != '\t' && c != '\n'
+}
 
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where
-            V: Visitor<'de> {
-        unimplemented!("deserialize_any not implemented")
+fn parse_quoted_string(input: &str) -> IResult<&str, &str> {
+    recognize(delimited(char('"'), is_not("\""), char('"')))(input)
+}
+
+fn parse_ron_value(input: &str) -> IResult<&str, &str> {
+    recognize(delimited(char('('), is_not(")"), char(')')))(input)
+}
+
+
+fn parse_value(input: &str) -> IResult<&str, &str> {
+    preceded(space0, alt((parse_quoted_string, parse_ron_value, take_while1(is_not_space))))(input)
+}
+
+fn parse_argument(input: &str) -> IResult<&str, (&str, Option<&str>)> {
+    let (input, _) = space0(input)?;
+    if input.starts_with("--") {
+        let (input, key) = preceded(tag("--"), take_while1(|c| c != ' '))(input)?;
+        let (input, value) = opt(preceded(space0, parse_value))(input)?;
+        Ok((input, (key, value)))
+    } else {
+        let (input, value) = parse_value(input)?;
+        Ok((input, (value, None)))
     }
+}
 
-    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where
-            V: Visitor<'de> {
-        let input = self.input;
-        if input == "true" {
-            visitor.visit_bool(true)
-        } else if input == "false" {
-            visitor.visit_bool(false)
+fn parse_arguments<'a>(input: &'a str, fields: &'static [&'static str]) -> IResult<&'a str, HashMap<String, Option<&'a str>>> {
+    let (input, args) = many0(parse_argument)(input)?;
+    println!("{:?}", args);
+    let mut positional_index = 0;
+    let mut map = HashMap::new();
+    for (key, value) in args {
+        println!("{}: {:?}", key, value);
+        if value.is_some() {
+            map.insert(key.to_string(), value);
         } else {
-            Err(de::Error::custom(format!("Invalid boolean value: {}", input)))
+            map.insert(fields[positional_index].to_string(), Some(key));
+            positional_index += 1;
         }
     }
-
-    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where
-            V: Visitor<'de> {
-        let input = self.input;
-        if let Ok(i) = i8::from_str(input) {
-            visitor.visit_i8(i)
-        } else {
-            Err(de::Error::custom(format!("Invalid integer value: {}", input)))
-        }
-    }
-
-    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where
-            V: Visitor<'de> {
-        let input = self.input;
-        if let Ok(i) = i16::from_str(input) {
-            visitor.visit_i16(i)
-        } else {
-            Err(de::Error::custom(format!("Invalid integer value: {}", input)))
-        }
-    }
-
-    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where
-            V: Visitor<'de> {
-        let input = self.input;
-        if let Ok(i) = i32::from_str(input) {
-            visitor.visit_i32(i)
-        } else {
-            Err(de::Error::custom(format!("Invalid integer value: {}", input)))
-        }
-    }
-
-    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where
-            V: Visitor<'de> {
-        let input = self.input;
-        if let Ok(i) = i64::from_str(input) {
-            visitor.visit_i64(i)
-        } else {
-            Err(de::Error::custom(format!("Invalid integer value: {}", input)))
-        }
-    }
-
-    fn deserialize_i128<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where
-            V: Visitor<'de>, {
-        let input = self.input;
-        if let Ok(i) = i128::from_str(input) {
-            visitor.visit_i128(i)
-        } else {
-            Err(de::Error::custom(format!("Invalid integer value: {}", input)))
-        }
-    }
-
-    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where
-            V: Visitor<'de> {
-        let input = self.input;
-        if let Ok(i) = u8::from_str(input) {
-            visitor.visit_u8(i)
-        } else {
-            Err(de::Error::custom(format!("Invalid integer value: {}", input)))
-        }
-    }
-
-    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where
-            V: Visitor<'de> {
-        let input = self.input;
-        if let Ok(i) = u16::from_str(input) {
-            visitor.visit_u16(i)
-        } else {
-            Err(de::Error::custom(format!("Invalid integer value: {}", input)))
-        }
-    }
-
-    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where
-            V: Visitor<'de> {
-        let input = self.input;
-        if let Ok(i) = u32::from_str(input) {
-            visitor.visit_u32(i)
-        } else {
-            Err(de::Error::custom(format!("Invalid integer value: {}", input)))
-        }
-    }
-
-    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where
-            V: Visitor<'de> {
-        let input = self.input;
-        if let Ok(i) = u64::from_str(input) {
-            visitor.visit_u64(i)
-        } else {
-            Err(de::Error::custom(format!("Invalid integer value: {}", input)))
-        }
-    }
-
-    fn deserialize_u128<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where
-            V: Visitor<'de>, {
-        let input = self.input;
-        if let Ok(i) = u128::from_str(input) {
-            visitor.visit_u128(i)
-        } else {
-            Err(de::Error::custom(format!("Invalid integer value: {}", input)))
-        }
-    }
-
-    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where
-            V: Visitor<'de> {
-        let input = self.input;
-        if let Ok(i) = f32::from_str(input) {
-            visitor.visit_f32(i)
-        } else {
-            Err(de::Error::custom(format!("Invalid float value: {}", input)))
-        }
-    }
-
-    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where
-            V: Visitor<'de> {
-        let input = self.input;
-        if let Ok(i) = f64::from_str(input) {
-            visitor.visit_f64(i)
-        } else {
-            Err(de::Error::custom(format!("Invalid float value: {}", input)))
-        }
-    }
-
-    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where
-            V: Visitor<'de> {
-        let input = self.input;
-        if let Ok(c) = char::from_str(input) {
-            visitor.visit_char(c)
-        } else {
-            Err(de::Error::custom(format!("Invalid char value: {}", input)))
-        }
-    }
-
-    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where
-            V: Visitor<'de> {
-        visitor.visit_borrowed_str(self.input)
-    }
-
-    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where
-            V: Visitor<'de> {
-        self.deserialize_str(visitor)
-    }
-
-
-    fn deserialize_struct<V>(
-            self,
-            name: &'static str,
-            fields: &'static [&'static str],
-            visitor: V,
-        ) -> Result<V::Value, Self::Error>
-        where
-            V: Visitor<'de> {
-        let input = self.input;
-
-        // Collect string values
-        // Example: val1 val2 "val val3" val4
-        let mut cursor = 0;
-        let words = input.split_whitespace().collect::<Vec<&str>>();
-        let mut values = HashMap::new();
-        let mut key =  None;
-        let mut positional_idx = 0;
-        let mut can_be_positional = true;
-
-        while cursor < words.len() {
-            if words[cursor].contains('"') {
-                //collect string value
-
-                let mut end = cursor + 1;
-                while !words[end].contains('"') && end < input.len() {
-                    end += 1;
-                }
-                let string = words[cursor + 1..end].join(" ");
-                cursor = end + 1;
-
-                if key.is_none() {
-                    if can_be_positional {
-                        values.insert(fields[positional_idx].to_string(), string);
-                        positional_idx += 1;
-                    } else {
-                        return Err(de::Error::custom(format!("Invalid key: {}", string)));
-                    }
-                } else {
-                    values.insert(key.unwrap(), string);
-                    key = None;
-                }
-            } else if words[cursor].starts_with("--") {
-                
-                let key_val = &words[cursor][2..];
-                key = Some(key_val.to_string());
-
-                can_be_positional = false;
-                cursor += 1;
-            } else {
-                let value = words[cursor];
-                let key_val = fields[positional_idx].to_string();
-
-                values.insert(key_val, value.to_string());
-
-                cursor += 1;
-                positional_idx += 1;
-            }
-        }
-
-        println!("values: {:?}", values);
-
-        visitor.visit_map(CliMapVisitor::new(values))
-    }
-
-    forward_to_deserialize_any! {
-        bytes byte_buf option
-        unit unit_struct newtype_struct seq tuple
-        tuple_struct map enum identifier ignored_any
-    }
+    Ok((input, map))
 }
 
 struct CliMapVisitor<'a> {
-    values: HashMap<String, String>,
-
-    _marker: std::marker::PhantomData<&'a ()>,
+    values: HashMap<String, Option<&'a str>>,
+    index: usize,
+    keys: Vec<String>,
 }
 
 impl<'a> CliMapVisitor<'a> {
-    fn new(values: HashMap<String, String>) -> Self {
-        Self { values, _marker: Default::default() }
+    fn new(values: HashMap<String, Option<&'a str>>) -> Self {
+        let keys = values.keys().cloned().collect();
+        Self { values, keys, index: 0 }
     }
 }
 
-impl<'de> de::MapAccess<'de> for CliMapVisitor<'de> {
+impl<'de> MapAccess<'de> for CliMapVisitor<'de> {
     type Error = de::value::Error;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
     where
-        K: de::DeserializeSeed<'de> {
-
-        if self.values.is_empty() {
-            return Ok(None);
+        K: de::DeserializeSeed<'de>,
+    {
+        if self.index < self.keys.len() {
+            let key = self.keys[self.index].clone();
+            seed.deserialize(key.into_deserializer()).map(Some)
+        } else {
+            Ok(None)
         }
-        let key = self.values.keys().next().unwrap().clone();
-        let value = self.values.remove(&key).unwrap();
-        seed.deserialize(CliDeserializer::<'de>::from_str(&key).unwrap()).map(Some)
     }
 
     fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Self::Error>
     where
-        V: de::DeserializeSeed<'de> {
-        todo!()
+        V: de::DeserializeSeed<'de>,
+    {
+        if self.index < self.keys.len() {
+            let key = self.keys[self.index].clone();
+            let value = self.values[&key].unwrap();
+            self.index += 1;
+            seed.deserialize(&mut ron::de::Deserializer::from_str(value).unwrap())
+                .map_err(|ron_err| de::Error::custom(ron_err.to_string()))
+        } else {
+            Err(de::Error::custom("Value without a key"))
+        }
     }
 }
 
-enum CliToken {
-    PositionValue(String),
-    KeyValue(String, String),
+impl<'de> Deserializer<'de> for CliDeserializer<'de> {
+    type Error = de::value::Error;
+
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        unimplemented!("deserialize_any not implemented")
+    }
+
+    fn deserialize_struct<V>(
+        self,
+        _name: &'static str,
+        fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        let (_, values) = parse_arguments(self.input, fields).map_err(|_| de::Error::custom("Parse error"))?;
+        println!("{:?}", values);
+        visitor.visit_map(CliMapVisitor::new(values))
+    }
+
+    forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string bytes byte_buf option
+        unit unit_struct newtype_struct seq tuple tuple_struct map enum identifier ignored_any
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use serde::Deserialize;
+
     use super::*;
 
     #[derive(Debug, Deserialize, Default, PartialEq)]
@@ -329,19 +146,71 @@ mod tests {
         gold: usize,
     }
 
-    #[test]
-    fn test_deserialize_int() {
-        let input = "100";
-        let mut deserializer = CliDeserializer::from_str(input).unwrap();
-        let set_gold = i32::deserialize(deserializer).unwrap();
-        assert_eq!(set_gold, 100);
+    #[derive(Debug, Deserialize, Default, PartialEq)]
+    struct TestSimpleArgs {
+        arg0: usize,
+        arg1: String,
     }
 
+    // #[test]
+    // fn test_deserialize_int() {
+    //     let input = "100";
+    //     let mut deserializer = CliDeserializer::from_str(input).unwrap();
+    //     let set_gold = i32::deserialize(deserializer).unwrap();
+    //     assert_eq!(set_gold, 100);
+    // }
+
     #[test]
-    fn test_deserialize_setgold() {
+    fn single_positional() {
         let input = "100";
         let mut deserializer = CliDeserializer::from_str(input).unwrap();
         let set_gold = SetGold::deserialize(deserializer).unwrap();
         assert_eq!(set_gold, SetGold { gold: 100 });
+    }
+
+    #[test]
+    fn single_key() {
+        let input = "--gold 100";
+        let mut deserializer = CliDeserializer::from_str(input).unwrap();
+        let set_gold = SetGold::deserialize(deserializer).unwrap();
+        assert_eq!(set_gold, SetGold { gold: 100 });
+    }
+
+    #[test]
+    fn multiple_positional() {
+        let input = "100 \"200 \"";
+        let mut deserializer = CliDeserializer::from_str(input).unwrap();
+        let set_gold = TestSimpleArgs::deserialize(deserializer).unwrap();
+        assert_eq!(set_gold, TestSimpleArgs { arg0: 100, arg1: "200 ".to_string() });
+    }
+
+    #[test]
+    fn multiple_key() {
+        let input = "--arg0 100 --arg1 \"200 \"";
+        let mut deserializer = CliDeserializer::from_str(input).unwrap();
+        let set_gold = TestSimpleArgs::deserialize(deserializer).unwrap();
+        assert_eq!(set_gold, TestSimpleArgs { arg0: 100, arg1: "200 ".to_string() });
+    }
+
+    #[test]
+    fn mixed_key_positional() {
+        let input = "100 --arg1 \"200 \"";
+        let mut deserializer = CliDeserializer::from_str(input).unwrap();
+        let set_gold = TestSimpleArgs::deserialize(deserializer).unwrap();
+        assert_eq!(set_gold, TestSimpleArgs { arg0: 100, arg1: "200 ".to_string() });
+    }
+
+    #[derive(Debug, Deserialize, Default, PartialEq)]
+    struct ComplexInput {
+        arg0: Option<usize>,
+        gold: SetGold
+    }
+
+    #[test]
+    fn complex_input() {
+        let input = "Some(100) --gold (gold : 200)";
+        let mut deserializer = CliDeserializer::from_str(input).unwrap();
+        let set_gold = ComplexInput::deserialize(deserializer).unwrap();
+        assert_eq!(set_gold, ComplexInput { arg0: Some(100), gold: SetGold { gold: 200 } });
     }
 }
