@@ -24,8 +24,8 @@ fn main() {
 #[derive(Component)]
 struct Shape;
 
-const SHAPES_X_EXTENT: f32 = 15.0;
-const EXTRUSION_X_EXTENT: f32 = 15.0;
+const SHAPES_X_EXTENT: f32 = 14.0;
+const EXTRUSION_X_EXTENT: f32 = 16.0;
 const Z_EXTENT: f32 = 5.0;
 
 fn setup(
@@ -120,7 +120,7 @@ fn setup(
     });
 
     commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 6., 12.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
+        transform: Transform::from_xyz(0.0, 7., 14.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
         ..default()
     });
 }

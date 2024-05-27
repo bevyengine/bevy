@@ -165,9 +165,10 @@ impl CircularSectorMeshBuilder {
         self.uv_mode = uv_mode;
         self
     }
+}
 
-    /// Builds a [`Mesh`] based on the configuration in `self`.
-    pub fn build(&self) -> Mesh {
+impl MeshBuilder for CircularSectorMeshBuilder {
+    fn build(&self) -> Mesh {
         let mut indices = Vec::with_capacity((self.resolution - 1) * 3);
         let mut positions = Vec::with_capacity(self.resolution + 1);
         let normals = vec![[0.0, 0.0, 1.0]; self.resolution + 1];
@@ -232,12 +233,6 @@ impl From<CircularSector> for Mesh {
     }
 }
 
-impl From<CircularSectorMeshBuilder> for Mesh {
-    fn from(sector: CircularSectorMeshBuilder) -> Self {
-        sector.build()
-    }
-}
-
 /// A builder used for creating a [`Mesh`] with a [`CircularSegment`] shape.
 ///
 /// The resulting mesh will have a UV-map such that the center of the circle is
@@ -288,9 +283,10 @@ impl CircularSegmentMeshBuilder {
         self.uv_mode = uv_mode;
         self
     }
+}
 
-    /// Builds a [`Mesh`] based on the configuration in `self`.
-    pub fn build(&self) -> Mesh {
+impl MeshBuilder for CircularSegmentMeshBuilder {
+    fn build(&self) -> Mesh {
         let mut indices = Vec::with_capacity((self.resolution - 1) * 3);
         let mut positions = Vec::with_capacity(self.resolution + 1);
         let normals = vec![[0.0, 0.0, 1.0]; self.resolution + 1];
@@ -361,12 +357,6 @@ impl From<CircularSegment> for Mesh {
     /// See the documentation of [`CircularSegmentMeshBuilder`] for more details.
     fn from(segment: CircularSegment) -> Self {
         segment.mesh().build()
-    }
-}
-
-impl From<CircularSegmentMeshBuilder> for Mesh {
-    fn from(sector: CircularSegmentMeshBuilder) -> Self {
-        sector.build()
     }
 }
 
@@ -644,10 +634,12 @@ impl From<Annulus> for Mesh {
     }
 }
 
-impl Meshable for Rhombus {
-    type Output = Mesh;
+pub struct RhombusMeshBuilder {
+    half_diagonals: Vec2,
+}
 
-    fn mesh(&self) -> Self::Output {
+impl MeshBuilder for RhombusMeshBuilder {
+    fn build(&self) -> Mesh {
         let [hhd, vhd] = [self.half_diagonals.x, self.half_diagonals.y];
         let positions = vec![
             [hhd, 0.0, 0.0],
@@ -670,9 +662,19 @@ impl Meshable for Rhombus {
     }
 }
 
+impl Meshable for Rhombus {
+    type Output = RhombusMeshBuilder;
+
+    fn mesh(&self) -> Self::Output {
+        Self::Output {
+            half_diagonals: self.half_diagonals,
+        }
+    }
+}
+
 impl From<Rhombus> for Mesh {
     fn from(rhombus: Rhombus) -> Self {
-        rhombus.mesh()
+        rhombus.mesh().build()
     }
 }
 
