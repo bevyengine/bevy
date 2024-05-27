@@ -18,7 +18,7 @@ use bevy_ecs::system::{
     lifetimeless::{SRes, SResMut},
     SystemParamItem,
 };
-use bevy_math::*;
+use bevy_math::{primitives::Triangle3d, *};
 use bevy_reflect::Reflect;
 use bevy_utils::tracing::{error, warn};
 use bytemuck::cast_slice;
@@ -1503,6 +1503,70 @@ impl BaseMeshPipelineKey {
             x if x == PrimitiveTopology::TriangleStrip as u64 => PrimitiveTopology::TriangleStrip,
             _ => PrimitiveTopology::default(),
         }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum MeshTrianglesError {
+    #[error("Source mesh lacks position data")]
+    MissingPositions,
+
+    #[error("Source mesh position data is not Float32x3")]
+    PositionsFormat,
+
+    #[error("Source mesh lacks face index data")]
+    MissingIndices,
+
+    #[error("Face index data could not be used")]
+    BadIndices,
+}
+
+impl TryFrom<&Mesh> for Vec<Triangle3d> {
+    type Error = MeshTrianglesError;
+
+    fn try_from(mesh: &Mesh) -> Result<Self, MeshTrianglesError> {
+        let Some(position_data) = mesh.attribute(Mesh::ATTRIBUTE_POSITION) else {
+            return Err(MeshTrianglesError::MissingPositions);
+        };
+        let Some(positions) = position_data.as_float3() else {
+            return Err(MeshTrianglesError::PositionsFormat);
+        };
+        let vertices: Vec<Vec3> = positions.iter().map(|pos| (*pos).into()).collect();
+
+        let Some(indices) = mesh.indices() else {
+            return Err(MeshTrianglesError::MissingIndices);
+        };
+
+        // If the indices reference out-of-bounds data then this fails.
+        // This implicitly truncates the indices to a multiple of 3.
+        let Some(faces): Option<Vec<Triangle3d>> = (match indices {
+            Indices::U16(vec) => vec
+                .as_slice()
+                .chunks_exact(3)
+                .map(|indices| indices_to_triangle(&vertices, indices))
+                .collect(),
+            Indices::U32(vec) => vec
+                .as_slice()
+                .chunks_exact(3)
+                .map(|indices| indices_to_triangle(&vertices, indices))
+                .collect(),
+        }) else {
+            return Err(MeshTrianglesError::BadIndices);
+        };
+
+        fn indices_to_triangle<T: TryInto<usize> + Copy>(
+            vertices: &[Vec3],
+            indices: &[T],
+        ) -> Option<Triangle3d> {
+            let vert0: Vec3 = *vertices.get(indices[0].try_into().ok()?)?;
+            let vert1: Vec3 = *vertices.get(indices[1].try_into().ok()?)?;
+            let vert2: Vec3 = *vertices.get(indices[2].try_into().ok()?)?;
+            Some(Triangle3d {
+                vertices: [vert0, vert1, vert2],
+            })
+        }
+
+        Ok(faces)
     }
 }
 
