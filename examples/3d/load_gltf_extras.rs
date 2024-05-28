@@ -75,7 +75,7 @@ fn check_for_gltf_extras(
             || mesh_extras.is_some()
             || material_extras.is_some()
         {
-            let formated = format!(
+            let formatted_extras = format!(
                 "Extras per entity {} ('Name: {}'):
     - scene extras:     {:?}
     - primitive extras: {:?}
@@ -89,7 +89,7 @@ fn check_for_gltf_extras(
                 mesh_extras,
                 material_extras
             );
-            gltf_extra_infos_lines.push(formated);
+            gltf_extra_infos_lines.push(formatted_extras);
         }
         let mut display = display.single_mut();
         display.sections[0].value = gltf_extra_infos_lines.join("\n");
