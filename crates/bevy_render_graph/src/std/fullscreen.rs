@@ -103,11 +103,7 @@ pub fn fullscreen_pass<'g>(
     let mut dependencies = RenderDependencies::new();
     dependencies.write(target);
     for bind_group in bind_groups {
-        if graph.meta(*bind_group).writes_any() {
-            dependencies.write(*bind_group);
-        } else {
-            dependencies.read(*bind_group);
-        }
+        dependencies.add_bind_group(graph, *bind_group);
     }
 
     graph.add_node(

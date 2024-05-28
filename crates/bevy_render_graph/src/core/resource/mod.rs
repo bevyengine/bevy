@@ -2,6 +2,7 @@ use std::{
     borrow::{Borrow, Cow},
     collections::VecDeque,
     fmt::Debug,
+    iter::IntoIterator,
     marker::PhantomData,
 };
 
@@ -9,7 +10,10 @@ use bevy_ecs::world::World;
 use bevy_utils::{HashMap, HashSet};
 use std::hash::Hash;
 
-use bevy_render::{render_resource::PipelineCache, renderer::RenderDevice};
+use bevy_render::{
+    render_resource::{BindGroup, PipelineCache},
+    renderer::RenderDevice,
+};
 
 use super::{NodeContext, RenderGraph, RenderGraphBuilder};
 
@@ -459,6 +463,20 @@ impl<'g> RenderDependencies<'g> {
     pub fn extend(&mut self, other: RenderDependencies<'g>) -> &mut Self {
         self.reads.extend(other.iter_reads());
         self.writes.extend(other.iter_writes());
+        self
+    }
+
+    #[inline]
+    pub fn add_bind_group(
+        &mut self,
+        graph: &RenderGraphBuilder<'_, 'g>,
+        bind_group: RenderHandle<'g, BindGroup>,
+    ) -> &mut Self {
+        if graph.meta(bind_group).writes_any() {
+            self.write(bind_group);
+        } else {
+            self.read(bind_group);
+        }
         self
     }
 

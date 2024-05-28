@@ -359,11 +359,7 @@ impl<'a, 'b: 'a, 'g: 'b> ComputePass<'a, 'b, 'g> {
         // });
         //
         // let mut dependencies = RenderDependencies::new();
-        // if graph.meta(bind_group).writes_any() {
-        //     dependencies.write(bind_group);
-        // } else {
-        //     dependencies.read(bind_group);
-        // }
+        // dependencies.add_bind_group(bind_group);
         // dependencies.read(pipeline);
         //
         // let dispatch_size = self.dispatch_size;
