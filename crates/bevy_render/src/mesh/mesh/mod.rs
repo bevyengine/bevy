@@ -1506,6 +1506,9 @@ impl BaseMeshPipelineKey {
     }
 }
 
+/// An error that occurred while trying to extract a collection of triangles from a [Mesh].
+///
+/// [Mesh]: `Mesh`
 #[derive(Debug, Error)]
 pub enum MeshTrianglesError {
     #[error("Source mesh lacks position data")]
