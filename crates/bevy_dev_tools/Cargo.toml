@@ -42,6 +42,7 @@ bevy_text = { path = "../bevy_text", version = "0.14.0-dev" }
 serde = { version = "1.0", features = ["derive"], optional = true }
 ron = { version = "0.8.0", optional = true }
 nom = "7"
+rustyline = "14.0.0"
 
 [lints]
 workspace = true

@@ -233,15 +233,7 @@ mod tests {
         arg0: usize,
         arg1: String,
     }
-
-    // #[test]
-    // fn test_deserialize_int() {
-    //     let input = "100";
-    //     let mut deserializer = CliDeserializer::from_str(input).unwrap();
-    //     let set_gold = i32::deserialize(deserializer).unwrap();
-    //     assert_eq!(set_gold, 100);
-    // }
-
+    
     #[test]
     fn single_positional() {
         let input = "100";

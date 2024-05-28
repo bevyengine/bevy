@@ -21,6 +21,7 @@ pub mod ui_debug_overlay;
 pub mod dev_tool;
 pub mod dev_command;
 pub mod cli_deserialize;
+pub mod console_reader_plugin;
 
 /// Enables developer tools in an [`App`]. This plugin is added automatically with `bevy_dev_tools`
 /// feature.
