@@ -134,6 +134,7 @@ rustflags = [
 # rustup component add llvm-tools
 # ```
 linker = "rust-lld.exe"
+rustdocflags = ["-Clinker=rust-lld.exe"]
 rustflags = [
   # Nightly
   # "-Zshare-generics=y",
