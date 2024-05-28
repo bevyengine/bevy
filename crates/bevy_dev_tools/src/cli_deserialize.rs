@@ -2,7 +2,7 @@ use bevy_reflect::{TypeRegistration, TypeRegistry};
 use nom::{
     branch::alt, bytes::complete::{is_not, tag, take_while, take_while1}, character::complete::{char, space0}, combinator::{opt, recognize}, multi::many0, sequence::{delimited, preceded}, IResult
 };
-use serde::{de::{self, value::StringDeserializer, Deserialize, Deserializer, IntoDeserializer, MapAccess, Visitor}, forward_to_deserialize_any};
+use serde::{de::{self, value::StringDeserializer, Deserialize, Deserializer, Error, IntoDeserializer, MapAccess, Visitor}, forward_to_deserialize_any};
 use std::collections::HashMap;
 use std::fmt;
 use serde::de::DeserializeSeed;
@@ -20,13 +20,13 @@ impl<'a> TypedCliDeserializer<'a> {
     }
 }
 
-struct CliDeserializer<'a> {
+pub struct CliDeserializer<'a> {
     input: &'a str,
     type_registration: &'a TypeRegistry,
 }
 
 impl<'a> CliDeserializer<'a> {
-    fn from_str(input: &'a str, type_registration: &'a TypeRegistry) -> Result<Self, de::value::Error> {
+    pub fn from_str(input: &'a str, type_registration: &'a TypeRegistry) -> Result<Self, de::value::Error> {
         Ok(Self { input, type_registration })
     }
 }
@@ -167,14 +167,18 @@ impl<'de> Deserializer<'de> for CliDeserializer<'de> {
         where
             V: Visitor<'de> {
         let struct_name = self.input.split(' ').next().unwrap();
-        let args = take_while1::<_, &str, ()>(|c| c != ' ')(self.input).unwrap().0;
+        let Ok((args, _)) = take_while1::<_, &str, ()>(|c| c != ' ')(self.input) else {
+            return Err(de::value::Error::custom("Parse error"));
+        };
         println!("Args: {}", args);
 
-        let mut registration = None;;
+        let mut registration = None;
         for reg in self.type_registration.iter() {
-            if reg.type_info().type_path_table().ident().unwrap().to_lowercase() == struct_name.to_lowercase() {
-                registration = Some(reg);
-                break;
+            if let Some(ident) = reg.type_info().type_path_table().ident() {
+                if ident.to_lowercase() == struct_name.to_lowercase() {
+                    registration = Some(reg);
+                    break;
+                }
             }
         }
 
