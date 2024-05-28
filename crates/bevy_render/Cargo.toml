@@ -104,14 +104,12 @@ smallvec = "1.11"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Omit the `glsl` feature in non-WebAssembly by default.
-# naga_oil = { version = "0.13", default-features = false, features = [
-naga_oil = { git = "https://github.com/Elabajaba/naga_oil.git", branch = "wgpu-0.20", default-features = false, features = [
+naga_oil = { version = "0.14", default-features = false, features = [
   "test_shader",
 ] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-# naga_oil = "0.13"
-naga_oil = { git = "https://github.com/Elabajaba/naga_oil.git", branch = "wgpu-0.20" }
+naga_oil = "0.14"
 js-sys = "0.3"
 web-sys = { version = "0.3.67", features = [
   'Blob',
