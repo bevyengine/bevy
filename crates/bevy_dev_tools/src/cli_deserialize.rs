@@ -4,6 +4,7 @@ use nom::{
 use serde::{de::{self, Deserialize, Deserializer, IntoDeserializer, MapAccess, Visitor}, forward_to_deserialize_any};
 use std::collections::HashMap;
 use std::fmt;
+use serde::de::DeserializeSeed;
 
 struct CliDeserializer<'a> {
     input: &'a str,
@@ -115,6 +116,7 @@ impl<'de> Deserializer<'de> for CliDeserializer<'de> {
         unimplemented!("deserialize_any not implemented")
     }
 
+
     fn deserialize_struct<V>(
         self,
         _name: &'static str,
@@ -137,6 +139,7 @@ impl<'de> Deserializer<'de> for CliDeserializer<'de> {
 
 #[cfg(test)]
 mod tests {
+    use bevy_reflect::{prelude::*, serde::*, TypeRegistry};
     use serde::Deserialize;
 
     use super::*;
@@ -214,4 +217,29 @@ mod tests {
         let set_gold = ComplexInput::deserialize(deserializer).unwrap();
         assert_eq!(set_gold, ComplexInput { arg0: Some(100), gold: SetGold { gold: 200 }, text_input: "Some text".to_string() });
     }
+
+    #[derive(Debug, Reflect, PartialEq)]
+    pub struct SetGoldReflect {
+        pub gold: usize,
+    }
+
+    #[test]
+    fn test_typed_reflect_deserialize() { 
+        let mut type_registry = TypeRegistry::default();
+        type_registry.register::<SetGoldReflect>();
+        
+        let registration = type_registry
+            .get(std::any::TypeId::of::<SetGoldReflect>())
+            .unwrap();
+        
+        let mut reflect_deserializer = TypedReflectDeserializer::new(registration, &type_registry);
+        let input = "100";
+        
+        let mut deserializer = CliDeserializer::from_str(input).unwrap();
+        let reflect_value = reflect_deserializer.deserialize(deserializer).unwrap();
+        
+        let val = SetGoldReflect::from_reflect(reflect_value.as_ref()).unwrap();
+        assert_eq!(val, SetGoldReflect { gold: 100 });
+    }
+
 }
