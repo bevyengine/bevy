@@ -171,7 +171,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// # Safety
     ///
-    /// * `queue` must live for 'w
+    /// * Caller ensures that `queue` must outlive 'w
     pub(crate) unsafe fn new_raw_from_entities(
         queue: RawCommandQueue,
         entities: &'w Entities,

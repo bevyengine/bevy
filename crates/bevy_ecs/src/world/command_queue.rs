@@ -82,6 +82,7 @@ impl CommandQueue {
             self.get_raw().push(command);
         }
     }
+
     /// Execute the queued [`Command`]s in the world after applying any commands in the world's internal queue.
     /// This clears the queue.
     #[inline]
