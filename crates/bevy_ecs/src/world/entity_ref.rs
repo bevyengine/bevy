@@ -2106,8 +2106,9 @@ impl<'w> FilteredEntityMut<'w> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
             .has_write(id)
-            // SAFETY: We have write access so we must have the component
-            .then(|| unsafe { self.entity.get_mut().debug_checked_unwrap() })
+            // SAFETY: We have write access
+            .then(|| unsafe { self.entity.get_mut() })
+            .flatten()
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
