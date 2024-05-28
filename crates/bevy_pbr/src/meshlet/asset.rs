@@ -47,6 +47,10 @@ pub struct MeshletMesh {
 }
 
 impl MeshletMesh {
+    /// Convert a [`MeshletMesh`] into a byte array.
+    ///
+    /// The resulting byte array should be treated as an opaque blob that is only compatible
+    /// with the version of Bevy used to generate it.
     pub fn into_bytes(&self) -> Result<Vec<u8>, MeshletMeshSaveOrLoadError> {
         let mut bytes = Vec::new();
         let mut writer = FrameEncoder::new(&mut bytes);
@@ -55,6 +59,10 @@ impl MeshletMesh {
         Ok(bytes)
     }
 
+    /// Create a [`MeshletMesh`] from a byte array.
+    ///
+    /// The byte array must have been generated via [`MeshletMesh::into_bytes`] using
+    /// the same version of Bevy that this function is called from.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, bincode::Error> {
         bincode::deserialize_from(FrameDecoder::new(Cursor::new(bytes)))
     }

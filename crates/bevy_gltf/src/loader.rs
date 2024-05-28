@@ -110,11 +110,11 @@ pub enum GltfError {
     Io(#[from] std::io::Error),
     /// Wrong meshlet mesh asset version.
     #[cfg(feature = "meshlet")]
-    #[error("expected asset version {MESHLET_MESH_ASSET_VERSION} but found version {found}")]
-    MeshletMeshWrongVersion {
-        /// The wrong meshlet mesh asset version that was found.
-        found: u64,
-    },
+    #[error(
+        "Encountered an invalid MeshletMesh. The asset format may have changed. \
+    Delete the imported_assets folder to regenerate assets."
+    )]
+    MeshletMeshWrongVersion,
 }
 
 /// Loads glTF files as a [`RawGltf`].
@@ -482,7 +482,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 Some(bevy_meshlet_mesh_extension) => {
                     let version = bevy_meshlet_mesh_extension["version"].as_u64().unwrap();
                     if version != MESHLET_MESH_ASSET_VERSION {
-                        return Err(GltfError::MeshletMeshWrongVersion { found: version });
+                        return Err(GltfError::MeshletMeshWrongVersion);
                     }
 
                     let byte_offset =
