@@ -11,9 +11,9 @@ use std::{borrow::Cow, mem};
 use bevy_ecs::{system::Resource, world::World};
 use bevy_render::{
     render_resource::{
-        BindGroup, BindGroupLayout, Buffer, BufferDescriptor, CommandEncoder,
-        CommandEncoderDescriptor, ComputePass, ComputePassDescriptor, ComputePipeline,
-        PipelineCache, RenderPipeline, Sampler, Texture, TextureDescriptor, TextureView,
+        BindGroup, BindGroupLayout, Buffer, CommandEncoder, CommandEncoderDescriptor, ComputePass,
+        ComputePassDescriptor, ComputePipeline, PipelineCache, RenderPipeline, Sampler, Texture,
+        TextureDescriptor, TextureView,
     },
     renderer::{RenderDevice, RenderQueue},
     settings::{WgpuFeatures, WgpuLimits},
@@ -326,7 +326,7 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
         &mut self,
         label: Label<'g>,
         dependencies: RenderDependencies<'g>,
-        node: impl for<'n> FnOnce(&'n NodeContext, &mut ComputePass<'n>) + Send + 'g,
+        node: impl for<'n> FnOnce(&'n NodeContext<'n, 'g>, &mut ComputePass<'n>) + Send + 'g,
     ) -> &mut Self {
         //get + save dependency generations here, since they're not stored in RenderDependencies.
         //This is to make creating a RenderDependencies (and cloning!) a pure operation.
