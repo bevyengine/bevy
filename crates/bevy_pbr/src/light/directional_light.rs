@@ -50,7 +50,11 @@ use super::*;
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct DirectionalLight {
+    /// The color of the light.
+    ///
+    /// By default, this is white.
     pub color: Color,
+
     /// Illuminance in lux (lumens per square meter), representing the amount of
     /// light projected onto surfaces by this light source. Lux is used here
     /// instead of lumens because a directional light illuminates all surfaces
@@ -58,10 +62,45 @@ pub struct DirectionalLight {
     /// can only be specified for light sources which emit light from a specific
     /// area.
     pub illuminance: f32,
+
+    /// Whether this light casts shadows.
+    ///
+    /// Note that shadows are rather expensive and become more so with every
+    /// light that casts them. In general, it's best to aggressively limit the
+    /// number of lights with shadows enabled to one or two at most.
     pub shadows_enabled: bool,
+
+    /// Whether soft shadows are enabled, and if so, the size of the light.
+    ///
+    /// Soft shadows, also known as *percentage-closer soft shadows* or PCSS,
+    /// cause shadows to become blurrier (i.e. their penumbra increases in
+    /// radius) as they extend away from objects. The blurriness of the shadow
+    /// depends on the size of the light; larger lights result in larger
+    /// penumbras and therefore blurrier shadows.
+    ///
+    /// Currently, soft shadows are rather noisy if not using the temporal mode.
+    /// If you enable soft shadows, consider choosing
+    /// [`ShadowFilteringMethod::Temporal`] and enabling temporal antialiasing
+    /// (TAA) to smooth the noise out over time.
+    ///
+    /// Note that soft shadows are significantly more expensive to render than
+    /// hard shadows.
+    pub soft_shadow_size: Option<f32>,
+
+    /// A value that adjusts the tradeoff between self-shadowing artifacts and
+    /// proximity of shadows to their casters.
+    ///
+    /// This value frequently must be tuned to the specific scene; this is
+    /// normal and a well-known part of the shadow mapping workflow. If set too
+    /// low, unsightly shadow patterns appear on objects not in shadow as
+    /// objects incorrectly cast shadows on themselves, known as *shadow acne*.
+    /// If set too high, shadows detach from the objects casting them and seem
+    /// to "fly" off the objects, known as *Peter Panning*.
     pub shadow_depth_bias: f32,
-    /// A bias applied along the direction of the fragment's surface normal. It is scaled to the
-    /// shadow map's texel size so that it is automatically adjusted to the orthographic projection.
+
+    /// A bias applied along the direction of the fragment's surface normal. It
+    /// is scaled to the shadow map's texel size so that it is automatically
+    /// adjusted to the orthographic projection.
     pub shadow_normal_bias: f32,
 }
 
@@ -71,6 +110,7 @@ impl Default for DirectionalLight {
             color: Color::WHITE,
             illuminance: light_consts::lux::AMBIENT_DAYLIGHT,
             shadows_enabled: false,
+            soft_shadow_size: None,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
         }

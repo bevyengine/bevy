@@ -8,8 +8,10 @@ struct PointLight {
     position_radius: vec4<f32>,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
+    soft_shadow_size: f32,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
+    shadow_map_near_z: f32,
     spot_light_tan_angle: f32,
 };
 
@@ -28,6 +30,7 @@ struct DirectionalLight {
     direction_to_light: vec3<f32>,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
+    soft_shadow_size: f32,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
     num_cascades: u32,
