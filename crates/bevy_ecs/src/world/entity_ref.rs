@@ -2419,6 +2419,7 @@ mod tests {
     use bevy_ptr::OwningPtr;
     use std::panic::AssertUnwindSafe;
 
+    use crate::world::{FilteredEntityMut, FilteredEntityRef};
     use crate::{self as bevy_ecs, component::ComponentId, prelude::*, system::assert_is_system};
 
     #[test]
@@ -2920,5 +2921,65 @@ mod tests {
         fn incompatible_system(_: Query<EntityMut>, _: Query<&mut A>) {}
 
         assert_is_system(incompatible_system);
+    }
+
+    #[test]
+    fn filtered_entity_ref_normal() {
+        let mut world = World::new();
+        let a_id = world.init_component::<A>();
+
+        let e: FilteredEntityRef = world.spawn(A).into();
+
+        assert!(e.get::<A>().is_some());
+        assert!(e.get_ref::<A>().is_some());
+        assert!(e.get_change_ticks::<A>().is_some());
+        assert!(e.get_by_id(a_id).is_some());
+        assert!(e.get_change_ticks_by_id(a_id).is_some());
+    }
+
+    #[test]
+    fn filtered_entity_ref_missing() {
+        let mut world = World::new();
+        let a_id = world.init_component::<A>();
+
+        let e: FilteredEntityRef = world.spawn(()).into();
+
+        assert!(e.get::<A>().is_none());
+        assert!(e.get_ref::<A>().is_none());
+        assert!(e.get_change_ticks::<A>().is_none());
+        assert!(e.get_by_id(a_id).is_none());
+        assert!(e.get_change_ticks_by_id(a_id).is_none());
+    }
+
+    #[test]
+    fn filtered_entity_mut_normal() {
+        let mut world = World::new();
+        let a_id = world.init_component::<A>();
+
+        let mut e: FilteredEntityMut = world.spawn(A).into();
+
+        assert!(e.get::<A>().is_some());
+        assert!(e.get_ref::<A>().is_some());
+        assert!(e.get_mut::<A>().is_some());
+        assert!(e.get_change_ticks::<A>().is_some());
+        assert!(e.get_by_id(a_id).is_some());
+        assert!(e.get_mut_by_id(a_id).is_some());
+        assert!(e.get_change_ticks_by_id(a_id).is_some());
+    }
+
+    #[test]
+    fn filtered_entity_mut_missing() {
+        let mut world = World::new();
+        let a_id = world.init_component::<A>();
+
+        let mut e: FilteredEntityMut = world.spawn(()).into();
+
+        assert!(e.get::<A>().is_none());
+        assert!(e.get_ref::<A>().is_none());
+        assert!(e.get_mut::<A>().is_none());
+        assert!(e.get_change_ticks::<A>().is_none());
+        assert!(e.get_by_id(a_id).is_none());
+        assert!(e.get_mut_by_id(a_id).is_none());
+        assert!(e.get_change_ticks_by_id(a_id).is_none());
     }
 }
