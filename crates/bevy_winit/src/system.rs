@@ -178,8 +178,6 @@ pub(crate) fn changed_windows(
                 WindowMode::Windowed => Some(None),
             };
 
-            info!("WindowMode: {new_mode:?}");
-
             if let Some(new_mode) = new_mode {
                 if winit_window.fullscreen() != new_mode {
                     winit_window.set_fullscreen(new_mode);

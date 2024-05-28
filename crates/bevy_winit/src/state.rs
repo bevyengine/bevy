@@ -738,7 +738,6 @@ pub(crate) fn react_to_resize(
         .resolution
         .set_physical_resolution(size.width, size.height);
 
-    bevy_log::info!("Resizing: {size:?}");
     window_resized.send(WindowResized {
         window: window_entity,
         width: window.width(),
