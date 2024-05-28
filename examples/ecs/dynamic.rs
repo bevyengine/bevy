@@ -151,7 +151,7 @@ fn main() {
 
                 query.iter_mut(&mut world).for_each(|filtered_entity| {
                     let terms = filtered_entity
-                        .components()
+                        .accessed_components()
                         .map(|id| {
                             let ptr = filtered_entity.get_by_id(id).unwrap();
                             let info = component_info.get(&id).unwrap();
