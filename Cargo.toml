@@ -3028,6 +3028,18 @@ category = "Dev tools"
 wasm = true
 
 [[example]]
+name = "dev_cli"
+path = "examples/dev_tools/dev_cli.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
+
+[package.metadata.example.dev_cli]
+name = "Developer in-game command line interface"
+description = "Demonstrates the Bevy Developer CLI with dev tools abstraction"
+category = "Dev tools"
+wasm = false
+
+[[example]]
 name = "visibility_range"
 path = "examples/3d/visibility_range.rs"
 doc-scrape-examples = true

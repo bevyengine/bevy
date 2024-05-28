@@ -21,8 +21,12 @@ impl Plugin for ConsoleReaderPlugin {
 fn console_reader_system(
     mut console_reader: ResMut<ConsoleReader>,
     mut events: EventWriter<ConsoleInput>,
+    mut app_exit_events: EventWriter<bevy_app::AppExit>
 ) {
-    while let Ok(input) = console_reader.receiver.lock().unwrap().recv() {
+    while let Ok(input) = console_reader.receiver.lock().unwrap().try_recv() {
+        if input == ConsoleInput::Quit {
+            app_exit_events.send(bevy_app::AppExit::Success);
+        }
         events.send(input);
     }
 }
@@ -44,7 +48,7 @@ fn async_console_reader(mut reader: AsyncConsoleReader) {
     }
 }
 
-#[derive(Debug, Event)]
+#[derive(Debug, Event, Clone, PartialEq, Eq)]
 pub enum ConsoleInput {
     Text(String),
     Quit,
