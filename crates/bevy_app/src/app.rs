@@ -397,30 +397,6 @@ impl App {
         self
     }
 
-    /// Inserts the [`Resource`] into the app, overwriting any existing resource of the same type.
-    ///
-    /// There is also an [`init_resource`](Self::init_resource) for resources that have
-    /// [`Default`] or [`FromWorld`] implementations.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// #[derive(Resource)]
-    /// struct MyCounter {
-    ///     counter: usize,
-    /// }
-    ///
-    /// App::new()
-    ///    .insert_resource(MyCounter { counter: 0 });
-    /// ```
-    pub fn insert_resource<R: Resource>(&mut self, resource: R) -> &mut Self {
-        self.main_mut().insert_resource(resource);
-        self
-    }
-
     /// Inserts the [`Resource`], initialized with its default value, into the app,
     /// if there is no existing instance of `R`.
     ///
@@ -455,6 +431,37 @@ impl App {
         self
     }
 
+    /// Inserts the [`Resource`] into the app, overwriting any existing resource of the same type.
+    ///
+    /// There is also an [`init_resource`](Self::init_resource) for resources that have
+    /// [`Default`] or [`FromWorld`] implementations.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Resource)]
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// App::new()
+    ///    .insert_resource(MyCounter { counter: 0 });
+    /// ```
+    pub fn insert_resource<R: Resource>(&mut self, resource: R) -> &mut Self {
+        self.main_mut().insert_resource(resource);
+        self
+    }
+
+    /// Inserts the [`!Send`](Send) resource into the app, initialized with its default value,
+    /// if there is no existing instance of `R`.
+    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
+        self.main_mut().init_non_send_resource::<R>();
+        self
+    }
+
     /// Inserts the [`!Send`](Send) resource into the app, overwriting any existing resource
     /// of the same type.
     ///
@@ -475,15 +482,391 @@ impl App {
     ///     .insert_non_send_resource(MyCounter { counter: 0 });
     /// ```
     pub fn insert_non_send_resource<R: 'static>(&mut self, resource: R) -> &mut Self {
-        self.world_mut().insert_non_send_resource(resource);
+        self.main_mut().insert_non_send_resource(resource);
         self
     }
 
-    /// Inserts the [`!Send`](Send) resource into the app, initialized with its default value,
-    /// if there is no existing instance of `R`.
-    pub fn init_non_send_resource<R: 'static + Default>(&mut self) -> &mut Self {
-        self.world_mut().init_non_send_resource::<R>();
-        self
+    /// Removes the resource of a given type and returns it, if it exists. Otherwise, returns `None`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Resource)]
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// let mut app = App::new();
+    /// app.insert_resource(MyCounter { counter: 0 });
+    ///
+    /// assert!(app.remove_resource::<MyCounter>().is_some());
+    /// ```
+    #[inline]
+    pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
+        self.main_mut().remove_resource()
+    }
+
+    /// Removes a `!Send` resource from the world and returns it, if present.
+    ///
+    /// `NonSend` resources cannot be sent across threads,
+    /// and do not need the `Send + Sync` bounds.
+    /// Systems with `NonSend` resources are always scheduled on the main thread.
+    ///
+    /// Returns `None` if a value was not previously present.
+    ///
+    /// # Panics
+    /// If a value is present, this function will panic if called from a different
+    /// thread than where the value was inserted from.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// let mut app = App::new();
+    /// app.insert_non_send_resource(MyCounter { counter: 0 });
+    ///
+    /// assert!(app.remove_non_send_resource::<MyCounter>().is_some());
+    /// ```
+    #[inline]
+    pub fn remove_non_send_resource<R: 'static>(&mut self) -> Option<R> {
+        self.main_mut().remove_non_send_resource()
+    }
+
+    /// Returns `true` if the [`Resource`] exists in the app world.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Resource)]
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// impl Default for MyCounter {
+    ///     fn default() -> MyCounter {
+    ///         MyCounter {
+    ///             counter: 100
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// let mut app = App::new();
+    /// app.insert_resource(MyCounter { counter: 0 });
+    ///
+    /// assert!(app.contains_resource::<MyCounter>());
+    /// ```
+    pub fn contains_resource<R: Resource>(&self) -> bool {
+        self.main().contains_resource::<R>()
+    }
+
+    /// Returns `true` if the [`!Send`](Send) resource exists in the app world.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// let mut app = App::new();
+    /// app.insert_non_send_resource(MyCounter { counter: 0 });
+    ///
+    /// assert!(app.contains_non_send_resource::<MyCounter>());
+    /// ```
+    pub fn contains_non_send_resource<R: 'static>(&self) -> bool {
+        self.main().contains_non_send_resource::<R>()
+    }
+
+    /// Gets a reference to the resource of the given type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_resource`](App::get_resource) instead if you want to handle this case.
+    ///
+    /// If you want to instead insert a value if the resource does not exist,
+    /// use [`get_resource_or_insert_with`](App::get_resource_or_insert_with).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Resource)]
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// let mut app = App::new();
+    /// app.insert_resource(MyCounter { counter: 0 });
+    ///
+    /// assert_eq!(app.resource::<MyCounter>().counter, 0);
+    pub fn resource<R: Resource>(&self) -> &R {
+        self.main().resource()
+    }
+
+    /// Gets a reference to the resource of the given type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_resource_ref`](App::get_resource_ref) instead if you want to handle this case.
+    ///
+    /// If you want to instead insert a value if the resource does not exist,
+    /// use [`get_resource_or_insert_with`](App::get_resource_or_insert_with).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Resource)]
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// let mut app = App::new();
+    /// app.insert_resource(MyCounter { counter: 0 });
+    ///
+    /// assert_eq!(app.resource_ref::<MyCounter>().counter, 0);
+    pub fn resource_ref<R: Resource>(&self) -> Res<R> {
+        self.main().resource_ref()
+    }
+
+    /// Gets a mutable reference to the resource of the given type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_resource_mut`](App::get_resource_mut) instead if you want to handle this case.
+    ///
+    /// If you want to instead insert a value if the resource does not exist,
+    /// use [`get_resource_or_insert_with`](App::get_resource_or_insert_with).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Resource)]
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// let mut app = App::new();
+    /// app.insert_resource(MyCounter { counter: 0 });
+    /// app.resource_mut::<MyCounter>().counter = 1;
+    ///
+    /// assert_eq!(app.resource::<MyCounter>().counter, 1);
+    pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
+        self.main_mut().resource_mut()
+    }
+
+    /// Gets a reference to the resource of the given type if it exists
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Resource)]
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// let mut app = App::new();
+    /// app.insert_resource(MyCounter { counter: 0 });
+    ///
+    /// assert!(app.get_resource::<MyCounter>().is_some());
+    pub fn get_resource<R: Resource>(&self) -> Option<&R> {
+        self.main().get_resource()
+    }
+
+    /// Gets a reference including change detection to the resource of the given type if it exists.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Resource)]
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// let mut app = App::new();
+    /// app.insert_resource(MyCounter { counter: 0 });
+    ///
+    /// assert!(app.get_resource_ref::<MyCounter>().is_some());
+    pub fn get_resource_ref<R: Resource>(&self) -> Option<Res<R>> {
+        self.main().get_resource_ref()
+    }
+
+    /// Gets a mutable reference to the resource of the given type if it exists
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Resource)]
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// let mut app = App::new();
+    /// app.insert_resource(MyCounter { counter: 0 });
+    /// app.get_resource_mut::<MyCounter>().unwrap().counter = 1;
+    ///
+    /// assert_eq!(app.resource::<MyCounter>().counter, 1);
+    pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
+        self.main_mut().get_resource_mut()
+    }
+
+    /// Gets a mutable reference to the resource of type `T` if it exists,
+    /// otherwise inserts the resource using the result of calling `func`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Resource)]
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// let mut app = App::new();
+    /// app.get_resource_or_insert_with(|| MyCounter { counter: 0 });
+    ///
+    /// assert!(app.get_resource::<MyCounter>().is_some());
+    pub fn get_resource_or_insert_with<R: Resource>(
+        &mut self,
+        func: impl FnOnce() -> R,
+    ) -> Mut<'_, R> {
+        self.main_mut().get_resource_or_insert_with(func)
+    }
+
+    /// Gets an immutable reference to the non-send resource of the given type, if it exists.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_non_send_resource`](App::get_non_send_resource) instead if you want to handle this case.
+    ///
+    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// #
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// let mut app = App::new();
+    /// app.insert_non_send_resource(MyCounter { counter: 0 });
+    ///
+    /// assert_eq!(app.non_send_resource::<MyCounter>().counter, 0);
+    pub fn non_send_resource<R: 'static>(&self) -> &R {
+        self.main().non_send_resource()
+    }
+
+    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_non_send_resource_mut`](App::get_non_send_resource_mut) instead if you want to handle this case.
+    ///
+    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// #
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// let mut app = App::new();
+    /// app.insert_non_send_resource(MyCounter { counter: 0 });
+    /// app.non_send_resource_mut::<MyCounter>().counter = 1;
+    ///
+    /// assert_eq!(app.non_send_resource::<MyCounter>().counter, 1);
+    pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
+        self.main_mut().non_send_resource_mut()
+    }
+
+    /// Gets a reference to the non-send resource of the given type, if it exists.
+    /// Otherwise, returns `None`.
+    ///
+    /// # Panics
+    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// #
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// let mut app = App::new();
+    /// app.insert_non_send_resource(MyCounter { counter: 0 });
+    ///
+    /// assert!(app.get_non_send_resource::<MyCounter>().is_some());
+    pub fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
+        self.main().get_non_send_resource()
+    }
+
+    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
+    /// Otherwise, returns `None`.
+    ///
+    /// # Panics
+    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// #
+    /// struct MyCounter {
+    ///     counter: usize,
+    /// }
+    ///
+    /// let mut app = App::new();
+    /// app.insert_non_send_resource(MyCounter { counter: 0 });
+    /// app.get_non_send_resource_mut::<MyCounter>().unwrap().counter = 1;
+    ///
+    /// assert_eq!(app.non_send_resource::<MyCounter>().counter, 1);
+    pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
+        self.main_mut().get_non_send_resource_mut()
     }
 
     pub(crate) fn add_boxed_plugin(
@@ -1202,7 +1585,7 @@ mod tests {
 
         fn my_runner(mut app: App) -> AppExit {
             let my_state = MyState {};
-            app.world_mut().insert_resource(my_state);
+            app.insert_resource(my_state);
 
             for _ in 0..5 {
                 app.update();

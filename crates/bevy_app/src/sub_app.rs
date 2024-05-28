@@ -174,6 +174,96 @@ impl SubApp {
         self
     }
 
+    /// See [`App::insert_non_resource`].
+    pub fn insert_non_send_resource<R: 'static>(&mut self, resource: R) -> &mut Self {
+        self.world.insert_non_send_resource(resource);
+        self
+    }
+
+    /// See [`App::init_non_send_resource`].
+    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
+        self.world.init_non_send_resource::<R>();
+        self
+    }
+
+    /// See [`App::remove_resource`].
+    pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
+        self.world.remove_resource::<R>()
+    }
+
+    /// See [`App::remove_non_send_resource`].
+    pub fn remove_non_send_resource<R: 'static>(&mut self) -> Option<R> {
+        self.world.remove_non_send_resource::<R>()
+    }
+
+    /// See [`App::contains_resource`].
+    pub fn contains_resource<R: Resource>(&self) -> bool {
+        self.world.contains_resource::<R>()
+    }
+
+    /// See [`App::contains_non_send_resource`].
+    pub fn contains_non_send_resource<R: 'static>(&self) -> bool {
+        self.world.contains_non_send_resource::<R>()
+    }
+
+    /// See [`App::resource`].
+    pub fn resource<R: Resource>(&self) -> &R {
+        self.world.resource()
+    }
+
+    /// See [`App::resource_ref`].
+    pub fn resource_ref<R: Resource>(&self) -> Res<R> {
+        self.world.resource_ref()
+    }
+
+    /// See [`App::resource_mut`].
+    pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
+        self.world.resource_mut()
+    }
+
+    /// See [`App::get_resource`].
+    pub fn get_resource<R: Resource>(&self) -> Option<&R> {
+        self.world.get_resource()
+    }
+
+    /// See [`App::get_resource_ref`].
+    pub fn get_resource_ref<R: Resource>(&self) -> Option<Res<R>> {
+        self.world.get_resource_ref()
+    }
+
+    /// See [`App::get_resource_mut`].
+    pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
+        self.world.get_resource_mut()
+    }
+
+    /// See [`App::get_resource_or_insert_with`].
+    pub fn get_resource_or_insert_with<R: Resource>(
+        &mut self,
+        func: impl FnOnce() -> R,
+    ) -> Mut<'_, R> {
+        self.world.get_resource_or_insert_with(func)
+    }
+
+    /// See [`App::non_send_resource`].
+    pub fn non_send_resource<R: 'static>(&self) -> &R {
+        self.world.non_send_resource()
+    }
+
+    /// See [`App::non_send_resource_mut`].
+    pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
+        self.world.non_send_resource_mut()
+    }
+
+    /// See [`App::get_non_send_resource`].
+    pub fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
+        self.world.get_non_send_resource()
+    }
+
+    /// See [`App::get_non_send_resource_mut`].
+    pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
+        self.world.get_non_send_resource_mut()
+    }
+
     /// See [`App::add_systems`].
     pub fn add_systems<M>(
         &mut self,

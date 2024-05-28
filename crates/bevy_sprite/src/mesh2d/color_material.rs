@@ -28,8 +28,7 @@ impl Plugin for ColorMaterialPlugin {
         app.add_plugins(Material2dPlugin::<ColorMaterial>::default())
             .register_asset_reflect::<ColorMaterial>();
 
-        app.world_mut()
-            .resource_mut::<Assets<ColorMaterial>>()
+        app.resource_mut::<Assets<ColorMaterial>>()
             .insert(
                 &Handle::<ColorMaterial>::default(),
                 ColorMaterial {

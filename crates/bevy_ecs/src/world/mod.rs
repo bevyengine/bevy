@@ -1202,7 +1202,7 @@ impl World {
         });
     }
 
-    /// Removes the resource of a given type and returns it, if it exists. Otherwise returns `None`.
+    /// Removes the resource of a given type and returns it, if it exists. Otherwise, returns `None`.
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
@@ -1234,7 +1234,7 @@ impl World {
         unsafe { Some(ptr.read::<R>()) }
     }
 
-    /// Returns `true` if a resource of type `R` exists. Otherwise returns `false`.
+    /// Returns `true` if a resource of type `R` exists. Otherwise, returns `false`.
     #[inline]
     pub fn contains_resource<R: Resource>(&self) -> bool {
         self.components
@@ -1244,9 +1244,16 @@ impl World {
             .unwrap_or(false)
     }
 
-    /// Returns `true` if a resource of type `R` exists. Otherwise returns `false`.
+    /// Returns `true` if a resource of type `R` exists. Otherwise, returns `false`.
     #[inline]
+    #[deprecated = "Use `World::contains_non_send_resource` instead"]
     pub fn contains_non_send<R: 'static>(&self) -> bool {
+        self.contains_non_send_resource::<R>()
+    }
+
+    /// Returns `true` if a resource of type `R` exists. Otherwise, returns `false`.
+    #[inline]
+    pub fn contains_non_send_resource<R: 'static>(&self) -> bool {
         self.components
             .get_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.non_send_resources.get(component_id))
@@ -1514,7 +1521,7 @@ impl World {
     }
 
     /// Gets a reference to the non-send resource of the given type, if it exists.
-    /// Otherwise returns `None`.
+    /// Otherwise, returns `None`.
     ///
     /// # Panics
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
@@ -1527,7 +1534,7 @@ impl World {
     }
 
     /// Gets a mutable reference to the non-send resource of the given type, if it exists.
-    /// Otherwise returns `None`.
+    /// Otherwise, returns `None`.
     ///
     /// # Panics
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
@@ -2397,7 +2404,7 @@ impl World {
         }
     }
 
-    /// Removes the resource of a given type, if it exists. Otherwise returns `None`.
+    /// Removes the resource of a given type, if it exists. Otherwise, returns `None`.
     ///
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
@@ -2409,7 +2416,7 @@ impl World {
         Some(())
     }
 
-    /// Removes the resource of a given type, if it exists. Otherwise returns `None`.
+    /// Removes the resource of a given type, if it exists. Otherwise, returns `None`.
     ///
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**

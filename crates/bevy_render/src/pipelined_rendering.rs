@@ -132,7 +132,7 @@ impl Plugin for PipelinedRenderingPlugin {
 
         // clone main thread executor to render world
         let executor = app.world().get_resource::<MainThreadExecutor>().unwrap();
-        render_app.world_mut().insert_resource(executor.clone());
+        render_app.insert_resource(executor.clone());
 
         render_to_app_sender.send_blocking(render_app).unwrap();
 

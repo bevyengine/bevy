@@ -368,7 +368,7 @@ impl Plugin for RenderPlugin {
             Shader::from_wgsl
         );
         if let Some(future_renderer_resources) =
-            app.world_mut().remove_resource::<FutureRendererResources>()
+            app.remove_resource::<FutureRendererResources>()
         {
             let (device, queue, adapter_info, render_adapter, instance) =
                 future_renderer_resources.0.lock().unwrap().take().unwrap();

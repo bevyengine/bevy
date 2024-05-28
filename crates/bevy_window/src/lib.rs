@@ -114,7 +114,7 @@ impl Plugin for WindowPlugin {
                 .spawn(primary_window.clone())
                 .insert(PrimaryWindow)
                 .id();
-            if let Some(mut focus) = app.world_mut().get_resource_mut::<Focus>() {
+            if let Some(mut focus) = app.get_resource_mut::<Focus>() {
                 **focus = Some(initial_focus);
             }
         }
