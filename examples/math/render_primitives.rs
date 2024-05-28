@@ -543,7 +543,7 @@ fn spawn_primitive_3d(
         None, // cone
         None, // conical frustum
         Some(TORUS.mesh().build()),
-        Some(TETRAHEDRON.mesh().into()),
+        Some(TETRAHEDRON.mesh().build()),
     ]
     .into_iter()
     .zip(PrimitiveSelected::ALL)
