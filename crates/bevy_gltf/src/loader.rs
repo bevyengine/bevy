@@ -1299,7 +1299,6 @@ fn load_node(
                         });
                     }
 
-                    // Add gltf extras to the mesh entity
                     if let Some(extras) = mesh.extras() {
                         mesh_entity.insert(GltfMeshExtras {
                             value: extras.get().to_string(),

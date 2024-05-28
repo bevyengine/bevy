@@ -13,9 +13,12 @@ fn main() {
         .run();
 }
 
+#[derive(Component)]
+struct ExampleDisplay;
+
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+        transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 
@@ -31,45 +34,64 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         scene: asset_server.load("models/extras/gltf_extras.glb#Scene0"),
         ..default()
     });
+
+    // a place to display the extras on screen
+    commands.spawn((
+        TextBundle::from_section(
+            "",
+            TextStyle {
+                font_size: 18.,
+                ..default()
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        }),
+        ExampleDisplay,
+    ));
 }
 
 fn check_for_gltf_extras(
-    gltf_extras_query: Query<(Entity, Option<&Name>, &GltfExtras), Added<GltfExtras>>,
-    gltf_scene_extras_query: Query<
-        (Entity, Option<&Name>, &GltfSceneExtras),
-        Added<GltfSceneExtras>,
-    >,
-    gltf_mesh_extras_query: Query<(Entity, Option<&Name>, &GltfMeshExtras), Added<GltfMeshExtras>>,
-    gltf_material_extras_query: Query<
-        (Entity, Option<&Name>, &GltfMaterialExtras),
-        Added<GltfMaterialExtras>,
-    >,
+    gltf_extras_per_entity: Query<(
+        Entity,
+        Option<&Name>,
+        Option<&GltfSceneExtras>,
+        Option<&GltfExtras>,
+        Option<&GltfMeshExtras>,
+        Option<&GltfMaterialExtras>,
+    )>,
+    mut display: Query<&mut Text, With<ExampleDisplay>>,
 ) {
-    for extra in gltf_extras_query.iter() {
-        info!(
-            "primitive extra for {:?} : {:?} (id: {})",
-            extra.1, extra.2, extra.0
-        );
-    }
+    let mut gltf_extra_infos_lines: Vec<String> = vec![];
 
-    for extra in gltf_scene_extras_query.iter() {
-        info!(
-            "scene extra for {:?} : {:?} (id: {})",
-            extra.1, extra.2, extra.0
-        );
-    }
-
-    for extra in gltf_mesh_extras_query.iter() {
-        info!(
-            "mesh extra for {:?} : {:?} (id: {})",
-            extra.1, extra.2, extra.0
-        );
-    }
-
-    for extra in gltf_material_extras_query.iter() {
-        info!(
-            "material extra for {:?} : {:?} (id: {})",
-            extra.1, extra.2, extra.0
-        );
+    for (id, name, scene_extras, extras, mesh_extras, material_extras) in
+        gltf_extras_per_entity.iter()
+    {
+        if scene_extras.is_some()
+            || extras.is_some()
+            || mesh_extras.is_some()
+            || material_extras.is_some()
+        {
+            let formated = format!(
+                "Extras per entity {} ('Name: {}'):
+    - scene extras:     {:?}
+    - primitive extras: {:?}
+    - mesh extras:      {:?}
+    - material extras:  {:?}
+                ",
+                id,
+                name.unwrap_or(&Name::default()),
+                scene_extras,
+                extras,
+                mesh_extras,
+                material_extras
+            );
+            gltf_extra_infos_lines.push(formated);
+        }
+        let mut display = display.single_mut();
+        display.sections[0].value = gltf_extra_infos_lines.join("\n");
     }
 }

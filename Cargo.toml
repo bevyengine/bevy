@@ -793,7 +793,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.load_gltf_extras]
 name = "Load glTF extras"
-description = "Loads and renders a glTF file as a scene, and all the gltf extras"
+description = "Loads and renders a glTF file as a scene, including the gltf extras"
 category = "3D Rendering"
 wasm = true
 
