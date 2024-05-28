@@ -12,7 +12,7 @@
 //!
 //! # Quick Start
 //!
-//! Here's how to spawn a simple gltf scene
+//! Here's how to spawn a simple glTF scene
 //!
 //! ```
 //! # use bevy_ecs::prelude::*;
@@ -22,8 +22,8 @@
 //!
 //! fn spawn_gltf(mut commands: Commands, asset_server: Res<AssetServer>) {
 //!     commands.spawn(SceneBundle {
-//!         // The `#Scene0` label here is very important because it tells bevy to load the first scene in the gLTF file.
-//!         // If this isn't specified bevy doesn't know which part of the gLTF file to load.
+//!         // The `#Scene0` label here is very important because it tells bevy to load the first scene in the glTF file.
+//!         // If this isn't specified bevy doesn't know which part of the glTF file to load.
 //!         scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
 //!         // You can use the transform to give it a position
 //!         transform: Transform::from_xyz(2.0, 0.0, -5.0),
@@ -31,7 +31,7 @@
 //!     });
 //! }
 //! ```
-//! # Loading parts of a gLTF asset
+//! # Loading parts of a glTF asset
 //!
 //! ## Using `Gltf`
 //!
@@ -87,22 +87,22 @@
 //!
 //! ## Asset Labels
 //!
-//! The gLTF loader let's you specify labels that let you target specific parts of the gLTF.
+//! The glTF loader let's you specify labels that let you target specific parts of the glTF.
 //!
 //! Be careful when using this feature, if you misspell a label it will simply ignore it without warning.
 //!
 //! Here's the list of supported labels (`{}` is the index in the file):
 //!
-//! - `Scene{}`: gLTF Scene as a Bevy `Scene`
-//! - `Node{}`: gLTF Node as a `GltfNode`
-//! - `Mesh{}`: gLTF Mesh as a `GltfMesh`
-//! - `Mesh{}/Primitive{}`: gLTF Primitive as a Bevy `Mesh`
-//! - `Mesh{}/Primitive{}/MorphTargets`: Morph target animation data for a gLTF Primitive
-//! - `Texture{}`: gLTF Texture as a Bevy `Image`
-//! - `Material{}`: gLTF Material as a Bevy `StandardMaterial`
-//! - `DefaultMaterial`: as above, if the gLTF file contains a default material with no index
-//! - `Animation{}`: gLTF Animation as Bevy `AnimationClip`
-//! - `Skin{}`: gLTF mesh skin as Bevy `SkinnedMeshInverseBindposes`
+//! - `Scene{}`: glTF Scene as a Bevy `Scene`
+//! - `Node{}`: glTF Node as a `GltfNode`
+//! - `Mesh{}`: glTF Mesh as a `GltfMesh`
+//! - `Mesh{}/Primitive{}`: glTF Primitive as a Bevy `Mesh`
+//! - `Mesh{}/Primitive{}/MorphTargets`: Morph target animation data for a glTF Primitive
+//! - `Texture{}`: glTF Texture as a Bevy `Image`
+//! - `Material{}`: glTF Material as a Bevy `StandardMaterial`
+//! - `DefaultMaterial`: as above, if the glTF file contains a default material with no index
+//! - `Animation{}`: glTF Animation as Bevy `AnimationClip`
+//! - `Skin{}`: glTF mesh skin as Bevy `SkinnedMeshInverseBindposes`
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
