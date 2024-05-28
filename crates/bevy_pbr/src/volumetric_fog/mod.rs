@@ -73,6 +73,7 @@ use bevy_utils::prelude::default;
 use crate::{
     graph::NodePbr, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
     ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
+    ViewScreenSpaceReflectionsUniformOffset,
 };
 
 /// The volumetric fog shader.
@@ -397,6 +398,7 @@ impl ViewNode for VolumetricFogNode {
         Read<ViewLightProbesUniformOffset>,
         Read<ViewVolumetricFogUniformOffset>,
         Read<MeshViewBindGroup>,
+        Read<ViewScreenSpaceReflectionsUniformOffset>,
     );
 
     fn run<'w>(
@@ -413,6 +415,7 @@ impl ViewNode for VolumetricFogNode {
             view_light_probes_offset,
             view_volumetric_lighting_uniform_buffer_offset,
             view_bind_group,
+            view_ssr_offset,
         ): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
@@ -474,6 +477,7 @@ impl ViewNode for VolumetricFogNode {
                 view_lights_offset.offset,
                 view_fog_offset.offset,
                 **view_light_probes_offset,
+                **view_ssr_offset,
             ],
         );
         render_pass.set_bind_group(

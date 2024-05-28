@@ -125,12 +125,7 @@ fn setup(
     // Create the root UI element.
     let font = asset_server.load(FONT_PATH);
     let color_grading = ColorGrading::default();
-    add_buttons(
-        &mut commands,
-        &currently_selected_option,
-        &font,
-        &color_grading,
-    );
+    add_buttons(&mut commands, &font, &color_grading);
 
     // Spawn help text.
     add_help_text(&mut commands, &font, &currently_selected_option);
@@ -140,12 +135,7 @@ fn setup(
 }
 
 /// Adds all the buttons on the bottom of the scene.
-fn add_buttons(
-    commands: &mut Commands,
-    currently_selected_option: &SelectedColorGradingOption,
-    font: &Handle<Font>,
-    color_grading: &ColorGrading,
-) {
+fn add_buttons(commands: &mut Commands, font: &Handle<Font>, color_grading: &ColorGrading) {
     // Spawn the parent node that contains all the buttons.
     commands
         .spawn(NodeBundle {
@@ -161,12 +151,7 @@ fn add_buttons(
         })
         .with_children(|parent| {
             // Create the first row, which contains the global controls.
-            add_buttons_for_global_controls(
-                parent,
-                *currently_selected_option,
-                color_grading,
-                font,
-            );
+            add_buttons_for_global_controls(parent, color_grading, font);
 
             // Create the rows for individual controls.
             for section in [
@@ -174,13 +159,7 @@ fn add_buttons(
                 SelectedColorGradingSection::Midtones,
                 SelectedColorGradingSection::Shadows,
             ] {
-                add_buttons_for_section(
-                    parent,
-                    section,
-                    *currently_selected_option,
-                    color_grading,
-                    font,
-                );
+                add_buttons_for_section(parent, section, color_grading, font);
             }
         });
 }
@@ -189,7 +168,6 @@ fn add_buttons(
 /// whole as opposed to shadows, midtones, or highlights).
 fn add_buttons_for_global_controls(
     parent: &mut ChildBuilder,
-    currently_selected_option: SelectedColorGradingOption,
     color_grading: &ColorGrading,
     font: &Handle<Font>,
 ) {
@@ -219,7 +197,6 @@ fn add_buttons_for_global_controls(
                 add_button_for_value(
                     parent,
                     SelectedColorGradingOption::Global(option),
-                    currently_selected_option,
                     color_grading,
                     font,
                 );
@@ -232,7 +209,6 @@ fn add_buttons_for_global_controls(
 fn add_buttons_for_section(
     parent: &mut ChildBuilder,
     section: SelectedColorGradingSection,
-    currently_selected_option: SelectedColorGradingOption,
     color_grading: &ColorGrading,
     font: &Handle<Font>,
 ) {
@@ -263,7 +239,6 @@ fn add_buttons_for_section(
                 add_button_for_value(
                     parent,
                     SelectedColorGradingOption::Section(section, option),
-                    currently_selected_option,
                     color_grading,
                     font,
                 );
@@ -275,18 +250,9 @@ fn add_buttons_for_section(
 fn add_button_for_value(
     parent: &mut ChildBuilder,
     option: SelectedColorGradingOption,
-    currently_selected_option: SelectedColorGradingOption,
     color_grading: &ColorGrading,
     font: &Handle<Font>,
 ) {
-    let is_selected = currently_selected_option == option;
-
-    let (bg_color, fg_color) = if is_selected {
-        (Color::WHITE, Color::BLACK)
-    } else {
-        (Color::BLACK, Color::WHITE)
-    };
-
     // Add the button node.
     parent
         .spawn(ButtonBundle {
@@ -301,7 +267,7 @@ fn add_button_for_value(
             },
             border_color: BorderColor(Color::WHITE),
             border_radius: BorderRadius::MAX,
-            image: UiImage::default().with_color(bg_color),
+            image: UiImage::default().with_color(Color::BLACK),
             ..default()
         })
         .insert(ColorGradingOptionWidget {
@@ -314,7 +280,7 @@ fn add_button_for_value(
                 SelectedColorGradingOption::Global(option) => option.to_string(),
                 SelectedColorGradingOption::Section(_, option) => option.to_string(),
             };
-            add_text(parent, &label, font, fg_color).insert(ColorGradingOptionWidget {
+            add_text(parent, &label, font, Color::WHITE).insert(ColorGradingOptionWidget {
                 widget_type: ColorGradingOptionWidgetType::Label,
                 option,
             });
@@ -333,7 +299,7 @@ fn add_button_for_value(
                 parent,
                 &format!("{:.3}", option.get(color_grading)),
                 font,
-                fg_color,
+                Color::WHITE,
             )
             .insert(ColorGradingOptionWidget {
                 widget_type: ColorGradingOptionWidgetType::Value,
@@ -599,19 +565,26 @@ fn handle_button_presses(
 
 /// Updates the state of the UI based on the current state.
 fn update_ui_state(
-    mut buttons: Query<(&mut UiImage, &ColorGradingOptionWidget)>,
+    mut buttons: Query<(&mut UiImage, &mut BorderColor, &ColorGradingOptionWidget)>,
     mut button_text: Query<(&mut Text, &ColorGradingOptionWidget), Without<HelpText>>,
     mut help_text: Query<&mut Text, With<HelpText>>,
     cameras: Query<&ColorGrading>,
     currently_selected_option: Res<SelectedColorGradingOption>,
 ) {
+    // Exit early if the UI didn't change
+    if !currently_selected_option.is_changed() {
+        return;
+    }
+
     // The currently-selected option is drawn with inverted colors.
-    for (mut image, widget) in buttons.iter_mut() {
-        image.color = if *currently_selected_option == widget.option {
-            Color::WHITE
+    for (mut image, mut border_color, widget) in buttons.iter_mut() {
+        if *currently_selected_option == widget.option {
+            image.color = Color::WHITE;
+            *border_color = Color::BLACK.into();
         } else {
-            Color::BLACK
-        };
+            image.color = Color::BLACK;
+            *border_color = Color::WHITE.into();
+        }
     }
 
     let value_label = cameras
@@ -646,11 +619,7 @@ fn update_ui_state(
     }
 
     // Update the help text.
-    for mut help_text in help_text.iter_mut() {
-        for section in &mut help_text.sections {
-            section.value = create_help_text(&currently_selected_option);
-        }
-    }
+    help_text.single_mut().sections[0].value = create_help_text(&currently_selected_option);
 }
 
 /// Creates the help text at the top left of the window.
