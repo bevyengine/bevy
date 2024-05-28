@@ -305,12 +305,6 @@ fn Fd_Burley(
     return lightScatter * viewScatter * (1.0 / PI);
 }
 
-// Remapping [0,1] reflectance to F0
-// See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
-fn F0(reflectance: f32, metallic: f32, color: vec3<f32>) -> vec3<f32> {
-    return 0.16 * reflectance * reflectance * (1.0 - metallic) + color * metallic;
-}
-
 // Scale/bias approximation
 // https://www.unrealengine.com/en-US/blog/physically-based-shading-on-mobile
 // TODO: Use a LUT (more accurate)

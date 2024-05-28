@@ -26,7 +26,7 @@ pub trait GizmoPrimitive3d<P: Primitive3d> {
     /// Renders a 3D primitive with its associated details.
     fn primitive_3d(
         &mut self,
-        primitive: P,
+        primitive: &P,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -44,12 +44,12 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: Dir3,
+        primitive: &Dir3,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
-        self.arrow(position, position + (rotation * *primitive), color);
+        self.arrow(position, position + (rotation * **primitive), color);
     }
 }
 
@@ -99,7 +99,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: Sphere,
+        primitive: &Sphere,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -221,7 +221,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: Plane3d,
+        primitive: &Plane3d,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -252,7 +252,7 @@ where
         // draws the normal
         let normal = self.rotation * *self.normal;
         self.gizmos
-            .primitive_3d(self.normal, self.position, self.rotation, self.color);
+            .primitive_3d(&self.normal, self.position, self.rotation, self.color);
         let normals_normal = self.rotation * self.normal.any_orthonormal_vector();
 
         // draws the axes
@@ -272,7 +272,7 @@ where
                     .take(self.segment_count)
                     .for_each(|position| {
                         self.gizmos.primitive_3d(
-                            Segment3d {
+                            &Segment3d {
                                 direction,
                                 half_length: self.segment_length * 0.5,
                             },
@@ -296,7 +296,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: Line3d,
+        primitive: &Line3d,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -328,7 +328,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: Segment3d,
+        primitive: &Segment3d,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -356,7 +356,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: Polyline3d<N>,
+        primitive: &Polyline3d<N>,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -385,7 +385,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: BoxedPolyline3d,
+        primitive: &BoxedPolyline3d,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -416,7 +416,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: Triangle3d,
+        primitive: &Triangle3d,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -444,7 +444,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: Cuboid,
+        primitive: &Cuboid,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -541,7 +541,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: Cylinder,
+        primitive: &Cylinder,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -654,7 +654,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: Capsule3d,
+        primitive: &Capsule3d,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -785,7 +785,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: Cone,
+        primitive: &Cone,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -899,7 +899,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: ConicalFrustum,
+        primitive: &ConicalFrustum,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -1027,7 +1027,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: Torus,
+        primitive: &Torus,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -1122,7 +1122,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Tetrahedron> for Gizmos<'w, '
 
     fn primitive_3d(
         &mut self,
-        primitive: Tetrahedron,
+        primitive: &Tetrahedron,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,

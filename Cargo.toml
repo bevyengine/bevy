@@ -2977,6 +2977,29 @@ description = "Shows off rendering for all math primitives as both Meshes and Gi
 category = "Math"
 wasm = true
 
+# Math
+[[example]]
+name = "sampling_primitives"
+path = "examples/math/sampling_primitives.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sampling_primitives]
+name = "Sampling Primitives"
+description = "Demonstrates all the primitives which can be sampled."
+category = "Math"
+wasm = true
+
+[[example]]
+name = "random_sampling"
+path = "examples/math/random_sampling.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.random_sampling]
+name = "Random Sampling"
+description = "Demonstrates how to sample random points from mathematical primitives"
+category = "Math"
+wasm = true
+
 # Gizmos
 [[example]]
 name = "2d_gizmos"
@@ -3044,6 +3067,17 @@ name = "Visibility range"
 description = "Demonstrates visibility ranges"
 category = "3D Rendering"
 wasm = true
+
+[[example]]
+name = "ssr"
+path = "examples/3d/ssr.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ssr]
+name = "Screen Space Reflections"
+description = "Demonstrates screen space reflections with water ripples"
+category = "3D Rendering"
+wasm = false
 
 [[example]]
 name = "color_grading"
