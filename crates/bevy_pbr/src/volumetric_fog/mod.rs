@@ -103,9 +103,9 @@ pub struct VolumetricFogSettings {
     /// Color of the ambient light.
     ///
     /// This is separate from Bevy's [`crate::light::AmbientLight`] because an
-    /// [`EnvironmentMapLight`] is still considered an ambient light for the
+    /// [`crate::environment_map::EnvironmentMapLight`] is still considered an ambient light for the
     /// purposes of volumetric fog. If you're using a
-    /// [`crate::EnvironmentMapLight`], for best results, this should be a good
+    /// [`crate::environment_map::EnvironmentMapLight`], for best results, this should be a good
     /// approximation of the average color of the environment map.
     ///
     /// Defaults to white.
@@ -113,7 +113,7 @@ pub struct VolumetricFogSettings {
 
     /// The brightness of the ambient light.
     ///
-    /// If there's no environment map light, set this to 0.
+    /// If there's no [`crate::environment_map::EnvironmentMapLight`], set this to 0.
     ///
     /// Defaults to 0.1.
     pub ambient_intensity: f32,
