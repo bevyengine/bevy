@@ -62,7 +62,10 @@ use crate::{
     change_detection::Mut,
     component::Component,
     entity::Entity,
-    world::{unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityRef, EntityWorldMut, World},
+    world::{
+        unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityRef, EntityWorldMut,
+        FilteredEntityMut, FilteredEntityRef, World,
+    },
 };
 use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
 
@@ -106,9 +109,9 @@ pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::contains()`].
     pub contains: fn(EntityRef) -> bool,
     /// Function pointer implementing [`ReflectComponent::reflect()`].
-    pub reflect: fn(EntityRef) -> Option<&dyn Reflect>,
+    pub reflect: fn(FilteredEntityRef) -> Option<&dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::reflect_mut()`].
-    pub reflect_mut: fn(EntityMut) -> Option<Mut<dyn Reflect>>,
+    pub reflect_mut: fn(FilteredEntityMut) -> Option<Mut<dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::reflect_unchecked_mut()`].
     ///
     /// # Safety
@@ -170,14 +173,14 @@ impl ReflectComponent {
     }
 
     /// Gets the value of this [`Component`] type from the entity as a reflected reference.
-    pub fn reflect<'a>(&self, entity: EntityRef<'a>) -> Option<&'a dyn Reflect> {
-        (self.0.reflect)(entity)
+    pub fn reflect<'a>(&self, entity: impl Into<FilteredEntityRef<'a>>) -> Option<&'a dyn Reflect> {
+        (self.0.reflect)(entity.into())
     }
 
     /// Gets the value of this [`Component`] type from the entity as a mutable reflected reference.
     pub fn reflect_mut<'a>(
         &self,
-        entity: impl Into<EntityMut<'a>>,
+        entity: impl Into<FilteredEntityMut<'a>>,
     ) -> Option<Mut<'a, dyn Reflect>> {
         (self.0.reflect_mut)(entity.into())
     }
