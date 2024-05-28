@@ -18,15 +18,14 @@ impl Bounded3d for Extrusion<Circle> {
         // Reference: http://iquilezles.org/articles/diskbbox/
 
         let segment_dir = rotation * Vec3::Z;
-        let top = segment_dir * self.half_depth;
-        let bottom = -top;
+        let top = (segment_dir * self.half_depth).abs();
 
         let e = Vec3::ONE - segment_dir * segment_dir;
         let half_size = self.base_shape.radius * Vec3::new(e.x.sqrt(), e.y.sqrt(), e.z.sqrt());
 
         Aabb3d {
-            min: (translation + (top - half_size).min(bottom - half_size)).into(),
-            max: (translation + (top + half_size).max(bottom + half_size)).into(),
+            min: (translation - half_size - top).into(),
+            max: (translation + half_size + top).into(),
         }
     }
 
