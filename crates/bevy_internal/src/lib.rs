@@ -58,6 +58,7 @@ pub use bevy_tasks as tasks;
 #[cfg(feature = "bevy_text")]
 pub use bevy_text as text;
 pub use bevy_time as time;
+pub use bevy_tracing as tracing;
 pub use bevy_transform as transform;
 #[cfg(feature = "bevy_ui")]
 pub use bevy_ui as ui;

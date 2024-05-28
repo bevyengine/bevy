@@ -1,5 +1,6 @@
 # if crate A depends on crate B, B must come before A in this list
 crates=(
+    bevy_tracing
     bevy_utils/macros
     bevy_utils
     bevy_ptr
