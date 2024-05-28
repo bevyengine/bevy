@@ -111,6 +111,8 @@ pub struct Gltf {
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-node).
 #[derive(Asset, Debug, Clone, TypePath)]
 pub struct GltfNode {
+    /// Label of the node, either user defined in GLTF or Node{index}.
+    pub label: String,
     /// Direct children of the node.
     pub children: Vec<GltfNode>,
     /// Mesh of the node.
@@ -127,6 +129,8 @@ pub struct GltfNode {
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-mesh).
 #[derive(Asset, Debug, Clone, TypePath)]
 pub struct GltfMesh {
+    /// Label of the mesh, either user defined in GLTF or Mesh{index}.
+    pub label: String,
     /// Primitives of the glTF mesh.
     pub primitives: Vec<GltfPrimitive>,
     /// Additional data.

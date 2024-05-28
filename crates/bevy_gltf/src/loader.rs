@@ -552,9 +552,11 @@ async fn load_gltf<'a, 'b, 'c>(
             });
         }
 
+        let label = mesh_label(&gltf_mesh);
         let handle = load_context.add_labeled_asset(
             mesh_label(&gltf_mesh),
             super::GltfMesh {
+                label,
                 primitives,
                 extras: get_gltf_extras(gltf_mesh.extras()),
             },
@@ -570,8 +572,8 @@ async fn load_gltf<'a, 'b, 'c>(
     for node in gltf.nodes() {
         let node_label = node_label(&node);
         nodes_intermediate.push((
-            node_label,
             GltfNode {
+                label: node_label,
                 children: vec![],
                 mesh: node
                     .mesh()
@@ -590,7 +592,7 @@ async fn load_gltf<'a, 'b, 'c>(
     }
     let nodes = resolve_node_hierarchy(nodes_intermediate, load_context.path())
         .into_iter()
-        .map(|(label, node)| load_context.add_labeled_asset(label, node))
+        .map(|node| load_context.add_labeled_asset(node.label.clone(), node))
         .collect::<Vec<Handle<GltfNode>>>();
     let named_nodes = named_nodes_intermediate
         .into_iter()
@@ -1630,16 +1632,16 @@ async fn load_buffers(
 }
 
 fn resolve_node_hierarchy(
-    nodes_intermediate: Vec<(String, GltfNode, Vec<usize>)>,
+    nodes_intermediate: Vec<(GltfNode, Vec<usize>)>,
     asset_path: &Path,
-) -> Vec<(String, GltfNode)> {
+) -> Vec<GltfNode> {
     let mut has_errored = false;
     let mut empty_children = VecDeque::new();
     let mut parents = vec![None; nodes_intermediate.len()];
     let mut unprocessed_nodes = nodes_intermediate
         .into_iter()
         .enumerate()
-        .map(|(i, (label, node, children))| {
+        .map(|(i, (node, children))| {
             for child in &children {
                 if let Some(parent) = parents.get_mut(*child) {
                     *parent = Some(i);
@@ -1652,20 +1654,19 @@ fn resolve_node_hierarchy(
             if children.is_empty() {
                 empty_children.push_back(i);
             }
-            (i, (label, node, children))
+            (i, (node, children))
         })
         .collect::<HashMap<_, _>>();
-    let mut nodes = std::collections::HashMap::<usize, (String, GltfNode)>::new();
+    let mut nodes = std::collections::HashMap::<usize, GltfNode>::new();
     while let Some(index) = empty_children.pop_front() {
-        let (label, node, children) = unprocessed_nodes.remove(&index).unwrap();
+        let (node, children) = unprocessed_nodes.remove(&index).unwrap();
         assert!(children.is_empty());
-        nodes.insert(index, (label, node));
+        nodes.insert(index, node);
         if let Some(parent_index) = parents[index] {
-            let (_, parent_node, parent_children) =
-                unprocessed_nodes.get_mut(&parent_index).unwrap();
+            let (parent_node, parent_children) = unprocessed_nodes.get_mut(&parent_index).unwrap();
 
             assert!(parent_children.remove(&index));
-            if let Some((_, child_node)) = nodes.get(&index) {
+            if let Some(child_node) = nodes.get(&index) {
                 parent_node.children.push(child_node.clone());
             }
             if parent_children.is_empty() {
@@ -1923,8 +1924,9 @@ mod test {
     use crate::GltfNode;
 
     impl GltfNode {
-        fn empty() -> Self {
+        fn with_label(label: String) -> Self {
             GltfNode {
+                label,
                 children: vec![],
                 mesh: None,
                 transform: bevy_transform::prelude::Transform::IDENTITY,
@@ -1935,87 +1937,87 @@ mod test {
     #[test]
     fn node_hierarchy_single_node() {
         let result = resolve_node_hierarchy(
-            vec![("l1".to_string(), GltfNode::empty(), vec![])],
+            vec![(GltfNode::with_label("l1".to_string()), vec![])],
             PathBuf::new().as_path(),
         );
 
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].0, "l1");
-        assert_eq!(result[0].1.children.len(), 0);
+        assert_eq!(result[0].label, "l1");
+        assert_eq!(result[0].children.len(), 0);
     }
 
     #[test]
     fn node_hierarchy_no_hierarchy() {
         let result = resolve_node_hierarchy(
             vec![
-                ("l1".to_string(), GltfNode::empty(), vec![]),
-                ("l2".to_string(), GltfNode::empty(), vec![]),
+                (GltfNode::with_label("l1".to_string()), vec![]),
+                (GltfNode::with_label("l2".to_string()), vec![]),
             ],
             PathBuf::new().as_path(),
         );
 
         assert_eq!(result.len(), 2);
-        assert_eq!(result[0].0, "l1");
-        assert_eq!(result[0].1.children.len(), 0);
-        assert_eq!(result[1].0, "l2");
-        assert_eq!(result[1].1.children.len(), 0);
+        assert_eq!(result[0].label, "l1");
+        assert_eq!(result[0].children.len(), 0);
+        assert_eq!(result[1].label, "l2");
+        assert_eq!(result[1].children.len(), 0);
     }
 
     #[test]
     fn node_hierarchy_simple_hierarchy() {
         let result = resolve_node_hierarchy(
             vec![
-                ("l1".to_string(), GltfNode::empty(), vec![1]),
-                ("l2".to_string(), GltfNode::empty(), vec![]),
+                (GltfNode::with_label("l1".to_string()), vec![1]),
+                (GltfNode::with_label("l2".to_string()), vec![]),
             ],
             PathBuf::new().as_path(),
         );
 
         assert_eq!(result.len(), 2);
-        assert_eq!(result[0].0, "l1");
-        assert_eq!(result[0].1.children.len(), 1);
-        assert_eq!(result[1].0, "l2");
-        assert_eq!(result[1].1.children.len(), 0);
+        assert_eq!(result[0].label, "l1");
+        assert_eq!(result[0].children.len(), 1);
+        assert_eq!(result[1].label, "l2");
+        assert_eq!(result[1].children.len(), 0);
     }
 
     #[test]
     fn node_hierarchy_hierarchy() {
         let result = resolve_node_hierarchy(
             vec![
-                ("l1".to_string(), GltfNode::empty(), vec![1]),
-                ("l2".to_string(), GltfNode::empty(), vec![2]),
-                ("l3".to_string(), GltfNode::empty(), vec![3, 4, 5]),
-                ("l4".to_string(), GltfNode::empty(), vec![6]),
-                ("l5".to_string(), GltfNode::empty(), vec![]),
-                ("l6".to_string(), GltfNode::empty(), vec![]),
-                ("l7".to_string(), GltfNode::empty(), vec![]),
+                (GltfNode::with_label("l1".to_string()), vec![1]),
+                (GltfNode::with_label("l2".to_string()), vec![2]),
+                (GltfNode::with_label("l3".to_string()), vec![3, 4, 5]),
+                (GltfNode::with_label("l4".to_string()), vec![6]),
+                (GltfNode::with_label("l5".to_string()), vec![]),
+                (GltfNode::with_label("l6".to_string()), vec![]),
+                (GltfNode::with_label("l7".to_string()), vec![]),
             ],
             PathBuf::new().as_path(),
         );
 
         assert_eq!(result.len(), 7);
-        assert_eq!(result[0].0, "l1");
-        assert_eq!(result[0].1.children.len(), 1);
-        assert_eq!(result[1].0, "l2");
-        assert_eq!(result[1].1.children.len(), 1);
-        assert_eq!(result[2].0, "l3");
-        assert_eq!(result[2].1.children.len(), 3);
-        assert_eq!(result[3].0, "l4");
-        assert_eq!(result[3].1.children.len(), 1);
-        assert_eq!(result[4].0, "l5");
-        assert_eq!(result[4].1.children.len(), 0);
-        assert_eq!(result[5].0, "l6");
-        assert_eq!(result[5].1.children.len(), 0);
-        assert_eq!(result[6].0, "l7");
-        assert_eq!(result[6].1.children.len(), 0);
+        assert_eq!(result[0].label, "l1");
+        assert_eq!(result[0].children.len(), 1);
+        assert_eq!(result[1].label, "l2");
+        assert_eq!(result[1].children.len(), 1);
+        assert_eq!(result[2].label, "l3");
+        assert_eq!(result[2].children.len(), 3);
+        assert_eq!(result[3].label, "l4");
+        assert_eq!(result[3].children.len(), 1);
+        assert_eq!(result[4].label, "l5");
+        assert_eq!(result[4].children.len(), 0);
+        assert_eq!(result[5].label, "l6");
+        assert_eq!(result[5].children.len(), 0);
+        assert_eq!(result[6].label, "l7");
+        assert_eq!(result[6].children.len(), 0);
     }
 
     #[test]
     fn node_hierarchy_cyclic() {
         let result = resolve_node_hierarchy(
             vec![
-                ("l1".to_string(), GltfNode::empty(), vec![1]),
-                ("l2".to_string(), GltfNode::empty(), vec![0]),
+                (GltfNode::with_label("l1".to_string()), vec![1]),
+                (GltfNode::with_label("l2".to_string()), vec![0]),
             ],
             PathBuf::new().as_path(),
         );
@@ -2027,14 +2029,14 @@ mod test {
     fn node_hierarchy_missing_node() {
         let result = resolve_node_hierarchy(
             vec![
-                ("l1".to_string(), GltfNode::empty(), vec![2]),
-                ("l2".to_string(), GltfNode::empty(), vec![]),
+                (GltfNode::with_label("l1".to_string()), vec![2]),
+                (GltfNode::with_label("l2".to_string()), vec![]),
             ],
             PathBuf::new().as_path(),
         );
 
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].0, "l2");
-        assert_eq!(result[0].1.children.len(), 0);
+        assert_eq!(result[0].label, "l2");
+        assert_eq!(result[0].children.len(), 0);
     }
 }
