@@ -19,6 +19,7 @@ use bevy_ecs::query::With;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 
+use crate::state::react_to_resize;
 use crate::{
     converters::{
         self, convert_enabled_buttons, convert_window_level, convert_window_theme,
@@ -177,19 +178,54 @@ pub(crate) fn changed_windows(
                 WindowMode::Windowed => Some(None),
             };
 
+            info!("WindowMode: {new_mode:?}");
+
             if let Some(new_mode) = new_mode {
                 if winit_window.fullscreen() != new_mode {
                     winit_window.set_fullscreen(new_mode);
                 }
             }
         }
+
         if window.resolution != cache.window.resolution {
-            let physical_size = PhysicalSize::new(
-                window.resolution.physical_width(),
-                window.resolution.physical_height(),
+            let mut physical_size = winit_window.inner_size();
+
+            let cached_physical_size = PhysicalSize::new(
+                cache.window.physical_width(),
+                cache.window.physical_height(),
             );
-            if let Some(size_now) = winit_window.request_inner_size(physical_size) {
-                crate::react_to_resize(&mut window, size_now, &mut window_resized, entity);
+
+            let base_scale_factor = window.resolution.base_scale_factor();
+
+            // Note: this may be different from `winit`'s base scale factor if
+            // `scale_factor_override` is set to Some(f32)
+            let scale_factor = window.scale_factor();
+            let cached_scale_factor = cache.window.scale_factor();
+
+            // Check and update `winit`'s physical size only if the window is not maximized
+            if scale_factor != cached_scale_factor && !winit_window.is_maximized() {
+                let logical_size =
+                    if let Some(cached_factor) = cache.window.resolution.scale_factor_override() {
+                        physical_size.to_logical::<f32>(cached_factor as f64)
+                    } else {
+                        physical_size.to_logical::<f32>(base_scale_factor as f64)
+                    };
+
+                // Scale factor changed, updating physical and logical size
+                if let Some(forced_factor) = window.resolution.scale_factor_override() {
+                    // This window is overriding the OS-suggested DPI, so its physical size
+                    // should be set based on the overriding value. Its logical size already
+                    // incorporates any resize constraints.
+                    physical_size = logical_size.to_physical::<u32>(forced_factor as f64);
+                } else {
+                    physical_size = logical_size.to_physical::<u32>(base_scale_factor as f64);
+                }
+            }
+
+            if physical_size != cached_physical_size {
+                if let Some(new_physical_size) = winit_window.request_inner_size(physical_size) {
+                    react_to_resize(entity, &mut window, new_physical_size, &mut window_resized);
+                }
             }
         }
 

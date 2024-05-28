@@ -22,7 +22,7 @@ use bevy_a11y::AccessibilityRequested;
 use bevy_app::{App, Last, Plugin};
 use bevy_ecs::prelude::*;
 #[allow(deprecated)]
-use bevy_window::{exit_on_all_closed, Window, WindowCreated, WindowResized};
+use bevy_window::{exit_on_all_closed, Window, WindowCreated};
 pub use system::create_windows;
 use system::{changed_windows, despawn_windows};
 pub use winit_config::*;
@@ -178,19 +178,3 @@ pub type CreateWindowParams<'w, 's, F = ()> = (
     ResMut<'w, WinitActionRequestHandlers>,
     Res<'w, AccessibilityRequested>,
 );
-
-fn react_to_resize(
-    win: &mut Mut<'_, Window>,
-    size: winit::dpi::PhysicalSize<u32>,
-    window_resized: &mut EventWriter<WindowResized>,
-    window: Entity,
-) {
-    win.resolution
-        .set_physical_resolution(size.width, size.height);
-
-    window_resized.send(WindowResized {
-        window,
-        width: win.width(),
-        height: win.height(),
-    });
-}

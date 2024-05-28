@@ -17,7 +17,7 @@ use bevy_tasks::tick_global_task_pools_on_main_thread;
 use bevy_utils::Instant;
 use std::marker::PhantomData;
 use winit::application::ApplicationHandler;
-use winit::dpi::{LogicalSize, PhysicalSize};
+use winit::dpi::PhysicalSize;
 use winit::event;
 use winit::event::{DeviceEvent, DeviceId, StartCause, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
@@ -36,8 +36,8 @@ use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use crate::accessibility::AccessKitAdapters;
 use crate::system::CachedWindow;
 use crate::{
-    converters, create_windows, react_to_resize, AppSendEvent, CreateWindowParams, UpdateMode,
-    WinitEvent, WinitSettings, WinitWindows,
+    converters, create_windows, AppSendEvent, CreateWindowParams, UpdateMode, WinitEvent,
+    WinitSettings, WinitWindows,
 };
 
 /// Persistent state that is used to run the [`App`] according to the current
@@ -72,6 +72,8 @@ struct WinitAppRunnerState<T: Event> {
 
     event_writer_system_state: SystemState<(
         EventWriter<'static, WindowResized>,
+        EventWriter<'static, WindowBackendScaleFactorChanged>,
+        EventWriter<'static, WindowScaleFactorChanged>,
         NonSend<'static, WinitWindows>,
         Query<'static, 'static, (&'static mut Window, &'static mut CachedWindow)>,
         NonSendMut<'static, AccessKitAdapters>,
@@ -84,6 +86,8 @@ impl<T: Event> WinitAppRunnerState<T> {
 
         let event_writer_system_state: SystemState<(
             EventWriter<WindowResized>,
+            EventWriter<WindowBackendScaleFactorChanged>,
+            EventWriter<WindowScaleFactorChanged>,
             NonSend<WinitWindows>,
             Query<(&mut Window, &mut CachedWindow)>,
             NonSendMut<AccessKitAdapters>,
@@ -177,8 +181,14 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
     ) {
         self.window_event_received = true;
 
-        let (mut window_resized, winit_windows, mut windows, mut access_kit_adapters) =
-            self.event_writer_system_state.get_mut(self.app.world_mut());
+        let (
+            mut window_resized,
+            mut window_backend_scale_factor_changed,
+            mut window_scale_factor_changed,
+            winit_windows,
+            mut windows,
+            mut access_kit_adapters,
+        ) = self.event_writer_system_state.get_mut(self.app.world_mut());
 
         let Some(window) = winit_windows.get_window_entity(window_id) else {
             warn!("Skipped event {event:?} for unknown winit Window Id {window_id:?}");
@@ -200,7 +210,16 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
 
         match event {
             WindowEvent::Resized(size) => {
-                react_to_resize(&mut win, size, &mut window_resized, window);
+                react_to_resize(window, &mut win, size, &mut window_resized);
+            }
+            WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+                react_to_scale_factor_change(
+                    window,
+                    &mut win,
+                    scale_factor,
+                    &mut window_backend_scale_factor_changed,
+                    &mut window_scale_factor_changed,
+                );
             }
             WindowEvent::CloseRequested => self.winit_events.send(WindowCloseRequested { window }),
             WindowEvent::KeyboardInput { ref event, .. } => {
@@ -274,58 +293,6 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                     .to_logical(win.resolution.scale_factor() as f64);
                 self.winit_events
                     .send(converters::convert_touch_input(touch, location, window));
-            }
-            WindowEvent::ScaleFactorChanged {
-                scale_factor,
-                mut inner_size_writer,
-            } => {
-                let prior_factor = win.resolution.scale_factor();
-                win.resolution.set_scale_factor(scale_factor as f32);
-                // Note: this may be different from new_scale_factor if
-                // `scale_factor_override` is set to Some(thing)
-                let new_factor = win.resolution.scale_factor();
-
-                let mut new_inner_size =
-                    PhysicalSize::new(win.physical_width(), win.physical_height());
-                let scale_factor_override = win.resolution.scale_factor_override();
-                if let Some(forced_factor) = scale_factor_override {
-                    // This window is overriding the OS-suggested DPI, so its physical size
-                    // should be set based on the overriding value. Its logical size already
-                    // incorporates any resize constraints.
-                    let maybe_new_inner_size = LogicalSize::new(win.width(), win.height())
-                        .to_physical::<u32>(forced_factor as f64);
-                    if let Err(err) = inner_size_writer.request_inner_size(new_inner_size) {
-                        warn!("Winit Failed to resize the window: {err}");
-                    } else {
-                        new_inner_size = maybe_new_inner_size;
-                    }
-                }
-                let new_logical_width = new_inner_size.width as f32 / new_factor;
-                let new_logical_height = new_inner_size.height as f32 / new_factor;
-
-                let width_equal = relative_eq!(win.width(), new_logical_width);
-                let height_equal = relative_eq!(win.height(), new_logical_height);
-                win.resolution
-                    .set_physical_resolution(new_inner_size.width, new_inner_size.height);
-
-                self.winit_events.send(WindowBackendScaleFactorChanged {
-                    window,
-                    scale_factor,
-                });
-                if scale_factor_override.is_none() && !relative_eq!(new_factor, prior_factor) {
-                    self.winit_events.send(WindowScaleFactorChanged {
-                        window,
-                        scale_factor,
-                    });
-                }
-
-                if !width_equal || !height_equal {
-                    self.winit_events.send(WindowResized {
-                        window,
-                        width: new_logical_width,
-                        height: new_logical_height,
-                    });
-                }
             }
             WindowEvent::Focused(focused) => {
                 win.focused = focused;
@@ -759,4 +726,47 @@ pub fn winit_runner<T: Event>(mut app: App) -> AppExit {
         error!("Failed to receive a app exit code! This is a bug");
         AppExit::error()
     })
+}
+
+pub(crate) fn react_to_resize(
+    window_entity: Entity,
+    window: &mut Mut<'_, Window>,
+    size: PhysicalSize<u32>,
+    window_resized: &mut EventWriter<WindowResized>,
+) {
+    window
+        .resolution
+        .set_physical_resolution(size.width, size.height);
+
+    bevy_log::info!("Resizing: {size:?}");
+    window_resized.send(WindowResized {
+        window: window_entity,
+        width: window.width(),
+        height: window.height(),
+    });
+}
+
+pub(crate) fn react_to_scale_factor_change(
+    window_entity: Entity,
+    window: &mut Mut<'_, Window>,
+    scale_factor: f64,
+    window_backend_scale_factor_changed: &mut EventWriter<WindowBackendScaleFactorChanged>,
+    window_scale_factor_changed: &mut EventWriter<WindowScaleFactorChanged>,
+) {
+    window.resolution.set_scale_factor(scale_factor as f32);
+
+    window_backend_scale_factor_changed.send(WindowBackendScaleFactorChanged {
+        window: window_entity,
+        scale_factor,
+    });
+
+    let prior_factor = window.resolution.scale_factor();
+    let scale_factor_override = window.resolution.scale_factor_override();
+
+    if scale_factor_override.is_none() && !relative_eq!(scale_factor as f32, prior_factor) {
+        window_scale_factor_changed.send(WindowScaleFactorChanged {
+            window: window_entity,
+            scale_factor,
+        });
+    }
 }
