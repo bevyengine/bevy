@@ -274,7 +274,7 @@ pub fn winit_runner(mut app: App) -> AppExit {
     let event_loop = app
         .world_mut()
         .remove_non_send_resource::<EventLoop<UserEvent>>()
-        .unwrap();
+        .expect("no event loop for user events found in the provided app");
 
     app.world_mut()
         .insert_non_send_resource(event_loop.create_proxy());
