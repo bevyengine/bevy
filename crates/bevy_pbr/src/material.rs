@@ -516,10 +516,17 @@ pub const fn screen_space_specular_transmission_pipeline_key(
 /// them to [`BinnedRenderPhase`]s or [`SortedRenderPhase`]s as appropriate.
 #[allow(clippy::too_many_arguments)]
 pub fn queue_material_meshes<M: Material>(
-    opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
-    alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask3d>>,
-    transmissive_draw_functions: Res<DrawFunctions<Transmissive3d>>,
-    transparent_draw_functions: Res<DrawFunctions<Transparent3d>>,
+    (
+        opaque_draw_functions,
+        alpha_mask_draw_functions,
+        transmissive_draw_functions,
+        transparent_draw_functions,
+    ): (
+        Res<DrawFunctions<Opaque3d>>,
+        Res<DrawFunctions<AlphaMask3d>>,
+        Res<DrawFunctions<Transmissive3d>>,
+        Res<DrawFunctions<Transparent3d>>,
+    ),
     material_pipeline: Res<MaterialPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
@@ -530,7 +537,12 @@ pub fn queue_material_meshes<M: Material>(
     render_material_instances: Res<RenderMaterialInstances<M>>,
     render_lightmaps: Res<RenderLightmaps>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
+    mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
+    mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
+    mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
+    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     mut views: Query<(
+        Entity,
         &ExtractedView,
         &VisibleEntities,
         Option<&Tonemapping>,
@@ -546,10 +558,6 @@ pub fn queue_material_meshes<M: Material>(
         Option<&Camera3d>,
         Has<TemporalJitter>,
         Option<&Projection>,
-        &mut BinnedRenderPhase<Opaque3d>,
-        &mut BinnedRenderPhase<AlphaMask3d>,
-        &mut SortedRenderPhase<Transmissive3d>,
-        &mut SortedRenderPhase<Transparent3d>,
         (
             Has<RenderViewLightProbes<EnvironmentMapLight>>,
             Has<RenderViewLightProbes<IrradianceVolume>>,
@@ -559,6 +567,7 @@ pub fn queue_material_meshes<M: Material>(
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     for (
+        view_entity,
         view,
         visible_entities,
         tonemapping,
@@ -569,13 +578,24 @@ pub fn queue_material_meshes<M: Material>(
         camera_3d,
         temporal_jitter,
         projection,
-        mut opaque_phase,
-        mut alpha_mask_phase,
-        mut transmissive_phase,
-        mut transparent_phase,
         (has_environment_maps, has_irradiance_volumes),
     ) in &mut views
     {
+        let (
+            Some(opaque_phase),
+            Some(alpha_mask_phase),
+            Some(transmissive_phase),
+            Some(transparent_phase),
+        ) = (
+            opaque_render_phases.get_mut(&view_entity),
+            alpha_mask_render_phases.get_mut(&view_entity),
+            transmissive_render_phases.get_mut(&view_entity),
+            transparent_render_phases.get_mut(&view_entity),
+        )
+        else {
+            continue;
+        };
+
         let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_transmissive_pbr = transmissive_draw_functions.read().id::<DrawMaterial<M>>();

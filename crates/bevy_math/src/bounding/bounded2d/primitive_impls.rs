@@ -2,11 +2,15 @@
 
 use crate::{
     primitives::{
-        BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, Ellipse, Line2d, Plane2d, Polygon,
-        Polyline2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
+        Arc2d, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, CircularSector, CircularSegment,
+        Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus,
+        Segment2d, Triangle2d,
     },
     Dir2, Mat2, Rotation2d, Vec2,
 };
+use std::f32::consts::{FRAC_PI_2, PI, TAU};
+
+use smallvec::SmallVec;
 
 use super::{Aabb2d, Bounded2d, BoundingCircle};
 
@@ -21,6 +25,120 @@ impl Bounded2d for Circle {
         _rotation: impl Into<Rotation2d>,
     ) -> BoundingCircle {
         BoundingCircle::new(translation, self.radius)
+    }
+}
+
+// Compute the axis-aligned bounding points of a rotated arc, used for computing the AABB of arcs and derived shapes.
+// The return type has room for 7 points so that the CircularSector code can add an additional point.
+#[inline]
+fn arc_bounding_points(arc: Arc2d, rotation: impl Into<Rotation2d>) -> SmallVec<[Vec2; 7]> {
+    // Otherwise, the extreme points will always be either the endpoints or the axis-aligned extrema of the arc's circle.
+    // We need to compute which axis-aligned extrema are actually contained within the rotated arc.
+    let mut bounds = SmallVec::<[Vec2; 7]>::new();
+    let rotation = rotation.into();
+    bounds.push(rotation * arc.left_endpoint());
+    bounds.push(rotation * arc.right_endpoint());
+
+    // The half-angles are measured from a starting point of π/2, being the angle of Vec2::Y.
+    // Compute the normalized angles of the endpoints with the rotation taken into account, and then
+    // check if we are looking for an angle that is between or outside them.
+    let left_angle = (FRAC_PI_2 + arc.half_angle + rotation.as_radians()).rem_euclid(TAU);
+    let right_angle = (FRAC_PI_2 - arc.half_angle + rotation.as_radians()).rem_euclid(TAU);
+    let inverted = left_angle < right_angle;
+    for extremum in [Vec2::X, Vec2::Y, Vec2::NEG_X, Vec2::NEG_Y] {
+        let angle = extremum.to_angle().rem_euclid(TAU);
+        // If inverted = true, then right_angle > left_angle, so we are looking for an angle that is not between them.
+        // There's a chance that this condition fails due to rounding error, if the endpoint angle is juuuust shy of the axis.
+        // But in that case, the endpoint itself is within rounding error of the axis and will define the bounds just fine.
+        #[allow(clippy::nonminimal_bool)]
+        if !inverted && angle >= right_angle && angle <= left_angle
+            || inverted && (angle >= right_angle || angle <= left_angle)
+        {
+            bounds.push(extremum * arc.radius);
+        }
+    }
+    bounds
+}
+
+impl Bounded2d for Arc2d {
+    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d {
+        // If our arc covers more than a circle, just return the bounding box of the circle.
+        if self.half_angle >= PI {
+            return Circle::new(self.radius).aabb_2d(translation, rotation);
+        }
+
+        Aabb2d::from_point_cloud(translation, 0.0, &arc_bounding_points(*self, rotation))
+    }
+
+    fn bounding_circle(
+        &self,
+        translation: Vec2,
+        rotation: impl Into<Rotation2d>,
+    ) -> BoundingCircle {
+        // There are two possibilities for the bounding circle.
+        if self.is_major() {
+            // If the arc is major, then the widest distance between two points is a diameter of the arc's circle;
+            // therefore, that circle is the bounding radius.
+            BoundingCircle::new(translation, self.radius)
+        } else {
+            // Otherwise, the widest distance between two points is the chord,
+            // so a circle of that diameter around the midpoint will contain the entire arc.
+            let center = rotation.into() * self.chord_midpoint();
+            BoundingCircle::new(center + translation, self.half_chord_length())
+        }
+    }
+}
+
+impl Bounded2d for CircularSector {
+    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d {
+        // If our sector covers more than a circle, just return the bounding box of the circle.
+        if self.half_angle() >= PI {
+            return Circle::new(self.radius()).aabb_2d(translation, rotation);
+        }
+
+        // Otherwise, we use the same logic as for Arc2d, above, just with the circle's center as an additional possibility.
+        let mut bounds = arc_bounding_points(self.arc, rotation);
+        bounds.push(Vec2::ZERO);
+
+        Aabb2d::from_point_cloud(translation, 0.0, &bounds)
+    }
+
+    fn bounding_circle(
+        &self,
+        translation: Vec2,
+        rotation: impl Into<Rotation2d>,
+    ) -> BoundingCircle {
+        if self.arc.is_major() {
+            // If the arc is major, that is, greater than a semicircle,
+            // then bounding circle is just the circle defining the sector.
+            BoundingCircle::new(translation, self.arc.radius)
+        } else {
+            // However, when the arc is minor,
+            // we need our bounding circle to include both endpoints of the arc as well as the circle center.
+            // This means we need the circumcircle of those three points.
+            // The circumcircle will always have a greater curvature than the circle itself, so it will contain
+            // the entire circular sector.
+            Triangle2d::new(
+                Vec2::ZERO,
+                self.arc.left_endpoint(),
+                self.arc.right_endpoint(),
+            )
+            .bounding_circle(translation, rotation)
+        }
+    }
+}
+
+impl Bounded2d for CircularSegment {
+    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d {
+        self.arc.aabb_2d(translation, rotation)
+    }
+
+    fn bounding_circle(
+        &self,
+        translation: Vec2,
+        rotation: impl Into<Rotation2d>,
+    ) -> BoundingCircle {
+        self.arc.bounding_circle(translation, rotation)
     }
 }
 
@@ -62,6 +180,33 @@ impl Bounded2d for Ellipse {
         _rotation: impl Into<Rotation2d>,
     ) -> BoundingCircle {
         BoundingCircle::new(translation, self.semi_major())
+    }
+}
+
+impl Bounded2d for Rhombus {
+    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d {
+        let rotation_mat = rotation.into();
+
+        let [rotated_x_half_diagonal, rotated_y_half_diagonal] = [
+            rotation_mat * Vec2::new(self.half_diagonals.x, 0.0),
+            rotation_mat * Vec2::new(0.0, self.half_diagonals.y),
+        ];
+        let aabb_half_extent = rotated_x_half_diagonal
+            .abs()
+            .max(rotated_y_half_diagonal.abs());
+
+        Aabb2d {
+            min: -aabb_half_extent + translation,
+            max: aabb_half_extent + translation,
+        }
+    }
+
+    fn bounding_circle(
+        &self,
+        translation: Vec2,
+        _rotation: impl Into<Rotation2d>,
+    ) -> BoundingCircle {
+        BoundingCircle::new(translation, self.circumradius())
     }
 }
 
@@ -321,13 +466,16 @@ impl Bounded2d for Capsule2d {
 
 #[cfg(test)]
 mod tests {
+    use std::f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, FRAC_PI_6, TAU};
+
+    use approx::assert_abs_diff_eq;
     use glam::Vec2;
 
     use crate::{
         bounding::Bounded2d,
         primitives::{
-            Capsule2d, Circle, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Rectangle,
-            RegularPolygon, Segment2d, Triangle2d,
+            Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d, Plane2d,
+            Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus, Segment2d, Triangle2d,
         },
         Dir2,
     };
@@ -347,6 +495,294 @@ mod tests {
     }
 
     #[test]
+    // Arcs and circular segments have the same bounding shapes so they share test cases.
+    fn arc_and_segment() {
+        struct TestCase {
+            name: &'static str,
+            arc: Arc2d,
+            translation: Vec2,
+            rotation: f32,
+            aabb_min: Vec2,
+            aabb_max: Vec2,
+            bounding_circle_center: Vec2,
+            bounding_circle_radius: f32,
+        }
+
+        // The apothem of an arc covering 1/6th of a circle.
+        let apothem = f32::sqrt(3.0) / 2.0;
+        let tests = [
+            // Test case: a basic minor arc
+            TestCase {
+                name: "1/6th circle untransformed",
+                arc: Arc2d::from_radians(1.0, FRAC_PI_3),
+                translation: Vec2::ZERO,
+                rotation: 0.0,
+                aabb_min: Vec2::new(-0.5, apothem),
+                aabb_max: Vec2::new(0.5, 1.0),
+                bounding_circle_center: Vec2::new(0.0, apothem),
+                bounding_circle_radius: 0.5,
+            },
+            // Test case: a smaller arc, verifying that radius scaling works
+            TestCase {
+                name: "1/6th circle with radius 0.5",
+                arc: Arc2d::from_radians(0.5, FRAC_PI_3),
+                translation: Vec2::ZERO,
+                rotation: 0.0,
+                aabb_min: Vec2::new(-0.25, apothem / 2.0),
+                aabb_max: Vec2::new(0.25, 0.5),
+                bounding_circle_center: Vec2::new(0.0, apothem / 2.0),
+                bounding_circle_radius: 0.25,
+            },
+            // Test case: a larger arc, verifying that radius scaling works
+            TestCase {
+                name: "1/6th circle with radius 2.0",
+                arc: Arc2d::from_radians(2.0, FRAC_PI_3),
+                translation: Vec2::ZERO,
+                rotation: 0.0,
+                aabb_min: Vec2::new(-1.0, 2.0 * apothem),
+                aabb_max: Vec2::new(1.0, 2.0),
+                bounding_circle_center: Vec2::new(0.0, 2.0 * apothem),
+                bounding_circle_radius: 1.0,
+            },
+            // Test case: translation of a minor arc
+            TestCase {
+                name: "1/6th circle translated",
+                arc: Arc2d::from_radians(1.0, FRAC_PI_3),
+                translation: Vec2::new(2.0, 3.0),
+                rotation: 0.0,
+                aabb_min: Vec2::new(1.5, 3.0 + apothem),
+                aabb_max: Vec2::new(2.5, 4.0),
+                bounding_circle_center: Vec2::new(2.0, 3.0 + apothem),
+                bounding_circle_radius: 0.5,
+            },
+            // Test case: rotation of a minor arc
+            TestCase {
+                name: "1/6th circle rotated",
+                arc: Arc2d::from_radians(1.0, FRAC_PI_3),
+                translation: Vec2::ZERO,
+                // Rotate left by 1/12 of a circle, so the right endpoint is on the y-axis.
+                rotation: FRAC_PI_6,
+                aabb_min: Vec2::new(-apothem, 0.5),
+                aabb_max: Vec2::new(0.0, 1.0),
+                // The exact coordinates here are not obvious, but can be computed by constructing
+                // an altitude from the midpoint of the chord to the y-axis and using the right triangle
+                // similarity theorem.
+                bounding_circle_center: Vec2::new(-apothem / 2.0, apothem.powi(2)),
+                bounding_circle_radius: 0.5,
+            },
+            // Test case: handling of axis-aligned extrema
+            TestCase {
+                name: "1/4er circle rotated to be axis-aligned",
+                arc: Arc2d::from_radians(1.0, FRAC_PI_2),
+                translation: Vec2::ZERO,
+                // Rotate right by 1/8 of a circle, so the right endpoint is on the x-axis and the left endpoint is on the y-axis.
+                rotation: -FRAC_PI_4,
+                aabb_min: Vec2::ZERO,
+                aabb_max: Vec2::splat(1.0),
+                bounding_circle_center: Vec2::splat(0.5),
+                bounding_circle_radius: f32::sqrt(2.0) / 2.0,
+            },
+            // Test case: a basic major arc
+            TestCase {
+                name: "5/6th circle untransformed",
+                arc: Arc2d::from_radians(1.0, 5.0 * FRAC_PI_3),
+                translation: Vec2::ZERO,
+                rotation: 0.0,
+                aabb_min: Vec2::new(-1.0, -apothem),
+                aabb_max: Vec2::new(1.0, 1.0),
+                bounding_circle_center: Vec2::ZERO,
+                bounding_circle_radius: 1.0,
+            },
+            // Test case: a translated major arc
+            TestCase {
+                name: "5/6th circle translated",
+                arc: Arc2d::from_radians(1.0, 5.0 * FRAC_PI_3),
+                translation: Vec2::new(2.0, 3.0),
+                rotation: 0.0,
+                aabb_min: Vec2::new(1.0, 3.0 - apothem),
+                aabb_max: Vec2::new(3.0, 4.0),
+                bounding_circle_center: Vec2::new(2.0, 3.0),
+                bounding_circle_radius: 1.0,
+            },
+            // Test case: a rotated major arc, with inverted left/right angles
+            TestCase {
+                name: "5/6th circle rotated",
+                arc: Arc2d::from_radians(1.0, 5.0 * FRAC_PI_3),
+                translation: Vec2::ZERO,
+                // Rotate left by 1/12 of a circle, so the left endpoint is on the y-axis.
+                rotation: FRAC_PI_6,
+                aabb_min: Vec2::new(-1.0, -1.0),
+                aabb_max: Vec2::new(1.0, 1.0),
+                bounding_circle_center: Vec2::ZERO,
+                bounding_circle_radius: 1.0,
+            },
+        ];
+
+        for test in tests {
+            println!("subtest case: {}", test.name);
+            let segment: CircularSegment = test.arc.into();
+
+            let arc_aabb = test.arc.aabb_2d(test.translation, test.rotation);
+            assert_abs_diff_eq!(test.aabb_min, arc_aabb.min);
+            assert_abs_diff_eq!(test.aabb_max, arc_aabb.max);
+            let segment_aabb = segment.aabb_2d(test.translation, test.rotation);
+            assert_abs_diff_eq!(test.aabb_min, segment_aabb.min);
+            assert_abs_diff_eq!(test.aabb_max, segment_aabb.max);
+
+            let arc_bounding_circle = test.arc.bounding_circle(test.translation, test.rotation);
+            assert_abs_diff_eq!(test.bounding_circle_center, arc_bounding_circle.center);
+            assert_abs_diff_eq!(test.bounding_circle_radius, arc_bounding_circle.radius());
+            let segment_bounding_circle = segment.bounding_circle(test.translation, test.rotation);
+            assert_abs_diff_eq!(test.bounding_circle_center, segment_bounding_circle.center);
+            assert_abs_diff_eq!(
+                test.bounding_circle_radius,
+                segment_bounding_circle.radius()
+            );
+        }
+    }
+
+    #[test]
+    fn circular_sector() {
+        struct TestCase {
+            name: &'static str,
+            arc: Arc2d,
+            translation: Vec2,
+            rotation: f32,
+            aabb_min: Vec2,
+            aabb_max: Vec2,
+            bounding_circle_center: Vec2,
+            bounding_circle_radius: f32,
+        }
+
+        // The apothem of an arc covering 1/6th of a circle.
+        let apothem = f32::sqrt(3.0) / 2.0;
+        let inv_sqrt_3 = f32::sqrt(3.0).recip();
+        let tests = [
+            // Test case: An sector whose arc is minor, but whose bounding circle is not the circumcircle of the endpoints and center
+            TestCase {
+                name: "1/3rd circle",
+                arc: Arc2d::from_radians(1.0, TAU / 3.0),
+                translation: Vec2::ZERO,
+                rotation: 0.0,
+                aabb_min: Vec2::new(-apothem, 0.0),
+                aabb_max: Vec2::new(apothem, 1.0),
+                bounding_circle_center: Vec2::new(0.0, 0.5),
+                bounding_circle_radius: apothem,
+            },
+            // The remaining test cases are selected as for arc_and_segment.
+            TestCase {
+                name: "1/6th circle untransformed",
+                arc: Arc2d::from_radians(1.0, FRAC_PI_3),
+                translation: Vec2::ZERO,
+                rotation: 0.0,
+                aabb_min: Vec2::new(-0.5, 0.0),
+                aabb_max: Vec2::new(0.5, 1.0),
+                // The bounding circle is a circumcircle of an equilateral triangle with side length 1.
+                // The distance from the corner to the center of such a triangle is 1/sqrt(3).
+                bounding_circle_center: Vec2::new(0.0, inv_sqrt_3),
+                bounding_circle_radius: inv_sqrt_3,
+            },
+            TestCase {
+                name: "1/6th circle with radius 0.5",
+                arc: Arc2d::from_radians(0.5, FRAC_PI_3),
+                translation: Vec2::ZERO,
+                rotation: 0.0,
+                aabb_min: Vec2::new(-0.25, 0.0),
+                aabb_max: Vec2::new(0.25, 0.5),
+                bounding_circle_center: Vec2::new(0.0, inv_sqrt_3 / 2.0),
+                bounding_circle_radius: inv_sqrt_3 / 2.0,
+            },
+            TestCase {
+                name: "1/6th circle with radius 2.0",
+                arc: Arc2d::from_radians(2.0, FRAC_PI_3),
+                translation: Vec2::ZERO,
+                rotation: 0.0,
+                aabb_min: Vec2::new(-1.0, 0.0),
+                aabb_max: Vec2::new(1.0, 2.0),
+                bounding_circle_center: Vec2::new(0.0, 2.0 * inv_sqrt_3),
+                bounding_circle_radius: 2.0 * inv_sqrt_3,
+            },
+            TestCase {
+                name: "1/6th circle translated",
+                arc: Arc2d::from_radians(1.0, FRAC_PI_3),
+                translation: Vec2::new(2.0, 3.0),
+                rotation: 0.0,
+                aabb_min: Vec2::new(1.5, 3.0),
+                aabb_max: Vec2::new(2.5, 4.0),
+                bounding_circle_center: Vec2::new(2.0, 3.0 + inv_sqrt_3),
+                bounding_circle_radius: inv_sqrt_3,
+            },
+            TestCase {
+                name: "1/6th circle rotated",
+                arc: Arc2d::from_radians(1.0, FRAC_PI_3),
+                translation: Vec2::ZERO,
+                // Rotate left by 1/12 of a circle, so the right endpoint is on the y-axis.
+                rotation: FRAC_PI_6,
+                aabb_min: Vec2::new(-apothem, 0.0),
+                aabb_max: Vec2::new(0.0, 1.0),
+                // The x-coordinate is now the inradius of the equilateral triangle, which is sqrt(3)/2.
+                bounding_circle_center: Vec2::new(-inv_sqrt_3 / 2.0, 0.5),
+                bounding_circle_radius: inv_sqrt_3,
+            },
+            TestCase {
+                name: "1/4er circle rotated to be axis-aligned",
+                arc: Arc2d::from_radians(1.0, FRAC_PI_2),
+                translation: Vec2::ZERO,
+                // Rotate right by 1/8 of a circle, so the right endpoint is on the x-axis and the left endpoint is on the y-axis.
+                rotation: -FRAC_PI_4,
+                aabb_min: Vec2::ZERO,
+                aabb_max: Vec2::splat(1.0),
+                bounding_circle_center: Vec2::splat(0.5),
+                bounding_circle_radius: f32::sqrt(2.0) / 2.0,
+            },
+            TestCase {
+                name: "5/6th circle untransformed",
+                arc: Arc2d::from_radians(1.0, 5.0 * FRAC_PI_3),
+                translation: Vec2::ZERO,
+                rotation: 0.0,
+                aabb_min: Vec2::new(-1.0, -apothem),
+                aabb_max: Vec2::new(1.0, 1.0),
+                bounding_circle_center: Vec2::ZERO,
+                bounding_circle_radius: 1.0,
+            },
+            TestCase {
+                name: "5/6th circle translated",
+                arc: Arc2d::from_radians(1.0, 5.0 * FRAC_PI_3),
+                translation: Vec2::new(2.0, 3.0),
+                rotation: 0.0,
+                aabb_min: Vec2::new(1.0, 3.0 - apothem),
+                aabb_max: Vec2::new(3.0, 4.0),
+                bounding_circle_center: Vec2::new(2.0, 3.0),
+                bounding_circle_radius: 1.0,
+            },
+            TestCase {
+                name: "5/6th circle rotated",
+                arc: Arc2d::from_radians(1.0, 5.0 * FRAC_PI_3),
+                translation: Vec2::ZERO,
+                // Rotate left by 1/12 of a circle, so the left endpoint is on the y-axis.
+                rotation: FRAC_PI_6,
+                aabb_min: Vec2::new(-1.0, -1.0),
+                aabb_max: Vec2::new(1.0, 1.0),
+                bounding_circle_center: Vec2::ZERO,
+                bounding_circle_radius: 1.0,
+            },
+        ];
+
+        for test in tests {
+            println!("subtest case: {}", test.name);
+            let sector: CircularSector = test.arc.into();
+
+            let aabb = sector.aabb_2d(test.translation, test.rotation);
+            assert_abs_diff_eq!(test.aabb_min, aabb.min);
+            assert_abs_diff_eq!(test.aabb_max, aabb.max);
+
+            let bounding_circle = sector.bounding_circle(test.translation, test.rotation);
+            assert_abs_diff_eq!(test.bounding_circle_center, bounding_circle.center);
+            assert_abs_diff_eq!(test.bounding_circle_radius, bounding_circle.radius());
+        }
+    }
+
+    #[test]
     fn ellipse() {
         let ellipse = Ellipse::new(1.0, 0.5);
         let translation = Vec2::new(2.0, 1.0);
@@ -358,6 +794,31 @@ mod tests {
         let bounding_circle = ellipse.bounding_circle(translation, 0.0);
         assert_eq!(bounding_circle.center, translation);
         assert_eq!(bounding_circle.radius(), 1.0);
+    }
+
+    #[test]
+    fn rhombus() {
+        let rhombus = Rhombus::new(2.0, 1.0);
+        let translation = Vec2::new(2.0, 1.0);
+
+        let aabb = rhombus.aabb_2d(translation, std::f32::consts::FRAC_PI_4);
+        assert_eq!(aabb.min, Vec2::new(1.2928932, 0.29289323));
+        assert_eq!(aabb.max, Vec2::new(2.7071068, 1.7071068));
+
+        let bounding_circle = rhombus.bounding_circle(translation, std::f32::consts::FRAC_PI_4);
+        assert_eq!(bounding_circle.center, translation);
+        assert_eq!(bounding_circle.radius(), 1.0);
+
+        let rhombus = Rhombus::new(0.0, 0.0);
+        let translation = Vec2::new(0.0, 0.0);
+
+        let aabb = rhombus.aabb_2d(translation, std::f32::consts::FRAC_PI_4);
+        assert_eq!(aabb.min, Vec2::new(0.0, 0.0));
+        assert_eq!(aabb.max, Vec2::new(0.0, 0.0));
+
+        let bounding_circle = rhombus.bounding_circle(translation, std::f32::consts::FRAC_PI_4);
+        assert_eq!(bounding_circle.center, translation);
+        assert_eq!(bounding_circle.radius(), 0.0);
     }
 
     #[test]

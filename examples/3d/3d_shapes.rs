@@ -24,7 +24,7 @@ fn main() {
 #[derive(Component)]
 struct Shape;
 
-const X_EXTENT: f32 = 12.0;
+const X_EXTENT: f32 = 14.0;
 
 fn setup(
     mut commands: Commands,
@@ -39,10 +39,12 @@ fn setup(
 
     let shapes = [
         meshes.add(Cuboid::default()),
+        meshes.add(Tetrahedron::default()),
         meshes.add(Capsule3d::default()),
         meshes.add(Torus::default()),
         meshes.add(Cylinder::default()),
         meshes.add(Cone::default()),
+        meshes.add(ConicalFrustum::default()),
         meshes.add(Sphere::default().mesh().ico(5).unwrap()),
         meshes.add(Sphere::default().mesh().uv(32, 18)),
     ];

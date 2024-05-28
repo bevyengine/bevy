@@ -2,6 +2,11 @@ use glam::FloatExt;
 
 use crate::prelude::{Mat2, Vec2};
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// A counterclockwise 2D rotation in radians.
 ///
 /// The rotation angle is wrapped to be within the `(-pi, pi]` range.
@@ -29,6 +34,15 @@ use crate::prelude::{Mat2, Vec2};
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Rotation2d {
     /// The cosine of the rotation angle in radians.
     ///
@@ -386,7 +400,7 @@ impl std::ops::Mul<Vec2> for Rotation2d {
     }
 }
 
-#[cfg(feature = "approx")]
+#[cfg(any(feature = "approx", test))]
 impl approx::AbsDiffEq for Rotation2d {
     type Epsilon = f32;
     fn default_epsilon() -> f32 {
@@ -397,7 +411,7 @@ impl approx::AbsDiffEq for Rotation2d {
     }
 }
 
-#[cfg(feature = "approx")]
+#[cfg(any(feature = "approx", test))]
 impl approx::RelativeEq for Rotation2d {
     fn default_max_relative() -> f32 {
         f32::EPSILON
@@ -408,7 +422,7 @@ impl approx::RelativeEq for Rotation2d {
     }
 }
 
-#[cfg(feature = "approx")]
+#[cfg(any(feature = "approx", test))]
 impl approx::UlpsEq for Rotation2d {
     fn default_max_ulps() -> u32 {
         4
