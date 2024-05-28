@@ -63,8 +63,8 @@ use crate::{
     component::Component,
     entity::Entity,
     world::{
-        unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityRef, EntityWorldMut,
-        FilteredEntityMut, FilteredEntityRef, World,
+        unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityWorldMut, FilteredEntityMut,
+        FilteredEntityRef, World,
     },
 };
 use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
@@ -107,7 +107,7 @@ pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::remove()`].
     pub remove: fn(&mut EntityWorldMut),
     /// Function pointer implementing [`ReflectComponent::contains()`].
-    pub contains: fn(EntityRef) -> bool,
+    pub contains: fn(FilteredEntityRef) -> bool,
     /// Function pointer implementing [`ReflectComponent::reflect()`].
     pub reflect: fn(FilteredEntityRef) -> Option<&dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::reflect_mut()`].
@@ -168,8 +168,8 @@ impl ReflectComponent {
     }
 
     /// Returns whether entity contains this [`Component`]
-    pub fn contains(&self, entity: EntityRef) -> bool {
-        (self.0.contains)(entity)
+    pub fn contains<'a>(&self, entity: impl Into<FilteredEntityRef<'a>>) -> bool {
+        (self.0.contains)(entity.into())
     }
 
     /// Gets the value of this [`Component`] type from the entity as a reflected reference.
