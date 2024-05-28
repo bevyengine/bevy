@@ -1509,15 +1509,6 @@ mod tests {
     embedded_dependencies: [],
     sub_texts: [],
 )"#;
-        //         let b_path = "foo/b.cool.ron";
-        //         let b_ron = r#"
-        // (
-        //     text: "b",
-        //     dependencies: [],
-        //     embedded_dependencies: [],
-        //     sub_texts: [],
-        // )"#;
-
         dir.insert_asset_text(Path::new(a_path), a_ron);
 
         // running schedule does not error on ambiguity between the 2 uses_assets systems
@@ -1527,21 +1518,11 @@ mod tests {
         let lock_check = lock.clone();
         let final_check = lock.clone();
         gate.open(a_path);
-        //gate.open(b_path);
         AsyncComputeTaskPool::get()
             .spawn(async move {
                 let mut reader = Vec::new();
                 asset_server.read_stream(a_path, &mut reader).await.unwrap();
                 assert_eq!(reader, a_ron.as_bytes());
-
-                // asset_server
-                //     .write_stream(b_path, b_ron.as_bytes())
-                //     .await
-                //     .unwrap();
-
-                // asset_server.read_stream(b_path, &mut reader).await.unwrap();
-                // assert_eq!(reader, b_ron.as_bytes());
-
                 lock.store(true, Ordering::Release);
             })
             .detach();
