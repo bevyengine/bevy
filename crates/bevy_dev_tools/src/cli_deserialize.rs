@@ -1,3 +1,4 @@
+use bevy_reflect::{TypeRegistration, TypeRegistry};
 use nom::{
     branch::alt, bytes::complete::{is_not, tag, take_while, take_while1}, character::complete::{char, space0}, combinator::{opt, recognize}, multi::many0, sequence::{delimited, preceded}, IResult
 };
@@ -6,13 +7,27 @@ use std::collections::HashMap;
 use std::fmt;
 use serde::de::DeserializeSeed;
 
+
+/// Works only with TypedReflectDeserializer and direct deserialization
+struct TypedCliDeserializer<'a> {
+    input: &'a str,
+
+}
+
+impl<'a> TypedCliDeserializer<'a> {
+    fn from_str(input: &'a str) -> Result<Self, de::value::Error> {
+        Ok(Self { input })
+    }
+}
+
 struct CliDeserializer<'a> {
     input: &'a str,
+    type_registration: &'a TypeRegistry,
 }
 
 impl<'a> CliDeserializer<'a> {
-    fn from_str(input: &'a str) -> Result<Self, de::value::Error> {
-        Ok(Self { input })
+    fn from_str(input: &'a str, type_registration: &'a TypeRegistry) -> Result<Self, de::value::Error> {
+        Ok(Self { input, type_registration })
     }
 }
 
@@ -106,7 +121,7 @@ impl<'de> MapAccess<'de> for CliMapVisitor<'de> {
     }
 }
 
-impl<'de> Deserializer<'de> for CliDeserializer<'de> {
+impl<'de> Deserializer<'de> for TypedCliDeserializer<'de> {
     type Error = de::value::Error;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -134,6 +149,58 @@ impl<'de> Deserializer<'de> for CliDeserializer<'de> {
     forward_to_deserialize_any! {
         bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string bytes byte_buf option
         unit unit_struct newtype_struct seq tuple tuple_struct map enum identifier ignored_any
+    }
+}
+
+
+impl<'de> Deserializer<'de> for CliDeserializer<'de> {
+    type Error = de::value::Error;
+
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        unimplemented!("deserialize_any not implemented")
+    }
+
+    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+        where
+            V: Visitor<'de> {
+        let struct_name = self.input.split(' ').next().unwrap();
+        let args = take_while1::<_, &str, ()>(|c| c != ' ')(self.input).unwrap().0;
+        println!("Args: {}", args);
+
+        let mut registration = None;;
+        for reg in self.type_registration.iter() {
+            if reg.type_info().type_path_table().ident().unwrap().to_lowercase() == struct_name.to_lowercase() {
+                registration = Some(reg);
+                break;
+            }
+        }
+
+        if let Some(registration) = registration {
+            match registration.type_info() {
+                bevy_reflect::TypeInfo::Struct(s) => {
+                    let fields = s.field_names();
+                    let (_, values) = parse_arguments(args, fields).map_err(|_| de::Error::custom("Parse error"))?;
+                    return visitor.visit_map(CliMapVisitor::new(values));
+                },
+                bevy_reflect::TypeInfo::TupleStruct(_) => todo!(),
+                bevy_reflect::TypeInfo::Tuple(_) => todo!(),
+                bevy_reflect::TypeInfo::List(_) => todo!(),
+                bevy_reflect::TypeInfo::Array(_) => todo!(),
+                bevy_reflect::TypeInfo::Map(_) => todo!(),
+                bevy_reflect::TypeInfo::Enum(_) => todo!(),
+                bevy_reflect::TypeInfo::Value(_) => todo!(),
+            }
+        } else {
+            return Err(de::Error::custom("Type registration not found"))
+        }
+    }
+
+    forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string bytes byte_buf option
+        unit unit_struct newtype_struct seq tuple tuple_struct struct enum identifier ignored_any
     }
 }
 
@@ -166,7 +233,7 @@ mod tests {
     #[test]
     fn single_positional() {
         let input = "100";
-        let mut deserializer = CliDeserializer::from_str(input).unwrap();
+        let mut deserializer = TypedCliDeserializer::from_str(input).unwrap();
         let set_gold = SetGold::deserialize(deserializer).unwrap();
         assert_eq!(set_gold, SetGold { gold: 100 });
     }
@@ -174,7 +241,7 @@ mod tests {
     #[test]
     fn single_key() {
         let input = "--gold 100";
-        let mut deserializer = CliDeserializer::from_str(input).unwrap();
+        let mut deserializer = TypedCliDeserializer::from_str(input).unwrap();
         let set_gold = SetGold::deserialize(deserializer).unwrap();
         assert_eq!(set_gold, SetGold { gold: 100 });
     }
@@ -182,7 +249,7 @@ mod tests {
     #[test]
     fn multiple_positional() {
         let input = "100 \"200 \"";
-        let mut deserializer = CliDeserializer::from_str(input).unwrap();
+        let mut deserializer = TypedCliDeserializer::from_str(input).unwrap();
         let set_gold = TestSimpleArgs::deserialize(deserializer).unwrap();
         assert_eq!(set_gold, TestSimpleArgs { arg0: 100, arg1: "200 ".to_string() });
     }
@@ -190,7 +257,7 @@ mod tests {
     #[test]
     fn multiple_key() {
         let input = "--arg0 100 --arg1 \"200 \"";
-        let mut deserializer = CliDeserializer::from_str(input).unwrap();
+        let mut deserializer = TypedCliDeserializer::from_str(input).unwrap();
         let set_gold = TestSimpleArgs::deserialize(deserializer).unwrap();
         assert_eq!(set_gold, TestSimpleArgs { arg0: 100, arg1: "200 ".to_string() });
     }
@@ -198,7 +265,7 @@ mod tests {
     #[test]
     fn mixed_key_positional() {
         let input = "100 --arg1 \"200 \"";
-        let mut deserializer = CliDeserializer::from_str(input).unwrap();
+        let mut deserializer = TypedCliDeserializer::from_str(input).unwrap();
         let set_gold = TestSimpleArgs::deserialize(deserializer).unwrap();
         assert_eq!(set_gold, TestSimpleArgs { arg0: 100, arg1: "200 ".to_string() });
     }
@@ -213,7 +280,7 @@ mod tests {
     #[test]
     fn complex_input() {
         let input = "Some(100) --gold (gold : 200) --text_input \"Some text\"";
-        let mut deserializer = CliDeserializer::from_str(input).unwrap();
+        let mut deserializer = TypedCliDeserializer::from_str(input).unwrap();
         let set_gold = ComplexInput::deserialize(deserializer).unwrap();
         assert_eq!(set_gold, ComplexInput { arg0: Some(100), gold: SetGold { gold: 200 }, text_input: "Some text".to_string() });
     }
@@ -235,11 +302,24 @@ mod tests {
         let mut reflect_deserializer = TypedReflectDeserializer::new(registration, &type_registry);
         let input = "100";
         
-        let mut deserializer = CliDeserializer::from_str(input).unwrap();
+        let mut deserializer = TypedCliDeserializer::from_str(input).unwrap();
         let reflect_value = reflect_deserializer.deserialize(deserializer).unwrap();
         
         let val = SetGoldReflect::from_reflect(reflect_value.as_ref()).unwrap();
         assert_eq!(val, SetGoldReflect { gold: 100 });
     }
 
+    #[test]
+    fn test_untyped_reflect_deserialize() { 
+        let mut type_registry = TypeRegistry::default();
+        type_registry.register::<SetGoldReflect>();
+        
+        let reflect_deserializer = ReflectDeserializer::new(&type_registry);
+        let input = "setgoldreflect 100";
+        let deserializer = CliDeserializer::from_str(input, &type_registry).unwrap();
+        let reflect_value = reflect_deserializer.deserialize(deserializer).unwrap();
+
+        let val = SetGoldReflect::from_reflect(reflect_value.as_ref()).unwrap();
+        assert_eq!(val, SetGoldReflect { gold: 100 });
+    }
 }
