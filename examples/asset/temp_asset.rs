@@ -19,7 +19,7 @@ fn main() {
         .init_asset::<TextAsset>()
         .register_asset_loader(TextLoader)
         .add_systems(Startup, (save_temp_asset, setup_ui))
-        .add_systems(Update, (wait_until_temp_saved, display_text))
+        .add_systems(Update, (load_or_unload_asset, display_text))
         .run();
 }
 
@@ -56,8 +56,8 @@ fn save_temp_asset(assets: Res<AssetServer>, temp_directory: Res<TempDirectory>)
     );
 }
 
-/// Poll the save tasks until completion, and then start loading our temporary text asset.
-fn wait_until_temp_saved(
+/// Load or unload the temporary asset based on user input
+fn load_or_unload_asset(
     assets: Res<AssetServer>,
     mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,

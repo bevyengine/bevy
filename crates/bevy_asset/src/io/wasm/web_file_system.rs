@@ -15,21 +15,42 @@ use web_sys::{
 
 use utils::*;
 
-/// Bevy compatible wrapper for the [Origin Private File System API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system)
+/// Abstraction over the [File System API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API).
+pub struct WebFileSystem;
+
+impl WebFileSystem {
+    /// Get access to the [Origin Private File System](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system).
+    pub fn origin_private() -> OriginPrivateFileSystem {
+        OriginPrivateFileSystem { root: Vec::new() }
+    }
+}
+
+/// Abstraction over the [Origin Private File System API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system)
 pub struct OriginPrivateFileSystem {
     root: Vec<String>,
 }
 
 impl OriginPrivateFileSystem {
     /// Constructs a new [`OriginPrivateFileSystem`] with the provided shadow-root.
-    pub fn new(root: PathBuf) -> Self {
-        let root = Self::canonical(&root)
+    pub fn new(root: impl Into<PathBuf>) -> Self {
+        let root = Self::canonical(&root.into())
             .expect("Provided path is not valid")
             .into_iter()
             .map(|component| component.to_owned())
             .collect();
 
         Self { root }
+    }
+
+    /// Replace the shadow-root with the provided value.
+    pub fn with_root(self, root: impl Into<PathBuf>) -> Self {
+        let root = Self::canonical(&root.into())
+            .expect("Provided path is not valid")
+            .into_iter()
+            .map(|component| component.to_owned())
+            .collect();
+
+        Self { root, ..self }
     }
 
     /// Constructs a canonical path (as components) from the provided `path`.
@@ -55,7 +76,7 @@ impl OriginPrivateFileSystem {
                     };
                 }
                 Component::RootDir => {
-                    let _ = canonical_path.drain(..);
+                    canonical_path.clear();
                 }
                 Component::CurDir => {
                     // No-op
@@ -79,6 +100,7 @@ impl OriginPrivateFileSystem {
 
     /// Get the [`FileSystemDirectoryHandle`] for the root directory pointed to by `self.root`.
     pub(crate) async fn shadow_root(&self) -> std::io::Result<FileSystemDirectoryHandle> {
+        // TODO: Investigate caching the this handle.
         let global: Global = js_sys::global().unchecked_into();
 
         let storage_manager = if !global.window().is_undefined() {
@@ -200,15 +222,20 @@ impl AssetWriter for OriginPrivateFileSystem {
     async fn remove<'a>(&'a self, path: &'a Path) -> Result<(), AssetWriterError> {
         let shadow_root = self.shadow_root().await?;
         let canon = Self::canonical(path)?;
-        let _ = get_file(&shadow_root, canon.iter().copied(), false, false).await?;
 
         let [parent @ .., file] = canon.as_slice() else {
-            unreachable!("path valid based on above guard");
+            return Err(AssetWriterError::Io(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Cannot remove an empty path",
+            )));
         };
 
         let parent_handle = get_directory(&shadow_root, parent.iter().copied(), false).await?;
 
-        remove_entry(&parent_handle, file).await?;
+        // Ensure the entry to remove is a file and exists
+        let _ = get_file(&parent_handle, [*file], false, false).await?;
+
+        remove_entry(&parent_handle, *file).await?;
 
         Ok(())
     }
@@ -249,13 +276,18 @@ impl AssetWriter for OriginPrivateFileSystem {
     async fn remove_directory<'a>(&'a self, path: &'a Path) -> Result<(), AssetWriterError> {
         let shadow_root = self.shadow_root().await?;
         let canon = Self::canonical(path)?;
-        let _ = get_directory(&shadow_root, canon.iter().copied(), true).await?;
 
         let [parent @ .., directory] = canon.as_slice() else {
-            unreachable!("path valid based on above guard");
+            return Err(AssetWriterError::Io(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Cannot remove an empty path",
+            )));
         };
 
         let parent_handle = get_directory(&shadow_root, parent.iter().copied(), false).await?;
+
+        // Ensure the entry to remove is a directory and exists
+        let _ = get_directory(&parent_handle, [*directory], true).await?;
 
         remove_entry(&parent_handle, directory).await?;
 
@@ -265,7 +297,7 @@ impl AssetWriter for OriginPrivateFileSystem {
     async fn remove_empty_directory<'a>(&'a self, path: &'a Path) -> Result<(), AssetWriterError> {
         let shadow_root = self.shadow_root().await?;
         let canon = Self::canonical(path)?;
-        let handle = get_directory(&shadow_root, canon, true).await?;
+        let handle = get_directory(&shadow_root, canon, false).await?;
         let mut stream = get_entries(&handle).await;
 
         if stream.next().await.is_some() {
@@ -283,7 +315,7 @@ impl AssetWriter for OriginPrivateFileSystem {
         path: &'a Path,
     ) -> Result<(), AssetWriterError> {
         let shadow_root = self.shadow_root().await?;
-        let handle = get_directory(&shadow_root, Self::canonical(path)?, true).await?;
+        let handle = get_directory(&shadow_root, Self::canonical(path)?, false).await?;
         let mut stream = get_entries(&handle).await;
 
         while let Some(entry) = stream.next().await {
@@ -436,7 +468,7 @@ async fn remove_entry(handle: &FileSystemDirectoryHandle, entry: &str) -> std::i
 }
 
 mod utils {
-    use crate::io::wasm::opfs::js_value_to_err;
+    use crate::io::wasm::web_file_system::js_value_to_err;
     use crate::io::VecReader;
     use async_channel::{TryRecvError, TrySendError};
     use bevy_utils::tracing::error;

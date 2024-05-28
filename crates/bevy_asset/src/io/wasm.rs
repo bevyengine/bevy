@@ -8,9 +8,9 @@ use wasm_bindgen::{prelude::wasm_bindgen, JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::Response;
 
-mod opfs;
+mod web_file_system;
 
-pub use opfs::*;
+pub use web_file_system::*;
 
 /// Represents the global object in the JavaScript context
 #[wasm_bindgen]

@@ -6,10 +6,7 @@ use std::{
 use bevy_ecs::{system::Resource, world::World};
 use bevy_utils::Duration;
 
-use crate::io::{
-    AssetReader, AssetSource, AssetSourceBuilder, AssetSourceEvent, AssetWatcher, AssetWriter,
-    ErasedAssetReader, ErasedAssetWriter,
-};
+use crate::io::{AssetSource, AssetSourceBuilder};
 
 /// A [resource](`Resource`) providing access to the temporary directory used by the `temp://`
 /// [asset source](`AssetSource`).
@@ -133,186 +130,42 @@ pub(crate) fn get_temp_source(
     let debounce = Duration::from_millis(300);
 
     let source = AssetSourceBuilder::default()
-        .with_reader(TempAssetReader::get_default(path.clone()))
-        .with_writer(TempAssetWriter::get_default(path.clone()))
-        .with_watcher(TempAssetWatcher::get_default(path.clone(), debounce))
-        .with_watch_warning(TempAssetWatcher::get_default_watch_warning());
+        .with_reader({
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                AssetSource::get_default_reader(path.clone())
+            }
+
+            #[cfg(target_arch = "wasm32")]
+            {
+                let path = path.clone();
+                move || {
+                    Box::new(
+                        crate::io::wasm::WebFileSystem::origin_private().with_root(path.clone()),
+                    )
+                }
+            }
+        })
+        .with_writer({
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                AssetSource::get_default_writer(path.clone())
+            }
+
+            #[cfg(target_arch = "wasm32")]
+            {
+                let path = path.clone();
+                move |_condition| {
+                    Some(Box::new(
+                        crate::io::wasm::WebFileSystem::origin_private().with_root(path.clone()),
+                    ))
+                }
+            }
+        })
+        .with_watcher(AssetSource::get_default_watcher(path.clone(), debounce))
+        .with_watch_warning(AssetSource::get_default_watch_warning());
 
     world.insert_resource(temp_dir);
 
     Ok(source)
 }
-
-struct TempAssetReader {
-    inner: Box<dyn ErasedAssetReader>,
-}
-
-impl TempAssetReader {
-    fn get_default(path: String) -> impl FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync {
-        move || {
-            let inner = {
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    let mut getter = AssetSource::get_default_reader(path.clone());
-                    getter()
-                }
-
-                #[cfg(target_arch = "wasm32")]
-                {
-                    Box::new(crate::io::wasm::OriginPrivateFileSystem::new(
-                        path.clone().into(),
-                    ))
-                }
-            };
-
-            Box::new(Self { inner })
-        }
-    }
-}
-
-impl AssetReader for TempAssetReader {
-    async fn read<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> Result<Box<crate::io::Reader<'a>>, crate::io::AssetReaderError> {
-        self.inner.read(path).await
-    }
-
-    async fn read_meta<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> Result<Box<crate::io::Reader<'a>>, crate::io::AssetReaderError> {
-        self.inner.read_meta(path).await
-    }
-
-    async fn read_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> Result<Box<crate::io::PathStream>, crate::io::AssetReaderError> {
-        self.inner.read_directory(path).await
-    }
-
-    async fn is_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> Result<bool, crate::io::AssetReaderError> {
-        self.inner.is_directory(path).await
-    }
-}
-
-struct TempAssetWriter {
-    inner: Box<dyn ErasedAssetWriter>,
-}
-
-impl TempAssetWriter {
-    fn get_default(
-        path: String,
-    ) -> impl FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync {
-        move |_condition| {
-            let inner = {
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    let mut getter = AssetSource::get_default_writer(path.clone());
-                    getter(_condition)?
-                }
-
-                #[cfg(target_arch = "wasm32")]
-                {
-                    Box::new(crate::io::wasm::OriginPrivateFileSystem::new(
-                        path.clone().into(),
-                    ))
-                }
-            };
-
-            Some(Box::new(Self { inner }))
-        }
-    }
-}
-
-impl AssetWriter for TempAssetWriter {
-    async fn write<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> Result<Box<crate::io::Writer>, crate::io::AssetWriterError> {
-        self.inner.write(path).await
-    }
-
-    async fn write_meta<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> Result<Box<crate::io::Writer>, crate::io::AssetWriterError> {
-        self.inner.write_meta(path).await
-    }
-
-    async fn remove<'a>(&'a self, path: &'a Path) -> Result<(), crate::io::AssetWriterError> {
-        self.inner.remove(path).await
-    }
-
-    async fn remove_meta<'a>(&'a self, path: &'a Path) -> Result<(), crate::io::AssetWriterError> {
-        self.inner.remove_meta(path).await
-    }
-
-    async fn rename<'a>(
-        &'a self,
-        old_path: &'a Path,
-        new_path: &'a Path,
-    ) -> Result<(), crate::io::AssetWriterError> {
-        self.inner.rename(old_path, new_path).await
-    }
-
-    async fn rename_meta<'a>(
-        &'a self,
-        old_path: &'a Path,
-        new_path: &'a Path,
-    ) -> Result<(), crate::io::AssetWriterError> {
-        self.inner.rename_meta(old_path, new_path).await
-    }
-
-    async fn remove_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> Result<(), crate::io::AssetWriterError> {
-        self.inner.remove_directory(path).await
-    }
-
-    async fn remove_empty_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> Result<(), crate::io::AssetWriterError> {
-        self.inner.remove_empty_directory(path).await
-    }
-
-    async fn remove_assets_in_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> Result<(), crate::io::AssetWriterError> {
-        self.inner.remove_assets_in_directory(path).await
-    }
-}
-
-struct TempAssetWatcher {
-    _inner: Box<dyn AssetWatcher>,
-}
-
-impl TempAssetWatcher {
-    fn get_default(
-        path: String,
-        file_debounce_wait_time: Duration,
-    ) -> impl FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
-           + Send
-           + Sync {
-        move |channel| {
-            let mut getter =
-                AssetSource::get_default_watcher(path.clone(), file_debounce_wait_time);
-            let _inner = getter(channel)?;
-
-            Some(Box::new(Self { _inner }))
-        }
-    }
-
-    fn get_default_watch_warning() -> &'static str {
-        AssetSource::get_default_watch_warning()
-    }
-}
-
-impl AssetWatcher for TempAssetWatcher {}
