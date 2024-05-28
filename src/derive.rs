@@ -1,8 +1,8 @@
 use indexmap::IndexMap;
 use naga::{
     Arena, AtomicFunction, Block, Constant, EntryPoint, Expression, Function, FunctionArgument,
-    FunctionResult, GlobalVariable, Handle, ImageQuery, LocalVariable, Module, SampleLevel, Span,
-    Statement, StructMember, SwitchCase, Type, TypeInner, UniqueArena,
+    FunctionResult, GatherMode, GlobalVariable, Handle, ImageQuery, LocalVariable, Module,
+    Override, SampleLevel, Span, Statement, StructMember, SwitchCase, Type, TypeInner, UniqueArena,
 };
 use std::{cell::RefCell, rc::Rc};
 
@@ -11,17 +11,25 @@ pub struct DerivedModule<'a> {
     shader: Option<&'a Module>,
     span_offset: usize,
 
+    /// Maps the original type handle to the the mangled type handle.
     type_map: IndexMap<Handle<Type>, Handle<Type>>,
+    /// Maps the original const handle to the the mangled const handle.
     const_map: IndexMap<Handle<Constant>, Handle<Constant>>,
-    const_expression_map: Rc<RefCell<IndexMap<Handle<Expression>, Handle<Expression>>>>,
+    /// Maps the original pipeline override handle to the the mangled pipeline override handle.
+    pipeline_override_map: IndexMap<Handle<Override>, Handle<Override>>,
+    /// Contains both const expressions and pipeline override constant expressions.
+    /// The expressions are stored together because that's what Naga expects.
+    global_expressions: Rc<RefCell<Arena<Expression>>>,
+    /// Maps the original expression handle to the new expression handle for const expressions and pipeline override expressions.
+    /// The expressions are stored together because that's what Naga expects.
+    global_expression_map: Rc<RefCell<IndexMap<Handle<Expression>, Handle<Expression>>>>,
     global_map: IndexMap<Handle<GlobalVariable>, Handle<GlobalVariable>>,
     function_map: IndexMap<String, Handle<Function>>,
-
     types: UniqueArena<Type>,
     constants: Arena<Constant>,
-    const_expressions: Rc<RefCell<Arena<Expression>>>,
     globals: Arena<GlobalVariable>,
     functions: Arena<Function>,
+    pipeline_overrides: Arena<Override>,
 }
 
 impl<'a> DerivedModule<'a> {
@@ -38,7 +46,8 @@ impl<'a> DerivedModule<'a> {
         self.type_map.clear();
         self.const_map.clear();
         self.global_map.clear();
-        self.const_expression_map.borrow_mut().clear();
+        self.global_expression_map.borrow_mut().clear();
+        self.pipeline_override_map.clear();
     }
 
     pub fn map_span(&self, span: Span) -> Span {
@@ -136,9 +145,8 @@ impl<'a> DerivedModule<'a> {
 
             let new_const = Constant {
                 name: c.name.clone(),
-                r#override: c.r#override.clone(),
                 ty: self.import_type(&c.ty),
-                init: self.import_const_expression(c.init),
+                init: self.import_global_expression(c.init),
             };
 
             let span = self.shader.as_ref().unwrap().constants.get_span(*h_const);
@@ -166,7 +174,7 @@ impl<'a> DerivedModule<'a> {
                 space: gv.space,
                 binding: gv.binding.clone(),
                 ty: self.import_type(&gv.ty),
-                init: gv.init.map(|c| self.import_const_expression(c)),
+                init: gv.init.map(|c| self.import_global_expression(c)),
             };
 
             let span = self
@@ -182,16 +190,54 @@ impl<'a> DerivedModule<'a> {
             new_h
         })
     }
-    // remap a const expression from source context into our derived context
-    pub fn import_const_expression(&mut self, h_cexpr: Handle<Expression>) -> Handle<Expression> {
+
+    // remap either a const or pipeline override expression from source context into our derived context
+    pub fn import_global_expression(&mut self, h_expr: Handle<Expression>) -> Handle<Expression> {
         self.import_expression(
-            h_cexpr,
-            &self.shader.as_ref().unwrap().const_expressions,
-            self.const_expression_map.clone(),
-            self.const_expressions.clone(),
+            h_expr,
+            &self.shader.as_ref().unwrap().global_expressions,
+            self.global_expression_map.clone(),
+            self.global_expressions.clone(),
             false,
             true,
         )
+    }
+
+    // remap a pipeline override from source context into our derived context
+    pub fn import_pipeline_override(&mut self, h_override: &Handle<Override>) -> Handle<Override> {
+        self.pipeline_override_map
+            .get(h_override)
+            .copied()
+            .unwrap_or_else(|| {
+                let pipeline_override = self
+                    .shader
+                    .as_ref()
+                    .unwrap()
+                    .overrides
+                    .try_get(*h_override)
+                    .unwrap();
+
+                let new_override = Override {
+                    name: pipeline_override.name.clone(),
+                    id: pipeline_override.id,
+                    ty: self.import_type(&pipeline_override.ty),
+                    init: pipeline_override
+                        .init
+                        .map(|init| self.import_global_expression(init)),
+                };
+
+                let span = self
+                    .shader
+                    .as_ref()
+                    .unwrap()
+                    .overrides
+                    .get_span(*h_override);
+                let new_h = self
+                    .pipeline_overrides
+                    .fetch_or_append(new_override, self.map_span(span));
+                self.pipeline_override_map.insert(*h_override, new_h);
+                new_h
+            })
     }
 
     // remap a block
@@ -363,7 +409,40 @@ impl<'a> DerivedModule<'a> {
                             naga::RayQueryFunction::Terminate => naga::RayQueryFunction::Terminate,
                         },
                     },
-
+                    Statement::SubgroupBallot { result, predicate } => Statement::SubgroupBallot {
+                        result: map_expr!(result),
+                        predicate: map_expr_opt!(predicate),
+                    },
+                    Statement::SubgroupGather {
+                        mut mode,
+                        argument,
+                        result,
+                    } => {
+                        match mode {
+                            GatherMode::BroadcastFirst => (),
+                            GatherMode::Broadcast(ref mut h_src)
+                            | GatherMode::Shuffle(ref mut h_src)
+                            | GatherMode::ShuffleDown(ref mut h_src)
+                            | GatherMode::ShuffleUp(ref mut h_src)
+                            | GatherMode::ShuffleXor(ref mut h_src) => *h_src = map_expr!(h_src),
+                        };
+                        Statement::SubgroupGather {
+                            mode,
+                            argument: map_expr!(argument),
+                            result: map_expr!(result),
+                        }
+                    }
+                    Statement::SubgroupCollectiveOperation {
+                        op,
+                        collective_op,
+                        argument,
+                        result,
+                    } => Statement::SubgroupCollectiveOperation {
+                        op: *op,
+                        collective_op: *collective_op,
+                        argument: map_expr!(argument),
+                        result: map_expr!(result),
+                    },
                     // else just copy
                     Statement::Break
                     | Statement::Continue
@@ -462,7 +541,7 @@ impl<'a> DerivedModule<'a> {
                 gather: *gather,
                 coordinate: map_expr!(coordinate),
                 array_index: map_expr_opt!(array_index),
-                offset: offset.map(|c| self.import_const_expression(c)),
+                offset: offset.map(|c| self.import_global_expression(c)),
                 level: match level {
                     SampleLevel::Auto | SampleLevel::Zero => *level,
                     SampleLevel::Exact(expr) => SampleLevel::Exact(map_expr!(expr)),
@@ -592,6 +671,14 @@ impl<'a> DerivedModule<'a> {
                     committed: *committed,
                 }
             }
+            Expression::Override(h_override) => {
+                is_external = true;
+                Expression::Override(self.import_pipeline_override(h_override))
+            }
+            Expression::SubgroupBallotResult => expr.clone(),
+            Expression::SubgroupOperationResult { ty } => Expression::SubgroupOperationResult {
+                ty: self.import_type(ty),
+            },
         };
 
         if !non_emitting_only || is_external {
@@ -748,12 +835,13 @@ impl<'a> From<DerivedModule<'a>> for naga::Module {
             types: derived.types,
             constants: derived.constants,
             global_variables: derived.globals,
-            const_expressions: Rc::try_unwrap(derived.const_expressions)
+            global_expressions: Rc::try_unwrap(derived.global_expressions)
                 .unwrap()
                 .into_inner(),
             functions: derived.functions,
             special_types: Default::default(),
             entry_points: Default::default(),
+            overrides: derived.pipeline_overrides,
         }
     }
 }

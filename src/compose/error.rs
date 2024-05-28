@@ -78,7 +78,7 @@ pub enum ComposerErrorInner {
     WgslParseError(naga::front::wgsl::ParseError),
     #[cfg(feature = "glsl")]
     #[error("{0:?}")]
-    GlslParseError(Vec<naga::front::glsl::Error>),
+    GlslParseError(naga::front::glsl::ParseError),
     #[error("naga_oil bug, please file a report: failed to convert imported module IR back into WGSL for use with WGSL shaders: {0}")]
     WgslBackError(naga::back::wgsl::Error),
     #[cfg(feature = "glsl")]
@@ -226,7 +226,8 @@ impl ComposerError {
             ),
             #[cfg(feature = "glsl")]
             ComposerErrorInner::GlslParseError(e) => (
-                e.iter()
+                e.errors
+                    .iter()
                     .map(|naga::front::glsl::Error { kind, meta }| {
                         Label::primary((), map_span(meta.to_range().unwrap_or(0..0)))
                             .with_message(kind.to_string())

@@ -96,7 +96,7 @@ fn test_compose_full() -> Result<naga::Module, ComposerError> {
     }) {
         Ok(module) => {
             // println!("shader: {:#?}", module);
-            // let info = naga::valid::Validator::new(naga::valid::ValidationFlags::all(), naga::valid::Capabilities::default()).validate(&module).unwrap();
+            // let info = composer.create_validator().validate(&module).unwrap();
             // let _wgsl = naga::back::wgsl::write_string(&module, &info, naga::back::wgsl::WriterFlags::EXPLICIT_TYPES).unwrap();
             // println!("wgsl: \n\n{}", wgsl);
             Ok(module)
@@ -120,7 +120,7 @@ fn test_compose_final_module(n: usize, composer: &mut Composer) {
         }) {
             Ok(module) => {
                 // println!("shader: {:#?}", module);
-                // let info = naga::valid::Validator::new(naga::valid::ValidationFlags::all(), naga::valid::Capabilities::default()).validate(&module).unwrap();
+                // let info = composer.create_validator().validate(&module).unwrap();
                 // let _wgsl = naga::back::wgsl::write_string(&module, &info, naga::back::wgsl::WriterFlags::EXPLICIT_TYPES).unwrap();
                 // println!("wgsl: \n\n{}", wgsl);
                 Ok(module)

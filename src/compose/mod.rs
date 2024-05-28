@@ -126,7 +126,10 @@ use indexmap::IndexMap;
 ///
 /// codespan reporting for errors is available using the error `emit_to_string` method. this requires validation to be enabled, which is true by default. `Composer::non_validating()` produces a non-validating composer that is not able to give accurate error reporting.
 ///
-use naga::EntryPoint;
+use naga::{
+    valid::{Capabilities, ShaderStages},
+    EntryPoint,
+};
 use regex::Regex;
 use std::collections::{hash_map::Entry, BTreeMap, HashMap, HashSet};
 use tracing::{debug, trace};
@@ -318,6 +321,11 @@ pub struct Composer {
     pub module_sets: HashMap<String, ComposableModuleDefinition>,
     pub module_index: HashMap<usize, String>,
     pub capabilities: naga::valid::Capabilities,
+    /// The shader stages that the subgroup operations are valid for.
+    /// Used when creating a validator for the module.
+    /// See https://github.com/gfx-rs/wgpu/blob/d9c054c645af0ea9ef81617c3e762fbf0f3fecda/wgpu-core/src/device/mod.rs#L515
+    /// for how to set this for proper subgroup ops support.
+    pub subgroup_stages: ShaderStages,
     preprocessor: Preprocessor,
     check_decoration_regex: Regex,
     undecorate_regex: Regex,
@@ -339,6 +347,7 @@ impl Default for Composer {
         Self {
             validate: true,
             capabilities: Default::default(),
+            subgroup_stages: ShaderStages::empty(),
             module_sets: Default::default(),
             module_index: Default::default(),
             preprocessor: Preprocessor::default(),
@@ -417,6 +426,21 @@ impl Composer {
         String::from_utf8(data_encoding::BASE32_NOPAD.decode(from.as_bytes()).unwrap()).unwrap()
     }
 
+    /// This creates a validator that properly detects subgroup support.
+    fn create_validator(&self) -> naga::valid::Validator {
+        let subgroup_operations = if self.capabilities.contains(Capabilities::SUBGROUP) {
+            use naga::valid::SubgroupOperationSet as S;
+            S::BASIC | S::VOTE | S::ARITHMETIC | S::BALLOT | S::SHUFFLE | S::SHUFFLE_RELATIVE
+        } else {
+            naga::valid::SubgroupOperationSet::empty()
+        };
+        let mut validator =
+            naga::valid::Validator::new(naga::valid::ValidationFlags::all(), self.capabilities);
+        validator.subgroup_stages(self.subgroup_stages);
+        validator.subgroup_operations(subgroup_operations);
+        validator
+    }
+
     fn undecorate(&self, string: &str) -> String {
         let undecor = self
             .undecorate_regex
@@ -476,10 +500,10 @@ impl Composer {
         #[allow(unused)] header_for: &str, // Only used when GLSL is enabled
     ) -> Result<String, ComposerErrorInner> {
         // TODO: cache headers again
-        let info =
-            naga::valid::Validator::new(naga::valid::ValidationFlags::all(), self.capabilities)
-                .validate(naga_module)
-                .map_err(ComposerErrorInner::HeaderValidationError)?;
+        let info = self
+            .create_validator()
+            .validate(naga_module)
+            .map_err(ComposerErrorInner::HeaderValidationError)?;
 
         match language {
             ShaderLanguage::Wgsl => naga::back::wgsl::write_string(
@@ -526,12 +550,10 @@ impl Composer {
 
                 naga_module.entry_points.push(ep);
 
-                let info = naga::valid::Validator::new(
-                    naga::valid::ValidationFlags::all(),
-                    self.capabilities,
-                )
-                .validate(naga_module)
-                .map_err(ComposerErrorInner::HeaderValidationError)?;
+                let info = self
+                    .create_validator()
+                    .validate(naga_module)
+                    .map_err(ComposerErrorInner::HeaderValidationError)?;
 
                 let mut string = String::new();
                 let options = naga::back::glsl::Options {
@@ -1002,6 +1024,17 @@ impl Composer {
             }
         }
 
+        // These are naga/wgpu's pipeline override constants, not naga_oil's overrides
+        let mut owned_pipeline_overrides = IndexMap::new();
+        for (h, po) in source_ir.overrides.iter_mut() {
+            if let Some(name) = po.name.as_mut() {
+                if !name.contains(DECORATION_PRE) {
+                    *name = format!("{name}{module_decoration}");
+                    owned_pipeline_overrides.insert(name.clone(), h);
+                }
+            }
+        }
+
         let mut owned_vars = IndexMap::new();
         for (h, gv) in source_ir.global_variables.iter_mut() {
             if let Some(name) = gv.name.as_mut() {
@@ -1099,6 +1132,11 @@ impl Composer {
         for h in owned_constants.values() {
             header_builder.import_const(h);
             module_builder.import_const(h);
+        }
+
+        for h in owned_pipeline_overrides.values() {
+            header_builder.import_pipeline_override(h);
+            module_builder.import_pipeline_override(h);
         }
 
         for h in owned_vars.values() {
@@ -1222,6 +1260,16 @@ impl Composer {
                     && items.map_or(true, |items| items.contains(name))
                 {
                     derived.import_const(&h);
+                }
+            }
+        }
+
+        for (h, po) in source_ir.overrides.iter() {
+            if let Some(name) = &po.name {
+                if composable.owned_functions.contains(name)
+                    && items.map_or(true, |items| items.contains(name))
+                {
+                    derived.import_pipeline_override(&h);
                 }
             }
         }
@@ -1385,10 +1433,17 @@ impl Composer {
 
     /// specify capabilities to be used for naga module generation.
     /// purges any existing modules
-    pub fn with_capabilities(self, capabilities: naga::valid::Capabilities) -> Self {
+    /// See https://github.com/gfx-rs/wgpu/blob/d9c054c645af0ea9ef81617c3e762fbf0f3fecda/wgpu-core/src/device/mod.rs#L515
+    /// for how to set the subgroup_stages value.
+    pub fn with_capabilities(
+        self,
+        capabilities: naga::valid::Capabilities,
+        subgroup_stages: naga::valid::ShaderStages,
+    ) -> Self {
         Self {
             capabilities,
             validate: self.validate,
+            subgroup_stages,
             ..Default::default()
         }
     }
@@ -1748,9 +1803,7 @@ impl Composer {
 
         // validation
         if self.validate {
-            let info =
-                naga::valid::Validator::new(naga::valid::ValidationFlags::all(), self.capabilities)
-                    .validate(&naga_module);
+            let info = self.create_validator().validate(&naga_module);
             match info {
                 Ok(_) => Ok(naga_module),
                 Err(e) => {
