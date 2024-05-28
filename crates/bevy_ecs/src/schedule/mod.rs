@@ -7,7 +7,6 @@ mod graph_utils;
 #[allow(clippy::module_inception)]
 mod schedule;
 mod set;
-mod state;
 mod stepping;
 
 pub use self::condition::*;
@@ -16,7 +15,6 @@ pub use self::executor::*;
 use self::graph_utils::*;
 pub use self::schedule::*;
 pub use self::set::*;
-pub use self::state::*;
 
 pub use self::graph_utils::NodeId;
 

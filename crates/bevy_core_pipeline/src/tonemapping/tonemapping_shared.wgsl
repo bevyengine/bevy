@@ -1,16 +1,15 @@
 #define_import_path bevy_core_pipeline::tonemapping
 
-#import bevy_render::view::ColorGrading
-#import bevy_pbr::utils::{PI_2, hsv_to_rgb, rgb_to_hsv};
+#import bevy_render::{
+    view::ColorGrading,
+    color_operations::{hsv_to_rgb, rgb_to_hsv},
+    maths::{PI_2, powsafe},
+}
 
-// hack !! not sure what to do with this
-#ifdef TONEMAPPING_PASS
-    @group(0) @binding(3) var dt_lut_texture: texture_3d<f32>;
-    @group(0) @binding(4) var dt_lut_sampler: sampler;
-#else
-    @group(0) @binding(18) var dt_lut_texture: texture_3d<f32>;
-    @group(0) @binding(19) var dt_lut_sampler: sampler;
-#endif
+#import bevy_core_pipeline::tonemapping_lut_bindings::{
+    dt_lut_texture,
+    dt_lut_sampler,
+}
 
 // Half the size of the crossfade region between shadows and midtones and
 // between midtones and highlights. This value, 0.1, corresponds to 10% of the
@@ -30,7 +29,7 @@ fn sample_current_lut(p: vec3<f32>) -> vec3<f32> {
     return textureSampleLevel(dt_lut_texture, dt_lut_sampler, p, 0.0).rgb;
 #else ifdef TONEMAP_METHOD_BLENDER_FILMIC
     return textureSampleLevel(dt_lut_texture, dt_lut_sampler, p, 0.0).rgb;
-#else 
+#else
     return vec3(1.0, 0.0, 1.0);
  #endif
 }
@@ -42,8 +41,8 @@ fn sample_current_lut(p: vec3<f32>) -> vec3<f32> {
 
 fn rgb_to_ycbcr(col: vec3<f32>) -> vec3<f32> {
     let m = mat3x3<f32>(
-        0.2126, 0.7152, 0.0722, 
-        -0.1146, -0.3854, 0.5, 
+        0.2126, 0.7152, 0.0722,
+        -0.1146, -0.3854, 0.5,
         0.5, -0.4542, -0.0458
     );
     return col * m;
@@ -51,8 +50,8 @@ fn rgb_to_ycbcr(col: vec3<f32>) -> vec3<f32> {
 
 fn ycbcr_to_rgb(col: vec3<f32>) -> vec3<f32> {
     let m = mat3x3<f32>(
-        1.0, 0.0, 1.5748, 
-        1.0, -0.1873, -0.4681, 
+        1.0, 0.0, 1.5748,
+        1.0, -0.1873, -0.4681,
         1.0, 1.8556, 0.0
     );
     return max(vec3(0.0), col * m);
@@ -122,14 +121,14 @@ fn RRTAndODTFit(v: vec3<f32>) -> vec3<f32> {
     return a / b;
 }
 
-fn ACESFitted(color: vec3<f32>) -> vec3<f32> {    
+fn ACESFitted(color: vec3<f32>) -> vec3<f32> {
     var fitted_color = color;
 
     // sRGB => XYZ => D65_2_D60 => AP1 => RRT_SAT
     let rgb_to_rrt = mat3x3<f32>(
         vec3(0.59719, 0.35458, 0.04823),
         vec3(0.07600, 0.90834, 0.01566),
-        vec3(0.02840, 0.13383, 0.83777)    
+        vec3(0.02840, 0.13383, 0.83777)
     );
 
     // ODT_SAT => XYZ => D60_2_D65 => sRGB
@@ -158,11 +157,6 @@ fn ACESFitted(color: vec3<f32>) -> vec3<f32> {
 // By Troy Sobotka
 // https://github.com/MrLixm/AgXc
 // https://github.com/sobotka/AgX
-
-// pow() but safe for NaNs/negatives
-fn powsafe(color: vec3<f32>, power: f32) -> vec3<f32> {
-    return pow(abs(color), vec3(power)) * sign(color);
-}
 
 /*
     Increase color saturation of the given color data.
@@ -224,7 +218,7 @@ fn applyAgXLog(Image: vec3<f32>) -> vec3<f32> {
     prepared_image = vec3(r, g, b);
 
     prepared_image = convertOpenDomainToNormalizedLog2_(prepared_image, -10.0, 6.5);
-    
+
     prepared_image = clamp(prepared_image, vec3(0.0), vec3(1.0));
     return prepared_image;
 }
@@ -368,6 +362,10 @@ fn tone_mapping(in: vec4<f32>, in_color_grading: ColorGrading) -> vec4<f32> {
     // applies individually to shadows, midtones, and highlights.
 #ifdef SECTIONAL_COLOR_GRADING
     color = sectional_color_grading(color, &color_grading);
+#else
+    // If we're not doing sectional color grading, the exposure might still need
+    // to be applied, for example when using auto exposure.
+    color = color * powsafe(vec3(2.0), color_grading.exposure);
 #endif
 
     // tone_mapping
@@ -385,14 +383,14 @@ fn tone_mapping(in: vec4<f32>, in_color_grading: ColorGrading) -> vec4<f32> {
 #else ifdef TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
     color = somewhat_boring_display_transform(color.rgb);
 #else ifdef TONEMAP_METHOD_TONY_MC_MAPFACE
-    color = sample_tony_mc_mapface_lut(color); 
+    color = sample_tony_mc_mapface_lut(color);
 #else ifdef TONEMAP_METHOD_BLENDER_FILMIC
     color = sample_blender_filmic_lut(color.rgb);
 #endif
 
     // Perceptual post tonemapping grading
     color = saturation(color, color_grading.post_saturation);
-    
+
     return vec4(color, in.a);
 }
 

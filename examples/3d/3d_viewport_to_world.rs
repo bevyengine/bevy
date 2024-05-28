@@ -37,12 +37,7 @@ fn draw_cursor(
     let point = ray.get_point(distance);
 
     // Draw a circle just above the ground plane at that position.
-    gizmos.circle(
-        point + ground.up() * 0.01,
-        Dir3::new_unchecked(ground.up()), // Up vector is already normalized.
-        0.2,
-        Color::WHITE,
-    );
+    gizmos.circle(point + ground.up() * 0.01, ground.up(), 0.2, Color::WHITE);
 }
 
 #[derive(Component)]
@@ -57,7 +52,10 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Plane3d::default().mesh().size(20., 20.)),
-            material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
+            material: materials.add(StandardMaterial {
+                base_color: LinearRgba::rgb(0.3, 0.5, 0.3).into(),
+                ..default()
+            }),
             ..default()
         },
         Ground,

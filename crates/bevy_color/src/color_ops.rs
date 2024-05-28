@@ -1,3 +1,5 @@
+use bevy_math::{Vec3, Vec4};
+
 /// Methods for changing the luminance of a color. Note that these methods are not
 /// guaranteed to produce consistent results across color spaces,
 /// but will be within a given space.
@@ -37,6 +39,19 @@ pub trait Mix: Sized {
     /// in this color. Factor should be between 0.0 and 1.0.
     fn mix_assign(&mut self, other: Self, factor: f32) {
         *self = self.mix(&other, factor);
+    }
+}
+
+/// Trait for returning a grayscale color of a provided lightness.
+pub trait Gray: Mix + Sized {
+    /// A pure black color.
+    const BLACK: Self;
+    /// A pure white color.
+    const WHITE: Self;
+
+    /// Returns a grey color with the provided lightness from (0.0 - 1.0). 0 is black, 1 is white.
+    fn gray(lightness: f32) -> Self {
+        Self::BLACK.mix(&Self::WHITE, lightness)
     }
 }
 
@@ -80,21 +95,24 @@ pub trait Hue: Sized {
     }
 }
 
-/// Trait with methods for asserting a colorspace is within bounds.
-///
-/// During ordinary usage (e.g. reading images from disk, rendering images, picking colors for UI), colors should always be within their ordinary bounds (such as 0 to 1 for RGB colors).
-/// However, some applications, such as high dynamic range rendering or bloom rely on unbounded colors to naturally represent a wider array of choices.
-pub trait ClampColor: Sized {
-    /// Return a new version of this color clamped, with all fields in bounds.
-    fn clamped(&self) -> Self;
-
-    /// Changes all the fields of this color to ensure they are within bounds.
-    fn clamp(&mut self) {
-        *self = self.clamped();
-    }
-
-    /// Are all the fields of this color in bounds?
-    fn is_within_bounds(&self) -> bool;
+/// Trait with methods for converting colors to non-color types
+pub trait ColorToComponents {
+    /// Convert to an f32 array
+    fn to_f32_array(self) -> [f32; 4];
+    /// Convert to an f32 array without the alpha value
+    fn to_f32_array_no_alpha(self) -> [f32; 3];
+    /// Convert to a Vec4
+    fn to_vec4(self) -> Vec4;
+    /// Convert to a Vec3
+    fn to_vec3(self) -> Vec3;
+    /// Convert from an f32 array
+    fn from_f32_array(color: [f32; 4]) -> Self;
+    /// Convert from an f32 array without the alpha value
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self;
+    /// Convert from a Vec4
+    fn from_vec4(color: Vec4) -> Self;
+    /// Convert from a Vec3
+    fn from_vec3(color: Vec3) -> Self;
 }
 
 /// Utility function for interpolating hue values. This ensures that the interpolation
@@ -107,6 +125,8 @@ pub(crate) fn lerp_hue(a: f32, b: f32, t: f32) -> f32 {
 
 #[cfg(test)]
 mod tests {
+    use std::fmt::Debug;
+
     use super::*;
     use crate::{testing::assert_approx_eq, Hsla};
 
@@ -139,5 +159,26 @@ mod tests {
         assert_approx_eq!(lerp_hue(350., 10., 0.25), 355., 0.001);
         assert_approx_eq!(lerp_hue(350., 10., 0.5), 0., 0.001);
         assert_approx_eq!(lerp_hue(350., 10., 0.75), 5., 0.001);
+    }
+
+    fn verify_gray<Col>()
+    where
+        Col: Gray + Debug + PartialEq,
+    {
+        assert_eq!(Col::gray(0.), Col::BLACK);
+        assert_eq!(Col::gray(1.), Col::WHITE);
+    }
+
+    #[test]
+    fn test_gray() {
+        verify_gray::<crate::Hsla>();
+        verify_gray::<crate::Hsva>();
+        verify_gray::<crate::Hwba>();
+        verify_gray::<crate::Laba>();
+        verify_gray::<crate::Lcha>();
+        verify_gray::<crate::LinearRgba>();
+        verify_gray::<crate::Oklaba>();
+        verify_gray::<crate::Oklcha>();
+        verify_gray::<crate::Xyza>();
     }
 }

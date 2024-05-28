@@ -31,16 +31,17 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, DefaultImageSampler, ImageSampler, TextureFormatPixelInfo},
-    view::{prepare_view_targets, GpuCulling, ViewTarget, ViewUniformOffset, ViewVisibility},
+    view::{
+        prepare_view_targets, GpuCulling, RenderVisibilityRanges, ViewTarget, ViewUniformOffset,
+        ViewVisibility, VisibilityRange,
+    },
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, tracing::warn, Entry, HashMap, Parallel};
 
-#[cfg(debug_assertions)]
-use bevy_utils::warn_once;
 use bytemuck::{Pod, Zeroable};
-use nonmax::NonMaxU32;
+use nonmax::{NonMaxU16, NonMaxU32};
 use static_assertions::const_assert_eq;
 
 use crate::render::{
@@ -231,6 +232,7 @@ impl Plugin for MeshRenderPlugin {
 
             render_app
                 .insert_resource(indirect_parameters_buffer)
+                .init_resource::<MeshPipelineViewLayouts>()
                 .init_resource::<MeshPipeline>();
         }
 
@@ -328,7 +330,7 @@ pub struct MeshCullingData {
 /// To avoid wasting CPU time in the CPU culling case, this buffer will be empty
 /// if GPU culling isn't in use.
 #[derive(Resource, Deref, DerefMut)]
-pub struct MeshCullingDataBuffer(BufferVec<MeshCullingData>);
+pub struct MeshCullingDataBuffer(RawBufferVec<MeshCullingData>);
 
 impl MeshUniform {
     pub fn new(mesh_transforms: &MeshTransforms, maybe_lightmap_uv_rect: Option<Rect>) -> Self {
@@ -347,21 +349,30 @@ impl MeshUniform {
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_types.wgsl!
 bitflags::bitflags! {
+    /// Various flags and tightly-packed values on a mesh.
+    ///
+    /// Flags grow from the top bit down; other values grow from the bottom bit
+    /// up.
     #[repr(transparent)]
     pub struct MeshFlags: u32 {
-        const SHADOW_RECEIVER             = 1 << 0;
-        const TRANSMITTED_SHADOW_RECEIVER = 1 << 1;
+        /// Bitmask for the 16-bit index into the LOD array.
+        ///
+        /// This will be `u16::MAX` if this mesh has no LOD.
+        const LOD_INDEX_MASK              = (1 << 16) - 1;
+        const SHADOW_RECEIVER             = 1 << 29;
+        const TRANSMITTED_SHADOW_RECEIVER = 1 << 30;
         // Indicates the sign of the determinant of the 3x3 model matrix. If the sign is positive,
         // then the flag should be set, else it should not be set.
         const SIGN_DETERMINANT_MODEL_3X3  = 1 << 31;
         const NONE                        = 0;
-        const UNINITIALIZED               = 0xFFFF;
+        const UNINITIALIZED               = 0xFFFFFFFF;
     }
 }
 
 impl MeshFlags {
     fn from_components(
         transform: &GlobalTransform,
+        lod_index: Option<NonMaxU16>,
         not_shadow_receiver: bool,
         transmitted_receiver: bool,
     ) -> MeshFlags {
@@ -377,8 +388,18 @@ impl MeshFlags {
             mesh_flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
         }
 
+        let lod_index_bits = match lod_index {
+            None => u16::MAX,
+            Some(lod_index) => u16::from(lod_index),
+        };
+        mesh_flags |=
+            MeshFlags::from_bits_retain((lod_index_bits as u32) << MeshFlags::LOD_INDEX_SHIFT);
+
         mesh_flags
     }
+
+    /// The first bit of the LOD index.
+    pub const LOD_INDEX_SHIFT: u32 = 0;
 }
 
 bitflags::bitflags! {
@@ -663,7 +684,7 @@ impl RenderMeshInstanceGpuBuilder {
         self,
         entity: Entity,
         render_mesh_instances: &mut EntityHashMap<RenderMeshInstanceGpu>,
-        current_input_buffer: &mut BufferVec<MeshInputUniform>,
+        current_input_buffer: &mut RawBufferVec<MeshInputUniform>,
     ) -> usize {
         // Push the mesh input uniform.
         let current_uniform_index = current_input_buffer.push(MeshInputUniform {
@@ -720,7 +741,7 @@ impl MeshCullingData {
 impl Default for MeshCullingDataBuffer {
     #[inline]
     fn default() -> Self {
-        Self(BufferVec::new(BufferUsages::STORAGE))
+        Self(RawBufferVec::new(BufferUsages::STORAGE))
     }
 }
 
@@ -747,6 +768,7 @@ pub struct ExtractMeshesSet;
 /// [`MeshUniform`] building.
 pub fn extract_meshes_for_cpu_building(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    render_visibility_ranges: Res<RenderVisibilityRanges>,
     mut render_mesh_instance_queues: Local<Parallel<Vec<(Entity, RenderMeshInstanceCpu)>>>,
     meshes_query: Extract<
         Query<(
@@ -759,6 +781,7 @@ pub fn extract_meshes_for_cpu_building(
             Has<TransmittedShadowReceiver>,
             Has<NotShadowCaster>,
             Has<NoAutomaticBatching>,
+            Has<VisibilityRange>,
         )>,
     >,
 ) {
@@ -775,13 +798,23 @@ pub fn extract_meshes_for_cpu_building(
             transmitted_receiver,
             not_shadow_caster,
             no_automatic_batching,
+            visibility_range,
         )| {
             if !view_visibility.get() {
                 return;
             }
 
-            let mesh_flags =
-                MeshFlags::from_components(transform, not_shadow_receiver, transmitted_receiver);
+            let mut lod_index = None;
+            if visibility_range {
+                lod_index = render_visibility_ranges.lod_index_for_entity(entity);
+            }
+
+            let mesh_flags = MeshFlags::from_components(
+                transform,
+                lod_index,
+                not_shadow_receiver,
+                transmitted_receiver,
+            );
 
             let shared = RenderMeshInstanceShared::from_components(
                 previous_transform,
@@ -830,6 +863,7 @@ pub fn extract_meshes_for_cpu_building(
 /// [`MeshUniform`] building.
 pub fn extract_meshes_for_gpu_building(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    render_visibility_ranges: Res<RenderVisibilityRanges>,
     mut batched_instance_buffers: ResMut<
         gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>,
     >,
@@ -848,6 +882,7 @@ pub fn extract_meshes_for_gpu_building(
             Has<TransmittedShadowReceiver>,
             Has<NotShadowCaster>,
             Has<NoAutomaticBatching>,
+            Has<VisibilityRange>,
         )>,
     >,
     cameras_query: Extract<Query<(), (With<Camera>, With<GpuCulling>)>>,
@@ -881,13 +916,23 @@ pub fn extract_meshes_for_gpu_building(
             transmitted_receiver,
             not_shadow_caster,
             no_automatic_batching,
+            visibility_range,
         )| {
             if !view_visibility.get() {
                 return;
             }
 
-            let mesh_flags =
-                MeshFlags::from_components(transform, not_shadow_receiver, transmitted_receiver);
+            let mut lod_index = None;
+            if visibility_range {
+                lod_index = render_visibility_ranges.lod_index_for_entity(entity);
+            }
+
+            let mesh_flags = MeshFlags::from_components(
+                transform,
+                lod_index,
+                not_shadow_receiver,
+                transmitted_receiver,
+            );
 
             let shared = RenderMeshInstanceShared::from_components(
                 previous_transform,
@@ -986,9 +1031,11 @@ fn collect_meshes_for_gpu_building(
     }
 }
 
+/// All data needed to construct a pipeline for rendering 3D meshes.
 #[derive(Resource, Clone)]
 pub struct MeshPipeline {
-    view_layouts: [MeshPipelineViewLayout; MeshPipelineViewLayoutKey::COUNT],
+    /// A reference to all the mesh pipeline view layouts.
+    pub view_layouts: MeshPipelineViewLayouts,
     // This dummy white texture is to be used in place of optional StandardMaterial textures
     pub dummy_white_gpu_image: GpuImage,
     pub clustered_forward_buffer_binding_type: BufferBindingType,
@@ -1019,13 +1066,13 @@ impl FromWorld for MeshPipeline {
             Res<RenderDevice>,
             Res<DefaultImageSampler>,
             Res<RenderQueue>,
+            Res<MeshPipelineViewLayouts>,
         )> = SystemState::new(world);
-        let (render_device, default_sampler, render_queue) = system_state.get_mut(world);
+        let (render_device, default_sampler, render_queue, view_layouts) =
+            system_state.get_mut(world);
+
         let clustered_forward_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
-
-        let view_layouts =
-            generate_view_layouts(&render_device, clustered_forward_buffer_binding_type);
 
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
         let dummy_white_gpu_image = {
@@ -1062,7 +1109,7 @@ impl FromWorld for MeshPipeline {
         };
 
         MeshPipeline {
-            view_layouts,
+            view_layouts: view_layouts.clone(),
             clustered_forward_buffer_binding_type,
             dummy_white_gpu_image,
             mesh_layouts: MeshLayouts::new(&render_device),
@@ -1090,16 +1137,7 @@ impl MeshPipeline {
     }
 
     pub fn get_view_layout(&self, layout_key: MeshPipelineViewLayoutKey) -> &BindGroupLayout {
-        let index = layout_key.bits() as usize;
-        let layout = &self.view_layouts[index];
-
-        #[cfg(debug_assertions)]
-        if layout.texture_count > MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES {
-            // Issue our own warning here because Naga's error message is a bit cryptic in this situation
-            warn_once!("Too many textures in mesh pipeline view layout, this might cause us to hit `wgpu::Limits::max_sampled_textures_per_shader_stage` in some environments.");
-        }
-
-        &layout.bind_group_layout
+        self.view_layouts.get_view_layout(layout_key)
     }
 }
 
@@ -1303,7 +1341,9 @@ bitflags::bitflags! {
         const READS_VIEW_TRANSMISSION_TEXTURE   = 1 << 12;
         const LIGHTMAPPED                       = 1 << 13;
         const IRRADIANCE_VOLUME                 = 1 << 14;
-        const LAST_FLAG                         = Self::IRRADIANCE_VOLUME.bits();
+        const VISIBILITY_RANGE_DITHER           = 1 << 15;
+        const SCREEN_SPACE_REFLECTIONS          = 1 << 16;
+        const LAST_FLAG                         = Self::SCREEN_SPACE_REFLECTIONS.bits();
 
         // Bitfields
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
@@ -1491,10 +1531,12 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if layout.0.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
+            shader_defs.push("VERTEX_UVS_A".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
         }
 
         if layout.0.contains(Mesh::ATTRIBUTE_UV_1) {
+            shader_defs.push("VERTEX_UVS".into());
             shader_defs.push("VERTEX_UVS_B".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_1.at_shader_location(3));
         }
@@ -1511,6 +1553,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if cfg!(feature = "pbr_transmission_textures") {
             shader_defs.push("PBR_TRANSMISSION_TEXTURES_SUPPORTED".into());
+        }
+        if cfg!(feature = "pbr_multi_layer_material_textures") {
+            shader_defs.push("PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED".into());
         }
 
         let mut bind_group_layout = vec![self.get_view_layout(key.into()).clone()];
@@ -1622,6 +1667,14 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());
+            shader_defs.push(ShaderDefVal::UInt(
+                "TONEMAPPING_LUT_TEXTURE_BINDING_INDEX".into(),
+                20,
+            ));
+            shader_defs.push(ShaderDefVal::UInt(
+                "TONEMAPPING_LUT_SAMPLER_BINDING_INDEX".into(),
+                21,
+            ));
 
             let method = key.intersection(MeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
@@ -1632,7 +1685,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
                 shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_ACES_FITTED {
-                shader_defs.push("TONEMAP_METHOD_ACES_FITTED ".into());
+                shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_AGX {
                 shader_defs.push("TONEMAP_METHOD_AGX".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM {
@@ -1692,6 +1745,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 _ => unreachable!(), // Not possible, since the mask is 2 bits, and we've covered all 4 cases
             },
         ));
+
+        if key.contains(MeshPipelineKey::VISIBILITY_RANGE_DITHER) {
+            shader_defs.push("VISIBILITY_RANGE_DITHER".into());
+        }
 
         if self.binding_arrays_are_usable {
             shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
@@ -1875,6 +1932,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         Read<ViewLightsUniformOffset>,
         Read<ViewFogUniformOffset>,
         Read<ViewLightProbesUniformOffset>,
+        Read<ViewScreenSpaceReflectionsUniformOffset>,
         Read<MeshViewBindGroup>,
     );
     type ItemQuery = ();
@@ -1882,7 +1940,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform, view_lights, view_fog, view_light_probes, mesh_view_bind_group): ROQueryItem<
+        (view_uniform, view_lights, view_fog, view_light_probes, view_ssr, mesh_view_bind_group): ROQueryItem<
             'w,
             Self::ViewQuery,
         >,
@@ -1898,6 +1956,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
                 view_lights.offset,
                 view_fog.offset,
                 **view_light_probes,
+                **view_ssr,
             ],
         );
 

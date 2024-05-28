@@ -6,8 +6,8 @@ use super::helpers::*;
 
 use bevy_color::Color;
 use bevy_math::primitives::{
-    BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, Ellipse, Line2d, Plane2d, Polygon,
-    Polyline2d, Primitive2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
+    Annulus, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, Ellipse, Line2d, Plane2d, Polygon,
+    Polyline2d, Primitive2d, Rectangle, RegularPolygon, Rhombus, Segment2d, Triangle2d,
 };
 use bevy_math::{Dir2, Mat2, Vec2};
 
@@ -29,7 +29,7 @@ pub trait GizmoPrimitive2d<P: Primitive2d> {
     /// Renders a 2D primitive with its associated details.
     fn primitive_2d(
         &mut self,
-        primitive: P,
+        primitive: &P,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -47,7 +47,7 @@ where
 
     fn primitive_2d(
         &mut self,
-        primitive: Dir2,
+        primitive: &Dir2,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -56,7 +56,7 @@ where
             return;
         }
 
-        let direction = Mat2::from_angle(angle) * *primitive;
+        let direction = Mat2::from_angle(angle) * **primitive;
 
         let start = position;
         let end = position + MIN_LINE_LEN * direction;
@@ -75,7 +75,7 @@ where
 
     fn primitive_2d(
         &mut self,
-        primitive: Circle,
+        primitive: &Circle,
         position: Vec2,
         _angle: f32,
         color: impl Into<Color>,
@@ -99,7 +99,7 @@ where
 
     fn primitive_2d(
         &mut self,
-        primitive: Ellipse,
+        primitive: &Ellipse,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -109,6 +109,64 @@ where
         }
 
         self.ellipse_2d(position, angle, primitive.half_size, color);
+    }
+}
+
+// annulus 2d
+
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<Annulus> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = () where Self: 'a;
+
+    fn primitive_2d(
+        &mut self,
+        primitive: &Annulus,
+        position: Vec2,
+        angle: f32,
+        color: impl Into<Color>,
+    ) -> Self::Output<'_> {
+        if !self.enabled {
+            return;
+        }
+
+        let color = color.into();
+        self.primitive_2d(&primitive.inner_circle, position, angle, color);
+        self.primitive_2d(&primitive.outer_circle, position, angle, color);
+    }
+}
+
+// rhombus 2d
+
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<Rhombus> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = () where Self: 'a;
+
+    fn primitive_2d(
+        &mut self,
+        primitive: &Rhombus,
+        position: Vec2,
+        angle: f32,
+        color: impl Into<Color>,
+    ) -> Self::Output<'_> {
+        if !self.enabled {
+            return;
+        }
+
+        let [a, b, c, d] =
+            [(1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0)].map(|(sign_x, sign_y)| {
+                Vec2::new(
+                    primitive.half_diagonals.x * sign_x,
+                    primitive.half_diagonals.y * sign_y,
+                )
+            });
+        let positions = [a, b, c, d, a].map(rotate_then_translate_2d(angle, position));
+        self.linestrip_2d(positions, color);
     }
 }
 
@@ -123,7 +181,7 @@ where
 
     fn primitive_2d(
         &mut self,
-        primitive: Capsule2d,
+        primitive: &Capsule2d,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -221,7 +279,7 @@ where
 
     fn primitive_2d(
         &mut self,
-        primitive: Line2d,
+        primitive: &Line2d,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -280,7 +338,7 @@ where
 
     fn primitive_2d(
         &mut self,
-        primitive: Plane2d,
+        primitive: &Plane2d,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -299,7 +357,7 @@ where
             half_length: HALF_MIN_LINE_LEN,
         };
         self.primitive_2d(
-            normal_segment,
+            &normal_segment,
             // offset the normal so it starts on the plane line
             position + HALF_MIN_LINE_LEN * rotation * *normal,
             angle,
@@ -309,7 +367,7 @@ where
 
         // draw the plane line
         let direction = Dir2::new_unchecked(-normal.perp());
-        self.primitive_2d(Line2d { direction }, position, angle, polymorphic_color)
+        self.primitive_2d(&Line2d { direction }, position, angle, polymorphic_color)
             .draw_arrow(false);
 
         // draw an arrow such that the normal is always left side of the plane with respect to the
@@ -363,7 +421,7 @@ where
 
     fn primitive_2d(
         &mut self,
-        primitive: Segment2d,
+        primitive: &Segment2d,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -416,7 +474,7 @@ where
 
     fn primitive_2d(
         &mut self,
-        primitive: Polyline2d<N>,
+        primitive: &Polyline2d<N>,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -447,7 +505,7 @@ where
 
     fn primitive_2d(
         &mut self,
-        primitive: BoxedPolyline2d,
+        primitive: &BoxedPolyline2d,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -478,7 +536,7 @@ where
 
     fn primitive_2d(
         &mut self,
-        primitive: Triangle2d,
+        primitive: &Triangle2d,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -503,7 +561,7 @@ where
 
     fn primitive_2d(
         &mut self,
-        primitive: Rectangle,
+        primitive: &Rectangle,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -536,7 +594,7 @@ where
 
     fn primitive_2d(
         &mut self,
-        primitive: Polygon<N>,
+        primitive: &Polygon<N>,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -577,7 +635,7 @@ where
 
     fn primitive_2d(
         &mut self,
-        primitive: BoxedPolygon,
+        primitive: &BoxedPolygon,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -616,7 +674,7 @@ where
 
     fn primitive_2d(
         &mut self,
-        primitive: RegularPolygon,
+        primitive: &RegularPolygon,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,

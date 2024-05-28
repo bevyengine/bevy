@@ -2,12 +2,12 @@ use crate::{
     core_3d::Opaque3d,
     skybox::{SkyboxBindGroup, SkyboxPipelineId},
 };
-use bevy_ecs::{prelude::World, query::QueryItem};
+use bevy_ecs::{entity::Entity, prelude::World, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::{BinnedRenderPhase, TrackedRenderPass},
+    render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::{CommandEncoderDescriptor, PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
@@ -24,9 +24,8 @@ use super::AlphaMask3d;
 pub struct MainOpaquePass3dNode;
 impl ViewNode for MainOpaquePass3dNode {
     type ViewQuery = (
+        Entity,
         &'static ExtractedCamera,
-        &'static BinnedRenderPhase<Opaque3d>,
-        &'static BinnedRenderPhase<AlphaMask3d>,
         &'static ViewTarget,
         &'static ViewDepthTexture,
         Option<&'static SkyboxPipelineId>,
@@ -39,9 +38,8 @@ impl ViewNode for MainOpaquePass3dNode {
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
         (
+            view,
             camera,
-            opaque_phase,
-            alpha_mask_phase,
             target,
             depth,
             skybox_pipeline,
@@ -50,6 +48,19 @@ impl ViewNode for MainOpaquePass3dNode {
         ): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
+        let (Some(opaque_phases), Some(alpha_mask_phases)) = (
+            world.get_resource::<ViewBinnedRenderPhases<Opaque3d>>(),
+            world.get_resource::<ViewBinnedRenderPhases<AlphaMask3d>>(),
+        ) else {
+            return Ok(());
+        };
+
+        let (Some(opaque_phase), Some(alpha_mask_phase)) =
+            (opaque_phases.get(&view), alpha_mask_phases.get(&view))
+        else {
+            return Ok(());
+        };
+
         let diagnostics = render_context.diagnostic_recorder();
 
         let color_attachments = [Some(target.get_color_attachment())];

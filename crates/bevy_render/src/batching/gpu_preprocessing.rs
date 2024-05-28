@@ -18,10 +18,11 @@ use wgpu::{BindingResource, BufferUsages, DownlevelFlags, Features};
 
 use crate::{
     render_phase::{
-        BinnedPhaseItem, BinnedRenderPhase, BinnedRenderPhaseBatch, CachedRenderPipelinePhaseItem,
+        BinnedPhaseItem, BinnedRenderPhaseBatch, CachedRenderPipelinePhaseItem,
         PhaseItemExtraIndex, SortedPhaseItem, SortedRenderPhase, UnbatchableBinnedEntityIndices,
+        ViewBinnedRenderPhases, ViewSortedRenderPhases,
     },
-    render_resource::{BufferVec, GpuArrayBufferable, UninitBufferVec},
+    render_resource::{BufferVec, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     view::{GpuCulling, ViewTarget},
     Render, RenderApp, RenderSet,
@@ -101,7 +102,7 @@ where
     /// The uniform data inputs for the current frame.
     ///
     /// These are uploaded during the extraction phase.
-    pub current_input_buffer: BufferVec<BDI>,
+    pub current_input_buffer: RawBufferVec<BDI>,
 
     /// The uniform data inputs for the previous frame.
     ///
@@ -110,7 +111,7 @@ where
     /// can spawn or despawn between frames. Instead, each current buffer
     /// data input uniform is expected to contain the index of the
     /// corresponding buffer data input uniform in this list.
-    pub previous_input_buffer: BufferVec<BDI>,
+    pub previous_input_buffer: RawBufferVec<BDI>,
 }
 
 /// The buffer of GPU preprocessing work items for a single view.
@@ -247,8 +248,8 @@ where
         BatchedInstanceBuffers {
             data_buffer: UninitBufferVec::new(BufferUsages::STORAGE),
             work_item_buffers: EntityHashMap::default(),
-            current_input_buffer: BufferVec::new(BufferUsages::STORAGE),
-            previous_input_buffer: BufferVec::new(BufferUsages::STORAGE),
+            current_input_buffer: RawBufferVec::new(BufferUsages::STORAGE),
+            previous_input_buffer: RawBufferVec::new(BufferUsages::STORAGE),
         }
     }
 
@@ -372,7 +373,8 @@ pub fn delete_old_work_item_buffers<GFBD>(
 pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
     gpu_array_buffer: ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
     mut indirect_parameters_buffer: ResMut<IndirectParametersBuffer>,
-    mut views: Query<(Entity, &mut SortedRenderPhase<I>, Has<GpuCulling>)>,
+    mut sorted_render_phases: ResMut<ViewSortedRenderPhases<I>>,
+    mut views: Query<(Entity, Has<GpuCulling>)>,
     system_param_item: StaticSystemParam<GFBD::Param>,
 ) where
     I: CachedRenderPipelinePhaseItem + SortedPhaseItem,
@@ -385,7 +387,11 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
         ..
     } = gpu_array_buffer.into_inner();
 
-    for (view, mut phase, gpu_culling) in &mut views {
+    for (view, gpu_culling) in &mut views {
+        let Some(phase) = sorted_render_phases.get_mut(&view) else {
+            continue;
+        };
+
         // Create the work item buffer if necessary.
         let work_item_buffer =
             work_item_buffers
@@ -433,7 +439,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
             if !can_batch {
                 // Break a batch if we need to.
                 if let Some(batch) = batch.take() {
-                    batch.flush(output_index, &mut phase);
+                    batch.flush(output_index, phase);
                 }
 
                 // Start a new batch.
@@ -471,7 +477,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
 
         // Flush the final batch if necessary.
         if let Some(batch) = batch.take() {
-            batch.flush(data_buffer.len() as u32, &mut phase);
+            batch.flush(data_buffer.len() as u32, phase);
         }
     }
 }
@@ -480,7 +486,8 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
 pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
     gpu_array_buffer: ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
     mut indirect_parameters_buffer: ResMut<IndirectParametersBuffer>,
-    mut views: Query<(Entity, &mut BinnedRenderPhase<BPI>, Has<GpuCulling>)>,
+    mut binned_render_phases: ResMut<ViewBinnedRenderPhases<BPI>>,
+    mut views: Query<(Entity, Has<GpuCulling>)>,
     param: StaticSystemParam<GFBD::Param>,
 ) where
     BPI: BinnedPhaseItem,
@@ -494,8 +501,10 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
         ..
     } = gpu_array_buffer.into_inner();
 
-    for (view, mut phase, gpu_culling) in &mut views {
-        let phase = &mut *phase; // Borrow checker.
+    for (view, gpu_culling) in &mut views {
+        let Some(phase) = binned_render_phases.get_mut(&view) else {
+            continue;
+        };
 
         // Create the work item buffer if necessary; otherwise, just mark it as
         // used this frame.

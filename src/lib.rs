@@ -1,7 +1,7 @@
 #![allow(clippy::single_component_path_imports)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
-//! [![](https://bevyengine.org/assets/bevy_logo_docs.svg)](https://bevyengine.org)
+//! [![Bevy Logo](https://bevyengine.org/assets/bevy_logo_docs.svg)](https://bevyengine.org)
 //!
 //! Bevy is an open-source modular game engine built in Rust, with a focus on developer productivity
 //! and performance.
