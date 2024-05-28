@@ -23,6 +23,8 @@ pub mod dev_command;
 pub mod cli_deserialize;
 pub mod console_reader_plugin;
 
+pub use bevy_dev_tools_macros::*;
+
 /// Enables developer tools in an [`App`]. This plugin is added automatically with `bevy_dev_tools`
 /// feature.
 ///

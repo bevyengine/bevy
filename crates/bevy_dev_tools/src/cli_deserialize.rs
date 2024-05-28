@@ -62,11 +62,11 @@ fn parse_argument(input: &str) -> IResult<&str, (&str, Option<&str>)> {
 
 fn parse_arguments<'a>(input: &'a str, fields: &'static [&'static str]) -> IResult<&'a str, HashMap<String, &'a str>> {
     let (input, args) = many0(parse_argument)(input)?;
-    println!("{:?}", args);
+    // println!("{:?}", args);
     let mut positional_index = 0;
     let mut map = HashMap::new();
     for (key, value) in args {
-        println!("{}: {:?}", key, value);
+        // println!("{}: {:?}", key, value);
         if value.is_some() {
             map.insert(key.to_string(), value.unwrap());
         } else {
@@ -142,7 +142,7 @@ impl<'de> Deserializer<'de> for TypedCliDeserializer<'de> {
         V: Visitor<'de>,
     {
         let (_, values) = parse_arguments(self.input, fields).map_err(|_| de::Error::custom("Parse error"))?;
-        println!("{:?}", values);
+        // println!("{:?}", values);
         visitor.visit_map(CliMapVisitor::new(values))
     }
 
@@ -170,7 +170,7 @@ impl<'de> Deserializer<'de> for CliDeserializer<'de> {
         let Ok((args, _)) = take_while1::<_, &str, ()>(|c| c != ' ')(self.input) else {
             return Err(de::value::Error::custom("Parse error"));
         };
-        println!("Args: {}", args);
+        // println!("Args: {}", args);
 
         let mut registration = None;
         for reg in self.type_registration.iter() {

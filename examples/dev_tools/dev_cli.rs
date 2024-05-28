@@ -4,6 +4,7 @@ use std::any::Any;
 
 use bevy::dev_tools::cli_deserialize::CliDeserializer;
 use bevy::dev_tools::dev_command::{DevCommand, ReflectDevCommand};
+use bevy::dev_tools::DevCommand;
 use bevy::ecs::world::Command;
 use bevy::prelude::*;
 use bevy::dev_tools::console_reader_plugin::{ConsoleInput, ConsoleReaderPlugin};
@@ -13,27 +14,25 @@ use serde::de::DeserializeSeed;
 #[derive(Resource, Default)]
 pub struct Gold(pub usize);
 
-#[derive(Reflect, Default)]
+#[derive(Reflect, Default, DevCommand)]
 #[reflect(DevCommand, Default)]
 pub struct SetGold {
     pub gold: usize,
 }
-impl DevCommand for SetGold {}
 impl Command for SetGold {
     fn apply(self, world: &mut World) {
         world.insert_resource(Gold(self.gold));
     }
 }
 
-#[derive(Reflect, Default)]
+#[derive(Reflect, Default, DevCommand)]
 #[reflect(DevCommand, Default)]
 pub struct PrintGold {}
 
-impl DevCommand for PrintGold {}
 impl Command for PrintGold {
     fn apply(self, world: &mut World) {
         let gold = world.get_resource::<Gold>().unwrap();
-        println!("Gold: {}", gold.0);
+        info!("Gold: {}", gold.0);
     }
 }
 
@@ -44,6 +43,8 @@ fn main() {
 
         .register_type::<SetGold>()
         .register_type::<PrintGold>()
+
+        .init_resource::<Gold>()
 
         .add_systems(Update, parse_command)
 
@@ -63,8 +64,8 @@ fn parse_command(
                 let refl_des = ReflectDeserializer::new(&registry);
 
                 if let Ok(boxed_cmd) = refl_des.deserialize(des) {
-                    println!("Deserialized command: {:?}", boxed_cmd);
-                    println!("Type path: {:?}", boxed_cmd.get_represented_type_info().unwrap().type_path());
+                    // println!("Deserialized command: {:?}", boxed_cmd);
+                    // println!("Type path: {:?}", boxed_cmd.get_represented_type_info().unwrap().type_path());
                     let Some(type_info) = registry.get_with_type_path(boxed_cmd.get_represented_type_info().unwrap().type_path()) else {
                         println!("Failed to get type info");
                         continue;

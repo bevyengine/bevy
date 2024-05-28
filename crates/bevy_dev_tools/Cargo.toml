@@ -38,6 +38,9 @@ bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.14.0-dev" }
 bevy_text = { path = "../bevy_text", version = "0.14.0-dev" }
 
+# macros
+bevy_dev_tools_macros = { path = "macros/", version = "0.14.0-dev" }
+
 # other
 serde = { version = "1.0", features = ["derive"], optional = true }
 ron = { version = "0.8.0", optional = true }

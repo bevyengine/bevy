@@ -33,8 +33,9 @@ fn console_reader_system(
 
 fn async_console_reader(mut reader: AsyncConsoleReader) {
     let mut editor = rustyline::DefaultEditor::new().unwrap();
+    editor.set_cursor_visibility(true);
     while true {
-        let result_input = editor.readline(">> ");
+        let result_input = editor.readline("");
 
         match result_input {
             Ok(input) => {
