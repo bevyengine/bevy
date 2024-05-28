@@ -22,7 +22,8 @@
 //!
 //! fn spawn_gltf(mut commands: Commands, asset_server: Res<AssetServer>) {
 //!     commands.spawn(SceneBundle {
-//!         // The `#Scene0` label here is very important. Keep reading for more details
+//!         // The `#Scene0` label here is very important because it tells bevy to load the first scene in the gLTF file.
+//!         // If this isn't specified bevy doesn't know which part of the gLTF file to load.
 //!         scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
 //!         // You can use the transform to give it a position
 //!         transform: Transform::from_xyz(2.0, 0.0, -5.0),
