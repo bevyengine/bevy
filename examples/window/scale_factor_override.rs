@@ -86,7 +86,7 @@ fn display_override(
         }
     );
 
-    window.title = text.clone();
+    window.title.clone_from(&text);
 
     let mut custom_text = custom_text.single_mut();
     custom_text.sections[0].value = text;
