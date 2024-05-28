@@ -50,7 +50,7 @@
 //! struct HelmetScene(Handle<Gltf>);
 //!
 //! fn load_gltf(mut commands: Commands, asset_server: Res<AssetServer>) {
-//!     let gltf = asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0");
+//!     let gltf = asset_server.load("models/FlightHelmet/FlightHelmet.gltf");
 //!     commands.insert_resource(HelmetScene(gltf));
 //! }
 //!
