@@ -13,21 +13,19 @@ use serde::de::DeserializeSeed;
 #[derive(Resource, Default)]
 pub struct Gold(pub usize);
 
-#[derive(Reflect, Default, Clone)]
+#[derive(Reflect, Default)]
 #[reflect(DevCommand, Default)]
 pub struct SetGold {
     pub gold: usize,
 }
-
 impl DevCommand for SetGold {}
-
 impl Command for SetGold {
     fn apply(self, world: &mut World) {
         world.insert_resource(Gold(self.gold));
     }
 }
 
-#[derive(Reflect, Default, Clone)]
+#[derive(Reflect, Default)]
 #[reflect(DevCommand, Default)]
 pub struct PrintGold {}
 
