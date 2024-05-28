@@ -4,7 +4,7 @@ use crate::{
     change_detection::MutUntyped,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
-    query::{Access, DebugCheckedUnwrap},
+    query::Access,
     removal_detection::RemovedComponentEvents,
     storage::Storages,
     world::{Mut, World},
@@ -1824,8 +1824,9 @@ impl<'w> FilteredEntityRef<'w> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
             .has_read(id)
-            // SAFETY: We have read access so we must have the component
-            .then(|| unsafe { self.entity.get().debug_checked_unwrap() })
+            // SAFETY: We have read access
+            .then(|| unsafe { self.entity.get() })
+            .flatten()
     }
 
     /// Gets access to the component of type `T` for the current entity,
@@ -1837,8 +1838,9 @@ impl<'w> FilteredEntityRef<'w> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
             .has_read(id)
-            // SAFETY: We have read access so we must have the component
-            .then(|| unsafe { self.entity.get_ref().debug_checked_unwrap() })
+            // SAFETY: We have read access
+            .then(|| unsafe { self.entity.get_ref() })
+            .flatten()
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -1848,8 +1850,9 @@ impl<'w> FilteredEntityRef<'w> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
             .has_read(id)
-            // SAFETY: We have read access so we must have the component
-            .then(|| unsafe { self.entity.get_change_ticks::<T>().debug_checked_unwrap() })
+            // SAFETY: We have read access
+            .then(|| unsafe { self.entity.get_change_ticks::<T>() })
+            .flatten()
     }
 
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
@@ -1860,12 +1863,11 @@ impl<'w> FilteredEntityRef<'w> {
     /// compile time.**
     #[inline]
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
-        // SAFETY: We have read access so we must have the component
-        self.access.has_read(component_id).then(|| unsafe {
-            self.entity
-                .get_change_ticks_by_id(component_id)
-                .debug_checked_unwrap()
-        })
+        self.access
+            .has_read(component_id)
+            // SAFETY: We have read access
+            .then(|| unsafe { self.entity.get_change_ticks_by_id(component_id) })
+            .flatten()
     }
 
     /// Gets the component of the given [`ComponentId`] from the entity.
@@ -1880,8 +1882,9 @@ impl<'w> FilteredEntityRef<'w> {
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
         self.access
             .has_read(component_id)
-            // SAFETY: We have read access so we must have the component
-            .then(|| unsafe { self.entity.get_by_id(component_id).debug_checked_unwrap() })
+            // SAFETY: We have read access
+            .then(|| unsafe { self.entity.get_by_id(component_id) })
+            .flatten()
     }
 }
 
@@ -2094,8 +2097,9 @@ impl<'w> FilteredEntityMut<'w> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
             .has_write(id)
-            // SAFETY: We have write access so we must have the component
-            .then(|| unsafe { self.entity.get_mut().debug_checked_unwrap() })
+            // SAFETY: We have write access
+            .then(|| unsafe { self.entity.get_mut() })
+            .flatten()
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -2139,12 +2143,11 @@ impl<'w> FilteredEntityMut<'w> {
     /// which is only valid while the [`FilteredEntityMut`] is alive.
     #[inline]
     pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        // SAFETY: We have write access so we must have the component
-        self.access.has_write(component_id).then(|| unsafe {
-            self.entity
-                .get_mut_by_id(component_id)
-                .debug_checked_unwrap()
-        })
+        self.access
+            .has_write(component_id)
+            // SAFETY: We have write access
+            .then(|| unsafe { self.entity.get_mut_by_id(component_id) })
+            .flatten()
     }
 }
 
