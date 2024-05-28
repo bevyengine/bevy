@@ -1205,14 +1205,14 @@ mod tests {
             .register_component_hooks::<A>()
             .on_add(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(0);
-                world.commands().entity(entity).insert(B).insert(D);
+                world.commands().entity(entity).insert(B).insert(C);
             });
 
         world
             .register_component_hooks::<B>()
             .on_add(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(1);
-                world.commands().entity(entity).insert(C);
+                world.commands().entity(entity).insert(D);
             });
 
         world
