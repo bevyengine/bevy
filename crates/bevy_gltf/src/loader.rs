@@ -552,15 +552,10 @@ async fn load_gltf<'a, 'b, 'c>(
             });
         }
 
-        let label = mesh_label(&gltf_mesh);
-        let handle = load_context.add_labeled_asset(
-            mesh_label(&gltf_mesh),
-            super::GltfMesh {
-                label,
-                primitives,
-                extras: get_gltf_extras(gltf_mesh.extras()),
-            },
-        );
+        let mesh =
+            super::GltfMesh::new(&gltf_mesh, primitives, get_gltf_extras(gltf_mesh.extras()));
+
+        let handle = load_context.add_labeled_asset(mesh.label(), mesh);
         if let Some(name) = gltf_mesh.name() {
             named_meshes.insert(name.into(), handle.clone());
         }
@@ -570,18 +565,16 @@ async fn load_gltf<'a, 'b, 'c>(
     let mut nodes_intermediate = vec![];
     let mut named_nodes_intermediate = HashMap::default();
     for node in gltf.nodes() {
-        let node_label = node_label(&node);
         nodes_intermediate.push((
-            GltfNode {
-                label: node_label,
-                children: vec![],
-                mesh: node
-                    .mesh()
+            GltfNode::new(
+                &node,
+                vec![],
+                node.mesh()
                     .map(|mesh| mesh.index())
-                    .and_then(|i| meshes.get(i).cloned()),
-                transform: node_transform(&node),
-                extras: get_gltf_extras(node.extras()),
-            },
+                    .and_then(|i: usize| meshes.get(i).cloned()),
+                node_transform(&node),
+                get_gltf_extras(node.extras()),
+            ),
             node.children()
                 .map(|child| child.index())
                 .collect::<Vec<_>>(),
@@ -592,7 +585,7 @@ async fn load_gltf<'a, 'b, 'c>(
     }
     let nodes = resolve_node_hierarchy(nodes_intermediate, load_context.path())
         .into_iter()
-        .map(|node| load_context.add_labeled_asset(node.label.clone(), node))
+        .map(|node| load_context.add_labeled_asset(node.label(), node))
         .collect::<Vec<Handle<GltfNode>>>();
     let named_nodes = named_nodes_intermediate
         .into_iter()
@@ -1415,11 +1408,6 @@ fn load_node(
     }
 }
 
-/// Returns the label for the `mesh`.
-fn mesh_label(mesh: &gltf::Mesh) -> String {
-    format!("Mesh{}", mesh.index())
-}
-
 /// Returns the label for the `mesh` and `primitive`.
 fn primitive_label(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
     format!("Mesh{}/Primitive{}", mesh.index(), primitive.index())
@@ -1499,11 +1487,6 @@ fn texture_handle_from_info(
         .nth(texture_info.index.value())
         .expect("Texture info references a nonexistent texture");
     texture_handle(load_context, &texture)
-}
-
-/// Returns the label for the `node`.
-fn node_label(node: &Node) -> String {
-    format!("Node{}", node.index())
 }
 
 /// Returns the label for the `scene`.
@@ -1924,9 +1907,10 @@ mod test {
     use crate::GltfNode;
 
     impl GltfNode {
-        fn with_label(label: String) -> Self {
+        fn with_generated_name(index: usize) -> Self {
             GltfNode {
-                label,
+                index,
+                name: Some(format!("l{}", index)),
                 children: vec![],
                 mesh: None,
                 transform: bevy_transform::prelude::Transform::IDENTITY,
@@ -1937,12 +1921,12 @@ mod test {
     #[test]
     fn node_hierarchy_single_node() {
         let result = resolve_node_hierarchy(
-            vec![(GltfNode::with_label("l1".to_string()), vec![])],
+            vec![(GltfNode::with_generated_name(1), vec![])],
             PathBuf::new().as_path(),
         );
 
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].label, "l1");
+        assert_eq!(result[0].name(), "l1");
         assert_eq!(result[0].children.len(), 0);
     }
 
@@ -1950,16 +1934,16 @@ mod test {
     fn node_hierarchy_no_hierarchy() {
         let result = resolve_node_hierarchy(
             vec![
-                (GltfNode::with_label("l1".to_string()), vec![]),
-                (GltfNode::with_label("l2".to_string()), vec![]),
+                (GltfNode::with_generated_name(1), vec![]),
+                (GltfNode::with_generated_name(2), vec![]),
             ],
             PathBuf::new().as_path(),
         );
 
         assert_eq!(result.len(), 2);
-        assert_eq!(result[0].label, "l1");
+        assert_eq!(result[0].name(), "l1");
         assert_eq!(result[0].children.len(), 0);
-        assert_eq!(result[1].label, "l2");
+        assert_eq!(result[1].name(), "l2");
         assert_eq!(result[1].children.len(), 0);
     }
 
@@ -1967,16 +1951,16 @@ mod test {
     fn node_hierarchy_simple_hierarchy() {
         let result = resolve_node_hierarchy(
             vec![
-                (GltfNode::with_label("l1".to_string()), vec![1]),
-                (GltfNode::with_label("l2".to_string()), vec![]),
+                (GltfNode::with_generated_name(1), vec![1]),
+                (GltfNode::with_generated_name(2), vec![]),
             ],
             PathBuf::new().as_path(),
         );
 
         assert_eq!(result.len(), 2);
-        assert_eq!(result[0].label, "l1");
+        assert_eq!(result[0].name(), "l1");
         assert_eq!(result[0].children.len(), 1);
-        assert_eq!(result[1].label, "l2");
+        assert_eq!(result[1].name(), "l2");
         assert_eq!(result[1].children.len(), 0);
     }
 
@@ -1984,31 +1968,31 @@ mod test {
     fn node_hierarchy_hierarchy() {
         let result = resolve_node_hierarchy(
             vec![
-                (GltfNode::with_label("l1".to_string()), vec![1]),
-                (GltfNode::with_label("l2".to_string()), vec![2]),
-                (GltfNode::with_label("l3".to_string()), vec![3, 4, 5]),
-                (GltfNode::with_label("l4".to_string()), vec![6]),
-                (GltfNode::with_label("l5".to_string()), vec![]),
-                (GltfNode::with_label("l6".to_string()), vec![]),
-                (GltfNode::with_label("l7".to_string()), vec![]),
+                (GltfNode::with_generated_name(1), vec![1]),
+                (GltfNode::with_generated_name(2), vec![2]),
+                (GltfNode::with_generated_name(3), vec![3, 4, 5]),
+                (GltfNode::with_generated_name(4), vec![6]),
+                (GltfNode::with_generated_name(5), vec![]),
+                (GltfNode::with_generated_name(6), vec![]),
+                (GltfNode::with_generated_name(7), vec![]),
             ],
             PathBuf::new().as_path(),
         );
 
         assert_eq!(result.len(), 7);
-        assert_eq!(result[0].label, "l1");
+        assert_eq!(result[0].name(), "l1");
         assert_eq!(result[0].children.len(), 1);
-        assert_eq!(result[1].label, "l2");
+        assert_eq!(result[1].name(), "l2");
         assert_eq!(result[1].children.len(), 1);
-        assert_eq!(result[2].label, "l3");
+        assert_eq!(result[2].name(), "l3");
         assert_eq!(result[2].children.len(), 3);
-        assert_eq!(result[3].label, "l4");
+        assert_eq!(result[3].name(), "l4");
         assert_eq!(result[3].children.len(), 1);
-        assert_eq!(result[4].label, "l5");
+        assert_eq!(result[4].name(), "l5");
         assert_eq!(result[4].children.len(), 0);
-        assert_eq!(result[5].label, "l6");
+        assert_eq!(result[5].name(), "l6");
         assert_eq!(result[5].children.len(), 0);
-        assert_eq!(result[6].label, "l7");
+        assert_eq!(result[6].name(), "l7");
         assert_eq!(result[6].children.len(), 0);
     }
 
@@ -2016,8 +2000,8 @@ mod test {
     fn node_hierarchy_cyclic() {
         let result = resolve_node_hierarchy(
             vec![
-                (GltfNode::with_label("l1".to_string()), vec![1]),
-                (GltfNode::with_label("l2".to_string()), vec![0]),
+                (GltfNode::with_generated_name(1), vec![1]),
+                (GltfNode::with_generated_name(2), vec![0]),
             ],
             PathBuf::new().as_path(),
         );
@@ -2029,14 +2013,14 @@ mod test {
     fn node_hierarchy_missing_node() {
         let result = resolve_node_hierarchy(
             vec![
-                (GltfNode::with_label("l1".to_string()), vec![2]),
-                (GltfNode::with_label("l2".to_string()), vec![]),
+                (GltfNode::with_generated_name(1), vec![2]),
+                (GltfNode::with_generated_name(2), vec![]),
             ],
             PathBuf::new().as_path(),
         );
 
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].label, "l2");
+        assert_eq!(result[0].name(), "l2");
         assert_eq!(result[0].children.len(), 0);
     }
 }

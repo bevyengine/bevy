@@ -111,8 +111,10 @@ pub struct Gltf {
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-node).
 #[derive(Asset, Debug, Clone, TypePath)]
 pub struct GltfNode {
-    /// Label of the node, either user defined in GLTF or Node{index}.
-    pub label: String,
+    /// A user defined node name from GLTF
+    pub name: Option<String>,
+    /// Index of the node inside the scene
+    pub index: usize,
     /// Direct children of the node.
     pub children: Vec<GltfNode>,
     /// Mesh of the node.
@@ -123,18 +125,84 @@ pub struct GltfNode {
     pub extras: Option<GltfExtras>,
 }
 
+impl GltfNode {
+    /// Create a node extracting name and index from gltf def
+    pub fn new(
+        node: &gltf::Node,
+        children: Vec<GltfNode>,
+        mesh: Option<Handle<GltfMesh>>,
+        transform: bevy_transform::prelude::Transform,
+        extras: Option<GltfExtras>,
+    ) -> Self {
+        Self {
+            index: node.index(),
+            name: node.name().map(|s| s.to_string()),
+            children,
+            mesh,
+            transform,
+            extras,
+        }
+    }
+
+    /// Computed name for a node - either a user defined name or a generated name from index
+    pub fn name(&self) -> String {
+        if let Some(name) = &self.name {
+            name.clone()
+        } else {
+            format!("GltfNode{}", self.index)
+        }
+    }
+
+    /// Computed asset label for node based on its index in the scene
+    pub fn label(&self) -> String {
+        format!("Node{}", self.index)
+    }
+}
+
 /// A glTF mesh, which may consist of multiple [`GltfPrimitives`](GltfPrimitive)
 /// and an optional [`GltfExtras`].
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-mesh).
 #[derive(Asset, Debug, Clone, TypePath)]
 pub struct GltfMesh {
-    /// Label of the mesh, either user defined in GLTF or Mesh{index}.
-    pub label: String,
+    /// A user defined mesh name from GLTF
+    pub name: Option<String>,
+    /// Index of the mesh inside the scene
+    pub index: usize,
     /// Primitives of the glTF mesh.
     pub primitives: Vec<GltfPrimitive>,
     /// Additional data.
     pub extras: Option<GltfExtras>,
+}
+
+impl GltfMesh {
+    /// Create a mesh extracting name and index from gltf def
+    pub fn new(
+        mesh: &gltf::Mesh,
+        primitives: Vec<GltfPrimitive>,
+        extras: Option<GltfExtras>,
+    ) -> Self {
+        Self {
+            index: mesh.index(),
+            name: mesh.name().map(|s| s.to_string()),
+            primitives,
+            extras,
+        }
+    }
+
+    /// Computed name for a mesh - either a user defined name or a generated name from index
+    pub fn name(&self) -> String {
+        if let Some(name) = &self.name {
+            name.clone()
+        } else {
+            format!("GltfMesh{}", self.index)
+        }
+    }
+
+    /// Computed asset label for mesh based on its index in the scene
+    pub fn label(&self) -> String {
+        format!("Mesh{}", self.index)
+    }
 }
 
 /// Part of a [`GltfMesh`] that consists of a [`Mesh`], an optional [`StandardMaterial`] and [`GltfExtras`].
