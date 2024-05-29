@@ -96,7 +96,7 @@
 //! - `Scene{}`: glTF Scene as a Bevy `Scene`
 //! - `Node{}`: glTF Node as a `GltfNode`
 //! - `Mesh{}`: glTF Mesh as a `GltfMesh`
-//! - `Mesh{}/Primitive{}`: glTF Primitive as a Bevy `Mesh`
+//! - `Mesh{}/Primitive{}`: glTF Primitive as a Bevy `Mesh` or `MeshletMesh`
 //! - `Mesh{}/Primitive{}/MorphTargets`: Morph target animation data for a glTF Primitive
 //! - `Texture{}`: glTF Texture as a Bevy `Image`
 //! - `Material{}`: glTF Material as a Bevy `StandardMaterial`
