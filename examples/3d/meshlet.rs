@@ -74,7 +74,7 @@ fn setup(
         ..default()
     });
 
-    let meshlet_mesh_handle = asset_server.load("models/bunny.gltf#Mesh0/Primitive0");
+    let meshlet_mesh_handle = asset_server.load("models/bunny.glb#Mesh0/Primitive0");
     let debug_material = debug_materials.add(MeshletDebugMaterial::default());
 
     for x in -2..=2 {
