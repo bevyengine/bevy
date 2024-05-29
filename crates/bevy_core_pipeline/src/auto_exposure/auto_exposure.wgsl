@@ -155,7 +155,11 @@ fn compute_average(@builtin(local_invocation_index) local_index: u32) {
         count += bin_count;
     }
 
-    var target_exposure = 0.0;
+    // This is the default exposure value.
+    //
+    // If all values are below the threshold,
+    // we should set it to the minimal value to avoid suddenly darkening the scene.
+    var target_exposure = settings.min_log_lum;
 
     if count > 0u {
         // The average luminance of the included histogram samples.
