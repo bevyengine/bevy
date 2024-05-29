@@ -35,12 +35,25 @@ fn is_not_space(c: char) -> bool {
     c != ' ' && c != '\t' && c != '\n'
 }
 
+fn is_not_template_splitter(c: char) -> bool {
+    c != ','
+}
+
 fn parse_quoted_string(input: &str) -> IResult<&str, &str> {
     recognize(delimited(char('"'), is_not("\""), char('"')))(input)
 }
 
 fn parse_ron_value(input: &str) -> IResult<&str, &str> {
     recognize(delimited(char('('), is_not(")"), char(')')))(input)
+}
+
+fn parce_template_names(input: &str) -> IResult<&str, &str> {
+    recognize(delimited(char('<'), is_not(">"), char('>')))(input)
+}
+
+fn split_template_names(input: &str) -> IResult<&str, Vec<&str>> {
+    // split by ","
+    many0(preceded(is_not_template_splitter,parce_template_names))(input)
 }
 
 
@@ -75,6 +88,10 @@ fn parse_arguments<'a>(input: &'a str, fields: &'static [&'static str]) -> IResu
         }
     }
     Ok((input, map))
+}
+
+fn get_cli_type_name(input: &str) -> IResult<&str, &str> {
+    
 }
 
 struct CliMapVisitor<'a> {
