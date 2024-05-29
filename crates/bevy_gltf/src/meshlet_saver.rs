@@ -39,7 +39,7 @@ use std::{collections::VecDeque, iter, ops::Deref};
 /// (
 ///     meta_format_version: "1.0",
 ///     asset: Process(
-///         processor: "MeshletMeshProcessor",
+///         processor: "bevy::gltf::MeshletMeshProcessor",
 ///         settings: (
 ///             loader_settings: (),
 ///             saver_settings: (),

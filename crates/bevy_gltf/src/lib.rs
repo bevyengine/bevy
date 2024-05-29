@@ -67,7 +67,7 @@ impl Plugin for GltfPlugin {
         #[cfg(feature = "meshlet")]
         app.register_asset_processor_with_alias::<bevy_asset::processor::LoadAndSave<RawGltfLoader, meshlet_saver::MeshletMeshGltfSaver>>(
                 meshlet_saver::MeshletMeshGltfSaver.into(),
-                "MeshletMeshProcessor"
+                "bevy::gltf::MeshletMeshProcessor"
             );
     }
 
