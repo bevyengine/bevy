@@ -1,6 +1,6 @@
 use bevy_reflect::{TypeRegistration, TypeRegistry};
 use nom::{
-    branch::alt, bytes::complete::{is_not, tag, take_while, take_while1}, character::complete::{char, space0}, combinator::{opt, recognize}, multi::{many0, separated_list0}, sequence::{delimited, preceded}, IResult
+    branch::alt, bytes::complete::{is_not, tag, take_while, take_while1}, character::complete::{char, space0}, combinator::{map, opt, recognize}, multi::{many0, separated_list0}, sequence::{delimited, preceded}, IResult
 };
 use serde::{de::{self, value::StringDeserializer, Deserialize, Deserializer, Error, IntoDeserializer, MapAccess, Visitor}, forward_to_deserialize_any};
 use std::collections::HashMap;
@@ -47,10 +47,6 @@ fn parse_ron_value(input: &str) -> IResult<&str, &str> {
     recognize(delimited(char('('), is_not(")"), char(')')))(input)
 }
 
-fn parce_template_names(input: &str) -> IResult<&str, &str> {
-    recognize(delimited(char('<'), is_not(">"), char('>')))(input)
-}
-
 //code for parsing short type paths into cli
 
 fn is_identifier_char(c: char) -> bool {
@@ -61,19 +57,41 @@ fn parse_identifier(input: &str) -> IResult<&str, &str> {
     take_while1(is_identifier_char)(input)
 }
 
-fn parse_generic_args(input: &str) -> IResult<&str, Vec<&str>> {
+fn is_generic_separator_or_space(c: char) -> bool {
+    c == ',' || c == ' '
+}
+
+fn parse_generic_args(input: &str) -> IResult<&str, Vec<String>> {
     delimited(
         char('<'),
-        separated_list0(char(','), parse_identifier),
+
+        separated_list0
+        (
+            take_while1(is_generic_separator_or_space), 
+             map(parse_short_type_path, |mut v| {
+                if let Some(id) = v.get(0).cloned() {
+                    v.remove(0);
+                    if v.len() > 0 {
+                        return format!("{}<{}>", id, v.join(","));
+                    } else {
+                        return id;
+                    }
+                } else {
+                    return "".to_string();
+                }
+             }),
+    ),
         char('>')
     )(input)
 }
 
-fn parse_short_type_path(input: &str) -> IResult<&str, Vec<&str>> {
+fn parse_short_type_path(input: &str) -> IResult<&str, Vec<String>> {
+    let (input, _) = take_while(|c| c == ' ')(input)?;
     let (input, id) = parse_identifier(input)?;
+    let (input, _) = take_while(|c| c == ' ')(input)?;
     let (input, generic_args) = opt(parse_generic_args)(input)?;
     
-    let mut result = vec![id];
+    let mut result = vec![id.to_string()];
     if let Some(args) = generic_args {
         for arg in args {
             result.push(arg);
@@ -83,8 +101,7 @@ fn parse_short_type_path(input: &str) -> IResult<&str, Vec<&str>> {
     Ok((input, result))
 }
 
-//cli args parsing
-
+///cli args parsing
 fn parse_value(input: &str) -> IResult<&str, &str> {
     preceded(space0, alt((parse_quoted_string, parse_ron_value, take_while1(is_not_space))))(input)
 }
@@ -207,19 +224,21 @@ impl<'de> Deserializer<'de> for CliDeserializer<'de> {
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
         where
             V: Visitor<'de> {
-        let struct_name = self.input.split(' ').next().unwrap();
-        let Ok((args, _)) = take_while1::<_, &str, ()>(|c| c != ' ')(self.input) else {
-            return Err(de::value::Error::custom("Parse error"));
-        };
-        // println!("Args: {}", args);
+        let lowercase_input = self.input.to_lowercase();
+        let lowercase_words = lowercase_input.split(" ");
 
         let mut registration = None;
+        let mut skip = 0;
         for reg in self.type_registration.iter() {
-            if let Some(ident) = reg.type_info().type_path_table().ident() {
-                if ident.to_lowercase() == struct_name.to_lowercase() {
-                    registration = Some(reg);
-                    break;
-                }
+            let short_name = reg.type_info().type_path_table().short_path();
+            let type_vec = parse_short_type_path(short_name).map_err(|_| de::value::Error::custom("Parse error"))?.1;
+            
+            
+            let cli_type_path = type_vec.join(" ");
+            if lowercase_input.starts_with(cli_type_path.to_lowercase().as_str()) {
+                registration = Some(reg);
+                skip = cli_type_path.len();
+                break; 
             }
         }
 
@@ -252,7 +271,7 @@ impl<'de> Deserializer<'de> for CliDeserializer<'de> {
             }
         }
 
-        visitor.visit_map(SingleMapDeserializer { args, type_path: registration.unwrap().type_info().type_path().to_string() })
+        visitor.visit_map(SingleMapDeserializer { args: &self.input[skip..], type_path: registration.unwrap().type_info().type_path().to_string() })
     }
 
     forward_to_deserialize_any! {
@@ -426,72 +445,92 @@ mod tests {
     }
 
     #[derive(Debug, Reflect, Default, PartialEq)]
-    struct GenericArgs<T> {
+    struct Enable<T> {
         arg0: T,
     }
 
     #[test]
     fn test_generic() {
         let mut type_registry = TypeRegistry::default();
-        type_registry.register::<GenericArgs<usize>>();
-        type_registry.register::<GenericArgs<String>>();
-        type_registry.register::<GenericArgs<SetGoldReflect>>();
+        type_registry.register::<Enable<usize>>();
+        type_registry.register::<Enable<String>>();
+        type_registry.register::<Enable<SetGoldReflect>>();
         let reflect_deserializer = ReflectDeserializer::new(&type_registry);
 
-        let info = type_registry.get(std::any::TypeId::of::<GenericArgs<usize>>()).unwrap();
-        println!("Info: {:?}", info.type_info().type_path());
-        let info_complex = type_registry.get(std::any::TypeId::of::<GenericArgs<SetGoldReflect>>()).unwrap();
-        println!("Info: {:?}", info_complex.type_info().type_path());
-        println!("Short path: {:?}", info_complex.type_info().type_path_table().short_path()); // info_complex.type_info().type_path_table().short_path()
+        let input = "enable usize 100";
+        let deserializer = CliDeserializer::from_str(input, &type_registry).unwrap();
+        let reflect_value = reflect_deserializer.deserialize(deserializer).unwrap();
+        let val = Enable::<usize>::from_reflect(reflect_value.as_ref()).unwrap();
+        assert_eq!(val, Enable { arg0: 100 });
         
-        assert!(false);
+
+        let reflect_deserializer = ReflectDeserializer::new(&type_registry);
+        let input = "enable String \"Some text\"";
+        let deserializer = CliDeserializer::from_str(input, &type_registry).unwrap();
+        let reflect_value = reflect_deserializer.deserialize(deserializer).unwrap();
+        let val = Enable::<String>::from_reflect(reflect_value.as_ref()).unwrap();
+        assert_eq!(val, Enable { arg0: "Some text".to_string() });
+
+
+        let reflect_deserializer = ReflectDeserializer::new(&type_registry);
+        let input = "enable SetGoldReflect (gold : 100)";
+        let deserializer = CliDeserializer::from_str(input, &type_registry).unwrap();
+        let reflect_value = reflect_deserializer.deserialize(deserializer).unwrap();
+        let val = Enable::<SetGoldReflect>::from_reflect(reflect_value.as_ref()).unwrap();
+        assert_eq!(val, Enable { arg0: SetGoldReflect { gold: 100 } });
     }
 
     #[test]
     fn test_single_identifier() {
-        let result = parse_expression("SetGold").unwrap().1;
+        let result = parse_short_type_path("SetGold").unwrap().1;
         assert_eq!(result, vec!["SetGold"]);
     }
 
     #[test]
     fn test_generic_single_arg() {
-        let result = parse_expression("GenericStruct<SetGold>").unwrap().1;
+        let result = parse_short_type_path("GenericStruct<SetGold>").unwrap().1;
         assert_eq!(result, vec!["GenericStruct", "SetGold"]);
     }
 
     #[test]
     fn test_generic_multiple_args() {
-        let result = parse_expression("UltraGeneric<SetA, SetB>").unwrap().1;
+        let result = parse_short_type_path("UltraGeneric<SetA, SetB>").unwrap().1;
         assert_eq!(result, vec!["UltraGeneric", "SetA", "SetB"]);
     }
 
     #[test]
     fn test_nested_generic_args() {
-        let result = parse_expression("Outer<Inner<SetA>, SetB>").unwrap().1;
-        assert_eq!(result, vec!["Outer", "Inner", "SetA", "SetB"]);
+        let result = parse_short_type_path("Outer<Inner<SetA>, SetB>").unwrap().1;
+        assert_eq!(result, vec!["Outer", "Inner<SetA>", "SetB"]);
     }
 
     #[test]
     fn test_complex_identifier() {
-        let result = parse_expression("ComplexIdentifier_123<InnerValue>").unwrap().1;
+        let result = parse_short_type_path("ComplexIdentifier_123<InnerValue>").unwrap().1;
+        assert_eq!(result, vec!["ComplexIdentifier_123", "InnerValue"]);
+        let result = parse_short_type_path("ComplexIdentifier_123<InnerValue >").unwrap().1;
+        assert_eq!(result, vec!["ComplexIdentifier_123", "InnerValue"]);
+        let result = parse_short_type_path("ComplexIdentifier_123< InnerValue>").unwrap().1;
+        assert_eq!(result, vec!["ComplexIdentifier_123", "InnerValue"]);
+        let result = parse_short_type_path("ComplexIdentifier_123< InnerValue >").unwrap().1;
         assert_eq!(result, vec!["ComplexIdentifier_123", "InnerValue"]);
     }
 
     #[test]
     fn test_empty_generic() {
-        let result = parse_expression("EmptyGeneric<>").unwrap().1;
+        let result = parse_short_type_path("EmptyGeneric<>").unwrap().1;
         assert_eq!(result, vec!["EmptyGeneric"]);
     }
 
     #[test]
     fn test_no_generic() {
-        let result = parse_expression("NoGeneric").unwrap().1;
+        let result = parse_short_type_path("NoGeneric").unwrap().1;
         assert_eq!(result, vec!["NoGeneric"]);
     }
 
     #[test]
     fn test_multiple_commas() {
-        let result = parse_expression("MultiComma<A,B,C>").unwrap().1;
+        let result = parse_short_type_path("MultiComma<A,B,C>").unwrap().1;
         assert_eq!(result, vec!["MultiComma", "A", "B", "C"]);
     }
 }
