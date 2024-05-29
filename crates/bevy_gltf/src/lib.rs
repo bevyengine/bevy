@@ -111,7 +111,7 @@ pub struct Gltf {
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-node).
 #[derive(Asset, Debug, Clone, TypePath)]
 pub struct GltfNode {
-    /// A user defined node name from GLTF
+    /// A user defined node name from glTF
     pub name: Option<String>,
     /// Index of the node inside the scene
     pub index: usize,
@@ -126,7 +126,7 @@ pub struct GltfNode {
 }
 
 impl GltfNode {
-    /// Create a node extracting name and index from gltf def
+    /// Create a node extracting name and index from glTF def
     pub fn new(
         node: &gltf::Node,
         children: Vec<GltfNode>,
@@ -165,7 +165,7 @@ impl GltfNode {
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-mesh).
 #[derive(Asset, Debug, Clone, TypePath)]
 pub struct GltfMesh {
-    /// A user defined mesh name from GLTF
+    /// A user defined mesh name from glTF
     pub name: Option<String>,
     /// Index of the mesh inside the scene
     pub index: usize,
@@ -176,7 +176,7 @@ pub struct GltfMesh {
 }
 
 impl GltfMesh {
-    /// Create a mesh extracting name and index from gltf def
+    /// Create a mesh extracting name and index from glTF def
     pub fn new(
         mesh: &gltf::Mesh,
         primitives: Vec<GltfPrimitive>,
