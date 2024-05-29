@@ -293,7 +293,9 @@ pub struct BrpReparentRequest {
 
     /// The IDs of the entity that will become the new parent of the
     /// `entities`.
-    pub parent: Entity,
+    ///
+    /// If this is `None`, then the entities are removed from all parents.
+    pub parent: Option<Entity>,
 }
 
 /// `LIST`: Returns a list of all type names of registered components in the
@@ -664,14 +666,29 @@ fn process_remote_reparent_request(
     world: &mut World,
     _: &AppTypeRegistry,
 ) -> AnyhowResult<Value> {
-    let BrpReparentRequest { entities, parent } = serde_json::from_value(request)?;
+    let BrpReparentRequest {
+        entities,
+        parent: maybe_parent,
+    } = serde_json::from_value(request)?;
 
-    let mut parent_commands = get_entity_mut(world, parent)?;
-    for entity in entities {
-        if entity == parent {
-            return Err(anyhow!("Can't parent an object to itself"));
+    match maybe_parent {
+        // If `Some`, reparent the entities.
+        Some(parent) => {
+            let mut parent_commands = get_entity_mut(world, parent)?;
+            for entity in entities {
+                if entity == parent {
+                    return Err(anyhow!("Can't parent an object to itself"));
+                }
+                parent_commands.add_child(entity);
+            }
         }
-        parent_commands.add_child(entity);
+
+        // If `None`, remove the entities from their parents.
+        None => {
+            for entity in entities {
+                get_entity_mut(world, entity)?.remove_parent();
+            }
+        }
     }
 
     Ok(Value::Object(default()))
