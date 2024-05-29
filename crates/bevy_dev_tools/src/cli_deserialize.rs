@@ -1,6 +1,6 @@
 use bevy_reflect::{TypeRegistration, TypeRegistry};
 use nom::{
-    branch::alt, bytes::complete::{is_not, tag, take_while, take_while1}, character::complete::{char, space0}, combinator::{opt, recognize}, multi::many0, sequence::{delimited, preceded}, IResult
+    branch::alt, bytes::complete::{is_not, tag, take_while, take_while1}, character::complete::{char, space0}, combinator::{opt, recognize}, multi::{many0, separated_list0}, sequence::{delimited, preceded}, IResult
 };
 use serde::{de::{self, value::StringDeserializer, Deserialize, Deserializer, Error, IntoDeserializer, MapAccess, Visitor}, forward_to_deserialize_any};
 use std::collections::HashMap;
@@ -51,11 +51,39 @@ fn parce_template_names(input: &str) -> IResult<&str, &str> {
     recognize(delimited(char('<'), is_not(">"), char('>')))(input)
 }
 
-fn split_template_names(input: &str) -> IResult<&str, Vec<&str>> {
-    // split by ","
-    many0(preceded(is_not_template_splitter,parce_template_names))(input)
+//code for parsing short type paths into cli
+
+fn is_identifier_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '_'
 }
 
+fn parse_identifier(input: &str) -> IResult<&str, &str> {
+    take_while1(is_identifier_char)(input)
+}
+
+fn parse_generic_args(input: &str) -> IResult<&str, Vec<&str>> {
+    delimited(
+        char('<'),
+        separated_list0(char(','), parse_identifier),
+        char('>')
+    )(input)
+}
+
+fn parse_short_type_path(input: &str) -> IResult<&str, Vec<&str>> {
+    let (input, id) = parse_identifier(input)?;
+    let (input, generic_args) = opt(parse_generic_args)(input)?;
+    
+    let mut result = vec![id];
+    if let Some(args) = generic_args {
+        for arg in args {
+            result.push(arg);
+        }
+    }
+
+    Ok((input, result))
+}
+
+//cli args parsing
 
 fn parse_value(input: &str) -> IResult<&str, &str> {
     preceded(space0, alt((parse_quoted_string, parse_ron_value, take_while1(is_not_space))))(input)
@@ -88,10 +116,6 @@ fn parse_arguments<'a>(input: &'a str, fields: &'static [&'static str]) -> IResu
         }
     }
     Ok((input, map))
-}
-
-fn get_cli_type_name(input: &str) -> IResult<&str, &str> {
-    
 }
 
 struct CliMapVisitor<'a> {
@@ -421,5 +445,53 @@ mod tests {
         println!("Short path: {:?}", info_complex.type_info().type_path_table().short_path()); // info_complex.type_info().type_path_table().short_path()
         
         assert!(false);
+    }
+
+    #[test]
+    fn test_single_identifier() {
+        let result = parse_expression("SetGold").unwrap().1;
+        assert_eq!(result, vec!["SetGold"]);
+    }
+
+    #[test]
+    fn test_generic_single_arg() {
+        let result = parse_expression("GenericStruct<SetGold>").unwrap().1;
+        assert_eq!(result, vec!["GenericStruct", "SetGold"]);
+    }
+
+    #[test]
+    fn test_generic_multiple_args() {
+        let result = parse_expression("UltraGeneric<SetA, SetB>").unwrap().1;
+        assert_eq!(result, vec!["UltraGeneric", "SetA", "SetB"]);
+    }
+
+    #[test]
+    fn test_nested_generic_args() {
+        let result = parse_expression("Outer<Inner<SetA>, SetB>").unwrap().1;
+        assert_eq!(result, vec!["Outer", "Inner", "SetA", "SetB"]);
+    }
+
+    #[test]
+    fn test_complex_identifier() {
+        let result = parse_expression("ComplexIdentifier_123<InnerValue>").unwrap().1;
+        assert_eq!(result, vec!["ComplexIdentifier_123", "InnerValue"]);
+    }
+
+    #[test]
+    fn test_empty_generic() {
+        let result = parse_expression("EmptyGeneric<>").unwrap().1;
+        assert_eq!(result, vec!["EmptyGeneric"]);
+    }
+
+    #[test]
+    fn test_no_generic() {
+        let result = parse_expression("NoGeneric").unwrap().1;
+        assert_eq!(result, vec!["NoGeneric"]);
+    }
+
+    #[test]
+    fn test_multiple_commas() {
+        let result = parse_expression("MultiComma<A,B,C>").unwrap().1;
+        assert_eq!(result, vec!["MultiComma", "A", "B", "C"]);
     }
 }
