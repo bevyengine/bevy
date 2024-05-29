@@ -1,4 +1,4 @@
-//! Loads and renders a glTF file as a scene.
+//! Loads and renders a glTF file as a scene with a custom standard material.
 
 use bevy::{
     gltf::{FromStandardMaterial, GltfPlugin},
@@ -9,6 +9,17 @@ use bevy::{
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 use std::f32::consts::*;
+
+fn main() {
+    App::new()
+        .insert_resource(DirectionalLightShadowMap { size: 4096 })
+        .add_plugins(DefaultPlugins)
+        .add_plugins(GltfPlugin::with_standard_material::<ToonMaterial>())
+        .add_plugins(MaterialPlugin::<ToonMaterial>::default())
+        .add_systems(Startup, setup)
+        .add_systems(Update, animate_light_direction)
+        .run();
+}
 
 #[derive(Debug, Clone, TypePath, AsBindGroup, Asset)]
 struct ToonShader {
@@ -37,17 +48,6 @@ impl MaterialExtension for ToonShader {
 }
 
 type ToonMaterial = ExtendedMaterial<StandardMaterial, ToonShader>;
-
-fn main() {
-    App::new()
-        .insert_resource(DirectionalLightShadowMap { size: 4096 })
-        .add_plugins(DefaultPlugins)
-        .add_plugins(GltfPlugin::with_standard_material::<ToonMaterial>())
-        .add_plugins(MaterialPlugin::<ToonMaterial>::default())
-        .add_systems(Startup, setup)
-        .add_systems(Update, animate_light_direction)
-        .run();
-}
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
