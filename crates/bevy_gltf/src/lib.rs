@@ -115,7 +115,7 @@ mod material;
 mod vertex_attributes;
 
 pub use loader::*;
-pub use material::{FromGltfExtras, FromStandardMaterial};
+pub use material::FromStandardMaterial;
 
 use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp, Handle};
