@@ -545,11 +545,11 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
-name = "multiple_sprites_one_entity"
-path = "examples/2d/multiple_sprites_one_entity.rs"
+name = "multiple_sprites_one_parent_entity"
+path = "examples/2d/multiple_sprites_one_parent_entity.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.multiple_sprites_one_entity]
+[package.metadata.example.multiple_sprites_one_parent_entity]
 name = "Multiple Sprites, One Entity"
 description = "Constructs a large entity composed of multiple sprites"
 category = "2D Rendering"
