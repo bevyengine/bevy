@@ -285,7 +285,7 @@ pub trait AssetApp {
     fn register_asset_processor<P: Process>(&mut self, processor: P) -> &mut Self;
     /// Registers the given `processor` in the [`App`]'s [`AssetProcessor`] along with an extra alias.
     ///
-    /// This alias can be used in meta files to refer to this asset processor without using the full type name.
+    /// The alias can be used in meta files to refer to this asset processor instead of using the full type name.
     fn register_asset_processor_with_alias<P: Process>(
         &mut self,
         processor: P,
