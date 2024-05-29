@@ -170,7 +170,7 @@ impl<M: FromStandardMaterial> GltfPlugin<M> {
     }
 }
 
-impl<M: FromStandardMaterial> Plugin for GltfPlugin<M> {
+impl<M: FromStandardMaterial + bevy_pbr::Material> Plugin for GltfPlugin<M> {
     fn build(&self, app: &mut App) {
         app.register_type::<GltfExtras>()
             .init_asset::<Gltf<M>>()
