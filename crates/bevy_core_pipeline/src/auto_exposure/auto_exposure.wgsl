@@ -155,7 +155,25 @@ fn compute_average(@builtin(local_invocation_index) local_index: u32) {
         count += bin_count;
     }
 
+    var avg_lum = settings.min_log_lum;
 
+    if count > 0u {
+        // The average luminance of the included histogram samples.
+        avg_lum = sum / (f32(count) * 63.0)
+            * settings.log_lum_range
+            + settings.min_log_lum;
+    }
+
+    // The position in the compensation curve texture to sample for avg_lum.
+    let u = (avg_lum - compensation_curve.min_log_lum) * compensation_curve.inv_log_lum_range;
+
+    // The target exposure is the negative of the average log luminance.
+    // The compensation value is added to the target exposure to adjust the exposure for
+    // artistic purposes.
+    let target_exposure = textureLoad(tex_compensation, i32(saturate(u) * 255.0), 0).r
+        * compensation_curve.compensation_range
+        + compensation_curve.min_compensation
+        - avg_lum;
     // Target exposure controls how much we should brighten or darken the scene.
     // Higher values will brighten the scene, while lower values will darken it.
     //
