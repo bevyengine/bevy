@@ -1,3 +1,4 @@
+use crate::material::FromStandardMaterial;
 use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode};
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{AnimationTarget, AnimationTargetId};
@@ -53,6 +54,7 @@ use serde_json::Value;
 #[cfg(feature = "bevy_animation")]
 use smallvec::SmallVec;
 use std::io::Error;
+use std::marker::PhantomData;
 use std::{
     collections::VecDeque,
     path::{Path, PathBuf},
@@ -107,7 +109,7 @@ pub enum GltfError {
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
-pub struct GltfLoader {
+pub struct GltfLoader<M: FromStandardMaterial = StandardMaterial> {
     /// List of compressed image formats handled by the loader.
     pub supported_compressed_formats: CompressedImageFormats,
     /// Custom vertex attributes that will be recognized when loading a glTF file.
@@ -116,6 +118,8 @@ pub struct GltfLoader {
     /// See [this section of the glTF specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview)
     /// for additional details on custom attributes.
     pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
+    /// [`PhantomData`] for material.
+    pub p: PhantomData<M>,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -165,8 +169,8 @@ impl Default for GltfLoaderSettings {
     }
 }
 
-impl AssetLoader for GltfLoader {
-    type Asset = Gltf;
+impl<M: FromStandardMaterial> AssetLoader for GltfLoader<M> {
+    type Asset = Gltf<M>;
     type Settings = GltfLoaderSettings;
     type Error = GltfError;
     async fn load<'a>(
@@ -174,7 +178,7 @@ impl AssetLoader for GltfLoader {
         reader: &'a mut Reader<'_>,
         settings: &'a GltfLoaderSettings,
         load_context: &'a mut LoadContext<'_>,
-    ) -> Result<Gltf, Self::Error> {
+    ) -> Result<Gltf<M>, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         load_gltf(self, &bytes, load_context, settings).await
@@ -186,12 +190,12 @@ impl AssetLoader for GltfLoader {
 }
 
 /// Loads an entire glTF file.
-async fn load_gltf<'a, 'b, 'c>(
-    loader: &GltfLoader,
+async fn load_gltf<'a, 'b, 'c, M: FromStandardMaterial>(
+    loader: &GltfLoader<M>,
     bytes: &'a [u8],
     load_context: &'b mut LoadContext<'c>,
     settings: &'b GltfLoaderSettings,
-) -> Result<Gltf, GltfError> {
+) -> Result<Gltf<M>, GltfError> {
     let gltf = gltf::Gltf::from_slice(bytes)?;
     let file_name = load_context
         .asset_path()
@@ -412,7 +416,7 @@ async fn load_gltf<'a, 'b, 'c>(
     if !settings.load_materials.is_empty() {
         // NOTE: materials must be loaded after textures because image load() calls will happen before load_with_settings, preventing is_srgb from being set properly
         for material in gltf.materials() {
-            let handle = load_material(&material, load_context, &gltf.document, false);
+            let handle = load_material::<M>(&material, load_context, &gltf.document, false);
             if let Some(name) = material.name() {
                 named_materials.insert(name.into(), handle.clone());
             }
@@ -591,7 +595,7 @@ async fn load_gltf<'a, 'b, 'c>(
     let nodes = resolve_node_hierarchy(nodes_intermediate, load_context.path())
         .into_iter()
         .map(|(label, node)| load_context.add_labeled_asset(label, node))
-        .collect::<Vec<Handle<GltfNode>>>();
+        .collect::<Vec<Handle<GltfNode<M>>>>();
     let named_nodes = named_nodes_intermediate
         .into_iter()
         .filter_map(|(name, index)| nodes.get(index).map(|handle| (name.into(), handle.clone())))
@@ -627,7 +631,7 @@ async fn load_gltf<'a, 'b, 'c>(
             .spawn(SpatialBundle::INHERITED_IDENTITY)
             .with_children(|parent| {
                 for node in scene.nodes() {
-                    let result = load_node(
+                    let result = load_node::<M>(
                         &node,
                         parent,
                         load_context,
@@ -845,12 +849,12 @@ async fn load_image<'a, 'b>(
 }
 
 /// Loads a glTF material as a bevy [`StandardMaterial`] and returns it.
-fn load_material(
+fn load_material<M: FromStandardMaterial>(
     material: &Material,
     load_context: &mut LoadContext,
     document: &Document,
     is_scale_inverted: bool,
-) -> Handle<StandardMaterial> {
+) -> Handle<M> {
     let material_label = material_label(material, is_scale_inverted);
     load_context.labeled_asset_scope(material_label, |load_context| {
         let pbr = material.pbr_metallic_roughness();
@@ -997,66 +1001,70 @@ fn load_material(
         let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
         let emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
 
-        StandardMaterial {
-            base_color: Color::linear_rgba(color[0], color[1], color[2], color[3]),
-            base_color_channel,
-            base_color_texture,
-            perceptual_roughness: pbr.roughness_factor(),
-            metallic: pbr.metallic_factor(),
-            metallic_roughness_channel,
-            metallic_roughness_texture,
-            normal_map_channel,
-            normal_map_texture,
-            double_sided: material.double_sided(),
-            cull_mode: if material.double_sided() {
-                None
-            } else if is_scale_inverted {
-                Some(Face::Front)
-            } else {
-                Some(Face::Back)
+        M::from_standard_material(
+            StandardMaterial {
+                base_color: Color::linear_rgba(color[0], color[1], color[2], color[3]),
+                base_color_channel,
+                base_color_texture,
+                perceptual_roughness: pbr.roughness_factor(),
+                metallic: pbr.metallic_factor(),
+                metallic_roughness_channel,
+                metallic_roughness_texture,
+                normal_map_channel,
+                normal_map_texture,
+                double_sided: material.double_sided(),
+                cull_mode: if material.double_sided() {
+                    None
+                } else if is_scale_inverted {
+                    Some(Face::Front)
+                } else {
+                    Some(Face::Back)
+                },
+                occlusion_channel,
+                occlusion_texture,
+                emissive,
+                emissive_channel,
+                emissive_texture,
+                specular_transmission,
+                #[cfg(feature = "pbr_transmission_textures")]
+                specular_transmission_channel,
+                #[cfg(feature = "pbr_transmission_textures")]
+                specular_transmission_texture,
+                thickness,
+                #[cfg(feature = "pbr_transmission_textures")]
+                thickness_channel,
+                #[cfg(feature = "pbr_transmission_textures")]
+                thickness_texture,
+                ior,
+                attenuation_distance,
+                attenuation_color: Color::linear_rgb(
+                    attenuation_color[0],
+                    attenuation_color[1],
+                    attenuation_color[2],
+                ),
+                unlit: material.unlit(),
+                alpha_mode: alpha_mode(material),
+                uv_transform,
+                clearcoat: clearcoat.clearcoat_factor.unwrap_or_default() as f32,
+                clearcoat_perceptual_roughness: clearcoat
+                    .clearcoat_roughness_factor
+                    .unwrap_or_default() as f32,
+                #[cfg(feature = "pbr_multi_layer_material_textures")]
+                clearcoat_channel: clearcoat.clearcoat_channel,
+                #[cfg(feature = "pbr_multi_layer_material_textures")]
+                clearcoat_texture: clearcoat.clearcoat_texture,
+                #[cfg(feature = "pbr_multi_layer_material_textures")]
+                clearcoat_roughness_channel: clearcoat.clearcoat_roughness_channel,
+                #[cfg(feature = "pbr_multi_layer_material_textures")]
+                clearcoat_roughness_texture: clearcoat.clearcoat_roughness_texture,
+                #[cfg(feature = "pbr_multi_layer_material_textures")]
+                clearcoat_normal_channel: clearcoat.clearcoat_normal_channel,
+                #[cfg(feature = "pbr_multi_layer_material_textures")]
+                clearcoat_normal_texture: clearcoat.clearcoat_normal_texture,
+                ..Default::default()
             },
-            occlusion_channel,
-            occlusion_texture,
-            emissive,
-            emissive_channel,
-            emissive_texture,
-            specular_transmission,
-            #[cfg(feature = "pbr_transmission_textures")]
-            specular_transmission_channel,
-            #[cfg(feature = "pbr_transmission_textures")]
-            specular_transmission_texture,
-            thickness,
-            #[cfg(feature = "pbr_transmission_textures")]
-            thickness_channel,
-            #[cfg(feature = "pbr_transmission_textures")]
-            thickness_texture,
-            ior,
-            attenuation_distance,
-            attenuation_color: Color::linear_rgb(
-                attenuation_color[0],
-                attenuation_color[1],
-                attenuation_color[2],
-            ),
-            unlit: material.unlit(),
-            alpha_mode: alpha_mode(material),
-            uv_transform,
-            clearcoat: clearcoat.clearcoat_factor.unwrap_or_default() as f32,
-            clearcoat_perceptual_roughness: clearcoat.clearcoat_roughness_factor.unwrap_or_default()
-                as f32,
-            #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_channel: clearcoat.clearcoat_channel,
-            #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_texture: clearcoat.clearcoat_texture,
-            #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_roughness_channel: clearcoat.clearcoat_roughness_channel,
-            #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_roughness_texture: clearcoat.clearcoat_roughness_texture,
-            #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_normal_channel: clearcoat.clearcoat_normal_channel,
-            #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_normal_texture: clearcoat.clearcoat_normal_texture,
-            ..Default::default()
-        }
+            material.extras().as_ref().map(|x| x.get()),
+        )
     })
 }
 
@@ -1124,7 +1132,7 @@ fn warn_on_differing_texture_transforms(
 
 /// Loads a glTF node.
 #[allow(clippy::too_many_arguments, clippy::result_large_err)]
-fn load_node(
+fn load_node<M: FromStandardMaterial>(
     gltf_node: &Node,
     world_builder: &mut WorldChildBuilder,
     root_load_context: &LoadContext,
@@ -1244,7 +1252,7 @@ fn load_node(
                     if !root_load_context.has_labeled_asset(&material_label)
                         && !load_context.has_labeled_asset(&material_label)
                     {
-                        load_material(&material, load_context, document, is_scale_inverted);
+                        load_material::<M>(&material, load_context, document, is_scale_inverted);
                     }
 
                     let primitive_label = primitive_label(&mesh, &primitive);
@@ -1375,7 +1383,7 @@ fn load_node(
 
         // append other nodes
         for child in gltf_node.children() {
-            if let Err(err) = load_node(
+            if let Err(err) = load_node::<M>(
                 &child,
                 parent,
                 root_load_context,
@@ -1629,10 +1637,10 @@ async fn load_buffers(
     Ok(buffer_data)
 }
 
-fn resolve_node_hierarchy(
-    nodes_intermediate: Vec<(String, GltfNode, Vec<usize>)>,
+fn resolve_node_hierarchy<M: FromStandardMaterial>(
+    nodes_intermediate: Vec<(String, GltfNode<M>, Vec<usize>)>,
     asset_path: &Path,
-) -> Vec<(String, GltfNode)> {
+) -> Vec<(String, GltfNode<M>)> {
     let mut has_errored = false;
     let mut empty_children = VecDeque::new();
     let mut parents = vec![None; nodes_intermediate.len()];
@@ -1655,7 +1663,7 @@ fn resolve_node_hierarchy(
             (i, (label, node, children))
         })
         .collect::<HashMap<_, _>>();
-    let mut nodes = std::collections::HashMap::<usize, (String, GltfNode)>::new();
+    let mut nodes = std::collections::HashMap::<usize, (String, GltfNode<M>)>::new();
     while let Some(index) = empty_children.pop_front() {
         let (label, node, children) = unprocessed_nodes.remove(&index).unwrap();
         assert!(children.is_empty());
