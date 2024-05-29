@@ -8,7 +8,7 @@ mod camera_controller;
 use bevy::{
     pbr::{
         experimental::meshlet::{MaterialMeshletMeshBundle, MeshletPlugin},
-        CascadeShadowConfigBuilder, DirectionalLightShadowMap,
+        CascadeShadowConfig, CascadeShadowConfigBuilder, DirectionalLightShadowMap,
     },
     prelude::*,
     render::render_resource::AsBindGroup,
@@ -29,6 +29,7 @@ fn main() {
             CameraControllerPlugin,
         ))
         .add_systems(Startup, setup)
+        .add_systems(Update, set_shadow_map_config)
         .run();
 }
 
@@ -59,12 +60,6 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        cascade_shadow_config: CascadeShadowConfigBuilder {
-            num_cascades: 1,
-            maximum_distance: 10.0,
-            ..default()
-        }
-        .build(),
         transform: Transform::from_rotation(Quat::from_euler(
             EulerRot::ZYX,
             0.0,
@@ -119,6 +114,20 @@ fn setup(
         }),
         ..default()
     });
+}
+
+fn set_shadow_map_config(
+    mut shadow_confg: Query<&mut CascadeShadowConfig>,
+    camera: Query<&Transform, With<Camera3d>>,
+) {
+    let camera_transform = camera.get_single().unwrap();
+    let mut shadow_config = shadow_confg.get_single_mut().unwrap();
+    *shadow_config = CascadeShadowConfigBuilder {
+        num_cascades: 1,
+        maximum_distance: camera_transform.translation.y + 3.0,
+        ..default()
+    }
+    .build();
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Clone, Default)]
