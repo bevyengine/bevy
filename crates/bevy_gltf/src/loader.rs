@@ -95,7 +95,7 @@ pub enum GltfError {
     ReadAssetBytesError(#[from] ReadAssetBytesError),
     /// Failed to load asset from an asset path.
     #[error("failed to load asset from an asset path: {0}")]
-    AssetLoadError(#[from] AssetLoadError),
+    AssetLoadError(#[from] Box<AssetLoadError>),
     /// Missing sampler for an animation.
     #[error("Missing sampler for animation {0}")]
     MissingAnimationSampler(usize),
