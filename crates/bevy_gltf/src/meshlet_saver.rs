@@ -107,8 +107,8 @@ impl AssetSaver for MeshletMeshGltfSaver {
 
                 let extension = json!({
                     "version": MESHLET_MESH_ASSET_VERSION,
-                    "byteOffset": glb_buffer.len(),
-                    "byteLength": meshlet_mesh_bytes.len(),
+                    "byteRangeStart": glb_buffer.len(),
+                    "byteRangeEnd": glb_buffer.len() + meshlet_mesh_bytes.len(),
                 });
 
                 primitive

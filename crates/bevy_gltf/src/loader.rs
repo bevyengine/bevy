@@ -485,13 +485,16 @@ async fn load_gltf<'a, 'b, 'c>(
                         return Err(GltfError::MeshletMeshWrongVersion);
                     }
 
-                    let byte_offset =
-                        bevy_meshlet_mesh_extension["byteOffset"].as_u64().unwrap() as usize;
-                    let byte_length =
-                        bevy_meshlet_mesh_extension["byteLength"].as_u64().unwrap() as usize;
+                    let byte_range_start = bevy_meshlet_mesh_extension["byteRangeStart"]
+                        .as_u64()
+                        .unwrap() as usize;
+                    let byte_range_end = bevy_meshlet_mesh_extension["byteRangeEnd"]
+                        .as_u64()
+                        .unwrap() as usize;
+                    let byte_range = byte_range_start..byte_range_end;
 
                     let meshlet_mesh =
-                        MeshletMesh::from_bytes(&buffer_data[0][byte_offset..byte_length]).unwrap();
+                        MeshletMesh::from_bytes(&buffer_data[0][byte_range]).unwrap();
 
                     let meshlet_mesh =
                         Some(load_context.add_labeled_asset(primitive_label, meshlet_mesh));
