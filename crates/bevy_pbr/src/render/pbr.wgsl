@@ -6,7 +6,7 @@
 #ifdef PREPASS_PIPELINE
 #import bevy_pbr::{
     prepass_io::{VertexOutput, FragmentOutput},
-    pbr_deferred_functions::deferred_output,
+    prepass_utils::prepass_output,
 }
 #else
 #import bevy_pbr::{
@@ -49,7 +49,7 @@ fn fragment(
 
 #ifdef PREPASS_PIPELINE
     // write the gbuffer, lighting pass id, and optionally normal and motion_vector textures
-    let out = deferred_output(in, pbr_input);
+    let out = prepass_output(in, pbr_input);
 #else
     // in forward mode, we calculate the lit color immediately, and then apply some post-lighting effects here.
     // in deferred mode the lit color and these effects will be calculated in the deferred lighting shader

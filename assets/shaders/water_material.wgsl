@@ -4,7 +4,7 @@
 // This is used in the `ssr` example. It only supports deferred rendering.
 
 #import bevy_pbr::{
-    pbr_deferred_functions::deferred_output,
+    prepass_utils::prepass_output,
     pbr_fragment::pbr_input_from_standard_material,
     prepass_io::{VertexOutput, FragmentOutput},
 }
@@ -55,5 +55,5 @@ fn fragment(in: VertexOutput, @builtin(front_facing) is_front: bool) -> Fragment
     // Bump the normal.
     pbr_input.N = sample_noise(in.uv, globals.time);
     // Send the rest to the deferred shader.
-    return deferred_output(in, pbr_input);
+    return prepass_output(in, pbr_input);
 }
