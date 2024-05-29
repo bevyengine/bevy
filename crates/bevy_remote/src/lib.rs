@@ -1,5 +1,5 @@
-//! The Bevy Remote Protocol, an HTTP- and JSON-based protocol that allows for
-//! remote control of a Bevy app.
+//! An implementation of the Bevy Remote Protocol over HTTP and JSON, to allow
+//! for remote control of a Bevy app.
 //!
 //! Adding the [`RemotePlugin`] to your [`App`] causes Bevy to accept
 //! connections over HTTP (by default, on port 15702) while your app is running.
