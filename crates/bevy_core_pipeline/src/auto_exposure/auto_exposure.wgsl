@@ -155,11 +155,14 @@ fn compute_average(@builtin(local_invocation_index) local_index: u32) {
         count += bin_count;
     }
 
-    // This is the default exposure value.
+
+    // Target exposure controls how much we should brighten or darken the scene.
+    // Higher values will brighten the scene, while lower values will darken it.
     //
     // If all values are below the threshold,
-    // we should set it to the minimal value to avoid suddenly darkening the scene.
-    var target_exposure = compensation_curve.min_compensation;
+    // we should set it to the maximum value.
+    // Since no pixels are overexposed, we should correct the exposure as much as possible.
+    var target_exposure = compensation_curve.min_compensation + compensation_curve.compensation_range;
 
     if count > 0u {
         // The average luminance of the included histogram samples.
