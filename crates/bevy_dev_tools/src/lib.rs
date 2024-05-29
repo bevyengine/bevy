@@ -22,8 +22,18 @@ pub mod dev_tool;
 pub mod dev_command;
 pub mod cli_deserialize;
 pub mod console_reader_plugin;
+pub mod toggable;
 
 pub use bevy_dev_tools_macros::*;
+
+pub mod prelude {
+    pub use bevy_dev_tools_macros::*;
+    pub use crate::dev_tool::*;
+    pub use crate::dev_command::*;
+    pub use crate::cli_deserialize::*;
+    pub use crate::console_reader_plugin::*;
+    pub use crate::toggable::*;
+}
 
 /// Enables developer tools in an [`App`]. This plugin is added automatically with `bevy_dev_tools`
 /// feature.

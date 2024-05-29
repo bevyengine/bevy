@@ -182,7 +182,7 @@ impl<'de> MapAccess<'de> for CliMapVisitor<'de> {
 impl<'de> Deserializer<'de> for TypedCliDeserializer<'de> {
     type Error = de::value::Error;
 
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_any<V>(self, _: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
@@ -214,7 +214,7 @@ impl<'de> Deserializer<'de> for TypedCliDeserializer<'de> {
 impl<'de> Deserializer<'de> for CliDeserializer<'de> {
     type Error = de::value::Error;
 
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_any<V>(self, _: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
@@ -225,14 +225,14 @@ impl<'de> Deserializer<'de> for CliDeserializer<'de> {
         where
             V: Visitor<'de> {
         let lowercase_input = self.input.to_lowercase();
-        let lowercase_words = lowercase_input.split(" ");
 
         let mut registration = None;
         let mut skip = 0;
         for reg in self.type_registration.iter() {
             let short_name = reg.type_info().type_path_table().short_path();
-            let type_vec = parse_short_type_path(short_name).map_err(|_| de::value::Error::custom("Parse error"))?.1;
-            
+            let Ok((_, type_vec)) = parse_short_type_path(short_name) else {
+                continue;
+            };
             
             let cli_type_path = type_vec.join(" ");
             if lowercase_input.starts_with(cli_type_path.to_lowercase().as_str()) {
@@ -301,7 +301,7 @@ mod tests {
     #[test]
     fn single_positional() {
         let input = "100";
-        let mut deserializer = TypedCliDeserializer::from_str(input).unwrap();
+        let deserializer = TypedCliDeserializer::from_str(input).unwrap();
         let set_gold = SetGold::deserialize(deserializer).unwrap();
         assert_eq!(set_gold, SetGold { gold: 100 });
     }
@@ -309,7 +309,7 @@ mod tests {
     #[test]
     fn single_key() {
         let input = "--gold 100";
-        let mut deserializer = TypedCliDeserializer::from_str(input).unwrap();
+        let deserializer = TypedCliDeserializer::from_str(input).unwrap();
         let set_gold = SetGold::deserialize(deserializer).unwrap();
         assert_eq!(set_gold, SetGold { gold: 100 });
     }
@@ -317,7 +317,7 @@ mod tests {
     #[test]
     fn multiple_positional() {
         let input = "100 \"200 \"";
-        let mut deserializer = TypedCliDeserializer::from_str(input).unwrap();
+        let deserializer = TypedCliDeserializer::from_str(input).unwrap();
         let set_gold = TestSimpleArgs::deserialize(deserializer).unwrap();
         assert_eq!(set_gold, TestSimpleArgs { arg0: 100, arg1: "200 ".to_string() });
     }
@@ -325,7 +325,7 @@ mod tests {
     #[test]
     fn multiple_key() {
         let input = "--arg0 100 --arg1 \"200 \"";
-        let mut deserializer = TypedCliDeserializer::from_str(input).unwrap();
+        let deserializer = TypedCliDeserializer::from_str(input).unwrap();
         let set_gold = TestSimpleArgs::deserialize(deserializer).unwrap();
         assert_eq!(set_gold, TestSimpleArgs { arg0: 100, arg1: "200 ".to_string() });
     }
@@ -333,7 +333,7 @@ mod tests {
     #[test]
     fn mixed_key_positional() {
         let input = "100 --arg1 \"200 \"";
-        let mut deserializer = TypedCliDeserializer::from_str(input).unwrap();
+        let deserializer = TypedCliDeserializer::from_str(input).unwrap();
         let set_gold = TestSimpleArgs::deserialize(deserializer).unwrap();
         assert_eq!(set_gold, TestSimpleArgs { arg0: 100, arg1: "200 ".to_string() });
     }
@@ -348,7 +348,7 @@ mod tests {
     #[test]
     fn complex_input() {
         let input = "Some(100) --text_input \"Some text\" --gold (gold : 200) ";
-        let mut deserializer = TypedCliDeserializer::from_str(input).unwrap();
+        let deserializer = TypedCliDeserializer::from_str(input).unwrap();
         let set_gold = ComplexInput::deserialize(deserializer).unwrap();
         assert_eq!(set_gold, ComplexInput { arg0: Some(100), gold: SetGold { gold: 200 }, text_input: "Some text".to_string() });
     }
@@ -375,10 +375,10 @@ mod tests {
             .get(std::any::TypeId::of::<SetGoldReflect>())
             .unwrap();
         
-        let mut reflect_deserializer = TypedReflectDeserializer::new(registration, &type_registry);
+        let reflect_deserializer = TypedReflectDeserializer::new(registration, &type_registry);
         let input = "100";
         
-        let mut deserializer = TypedCliDeserializer::from_str(input).unwrap();
+        let deserializer = TypedCliDeserializer::from_str(input).unwrap();
         let reflect_value = reflect_deserializer.deserialize(deserializer).unwrap();
         
         let val = SetGoldReflect::from_reflect(reflect_value.as_ref()).unwrap();
@@ -449,6 +449,12 @@ mod tests {
         arg0: T,
     }
 
+    #[derive(Debug, Reflect, Default, PartialEq)]
+    struct Marker<T: Default> {
+        #[reflect(ignore)]
+        _marker: std::marker::PhantomData<T>,
+    }
+
     #[test]
     fn test_generic() {
         let mut type_registry = TypeRegistry::default();
@@ -478,6 +484,21 @@ mod tests {
         let reflect_value = reflect_deserializer.deserialize(deserializer).unwrap();
         let val = Enable::<SetGoldReflect>::from_reflect(reflect_value.as_ref()).unwrap();
         assert_eq!(val, Enable { arg0: SetGoldReflect { gold: 100 } });
+    }
+
+    #[test]
+    fn test_generic_marker() {
+        let mut type_registry = TypeRegistry::default();
+        type_registry.register::<Marker<usize>>();
+        type_registry.register::<Marker<String>>();
+        type_registry.register::<Marker<SetGoldReflect>>();
+
+        let reflect_deserializer = ReflectDeserializer::new(&type_registry);
+        let input = "marker usize";
+        let deserializer = CliDeserializer::from_str(input, &type_registry).unwrap();
+        let reflect_value = reflect_deserializer.deserialize(deserializer).unwrap();
+        let val = Marker::<usize>::from_reflect(reflect_value.as_ref()).unwrap();
+        assert_eq!(val, Marker { _marker: std::marker::PhantomData });
     }
 
     #[test]
