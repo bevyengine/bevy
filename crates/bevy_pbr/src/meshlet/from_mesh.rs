@@ -20,6 +20,9 @@ impl MeshletMesh {
     ///
     /// This function requires the `meshlet_processor` cargo feature.
     ///
+    /// Compiling in release mode is strongly recommended, as the conversion process is very
+    /// slow when compiling without optimizations.
+    ///
     /// The input mesh must:
     /// 1. Use [`PrimitiveTopology::TriangleList`]
     /// 2. Use indices

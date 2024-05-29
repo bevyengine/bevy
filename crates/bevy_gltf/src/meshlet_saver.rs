@@ -34,6 +34,9 @@ use std::{collections::VecDeque, iter, ops::Deref};
 /// Use only glTF Binary (.glb) or glTF Embedded (.gltf without additional .bin) files.
 /// Using glTF Separate files (.gltf with additional .bin) will lead to unnecessary data in the final processed asset.
 ///
+/// Compiling in release mode is strongly recommended, as the conversion process is very slow when compiling
+/// without optimizations.
+///
 /// Example asset meta file:
 /// ```
 /// (
