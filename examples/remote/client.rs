@@ -5,7 +5,7 @@ use std::process;
 
 use argh::FromArgs;
 use bevy::prelude::default;
-use bevy::remote::{BrpQuery, BrpRequest, DEFAULT_PORT};
+use bevy::remote::{BrpQuery, BrpQueryRequest, BrpRequest, DEFAULT_PORT};
 use http_body_util::BodyExt as _;
 use hyper::client::conn::http1;
 use hyper::header::HOST;
@@ -48,9 +48,9 @@ async fn main() {
     // Create a HTTP 1.x connection.
     let (mut sender, connection) = http1::handshake::<_, String>(io).await.unwrap();
 
-    // Build our BRP request. Include the full type names of all the components,
-    // as specified on the command line.
-    let brp_request = BrpRequest::Query {
+    // Build the parameters to our BRP request. Include the full type names of
+    // all the components, as specified on the command line.
+    let brp_query_params = BrpQueryRequest {
         data: BrpQuery {
             components: args.components,
             ..default()
@@ -58,17 +58,26 @@ async fn main() {
         filter: default(),
     };
 
-    let mut brp_request = match serde_json::to_value(&brp_request) {
-        Ok(request) => request,
-        Err(error) => die(&format!("Failed to serialize request: {}", error)),
+    let brp_query_params = match serde_json::to_value(&brp_query_params) {
+        Ok(brp_query_params) => brp_query_params,
+        Err(error) => die(&format!(
+            "Failed to serialize request parameters: {}",
+            error
+        )),
     };
 
-    // We need to set the `id` field so that it can be echoed back to us. Just
-    // set it to 0.
-    brp_request
-        .as_object_mut()
-        .expect("Request must be an object")
-        .insert("id".to_owned(), (0).into());
+    // Build the request.
+    let brp_request = BrpRequest {
+        request: "QUERY".to_owned(),
+        id: (0).into(),
+        params: brp_query_params,
+    };
+
+    // Serialize the request.
+    let brp_request = match serde_json::to_string(&brp_request) {
+        Ok(brp_request) => brp_request,
+        Err(error) => die(&format!("Failed to serialize request: {}", error)),
+    };
 
     // Connect.
     task::spawn(async move {
@@ -82,7 +91,7 @@ async fn main() {
     let http_request = Request::builder()
         .uri(&url)
         .header(HOST, authority.as_str())
-        .body(brp_request.to_string())
+        .body(brp_request)
         .unwrap();
 
     let response = match sender.send_request(http_request).await {

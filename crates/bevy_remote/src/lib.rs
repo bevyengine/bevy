@@ -7,6 +7,8 @@
 //! entity-component system. Clients are expected to `POST` JSON requests to the
 //! root URL; see the `client` example for a trivial example of use.
 //!
+//! ## Requests
+//!
 //! A typical client request might look like this:
 //!
 //! ```json
@@ -24,10 +26,33 @@
 //! }
 //! ```
 //!
-//! And a response might look like this:
+//! The `id`, `request`, and `params` fields are all required:
+//!
+//! * `id` is arbitrary JSON data. The server completely ignores its contents,
+//!   and the client may use it for any purpose.  It will be copied via
+//!   serialization and deserialization (so object property order, etc. can't be
+//!   relied upon to be identical) and sent back to the client as part of the
+//!   response.
+//!
+//! * `request` is a string that specifies one of the possible [`BrpRequest`]
+//!   variants: `QUERY`, `GET`, `INSERT`, etc. It's case-sensitive and must be in
+//!   all caps.
+//!
+//! * `params` is parameter data specific to the request.
+//!
+//! For more information, see the documentation for [`BrpRequest`].
+//! [`BrpRequest`] is serialized to JSON via `serde`, so [the `serde`
+//! documentation] may be useful to clarify the correspondence between the Rust
+//! structure and the JSON format.
+//!
+//! ## Responses
+//!
+//! A response from the server to the client might look like this:
 //!
 //! ```json
 //! {
+//!     "status": "OK",
+//!     "id": 0,
 //!     "components": {
 //!         "bevy_transform::components::transform::Transform": {
 //!             "rotation": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0 },
@@ -35,11 +60,22 @@
 //!             "translation": { "x": 0.0, "y": 0.5, "z": 0.0 }
 //!         }
 //!     },
-//!     "entity": 4294967298,
-//!     "id": 0,
-//!     "status": "OK"
+//!     "entity": 4294967298
 //! }
 //! ```
+//!
+//! The `status` and `id` fields will always be present:
+//!
+//! * `id` is the arbitrary JSON data that was sent as part of the request. It
+//!   will be identical to the `id` data sent during the request, modulo
+//!   serialization and deserialization.
+//!
+//! * `status` will be either the string `"OK"` or `"ERROR"`, reflecting whether
+//!   the request succeeded.
+//!
+//! TODO: Fill in more here.
+//!
+//! [the `serde` documentation]: https://serde.rs/
 use std::{
     any::TypeId,
     net::SocketAddr,
@@ -63,7 +99,7 @@ use bevy_reflect::{
     serde::{ReflectSerializer, TypedReflectDeserializer},
     Reflect, TypeRegistration, TypeRegistry,
 };
-use bevy_utils::{tracing::error, HashMap};
+use bevy_utils::{prelude::default, tracing::error, HashMap};
 use http_body_util::{BodyExt as _, Full};
 use hyper::{
     body::{Bytes, Incoming},
@@ -103,6 +139,22 @@ pub struct RemotePlugin {
 #[derive(Resource, Reflect)]
 pub struct RemotePort(pub u16);
 
+/// The type of a function that implements a remote verb (`GET`, `QUERY`, etc.)
+///
+/// The first parameter is the JSON value of the `params`. Typically, an
+/// implementation will deserialize these as the first thing they do.
+///
+/// The returned JSON value will be returned as the response. Bevy will
+/// automatically populate the `status` and `id` fields before sending.
+pub type RemoteVerb =
+    for<'w, 'a> fn(Value, &'w mut World, &'a AppTypeRegistry) -> AnyhowResult<Value>;
+
+/// Holds all implementations of verbs known to the server.
+///
+/// You can add your own custom verbs to this list.
+#[derive(Resource, Deref, DerefMut)]
+pub struct RemoteVerbs(pub HashMap<String, RemoteVerb>);
+
 /// A single request from a Bevy Remote Protocol client to the server,
 /// serialized in JSON.
 ///
@@ -123,125 +175,136 @@ pub struct RemotePort(pub u16);
 /// }
 /// ```
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(tag = "request", content = "params")]
-pub enum BrpRequest {
-    /// `GET`: Retrieves one or more components from the entity with the given
-    /// ID.
+pub struct BrpRequest {
+    /// The verb: i.e. the action to be performed.
+    pub request: String,
+
+    /// Arbitrary data that will be returned verbatim to the client as part of
+    /// the response.
+    pub id: Value,
+
+    /// The parameters, specific to each verb.
     ///
-    /// The server responds with a `BrpResponse::Get`.
-    #[serde(rename = "GET")]
-    Get {
-        /// The ID of the entity from which components are to be requested.
-        entity: Entity,
+    /// These are passed as the first argument to the verb handler.
+    pub params: Value,
+}
 
-        /// The *full paths* of the component types that are to be requested
-        /// from the entity.
-        ///
-        /// Note that these strings must consist of the *full* type paths: e.g.
-        /// `bevy_transform::components::transform::Transform`, not just
-        /// `Transform`.
-        components: Vec<String>,
-    },
+/// `GET`: Retrieves one or more components from the entity with the given
+/// ID.
+///
+/// The server responds with a `BrpResponse::Get`.
+#[derive(Serialize, Deserialize, Clone)]
+pub struct BrpGetRequest {
+    /// The ID of the entity from which components are to be requested.
+    pub entity: Entity,
 
-    /// `QUERY`: Performs a query over components in the ECS, returning entities
-    /// and component values that match.
+    /// The *full paths* of the component types that are to be requested
+    /// from the entity.
     ///
-    /// The server responds with a `BrpResponse::Query`.
-    #[serde(rename = "QUERY")]
-    Query {
-        /// The components to select.
-        data: BrpQuery,
+    /// Note that these strings must consist of the *full* type paths: e.g.
+    /// `bevy_transform::components::transform::Transform`, not just
+    /// `Transform`.
+    pub components: Vec<String>,
+}
 
-        /// An optional filter that specifies which entities to include or
-        /// exclude from the results.
-        #[serde(default)]
-        filter: BrpQueryFilter,
-    },
+/// `QUERY`: Performs a query over components in the ECS, returning entities
+/// and component values that match.
+///
+/// The server responds with a `BrpResponse::Query`.
+#[derive(Serialize, Deserialize, Clone)]
+pub struct BrpQueryRequest {
+    /// The components to select.
+    pub data: BrpQuery,
 
-    /// `SPAWN`: Creates a new entity with the given components and responds
-    /// with its ID.
+    /// An optional filter that specifies which entities to include or
+    /// exclude from the results.
+    #[serde(default)]
+    pub filter: BrpQueryFilter,
+}
+
+/// `SPAWN`: Creates a new entity with the given components and responds
+/// with its ID.
+///
+/// The server responds with a `BrpResponse::Entity`.
+#[derive(Serialize, Deserialize, Clone)]
+pub struct BrpSpawnRequest {
+    /// A map from each component's *full path* to its serialized value.
     ///
-    /// The server responds with a `BrpResponse::Entity`.
-    #[serde(rename = "SPAWN")]
-    Spawn {
-        /// A map from each component's *full path* to its serialized value.
-        ///
-        /// These components will be added to the entity.
-        ///
-        /// Note that the keys of the map must be the *full* type paths: e.g.
-        /// `bevy_transform::components::transform::Transform`, not just
-        /// `Transform`.
-        components: HashMap<String, Value>,
-    },
-
-    /// `DESTROY`: Given an ID, despawns the entity with that ID.
+    /// These components will be added to the entity.
     ///
-    /// The server responds with a `BrpResponse::Ok`.
-    #[serde(rename = "DESTROY")]
-    Destroy {
-        /// The ID of the entity to despawn.
-        entity: Entity,
-    },
+    /// Note that the keys of the map must be the *full* type paths: e.g.
+    /// `bevy_transform::components::transform::Transform`, not just
+    /// `Transform`.
+    pub components: HashMap<String, Value>,
+}
 
-    /// `REMOVE`: Deletes one or more components from an entity.
+/// `DESTROY`: Given an ID, despawns the entity with that ID.
+///
+/// The server responds with a `BrpResponse::Ok`.
+#[derive(Serialize, Deserialize, Clone)]
+pub struct BrpDestroyRequest {
+    /// The ID of the entity to despawn.
+    pub entity: Entity,
+}
+
+/// `REMOVE`: Deletes one or more components from an entity.
+///
+/// The server responds with a `BrpResponse::Ok`.
+#[derive(Serialize, Deserialize, Clone)]
+pub struct BrpRemoveRequest {
+    /// The ID of the entity from which components are to be removed.
+    pub entity: Entity,
+
+    /// The *full paths* of the component types that are to be removed from
+    /// the entity.
     ///
-    /// The server responds with a `BrpResponse::Ok`.
-    #[serde(rename = "REMOVE")]
-    Remove {
-        /// The ID of the entity from which components are to be removed.
-        entity: Entity,
+    /// Note that these strings must consist of the *full* type paths: e.g.
+    /// `bevy_transform::components::transform::Transform`, not just
+    /// `Transform`.
+    pub components: Vec<String>,
+}
 
-        /// The *full paths* of the component types that are to be removed from
-        /// the entity.
-        ///
-        /// Note that these strings must consist of the *full* type paths: e.g.
-        /// `bevy_transform::components::transform::Transform`, not just
-        /// `Transform`.
-        components: Vec<String>,
-    },
+/// `INSERT`: Adds one or more components to an entity.
+///
+/// The server responds with a `BrpResponse::Ok`.
+#[derive(Serialize, Deserialize, Clone)]
+pub struct BrpInsertRequest {
+    /// The ID of the entity that components are to be added to.
+    pub entity: Entity,
 
-    /// `INSERT`: Adds one or more components to an entity.
+    /// A map from each component's *full path* to its serialized value.
     ///
-    /// The server responds with a `BrpResponse::Ok`.
-    #[serde(rename = "INSERT")]
-    Insert {
-        /// The ID of the entity that components are to be added to.
-        entity: Entity,
-
-        /// A map from each component's *full path* to its serialized value.
-        ///
-        /// These components will be added to the entity.
-        ///
-        /// Note that the keys of the map must be the *full* type paths: e.g.
-        /// `bevy_transform::components::transform::Transform`, not just
-        /// `Transform`.
-        components: HashMap<String, Value>,
-    },
-
-    /// `REPARENT`: Changes the parent of an entity.
+    /// These components will be added to the entity.
     ///
-    /// The server responds with a `BrpResponse::Ok`.
-    #[serde(rename = "REPARENT")]
-    Reparent {
-        /// The IDs of the entities that are to become the new children of the
-        /// `parent`.
-        entities: Vec<Entity>,
+    /// Note that the keys of the map must be the *full* type paths: e.g.
+    /// `bevy_transform::components::transform::Transform`, not just
+    /// `Transform`.
+    pub components: HashMap<String, Value>,
+}
 
-        /// The IDs of the entity that will become the new parent of the
-        /// `entities`.
-        parent: Entity,
-    },
+/// `REPARENT`: Changes the parent of an entity.
+///
+/// The server responds with a `BrpResponse::Ok`.
+#[derive(Serialize, Deserialize, Clone)]
+pub struct BrpReparentRequest {
+    /// The IDs of the entities that are to become the new children of the
+    /// `parent`.
+    pub entities: Vec<Entity>,
 
-    /// `LIST`: Returns a list of all type names of registered components in the
-    /// system, or those on an entity.
-    #[serde(rename = "LIST")]
-    List {
-        /// The entity to query.
-        ///
-        /// If not specified, this request returns the names of all registered
-        /// components.
-        entity: Option<Entity>,
-    },
+    /// The IDs of the entity that will become the new parent of the
+    /// `entities`.
+    pub parent: Entity,
+}
+
+/// `LIST`: Returns a list of all type names of registered components in the
+/// system, or those on an entity.
+#[derive(Serialize, Deserialize, Clone)]
+pub struct BrpListRequest {
+    /// The entity to query.
+    ///
+    /// If not specified, this request returns the names of all registered
+    /// components.
+    pub entity: Option<Entity>,
 }
 
 /// Describes the data that is to be fetched in a query.
@@ -278,49 +341,44 @@ pub struct BrpQueryFilter {
     pub with: Vec<String>,
 }
 
-/// A response from the world to the client.
+/// A response from the world to the client that specifies a single entity.
+///
+/// This is sent in response to `SPAWN`.
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(untagged)]
-pub enum BrpResponse {
-    /// Acknowledgment with no further information.
+pub struct BrpEntityResponse {
+    /// The ID of the entity in question.
+    pub entity: Entity,
+}
+
+/// The response to a `GET` request.
+#[derive(Serialize, Deserialize, Clone)]
+struct BrpGetResponse {
+    /// The ID of the entity for which components were requested.
+    entity: Entity,
+
+    /// The values of the requested components.
+    components: HashMap<String, Value>,
+}
+
+/// The response to a `LIST` request.
+#[derive(Serialize, Deserialize, Clone)]
+struct BrpListResponse {
+    /// The ID of the entity for which component names were requested, if
+    /// present.
     ///
-    /// This is sent in response to with `DESTROY`, `REMOVE`, `INSERT`, and `REPARENT` messages.
-    Ok,
+    /// If this is `None`, then `components` contains the name of all
+    /// reflectable components known to the system.
+    entity: Option<Entity>,
 
-    /// Specifies a single entity.
-    ///
-    /// This is sent in response to `SPAWN`.
-    Entity {
-        /// The ID of the entity in question.
-        entity: Entity,
-    },
+    /// The full type names of the registered components.
+    components: Vec<String>,
+}
 
-    /// The response to a `GET` request.
-    Get {
-        /// The ID of the entity for which components were requested.
-        entity: Entity,
-        /// The values of the requested components.
-        components: HashMap<String, Value>,
-    },
-
-    /// The response to a `LIST` request.
-    List {
-        /// The ID of the entity for which component names were requested, if
-        /// present.
-        ///
-        /// If this is `None`, then `components` contains the name of all
-        /// reflectable components known to the system.
-        entity: Option<Entity>,
-
-        /// The full type names of the registered components.
-        components: Vec<String>,
-    },
-
-    /// The response to a `QUERY` request.
-    Query {
-        /// All results of the query: the entities and the requested components.
-        rows: Vec<BrpQueryRow>,
-    },
+/// The response to a `QUERY` request.
+#[derive(Serialize, Deserialize, Clone)]
+struct BrpQueryResponse {
+    /// All results of the query: the entities and the requested components.
+    rows: Vec<BrpQueryRow>,
 }
 
 /// One query match result: a single entity paired with the requested components.
@@ -345,12 +403,12 @@ pub struct BrpMessage {
     /// The channel on which the response is to be sent.
     ///
     /// The value sent here is serialized and sent back to the client.
-    sender: Arc<Mutex<Option<OneshotSender<AnyhowResult<BrpResponse>>>>>,
+    sender: Arc<Mutex<Option<OneshotSender<AnyhowResult<Value>>>>>,
 }
 
 /// A resource that receives messages sent by Bevy Remote Protocol clients.
 ///
-/// Every frame, the [`process_remote_requests`] system drains this mailbox, and
+/// Every frame, the `process_remote_requests` system drains this mailbox, and
 /// processes the messages within.
 #[derive(Resource, Deref, DerefMut)]
 pub struct BrpMailbox(BroadcastReceiver<BrpMessage>);
@@ -361,9 +419,25 @@ impl Default for RemotePlugin {
     }
 }
 
+impl Default for RemoteVerbs {
+    fn default() -> Self {
+        let mut remote_verbs = RemoteVerbs(default());
+        remote_verbs.insert("GET".to_owned(), process_remote_get_request);
+        remote_verbs.insert("QUERY".to_owned(), process_remote_query_request);
+        remote_verbs.insert("SPAWN".to_owned(), process_remote_spawn_request);
+        remote_verbs.insert("INSERT".to_owned(), process_remote_insert_request);
+        remote_verbs.insert("REMOVE".to_owned(), process_remote_remove_request);
+        remote_verbs.insert("DESTROY".to_owned(), process_remote_destroy_request);
+        remote_verbs.insert("REPARENT".to_owned(), process_remote_reparent_request);
+        remote_verbs.insert("LIST".to_owned(), process_remote_list_request);
+        remote_verbs
+    }
+}
+
 impl Plugin for RemotePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(RemotePort(self.port))
+            .init_resource::<RemoteVerbs>()
             .add_systems(Startup, start_server)
             .add_systems(Update, process_remote_requests);
     }
@@ -397,66 +471,29 @@ fn process_remote_requests(world: &mut World) {
         let Some(sender) = sender.take() else {
             continue;
         };
-        let _ = sender.send(process_remote_request(
-            world,
-            message.request,
-            &app_type_registry,
-        ));
-    }
-}
 
-/// Processes a single request coming from a client.
-fn process_remote_request(
-    world: &mut World,
-    request: BrpRequest,
-    app_type_registry: &AppTypeRegistry,
-) -> AnyhowResult<BrpResponse> {
-    match request {
-        BrpRequest::Get { entity, components } => {
-            process_remote_get_request(entity, components, world, app_type_registry)
-        }
+        // Fetch the handler for the verb. If there's no such handler
+        // registered, return an error.
+        let verbs = world.resource::<RemoteVerbs>();
+        let Some(handler) = verbs.get(&message.request.request) else {
+            let _ = sender.send(Err(anyhow!("Unknown verb: `{}`", message.request.request)));
+            continue;
+        };
 
-        BrpRequest::Query { data, filter } => {
-            process_remote_query_request(data, filter, world, app_type_registry)
-        }
-
-        BrpRequest::Spawn { components } => {
-            let type_registry = app_type_registry.read();
-            let reflect_components = deserialize_components(&type_registry, components)?;
-            insert_reflected_components(&type_registry, world.spawn_empty(), reflect_components)?;
-            Ok(BrpResponse::Ok)
-        }
-
-        BrpRequest::Insert { entity, components } => {
-            process_remote_insert_request(entity, components, world, app_type_registry)
-        }
-
-        BrpRequest::Remove { entity, components } => {
-            process_remote_remove_request(entity, components, world, app_type_registry)
-        }
-
-        BrpRequest::Destroy { entity } => {
-            get_entity_mut(world, entity)?.despawn();
-            Ok(BrpResponse::Ok)
-        }
-
-        BrpRequest::Reparent { entities, parent } => {
-            process_remote_reparent_request(entities, parent, world)
-        }
-
-        BrpRequest::List { entity } => {
-            process_remote_list_request(entity, world, app_type_registry)
-        }
+        // Execute the handler, and send the result back to the client.
+        let result = handler(message.request.params, world, &app_type_registry);
+        let _ = sender.send(result);
     }
 }
 
 /// Handles a `GET` request coming from a client.
 fn process_remote_get_request(
-    entity: Entity,
-    components: Vec<String>,
+    request: Value,
     world: &mut World,
     app_type_registry: &AppTypeRegistry,
-) -> AnyhowResult<BrpResponse> {
+) -> AnyhowResult<Value> {
+    let BrpGetRequest { entity, components } = serde_json::from_value(request)?;
+
     let type_registry = app_type_registry.read();
     let Some(entity_ref) = world.get_entity(entity) else {
         return Err(anyhow!("Entity {:?} didn't exist", entity));
@@ -486,25 +523,26 @@ fn process_remote_get_request(
         serialized_components_map.extend(serialized_object.into_iter());
     }
 
-    Ok(BrpResponse::Get {
+    Ok(serde_json::to_value(BrpGetResponse {
         entity,
         components: serialized_components_map,
-    })
+    })?)
 }
 
 /// Handles a `QUERY` request coming from a client.
 fn process_remote_query_request(
-    data: BrpQuery,
-    filter: BrpQueryFilter,
+    request: Value,
     world: &mut World,
     app_type_registry: &AppTypeRegistry,
-) -> AnyhowResult<BrpResponse> {
-    let BrpQuery {
-        components,
-        option,
-        has,
-    } = data;
-    let BrpQueryFilter { without, with } = filter;
+) -> AnyhowResult<Value> {
+    let BrpQueryRequest {
+        data: BrpQuery {
+            components,
+            option,
+            has,
+        },
+        filter: BrpQueryFilter { without, with },
+    } = serde_json::from_value(request)?;
 
     let type_registry = app_type_registry.read();
 
@@ -549,16 +587,32 @@ fn process_remote_query_request(
         });
     }
 
-    Ok(BrpResponse::Query { rows })
+    Ok(serde_json::to_value(BrpQueryResponse { rows })?)
+}
+
+/// Handles a `SPAWN` request coming from a client.
+fn process_remote_spawn_request(
+    request: Value,
+    world: &mut World,
+    app_type_registry: &AppTypeRegistry,
+) -> AnyhowResult<Value> {
+    let BrpSpawnRequest { components } = serde_json::from_value(request)?;
+
+    let type_registry = app_type_registry.read();
+    let reflect_components = deserialize_components(&type_registry, components)?;
+    insert_reflected_components(&type_registry, world.spawn_empty(), reflect_components)?;
+
+    Ok(Value::Object(default()))
 }
 
 /// Handles an `INSERT` request (insert components) coming from a client.
 fn process_remote_insert_request(
-    entity: Entity,
-    components: HashMap<String, Value>,
+    request: Value,
     world: &mut World,
     app_type_registry: &AppTypeRegistry,
-) -> AnyhowResult<BrpResponse> {
+) -> AnyhowResult<Value> {
+    let BrpInsertRequest { entity, components } = serde_json::from_value(request)?;
+
     let type_registry = app_type_registry.read();
     let reflect_components = deserialize_components(&type_registry, components)?;
 
@@ -568,16 +622,17 @@ fn process_remote_insert_request(
         reflect_components,
     )?;
 
-    Ok(BrpResponse::Ok)
+    Ok(Value::Object(default()))
 }
 
 /// Handles a `REMOVE` request (remove components) coming from a client.
 fn process_remote_remove_request(
-    entity: Entity,
-    components: Vec<String>,
+    request: Value,
     world: &mut World,
     app_type_registry: &AppTypeRegistry,
-) -> AnyhowResult<BrpResponse> {
+) -> AnyhowResult<Value> {
+    let BrpRemoveRequest { entity, components } = serde_json::from_value(request)?;
+
     let type_registry = app_type_registry.read();
     let component_ids = get_component_ids(&type_registry, world, components)?;
 
@@ -587,15 +642,30 @@ fn process_remote_remove_request(
         entity_world_mut.remove_by_id(component_id);
     }
 
-    Ok(BrpResponse::Ok)
+    Ok(Value::Object(default()))
+}
+
+/// Handles a `DESTROY` (despawn entity) request coming from a client.
+fn process_remote_destroy_request(
+    request: Value,
+    world: &mut World,
+    _: &AppTypeRegistry,
+) -> AnyhowResult<Value> {
+    let BrpDestroyRequest { entity } = serde_json::from_value(request)?;
+
+    get_entity_mut(world, entity)?.despawn();
+
+    Ok(Value::Object(default()))
 }
 
 /// Handles a `REPARENT` request coming from a client.
 fn process_remote_reparent_request(
-    entities: Vec<Entity>,
-    parent: Entity,
+    request: Value,
     world: &mut World,
-) -> AnyhowResult<BrpResponse> {
+    _: &AppTypeRegistry,
+) -> AnyhowResult<Value> {
+    let BrpReparentRequest { entities, parent } = serde_json::from_value(request)?;
+
     let mut parent_commands = get_entity_mut(world, parent)?;
     for entity in entities {
         if entity == parent {
@@ -604,15 +674,17 @@ fn process_remote_reparent_request(
         parent_commands.add_child(entity);
     }
 
-    Ok(BrpResponse::Ok)
+    Ok(Value::Object(default()))
 }
 
 /// Handles a `LIST` request (list all components) coming from a client.
 fn process_remote_list_request(
-    entity: Option<Entity>,
-    world: &World,
+    request: Value,
+    world: &mut World,
     app_type_registry: &AppTypeRegistry,
-) -> AnyhowResult<BrpResponse> {
+) -> AnyhowResult<Value> {
+    let BrpListRequest { entity } = serde_json::from_value(request)?;
+
     let mut result = vec![];
     let type_registry = app_type_registry.read();
 
@@ -640,10 +712,10 @@ fn process_remote_list_request(
     // accidentally start depending on the order.
     result.sort();
 
-    Ok(BrpResponse::List {
+    Ok(serde_json::to_value(BrpListResponse {
         entity,
         components: result,
-    })
+    })?)
 }
 
 fn serialize_components(
@@ -823,16 +895,12 @@ async fn process_request(
     sender: BroadcastSender<BrpMessage>,
 ) -> AnyhowResult<Response<Full<Bytes>>> {
     let request_bytes = request.into_body().collect().await?.to_bytes();
-    let value: Value = serde_json::from_slice(&request_bytes)?;
+    let request: BrpRequest = serde_json::from_slice(&request_bytes)?;
 
-    let Value::Object(mut object_value) = value else {
-        return Err(anyhow!("JSON value wasn't an object"));
-    };
-    let Some(id_value) = object_value.remove("id") else {
-        return Err(anyhow!("JSON value had no `id` field"));
-    };
+    // Save the `id` field so we can echo it back.
+    let id = request.id.clone();
 
-    let mut value = match process_request_body(object_value, &sender).await {
+    let mut value = match process_request_body(request, &sender).await {
         Ok(mut value) => {
             value.insert("status".to_owned(), "OK".into());
             value
@@ -846,7 +914,7 @@ async fn process_request(
     };
 
     // Echo the same `id` value back to the client.
-    value.insert("id".to_owned(), id_value);
+    value.insert("id".to_owned(), id);
 
     // Serialize and return the JSON as a response.
     let string = serde_json::to_string(&value)?;
@@ -858,10 +926,9 @@ async fn process_request(
 /// A helper function for the Bevy Remote Protocol server that parses a single
 /// request coming from a client and places it in the [`BrpMailbox`].
 async fn process_request_body(
-    request: Map<String, Value>,
+    request: BrpRequest,
     sender: &BroadcastSender<BrpMessage>,
 ) -> AnyhowResult<Map<String, Value>> {
-    let request = value::from_value(Value::Object(request))?;
     let (response_sender, response_receiver) = oneshot::channel();
 
     let _ = sender.send(BrpMessage {
