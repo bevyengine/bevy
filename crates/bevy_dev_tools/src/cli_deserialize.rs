@@ -383,4 +383,26 @@ mod tests {
         let val = ReflectMultiArgs::from_reflect(reflect_value.as_ref()).unwrap();
         assert_eq!(val, ReflectMultiArgs { arg0: 100, arg1: "".to_string(), arg2: SetGoldReflect { gold: 200 } });
     }
+
+    #[derive(Debug, Reflect, Default, PartialEq)]
+    struct GenericArgs<T> {
+        arg0: T,
+    }
+
+    #[test]
+    fn test_generic() {
+        let mut type_registry = TypeRegistry::default();
+        type_registry.register::<GenericArgs<usize>>();
+        type_registry.register::<GenericArgs<String>>();
+        type_registry.register::<GenericArgs<SetGoldReflect>>();
+        let reflect_deserializer = ReflectDeserializer::new(&type_registry);
+
+        let info = type_registry.get(std::any::TypeId::of::<GenericArgs<usize>>()).unwrap();
+        println!("Info: {:?}", info.type_info().type_path());
+        let info_complex = type_registry.get(std::any::TypeId::of::<GenericArgs<SetGoldReflect>>()).unwrap();
+        println!("Info: {:?}", info_complex.type_info().type_path());
+        println!("Short path: {:?}", info_complex.type_info().type_path_table().short_path()); // info_complex.type_info().type_path_table().short_path()
+        
+        assert!(false);
+    }
 }
