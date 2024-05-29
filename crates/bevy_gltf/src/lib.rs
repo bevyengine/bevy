@@ -104,7 +104,7 @@
 //! - `Animation{}`: glTF Animation as Bevy `AnimationClip`
 //! - `Skin{}`: glTF mesh skin as Bevy `SkinnedMeshInverseBindposes`
 
-use std::marker::PhantomData;
+use std::{future::Future, pin::Pin};
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
@@ -118,9 +118,8 @@ pub use loader::*;
 pub use material::FromStandardMaterial;
 
 use bevy_app::prelude::*;
-use bevy_asset::{Asset, AssetApp, Handle};
+use bevy_asset::{Asset, AssetApp, Handle, LoadContext, UntypedHandle};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_pbr::StandardMaterial;
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
     mesh::{Mesh, MeshVertexAttribute},
@@ -129,32 +128,22 @@ use bevy_render::{
 };
 use bevy_scene::Scene;
 
-/// Adds support for glTF file loading to the app.
-pub struct GltfPlugin<M: FromStandardMaterial = StandardMaterial> {
-    custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
-    p: PhantomData<M>,
-}
+pub(crate) type LoaderFn =
+    for<'t> fn(
+        &'t GltfLoader,
+        &'t [u8],
+        &'t mut LoadContext<'_>,
+        &'t GltfLoaderSettings,
+    ) -> Pin<Box<dyn Future<Output = Result<Gltf, GltfError>> + Send + 't>>;
 
-impl Default for GltfPlugin {
-    fn default() -> Self {
-        Self {
-            custom_vertex_attributes: Default::default(),
-            p: Default::default(),
-        }
-    }
+/// Adds support for glTF file loading to the app.
+#[derive(Default)]
+pub struct GltfPlugin {
+    custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
+    loaders: HashMap<String, LoaderFn>,
 }
 
 impl GltfPlugin {
-    /// Construct a [`GltfPlugin`] with a custom standard material.
-    pub fn with_standard_material<M: FromStandardMaterial>() -> GltfPlugin<M> {
-        GltfPlugin {
-            custom_vertex_attributes: Default::default(),
-            p: Default::default(),
-        }
-    }
-}
-
-impl<M: FromStandardMaterial> GltfPlugin<M> {
     /// Register a custom vertex attribute so that it is recognized when loading a glTF file with the [`GltfLoader`].
     ///
     /// `name` must be the attribute name as found in the glTF data, which must start with an underscore.
@@ -168,16 +157,29 @@ impl<M: FromStandardMaterial> GltfPlugin<M> {
         self.custom_vertex_attributes.insert(name.into(), attribute);
         self
     }
+
+    /// Register a [`FromStandardMaterial`] material that can be created from the `Gltf` specification.
+    /// The `name` can be used to change the material of a loaded gltf in [`GltfLoaderSettings`].
+    pub fn add_material<M: FromStandardMaterial + bevy_pbr::Material>(
+        mut self,
+        name: &str,
+    ) -> Self {
+        self.loaders
+            .insert(name.into(), |loader, bytes, load_context, settings| {
+                Box::pin(load_gltf::<M>(loader, bytes, load_context, settings))
+            });
+        self
+    }
 }
 
-impl<M: FromStandardMaterial + bevy_pbr::Material> Plugin for GltfPlugin<M> {
+impl Plugin for GltfPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<GltfExtras>()
-            .init_asset::<Gltf<M>>()
-            .init_asset::<GltfNode<M>>()
-            .init_asset::<GltfPrimitive<M>>()
-            .init_asset::<GltfMesh<M>>()
-            .preregister_asset_loader::<GltfLoader<M>>(&["gltf", "glb"]);
+            .init_asset::<Gltf>()
+            .init_asset::<GltfNode>()
+            .init_asset::<GltfPrimitive>()
+            .init_asset::<GltfMesh>()
+            .preregister_asset_loader::<GltfLoader>(&["gltf", "glb"]);
     }
 
     fn finish(&self, app: &mut App) {
@@ -188,30 +190,30 @@ impl<M: FromStandardMaterial + bevy_pbr::Material> Plugin for GltfPlugin<M> {
         app.register_asset_loader(GltfLoader {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
-            p: PhantomData::<M>,
+            loaders: self.loaders.clone(),
         });
     }
 }
 
 /// Representation of a loaded glTF file.
 #[derive(Asset, Debug, TypePath)]
-pub struct Gltf<M: FromStandardMaterial = StandardMaterial> {
+pub struct Gltf {
     /// All scenes loaded from the glTF file.
     pub scenes: Vec<Handle<Scene>>,
     /// Named scenes loaded from the glTF file.
     pub named_scenes: HashMap<Box<str>, Handle<Scene>>,
     /// All meshes loaded from the glTF file.
-    pub meshes: Vec<Handle<GltfMesh<M>>>,
+    pub meshes: Vec<Handle<GltfMesh>>,
     /// Named meshes loaded from the glTF file.
-    pub named_meshes: HashMap<Box<str>, Handle<GltfMesh<M>>>,
+    pub named_meshes: HashMap<Box<str>, Handle<GltfMesh>>,
     /// All materials loaded from the glTF file.
-    pub materials: Vec<Handle<M>>,
+    pub materials: Vec<UntypedHandle>,
     /// Named materials loaded from the glTF file.
-    pub named_materials: HashMap<Box<str>, Handle<M>>,
+    pub named_materials: HashMap<Box<str>, UntypedHandle>,
     /// All nodes loaded from the glTF file.
-    pub nodes: Vec<Handle<GltfNode<M>>>,
+    pub nodes: Vec<Handle<GltfNode>>,
     /// Named nodes loaded from the glTF file.
-    pub named_nodes: HashMap<Box<str>, Handle<GltfNode<M>>>,
+    pub named_nodes: HashMap<Box<str>, Handle<GltfNode>>,
     /// Default scene to be displayed.
     pub default_scene: Option<Handle<Scene>>,
     /// All animations loaded from the glTF file.
@@ -224,23 +226,46 @@ pub struct Gltf<M: FromStandardMaterial = StandardMaterial> {
     pub source: Option<gltf::Gltf>,
 }
 
+impl Gltf {
+    /// Try downcast and obtain a typed [`Handle`] of a material.
+    pub fn get_material<T: Asset>(&self, name: &str) -> Option<Handle<T>> {
+        self.named_materials
+            .get(name)
+            .and_then(|x| x.clone().try_into().ok())
+    }
+
+    /// Iterate through all [`Handle`]s of a given material.
+    pub fn iter_materials<T: Asset>(&self) -> impl Iterator<Item = Handle<T>> + '_ {
+        self.materials
+            .iter()
+            .filter_map(|handle| handle.clone().try_into().ok())
+    }
+
+    /// Iterate through all named [`Handle`]s of a given material.
+    pub fn iter_name_materials<T: Asset>(&self) -> impl Iterator<Item = (&str, Handle<T>)> + '_ {
+        self.named_materials
+            .iter()
+            .filter_map(|(name, handle)| Some((name.as_ref(), handle.clone().try_into().ok()?)))
+    }
+}
+
 /// A glTF node with all of its child nodes, its [`GltfMesh`],
 /// [`Transform`](bevy_transform::prelude::Transform) and an optional [`GltfExtras`].
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-node).
 #[derive(Asset, Debug, TypePath)]
-pub struct GltfNode<M: FromStandardMaterial = StandardMaterial> {
+pub struct GltfNode {
     /// Direct children of the node.
-    pub children: Vec<GltfNode<M>>,
+    pub children: Vec<GltfNode>,
     /// Mesh of the node.
-    pub mesh: Option<Handle<GltfMesh<M>>>,
+    pub mesh: Option<Handle<GltfMesh>>,
     /// Local transform.
     pub transform: bevy_transform::prelude::Transform,
     /// Additional data.
     pub extras: Option<GltfExtras>,
 }
 
-impl<M: FromStandardMaterial> Clone for GltfNode<M> {
+impl Clone for GltfNode {
     fn clone(&self) -> Self {
         GltfNode {
             children: self.children.clone(),
@@ -256,14 +281,14 @@ impl<M: FromStandardMaterial> Clone for GltfNode<M> {
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-mesh).
 #[derive(Asset, Debug, TypePath)]
-pub struct GltfMesh<M: FromStandardMaterial = StandardMaterial> {
+pub struct GltfMesh {
     /// Primitives of the glTF mesh.
-    pub primitives: Vec<GltfPrimitive<M>>,
+    pub primitives: Vec<GltfPrimitive>,
     /// Additional data.
     pub extras: Option<GltfExtras>,
 }
 
-impl<M: FromStandardMaterial> Clone for GltfMesh<M> {
+impl Clone for GltfMesh {
     fn clone(&self) -> Self {
         GltfMesh {
             primitives: self.primitives.clone(),
@@ -276,18 +301,18 @@ impl<M: FromStandardMaterial> Clone for GltfMesh<M> {
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-mesh-primitive).
 #[derive(Asset, Debug, TypePath)]
-pub struct GltfPrimitive<M: FromStandardMaterial = StandardMaterial> {
+pub struct GltfPrimitive {
     /// Topology to be rendered.
     pub mesh: Handle<Mesh>,
     /// Material to apply to the `mesh`.
-    pub material: Option<Handle<M>>,
+    pub material: Option<UntypedHandle>,
     /// Additional data.
     pub extras: Option<GltfExtras>,
     /// Additional data of the `material`.
     pub material_extras: Option<GltfExtras>,
 }
 
-impl<M: FromStandardMaterial> Clone for GltfPrimitive<M> {
+impl Clone for GltfPrimitive {
     fn clone(&self) -> Self {
         Self {
             mesh: self.mesh.clone(),

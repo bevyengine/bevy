@@ -1,7 +1,7 @@
 //! Loads and renders a glTF file as a scene with a custom standard material.
 
 use bevy::{
-    gltf::{FromStandardMaterial, GltfPlugin},
+    gltf::{FromStandardMaterial, GltfLoaderSettings, GltfPlugin},
     pbr::{
         CascadeShadowConfigBuilder, DirectionalLightShadowMap, ExtendedMaterial, MaterialExtension,
     },
@@ -13,8 +13,7 @@ use std::f32::consts::*;
 fn main() {
     App::new()
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
-        .add_plugins(DefaultPlugins)
-        .add_plugins(GltfPlugin::with_standard_material::<ToonMaterial>())
+        .add_plugins(DefaultPlugins.set(GltfPlugin::default().add_material::<ToonMaterial>("toon")))
         .add_plugins(MaterialPlugin::<ToonMaterial>::default())
         .add_systems(Startup, setup)
         .add_systems(Update, animate_light_direction)
@@ -81,7 +80,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     });
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
+        scene: asset_server.load_with_settings(
+            "models/FlightHelmet/FlightHelmet.gltf#Scene0",
+            |s: &mut GltfLoaderSettings| {
+                s.use_material::<ToonMaterial>();
+            },
+        ),
         ..default()
     });
 }

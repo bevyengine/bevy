@@ -1,4 +1,5 @@
 use crate::material::FromStandardMaterial;
+use crate::LoaderFn;
 use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode};
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{AnimationTarget, AnimationTargetId};
@@ -54,7 +55,6 @@ use serde_json::Value;
 #[cfg(feature = "bevy_animation")]
 use smallvec::SmallVec;
 use std::io::Error;
-use std::marker::PhantomData;
 use std::{
     collections::VecDeque,
     path::{Path, PathBuf},
@@ -109,7 +109,7 @@ pub enum GltfError {
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
-pub struct GltfLoader<M: FromStandardMaterial = StandardMaterial> {
+pub struct GltfLoader {
     /// List of compressed image formats handled by the loader.
     pub supported_compressed_formats: CompressedImageFormats,
     /// Custom vertex attributes that will be recognized when loading a glTF file.
@@ -118,8 +118,9 @@ pub struct GltfLoader<M: FromStandardMaterial = StandardMaterial> {
     /// See [this section of the glTF specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview)
     /// for additional details on custom attributes.
     pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
-    /// [`PhantomData`] for material.
-    pub p: PhantomData<M>,
+
+    /// Loaders of pre-registered materials.
+    pub loaders: HashMap<String, LoaderFn>,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -139,22 +140,43 @@ pub struct GltfLoader<M: FromStandardMaterial = StandardMaterial> {
 ///     }
 /// );
 /// ```
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct GltfLoaderSettings {
     /// If empty, the gltf mesh nodes will be skipped.
     ///
     /// Otherwise, nodes will be loaded and retained in RAM/VRAM according to the active flags.
+    #[serde(default)]
     pub load_meshes: RenderAssetUsages,
     /// If empty, the gltf materials will be skipped.
     ///
     /// Otherwise, materials will be loaded and retained in RAM/VRAM according to the active flags.
+    #[serde(default)]
     pub load_materials: RenderAssetUsages,
     /// If true, the loader will spawn cameras for gltf camera nodes.
+    #[serde(default)]
     pub load_cameras: bool,
     /// If true, the loader will spawn lights for gltf light nodes.
+    #[serde(default)]
     pub load_lights: bool,
     /// If true, the loader will include the root of the gltf root node.
+    #[serde(default)]
     pub include_source: bool,
+    /// If set, try obtain a loader registered on [`GltfLoader`].
+    #[serde(default)]
+    pub material: Option<String>,
+    /// If set, use this function for loading.
+    #[serde(skip)]
+    pub loader: Option<LoaderFn>,
+}
+
+impl GltfLoaderSettings {
+    /// Construct a [`GltfLoaderSettings`] that loads an alternative material.
+    pub fn use_material<M: FromStandardMaterial + bevy_pbr::Material>(&mut self) -> &mut Self {
+        self.loader = Some(|loader, bytes, load_context, settings| {
+            Box::pin(load_gltf::<M>(loader, bytes, load_context, settings))
+        });
+        self
+    }
 }
 
 impl Default for GltfLoaderSettings {
@@ -165,12 +187,14 @@ impl Default for GltfLoaderSettings {
             load_cameras: true,
             load_lights: true,
             include_source: false,
+            material: None,
+            loader: None,
         }
     }
 }
 
-impl<M: FromStandardMaterial + bevy_pbr::Material> AssetLoader for GltfLoader<M> {
-    type Asset = Gltf<M>;
+impl AssetLoader for GltfLoader {
+    type Asset = Gltf;
     type Settings = GltfLoaderSettings;
     type Error = GltfError;
     async fn load<'a>(
@@ -178,10 +202,20 @@ impl<M: FromStandardMaterial + bevy_pbr::Material> AssetLoader for GltfLoader<M>
         reader: &'a mut Reader<'_>,
         settings: &'a GltfLoaderSettings,
         load_context: &'a mut LoadContext<'_>,
-    ) -> Result<Gltf<M>, Self::Error> {
+    ) -> Result<Gltf, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
-        load_gltf(self, &bytes, load_context, settings).await
+        if let Some(loader) = &settings.loader {
+            loader(self, &bytes, load_context, settings).await
+        } else if let Some(loader) = settings
+            .material
+            .as_ref()
+            .and_then(|mat| self.loaders.get(mat.as_str()))
+        {
+            loader(self, &bytes, load_context, settings).await
+        } else {
+            load_gltf::<StandardMaterial>(self, &bytes, load_context, settings).await
+        }
     }
 
     fn extensions(&self) -> &[&str] {
@@ -190,12 +224,12 @@ impl<M: FromStandardMaterial + bevy_pbr::Material> AssetLoader for GltfLoader<M>
 }
 
 /// Loads an entire glTF file.
-async fn load_gltf<'a, 'b, 'c, M: FromStandardMaterial + bevy_pbr::Material>(
-    loader: &GltfLoader<M>,
+pub(crate) async fn load_gltf<'a, 'b, 'c, M: FromStandardMaterial + bevy_pbr::Material>(
+    loader: &GltfLoader,
     bytes: &'a [u8],
     load_context: &'b mut LoadContext<'c>,
     settings: &'b GltfLoaderSettings,
-) -> Result<Gltf<M>, GltfError> {
+) -> Result<Gltf, GltfError> {
     let gltf = gltf::Gltf::from_slice(bytes)?;
     let file_name = load_context
         .asset_path()
@@ -550,7 +584,7 @@ async fn load_gltf<'a, 'b, 'c, M: FromStandardMaterial + bevy_pbr::Material>(
                 material: primitive
                     .material()
                     .index()
-                    .and_then(|i| materials.get(i).cloned()),
+                    .and_then(|i| materials.get(i).cloned().map(|x| x.into())),
                 extras: get_gltf_extras(primitive.extras()),
                 material_extras: get_gltf_extras(primitive.material().extras()),
             });
@@ -595,7 +629,7 @@ async fn load_gltf<'a, 'b, 'c, M: FromStandardMaterial + bevy_pbr::Material>(
     let nodes = resolve_node_hierarchy(nodes_intermediate, load_context.path())
         .into_iter()
         .map(|(label, node)| load_context.add_labeled_asset(label, node))
-        .collect::<Vec<Handle<GltfNode<M>>>>();
+        .collect::<Vec<Handle<GltfNode>>>();
     let named_nodes = named_nodes_intermediate
         .into_iter()
         .filter_map(|(name, index)| nodes.get(index).map(|handle| (name.into(), handle.clone())))
@@ -712,8 +746,11 @@ async fn load_gltf<'a, 'b, 'c, M: FromStandardMaterial + bevy_pbr::Material>(
         named_scenes,
         meshes,
         named_meshes,
-        materials,
-        named_materials,
+        materials: materials.into_iter().map(Into::into).collect(),
+        named_materials: named_materials
+            .into_iter()
+            .map(|(k, v)| (k, v.into()))
+            .collect(),
         nodes,
         named_nodes,
         #[cfg(feature = "bevy_animation")]
@@ -1637,10 +1674,10 @@ async fn load_buffers(
     Ok(buffer_data)
 }
 
-fn resolve_node_hierarchy<M: FromStandardMaterial>(
-    nodes_intermediate: Vec<(String, GltfNode<M>, Vec<usize>)>,
+fn resolve_node_hierarchy(
+    nodes_intermediate: Vec<(String, GltfNode, Vec<usize>)>,
     asset_path: &Path,
-) -> Vec<(String, GltfNode<M>)> {
+) -> Vec<(String, GltfNode)> {
     let mut has_errored = false;
     let mut empty_children = VecDeque::new();
     let mut parents = vec![None; nodes_intermediate.len()];
@@ -1663,7 +1700,7 @@ fn resolve_node_hierarchy<M: FromStandardMaterial>(
             (i, (label, node, children))
         })
         .collect::<HashMap<_, _>>();
-    let mut nodes = std::collections::HashMap::<usize, (String, GltfNode<M>)>::new();
+    let mut nodes = std::collections::HashMap::<usize, (String, GltfNode)>::new();
     while let Some(index) = empty_children.pop_front() {
         let (label, node, children) = unprocessed_nodes.remove(&index).unwrap();
         assert!(children.is_empty());
