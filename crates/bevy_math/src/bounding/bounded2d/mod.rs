@@ -3,6 +3,9 @@ mod primitive_impls;
 use super::{BoundingVolume, IntersectsVolume};
 use crate::prelude::{Mat2, Rotation2d, Vec2};
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
+
 /// Computes the geometric center of the given set of points.
 #[inline(always)]
 fn point_cloud_2d_center(points: &[Vec2]) -> Vec2 {
@@ -29,6 +32,7 @@ pub trait Bounded2d {
 /// A 2D axis-aligned bounding box, or bounding rectangle
 #[doc(alias = "BoundingRectangle")]
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct Aabb2d {
     /// The minimum, conventionally bottom-left, point of the box
     pub min: Vec2,
@@ -449,6 +453,7 @@ use crate::primitives::Circle;
 
 /// A bounding circle
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct BoundingCircle {
     /// The center of the bounding circle
     pub center: Vec2,

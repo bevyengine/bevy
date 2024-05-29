@@ -323,29 +323,15 @@ impl Bounded3d for Triangle3d {
     /// The [`Triangle3d`] implements the minimal bounding sphere calculation. For acute triangles, the circumcenter is used as
     /// the center of the sphere. For the others, the bounding sphere is the minimal sphere
     /// that contains the largest side of the triangle.
-    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
-        if self.is_degenerate() {
+    fn bounding_sphere(&self, translation: Vec3, _rotation: Quat) -> BoundingSphere {
+        if self.is_degenerate() || self.is_obtuse() {
             let (p1, p2) = self.largest_side();
-            let (segment, _) = Segment3d::from_points(p1, p2);
-            return segment.bounding_sphere(translation, rotation);
-        }
-
-        let [a, b, c] = self.vertices;
-
-        let side_opposite_to_non_acute = if (b - a).dot(c - a) <= 0.0 {
-            Some((b, c))
-        } else if (c - b).dot(a - b) <= 0.0 {
-            Some((c, a))
-        } else if (a - c).dot(b - c) <= 0.0 {
-            Some((a, b))
+            let mid_point = (p1 + p2) / 2.0;
+            let radius = mid_point.distance(p1);
+            BoundingSphere::new(mid_point + translation, radius)
         } else {
-            None
-        };
+            let [a, _, _] = self.vertices;
 
-        if let Some((p1, p2)) = side_opposite_to_non_acute {
-            let (segment, _) = Segment3d::from_points(p1, p2);
-            segment.bounding_sphere(translation, rotation)
-        } else {
             let circumcenter = self.circumcenter();
             let radius = circumcenter.distance(a);
             BoundingSphere::new(circumcenter + translation, radius)
@@ -355,13 +341,14 @@ impl Bounded3d for Triangle3d {
 
 #[cfg(test)]
 mod tests {
+    use crate::bounding::BoundingVolume;
     use glam::{Quat, Vec3, Vec3A};
 
     use crate::{
         bounding::Bounded3d,
         primitives::{
             Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d, Line3d, Polyline3d,
-            Segment3d, Sphere, Torus,
+            Segment3d, Sphere, Torus, Triangle3d,
         },
         Dir3,
     };
@@ -606,5 +593,70 @@ mod tests {
         let bounding_sphere = torus.bounding_sphere(translation, Quat::IDENTITY);
         assert_eq!(bounding_sphere.center, translation.into());
         assert_eq!(bounding_sphere.radius(), 1.5);
+    }
+
+    #[test]
+    fn triangle3d() {
+        let zero_degenerate_triangle = Triangle3d::new(Vec3::ZERO, Vec3::ZERO, Vec3::ZERO);
+
+        let br = zero_degenerate_triangle.aabb_3d(Vec3::ZERO, Quat::IDENTITY);
+        assert_eq!(
+            br.center(),
+            Vec3::ZERO.into(),
+            "incorrect bounding box center"
+        );
+        assert_eq!(
+            br.half_size(),
+            Vec3::ZERO.into(),
+            "incorrect bounding box half extents"
+        );
+
+        let bs = zero_degenerate_triangle.bounding_sphere(Vec3::ZERO, Quat::IDENTITY);
+        assert_eq!(
+            bs.center,
+            Vec3::ZERO.into(),
+            "incorrect bounding sphere center"
+        );
+        assert_eq!(bs.sphere.radius, 0.0, "incorrect bounding sphere radius");
+
+        let dup_degenerate_triangle = Triangle3d::new(Vec3::ZERO, Vec3::X, Vec3::X);
+        let bs = dup_degenerate_triangle.bounding_sphere(Vec3::ZERO, Quat::IDENTITY);
+        assert_eq!(
+            bs.center,
+            Vec3::new(0.5, 0.0, 0.0).into(),
+            "incorrect bounding sphere center"
+        );
+        assert_eq!(bs.sphere.radius, 0.5, "incorrect bounding sphere radius");
+        let br = dup_degenerate_triangle.aabb_3d(Vec3::ZERO, Quat::IDENTITY);
+        assert_eq!(
+            br.center(),
+            Vec3::new(0.5, 0.0, 0.0).into(),
+            "incorrect bounding box center"
+        );
+        assert_eq!(
+            br.half_size(),
+            Vec3::new(0.5, 0.0, 0.0).into(),
+            "incorrect bounding box half extents"
+        );
+
+        let collinear_degenerate_triangle = Triangle3d::new(Vec3::NEG_X, Vec3::ZERO, Vec3::X);
+        let bs = collinear_degenerate_triangle.bounding_sphere(Vec3::ZERO, Quat::IDENTITY);
+        assert_eq!(
+            bs.center,
+            Vec3::ZERO.into(),
+            "incorrect bounding sphere center"
+        );
+        assert_eq!(bs.sphere.radius, 1.0, "incorrect bounding sphere radius");
+        let br = collinear_degenerate_triangle.aabb_3d(Vec3::ZERO, Quat::IDENTITY);
+        assert_eq!(
+            br.center(),
+            Vec3::ZERO.into(),
+            "incorrect bounding box center"
+        );
+        assert_eq!(
+            br.half_size(),
+            Vec3::new(1.0, 0.0, 0.0).into(),
+            "incorrect bounding box half extents"
+        );
     }
 }

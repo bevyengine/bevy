@@ -1,5 +1,5 @@
 use bevy_asset::Asset;
-use bevy_color::Alpha;
+use bevy_color::{Alpha, ColorToComponents};
 use bevy_math::{Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -75,20 +75,27 @@ pub struct StandardMaterial {
     /// This means that for a light emissive value, in darkness,
     /// you will mostly see the emissive component.
     ///
-    /// The default emissive color is [`Color::BLACK`], which doesn't add anything to the material color.
+    /// The default emissive color is [`LinearRgba::BLACK`], which doesn't add anything to the material color.
     ///
     /// To increase emissive strength, channel values for `emissive`
     /// colors can exceed `1.0`. For instance, a `base_color` of
-    /// `Color::linear_rgb(1.0, 0.0, 0.0)` represents the brightest
+    /// `LinearRgba::rgb(1.0, 0.0, 0.0)` represents the brightest
     /// red for objects that reflect light, but an emissive color
-    /// like `Color::linear_rgb(1000.0, 0.0, 0.0)` can be used to create
+    /// like `LinearRgba::rgb(1000.0, 0.0, 0.0)` can be used to create
     /// intensely bright red emissive effects.
     ///
     /// Increasing the emissive strength of the color will impact visual effects
     /// like bloom, but it's important to note that **an emissive material won't
     /// light up surrounding areas like a light source**,
     /// it just adds a value to the color seen on screen.
-    pub emissive: Color,
+    pub emissive: LinearRgba,
+
+    /// The weight in which the camera exposure influences the emissive color.
+    /// A value of `0.0` means the emissive color is not affected by the camera exposure.
+    /// In opposition, a value of `1.0` means the emissive color is multiplied by the camera exposure.
+    ///
+    /// Defaults to `0.0`
+    pub emissive_exposure_weight: f32,
 
     /// The UV channel to use for the [`StandardMaterial::emissive_texture`].
     ///
@@ -682,7 +689,8 @@ impl Default for StandardMaterial {
             base_color: Color::WHITE,
             base_color_channel: UvChannel::Uv0,
             base_color_texture: None,
-            emissive: Color::BLACK,
+            emissive: LinearRgba::BLACK,
+            emissive_exposure_weight: 0.0,
             emissive_channel: UvChannel::Uv0,
             emissive_texture: None,
             // Matches Blender's default roughness.
@@ -964,9 +972,12 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             flags |= StandardMaterialFlags::ATTENUATION_ENABLED;
         }
 
+        let mut emissive = self.emissive.to_vec4();
+        emissive[3] = self.emissive_exposure_weight;
+
         StandardMaterialUniform {
-            base_color: LinearRgba::from(self.base_color).to_f32_array().into(),
-            emissive: LinearRgba::from(self.emissive).to_f32_array().into(),
+            base_color: LinearRgba::from(self.base_color).to_vec4(),
+            emissive,
             roughness: self.perceptual_roughness,
             metallic: self.metallic,
             reflectance: self.reflectance,

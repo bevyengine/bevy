@@ -357,6 +357,7 @@ futures-lite = "2.0.1"
 crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 thiserror = "1.0"
+event-listener = "5.3.0"
 
 [[example]]
 name = "hello_world"
@@ -419,6 +420,17 @@ doc-scrape-examples = true
 [package.metadata.example.mesh2d]
 name = "Mesh 2D"
 description = "Renders a 2d mesh"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "mesh2d_arcs"
+path = "examples/2d/mesh2d_arcs.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mesh2d_arcs]
+name = "Arc 2D Meshes"
+description = "Demonstrates UV-mapping of the circular segment and sector primitives"
 category = "2D Rendering"
 wasm = true
 
@@ -1424,6 +1436,18 @@ description = "How to configure the texture to repeat instead of the default cla
 category = "Assets"
 wasm = true
 
+# Assets
+[[example]]
+name = "multi_asset_sync"
+path = "examples/asset/multi_asset_sync.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.multi_asset_sync]
+name = "Mult-asset synchronization"
+description = "Demonstrates how to wait for multiple assets to be loaded."
+category = "Assets"
+wasm = true
+
 # Async Tasks
 [[example]]
 name = "async_compute"
@@ -2075,6 +2099,17 @@ doc-scrape-examples = true
 [package.metadata.example.reflection]
 name = "Reflection"
 description = "Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types"
+category = "Reflection"
+wasm = false
+
+[[example]]
+name = "custom_attributes"
+path = "examples/reflection/custom_attributes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_attributes]
+name = "Custom Attributes"
+description = "Registering and accessing custom attributes on reflected types"
 category = "Reflection"
 wasm = false
 
@@ -2946,6 +2981,29 @@ description = "Shows off rendering for all math primitives as both Meshes and Gi
 category = "Math"
 wasm = true
 
+# Math
+[[example]]
+name = "sampling_primitives"
+path = "examples/math/sampling_primitives.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sampling_primitives]
+name = "Sampling Primitives"
+description = "Demonstrates all the primitives which can be sampled."
+category = "Math"
+wasm = true
+
+[[example]]
+name = "random_sampling"
+path = "examples/math/random_sampling.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.random_sampling]
+name = "Random Sampling"
+description = "Demonstrates how to sample random points from mathematical primitives"
+category = "Math"
+wasm = true
+
 # Gizmos
 [[example]]
 name = "2d_gizmos"
@@ -3015,6 +3073,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "ssr"
+path = "examples/3d/ssr.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ssr]
+name = "Screen Space Reflections"
+description = "Demonstrates screen space reflections with water ripples"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "color_grading"
 path = "examples/3d/color_grading.rs"
 doc-scrape-examples = true
@@ -3047,6 +3116,17 @@ name = "Depth of field"
 description = "Demonstrates depth of field"
 category = "3D Rendering"
 wasm = false
+
+[[example]]
+name = "volumetric_fog"
+path = "examples/3d/volumetric_fog.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.volumetric_fog]
+name = "Volumetric fog"
+description = "Demonstrates volumetric fog and lighting"
+category = "3D Rendering"
+wasm = true
 
 [profile.wasm-release]
 inherits = "release"

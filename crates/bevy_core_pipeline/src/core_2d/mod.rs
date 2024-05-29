@@ -32,7 +32,7 @@ pub use camera_2d::*;
 pub use main_transparent_pass_2d_node::*;
 
 use bevy_app::{App, Plugin};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use bevy_math::FloatOrd;
 use bevy_render::{
     camera::Camera,
@@ -40,7 +40,7 @@ use bevy_render::{
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
         sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
-        PhaseItemExtraIndex, SortedPhaseItem, SortedRenderPhase,
+        PhaseItemExtraIndex, SortedPhaseItem, ViewSortedRenderPhases,
     },
     render_resource::CachedRenderPipelineId,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -62,6 +62,7 @@ impl Plugin for Core2dPlugin {
         };
         render_app
             .init_resource::<DrawFunctions<Transparent2d>>()
+            .init_resource::<ViewSortedRenderPhases<Transparent2d>>()
             .add_systems(ExtractSchedule, extract_core_2d_camera_phases)
             .add_systems(
                 Render,
@@ -158,13 +159,23 @@ impl CachedRenderPipelinePhaseItem for Transparent2d {
 
 pub fn extract_core_2d_camera_phases(
     mut commands: Commands,
+    mut transparent_2d_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     cameras_2d: Extract<Query<(Entity, &Camera), With<Camera2d>>>,
+    mut live_entities: Local<EntityHashSet>,
 ) {
+    live_entities.clear();
+
     for (entity, camera) in &cameras_2d {
-        if camera.is_active {
-            commands
-                .get_or_spawn(entity)
-                .insert(SortedRenderPhase::<Transparent2d>::default());
+        if !camera.is_active {
+            continue;
         }
+
+        commands.get_or_spawn(entity);
+        transparent_2d_phases.insert_or_clear(entity);
+
+        live_entities.insert(entity);
     }
+
+    // Clear out all dead views.
+    transparent_2d_phases.retain(|camera_entity, _| live_entities.contains(camera_entity));
 }
