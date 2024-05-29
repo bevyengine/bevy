@@ -159,7 +159,7 @@ fn compute_average(@builtin(local_invocation_index) local_index: u32) {
     //
     // If all values are below the threshold,
     // we should set it to the minimal value to avoid suddenly darkening the scene.
-    var target_exposure = settings.min_log_lum;
+    var target_exposure = compensation_curve.min_compensation;
 
     if count > 0u {
         // The average luminance of the included histogram samples.
