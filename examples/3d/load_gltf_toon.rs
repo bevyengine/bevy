@@ -8,6 +8,7 @@ use bevy::{
     prelude::*,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
+use serde::Deserialize;
 use std::f32::consts::*;
 
 fn main() {
@@ -20,7 +21,7 @@ fn main() {
         .run();
 }
 
-#[derive(Debug, Clone, TypePath, AsBindGroup, Asset)]
+#[derive(Debug, Clone, TypePath, AsBindGroup, Asset, Deserialize)]
 struct ToonShader {
     #[uniform(100)]
     cutoff: f32,
@@ -31,12 +32,14 @@ struct ToonShader {
 }
 
 impl FromStandardMaterial for ToonShader {
-    fn from_standard_material(_: StandardMaterial, _: Option<&str>) -> Self {
-        ToonShader {
-            cutoff: 0.5,
-            dark: LinearRgba::rgb(0.4, 0.4, 0.4),
-            light: LinearRgba::rgb(0.8, 0.8, 0.8),
-        }
+    fn from_standard_material(_: StandardMaterial, gltf_extras: Option<&str>) -> Self {
+        gltf_extras
+            .and_then(|s| serde_json::from_str::<ToonShader>(s).ok())
+            .unwrap_or(ToonShader {
+                cutoff: 0.5,
+                dark: LinearRgba::rgb(0.4, 0.4, 0.4),
+                light: LinearRgba::rgb(0.8, 0.8, 0.8),
+            })
     }
 }
 
@@ -51,7 +54,7 @@ type ToonMaterial = ExtendedMaterial<StandardMaterial, ToonShader>;
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(0.7, 0.7, 1.0)
+            transform: Transform::from_xyz(3.0, 2.0, 0.0)
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
             ..default()
         },
@@ -80,7 +83,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     });
     // Note: All assets are cached by path so you cannot load the same file with different settings
-    // while this handle is alive, if needed, manipulate the loaded scene instead.
+    // while this handle is alive, if multiple versions are needed, load with default settings and
+    // generate each material from the standard materials.
     commands.spawn(SceneBundle {
         scene: asset_server.load_with_settings(
             "models/FlightHelmet/FlightHelmet.gltf#Scene0",
@@ -88,7 +92,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 s.with_default_material::<ToonMaterial>();
             },
         ),
-        transform: Transform::from_translation(Vec3::new(0.25, 0., -0.25)),
+        transform: Transform::from_translation(Vec3::new(-1., 0., 0.))
+            .with_rotation(Quat::from_rotation_y(f32::to_radians(45.0)))
+            .with_scale(Vec3::splat(1.4)),
+        ..default()
+    });
+
+    // The balls are created in blender using custom attributes.
+    commands.spawn(SceneBundle {
+        scene: asset_server.load("models/ToonBalls/toon_balls.gltf#Scene0"),
         ..default()
     });
 }

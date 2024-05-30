@@ -358,6 +358,7 @@ crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 thiserror = "1.0"
 event-listener = "5.3.0"
+serde_json = "1.0.117"
 
 [[example]]
 name = "hello_world"

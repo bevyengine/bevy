@@ -108,6 +108,7 @@ use std::{future::Future, pin::Pin};
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
+use bevy_hierarchy::WorldChildBuilder;
 use bevy_pbr::StandardMaterial;
 use bevy_utils::HashMap;
 
@@ -115,12 +116,13 @@ mod loader;
 mod material;
 mod vertex_attributes;
 
+use gltf::{Document, Material};
 pub use loader::*;
 pub use material::FromStandardMaterial;
 
 use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp, Handle, LoadContext, UntypedHandle};
-use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
+use bevy_ecs::{prelude::Component, reflect::ReflectComponent, world::EntityWorldMut};
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
     mesh::{Mesh, MeshVertexAttribute},
@@ -137,11 +139,25 @@ pub(crate) type LoaderFn =
         &'t GltfLoaderSettings,
     ) -> Pin<Box<dyn Future<Output = Result<Gltf, GltfError>> + Send + 't>>;
 
+pub(crate) type LoadMaterialFn = for<'t> fn(
+    &'t Material,
+    &'t mut LoadContext<'_>,
+    &'t Document,
+    bool,
+) -> (UntypedHandle, MaterialMeshBundleSpawner);
+
+pub(crate) type MaterialMeshBundleSpawner = for<'t> fn(
+    &'t mut WorldChildBuilder<'_>,
+    &'t mut LoadContext<'_>,
+    String,
+    String,
+) -> EntityWorldMut<'t>;
+
 /// Adds support for glTF file loading to the app.
 pub struct GltfPlugin {
     custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
     default_loader: LoaderFn,
-    loaders: HashMap<String, LoaderFn>,
+    loaders: HashMap<String, LoadMaterialFn>,
 }
 
 impl Default for GltfPlugin {
@@ -185,15 +201,12 @@ impl GltfPlugin {
     }
 
     /// Register a [`FromStandardMaterial`] material that can be created from the `Gltf` specification.
-    /// The `name` can be used to change the material of a loaded gltf in [`GltfLoaderSettings`].
+    /// If a material has `gltf_extras` attribute `{ "material": "name" }`, will use this material instead.
     pub fn add_material<M: FromStandardMaterial + bevy_pbr::Material>(
         mut self,
         name: &str,
     ) -> Self {
-        self.loaders
-            .insert(name.into(), |loader, bytes, load_context, settings| {
-                Box::pin(load_gltf::<M>(loader, bytes, load_context, settings))
-            });
+        self.loaders.insert(name.into(), load_material_inner::<M>);
         self
     }
 }
