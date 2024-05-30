@@ -13,7 +13,7 @@ impl Image {
         is_srgb: bool,
         asset_usage: RenderAssetUsages,
     ) -> Image {
-        use bevy_core::cast_slice;
+        use bytemuck::cast_slice;
         let width;
         let height;
 
@@ -222,7 +222,6 @@ mod test {
     use image::{GenericImage, Rgba};
 
     use super::*;
-    use crate::render_asset::RenderAssetUsages;
 
     #[test]
     fn two_way_conversion() {

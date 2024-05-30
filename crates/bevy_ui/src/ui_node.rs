@@ -1,16 +1,17 @@
 use crate::{UiRect, Val};
 use bevy_asset::Handle;
+use bevy_color::Color;
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
-    color::Color,
     texture::Image,
 };
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::{smallvec::SmallVec, warn_once};
+use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
+use smallvec::SmallVec;
 use std::num::{NonZeroI16, NonZeroU16};
 use thiserror::Error;
 
@@ -22,11 +23,11 @@ use thiserror::Error;
 /// - [`RelativeCursorPosition`](crate::RelativeCursorPosition)
 ///   to obtain the cursor position relative to this node
 /// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
-#[derive(Component, Debug, Copy, Clone, Reflect)]
+#[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Component, Default)]
 pub struct Node {
     /// The order of the node in the UI layout.
-    /// Nodes with a higher stack index are drawn on top of and recieve interactions before nodes with lower stack indices.
+    /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     pub(crate) stack_index: u32,
     /// The size of the node as width and height in logical pixels
     ///
@@ -54,7 +55,7 @@ impl Node {
     }
 
     /// The order of the node in the UI layout.
-    /// Nodes with a higher stack index are drawn on top of and recieve interactions before nodes with lower stack indices.
+    /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     pub const fn stack_index(&self) -> u32 {
         self.stack_index
     }
@@ -769,10 +770,12 @@ impl Default for Direction {
     reflect(Serialize, Deserialize)
 )]
 pub enum Display {
-    /// Use Flexbox layout model to determine the position of this [`Node`].
+    /// Use Flexbox layout model to determine the position of this [`Node`]'s children.
     Flex,
-    /// Use CSS Grid layout model to determine the position of this [`Node`].
+    /// Use CSS Grid layout model to determine the position of this [`Node`]'s children.
     Grid,
+    /// Use CSS Block layout model to determine the position of this [`Node`]'s children.
+    Block,
     /// Use no layout, don't render this node and its children.
     ///
     /// If you want to hide a node and its children,
@@ -895,8 +898,10 @@ impl Default for Overflow {
 pub enum OverflowAxis {
     /// Show overflowing items.
     Visible,
-    /// Hide overflowing items.
+    /// Hide overflowing items by clipping.
     Clip,
+    /// Hide overflowing items by influencing layout and then clipping.
+    Hidden,
 }
 
 impl OverflowAxis {
@@ -1020,6 +1025,14 @@ pub enum MinTrackSizingFunction {
     MaxContent,
     /// Track minimum size should be automatically sized
     Auto,
+    /// Track minimum size should be a percent of the viewport's smaller dimension.
+    VMin(f32),
+    /// Track minimum size should be a percent of the viewport's larger dimension.
+    VMax(f32),
+    /// Track minimum size should be a percent of the viewport's height dimension.
+    Vh(f32),
+    /// Track minimum size should be a percent of the viewport's width dimension.
+    Vw(f32),
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
@@ -1049,6 +1062,14 @@ pub enum MaxTrackSizingFunction {
     ///
     /// Spec: <https://www.w3.org/TR/css3-grid-layout/#fr-unit>
     Fraction(f32),
+    /// Track maximum size should be a percent of the viewport's smaller dimension.
+    VMin(f32),
+    /// Track maximum size should be a percent of the viewport's smaller dimension.
+    VMax(f32),
+    /// Track maximum size should be a percent of the viewport's height dimension.
+    Vh(f32),
+    /// Track maximum size should be a percent of the viewport's width dimension.
+    Vw(f32),
 }
 
 /// A [`GridTrack`] is a Row or Column of a CSS Grid. This struct specifies what size the track should be.
@@ -1165,6 +1186,42 @@ impl GridTrack {
         Self {
             min_sizing_function: min,
             max_sizing_function: max,
+        }
+        .into()
+    }
+
+    /// Create a grid track with a percentage of the viewport's smaller dimension
+    pub fn vmin<T: From<Self>>(value: f32) -> T {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::VMin(value),
+            max_sizing_function: MaxTrackSizingFunction::VMin(value),
+        }
+        .into()
+    }
+
+    /// Create a grid track with a percentage of the viewport's larger dimension
+    pub fn vmax<T: From<Self>>(value: f32) -> T {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::VMax(value),
+            max_sizing_function: MaxTrackSizingFunction::VMax(value),
+        }
+        .into()
+    }
+
+    /// Create a grid track with a percentage of the viewport's height dimension
+    pub fn vh<T: From<Self>>(value: f32) -> T {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::Vh(value),
+            max_sizing_function: MaxTrackSizingFunction::Vh(value),
+        }
+        .into()
+    }
+
+    /// Create a grid track with a percentage of the viewport's width dimension
+    pub fn vw<T: From<Self>>(value: f32) -> T {
+        Self {
+            min_sizing_function: MinTrackSizingFunction::Vw(value),
+            max_sizing_function: MaxTrackSizingFunction::Vw(value),
         }
         .into()
     }
@@ -1340,6 +1397,42 @@ impl RepeatedGridTrack {
         .into()
     }
 
+    /// Create a repeating set of grid tracks with the percentage size of the viewport's smaller dimension
+    pub fn vmin<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
+        Self {
+            repetition: repetition.into(),
+            tracks: SmallVec::from_buf([GridTrack::vmin(value)]),
+        }
+        .into()
+    }
+
+    /// Create a repeating set of grid tracks with the percentage size of the viewport's larger dimension
+    pub fn vmax<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
+        Self {
+            repetition: repetition.into(),
+            tracks: SmallVec::from_buf([GridTrack::vmax(value)]),
+        }
+        .into()
+    }
+
+    /// Create a repeating set of grid tracks with the percentage size of the viewport's height dimension
+    pub fn vh<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
+        Self {
+            repetition: repetition.into(),
+            tracks: SmallVec::from_buf([GridTrack::vh(value)]),
+        }
+        .into()
+    }
+
+    /// Create a repeating set of grid tracks with the percentage size of the viewport's width dimension
+    pub fn vw<T: From<Self>>(repetition: impl Into<GridTrackRepetition>, value: f32) -> T {
+        Self {
+            repetition: repetition.into(),
+            tracks: SmallVec::from_buf([GridTrack::vw(value)]),
+        }
+        .into()
+    }
+
     /// Create a repetition of a set of tracks
     pub fn repeat_many<T: From<Self>>(
         repetition: impl Into<GridTrackRepetition>,
@@ -1423,6 +1516,7 @@ pub struct GridPlacement {
 }
 
 impl GridPlacement {
+    #[allow(unsafe_code)]
     pub const DEFAULT: Self = Self {
         start: None,
         // SAFETY: This is trivially safe as 1 is non-zero.
@@ -1589,8 +1683,7 @@ pub enum GridPlacementError {
 /// The background color of the node
 ///
 /// This serves as the "fill" color.
-/// When combined with [`UiImage`], tints the provided texture.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Component, Default)]
 #[cfg_attr(
     feature = "serialize",
@@ -1609,14 +1702,14 @@ impl Default for BackgroundColor {
     }
 }
 
-impl From<Color> for BackgroundColor {
-    fn from(color: Color) -> Self {
-        Self(color)
+impl<T: Into<Color>> From<T> for BackgroundColor {
+    fn from(color: T) -> Self {
+        Self(color.into())
     }
 }
 
 /// The border color of the UI node.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Component, Default)]
 #[cfg_attr(
     feature = "serialize",
@@ -1625,9 +1718,9 @@ impl From<Color> for BackgroundColor {
 )]
 pub struct BorderColor(pub Color);
 
-impl From<Color> for BorderColor {
-    fn from(color: Color) -> Self {
-        Self(color)
+impl<T: Into<Color>> From<T> for BorderColor {
+    fn from(color: T) -> Self {
+        Self(color.into())
     }
 }
 
@@ -1655,7 +1748,7 @@ impl Default for BorderColor {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
-/// # use bevy_render::prelude::Color;
+/// # use bevy_color::palettes::basic::{RED, BLUE};
 /// fn setup_ui(mut commands: Commands) {
 ///     commands.spawn((
 ///         NodeBundle {
@@ -1664,10 +1757,10 @@ impl Default for BorderColor {
 ///                 height: Val::Px(100.),
 ///                 ..Default::default()
 ///             },
-///             background_color: Color::BLUE.into(),
+///             background_color: BLUE.into(),
 ///             ..Default::default()
 ///         },
-///         Outline::new(Val::Px(10.), Val::ZERO, Color::RED)
+///         Outline::new(Val::Px(10.), Val::ZERO, RED.into())
 ///     ));
 /// }
 /// ```
@@ -1676,7 +1769,7 @@ impl Default for BorderColor {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
-/// # use bevy_render::prelude::Color;
+/// # use bevy_color::Color;
 /// fn outline_hovered_button_system(
 ///     mut commands: Commands,
 ///     mut node_query: Query<(Entity, &Interaction, Option<&mut Outline>), Changed<Interaction>>,
@@ -1697,7 +1790,7 @@ impl Default for BorderColor {
 /// }
 /// ```
 /// Inserting and removing an [`Outline`] component repeatedly will result in table moves, so it is generally preferable to
-/// set `Outline::color` to `Color::NONE` to hide an outline.
+/// set `Outline::color` to [`Color::NONE`] to hide an outline.
 pub struct Outline {
     /// The width of the outline.
     ///
@@ -1709,7 +1802,7 @@ pub struct Outline {
     pub offset: Val,
     /// The color of the outline.
     ///
-    /// If you are frequently toggling outlines for a UI node on and off it is recommended to set `Color::None` to hide the outline.
+    /// If you are frequently toggling outlines for a UI node on and off it is recommended to set [`Color::NONE`] to hide the outline.
     /// This avoids the table moves that would occur from the repeated insertion and removal of the `Outline` component.
     pub color: Color,
 }
@@ -1729,6 +1822,8 @@ impl Outline {
 #[derive(Component, Clone, Debug, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct UiImage {
+    /// The tint color used to draw the image
+    pub color: Color,
     /// Handle to the texture
     pub texture: Handle<Image>,
     /// Whether the image should be flipped along its x-axis
@@ -1743,6 +1838,13 @@ impl UiImage {
             texture,
             ..Default::default()
         }
+    }
+
+    /// Set the color tint
+    #[must_use]
+    pub const fn with_color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
     }
 
     /// Flip the image along its x-axis
@@ -1787,7 +1889,7 @@ pub struct CalculatedClip {
 /// `ZIndex::Local(n)` and `ZIndex::Global(n)` for root nodes.
 ///
 /// Nodes without this component will be treated as if they had a value of `ZIndex::Local(0)`.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[derive(Component, Copy, Clone, Debug, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default)]
 pub enum ZIndex {
     /// Indicates the order in which this node should be rendered relative to its siblings.
@@ -1800,6 +1902,268 @@ pub enum ZIndex {
 impl Default for ZIndex {
     fn default() -> Self {
         Self::Local(0)
+    }
+}
+
+/// Used to add rounded corners to a UI node. You can set a UI node to have uniformly
+/// rounded corners or specify different radii for each corner. If a given radius exceeds half
+/// the length of the smallest dimension between the node's height or width, the radius will
+/// calculated as half the smallest dimension.
+///
+/// Elliptical nodes are not supported yet. Percentage values are based on the node's smallest
+/// dimension, either width or height.
+///
+/// # Example
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ui::prelude::*;
+/// # use bevy_color::palettes::basic::{BLUE};
+/// fn setup_ui(mut commands: Commands) {
+///     commands.spawn((
+///         NodeBundle {
+///             style: Style {
+///                 width: Val::Px(100.),
+///                 height: Val::Px(100.),
+///                 border: UiRect::all(Val::Px(2.)),
+///                 ..Default::default()
+///             },
+///             background_color: BLUE.into(),
+///             border_radius: BorderRadius::new(
+///                 // top left
+///                 Val::Px(10.),
+///                 // top right
+///                 Val::Px(20.),
+///                 // bottom right
+///                 Val::Px(30.),
+///                 // bottom left
+///                 Val::Px(40.),
+///             ),
+///             ..Default::default()
+///         },
+///     ));
+/// }
+/// ```
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-radius>
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct BorderRadius {
+    pub top_left: Val,
+    pub top_right: Val,
+    pub bottom_left: Val,
+    pub bottom_right: Val,
+}
+
+impl Default for BorderRadius {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl BorderRadius {
+    pub const DEFAULT: Self = Self::ZERO;
+
+    /// Zero curvature. All the corners will be right-angled.
+    pub const ZERO: Self = Self::all(Val::Px(0.));
+
+    /// Maximum curvature. The UI Node will take a capsule shape or circular if width and height are equal.
+    pub const MAX: Self = Self::all(Val::Px(f32::MAX));
+
+    #[inline]
+    /// Set all four corners to the same curvature.
+    pub const fn all(radius: Val) -> Self {
+        Self {
+            top_left: radius,
+            top_right: radius,
+            bottom_left: radius,
+            bottom_right: radius,
+        }
+    }
+
+    #[inline]
+    pub const fn new(top_left: Val, top_right: Val, bottom_right: Val, bottom_left: Val) -> Self {
+        Self {
+            top_left,
+            top_right,
+            bottom_right,
+            bottom_left,
+        }
+    }
+
+    #[inline]
+    /// Sets the radii to logical pixel values.
+    pub const fn px(top_left: f32, top_right: f32, bottom_right: f32, bottom_left: f32) -> Self {
+        Self {
+            top_left: Val::Px(top_left),
+            top_right: Val::Px(top_right),
+            bottom_right: Val::Px(bottom_right),
+            bottom_left: Val::Px(bottom_left),
+        }
+    }
+
+    #[inline]
+    /// Sets the radii to percentage values.
+    pub const fn percent(
+        top_left: f32,
+        top_right: f32,
+        bottom_right: f32,
+        bottom_left: f32,
+    ) -> Self {
+        Self {
+            top_left: Val::Px(top_left),
+            top_right: Val::Px(top_right),
+            bottom_right: Val::Px(bottom_right),
+            bottom_left: Val::Px(bottom_left),
+        }
+    }
+
+    #[inline]
+    /// Sets the radius for the top left corner.
+    /// Remaining corners will be right-angled.
+    pub const fn top_left(radius: Val) -> Self {
+        Self {
+            top_left: radius,
+            ..Self::DEFAULT
+        }
+    }
+
+    #[inline]
+    /// Sets the radius for the top right corner.
+    /// Remaining corners will be right-angled.
+    pub const fn top_right(radius: Val) -> Self {
+        Self {
+            top_right: radius,
+            ..Self::DEFAULT
+        }
+    }
+
+    #[inline]
+    /// Sets the radius for the bottom right corner.
+    /// Remaining corners will be right-angled.
+    pub const fn bottom_right(radius: Val) -> Self {
+        Self {
+            bottom_right: radius,
+            ..Self::DEFAULT
+        }
+    }
+
+    #[inline]
+    /// Sets the radius for the bottom left corner.
+    /// Remaining corners will be right-angled.
+    pub const fn bottom_left(radius: Val) -> Self {
+        Self {
+            bottom_left: radius,
+            ..Self::DEFAULT
+        }
+    }
+
+    #[inline]
+    /// Sets the radii for the top left and bottom left corners.
+    /// Remaining corners will be right-angled.
+    pub const fn left(radius: Val) -> Self {
+        Self {
+            top_left: radius,
+            bottom_left: radius,
+            ..Self::DEFAULT
+        }
+    }
+
+    #[inline]
+    /// Sets the radii for the top right and bottom right corners.
+    /// Remaining corners will be right-angled.
+    pub const fn right(radius: Val) -> Self {
+        Self {
+            top_right: radius,
+            bottom_right: radius,
+            ..Self::DEFAULT
+        }
+    }
+
+    #[inline]
+    /// Sets the radii for the top left and top right corners.
+    /// Remaining corners will be right-angled.
+    pub const fn top(radius: Val) -> Self {
+        Self {
+            top_left: radius,
+            top_right: radius,
+            ..Self::DEFAULT
+        }
+    }
+
+    #[inline]
+    /// Sets the radii for the bottom left and bottom right corners.
+    /// Remaining corners will be right-angled.
+    pub const fn bottom(radius: Val) -> Self {
+        Self {
+            bottom_left: radius,
+            bottom_right: radius,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// Returns the [`BorderRadius`] with its `top_left` field set to the given value.
+    #[inline]
+    pub const fn with_top_left(mut self, radius: Val) -> Self {
+        self.top_left = radius;
+        self
+    }
+
+    /// Returns the [`BorderRadius`] with its `top_right` field set to the given value.
+    #[inline]
+    pub const fn with_top_right(mut self, radius: Val) -> Self {
+        self.top_right = radius;
+        self
+    }
+
+    /// Returns the [`BorderRadius`] with its `bottom_right` field set to the given value.
+    #[inline]
+    pub const fn with_bottom_right(mut self, radius: Val) -> Self {
+        self.bottom_right = radius;
+        self
+    }
+
+    /// Returns the [`BorderRadius`] with its `bottom_left` field set to the given value.
+    #[inline]
+    pub const fn with_bottom_left(mut self, radius: Val) -> Self {
+        self.bottom_left = radius;
+        self
+    }
+
+    /// Returns the [`BorderRadius`] with its `top_left` and `bottom_left` fields set to the given value.
+    #[inline]
+    pub const fn with_left(mut self, radius: Val) -> Self {
+        self.top_left = radius;
+        self.bottom_left = radius;
+        self
+    }
+
+    /// Returns the [`BorderRadius`] with its `top_right` and `bottom_right` fields set to the given value.
+    #[inline]
+    pub const fn with_right(mut self, radius: Val) -> Self {
+        self.top_right = radius;
+        self.bottom_right = radius;
+        self
+    }
+
+    /// Returns the [`BorderRadius`] with its `top_left` and `top_right` fields set to the given value.
+    #[inline]
+    pub const fn with_top(mut self, radius: Val) -> Self {
+        self.top_left = radius;
+        self.top_right = radius;
+        self
+    }
+
+    /// Returns the [`BorderRadius`] with its `bottom_left` and `bottom_right` fields set to the given value.
+    #[inline]
+    pub const fn with_bottom(mut self, radius: Val) -> Self {
+        self.bottom_left = radius;
+        self.bottom_right = radius;
+        self
     }
 }
 
@@ -1835,10 +2199,10 @@ mod tests {
 }
 
 /// Indicates that this root [`Node`] entity should be rendered to a specific camera.
-/// UI then will be layed out respecting the camera's viewport and scale factor, and
+/// UI then will be laid out respecting the camera's viewport and scale factor, and
 /// rendered to this camera's [`bevy_render::camera::RenderTarget`].
 ///
-/// Setting this component on a non-root node will have no effect. It will be overriden
+/// Setting this component on a non-root node will have no effect. It will be overridden
 /// by the root node's component.
 ///
 /// Optional if there is only one camera in the world. Required otherwise.

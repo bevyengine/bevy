@@ -1,8 +1,10 @@
+use std::num::NonZeroU32;
+
 use bevy_ecs::{
     entity::{Entity, EntityMapper, MapEntities},
     prelude::{Component, ReflectComponent},
 };
-use bevy_math::{DVec2, IVec2, Vec2};
+use bevy_math::{DVec2, IVec2, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 #[cfg(feature = "serialize")]
@@ -138,6 +140,21 @@ pub struct Window {
     pub resolution: WindowResolution,
     /// Stores the title of the window.
     pub title: String,
+    /// Stores the application ID (on **`Wayland`**), `WM_CLASS` (on **`X11`**) or window class name (on **`Windows`**) of the window.
+    ///
+    /// For details about application ID conventions, see the [Desktop Entry Spec](https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html#desktop-file-id).
+    /// For details about `WM_CLASS`, see the [X11 Manual Pages](https://www.x.org/releases/current/doc/man/man3/XAllocClassHint.3.xhtml).
+    /// For details about **`Windows`**'s window class names, see [About Window Classes](https://learn.microsoft.com/en-us/windows/win32/winmsg/about-window-classes).
+    ///
+    /// ## Platform-specific
+    ///
+    /// - **`Windows`**: Can only be set while building the window, setting the window's window class name.
+    /// - **`Wayland`**: Can only be set while building the window, setting the window's application ID.
+    /// - **`X11`**: Can only be set while building the window, setting the window's `WM_CLASS`.
+    /// - **`macOS`**, **`iOS`**, **`Android`**, and **`Web`**: not applicable.
+    ///
+    /// Notes: Changing this field during runtime will have no effect for now.
+    pub name: Option<String>,
     /// How the alpha channel of textures should be handled while compositing.
     pub composite_alpha_mode: CompositeAlphaMode,
     /// The limits of the window's logical size
@@ -191,6 +208,14 @@ pub struct Window {
     ///
     /// This value has no effect on non-web platforms.
     pub canvas: Option<String>,
+    /// Whether or not to fit the canvas element's size to its parent element's size.
+    ///
+    /// **Warning**: this will not behave as expected for parents that set their size according to the size of their
+    /// children. This creates a "feedback loop" that will result in the canvas growing on each resize. When using this
+    /// feature, ensure the parent's size is not affected by its children.
+    ///
+    /// This value has no effect on non-web platforms.
+    pub fit_canvas_to_parent: bool,
     /// Whether or not to stop events from propagating out of the canvas element
     ///
     ///  When `true`, this will prevent common browser hotkeys like F5, F12, Ctrl+R, tab, etc.
@@ -204,7 +229,7 @@ pub struct Window {
     ///
     /// If enabled, the window will receive [`Ime`](crate::Ime) events instead of
     /// [`ReceivedCharacter`](crate::ReceivedCharacter) or
-    /// [`KeyboardInput`](bevy_input::keyboard::KeyboardInput).
+    /// `KeyboardInput` from `bevy_input`.
     ///
     /// IME should be enabled during text input, but not when you expect to get the exact key pressed.
     ///
@@ -228,7 +253,7 @@ pub struct Window {
     pub window_theme: Option<WindowTheme>,
     /// Sets the window's visibility.
     ///
-    /// If `false`, this will hide the window the window completely, it won't appear on the screen or in the task bar.
+    /// If `false`, this will hide the window completely, it won't appear on the screen or in the task bar.
     /// If `true`, this will show the window.
     /// Note that this doesn't change its focused or minimized state.
     ///
@@ -236,12 +261,33 @@ pub struct Window {
     ///
     /// - **Android / Wayland / Web:** Unsupported.
     pub visible: bool,
+    /// Sets whether the window should be shown in the taskbar.
+    ///
+    /// If `true`, the window will not appear in the taskbar.
+    /// If `false`, the window will appear in the taskbar.
+    ///
+    /// Note that this will only take effect on window creation.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - Only supported on Windows.
+    pub skip_taskbar: bool,
+    /// Optional hint given to the rendering API regarding the maximum number of queued frames admissible on the GPU.
+    ///
+    /// Given values are usually within the 1-3 range. If not provided, this will default to 2.
+    ///
+    /// See [`wgpu::SurfaceConfiguration::desired_maximum_frame_latency`].
+    ///
+    /// [`wgpu::SurfaceConfiguration::desired_maximum_frame_latency`]:
+    /// https://docs.rs/wgpu/latest/wgpu/type.SurfaceConfiguration.html#structfield.desired_maximum_frame_latency
+    pub desired_maximum_frame_latency: Option<NonZeroU32>,
 }
 
 impl Default for Window {
     fn default() -> Self {
         Self {
             title: "App".to_owned(),
+            name: None,
             cursor: Default::default(),
             present_mode: Default::default(),
             mode: Default::default(),
@@ -258,10 +304,13 @@ impl Default for Window {
             transparent: false,
             focused: true,
             window_level: Default::default(),
+            fit_canvas_to_parent: false,
             prevent_default_event_handling: true,
             canvas: None,
             window_theme: None,
             visible: true,
+            skip_taskbar: false,
+            desired_maximum_frame_latency: None,
         }
     }
 }
@@ -297,6 +346,14 @@ impl Window {
         self.resolution.height()
     }
 
+    /// The window's client size in logical pixels
+    ///
+    /// See [`WindowResolution`] for an explanation about logical/physical sizes.
+    #[inline]
+    pub fn size(&self) -> Vec2 {
+        self.resolution.size()
+    }
+
     /// The window's client area width in physical pixels.
     ///
     /// See [`WindowResolution`] for an explanation about logical/physical sizes.
@@ -311,6 +368,14 @@ impl Window {
     #[inline]
     pub fn physical_height(&self) -> u32 {
         self.resolution.physical_height()
+    }
+
+    /// The window's client size in physical pixels
+    ///
+    /// See [`WindowResolution`] for an explanation about logical/physical sizes.
+    #[inline]
+    pub fn physical_size(&self) -> bevy_math::UVec2 {
+        self.resolution.physical_size()
     }
 
     /// The window's scale factor.
@@ -632,7 +697,7 @@ impl WindowResolution {
 
     /// Builder method for adding a scale factor override to the resolution.
     pub fn with_scale_factor_override(mut self, scale_factor_override: f32) -> Self {
-        self.scale_factor_override = Some(scale_factor_override);
+        self.set_scale_factor_override(Some(scale_factor_override));
         self
     }
 
@@ -648,6 +713,12 @@ impl WindowResolution {
         self.physical_height() as f32 / self.scale_factor()
     }
 
+    /// The window's client size in logical pixels
+    #[inline]
+    pub fn size(&self) -> Vec2 {
+        Vec2::new(self.width(), self.height())
+    }
+
     /// The window's client area width in physical pixels.
     #[inline]
     pub fn physical_width(&self) -> u32 {
@@ -658,6 +729,12 @@ impl WindowResolution {
     #[inline]
     pub fn physical_height(&self) -> u32 {
         self.physical_height
+    }
+
+    /// The window's client size in physical pixels
+    #[inline]
+    pub fn physical_size(&self) -> UVec2 {
+        UVec2::new(self.physical_width, self.physical_height)
     }
 
     /// The ratio of physical pixels to logical pixels.
@@ -860,11 +937,11 @@ pub enum MonitorSelection {
 #[reflect(Debug, PartialEq, Hash)]
 #[doc(alias = "vsync")]
 pub enum PresentMode {
-    /// Chooses FifoRelaxed -> Fifo based on availability.
+    /// Chooses [`FifoRelaxed`](Self::FifoRelaxed) -> [`Fifo`](Self::Fifo) based on availability.
     ///
     /// Because of the fallback behavior, it is supported everywhere.
     AutoVsync = 0, // NOTE: The explicit ordinal values mirror wgpu.
-    /// Chooses Immediate -> Mailbox -> Fifo (on web) based on availability.
+    /// Chooses [`Immediate`](Self::Immediate) -> [`Mailbox`](Self::Mailbox) -> [`Fifo`](Self::Fifo) (on web) based on availability.
     ///
     /// Because of the fallback behavior, it is supported everywhere.
     AutoNoVsync = 1,
@@ -877,7 +954,7 @@ pub enum PresentMode {
     ///
     /// No tearing will be observed.
     ///
-    /// Calls to get_current_texture will block until there is a spot in the queue.
+    /// Calls to `get_current_texture` will block until there is a spot in the queue.
     ///
     /// Supported on all platforms.
     ///
@@ -894,7 +971,7 @@ pub enum PresentMode {
     ///
     /// Tearing will be observed if frames last more than one vblank as the front buffer.
     ///
-    /// Calls to get_current_texture will block until there is a spot in the queue.
+    /// Calls to `get_current_texture` will block until there is a spot in the queue.
     ///
     /// Supported on AMD on Vulkan.
     ///
@@ -1093,6 +1170,11 @@ impl Default for EnabledButtons {
         }
     }
 }
+
+/// Marker component for a [`Window`] that has been requested to close and
+/// is in the process of closing (on the next frame).
+#[derive(Component)]
+pub struct ClosingWindow;
 
 #[cfg(test)]
 mod tests {

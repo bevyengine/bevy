@@ -42,13 +42,7 @@ fn setup(
         perceptual_roughness: 1.0,
         ..default()
     });
-    let sphere_handle = meshes.add(
-        Mesh::try_from(shape::Icosphere {
-            radius: sphere_radius,
-            ..default()
-        })
-        .unwrap(),
-    );
+    let sphere_handle = meshes.add(Sphere::new(sphere_radius));
 
     let light_transform = Transform::from_xyz(5.0, 5.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y);
     commands
@@ -74,7 +68,6 @@ fn setup(
             });
             builder.spawn(DirectionalLightBundle {
                 directional_light: DirectionalLight {
-                    illuminance: 1500.0,
                     shadow_depth_bias: 0.0,
                     shadow_normal_bias: 0.0,
                     shadows_enabled: true,
@@ -113,8 +106,9 @@ fn setup(
     }
 
     // ground plane
+    let plane_size = 2.0 * spawn_plane_depth;
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(2.0 * spawn_plane_depth)),
+        mesh: meshes.add(Plane3d::default().mesh().size(plane_size, plane_size)),
         material: white_handle,
         ..default()
     });
@@ -131,7 +125,7 @@ fn setup(
                 ..default()
             },
             z_index: ZIndex::Global(i32::MAX),
-            background_color: Color::BLACK.with_a(0.75).into(),
+            background_color: Color::BLACK.with_alpha(0.75).into(),
             ..default()
         })
         .with_children(|c| {
@@ -258,14 +252,14 @@ fn cycle_filter_methods(
             let filter_method_string;
             *filter_method = match *filter_method {
                 ShadowFilteringMethod::Hardware2x2 => {
-                    filter_method_string = "Castano13".to_string();
-                    ShadowFilteringMethod::Castano13
+                    filter_method_string = "Gaussian".to_string();
+                    ShadowFilteringMethod::Gaussian
                 }
-                ShadowFilteringMethod::Castano13 => {
-                    filter_method_string = "Jimenez14".to_string();
-                    ShadowFilteringMethod::Jimenez14
+                ShadowFilteringMethod::Gaussian => {
+                    filter_method_string = "Temporal".to_string();
+                    ShadowFilteringMethod::Temporal
                 }
-                ShadowFilteringMethod::Jimenez14 => {
+                ShadowFilteringMethod::Temporal => {
                     filter_method_string = "Hardware2x2".to_string();
                     ShadowFilteringMethod::Hardware2x2
                 }

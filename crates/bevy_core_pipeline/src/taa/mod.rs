@@ -1,5 +1,5 @@
 use crate::{
-    core_3d::graph::{Labels3d, SubGraph3d},
+    core_3d::graph::{Core3d, Node3d},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prelude::Camera3d,
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
@@ -49,10 +49,9 @@ impl Plugin for TemporalAntiAliasPlugin {
         app.insert_resource(Msaa::Off)
             .register_type::<TemporalAntiAliasSettings>();
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-
         render_app
             .init_resource::<SpecializedRenderPipelines<TaaPipeline>>()
             .add_systems(ExtractSchedule, extract_taa_settings)
@@ -64,23 +63,21 @@ impl Plugin for TemporalAntiAliasPlugin {
                     prepare_taa_history_textures.in_set(RenderSet::PrepareResources),
                 ),
             )
-            .add_render_graph_node::<ViewNodeRunner<TemporalAntiAliasNode>>(
-                SubGraph3d,
-                Labels3d::Taa,
-            )
+            .add_render_graph_node::<ViewNodeRunner<TemporalAntiAliasNode>>(Core3d, Node3d::Taa)
             .add_render_graph_edges(
-                SubGraph3d,
+                Core3d,
                 (
-                    Labels3d::EndMainPass,
-                    Labels3d::Taa,
-                    Labels3d::Bloom,
-                    Labels3d::Tonemapping,
+                    Node3d::EndMainPass,
+                    Node3d::Taa,
+                    Node3d::MotionBlur, // Run MB after TAA, else TAA will add motion artifacts
+                    Node3d::Bloom,
+                    Node3d::Tonemapping,
                 ),
             );
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
@@ -89,7 +86,7 @@ impl Plugin for TemporalAntiAliasPlugin {
 }
 
 /// Bundle to apply temporal anti-aliasing.
-#[derive(Bundle, Default)]
+#[derive(Bundle, Default, Clone)]
 pub struct TemporalAntiAliasBundle {
     pub settings: TemporalAntiAliasSettings,
     pub jitter: TemporalJitter,

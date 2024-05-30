@@ -1,31 +1,21 @@
 use bevy_asset::Handle;
+use bevy_color::Color;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_reflect::prelude::*;
-use bevy_render::color::Color;
 use bevy_utils::default;
 use serde::{Deserialize, Serialize};
 
 use crate::Font;
 
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct Text {
     pub sections: Vec<TextSection>,
     /// The text's internal alignment.
     /// Should not affect its position within a container.
     pub justify: JustifyText,
-    /// How the text should linebreak when running out of the bounds determined by max_size
+    /// How the text should linebreak when running out of the bounds determined by `max_size`
     pub linebreak_behavior: BreakLineOn,
-}
-
-impl Default for Text {
-    fn default() -> Self {
-        Self {
-            sections: Default::default(),
-            justify: JustifyText::Left,
-            linebreak_behavior: BreakLineOn::WordBoundary,
-        }
-    }
 }
 
 impl Text {
@@ -33,7 +23,7 @@ impl Text {
     ///
     /// ```
     /// # use bevy_asset::Handle;
-    /// # use bevy_render::color::Color;
+    /// # use bevy_color::Color;
     /// # use bevy_text::{Font, Text, TextStyle, JustifyText};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
@@ -70,7 +60,8 @@ impl Text {
     ///
     /// ```
     /// # use bevy_asset::Handle;
-    /// # use bevy_render::color::Color;
+    /// # use bevy_color::Color;
+    /// # use bevy_color::palettes::basic::{RED, BLUE};
     /// # use bevy_text::{Font, Text, TextStyle, TextSection};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
@@ -81,7 +72,7 @@ impl Text {
     ///         TextStyle {
     ///             font: font_handle.clone(),
     ///             font_size: 60.0,
-    ///             color: Color::BLUE,
+    ///             color: BLUE.into(),
     ///         },
     ///     ),
     ///     TextSection::new(
@@ -89,7 +80,7 @@ impl Text {
     ///         TextStyle {
     ///             font: font_handle,
     ///             font_size: 60.0,
-    ///             color: Color::RED,
+    ///             color: RED.into(),
     ///         },
     ///     ),
     /// ]);
@@ -218,12 +209,13 @@ impl Default for TextStyle {
 }
 
 /// Determines how lines will be broken when preventing text from running out of bounds.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
 pub enum BreakLineOn {
     /// Uses the [Unicode Line Breaking Algorithm](https://www.unicode.org/reports/tr14/).
     /// Lines will be broken up at the nearest suitable word boundary, usually a space.
     /// This behavior suits most cases, as it keeps words intact across linebreaks.
+    #[default]
     WordBoundary,
     /// Lines will be broken without discrimination on any character that would leave bounds.
     /// This is closer to the behavior one might expect from text in a terminal.

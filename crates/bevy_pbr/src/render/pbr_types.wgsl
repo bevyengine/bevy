@@ -1,8 +1,12 @@
 #define_import_path bevy_pbr::pbr_types
 
+// Since this is a hot path, try to keep the alignment and size of the struct members in mind.
+// You can find the alignment and sizes at <https://www.w3.org/TR/WGSL/#alignment-and-size>.
 struct StandardMaterial {
     base_color: vec4<f32>,
     emissive: vec4<f32>,
+    attenuation_color: vec4<f32>,
+    uv_transform: mat3x3<f32>,
     perceptual_roughness: f32,
     metallic: f32,
     reflectance: f32,
@@ -11,7 +15,8 @@ struct StandardMaterial {
     thickness: f32,
     ior: f32,
     attenuation_distance: f32,
-    attenuation_color: vec4<f32>,
+    clearcoat: f32,
+    clearcoat_perceptual_roughness: f32,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
     alpha_cutoff: f32,
@@ -41,6 +46,9 @@ const STANDARD_MATERIAL_FLAGS_SPECULAR_TRANSMISSION_TEXTURE_BIT: u32 = 1024u;
 const STANDARD_MATERIAL_FLAGS_THICKNESS_TEXTURE_BIT: u32          = 2048u;
 const STANDARD_MATERIAL_FLAGS_DIFFUSE_TRANSMISSION_TEXTURE_BIT: u32 = 4096u;
 const STANDARD_MATERIAL_FLAGS_ATTENUATION_ENABLED_BIT: u32        = 8192u;
+const STANDARD_MATERIAL_FLAGS_CLEARCOAT_TEXTURE_BIT: u32          = 16384u;
+const STANDARD_MATERIAL_FLAGS_CLEARCOAT_ROUGHNESS_TEXTURE_BIT: u32 = 32768u;
+const STANDARD_MATERIAL_FLAGS_CLEARCOAT_NORMAL_TEXTURE_BIT: u32   = 65536u;
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS: u32       = 3758096384u; // (0b111u32 << 29)
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE: u32              = 0u;          // (0u32 << 29)
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK: u32                = 536870912u;  // (1u32 << 29)
@@ -48,6 +56,7 @@ const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND: u32               = 1073741824u;
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_PREMULTIPLIED: u32       = 1610612736u; // (3u32 << 29)
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ADD: u32                 = 2147483648u; // (4u32 << 29)
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MULTIPLY: u32            = 2684354560u; // (5u32 << 29)
+const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ALPHA_TO_COVERAGE: u32   = 3221225472u; // (6u32 << 29)
 // ↑ To calculate/verify the values above, use the following playground:
 // https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=7792f8dd6fc6a8d4d0b6b1776898a7f4
 
@@ -68,12 +77,16 @@ fn standard_material_new() -> StandardMaterial {
     material.ior = 1.5;
     material.attenuation_distance = 1.0;
     material.attenuation_color = vec4<f32>(1.0, 1.0, 1.0, 1.0);
+    material.clearcoat = 0.0;
+    material.clearcoat_perceptual_roughness = 0.0;
     material.flags = STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE;
     material.alpha_cutoff = 0.5;
     material.parallax_depth_scale = 0.1;
     material.max_parallax_layer_count = 16.0;
     material.max_relief_mapping_search_steps = 5u;
     material.deferred_lighting_pass_id = 1u;
+    // scale 1, translation 0, rotation 0
+    material.uv_transform = mat3x3<f32>(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0);
 
     return material;
 }
@@ -82,7 +95,7 @@ struct PbrInput {
     material: StandardMaterial,
     // Note: this gets monochromized upon deferred PbrInput reconstruction.
     diffuse_occlusion: vec3<f32>,
-    // Note: this is 1.0 (entirely unoccluded) when SSAO is off.
+    // Note: this is 1.0 (entirely unoccluded) when SSAO and SSR are off.
     specular_occlusion: f32,
     frag_coord: vec4<f32>,
     world_position: vec4<f32>,
@@ -95,6 +108,7 @@ struct PbrInput {
     // view world position
     V: vec3<f32>,
     lightmap_light: vec3<f32>,
+    clearcoat_N: vec3<f32>,
     is_orthographic: bool,
     flags: u32,
 };

@@ -39,9 +39,9 @@ impl ViewNode for FxaaNode {
             return Ok(());
         };
 
-        let pipeline = pipeline_cache
-            .get_render_pipeline(pipeline.pipeline_id)
-            .unwrap();
+        let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline.pipeline_id) else {
+            return Ok(());
+        };
 
         let post_process = target.post_process_write();
         let source = post_process.source;

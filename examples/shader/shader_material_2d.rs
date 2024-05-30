@@ -29,10 +29,10 @@ fn setup(
 
     // quad
     commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(shape::Quad::default()).into(),
+        mesh: meshes.add(Rectangle::default()).into(),
         transform: Transform::default().with_scale(Vec3::splat(128.)),
         material: materials.add(CustomMaterial {
-            color: Color::BLUE,
+            color: LinearRgba::BLUE,
             color_texture: Some(asset_server.load("branding/icon.png")),
         }),
         ..default()
@@ -41,9 +41,9 @@ fn setup(
 
 // This is the struct that will be passed to your shader
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
-pub struct CustomMaterial {
+struct CustomMaterial {
     #[uniform(0)]
-    color: Color,
+    color: LinearRgba,
     #[texture(1)]
     #[sampler(2)]
     color_texture: Option<Handle<Image>>,

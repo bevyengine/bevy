@@ -19,15 +19,15 @@ impl Benchmark {
     pub fn new() -> Self {
         let mut world = World::new();
 
-        // TODO: batch this
-        for _ in 0..10_000 {
-            world.spawn((
+        world.spawn_batch(
+            std::iter::repeat((
                 Transform(Mat4::from_scale(Vec3::ONE)),
                 Position(Vec3::X),
                 Rotation(Vec3::X),
                 Velocity(Vec3::X),
-            ));
-        }
+            ))
+            .take(10_000),
+        );
 
         fn query_system(mut query: Query<(&Velocity, &mut Position)>) {
             for (velocity, mut position) in &mut query {

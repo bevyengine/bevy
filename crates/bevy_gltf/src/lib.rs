@@ -1,9 +1,108 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! Plugin providing an [`AssetLoader`](bevy_asset::AssetLoader) and type definitions
 //! for loading glTF 2.0 (a standard 3D scene definition format) files in Bevy.
 //!
 //! The [glTF 2.0 specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html) defines the format of the glTF files.
-
-#![warn(missing_docs)]
+//!
+//! # Quick Start
+//!
+//! Here's how to spawn a simple glTF scene
+//!
+//! ```
+//! # use bevy_ecs::prelude::*;
+//! # use bevy_asset::prelude::*;
+//! # use bevy_scene::prelude::*;
+//! # use bevy_transform::prelude::*;
+//!
+//! fn spawn_gltf(mut commands: Commands, asset_server: Res<AssetServer>) {
+//!     commands.spawn(SceneBundle {
+//!         // The `#Scene0` label here is very important because it tells bevy to load the first scene in the glTF file.
+//!         // If this isn't specified bevy doesn't know which part of the glTF file to load.
+//!         scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
+//!         // You can use the transform to give it a position
+//!         transform: Transform::from_xyz(2.0, 0.0, -5.0),
+//!         ..Default::default()
+//!     });
+//! }
+//! ```
+//! # Loading parts of a glTF asset
+//!
+//! ## Using `Gltf`
+//!
+//! If you want to access part of the asset, you can load the entire `Gltf` using the `AssetServer`.
+//! Once the `Handle<Gltf>` is loaded you can then use it to access named parts of it.
+//!
+//! ```
+//! # use bevy_ecs::prelude::*;
+//! # use bevy_asset::prelude::*;
+//! # use bevy_scene::prelude::*;
+//! # use bevy_transform::prelude::*;
+//! # use bevy_gltf::Gltf;
+//!
+//! // Holds the scene handle
+//! #[derive(Resource)]
+//! struct HelmetScene(Handle<Gltf>);
+//!
+//! fn load_gltf(mut commands: Commands, asset_server: Res<AssetServer>) {
+//!     let gltf = asset_server.load("models/FlightHelmet/FlightHelmet.gltf");
+//!     commands.insert_resource(HelmetScene(gltf));
+//! }
+//!
+//! fn spawn_gltf_objects(
+//!     mut commands: Commands,
+//!     helmet_scene: Res<HelmetScene>,
+//!     gltf_assets: Res<Assets<Gltf>>,
+//!     mut loaded: Local<bool>,
+//! ) {
+//!     // Only do this once
+//!     if *loaded {
+//!         return;
+//!     }
+//!     // Wait until the scene is loaded
+//!     let Some(gltf) = gltf_assets.get(&helmet_scene.0) else {
+//!         return;
+//!     };
+//!     *loaded = true;
+//!
+//!     commands.spawn(SceneBundle {
+//!         // Gets the first scene in the file
+//!         scene: gltf.scenes[0].clone(),
+//!         ..Default::default()
+//!     });
+//!
+//!     commands.spawn(SceneBundle {
+//!         // Gets the scene named "Lenses_low"
+//!         scene: gltf.named_scenes["Lenses_low"].clone(),
+//!         transform: Transform::from_xyz(1.0, 2.0, 3.0),
+//!         ..Default::default()
+//!     });
+//! }
+//! ```
+//!
+//! ## Asset Labels
+//!
+//! The glTF loader let's you specify labels that let you target specific parts of the glTF.
+//!
+//! Be careful when using this feature, if you misspell a label it will simply ignore it without warning.
+//!
+//! Here's the list of supported labels (`{}` is the index in the file):
+//!
+//! - `Scene{}`: glTF Scene as a Bevy `Scene`
+//! - `Node{}`: glTF Node as a `GltfNode`
+//! - `Mesh{}`: glTF Mesh as a `GltfMesh`
+//! - `Mesh{}/Primitive{}`: glTF Primitive as a Bevy `Mesh`
+//! - `Mesh{}/Primitive{}/MorphTargets`: Morph target animation data for a glTF Primitive
+//! - `Texture{}`: glTF Texture as a Bevy `Image`
+//! - `Material{}`: glTF Material as a Bevy `StandardMaterial`
+//! - `DefaultMaterial`: as above, if the glTF file contains a default material with no index
+//! - `Animation{}`: glTF Animation as Bevy `AnimationClip`
+//! - `Skin{}`: glTF mesh skin as Bevy `SkinnedMeshInverseBindposes`
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
@@ -28,7 +127,7 @@ use bevy_scene::Scene;
 /// Adds support for glTF file loading to the app.
 #[derive(Default)]
 pub struct GltfPlugin {
-    custom_vertex_attributes: HashMap<String, MeshVertexAttribute>,
+    custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
 }
 
 impl GltfPlugin {
@@ -42,8 +141,7 @@ impl GltfPlugin {
         name: &str,
         attribute: MeshVertexAttribute,
     ) -> Self {
-        self.custom_vertex_attributes
-            .insert(name.to_string(), attribute);
+        self.custom_vertex_attributes.insert(name.into(), attribute);
         self
     }
 }
@@ -59,9 +157,8 @@ impl Plugin for GltfPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let supported_compressed_formats = match app.world.get_resource::<RenderDevice>() {
+        let supported_compressed_formats = match app.world().get_resource::<RenderDevice>() {
             Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
-
             None => CompressedImageFormats::NONE,
         };
         app.register_asset_loader(GltfLoader {
@@ -77,19 +174,19 @@ pub struct Gltf {
     /// All scenes loaded from the glTF file.
     pub scenes: Vec<Handle<Scene>>,
     /// Named scenes loaded from the glTF file.
-    pub named_scenes: HashMap<String, Handle<Scene>>,
+    pub named_scenes: HashMap<Box<str>, Handle<Scene>>,
     /// All meshes loaded from the glTF file.
     pub meshes: Vec<Handle<GltfMesh>>,
     /// Named meshes loaded from the glTF file.
-    pub named_meshes: HashMap<String, Handle<GltfMesh>>,
+    pub named_meshes: HashMap<Box<str>, Handle<GltfMesh>>,
     /// All materials loaded from the glTF file.
     pub materials: Vec<Handle<StandardMaterial>>,
     /// Named materials loaded from the glTF file.
-    pub named_materials: HashMap<String, Handle<StandardMaterial>>,
+    pub named_materials: HashMap<Box<str>, Handle<StandardMaterial>>,
     /// All nodes loaded from the glTF file.
     pub nodes: Vec<Handle<GltfNode>>,
     /// Named nodes loaded from the glTF file.
-    pub named_nodes: HashMap<String, Handle<GltfNode>>,
+    pub named_nodes: HashMap<Box<str>, Handle<GltfNode>>,
     /// Default scene to be displayed.
     pub default_scene: Option<Handle<Scene>>,
     /// All animations loaded from the glTF file.
@@ -97,7 +194,7 @@ pub struct Gltf {
     pub animations: Vec<Handle<AnimationClip>>,
     /// Named animations loaded from the glTF file.
     #[cfg(feature = "bevy_animation")]
-    pub named_animations: HashMap<String, Handle<AnimationClip>>,
+    pub named_animations: HashMap<Box<str>, Handle<AnimationClip>>,
     /// The gltf root of the gltf asset, see <https://docs.rs/gltf/latest/gltf/struct.Gltf.html>. Only has a value when `GltfLoaderSettings::include_source` is true.
     pub source: Option<gltf::Gltf>,
 }

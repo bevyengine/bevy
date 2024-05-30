@@ -1,0 +1,18 @@
+error: deriving Deref on multi-field structs requires one field to have the `#[deref]` attribute
+ --> tests/deref_derive/missing_attribute_fail.rs:3:10
+  |
+3 | #[derive(Deref)]
+  |          ^^^^^
+  |
+  = note: this error originates in the derive macro `Deref` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: deriving Deref on multi-field structs requires one field to have the `#[deref]` attribute
+ --> tests/deref_derive/missing_attribute_fail.rs:7:10
+  |
+7 | #[derive(Deref)]
+  |          ^^^^^
+  |
+  = note: this error originates in the derive macro `Deref` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: aborting due to 2 previous errors
+

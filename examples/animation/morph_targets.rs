@@ -44,11 +44,6 @@ fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
         ..default()
     });
     commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            color: Color::WHITE,
-            illuminance: 1000.0,
-            ..default()
-        },
         transform: Transform::from_rotation(Quat::from_rotation_z(PI / 2.0)),
         ..default()
     });
@@ -61,18 +56,24 @@ fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
 /// Plays an [`AnimationClip`] from the loaded [`Gltf`] on the [`AnimationPlayer`] created by the spawned scene.
 fn setup_animations(
     mut has_setup: Local<bool>,
-    mut players: Query<(&Name, &mut AnimationPlayer)>,
+    mut commands: Commands,
+    mut players: Query<(Entity, &Name, &mut AnimationPlayer)>,
     morph_data: Res<MorphData>,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
     if *has_setup {
         return;
     }
-    for (name, mut player) in &mut players {
+    for (entity, name, mut player) in &mut players {
         // The name of the entity in the GLTF scene containing the AnimationPlayer for our morph targets is "Main"
         if name.as_str() != "Main" {
             continue;
         }
-        player.play(morph_data.the_wave.clone()).repeat();
+
+        let (graph, animation) = AnimationGraph::from_clip(morph_data.the_wave.clone());
+        commands.entity(entity).insert(graphs.add(graph));
+
+        player.play(animation).repeat();
         *has_setup = true;
     }
 }

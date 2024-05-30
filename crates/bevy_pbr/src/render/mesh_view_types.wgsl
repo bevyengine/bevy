@@ -33,10 +33,11 @@ struct DirectionalLight {
     num_cascades: u32,
     cascades_overlap_proportion: f32,
     depth_texture_base_index: u32,
-    render_layers: u32,
+    skip: u32,
 };
 
 const DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;
+const DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT: u32      = 2u;
 
 struct Lights {
     // NOTE: this array size must be kept in sync with the constants defined in bevy_pbr/src/render/light.rs
@@ -111,7 +112,7 @@ struct ClusterOffsetsAndCounts {
 };
 #endif
 
-struct ReflectionProbe {
+struct LightProbe {
     // This is stored as the transpose in order to save space in this structure.
     // It'll be transposed in the `environment_map_light` function.
     inverse_transpose_transform: mat3x4<f32>,
@@ -121,8 +122,10 @@ struct ReflectionProbe {
 
 struct LightProbes {
     // This must match `MAX_VIEW_REFLECTION_PROBES` on the Rust side.
-    reflection_probes: array<ReflectionProbe, 8u>,
+    reflection_probes: array<LightProbe, 8u>,
+    irradiance_volumes: array<LightProbe, 8u>,
     reflection_probe_count: i32,
+    irradiance_volume_count: i32,
     // The index of the view environment map cubemap binding, or -1 if there's
     // no such cubemap.
     view_cubemap_index: i32,
@@ -131,4 +134,17 @@ struct LightProbes {
     smallest_specular_mip_level_for_view: u32,
     // The intensity of the environment map associated with the view.
     intensity_for_view: f32,
+};
+
+// Settings for screen space reflections.
+//
+// For more information on these settings, see the documentation for
+// `bevy_pbr::ssr::ScreenSpaceReflectionsSettings`.
+struct ScreenSpaceReflectionsSettings {
+    perceptual_roughness_threshold: f32,
+    thickness: f32,
+    linear_steps: u32,
+    linear_march_exponent: f32,
+    bisection_steps: u32,
+    use_secant: u32,
 };

@@ -46,11 +46,10 @@ jobs:
             --exclude build-wasm-example
 
       - name: Create PR
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@v6
         with:
           delete-branch: true
           base: "main"
           title: "Preparing Next Release"
           body: |
-            Preparing next release
-            This PR has been auto-generated
+            Preparing next release. This PR has been auto-generated.

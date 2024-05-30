@@ -34,7 +34,7 @@ pub struct C(usize);
 
 /// Deriving reflect on an enum will implement the `Reflect` and `Enum` traits
 #[derive(Reflect)]
-pub enum D {
+enum D {
     A,
     B(usize),
     C { value: f32 },
@@ -57,7 +57,7 @@ pub struct E {
 /// that these values behave as expected when nested underneath Reflect-ed structs.
 #[derive(Reflect, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
-pub enum F {
+enum F {
     X,
     Y,
 }

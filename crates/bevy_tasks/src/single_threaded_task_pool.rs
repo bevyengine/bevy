@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::{cell::RefCell, future::Future, marker::PhantomData, mem, rc::Rc};
 
 thread_local! {
-    static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = async_executor::LocalExecutor::new();
+    static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = const { async_executor::LocalExecutor::new() };
 }
 
 /// Used to create a [`TaskPool`].
@@ -94,6 +94,7 @@ impl TaskPool {
     /// to spawn tasks. This function will await the completion of all tasks before returning.
     ///
     /// This is similar to `rayon::scope` and `crossbeam::scope`
+    #[allow(unsafe_code)]
     pub fn scope_with_executor<'env, F, T>(
         &self,
         _tick_task_pool_executor: bool,
@@ -104,11 +105,21 @@ impl TaskPool {
         F: for<'scope> FnOnce(&'env mut Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
+        // SAFETY: This safety comment applies to all references transmuted to 'env.
+        // Any futures spawned with these references need to return before this function completes.
+        // This is guaranteed because we drive all the futures spawned onto the Scope
+        // to completion in this function. However, rust has no way of knowing this so we
+        // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
+        // Any usages of the references passed into `Scope` must be accessed through
+        // the transmuted reference for the rest of this function.
+
         let executor = &async_executor::LocalExecutor::new();
+        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let executor: &'env async_executor::LocalExecutor<'env> =
             unsafe { mem::transmute(executor) };
 
         let results: RefCell<Vec<Rc<RefCell<Option<T>>>>> = RefCell::new(Vec::new());
+        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let results: &'env RefCell<Vec<Rc<RefCell<Option<T>>>>> =
             unsafe { mem::transmute(&results) };
 
@@ -119,6 +130,7 @@ impl TaskPool {
             env: PhantomData,
         };
 
+        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let scope_ref: &'env mut Scope<'_, 'env, T> = unsafe { mem::transmute(&mut scope) };
 
         f(scope_ref);
@@ -202,7 +214,7 @@ impl FakeTask {
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
-    executor: &'env async_executor::LocalExecutor<'env>,
+    executor: &'scope async_executor::LocalExecutor<'scope>,
     // Vector to gather results of all futures spawned during scope run
     results: &'env RefCell<Vec<Rc<RefCell<Option<T>>>>>,
 
@@ -219,7 +231,7 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
     /// On the single threaded task pool, it just calls [`Scope::spawn_on_scope`].
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn<Fut: Future<Output = T> + 'env>(&self, f: Fut) {
+    pub fn spawn<Fut: Future<Output = T> + 'scope>(&self, f: Fut) {
         self.spawn_on_scope(f);
     }
 
@@ -230,7 +242,7 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
     /// On the single threaded task pool, it just calls [`Scope::spawn_on_scope`].
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_on_external<Fut: Future<Output = T> + 'env>(&self, f: Fut) {
+    pub fn spawn_on_external<Fut: Future<Output = T> + 'scope>(&self, f: Fut) {
         self.spawn_on_scope(f);
     }
 
@@ -239,7 +251,7 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
     /// returned as a part of [`TaskPool::scope`]'s return value.
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_on_scope<Fut: Future<Output = T> + 'env>(&self, f: Fut) {
+    pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope>(&self, f: Fut) {
         let result = Rc::new(RefCell::new(None));
         self.results.borrow_mut().push(result.clone());
         let f = async move {

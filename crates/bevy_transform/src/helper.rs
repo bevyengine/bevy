@@ -121,7 +121,7 @@ mod tests {
         let mut entity = None;
 
         for transform in transforms {
-            let mut e = app.world.spawn(TransformBundle::from(transform));
+            let mut e = app.world_mut().spawn(TransformBundle::from(transform));
 
             if let Some(entity) = entity {
                 e.set_parent(entity);
@@ -134,10 +134,10 @@ mod tests {
 
         app.update();
 
-        let transform = *app.world.get::<GlobalTransform>(leaf_entity).unwrap();
+        let transform = *app.world().get::<GlobalTransform>(leaf_entity).unwrap();
 
-        let mut state = SystemState::<TransformHelper>::new(&mut app.world);
-        let helper = state.get(&app.world);
+        let mut state = SystemState::<TransformHelper>::new(app.world_mut());
+        let helper = state.get(app.world());
 
         let computed_transform = helper.compute_global_transform(leaf_entity).unwrap();
 

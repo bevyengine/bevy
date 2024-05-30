@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use std::path::PathBuf;
 
 use bevy_ecs::entity::Entity;
@@ -93,6 +94,20 @@ pub struct WindowClosed {
     pub window: Entity,
 }
 
+/// An event that is sent whenever a window is closing. This will be sent when
+/// after a [`WindowCloseRequested`] event is received and the window is in the process of closing.
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct WindowClosing {
+    /// Window that has been requested to close and is the process of closing.
+    pub window: Entity,
+}
+
 /// An event that is sent whenever a window is destroyed by the underlying window system.
 ///
 /// Note that if your application only has a single window, this event may be your last chance to
@@ -115,12 +130,14 @@ pub struct WindowDestroyed {
 /// An event reporting that the mouse cursor has moved inside a window.
 ///
 /// The event is sent only if the cursor is over one of the application's windows.
-/// It is the translated version of [`WindowEvent::CursorMoved`] from the `winit` crate.
+/// It is the translated version of [`WindowEvent::CursorMoved`] from the `winit` crate with the addition of `delta`.
 ///
-/// Not to be confused with the [`MouseMotion`] event from `bevy_input`.
+/// Not to be confused with the `MouseMotion` event from `bevy_input`.
+///
+/// Because the range of data is limited by the window area and it may have been transformed by the OS to implement certain effects like acceleration,
+/// you should not use it for non-cursor-like behaviour such as 3D camera control. Please see `MouseMotion` instead.
 ///
 /// [`WindowEvent::CursorMoved`]: https://docs.rs/winit/latest/winit/event/enum.WindowEvent.html#variant.CursorMoved
-/// [`MouseMotion`]: bevy_input::mouse::MouseMotion
 #[derive(Event, Debug, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -133,6 +150,13 @@ pub struct CursorMoved {
     pub window: Entity,
     /// The cursor position in logical pixels.
     pub position: Vec2,
+    /// The change in the position of the cursor since the last event was sent.
+    /// This value is `None` if the cursor was outside the window area during the last frame.
+    //
+    // Because the range of this data is limited by the display area and it may have been
+    //  transformed by the OS to implement effects such as cursor acceleration, it should
+    // not be used to implement non-cursor-like interactions such as 3D camera control.
+    pub delta: Option<Vec2>,
 }
 
 /// An event that is sent whenever the user's cursor enters a window.
@@ -162,6 +186,7 @@ pub struct CursorLeft {
 }
 
 /// An event that is sent whenever a window receives a character from the OS or underlying system.
+#[deprecated(since = "0.14.0", note = "Use `KeyboardInput` instead.")]
 #[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -269,7 +294,7 @@ pub struct WindowOccluded {
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowScaleFactorChanged {
-    /// Window that had it's scale factor changed.
+    /// Window that had its scale factor changed.
     pub window: Entity,
     /// The new scale factor.
     pub scale_factor: f64,
@@ -284,7 +309,7 @@ pub struct WindowScaleFactorChanged {
     reflect(Serialize, Deserialize)
 )]
 pub struct WindowBackendScaleFactorChanged {
-    /// Window that had it's scale factor changed by the backend.
+    /// Window that had its scale factor changed by the backend.
     pub window: Entity,
     /// The new scale factor.
     pub scale_factor: f64,

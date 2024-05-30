@@ -1,12 +1,18 @@
 [package]
 name = "build-wasm-example"
-version = "0.1.0"
 edition = "2021"
-description = "Build an example for wasm"
+description = "Tool for building example for WASM"
 publish = false
 license = "MIT OR Apache-2.0"
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 
 [dependencies]
 xshell = "0.2"
 clap = { version = "4.0", features = ["derive"] }
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+all-features = true
