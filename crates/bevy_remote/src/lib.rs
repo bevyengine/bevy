@@ -144,8 +144,8 @@ pub type RemoteVerb = SystemId<Value, AnyhowResult<Value>>;
 /// Holds all implementations of verbs known to the server.
 ///
 /// You can add your own custom verbs to this list.
-#[derive(Resource, Deref, DerefMut, Default)]
-pub struct RemoteVerbs(pub HashMap<String, RemoteVerb>);
+#[derive(Resource, Default)]
+pub struct RemoteVerbs(HashMap<String, RemoteVerb>);
 
 /// A single request from a Bevy Remote Protocol client to the server,
 /// serialized in JSON.
@@ -252,8 +252,20 @@ impl Plugin for RemotePlugin {
 }
 
 impl RemoteVerbs {
-    fn new() -> Self {
+    /// Creates a new [`RemoteVerbs`] resource with no verbs registered in it.
+    pub fn new() -> Self {
         default()
+    }
+
+    /// Adds a new verb, replacing any existing verb with that name.
+    ///
+    /// If there was an existing verb with that name, returns its handler.
+    pub fn insert(
+        &mut self,
+        verb_name: impl Into<String>,
+        handler: RemoteVerb,
+    ) -> Option<RemoteVerb> {
+        self.0.insert(verb_name.into(), handler)
     }
 }
 
@@ -288,7 +300,7 @@ fn process_remote_requests(world: &mut World) {
         // Fetch the handler for the verb. If there's no such handler
         // registered, return an error.
         let verbs = world.resource::<RemoteVerbs>();
-        let Some(handler) = verbs.get(&message.request.request) else {
+        let Some(handler) = verbs.0.get(&message.request.request) else {
             let _ = sender.send(Err(anyhow!("Unknown verb: `{}`", message.request.request)));
             continue;
         };
