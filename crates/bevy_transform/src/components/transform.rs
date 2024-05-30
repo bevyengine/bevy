@@ -1,10 +1,11 @@
+#[cfg(feature = "bevy_impls")]
 use super::GlobalTransform;
-#[cfg(feature = "bevy_ecs")]
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
+#[cfg(feature = "bevy_impls")]
+use bevy_ecs::component::Component;
+#[cfg(feature = "bevy_impls")]
+use bevy_reflect::Reflect;
+
 use bevy_math::{Affine3A, Dir3, Mat3, Mat4, Quat, Vec3};
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{prelude::*, Reflect};
-use std::ops::Mul;
 
 /// Describe the position of an entity. If the entity has a parent, the position is relative
 /// to its parent position.
@@ -34,10 +35,8 @@ use std::ops::Mul;
 ///
 /// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 #[derive(Debug, PartialEq, Clone, Copy)]
-#[cfg_attr(feature = "bevy_ecs", derive(Component))]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect(Component, Default, PartialEq))]
+#[cfg_attr(feature = "bevy_impls", derive(Component, Reflect))]
 pub struct Transform {
     /// Position of the entity. In 2d, the last value of the `Vec3` is used for z-ordering.
     ///
@@ -530,35 +529,42 @@ impl Default for Transform {
     }
 }
 
-/// The transform is expected to be non-degenerate and without shearing, or the output
-/// will be invalid.
-impl From<GlobalTransform> for Transform {
-    fn from(transform: GlobalTransform) -> Self {
-        transform.compute_transform()
+#[cfg(feature = "bevy_impls")]
+mod transform_bevy_impls {
+    use std::ops::Mul;
+
+    use super::*;
+
+    /// The transform is expected to be non-degenerate and without shearing, or the output
+    /// will be invalid.
+    impl From<GlobalTransform> for Transform {
+        fn from(transform: GlobalTransform) -> Self {
+            transform.compute_transform()
+        }
     }
-}
 
-impl Mul<Transform> for Transform {
-    type Output = Transform;
+    impl Mul<Transform> for Transform {
+        type Output = Transform;
 
-    fn mul(self, transform: Transform) -> Self::Output {
-        self.mul_transform(transform)
+        fn mul(self, transform: Transform) -> Self::Output {
+            self.mul_transform(transform)
+        }
     }
-}
 
-impl Mul<GlobalTransform> for Transform {
-    type Output = GlobalTransform;
+    impl Mul<GlobalTransform> for Transform {
+        type Output = GlobalTransform;
 
-    #[inline]
-    fn mul(self, global_transform: GlobalTransform) -> Self::Output {
-        GlobalTransform::from(self) * global_transform
+        #[inline]
+        fn mul(self, global_transform: GlobalTransform) -> Self::Output {
+            GlobalTransform::from(self) * global_transform
+        }
     }
-}
 
-impl Mul<Vec3> for Transform {
-    type Output = Vec3;
+    impl Mul<Vec3> for Transform {
+        type Output = Vec3;
 
-    fn mul(self, value: Vec3) -> Self::Output {
-        self.transform_point(value)
+        fn mul(self, value: Vec3) -> Self::Output {
+            self.transform_point(value)
+        }
     }
 }
