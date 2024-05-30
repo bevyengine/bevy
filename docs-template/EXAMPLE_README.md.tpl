@@ -47,6 +47,7 @@ git checkout v0.4.0
     - [Build & Run](#build--run)
     - [About `libc++_shared.so`](#about-libc_sharedso)
     - [Old phones](#old-phones)
+    - [About `cargo-apk`](#about-cargo-apk)
   - [iOS](#ios)
     - [Setup](#setup-1)
     - [Build & Run](#build--run-1)
@@ -161,6 +162,10 @@ bevy = { version = "0.14", default-features = false, features = ["android-native
 ```
 
 Then build it as the [Build & Run](#build--run) section stated above.
+
+#### About `cargo-apk`
+
+You can also build apk with `cargo-apk`, a simpler tool that compile rust code to apk directly, but this tool is deprecated, and it doesn't support `GameActivity`. If you want to use this, there is a [folder](./mobile/android_basic) inside mobile example with a instruction to use it.
 
 Example | File | Description
 --- | --- | ---
