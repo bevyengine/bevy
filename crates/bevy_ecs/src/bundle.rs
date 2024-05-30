@@ -390,19 +390,21 @@ impl BundleInfo {
             let component_id = *self.component_ids.get_unchecked(bundle_component);
             match storage_type {
                 StorageType::Table => {
-                    let column =
-                        // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
-                        // the target table contains the component.
-                        unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
                     // SAFETY: bundle_component is a valid index for this bundle
                     let status = unsafe { bundle_component_status.get_status(bundle_component) };
                     match status {
-                        ComponentStatus::Added => {
-                            column.initialize(table_row, component_ptr, change_tick);
-                        }
-                        ComponentStatus::Mutated => {
-                            column.replace(table_row, component_ptr, change_tick);
-                        }
+                        ComponentStatus::Added => table.initialize_component(
+                            table_row,
+                            component_id,
+                            component_ptr,
+                            change_tick,
+                        ),
+                        ComponentStatus::Mutated => table.replace_component(
+                            table_row,
+                            component_id,
+                            component_ptr,
+                            change_tick,
+                        ),
                     }
                 }
                 StorageType::SparseSet => {
