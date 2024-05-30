@@ -1180,7 +1180,7 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Calls [`EntityWorldMut::remove_by_id`] on every component in the entity.
     ///
-    /// Allows you to clean-up all components associated with the entity while reusing said entity.
+    /// Allows you to clean-up all components associated with the entity without removing it from the world.
     pub fn clear(&mut self) {
         let components: Vec<ComponentId> = self.archetype().components().collect();
         for component_id in components {
