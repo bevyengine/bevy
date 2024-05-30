@@ -104,14 +104,18 @@ fn setup(
 
     commands
         .spawn(SceneBundle {
-            scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
+            scene: asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
             ..default()
         })
         .insert(MainModel::HighPoly);
 
     commands
         .spawn(SceneBundle {
-            scene: asset_server.load("models/FlightHelmetLowPoly/FlightHelmetLowPoly.gltf#Scene0"),
+            scene: asset_server.load(
+                GltfAssetLabel::Scene(0)
+                    .from_asset("models/FlightHelmetLowPoly/FlightHelmetLowPoly.gltf"),
+            ),
             ..default()
         })
         .insert(MainModel::LowPoly);

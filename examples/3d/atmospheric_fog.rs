@@ -72,7 +72,8 @@ fn setup_terrain_scene(
 
     // Terrain
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/terrain/Mountains.gltf#Scene0"),
+        scene: asset_server
+            .load(GltfAssetLabel::Scene(0).from_asset("models/terrain/Mountains.gltf")),
         ..default()
     });
 

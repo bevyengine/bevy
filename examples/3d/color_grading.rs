@@ -382,13 +382,16 @@ fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading
 fn add_basic_scene(commands: &mut Commands, asset_server: &AssetServer) {
     // Spawn the main scene.
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/TonemappingTest/TonemappingTest.gltf#Scene0"),
+        scene: asset_server.load(
+            GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
+        ),
         ..default()
     });
 
     // Spawn the flight helmet.
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
+        scene: asset_server
+            .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
         transform: Transform::from_xyz(0.5, 0.0, -0.5)
             .with_rotation(Quat::from_rotation_y(-0.15 * PI)),
         ..default()

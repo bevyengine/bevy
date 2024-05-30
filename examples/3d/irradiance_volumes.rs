@@ -516,16 +516,19 @@ fn handle_mouse_clicks(
 
 impl FromWorld for ExampleAssets {
     fn from_world(world: &mut World) -> Self {
-        let fox_animation = world.load_asset("models/animated/Fox.glb#Animation1");
+        let fox_animation =
+            world.load_asset(GltfAssetLabel::Animation(1).from_asset("models/animated/Fox.glb"));
         let (fox_animation_graph, fox_animation_node) =
             AnimationGraph::from_clip(fox_animation.clone());
 
         ExampleAssets {
             main_sphere: world.add_asset(Sphere::default().mesh().uv(32, 18)),
-            fox: world.load_asset("models/animated/Fox.glb#Scene0"),
+            fox: world.load_asset(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
             main_sphere_material: world.add_asset(Color::from(SILVER)),
-            main_scene: world
-                .load_asset("models/IrradianceVolumeExample/IrradianceVolumeExample.glb#Scene0"),
+            main_scene: world.load_asset(
+                GltfAssetLabel::Scene(0)
+                    .from_asset("models/IrradianceVolumeExample/IrradianceVolumeExample.glb"),
+            ),
             irradiance_volume: world.load_asset("irradiance_volumes/Example.vxgi.ktx2"),
             fox_animation_graph: world.add_asset(fox_animation_graph),
             fox_animation_node,

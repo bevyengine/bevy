@@ -149,7 +149,8 @@ fn spawn_coated_glass_bubble_sphere(
 fn spawn_golf_ball(commands: &mut Commands, asset_server: &AssetServer) {
     commands
         .spawn(SceneBundle {
-            scene: asset_server.load("models/GolfBall/GolfBall.glb#Scene0"),
+            scene: asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/GolfBall/GolfBall.glb")),
             transform: Transform::from_xyz(1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
             ..default()
         })
