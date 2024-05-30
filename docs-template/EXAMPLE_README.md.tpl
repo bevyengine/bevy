@@ -99,6 +99,8 @@ The Android SDK must be installed, and the environment variable `ANDROID_SDK_ROO
 
 When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` must also be set to one of the NDKs in `sdk\ndk\[NDK number]`.
 
+Alternatively, you can install Android Studio.
+
 ### Build & Run
 
 To build an android app, you need to compile it to `so` first with `cargo-ndk`:
@@ -123,7 +125,15 @@ cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build
 
 Please reference `cargo-ndk` [README](https://crates.io/crates/cargo-ndk) for other options.
 
-After compiling and linking you can build and test it in your android project.
+Then you can build it with `gradlew`:
+
+```sh
+./gradlew build
+```
+
+Or build it with Android Studio.
+
+Then you can test it in your android project.
 
 #### About `libc++_shared.so`
 
