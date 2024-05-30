@@ -46,15 +46,13 @@ use static_assertions::const_assert_eq;
 
 use crate::render::{
     morph::{
-        extract_morphs, no_automatic_morph_batching, prepare_morphs, MorphIndices, MorphUniform,
+        extract_morphs, no_automatic_morph_batching, prepare_morphs, MorphIndices, MorphUniforms,
     },
     skin::no_automatic_skin_batching,
 };
 use crate::*;
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
-
-use super::skin::SkinIndices;
 
 /// Provides support for rendering 3D meshes.
 #[derive(Default)]
@@ -140,9 +138,9 @@ impl Plugin for MeshRenderPlugin {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<MeshBindGroups>()
-                .init_resource::<SkinUniform>()
+                .init_resource::<SkinUniforms>()
                 .init_resource::<SkinIndices>()
-                .init_resource::<MorphUniform>()
+                .init_resource::<MorphUniforms>()
                 .init_resource::<MorphIndices>()
                 .init_resource::<MeshCullingDataBuffer>()
                 .add_systems(
@@ -157,6 +155,7 @@ impl Plugin for MeshRenderPlugin {
                 .add_systems(
                     Render,
                     (
+                        set_mesh_motion_vector_flags.before(RenderSet::Queue),
                         prepare_skins.in_set(RenderSet::PrepareResources),
                         prepare_morphs.in_set(RenderSet::PrepareResources),
                         prepare_mesh_bind_group.in_set(RenderSet::PrepareBindGroups),
@@ -412,12 +411,18 @@ bitflags::bitflags! {
         const AUTOMATIC_BATCHING      = 1 << 1;
         /// The mesh had a transform last frame and so is eligible for TAA.
         const HAVE_PREVIOUS_TRANSFORM = 1 << 2;
+        /// The mesh had a skin last frame and so that skin should be taken into
+        /// account for TAA.
+        const HAVE_PREVIOUS_SKIN      = 1 << 3;
+        /// The mesh had morph targets last frame and so they should be taken
+        /// into account for TAA.
+        const HAVE_PREVIOUS_MORPH     = 1 << 4;
     }
 }
 
 /// CPU data that the render world keeps for each entity, when *not* using GPU
 /// mesh uniform building.
-#[derive(Deref)]
+#[derive(Deref, DerefMut)]
 pub struct RenderMeshInstanceCpu {
     /// Data shared between both the CPU mesh uniform building and the GPU mesh
     /// uniform building paths.
@@ -431,7 +436,7 @@ pub struct RenderMeshInstanceCpu {
 
 /// CPU data that the render world needs to keep for each entity that contains a
 /// mesh when using GPU mesh uniform building.
-#[derive(Deref)]
+#[derive(Deref, DerefMut)]
 pub struct RenderMeshInstanceGpu {
     /// Data shared between both the CPU mesh uniform building and the GPU mesh
     /// uniform building paths.
@@ -599,6 +604,19 @@ impl RenderMeshInstances {
             }
         }
     }
+
+    /// Inserts the given flags into the CPU or GPU render mesh instance data
+    /// for the given mesh as appropriate.
+    fn insert_mesh_instance_flags(&mut self, entity: Entity, flags: RenderMeshInstanceFlags) {
+        match *self {
+            RenderMeshInstances::CpuBuilding(ref mut instances) => {
+                instances.insert_mesh_instance_flags(entity, flags);
+            }
+            RenderMeshInstances::GpuBuilding(ref mut instances) => {
+                instances.insert_mesh_instance_flags(entity, flags);
+            }
+        }
+    }
 }
 
 impl RenderMeshInstancesCpu {
@@ -614,6 +632,14 @@ impl RenderMeshInstancesCpu {
                 translation: render_mesh_instance.transforms.transform.translation,
             })
     }
+
+    /// Inserts the given flags into the render mesh instance data for the given
+    /// mesh.
+    fn insert_mesh_instance_flags(&mut self, entity: Entity, flags: RenderMeshInstanceFlags) {
+        if let Some(instance) = self.get_mut(&entity) {
+            instance.flags.insert(flags);
+        }
+    }
 }
 
 impl RenderMeshInstancesGpu {
@@ -628,6 +654,14 @@ impl RenderMeshInstancesGpu {
                 shared: &render_mesh_instance.shared,
                 translation: render_mesh_instance.translation,
             })
+    }
+
+    /// Inserts the given flags into the render mesh instance data for the given
+    /// mesh.
+    fn insert_mesh_instance_flags(&mut self, entity: Entity, flags: RenderMeshInstanceFlags) {
+        if let Some(instance) = self.get_mut(&entity) {
+            instance.flags.insert(flags);
+        }
     }
 }
 
@@ -975,6 +1009,35 @@ pub fn extract_meshes_for_gpu_building(
         &mut mesh_culling_data_buffer,
         &mut render_mesh_instance_queues,
     );
+}
+
+/// A system that sets the [`RenderMeshInstanceFlags`] for each mesh based on
+/// whether the previous frame had skins and/or morph targets.
+///
+/// Ordinarily, [`RenderMeshInstanceFlags`] are set during the extraction phase.
+/// However, we can't do that for the flags related to skins and morph targets
+/// because the previous frame's skin and morph targets are the responsibility
+/// of [`extract_skins`] and [`extract_morphs`] respectively. We want to run
+/// those systems in parallel with mesh extraction for performance, so we need
+/// to defer setting of these mesh instance flags to after extraction, which
+/// this system does. An alternative to having skin- and morph-target-related
+/// data in [`RenderMeshInstanceFlags`] would be to have
+/// [`crate::material::queue_material_meshes`] check the skin and morph target
+/// tables for each mesh, but that would be too slow in the hot mesh queuing
+/// loop.
+fn set_mesh_motion_vector_flags(
+    mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    skin_indices: Res<SkinIndices>,
+    morph_indices: Res<MorphIndices>,
+) {
+    for &entity in skin_indices.prev.keys() {
+        render_mesh_instances
+            .insert_mesh_instance_flags(entity, RenderMeshInstanceFlags::HAVE_PREVIOUS_SKIN);
+    }
+    for &entity in morph_indices.prev.keys() {
+        render_mesh_instances
+            .insert_mesh_instance_flags(entity, RenderMeshInstanceFlags::HAVE_PREVIOUS_MORPH);
+    }
 }
 
 /// Creates the [`RenderMeshInstanceGpu`]s and [`MeshInputUniform`]s when GPU
@@ -1343,7 +1406,9 @@ bitflags::bitflags! {
         const IRRADIANCE_VOLUME                 = 1 << 14;
         const VISIBILITY_RANGE_DITHER           = 1 << 15;
         const SCREEN_SPACE_REFLECTIONS          = 1 << 16;
-        const LAST_FLAG                         = Self::SCREEN_SPACE_REFLECTIONS.bits();
+        const HAVE_PREVIOUS_SKIN                = 1 << 17;
+        const HAVE_PREVIOUS_MORPH               = 1 << 18;
+        const LAST_FLAG                         = Self::HAVE_PREVIOUS_MORPH.bits();
 
         // Bitfields
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
@@ -1645,6 +1710,14 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("MOTION_VECTOR_PREPASS".into());
         }
 
+        if key.contains(MeshPipelineKey::HAVE_PREVIOUS_SKIN) {
+            shader_defs.push("HAVE_PREVIOUS_SKIN".into());
+        }
+
+        if key.contains(MeshPipelineKey::HAVE_PREVIOUS_MORPH) {
+            shader_defs.push("HAVE_PREVIOUS_MORPH".into());
+        }
+
         if key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
             shader_defs.push("DEFERRED_PREPASS".into());
         }
@@ -1874,8 +1947,8 @@ pub fn prepare_mesh_bind_group(
     gpu_batched_instance_buffers: Option<
         Res<gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
     >,
-    skins_uniform: Res<SkinUniform>,
-    weights_uniform: Res<MorphUniform>,
+    skins_uniform: Res<SkinUniforms>,
+    weights_uniform: Res<MorphUniforms>,
     render_lightmaps: Res<RenderLightmaps>,
 ) {
     groups.reset();
@@ -1896,18 +1969,34 @@ pub fn prepare_mesh_bind_group(
 
     groups.model_only = Some(layouts.model_only(&render_device, &model));
 
-    let skin = skins_uniform.buffer.buffer();
+    // Create the skinned mesh bind group with the current and previous buffers
+    // (the latter being for motion vector computation). If there's no previous
+    // buffer, just use the current one as the shader will ignore it.
+    let skin = skins_uniform.current_buffer.buffer();
     if let Some(skin) = skin {
-        groups.skinned = Some(layouts.skinned(&render_device, &model, skin));
+        let prev_skin = skins_uniform.prev_buffer.buffer().unwrap_or(skin);
+        groups.skinned = Some(layouts.skinned(&render_device, &model, skin, prev_skin));
     }
 
-    if let Some(weights) = weights_uniform.buffer.buffer() {
+    // Create the morphed bind groups just like we did for the skinned bind
+    // group.
+    if let Some(weights) = weights_uniform.current_buffer.buffer() {
+        let prev_weights = weights_uniform.prev_buffer.buffer().unwrap_or(weights);
         for (id, gpu_mesh) in meshes.iter() {
             if let Some(targets) = gpu_mesh.morph_targets.as_ref() {
                 let group = if let Some(skin) = skin.filter(|_| is_skinned(&gpu_mesh.layout)) {
-                    layouts.morphed_skinned(&render_device, &model, skin, weights, targets)
+                    let prev_skin = skins_uniform.prev_buffer.buffer().unwrap_or(skin);
+                    layouts.morphed_skinned(
+                        &render_device,
+                        &model,
+                        skin,
+                        weights,
+                        targets,
+                        prev_skin,
+                        prev_weights,
+                    )
                 } else {
-                    layouts.morphed(&render_device, &model, weights, targets)
+                    layouts.morphed(&render_device, &model, weights, targets, prev_weights)
                 };
                 groups.morph_targets.insert(id, group);
             }
@@ -1998,11 +2087,13 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         let Some(mesh_asset_id) = mesh_instances.mesh_asset_id(*entity) else {
             return RenderCommandResult::Success;
         };
-        let skin_index = skin_indices.get(entity);
-        let morph_index = morph_indices.get(entity);
+        let current_skin_index = skin_indices.current.get(entity);
+        let prev_skin_index = skin_indices.prev.get(entity);
+        let current_morph_index = morph_indices.current.get(entity);
+        let prev_morph_index = morph_indices.prev.get(entity);
 
-        let is_skinned = skin_index.is_some();
-        let is_morphed = morph_index.is_some();
+        let is_skinned = current_skin_index.is_some();
+        let is_morphed = current_morph_index.is_some();
 
         let lightmap = lightmaps
             .render_lightmaps
@@ -2025,14 +2116,35 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             dynamic_offsets[offset_count] = dynamic_offset.get();
             offset_count += 1;
         }
-        if let Some(skin_index) = skin_index {
-            dynamic_offsets[offset_count] = skin_index.index;
+        if let Some(current_skin_index) = current_skin_index {
+            dynamic_offsets[offset_count] = current_skin_index.index;
             offset_count += 1;
         }
-        if let Some(morph_index) = morph_index {
-            dynamic_offsets[offset_count] = morph_index.index;
+        if let Some(current_morph_index) = current_morph_index {
+            dynamic_offsets[offset_count] = current_morph_index.index;
             offset_count += 1;
         }
+
+        // Attach the previous skin index for motion vector computation. If
+        // there isn't one, just use zero as the shader will ignore it.
+        if current_skin_index.is_some() {
+            match prev_skin_index {
+                Some(prev_skin_index) => dynamic_offsets[offset_count] = prev_skin_index.index,
+                None => dynamic_offsets[offset_count] = 0,
+            }
+            offset_count += 1;
+        }
+
+        // Attach the previous morph index for motion vector computation. If
+        // there isn't one, just use zero as the shader will ignore it.
+        if current_morph_index.is_some() {
+            match prev_morph_index {
+                Some(prev_morph_index) => dynamic_offsets[offset_count] = prev_morph_index.index,
+                None => dynamic_offsets[offset_count] = 0,
+            }
+            offset_count += 1;
+        }
+
         pass.set_bind_group(I, bind_group, &dynamic_offsets[0..offset_count]);
 
         RenderCommandResult::Success

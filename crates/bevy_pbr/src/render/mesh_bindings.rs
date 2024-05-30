@@ -143,6 +143,8 @@ impl MeshLayouts {
             ),
         )
     }
+
+    /// Creates the layout for skinned meshes.
     fn skinned_layout(render_device: &RenderDevice) -> BindGroupLayout {
         render_device.create_bind_group_layout(
             "skinned_mesh_layout",
@@ -150,11 +152,16 @@ impl MeshLayouts {
                 ShaderStages::VERTEX,
                 (
                     (0, layout_entry::model(render_device)),
+                    // The current frame's joint matrix buffer.
                     (1, layout_entry::skinning()),
+                    // The previous frame's joint matrix buffer.
+                    (6, layout_entry::skinning()),
                 ),
             ),
         )
     }
+
+    /// Creates the layout for meshes with morph targets.
     fn morphed_layout(render_device: &RenderDevice) -> BindGroupLayout {
         render_device.create_bind_group_layout(
             "morphed_mesh_layout",
@@ -162,12 +169,18 @@ impl MeshLayouts {
                 ShaderStages::VERTEX,
                 (
                     (0, layout_entry::model(render_device)),
+                    // The current frame's morph weight buffer.
                     (2, layout_entry::weights()),
                     (3, layout_entry::targets()),
+                    // The previous frame's morph weight buffer.
+                    (7, layout_entry::weights()),
                 ),
             ),
         )
     }
+
+    /// Creates the bind group layout for meshes with both skins and morph
+    /// targets.
     fn morphed_skinned_layout(render_device: &RenderDevice) -> BindGroupLayout {
         render_device.create_bind_group_layout(
             "morphed_skinned_mesh_layout",
@@ -175,13 +188,20 @@ impl MeshLayouts {
                 ShaderStages::VERTEX,
                 (
                     (0, layout_entry::model(render_device)),
+                    // The current frame's joint matrix buffer.
                     (1, layout_entry::skinning()),
+                    // The current frame's morph weight buffer.
                     (2, layout_entry::weights()),
                     (3, layout_entry::targets()),
+                    // The previous frame's joint matrix buffer.
+                    (6, layout_entry::skinning()),
+                    // The previous frame's morph weight buffer.
+                    (7, layout_entry::weights()),
                 ),
             ),
         )
     }
+
     fn lightmapped_layout(render_device: &RenderDevice) -> BindGroupLayout {
         render_device.create_bind_group_layout(
             "lightmapped_mesh_layout",
@@ -205,6 +225,7 @@ impl MeshLayouts {
             &[entry::model(0, model.clone())],
         )
     }
+
     pub fn lightmapped(
         &self,
         render_device: &RenderDevice,
@@ -221,51 +242,83 @@ impl MeshLayouts {
             ],
         )
     }
+
+    /// Creates the bind group for skinned meshes with no morph targets.
+    ///
+    /// `current_skin` is the buffer of joint matrices for this frame;
+    /// `prev_skin` is the buffer for the previous frame. The latter is used for
+    /// motion vector computation. If there is no such applicable buffer,
+    /// `current_skin` and `prev_skin` will reference the same buffer.
     pub fn skinned(
         &self,
         render_device: &RenderDevice,
         model: &BindingResource,
-        skin: &Buffer,
+        current_skin: &Buffer,
+        prev_skin: &Buffer,
     ) -> BindGroup {
         render_device.create_bind_group(
             "skinned_mesh_bind_group",
             &self.skinned,
-            &[entry::model(0, model.clone()), entry::skinning(1, skin)],
+            &[
+                entry::model(0, model.clone()),
+                entry::skinning(1, current_skin),
+                entry::skinning(6, prev_skin),
+            ],
         )
     }
+
+    /// Creates the bind group for meshes with no skins but morph targets.
+    ///
+    /// `current_weights` is the buffer of morph weights for this frame;
+    /// `prev_weights` is the buffer for the previous frame. The latter is used
+    /// for motion vector computation. If there is no such applicable buffer,
+    /// `current_weights` and `prev_weights` will reference the same buffer.
     pub fn morphed(
         &self,
         render_device: &RenderDevice,
         model: &BindingResource,
-        weights: &Buffer,
+        current_weights: &Buffer,
         targets: &TextureView,
+        prev_weights: &Buffer,
     ) -> BindGroup {
         render_device.create_bind_group(
             "morphed_mesh_bind_group",
             &self.morphed,
             &[
                 entry::model(0, model.clone()),
-                entry::weights(2, weights),
+                entry::weights(2, current_weights),
                 entry::targets(3, targets),
+                entry::weights(7, prev_weights),
             ],
         )
     }
+
+    /// Creates the bind group for meshes with skins and morph targets.
+    ///
+    /// See the documentation for [`skinned`] and [`morphed`] above for more
+    /// information about the `current_skin`, `prev_skin`, `current_weights`,
+    /// and `prev_weights` buffers.
+    #[allow(clippy::too_many_arguments)]
     pub fn morphed_skinned(
         &self,
         render_device: &RenderDevice,
         model: &BindingResource,
-        skin: &Buffer,
-        weights: &Buffer,
+        current_skin: &Buffer,
+        current_weights: &Buffer,
         targets: &TextureView,
+        prev_skin: &Buffer,
+        prev_weights: &Buffer,
     ) -> BindGroup {
         render_device.create_bind_group(
             "morphed_skinned_mesh_bind_group",
             &self.morphed_skinned,
             &[
                 entry::model(0, model.clone()),
-                entry::skinning(1, skin),
-                entry::weights(2, weights),
+                entry::skinning(1, current_skin),
+                entry::weights(2, current_weights),
                 entry::targets(3, targets),
+                entry::skinning(6, prev_skin),
+                entry::weights(7, prev_weights),
             ],
         )
     }

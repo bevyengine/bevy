@@ -701,6 +701,20 @@ pub fn queue_material_meshes<M: Material>(
                 mesh_key |= MeshPipelineKey::VISIBILITY_RANGE_DITHER;
             }
 
+            // If the previous frame have skins or morph targets, note that.
+            if mesh_instance
+                .flags
+                .contains(RenderMeshInstanceFlags::HAVE_PREVIOUS_SKIN)
+            {
+                mesh_key |= MeshPipelineKey::HAVE_PREVIOUS_SKIN;
+            }
+            if mesh_instance
+                .flags
+                .contains(RenderMeshInstanceFlags::HAVE_PREVIOUS_MORPH)
+            {
+                mesh_key |= MeshPipelineKey::HAVE_PREVIOUS_MORPH;
+            }
+
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &material_pipeline,

@@ -443,6 +443,14 @@ where
             shader_defs.push("MOTION_VECTOR_PREPASS".into());
         }
 
+        if key.mesh_key.contains(MeshPipelineKey::HAVE_PREVIOUS_SKIN) {
+            shader_defs.push("HAVE_PREVIOUS_SKIN".into());
+        }
+
+        if key.mesh_key.contains(MeshPipelineKey::HAVE_PREVIOUS_MORPH) {
+            shader_defs.push("HAVE_PREVIOUS_MORPH".into());
+        }
+
         if key.mesh_key.intersects(
             MeshPipelineKey::NORMAL_PREPASS
                 | MeshPipelineKey::MOTION_VECTOR_PREPASS
@@ -851,6 +859,20 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 .contains_key(visible_entity)
             {
                 mesh_key |= MeshPipelineKey::LIGHTMAPPED;
+            }
+
+            // If the previous frame have skins or morph targets, note that.
+            if mesh_instance
+                .flags
+                .contains(RenderMeshInstanceFlags::HAVE_PREVIOUS_SKIN)
+            {
+                mesh_key |= MeshPipelineKey::HAVE_PREVIOUS_SKIN;
+            }
+            if mesh_instance
+                .flags
+                .contains(RenderMeshInstanceFlags::HAVE_PREVIOUS_MORPH)
+            {
+                mesh_key |= MeshPipelineKey::HAVE_PREVIOUS_MORPH;
             }
 
             let pipeline_id = pipelines.specialize(
