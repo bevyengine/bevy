@@ -15,6 +15,7 @@ impl TransformPoint for Transform {
     }
 }
 
+#[cfg(feature = "bevy-support")]
 impl TransformPoint for GlobalTransform {
     #[inline]
     fn transform_point(&self, point: impl Into<Vec3>) -> Vec3 {

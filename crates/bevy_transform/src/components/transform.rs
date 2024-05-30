@@ -1,3 +1,5 @@
+use std::ops::Mul;
+
 #[cfg(feature = "bevy-support")]
 use super::GlobalTransform;
 #[cfg(feature = "bevy-support")]
@@ -533,10 +535,24 @@ impl Default for Transform {
     }
 }
 
+impl Mul<Transform> for Transform {
+    type Output = Transform;
+
+    fn mul(self, transform: Transform) -> Self::Output {
+        self.mul_transform(transform)
+    }
+}
+
+impl Mul<Vec3> for Transform {
+    type Output = Vec3;
+
+    fn mul(self, value: Vec3) -> Self::Output {
+        self.transform_point(value)
+    }
+}
+
 #[cfg(feature = "bevy-support")]
 mod bevy_support {
-    use std::ops::Mul;
-
     use super::*;
 
     /// The transform is expected to be non-degenerate and without shearing, or the output
@@ -547,28 +563,12 @@ mod bevy_support {
         }
     }
 
-    impl Mul<Transform> for Transform {
-        type Output = Transform;
-
-        fn mul(self, transform: Transform) -> Self::Output {
-            self.mul_transform(transform)
-        }
-    }
-
     impl Mul<GlobalTransform> for Transform {
         type Output = GlobalTransform;
 
         #[inline]
         fn mul(self, global_transform: GlobalTransform) -> Self::Output {
             GlobalTransform::from(self) * global_transform
-        }
-    }
-
-    impl Mul<Vec3> for Transform {
-        type Output = Vec3;
-
-        fn mul(self, value: Vec3) -> Self::Output {
-            self.transform_point(value)
         }
     }
 }

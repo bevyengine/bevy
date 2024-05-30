@@ -15,14 +15,14 @@ pub mod commands;
 #[cfg(feature = "bevy-support")]
 pub mod bundles;
 
-/// Transform related bundles
-#[cfg(feature = "bevy-support")]
+/// Transform related traits
 pub mod traits;
 
 /// Transform related plugins
 #[cfg(feature = "bevy-support")]
 pub mod plugins;
 
+/// Helpers related to computing global transforms
 #[cfg(feature = "bevy-support")]
 pub mod helper;
 
