@@ -1832,6 +1832,7 @@ pub struct Squircle {
     /// The *squareness* of the squircle. This value should be in the range `0..=1` with `0` representing an ellipse and `1` representing a rectangle.
     pub squareness: f32,
 }
+impl Primitive2d for Squircle {}
 
 impl Default for Squircle {
     fn default() -> Self {

@@ -1,13 +1,13 @@
 //! A module for rendering each of the 2D [`bevy_math::primitives`] with [`Gizmos`].
 
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_PI_2, PI, SQRT_2, TAU};
 
 use super::helpers::*;
 
 use bevy_color::Color;
 use bevy_math::primitives::{
     Annulus, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, Ellipse, Line2d, Plane2d, Polygon,
-    Polyline2d, Primitive2d, Rectangle, RegularPolygon, Rhombus, Segment2d, Triangle2d,
+    Polyline2d, Primitive2d, Rectangle, RegularPolygon, Rhombus, Segment2d, Squircle, Triangle2d,
 };
 use bevy_math::{Dir2, Mat2, Vec2};
 
@@ -686,6 +686,47 @@ where
         let points = (0..=primitive.sides)
             .map(|p| single_circle_coordinate(primitive.circumcircle.radius, primitive.sides, p))
             .map(rotate_then_translate_2d(angle, position));
+        self.linestrip_2d(points, color);
+    }
+}
+
+// squircle
+
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<Squircle> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = () where Self: 'a;
+
+    fn primitive_2d(
+        &mut self,
+        primitive: &Squircle,
+        position: Vec2,
+        angle: f32,
+        color: impl Into<Color>,
+    ) -> Self::Output<'_> {
+        if !self.enabled {
+            return;
+        }
+
+        let squircle_points = |angle: f32| {
+            let factor =
+                if primitive.squareness == 0. || angle.rem_euclid(FRAC_PI_2) <= f32::EPSILON {
+                    1.
+                } else {
+                    let sin = (2. * angle).sin();
+                    SQRT_2 * (1. - (1. - (primitive.squareness * sin).powi(2)).sqrt()).sqrt()
+                        / (primitive.squareness * sin)
+                };
+            let (sin, cos) = angle.sin_cos();
+            factor * Vec2::new(cos, sin) * primitive.half_size
+        };
+
+        let resolution = 128;
+        let delta = TAU / resolution as f32;
+        let transform = rotate_then_translate_2d(angle, position);
+        let points = (0..=resolution).map(|i| transform(squircle_points(delta * i as f32)));
         self.linestrip_2d(points, color);
     }
 }
