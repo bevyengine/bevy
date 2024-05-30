@@ -58,6 +58,9 @@ pub struct Gold(pub usize);
 /// DevCommand to change gold value
 /// Example:
 /// `setgold 100` -- you need to print this into your console
+/// 
+/// You must implement Default, Reflect, DevCommand and Command to register it as dev command
+/// Dont forget to add app.register_type::<SetGold>() to make it visible for CLIToolbox
 #[derive(Reflect, Default, DevCommand)]
 #[reflect(DevCommand, Default)]
 pub struct SetGold {
