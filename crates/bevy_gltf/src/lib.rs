@@ -115,7 +115,7 @@ use bevy_render::{
 };
 use bevy_scene::Scene;
 
-/// The `bevy_gizmos` prelude.
+/// The `bevy_gltf` prelude.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{Gltf, GltfAssetLabel, GltfExtras};
