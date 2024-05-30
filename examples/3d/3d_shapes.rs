@@ -100,14 +100,14 @@ fn setup(
         TextBundle::from_section(
             "Press space to toggle wireframes",
             TextStyle {
-                font_size: 24.0,
+                font_size: 20.0,
                 ..default()
             },
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
