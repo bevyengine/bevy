@@ -93,7 +93,7 @@
 //!
 //! Be careful when using this feature, if you misspell a label it will simply ignore it without warning.
 //!
-//! You can use [`GltfAssetLabel`] to ensure using the correct label.
+//! You can use [`GltfAssetLabel`] to ensure you are using the correct label.
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
