@@ -1814,6 +1814,52 @@ impl Capsule2d {
     }
 }
 
+/// A squircle primitive.
+///
+/// A squircle is a an intermediate shape between a circle and an ellipse and is frequently used in design and optics.
+///
+/// This shape, the [`Fernández-Guasti squircle`](https://en.wikipedia.org/wiki/Squircle#Fernández-Guasti_squircle), is not to be confused with the very similar [`superellipse`](https://en.wikipedia.org/wiki/Superellipse).
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+pub struct Squircle {
+    /// Half of the width and height of the squircle
+    pub half_size: Vec2,
+    /// The *squareness* of the squircle. This value should be in the range `0..=1` with `0` representing an ellipse and `1` representing a rectangle.
+    pub squareness: f32,
+}
+
+impl Default for Squircle {
+    fn default() -> Self {
+        Self {
+            half_size: Vec2::ONE,
+            squareness: 0.75,
+        }
+    }
+}
+
+impl Squircle {
+    /// Create a new [`Squircle`] from a `half_size`, and a `squareness`.
+    pub const fn new(half_size: Vec2, squareness: f32) -> Self {
+        Self {
+            half_size,
+            squareness,
+        }
+    }
+
+    /// Creates a new [`Squircle`] from a full `size` and a `squareness`.
+    pub fn from_size(size: Vec2, squareness: f32) -> Self {
+        Self {
+            half_size: size / 2.,
+            squareness,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     // Reference values were computed by hand and/or with external tools
