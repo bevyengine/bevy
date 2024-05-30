@@ -92,7 +92,7 @@ fn setup(
     spawn_camera(&mut commands);
     spawn_sphere(&mut commands, &mut meshes, &mut materials);
     spawn_reflection_probe(&mut commands, &cubemaps);
-    spawn_text(&mut commands, &asset_server, &app_status);
+    spawn_text(&mut commands, &app_status);
 }
 
 // Spawns the cubes, light, and camera.
@@ -156,17 +156,17 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
 }
 
 // Spawns the help text.
-fn spawn_text(commands: &mut Commands, asset_server: &AssetServer, app_status: &AppStatus) {
+fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
     // Create the text.
     commands.spawn(
         TextBundle {
-            text: app_status.create_text(asset_server),
+            text: app_status.create_text(),
             ..TextBundle::default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(10.0),
-            left: Val::Px(10.0),
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
@@ -241,13 +241,9 @@ fn toggle_rotation(keyboard: Res<ButtonInput<KeyCode>>, mut app_status: ResMut<A
 }
 
 // A system that updates the help text.
-fn update_text(
-    mut text_query: Query<&mut Text>,
-    app_status: Res<AppStatus>,
-    asset_server: Res<AssetServer>,
-) {
+fn update_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
     for mut text in text_query.iter_mut() {
-        *text = app_status.create_text(&asset_server);
+        *text = app_status.create_text();
     }
 }
 
@@ -278,7 +274,7 @@ impl Display for ReflectionMode {
 impl AppStatus {
     // Constructs the help text at the bottom of the screen based on the
     // application status.
-    fn create_text(&self, asset_server: &AssetServer) -> Text {
+    fn create_text(&self) -> Text {
         let rotation_help_text = if self.rotating {
             STOP_ROTATION_HELP_TEXT
         } else {
@@ -291,8 +287,7 @@ impl AppStatus {
                 self.reflection_mode, rotation_help_text, REFLECTION_MODE_HELP_TEXT
             ),
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 24.0,
+                font_size: 20.0,
                 ..default()
             },
         )
