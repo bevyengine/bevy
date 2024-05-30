@@ -591,7 +591,9 @@ impl Measured3d for Capsule3d {
     }
 }
 
-/// A cone primitive.
+/// A cone primitive centered on the midpoint between the tip of the cone and the center of its base.
+///
+/// The cone is oriented with its tip pointing towards the Y axis.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
