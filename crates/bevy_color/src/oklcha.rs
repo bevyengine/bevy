@@ -1,6 +1,6 @@
 use crate::{
-    color_difference::EuclideanDistance, Alpha, ColorToComponents, Hsla, Hsva, Hue, Hwba, Laba,
-    Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
+    color_difference::EuclideanDistance, Alpha, ColorToComponents, Gray, Hsla, Hsva, Hue, Hwba,
+    Laba, Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
@@ -117,6 +117,11 @@ impl Mix for Oklcha {
             alpha: self.alpha * n_factor + other.alpha * factor,
         }
     }
+}
+
+impl Gray for Oklcha {
+    const BLACK: Self = Self::new(0., 0., 0., 1.);
+    const WHITE: Self = Self::new(1.0, 0.000000059604645, 90.0, 1.0);
 }
 
 impl Alpha for Oklcha {

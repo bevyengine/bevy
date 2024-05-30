@@ -3,9 +3,23 @@ use std::f32::consts::{FRAC_PI_3, PI};
 use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
 use crate::{Dir3, InvalidDirectionError, Mat3, Vec2, Vec3};
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// A sphere primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Sphere {
     /// The radius of the sphere
     pub radius: f32,
@@ -69,6 +83,15 @@ impl Measured3d for Sphere {
 /// A bounded plane in 3D space. It forms a surface starting from the origin with a defined height and width.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Plane3d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Dir3,
@@ -132,6 +155,15 @@ impl Plane3d {
 /// stretching infinitely far
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct InfinitePlane3d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Dir3,
@@ -189,6 +221,11 @@ impl InfinitePlane3d {
 /// For a finite line: [`Segment3d`]
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Line3d {
     /// The direction of the line
     pub direction: Dir3,
@@ -199,6 +236,11 @@ impl Primitive3d for Line3d {}
 #[doc(alias = "LineSegment3d")]
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Segment3d {
     /// The direction of the line
     pub direction: Dir3,
@@ -253,6 +295,11 @@ impl Segment3d {
 /// For a version without generics: [`BoxedPolyline3d`]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Polyline3d<const N: usize> {
     /// The vertices of the polyline
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
@@ -309,6 +356,15 @@ impl BoxedPolyline3d {
 /// A cuboid primitive, more commonly known as a box.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Cuboid {
     /// Half of the width, height and depth of the cuboid
     pub half_size: Vec3,
@@ -392,6 +448,15 @@ impl Measured3d for Cuboid {
 /// A cylinder primitive
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Cylinder {
     /// The radius of the cylinder
     pub radius: f32,
@@ -461,6 +526,15 @@ impl Measured3d for Cylinder {
 /// A three-dimensional capsule is defined as a surface at a distance (radius) from a line
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Capsule3d {
     /// The radius of the capsule
     pub radius: f32,
@@ -517,9 +591,20 @@ impl Measured3d for Capsule3d {
     }
 }
 
-/// A cone primitive.
+/// A cone primitive centered on the midpoint between the tip of the cone and the center of its base.
+///
+/// The cone is oriented with its tip pointing towards the Y axis.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Cone {
     /// The radius of the base
     pub radius: f32,
@@ -589,6 +674,15 @@ impl Measured3d for Cone {
 /// by slicing off a section of a cone.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct ConicalFrustum {
     /// The radius of the top of the frustum
     pub radius_top: f32,
@@ -598,6 +692,17 @@ pub struct ConicalFrustum {
     pub height: f32,
 }
 impl Primitive3d for ConicalFrustum {}
+
+impl Default for ConicalFrustum {
+    /// Returns the default [`ConicalFrustum`] with a top radius of `0.25`, bottom radius of `0.5`, and a height of `0.5`.
+    fn default() -> Self {
+        Self {
+            radius_top: 0.25,
+            radius_bottom: 0.5,
+            height: 0.5,
+        }
+    }
+}
 
 /// The type of torus determined by the minor and major radii
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -620,6 +725,15 @@ pub enum TorusKind {
 /// A torus primitive, often representing a ring or donut shape
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Torus {
     /// The radius of the tube of the torus
     #[doc(
@@ -722,6 +836,15 @@ impl Measured3d for Torus {
 /// A 3D triangle primitive.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Triangle3d {
     /// The vertices of the triangle.
     pub vertices: [Vec3; 3],
@@ -906,6 +1029,15 @@ impl Measured2d for Triangle3d {
 /// A tetrahedron primitive.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Tetrahedron {
     /// The vertices of the tetrahedron.
     pub vertices: [Vec3; 4],

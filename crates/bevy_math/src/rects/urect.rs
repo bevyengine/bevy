@@ -1,5 +1,10 @@
 use crate::{IRect, Rect, UVec2};
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// A rectangle defined by two opposite corners.
 ///
 /// The rectangle is axis aligned, and defined by its minimum and maximum coordinates,
@@ -11,6 +16,15 @@ use crate::{IRect, Rect, UVec2};
 #[repr(C)]
 #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Hash, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct URect {
     /// The minimum corner point of the rect.
     pub min: UVec2,

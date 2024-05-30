@@ -51,6 +51,7 @@ impl Measure for TextMeasure {
         height: Option<f32>,
         available_width: AvailableSpace,
         _available_height: AvailableSpace,
+        _style: &taffy::Style,
     ) -> Vec2 {
         let x = width.unwrap_or_else(|| match available_width {
             AvailableSpace::Definite(x) => {

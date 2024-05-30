@@ -175,6 +175,7 @@ impl Default for MainScheduleOrder {
             labels: vec![
                 First.intern(),
                 PreUpdate.intern(),
+                #[cfg(feature = "bevy_state")]
                 StateTransition.intern(),
                 RunFixedMainLoop.intern(),
                 Update.intern(),
