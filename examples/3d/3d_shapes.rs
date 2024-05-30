@@ -5,6 +5,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     color::palettes::basic::SILVER,
+    pbr::wireframe::{WireframeConfig, WireframePlugin},
     prelude::*,
     render::{
         render_asset::RenderAssetUsages,
@@ -14,9 +15,12 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .add_plugins((
+            DefaultPlugins.set(ImagePlugin::default_nearest()),
+            WireframePlugin,
+        ))
         .add_systems(Startup, setup)
-        .add_systems(Update, rotate)
+        .add_systems(Update, (rotate, toggle_wireframe))
         .run();
 }
 
@@ -91,6 +95,22 @@ fn setup(
         transform: Transform::from_xyz(0.0, 6., 12.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
         ..default()
     });
+
+    commands.spawn(
+        TextBundle::from_section(
+            "Press space to toggle wireframes",
+            TextStyle {
+                font_size: 24.0,
+                ..default()
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(10.0),
+            left: Val::Px(10.0),
+            ..default()
+        }),
+    );
 }
 
 fn rotate(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>) {
@@ -126,4 +146,13 @@ fn uv_debug_texture() -> Image {
         TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::RENDER_WORLD,
     )
+}
+
+fn toggle_wireframe(
+    mut wireframe_config: ResMut<WireframeConfig>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+) {
+    if keyboard.just_pressed(KeyCode::Space) {
+        wireframe_config.global = !wireframe_config.global;
+    }
 }
