@@ -2,10 +2,12 @@ use std::sync::Arc;
 
 use bevy_ecs::{system::Commands, world::{Command, CommandQueue, FromWorld}};
 use bevy_log::error;
-use bevy_reflect::{reflect_trait, FromReflect, FromType, GetTypeRegistration, Reflect, TypeData};
+use bevy_reflect::{reflect_trait, FromReflect, FromType, GetTypeRegistration, Reflect, TypeData, Typed};
 
-pub trait DevCommand : Command + FromReflect + Reflect {
+pub trait DevCommand : Command + FromReflect + Reflect + Typed {
+
     fn metadata() -> DevCommandMetadata {
+        
         DevCommandMetadata {
             self_to_commands: Arc::new(|reflected_self, commands| {
                 let Some(typed_self) = <Self as FromReflect>::from_reflect(reflected_self) else {

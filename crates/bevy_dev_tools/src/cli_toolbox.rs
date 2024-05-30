@@ -1,9 +1,9 @@
 use bevy_app::{Plugin, PreUpdate, Update};
-use bevy_ecs::{event::EventReader, reflect::AppTypeRegistry, system::{Commands, Res}};
-use bevy_reflect::serde::ReflectDeserializer;
+use bevy_ecs::{event::EventReader, reflect::AppTypeRegistry, system::{Commands, Res}, world::Command};
+use bevy_reflect::{serde::ReflectDeserializer, std_traits::ReflectDefault, Reflect};
 use serde::de::DeserializeSeed;
-use crate::{cli_deserialize::CliDeserializer, console_reader_plugin::{ConsoleInput, ConsoleReaderPlugin}, dev_command::ReflectDevCommand};
-
+use crate::{cli_deserialize::{get_cli_command_name, CliDeserializer}, console_reader_plugin::{ConsoleInput, ConsoleReaderPlugin}, dev_command::ReflectDevCommand};
+use crate::prelude::DevCommand;
 
 pub struct CLIToolbox;
 
@@ -12,6 +12,7 @@ impl Plugin for CLIToolbox {
         if !app.is_plugin_added::<ConsoleReaderPlugin>() {
             app.add_plugins(ConsoleReaderPlugin);
         }
+        app.register_type::<PrintCommands>();
         app.add_systems(PreUpdate, parse_command);
     }
 }
@@ -51,4 +52,21 @@ fn parse_command(
         }
     }
     console_input.clear();
+}
+
+#[derive(Reflect, Default, DevCommand)]
+#[reflect(Default, DevCommand)]
+struct PrintCommands;
+impl Command for PrintCommands {
+    fn apply(self, world: &mut bevy_ecs::world::World) {
+        let app_registry = world.get_resource::<AppTypeRegistry>().unwrap();
+        let registry = app_registry.read();
+        let mut names = vec![];
+        for info in registry.iter_with_data::<ReflectDevCommand>() {
+            let cli_name = get_cli_command_name(info.0.type_info().type_path_table().short_path());
+            names.push(cli_name);
+        }
+
+        println!("Available commands: {:?}", names);
+    }
 }

@@ -13,10 +13,6 @@ pub trait DevTool : Reflect + FromReflect + GetTypeRegistration  {
 
 }
 
-pub struct ReflectDevTool {
-
-}
-
 #[derive(Default, Reflect)]
 #[reflect(DevCommand)]
 pub struct SetTool<T: DevTool + Resource + Default + Reflect + FromReflect + TypePath> {

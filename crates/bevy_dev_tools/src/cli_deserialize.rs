@@ -142,6 +142,10 @@ fn parse_short_type_path(input: &str) -> IResult<&str, Vec<String>> {
     Ok((input, result))
 }
 
+pub fn get_cli_command_name(short_type_path: &str) -> String {
+    parse_short_type_path(short_type_path).unwrap().1.join(" ")
+}
+
 ///cli args parsing
 fn parse_value(input: &str) -> IResult<&str, &str> {
     preceded(space0, alt((parse_quoted_string, parse_ron_value, take_while1(is_not_space))))(input)
