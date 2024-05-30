@@ -85,7 +85,8 @@ impl<S: States> Deref for State<S> {
 
 /// The next state of [`State<S>`].
 ///
-/// To queue a transition, just set the contained value to `Some(next_state)`.
+/// This can be fetched as a resource and used to queue state transitions.
+/// To queue a transition, call [`NextState::set`] or mutate the value to [`NextState::Pending`] directly.
 ///
 /// Note that these transitions can be overridden by other systems:
 /// only the actual value of this resource at the time of [`apply_state_transition`](crate::state::apply_state_transition) matters.
