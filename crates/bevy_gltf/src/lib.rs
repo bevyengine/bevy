@@ -25,7 +25,7 @@
 //!         // This is equivalent to "models/FlightHelmet/FlightHelmet.gltf#Scene0"
 //!         // The `#Scene0` label here is very important because it tells bevy to load the first scene in the glTF file.
 //!         // If this isn't specified bevy doesn't know which part of the glTF file to load.
-//!         scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"))
+//!         scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
 //!         // You can use the transform to give it a position
 //!         transform: Transform::from_xyz(2.0, 0.0, -5.0),
 //!         ..Default::default()
