@@ -5,7 +5,8 @@ use std::process;
 
 use argh::FromArgs;
 use bevy::prelude::default;
-use bevy::remote::{BrpQuery, BrpQueryRequest, BrpRequest, DEFAULT_PORT};
+use bevy::remote::builtin_verbs::{BrpQuery, BrpQueryRequest};
+use bevy::remote::{BrpRequest, DEFAULT_PORT};
 use http_body_util::BodyExt as _;
 use hyper::client::conn::http1;
 use hyper::header::HOST;
