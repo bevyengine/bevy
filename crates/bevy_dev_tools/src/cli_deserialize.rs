@@ -11,12 +11,53 @@ use serde::de::DeserializeSeed;
 /// Works only with TypedReflectDeserializer and direct deserialization
 struct TypedCliDeserializer<'a> {
     input: &'a str,
-
+    //contains a hashmap with indication which fields are strings. Its allow to convert value to string withou brackets
+    is_string: Option<Vec<bool>>
 }
 
 impl<'a> TypedCliDeserializer<'a> {
     fn from_str(input: &'a str) -> Result<Self, de::value::Error> {
-        Ok(Self { input })
+        Ok(Self { input, is_string: None })
+    }
+
+    fn from_registry(input: &'a str, type_registration: &'a TypeRegistration) -> Result<Self, de::value::Error> {
+       
+        let mut is_string = vec![];
+        
+        match type_registration.type_info() {
+            bevy_reflect::TypeInfo::Struct(s) => {
+                for field in s.iter() {
+                    is_string.push(field.is::<String>());
+                }
+            },
+            bevy_reflect::TypeInfo::TupleStruct(s) => {
+                for field in s.iter() {
+                    is_string.push(field.is::<String>());
+                }
+            },
+            bevy_reflect::TypeInfo::Tuple(s) => {
+                for field in s.iter() {
+                    is_string.push(field.is::<String>());
+                }
+            },
+            bevy_reflect::TypeInfo::List(s) => {
+                is_string.push(s.is::<String>());
+            },
+            bevy_reflect::TypeInfo::Array(_) => {
+                unimplemented!("Array deserialization not implemented");
+            },
+            bevy_reflect::TypeInfo::Map(_) => {
+                unimplemented!("Map deserialization not implemented");
+            },
+            bevy_reflect::TypeInfo::Enum(_) => {
+                unimplemented!("Enum deserialization not implemented");
+            },
+            bevy_reflect::TypeInfo::Value(_) => {
+                unimplemented!("Value deserialization not implemented");
+            },
+        }
+
+        Ok(Self { input, is_string: Some(is_string) })
     }
 }
 
@@ -139,12 +180,13 @@ struct CliMapVisitor<'a> {
     values: HashMap<String, &'a str>,
     index: usize,
     keys: Vec<String>,
+    is_string: Option<Vec<bool>>
 }
 
 impl<'a> CliMapVisitor<'a> {
-    fn new(values: HashMap<String, &'a str>) -> Self {
+    fn new(values: HashMap<String, &'a str>, is_string: Option<Vec<bool>>) -> Self {
         let keys = values.keys().cloned().collect();
-        Self { values, keys, index: 0 }
+        Self { values, keys, index: 0, is_string }
     }
 }
 
@@ -171,6 +213,17 @@ impl<'de> MapAccess<'de> for CliMapVisitor<'de> {
             let key = self.keys[self.index].clone();
             let value = self.values[&key];
             self.index += 1;
+
+            println!("{:?}", self.keys);
+
+            //check string
+            if let Some(is_string) = &self.is_string {
+                if is_string[self.index - 1] {
+                    let value = value.trim().trim_matches('"').to_string();
+                    return seed.deserialize(StringDeserializer::new(value));
+                }
+            }
+
             seed.deserialize(&mut ron::de::Deserializer::from_str(value).unwrap())
                 .map_err(|ron_err| de::Error::custom(ron_err.to_string()))
         } else {
@@ -199,9 +252,21 @@ impl<'de> Deserializer<'de> for TypedCliDeserializer<'de> {
     where
         V: Visitor<'de>,
     {
+        
         let (_, values) = parse_arguments(self.input, fields).map_err(|_| de::Error::custom("Parse error"))?;
+        let mut is_string: Option<Vec<bool>> = None;
+        if let Some(is_string_tmp) = self.is_string {
+            let mut tmp = vec![];
+            for (k, _) in values.iter() {
+                let Some(field_idx) = fields.iter().position(|f| f == k) else {
+                    return Err(de::Error::custom(format!("Field {} not found", k)));
+                };
+                tmp.push(is_string_tmp[field_idx]);
+            }
+            is_string = Some(tmp);
+        }
         // println!("{:?}", values);
-        visitor.visit_map(CliMapVisitor::new(values))
+        visitor.visit_map(CliMapVisitor::new(values, is_string))
     }
 
     forward_to_deserialize_any! {
@@ -249,6 +314,7 @@ impl<'de> Deserializer<'de> for CliDeserializer<'de> {
         struct SingleMapDeserializer<'a> {
             args: &'a str,
             type_path: String,
+            registration: &'a TypeRegistration,
         }
 
         impl<'de> MapAccess<'de> for SingleMapDeserializer<'de> {
@@ -271,11 +337,11 @@ impl<'de> Deserializer<'de> for CliDeserializer<'de> {
             where
                 V: de::DeserializeSeed<'de>,
             {
-                seed.deserialize(TypedCliDeserializer::from_str(self.args).unwrap())
+                seed.deserialize(TypedCliDeserializer::from_registry(self.args, self.registration).unwrap())
             }
         }
 
-        visitor.visit_map(SingleMapDeserializer { args: &self.input[skip..], type_path: registration.unwrap().type_info().type_path().to_string() })
+        visitor.visit_map(SingleMapDeserializer { args: &self.input[skip..], type_path: registration.unwrap().type_info().type_path().to_string(), registration: registration.unwrap() })
     }
 
     forward_to_deserialize_any! {
