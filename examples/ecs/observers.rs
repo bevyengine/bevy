@@ -1,4 +1,4 @@
-//! This examples illustrates several ways you can employ observers
+//! Demonstrates how to observe life-cycle triggers as well as define custom ones.
 
 use bevy::{
     prelude::*,
