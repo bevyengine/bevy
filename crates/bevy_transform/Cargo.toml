@@ -34,7 +34,7 @@ approx = "0.5.1"
 # systems for transform propagation and more.
 # This exists because it allows opting out of all of this, leaving only a bare-bones transform struct,
 # which enables users to depend on that without needing the larger Bevy dependency tree.
-bevy_impls = [
+bevy-support = [
   "dep:bevy_app",
   "dep:bevy_ecs",
   "dep:bevy_hierarchy",
@@ -42,7 +42,7 @@ bevy_impls = [
   "bevy_math/bevy_reflect",
 ]
 
-default = ["bevy_impls"]
+default = ["bevy-support"]
 
 # Turning off default features leaves you with a barebones
 # definition of transform.
