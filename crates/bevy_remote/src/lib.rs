@@ -91,7 +91,7 @@ use bevy_ecs::{
     entity::Entity,
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent},
-    system::{Commands, Res, Resource},
+    system::{Commands, In, Res, Resource, SystemId},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, World},
 };
 use bevy_hierarchy::BuildWorldChildren as _;
@@ -146,13 +146,12 @@ pub struct RemotePort(pub u16);
 ///
 /// The returned JSON value will be returned as the response. Bevy will
 /// automatically populate the `status` and `id` fields before sending.
-pub type RemoteVerb =
-    for<'w, 'a> fn(Value, &'w mut World, &'a AppTypeRegistry) -> AnyhowResult<Value>;
+pub type RemoteVerb = SystemId<Value, AnyhowResult<Value>>;
 
 /// Holds all implementations of verbs known to the server.
 ///
 /// You can add your own custom verbs to this list.
-#[derive(Resource, Deref, DerefMut)]
+#[derive(Resource, Deref, DerefMut, Default)]
 pub struct RemoteVerbs(pub HashMap<String, RemoteVerb>);
 
 /// A single request from a Bevy Remote Protocol client to the server,
@@ -421,27 +420,52 @@ impl Default for RemotePlugin {
     }
 }
 
-impl Default for RemoteVerbs {
-    fn default() -> Self {
-        let mut remote_verbs = RemoteVerbs(default());
-        remote_verbs.insert("GET".to_owned(), process_remote_get_request);
-        remote_verbs.insert("QUERY".to_owned(), process_remote_query_request);
-        remote_verbs.insert("SPAWN".to_owned(), process_remote_spawn_request);
-        remote_verbs.insert("INSERT".to_owned(), process_remote_insert_request);
-        remote_verbs.insert("REMOVE".to_owned(), process_remote_remove_request);
-        remote_verbs.insert("DESTROY".to_owned(), process_remote_destroy_request);
-        remote_verbs.insert("REPARENT".to_owned(), process_remote_reparent_request);
-        remote_verbs.insert("LIST".to_owned(), process_remote_list_request);
-        remote_verbs
+impl Plugin for RemotePlugin {
+    fn build(&self, app: &mut App) {
+        let mut remote_verbs = RemoteVerbs::new();
+        remote_verbs.insert(
+            "GET".to_owned(),
+            app.register_system(process_remote_get_request),
+        );
+        remote_verbs.insert(
+            "QUERY".to_owned(),
+            app.register_system(process_remote_query_request),
+        );
+        remote_verbs.insert(
+            "SPAWN".to_owned(),
+            app.register_system(process_remote_spawn_request),
+        );
+        remote_verbs.insert(
+            "INSERT".to_owned(),
+            app.register_system(process_remote_insert_request),
+        );
+        remote_verbs.insert(
+            "REMOVE".to_owned(),
+            app.register_system(process_remote_remove_request),
+        );
+        remote_verbs.insert(
+            "DESTROY".to_owned(),
+            app.register_system(process_remote_destroy_request),
+        );
+        remote_verbs.insert(
+            "REPARENT".to_owned(),
+            app.register_system(process_remote_reparent_request),
+        );
+        remote_verbs.insert(
+            "LIST".to_owned(),
+            app.register_system(process_remote_list_request),
+        );
+
+        app.insert_resource(RemotePort(self.port))
+            .insert_resource(remote_verbs)
+            .add_systems(Startup, start_server)
+            .add_systems(Update, process_remote_requests);
     }
 }
 
-impl Plugin for RemotePlugin {
-    fn build(&self, app: &mut App) {
-        app.insert_resource(RemotePort(self.port))
-            .init_resource::<RemoteVerbs>()
-            .add_systems(Startup, start_server)
-            .add_systems(Update, process_remote_requests);
+impl RemoteVerbs {
+    fn new() -> Self {
+        default()
     }
 }
 
@@ -465,7 +489,6 @@ fn process_remote_requests(world: &mut World) {
         return;
     }
 
-    let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     while let Ok(message) = world.resource_mut::<BrpMailbox>().try_recv() {
         let Ok(mut sender) = message.sender.lock() else {
             continue;
@@ -483,19 +506,23 @@ fn process_remote_requests(world: &mut World) {
         };
 
         // Execute the handler, and send the result back to the client.
-        let result = handler(message.request.params, world, &app_type_registry);
+        let result = match world.run_system_with_input(*handler, message.request.params) {
+            Ok(result) => result,
+            Err(error) => {
+                let _ = sender.send(Err(anyhow!("Failed to run handler: {}", error)));
+                continue;
+            }
+        };
+
         let _ = sender.send(result);
     }
 }
 
 /// Handles a `GET` request coming from a client.
-fn process_remote_get_request(
-    request: Value,
-    world: &mut World,
-    app_type_registry: &AppTypeRegistry,
-) -> AnyhowResult<Value> {
+fn process_remote_get_request(In(request): In<Value>, world: &mut World) -> AnyhowResult<Value> {
     let BrpGetRequest { entity, components } = serde_json::from_value(request)?;
 
+    let app_type_registry = world.resource::<AppTypeRegistry>();
     let type_registry = app_type_registry.read();
     let Some(entity_ref) = world.get_entity(entity) else {
         return Err(anyhow!("Entity {:?} didn't exist", entity));
@@ -532,11 +559,7 @@ fn process_remote_get_request(
 }
 
 /// Handles a `QUERY` request coming from a client.
-fn process_remote_query_request(
-    request: Value,
-    world: &mut World,
-    app_type_registry: &AppTypeRegistry,
-) -> AnyhowResult<Value> {
+fn process_remote_query_request(In(request): In<Value>, world: &mut World) -> AnyhowResult<Value> {
     let BrpQueryRequest {
         data: BrpQuery {
             components,
@@ -546,6 +569,7 @@ fn process_remote_query_request(
         filter: BrpQueryFilter { without, with },
     } = serde_json::from_value(request)?;
 
+    let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
 
     let components = get_component_ids(&type_registry, world, components)?;
@@ -593,14 +617,12 @@ fn process_remote_query_request(
 }
 
 /// Handles a `SPAWN` request coming from a client.
-fn process_remote_spawn_request(
-    request: Value,
-    world: &mut World,
-    app_type_registry: &AppTypeRegistry,
-) -> AnyhowResult<Value> {
+fn process_remote_spawn_request(In(request): In<Value>, world: &mut World) -> AnyhowResult<Value> {
     let BrpSpawnRequest { components } = serde_json::from_value(request)?;
 
+    let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
+
     let reflect_components = deserialize_components(&type_registry, components)?;
     insert_reflected_components(&type_registry, world.spawn_empty(), reflect_components)?;
 
@@ -608,14 +630,12 @@ fn process_remote_spawn_request(
 }
 
 /// Handles an `INSERT` request (insert components) coming from a client.
-fn process_remote_insert_request(
-    request: Value,
-    world: &mut World,
-    app_type_registry: &AppTypeRegistry,
-) -> AnyhowResult<Value> {
+fn process_remote_insert_request(In(request): In<Value>, world: &mut World) -> AnyhowResult<Value> {
     let BrpInsertRequest { entity, components } = serde_json::from_value(request)?;
 
+    let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
+
     let reflect_components = deserialize_components(&type_registry, components)?;
 
     insert_reflected_components(
@@ -628,14 +648,12 @@ fn process_remote_insert_request(
 }
 
 /// Handles a `REMOVE` request (remove components) coming from a client.
-fn process_remote_remove_request(
-    request: Value,
-    world: &mut World,
-    app_type_registry: &AppTypeRegistry,
-) -> AnyhowResult<Value> {
+fn process_remote_remove_request(In(request): In<Value>, world: &mut World) -> AnyhowResult<Value> {
     let BrpRemoveRequest { entity, components } = serde_json::from_value(request)?;
 
+    let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
+
     let component_ids = get_component_ids(&type_registry, world, components)?;
 
     // Remove the components.
@@ -649,9 +667,8 @@ fn process_remote_remove_request(
 
 /// Handles a `DESTROY` (despawn entity) request coming from a client.
 fn process_remote_destroy_request(
-    request: Value,
+    In(request): In<Value>,
     world: &mut World,
-    _: &AppTypeRegistry,
 ) -> AnyhowResult<Value> {
     let BrpDestroyRequest { entity } = serde_json::from_value(request)?;
 
@@ -662,9 +679,8 @@ fn process_remote_destroy_request(
 
 /// Handles a `REPARENT` request coming from a client.
 fn process_remote_reparent_request(
-    request: Value,
+    In(request): In<Value>,
     world: &mut World,
-    _: &AppTypeRegistry,
 ) -> AnyhowResult<Value> {
     let BrpReparentRequest {
         entities,
@@ -695,15 +711,13 @@ fn process_remote_reparent_request(
 }
 
 /// Handles a `LIST` request (list all components) coming from a client.
-fn process_remote_list_request(
-    request: Value,
-    world: &mut World,
-    app_type_registry: &AppTypeRegistry,
-) -> AnyhowResult<Value> {
+fn process_remote_list_request(In(request): In<Value>, world: &mut World) -> AnyhowResult<Value> {
     let BrpListRequest { entity } = serde_json::from_value(request)?;
 
-    let mut result = vec![];
+    let app_type_registry = world.resource::<AppTypeRegistry>();
     let type_registry = app_type_registry.read();
+
+    let mut result = vec![];
 
     match entity {
         Some(entity) => {

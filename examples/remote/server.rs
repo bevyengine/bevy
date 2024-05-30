@@ -32,7 +32,6 @@ fn setup(
             ..default()
         })
         .id();
-    println!("{:?}", cube_entity.to_bits());
 
     // light
     commands.spawn(PointLightBundle {
