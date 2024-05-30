@@ -50,7 +50,7 @@ impl PluginGroup for DefaultPlugins {
             .add(bevy_core::TypeRegistrationPlugin)
             .add(bevy_core::FrameCountPlugin)
             .add(bevy_time::TimePlugin)
-            .add(bevy_transform::TransformPlugin)
+            .add(bevy_transform::plugins::TransformPlugin)
             .add(bevy_hierarchy::HierarchyPlugin)
             .add(bevy_diagnostic::DiagnosticsPlugin)
             .add(bevy_input::InputPlugin)

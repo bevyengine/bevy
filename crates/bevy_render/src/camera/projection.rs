@@ -10,7 +10,7 @@ use bevy_reflect::{
     std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_transform::TransformSystem;
+use bevy_transform::plugins::TransformSystem;
 use serde::{Deserialize, Serialize};
 
 /// Adds [`Camera`](crate::camera::Camera) driver systems for a given projection type.

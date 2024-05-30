@@ -14,7 +14,7 @@ use bevy_render::{
     prelude::*,
     view::{RenderLayers, VisibilitySystems},
 };
-use bevy_transform::{prelude::GlobalTransform, TransformSystem};
+use bevy_transform::{plugins::TransformSystem, prelude::GlobalTransform};
 use bevy_ui::{DefaultUiCamera, Display, Node, Style, TargetCamera, UiScale};
 use bevy_utils::{default, warn_once};
 use bevy_window::{PrimaryWindow, Window, WindowRef};

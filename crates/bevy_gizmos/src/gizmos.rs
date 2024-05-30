@@ -10,7 +10,7 @@ use bevy_ecs::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_math::{Dir3, Quat, Rotation2d, Vec2, Vec3};
-use bevy_transform::TransformPoint;
+use bevy_transform::traits::TransformPoint;
 use bevy_utils::default;
 
 use crate::{

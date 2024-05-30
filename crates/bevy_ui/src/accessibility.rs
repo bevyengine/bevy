@@ -151,7 +151,7 @@ impl Plugin for AccessibilityPlugin {
             PostUpdate,
             (
                 calc_bounds
-                    .after(bevy_transform::TransformSystem::TransformPropagate)
+                    .after(bevy_transform::plugins::TransformSystem::TransformPropagate)
                     .after(CameraUpdateSystem)
                     // the listed systems do not affect calculated size
                     .ambiguous_with(crate::resolve_outlines_system)
