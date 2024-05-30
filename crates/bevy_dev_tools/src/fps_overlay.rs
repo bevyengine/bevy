@@ -11,12 +11,17 @@ use bevy_ecs::{
     system::{Commands, Query, Res, Resource},
 };
 use bevy_hierarchy::BuildChildren;
+use bevy_reflect::Reflect;
+use bevy_render::view::Visibility;
+use bevy_state::{condition::in_state, state::{NextState, OnEnter, State, States}};
 use bevy_text::{Font, Text, TextSection, TextStyle};
 use bevy_ui::{
     node_bundles::{NodeBundle, TextBundle},
     PositionType, Style, ZIndex,
 };
 use bevy_utils::default;
+
+use crate::{dev_tool::{AppDevTool, DevTool}, toggable::Toggable};
 
 /// Global [`ZIndex`] used to render the fps overlay.
 ///
@@ -42,6 +47,11 @@ impl Plugin for FpsOverlayPlugin {
         if !app.is_plugin_added::<FrameTimeDiagnosticsPlugin>() {
             app.add_plugins(FrameTimeDiagnosticsPlugin);
         }
+
+        app.register_toggable_dev_tool::<FpsOverlayConfig>();
+
+        app.init_state::<ShowFpsOverlay>();
+
         app.insert_resource(self.config.clone())
             .add_systems(Startup, setup)
             .add_systems(
@@ -49,17 +59,29 @@ impl Plugin for FpsOverlayPlugin {
                 (
                     customize_text.run_if(resource_changed::<FpsOverlayConfig>),
                     update_text,
-                ),
-            );
+                ).run_if(in_state(ShowFpsOverlay::Show)),
+            )
+            .add_systems(OnEnter(ShowFpsOverlay::Hide), hide_text)
+            .add_systems(OnEnter(ShowFpsOverlay::Show), show_text);
+
+        
     }
 }
 
 /// Configuration options for the FPS overlay.
-#[derive(Resource, Clone)]
+#[derive(Resource, Clone, Reflect)]
 pub struct FpsOverlayConfig {
     /// Configuration of text in the overlay.
     pub text_config: TextStyle,
 }
+
+#[derive(States, Clone, Copy, PartialEq, Eq, Debug, Hash, Default)]
+pub enum ShowFpsOverlay {
+    #[default]
+    Show,
+    Hide,
+}
+
 
 impl Default for FpsOverlayConfig {
     fn default() -> Self {
@@ -72,6 +94,22 @@ impl Default for FpsOverlayConfig {
         }
     }
 }
+
+impl Toggable for FpsOverlayConfig {
+    fn enable(world: &mut bevy_ecs::world::World) {
+        world.resource_mut::<NextState<ShowFpsOverlay>>().set(ShowFpsOverlay::Show);
+    }
+
+    fn disable(world: &mut bevy_ecs::world::World) {
+        world.resource_mut::<NextState<ShowFpsOverlay>>().set(ShowFpsOverlay::Hide);
+    }
+
+    fn is_enabled(world: &bevy_ecs::world::World) -> bool {
+        *world.resource::<State<ShowFpsOverlay>>() == ShowFpsOverlay::Show
+    }
+}
+
+impl DevTool for FpsOverlayConfig {}
 
 #[derive(Component)]
 struct FpsText;
@@ -117,5 +155,21 @@ fn customize_text(
         for section in text.sections.iter_mut() {
             section.style = overlay_config.text_config.clone();
         }
+    }
+}
+
+fn hide_text(
+    mut query: Query<&mut Visibility, With<FpsText>>,
+) {
+    for mut style in query.iter_mut() {
+        *style = Visibility::Hidden;
+    }
+}
+
+fn show_text(
+    mut query: Query<&mut Visibility, With<FpsText>>,
+) {
+    for mut style in query.iter_mut() {
+        *style = Visibility::Visible;
     }
 }

@@ -242,6 +242,10 @@ impl<'de> Deserializer<'de> for CliDeserializer<'de> {
             }
         }
 
+        if registration.is_none() {
+            return Err(de::value::Error::custom("No type registration found"));
+        }
+
         struct SingleMapDeserializer<'a> {
             args: &'a str,
             type_path: String,

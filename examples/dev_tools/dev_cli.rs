@@ -4,6 +4,7 @@ use std::any::Any;
 
 use bevy::dev_tools::cli_deserialize::CliDeserializer;
 use bevy::dev_tools::dev_command::{DevCommand, ReflectDevCommand};
+use bevy::dev_tools::fps_overlay::FpsOverlayPlugin;
 use bevy::dev_tools::DevCommand;
 use bevy::ecs::world::Command;
 use bevy::prelude::*;
@@ -63,6 +64,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(ConsoleReaderPlugin)
+        .add_plugins(FpsOverlayPlugin::default())
 
         //register dev commands as usual types
         .register_type::<SetGold>() 
