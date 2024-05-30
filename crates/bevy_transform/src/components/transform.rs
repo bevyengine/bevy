@@ -1,6 +1,5 @@
 use std::ops::Mul;
 
-#[cfg(feature = "bevy-support")]
 use super::GlobalTransform;
 #[cfg(feature = "bevy-support")]
 use bevy_ecs::{component::Component, prelude::ReflectComponent};
@@ -551,24 +550,19 @@ impl Mul<Vec3> for Transform {
     }
 }
 
-#[cfg(feature = "bevy-support")]
-mod bevy_support {
-    use super::*;
-
-    /// The transform is expected to be non-degenerate and without shearing, or the output
-    /// will be invalid.
-    impl From<GlobalTransform> for Transform {
-        fn from(transform: GlobalTransform) -> Self {
-            transform.compute_transform()
-        }
+/// The transform is expected to be non-degenerate and without shearing, or the output
+/// will be invalid.
+impl From<GlobalTransform> for Transform {
+    fn from(transform: GlobalTransform) -> Self {
+        transform.compute_transform()
     }
+}
 
-    impl Mul<GlobalTransform> for Transform {
-        type Output = GlobalTransform;
+impl Mul<GlobalTransform> for Transform {
+    type Output = GlobalTransform;
 
-        #[inline]
-        fn mul(self, global_transform: GlobalTransform) -> Self::Output {
-            GlobalTransform::from(self) * global_transform
-        }
+    #[inline]
+    fn mul(self, global_transform: GlobalTransform) -> Self::Output {
+        GlobalTransform::from(self) * global_transform
     }
 }

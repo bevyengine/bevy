@@ -33,15 +33,12 @@ pub mod systems;
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::components::Transform;
+    pub use crate::components::*;
 
     #[cfg(feature = "bevy-support")]
     #[doc(hidden)]
     pub use crate::{
-        bundles::TransformBundle, commands::BuildChildrenTransformExt, components::*,
-        helper::TransformHelper, plugins::TransformPlugin, traits::TransformPoint,
+        bundles::TransformBundle, commands::BuildChildrenTransformExt, helper::TransformHelper,
+        plugins::TransformPlugin, traits::TransformPoint,
     };
 }
-
-#[cfg(feature = "bevy-support")]
-use prelude::{GlobalTransform, Transform};
