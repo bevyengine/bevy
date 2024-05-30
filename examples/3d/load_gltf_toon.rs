@@ -79,13 +79,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .into(),
         ..default()
     });
+    // Note: All assets are cached by path so you cannot load the same file with different settings
+    // while this handle is alive, if needed, manipulate the loaded scene instead.
     commands.spawn(SceneBundle {
         scene: asset_server.load_with_settings(
             "models/FlightHelmet/FlightHelmet.gltf#Scene0",
             |s: &mut GltfLoaderSettings| {
-                s.use_material::<ToonMaterial>();
+                s.with_default_material::<ToonMaterial>();
             },
         ),
+        transform: Transform::from_translation(Vec3::new(0.25, 0., -0.25)),
         ..default()
     });
 }

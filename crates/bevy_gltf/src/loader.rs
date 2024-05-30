@@ -119,6 +119,9 @@ pub struct GltfLoader {
     /// for additional details on custom attributes.
     pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
 
+    /// Loader of [`StandardMaterial`] or a user registered default loader.
+    pub default_loader: LoaderFn,
+
     /// Loaders of pre-registered materials.
     pub loaders: HashMap<String, LoaderFn>,
 }
@@ -171,7 +174,7 @@ pub struct GltfLoaderSettings {
 
 impl GltfLoaderSettings {
     /// Construct a [`GltfLoaderSettings`] that loads an alternative material.
-    pub fn use_material<M: FromStandardMaterial + bevy_pbr::Material>(&mut self) -> &mut Self {
+    pub fn with_default_material<M: FromStandardMaterial + bevy_pbr::Material>(&mut self) -> &mut Self {
         self.loader = Some(|loader, bytes, load_context, settings| {
             Box::pin(load_gltf::<M>(loader, bytes, load_context, settings))
         });
@@ -214,7 +217,7 @@ impl AssetLoader for GltfLoader {
         {
             loader(self, &bytes, load_context, settings).await
         } else {
-            load_gltf::<StandardMaterial>(self, &bytes, load_context, settings).await
+            (self.default_loader)(self, &bytes, load_context, settings).await
         }
     }
 

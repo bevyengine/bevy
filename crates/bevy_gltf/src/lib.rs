@@ -108,6 +108,7 @@ use std::{future::Future, pin::Pin};
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
+use bevy_pbr::StandardMaterial;
 use bevy_utils::HashMap;
 
 mod loader;
@@ -137,10 +138,27 @@ pub(crate) type LoaderFn =
     ) -> Pin<Box<dyn Future<Output = Result<Gltf, GltfError>> + Send + 't>>;
 
 /// Adds support for glTF file loading to the app.
-#[derive(Default)]
 pub struct GltfPlugin {
     custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
+    default_loader: LoaderFn,
     loaders: HashMap<String, LoaderFn>,
+}
+
+impl Default for GltfPlugin {
+    fn default() -> Self {
+        Self {
+            custom_vertex_attributes: Default::default(),
+            loaders: Default::default(),
+            default_loader: |loader, bytes, load_context, settings| {
+                Box::pin(load_gltf::<StandardMaterial>(
+                    loader,
+                    bytes,
+                    load_context,
+                    settings,
+                ))
+            },
+        }
+    }
 }
 
 impl GltfPlugin {
@@ -155,6 +173,14 @@ impl GltfPlugin {
         attribute: MeshVertexAttribute,
     ) -> Self {
         self.custom_vertex_attributes.insert(name.into(), attribute);
+        self
+    }
+
+    /// Replace [`StandardMaterial`](bevy_pbr::StandardMaterial) as the default material loaded by [`GltfLoader`].
+    pub fn with_standard_material<M: FromStandardMaterial + bevy_pbr::Material>(mut self) -> Self {
+        self.default_loader = |loader, bytes, load_context, settings| {
+            Box::pin(load_gltf::<M>(loader, bytes, load_context, settings))
+        };
         self
     }
 
@@ -191,6 +217,7 @@ impl Plugin for GltfPlugin {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
             loaders: self.loaders.clone(),
+            default_loader: self.default_loader,
         });
     }
 }

@@ -52,12 +52,12 @@ impl<'ctx, 'builder> NestedLoader<'ctx, 'builder> {
         transform: impl Fn(&mut dyn AssetMetaDyn) + Send + Sync + 'static,
     ) -> Self {
         if let Some(prev_transform) = self.meta_transform {
-            self.meta_transform = Some(Box::new(move |meta| {
+            self.meta_transform = Some(Arc::new(move |meta| {
                 prev_transform(meta);
                 transform(meta);
             }));
         } else {
-            self.meta_transform = Some(Box::new(transform));
+            self.meta_transform = Some(Arc::new(transform));
         }
         self
     }
