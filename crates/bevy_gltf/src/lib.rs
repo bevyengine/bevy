@@ -250,6 +250,32 @@ pub struct GltfExtras {
 }
 
 /// Labels that can be used to load part of a glTF
+///
+/// You can use [`GltfAssetLabel::from_asset`] to add it to an asset path
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_asset::prelude::*;
+/// # use bevy_scene::prelude::*;
+/// # use bevy_gltf::prelude::*;
+///
+/// fn load_gltf_scene(asset_server: Res<AssetServer>) {
+///     let gltf_scene: Handle<Scene> = asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
+/// }
+/// ```
+///
+/// Or when formatting a string for the path
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_asset::prelude::*;
+/// # use bevy_scene::prelude::*;
+/// # use bevy_gltf::prelude::*;
+///
+/// fn load_gltf_scene(asset_server: Res<AssetServer>) {
+///     let gltf_scene: Handle<Scene> = asset_server.load(format!("models/FlightHelmet/FlightHelmet.gltf#{}", GltfAssetLabel::Scene(0)));
+/// }
+/// ```
 pub enum GltfAssetLabel {
     /// `Scene{}`: glTF Scene as a Bevy `Scene`
     Scene(usize),
@@ -320,7 +346,8 @@ impl std::fmt::Display for GltfAssetLabel {
 }
 
 impl GltfAssetLabel {
-    /// Use this label to load an asset
+    /// Add this label to an asset path
+    ///
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_asset::prelude::*;
