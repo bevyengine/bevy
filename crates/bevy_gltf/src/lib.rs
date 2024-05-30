@@ -104,13 +104,13 @@
 //! - `Animation{}`: glTF Animation as Bevy `AnimationClip`
 //! - `Skin{}`: glTF mesh skin as Bevy `SkinnedMeshInverseBindposes`
 
-use std::{future::Future, pin::Pin};
+use std::pin::Pin;
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
 use bevy_hierarchy::WorldChildBuilder;
 use bevy_pbr::StandardMaterial;
-use bevy_utils::HashMap;
+use bevy_utils::{ConditionalSendFuture, HashMap};
 
 mod loader;
 mod material;
@@ -137,7 +137,7 @@ pub(crate) type LoaderFn =
         &'t [u8],
         &'t mut LoadContext<'_>,
         &'t GltfLoaderSettings,
-    ) -> Pin<Box<dyn Future<Output = Result<Gltf, GltfError>> + Send + 't>>;
+    ) -> Pin<Box<dyn ConditionalSendFuture<Output = Result<Gltf, GltfError>> + 't>>;
 
 pub(crate) type LoadMaterialFn = for<'t> fn(
     &'t Material,
