@@ -884,7 +884,7 @@ impl World {
         &'w mut self,
         entities: &[Entity],
     ) -> Result<Vec<EntityMut<'w>>, QueryEntityError> {
-        Self::verify_unique_entries(&entities)?;
+        Self::verify_unique_entries(entities)?;
 
         // SAFETY: Each entity is unique.
         unsafe { self.get_entities_dynamic_mut_unchecked(entities) }
@@ -907,12 +907,12 @@ impl World {
             );
         }
 
-        // SAFETY:
-        // - `world_cell` has exclusive access to the entire world.
-        // - The caller ensures that each entity is unique, so none
-        //   of the borrows will conflict with one another.
         let borrows = cells
             .into_iter()
+            // SAFETY:
+            // - `world_cell` has exclusive access to the entire world.
+            // - The caller ensures that each entity is unique, so none
+            //   of the borrows will conflict with one another.
             .map(|c| unsafe { EntityMut::new(c) })
             .collect();
 
