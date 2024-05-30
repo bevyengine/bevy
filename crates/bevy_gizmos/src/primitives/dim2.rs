@@ -711,16 +711,20 @@ where
         }
 
         let squircle_points = |angle: f32| {
-            let factor =
-                if primitive.squareness == 0. || angle.rem_euclid(FRAC_PI_2) <= f32::EPSILON {
-                    1.
+            let divisor = primitive.squareness * (2. * angle).sin();
+            if divisor.abs() < 0.005 {
+                let (sin, cos) = angle.sin_cos();
+                Vec2::new(cos, sin) * primitive.half_size
+            } else {
+                let angle = if angle.rem_euclid(PI) >= FRAC_PI_2 {
+                    angle + PI
                 } else {
-                    let sin = (2. * angle).sin();
-                    SQRT_2 * (1. - (1. - (primitive.squareness * sin).powi(2)).sqrt()).sqrt()
-                        / (primitive.squareness * sin)
+                    angle
                 };
-            let (sin, cos) = angle.sin_cos();
-            factor * Vec2::new(cos, sin) * primitive.half_size
+                let factor = SQRT_2 * (1. - (1. - divisor * divisor).sqrt()).sqrt() / divisor;
+                let (sin, cos) = angle.sin_cos();
+                factor * Vec2::new(cos, sin) * primitive.half_size
+            }
         };
 
         let resolution = 128;
