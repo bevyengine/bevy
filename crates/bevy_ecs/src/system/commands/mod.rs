@@ -1022,7 +1022,7 @@ impl EntityCommands<'_> {
         self.commands.reborrow()
     }
 
-    /// Creates an [`Observer`](crate::observer::Observer) listening for `E` events targeting this entity.
+    /// Creates an [`Observer`](crate::observer::Observer) listening for any event of type `E` that targets this entity.
     pub fn observe<E: Component, B: Bundle, M>(
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
