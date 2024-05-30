@@ -79,7 +79,15 @@ impl PlaneMeshBuilder {
         self
     }
 
-    /// Sets the size of the plane mesh.
+    /// Sets the subdivisions of the plane mesh.
+    ///
+    /// 0 - is the original plane geometry, the 4 points in the XZ plane.
+    ///
+    /// 1 - is split by 1 line in the middle of the plane on both the X axis and the Z axis,
+    ///     resulting in a plane with 4 quads / 8 triangles.
+    ///
+    /// 2 - is a plane split by 2 lines on both the X and Z axes, subdividing the plane into 3
+    ///     equal sections along each axis, resulting in a plane with 9 quads / 18 triangles.
     #[inline]
     pub fn subdivisions(mut self, subdivisions: u32) -> Self {
         self.subdivisions = subdivisions;
@@ -89,8 +97,6 @@ impl PlaneMeshBuilder {
 
 impl MeshBuilder for PlaneMeshBuilder {
     fn build(&self) -> Mesh {
-        // here this is split in the z and x directions if one ever needs asymmetrical subdivision
-        // two Plane struct fields would need to be added instead of the single subdivisions field
         let z_vertex_count = self.subdivisions + 2;
         let x_vertex_count = self.subdivisions + 2;
         let num_vertices = (z_vertex_count * x_vertex_count) as usize;
@@ -126,18 +132,6 @@ impl MeshBuilder for PlaneMeshBuilder {
                 indices.push(quad + 1);
             }
         }
-
-        // let rotation = Quat::from_rotation_arc(Vec3::Y, *self.plane.normal);
-        // let positions = vec![
-        //     rotation * Vec3::new(self.plane.half_size.x, 0.0, -self.plane.half_size.y),
-        //     rotation * Vec3::new(-self.plane.half_size.x, 0.0, -self.plane.half_size.y),
-        //     rotation * Vec3::new(-self.plane.half_size.x, 0.0, self.plane.half_size.y),
-        //     rotation * Vec3::new(self.plane.half_size.x, 0.0, self.plane.half_size.y),
-        // ];
-
-        // let normals = vec![self.plane.normal.to_array(); 4];
-        // let uvs = vec![[1.0, 0.0], [0.0, 0.0], [0.0, 1.0], [1.0, 1.0]];
-        // let indices = Indices::U32(vec![0, 1, 2, 0, 2, 3]);
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
