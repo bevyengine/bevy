@@ -1,3 +1,4 @@
+use crate::GltfAssetLabel;
 use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode};
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{AnimationTarget, AnimationTargetId};
@@ -316,8 +317,10 @@ async fn load_gltf<'a, 'b, 'c>(
                     );
                 }
             }
-            let handle = load_context
-                .add_labeled_asset(format!("Animation{}", animation.index()), animation_clip);
+            let handle = load_context.add_labeled_asset(
+                GltfAssetLabel::Animation(animation.index()).to_string(),
+                animation_clip,
+            );
             if let Some(name) = animation.name() {
                 named_animations.insert(name.into(), handle.clone());
             }
@@ -1415,12 +1418,16 @@ fn load_node(
 
 /// Returns the label for the `mesh`.
 fn mesh_label(mesh: &gltf::Mesh) -> String {
-    format!("Mesh{}", mesh.index())
+    GltfAssetLabel::Mesh(mesh.index()).to_string()
 }
 
 /// Returns the label for the `mesh` and `primitive`.
 fn primitive_label(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
-    format!("Mesh{}/Primitive{}", mesh.index(), primitive.index())
+    GltfAssetLabel::Primitive {
+        mesh: mesh.index(),
+        primitive: primitive.index(),
+    }
+    .to_string()
 }
 
 fn primitive_name(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
@@ -1434,28 +1441,29 @@ fn primitive_name(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
 
 /// Returns the label for the morph target of `primitive`.
 fn morph_targets_label(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
-    format!(
-        "Mesh{}/Primitive{}/MorphTargets",
-        mesh.index(),
-        primitive.index()
-    )
+    GltfAssetLabel::MorphTarget {
+        mesh: mesh.index(),
+        primitive: primitive.index(),
+    }
+    .to_string()
 }
 
 /// Returns the label for the `material`.
 fn material_label(material: &Material, is_scale_inverted: bool) -> String {
     if let Some(index) = material.index() {
-        format!(
-            "Material{index}{}",
-            if is_scale_inverted { " (inverted)" } else { "" }
-        )
+        GltfAssetLabel::Material {
+            index,
+            is_scale_inverted,
+        }
+        .to_string()
     } else {
-        "MaterialDefault".to_string()
+        GltfAssetLabel::DefaultMaterial.to_string()
     }
 }
 
 /// Returns the label for the `texture`.
 fn texture_label(texture: &gltf::Texture) -> String {
-    format!("Texture{}", texture.index())
+    GltfAssetLabel::Texture(texture.index()).to_string()
 }
 
 fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Handle<Image> {
@@ -1501,16 +1509,16 @@ fn texture_handle_from_info(
 
 /// Returns the label for the `node`.
 fn node_label(node: &Node) -> String {
-    format!("Node{}", node.index())
+    GltfAssetLabel::Node(node.index()).to_string()
 }
 
 /// Returns the label for the `scene`.
 fn scene_label(scene: &gltf::Scene) -> String {
-    format!("Scene{}", scene.index())
+    GltfAssetLabel::Scene(scene.index()).to_string()
 }
 
 fn skin_label(skin: &gltf::Skin) -> String {
-    format!("Skin{}", skin.index())
+    GltfAssetLabel::Skin(skin.index()).to_string()
 }
 
 /// Extracts the texture sampler data from the glTF texture.
