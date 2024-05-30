@@ -317,12 +317,12 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("SCREEN_SPACE_REFLECTIONS".into());
         }
 
-        if key.contains(MeshPipelineKey::HAVE_PREVIOUS_SKIN) {
-            shader_defs.push("HAVE_PREVIOUS_SKIN".into());
+        if key.contains(MeshPipelineKey::HAS_PREVIOUS_SKIN) {
+            shader_defs.push("HAS_PREVIOUS_SKIN".into());
         }
 
-        if key.contains(MeshPipelineKey::HAVE_PREVIOUS_MORPH) {
-            shader_defs.push("HAVE_PREVIOUS_MORPH".into());
+        if key.contains(MeshPipelineKey::HAS_PREVIOUS_MORPH) {
+            shader_defs.push("HAS_PREVIOUS_MORPH".into());
         }
 
         // Always true, since we're in the deferred lighting pipeline

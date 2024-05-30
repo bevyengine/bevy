@@ -409,14 +409,15 @@ bitflags::bitflags! {
         const SHADOW_CASTER           = 1 << 0;
         /// The mesh can participate in automatic batching.
         const AUTOMATIC_BATCHING      = 1 << 1;
-        /// The mesh had a transform last frame and so is eligible for TAA.
-        const HAVE_PREVIOUS_TRANSFORM = 1 << 2;
+        /// The mesh had a transform last frame and so is eligible for motion
+        /// vector computation.
+        const HAS_PREVIOUS_TRANSFORM  = 1 << 2;
         /// The mesh had a skin last frame and so that skin should be taken into
-        /// account for TAA.
-        const HAVE_PREVIOUS_SKIN      = 1 << 3;
+        /// account for motion vector computation.
+        const HAS_PREVIOUS_SKIN       = 1 << 3;
         /// The mesh had morph targets last frame and so they should be taken
-        /// into account for TAA.
-        const HAVE_PREVIOUS_MORPH     = 1 << 4;
+        /// into account for motion vector computation.
+        const HAS_PREVIOUS_MORPH      = 1 << 4;
     }
 }
 
@@ -529,7 +530,7 @@ impl RenderMeshInstanceShared {
             !no_automatic_batching,
         );
         mesh_instance_flags.set(
-            RenderMeshInstanceFlags::HAVE_PREVIOUS_TRANSFORM,
+            RenderMeshInstanceFlags::HAS_PREVIOUS_TRANSFORM,
             previous_transform.is_some(),
         );
 
@@ -982,7 +983,7 @@ pub fn extract_meshes_for_gpu_building(
 
             let previous_input_index = if shared
                 .flags
-                .contains(RenderMeshInstanceFlags::HAVE_PREVIOUS_TRANSFORM)
+                .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_TRANSFORM)
             {
                 render_mesh_instances
                     .get(&entity)
@@ -1032,11 +1033,11 @@ fn set_mesh_motion_vector_flags(
 ) {
     for &entity in skin_indices.prev.keys() {
         render_mesh_instances
-            .insert_mesh_instance_flags(entity, RenderMeshInstanceFlags::HAVE_PREVIOUS_SKIN);
+            .insert_mesh_instance_flags(entity, RenderMeshInstanceFlags::HAS_PREVIOUS_SKIN);
     }
     for &entity in morph_indices.prev.keys() {
         render_mesh_instances
-            .insert_mesh_instance_flags(entity, RenderMeshInstanceFlags::HAVE_PREVIOUS_MORPH);
+            .insert_mesh_instance_flags(entity, RenderMeshInstanceFlags::HAS_PREVIOUS_MORPH);
     }
 }
 
@@ -1406,9 +1407,9 @@ bitflags::bitflags! {
         const IRRADIANCE_VOLUME                 = 1 << 14;
         const VISIBILITY_RANGE_DITHER           = 1 << 15;
         const SCREEN_SPACE_REFLECTIONS          = 1 << 16;
-        const HAVE_PREVIOUS_SKIN                = 1 << 17;
-        const HAVE_PREVIOUS_MORPH               = 1 << 18;
-        const LAST_FLAG                         = Self::HAVE_PREVIOUS_MORPH.bits();
+        const HAS_PREVIOUS_SKIN                = 1 << 17;
+        const HAS_PREVIOUS_MORPH               = 1 << 18;
+        const LAST_FLAG                         = Self::HAS_PREVIOUS_MORPH.bits();
 
         // Bitfields
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
@@ -1710,12 +1711,12 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("MOTION_VECTOR_PREPASS".into());
         }
 
-        if key.contains(MeshPipelineKey::HAVE_PREVIOUS_SKIN) {
-            shader_defs.push("HAVE_PREVIOUS_SKIN".into());
+        if key.contains(MeshPipelineKey::HAS_PREVIOUS_SKIN) {
+            shader_defs.push("HAS_PREVIOUS_SKIN".into());
         }
 
-        if key.contains(MeshPipelineKey::HAVE_PREVIOUS_MORPH) {
-            shader_defs.push("HAVE_PREVIOUS_MORPH".into());
+        if key.contains(MeshPipelineKey::HAS_PREVIOUS_MORPH) {
+            shader_defs.push("HAS_PREVIOUS_MORPH".into());
         }
 
         if key.contains(MeshPipelineKey::DEFERRED_PREPASS) {

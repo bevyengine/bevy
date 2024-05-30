@@ -112,18 +112,18 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     out.color = vertex.color;
 #endif
 
-    // Compute the motion vector, for TAA. For this we need to know where the
-    // vertex was last frame.
+    // Compute the motion vector for TAA among other purposes. For this we need
+    // to know where the vertex was last frame.
 #ifdef MOTION_VECTOR_PREPASS
 
     // Take morph targets into account.
 #ifdef MORPH_TARGETS
 
-#ifdef HAVE_PREVIOUS_MORPH
+#ifdef HAS_PREVIOUS_MORPH
     let prev_vertex = morph_prev_vertex(vertex_no_morph);
-#else   // HAVE_PREVIOUS_MORPH
+#else   // HAS_PREVIOUS_MORPH
     let prev_vertex = vertex_no_morph;
-#endif  // HAVE_PREVIOUS_MORPH
+#endif  // HAS_PREVIOUS_MORPH
 
 #else   // MORPH_TARGETS
     let prev_vertex = vertex_no_morph;
@@ -132,14 +132,14 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     // Take skinning into account.
 #ifdef SKINNED
 
-#ifdef HAVE_PREVIOUS_SKIN
+#ifdef HAS_PREVIOUS_SKIN
     let prev_model = skinning::skin_prev_model(
         prev_vertex.joint_indices,
         prev_vertex.joint_weights,
     );
-#else   // HAVE_PREVIOUS_SKIN
+#else   // HAS_PREVIOUS_SKIN
     let prev_model = mesh_functions::get_previous_model_matrix(prev_vertex.instance_index);
-#endif  // HAVE_PREVIOUS_SKIN
+#endif  // HAS_PREVIOUS_SKIN
 
 #else   // SKINNED
     let prev_model = mesh_functions::get_previous_model_matrix(prev_vertex.instance_index);
