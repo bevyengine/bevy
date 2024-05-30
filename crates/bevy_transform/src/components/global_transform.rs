@@ -2,7 +2,7 @@ use std::ops::Mul;
 
 use super::Transform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::{Affine3A, Mat4, Quat, Vec3, Vec3A};
+use bevy_math::{Affine3A, Dir3, Mat4, Quat, Vec3, Vec3A};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// Describe the position of an entity relative to the reference frame.
@@ -42,13 +42,13 @@ macro_rules! impl_local_axis {
     ($pos_name: ident, $neg_name: ident, $axis: ident) => {
         #[doc=std::concat!("Return the local ", std::stringify!($pos_name), " vector (", std::stringify!($axis) ,").")]
         #[inline]
-        pub fn $pos_name(&self) -> Vec3 {
-            (self.0.matrix3 * Vec3::$axis).normalize()
+        pub fn $pos_name(&self) -> Dir3 {
+            Dir3::new_unchecked((self.0.matrix3 * Vec3::$axis).normalize())
         }
 
         #[doc=std::concat!("Return the local ", std::stringify!($neg_name), " vector (-", std::stringify!($axis) ,").")]
         #[inline]
-        pub fn $neg_name(&self) -> Vec3 {
+        pub fn $neg_name(&self) -> Dir3 {
             -self.$pos_name()
         }
     };

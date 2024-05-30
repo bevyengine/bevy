@@ -1171,6 +1171,11 @@ impl Default for EnabledButtons {
     }
 }
 
+/// Marker component for a [`Window`] that has been requested to close and
+/// is in the process of closing (on the next frame).
+#[derive(Component)]
+pub struct ClosingWindow;
+
 #[cfg(test)]
 mod tests {
     use super::*;

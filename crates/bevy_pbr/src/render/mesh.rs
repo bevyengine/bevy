@@ -33,15 +33,13 @@ use bevy_render::{
     texture::{BevyDefault, DefaultImageSampler, ImageSampler, TextureFormatPixelInfo},
     view::{
         prepare_view_targets, GpuCulling, RenderVisibilityRanges, ViewTarget, ViewUniformOffset,
-        ViewVisibility, VisibilityRange, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
+        ViewVisibility, VisibilityRange,
     },
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, tracing::warn, Entry, HashMap, Parallel};
 
-#[cfg(debug_assertions)]
-use bevy_utils::warn_once;
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
 use static_assertions::const_assert_eq;
@@ -234,6 +232,7 @@ impl Plugin for MeshRenderPlugin {
 
             render_app
                 .insert_resource(indirect_parameters_buffer)
+                .init_resource::<MeshPipelineViewLayouts>()
                 .init_resource::<MeshPipeline>();
         }
 
@@ -1032,9 +1031,11 @@ fn collect_meshes_for_gpu_building(
     }
 }
 
+/// All data needed to construct a pipeline for rendering 3D meshes.
 #[derive(Resource, Clone)]
 pub struct MeshPipeline {
-    view_layouts: [MeshPipelineViewLayout; MeshPipelineViewLayoutKey::COUNT],
+    /// A reference to all the mesh pipeline view layouts.
+    pub view_layouts: MeshPipelineViewLayouts,
     // This dummy white texture is to be used in place of optional StandardMaterial textures
     pub dummy_white_gpu_image: GpuImage,
     pub clustered_forward_buffer_binding_type: BufferBindingType,
@@ -1065,18 +1066,13 @@ impl FromWorld for MeshPipeline {
             Res<RenderDevice>,
             Res<DefaultImageSampler>,
             Res<RenderQueue>,
+            Res<MeshPipelineViewLayouts>,
         )> = SystemState::new(world);
-        let (render_device, default_sampler, render_queue) = system_state.get_mut(world);
+        let (render_device, default_sampler, render_queue, view_layouts) =
+            system_state.get_mut(world);
+
         let clustered_forward_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
-        let visibility_ranges_buffer_binding_type = render_device
-            .get_supported_read_only_binding_type(VISIBILITY_RANGES_STORAGE_BUFFER_COUNT);
-
-        let view_layouts = generate_view_layouts(
-            &render_device,
-            clustered_forward_buffer_binding_type,
-            visibility_ranges_buffer_binding_type,
-        );
 
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
         let dummy_white_gpu_image = {
@@ -1113,7 +1109,7 @@ impl FromWorld for MeshPipeline {
         };
 
         MeshPipeline {
-            view_layouts,
+            view_layouts: view_layouts.clone(),
             clustered_forward_buffer_binding_type,
             dummy_white_gpu_image,
             mesh_layouts: MeshLayouts::new(&render_device),
@@ -1141,16 +1137,7 @@ impl MeshPipeline {
     }
 
     pub fn get_view_layout(&self, layout_key: MeshPipelineViewLayoutKey) -> &BindGroupLayout {
-        let index = layout_key.bits() as usize;
-        let layout = &self.view_layouts[index];
-
-        #[cfg(debug_assertions)]
-        if layout.texture_count > MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES {
-            // Issue our own warning here because Naga's error message is a bit cryptic in this situation
-            warn_once!("Too many textures in mesh pipeline view layout, this might cause us to hit `wgpu::Limits::max_sampled_textures_per_shader_stage` in some environments.");
-        }
-
-        &layout.bind_group_layout
+        self.view_layouts.get_view_layout(layout_key)
     }
 }
 
@@ -1355,7 +1342,8 @@ bitflags::bitflags! {
         const LIGHTMAPPED                       = 1 << 13;
         const IRRADIANCE_VOLUME                 = 1 << 14;
         const VISIBILITY_RANGE_DITHER           = 1 << 15;
-        const LAST_FLAG                         = Self::VISIBILITY_RANGE_DITHER.bits();
+        const SCREEN_SPACE_REFLECTIONS          = 1 << 16;
+        const LAST_FLAG                         = Self::SCREEN_SPACE_REFLECTIONS.bits();
 
         // Bitfields
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
@@ -1543,10 +1531,12 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if layout.0.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
+            shader_defs.push("VERTEX_UVS_A".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
         }
 
         if layout.0.contains(Mesh::ATTRIBUTE_UV_1) {
+            shader_defs.push("VERTEX_UVS".into());
             shader_defs.push("VERTEX_UVS_B".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_1.at_shader_location(3));
         }
@@ -1563,6 +1553,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if cfg!(feature = "pbr_transmission_textures") {
             shader_defs.push("PBR_TRANSMISSION_TEXTURES_SUPPORTED".into());
+        }
+        if cfg!(feature = "pbr_multi_layer_material_textures") {
+            shader_defs.push("PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED".into());
         }
 
         let mut bind_group_layout = vec![self.get_view_layout(key.into()).clone()];
@@ -1674,6 +1667,14 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());
+            shader_defs.push(ShaderDefVal::UInt(
+                "TONEMAPPING_LUT_TEXTURE_BINDING_INDEX".into(),
+                20,
+            ));
+            shader_defs.push(ShaderDefVal::UInt(
+                "TONEMAPPING_LUT_SAMPLER_BINDING_INDEX".into(),
+                21,
+            ));
 
             let method = key.intersection(MeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
@@ -1684,7 +1685,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
                 shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_ACES_FITTED {
-                shader_defs.push("TONEMAP_METHOD_ACES_FITTED ".into());
+                shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_AGX {
                 shader_defs.push("TONEMAP_METHOD_AGX".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM {
@@ -1931,6 +1932,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         Read<ViewLightsUniformOffset>,
         Read<ViewFogUniformOffset>,
         Read<ViewLightProbesUniformOffset>,
+        Read<ViewScreenSpaceReflectionsUniformOffset>,
         Read<MeshViewBindGroup>,
     );
     type ItemQuery = ();
@@ -1938,7 +1940,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform, view_lights, view_fog, view_light_probes, mesh_view_bind_group): ROQueryItem<
+        (view_uniform, view_lights, view_fog, view_light_probes, view_ssr, mesh_view_bind_group): ROQueryItem<
             'w,
             Self::ViewQuery,
         >,
@@ -1954,6 +1956,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
                 view_lights.offset,
                 view_fog.offset,
                 **view_light_probes,
+                **view_ssr,
             ],
         );
 

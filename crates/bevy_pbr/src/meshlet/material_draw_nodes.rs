@@ -8,7 +8,7 @@ use super::{
 };
 use crate::{
     MeshViewBindGroup, PrepassViewBindGroup, PreviousViewUniformOffset, ViewFogUniformOffset,
-    ViewLightProbesUniformOffset, ViewLightsUniformOffset,
+    ViewLightProbesUniformOffset, ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
 use bevy_core_pipeline::prepass::ViewPrepassTextures;
 use bevy_ecs::{query::QueryItem, world::World};
@@ -35,6 +35,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
         &'static ViewLightsUniformOffset,
         &'static ViewFogUniformOffset,
         &'static ViewLightProbesUniformOffset,
+        &'static ViewScreenSpaceReflectionsUniformOffset,
         &'static MeshletViewMaterialsMainOpaquePass,
         &'static MeshletViewBindGroups,
         &'static MeshletViewResources,
@@ -52,6 +53,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             view_lights_offset,
             view_fog_offset,
             view_light_probes_offset,
+            view_ssr_offset,
             meshlet_view_materials,
             meshlet_view_bind_groups,
             meshlet_view_resources,
@@ -103,6 +105,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
                 view_lights_offset.offset,
                 view_fog_offset.offset,
                 **view_light_probes_offset,
+                **view_ssr_offset,
             ],
         );
         render_pass.set_bind_group(1, meshlet_material_draw_bind_group, &[]);
@@ -116,8 +119,8 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
                     pipeline_cache.get_render_pipeline(*material_pipeline_id)
                 {
                     let x = *material_id * 3;
-                    render_pass.set_bind_group(2, material_bind_group, &[]);
                     render_pass.set_render_pipeline(material_pipeline);
+                    render_pass.set_bind_group(2, material_bind_group, &[]);
                     render_pass.draw(x..(x + 3), 0..1);
                 }
             }
@@ -237,8 +240,8 @@ impl ViewNode for MeshletPrepassNode {
                     pipeline_cache.get_render_pipeline(*material_pipeline_id)
                 {
                     let x = *material_id * 3;
-                    render_pass.set_bind_group(2, material_bind_group, &[]);
                     render_pass.set_render_pipeline(material_pipeline);
+                    render_pass.set_bind_group(2, material_bind_group, &[]);
                     render_pass.draw(x..(x + 3), 0..1);
                 }
             }
@@ -363,8 +366,8 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
                     pipeline_cache.get_render_pipeline(*material_pipeline_id)
                 {
                     let x = *material_id * 3;
-                    render_pass.set_bind_group(2, material_bind_group, &[]);
                     render_pass.set_render_pipeline(material_pipeline);
+                    render_pass.set_bind_group(2, material_bind_group, &[]);
                     render_pass.draw(x..(x + 3), 0..1);
                 }
             }

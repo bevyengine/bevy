@@ -2,7 +2,7 @@ use bevy_math::{primitives::Torus, Vec3};
 use wgpu::PrimitiveTopology;
 
 use crate::{
-    mesh::{Indices, Mesh, Meshable},
+    mesh::{Indices, Mesh, MeshBuilder, Meshable},
     render_asset::RenderAssetUsages,
 };
 
@@ -65,9 +65,10 @@ impl TorusMeshBuilder {
         self.major_resolution = resolution;
         self
     }
+}
 
-    /// Builds a [`Mesh`] according to the configuration in `self`.
-    pub fn build(&self) -> Mesh {
+impl MeshBuilder for TorusMeshBuilder {
+    fn build(&self) -> Mesh {
         // code adapted from http://apparat-engine.blogspot.com/2013/04/procedural-meshes-torus.html
 
         let n_vertices = (self.major_resolution + 1) * (self.minor_resolution + 1);
@@ -156,11 +157,5 @@ impl Meshable for Torus {
 impl From<Torus> for Mesh {
     fn from(torus: Torus) -> Self {
         torus.mesh().build()
-    }
-}
-
-impl From<TorusMeshBuilder> for Mesh {
-    fn from(torus: TorusMeshBuilder) -> Self {
-        torus.build()
     }
 }

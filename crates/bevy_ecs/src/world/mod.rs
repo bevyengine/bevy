@@ -1,6 +1,6 @@
 //! Defines the [`World`] and APIs for accessing it directly.
 
-mod command_queue;
+pub(crate) mod command_queue;
 mod deferred_world;
 mod entity_ref;
 pub mod error;
@@ -8,6 +8,7 @@ mod spawn_batch;
 pub mod unsafe_world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
+use crate::component::ComponentInitializer;
 pub use crate::world::command_queue::CommandQueue;
 pub use deferred_world::DeferredWorld;
 pub use entity_ref::{
@@ -31,6 +32,7 @@ use crate::{
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::{Commands, Res, Resource},
+    world::command_queue::RawCommandQueue,
     world::error::TryRunScheduleError,
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -112,7 +114,7 @@ pub struct World {
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
-    pub(crate) command_queue: CommandQueue,
+    pub(crate) command_queue: RawCommandQueue,
 }
 
 impl Default for World {
@@ -130,8 +132,19 @@ impl Default for World {
             change_tick: AtomicU32::new(1),
             last_change_tick: Tick::new(0),
             last_check_tick: Tick::new(0),
-            command_queue: CommandQueue::default(),
+            command_queue: RawCommandQueue::new(),
         }
+    }
+}
+
+impl Drop for World {
+    fn drop(&mut self) {
+        // SAFETY: Not passing a pointer so the argument is always valid
+        unsafe { self.command_queue.apply_or_drop_queued(None) };
+        // SAFETY: Pointers in internal command queue are only invalidated here
+        drop(unsafe { Box::from_raw(self.command_queue.bytes.as_ptr()) });
+        // SAFETY: Pointers in internal command queue are only invalidated here
+        drop(unsafe { Box::from_raw(self.command_queue.cursor.as_ptr()) });
     }
 }
 
@@ -206,6 +219,15 @@ impl World {
         &self.bundles
     }
 
+    /// Creates a [`ComponentInitializer`] for this world.
+    #[inline]
+    pub fn component_initializer(&mut self) -> ComponentInitializer {
+        ComponentInitializer {
+            components: &mut self.components,
+            storages: &mut self.storages,
+        }
+    }
+
     /// Retrieves this world's [`RemovedComponentEvents`] collection
     #[inline]
     pub fn removed_components(&self) -> &RemovedComponentEvents {
@@ -216,7 +238,8 @@ impl World {
     /// Use [`World::flush_commands`] to apply all queued commands
     #[inline]
     pub fn commands(&mut self) -> Commands {
-        Commands::new_from_entities(&mut self.command_queue, &self.entities)
+        // SAFETY: command_queue is stored on world and always valid while the world exists
+        unsafe { Commands::new_raw_from_entities(self.command_queue.clone(), &self.entities) }
     }
 
     /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
@@ -1871,9 +1894,14 @@ impl World {
     /// This does not apply commands from any systems, only those stored in the world.
     #[inline]
     pub fn flush_commands(&mut self) {
-        if !self.command_queue.is_empty() {
-            // `CommandQueue` application always applies commands from the world queue first so this will apply all stored commands
-            CommandQueue::default().apply(self);
+        // SAFETY: `self.command_queue` is only de-allocated in `World`'s `Drop`
+        if !unsafe { self.command_queue.is_empty() } {
+            // SAFETY: `self.command_queue` is only de-allocated in `World`'s `Drop`
+            unsafe {
+                self.command_queue
+                    .clone()
+                    .apply_or_drop_queued(Some(self.into()));
+            };
         }
     }
 

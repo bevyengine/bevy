@@ -1,10 +1,10 @@
 use crate::{
     archetype::Archetype,
-    component::{Component, ComponentId, StorageType, Tick},
+    component::{Component, ComponentId, ComponentInitializer, Components, StorageType, Tick},
     entity::Entity,
     query::{DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{Column, ComponentSparseSet, Table, TableRow},
-    world::{unsafe_world_cell::UnsafeWorldCell, World},
+    world::unsafe_world_cell::UnsafeWorldCell,
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::all_tuples;
@@ -179,12 +179,12 @@ unsafe impl<T: Component> WorldQuery for With<T> {
         access.and_with(id);
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+    fn init_state(initializer: &mut ComponentInitializer) -> ComponentId {
+        initializer.init_component::<T>()
     }
 
-    fn get_state(world: &World) -> Option<Self::State> {
-        world.component_id::<T>()
+    fn get_state(components: &Components) -> Option<Self::State> {
+        components.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -287,12 +287,12 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
         access.and_without(id);
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+    fn init_state(initializer: &mut ComponentInitializer) -> ComponentId {
+        initializer.init_component::<T>()
     }
 
-    fn get_state(world: &World) -> Option<Self::State> {
-        world.component_id::<T>()
+    fn get_state(components: &Components) -> Option<Self::State> {
+        components.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -457,12 +457,12 @@ macro_rules! impl_or_query_filter {
                 *access = _new_access;
             }
 
-            fn init_state(world: &mut World) -> Self::State {
-                ($($filter::init_state(world),)*)
+            fn init_state(initializer: &mut ComponentInitializer) -> Self::State {
+                ($($filter::init_state(initializer),)*)
             }
 
-            fn get_state(world: &World) -> Option<Self::State> {
-                Some(($($filter::get_state(world)?,)*))
+            fn get_state(components: &Components) -> Option<Self::State> {
+                Some(($($filter::get_state(components)?,)*))
             }
 
             fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
@@ -514,12 +514,14 @@ macro_rules! impl_tuple_query_filter {
 all_tuples!(impl_tuple_query_filter, 0, 15, F);
 all_tuples!(impl_or_query_filter, 0, 15, F, S);
 
-/// A filter on a component that only retains results added after the system last ran.
+/// A filter on a component that only retains results the first time after they have been added.
 ///
 /// A common use for this filter is one-time initialization.
 ///
 /// To retain all results without filtering but still check whether they were added after the
 /// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
+///
+/// **Note** that this includes changes that happened before the first time this `Query` was run.
 ///
 /// # Deferred
 ///
@@ -687,12 +689,12 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         access.add_read(id);
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+    fn init_state(initializer: &mut ComponentInitializer) -> ComponentId {
+        initializer.init_component::<T>()
     }
 
-    fn get_state(world: &World) -> Option<ComponentId> {
-        world.component_id::<T>()
+    fn get_state(components: &Components) -> Option<ComponentId> {
+        components.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -716,7 +718,7 @@ impl<T: Component> QueryFilter for Added<T> {
     }
 }
 
-/// A filter on a component that only retains results added or mutably dereferenced after the system last ran.
+/// A filter on a component that only retains results the first time after they have been added or mutably dereferenced.
 ///
 /// A common use for this filter is avoiding redundant work when values have not changed.
 ///
@@ -725,6 +727,8 @@ impl<T: Component> QueryFilter for Added<T> {
 ///
 /// To retain all results without filtering but still check whether they were changed after the
 /// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
+///
+/// **Note** that this includes changes that happened before the first time this `Query` was run.
 ///
 /// # Deferred
 ///
@@ -896,12 +900,12 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         access.add_read(id);
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+    fn init_state(initializer: &mut ComponentInitializer) -> ComponentId {
+        initializer.init_component::<T>()
     }
 
-    fn get_state(world: &World) -> Option<ComponentId> {
-        world.component_id::<T>()
+    fn get_state(components: &Components) -> Option<ComponentId> {
+        components.component_id::<T>()
     }
 
     fn matches_component_set(
