@@ -424,6 +424,48 @@ impl World {
         }
     }
 
+    /// Gets an [`EntityRef`] for multiple entities at once, whose number is determined at runtime.
+    ///
+    /// # Panics
+    ///
+    /// If any entity does not exist in the world.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut world = World::new();
+    /// # let id1 = world.spawn_empty().id();
+    /// # let id2 = world.spawn_empty().id();
+    /// // Getting multiple entities.
+    /// let entities = world.many_entities_dynamic(&[id1, id2]);
+    /// let entity1 = entities.get(0).unwrap();
+    /// let entity2 = entities.get(1).unwrap();
+    /// ```
+    ///
+    /// ```should_panic
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut world = World::new();
+    /// # let id1 = world.spawn_empty().id();
+    /// # let id2 = world.spawn_empty().id();
+    /// // Trying to get a despawned entity will fail.
+    /// world.despawn(id2);
+    /// world.many_entities_dynamic(&[id1, id2]);
+    /// ```
+    pub fn many_entities_dynamic<'w>(&'w mut self, entities: &[Entity]) -> Vec<EntityRef<'w>> {
+        #[inline(never)]
+        #[cold]
+        #[track_caller]
+        fn panic_no_entity(entity: Entity) -> ! {
+            panic!("Entity {entity:?} does not exist");
+        }
+
+        match self.get_many_entities_dynamic(entities) {
+            Ok(refs) => refs,
+            Err(entity) => panic_no_entity(entity),
+        }
+    }
+
     /// Gets mutable access to multiple entities at once.
     ///
     /// # Panics
@@ -464,6 +506,49 @@ impl World {
         }
 
         match self.get_many_entities_mut(entities) {
+            Ok(borrows) => borrows,
+            Err(e) => panic_on_err(e),
+        }
+    }
+
+    /// Gets mutable access to multiple entities at once, whose number is determined at runtime.
+    ///
+    /// # Panics
+    ///
+    /// If any entities do not exist in the world,
+    /// or if the same entity is specified multiple times.
+    ///
+    /// # Examples
+    ///
+    /// Disjoint mutable access.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut world = World::new();
+    /// # let id1 = world.spawn_empty().id();
+    /// # let id2 = world.spawn_empty().id();
+    /// // Disjoint mutable access.
+    /// let mut entities = world.get_many_entities_dynamic_mut(&[id1, id2]).unwrap();
+    /// let entity1 = entities.get_mut(0).unwrap();
+    /// ```
+    ///
+    /// Trying to access the same entity multiple times will fail.
+    ///
+    /// ```should_panic
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut world = World::new();
+    /// # let id = world.spawn_empty().id();
+    /// world.many_entities_dynamic_mut(&[id, id]);
+    /// ```
+    pub fn many_entities_dynamic_mut<'w>(&'w mut self, entities: &[Entity]) -> Vec<EntityMut<'w>> {
+        #[inline(never)]
+        #[cold]
+        #[track_caller]
+        fn panic_on_err(e: QueryEntityError) -> ! {
+            panic!("{e}");
+        }
+
+        match self.get_many_entities_dynamic_mut(entities) {
             Ok(borrows) => borrows,
             Err(e) => panic_on_err(e),
         }
@@ -582,6 +667,40 @@ impl World {
         Ok(refs)
     }
 
+    /// Gets an [`EntityRef`] for multiple entities at once, whose number is determined at runtime.
+    ///
+    /// # Errors
+    ///
+    /// If any entity does not exist in the world.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut world = World::new();
+    /// # let id1 = world.spawn_empty().id();
+    /// # let id2 = world.spawn_empty().id();
+    /// // Getting multiple entities.
+    /// let entities = world.get_many_entities_dynamic(&[id1, id2]).unwrap();
+    /// let entity1 = entities.get(0).unwrap();
+    /// let entity2 = entities.get(1).unwrap();
+    ///
+    /// // Trying to get a despawned entity will fail.
+    /// world.despawn(id2);
+    /// assert!(world.get_many_entities_dynamic(&[id1, id2]).is_err());
+    /// ```
+    pub fn get_many_entities_dynamic<'w>(
+        &'w self,
+        entities: &[Entity],
+    ) -> Result<Vec<EntityRef<'w>>, Entity> {
+        let mut borrows = Vec::with_capacity(entities.len());
+        for &id in entities {
+            borrows.push(self.get_entity(id).ok_or(id)?);
+        }
+
+        Ok(borrows)
+    }
+
     /// Returns an [`Entity`] iterator of current entities.
     ///
     /// This is useful in contexts where you only have read-only access to the [`World`].
@@ -665,6 +784,23 @@ impl World {
         Some(unsafe { EntityWorldMut::new(self, entity, location) })
     }
 
+    /// Verify that no duplicate entities are present in the given slice.
+    /// Does NOT check if the entities actually exist in the world.
+    ///
+    /// # Errors
+    ///
+    /// If any entities are duplicated.
+    fn verify_unique_entries(entities: &[Entity]) -> Result<(), QueryEntityError> {
+        for i in 0..entities.len() {
+            for j in 0..i {
+                if entities[i] == entities[j] {
+                    return Err(QueryEntityError::AliasedMutability(entities[i]));
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Gets mutable access to multiple entities.
     ///
     /// # Errors
@@ -689,14 +825,7 @@ impl World {
         &mut self,
         entities: [Entity; N],
     ) -> Result<[EntityMut<'_>; N], QueryEntityError> {
-        // Ensure each entity is unique.
-        for i in 0..N {
-            for j in 0..i {
-                if entities[i] == entities[j] {
-                    return Err(QueryEntityError::AliasedMutability(entities[i]));
-                }
-            }
-        }
+        Self::verify_unique_entries(&entities)?;
 
         // SAFETY: Each entity is unique.
         unsafe { self.get_entities_mut_unchecked(entities) }
@@ -726,6 +855,66 @@ impl World {
         // - The caller ensures that each entity is unique, so none
         //   of the borrows will conflict with one another.
         let borrows = cells.map(|c| unsafe { EntityMut::new(c) });
+
+        Ok(borrows)
+    }
+
+    /// Gets mutable access to multiple entities, whose number is determined at runtime.
+    ///
+    /// # Errors
+    ///
+    /// If any entities do not exist in the world,
+    /// or if the same entity is specified multiple times.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut world = World::new();
+    /// # let id1 = world.spawn_empty().id();
+    /// # let id2 = world.spawn_empty().id();
+    /// // Disjoint mutable access.
+    /// let mut entities = world.get_many_entities_dynamic_mut(&[id1, id2]).unwrap();
+    /// let entity1 = entities.get_mut(0).unwrap();
+    ///
+    /// // Trying to access the same entity multiple times will fail.
+    /// assert!(world.get_many_entities_dynamic_mut(&[id1, id1]).is_err());
+    /// ```
+    pub fn get_many_entities_dynamic_mut<'w>(
+        &'w mut self,
+        entities: &[Entity],
+    ) -> Result<Vec<EntityMut<'w>>, QueryEntityError> {
+        Self::verify_unique_entries(&entities)?;
+
+        // SAFETY: Each entity is unique.
+        unsafe { self.get_entities_dynamic_mut_unchecked(entities) }
+    }
+
+    /// # Safety
+    /// `entities` must contain no duplicate [`Entity`] IDs.
+    unsafe fn get_entities_dynamic_mut_unchecked<'w>(
+        &'w mut self,
+        entities: &[Entity],
+    ) -> Result<Vec<EntityMut<'w>>, QueryEntityError> {
+        let world_cell = self.as_unsafe_world_cell();
+
+        let mut cells = Vec::with_capacity(entities.len());
+        for &id in entities {
+            cells.push(
+                world_cell
+                    .get_entity(id)
+                    .ok_or(QueryEntityError::NoSuchEntity(id))?,
+            );
+        }
+
+        // SAFETY:
+        // - `world_cell` has exclusive access to the entire world.
+        // - The caller ensures that each entity is unique, so none
+        //   of the borrows will conflict with one another.
+        let borrows = cells
+            .into_iter()
+            .map(|c| unsafe { EntityMut::new(c) })
+            .collect();
 
         Ok(borrows)
     }
