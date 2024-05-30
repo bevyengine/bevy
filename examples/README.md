@@ -524,7 +524,7 @@ Then you can build it with `gradlew`:
 
 Or build it with Android Studio.
 
-After compiling and linking you can build and test it in your android project.
+Then you can test it in your android project.
 
 #### About `libc++_shared.so`
 
