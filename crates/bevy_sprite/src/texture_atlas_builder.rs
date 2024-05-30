@@ -59,25 +59,25 @@ pub type TextureAtlasBuilderResult<T> = Result<T, TextureAtlasBuilderError>;
 
 impl<'a> TextureAtlasBuilder<'a> {
     /// Sets the initial size of the atlas in pixels.
-    pub fn initial_size(mut self, size: UVec2) -> Self {
+    pub fn initial_size(&mut self, size: UVec2) -> &mut Self {
         self.initial_size = size;
         self
     }
 
     /// Sets the max size of the atlas in pixels.
-    pub fn max_size(mut self, size: UVec2) -> Self {
+    pub fn max_size(&mut self, size: UVec2) -> &mut Self {
         self.max_size = size;
         self
     }
 
     /// Sets the texture format for textures in the atlas.
-    pub fn format(mut self, format: TextureFormat) -> Self {
+    pub fn format(&mut self, format: TextureFormat) -> &mut Self {
         self.format = format;
         self
     }
 
     /// Control whether the added texture should be converted to the atlas format, if different.
-    pub fn auto_format_conversion(mut self, auto_format_conversion: bool) -> Self {
+    pub fn auto_format_conversion(&mut self, auto_format_conversion: bool) -> &mut Self {
         self.auto_format_conversion = auto_format_conversion;
         self
     }
@@ -86,7 +86,11 @@ impl<'a> TextureAtlasBuilder<'a> {
     ///
     /// Optionally an asset id can be passed that can later be used with the texture layout to retrieve the index of this texture.
     /// The insertion order will reflect the index of the added texture in the finished texture atlas.
-    pub fn add_texture(mut self, image_id: Option<AssetId<Image>>, texture: &'a Image) -> Self {
+    pub fn add_texture(
+        &mut self,
+        image_id: Option<AssetId<Image>>,
+        texture: &'a Image,
+    ) -> &mut Self {
         self.textures_to_place.push((image_id, texture));
         self
     }
@@ -94,7 +98,7 @@ impl<'a> TextureAtlasBuilder<'a> {
     /// Sets the amount of padding in pixels to add between the textures in the texture atlas.
     ///
     /// The `x` value provide will be added to the right edge, while the `y` value will be added to the bottom edge.
-    pub fn padding(mut self, padding: UVec2) -> Self {
+    pub fn padding(&mut self, padding: UVec2) -> &mut Self {
         self.padding = padding;
         self
     }
@@ -147,6 +151,14 @@ impl<'a> TextureAtlasBuilder<'a> {
                 texture.texture_descriptor.format, self.format
             );
         }
+    }
+
+    #[deprecated(
+        since = "0.14.0",
+        note = "TextureAtlasBuilder::finish() was not idiomatic. Use TextureAtlasBuilder::build() instead."
+    )]
+    pub fn finish(self) -> Result<(TextureAtlasLayout, Image), TextureAtlasBuilderError> {
+        self.build()
     }
 
     /// Consumes the builder, and returns the newly created texture atlas and

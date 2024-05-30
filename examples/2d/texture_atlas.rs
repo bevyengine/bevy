@@ -207,8 +207,8 @@ fn create_texture_atlas(
     textures: &mut ResMut<Assets<Image>>,
 ) -> (TextureAtlasLayout, Handle<Image>) {
     // Build a texture atlas using the individual sprites
-    let mut texture_atlas_builder =
-        TextureAtlasBuilder::default().padding(padding.unwrap_or_default());
+    let mut texture_atlas_builder = TextureAtlasBuilder::default();
+    texture_atlas_builder.padding(padding.unwrap_or_default());
     for handle in folder.handles.iter() {
         let id = handle.id().typed_unchecked::<Image>();
         let Some(texture) = textures.get(id) else {
@@ -219,7 +219,7 @@ fn create_texture_atlas(
             continue;
         };
 
-        texture_atlas_builder = texture_atlas_builder.add_texture(Some(id), texture);
+        texture_atlas_builder.add_texture(Some(id), texture);
     }
 
     let (texture_atlas_layout, texture) = texture_atlas_builder.build().unwrap();
