@@ -1,7 +1,7 @@
 //! Showcase how to use and configure FPS overlay.
 
 use bevy::{
-    dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin},
+    dev_tools::fps_overlay::{FpsOverlay, FpsOverlayPlugin},
     prelude::*,
 };
 
@@ -10,7 +10,7 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             FpsOverlayPlugin {
-                config: FpsOverlayConfig {
+                config: FpsOverlay {
                     text_config: TextStyle {
                         // Here we define size of our overlay
                         font_size: 50.0,
@@ -57,7 +57,7 @@ fn setup(mut commands: Commands) {
         });
 }
 
-fn customize_config(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOverlayConfig>) {
+fn customize_config(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOverlay>) {
     if input.just_pressed(KeyCode::Digit1) {
         // Changing resource will affect overlay
         overlay.text_config.color = Color::srgb(1.0, 0.0, 0.0);

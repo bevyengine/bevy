@@ -1,10 +1,12 @@
-use bevy_app::{Plugin, PreUpdate, Update};
+use bevy_app::{Plugin, PreUpdate};
 use bevy_ecs::{event::EventReader, reflect::AppTypeRegistry, system::{Commands, Res}, world::Command};
 use bevy_reflect::{serde::ReflectDeserializer, std_traits::ReflectDefault, Reflect};
 use serde::de::DeserializeSeed;
-use crate::{cli_deserialize::{get_cli_command_name, CliDeserializer}, console_reader_plugin::{ConsoleInput, ConsoleReaderPlugin}, dev_command::ReflectDevCommand};
-use crate::prelude::DevCommand;
+use crate::{cli_toolbox::get_cli_command_name, dev_command::ReflectDevCommand, prelude::DevCommand};
 
+use super::{CliDeserializer, ConsoleInput, ConsoleReaderPlugin};
+
+/// A plugin that adds the cli dev command executor to the app
 pub struct CLIToolbox;
 
 impl Plugin for CLIToolbox {

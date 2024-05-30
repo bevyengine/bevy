@@ -3,8 +3,9 @@
 use std::sync::{mpsc::{Receiver, Sender}, Arc, Mutex, RwLock};
 
 use bevy_app::{Plugin, PreUpdate};
-use bevy_ecs::{event::{Event, EventWriter}, system::{ResMut, Resource}};
+use bevy_ecs::{event::{Event, EventWriter}, system::{Res, Resource}};
 
+/// Async simple console reader
 pub struct ConsoleReaderPlugin;
 
 impl Plugin for ConsoleReaderPlugin {
@@ -19,7 +20,7 @@ impl Plugin for ConsoleReaderPlugin {
 }
 
 fn console_reader_system(
-    mut console_reader: ResMut<ConsoleReader>,
+    console_reader: Res<ConsoleReader>,
     mut events: EventWriter<ConsoleInput>,
     mut app_exit_events: EventWriter<bevy_app::AppExit>
 ) {
@@ -31,7 +32,7 @@ fn console_reader_system(
     }
 }
 
-fn async_console_reader(mut reader: AsyncConsoleReader) {
+fn async_console_reader(reader: AsyncConsoleReader) {
     let mut editor = rustyline::DefaultEditor::new().unwrap();
     editor.set_cursor_visibility(true);
     while true {
@@ -49,9 +50,13 @@ fn async_console_reader(mut reader: AsyncConsoleReader) {
     }
 }
 
+/// Console input event with text or quit command
+/// Quit command can be spawned by pressing Ctrl + C
 #[derive(Debug, Event, Clone, PartialEq, Eq)]
 pub enum ConsoleInput {
+    /// Text input from console
     Text(String),
+    /// Quit from app command
     Quit,
 }
 

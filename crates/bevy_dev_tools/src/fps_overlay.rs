@@ -38,7 +38,7 @@ pub const FPS_OVERLAY_ZINDEX: i32 = i32::MAX - 32;
 #[derive(Default)]
 pub struct FpsOverlayPlugin {
     /// Starting configuration of overlay, this can be later be changed through [`FpsOverlayConfig`] resource.
-    pub config: FpsOverlayConfig,
+    pub config: FpsOverlay,
 }
 
 impl Plugin for FpsOverlayPlugin {
@@ -48,7 +48,7 @@ impl Plugin for FpsOverlayPlugin {
             app.add_plugins(FrameTimeDiagnosticsPlugin);
         }
 
-        app.register_toggable_dev_tool::<FpsOverlayConfig>();
+        app.register_toggable_dev_tool::<FpsOverlay>();
 
         app.init_state::<ShowFpsOverlay>();
 
@@ -57,7 +57,7 @@ impl Plugin for FpsOverlayPlugin {
             .add_systems(
                 Update,
                 (
-                    customize_text.run_if(resource_changed::<FpsOverlayConfig>),
+                    customize_text.run_if(resource_changed::<FpsOverlay>),
                     update_text,
                 ).run_if(in_state(ShowFpsOverlay::Show)),
             )
@@ -70,22 +70,25 @@ impl Plugin for FpsOverlayPlugin {
 
 /// Configuration options for the FPS overlay.
 #[derive(Resource, Clone, Reflect)]
-pub struct FpsOverlayConfig {
+pub struct FpsOverlay {
     /// Configuration of text in the overlay.
     pub text_config: TextStyle,
 }
 
+/// State of the FPS overlay. Allow to show or hide it.
 #[derive(States, Clone, Copy, PartialEq, Eq, Debug, Hash, Default)]
 pub enum ShowFpsOverlay {
+    /// The overlay is shown.
     #[default]
     Show,
+    /// The overlay is hidden.
     Hide,
 }
 
 
-impl Default for FpsOverlayConfig {
+impl Default for FpsOverlay {
     fn default() -> Self {
-        FpsOverlayConfig {
+        FpsOverlay {
             text_config: TextStyle {
                 font: Handle::<Font>::default(),
                 font_size: 32.0,
@@ -95,7 +98,7 @@ impl Default for FpsOverlayConfig {
     }
 }
 
-impl Toggable for FpsOverlayConfig {
+impl Toggable for FpsOverlay {
     fn enable(world: &mut bevy_ecs::world::World) {
         world.resource_mut::<NextState<ShowFpsOverlay>>().set(ShowFpsOverlay::Show);
     }
@@ -109,12 +112,12 @@ impl Toggable for FpsOverlayConfig {
     }
 }
 
-impl DevTool for FpsOverlayConfig {}
+impl DevTool for FpsOverlay {}
 
 #[derive(Component)]
 struct FpsText;
 
-fn setup(mut commands: Commands, overlay_config: Res<FpsOverlayConfig>) {
+fn setup(mut commands: Commands, overlay_config: Res<FpsOverlay>) {
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -148,7 +151,7 @@ fn update_text(diagnostic: Res<DiagnosticsStore>, mut query: Query<&mut Text, Wi
 }
 
 fn customize_text(
-    overlay_config: Res<FpsOverlayConfig>,
+    overlay_config: Res<FpsOverlay>,
     mut query: Query<&mut Text, With<FpsText>>,
 ) {
     for mut text in &mut query {

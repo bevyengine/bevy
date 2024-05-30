@@ -2,11 +2,8 @@ use bevy_reflect::{TypeRegistration, TypeRegistry};
 use nom::{
     branch::alt, bytes::complete::{is_not, tag, take_while, take_while1}, character::complete::{char, space0}, combinator::{map, opt, recognize}, multi::{many0, separated_list0}, sequence::{delimited, preceded}, IResult
 };
-use serde::{de::{self, value::StringDeserializer, Deserialize, Deserializer, Error, IntoDeserializer, MapAccess, Visitor}, forward_to_deserialize_any};
+use serde::{de::{self, value::StringDeserializer, Deserializer, Error, MapAccess, Visitor}, forward_to_deserialize_any};
 use std::collections::HashMap;
-use std::fmt;
-use serde::de::DeserializeSeed;
-
 
 /// Works only with TypedReflectDeserializer and direct deserialization
 struct TypedCliDeserializer<'a> {
@@ -16,6 +13,7 @@ struct TypedCliDeserializer<'a> {
 }
 
 impl<'a> TypedCliDeserializer<'a> {
+    #[allow(dead_code)] //used in tests
     fn from_str(input: &'a str) -> Result<Self, de::value::Error> {
         Ok(Self { input, is_string: None })
     }
@@ -61,12 +59,25 @@ impl<'a> TypedCliDeserializer<'a> {
     }
 }
 
+/// Deserialize cli string to box<dyn Reflect>
+/// Must be used with ReflectDeserializer
+/// Example:
+///   let mut type_registry = TypeRegistry::default();
+///   type_registry.register::<SetGoldReflect>();
+///   let reflect_deserializer = ReflectDeserializer::new(&type_registry);
+///   let input = "setgoldreflect 100";
+///   let deserializer = CliDeserializer::from_str(input, &type_registry).unwrap();
+///   let reflect_value = reflect_deserializer.deserialize(deserializer).unwrap();
+///   let val = SetGoldReflect::from_reflect(reflect_value.as_ref()).unwrap();
+///   assert_eq!(val, SetGoldReflect { gold: 100 });
+///
 pub struct CliDeserializer<'a> {
     input: &'a str,
     type_registration: &'a TypeRegistry,
 }
 
 impl<'a> CliDeserializer<'a> {
+    /// Creates a new CliDeserializer
     pub fn from_str(input: &'a str, type_registration: &'a TypeRegistry) -> Result<Self, de::value::Error> {
         Ok(Self { input, type_registration })
     }
@@ -142,6 +153,7 @@ fn parse_short_type_path(input: &str) -> IResult<&str, Vec<String>> {
     Ok((input, result))
 }
 
+/// Converts short type path to cli command name
 pub fn get_cli_command_name(short_type_path: &str) -> String {
     parse_short_type_path(short_type_path).unwrap().1.join(" ")
 }
@@ -358,6 +370,7 @@ impl<'de> Deserializer<'de> for CliDeserializer<'de> {
 mod tests {
     use bevy_reflect::{prelude::*, serde::*, TypeRegistry};
     use serde::Deserialize;
+    use serde::de::DeserializeSeed;
 
     use super::*;
 

@@ -1,18 +1,18 @@
-use std::any::Any;
-
-use bevy_dev_tools_macros::DevCommand;
 use bevy_ecs::{reflect::AppTypeRegistry, system::Resource, world::Command};
 use bevy_log::{error, info};
-use bevy_reflect::{serde::ReflectDeserializer, DynamicStruct, FromReflect, GetPath, GetTypeRegistration, Reflect, ReflectFromReflect, TypePath};
+use bevy_reflect::{serde::ReflectDeserializer, FromReflect, GetPath, GetTypeRegistration, Reflect, TypePath};
 use serde::de::DeserializeSeed;
 use crate::{dev_command::{DevCommand, ReflectDevCommand}, toggable::{Disable, Enable, Toggable}};
 
 
-
+/// DevTools are tools that speed up development and are not directly related to the game.
+/// This tools can be enabled/disabled/changed at runtime by the DevCommands
 pub trait DevTool : Reflect + FromReflect + GetTypeRegistration  {
 
 }
 
+
+/// Useful commands for DevTools
 #[derive(Default, Reflect)]
 #[reflect(DevCommand)]
 pub struct SetTool<T: DevTool + Resource + Default + Reflect + FromReflect + TypePath> {
@@ -26,6 +26,7 @@ impl<T: DevTool + Default + Reflect + FromReflect + Resource + TypePath> Command
     }
 }
 
+/// Command to set a value of a single field in a dev tool
 #[derive(Default, Reflect)]
 #[reflect(DevCommand)]
 pub struct SetField<T: Resource + Default + Reflect + FromReflect + TypePath> {
@@ -56,7 +57,7 @@ impl<T: Default + Reflect + FromReflect + Resource + TypePath> Command for SetFi
 
 
         let reflect_deserializer = ReflectDeserializer::new(&registry);
-        let Ok(value) = ron::from_str::<ron::Value>(&val) else {
+        let Ok(_) = ron::from_str::<ron::Value>(&val) else {
             error!("Failed to parse value {}", val);
             return;
         };
@@ -65,14 +66,33 @@ impl<T: Default + Reflect + FromReflect + Resource + TypePath> Command for SetFi
 
         match field.reflect_mut() {
             bevy_reflect::ReflectMut::Struct(s) => {
-                
+                let boxed_reflect = reflect_deserializer.deserialize(&mut ron::Deserializer::from_str(&val).unwrap()).unwrap();
+                s.apply(boxed_reflect.as_ref());
             },
-            bevy_reflect::ReflectMut::TupleStruct(_) => todo!(),
-            bevy_reflect::ReflectMut::Tuple(_) => todo!(),
-            bevy_reflect::ReflectMut::List(_) => todo!(),
-            bevy_reflect::ReflectMut::Array(_) => todo!(),
-            bevy_reflect::ReflectMut::Map(_) => todo!(),
-            bevy_reflect::ReflectMut::Enum(_) => todo!(),
+            bevy_reflect::ReflectMut::TupleStruct(s) => {
+                let boxed_reflect = reflect_deserializer.deserialize(&mut ron::Deserializer::from_str(&val).unwrap()).unwrap();
+                s.apply(boxed_reflect.as_ref());
+            },
+            bevy_reflect::ReflectMut::Tuple(s) => {
+                let boxed_reflect = reflect_deserializer.deserialize(&mut ron::Deserializer::from_str(&val).unwrap()).unwrap();
+                s.apply(boxed_reflect.as_ref());
+            },
+            bevy_reflect::ReflectMut::List(s) => {
+                let boxed_reflect = reflect_deserializer.deserialize(&mut ron::Deserializer::from_str(&val).unwrap()).unwrap();
+                s.apply(boxed_reflect.as_ref());
+            },
+            bevy_reflect::ReflectMut::Array(s) => {
+                let boxed_reflect = reflect_deserializer.deserialize(&mut ron::Deserializer::from_str(&val).unwrap()).unwrap();
+                s.apply(boxed_reflect.as_ref());
+            },
+            bevy_reflect::ReflectMut::Map(s) => {
+                let boxed_reflect = reflect_deserializer.deserialize(&mut ron::Deserializer::from_str(&val).unwrap()).unwrap();
+                s.apply(boxed_reflect.as_ref());
+            },
+            bevy_reflect::ReflectMut::Enum(s) => {
+                let boxed_reflect = reflect_deserializer.deserialize(&mut ron::Deserializer::from_str(&val).unwrap()).unwrap();
+                s.apply(boxed_reflect.as_ref());
+            },
             bevy_reflect::ReflectMut::Value(v) => {
                 if let Some(v) = v.downcast_mut::<usize>() {
                     if let Ok(input_value) = ron::de::from_str::<usize>(val.to_string().as_str()) {
@@ -169,8 +189,9 @@ impl<T: Default + Reflect + FromReflect + Resource + TypePath> Command for SetFi
     }
 }
 
-
+/// Helpers method to fast register dev tool and commands for it
 pub trait AppDevTool {
+    /// Register a dev tool to the app with default commands
     fn register_toggable_dev_tool<T: DevTool + Resource + std::default::Default + bevy_reflect::TypePath + Toggable>(&mut self) -> &mut Self;
 }
 

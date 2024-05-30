@@ -1,17 +1,9 @@
 //! Show how to use DevCommands, DevTools and cli dev console
 
-use std::any::Any;
-
-use bevy::dev_tools::cli_deserialize::CliDeserializer;
-use bevy::dev_tools::dev_command::{DevCommand, ReflectDevCommand};
 use bevy::dev_tools::fps_overlay::FpsOverlayPlugin;
-use bevy::dev_tools::DevCommand;
+use bevy::dev_tools::prelude::*;
 use bevy::ecs::world::Command;
 use bevy::prelude::*;
-use bevy::dev_tools::console_reader_plugin::{ConsoleInput, ConsoleReaderPlugin};
-use bevy::dev_tools::prelude::*;
-use bevy::reflect::serde::*;
-use serde::de::DeserializeSeed;
 
 #[derive(Resource, Default)]
 pub struct Gold(pub usize);
