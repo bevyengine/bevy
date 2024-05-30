@@ -19,6 +19,7 @@
 //! # use bevy_asset::prelude::*;
 //! # use bevy_scene::prelude::*;
 //! # use bevy_transform::prelude::*;
+//! # use bevy_gltf::prelude::*;
 //!
 //! fn spawn_gltf(mut commands: Commands, asset_server: Res<AssetServer>) {
 //!     commands.spawn(SceneBundle {
