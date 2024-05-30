@@ -1,13 +1,14 @@
 //! Show how to use DevCommands, DevTools and cli dev console
+//! For starting this example use ` cargo run --example dev_cli --features="bevy_dev_tools" `
 //! To try this demo you must print into your console while app is running
 //! Try this:
 //! 1. `disable fpsoverlay` -- will hide fps overlay
 //! 2. `enable fpsoverlay` -- will show fps overlay 
 //! 3. `setfield fpsoverlay text_config.font_size 16` -- will change font size in fps overlay
 //! 4. `printcommands` -- will list all dev commands
-//! 5. `setgold 100` -- will set gold
-//! 6. `printgold` -- will print gold
-//! 7. `disable showgold` -- will hide gold
+//! 5. `setgold 100` -- will set gold amount
+//! 6. `printgold` -- will print gold amount
+//! 7. `disable showgold` -- will hide gold overlay (right top corner on screen)
 //! 8. Fell free to add and register own dev commands!
 
 use bevy::dev_tools::fps_overlay::FpsOverlayPlugin;
