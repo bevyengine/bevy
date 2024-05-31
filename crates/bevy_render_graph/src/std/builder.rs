@@ -346,7 +346,6 @@ impl<'a, 'b: 'a, 'g: 'b> ComputePass<'a, 'b, 'g> {
     }
 
     pub fn build(&mut self) {
-        //evil compiler error, bind group borrows `self` when it shouldn't
         let bind_group = self.bind_group.build();
         let graph = self.bind_group.internal_graph();
         let pipeline = graph.new_resource(RenderGraphComputePipelineDescriptor {
