@@ -76,11 +76,8 @@
 //! TODO: Fill in more here.
 //!
 //! [the `serde` documentation]: https://serde.rs/
-use std::{
-    net::SocketAddr,
-    sync::{Arc, Mutex},
-    thread,
-};
+
+use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Result as AnyhowResult};
 use bevy_app::prelude::*;
@@ -90,26 +87,22 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_reflect::Reflect;
-use bevy_utils::{prelude::default, tracing::error, HashMap};
+use bevy_tasks::IoTaskPool;
+use bevy_utils::{prelude::default, HashMap};
 use http_body_util::{BodyExt as _, Full};
 use hyper::{
     body::{Bytes, Incoming},
+    server::conn::http1,
     service, Request, Response,
-};
-use hyper_util::{
-    rt::{TokioExecutor, TokioIo},
-    server::conn::auto::Builder,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{value, Map, Value};
-use tokio::{
-    net::TcpListener,
-    sync::{
-        broadcast::{self, Receiver as BroadcastReceiver, Sender as BroadcastSender},
-        oneshot::{self, Sender as OneshotSender},
-    },
-    task,
+use smol::{
+    channel::{self, Receiver, Sender},
+    Async,
 };
+use smol_hyper::rt::{FuturesIo, SmolTimer};
+use std::net::{TcpListener, TcpStream};
 
 pub mod builtin_verbs;
 
@@ -192,7 +185,7 @@ pub struct BrpMessage {
     /// The channel on which the response is to be sent.
     ///
     /// The value sent here is serialized and sent back to the client.
-    sender: Arc<Mutex<Option<OneshotSender<AnyhowResult<Value>>>>>,
+    sender: Arc<Mutex<Option<Sender<AnyhowResult<Value>>>>>,
 }
 
 /// A resource that receives messages sent by Bevy Remote Protocol clients.
@@ -200,7 +193,7 @@ pub struct BrpMessage {
 /// Every frame, the `process_remote_requests` system drains this mailbox, and
 /// processes the messages within.
 #[derive(Resource, Deref, DerefMut)]
-pub struct BrpMailbox(BroadcastReceiver<BrpMessage>);
+pub struct BrpMailbox(Receiver<BrpMessage>);
 
 impl Default for RemotePlugin {
     fn default() -> Self {
@@ -272,11 +265,12 @@ impl RemoteVerbs {
 /// A system that starts up the Bevy Remote Protocol server.
 fn start_server(mut commands: Commands, remote_port: Res<RemotePort>) {
     // Create the channel and the mailbox.
-    let (request_sender, request_receiver) = broadcast::channel(CHANNEL_SIZE);
+    let (request_sender, request_receiver) = channel::bounded(CHANNEL_SIZE);
     commands.insert_resource(BrpMailbox(request_receiver));
 
-    let port = remote_port.0;
-    thread::spawn(move || server_main(port, request_sender));
+    IoTaskPool::get()
+        .spawn(server_main(remote_port.0, request_sender))
+        .detach();
 }
 
 /// A system that receives requests placed in the [`BrpMailbox`] and processes
@@ -301,7 +295,8 @@ fn process_remote_requests(world: &mut World) {
         // registered, return an error.
         let verbs = world.resource::<RemoteVerbs>();
         let Some(handler) = verbs.0.get(&message.request.request) else {
-            let _ = sender.send(Err(anyhow!("Unknown verb: `{}`", message.request.request)));
+            let _ =
+                sender.send_blocking(Err(anyhow!("Unknown verb: `{}`", message.request.request)));
             continue;
         };
 
@@ -309,47 +304,51 @@ fn process_remote_requests(world: &mut World) {
         let result = match world.run_system_with_input(*handler, message.request.params) {
             Ok(result) => result,
             Err(error) => {
-                let _ = sender.send(Err(anyhow!("Failed to run handler: {}", error)));
+                let _ = sender.send_blocking(Err(anyhow!("Failed to run handler: {}", error)));
                 continue;
             }
         };
 
-        let _ = sender.send(result);
+        let _ = sender.send_blocking(result);
     }
 }
 
 /// The Bevy Remote Protocol server main loop.
-#[tokio::main]
-async fn server_main(port: u16, sender: BroadcastSender<BrpMessage>) -> AnyhowResult<()> {
-    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+async fn server_main(port: u16, sender: Sender<BrpMessage>) -> AnyhowResult<()> {
+    listen(Async::<TcpListener>::bind(([127, 0, 0, 1], port))?, sender).await?;
+    Ok(())
+}
 
-    let listener = TcpListener::bind(addr).await?;
-
+async fn listen(listener: Async<TcpListener>, sender: Sender<BrpMessage>) -> AnyhowResult<()> {
     loop {
-        let (stream, _) = listener.accept().await?;
+        let (client, _) = listener.accept().await?;
 
-        let io = TokioIo::new(stream);
         let sender = sender.clone();
-
-        task::spawn(async move {
-            if let Err(err) = Builder::new(TokioExecutor::new())
-                .serve_connection(
-                    io,
-                    service::service_fn(|request| process_request(request, sender.clone())),
-                )
-                .await
-            {
-                error!("Tokio error: {:?}", err);
-            }
-        });
+        IoTaskPool::get()
+            .spawn(async move {
+                let _ = handle_client(client, sender).await;
+            })
+            .detach();
     }
+}
+
+async fn handle_client(client: Async<TcpStream>, sender: Sender<BrpMessage>) -> AnyhowResult<()> {
+    http1::Builder::new()
+        .timer(SmolTimer::new())
+        .serve_connection(
+            FuturesIo::new(client),
+            service::service_fn(|request| process_request(request, sender.clone())),
+        )
+        .await?;
+
+    Ok(())
 }
 
 /// A helper function for the Bevy Remote Protocol server that handles a single
 /// request coming from a client.
 async fn process_request(
     request: Request<Incoming>,
-    sender: BroadcastSender<BrpMessage>,
+    sender: Sender<BrpMessage>,
 ) -> AnyhowResult<Response<Full<Bytes>>> {
     let request_bytes = request.into_body().collect().await?.to_bytes();
     let request: BrpRequest = serde_json::from_slice(&request_bytes)?;
@@ -384,16 +383,18 @@ async fn process_request(
 /// request coming from a client and places it in the [`BrpMailbox`].
 async fn process_request_body(
     request: BrpRequest,
-    sender: &BroadcastSender<BrpMessage>,
+    sender: &Sender<BrpMessage>,
 ) -> AnyhowResult<Map<String, Value>> {
-    let (response_sender, response_receiver) = oneshot::channel();
+    let (response_sender, response_receiver) = channel::bounded(1);
 
-    let _ = sender.send(BrpMessage {
-        request,
-        sender: Arc::new(Mutex::new(Some(response_sender))),
-    });
+    let _ = sender
+        .send(BrpMessage {
+            request,
+            sender: Arc::new(Mutex::new(Some(response_sender))),
+        })
+        .await;
 
-    let response = response_receiver.await??;
+    let response = response_receiver.recv().await??;
     match value::to_value(response)? {
         Value::Object(map) => Ok(map),
         _ => Err(anyhow!("Response wasn't an object")),

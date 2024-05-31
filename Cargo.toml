@@ -366,8 +366,11 @@ event-listener = "5.3.0"
 hyper = { version = "1", features = ["full"] }
 hyper-util = { version = "0.1", features = ["full"] }
 http-body-util = "0.1"
-tokio = { version = "1", features = ["full"] }
+smol = "2"
+smol-macros = "0.1"
+smol-hyper = "0.1"
 anyhow = "1"
+macro_rules_attribute = "0.2"
 
 [[example]]
 name = "hello_world"

@@ -16,6 +16,7 @@ bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 
 # other
@@ -24,7 +25,8 @@ hyper = { version = "1", features = ["full"] }
 hyper-util = { version = "0.1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1" }
-tokio = { version = "1", features = ["full"] }
+smol = "2"
+smol-hyper = "0.1"
 http-body-util = "0.1"
 
 [lints]

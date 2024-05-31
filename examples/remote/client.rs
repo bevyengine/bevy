@@ -3,6 +3,7 @@
 
 use std::process;
 
+use anyhow::Result as AnyhowResult;
 use argh::FromArgs;
 use bevy::prelude::default;
 use bevy::remote::builtin_verbs::{BrpQuery, BrpQueryRequest};
@@ -11,10 +12,11 @@ use http_body_util::BodyExt as _;
 use hyper::client::conn::http1;
 use hyper::header::HOST;
 use hyper::Request;
-use hyper_util::rt::TokioIo;
+use macro_rules_attribute::apply;
 use serde_json::Value;
-use tokio::net::TcpStream;
-use tokio::task;
+use smol::{net::TcpStream, Executor};
+use smol_hyper::rt::FuturesIo;
+use smol_macros::main;
 
 /// TODO
 #[derive(FromArgs)]
@@ -31,8 +33,8 @@ struct Args {
 }
 
 /// The application entry point.
-#[tokio::main]
-async fn main() {
+#[apply(main!)]
+async fn main(executor: &Executor<'_>) -> AnyhowResult<()> {
     // Parse the arguments.
     let args: Args = argh::from_env();
 
@@ -42,12 +44,13 @@ async fn main() {
         .parse::<hyper::Uri>()
         .unwrap();
 
-    // Create our Tokio stream.
+    // Create our `smol` TCP stream.
     let stream = TcpStream::connect(host_part).await.unwrap();
-    let io = TokioIo::new(stream);
 
     // Create a HTTP 1.x connection.
-    let (mut sender, connection) = http1::handshake::<_, String>(io).await.unwrap();
+    let (mut sender, connection) = http1::handshake::<_, String>(FuturesIo::new(stream))
+        .await
+        .unwrap();
 
     // Build the parameters to our BRP request. Include the full type names of
     // all the components, as specified on the command line.
@@ -81,11 +84,13 @@ async fn main() {
     };
 
     // Connect.
-    task::spawn(async move {
-        if let Err(error) = connection.await {
-            die(&format!("Failed to connect: {}", error));
-        }
-    });
+    executor
+        .spawn(async move {
+            if let Err(error) = connection.await {
+                die(&format!("Failed to connect: {}", error));
+            }
+        })
+        .detach();
 
     // We're connected, so build the HTTP request.
     let authority = url.authority().unwrap();
@@ -112,6 +117,8 @@ async fn main() {
 
     // Just print the JSON to stdout.
     println!("{}", serde_json::to_string_pretty(&response).unwrap());
+
+    Ok(())
 }
 
 /// Exits with an error message.
