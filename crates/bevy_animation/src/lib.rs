@@ -10,7 +10,6 @@
 mod animatable;
 mod graph;
 mod transition;
-mod util;
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;

@@ -1,6 +1,6 @@
 use super::GlobalTransform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::{Affine3A, Dir3, Mat3, Mat4, Quat, Vec3};
+use bevy_math::{Affine3A, Dir3, Interpolate, Mat3, Mat4, Quat, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_reflect::Reflect;
 use std::ops::Mul;
@@ -557,5 +557,15 @@ impl Mul<Vec3> for Transform {
 
     fn mul(self, value: Vec3) -> Self::Output {
         self.transform_point(value)
+    }
+}
+
+impl Interpolate for Transform {
+    fn interpolate(&self, other: &Self, t: f32) -> Self {
+        Transform {
+            translation: self.translation.interpolate(&other.translation, t),
+            rotation: self.rotation.interpolate(&other.rotation, t),
+            scale: self.scale.interpolate(&other.scale, t),
+        }
     }
 }

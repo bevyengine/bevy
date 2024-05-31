@@ -1,4 +1,4 @@
-use crate::{Dir2, Dir3, Dir3A, Quat, Vec2, Vec3, Vec3A, Vec4};
+use crate::{DVec2, DVec3, DVec4, Dir2, Dir3, Dir3A, Quat, Vec2, Vec3, Vec3A, Vec4};
 use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
@@ -216,35 +216,79 @@ pub trait Interpolate: Clone {
     }
 }
 
+/// Steps between two different discrete values of any type.
+/// Returns `a` if `t < 1.0`, otherwise returns `b`.
+///
+/// This is a common form of interpolation for discrete types.
+#[inline]
+fn step_unclamped<T>(a: T, b: T, t: f32) -> T {
+    if t < 1.0 {
+        a
+    } else {
+        b
+    }
+}
+
 impl<V> Interpolate for V
 where
     V: VectorSpace,
 {
+    #[inline]
     fn interpolate(&self, other: &Self, t: f32) -> Self {
-        *self * (1.0 - t) + *other * t
+        self.lerp(*other, t)
     }
 }
 
 impl Interpolate for Quat {
+    #[inline]
     fn interpolate(&self, other: &Self, t: f32) -> Self {
         self.slerp(*other, t)
     }
 }
 
 impl Interpolate for Dir2 {
+    #[inline]
     fn interpolate(&self, other: &Self, t: f32) -> Self {
         self.slerp(*other, t)
     }
 }
 
 impl Interpolate for Dir3 {
+    #[inline]
     fn interpolate(&self, other: &Self, t: f32) -> Self {
         self.slerp(*other, t)
     }
 }
 
 impl Interpolate for Dir3A {
+    #[inline]
     fn interpolate(&self, other: &Self, t: f32) -> Self {
         self.slerp(*other, t)
+    }
+}
+
+/// This macro is for implementing `Interpolate` on non-f32-based vector-space-like entities.
+macro_rules! impl_float_interpolate {
+    ($ty: ty, $base: ty) => {
+        impl Interpolate for $ty {
+            #[inline]
+            fn interpolate(&self, other: &Self, t: f32) -> Self {
+                let t = <$base>::from(t);
+                (*self) * (1.0 - t) + (*other) * t
+            }
+        }
+    };
+}
+
+impl_float_interpolate!(f64, f64);
+impl_float_interpolate!(DVec2, f64);
+impl_float_interpolate!(DVec3, f64);
+impl_float_interpolate!(DVec4, f64);
+
+// This is slightly cursed but necessary for unifying with an `Animatable` implementation for `bool`
+impl Interpolate for bool {
+    #[inline]
+    fn interpolate(&self, other: &Self, t: f32) -> Self {
+        step_unclamped(*self, *other, t)
     }
 }

@@ -2993,6 +2993,17 @@ description = "Demonstrates how to sample random points from mathematical primit
 category = "Math"
 wasm = true
 
+[[example]]
+name = "smooth_follow"
+path = "examples/math/smooth_follow.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.smooth_follow]
+name = "Smooth Follow"
+description = "Demonstrates how to make an entity smoothly follow another using interpolation"
+category = "Math"
+wasm = true
+
 # Gizmos
 [[example]]
 name = "2d_gizmos"
