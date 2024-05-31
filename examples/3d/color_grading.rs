@@ -326,8 +326,7 @@ fn add_help_text(
                 create_help_text(currently_selected_option),
                 TextStyle {
                     font: font.clone(),
-                    font_size: 24.0,
-                    color: Color::WHITE,
+                    ..default()
                 },
             )
         })
@@ -568,11 +567,11 @@ fn update_ui_state(
     mut buttons: Query<(&mut UiImage, &mut BorderColor, &ColorGradingOptionWidget)>,
     mut button_text: Query<(&mut Text, &ColorGradingOptionWidget), Without<HelpText>>,
     mut help_text: Query<&mut Text, With<HelpText>>,
-    cameras: Query<&ColorGrading>,
+    cameras: Query<Ref<ColorGrading>>,
     currently_selected_option: Res<SelectedColorGradingOption>,
 ) {
     // Exit early if the UI didn't change
-    if !currently_selected_option.is_changed() {
+    if !currently_selected_option.is_changed() && !cameras.single().is_changed() {
         return;
     }
 
@@ -587,10 +586,12 @@ fn update_ui_state(
         }
     }
 
-    let value_label = cameras
-        .iter()
-        .next()
-        .map(|color_grading| format!("{:.3}", currently_selected_option.get(color_grading)));
+    let value_label = cameras.iter().next().map(|color_grading| {
+        format!(
+            "{:.3}",
+            currently_selected_option.get(color_grading.as_ref())
+        )
+    });
 
     // Update the buttons.
     for (mut text, widget) in button_text.iter_mut() {
@@ -642,7 +643,8 @@ fn adjust_color_grading_option(
         delta += OPTION_ADJUSTMENT_SPEED;
     }
 
-    for mut color_grading in cameras.iter_mut() {
+    if delta != 0.0 {
+        let mut color_grading = cameras.single_mut();
         let new_value = currently_selected_option.get(&color_grading) + delta;
         currently_selected_option.set(&mut color_grading, new_value);
     }

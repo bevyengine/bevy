@@ -25,10 +25,7 @@ fn setup(
     // Camera
     commands.spawn(Camera2dBundle::default());
 
-    let text_style = TextStyle {
-        font_size: 20.,
-        ..default()
-    };
+    let text_style = TextStyle::default();
 
     let texture_handle = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
     let texture_atlas = TextureAtlasLayout::from_grid(UVec2::splat(24), 7, 1, None, None);

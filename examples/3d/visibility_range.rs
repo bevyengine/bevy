@@ -153,13 +153,13 @@ fn setup(
     // Create the text.
     commands.spawn(
         TextBundle {
-            text: app_status.create_text(&asset_server),
-            ..TextBundle::default()
+            text: app_status.create_text(),
+            ..default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(10.0),
-            left: Val::Px(10.0),
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
@@ -290,19 +290,15 @@ fn update_mode(
 }
 
 // A system that updates the help text.
-fn update_help_text(
-    mut text_query: Query<&mut Text>,
-    app_status: Res<AppStatus>,
-    asset_server: Res<AssetServer>,
-) {
+fn update_help_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
     for mut text in text_query.iter_mut() {
-        *text = app_status.create_text(&asset_server);
+        *text = app_status.create_text();
     }
 }
 
 impl AppStatus {
     // Creates and returns help text reflecting the app status.
-    fn create_text(&self, asset_server: &AssetServer) -> Text {
+    fn create_text(&self) -> Text {
         Text::from_section(
             format!(
                 "\
@@ -327,11 +323,7 @@ Press WASD or use the mouse wheel to move the camera",
                     ' '
                 },
             ),
-            TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 24.0,
-                ..default()
-            },
+            TextStyle::default(),
         )
     }
 }

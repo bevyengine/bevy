@@ -131,21 +131,17 @@ fn setup(
         ..default()
     });
 
-    let text_style = TextStyle {
-        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-        font_size: 18.0,
-        ..default()
-    };
+    let text_style = TextStyle::default();
 
     commands.spawn(
         TextBundle::from_section(
-            "Left / Right — Rotate Camera\nC — Toggle Compensation Curve\nM — Toggle Metering Mask\nV — Visualize Metering Mask",
+            "Left / Right - Rotate Camera\nC - Toggle Compensation Curve\nM - Toggle Metering Mask\nV - Visualize Metering Mask",
             text_style.clone(),
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );

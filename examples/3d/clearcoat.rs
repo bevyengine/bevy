@@ -74,7 +74,7 @@ fn setup(
 
     spawn_light(&mut commands);
     spawn_camera(&mut commands, &asset_server);
-    spawn_text(&mut commands, &asset_server, &light_mode);
+    spawn_text(&mut commands, &light_mode);
 }
 
 /// Generates a sphere.
@@ -232,16 +232,16 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
 }
 
 /// Spawns the help text.
-fn spawn_text(commands: &mut Commands, asset_server: &AssetServer, light_mode: &LightMode) {
+fn spawn_text(commands: &mut Commands, light_mode: &LightMode) {
     commands.spawn(
         TextBundle {
-            text: light_mode.create_help_text(asset_server),
-            ..TextBundle::default()
+            text: light_mode.create_help_text(),
+            ..default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(10.0),
-            left: Val::Px(10.0),
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
@@ -304,13 +304,9 @@ fn handle_input(
 }
 
 /// Updates the help text at the bottom of the screen.
-fn update_help_text(
-    mut text_query: Query<&mut Text>,
-    light_mode: Res<LightMode>,
-    asset_server: Res<AssetServer>,
-) {
+fn update_help_text(mut text_query: Query<&mut Text>, light_mode: Res<LightMode>) {
     for mut text in text_query.iter_mut() {
-        *text = light_mode.create_help_text(&asset_server);
+        *text = light_mode.create_help_text();
     }
 }
 
@@ -334,19 +330,12 @@ fn create_directional_light() -> DirectionalLight {
 
 impl LightMode {
     /// Creates the help text at the bottom of the screen.
-    fn create_help_text(&self, asset_server: &AssetServer) -> Text {
+    fn create_help_text(&self) -> Text {
         let help_text = match *self {
             LightMode::Point => "Press Space to switch to a directional light",
             LightMode::Directional => "Press Space to switch to a point light",
         };
 
-        Text::from_section(
-            help_text,
-            TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 24.0,
-                ..default()
-            },
-        )
+        Text::from_section(help_text, TextStyle::default())
     }
 }

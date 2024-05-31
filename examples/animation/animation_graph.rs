@@ -254,13 +254,7 @@ fn setup_scene(
 /// Places the help text at the top left of the window.
 fn setup_help_text(commands: &mut Commands) {
     commands.spawn(TextBundle {
-        text: Text::from_section(
-            HELP_TEXT,
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
-        ),
+        text: Text::from_section(HELP_TEXT, TextStyle::default()),
         style: Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
