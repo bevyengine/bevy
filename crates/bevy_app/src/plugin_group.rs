@@ -198,7 +198,7 @@ impl PluginGroupBuilder {
         self
     }
 
-    /// Consumes the [`PluginGroupBuilder`] and [builds](Plugin::build) the contained [`Plugin`]s
+    /// Consumes the [`PluginGroupBuilder`] and [builds](Plugin::init) the contained [`Plugin`]s
     /// in the order specified.
     ///
     /// # Panics

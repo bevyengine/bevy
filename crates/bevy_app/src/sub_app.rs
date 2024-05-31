@@ -13,7 +13,7 @@ use bevy_state::{
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::HashMap;
 use std::fmt::Debug;
 
 type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
@@ -65,9 +65,6 @@ pub struct SubApp {
     name: &'static str,
     /// The data of this application.
     world: World,
-    /// The names of plugins that have been added to this app. (used to track duplicates and
-    /// already-registered plugins)
-    pub(crate) plugin_names: HashSet<String>,
     /// The schedule that will be run by [`update`](Self::update).
     pub update_schedule: Option<InternedScheduleLabel>,
     /// A function that gives mutable access to two app worlds. This is primarily
@@ -90,7 +87,6 @@ impl SubApp {
         Self {
             name,
             world,
-            plugin_names: HashSet::default(),
             update_schedule: None,
             extract: None,
         }

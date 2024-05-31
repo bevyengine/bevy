@@ -39,7 +39,7 @@ impl PluginState {
 /// A collection of Bevy app logic and configuration.
 ///
 /// Plugins configure an [`App`]. When an [`App`] registers a plugin,
-/// the plugin's [`Plugin::build`] function is run. By default, a plugin
+/// the plugin's [`Plugin::init`] function is run. By default, a plugin
 /// can only be added once to an [`App`].
 ///
 /// If the plugin may need to be added twice or more, the function [`is_unique()`](Self::is_unique)
@@ -50,7 +50,7 @@ impl PluginState {
 /// ## Lifecycle of a plugin
 ///
 /// When adding a plugin to an [`App`]:
-/// * the app calls [`Plugin::build`] immediately, and register the plugin
+/// * the app calls [`Plugin::init`] immediately, and register the plugin
 /// * once the app started, it will wait for all registered [`Plugin::ready`] to return `true`
 /// * it will then call all registered [`Plugin::finalize`]
 /// * and call all registered [`Plugin::cleanup`]
@@ -164,7 +164,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     }
 
     /// Checks all required [`SubApp`]s.
-    fn check_required_sub_apps(&mut self, app: &App) -> bool {
+    fn check_required_sub_apps(&self, app: &App) -> bool {
         self.required_sub_apps()
             .iter()
             .all(|s| app.contains_sub_app(*s))
@@ -212,9 +212,7 @@ mod sealed {
             if let Err(AppError::DuplicatePlugin { plugin_name }) =
                 app.add_boxed_plugin(Box::new(self))
             {
-                panic!(
-                    "Error adding plugin {plugin_name}: : plugin was already added in application"
-                )
+                panic!("Error adding plugin {plugin_name}: plugin was already added in application")
             }
         }
     }

@@ -265,7 +265,15 @@ impl App {
 
     fn insert_plugin_registry(&mut self, plugin_registry: PluginRegistry) {
         self.plugin_build_depth -= 1;
-        self.plugin_registry.merge(plugin_registry);
+
+        if let Err(AppError::DuplicatePlugin { plugin_name }) =
+            self.plugin_registry.merge(plugin_registry)
+        {
+            panic!(
+                "Error adding plugin {}: plugin was already added in application",
+                plugin_name,
+            );
+        }
     }
 
     /// Returns the state of all plugins. This is usually called by the event loop, but can be
@@ -505,21 +513,9 @@ impl App {
         plugin: Box<dyn Plugin>,
     ) -> Result<&mut Self, AppError> {
         debug!("added plugin: {}", plugin.name());
-        if plugin.is_unique()
-            && !self
-                .main_mut()
-                .plugin_names
-                .insert(plugin.name().to_string())
-        {
-            Err(AppError::DuplicatePlugin {
-                plugin_name: plugin.name().to_string(),
-            })?;
-        }
-
         let mut plugin_registry = self.take_plugin_registry();
 
-        plugin_registry.add(plugin);
-        plugin_registry.update(self);
+        plugin_registry.add(plugin)?;
 
         self.insert_plugin_registry(plugin_registry);
 
