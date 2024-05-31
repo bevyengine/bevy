@@ -741,10 +741,10 @@ impl<E: Event> ManualEventReader<E> {
     /// This works much like [`ManualEventReader::clear()`] except it returns the last event.
     pub fn last<'a>(&'a mut self, events: &'a Events<E>) -> Option<&'a E> {
         if self.last_event_count < events.event_count {
-            self.last_event_count = events.event_count - 1;
-            self.read(events).last()
+            self.last_event_count = events.event_count;
+            // SAFETY: We know this event exists, because this reader has not read it yet.
+            Some(events.get_event(events.event_count - 1).unwrap().0)
         } else {
-            self.clear(events);
             None
         }
     }
