@@ -736,7 +736,9 @@ impl<E: Event> ManualEventReader<E> {
         self.last_event_count = events.event_count;
     }
 
-    /// See [`EventReader::last()`]
+    /// Consumes all available events and returns the last one.
+    ///
+    /// This works much like [`ManualEventReader::clear()`] except it returns the last event.
     pub fn last<'a>(&'a mut self, events: &'a Events<E>) -> Option<&'a E> {
         if self.last_event_count < events.event_count {
             self.last_event_count = events.event_count - 1;
