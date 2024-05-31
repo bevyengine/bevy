@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{self as bevy_asset, DeserializeMetaError, VisitAssetDependencies};
 use crate::{loader::AssetLoader, processor::Process, Asset, AssetPath};
 use bevy_utils::tracing::error;
@@ -6,7 +8,7 @@ use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 
 pub const META_FORMAT_VERSION: &str = "1.0";
-pub type MetaTransform = Box<dyn Fn(&mut dyn AssetMetaDyn) + Send + Sync>;
+pub type MetaTransform = Arc<dyn Fn(&mut dyn AssetMetaDyn) + Send + Sync>;
 
 /// Asset metadata that informs how an [`Asset`] should be handled by the asset system.
 ///
@@ -227,7 +229,7 @@ pub(crate) fn meta_transform_settings<S: Settings>(
 pub(crate) fn loader_settings_meta_transform<S: Settings>(
     settings: impl Fn(&mut S) + Send + Sync + 'static,
 ) -> MetaTransform {
-    Box::new(move |meta| meta_transform_settings(meta, &settings))
+    Arc::new(move |meta| meta_transform_settings(meta, &settings))
 }
 
 pub type AssetHash = [u8; 32];

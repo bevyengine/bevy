@@ -358,6 +358,7 @@ crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 thiserror = "1.0"
 event-listener = "5.3.0"
+serde_json = "1.0.117"
 
 [[example]]
 name = "hello_world"
@@ -795,6 +796,17 @@ doc-scrape-examples = true
 [package.metadata.example.load_gltf]
 name = "Load glTF"
 description = "Loads and renders a glTF file as a scene"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "load_gltf_toon"
+path = "examples/3d/load_gltf_toon.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.load_gltf_toon]
+name = "Load glTF with Toon shader"
+description = "Loads and renders a glTF file with a custom standard material of a toon shader."
 category = "3D Rendering"
 wasm = true
 

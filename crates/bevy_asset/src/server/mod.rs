@@ -541,7 +541,7 @@ impl AssetServer {
                 loader.asset_type_id(),
                 loader.asset_type_name(),
                 HandleLoadingMode::Force,
-                None,
+                handle.as_ref().and_then(|x| x.meta_transform().cloned()),
             );
             (base_handle, base_path)
         } else {
