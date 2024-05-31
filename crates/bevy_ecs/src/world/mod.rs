@@ -424,48 +424,6 @@ impl World {
         }
     }
 
-    /// Gets an [`EntityRef`] for multiple entities at once, whose number is determined at runtime.
-    ///
-    /// # Panics
-    ///
-    /// If any entity does not exist in the world.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut world = World::new();
-    /// # let id1 = world.spawn_empty().id();
-    /// # let id2 = world.spawn_empty().id();
-    /// // Getting multiple entities.
-    /// let entities = world.many_entities_dynamic(&[id1, id2]);
-    /// let entity1 = entities.get(0).unwrap();
-    /// let entity2 = entities.get(1).unwrap();
-    /// ```
-    ///
-    /// ```should_panic
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut world = World::new();
-    /// # let id1 = world.spawn_empty().id();
-    /// # let id2 = world.spawn_empty().id();
-    /// // Trying to get a despawned entity will fail.
-    /// world.despawn(id2);
-    /// world.many_entities_dynamic(&[id1, id2]);
-    /// ```
-    pub fn many_entities_dynamic<'w>(&'w mut self, entities: &[Entity]) -> Vec<EntityRef<'w>> {
-        #[inline(never)]
-        #[cold]
-        #[track_caller]
-        fn panic_no_entity(entity: Entity) -> ! {
-            panic!("Entity {entity:?} does not exist");
-        }
-
-        match self.get_many_entities_dynamic(entities) {
-            Ok(refs) => refs,
-            Err(entity) => panic_no_entity(entity),
-        }
-    }
-
     /// Gets mutable access to multiple entities at once.
     ///
     /// # Panics
@@ -506,49 +464,6 @@ impl World {
         }
 
         match self.get_many_entities_mut(entities) {
-            Ok(borrows) => borrows,
-            Err(e) => panic_on_err(e),
-        }
-    }
-
-    /// Gets mutable access to multiple entities at once, whose number is determined at runtime.
-    ///
-    /// # Panics
-    ///
-    /// If any entities do not exist in the world,
-    /// or if the same entity is specified multiple times.
-    ///
-    /// # Examples
-    ///
-    /// Disjoint mutable access.
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut world = World::new();
-    /// # let id1 = world.spawn_empty().id();
-    /// # let id2 = world.spawn_empty().id();
-    /// // Disjoint mutable access.
-    /// let mut entities = world.get_many_entities_dynamic_mut(&[id1, id2]).unwrap();
-    /// let entity1 = entities.get_mut(0).unwrap();
-    /// ```
-    ///
-    /// Trying to access the same entity multiple times will fail.
-    ///
-    /// ```should_panic
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut world = World::new();
-    /// # let id = world.spawn_empty().id();
-    /// world.many_entities_dynamic_mut(&[id, id]);
-    /// ```
-    pub fn many_entities_dynamic_mut<'w>(&'w mut self, entities: &[Entity]) -> Vec<EntityMut<'w>> {
-        #[inline(never)]
-        #[cold]
-        #[track_caller]
-        fn panic_on_err(e: QueryEntityError) -> ! {
-            panic!("{e}");
-        }
-
-        match self.get_many_entities_dynamic_mut(entities) {
             Ok(borrows) => borrows,
             Err(e) => panic_on_err(e),
         }
@@ -790,7 +705,7 @@ impl World {
     /// # Errors
     ///
     /// If any entities are duplicated.
-    fn verify_unique_entries(entities: &[Entity]) -> Result<(), QueryEntityError> {
+    fn verify_unique_entities(entities: &[Entity]) -> Result<(), QueryEntityError> {
         for i in 0..entities.len() {
             for j in 0..i {
                 if entities[i] == entities[j] {
@@ -825,7 +740,7 @@ impl World {
         &mut self,
         entities: [Entity; N],
     ) -> Result<[EntityMut<'_>; N], QueryEntityError> {
-        Self::verify_unique_entries(&entities)?;
+        Self::verify_unique_entities(&entities)?;
 
         // SAFETY: Each entity is unique.
         unsafe { self.get_entities_mut_unchecked(entities) }
@@ -884,7 +799,7 @@ impl World {
         &'w mut self,
         entities: &[Entity],
     ) -> Result<Vec<EntityMut<'w>>, QueryEntityError> {
-        Self::verify_unique_entries(entities)?;
+        Self::verify_unique_entities(entities)?;
 
         // SAFETY: Each entity is unique.
         unsafe { self.get_entities_dynamic_mut_unchecked(entities) }
