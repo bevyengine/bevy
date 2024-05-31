@@ -93,8 +93,8 @@ impl<
     /// If hierarchy is malformed, for example if a parent child mismatch or a cycle is found.
     pub fn for_each(
         &self,
-        root_fn: impl FnMut(&ReadItem<QShared>, &ReadItem<QRoot>),
-        mut child_fn: impl FnMut(&ReadItem<QShared>, &ReadItem<QShared>, &ReadItem<QChild>),
+        root_fn: impl FnMut(&ReadItem<QShared>, ReadItem<QRoot>),
+        mut child_fn: impl FnMut(&ReadItem<QShared>, ReadItem<QShared>, ReadItem<QChild>),
     ) {
         self.for_each_with(root_fn, |a, _, b, c| child_fn(a, b, c));
     }
@@ -107,8 +107,8 @@ impl<
     /// If hierarchy is malformed, for example if a parent child mismatch or a cycle is found.
     pub fn for_each_mut(
         &mut self,
-        root_fn: impl FnMut(&mut Item<QShared>, &mut Item<QRoot>),
-        mut child_fn: impl FnMut(&Item<QShared>, &mut Item<QShared>, &mut Item<QChild>),
+        root_fn: impl FnMut(Item<QShared>, Item<QRoot>),
+        mut child_fn: impl FnMut(&ReadItem<QShared>, Item<QShared>, Item<QChild>),
     ) {
         self.for_each_mut_with(root_fn, |a, _, b, c| child_fn(a, b, c));
     }
@@ -122,11 +122,11 @@ impl<
     #[allow(unsafe_code)]
     pub fn for_each_with<T: 'static>(
         &self,
-        mut root_fn: impl FnMut(&ReadItem<QShared>, &ReadItem<QRoot>) -> T,
-        mut child_fn: impl FnMut(&ReadItem<QShared>, &T, &ReadItem<QShared>, &ReadItem<QChild>) -> T,
+        mut root_fn: impl FnMut(&ReadItem<QShared>, ReadItem<QRoot>) -> T,
+        mut child_fn: impl FnMut(&ReadItem<QShared>, &T, ReadItem<QShared>, ReadItem<QChild>) -> T,
     ) {
         for (shared, owned, children) in self.root.iter() {
-            let info = root_fn(&shared, &owned);
+            let info = root_fn(&shared, owned);
             let Some(children) = children else {
                 continue;
             };
@@ -140,7 +140,7 @@ impl<
                         &self.children.to_readonly(),
                         &self.parent,
                         *entity,
-                        |a, b, c, d| child_fn(a, b, c, d),
+                        &mut child_fn,
                     );
                 };
             }
@@ -156,11 +156,15 @@ impl<
     #[allow(unsafe_code)]
     pub fn for_each_mut_with<T: 'static>(
         &mut self,
-        mut root_fn: impl FnMut(&mut Item<QShared>, &mut Item<QRoot>) -> T,
-        mut child_fn: impl FnMut(&Item<QShared>, &T, &mut Item<QShared>, &mut Item<QChild>) -> T,
+        mut root_fn: impl FnMut(Item<QShared>, Item<QRoot>) -> T,
+        mut child_fn: impl FnMut(&ReadItem<QShared>, &T, Item<QShared>, Item<QChild>) -> T,
     ) {
-        for (mut shared, mut root, children) in self.root.iter_mut() {
-            let info = root_fn(&mut shared, &mut root);
+        let infos: Vec<_> = self
+            .root
+            .iter_mut()
+            .map(|(shared, root, _)| root_fn(shared, root))
+            .collect();
+        for ((shared, _, children), info) in self.root.iter().zip(infos) {
             let Some(children) = children else {
                 continue;
             };
@@ -202,12 +206,12 @@ unsafe fn propagate<
     Info: 'static,
 >(
     actual_root: Entity,
-    parent: &Item<QShared>,
+    parent: &ReadItem<QShared>,
     parent_info: &Info,
     main_query: &Query<(QShared, QMain, Option<&'static Children>), (Filter, With<Parent>)>,
     parent_query: &Query<(Entity, &Parent)>,
     entity: Entity,
-    mut function: impl FnMut(&Item<QShared>, &Info, &mut Item<QShared>, &mut Item<QMain>) -> Info,
+    mut function: impl FnMut(&ReadItem<QShared>, &Info, Item<QShared>, Item<QMain>) -> Info,
 ) {
     // SAFETY: This call cannot create aliased mutable references.
     //   - The top level iteration parallelizes on the roots of the hierarchy.
@@ -235,12 +239,19 @@ unsafe fn propagate<
     //
     // Even if these A and B start two separate tasks running in parallel, one of them will panic before attempting
     // to mutably access E.
-    let Ok((mut shared, mut owned, children)) = (unsafe { main_query.get_unchecked(entity) })
-    else {
-        return;
+    let info = {
+        let Ok((shared, owned, _)) =
+            // Safety: see above.
+            (unsafe { main_query.get_unchecked(entity) }) else {
+                return;
+            };
+
+        function(parent, parent_info, shared, owned)
     };
 
-    let info = function(parent, parent_info, &mut shared, &mut owned);
+    let Ok((shared, _, children)) = main_query.get(entity) else {
+        return;
+    };
 
     let Some(children) = children else { return };
     for (child, actual_parent) in parent_query.iter_many(children) {
@@ -253,7 +264,7 @@ unsafe fn propagate<
         // This was not needed in `propagate_transform` since the root node did not have parents.
         assert_ne!(
             actual_root, entity,
-            "Malformed hierarchy. The hierarchy contains a cycle"
+            "Malformed hierarchy. Your hierarchy contains a cycle"
         );
         // SAFETY: The caller guarantees that `main_query` will not be fetched
         // for any descendants of `entity`, so it is safe to call `propagate_recursive` for each child.
