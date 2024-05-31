@@ -51,7 +51,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::Vec3;
-use bevy_reflect::Reflect;
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
@@ -96,6 +96,11 @@ pub struct VolumetricLight;
 /// lighting, also known as light shafts or god rays.
 #[derive(Clone, Copy, Component, Debug, Reflect)]
 #[reflect(Component)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct VolumetricFogSettings {
     /// The color of the fog.
     ///
@@ -250,6 +255,8 @@ impl Plugin for VolumetricFogPlugin {
             "volumetric_fog.wgsl",
             Shader::from_wgsl
         );
+        app.register_type::<VolumetricFogSettings>()
+            .register_type::<VolumetricLight>();
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
