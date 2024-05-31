@@ -42,6 +42,7 @@ use std::{
     fmt,
     mem::MaybeUninit,
     sync::atomic::{AtomicU32, Ordering},
+    collections::HashSet,
 };
 mod identifier;
 
@@ -802,19 +803,50 @@ impl World {
         Self::verify_unique_entities(entities)?;
 
         // SAFETY: Each entity is unique.
-        unsafe { self.get_entities_dynamic_mut_unchecked(entities) }
+        unsafe { self.get_entities_dynamic_mut_unchecked(entities.iter().copied()) }
+    }
+
+    /// Gets mutable access to multiple entities, contained in a [`HashSet`].
+    /// The uniqueness of items in a [`HashSet`] allows us to avoid checking for duplicates.
+    ///
+    /// # Errors
+    ///
+    /// If any entities do not exist in the world.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use std::collections::HashSet;
+    /// # let mut world = World::new();
+    /// # let id1 = world.spawn_empty().id();
+    /// # let id2 = world.spawn_empty().id();
+    /// let mut set = HashSet::new();
+    /// set.insert(id1);
+    /// set.insert(id2);
+    ///
+    /// // Disjoint mutable access.
+    /// let mut entities = world.get_many_entities_from_set_mut(&set).unwrap();
+    /// let entity1 = entities.get_mut(0).unwrap();
+    /// ```
+    pub fn get_many_entities_from_set_mut<'w>(
+        &'w mut self,
+        entities: &HashSet<Entity>,
+    ) -> Result<Vec<EntityMut<'w>>, QueryEntityError> {
+        // SAFETY: Each entity is unique.
+        unsafe { self.get_entities_dynamic_mut_unchecked(entities.iter().copied()) }
     }
 
     /// # Safety
-    /// `entities` must contain no duplicate [`Entity`] IDs.
+    /// `entities` must produce no duplicate [`Entity`] IDs.
     unsafe fn get_entities_dynamic_mut_unchecked<'w>(
         &'w mut self,
-        entities: &[Entity],
+        entities: impl ExactSizeIterator<Item = Entity>,
     ) -> Result<Vec<EntityMut<'w>>, QueryEntityError> {
         let world_cell = self.as_unsafe_world_cell();
 
         let mut cells = Vec::with_capacity(entities.len());
-        for &id in entities {
+        for id in entities {
             cells.push(
                 world_cell
                     .get_entity(id)
