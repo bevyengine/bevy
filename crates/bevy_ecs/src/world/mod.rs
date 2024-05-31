@@ -8,8 +8,8 @@ mod spawn_batch;
 pub mod unsafe_world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
-use crate::component::ComponentInitializer;
 pub use crate::world::command_queue::CommandQueue;
+use crate::{component::ComponentInitializer, entity::EntityHashSet};
 pub use deferred_world::DeferredWorld;
 pub use entity_ref::{
     EntityMut, EntityRef, EntityWorldMut, Entry, FilteredEntityMut, FilteredEntityRef,
@@ -817,11 +817,15 @@ impl World {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use std::collections::HashSet;
+    /// # use bevy_ecs::entity::EntityHash;
+    /// # use bevy_ecs::entity::EntityHashSet;
+    /// # use bevy_utils::hashbrown::HashSet;
+    /// # use bevy_utils::hashbrown::hash_map::DefaultHashBuilder;
     /// # let mut world = World::new();
     /// # let id1 = world.spawn_empty().id();
     /// # let id2 = world.spawn_empty().id();
-    /// let mut set = HashSet::new();
+    /// let s = EntityHash::default();
+    /// let mut set = EntityHashSet::with_hasher(s);
     /// set.insert(id1);
     /// set.insert(id2);
     ///
@@ -831,7 +835,7 @@ impl World {
     /// ```
     pub fn get_many_entities_from_set_mut<'w>(
         &'w mut self,
-        entities: &HashSet<Entity>,
+        entities: &EntityHashSet,
     ) -> Result<Vec<EntityMut<'w>>, QueryEntityError> {
         // SAFETY: Each entity is unique.
         unsafe { self.get_entities_dynamic_mut_unchecked(entities.iter().copied()) }
