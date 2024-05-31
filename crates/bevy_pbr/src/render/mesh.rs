@@ -4,6 +4,7 @@ use bevy_asset::{load_internal_asset, AssetId};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
+    prepass::MotionVectorPrepass,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashMap;
@@ -1407,8 +1408,8 @@ bitflags::bitflags! {
         const IRRADIANCE_VOLUME                 = 1 << 14;
         const VISIBILITY_RANGE_DITHER           = 1 << 15;
         const SCREEN_SPACE_REFLECTIONS          = 1 << 16;
-        const HAS_PREVIOUS_SKIN                = 1 << 17;
-        const HAS_PREVIOUS_MORPH               = 1 << 18;
+        const HAS_PREVIOUS_SKIN                 = 1 << 17;
+        const HAS_PREVIOUS_MORPH                = 1 << 18;
         const LAST_FLAG                         = Self::HAS_PREVIOUS_MORPH.bits();
 
         // Bitfields
@@ -1550,22 +1551,41 @@ pub fn setup_morph_and_skinning_defs(
     };
     let is_morphed = key.intersects(MeshPipelineKey::MORPH_TARGETS);
     let is_lightmapped = key.intersects(MeshPipelineKey::LIGHTMAPPED);
-    match (is_skinned(layout), is_morphed, is_lightmapped) {
-        (true, false, _) => {
+    let motion_vector_prepass = key.intersects(MeshPipelineKey::MOTION_VECTOR_PREPASS);
+    match (
+        is_skinned(layout),
+        is_morphed,
+        is_lightmapped,
+        motion_vector_prepass,
+    ) {
+        (true, false, _, true) => {
+            add_skin_data();
+            mesh_layouts.skinned_motion.clone()
+        }
+        (true, false, _, false) => {
             add_skin_data();
             mesh_layouts.skinned.clone()
         }
-        (true, true, _) => {
+        (true, true, _, true) => {
+            add_skin_data();
+            shader_defs.push("MORPH_TARGETS".into());
+            mesh_layouts.morphed_skinned_motion.clone()
+        }
+        (true, true, _, false) => {
             add_skin_data();
             shader_defs.push("MORPH_TARGETS".into());
             mesh_layouts.morphed_skinned.clone()
         }
-        (false, true, _) => {
+        (false, true, _, true) => {
+            shader_defs.push("MORPH_TARGETS".into());
+            mesh_layouts.morphed_motion.clone()
+        }
+        (false, true, _, false) => {
             shader_defs.push("MORPH_TARGETS".into());
             mesh_layouts.morphed.clone()
         }
-        (false, false, true) => mesh_layouts.lightmapped.clone(),
-        (false, false, false) => mesh_layouts.model_only.clone(),
+        (false, false, true, _) => mesh_layouts.lightmapped.clone(),
+        (false, false, false, _) => mesh_layouts.model_only.clone(),
     }
 }
 
@@ -1906,10 +1926,16 @@ impl SpecializedMeshPipeline for MeshPipeline {
 #[derive(Resource, Default)]
 pub struct MeshBindGroups {
     model_only: Option<BindGroup>,
-    skinned: Option<BindGroup>,
-    morph_targets: HashMap<AssetId<Mesh>, BindGroup>,
+    skinned: Option<MeshBindGroupPair>,
+    morph_targets: HashMap<AssetId<Mesh>, MeshBindGroupPair>,
     lightmaps: HashMap<AssetId<Image>, BindGroup>,
 }
+
+pub struct MeshBindGroupPair {
+    motion_vectors: BindGroup,
+    no_motion_vectors: BindGroup,
+}
+
 impl MeshBindGroups {
     pub fn reset(&mut self) {
         self.model_only = None;
@@ -1925,12 +1951,29 @@ impl MeshBindGroups {
         lightmap: Option<AssetId<Image>>,
         is_skinned: bool,
         morph: bool,
+        motion_vectors: bool,
     ) -> Option<&BindGroup> {
         match (is_skinned, morph, lightmap) {
-            (_, true, _) => self.morph_targets.get(&asset_id),
-            (true, false, _) => self.skinned.as_ref(),
+            (_, true, _) => self
+                .morph_targets
+                .get(&asset_id)
+                .map(|bind_group_pair| bind_group_pair.get(motion_vectors)),
+            (true, false, _) => self
+                .skinned
+                .as_ref()
+                .map(|bind_group_pair| bind_group_pair.get(motion_vectors)),
             (false, false, Some(lightmap)) => self.lightmaps.get(&lightmap),
             (false, false, None) => self.model_only.as_ref(),
+        }
+    }
+}
+
+impl MeshBindGroupPair {
+    fn get(&self, motion_vectors: bool) -> &BindGroup {
+        if motion_vectors {
+            &self.motion_vectors
+        } else {
+            &self.no_motion_vectors
         }
     }
 }
@@ -1953,6 +1996,7 @@ pub fn prepare_mesh_bind_group(
     render_lightmaps: Res<RenderLightmaps>,
 ) {
     groups.reset();
+
     let layouts = &mesh_pipeline.mesh_layouts;
 
     let model = if let Some(cpu_batched_instance_buffer) = cpu_batched_instance_buffer {
@@ -1976,7 +2020,10 @@ pub fn prepare_mesh_bind_group(
     let skin = skins_uniform.current_buffer.buffer();
     if let Some(skin) = skin {
         let prev_skin = skins_uniform.prev_buffer.buffer().unwrap_or(skin);
-        groups.skinned = Some(layouts.skinned(&render_device, &model, skin, prev_skin));
+        groups.skinned = Some(MeshBindGroupPair {
+            motion_vectors: layouts.skinned_motion(&render_device, &model, skin, prev_skin),
+            no_motion_vectors: layouts.skinned(&render_device, &model, skin),
+        });
     }
 
     // Create the morphed bind groups just like we did for the skinned bind
@@ -1985,21 +2032,45 @@ pub fn prepare_mesh_bind_group(
         let prev_weights = weights_uniform.prev_buffer.buffer().unwrap_or(weights);
         for (id, gpu_mesh) in meshes.iter() {
             if let Some(targets) = gpu_mesh.morph_targets.as_ref() {
-                let group = if let Some(skin) = skin.filter(|_| is_skinned(&gpu_mesh.layout)) {
-                    let prev_skin = skins_uniform.prev_buffer.buffer().unwrap_or(skin);
-                    layouts.morphed_skinned(
-                        &render_device,
-                        &model,
-                        skin,
-                        weights,
-                        targets,
-                        prev_skin,
-                        prev_weights,
-                    )
-                } else {
-                    layouts.morphed(&render_device, &model, weights, targets, prev_weights)
+                let bind_group_pair = match skin.filter(|_| is_skinned(&gpu_mesh.layout)) {
+                    Some(skin) => {
+                        let prev_skin = skins_uniform.prev_buffer.buffer().unwrap_or(skin);
+                        MeshBindGroupPair {
+                            motion_vectors: layouts.morphed_skinned_motion(
+                                &render_device,
+                                &model,
+                                skin,
+                                weights,
+                                targets,
+                                prev_skin,
+                                prev_weights,
+                            ),
+                            no_motion_vectors: layouts.morphed_skinned(
+                                &render_device,
+                                &model,
+                                skin,
+                                weights,
+                                targets,
+                            ),
+                        }
+                    }
+                    None => MeshBindGroupPair {
+                        motion_vectors: layouts.morphed_motion(
+                            &render_device,
+                            &model,
+                            weights,
+                            targets,
+                            prev_weights,
+                        ),
+                        no_motion_vectors: layouts.morphed(
+                            &render_device,
+                            &model,
+                            weights,
+                            targets,
+                        ),
+                    },
                 };
-                groups.morph_targets.insert(id, group);
+                groups.morph_targets.insert(id, bind_group_pair);
             }
         }
     }
@@ -2063,13 +2134,13 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         SRes<MorphIndices>,
         SRes<RenderLightmaps>,
     );
-    type ViewQuery = ();
+    type ViewQuery = Has<MotionVectorPrepass>;
     type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
         item: &P,
-        _view: (),
+        has_motion_vector_prepass: bool,
         _item_query: Option<()>,
         (bind_groups, mesh_instances, skin_indices, morph_indices, lightmaps): SystemParamItem<
             'w,
@@ -2101,8 +2172,13 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             .get(entity)
             .map(|render_lightmap| render_lightmap.image);
 
-        let Some(bind_group) = bind_groups.get(mesh_asset_id, lightmap, is_skinned, is_morphed)
-        else {
+        let Some(bind_group) = bind_groups.get(
+            mesh_asset_id,
+            lightmap,
+            is_skinned,
+            is_morphed,
+            has_motion_vector_prepass,
+        ) else {
             error!(
                 "The MeshBindGroups resource wasn't set in the render phase. \
                 It should be set by the prepare_mesh_bind_group system.\n\
@@ -2126,24 +2202,29 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             offset_count += 1;
         }
 
-        // Attach the previous skin index for motion vector computation. If
-        // there isn't one, just use zero as the shader will ignore it.
-        if current_skin_index.is_some() {
-            match prev_skin_index {
-                Some(prev_skin_index) => dynamic_offsets[offset_count] = prev_skin_index.index,
-                None => dynamic_offsets[offset_count] = 0,
+        // Attach motion vectors if needed.
+        if has_motion_vector_prepass {
+            // Attach the previous skin index for motion vector computation. If
+            // there isn't one, just use zero as the shader will ignore it.
+            if current_skin_index.is_some() {
+                match prev_skin_index {
+                    Some(prev_skin_index) => dynamic_offsets[offset_count] = prev_skin_index.index,
+                    None => dynamic_offsets[offset_count] = 0,
+                }
+                offset_count += 1;
             }
-            offset_count += 1;
-        }
 
-        // Attach the previous morph index for motion vector computation. If
-        // there isn't one, just use zero as the shader will ignore it.
-        if current_morph_index.is_some() {
-            match prev_morph_index {
-                Some(prev_morph_index) => dynamic_offsets[offset_count] = prev_morph_index.index,
-                None => dynamic_offsets[offset_count] = 0,
+            // Attach the previous morph index for motion vector computation. If
+            // there isn't one, just use zero as the shader will ignore it.
+            if current_morph_index.is_some() {
+                match prev_morph_index {
+                    Some(prev_morph_index) => {
+                        dynamic_offsets[offset_count] = prev_morph_index.index;
+                    }
+                    None => dynamic_offsets[offset_count] = 0,
+                }
+                offset_count += 1;
             }
-            offset_count += 1;
         }
 
         pass.set_bind_group(I, bind_group, &dynamic_offsets[0..offset_count]);

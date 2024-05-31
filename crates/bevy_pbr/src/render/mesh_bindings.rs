@@ -106,16 +106,29 @@ pub struct MeshLayouts {
     /// Also includes the uniform for skinning
     pub skinned: BindGroupLayout,
 
+    /// Like [`MeshLayouts::skinned`], but includes slots for the previous
+    /// frame's joint matrices, so that we can compute motion vectors.
+    pub skinned_motion: BindGroupLayout,
+
     /// Also includes the uniform and [`MorphAttributes`] for morph targets.
     ///
     /// [`MorphAttributes`]: bevy_render::mesh::morph::MorphAttributes
     pub morphed: BindGroupLayout,
+
+    /// Like [`MeshLayouts::morphed`], but includes a slot for the previous
+    /// frame's morph weights, so that we can compute motion vectors.
+    pub morphed_motion: BindGroupLayout,
 
     /// Also includes both uniforms for skinning and morph targets, also the
     /// morph target [`MorphAttributes`] binding.
     ///
     /// [`MorphAttributes`]: bevy_render::mesh::morph::MorphAttributes
     pub morphed_skinned: BindGroupLayout,
+
+    /// Like [`MeshLayouts::morphed_skinned`], but includes slots for the
+    /// previous frame's joint matrices and morph weights, so that we can
+    /// compute motion vectors.
+    pub morphed_skinned_motion: BindGroupLayout,
 }
 
 impl MeshLayouts {
@@ -127,8 +140,11 @@ impl MeshLayouts {
             model_only: Self::model_only_layout(render_device),
             lightmapped: Self::lightmapped_layout(render_device),
             skinned: Self::skinned_layout(render_device),
+            skinned_motion: Self::skinned_motion_layout(render_device),
             morphed: Self::morphed_layout(render_device),
+            morphed_motion: Self::morphed_motion_layout(render_device),
             morphed_skinned: Self::morphed_skinned_layout(render_device),
+            morphed_skinned_motion: Self::morphed_skinned_motion_layout(render_device),
         }
     }
 
@@ -154,6 +170,22 @@ impl MeshLayouts {
                     (0, layout_entry::model(render_device)),
                     // The current frame's joint matrix buffer.
                     (1, layout_entry::skinning()),
+                ),
+            ),
+        )
+    }
+
+    /// Creates the layout for skinned meshes with the infrastructure to compute
+    /// motion vectors.
+    fn skinned_motion_layout(render_device: &RenderDevice) -> BindGroupLayout {
+        render_device.create_bind_group_layout(
+            "skinned_motion_mesh_layout",
+            &BindGroupLayoutEntries::with_indices(
+                ShaderStages::VERTEX,
+                (
+                    (0, layout_entry::model(render_device)),
+                    // The current frame's joint matrix buffer.
+                    (1, layout_entry::skinning()),
                     // The previous frame's joint matrix buffer.
                     (6, layout_entry::skinning()),
                 ),
@@ -163,6 +195,23 @@ impl MeshLayouts {
 
     /// Creates the layout for meshes with morph targets.
     fn morphed_layout(render_device: &RenderDevice) -> BindGroupLayout {
+        render_device.create_bind_group_layout(
+            "morphed_mesh_layout",
+            &BindGroupLayoutEntries::with_indices(
+                ShaderStages::VERTEX,
+                (
+                    (0, layout_entry::model(render_device)),
+                    // The current frame's morph weight buffer.
+                    (2, layout_entry::weights()),
+                    (3, layout_entry::targets()),
+                ),
+            ),
+        )
+    }
+
+    /// Creates the layout for meshes with morph targets and the infrastructure
+    /// to compute motion vectors.
+    fn morphed_motion_layout(render_device: &RenderDevice) -> BindGroupLayout {
         render_device.create_bind_group_layout(
             "morphed_mesh_layout",
             &BindGroupLayoutEntries::with_indices(
@@ -184,6 +233,29 @@ impl MeshLayouts {
     fn morphed_skinned_layout(render_device: &RenderDevice) -> BindGroupLayout {
         render_device.create_bind_group_layout(
             "morphed_skinned_mesh_layout",
+            &BindGroupLayoutEntries::with_indices(
+                ShaderStages::VERTEX,
+                (
+                    (0, layout_entry::model(render_device)),
+                    // The current frame's joint matrix buffer.
+                    (1, layout_entry::skinning()),
+                    // The current frame's morph weight buffer.
+                    (2, layout_entry::weights()),
+                    (3, layout_entry::targets()),
+                    // The previous frame's joint matrix buffer.
+                    (6, layout_entry::skinning()),
+                    // The previous frame's morph weight buffer.
+                    (7, layout_entry::weights()),
+                ),
+            ),
+        )
+    }
+
+    /// Creates the bind group layout for meshes with both skins and morph
+    /// targets, in addition to the infrastructure to compute motion vectors.
+    fn morphed_skinned_motion_layout(render_device: &RenderDevice) -> BindGroupLayout {
+        render_device.create_bind_group_layout(
+            "morphed_skinned_motion_mesh_layout",
             &BindGroupLayoutEntries::with_indices(
                 ShaderStages::VERTEX,
                 (
@@ -244,12 +316,30 @@ impl MeshLayouts {
     }
 
     /// Creates the bind group for skinned meshes with no morph targets.
+    pub fn skinned(
+        &self,
+        render_device: &RenderDevice,
+        model: &BindingResource,
+        current_skin: &Buffer,
+    ) -> BindGroup {
+        render_device.create_bind_group(
+            "skinned_mesh_bind_group",
+            &self.skinned,
+            &[
+                entry::model(0, model.clone()),
+                entry::skinning(1, current_skin),
+            ],
+        )
+    }
+
+    /// Creates the bind group for skinned meshes with no morph targets, with
+    /// the infrastructure to compute motion vectors.
     ///
     /// `current_skin` is the buffer of joint matrices for this frame;
     /// `prev_skin` is the buffer for the previous frame. The latter is used for
     /// motion vector computation. If there is no such applicable buffer,
     /// `current_skin` and `prev_skin` will reference the same buffer.
-    pub fn skinned(
+    pub fn skinned_motion(
         &self,
         render_device: &RenderDevice,
         model: &BindingResource,
@@ -257,8 +347,8 @@ impl MeshLayouts {
         prev_skin: &Buffer,
     ) -> BindGroup {
         render_device.create_bind_group(
-            "skinned_mesh_bind_group",
-            &self.skinned,
+            "skinned_motion_mesh_bind_group",
+            &self.skinned_motion,
             &[
                 entry::model(0, model.clone()),
                 entry::skinning(1, current_skin),
@@ -268,12 +358,32 @@ impl MeshLayouts {
     }
 
     /// Creates the bind group for meshes with no skins but morph targets.
+    pub fn morphed(
+        &self,
+        render_device: &RenderDevice,
+        model: &BindingResource,
+        current_weights: &Buffer,
+        targets: &TextureView,
+    ) -> BindGroup {
+        render_device.create_bind_group(
+            "morphed_mesh_bind_group",
+            &self.morphed,
+            &[
+                entry::model(0, model.clone()),
+                entry::weights(2, current_weights),
+                entry::targets(3, targets),
+            ],
+        )
+    }
+
+    /// Creates the bind group for meshes with no skins but morph targets, in
+    /// addition to the infrastructure to compute motion vectors.
     ///
     /// `current_weights` is the buffer of morph weights for this frame;
     /// `prev_weights` is the buffer for the previous frame. The latter is used
     /// for motion vector computation. If there is no such applicable buffer,
     /// `current_weights` and `prev_weights` will reference the same buffer.
-    pub fn morphed(
+    pub fn morphed_motion(
         &self,
         render_device: &RenderDevice,
         model: &BindingResource,
@@ -282,8 +392,8 @@ impl MeshLayouts {
         prev_weights: &Buffer,
     ) -> BindGroup {
         render_device.create_bind_group(
-            "morphed_mesh_bind_group",
-            &self.morphed,
+            "morphed_motion_mesh_bind_group",
+            &self.morphed_motion,
             &[
                 entry::model(0, model.clone()),
                 entry::weights(2, current_weights),
@@ -294,12 +404,36 @@ impl MeshLayouts {
     }
 
     /// Creates the bind group for meshes with skins and morph targets.
-    ///
-    /// See the documentation for [`skinned`] and [`morphed`] above for more
-    /// information about the `current_skin`, `prev_skin`, `current_weights`,
-    /// and `prev_weights` buffers.
     #[allow(clippy::too_many_arguments)]
     pub fn morphed_skinned(
+        &self,
+        render_device: &RenderDevice,
+        model: &BindingResource,
+        current_skin: &Buffer,
+        current_weights: &Buffer,
+        targets: &TextureView,
+    ) -> BindGroup {
+        render_device.create_bind_group(
+            "morphed_skinned_mesh_bind_group",
+            &self.morphed_skinned,
+            &[
+                entry::model(0, model.clone()),
+                entry::skinning(1, current_skin),
+                entry::weights(2, current_weights),
+                entry::targets(3, targets),
+            ],
+        )
+    }
+
+    /// Creates the bind group for meshes with skins and morph targets, in
+    /// addition to the infrastructure to compute motion vectors.
+    ///
+    /// See the documentation for [`MeshLayouts::skinned_motion`] and
+    /// [`MeshLayouts::morphed_motion`] above for more information about the
+    /// `current_skin`, `prev_skin`, `current_weights`, and `prev_weights`
+    /// buffers.
+    #[allow(clippy::too_many_arguments)]
+    pub fn morphed_skinned_motion(
         &self,
         render_device: &RenderDevice,
         model: &BindingResource,
@@ -310,8 +444,8 @@ impl MeshLayouts {
         prev_weights: &Buffer,
     ) -> BindGroup {
         render_device.create_bind_group(
-            "morphed_skinned_mesh_bind_group",
-            &self.morphed_skinned,
+            "morphed_skinned_motion_mesh_bind_group",
+            &self.morphed_skinned_motion,
             &[
                 entry::model(0, model.clone()),
                 entry::skinning(1, current_skin),

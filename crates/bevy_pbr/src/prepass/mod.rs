@@ -861,18 +861,20 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 mesh_key |= MeshPipelineKey::LIGHTMAPPED;
             }
 
-            // If the previous frame have skins or morph targets, note that.
-            if mesh_instance
-                .flags
-                .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_SKIN)
-            {
-                mesh_key |= MeshPipelineKey::HAS_PREVIOUS_SKIN;
-            }
-            if mesh_instance
-                .flags
-                .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_MORPH)
-            {
-                mesh_key |= MeshPipelineKey::HAS_PREVIOUS_MORPH;
+            // If the previous frame has skins or morph targets, note that.
+            if motion_vector_prepass.is_some() {
+                if mesh_instance
+                    .flags
+                    .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_SKIN)
+                {
+                    mesh_key |= MeshPipelineKey::HAS_PREVIOUS_SKIN;
+                }
+                if mesh_instance
+                    .flags
+                    .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_MORPH)
+                {
+                    mesh_key |= MeshPipelineKey::HAS_PREVIOUS_MORPH;
+                }
             }
 
             let pipeline_id = pipelines.specialize(

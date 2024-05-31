@@ -5,7 +5,6 @@ use std::time::Duration;
 
 use bevy::{
     animation::{animate_targets, RepeatAnimation},
-    core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
 };
@@ -16,8 +15,7 @@ fn main() {
             color: Color::WHITE,
             brightness: 2000.,
         })
-        .insert_resource(Msaa::Off)
-        .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, setup_scene_once_loaded.before(animate_targets))
         .add_systems(Update, keyboard_animation_control)
@@ -62,13 +60,11 @@ fn setup(
     });
 
     // Camera
-    commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(100.0, 100.0, 150.0)
-                .looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
-            ..default()
-        })
-        .insert(TemporalAntiAliasBundle::default());
+    commands.spawn(Camera3dBundle {
+        transform: Transform::from_xyz(100.0, 100.0, 150.0)
+            .looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
+        ..default()
+    });
 
     // Plane
     commands.spawn(PbrBundle {
