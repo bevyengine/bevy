@@ -3256,4 +3256,18 @@ mod tests {
         let mut world = World::new();
         world.spawn(());
     }
+
+    #[test]
+    fn test_verify_unique_entities() {
+        let mut world = World::new();
+        let entity1 = world.spawn(()).id();
+        let entity2 = world.spawn(()).id();
+        let entity3 = world.spawn(()).id();
+        let entity4 = world.spawn(()).id();
+        let entity5 = world.spawn(()).id();
+        
+        assert!(World::verify_unique_entities(&[entity1, entity2, entity3, entity4, entity5]).is_ok());
+        assert!(World::verify_unique_entities(&[entity1, entity1, entity2, entity5]).is_err());
+        assert!(World::verify_unique_entities(&[entity1, entity2, entity3, entity4, entity5, entity1]).is_err());
+    }
 }
