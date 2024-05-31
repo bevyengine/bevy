@@ -1,4 +1,4 @@
-use glam::{Vec2, Vec3, Vec3A, Vec4};
+use crate::{Dir2, Dir3, Dir3A, Quat, Vec2, Vec3, Vec3A, Vec4};
 use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
@@ -159,5 +159,54 @@ impl NormedVectorSpace for f32 {
     #[inline]
     fn norm_squared(self) -> f32 {
         self * self
+    }
+}
+
+pub trait Interpolate: Clone {
+    fn interpolate(&self, other: &Self, t: f32) -> Self;
+
+    fn interpolate_assign(&mut self, other: &Self, t: f32) {
+        *self = self.interpolate(other, t);
+    }
+
+    fn smooth_nudge(&self, other: &Self, rate: f32, delta: f32) -> Self {
+        self.interpolate(other, 1.0 - f32::exp(-rate * delta))
+    }
+
+    fn smooth_nudge_assign(&mut self, other: &Self, rate: f32, delta: f32) {
+        *self = self.smooth_nudge(other, rate, delta);
+    }
+}
+
+impl<V> Interpolate for V
+where
+    V: VectorSpace,
+{
+    fn interpolate(&self, other: &Self, t: f32) -> Self {
+        *self * (1.0 - t) + *other * t
+    }
+}
+
+impl Interpolate for Quat {
+    fn interpolate(&self, other: &Self, t: f32) -> Self {
+        self.slerp(*other, t)
+    }
+}
+
+impl Interpolate for Dir2 {
+    fn interpolate(&self, other: &Self, t: f32) -> Self {
+        self.slerp(*other, t)
+    }
+}
+
+impl Interpolate for Dir3 {
+    fn interpolate(&self, other: &Self, t: f32) -> Self {
+        self.slerp(*other, t)
+    }
+}
+
+impl Interpolate for Dir3A {
+    fn interpolate(&self, other: &Self, t: f32) -> Self {
+        self.slerp(*other, t)
     }
 }
