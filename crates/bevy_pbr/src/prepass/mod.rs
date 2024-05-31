@@ -15,7 +15,7 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_math::{Affine3A, Mat4};
+use bevy_math::Affine3A;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     prelude::{Camera, Mesh},
@@ -193,12 +193,6 @@ where
 
 #[derive(Resource)]
 struct AnyPrepassPluginLoaded;
-
-#[derive(Component, ShaderType, Clone)]
-pub struct PreviousViewData {
-    pub inverse_view: Mat4,
-    pub view_proj: Mat4,
-}
 
 #[cfg(not(feature = "meshlet"))]
 type PreviousViewFilter = (With<Camera3d>, With<MotionVectorPrepass>);
@@ -464,39 +458,12 @@ where
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
         // Setup prepass fragment targets - normals in slot 0 (or None if not needed), motion vectors in slot 1
-        let mut targets = vec![
+        let mut targets = prepass_target_descriptors(
+            key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS),
             key.mesh_key
-                .contains(MeshPipelineKey::NORMAL_PREPASS)
-                .then_some(ColorTargetState {
-                    format: NORMAL_PREPASS_FORMAT,
-                    // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                }),
-            key.mesh_key
-                .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
-                .then_some(ColorTargetState {
-                    format: MOTION_VECTOR_PREPASS_FORMAT,
-                    // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                }),
-            key.mesh_key
-                .contains(MeshPipelineKey::DEFERRED_PREPASS)
-                .then_some(ColorTargetState {
-                    format: DEFERRED_PREPASS_FORMAT,
-                    // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                }),
-            key.mesh_key
-                .contains(MeshPipelineKey::DEFERRED_PREPASS)
-                .then_some(ColorTargetState {
-                    format: DEFERRED_LIGHTING_PASS_ID_FORMAT,
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                }),
-        ];
+                .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS),
+            key.mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS),
+        );
 
         if targets.iter().all(Option::is_none) {
             // if no targets are required then clear the list, so that no fragment shader is required
@@ -613,16 +580,6 @@ pub fn extract_camera_previous_view_data(
             }
         }
     }
-}
-
-#[derive(Resource, Default)]
-pub struct PreviousViewUniforms {
-    pub uniforms: DynamicUniformBuffer<PreviousViewData>,
-}
-
-#[derive(Component)]
-pub struct PreviousViewUniformOffset {
-    pub offset: u32,
 }
 
 pub fn prepare_previous_view_uniforms(

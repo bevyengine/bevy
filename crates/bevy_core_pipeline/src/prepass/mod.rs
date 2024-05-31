@@ -31,6 +31,7 @@ use std::ops::Range;
 
 use bevy_asset::AssetId;
 use bevy_ecs::prelude::*;
+use bevy_math::Mat4;
 use bevy_reflect::Reflect;
 use bevy_render::{
     mesh::Mesh,
@@ -38,9 +39,14 @@ use bevy_render::{
         BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem,
         PhaseItemExtraIndex,
     },
-    render_resource::{BindGroupId, CachedRenderPipelineId, Extent3d, TextureFormat, TextureView},
+    render_resource::{
+        BindGroupId, CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer,
+        Extent3d, ShaderType, TextureFormat, TextureView,
+    },
     texture::ColorAttachment,
 };
+
+use crate::deferred::{DEFERRED_LIGHTING_PASS_ID_FORMAT, DEFERRED_PREPASS_FORMAT};
 
 pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
 pub const MOTION_VECTOR_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg16Float;
@@ -62,6 +68,22 @@ pub struct MotionVectorPrepass;
 /// Note the default deferred lighting plugin also requires `DepthPrepass` to work correctly.
 #[derive(Component, Default, Reflect)]
 pub struct DeferredPrepass;
+
+#[derive(Component, ShaderType, Clone)]
+pub struct PreviousViewData {
+    pub inverse_view: Mat4,
+    pub view_proj: Mat4,
+}
+
+#[derive(Resource, Default)]
+pub struct PreviousViewUniforms {
+    pub uniforms: DynamicUniformBuffer<PreviousViewData>,
+}
+
+#[derive(Component)]
+pub struct PreviousViewUniformOffset {
+    pub offset: u32,
+}
 
 /// Textures that are written to by the prepass.
 ///
@@ -269,4 +291,36 @@ impl CachedRenderPipelinePhaseItem for AlphaMask3dPrepass {
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.key.pipeline
     }
+}
+
+pub fn prepass_target_descriptors(
+    normal_prepass: bool,
+    motion_vector_prepass: bool,
+    deferred_prepass: bool,
+) -> Vec<Option<ColorTargetState>> {
+    vec![
+        normal_prepass.then_some(ColorTargetState {
+            format: NORMAL_PREPASS_FORMAT,
+            // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
+            blend: None,
+            write_mask: ColorWrites::ALL,
+        }),
+        motion_vector_prepass.then_some(ColorTargetState {
+            format: MOTION_VECTOR_PREPASS_FORMAT,
+            // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
+            blend: None,
+            write_mask: ColorWrites::ALL,
+        }),
+        deferred_prepass.then_some(ColorTargetState {
+            format: DEFERRED_PREPASS_FORMAT,
+            // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
+            blend: None,
+            write_mask: ColorWrites::ALL,
+        }),
+        deferred_prepass.then_some(ColorTargetState {
+            format: DEFERRED_LIGHTING_PASS_ID_FORMAT,
+            blend: None,
+            write_mask: ColorWrites::ALL,
+        }),
+    ]
 }

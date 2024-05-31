@@ -5,7 +5,10 @@ mod camera_controller;
 
 use bevy::{
     asset::LoadState,
-    core_pipeline::Skybox,
+    core_pipeline::{
+        experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
+        Skybox,
+    },
     prelude::*,
     render::{
         render_resource::{TextureViewDescriptor, TextureViewDimension},
@@ -37,7 +40,8 @@ const CUBEMAPS: &[(&str, CompressedImageFormats)] = &[
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin))
+        .insert_resource(Msaa::Off)
         .add_plugins(CameraControllerPlugin)
         .add_systems(Startup, setup)
         .add_systems(
@@ -82,6 +86,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             image: skybox_handle.clone(),
             brightness: 1000.0,
         },
+        TemporalAntiAliasBundle::default(),
     ));
 
     // ambient light
