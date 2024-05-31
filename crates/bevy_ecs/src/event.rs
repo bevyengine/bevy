@@ -533,6 +533,13 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     pub fn clear(&mut self) {
         self.reader.clear(&self.events);
     }
+
+    /// Consumes all available events and returns the last one.
+    ///
+    /// This works much like [`EventReader::clear()`] except it returns the last event.
+    pub fn last<'a>(&'a mut self) -> Option<&'a E> {
+        self.reader.last(&self.events)
+    }
 }
 
 /// Sends events of type `T`.
@@ -727,6 +734,17 @@ impl<E: Event> ManualEventReader<E> {
     /// See [`EventReader::clear()`]
     pub fn clear(&mut self, events: &Events<E>) {
         self.last_event_count = events.event_count;
+    }
+
+    /// See [`EventReader::last()`]
+    pub fn last<'a>(&'a mut self, events: &'a Events<E>) -> Option<&'a E> {
+        if self.last_event_count < events.event_count {
+            self.last_event_count = events.event_count - 1;
+            self.read(events).last()
+        } else {
+            self.clear(events);
+            None
+        }
     }
 }
 
@@ -1367,6 +1385,27 @@ mod tests {
         assert!(!is_empty, "EventReader should not be empty");
         let is_empty = reader.run((), &mut world);
         assert!(is_empty, "EventReader should be empty");
+    }
+
+    #[test]
+    fn test_event_reader_last() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        let mut events = Events::<TestEvent>::default();
+        events.send(TestEvent { i: 0 });
+        world.insert_resource(events);
+
+        let mut reader =
+            IntoSystem::into_system(|mut events: EventReader<TestEvent>| -> Option<TestEvent> {
+                events.last().copied()
+            });
+        reader.initialize(&mut world);
+
+        let event = reader.run((), &mut world);
+        assert!(event.is_some(), "EventReader should not be empty");
+        let event = reader.run((), &mut world);
+        assert!(event.is_none(), "EventReader should be empty");
     }
 
     #[test]
