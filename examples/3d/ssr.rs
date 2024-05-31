@@ -136,7 +136,7 @@ fn setup(
         &mut water_materials,
     );
     spawn_camera(&mut commands, &asset_server);
-    spawn_text(&mut commands, &asset_server, &app_settings);
+    spawn_text(&mut commands, &app_settings);
 }
 
 // Spawns the rotating cube.
@@ -248,23 +248,23 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
 }
 
 // Spawns the help text.
-fn spawn_text(commands: &mut Commands, asset_server: &AssetServer, app_settings: &AppSettings) {
+fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
     commands.spawn(
         TextBundle {
-            text: create_text(asset_server, app_settings),
+            text: create_text(app_settings),
             ..TextBundle::default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(10.0),
-            left: Val::Px(10.0),
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
 }
 
 // Creates or recreates the help text.
-fn create_text(asset_server: &AssetServer, app_settings: &AppSettings) -> Text {
+fn create_text(app_settings: &AppSettings) -> Text {
     Text::from_section(
         format!(
             "{}\n{}\n{}",
@@ -280,8 +280,7 @@ fn create_text(asset_server: &AssetServer, app_settings: &AppSettings) -> Text {
             MOVE_CAMERA_HELP_TEXT
         ),
         TextStyle {
-            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-            font_size: 24.0,
+            font_size: 20.0,
             ..default()
         },
     )
@@ -350,7 +349,6 @@ fn move_camera(
 #[allow(clippy::too_many_arguments)]
 fn adjust_app_settings(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut app_settings: ResMut<AppSettings>,
     mut cameras: Query<Entity, With<Camera>>,
@@ -413,7 +411,7 @@ fn adjust_app_settings(
 
     // Update the help text.
     for mut text in text.iter_mut() {
-        *text = create_text(&asset_server, &app_settings);
+        *text = create_text(&app_settings);
     }
 }
 
