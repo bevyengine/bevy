@@ -28,7 +28,7 @@ use bevy_math::{FloatExt, Quat, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_time::Time;
-use bevy_transform::{plugins::TransformSystem, prelude::Transform};
+use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::hashbrown::HashMap;
 use bevy_utils::{
     tracing::{error, trace},

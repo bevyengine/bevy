@@ -23,7 +23,7 @@ use bevy_math::{
 };
 use bevy_pbr::{DirectionalLight, PointLight, SpotLight};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_transform::{components::GlobalTransform, plugins::TransformSystem};
+use bevy_transform::{components::GlobalTransform, TransformSystem};
 
 use crate::{
     config::{GizmoConfigGroup, GizmoConfigStore},

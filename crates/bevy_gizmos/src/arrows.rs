@@ -9,7 +9,7 @@ use bevy_color::{
     Color,
 };
 use bevy_math::{Quat, Vec2, Vec3};
-use bevy_transform::traits::TransformPoint;
+use bevy_transform::TransformPoint;
 
 /// A builder returned by [`Gizmos::arrow`] and [`Gizmos::arrow_2d`]
 pub struct ArrowBuilder<'a, 'w, 's, Config, Clear>

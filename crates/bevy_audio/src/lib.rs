@@ -54,7 +54,7 @@ pub use sinks::*;
 use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp};
 use bevy_ecs::prelude::*;
-use bevy_transform::plugins::TransformSystem;
+use bevy_transform::TransformSystem;
 
 use audio_output::*;
 

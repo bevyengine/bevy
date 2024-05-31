@@ -31,6 +31,8 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bundles::TransformBundle, commands::BuildChildrenTransformExt, helper::TransformHelper,
-        plugins::TransformPlugin, traits::TransformPoint,
+        plugins::TransformPlugin, plugins::TransformSystem, traits::TransformPoint,
     };
 }
+
+pub use prelude::{TransformPlugin, TransformPoint, TransformSystem};

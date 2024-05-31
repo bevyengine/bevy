@@ -16,7 +16,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::primitives::Aabb;
 use bevy_transform::{
     components::{GlobalTransform, Transform},
-    plugins::TransformSystem,
+    TransformSystem,
 };
 
 use crate::{

@@ -57,7 +57,7 @@ use bevy_render::{
     view::{check_visibility, VisibilitySystems},
     RenderApp,
 };
-use bevy_transform::plugins::TransformSystem;
+use bevy_transform::TransformSystem;
 use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
 pub use stack::UiStack;
