@@ -293,7 +293,7 @@ impl Gltf {
 /// [`Transform`](bevy_transform::prelude::Transform) and an optional [`GltfExtras`].
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-node).
-#[derive(Asset, Debug, TypePath)]
+#[derive(Asset, Debug, Clone, TypePath)]
 pub struct GltfNode {
     /// Direct children of the node.
     pub children: Vec<GltfNode>,
@@ -305,22 +305,11 @@ pub struct GltfNode {
     pub extras: Option<GltfExtras>,
 }
 
-impl Clone for GltfNode {
-    fn clone(&self) -> Self {
-        GltfNode {
-            children: self.children.clone(),
-            mesh: self.mesh.clone(),
-            transform: self.transform,
-            extras: self.extras.clone(),
-        }
-    }
-}
-
 /// A glTF mesh, which may consist of multiple [`GltfPrimitives`](GltfPrimitive)
 /// and an optional [`GltfExtras`].
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-mesh).
-#[derive(Asset, Debug, TypePath)]
+#[derive(Asset, Debug, Clone, TypePath)]
 pub struct GltfMesh {
     /// Primitives of the glTF mesh.
     pub primitives: Vec<GltfPrimitive>,
@@ -328,19 +317,10 @@ pub struct GltfMesh {
     pub extras: Option<GltfExtras>,
 }
 
-impl Clone for GltfMesh {
-    fn clone(&self) -> Self {
-        GltfMesh {
-            primitives: self.primitives.clone(),
-            extras: self.extras.clone(),
-        }
-    }
-}
-
 /// Part of a [`GltfMesh`] that consists of a [`Mesh`], an optional [`StandardMaterial`] and [`GltfExtras`].
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-mesh-primitive).
-#[derive(Asset, Debug, TypePath)]
+#[derive(Asset, Debug, Clone, TypePath)]
 pub struct GltfPrimitive {
     /// Topology to be rendered.
     pub mesh: Handle<Mesh>,
@@ -350,17 +330,6 @@ pub struct GltfPrimitive {
     pub extras: Option<GltfExtras>,
     /// Additional data of the `material`.
     pub material_extras: Option<GltfExtras>,
-}
-
-impl Clone for GltfPrimitive {
-    fn clone(&self) -> Self {
-        Self {
-            mesh: self.mesh.clone(),
-            material: self.material.clone(),
-            extras: self.extras.clone(),
-            material_extras: self.material_extras.clone(),
-        }
-    }
 }
 
 /// Additional untyped data that can be present on most glTF types.
