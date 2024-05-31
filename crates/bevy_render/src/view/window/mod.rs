@@ -20,7 +20,7 @@ use std::{
     sync::PoisonError,
 };
 use wgpu::{
-    BufferUsages, SurfaceConfiguration, SurfaceTargetUnsafe, TextureFormat, TextureUsages,
+    BufferUsages, SurfaceConfiguration, SurfaceTarget, TextureFormat, TextureUsages,
     TextureViewDescriptor,
 };
 
@@ -456,18 +456,13 @@ pub fn create_surfaces(
             .surfaces
             .entry(window.entity)
             .or_insert_with(|| {
-                let surface_target = SurfaceTargetUnsafe::RawHandle {
-                    raw_display_handle: window.handle.display_handle,
-                    raw_window_handle: window.handle.window_handle,
-                };
-                // SAFETY: The window handles in ExtractedWindows will always be valid objects to create surfaces on
-                let surface = unsafe {
-                    // NOTE: On some OSes this MUST be called from the main thread.
-                    // As of wgpu 0.15, only fallible if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
-                    render_instance
-                        .create_surface_unsafe(surface_target)
-                        .expect("Failed to create wgpu surface")
-                };
+                // SAFETY: On some OSes this MUST be called from the main thread. Otherwise this is
+                // safe.
+                let surface_target = SurfaceTarget::from(unsafe { window.handle.get_handle() });
+                // As of wgpu 0.15, only fallible if the given window is a HTML canvas and obtaining a WebGPU or WebGL2 context fails.
+                let surface = render_instance
+                    .create_surface(surface_target)
+                    .expect("Failed to create wgpu surface");
                 let caps = surface.get_capabilities(&render_adapter);
                 let formats = caps.formats;
                 // For future HDR output support, we'll need to request a format that supports HDR,

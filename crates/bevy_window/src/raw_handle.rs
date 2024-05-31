@@ -2,10 +2,9 @@
 
 use bevy_ecs::prelude::Component;
 use raw_window_handle::{
-    DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,
-    RawWindowHandle, WindowHandle,
+    DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, WindowHandle,
 };
-use std::{any::Any, marker::PhantomData, ops::Deref, sync::Arc};
+use std::{fmt, ops::Deref, sync::Arc};
 
 /// A wrapper over a window.
 ///
@@ -16,8 +15,7 @@ use std::{any::Any, marker::PhantomData, ops::Deref, sync::Arc};
 /// which gets picked up by the renderer during extraction.
 #[derive(Debug)]
 pub struct WindowWrapper<W> {
-    reference: Arc<dyn Any + Send + Sync>,
-    ty: PhantomData<W>,
+    reference: Arc<W>,
 }
 
 impl<W: Send + Sync + 'static> WindowWrapper<W> {
@@ -25,7 +23,6 @@ impl<W: Send + Sync + 'static> WindowWrapper<W> {
     pub fn new(window: W) -> WindowWrapper<W> {
         WindowWrapper {
             reference: Arc::new(window),
-            ty: PhantomData,
         }
     }
 }
@@ -34,22 +31,27 @@ impl<W: 'static> Deref for WindowWrapper<W> {
     type Target = W;
 
     fn deref(&self) -> &Self::Target {
-        self.reference.downcast_ref::<W>().unwrap()
+        &self.reference
     }
 }
 
-/// A wrapper over [`RawWindowHandle`] and [`RawDisplayHandle`] that allows us to safely pass it across threads.
+trait WindowTrait: HasWindowHandle + HasDisplayHandle {}
+impl<T: HasWindowHandle + HasDisplayHandle> WindowTrait for T {}
+
+/// A wrapper over [`HasWindowHandle`] and [`HasDisplayHandle`] that allows us to safely pass it across threads.
 ///
 /// Depending on the platform, the underlying pointer-containing handle cannot be used on all threads,
-/// and so we cannot simply make it (or any type that has a safe operation to get a [`RawWindowHandle`] or [`RawDisplayHandle`])
+/// and so we cannot simply make it (or any type that has a safe operation to get a [`WindowHandle`] or [`DisplayHandle`])
 /// thread-safe.
-#[derive(Debug, Clone, Component)]
+#[derive(Clone, Component)]
 pub struct RawHandleWrapper {
-    _window: Arc<dyn Any + Send + Sync>,
-    /// Raw handle to a window.
-    pub window_handle: RawWindowHandle,
-    /// Raw handle to the display server.
-    pub display_handle: RawDisplayHandle,
+    window: Arc<dyn WindowTrait>,
+}
+
+impl fmt::Debug for RawHandleWrapper {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        f.debug_struct("RawHandleWrapper").finish_non_exhaustive()
+    }
 }
 
 impl RawHandleWrapper {
@@ -58,9 +60,7 @@ impl RawHandleWrapper {
         window: &WindowWrapper<W>,
     ) -> Result<RawHandleWrapper, HandleError> {
         Ok(RawHandleWrapper {
-            _window: window.reference.clone(),
-            window_handle: window.window_handle()?.as_raw(),
-            display_handle: window.display_handle()?.as_raw(),
+            window: window.reference.clone(),
         })
     }
 
@@ -101,7 +101,7 @@ impl HasWindowHandle for ThreadLockedRawWindowHandleWrapper {
         // as the `raw_window_handle` method is safe. We cannot guarantee that all calls
         // of this method are correct (as it may be off the main thread on an incompatible platform),
         // and so exposing a safe method to get a [`RawWindowHandle`] directly would be UB.
-        Ok(unsafe { WindowHandle::borrow_raw(self.0.window_handle) })
+        self.0.window.window_handle()
     }
 }
 
@@ -113,6 +113,6 @@ impl HasDisplayHandle for ThreadLockedRawWindowHandleWrapper {
         // as the `raw_display_handle` method is safe. We cannot guarantee that all calls
         // of this method are correct (as it may be off the main thread on an incompatible platform),
         // and so exposing a safe method to get a [`RawDisplayHandle`] directly would be UB.
-        Ok(unsafe { DisplayHandle::borrow_raw(self.0.display_handle) })
+        self.0.window.display_handle()
     }
 }
