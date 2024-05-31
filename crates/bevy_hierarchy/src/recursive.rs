@@ -19,7 +19,7 @@ use crate::{Children, Parent};
 /// * `FChild` is a [`QueryFilter`] for child entities, [`With<Parent>`] is automatically added.
 ///
 /// The user is responsible for excluding the all child entities in `FRoot` (for example use `Without<Parent>`).
-/// 
+///
 /// # Example
 ///
 /// A naive transform pipeline implementation.
