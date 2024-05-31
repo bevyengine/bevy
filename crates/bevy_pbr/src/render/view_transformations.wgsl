@@ -196,3 +196,9 @@ fn frag_coord_to_uv(frag_coord: vec2<f32>) -> vec2<f32> {
 fn frag_coord_to_ndc(frag_coord: vec4<f32>) -> vec3<f32> {
     return vec3(uv_to_ndc(frag_coord_to_uv(frag_coord.xy)), frag_coord.z);
 }
+
+/// Convert ndc space xy coordinate [-1.0 .. 1.0] to [0 .. render target
+/// viewport size]
+fn ndc_to_frag_coord(ndc: vec2<f32>) -> vec2<f32> {
+    return ndc_to_uv(ndc) * view_bindings::view.viewport.zw;
+}

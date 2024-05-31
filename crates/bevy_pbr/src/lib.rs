@@ -34,6 +34,7 @@ mod pbr_material;
 mod prepass;
 mod render;
 mod ssao;
+mod ssr;
 mod volumetric_fog;
 
 use bevy_color::{Color, LinearRgba};
@@ -51,6 +52,7 @@ pub use pbr_material::*;
 pub use prepass::*;
 pub use render::*;
 pub use ssao::*;
+pub use ssr::*;
 pub use volumetric_fog::*;
 
 pub mod prelude {
@@ -87,6 +89,8 @@ pub mod graph {
         VolumetricFog,
         /// Label for the compute shader instance data building pass.
         GpuPreprocess,
+        /// Label for the screen space reflections pass.
+        ScreenSpaceReflections,
     }
 }
 
@@ -319,6 +323,7 @@ impl Plugin for PbrPlugin {
                     use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
                 },
                 VolumetricFogPlugin,
+                ScreenSpaceReflectionsPlugin,
             ))
             .configure_sets(
                 PostUpdate,

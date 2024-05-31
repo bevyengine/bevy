@@ -542,6 +542,34 @@ impl ShapeSample for Capsule3d {
     }
 }
 
+impl<P: Primitive2d + Measured2d + ShapeSample<Output = Vec2>> ShapeSample for Extrusion<P> {
+    type Output = Vec3;
+
+    fn sample_interior<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
+        let base_point = self.base_shape.sample_interior(rng);
+        let depth = rng.gen_range(-self.half_depth..self.half_depth);
+        base_point.extend(depth)
+    }
+
+    fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
+        let base_area = self.base_shape.area();
+        let total_area = self.area();
+
+        let random = rng.gen_range(0.0..total_area);
+        match random {
+            x if x < base_area => self.base_shape.sample_interior(rng).extend(self.half_depth),
+            x if x < 2. * base_area => self
+                .base_shape
+                .sample_interior(rng)
+                .extend(-self.half_depth),
+            _ => self
+                .base_shape
+                .sample_boundary(rng)
+                .extend(rng.gen_range(-self.half_depth..self.half_depth)),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

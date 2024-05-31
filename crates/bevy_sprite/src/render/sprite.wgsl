@@ -7,7 +7,7 @@
     view::View,
 }
 
-@group(0) @binding(0) var<uniform> view: View;
+#import bevy_sprite::sprite_view_bindings::view
 
 struct VertexInput {
     @builtin(vertex_index) index: u32,

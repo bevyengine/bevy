@@ -10,9 +10,9 @@
 
 #import bevy_render::maths::PI
 
-#import bevy_core_pipeline::tonemapping::{
-    approximate_inverse_tone_mapping
-};
+#ifdef TONEMAP_IN_SHADER
+#import bevy_core_pipeline::tonemapping::approximate_inverse_tone_mapping
+#endif
 
 fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>, view_z: f32, N: vec3<f32>, V: vec3<f32>, F0: vec3<f32>, ior: f32, thickness: f32, perceptual_roughness: f32, specular_transmissive_color: vec3<f32>, transmitted_environment_light_specular: vec3<f32>) -> vec3<f32> {
     // Calculate the ratio between refaction indexes. Assume air/vacuum for the space outside the mesh

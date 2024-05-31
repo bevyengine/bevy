@@ -79,7 +79,7 @@ fn sd_rounded_box(point: vec2<f32>, size: vec2<f32>, corner_radii: vec4<f32>) ->
     // If 0.0 < y then select bottom left (w) and bottom right corner radius (z).
     // Else select top left (x) and top right corner radius (y).
     let rs = select(corner_radii.xy, corner_radii.wz, 0.0 < point.y);
-    // w and z are swapped so that both pairs are in left to right order, otherwise this second 
+    // w and z are swapped above so that both pairs are in left to right order, otherwise this second 
     // select statement would return the incorrect value for the bottom pair.
     let radius = select(rs.x, rs.y, 0.0 < point.x);
     // Vector from the corner closest to the point, to the point.
@@ -120,9 +120,13 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
     return sd_rounded_box(inner_point, inner_size, r);
 }
 
-fn draw(in: VertexOutput) -> vec4<f32> {
-    let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
+// get alpha for antialiasing for sdf
+fn antialias(distance: f32) -> f32 {
+    // Using the fwidth(distance) was causing artifacts, so just use the distance.
+    return clamp(0.0, 1.0, 0.5 - distance);
+}
 
+fn draw(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
     // Only use the color sampled from the texture if the `TEXTURED` flag is enabled. 
     // This allows us to draw both textured and untextured shapes together in the same batch.
     let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
@@ -145,32 +149,32 @@ fn draw(in: VertexOutput) -> vec4<f32> {
     // outside the outside edge, or inside the inner edge have positive signed distance.
     let border_distance = max(external_distance, -internal_distance);
 
-    // The `fwidth` function returns an approximation of the rate of change of the signed distance 
-    // value that is used to ensure that the smooth alpha transition created by smoothstep occurs 
-    // over a range of distance values that is proportional to how quickly the distance is changing.
-    let fborder = fwidth(border_distance);
-    let fexternal = fwidth(external_distance);
+    // At external edges with no border, `border_distance` is equal to zero. 
+    // This select statement ensures we only perform anti-aliasing where a non-zero width border 
+    // is present, otherwise an outline about the external boundary would be drawn even without 
+    // a border.
+    let t = select(1.0 - step(0.0, border_distance), antialias(border_distance), external_distance < internal_distance);
 
-    if enabled(in.flags, BORDER) {   
-        // The item is a border
+    // Blend mode ALPHA_BLENDING is used for UI elements, so we don't premultiply alpha here.
+    return vec4(color.rgb, saturate(color.a * t));
+}
 
-        // At external edges with no border, `border_distance` is equal to zero. 
-        // This select statement ensures we only perform anti-aliasing where a non-zero width border 
-        // is present, otherwise an outline about the external boundary would be drawn even without 
-        // a border.
-        let t = 1. - select(step(0.0, border_distance), smoothstep(0.0, fborder, border_distance), external_distance < internal_distance);
+fn draw_background(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
+    let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
 
-        // Blend mode ALPHA_BLENDING is used for UI elements, so we don't premultiply alpha here.
-        return vec4(color.rgb, color.a * t);
-    }
-
-    // The item is a rectangle, draw normally with anti-aliasing at the edges.
-    let t = 1. - smoothstep(0.0, fexternal, external_distance);
-
-    return vec4(color.rgb, color.a * t);
+    // When drawing the background only draw the internal area and not the border.
+    let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
+    let t = antialias(internal_distance);
+    return vec4(color.rgb, saturate(color.a * t));
 }
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    return draw(in);
+    let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
+
+    if enabled(in.flags, BORDER) {
+        return draw(in, texture_color);    
+    } else {
+        return draw_background(in, texture_color);
+    }
 }

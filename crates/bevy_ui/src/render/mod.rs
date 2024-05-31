@@ -199,8 +199,11 @@ pub fn extract_uinode_background_colors(
             Option<&TargetCamera>,
             &BackgroundColor,
             Option<&BorderRadius>,
+            &Style,
+            Option<&Parent>,
         )>,
     >,
+    node_query: Extract<Query<&Node>>,
 ) {
     for (
         entity,
@@ -211,6 +214,8 @@ pub fn extract_uinode_background_colors(
         camera,
         background_color,
         border_radius,
+        style,
+        parent,
     ) in &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
@@ -231,6 +236,23 @@ pub fn extract_uinode_background_colors(
             // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
             // so we have to divide by `UiScale` to get the size of the UI viewport.
             / ui_scale.0;
+
+        // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
+        // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
+        let parent_width = parent
+            .and_then(|parent| node_query.get(parent.get()).ok())
+            .map(|parent_node| parent_node.size().x)
+            .unwrap_or(ui_logical_viewport_size.x);
+        let left =
+            resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size);
+        let right =
+            resolve_border_thickness(style.border.right, parent_width, ui_logical_viewport_size);
+        let top =
+            resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size);
+        let bottom =
+            resolve_border_thickness(style.border.bottom, parent_width, ui_logical_viewport_size);
+
+        let border = [left, top, right, bottom];
 
         let border_radius = if let Some(border_radius) = border_radius {
             resolve_border_radius(
@@ -259,7 +281,7 @@ pub fn extract_uinode_background_colors(
                 flip_x: false,
                 flip_y: false,
                 camera_entity,
-                border: [0.; 4],
+                border,
                 border_radius,
                 node_type: NodeType::Rect,
             },
@@ -267,6 +289,7 @@ pub fn extract_uinode_background_colors(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn extract_uinode_images(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
@@ -285,11 +308,25 @@ pub fn extract_uinode_images(
             Option<&TextureAtlas>,
             Option<&ComputedTextureSlices>,
             Option<&BorderRadius>,
+            Option<&Parent>,
+            &Style,
         )>,
     >,
+    node_query: Extract<Query<&Node>>,
 ) {
-    for (uinode, transform, view_visibility, clip, camera, image, atlas, slices, border_radius) in
-        &uinode_query
+    for (
+        uinode,
+        transform,
+        view_visibility,
+        clip,
+        camera,
+        image,
+        atlas,
+        slices,
+        border_radius,
+        parent,
+        style,
+    ) in &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
@@ -342,6 +379,23 @@ pub fn extract_uinode_images(
             // so we have to divide by `UiScale` to get the size of the UI viewport.
             / ui_scale.0;
 
+        // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
+        // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
+        let parent_width = parent
+            .and_then(|parent| node_query.get(parent.get()).ok())
+            .map(|parent_node| parent_node.size().x)
+            .unwrap_or(ui_logical_viewport_size.x);
+        let left =
+            resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size);
+        let right =
+            resolve_border_thickness(style.border.right, parent_width, ui_logical_viewport_size);
+        let top =
+            resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size);
+        let bottom =
+            resolve_border_thickness(style.border.bottom, parent_width, ui_logical_viewport_size);
+
+        let border = [left, top, right, bottom];
+
         let border_radius = if let Some(border_radius) = border_radius {
             resolve_border_radius(
                 border_radius,
@@ -366,7 +420,7 @@ pub fn extract_uinode_images(
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
                 camera_entity,
-                border: [0.; 4],
+                border,
                 border_radius,
                 node_type: NodeType::Rect,
             },
@@ -512,6 +566,11 @@ pub fn extract_uinode_borders(
             resolve_border_thickness(style.border.bottom, parent_width, ui_logical_viewport_size);
 
         let border = [left, top, right, bottom];
+
+        // don't extract border if no border
+        if left == 0.0 && top == 0.0 && right == 0.0 && bottom == 0.0 {
+            continue;
+        }
 
         let border_radius = resolve_border_radius(
             border_radius,

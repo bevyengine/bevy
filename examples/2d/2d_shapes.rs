@@ -2,17 +2,18 @@
 
 use bevy::{
     prelude::*,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+    sprite::{MaterialMesh2dBundle, Mesh2dHandle, Wireframe2dConfig, Wireframe2dPlugin},
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins((DefaultPlugins, Wireframe2dPlugin))
         .add_systems(Startup, setup)
+        .add_systems(Update, toggle_wireframe)
         .run();
 }
 
-const X_EXTENT: f32 = 800.;
+const X_EXTENT: f32 = 900.;
 
 fn setup(
     mut commands: Commands,
@@ -28,6 +29,7 @@ fn setup(
         Mesh2dHandle(meshes.add(Ellipse::new(25.0, 50.0))),
         Mesh2dHandle(meshes.add(Annulus::new(25.0, 50.0))),
         Mesh2dHandle(meshes.add(Capsule2d::new(25.0, 50.0))),
+        Mesh2dHandle(meshes.add(Rhombus::new(75.0, 100.0))),
         Mesh2dHandle(meshes.add(Rectangle::new(50.0, 100.0))),
         Mesh2dHandle(meshes.add(RegularPolygon::new(50.0, 6))),
         Mesh2dHandle(meshes.add(Triangle2d::new(
@@ -53,5 +55,30 @@ fn setup(
             ),
             ..default()
         });
+    }
+
+    commands.spawn(
+        TextBundle::from_section(
+            "Press space to toggle wireframes",
+            TextStyle {
+                font_size: 20.0,
+                ..default()
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        }),
+    );
+}
+
+fn toggle_wireframe(
+    mut wireframe_config: ResMut<Wireframe2dConfig>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+) {
+    if keyboard.just_pressed(KeyCode::Space) {
+        wireframe_config.global = !wireframe_config.global;
     }
 }
