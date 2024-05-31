@@ -1178,15 +1178,22 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
-    /// Calls [`EntityWorldMut::remove_by_id`] on every component in the entity.
+    /// Removes all components associated with the entity.
     ///
     /// Allows you to clean-up all components associated with the entity without removing it from the world.
-    pub fn clear(&mut self) {
-        // We must collect here to appease the borrow checker
-        let components: Vec<ComponentId> = self.archetype().components().collect();
-        for component_id in components {
-            self.remove_by_id(component_id);
-        }
+    pub fn clear(&mut self) -> &mut Self {
+        let component_ids: Vec<ComponentId> = self.archetype().components().collect();
+        let components = &mut self.world.components;
+
+        let bundle_id = self
+            .world
+            .bundles
+            .init_dynamic_info(components, component_ids.as_slice());
+
+        // SAFETY: the `BundleInfo` for this `component_id` is initialized above
+        self.location = unsafe { self.remove_bundle(bundle_id) };
+
+        self
     }
 
     /// Despawns the current entity.
