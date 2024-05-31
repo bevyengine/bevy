@@ -126,15 +126,15 @@ fn update_listener(
     let speed = 200.;
 
     if keyboard.pressed(KeyCode::ArrowRight) {
-        transform.translation.x += speed * time.delta_seconds();
-    }
-    if keyboard.pressed(KeyCode::ArrowLeft) {
         transform.translation.x -= speed * time.delta_seconds();
     }
+    if keyboard.pressed(KeyCode::ArrowLeft) {
+        transform.translation.x += speed * time.delta_seconds();
+    }
     if keyboard.pressed(KeyCode::ArrowUp) {
-        transform.translation.y += speed * time.delta_seconds();
+        transform.translation.y -= speed * time.delta_seconds();
     }
     if keyboard.pressed(KeyCode::ArrowDown) {
-        transform.translation.y -= speed * time.delta_seconds();
+        transform.translation.y += speed * time.delta_seconds();
     }
 }
