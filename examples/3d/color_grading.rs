@@ -326,8 +326,7 @@ fn add_help_text(
                 create_help_text(currently_selected_option),
                 TextStyle {
                     font: font.clone(),
-                    font_size: 24.0,
-                    color: Color::WHITE,
+                    ..default()
                 },
             )
         })
