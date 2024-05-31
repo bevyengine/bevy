@@ -1,5 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -70,10 +70,15 @@ pub use valid_parent_check_plugin::*;
 mod query_extension;
 pub use query_extension::*;
 
+mod recursive;
+pub use recursive::QueryRecursive;
+
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{child_builder::*, components::*, hierarchy::*, query_extension::*};
+    pub use crate::{
+        child_builder::*, components::*, hierarchy::*, query_extension::*, QueryRecursive,
+    };
 
     #[doc(hidden)]
     #[cfg(feature = "bevy_app")]
