@@ -1,9 +1,7 @@
 use std::ops::Mul;
 
 use super::GlobalTransform;
-#[cfg(feature = "bevy-support")]
 use bevy_ecs::{component::Component, prelude::ReflectComponent};
-#[cfg(feature = "bevy-support")]
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 
 use bevy_math::{Affine3A, Dir3, Mat3, Mat4, Quat, Vec3};
@@ -35,13 +33,9 @@ use bevy_math::{Affine3A, Dir3, Mat3, Mat4, Quat, Vec3};
 /// - [`transform`]
 ///
 /// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Component, Reflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "bevy-support",
-    derive(Component, Reflect),
-    reflect(Component, Default, PartialEq)
-)]
+#[reflect(Component, Default, PartialEq)]
 pub struct Transform {
     /// Position of the entity. In 2d, the last value of the `Vec3` is used for z-ordering.
     ///
