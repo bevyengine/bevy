@@ -29,7 +29,7 @@ rodio = { version = "0.18", default-features = false }
 cpal = { version = "0.15", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-rodio = { version = "0.17", default-features = false, features = [
+rodio = { version = "0.18", default-features = false, features = [
   "wasm-bindgen",
 ] }
 
