@@ -537,7 +537,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// Consumes all available events and returns the last one.
     ///
     /// This works much like [`EventReader::clear()`] except it returns the last event.
-    pub fn last<'a>(&'a mut self) -> Option<&'a E> {
+    pub fn last(&mut self) -> Option<&E> {
         self.reader.last(&self.events)
     }
 }
