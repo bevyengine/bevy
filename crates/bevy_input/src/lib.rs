@@ -65,7 +65,7 @@ pub struct InputPlugin;
 pub struct InputSystem;
 
 impl Plugin for InputPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app
             // keyboard
             .add_event::<KeyboardInput>()

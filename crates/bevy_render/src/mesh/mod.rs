@@ -11,8 +11,9 @@ use std::{
     sync::Arc,
 };
 
+use crate::renderer::RenderDevice;
 use crate::{render_asset::RenderAssetPlugin, texture::GpuImage, RenderApp};
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
 use bevy_asset::AssetApp;
 use bevy_ecs::{entity::Entity, system::Resource};
 
@@ -20,7 +21,7 @@ use bevy_ecs::{entity::Entity, system::Resource};
 pub struct MeshPlugin;
 
 impl Plugin for MeshPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.init_asset::<Mesh>()
             .init_asset::<skinning::SkinnedMeshInverseBindposes>()
             .register_asset_reflect::<Mesh>()
@@ -28,10 +29,21 @@ impl Plugin for MeshPlugin {
             .register_type::<Vec<Entity>>()
             // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
             .add_plugins(RenderAssetPlugin::<GpuMesh, GpuImage>::default());
+    }
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
         };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
 
         render_app.init_resource::<MeshVertexBufferLayouts>();
     }

@@ -6,7 +6,7 @@ pub(crate) mod internal;
 
 use std::{borrow::Cow, marker::PhantomData, sync::Arc};
 
-use bevy_app::{App, Plugin, PreUpdate};
+use bevy_app::prelude::*;
 
 use crate::RenderApp;
 
@@ -47,24 +47,34 @@ use super::{RenderDevice, RenderQueue};
 pub struct RenderDiagnosticsPlugin;
 
 impl Plugin for RenderDiagnosticsPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         let render_diagnostics_mutex = RenderDiagnosticsMutex::default();
-        app.insert_resource(render_diagnostics_mutex.clone())
+        app.insert_resource(render_diagnostics_mutex)
             .add_systems(PreUpdate, sync_diagnostics);
-
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.insert_resource(render_diagnostics_mutex);
-        }
     }
 
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
         };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_diagnostics_mutex = app.world().resource::<RenderDiagnosticsMutex>().clone();
+
+        let render_app = app.sub_app_mut(RenderApp);
 
         let device = render_app.world().resource::<RenderDevice>();
         let queue = render_app.world().resource::<RenderQueue>();
-        render_app.insert_resource(DiagnosticsRecorder::new(device, queue));
+
+        render_app
+            .insert_resource(DiagnosticsRecorder::new(device, queue))
+            .insert_resource(render_diagnostics_mutex);
     }
 }
 

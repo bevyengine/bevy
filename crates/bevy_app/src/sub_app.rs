@@ -1,4 +1,4 @@
-use crate::{App, InternedAppLabel, Plugin, Plugins, PluginsState, Startup};
+use crate::{InternedAppLabel, Startup};
 use bevy_ecs::{
     event::EventRegistry,
     prelude::*,
@@ -13,7 +13,7 @@ use bevy_state::{
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::HashMap;
 use std::fmt::Debug;
 
 type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
@@ -26,7 +26,7 @@ type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
 /// # Example
 ///
 /// ```
-/// # use bevy_app::{App, AppLabel, SubApp, Main};
+/// # use bevy_app::prelude::*;
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::schedule::ScheduleLabel;
 ///
@@ -41,7 +41,7 @@ type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
 /// app.insert_resource(Val(10));
 ///
 /// // Create a sub-app with the same resource and a single schedule.
-/// let mut sub_app = SubApp::new();
+/// let mut sub_app = SubApp::new("subapp");
 /// sub_app.insert_resource(Val(100));
 ///
 /// // Setup an extract function to copy the resource's value in the main world.
@@ -62,16 +62,9 @@ type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
 /// app.run();
 /// ```
 pub struct SubApp {
+    name: &'static str,
     /// The data of this application.
     world: World,
-    /// List of plugins that have been added.
-    pub(crate) plugin_registry: Vec<Box<dyn Plugin>>,
-    /// The names of plugins that have been added to this app. (used to track duplicates and
-    /// already-registered plugins)
-    pub(crate) plugin_names: HashSet<String>,
-    /// Panics if an update is attempted while plugins are building.
-    pub(crate) plugin_build_depth: usize,
-    pub(crate) plugins_state: PluginsState,
     /// The schedule that will be run by [`update`](Self::update).
     pub update_schedule: Option<InternedScheduleLabel>,
     /// A function that gives mutable access to two app worlds. This is primarily
@@ -85,38 +78,23 @@ impl Debug for SubApp {
     }
 }
 
-impl Default for SubApp {
-    fn default() -> Self {
+impl SubApp {
+    /// Returns a default, empty [`SubApp`].
+    pub fn new(name: &'static str) -> Self {
         let mut world = World::new();
         world.init_resource::<Schedules>();
+
         Self {
+            name,
             world,
-            plugin_registry: Vec::default(),
-            plugin_names: HashSet::default(),
-            plugin_build_depth: 0,
-            plugins_state: PluginsState::Adding,
             update_schedule: None,
             extract: None,
         }
     }
-}
 
-impl SubApp {
-    /// Returns a default, empty [`SubApp`].
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// This method is a workaround. Each [`SubApp`] can have its own plugins, but [`Plugin`]
-    /// works on an [`App`] as a whole.
-    fn run_as_app<F>(&mut self, f: F)
-    where
-        F: FnOnce(&mut App),
-    {
-        let mut app = App::empty();
-        std::mem::swap(self, &mut app.sub_apps.main);
-        f(&mut app);
-        std::mem::swap(self, &mut app.sub_apps.main);
+    /// Returns the name of the [`SubApp`].
+    pub fn name(&self) -> &str {
+        self.name
     }
 
     /// Returns a reference to the [`World`].
@@ -131,10 +109,6 @@ impl SubApp {
 
     /// Runs the default schedule.
     pub fn update(&mut self) {
-        if self.is_building_plugins() {
-            panic!("SubApp::update() was called while a plugin was building.");
-        }
-
         if let Some(label) = self.update_schedule {
             self.world.run_schedule(label);
         }
@@ -374,82 +348,6 @@ impl SubApp {
         self
     }
 
-    /// See [`App::add_plugins`].
-    pub fn add_plugins<M>(&mut self, plugins: impl Plugins<M>) -> &mut Self {
-        self.run_as_app(|app| plugins.add_to_app(app));
-        self
-    }
-
-    /// See [`App::is_plugin_added`].
-    pub fn is_plugin_added<T>(&self) -> bool
-    where
-        T: Plugin,
-    {
-        self.plugin_names.contains(std::any::type_name::<T>())
-    }
-
-    /// See [`App::get_added_plugins`].
-    pub fn get_added_plugins<T>(&self) -> Vec<&T>
-    where
-        T: Plugin,
-    {
-        self.plugin_registry
-            .iter()
-            .filter_map(|p| p.downcast_ref())
-            .collect()
-    }
-
-    /// Returns `true` if there is no plugin in the middle of being built.
-    pub(crate) fn is_building_plugins(&self) -> bool {
-        self.plugin_build_depth > 0
-    }
-
-    /// Return the state of plugins.
-    #[inline]
-    pub fn plugins_state(&mut self) -> PluginsState {
-        match self.plugins_state {
-            PluginsState::Adding => {
-                let mut state = PluginsState::Ready;
-                let plugins = std::mem::take(&mut self.plugin_registry);
-                self.run_as_app(|app| {
-                    for plugin in &plugins {
-                        if !plugin.ready(app) {
-                            state = PluginsState::Adding;
-                            return;
-                        }
-                    }
-                });
-                self.plugin_registry = plugins;
-                state
-            }
-            state => state,
-        }
-    }
-
-    /// Runs [`Plugin::finish`] for each plugin.
-    pub fn finish(&mut self) {
-        let plugins = std::mem::take(&mut self.plugin_registry);
-        self.run_as_app(|app| {
-            for plugin in &plugins {
-                plugin.finish(app);
-            }
-        });
-        self.plugin_registry = plugins;
-        self.plugins_state = PluginsState::Finished;
-    }
-
-    /// Runs [`Plugin::cleanup`] for each plugin.
-    pub fn cleanup(&mut self) {
-        let plugins = std::mem::take(&mut self.plugin_registry);
-        self.run_as_app(|app| {
-            for plugin in &plugins {
-                plugin.cleanup(app);
-            }
-        });
-        self.plugin_registry = plugins;
-        self.plugins_state = PluginsState::Cleaned;
-    }
-
     /// See [`App::register_type`].
     #[cfg(feature = "bevy_reflect")]
     pub fn register_type<T: bevy_reflect::GetTypeRegistration>(&mut self) -> &mut Self {
@@ -473,7 +371,6 @@ impl SubApp {
 }
 
 /// The collection of sub-apps that belong to an [`App`].
-#[derive(Default)]
 pub struct SubApps {
     /// The primary sub-app that contains the "main" world.
     pub main: SubApp,

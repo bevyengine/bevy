@@ -198,7 +198,7 @@ impl PluginGroupBuilder {
         self
     }
 
-    /// Consumes the [`PluginGroupBuilder`] and [builds](Plugin::build) the contained [`Plugin`]s
+    /// Consumes the [`PluginGroupBuilder`] and [builds](Plugin::init) the contained [`Plugin`]s
     /// in the order specified.
     ///
     /// # Panics
@@ -246,22 +246,16 @@ impl PluginGroup for NoopPluginGroup {
 #[cfg(test)]
 mod tests {
     use super::PluginGroupBuilder;
-    use crate::{App, NoopPluginGroup, Plugin};
+    use crate::{NoopPluginGroup, Plugin};
 
     struct PluginA;
-    impl Plugin for PluginA {
-        fn build(&self, _: &mut App) {}
-    }
+    impl Plugin for PluginA {}
 
     struct PluginB;
-    impl Plugin for PluginB {
-        fn build(&self, _: &mut App) {}
-    }
+    impl Plugin for PluginB {}
 
     struct PluginC;
-    impl Plugin for PluginC {
-        fn build(&self, _: &mut App) {}
-    }
+    impl Plugin for PluginC {}
 
     #[test]
     fn basic_ordering() {

@@ -46,6 +46,8 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_render::render_phase::DrawFunctions;
+use bevy_render::renderer::RenderDevice;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     mesh::Mesh,
@@ -89,7 +91,7 @@ pub type WithMesh2d = With<Mesh2dHandle>;
 pub type WithSprite = Or<(With<Sprite>, With<SpriteSource>)>;
 
 impl Plugin for SpritePlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             SPRITE_SHADER_HANDLE,
@@ -132,9 +134,26 @@ impl Plugin for SpritePlugin {
                         .in_set(VisibilitySystems::CheckVisibility),
                 ),
             );
+    }
 
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
+        };
+        render_app.world().contains_resource::<RenderDevice>()
+            && render_app
+                .world()
+                .contains_resource::<DrawFunctions<Transparent2d>>()
+    }
+
+    fn finalize(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .init_resource::<SpritePipeline>()
                 .init_resource::<ImageBindGroups>()
                 .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
                 .init_resource::<SpriteMeta>()
@@ -159,12 +178,6 @@ impl Plugin for SpritePlugin {
                     ),
                 );
         };
-    }
-
-    fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<SpritePipeline>();
-        }
     }
 }
 

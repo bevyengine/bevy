@@ -42,7 +42,7 @@ struct AutoExposureResources {
 }
 
 impl Plugin for AutoExposurePlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             METERING_SHADER_HANDLE,
@@ -60,12 +60,25 @@ impl Plugin for AutoExposurePlugin {
 
         app.register_type::<AutoExposureSettings>();
         app.add_plugins(ExtractComponentPlugin::<AutoExposureSettings>::default());
+    }
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
         };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
 
         render_app
+            .init_resource::<AutoExposurePipeline>()
+            .init_resource::<AutoExposureResources>()
             .init_resource::<SpecializedComputePipelines<AutoExposurePipeline>>()
             .init_resource::<AutoExposureBuffers>()
             .add_systems(ExtractSchedule, extract_buffers)
@@ -81,15 +94,6 @@ impl Plugin for AutoExposurePlugin {
                 Core3d,
                 (Node3d::EndMainPass, node::AutoExposure, Node3d::Tonemapping),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<AutoExposurePipeline>();
-        render_app.init_resource::<AutoExposureResources>();
     }
 }
 

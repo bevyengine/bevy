@@ -53,6 +53,7 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
+use bevy_render::renderer::RenderDevice;
 use bevy_render::{
     view::{check_visibility, VisibilitySystems},
     RenderApp,
@@ -106,7 +107,7 @@ struct AmbiguousWithUpdateText2DLayout;
 pub type WithNode = With<Node>;
 
 impl Plugin for UiPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.init_resource::<UiSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
@@ -177,16 +178,25 @@ impl Plugin for UiPlugin {
 
         #[cfg(feature = "bevy_text")]
         build_text_interop(app);
-
-        build_ui_render(app);
     }
 
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
         };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
 
         render_app.init_resource::<UiPipeline>();
+
+        build_ui_render(app);
     }
 }
 

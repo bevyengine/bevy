@@ -80,7 +80,7 @@ impl ExtractComponent for InstanceMaterialData {
 struct CustomMaterialPlugin;
 
 impl Plugin for CustomMaterialPlugin {
-    fn build(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
         app.add_plugins(ExtractComponentPlugin::<InstanceMaterialData>::default());
         app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
@@ -94,7 +94,7 @@ impl Plugin for CustomMaterialPlugin {
             );
     }
 
-    fn finish(&self, app: &mut App) {
+    fn finalize(&self, app: &mut App) {
         app.sub_app_mut(RenderApp).init_resource::<CustomPipeline>();
     }
 }

@@ -31,7 +31,7 @@ pub use winit_config::*;
 pub use winit_event::*;
 pub use winit_windows::*;
 
-use bevy_app::{App, AppExit, Last, Plugin, PluginsState};
+use bevy_app::{App, AppExit, Last, Plugin, PluginRegistryState};
 use bevy_ecs::event::ManualEventReader;
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemState;
@@ -40,8 +40,6 @@ use bevy_input::{
     touchpad::{TouchpadMagnify, TouchpadRotate},
 };
 use bevy_math::{ivec2, DVec2, Vec2};
-#[cfg(not(target_arch = "wasm32"))]
-use bevy_tasks::tick_global_task_pools_on_main_thread;
 use bevy_utils::tracing::{error, trace, warn};
 #[allow(deprecated)]
 use bevy_window::{
@@ -94,7 +92,7 @@ pub struct WinitPlugin {
 }
 
 impl Plugin for WinitPlugin {
-    fn build(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
         let mut event_loop_builder = EventLoopBuilder::<UserEvent>::with_user_event();
 
         // linux check is needed because x11 might be enabled on other platforms.
@@ -150,22 +148,6 @@ impl Plugin for WinitPlugin {
             .build()
             .expect("Failed to build event loop");
 
-        // iOS, macOS, and Android don't like it if you create windows before the event loop is
-        // initialized.
-        //
-        // See:
-        // - https://github.com/rust-windowing/winit/blob/master/README.md#macos
-        // - https://github.com/rust-windowing/winit/blob/master/README.md#ios
-        #[cfg(not(any(target_os = "android", target_os = "ios", target_os = "macos")))]
-        {
-            // Otherwise, we want to create a window before `bevy_render` initializes the renderer
-            // so that we have a surface to use as a hint. This improves compatibility with `wgpu`
-            // backends, especially WASM/WebGL2.
-            let mut create_window = SystemState::<CreateWindowParams>::from_world(app.world_mut());
-            create_windows(&event_loop, create_window.get_mut(app.world_mut()));
-            create_window.apply(app.world_mut());
-        }
-
         // `winit`'s windows are bound to the event loop that created them, so the event loop must
         // be inserted as a resource here to pass it onto the runner.
         app.insert_non_send_resource(event_loop);
@@ -183,6 +165,7 @@ impl AppSendEvent for Vec<WinitEvent> {
 
 /// Persistent state that is used to run the [`App`] according to the current
 /// [`UpdateMode`].
+#[derive(Debug)]
 struct WinitAppRunnerState {
     /// Current activity state of the app.
     activity_state: UpdateState,
@@ -266,11 +249,6 @@ type UserEvent = RequestRedraw;
 /// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the
 /// `EventLoop`.
 pub fn winit_runner(mut app: App) -> AppExit {
-    if app.plugins_state() == PluginsState::Ready {
-        app.finish();
-        app.cleanup();
-    }
-
     let event_loop = app
         .world_mut()
         .remove_non_send_resource::<EventLoop<UserEvent>>()
@@ -355,17 +333,6 @@ fn handle_winit_event(
     #[cfg(feature = "trace")]
     let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
 
-    if app.plugins_state() != PluginsState::Cleaned {
-        if app.plugins_state() != PluginsState::Ready {
-            #[cfg(not(target_arch = "wasm32"))]
-            tick_global_task_pools_on_main_thread();
-        } else {
-            app.finish();
-            app.cleanup();
-        }
-        runner_state.redraw_requested = true;
-    }
-
     // create any new windows
     // (even if app did not update, some may have been created by plugin setup)
     create_windows(event_loop, create_window.get_mut(app.world_mut()));
@@ -373,6 +340,16 @@ fn handle_winit_event(
 
     match event {
         Event::AboutToWait => {
+            if app.plugins_state() < PluginRegistryState::Done {
+                app.configure_plugins();
+
+                if app.plugins_state() == PluginRegistryState::Done {
+                    app.cleanup_plugins();
+                }
+
+                return;
+            }
+
             if let Some(app_redraw_events) = app.world().get_resource::<Events<RequestRedraw>>() {
                 if redraw_event_reader.read(app_redraw_events).last().is_some() {
                     runner_state.redraw_requested = true;
@@ -741,9 +718,6 @@ fn handle_winit_event(
                 WindowEvent::Destroyed => {
                     winit_events.send(WindowDestroyed { window });
                 }
-                WindowEvent::RedrawRequested => {
-                    run_app_update(runner_state, app, winit_events);
-                }
                 _ => {}
             }
 
@@ -818,9 +792,7 @@ fn run_app_update(
 
     forward_winit_events(winit_events, app);
 
-    if app.plugins_state() == PluginsState::Cleaned {
-        app.update();
-    }
+    app.update();
 }
 
 fn react_to_resize(

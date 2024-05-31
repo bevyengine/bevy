@@ -28,7 +28,7 @@
 //!
 //! [`bevy-baked-gi`]: https://github.com/pcwalton/bevy-baked-gi
 
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
@@ -41,6 +41,7 @@ use bevy_ecs::{
 use bevy_math::{uvec2, vec4, Rect, UVec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::mesh::GpuMesh;
+use bevy_render::renderer::RenderDevice;
 use bevy_render::texture::GpuImage;
 use bevy_render::{
     mesh::Mesh, render_asset::RenderAssets, render_resource::Shader, texture::Image,
@@ -118,7 +119,7 @@ pub struct RenderLightmaps {
 }
 
 impl Plugin for LightmapPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             LIGHTMAP_SHADER_HANDLE,
@@ -127,10 +128,19 @@ impl Plugin for LightmapPlugin {
         );
     }
 
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
         };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
 
         render_app
             .init_resource::<RenderLightmaps>()

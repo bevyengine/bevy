@@ -1,4 +1,4 @@
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_ecs::prelude::*;
@@ -133,16 +133,29 @@ pub const FOG_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(49135691933
 pub struct FogPlugin;
 
 impl Plugin for FogPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(app, FOG_SHADER_HANDLE, "fog.wgsl", Shader::from_wgsl);
 
         app.register_type::<FogSettings>();
         app.add_plugins(ExtractComponentPlugin::<FogSettings>::default());
+    }
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<FogMeta>()
-                .add_systems(Render, prepare_fog.in_set(RenderSet::PrepareResources));
-        }
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
+        };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
+        render_app
+            .init_resource::<FogMeta>()
+            .add_systems(Render, prepare_fog.in_set(RenderSet::PrepareResources));
     }
 }

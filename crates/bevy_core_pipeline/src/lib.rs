@@ -71,7 +71,7 @@ use bevy_render::prelude::Shader;
 pub struct CorePipelinePlugin;
 
 impl Plugin for CorePipelinePlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             FULLSCREEN_SHADER_HANDLE,

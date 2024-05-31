@@ -68,7 +68,8 @@ pub mod prelude {
 }
 
 use aabb::AabbGizmoPlugin;
-use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
+use bevy_app::prelude::*;
+use bevy_app::RunFixedMainLoop;
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_color::LinearRgba;
 use bevy_ecs::{
@@ -115,7 +116,7 @@ const LINE_JOINT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11627807
 pub struct GizmoPlugin;
 
 impl Plugin for GizmoPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn setup(&self, app: &mut App) {
         // Gizmos cannot work without either a 3D or 2D renderer.
         #[cfg(all(not(feature = "bevy_pbr"), not(feature = "bevy_sprite")))]
         bevy_utils::tracing::error!(
@@ -143,17 +144,6 @@ impl Plugin for GizmoPlugin {
         #[cfg(feature = "bevy_pbr")]
         app.add_plugins(LightGizmoPlugin);
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.add_systems(
-            Render,
-            prepare_line_gizmo_bind_group.in_set(RenderSet::PrepareBindGroups),
-        );
-
-        render_app.add_systems(ExtractSchedule, extract_gizmo_data);
-
         #[cfg(feature = "bevy_sprite")]
         if app.is_plugin_added::<bevy_sprite::SpritePlugin>() {
             app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
@@ -168,10 +158,26 @@ impl Plugin for GizmoPlugin {
         }
     }
 
-    fn finish(&self, app: &mut bevy_app::App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
         };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
+        render_app.add_systems(
+            Render,
+            prepare_line_gizmo_bind_group.in_set(RenderSet::PrepareBindGroups),
+        );
+
+        render_app.add_systems(ExtractSchedule, extract_gizmo_data);
 
         let render_device = render_app.world().resource::<RenderDevice>();
         let line_layout = render_device.create_bind_group_layout(

@@ -1,6 +1,6 @@
 //! Module containing logic for FPS overlay.
 
-use bevy_app::{Plugin, Startup, Update};
+use bevy_app::{App, Plugin, Startup, Update};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
@@ -37,7 +37,7 @@ pub struct FpsOverlayPlugin {
 }
 
 impl Plugin for FpsOverlayPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn setup(&self, app: &mut App) {
         // TODO: Use plugin dependencies, see https://github.com/bevyengine/bevy/issues/69
         if !app.is_plugin_added::<FrameTimeDiagnosticsPlugin>() {
             app.add_plugins(FrameTimeDiagnosticsPlugin);

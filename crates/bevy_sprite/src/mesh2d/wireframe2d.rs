@@ -1,5 +1,5 @@
 use crate::{Material2d, Material2dKey, Material2dPlugin, Mesh2dHandle};
-use bevy_app::{Plugin, Startup, Update};
+use bevy_app::{App, Plugin, Startup, Update};
 use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
 use bevy_color::{LinearRgba, Srgba};
 use bevy_ecs::prelude::*;
@@ -23,7 +23,7 @@ pub const WIREFRAME_2D_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(69
 #[derive(Debug, Default)]
 pub struct Wireframe2dPlugin;
 impl Plugin for Wireframe2dPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             WIREFRAME_2D_SHADER_HANDLE,

@@ -69,7 +69,7 @@ pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
-use bevy_app::{App, Plugin, PostUpdate};
+use bevy_app::prelude::*;
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use bevy_math::FloatOrd;
 use bevy_render::{
@@ -117,15 +117,27 @@ use self::graph::{Core3d, Node3d};
 pub struct Core3dPlugin;
 
 impl Plugin for Core3dPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.register_type::<Camera3d>()
             .register_type::<ScreenSpaceTransmissionQuality>()
             .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()))
             .add_systems(PostUpdate, check_msaa);
+    }
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
         };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
         render_app
             .init_resource::<DrawFunctions<Opaque3d>>()
             .init_resource::<DrawFunctions<AlphaMask3d>>()

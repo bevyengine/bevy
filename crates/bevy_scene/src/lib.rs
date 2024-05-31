@@ -52,7 +52,7 @@ pub struct ScenePlugin;
 
 #[cfg(feature = "serialize")]
 impl Plugin for ScenePlugin {
-    fn build(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
         app.init_asset::<DynamicScene>()
             .init_asset::<Scene>()
             .init_asset_loader::<SceneLoader>()
@@ -94,6 +94,4 @@ impl Plugin for ScenePlugin {
 }
 
 #[cfg(not(feature = "serialize"))]
-impl Plugin for ScenePlugin {
-    fn build(&self, _: &mut App) {}
-}
+impl Plugin for ScenePlugin {}

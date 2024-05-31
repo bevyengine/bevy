@@ -262,7 +262,7 @@ fn outline_node(entity: Entity, rect: LayoutRect, draw: &mut InsetGizmo) {
 /// enabled isn't supported and the lines are only drawn in the [`PrimaryWindow`]
 pub struct DebugUiPlugin;
 impl Plugin for DebugUiPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.init_resource::<UiDebugOptions>()
             .init_gizmo_group::<UiGizmosDebug>()
             .add_systems(

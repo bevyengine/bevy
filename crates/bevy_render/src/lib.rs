@@ -66,6 +66,7 @@ use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
 use crate::mesh::GpuMesh;
 use crate::renderer::WgpuWrapper;
+use crate::settings::WgpuSettings;
 use crate::{
     camera::CameraPlugin,
     mesh::{morph::MorphPlugin, MeshPlugin},
@@ -75,7 +76,7 @@ use crate::{
     settings::RenderCreation,
     view::{ViewPlugin, WindowRenderPlugin},
 };
-use bevy_app::{App, AppLabel, Plugin, SubApp};
+use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, AssetServer, Handle};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
 use bevy_utils::tracing::debug;
@@ -240,11 +241,34 @@ pub const COLOR_OPERATIONS_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(1844674407370955161);
 
 impl Plugin for RenderPlugin {
-    /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
-    fn build(&self, app: &mut App) {
+    /// Creates the rendering sub-app.
+    fn init(&self, app: &mut App) {
+        // SAFETY: Plugins should be set up on the main thread.
+        if matches!(
+            self.render_creation,
+            RenderCreation::Automatic(WgpuSettings { backends: None, .. })
+        ) {
+            return;
+        }
+
+        // SAFETY: Render app needs to be initialized on the main thread.
+        unsafe { initialize_render_app(app) };
+    }
+
+    /// Sets up the [`RenderSet`] and creates the rendering sub-app.
+    fn setup(&self, app: &mut App) {
         app.init_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>();
+    }
 
+    fn ready_to_configure(&self, app: &mut App) -> bool {
+        let world = app.world_mut();
+        let mut window_q = world.query_filtered::<&RawHandleWrapper, With<PrimaryWindow>>();
+        window_q.iter(world).len() > 0
+    }
+
+    /// Initializes the renderer.
+    fn configure(&self, app: &mut App) {
         match &self.render_creation {
             RenderCreation::Manual(device, queue, adapter_info, adapter, instance) => {
                 let future_renderer_resources_wrapper = Arc::new(Mutex::new(Some((
@@ -257,8 +281,6 @@ impl Plugin for RenderPlugin {
                 app.insert_resource(FutureRendererResources(
                     future_renderer_resources_wrapper.clone(),
                 ));
-                // SAFETY: Plugins should be set up on the main thread.
-                unsafe { initialize_render_app(app) };
             }
             RenderCreation::Automatic(render_creation) => {
                 if let Some(backends) = render_creation.backends {
@@ -304,6 +326,7 @@ impl Plugin for RenderPlugin {
                             .await;
                         debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
                         debug!("Configured wgpu adapter Features: {:#?}", device.features());
+
                         let mut future_renderer_resources_inner =
                             future_renderer_resources_wrapper.lock().unwrap();
                         *future_renderer_resources_inner = Some((
@@ -322,9 +345,6 @@ impl Plugin for RenderPlugin {
                     // Otherwise, just block for it to complete
                     #[cfg(not(target_arch = "wasm32"))]
                     futures_lite::future::block_on(async_renderer);
-
-                    // SAFETY: Plugins should be set up on the main thread.
-                    unsafe { initialize_render_app(app) };
                 }
             }
         };
@@ -352,14 +372,14 @@ impl Plugin for RenderPlugin {
             .register_type::<primitives::Frustum>();
     }
 
-    fn ready(&self, app: &App) -> bool {
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
         app.world()
             .get_resource::<FutureRendererResources>()
             .and_then(|frr| frr.0.try_lock().map(|locked| locked.is_some()).ok())
             .unwrap_or(true)
     }
 
-    fn finish(&self, app: &mut App) {
+    fn finalize(&self, app: &mut App) {
         load_internal_asset!(app, MATHS_SHADER_HANDLE, "maths.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
@@ -426,7 +446,7 @@ fn extract(main_world: &mut World, render_world: &mut World) {
 unsafe fn initialize_render_app(app: &mut App) {
     app.init_resource::<ScratchMainWorld>();
 
-    let mut render_app = SubApp::new();
+    let mut render_app = SubApp::new("render_app");
     render_app.update_schedule = Some(Render.intern());
 
     let mut extract_schedule = Schedule::new(ExtractSchedule);

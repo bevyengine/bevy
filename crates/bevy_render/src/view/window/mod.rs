@@ -6,7 +6,7 @@ use crate::{
     texture::TextureFormatPixelInfo,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet, WgpuWrapper,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 #[cfg(target_os = "linux")]
 use bevy_utils::warn_once;
@@ -35,28 +35,36 @@ use super::Msaa;
 pub struct WindowRenderPlugin;
 
 impl Plugin for WindowRenderPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.add_plugins(ScreenshotPlugin);
-
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<ExtractedWindows>()
-                .init_resource::<WindowSurfaces>()
-                .add_systems(ExtractSchedule, extract_windows)
-                .add_systems(
-                    Render,
-                    create_surfaces
-                        .run_if(need_surface_configuration)
-                        .before(prepare_windows),
-                )
-                .add_systems(Render, prepare_windows.in_set(RenderSet::ManageViews));
-        }
     }
 
-    fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<ScreenshotToScreenPipeline>();
-        }
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
+        };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
+        render_app
+            .init_resource::<ScreenshotToScreenPipeline>()
+            .init_resource::<ExtractedWindows>()
+            .init_resource::<WindowSurfaces>()
+            .add_systems(ExtractSchedule, extract_windows)
+            .add_systems(
+                Render,
+                create_surfaces
+                    .run_if(need_surface_configuration)
+                    .before(prepare_windows),
+            )
+            .add_systems(Render, prepare_windows.in_set(RenderSet::ManageViews));
     }
 }
 

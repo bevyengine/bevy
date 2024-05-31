@@ -1,4 +1,4 @@
-use bevy_app::{Plugin, PluginGroup, PluginGroupBuilder};
+use bevy_app::{App, Plugin, PluginGroup, PluginGroupBuilder};
 
 /// This plugin group will add all the default plugins for a *Bevy* application:
 /// * [`PanicHandlerPlugin`](crate::app::PanicHandlerPlugin)
@@ -158,7 +158,7 @@ struct IgnoreAmbiguitiesPlugin;
 
 impl Plugin for IgnoreAmbiguitiesPlugin {
     #[allow(unused_variables)] // Variables are used depending on enabled features
-    fn build(&self, app: &mut bevy_app::App) {
+    fn setup(&self, app: &mut App) {
         // bevy_ui owns the Transform and cannot be animated
         #[cfg(all(feature = "bevy_animation", feature = "bevy_ui"))]
         if app.is_plugin_added::<bevy_animation::AnimationPlugin>()

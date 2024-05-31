@@ -18,7 +18,7 @@ use bevy_ecs::system::Resource;
 #[derive(Default)]
 pub struct SystemInformationDiagnosticsPlugin;
 impl Plugin for SystemInformationDiagnosticsPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.add_systems(Startup, internal::setup_system)
             .add_systems(Update, internal::diagnostic_system);
     }

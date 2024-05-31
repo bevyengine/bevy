@@ -22,7 +22,7 @@ use crate::{
     },
     Render, RenderApp, RenderSet,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -94,7 +94,7 @@ static D65_LMS: Vec3 = vec3(0.975538, 1.01648, 1.08475);
 pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(app, VIEW_TYPE_HANDLE, "view.wgsl", Shader::from_wgsl);
 
         app.register_type::<InheritedVisibility>()
@@ -112,26 +112,33 @@ impl Plugin for ViewPlugin {
                 VisibilityPlugin,
                 VisibilityRangePlugin,
             ));
-
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_systems(
-                Render,
-                (
-                    prepare_view_targets
-                        .in_set(RenderSet::ManageViews)
-                        .after(prepare_windows)
-                        .after(crate::render_asset::prepare_assets::<GpuImage>)
-                        .ambiguous_with(crate::camera::sort_cameras), // doesn't use `sorted_camera_index_for_target`
-                    prepare_view_uniforms.in_set(RenderSet::PrepareResources),
-                ),
-            );
-        }
     }
 
-    fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<ViewUniforms>();
-        }
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
+        };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
+        render_app.init_resource::<ViewUniforms>().add_systems(
+            Render,
+            (
+                prepare_view_targets
+                    .in_set(RenderSet::ManageViews)
+                    .after(prepare_windows)
+                    .after(crate::render_asset::prepare_assets::<GpuImage>)
+                    .ambiguous_with(crate::camera::sort_cameras), // doesn't use `sorted_camera_index_for_target`
+                prepare_view_uniforms.in_set(RenderSet::PrepareResources),
+            ),
+        );
     }
 }
 

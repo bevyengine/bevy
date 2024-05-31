@@ -39,7 +39,7 @@ pub use texture_cache::*;
 use crate::{
     render_asset::RenderAssetPlugin, renderer::RenderDevice, Render, RenderApp, RenderSet,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
 use bevy_asset::{AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
 
@@ -73,7 +73,7 @@ impl ImagePlugin {
 }
 
 impl Plugin for ImagePlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         #[cfg(feature = "exr")]
         {
             app.init_asset_loader::<ExrTextureLoader>();
@@ -104,13 +104,6 @@ impl Plugin for ImagePlugin {
                 .set_default_processor::<bevy_asset::processor::LoadAndSave<ImageLoader, CompressedImageSaver>>("png");
         }
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<TextureCache>().add_systems(
-                Render,
-                update_texture_cache_system.in_set(RenderSet::Cleanup),
-            );
-        }
-
         #[cfg(any(
             feature = "png",
             feature = "dds",
@@ -125,7 +118,18 @@ impl Plugin for ImagePlugin {
         app.preregister_asset_loader::<ImageLoader>(IMG_FILE_EXTENSIONS);
     }
 
-    fn finish(&self, app: &mut App) {
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
+        };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
         #[cfg(any(
             feature = "png",
             feature = "dds",
@@ -142,6 +146,11 @@ impl Plugin for ImagePlugin {
         }
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<TextureCache>().add_systems(
+                Render,
+                update_texture_cache_system.in_set(RenderSet::Cleanup),
+            );
+
             let default_sampler = {
                 let device = render_app.world().resource::<RenderDevice>();
                 device.create_sampler(&self.default_sampler.as_wgpu())

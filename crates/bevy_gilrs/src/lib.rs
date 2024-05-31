@@ -34,7 +34,7 @@ pub struct GilrsPlugin;
 pub struct RumbleSystem;
 
 impl Plugin for GilrsPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         match GilrsBuilder::new()
             .with_default_filters(false)
             .set_update_state(false)

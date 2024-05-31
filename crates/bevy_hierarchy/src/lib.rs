@@ -94,7 +94,7 @@ pub struct HierarchyPlugin;
 
 #[cfg(feature = "bevy_app")]
 impl Plugin for HierarchyPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.register_type::<Children>()
             .register_type::<Parent>()
             .add_event::<HierarchyEvent>();

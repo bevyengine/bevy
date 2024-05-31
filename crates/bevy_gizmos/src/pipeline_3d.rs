@@ -5,7 +5,7 @@ use crate::{
     LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE,
     LINE_SHADER_HANDLE,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
 use bevy_asset::Handle;
 use bevy_core_pipeline::{
     core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT},
@@ -20,6 +20,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
+use bevy_render::renderer::RenderDevice;
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
@@ -35,12 +36,23 @@ use bevy_utils::tracing::error;
 
 pub struct LineGizmo3dPlugin;
 impl Plugin for LineGizmo3dPlugin {
-    fn build(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
         };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
 
         render_app
+            .init_resource::<LineGizmoPipeline>()
+            .init_resource::<LineJointGizmoPipeline>()
             .add_render_command::<Transparent3d, DrawLineGizmo3d>()
             .add_render_command::<Transparent3d, DrawLineJointGizmo3d>()
             .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
@@ -57,15 +69,6 @@ impl Plugin for LineGizmo3dPlugin {
                     .in_set(GizmoRenderSystem::QueueLineGizmos3d)
                     .after(prepare_assets::<GpuLineGizmo>),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<LineGizmoPipeline>();
-        render_app.init_resource::<LineJointGizmoPipeline>();
     }
 }
 

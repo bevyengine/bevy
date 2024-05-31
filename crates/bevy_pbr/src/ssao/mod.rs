@@ -1,5 +1,5 @@
 use crate::NodePbr;
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
@@ -47,7 +47,7 @@ const GTAO_UTILS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(36646505
 pub struct ScreenSpaceAmbientOcclusionPlugin;
 
 impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             PREPROCESS_DEPTH_SHADER_HANDLE,
@@ -71,10 +71,19 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         app.register_type::<ScreenSpaceAmbientOcclusionSettings>();
     }
 
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
         };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
 
         if !render_app
             .world()

@@ -1,5 +1,6 @@
 use std::{hash::Hash, marker::PhantomData, ops::Range};
 
+use bevy_app::prelude::*;
 use bevy_asset::*;
 use bevy_ecs::{
     prelude::Component,
@@ -44,7 +45,7 @@ impl<M: UiMaterial> Plugin for UiMaterialPlugin<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             UI_VERTEX_OUTPUT_SHADER_HANDLE,
@@ -61,31 +62,39 @@ where
             ExtractComponentPlugin::<Handle<M>>::extract_visible(),
             RenderAssetPlugin::<PreparedUiMaterial<M>>::default(),
         ));
-
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .add_render_command::<TransparentUi, DrawUiMaterial<M>>()
-                .init_resource::<ExtractedUiMaterialNodes<M>>()
-                .init_resource::<UiMaterialMeta<M>>()
-                .init_resource::<SpecializedRenderPipelines<UiMaterialPipeline<M>>>()
-                .add_systems(
-                    ExtractSchedule,
-                    extract_ui_material_nodes::<M>.in_set(RenderUiSystem::ExtractBackgrounds),
-                )
-                .add_systems(
-                    Render,
-                    (
-                        queue_ui_material_nodes::<M>.in_set(RenderSet::Queue),
-                        prepare_uimaterial_nodes::<M>.in_set(RenderSet::PrepareBindGroups),
-                    ),
-                );
-        }
     }
 
-    fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<UiMaterialPipeline<M>>();
-        }
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
+        };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
+        render_app
+            .init_resource::<UiMaterialPipeline<M>>()
+            .add_render_command::<TransparentUi, DrawUiMaterial<M>>()
+            .init_resource::<ExtractedUiMaterialNodes<M>>()
+            .init_resource::<UiMaterialMeta<M>>()
+            .init_resource::<SpecializedRenderPipelines<UiMaterialPipeline<M>>>()
+            .add_systems(
+                ExtractSchedule,
+                extract_ui_material_nodes::<M>.in_set(RenderUiSystem::ExtractBackgrounds),
+            )
+            .add_systems(
+                Render,
+                (
+                    queue_ui_material_nodes::<M>.in_set(RenderSet::Queue),
+                    prepare_uimaterial_nodes::<M>.in_set(RenderSet::PrepareBindGroups),
+                ),
+            );
     }
 }
 

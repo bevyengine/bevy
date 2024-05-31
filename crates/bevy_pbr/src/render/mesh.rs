@@ -1,5 +1,9 @@
 use std::mem;
 
+use bytemuck::{Pod, Zeroable};
+use nonmax::{NonMaxU16, NonMaxU32};
+use static_assertions::const_assert_eq;
+
 use bevy_asset::{load_internal_asset, AssetId};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
@@ -40,10 +44,6 @@ use bevy_render::{
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, tracing::warn, Entry, HashMap, Parallel};
 
-use bytemuck::{Pod, Zeroable};
-use nonmax::{NonMaxU16, NonMaxU32};
-use static_assertions::const_assert_eq;
-
 use crate::render::{
     morph::{
         extract_morphs, no_automatic_morph_batching, prepare_morphs, MorphIndices, MorphUniform,
@@ -52,9 +52,9 @@ use crate::render::{
 };
 use crate::*;
 
-use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
-
 use super::skin::SkinIndices;
+
+use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 
 /// Provides support for rendering 3D meshes.
 #[derive(Default)]
@@ -88,7 +88,7 @@ pub const MORPH_HANDLE: Handle<Shader> = Handle::weak_from_u128(9709828135876073
 pub const MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES: usize = 10;
 
 impl Plugin for MeshRenderPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(app, FORWARD_IO_HANDLE, "forward_io.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
@@ -136,105 +136,111 @@ impl Plugin for MeshRenderPlugin {
             SortedRenderPhasePlugin::<Transmissive3d, MeshPipeline>::default(),
             SortedRenderPhasePlugin::<Transparent3d, MeshPipeline>::default(),
         ));
+    }
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
+        };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
+        let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
+
+        render_app
+            .init_resource::<GpuPreprocessingSupport>()
+            .init_resource::<MeshBindGroups>()
+            .init_resource::<SkinUniform>()
+            .init_resource::<SkinIndices>()
+            .init_resource::<MorphUniform>()
+            .init_resource::<MorphIndices>()
+            .init_resource::<MeshCullingDataBuffer>()
+            .add_systems(
+                ExtractSchedule,
+                (
+                    extract_skins,
+                    extract_morphs,
+                    gpu_preprocessing::clear_batched_gpu_instance_buffers::<MeshPipeline>
+                        .before(ExtractMeshesSet),
+                ),
+            )
+            .add_systems(
+                Render,
+                (
+                    prepare_skins.in_set(RenderSet::PrepareResources),
+                    prepare_morphs.in_set(RenderSet::PrepareResources),
+                    prepare_mesh_bind_group.in_set(RenderSet::PrepareBindGroups),
+                    prepare_mesh_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                    no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<MeshPipeline>
+                        .in_set(RenderSet::Cleanup)
+                        .after(RenderSet::Render),
+                ),
+            );
+
+        let gpu_preprocessing_support = render_app.world().resource::<GpuPreprocessingSupport>();
+        let use_gpu_instance_buffer_builder = self.use_gpu_instance_buffer_builder
+            && *gpu_preprocessing_support != GpuPreprocessingSupport::None;
+
+        let render_mesh_instances = RenderMeshInstances::new(use_gpu_instance_buffer_builder);
+        render_app.insert_resource(render_mesh_instances);
+
+        if use_gpu_instance_buffer_builder {
             render_app
-                .init_resource::<MeshBindGroups>()
-                .init_resource::<SkinUniform>()
-                .init_resource::<SkinIndices>()
-                .init_resource::<MorphUniform>()
-                .init_resource::<MorphIndices>()
-                .init_resource::<MeshCullingDataBuffer>()
+                .init_resource::<gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>()
                 .add_systems(
                     ExtractSchedule,
-                    (
-                        extract_skins,
-                        extract_morphs,
-                        gpu_preprocessing::clear_batched_gpu_instance_buffers::<MeshPipeline>
-                            .before(ExtractMeshesSet),
-                    ),
+                    extract_meshes_for_gpu_building.in_set(ExtractMeshesSet),
                 )
                 .add_systems(
                     Render,
                     (
-                        prepare_skins.in_set(RenderSet::PrepareResources),
-                        prepare_morphs.in_set(RenderSet::PrepareResources),
-                        prepare_mesh_bind_group.in_set(RenderSet::PrepareBindGroups),
-                        prepare_mesh_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
-                        no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<MeshPipeline>
-                            .in_set(RenderSet::Cleanup)
-                            .after(RenderSet::Render),
+                        gpu_preprocessing::write_batched_instance_buffers::<MeshPipeline>
+                            .in_set(RenderSet::PrepareResourcesFlush),
+                        gpu_preprocessing::delete_old_work_item_buffers::<MeshPipeline>
+                            .in_set(RenderSet::ManageViews)
+                            .after(prepare_view_targets),
                     ),
                 );
-        }
-    }
-
-    fn finish(&self, app: &mut App) {
-        let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
-
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<GpuPreprocessingSupport>();
-
-            let gpu_preprocessing_support =
-                render_app.world().resource::<GpuPreprocessingSupport>();
-            let use_gpu_instance_buffer_builder = self.use_gpu_instance_buffer_builder
-                && *gpu_preprocessing_support != GpuPreprocessingSupport::None;
-
-            let render_mesh_instances = RenderMeshInstances::new(use_gpu_instance_buffer_builder);
-            render_app.insert_resource(render_mesh_instances);
-
-            if use_gpu_instance_buffer_builder {
-                render_app
-                    .init_resource::<gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>(
-                    )
-                    .add_systems(
-                        ExtractSchedule,
-                        extract_meshes_for_gpu_building.in_set(ExtractMeshesSet),
-                    )
-                    .add_systems(
-                        Render,
-                        (
-                            gpu_preprocessing::write_batched_instance_buffers::<MeshPipeline>
-                                .in_set(RenderSet::PrepareResourcesFlush),
-                            gpu_preprocessing::delete_old_work_item_buffers::<MeshPipeline>
-                                .in_set(RenderSet::ManageViews)
-                                .after(prepare_view_targets),
-                        ),
-                    );
-            } else {
-                let render_device = render_app.world().resource::<RenderDevice>();
-                let cpu_batched_instance_buffer =
-                    no_gpu_preprocessing::BatchedInstanceBuffer::<MeshUniform>::new(render_device);
-                render_app
-                    .insert_resource(cpu_batched_instance_buffer)
-                    .add_systems(
-                        ExtractSchedule,
-                        extract_meshes_for_cpu_building.in_set(ExtractMeshesSet),
-                    )
-                    .add_systems(
-                        Render,
-                        no_gpu_preprocessing::write_batched_instance_buffer::<MeshPipeline>
-                            .in_set(RenderSet::PrepareResourcesFlush),
-                    );
-            };
-
-            let indirect_parameters_buffer = IndirectParametersBuffer::new();
-
+        } else {
             let render_device = render_app.world().resource::<RenderDevice>();
-            if let Some(per_object_buffer_batch_size) =
-                GpuArrayBuffer::<MeshUniform>::batch_size(render_device)
-            {
-                mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
-                    "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
-                    per_object_buffer_batch_size,
-                ));
-            }
-
+            let cpu_batched_instance_buffer =
+                no_gpu_preprocessing::BatchedInstanceBuffer::<MeshUniform>::new(render_device);
             render_app
-                .insert_resource(indirect_parameters_buffer)
-                .init_resource::<MeshPipelineViewLayouts>()
-                .init_resource::<MeshPipeline>();
+                .insert_resource(cpu_batched_instance_buffer)
+                .add_systems(
+                    ExtractSchedule,
+                    extract_meshes_for_cpu_building.in_set(ExtractMeshesSet),
+                )
+                .add_systems(
+                    Render,
+                    no_gpu_preprocessing::write_batched_instance_buffer::<MeshPipeline>
+                        .in_set(RenderSet::PrepareResourcesFlush),
+                );
+        };
+
+        let indirect_parameters_buffer = IndirectParametersBuffer::new();
+
+        let render_device = render_app.world().resource::<RenderDevice>();
+        if let Some(per_object_buffer_batch_size) =
+            GpuArrayBuffer::<MeshUniform>::batch_size(render_device)
+        {
+            mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
+                "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
+                per_object_buffer_batch_size,
+            ));
         }
+
+        render_app
+            .insert_resource(indirect_parameters_buffer)
+            .init_resource::<MeshPipelineViewLayouts>()
+            .init_resource::<MeshPipeline>();
 
         // Load the mesh_bindings shader module here as it depends on runtime information about
         // whether storage buffers are supported, or the maximum uniform buffer binding size.
@@ -1469,6 +1475,7 @@ fn is_skinned(layout: &MeshVertexBufferLayoutRef) -> bool {
     layout.0.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
         && layout.0.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
 }
+
 pub fn setup_morph_and_skinning_defs(
     mesh_layouts: &MeshLayouts,
     layout: &MeshVertexBufferLayoutRef,
@@ -1836,6 +1843,7 @@ pub struct MeshBindGroups {
     morph_targets: HashMap<AssetId<Mesh>, BindGroup>,
     lightmaps: HashMap<AssetId<Image>, BindGroup>,
 }
+
 impl MeshBindGroups {
     pub fn reset(&mut self) {
         self.model_only = None;
@@ -1892,7 +1900,9 @@ pub fn prepare_mesh_bind_group(
     } else {
         return;
     };
-    let Some(model) = model else { return };
+    let Some(model) = model else {
+        return;
+    };
 
     groups.model_only = Some(layouts.model_only(&render_device, &model));
 
@@ -1925,6 +1935,7 @@ pub fn prepare_mesh_bind_group(
 }
 
 pub struct SetMeshViewBindGroup<const I: usize>;
+
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> {
     type Param = ();
     type ViewQuery = (
@@ -1965,6 +1976,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
 }
 
 pub struct SetMeshBindGroup<const I: usize>;
+
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
     type Param = (
         SRes<MeshBindGroups>,
@@ -2040,6 +2052,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 }
 
 pub struct DrawMesh;
+
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
     type Param = (
         SRes<RenderAssets<GpuMesh>>,
@@ -2134,6 +2147,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
 #[cfg(test)]
 mod tests {
     use super::MeshPipelineKey;
+
     #[test]
     fn mesh_key_msaa_samples() {
         for i in [1, 2, 4, 8, 16, 32, 64, 128] {

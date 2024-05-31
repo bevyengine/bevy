@@ -6,7 +6,7 @@
 
 use std::marker::PhantomData;
 
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -16,6 +16,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Query, ResMut, Resource},
 };
 
+use crate::renderer::RenderDevice;
 use crate::{prelude::ViewVisibility, Extract, ExtractSchedule, RenderApp};
 
 /// Describes how to extract data needed for rendering from a component or
@@ -93,14 +94,26 @@ impl<EI> Plugin for ExtractInstancesPlugin<EI>
 where
     EI: ExtractInstance,
 {
-    fn build(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<ExtractedInstances<EI>>();
-            if self.only_extract_visible {
-                render_app.add_systems(ExtractSchedule, extract_visible::<EI>);
-            } else {
-                render_app.add_systems(ExtractSchedule, extract_all::<EI>);
-            }
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
+        };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
+        render_app.init_resource::<ExtractedInstances<EI>>();
+
+        if self.only_extract_visible {
+            render_app.add_systems(ExtractSchedule, extract_visible::<EI>);
+        } else {
+            render_app.add_systems(ExtractSchedule, extract_all::<EI>);
         }
     }
 }

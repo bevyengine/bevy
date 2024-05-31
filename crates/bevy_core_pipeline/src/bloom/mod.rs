@@ -9,7 +9,7 @@ use crate::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
 };
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_math::UVec2;
@@ -45,7 +45,7 @@ const MAX_MIP_DIMENSION: u32 = 512;
 pub struct BloomPlugin;
 
 impl Plugin for BloomPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(app, BLOOM_SHADER_HANDLE, "bloom.wgsl", Shader::from_wgsl);
 
         app.register_type::<BloomSettings>();
@@ -55,11 +55,25 @@ impl Plugin for BloomPlugin {
             ExtractComponentPlugin::<BloomSettings>::default(),
             UniformComponentPlugin::<BloomUniforms>::default(),
         ));
+    }
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
         };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
         render_app
+            .init_resource::<BloomDownsamplingPipeline>()
+            .init_resource::<BloomUpsamplingPipeline>()
             .init_resource::<SpecializedRenderPipelines<BloomDownsamplingPipeline>>()
             .init_resource::<SpecializedRenderPipelines<BloomUpsamplingPipeline>>()
             .add_systems(
@@ -83,15 +97,6 @@ impl Plugin for BloomPlugin {
                 Core2d,
                 (Node2d::EndMainPass, Node2d::Bloom, Node2d::Tonemapping),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app
-            .init_resource::<BloomDownsamplingPipeline>()
-            .init_resource::<BloomUpsamplingPipeline>();
     }
 }
 

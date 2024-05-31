@@ -102,7 +102,7 @@ const CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE: Handle<Shader> =
 pub struct CASPlugin;
 
 impl Plugin for CASPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE,
@@ -115,11 +115,24 @@ impl Plugin for CASPlugin {
             ExtractComponentPlugin::<ContrastAdaptiveSharpeningSettings>::default(),
             UniformComponentPlugin::<CASUniform>::default(),
         ));
+    }
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
         };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
         render_app
+            .init_resource::<CASPipeline>()
             .init_resource::<SpecializedRenderPipelines<CASPipeline>>()
             .add_systems(Render, prepare_cas_pipelines.in_set(RenderSet::Prepare));
 
@@ -157,13 +170,6 @@ impl Plugin for CASPlugin {
                     ),
                 );
         }
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app.init_resource::<CASPipeline>();
     }
 }
 

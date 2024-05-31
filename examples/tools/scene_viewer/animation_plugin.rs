@@ -190,7 +190,7 @@ fn handle_inputs(
 
 pub struct AnimationManipulationPlugin;
 impl Plugin for AnimationManipulationPlugin {
-    fn build(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
         app.add_systems(Update, (handle_inputs, assign_clips));
     }
 }

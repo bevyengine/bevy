@@ -96,7 +96,7 @@ pub enum TransformSystem {
 pub struct TransformPlugin;
 
 impl Plugin for TransformPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         // A set for `propagate_transforms` to mark it as ambiguous with `sync_simple_transforms`.
         // Used instead of the `SystemTypeSet` as that would not allow multiple instances of the system.
         #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]

@@ -62,7 +62,7 @@ impl<M: Material> Plugin for PrepassPipelinePlugin<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             PREPASS_SHADER_HANDLE,
@@ -90,12 +90,24 @@ where
             "prepass_io.wgsl",
             Shader::from_wgsl
         );
+    }
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
         };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
 
         render_app
+            .init_resource::<PrepassPipeline<M>>()
             .add_systems(
                 Render,
                 prepare_prepass_view_bind_group::<M>.in_set(RenderSet::PrepareBindGroups),
@@ -104,14 +116,6 @@ where
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
             .allow_ambiguous_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
             .init_resource::<PreviousViewUniforms>();
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<PrepassPipeline<M>>();
     }
 }
 
@@ -130,11 +134,8 @@ impl<M: Material> Plugin for PrepassPlugin<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    fn build(&self, app: &mut App) {
-        let no_prepass_plugin_loaded = app
-            .world()
-            .get_resource::<AnyPrepassPluginLoaded>()
-            .is_none();
+    fn setup(&self, app: &mut App) {
+        let no_prepass_plugin_loaded = !app.world().contains_resource::<AnyPrepassPluginLoaded>();
 
         if no_prepass_plugin_loaded {
             app.insert_resource(AnyPrepassPluginLoaded)
@@ -152,10 +153,23 @@ where
                     BinnedRenderPhasePlugin::<AlphaMask3dPrepass, MeshPipeline>::default(),
                 ));
         }
+    }
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
         };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let no_prepass_plugin_loaded = !app.world().contains_resource::<AnyPrepassPluginLoaded>();
+
+        let render_app = app.sub_app_mut(RenderApp);
 
         if no_prepass_plugin_loaded {
             render_app

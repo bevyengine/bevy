@@ -4,7 +4,7 @@ use crate::{
     prelude::Camera3d,
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
 };
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core::FrameCount;
 use bevy_ecs::{
@@ -43,16 +43,29 @@ const TAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(656865235226276
 pub struct TemporalAntiAliasPlugin;
 
 impl Plugin for TemporalAntiAliasPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(app, TAA_SHADER_HANDLE, "taa.wgsl", Shader::from_wgsl);
 
         app.insert_resource(Msaa::Off)
             .register_type::<TemporalAntiAliasSettings>();
+    }
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
         };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
         render_app
+            .init_resource::<TaaPipeline>()
             .init_resource::<SpecializedRenderPipelines<TaaPipeline>>()
             .add_systems(ExtractSchedule, extract_taa_settings)
             .add_systems(
@@ -74,14 +87,6 @@ impl Plugin for TemporalAntiAliasPlugin {
                     Node3d::Tonemapping,
                 ),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<TaaPipeline>();
     }
 }
 

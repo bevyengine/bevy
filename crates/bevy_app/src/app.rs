@@ -1,5 +1,5 @@
 use crate::{
-    First, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp,
+    First, Main, MainSchedulePlugin, Plugin, PluginRegistry, PluginRegistryState, Plugins, SubApp,
     SubApps,
 };
 pub use bevy_derive::AppLabel;
@@ -15,13 +15,10 @@ use bevy_state::{prelude::*, state::FreelyMutableState};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{tracing::debug, HashMap};
+use std::num::NonZeroU8;
 use std::{
     fmt::Debug,
     process::{ExitCode, Termination},
-};
-use std::{
-    num::NonZeroU8,
-    panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
 };
 use thiserror::Error;
 
@@ -70,7 +67,10 @@ pub(crate) enum AppError {
 /// }
 /// ```
 pub struct App {
-    pub(crate) sub_apps: SubApps,
+    /// List of plugins that have been added.
+    plugin_registry: PluginRegistry,
+
+    sub_apps: SubApps,
     /// The function that will manage the app's lifecycle.
     ///
     /// Bevy provides the [`WinitPlugin`] and [`ScheduleRunnerPlugin`] for windowed and headless
@@ -78,7 +78,10 @@ pub struct App {
     ///
     /// [`WinitPlugin`]: https://docs.rs/bevy/latest/bevy/winit/struct.WinitPlugin.html
     /// [`ScheduleRunnerPlugin`]: https://docs.rs/bevy/latest/bevy/app/struct.ScheduleRunnerPlugin.html
-    pub(crate) runner: RunnerFn,
+    runner: RunnerFn,
+
+    /// Panics if `App::update()` is called while plugins are being configured.
+    plugin_build_depth: usize,
 }
 
 impl Debug for App {
@@ -123,16 +126,24 @@ impl App {
     /// Use this constructor if you want to customize scheduling, exit handling, cleanup, etc.
     pub fn empty() -> App {
         Self {
+            plugin_registry: PluginRegistry::default(),
             sub_apps: SubApps {
-                main: SubApp::new(),
+                main: SubApp::new("main"),
                 sub_apps: HashMap::new(),
             },
             runner: Box::new(run_once),
+            plugin_build_depth: 0,
         }
     }
 
     /// Runs the default schedules of all sub-apps (starting with the "main" app) once.
     pub fn update(&mut self) {
+        // Configures all plugins if the plugin registry is still in the init phase.
+        // This means that `App::update` is called without calling `App::run`, usually inside tests or custom applications.
+        if self.plugins_state() == PluginRegistryState::Init {
+            self.configure_and_cleanup_plugins();
+        }
+
         if self.is_building_plugins() {
             panic!("App::update() was called while a plugin was building.");
         }
@@ -203,67 +214,78 @@ impl App {
         self
     }
 
+    /// Configures and cleans all plugins. This is by convention called outside the event loop, since it would wait until all plugins are cleaned up.
+    #[inline]
+    pub fn configure_and_cleanup_plugins(&mut self) {
+        while !matches!(
+            self.plugins_state(),
+            PluginRegistryState::Idle | PluginRegistryState::Done
+        ) {
+            self.configure_plugins();
+        }
+
+        self.cleanup_plugins();
+    }
+
+    /// Configures all plugins. This is by convention called inside the event loop, so that each plugin configuration can progress in a cycle-by-cycle basis.
+    #[inline]
+    pub fn configure_plugins(&mut self) {
+        if !matches!(
+            self.plugins_state(),
+            PluginRegistryState::Idle | PluginRegistryState::Done
+        ) {
+            let mut plugin_registry = self.take_plugin_registry();
+
+            plugin_registry.update(self);
+
+            self.insert_plugin_registry(plugin_registry);
+
+            #[cfg(not(target_arch = "wasm32"))]
+            bevy_tasks::tick_global_task_pools_on_main_thread();
+        }
+    }
+
+    /// Cleans up all plugins unneeded resources. This is by convention called inside the event loop, after all the plugins are configured properly.
+    #[inline]
+    pub fn cleanup_plugins(&mut self) {
+        let mut plugin_registry = self.take_plugin_registry();
+        plugin_registry.cleanup(self);
+        self.insert_plugin_registry(plugin_registry);
+    }
+
+    /// Provides read-only access to the [`PluginRegistry`] for debugging purposes.
+    pub fn plugin_registry(&self) -> &PluginRegistry {
+        &self.plugin_registry
+    }
+
+    fn take_plugin_registry(&mut self) -> PluginRegistry {
+        self.plugin_build_depth += 1;
+        std::mem::take(&mut self.plugin_registry)
+    }
+
+    fn insert_plugin_registry(&mut self, plugin_registry: PluginRegistry) {
+        self.plugin_build_depth -= 1;
+
+        if let Err(AppError::DuplicatePlugin { plugin_name }) =
+            self.plugin_registry.merge(plugin_registry)
+        {
+            panic!(
+                "Error adding plugin {}: plugin was already added in application",
+                plugin_name,
+            );
+        }
+    }
+
     /// Returns the state of all plugins. This is usually called by the event loop, but can be
     /// useful for situations where you want to use [`App::update`].
-    // TODO: &mut self -> &self
     #[inline]
-    pub fn plugins_state(&mut self) -> PluginsState {
-        let mut overall_plugins_state = match self.main_mut().plugins_state {
-            PluginsState::Adding => {
-                let mut state = PluginsState::Ready;
-                let plugins = std::mem::take(&mut self.main_mut().plugin_registry);
-                for plugin in &plugins {
-                    // plugins installed to main need to see all sub-apps
-                    if !plugin.ready(self) {
-                        state = PluginsState::Adding;
-                        break;
-                    }
-                }
-                self.main_mut().plugin_registry = plugins;
-                state
-            }
-            state => state,
-        };
-
-        // overall state is the earliest state of any sub-app
-        self.sub_apps.iter_mut().skip(1).for_each(|s| {
-            overall_plugins_state = overall_plugins_state.min(s.plugins_state());
-        });
-
-        overall_plugins_state
-    }
-
-    /// Runs [`Plugin::finish`] for each plugin. This is usually called by the event loop once all
-    /// plugins are ready, but can be useful for situations where you want to use [`App::update`].
-    pub fn finish(&mut self) {
-        // plugins installed to main should see all sub-apps
-        let plugins = std::mem::take(&mut self.main_mut().plugin_registry);
-        for plugin in &plugins {
-            plugin.finish(self);
-        }
-        let main = self.main_mut();
-        main.plugin_registry = plugins;
-        main.plugins_state = PluginsState::Finished;
-        self.sub_apps.iter_mut().skip(1).for_each(|s| s.finish());
-    }
-
-    /// Runs [`Plugin::cleanup`] for each plugin. This is usually called by the event loop after
-    /// [`App::finish`], but can be useful for situations where you want to use [`App::update`].
-    pub fn cleanup(&mut self) {
-        // plugins installed to main should see all sub-apps
-        let plugins = std::mem::take(&mut self.main_mut().plugin_registry);
-        for plugin in &plugins {
-            plugin.cleanup(self);
-        }
-        let main = self.main_mut();
-        main.plugin_registry = plugins;
-        main.plugins_state = PluginsState::Cleaned;
-        self.sub_apps.iter_mut().skip(1).for_each(|s| s.cleanup());
+    pub fn plugins_state(&self) -> PluginRegistryState {
+        self.plugin_registry.state()
     }
 
     /// Returns `true` if any of the sub-apps are building plugins.
     pub(crate) fn is_building_plugins(&self) -> bool {
-        self.sub_apps.iter().any(|s| s.is_building_plugins())
+        self.plugin_build_depth > 0
     }
 
     #[cfg(feature = "bevy_state")]
@@ -491,33 +513,12 @@ impl App {
         plugin: Box<dyn Plugin>,
     ) -> Result<&mut Self, AppError> {
         debug!("added plugin: {}", plugin.name());
-        if plugin.is_unique()
-            && !self
-                .main_mut()
-                .plugin_names
-                .insert(plugin.name().to_string())
-        {
-            Err(AppError::DuplicatePlugin {
-                plugin_name: plugin.name().to_string(),
-            })?;
-        }
+        let mut plugin_registry = self.take_plugin_registry();
 
-        // Reserve position in the plugin registry. If the plugin adds more plugins,
-        // they'll all end up in insertion order.
-        let index = self.main().plugin_registry.len();
-        self.main_mut()
-            .plugin_registry
-            .push(Box::new(PlaceholderPlugin));
+        plugin_registry.add(plugin)?;
 
-        self.main_mut().plugin_build_depth += 1;
-        let result = catch_unwind(AssertUnwindSafe(|| plugin.build(self)));
-        self.main_mut().plugin_build_depth -= 1;
+        self.insert_plugin_registry(plugin_registry);
 
-        if let Err(payload) = result {
-            resume_unwind(payload);
-        }
-
-        self.main_mut().plugin_registry[index] = plugin;
         Ok(self)
     }
 
@@ -526,7 +527,7 @@ impl App {
     where
         T: Plugin,
     {
-        self.main().is_plugin_added::<T>()
+        self.plugin_registry.contains::<T>()
     }
 
     /// Returns a vector of references to all plugins of type `T` that have been added.
@@ -541,9 +542,7 @@ impl App {
     /// # struct ImagePlugin {
     /// #    default_sampler: bool,
     /// # }
-    /// # impl Plugin for ImagePlugin {
-    /// #    fn build(&self, app: &mut App) {}
-    /// # }
+    /// # impl Plugin for ImagePlugin { }
     /// # let mut app = App::new();
     /// # app.add_plugins(ImagePlugin::default());
     /// let default_sampler = app.get_added_plugins::<ImagePlugin>()[0].default_sampler;
@@ -552,7 +551,7 @@ impl App {
     where
         T: Plugin,
     {
-        self.main().get_added_plugins::<T>()
+        self.plugin_registry.get_all()
     }
 
     /// Installs a [`Plugin`] collection.
@@ -579,9 +578,7 @@ impl App {
     /// # // Dummies created to avoid using `bevy_log`,
     /// # // which pulls in too many dependencies and breaks rust-analyzer
     /// # pub struct LogPlugin;
-    /// # impl Plugin for LogPlugin {
-    /// #     fn build(&self, app: &mut App) {}
-    /// # }
+    /// # impl Plugin for LogPlugin { }
     /// App::new()
     ///     .add_plugins(MinimalPlugins);
     /// App::new()
@@ -595,15 +592,11 @@ impl App {
     /// [`PluginGroup`]:super::PluginGroup
     #[track_caller]
     pub fn add_plugins<M>(&mut self, plugins: impl Plugins<M>) -> &mut Self {
-        if matches!(
-            self.plugins_state(),
-            PluginsState::Cleaned | PluginsState::Finished
-        ) {
-            panic!(
-                "Plugins cannot be added after App::cleanup() or App::finish() has been called."
-            );
+        if self.plugins_state() >= PluginRegistryState::Finalizing {
+            panic!("Plugins cannot be added after some are already being finalized.");
         }
         plugins.add_to_app(self);
+
         self
     }
 
@@ -695,6 +688,11 @@ impl App {
         self.get_sub_app_mut(label).unwrap_or_else(|| {
             panic!("No sub-app with label '{:?}' exists.", str);
         })
+    }
+
+    /// Returns if the [`SubApp`] with the given label exists.
+    pub fn contains_sub_app(&self, label: impl AppLabel) -> bool {
+        self.sub_apps.sub_apps.contains_key(&label.intern())
     }
 
     /// Returns a reference to the [`SubApp`] with the given label, if it exists.
@@ -888,12 +886,7 @@ impl App {
 type RunnerFn = Box<dyn FnOnce(App) -> AppExit>;
 
 fn run_once(mut app: App) -> AppExit {
-    while app.plugins_state() == PluginsState::Adding {
-        #[cfg(not(target_arch = "wasm32"))]
-        bevy_tasks::tick_global_task_pools_on_main_thread();
-    }
-    app.finish();
-    app.cleanup();
+    app.configure_and_cleanup_plugins();
 
     app.update();
 
@@ -985,23 +978,16 @@ mod tests {
 
     use bevy_ecs::{schedule::ScheduleLabel, system::Commands};
 
-    use crate::{App, AppExit, Plugin};
+    use crate::{App, AppExit, Plugin, PluginRegistryState, Update};
 
     struct PluginA;
-    impl Plugin for PluginA {
-        fn build(&self, _app: &mut App) {}
-    }
+    impl Plugin for PluginA {}
     struct PluginB;
-    impl Plugin for PluginB {
-        fn build(&self, _app: &mut App) {}
-    }
+    impl Plugin for PluginB {}
     struct PluginC<T>(T);
-    impl<T: Send + Sync + 'static> Plugin for PluginC<T> {
-        fn build(&self, _app: &mut App) {}
-    }
+    impl<T: Send + Sync + 'static> Plugin for PluginC<T> {}
     struct PluginD;
     impl Plugin for PluginD {
-        fn build(&self, _app: &mut App) {}
         fn is_unique(&self) -> bool {
             false
         }
@@ -1010,13 +996,20 @@ mod tests {
     struct PluginE;
 
     impl Plugin for PluginE {
-        fn build(&self, _app: &mut App) {}
-
-        fn finish(&self, app: &mut App) {
+        fn finalize(&self, app: &mut App) {
             if app.is_plugin_added::<PluginA>() {
                 panic!("cannot run if PluginA is already registered");
             }
         }
+    }
+
+    #[test]
+    fn simple_app() {
+        fn hello_world_system() {
+            println!("hello world");
+        }
+
+        App::new().add_systems(Update, hello_world_system).run();
     }
 
     #[test]
@@ -1045,15 +1038,20 @@ mod tests {
     fn cant_call_app_run_from_plugin_build() {
         struct PluginRun;
         struct InnerPlugin;
-        impl Plugin for InnerPlugin {
-            fn build(&self, _: &mut App) {}
-        }
+        impl Plugin for InnerPlugin {}
         impl Plugin for PluginRun {
-            fn build(&self, app: &mut App) {
+            fn init(&self, app: &mut App) {
                 app.add_plugins(InnerPlugin).run();
             }
         }
-        App::new().add_plugins(PluginRun);
+
+        let mut app = App::new();
+
+        app.add_plugins(PluginRun);
+
+        assert_eq!(app.plugins_state(), PluginRegistryState::Init);
+
+        app.configure_plugins();
     }
 
     #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
@@ -1078,11 +1076,21 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn test_is_plugin_added_works_during_finish() {
+    fn plugin_cannot_be_added_during_finalize() {
         let mut app = App::new();
         app.add_plugins(PluginA);
+        assert_eq!(app.plugins_state(), PluginRegistryState::Init);
+
+        app.configure_plugins(); // Build
+        assert_eq!(app.plugins_state(), PluginRegistryState::SettingUp);
+        app.configure_plugins(); //
+        assert_eq!(app.plugins_state(), PluginRegistryState::Finalizing);
+        app.configure_plugins();
+        assert_eq!(app.plugins_state(), PluginRegistryState::Done);
+
         app.add_plugins(PluginE);
-        app.finish();
+
+        app.configure_plugins();
     }
 
     #[test]
@@ -1202,6 +1210,7 @@ mod tests {
 
         fn my_runner(mut app: App) -> AppExit {
             let my_state = MyState {};
+            app.configure_plugins();
             app.world_mut().insert_resource(my_state);
 
             for _ in 0..5 {

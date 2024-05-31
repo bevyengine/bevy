@@ -1,5 +1,6 @@
+use crate::renderer::RenderDevice;
 use crate::{ExtractSchedule, MainWorld, Render, RenderApp, RenderSet};
-use bevy_app::{App, Plugin, SubApp};
+use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
 use bevy_ecs::{
     prelude::{Commands, EventReader, IntoSystemConfigs, ResMut, Resource},
@@ -132,19 +133,33 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Default
 impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
     for RenderAssetPlugin<A, AFTER>
 {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.init_resource::<CachedExtractRenderAssetSystemState<A>>();
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<ExtractedAssets<A>>()
-                .init_resource::<RenderAssets<A>>()
-                .init_resource::<PrepareNextFrameAssets<A>>()
-                .add_systems(ExtractSchedule, extract_render_asset::<A>);
-            AFTER::register_system(
-                render_app,
-                prepare_assets::<A>.in_set(RenderSet::PrepareAssets),
-            );
-        }
+    }
+
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
+        };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
+        render_app
+            .init_resource::<ExtractedAssets<A>>()
+            .init_resource::<RenderAssets<A>>()
+            .init_resource::<PrepareNextFrameAssets<A>>()
+            .add_systems(ExtractSchedule, extract_render_asset::<A>);
+        AFTER::register_system(
+            render_app,
+            prepare_assets::<A>.in_set(RenderSet::PrepareAssets),
+        );
     }
 }
 

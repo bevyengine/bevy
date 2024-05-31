@@ -1,6 +1,6 @@
 //! Light probes for baked global illumination.
 
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_derive::{Deref, DerefMut};
@@ -297,7 +297,7 @@ impl LightProbe {
 }
 
 impl Plugin for LightProbePlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             LIGHT_PROBE_SHADER_HANDLE,
@@ -319,16 +319,25 @@ impl Plugin for LightProbePlugin {
 
         app.register_type::<LightProbe>()
             .register_type::<EnvironmentMapLight>()
-            .register_type::<IrradianceVolume>();
+            .register_type::<IrradianceVolume>()
+            .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new());
     }
 
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
         };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
 
         render_app
-            .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
             .init_resource::<LightProbesBuffer>()
             .add_systems(ExtractSchedule, gather_light_probes::<EnvironmentMapLight>)
             .add_systems(ExtractSchedule, gather_light_probes::<IrradianceVolume>)

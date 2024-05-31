@@ -147,7 +147,7 @@ impl GltfPlugin {
 }
 
 impl Plugin for GltfPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.register_type::<GltfExtras>()
             .init_asset::<Gltf>()
             .init_asset::<GltfNode>()
@@ -156,7 +156,7 @@ impl Plugin for GltfPlugin {
             .preregister_asset_loader::<GltfLoader>(&["gltf", "glb"]);
     }
 
-    fn finish(&self, app: &mut App) {
+    fn finalize(&self, app: &mut App) {
         let supported_compressed_formats = match app.world().get_resource::<RenderDevice>() {
             Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
             None => CompressedImageFormats::NONE,

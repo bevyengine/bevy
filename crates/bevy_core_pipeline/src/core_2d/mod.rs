@@ -31,9 +31,10 @@ use std::ops::Range;
 pub use camera_2d::*;
 pub use main_transparent_pass_2d_node::*;
 
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use bevy_math::FloatOrd;
+use bevy_render::renderer::RenderDevice;
 use bevy_render::{
     camera::Camera,
     extract_component::ExtractComponentPlugin,
@@ -53,13 +54,26 @@ use self::graph::{Core2d, Node2d};
 pub struct Core2dPlugin;
 
 impl Plugin for Core2dPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.register_type::<Camera2d>()
             .add_plugins(ExtractComponentPlugin::<Camera2d>::default());
+    }
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
         };
+
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
         render_app
             .init_resource::<DrawFunctions<Transparent2d>>()
             .init_resource::<ViewSortedRenderPhases<Transparent2d>>()

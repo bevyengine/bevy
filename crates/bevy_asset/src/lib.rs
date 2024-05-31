@@ -154,7 +154,7 @@ impl AssetPlugin {
 }
 
 impl Plugin for AssetPlugin {
-    fn build(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
         let embedded = EmbeddedAssetRegistry::default();
         {
             let mut sources = app

@@ -14,7 +14,7 @@ fn main() {
 struct EmbeddedAssetPlugin;
 
 impl Plugin for EmbeddedAssetPlugin {
-    fn build(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
         // We get to choose some prefix relative to the workspace root which
         // will be ignored in "embedded://" asset paths.
         let omit_prefix = "examples/asset";

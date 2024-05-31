@@ -104,14 +104,14 @@ impl Drop for RenderAppChannels {
 pub struct PipelinedRenderingPlugin;
 
 impl Plugin for PipelinedRenderingPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         // Don't add RenderExtractApp if RenderApp isn't initialized.
         if app.get_sub_app(RenderApp).is_none() {
             return;
         }
         app.insert_resource(MainThreadExecutor::new());
 
-        let mut sub_app = SubApp::new();
+        let mut sub_app = SubApp::new("render_extract_app");
         sub_app.set_extract(renderer_extract);
         app.insert_sub_app(RenderExtractApp, sub_app);
     }

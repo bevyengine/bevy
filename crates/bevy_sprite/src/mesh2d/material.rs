@@ -1,4 +1,4 @@
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp, AssetId, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_2d::Transparent2d,
@@ -147,29 +147,37 @@ impl<M: Material2d> Plugin for Material2dPlugin<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.init_asset::<M>()
             .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>>::default());
-
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
-                .init_resource::<RenderMaterial2dInstances<M>>()
-                .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
-                .add_systems(ExtractSchedule, extract_material_meshes_2d::<M>)
-                .add_systems(
-                    Render,
-                    queue_material2d_meshes::<M>
-                        .in_set(RenderSet::QueueMeshes)
-                        .after(prepare_assets::<PreparedMaterial2d<M>>),
-                );
-        }
     }
 
-    fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<Material2dPipeline<M>>();
-        }
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
+        };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
+        render_app
+            .init_resource::<Material2dPipeline<M>>()
+            .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
+            .init_resource::<RenderMaterial2dInstances<M>>()
+            .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
+            .add_systems(ExtractSchedule, extract_material_meshes_2d::<M>)
+            .add_systems(
+                Render,
+                queue_material2d_meshes::<M>
+                    .in_set(RenderSet::QueueMeshes)
+                    .after(prepare_assets::<PreparedMaterial2d<M>>),
+            );
     }
 }
 

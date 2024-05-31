@@ -47,6 +47,4 @@ pub mod ui_debug_overlay;
 ///  creating a build for release to the public.
 pub struct DevToolsPlugin;
 
-impl Plugin for DevToolsPlugin {
-    fn build(&self, _app: &mut App) {}
-}
+impl Plugin for DevToolsPlugin {}

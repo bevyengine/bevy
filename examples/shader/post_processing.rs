@@ -43,7 +43,7 @@ fn main() {
 struct PostProcessPlugin;
 
 impl Plugin for PostProcessPlugin {
-    fn build(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
         app.add_plugins((
             // The settings will be a component that lives in the main world but will
             // be extracted to the render world every frame.
@@ -95,7 +95,7 @@ impl Plugin for PostProcessPlugin {
             );
     }
 
-    fn finish(&self, app: &mut App) {
+    fn finalize(&self, app: &mut App) {
         // We need to get the render app from the main app
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

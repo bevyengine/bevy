@@ -238,7 +238,7 @@ impl Main {
 pub struct MainSchedulePlugin;
 
 impl Plugin for MainSchedulePlugin {
-    fn build(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
         // simple "facilitator" schedules benefit from simpler single threaded scheduling
         let mut main_schedule = Schedule::new(Main);
         main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);

@@ -37,6 +37,7 @@ use bevy_asset::AssetApp;
 #[cfg(feature = "default_font")]
 use bevy_asset::{load_internal_binary_asset, Handle};
 use bevy_ecs::prelude::*;
+use bevy_render::renderer::RenderDevice;
 use bevy_render::{
     camera::CameraUpdateSystem, view::VisibilitySystems, ExtractSchedule, RenderApp,
 };
@@ -83,7 +84,7 @@ pub enum YAxisOrientation {
 pub type WithText = With<Text>;
 
 impl Plugin for TextPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.init_asset::<Font>()
             .register_type::<Text>()
             .register_type::<Text2dBounds>()
@@ -107,13 +108,26 @@ impl Plugin for TextPlugin {
                     remove_dropped_font_atlas_sets,
                 ),
             );
+    }
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_systems(
-                ExtractSchedule,
-                extract_text2d_sprite.after(SpriteSystem::ExtractSprites),
-            );
-        }
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
+        };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
+        render_app.add_systems(
+            ExtractSchedule,
+            extract_text2d_sprite.after(SpriteSystem::ExtractSprites),
+        );
 
         #[cfg(feature = "default_font")]
         load_internal_binary_asset!(

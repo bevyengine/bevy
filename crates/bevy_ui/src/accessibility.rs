@@ -146,7 +146,7 @@ fn label_changed(
 pub(crate) struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.add_systems(
             PostUpdate,
             (

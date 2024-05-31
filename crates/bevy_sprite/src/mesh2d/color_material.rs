@@ -1,5 +1,5 @@
 use crate::{Material2d, Material2dPlugin, MaterialMesh2dBundle};
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_color::{Color, LinearRgba};
 use bevy_math::Vec4;
@@ -17,7 +17,7 @@ pub const COLOR_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 pub struct ColorMaterialPlugin;
 
 impl Plugin for ColorMaterialPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             COLOR_MATERIAL_SHADER_HANDLE,
@@ -27,7 +27,13 @@ impl Plugin for ColorMaterialPlugin {
 
         app.add_plugins(Material2dPlugin::<ColorMaterial>::default())
             .register_asset_reflect::<ColorMaterial>();
+    }
 
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        app.world().contains_resource::<Assets<ColorMaterial>>()
+    }
+
+    fn finalize(&self, app: &mut App) {
         app.world_mut()
             .resource_mut::<Assets<ColorMaterial>>()
             .insert(

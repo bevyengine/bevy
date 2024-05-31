@@ -6,7 +6,7 @@ use std::any::TypeId;
 pub use range::*;
 pub use render_layers::*;
 
-use bevy_app::{Plugin, PostUpdate};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Assets, Handle};
 use bevy_derive::Deref;
 use bevy_ecs::{prelude::*, query::QueryFilter};
@@ -252,7 +252,7 @@ pub enum VisibilitySystems {
 pub struct VisibilityPlugin;
 
 impl Plugin for VisibilityPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn setup(&self, app: &mut App) {
         use VisibilitySystems::*;
 
         app.configure_sets(

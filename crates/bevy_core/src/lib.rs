@@ -36,7 +36,7 @@ use bevy_tasks::tick_global_task_pools_on_main_thread;
 pub struct TypeRegistrationPlugin;
 
 impl Plugin for TypeRegistrationPlugin {
-    fn build(&self, app: &mut App) {
+    fn init(&self, app: &mut App) {
         app.register_type::<Name>();
     }
 }
@@ -50,7 +50,7 @@ pub struct TaskPoolPlugin {
 }
 
 impl Plugin for TaskPoolPlugin {
-    fn build(&self, _app: &mut App) {
+    fn init(&self, _app: &mut App) {
         // Setup the default bevy task pools
         self.task_pool_options.create_default_pools();
 
@@ -88,7 +88,7 @@ pub struct FrameCount(pub u32);
 pub struct FrameCountPlugin;
 
 impl Plugin for FrameCountPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.init_resource::<FrameCount>();
         app.add_systems(Last, update_frame_count);
     }

@@ -1,4 +1,4 @@
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{
     prelude::{Component, Entity},
@@ -30,17 +30,31 @@ const SKYBOX_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(555947634232
 pub struct SkyboxPlugin;
 
 impl Plugin for SkyboxPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(app, SKYBOX_SHADER_HANDLE, "skybox.wgsl", Shader::from_wgsl);
 
         app.add_plugins((
             ExtractComponentPlugin::<Skybox>::default(),
             UniformComponentPlugin::<SkyboxUniforms>::default(),
         ));
+    }
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
         };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
+        let render_device = render_app.world().resource::<RenderDevice>().clone();
+
         render_app
             .init_resource::<SpecializedRenderPipelines<SkyboxPipeline>>()
             .add_systems(
@@ -50,13 +64,7 @@ impl Plugin for SkyboxPlugin {
                     prepare_skybox_bind_groups.in_set(RenderSet::PrepareBindGroups),
                 ),
             );
-    }
 
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        let render_device = render_app.world().resource::<RenderDevice>().clone();
         render_app.insert_resource(SkyboxPipeline::new(&render_device));
     }
 }

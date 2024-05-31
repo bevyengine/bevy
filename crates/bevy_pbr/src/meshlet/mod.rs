@@ -55,7 +55,7 @@ use self::{
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
 use crate::{graph::NodePbr, Material};
-use bevy_app::{App, Plugin, PostUpdate};
+use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Handle};
 use bevy_core_pipeline::{
     core_3d::{
@@ -114,7 +114,7 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 pub struct MeshletPlugin;
 
 impl Plugin for MeshletPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             MESHLET_BINDINGS_SHADER_HANDLE,
@@ -173,10 +173,19 @@ impl Plugin for MeshletPlugin {
             );
     }
 
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
         };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
 
         if !render_app
             .world()

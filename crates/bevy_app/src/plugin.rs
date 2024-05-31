@@ -1,12 +1,45 @@
 use downcast_rs::{impl_downcast, Downcast};
 
-use crate::App;
+use crate::{App, InternedAppLabel};
 use std::any::Any;
+
+/// Plugin state in the application
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub enum PluginState {
+    /// Plugin is not initialized.
+    #[default]
+    Idle,
+    /// Plugin is initialized.
+    Init,
+    /// Plugin is being built.
+    SettingUp,
+    /// Plugin is being configured.
+    Configuring,
+    /// Plugin configuration is finishing.
+    Finalizing,
+    /// Plugin configuration is completed.
+    Done,
+    /// Plugin resources are cleaned up.
+    Cleaned,
+}
+
+impl PluginState {
+    pub(crate) fn next(self) -> Self {
+        match self {
+            Self::Idle => Self::Init,
+            Self::Init => Self::SettingUp,
+            Self::SettingUp => Self::Configuring,
+            Self::Configuring => Self::Finalizing,
+            Self::Finalizing => Self::Done,
+            s => unreachable!("Cannot handle {:?} state", s),
+        }
+    }
+}
 
 /// A collection of Bevy app logic and configuration.
 ///
 /// Plugins configure an [`App`]. When an [`App`] registers a plugin,
-/// the plugin's [`Plugin::build`] function is run. By default, a plugin
+/// the plugin's [`Plugin::init`] function is run. By default, a plugin
 /// can only be added once to an [`App`].
 ///
 /// If the plugin may need to be added twice or more, the function [`is_unique()`](Self::is_unique)
@@ -17,9 +50,9 @@ use std::any::Any;
 /// ## Lifecycle of a plugin
 ///
 /// When adding a plugin to an [`App`]:
-/// * the app calls [`Plugin::build`] immediately, and register the plugin
+/// * the app calls [`Plugin::init`] immediately, and register the plugin
 /// * once the app started, it will wait for all registered [`Plugin::ready`] to return `true`
-/// * it will then call all registered [`Plugin::finish`]
+/// * it will then call all registered [`Plugin::finalize`]
 /// * and call all registered [`Plugin::cleanup`]
 ///
 /// ## Defining a plugin.
@@ -47,7 +80,7 @@ use std::any::Any;
 /// }
 ///
 /// impl Plugin for AccessibilityPlugin {
-///     fn build(&self, app: &mut App) {
+///     fn init(&self, app: &mut App) {
 ///         if self.flicker_damping {
 ///             app.add_systems(PostUpdate, damp_flickering);
 ///         }
@@ -56,20 +89,59 @@ use std::any::Any;
 /// # fn damp_flickering() {}
 /// ````
 pub trait Plugin: Downcast + Any + Send + Sync {
-    /// Configures the [`App`] to which this plugin is added.
-    fn build(&self, app: &mut App);
+    /// Returns required sub apps before finalizing this plugin.
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        Vec::new()
+    }
 
-    /// Has the plugin finished its setup? This can be useful for plugins that need something
-    /// asynchronous to happen before they can finish their setup, like the initialization of a renderer.
-    /// Once the plugin is ready, [`finish`](Plugin::finish) should be called.
-    fn ready(&self, _app: &App) -> bool {
+    /// Pre-configures the [`App`] to which this plugin is added. This is by convention executed before
+    /// the event loop is started.
+    fn init(&self, _app: &mut App) {
+        // do nothing
+    }
+
+    /// Deprecated, see [`Plugin::init`]
+    #[deprecated = "Use `Plugin::init` instead"]
+    fn build(&self, app: &mut App) {
+        self.init(app);
+    }
+
+    /// Is the plugin ready to be set up?
+    fn ready_to_setup(&self, _app: &mut App) -> bool {
         true
     }
 
-    /// Finish adding this plugin to the [`App`], once all plugins registered are ready. This can
-    /// be useful for plugins that depends on another plugin asynchronous setup, like the renderer.
-    fn finish(&self, _app: &mut App) {
+    /// Sets the [`Plugin`] resources and systems. This is by convention executed inside an event loop.
+    fn setup(&self, _app: &mut App) {
         // do nothing
+    }
+
+    /// Is the plugin ready to be configured?
+    fn ready_to_configure(&self, _app: &mut App) -> bool {
+        true
+    }
+
+    /// Configures the [`App`] to which this plugin is added. This can
+    /// be useful for plugins that needs completing asynchronous configuration.
+    fn configure(&self, _app: &mut App) {
+        // do nothing
+    }
+
+    /// Is the plugin ready to be finalized?
+    fn ready_to_finalize(&self, _app: &mut App) -> bool {
+        true
+    }
+
+    /// Finalizes this plugin to the [`App`]. This can
+    /// be useful for plugins that depends on another plugin asynchronous setup, like the renderer.
+    fn finalize(&self, _app: &mut App) {
+        // do nothing
+    }
+
+    /// Deprecated, see [`Plugin::finalize`]
+    #[deprecated = "Use `Plugin::finalize` instead"]
+    fn finish(&self, app: &mut App) {
+        self.finalize(app);
     }
 
     /// Runs after all plugins are built and finished, but before the app schedule is executed.
@@ -90,35 +162,18 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     fn is_unique(&self) -> bool {
         true
     }
+
+    /// Checks all required [`SubApp`]s.
+    fn check_required_sub_apps(&self, app: &App) -> bool {
+        self.required_sub_apps()
+            .iter()
+            .all(|s| app.contains_sub_app(*s))
+    }
 }
 
 impl_downcast!(Plugin);
 
-impl<T: Fn(&mut App) + Send + Sync + 'static> Plugin for T {
-    fn build(&self, app: &mut App) {
-        self(app);
-    }
-}
-
-/// Plugins state in the application
-#[derive(PartialEq, Eq, Debug, Clone, Copy, PartialOrd, Ord)]
-pub enum PluginsState {
-    /// Plugins are being added.
-    Adding,
-    /// All plugins already added are ready.
-    Ready,
-    /// Finish has been executed for all plugins added.
-    Finished,
-    /// Cleanup has been executed for all plugins added.
-    Cleaned,
-}
-
-/// A dummy plugin that's to temporarily occupy an entry in an app's plugin registry.
-pub(crate) struct PlaceholderPlugin;
-
-impl Plugin for PlaceholderPlugin {
-    fn build(&self, _app: &mut App) {}
-}
+impl<T: Fn(&mut App) + Send + Sync + 'static> Plugin for T {}
 
 /// A type representing an unsafe function that returns a mutable pointer to a [`Plugin`].
 /// It is used for dynamically loading plugins.
@@ -157,9 +212,7 @@ mod sealed {
             if let Err(AppError::DuplicatePlugin { plugin_name }) =
                 app.add_boxed_plugin(Box::new(self))
             {
-                panic!(
-                    "Error adding plugin {plugin_name}: : plugin was already added in application"
-                )
+                panic!("Error adding plugin {plugin_name}: plugin was already added in application")
             }
         }
     }

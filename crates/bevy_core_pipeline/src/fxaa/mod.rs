@@ -83,16 +83,29 @@ const FXAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(41827614651417
 /// Adds support for Fast Approximate Anti-Aliasing (FXAA)
 pub struct FxaaPlugin;
 impl Plugin for FxaaPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(app, FXAA_SHADER_HANDLE, "fxaa.wgsl", Shader::from_wgsl);
 
         app.register_type::<Fxaa>();
         app.add_plugins(ExtractComponentPlugin::<Fxaa>::default());
+    }
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
         };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
         render_app
+            .init_resource::<FxaaPipeline>()
             .init_resource::<SpecializedRenderPipelines<FxaaPipeline>>()
             .add_systems(Render, prepare_fxaa_pipelines.in_set(RenderSet::Prepare))
             .add_render_graph_node::<ViewNodeRunner<FxaaNode>>(Core3d, Node3d::Fxaa)
@@ -113,13 +126,6 @@ impl Plugin for FxaaPlugin {
                     Node2d::EndMainPassPostProcessing,
                 ),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app.init_resource::<FxaaPipeline>();
     }
 }
 

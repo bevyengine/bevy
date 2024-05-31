@@ -29,7 +29,7 @@
 //!
 //! [Henyey-Greenstein phase function]: https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions#TheHenyeyndashGreensteinPhaseFunction
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, AppLabel, InternedAppLabel, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_color::Color;
 use bevy_core_pipeline::{
@@ -239,38 +239,28 @@ pub struct ViewVolumetricFogUniformOffset(u32);
 pub struct VolumetricFogUniformBuffer(pub DynamicUniformBuffer<VolumetricFogUniform>);
 
 impl Plugin for VolumetricFogPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             VOLUMETRIC_FOG_HANDLE,
             "volumetric_fog.wgsl",
             Shader::from_wgsl
         );
-
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app
-            .init_resource::<SpecializedRenderPipelines<VolumetricFogPipeline>>()
-            .init_resource::<VolumetricFogUniformBuffer>()
-            .add_systems(ExtractSchedule, extract_volumetric_fog)
-            .add_systems(
-                Render,
-                (
-                    prepare_volumetric_fog_pipelines.in_set(RenderSet::Prepare),
-                    prepare_volumetric_fog_uniforms.in_set(RenderSet::Prepare),
-                    prepare_view_depth_textures_for_volumetric_fog
-                        .in_set(RenderSet::Prepare)
-                        .before(prepare_core_3d_depth_textures),
-                ),
-            );
     }
 
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
         };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
 
         render_app
             .init_resource::<VolumetricFogPipeline>()
@@ -283,6 +273,19 @@ impl Plugin for VolumetricFogPlugin {
                 // Volumetric fog is a postprocessing effect. Run it after the
                 // main pass but before bloom.
                 (Node3d::EndMainPass, NodePbr::VolumetricFog, Node3d::Bloom),
+            )
+            .init_resource::<SpecializedRenderPipelines<VolumetricFogPipeline>>()
+            .init_resource::<VolumetricFogUniformBuffer>()
+            .add_systems(ExtractSchedule, extract_volumetric_fog)
+            .add_systems(
+                Render,
+                (
+                    prepare_volumetric_fog_pipelines.in_set(RenderSet::Prepare),
+                    prepare_volumetric_fog_uniforms.in_set(RenderSet::Prepare),
+                    prepare_view_depth_textures_for_volumetric_fog
+                        .in_set(RenderSet::Prepare)
+                        .before(prepare_core_3d_depth_textures),
+                ),
             );
     }
 }

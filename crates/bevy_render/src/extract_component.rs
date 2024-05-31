@@ -4,7 +4,7 @@ use crate::{
     view::ViewVisibility,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
     component::Component,
@@ -79,15 +79,26 @@ impl<C> Default for UniformComponentPlugin<C> {
 }
 
 impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentPlugin<C> {
-    fn build(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .insert_resource(ComponentUniforms::<C>::default())
-                .add_systems(
-                    Render,
-                    prepare_uniform_components::<C>.in_set(RenderSet::PrepareResources),
-                );
-        }
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
+        };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
+        render_app
+            .insert_resource(ComponentUniforms::<C>::default())
+            .add_systems(
+                Render,
+                prepare_uniform_components::<C>.in_set(RenderSet::PrepareResources),
+            );
     }
 }
 
@@ -183,13 +194,24 @@ impl<C, F> ExtractComponentPlugin<C, F> {
 }
 
 impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
-    fn build(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            if self.only_extract_visible {
-                render_app.add_systems(ExtractSchedule, extract_visible_components::<C>);
-            } else {
-                render_app.add_systems(ExtractSchedule, extract_components::<C>);
-            }
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
+        };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
+        if self.only_extract_visible {
+            render_app.add_systems(ExtractSchedule, extract_visible_components::<C>);
+        } else {
+            render_app.add_systems(ExtractSchedule, extract_components::<C>);
         }
     }
 }

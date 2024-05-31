@@ -1,10 +1,7 @@
-use crate::{
-    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
-    prepass::{DeferredPrepass, ViewPrepassTextures},
-};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::prelude::*;
+use bevy_ecs::query::QueryItem;
 use bevy_math::UVec2;
 use bevy_render::{
     camera::ExtractedCamera,
@@ -14,47 +11,59 @@ use bevy_render::{
     view::ViewTarget,
     Render, RenderApp, RenderSet,
 };
-
-use bevy_ecs::query::QueryItem;
 use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     renderer::RenderContext,
+};
+
+use crate::{
+    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
+    prepass::{DeferredPrepass, ViewPrepassTextures},
 };
 
 use super::DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT;
 
 pub const COPY_DEFERRED_LIGHTING_ID_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(5230948520734987);
+
 pub struct CopyDeferredLightingIdPlugin;
 
 impl Plugin for CopyDeferredLightingIdPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             COPY_DEFERRED_LIGHTING_ID_SHADER_HANDLE,
             "copy_deferred_lighting_id.wgsl",
             Shader::from_wgsl
         );
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app.add_systems(
-            Render,
-            (prepare_deferred_lighting_id_textures.in_set(RenderSet::PrepareResources),),
-        );
     }
 
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
 
-        render_app.init_resource::<CopyDeferredLightingIdPipeline>();
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
+        };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
+        render_app
+            .add_systems(
+                Render,
+                (prepare_deferred_lighting_id_textures.in_set(RenderSet::PrepareResources),),
+            )
+            .init_resource::<CopyDeferredLightingIdPipeline>();
     }
 }
 
 #[derive(Default)]
 pub struct CopyDeferredLightingIdNode;
+
 impl CopyDeferredLightingIdNode {
     pub const NAME: &'static str = "copy_deferred_lighting_id";
 }

@@ -39,7 +39,7 @@ use crate::Plugin;
 pub struct PanicHandlerPlugin;
 
 impl Plugin for PanicHandlerPlugin {
-    fn build(&self, _app: &mut App) {
+    fn init(&self, _app: &mut App) {
         #[cfg(target_arch = "wasm32")]
         {
             console_error_panic_hook::set_once();

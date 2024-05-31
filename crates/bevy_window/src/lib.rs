@@ -84,7 +84,7 @@ pub struct WindowPlugin {
 }
 
 impl Plugin for WindowPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         // User convenience events
         #[allow(deprecated)]
         app.add_event::<WindowResized>()

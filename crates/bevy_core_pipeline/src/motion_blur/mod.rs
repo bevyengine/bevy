@@ -7,13 +7,14 @@ use crate::{
     core_3d::graph::{Core3d, Node3d},
     prepass::{DepthPrepass, MotionVectorPrepass},
 };
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{
     bundle::Bundle, component::Component, query::With, reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::renderer::RenderDevice;
 use bevy_render::{
     camera::Camera,
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
@@ -120,7 +121,7 @@ pub const MOTION_BLUR_SHADER_HANDLE: Handle<Shader> =
 /// Adds support for per-object motion blur to the app. See [`MotionBlur`] for details.
 pub struct MotionBlurPlugin;
 impl Plugin for MotionBlurPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             MOTION_BLUR_SHADER_HANDLE,
@@ -131,11 +132,23 @@ impl Plugin for MotionBlurPlugin {
             ExtractComponentPlugin::<MotionBlur>::default(),
             UniformComponentPlugin::<MotionBlur>::default(),
         ));
+    }
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
         };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
 
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
+        render_app.init_resource::<pipeline::MotionBlurPipeline>();
         render_app
             .init_resource::<SpecializedRenderPipelines<pipeline::MotionBlurPipeline>>()
             .add_systems(
@@ -156,13 +169,5 @@ impl Plugin for MotionBlurPlugin {
                     Node3d::Bloom, // we want blurred areas to bloom and tonemap properly.
                 ),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<pipeline::MotionBlurPipeline>();
     }
 }

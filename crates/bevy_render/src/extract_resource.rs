@@ -1,9 +1,10 @@
 use std::marker::PhantomData;
 
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 pub use bevy_render_macros::ExtractResource;
 
+use crate::renderer::RenderDevice;
 use crate::{Extract, ExtractSchedule, RenderApp};
 
 /// Describes how a resource gets extracted for rendering.
@@ -30,15 +31,21 @@ impl<R: ExtractResource> Default for ExtractResourcePlugin<R> {
 }
 
 impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
-    fn build(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_systems(ExtractSchedule, extract_resource::<R>);
-        } else {
-            bevy_utils::error_once!(
-                "Render app did not exist when trying to add `extract_resource` for <{}>.",
-                std::any::type_name::<R>()
-            );
-        }
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
+        };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
+        render_app.add_systems(ExtractSchedule, extract_resource::<R>);
     }
 }
 

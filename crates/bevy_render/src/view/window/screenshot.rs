@@ -1,6 +1,6 @@
 use std::{borrow::Cow, path::Path, sync::PoisonError};
 
-use bevy_app::Plugin;
+use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_tasks::AsyncComputeTaskPool;
@@ -127,7 +127,7 @@ pub struct ScreenshotPlugin;
 const SCREENSHOT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11918575842344596158);
 
 impl Plugin for ScreenshotPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn setup(&self, app: &mut App) {
         app.init_resource::<ScreenshotManager>();
 
         load_internal_asset!(
@@ -138,10 +138,21 @@ impl Plugin for ScreenshotPlugin {
         );
     }
 
-    fn finish(&self, app: &mut bevy_app::App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>();
-        }
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
+        };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
+        render_app.init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>();
     }
 }
 

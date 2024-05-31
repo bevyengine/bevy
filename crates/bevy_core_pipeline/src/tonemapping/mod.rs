@@ -1,4 +1,5 @@
-use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
+use bitflags::bitflags;
+
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Assets, Handle};
 use bevy_ecs::prelude::*;
@@ -14,14 +15,14 @@ use bevy_render::texture::{CompressedImageFormats, GpuImage, Image, ImageSampler
 use bevy_render::view::{ExtractedView, ViewTarget, ViewUniform};
 use bevy_render::{camera::Camera, texture::FallbackImage};
 use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
+use bevy_utils::default;
 #[cfg(not(feature = "tonemapping_luts"))]
 use bevy_utils::tracing::error;
-use bitflags::bitflags;
+pub use node::TonemappingNode;
+
+use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 
 mod node;
-
-use bevy_utils::default;
-pub use node::TonemappingNode;
 
 const TONEMAPPING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17015368199668024512);
 
@@ -42,7 +43,7 @@ pub struct TonemappingLuts {
 pub struct TonemappingPlugin;
 
 impl Plugin for TonemappingPlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         load_internal_asset!(
             app,
             TONEMAPPING_SHADER_HANDLE,
@@ -105,23 +106,29 @@ impl Plugin for TonemappingPlugin {
             ExtractComponentPlugin::<Tonemapping>::default(),
             ExtractComponentPlugin::<DebandDither>::default(),
         ));
+    }
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
         };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
+
         render_app
             .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
             .add_systems(
                 Render,
                 prepare_view_tonemapping_pipelines.in_set(RenderSet::Prepare),
-            );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app.init_resource::<TonemappingPipeline>();
+            )
+            .init_resource::<TonemappingPipeline>();
     }
 }
 
@@ -386,6 +393,7 @@ pub fn prepare_view_tonemapping_pipelines(
             .insert(ViewTonemappingPipeline(pipeline));
     }
 }
+
 /// Enables a debanding shader that applies dithering to mitigate color banding in the final image for a given [`Camera`] entity.
 #[derive(
     Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,

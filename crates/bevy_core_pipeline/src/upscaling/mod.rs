@@ -2,6 +2,7 @@ use crate::blit::{BlitPipeline, BlitPipelineKey};
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_render::camera::{CameraOutputMode, ExtractedCamera};
+use bevy_render::renderer::RenderDevice;
 use bevy_render::view::ViewTarget;
 use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
 
@@ -12,7 +13,18 @@ pub use node::UpscalingNode;
 pub struct UpscalingPlugin;
 
 impl Plugin for UpscalingPlugin {
-    fn build(&self, app: &mut App) {
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
+        };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
                 Render,

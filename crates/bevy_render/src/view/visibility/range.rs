@@ -6,7 +6,7 @@ use std::{
     ops::Range,
 };
 
-use bevy_app::{App, Plugin, PostUpdate};
+use bevy_app::prelude::*;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -48,7 +48,7 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: usize = 64;
 pub struct VisibilityRangePlugin;
 
 impl Plugin for VisibilityRangePlugin {
-    fn build(&self, app: &mut App) {
+    fn setup(&self, app: &mut App) {
         app.register_type::<VisibilityRange>()
             .init_resource::<VisibleEntityRanges>()
             .add_systems(
@@ -57,10 +57,21 @@ impl Plugin for VisibilityRangePlugin {
                     .in_set(VisibilitySystems::CheckVisibility)
                     .before(check_visibility::<WithMesh>),
             );
+    }
 
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
+    fn required_sub_apps(&self) -> Vec<InternedAppLabel> {
+        vec![RenderApp.intern()]
+    }
+
+    fn ready_to_finalize(&self, app: &mut App) -> bool {
+        let Some(render_app) = app.get_sub_app(RenderApp) else {
+            return false;
         };
+        render_app.world().contains_resource::<RenderDevice>()
+    }
+
+    fn finalize(&self, app: &mut App) {
+        let render_app = app.sub_app_mut(RenderApp);
 
         render_app
             .init_resource::<RenderVisibilityRanges>()
