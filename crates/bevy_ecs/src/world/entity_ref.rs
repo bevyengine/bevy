@@ -1182,6 +1182,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// Allows you to clean-up all components associated with the entity without removing it from the world.
     pub fn clear(&mut self) {
+        // We must collect here to appease the borrow checker
         let components: Vec<ComponentId> = self.archetype().components().collect();
         for component_id in components {
             self.remove_by_id(component_id);
