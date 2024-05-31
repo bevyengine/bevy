@@ -157,7 +157,7 @@ impl<'a> TextureAtlasBuilder<'a> {
         since = "0.14.0",
         note = "TextureAtlasBuilder::finish() was not idiomatic. Use TextureAtlasBuilder::build() instead."
     )]
-    pub fn finish(self) -> Result<(TextureAtlasLayout, Image), TextureAtlasBuilderError> {
+    pub fn finish(&mut self) -> Result<(TextureAtlasLayout, Image), TextureAtlasBuilderError> {
         self.build()
     }
 
@@ -197,7 +197,7 @@ impl<'a> TextureAtlasBuilder<'a> {
     ///
     /// If there is not enough space in the atlas texture, an error will
     /// be returned. It is then recommended to make a larger sprite sheet.
-    pub fn build(self) -> Result<(TextureAtlasLayout, Image), TextureAtlasBuilderError> {
+    pub fn build(&mut self) -> Result<(TextureAtlasLayout, Image), TextureAtlasBuilderError> {
         let max_width = self.max_size.x;
         let max_height = self.max_size.y;
 
