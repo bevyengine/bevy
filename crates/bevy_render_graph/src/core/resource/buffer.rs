@@ -1,6 +1,12 @@
 use std::borrow::Cow;
 
-use bevy_render::render_resource::{Buffer, BufferDescriptor, BufferUsages, ImageDataLayout};
+use bevy_render::{
+    render_resource::{
+        encase::internal::WriteInto, Buffer, BufferDescriptor, BufferUsages, ImageDataLayout,
+        ShaderType, UniformBuffer,
+    },
+    renderer::{RenderDevice, RenderQueue},
+};
 
 use crate::core::{NodeContext, RenderGraphBuilder};
 
@@ -99,5 +105,22 @@ impl<'g> IntoRenderResource<'g> for BufferDescriptor<'static> {
         graph: &mut RenderGraphBuilder<'_, 'g>,
     ) -> RenderHandle<'g, Self::Resource> {
         graph.new_buffer(self.into())
+    }
+}
+
+impl<'g, T: ShaderType + WriteInto> IntoRenderResource<'g> for UniformBuffer<T> {
+    type Resource = Buffer;
+
+    fn into_render_resource(
+        mut self,
+        graph: &mut RenderGraphBuilder<'_, 'g>,
+    ) -> RenderHandle<'g, Self::Resource> {
+        let render_device = graph.world_resource::<RenderDevice>();
+        let render_queue = graph.world_resource::<RenderQueue>();
+        self.write_buffer(render_device, render_queue);
+        graph.into_resource(
+            RenderGraphBufferMeta::from(self.descriptor()),
+            self.buffer().unwrap().clone(),
+        )
     }
 }
