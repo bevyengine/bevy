@@ -80,7 +80,8 @@ fn setup(
     });
 
     // FlightHelmet
-    let helmet_scene = asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0");
+    let helmet_scene = asset_server
+        .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
 
     commands.spawn(SceneBundle {
         scene: helmet_scene.clone(),

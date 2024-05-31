@@ -29,7 +29,7 @@ fn setup(
     });
 
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/animated/Fox.glb#Scene0"),
+        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
         ..default()
     });
 

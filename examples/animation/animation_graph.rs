@@ -160,17 +160,17 @@ fn setup_assets_programmatically(
     let mut animation_graph = AnimationGraph::new();
     let blend_node = animation_graph.add_blend(0.5, animation_graph.root);
     animation_graph.add_clip(
-        asset_server.load("models/animated/Fox.glb#Animation0"),
+        asset_server.load(GltfAssetLabel::Animation(0).from_asset("models/animated/Fox.glb")),
         1.0,
         animation_graph.root,
     );
     animation_graph.add_clip(
-        asset_server.load("models/animated/Fox.glb#Animation1"),
+        asset_server.load(GltfAssetLabel::Animation(1).from_asset("models/animated/Fox.glb")),
         1.0,
         blend_node,
     );
     animation_graph.add_clip(
-        asset_server.load("models/animated/Fox.glb#Animation2"),
+        asset_server.load(GltfAssetLabel::Animation(2).from_asset("models/animated/Fox.glb")),
         1.0,
         blend_node,
     );
@@ -236,7 +236,7 @@ fn setup_scene(
     });
 
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/animated/Fox.glb#Scene0"),
+        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
         transform: Transform::from_scale(Vec3::splat(0.07)),
         ..default()
     });
