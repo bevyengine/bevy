@@ -83,7 +83,7 @@ fn update_text(mut text: Query<&mut Text>, cur_state: Res<State<Test>>) {
         let s = if **cur_state == test { "*" } else { " " };
         text.push_str(&format!(" {s} {test:?} {s}\n"));
     }
-    text.push_str("\npress Space to cycle");
+    text.push_str("\nPress space to cycle");
 }
 
 #[derive(Component)]
@@ -195,7 +195,7 @@ struct Intersects(bool);
 const OFFSET_X: f32 = 125.;
 const OFFSET_Y: f32 = 75.;
 
-fn setup(mut commands: Commands, loader: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
     commands.spawn((
         SpatialBundle {
@@ -270,15 +270,14 @@ fn setup(mut commands: Commands, loader: Res<AssetServer>) {
         TextBundle::from_section(
             "",
             TextStyle {
-                font: loader.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 26.0,
+                font_size: 20.0,
                 ..default()
             },
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(10.0),
-            left: Val::Px(10.0),
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
