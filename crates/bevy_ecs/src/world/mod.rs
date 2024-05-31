@@ -39,10 +39,10 @@ use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::warn;
 use std::{
     any::TypeId,
+    collections::HashSet,
     fmt,
     mem::MaybeUninit,
     sync::atomic::{AtomicU32, Ordering},
-    collections::HashSet,
 };
 mod identifier;
 
