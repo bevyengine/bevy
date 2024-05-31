@@ -175,7 +175,7 @@ pub trait Interpolate: Clone {
     /// Interpolate between this value and the `other` given value using the parameter `t`.
     /// Note that the parameter `t` is not necessarily clamped to lie between `0` and `1`.
     /// However, when `t = 0.0`, `self` is recovered, while `other` is recovered at `t = 1.0`,
-    /// with intermediate values lying "between" the two in some appropriate sense.
+    /// with intermediate values lying between the two in some appropriate sense.
     fn interpolate(&self, other: &Self, t: f32) -> Self;
 
     /// A version of [`interpolate`] that assigns the result to `self` for convenience.
@@ -185,12 +185,11 @@ pub trait Interpolate: Clone {
         *self = self.interpolate(other, t);
     }
 
-    /// Returns the result of nudging `self` towards the `target` at a given decay rate.
-    /// The `decay_rate` parameter controls how fast the distance between `self` and `target`
-    /// decays relative to the units of `delta`; the intended usage is for `decay_rate` to
-    /// generally remain fixed, while `delta` is something like `delta_time` from a fixed-time
-    /// updating system. This produces a smooth following of the target that is independent
-    /// of framerate.
+    /// Smoothly nudge this value towards the `target` at a given decay rate. The `decay_rate`
+    /// parameter controls how fast the distance between `self` and `target` decays relative to
+    /// the units of `delta`; the intended usage is for `decay_rate` to generally remain fixed,
+    /// while `delta` is something like `delta_time` from an updating system. This produces a
+    /// smooth following of the target that is independent of framerate.
     ///
     /// More specifically, when this is called repeatedly, the result is that the distance between
     /// `self` and a fixed `target` attenuates exponentially, with the rate of this exponential
