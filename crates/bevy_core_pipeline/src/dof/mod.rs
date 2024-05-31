@@ -14,8 +14,6 @@
 //!
 //! [Depth of field]: https://en.wikipedia.org/wiki/Depth_of_field
 
-use std::f32::INFINITY;
-
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_derive::{Deref, DerefMut};
@@ -58,7 +56,7 @@ use smallvec::SmallVec;
 use crate::{
     core_3d::{
         graph::{Core3d, Node3d},
-        Camera3d,
+        Camera3d, DEPTH_TEXTURE_SAMPLING_SUPPORTED,
     },
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
@@ -246,6 +244,14 @@ impl Plugin for DepthOfFieldPlugin {
                 Core3d,
                 (Node3d::Bloom, Node3d::DepthOfField, Node3d::Tonemapping),
             );
+    }
+
+    fn finish(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app.init_resource::<DepthOfFieldGlobalBindGroupLayout>();
     }
 }
 
@@ -457,7 +463,7 @@ impl Default for DepthOfFieldSettings {
             aperture_f_stops: physical_camera_default.aperture_f_stops,
             sensor_height: physical_camera_default.sensor_height,
             max_circle_of_confusion_diameter: 64.0,
-            max_depth: INFINITY,
+            max_depth: f32::INFINITY,
             mode: DepthOfFieldMode::Bokeh,
         }
     }
@@ -889,23 +895,3 @@ impl DepthOfFieldPipelines {
         }
     }
 }
-
-/// Returns true if multisampled depth textures are supported on this platform.
-///
-/// In theory, Naga supports depth textures on WebGL 2. In practice, it doesn't,
-/// because of a silly bug whereby Naga assumes that all depth textures are
-/// `sampler2DShadow` and will cheerfully generate invalid GLSL that tries to
-/// perform non-percentage-closer-filtering with such a sampler. Therefore we
-/// disable depth of field entirely on WebGL 2.
-#[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = false;
-
-/// Returns true if multisampled depth textures are supported on this platform.
-///
-/// In theory, Naga supports depth textures on WebGL 2. In practice, it doesn't,
-/// because of a silly bug whereby Naga assumes that all depth textures are
-/// `sampler2DShadow` and will cheerfully generate invalid GLSL that tries to
-/// perform non-percentage-closer-filtering with such a sampler. Therefore we
-/// disable depth of field entirely on WebGL 2.
-#[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
-const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;

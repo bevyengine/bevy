@@ -179,6 +179,10 @@ impl<T: Fn(&mut App) + Send + Sync + 'static> Plugin for T {}
 /// It is used for dynamically loading plugins.
 ///
 /// See `bevy_dynamic_plugin/src/loader.rs#dynamically_load_plugin`.
+#[deprecated(
+    since = "0.14.0",
+    note = "The current dynamic plugin system is unsound and will be removed in 0.15."
+)]
 pub type CreatePlugin = unsafe fn() -> *mut dyn Plugin;
 
 /// Types that represent a set of [`Plugin`]s.

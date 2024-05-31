@@ -29,6 +29,9 @@ const TONEMAPPING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1701536
 const TONEMAPPING_SHARED_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(2499430578245347910);
 
+const TONEMAPPING_LUT_BINDINGS_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(8392056472189465073);
+
 /// 3D LUT (look up table) textures used for tonemapping
 #[derive(Resource, Clone, ExtractResource)]
 pub struct TonemappingLuts {
@@ -51,6 +54,12 @@ impl Plugin for TonemappingPlugin {
             app,
             TONEMAPPING_SHARED_SHADER_HANDLE,
             "tonemapping_shared.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            TONEMAPPING_LUT_BINDINGS_SHADER_HANDLE,
+            "lut_bindings.wgsl",
             Shader::from_wgsl
         );
 
@@ -215,6 +224,16 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = Vec::new();
+
+        shader_defs.push(ShaderDefVal::UInt(
+            "TONEMAPPING_LUT_TEXTURE_BINDING_INDEX".into(),
+            3,
+        ));
+        shader_defs.push(ShaderDefVal::UInt(
+            "TONEMAPPING_LUT_SAMPLER_BINDING_INDEX".into(),
+            4,
+        ));
+
         if let DebandDither::Enabled = key.deband_dither {
             shader_defs.push("DEBAND_DITHER".into());
         }

@@ -116,7 +116,7 @@ fn draw_example_collection(
             TURQUOISE,
         )
         .edge_radius(0.1)
-        .arc_segments(4);
+        .arc_resolution(4);
 
     for y in [0., 0.5, 1.] {
         gizmos.ray(
@@ -134,17 +134,17 @@ fn draw_example_collection(
             Quat::from_rotation_arc(Vec3::Y, Vec3::ONE.normalize()),
             ORANGE,
         )
-        .segments(10);
+        .resolution(10);
 
     // Circles have 32 line-segments by default.
     my_gizmos.circle(Vec3::ZERO, Dir3::Y, 3., BLACK);
     // You may want to increase this for larger circles or spheres.
     my_gizmos
         .circle(Vec3::ZERO, Dir3::Y, 3.1, NAVY)
-        .segments(64);
+        .resolution(64);
     my_gizmos
         .sphere(Vec3::ZERO, Quat::IDENTITY, 3.2, BLACK)
-        .circle_segments(64);
+        .resolution(64);
 
     gizmos.arrow(Vec3::ZERO, Vec3::ONE * 1.5, YELLOW);
 

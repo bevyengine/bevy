@@ -64,6 +64,8 @@ use bevy_render::{
 pub struct SpritePlugin;
 
 pub const SPRITE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2763343953151597127);
+pub const SPRITE_VIEW_BINDINGS_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(8846920112458963210);
 
 /// System set for sprite rendering.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -94,6 +96,12 @@ impl Plugin for SpritePlugin {
             app,
             SPRITE_SHADER_HANDLE,
             "render/sprite.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            SPRITE_VIEW_BINDINGS_SHADER_HANDLE,
+            "render/sprite_view_bindings.wgsl",
             Shader::from_wgsl
         );
         app.init_asset::<TextureAtlasLayout>()
@@ -143,32 +151,33 @@ impl Plugin for SpritePlugin {
     }
 
     fn finalize(&self, app: &mut App) {
-        let render_app = app.sub_app_mut(RenderApp);
-
-        render_app
-            .init_resource::<SpritePipeline>()
-            .init_resource::<ImageBindGroups>()
-            .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
-            .init_resource::<SpriteMeta>()
-            .init_resource::<ExtractedSprites>()
-            .init_resource::<SpriteAssetEvents>()
-            .add_render_command::<Transparent2d, DrawSprite>()
-            .add_systems(
-                ExtractSchedule,
-                (
-                    extract_sprites.in_set(SpriteSystem::ExtractSprites),
-                    extract_sprite_events,
-                ),
-            )
-            .add_systems(
-                Render,
-                (
-                    queue_sprites
-                        .in_set(RenderSet::Queue)
-                        .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
-                    prepare_sprites.in_set(RenderSet::PrepareBindGroups),
-                ),
-            );
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app
+                .init_resource::<SpritePipeline>()
+                .init_resource::<ImageBindGroups>()
+                .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
+                .init_resource::<SpriteMeta>()
+                .init_resource::<ExtractedSprites>()
+                .init_resource::<SpriteAssetEvents>()
+                .add_render_command::<Transparent2d, DrawSprite>()
+                .add_systems(
+                    ExtractSchedule,
+                    (
+                        extract_sprites.in_set(SpriteSystem::ExtractSprites),
+                        extract_sprite_events,
+                    ),
+                )
+                .add_systems(
+                    Render,
+                    (
+                        queue_sprites
+                            .in_set(RenderSet::Queue)
+                            .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
+                        prepare_sprite_image_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                        prepare_sprite_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                    ),
+                );
+        };
     }
 }
 

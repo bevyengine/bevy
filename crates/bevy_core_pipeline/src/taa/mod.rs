@@ -81,8 +81,8 @@ impl Plugin for TemporalAntiAliasPlugin {
                 Core3d,
                 (
                     Node3d::EndMainPass,
+                    Node3d::MotionBlur, // Running before TAA reduces edge artifacts and noise
                     Node3d::Taa,
-                    Node3d::MotionBlur, // Run MB after TAA, else TAA will add motion artifacts
                     Node3d::Bloom,
                     Node3d::Tonemapping,
                 ),

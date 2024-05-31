@@ -16,6 +16,17 @@ use crate::{
     renderer::{RenderContext, RenderDevice},
 };
 
+/// The [`RenderGraphRunner`] is responsible for executing a [`RenderGraph`].
+///
+/// It will run all nodes in the graph sequentially in the correct order (defined by the edges).
+/// Each [`Node`](crate::render_graph::node::Node) can run any arbitrary code, but will generally
+/// either send directly a [`CommandBuffer`] or a task that will asynchronously generate a [`CommandBuffer`]
+///
+/// After running the graph, the [`RenderGraphRunner`] will execute in parallel all the tasks to get
+/// an ordered list of [`CommandBuffer`]s to execute. These [`CommandBuffer`] will be submitted to the GPU
+/// sequentially in the order that the tasks were submitted. (which is the order of the [`RenderGraph`])
+///
+/// [`CommandBuffer`]: wgpu::CommandBuffer
 pub(crate) struct RenderGraphRunner;
 
 #[derive(Error, Debug)]
@@ -90,6 +101,8 @@ impl RenderGraphRunner {
         Ok(diagnostics_recorder)
     }
 
+    /// Runs the [`RenderGraph`] and all its sub-graphs sequentially, making sure that all nodes are
+    /// run in the correct order. (a node only runs when all its dependencies have finished running)
     fn run_graph<'w>(
         graph: &RenderGraph,
         sub_graph: Option<InternedRenderSubGraph>,

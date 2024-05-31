@@ -72,7 +72,7 @@ struct Text(String);
 #[derive(Default)]
 struct TextLoader;
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Clone, Default, Serialize, Deserialize)]
 struct TextSettings {
     text_override: Option<String>,
 }
@@ -107,6 +107,7 @@ struct CoolTextRon {
     text: String,
     dependencies: Vec<String>,
     embedded_dependencies: Vec<String>,
+    dependencies_with_settings: Vec<(String, TextSettings)>,
 }
 
 #[derive(Asset, TypePath, Debug)]
@@ -145,9 +146,23 @@ impl AssetLoader for CoolTextLoader {
         let ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
         let mut base_text = ron.text;
         for embedded in ron.embedded_dependencies {
-            let loaded = load_context.load_direct(&embedded).await?;
-            let text = loaded.get::<Text>().unwrap();
-            base_text.push_str(&text.0);
+            let loaded = load_context
+                .loader()
+                .direct()
+                .load::<Text>(&embedded)
+                .await?;
+            base_text.push_str(&loaded.get().0);
+        }
+        for (path, settings_override) in ron.dependencies_with_settings {
+            let loaded = load_context
+                .loader()
+                .with_settings(move |settings| {
+                    *settings = settings_override.clone();
+                })
+                .direct()
+                .load::<Text>(&path)
+                .await?;
+            base_text.push_str(&loaded.get().0);
         }
         Ok(CoolText {
             text: base_text,

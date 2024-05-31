@@ -47,11 +47,4 @@ pub mod ui_debug_overlay;
 ///  creating a build for release to the public.
 pub struct DevToolsPlugin;
 
-impl Plugin for DevToolsPlugin {
-    fn setup(&self, _app: &mut App) {
-        #[cfg(feature = "bevy_ci_testing")]
-        {
-            ci_testing::setup_app(_app);
-        }
-    }
-}
+impl Plugin for DevToolsPlugin {}

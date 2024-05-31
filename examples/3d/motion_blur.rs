@@ -253,7 +253,7 @@ fn spawn_trees(
 
 fn setup_ui(mut commands: Commands) {
     let style = TextStyle {
-        font_size: 24.0,
+        font_size: 20.0,
         ..default()
     };
     commands.spawn(

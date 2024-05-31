@@ -4,6 +4,7 @@
 //! as opposed to an entire struct or enum. An example of such an attribute is
 //! the derive helper attribute for `Reflect`, which looks like: `#[reflect(ignore)]`.
 
+use crate::custom_attributes::CustomAttributes;
 use crate::utility::terminated_parser;
 use crate::REFLECT_ATTRIBUTE_NAME;
 use syn::parse::ParseStream;
@@ -73,6 +74,8 @@ pub(crate) struct FieldAttributes {
     pub ignore: ReflectIgnoreBehavior,
     /// Sets the default behavior of this field.
     pub default: DefaultBehavior,
+    /// Custom attributes created via `#[reflect(@...)]`.
+    pub custom_attributes: CustomAttributes,
 }
 
 impl FieldAttributes {
@@ -108,7 +111,9 @@ impl FieldAttributes {
     /// Parses a single field attribute.
     fn parse_field_attribute(&mut self, input: ParseStream) -> syn::Result<()> {
         let lookahead = input.lookahead1();
-        if lookahead.peek(kw::ignore) {
+        if lookahead.peek(Token![@]) {
+            self.parse_custom_attribute(input)
+        } else if lookahead.peek(kw::ignore) {
             self.parse_ignore(input)
         } else if lookahead.peek(kw::skip_serializing) {
             self.parse_skip_serializing(input)
@@ -175,5 +180,14 @@ impl FieldAttributes {
         }
 
         Ok(())
+    }
+
+    /// Parse `@` (custom attribute) attribute.
+    ///
+    /// Examples:
+    /// - `#[reflect(@(foo = "bar"))]`
+    /// - `#[reflect(@(min = 0.0, max = 1.0))]`
+    fn parse_custom_attribute(&mut self, input: ParseStream) -> syn::Result<()> {
+        self.custom_attributes.parse_custom_attribute(input)
     }
 }

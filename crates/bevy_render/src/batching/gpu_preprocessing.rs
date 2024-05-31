@@ -18,8 +18,9 @@ use wgpu::{BindingResource, BufferUsages, DownlevelFlags, Features};
 
 use crate::{
     render_phase::{
-        BinnedPhaseItem, BinnedRenderPhase, BinnedRenderPhaseBatch, CachedRenderPipelinePhaseItem,
+        BinnedPhaseItem, BinnedRenderPhaseBatch, CachedRenderPipelinePhaseItem,
         PhaseItemExtraIndex, SortedPhaseItem, SortedRenderPhase, UnbatchableBinnedEntityIndices,
+        ViewBinnedRenderPhases, ViewSortedRenderPhases,
     },
     render_resource::{BufferVec, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
@@ -225,7 +226,10 @@ impl FromWorld for GpuPreprocessingSupport {
         let adapter = world.resource::<RenderAdapter>();
         let device = world.resource::<RenderDevice>();
 
-        if device.limits().max_compute_workgroup_size_x == 0 {
+        if device.limits().max_compute_workgroup_size_x == 0 ||
+            // filter lower end / older devices on Android as they crash when using GPU preprocessing
+            (cfg!(target_os = "android") && adapter.get_info().name.starts_with("Adreno (TM) 6"))
+        {
             GpuPreprocessingSupport::None
         } else if !device
             .features()
@@ -375,7 +379,8 @@ pub fn delete_old_work_item_buffers<GFBD>(
 pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
     gpu_array_buffer: ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
     mut indirect_parameters_buffer: ResMut<IndirectParametersBuffer>,
-    mut views: Query<(Entity, &mut SortedRenderPhase<I>, Has<GpuCulling>)>,
+    mut sorted_render_phases: ResMut<ViewSortedRenderPhases<I>>,
+    mut views: Query<(Entity, Has<GpuCulling>)>,
     system_param_item: StaticSystemParam<GFBD::Param>,
 ) where
     I: CachedRenderPipelinePhaseItem + SortedPhaseItem,
@@ -388,7 +393,11 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
         ..
     } = gpu_array_buffer.into_inner();
 
-    for (view, mut phase, gpu_culling) in &mut views {
+    for (view, gpu_culling) in &mut views {
+        let Some(phase) = sorted_render_phases.get_mut(&view) else {
+            continue;
+        };
+
         // Create the work item buffer if necessary.
         let work_item_buffer =
             work_item_buffers
@@ -436,7 +445,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
             if !can_batch {
                 // Break a batch if we need to.
                 if let Some(batch) = batch.take() {
-                    batch.flush(output_index, &mut phase);
+                    batch.flush(output_index, phase);
                 }
 
                 // Start a new batch.
@@ -474,7 +483,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
 
         // Flush the final batch if necessary.
         if let Some(batch) = batch.take() {
-            batch.flush(data_buffer.len() as u32, &mut phase);
+            batch.flush(data_buffer.len() as u32, phase);
         }
     }
 }
@@ -483,7 +492,8 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
 pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
     gpu_array_buffer: ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
     mut indirect_parameters_buffer: ResMut<IndirectParametersBuffer>,
-    mut views: Query<(Entity, &mut BinnedRenderPhase<BPI>, Has<GpuCulling>)>,
+    mut binned_render_phases: ResMut<ViewBinnedRenderPhases<BPI>>,
+    mut views: Query<(Entity, Has<GpuCulling>)>,
     param: StaticSystemParam<GFBD::Param>,
 ) where
     BPI: BinnedPhaseItem,
@@ -497,8 +507,10 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
         ..
     } = gpu_array_buffer.into_inner();
 
-    for (view, mut phase, gpu_culling) in &mut views {
-        let phase = &mut *phase; // Borrow checker.
+    for (view, gpu_culling) in &mut views {
+        let Some(phase) = binned_render_phases.get_mut(&view) else {
+            continue;
+        };
 
         // Create the work item buffer if necessary; otherwise, just mark it as
         // used this frame.
