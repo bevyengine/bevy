@@ -88,7 +88,7 @@ impl CylinderMeshBuilder {
 
     /// Sets a custom anchor point for the mesh
     #[inline]
-    pub const fn with_anchor(mut self, anchor: CylinderAnchor) -> Self {
+    pub const fn anchor(mut self, anchor: CylinderAnchor) -> Self {
         self.anchor = anchor;
         self
     }
