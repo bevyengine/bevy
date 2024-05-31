@@ -252,7 +252,7 @@ fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
     commands.spawn(
         TextBundle {
             text: create_text(app_settings),
-            ..TextBundle::default()
+            ..default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,

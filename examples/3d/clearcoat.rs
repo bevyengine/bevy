@@ -236,7 +236,7 @@ fn spawn_text(commands: &mut Commands, light_mode: &LightMode) {
     commands.spawn(
         TextBundle {
             text: light_mode.create_help_text(),
-            ..TextBundle::default()
+            ..default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
