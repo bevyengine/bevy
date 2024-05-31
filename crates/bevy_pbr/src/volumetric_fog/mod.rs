@@ -45,11 +45,13 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{Has, QueryItem, With},
+    reflect::ReflectComponent,
     schedule::IntoSystemConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
 use bevy_math::Vec3;
+use bevy_reflect::Reflect;
 use bevy_render::{
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
@@ -86,12 +88,14 @@ pub struct VolumetricFogPlugin;
 /// (`shadows_enabled: true`) to make volumetric fog interact with it.
 ///
 /// This allows the light to generate light shafts/god rays.
-#[derive(Clone, Copy, Component, Default, Debug)]
+#[derive(Clone, Copy, Component, Default, Debug, Reflect)]
+#[reflect(Component)]
 pub struct VolumetricLight;
 
 /// When placed on a [`Camera3d`], enables volumetric fog and volumetric
 /// lighting, also known as light shafts or god rays.
-#[derive(Clone, Copy, Component, Debug)]
+#[derive(Clone, Copy, Component, Debug, Reflect)]
+#[reflect(Component)]
 pub struct VolumetricFogSettings {
     /// The color of the fog.
     ///
