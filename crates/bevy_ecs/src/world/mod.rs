@@ -842,10 +842,10 @@ impl World {
 
     /// # Safety
     /// `entities` must produce no duplicate [`Entity`] IDs.
-    unsafe fn get_entities_dynamic_mut_unchecked<'w>(
-        &'w mut self,
+    unsafe fn get_entities_dynamic_mut_unchecked(
+        &mut self,
         entities: impl ExactSizeIterator<Item = Entity>,
-    ) -> Result<Vec<EntityMut<'w>>, QueryEntityError> {
+    ) -> Result<Vec<EntityMut<'_>>, QueryEntityError> {
         let world_cell = self.as_unsafe_world_cell();
 
         let mut cells = Vec::with_capacity(entities.len());
