@@ -162,19 +162,57 @@ impl NormedVectorSpace for f32 {
     }
 }
 
+/// A type that can be intermediately interpolated between two given values
+/// with an auxiliary parameter.
+///
+/// The expectations for the implementing type are as follows:
+/// - `interpolate(&first, &second, t)` produces `first.clone()` when `t = 0.0`
+///   and `second.clone()` when `t = 1.0`.
+/// - `interpolate` is self-similar in the sense that, for any values `t0`, `t1`,
+///   `interpolate(interpolate(&first, &second, t0), interpolate(&first, &second, t1), t)`
+///   is equivalent to `interpolate(&first, &second, interpolate(&t0, &t1, t))`.
 pub trait Interpolate: Clone {
+    /// Interpolate between this value and the `other` given value using the parameter `t`.
+    /// Note that the parameter `t` is not necessarily clamped to lie between `0` and `1`.
+    /// However, when `t = 0.0`, `self` is recovered, while `other` is recovered at `t = 1.0`,
+    /// with intermediate values lying "between" the two in some appropriate sense.
     fn interpolate(&self, other: &Self, t: f32) -> Self;
 
+    /// A version of [`interpolate`] that assigns the result to `self` for convenience.
+    ///
+    /// [`interpolate`]: Interpolate::interpolate
     fn interpolate_assign(&mut self, other: &Self, t: f32) {
         *self = self.interpolate(other, t);
     }
 
-    fn smooth_nudge(&self, other: &Self, rate: f32, delta: f32) -> Self {
-        self.interpolate(other, 1.0 - f32::exp(-rate * delta))
-    }
-
-    fn smooth_nudge_assign(&mut self, other: &Self, rate: f32, delta: f32) {
-        *self = self.smooth_nudge(other, rate, delta);
+    /// Returns the result of nudging `self` towards the `target` at a given decay rate.
+    /// The `decay_rate` parameter controls how fast the distance between `self` and `target`
+    /// decays relative to the units of `delta`; the intended usage is for `decay_rate` to
+    /// generally remain fixed, while `delta` is something like `delta_time` from a fixed-time
+    /// updating system. This produces a smooth following of the target that is independent
+    /// of framerate.
+    ///
+    /// More specifically, when this is called repeatedly, the result is that the distance between
+    /// `self` and a fixed `target` attenuates exponentially, with the rate of this exponential
+    /// decay given by `decay_rate`.
+    ///
+    /// For example, at `decay_rate = 0.0`, this has no effect.
+    /// At `decay_rate = f32::INFINITY`, `self` immediately snaps to `target`.
+    /// In general, higher rates mean that `self` moves more quickly towards `target`.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_math::{Vec3, Interpolate};
+    /// # let delta_time: f32 = 1.0 / 60.0;
+    /// let mut object_position: Vec3 = Vec3::ZERO;
+    /// let target_position: Vec3 = Vec3::new(2.0, 3.0, 5.0);
+    /// // Decay rate of ln(10) => after 1 second, remaining distance is 1/10th
+    /// let decay_rate = f32::ln(10.0);
+    /// // Calling this repeatedly will move `object_position` towards `target_position`
+    /// object_position.smooth_nudge(&target_position, decay_rate, delta_time);
+    /// ```
+    fn smooth_nudge(&mut self, target: &Self, decay_rate: f32, delta: f32) {
+        *self = self.interpolate(target, 1.0 - f32::exp(-decay_rate * delta));
     }
 }
 
