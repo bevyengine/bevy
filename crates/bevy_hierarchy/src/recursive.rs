@@ -93,7 +93,7 @@ impl<
     /// If hierarchy is malformed, for example if a parent child mismatch or a cycle is found.
     pub fn for_each(
         &self,
-        root_fn: impl FnMut(&ReadItem<QShared>, ReadItem<QRoot>),
+        root_fn: impl FnMut(ReadItem<QShared>, ReadItem<QRoot>),
         mut child_fn: impl FnMut(&ReadItem<QShared>, ReadItem<QShared>, ReadItem<QChild>),
     ) {
         self.for_each_with(root_fn, |a, _, b, c| child_fn(a, b, c));
@@ -122,11 +122,15 @@ impl<
     #[allow(unsafe_code)]
     pub fn for_each_with<T: 'static>(
         &self,
-        mut root_fn: impl FnMut(&ReadItem<QShared>, ReadItem<QRoot>) -> T,
+        mut root_fn: impl FnMut(ReadItem<QShared>, ReadItem<QRoot>) -> T,
         mut child_fn: impl FnMut(&ReadItem<QShared>, &T, ReadItem<QShared>, ReadItem<QChild>) -> T,
     ) {
-        for (shared, owned, children) in self.root.iter() {
-            let info = root_fn(&shared, owned);
+        let infos: Vec<_> = self
+            .root
+            .iter()
+            .map(|(shared, root, _)| root_fn(shared, root))
+            .collect();
+        for ((shared, _, children), info) in self.root.iter().zip(infos) {
             let Some(children) = children else {
                 continue;
             };
