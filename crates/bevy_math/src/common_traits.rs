@@ -163,7 +163,7 @@ impl NormedVectorSpace for f32 {
 }
 
 /// A type that can be intermediately interpolated between two given values
-/// with an auxiliary parameter.
+/// using an auxiliary linear parameter.
 ///
 /// The expectations for the implementing type are as follows:
 /// - `interpolate(&first, &second, t)` produces `first.clone()` when `t = 0.0`
@@ -208,11 +208,11 @@ pub trait Interpolate: Clone {
     /// let target_position: Vec3 = Vec3::new(2.0, 3.0, 5.0);
     /// // Decay rate of ln(10) => after 1 second, remaining distance is 1/10th
     /// let decay_rate = f32::ln(10.0);
-    /// // Calling this repeatedly will move `object_position` towards `target_position`
+    /// // Calling this repeatedly will move `object_position` towards `target_position`:
     /// object_position.smooth_nudge(&target_position, decay_rate, delta_time);
     /// ```
     fn smooth_nudge(&mut self, target: &Self, decay_rate: f32, delta: f32) {
-        *self = self.interpolate(target, 1.0 - f32::exp(-decay_rate * delta));
+        self.interpolate_assign(target, 1.0 - f32::exp(-decay_rate * delta));
     }
 }
 
