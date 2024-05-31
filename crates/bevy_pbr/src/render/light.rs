@@ -653,7 +653,7 @@ pub fn calculate_cluster_factors(
 // we will also construct it in the fragment shader and need our implementations to match,
 // so we reproduce it here to avoid a mismatch if glam changes. we also switch the handedness
 // could move this onto transform but it's pretty niche
-pub(crate) fn spot_light_view_from_world(transform: &GlobalTransform) -> Mat4 {
+pub(crate) fn spot_light_world_from_view(transform: &GlobalTransform) -> Mat4 {
     // the matrix z_local (opposite of transform.forward())
     let fwd_dir = transform.back().extend(0.0);
 
@@ -1110,8 +1110,8 @@ pub fn prepare_lights(
             .take(spot_light_shadow_maps_count)
             .enumerate()
         {
-            let spot_view_matrix = spot_light_view_from_world(&light.transform);
-            let spot_view_transform = spot_view_matrix.into();
+            let spot_world_from_view = spot_light_world_from_view(&light.transform);
+            let spot_world_from_view = spot_world_from_view.into();
 
             let angle = light.spot_light_angles.expect("lights should be sorted so that \
                 [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
@@ -1144,7 +1144,7 @@ pub fn prepare_lights(
                             directional_light_shadow_map.size as u32,
                             directional_light_shadow_map.size as u32,
                         ),
-                        world_from_view: spot_view_transform,
+                        world_from_view: spot_world_from_view,
                         clip_from_view: spot_projection,
                         clip_from_world: None,
                         hdr: false,
