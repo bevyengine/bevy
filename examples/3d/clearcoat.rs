@@ -236,7 +236,7 @@ fn spawn_text(commands: &mut Commands, light_mode: &LightMode) {
     commands.spawn(
         TextBundle {
             text: light_mode.create_help_text(),
-            ..TextBundle::default()
+            ..default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
@@ -336,12 +336,6 @@ impl LightMode {
             LightMode::Directional => "Press Space to switch to a point light",
         };
 
-        Text::from_section(
-            help_text,
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
-        )
+        Text::from_section(help_text, TextStyle::default())
     }
 }

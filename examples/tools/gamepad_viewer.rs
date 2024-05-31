@@ -416,10 +416,8 @@ fn setup_triggers(
 }
 
 fn setup_connected(mut commands: Commands) {
-    let text_style = TextStyle {
-        font_size: 20.,
-        ..default()
-    };
+    let text_style = TextStyle::default();
+
     commands.spawn((
         TextBundle {
             text: Text::from_sections([

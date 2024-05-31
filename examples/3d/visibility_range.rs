@@ -154,7 +154,7 @@ fn setup(
     commands.spawn(
         TextBundle {
             text: app_status.create_text(),
-            ..TextBundle::default()
+            ..default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
@@ -323,10 +323,7 @@ Press WASD or use the mouse wheel to move the camera",
                     ' '
                 },
             ),
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
+            TextStyle::default(),
         )
     }
 }

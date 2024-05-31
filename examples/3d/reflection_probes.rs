@@ -286,10 +286,7 @@ impl AppStatus {
                 "{}\n{}\n{}",
                 self.reflection_mode, rotation_help_text, REFLECTION_MODE_HELP_TEXT
             ),
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
+            TextStyle::default(),
         )
     }
 }
