@@ -3265,9 +3265,14 @@ mod tests {
         let entity3 = world.spawn(()).id();
         let entity4 = world.spawn(()).id();
         let entity5 = world.spawn(()).id();
-        
-        assert!(World::verify_unique_entities(&[entity1, entity2, entity3, entity4, entity5]).is_ok());
+
+        assert!(
+            World::verify_unique_entities(&[entity1, entity2, entity3, entity4, entity5]).is_ok()
+        );
         assert!(World::verify_unique_entities(&[entity1, entity1, entity2, entity5]).is_err());
-        assert!(World::verify_unique_entities(&[entity1, entity2, entity3, entity4, entity5, entity1]).is_err());
+        assert!(World::verify_unique_entities(&[
+            entity1, entity2, entity3, entity4, entity5, entity1
+        ])
+        .is_err());
     }
 }
