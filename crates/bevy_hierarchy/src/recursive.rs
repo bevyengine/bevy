@@ -28,13 +28,13 @@ use crate::{Children, Parent};
 /// # use bevy_hierarchy::prelude::*;
 /// # #[derive(Clone, Copy, Component)] pub struct Transform;
 /// # #[derive(Clone, Copy, Component)] pub struct GlobalTransform;
-///
+/// #
 /// # impl Transform {
 /// #    fn into(self) -> GlobalTransform {
 /// #        GlobalTransform
 /// #    }
 /// # }
-///
+/// #
 /// # impl GlobalTransform {
 /// #    fn mul_transform(self, global: Transform) -> GlobalTransform {
 /// #        GlobalTransform
@@ -58,7 +58,7 @@ use crate::{Children, Parent};
 ///
 /// # Panics
 ///
-/// If hierarchy is malformed, for example if a parent child mismatch is found.
+/// If hierarchy is malformed, for example if a parent child mismatch or a cycle is found.
 #[derive(SystemParam)]
 pub struct QueryRecursive<
     'w,
@@ -87,6 +87,10 @@ impl<
 {
     /// Iterate through the [`QueryRecursive`] hierarchy.
     /// Children receives a readonly reference to their parent's `QShared` [`QueryData`] as the first argument.
+    ///
+    /// # Panics
+    ///
+    /// If hierarchy is malformed, for example if a parent child mismatch or a cycle is found.
     pub fn for_each(
         &self,
         root_fn: impl FnMut(&ReadItem<QShared>, ReadItem<QRoot>),
@@ -95,8 +99,12 @@ impl<
         self.for_each_with(root_fn, |a, _, b, c| child_fn(a, b, c));
     }
 
-    /// Iterate through the [`QueryRecursive`] hierarchy.
+    /// Mutably iterate through the [`QueryRecursive`] hierarchy.
     /// Children receives a readonly reference to their parent's `QShared` [`QueryData`] as the first argument.
+    ///
+    /// # Panics
+    ///
+    /// If hierarchy is malformed, for example if a parent child mismatch or a cycle is found.
     pub fn for_each_mut(
         &mut self,
         root_fn: impl FnMut(Item<QShared>, Item<QRoot>),
@@ -105,8 +113,12 @@ impl<
         self.for_each_mut_with(root_fn, |a, _, b, c| child_fn(a, b, c));
     }
 
-    /// Iterate through a the [`QueryRecursive`] hierarchy while passing down an evaluation result from parent to child.
-    /// Children receives a readonly reference to their parent's `QShared` [`QueryData`] as the first argument.
+    /// Iterate through the [`QueryRecursive`] hierarchy while passing down an evaluation result from parent to child.
+    /// Children also receives a readonly reference to their parent's `QShared` [`QueryData`] as the first argument.
+    ///
+    /// # Panics
+    ///
+    /// If hierarchy is malformed, for example if a parent child mismatch or a cycle is found.
     #[allow(unsafe_code)]
     pub fn for_each_with<T: 'static>(
         &self,
@@ -122,6 +134,7 @@ impl<
                 // Safety: `self.children` is not fetched while this is running.
                 unsafe {
                     propagate(
+                        *entity,
                         &shared,
                         &info,
                         &self.children.to_readonly(),
@@ -134,8 +147,12 @@ impl<
         }
     }
 
-    /// Iterate through a the [`QueryRecursive`] hierarchy while passing down an evaluation result from parent to child.
-    /// Children receives a readonly reference to their parent's `QShared` [`QueryData`] as the first argument.
+    /// Mutably iterate through the [`QueryRecursive`] hierarchy while passing down an evaluation result from parent to child.
+    /// Children also receives a readonly reference to their parent's `QShared` [`QueryData`] as the first argument.
+    ///
+    /// # Panics
+    ///
+    /// If hierarchy is malformed, for example if a parent child mismatch or a cycle is found.
     #[allow(unsafe_code)]
     pub fn for_each_mut_with<T: 'static>(
         &mut self,
@@ -155,6 +172,7 @@ impl<
                 // Safety: `self.children` is not fetched while this is running.
                 unsafe {
                     propagate(
+                        *entity,
                         &shared,
                         &info,
                         &self.children,
@@ -187,6 +205,7 @@ unsafe fn propagate<
     Filter: QueryFilter + 'static,
     Info: 'static,
 >(
+    actual_root: Entity,
     parent: &ReadItem<QShared>,
     parent_info: &Info,
     main_query: &Query<(QShared, QMain, Option<&'static Children>), (Filter, With<Parent>)>,
@@ -236,9 +255,16 @@ unsafe fn propagate<
 
     let Some(children) = children else { return };
     for (child, actual_parent) in parent_query.iter_many(children) {
+        // Check if entities are chained properly.
         assert_eq!(
             actual_parent.get(), entity,
-            "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
+            "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained."
+        );
+        // Since entities are chained properly, The only error that can occur is forming a circle with the root node.
+        // This was not needed in `propagate_transform` since the root node did not have parents.
+        assert_ne!(
+            actual_root, entity,
+            "Malformed hierarchy. Your hierarchy contains a cycle"
         );
         // SAFETY: The caller guarantees that `main_query` will not be fetched
         // for any descendants of `entity`, so it is safe to call `propagate_recursive` for each child.
@@ -247,6 +273,7 @@ unsafe fn propagate<
         // entire hierarchy.
         unsafe {
             propagate(
+                actual_root,
                 &shared,
                 &info,
                 main_query,
