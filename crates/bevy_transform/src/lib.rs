@@ -5,10 +5,9 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
+pub mod commands;
 /// The basic components of the transform crate
 pub mod components;
-
-pub mod commands;
 
 /// Transform related bundles
 pub mod bundles;
@@ -21,7 +20,6 @@ pub mod plugins;
 
 /// Helpers related to computing global transforms
 pub mod helper;
-
 /// Systems responsible for transform propagation
 pub mod systems;
 

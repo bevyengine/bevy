@@ -1,10 +1,9 @@
-use std::ops::Mul;
-
 use super::GlobalTransform;
-use bevy_ecs::{component::Component, prelude::ReflectComponent};
-use bevy_reflect::{prelude::ReflectDefault, Reflect};
-
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Dir3, Mat3, Mat4, Quat, Vec3};
+use bevy_reflect::prelude::*;
+use bevy_reflect::Reflect;
+use std::ops::Mul;
 
 /// Describe the position of an entity. If the entity has a parent, the position is relative
 /// to its parent position.
@@ -33,7 +32,7 @@ use bevy_math::{Affine3A, Dir3, Mat3, Mat4, Quat, Vec3};
 /// - [`transform`]
 ///
 /// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
-#[derive(Debug, PartialEq, Clone, Copy, Component, Reflect)]
+#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Component, Default, PartialEq)]
 pub struct Transform {
@@ -528,27 +527,19 @@ impl Default for Transform {
     }
 }
 
-impl Mul<Transform> for Transform {
-    type Output = Transform;
-
-    fn mul(self, transform: Transform) -> Self::Output {
-        self.mul_transform(transform)
-    }
-}
-
-impl Mul<Vec3> for Transform {
-    type Output = Vec3;
-
-    fn mul(self, value: Vec3) -> Self::Output {
-        self.transform_point(value)
-    }
-}
-
 /// The transform is expected to be non-degenerate and without shearing, or the output
 /// will be invalid.
 impl From<GlobalTransform> for Transform {
     fn from(transform: GlobalTransform) -> Self {
         transform.compute_transform()
+    }
+}
+
+impl Mul<Transform> for Transform {
+    type Output = Transform;
+
+    fn mul(self, transform: Transform) -> Self::Output {
+        self.mul_transform(transform)
     }
 }
 
@@ -558,5 +549,13 @@ impl Mul<GlobalTransform> for Transform {
     #[inline]
     fn mul(self, global_transform: GlobalTransform) -> Self::Output {
         GlobalTransform::from(self) * global_transform
+    }
+}
+
+impl Mul<Vec3> for Transform {
+    type Output = Vec3;
+
+    fn mul(self, value: Vec3) -> Self::Output {
+        self.transform_point(value)
     }
 }

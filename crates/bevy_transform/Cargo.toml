@@ -30,8 +30,6 @@ bevy_math = { path = "../bevy_math", version = "0.14.0-dev", features = [
 approx = "0.5.1"
 
 [features]
-# Turning off default features leaves you with a barebones
-# definition of transform.
 serialize = ["dep:serde", "bevy_math/serialize"]
 
 [lints]
