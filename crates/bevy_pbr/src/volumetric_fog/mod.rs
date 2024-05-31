@@ -96,11 +96,6 @@ pub struct VolumetricLight;
 /// lighting, also known as light shafts or god rays.
 #[derive(Clone, Copy, Component, Debug, Reflect)]
 #[reflect(Component)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
 pub struct VolumetricFogSettings {
     /// The color of the fog.
     ///
