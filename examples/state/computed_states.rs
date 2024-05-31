@@ -337,13 +337,13 @@ fn log_transitions(
     for transition in transitions.read() {
         info!(
             "transition: {:?} => {:?}",
-            transition.before, transition.after
+            transition.exited, transition.entered
         );
     }
     for transition in tutorial_transitions.read() {
         info!(
             "tutorial transition: {:?} => {:?}",
-            transition.before, transition.after
+            transition.exited, transition.entered
         );
     }
 }
