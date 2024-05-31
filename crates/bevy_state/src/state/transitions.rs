@@ -88,14 +88,15 @@ pub(crate) fn internal_apply_state_transition<S: States>(
                 // entering - we need to set the new value, compute dependant states, send transition events
                 // and register transition schedules.
                 Some(mut state_resource) => {
-                    if *state_resource != entered {
-                        let exited = mem::replace(&mut state_resource.0, entered.clone());
+                    let exited = match *state_resource == entered {
+                        true => entered.clone(),
+                        false => mem::replace(&mut state_resource.0, entered.clone()),
+                    };
 
-                        event.send(StateTransitionEvent {
-                            exited: Some(exited.clone()),
-                            entered: Some(entered.clone()),
-                        });
-                    }
+                    event.send(StateTransitionEvent {
+                        exited: Some(exited.clone()),
+                        entered: Some(entered.clone()),
+                    });
                 }
                 None => {
                     // If the [`State<S>`] resource does not exist, we create it, compute dependant states, send a transition event and register the `OnEnter` schedule.
@@ -169,6 +170,9 @@ pub(crate) fn run_enter<S: States>(
     let Some(transition) = transition.0 else {
         return;
     };
+    if transition.entered == transition.exited {
+        return;
+    }
     let Some(entered) = transition.entered else {
         return;
     };
@@ -183,6 +187,9 @@ pub(crate) fn run_exit<S: States>(
     let Some(transition) = transition.0 else {
         return;
     };
+    if transition.entered == transition.exited {
+        return;
+    }
     let Some(exited) = transition.exited else {
         return;
     };
@@ -197,6 +204,9 @@ pub(crate) fn run_transition<S: States>(
     let Some(transition) = transition.0 else {
         return;
     };
+    if transition.entered == transition.exited {
+        return;
+    }
     let Some(exited) = transition.exited else {
         return;
     };

@@ -497,4 +497,9 @@ mod tests {
             "Should Only Exit Twice"
         );
     }
+
+    #[test]
+    fn same_state_transition_should_emit_event_and_not_run_schedules() {
+        
+    }
 }
