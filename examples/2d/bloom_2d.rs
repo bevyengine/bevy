@@ -69,15 +69,14 @@ fn setup(
         TextBundle::from_section(
             "",
             TextStyle {
-                font_size: 18.0,
-                color: Color::WHITE,
+                font_size: 20.0,
                 ..default()
             },
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(10.0),
-            left: Val::Px(10.0),
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
