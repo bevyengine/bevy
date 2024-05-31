@@ -97,10 +97,7 @@ fn setup_instructions(mut commands: Commands) {
     commands.spawn(
         TextBundle::from_section(
             "Press Spacebar to Toggle Atmospheric Fog.\nPress S to Toggle Directional Light Fog Influence.",
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
+            TextStyle::default(),
         )
         .with_style(Style {
             position_type: PositionType::Absolute,

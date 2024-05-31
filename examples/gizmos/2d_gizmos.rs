@@ -29,8 +29,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Press 'J' / 'K' to cycle through line joins",
             TextStyle {
                 font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 20.,
                 color: Color::WHITE,
+                ..default()
             },
         )
         .with_style(Style {

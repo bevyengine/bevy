@@ -220,13 +220,7 @@ fn update_text(mut texts: Query<&mut Text>, app_settings: Res<AppSettings>) {
 
 /// Regenerates the app text component per the current app settings.
 fn create_text(app_settings: &AppSettings) -> Text {
-    Text::from_section(
-        app_settings.help_text(),
-        TextStyle {
-            font_size: 20.0,
-            ..default()
-        },
-    )
+    Text::from_section(app_settings.help_text(), TextStyle::default())
 }
 
 impl From<AppSettings> for Option<DepthOfFieldSettings> {

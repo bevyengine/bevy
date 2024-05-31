@@ -61,10 +61,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         TextBundle {
             text: Text::from_section(
                 "Press WASD or the arrow keys to change the light direction",
-                TextStyle {
-                    font_size: 20.0,
-                    ..default()
-                },
+                TextStyle::default(),
             ),
             ..default()
         }

@@ -120,10 +120,7 @@ fn setup(
             S: Add one random sample.\n\
             D: Add 100 random samples.\n\
             Rotate camera by panning left/right.",
-            TextStyle {
-                font_size: 20.,
-                ..default()
-            },
+            TextStyle::default(),
         )
         .with_style(Style {
             position_type: PositionType::Absolute,

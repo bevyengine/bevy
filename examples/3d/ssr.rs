@@ -279,10 +279,7 @@ fn create_text(app_settings: &AppSettings) -> Text {
             },
             MOVE_CAMERA_HELP_TEXT
         ),
-        TextStyle {
-            font_size: 20.0,
-            ..default()
-        },
+        TextStyle::default(),
     )
 }
 
