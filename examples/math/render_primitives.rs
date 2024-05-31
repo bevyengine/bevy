@@ -483,10 +483,10 @@ fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         PrimitiveSelected::Tetrahedron => {}
         PrimitiveSelected::Arc => gizmos.primitive_2d(&ARC, POSITION, angle, color),
         PrimitiveSelected::CircularSector => {
-            gizmos.primitive_2d(&CIRCULAR_SECTOR, POSITION, angle, color)
+            gizmos.primitive_2d(&CIRCULAR_SECTOR, POSITION, angle, color);
         }
         PrimitiveSelected::CircularSegment => {
-            gizmos.primitive_2d(&CIRCULAR_SEGMENT, POSITION, angle, color)
+            gizmos.primitive_2d(&CIRCULAR_SEGMENT, POSITION, angle, color);
         }
     }
 }
