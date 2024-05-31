@@ -48,10 +48,10 @@ use crate::{Children, Parent};
 ///     ()
 /// >) {
 ///     query.for_each_mut(
-///         |(transform, mut global_transform), ()|
-///             *global_transform = (*transform).into(),
-///         |(_, parent), (transform, mut global_transform), ()|
-///             *global_transform = parent.mul_transform(*transform),
+///         |(transform, global_transform), ()|
+///             **global_transform = (**transform).into(),
+///         |(_, parent), (transform, global_transform), ()|
+///             **global_transform = parent.mul_transform(**transform),
 ///     );
 /// }
 /// ```
