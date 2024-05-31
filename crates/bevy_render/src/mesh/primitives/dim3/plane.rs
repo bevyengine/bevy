@@ -121,9 +121,9 @@ impl MeshBuilder for PlaneMeshBuilder {
             }
         }
 
-        for y in 0..z_vertex_count - 1 {
+        for z in 0..z_vertex_count - 1 {
             for x in 0..x_vertex_count - 1 {
-                let quad = y * x_vertex_count + x;
+                let quad = z * x_vertex_count + x;
                 indices.push(quad + x_vertex_count + 1);
                 indices.push(quad + 1);
                 indices.push(quad + x_vertex_count);
