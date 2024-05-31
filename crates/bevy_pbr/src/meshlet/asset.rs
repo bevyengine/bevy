@@ -19,6 +19,9 @@ pub const MESHLET_MESH_ASSET_VERSION: u64 = 0;
 /// The conversion step is very slow, and is meant to be ran once ahead of time, and not during runtime. This type of mesh is not suitable for
 /// dynamically generated geometry.
 ///
+/// In addition to converting individual meshes via code, asset processing can be used to convert whole glTF scenes.
+/// See `MeshletMeshGltfSaver` for details.
+///
 /// There are restrictions on the [`crate::Material`] functionality that can be used with this type of mesh.
 /// * Materials have no control over the vertex shader or vertex attributes.
 /// * Materials must be opaque. Transparent, alpha masked, and transmissive materials are not supported.
@@ -30,23 +33,45 @@ pub const MESHLET_MESH_ASSET_VERSION: u64 = 0;
 #[derive(Asset, TypePath, Serialize, Deserialize, Clone)]
 pub struct MeshletMesh {
     /// The total amount of triangles summed across all LOD 0 meshlets in the mesh.
-    pub worst_case_meshlet_triangles: u64,
+    pub(crate) worst_case_meshlet_triangles: u64,
     /// Raw vertex data bytes for the overall mesh.
-    pub vertex_data: Arc<[u8]>,
+    pub(crate) vertex_data: Arc<[u8]>,
     /// Indices into `vertex_data`.
-    pub vertex_ids: Arc<[u32]>,
+    pub(crate) vertex_ids: Arc<[u32]>,
     /// Indices into `vertex_ids`.
-    pub indices: Arc<[u8]>,
+    pub(crate) indices: Arc<[u8]>,
     /// The list of meshlets making up this mesh.
-    pub meshlets: Arc<[Meshlet]>,
+    pub(crate) meshlets: Arc<[Meshlet]>,
     /// Spherical bounding volumes.
-    pub bounding_spheres: Arc<[MeshletBoundingSpheres]>,
+    pub(crate) bounding_spheres: Arc<[MeshletBoundingSpheres]>,
+}
+
+impl MeshletMesh {
+    /// Convert a [`MeshletMesh`] into a byte array.
+    ///
+    /// The resulting byte array should be treated as an opaque blob that is only compatible
+    /// with the version of Bevy used to generate it.
+    pub fn into_bytes(&self) -> Result<Vec<u8>, MeshletMeshSaveOrLoadError> {
+        let mut bytes = Vec::new();
+        let mut writer = FrameEncoder::new(&mut bytes);
+        bincode::serialize_into(&mut writer, &self)?;
+        writer.finish()?;
+        Ok(bytes)
+    }
+
+    /// Create a [`MeshletMesh`] from a byte array.
+    ///
+    /// The byte array must have been generated via [`MeshletMesh::into_bytes`] using
+    /// the same version of Bevy that this function is called from.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, bincode::Error> {
+        bincode::deserialize_from(FrameDecoder::new(Cursor::new(bytes)))
+    }
 }
 
 /// A single meshlet within a [`MeshletMesh`].
 #[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
-pub struct Meshlet {
+pub(crate) struct Meshlet {
     /// The offset within the parent mesh's [`MeshletMesh::vertex_ids`] buffer where the indices for this meshlet begin.
     pub start_vertex_id: u32,
     /// The offset within the parent mesh's [`MeshletMesh::indices`] buffer where the indices for this meshlet begin.
@@ -58,7 +83,7 @@ pub struct Meshlet {
 /// Bounding spheres used for culling and choosing level of detail for a [`Meshlet`].
 #[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
-pub struct MeshletBoundingSpheres {
+pub(crate) struct MeshletBoundingSpheres {
     /// The bounding sphere used for frustum and occlusion culling for this meshlet.
     pub self_culling: MeshletBoundingSphere,
     /// The bounding sphere used for determining if this meshlet is at the correct level of detail for a given view.
@@ -70,7 +95,7 @@ pub struct MeshletBoundingSpheres {
 /// A spherical bounding volume used for a [`Meshlet`].
 #[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
-pub struct MeshletBoundingSphere {
+pub(crate) struct MeshletBoundingSphere {
     pub center: Vec3,
     pub radius: f32,
 }
@@ -96,7 +121,7 @@ impl AssetLoader for MeshletMeshSaverLoad {
 
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
-        let asset = bincode::deserialize_from(FrameDecoder::new(Cursor::new(bytes)))?;
+        let asset = MeshletMesh::from_bytes(&bytes)?;
 
         Ok(asset)
     }
@@ -122,11 +147,7 @@ impl AssetSaver for MeshletMeshSaverLoad {
             .write_all(&MESHLET_MESH_ASSET_VERSION.to_le_bytes())
             .await?;
 
-        let mut bytes = Vec::new();
-        let mut sync_writer = FrameEncoder::new(&mut bytes);
-        bincode::serialize_into(&mut sync_writer, asset.get())?;
-        sync_writer.finish()?;
-        writer.write_all(&bytes).await?;
+        writer.write_all(&asset.into_bytes()?).await?;
 
         Ok(())
     }

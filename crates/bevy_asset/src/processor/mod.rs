@@ -49,7 +49,7 @@ use crate::io::{AssetReader, AssetWriter};
 /// [`AssetProcessor`] can be run in the background while a Bevy App is running. Changes to assets will be automatically detected and hot-reloaded.
 ///
 /// Assets will only be re-processed if they have been changed. A hash of each asset source is stored in the metadata of the processed version of the
-/// asset, which is used to determine if the asset source has actually changed.  
+/// asset, which is used to determine if the asset source has actually changed.
 ///
 /// A [`ProcessorTransactionLog`] is produced, which uses "write-ahead logging" to make the [`AssetProcessor`] crash and failure resistant. If a failed/unfinished
 /// transaction from a previous run is detected, the affected asset(s) will be re-processed.
@@ -487,6 +487,16 @@ impl AssetProcessor {
         #[cfg(feature = "trace")]
         let processor = InstrumentedAssetProcessor(processor);
         process_plans.insert(std::any::type_name::<P>(), Arc::new(processor));
+    }
+
+    /// Register a new asset processor with an alias.
+    pub fn register_processor_with_alias<P: Process>(&self, processor: P, alias: &'static str) {
+        let mut process_plans = self.data.processors.write();
+        #[cfg(feature = "trace")]
+        let processor = InstrumentedAssetProcessor(processor);
+        let processor = Arc::new(processor);
+        process_plans.insert(alias, processor.clone());
+        process_plans.insert(std::any::type_name::<P>(), processor);
     }
 
     /// Set the default processor for the given `extension`. Make sure `P` is registered with [`AssetProcessor::register_processor`].

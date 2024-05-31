@@ -1,4 +1,4 @@
-use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode};
+use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode, RawGltf};
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{AnimationTarget, AnimationTargetId};
 use bevy_asset::{
@@ -11,6 +11,10 @@ use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{entity::Entity, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_math::{Affine2, Mat4, Vec3};
+#[cfg(feature = "meshlet")]
+use bevy_pbr::experimental::meshlet::{
+    MaterialMeshletMeshBundle, MeshletMesh, MESHLET_MESH_ASSET_VERSION,
+};
 use bevy_pbr::{
     DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle, SpotLight,
     SpotLightBundle, StandardMaterial, UvChannel, MAX_JOINTS,
@@ -91,7 +95,7 @@ pub enum GltfError {
     ReadAssetBytesError(#[from] ReadAssetBytesError),
     /// Failed to load asset from an asset path.
     #[error("failed to load asset from an asset path: {0}")]
-    AssetLoadError(#[from] AssetLoadError),
+    AssetLoadError(#[from] Box<AssetLoadError>),
     /// Missing sampler for an animation.
     #[error("Missing sampler for animation {0}")]
     MissingAnimationSampler(usize),
@@ -104,9 +108,21 @@ pub enum GltfError {
     /// Failed to load a file.
     #[error("failed to load file: {0}")]
     Io(#[from] std::io::Error),
+    /// Wrong meshlet mesh asset version.
+    #[cfg(feature = "meshlet")]
+    #[error(
+        "Encountered an invalid MeshletMesh. The asset format may have changed. \
+    Delete the imported_assets folder to regenerate assets."
+    )]
+    MeshletMeshWrongVersion,
 }
 
+/// Loads glTF files as a [`RawGltf`].
+pub struct RawGltfLoader;
+
 /// Loads glTF files with all of their data as their corresponding bevy representations.
+///
+/// This is the default asset loader for .gltf and .glb files.
 pub struct GltfLoader {
     /// List of compressed image formats handled by the loader.
     pub supported_compressed_formats: CompressedImageFormats,
@@ -135,7 +151,8 @@ pub struct GltfLoader {
 ///     }
 /// );
 /// ```
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(default)]
 pub struct GltfLoaderSettings {
     /// If empty, the gltf mesh nodes will be skipped.
     ///
@@ -182,6 +199,26 @@ impl AssetLoader for GltfLoader {
 
     fn extensions(&self) -> &[&str] {
         &["gltf", "glb"]
+    }
+}
+
+impl AssetLoader for RawGltfLoader {
+    type Asset = RawGltf;
+    type Settings = GltfLoaderSettings;
+    type Error = GltfError;
+    async fn load<'a>(
+        &'a self,
+        reader: &'a mut Reader<'_>,
+        _settings: &'a GltfLoaderSettings,
+        load_context: &'a mut LoadContext<'_>,
+    ) -> Result<RawGltf, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        let gltf = gltf::Gltf::from_slice(&bytes)?;
+
+        let buffer_data = load_buffers(&gltf, load_context).await?;
+
+        Ok(RawGltf { gltf, buffer_data })
     }
 }
 
@@ -436,113 +473,72 @@ async fn load_gltf<'a, 'b, 'c>(
         let mut primitives = vec![];
         for primitive in gltf_mesh.primitives() {
             let primitive_label = primitive_label(&gltf_mesh, &primitive);
-            let primitive_topology = get_primitive_topology(primitive.mode())?;
 
-            let mut mesh = Mesh::new(primitive_topology, settings.load_meshes);
-
-            // Read vertex attributes
-            for (semantic, accessor) in primitive.attributes() {
-                if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
-                    if !meshes_on_skinned_nodes.contains(&gltf_mesh.index()) {
-                        warn!(
-                        "Ignoring attribute {:?} for skinned mesh {:?} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
-                        semantic,
-                        primitive_label
-                    );
-                        continue;
-                    } else if meshes_on_non_skinned_nodes.contains(&gltf_mesh.index()) {
-                        error!("Skinned mesh {:?} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
+            #[cfg(feature = "meshlet")]
+            let (mesh, meshlet_mesh) = match primitive
+                .extensions()
+                .and_then(|extensions| extensions.get("BEVY_meshlet_mesh"))
+            {
+                Some(bevy_meshlet_mesh_extension) => {
+                    let version = bevy_meshlet_mesh_extension["version"].as_u64().unwrap();
+                    if version != MESHLET_MESH_ASSET_VERSION {
+                        return Err(GltfError::MeshletMeshWrongVersion);
                     }
-                }
-                match convert_attribute(
-                    semantic,
-                    accessor,
-                    &buffer_data,
-                    &loader.custom_vertex_attributes,
-                ) {
-                    Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
-                    Err(err) => warn!("{}", err),
-                }
-            }
 
-            // Read vertex indices
-            let reader = primitive.reader(|buffer| Some(buffer_data[buffer.index()].as_slice()));
-            if let Some(indices) = reader.read_indices() {
-                mesh.insert_indices(match indices {
-                    ReadIndices::U8(is) => Indices::U16(is.map(|x| x as u16).collect()),
-                    ReadIndices::U16(is) => Indices::U16(is.collect()),
-                    ReadIndices::U32(is) => Indices::U32(is.collect()),
-                });
+                    let byte_range_start = bevy_meshlet_mesh_extension["byteRangeStart"]
+                        .as_u64()
+                        .unwrap() as usize;
+                    let byte_range_end = bevy_meshlet_mesh_extension["byteRangeEnd"]
+                        .as_u64()
+                        .unwrap() as usize;
+                    let byte_range = byte_range_start..byte_range_end;
+
+                    let meshlet_mesh =
+                        MeshletMesh::from_bytes(&buffer_data[0][byte_range]).unwrap();
+
+                    let meshlet_mesh =
+                        Some(load_context.add_labeled_asset(primitive_label, meshlet_mesh));
+                    (Handle::default(), meshlet_mesh)
+                }
+                None => {
+                    let mesh = load_mesh_primitive(
+                        &primitive_label,
+                        &gltf_mesh,
+                        &primitive,
+                        settings,
+                        &meshes_on_skinned_nodes,
+                        &meshes_on_non_skinned_nodes,
+                        &buffer_data,
+                        loader,
+                        load_context,
+                        &file_name,
+                    )?;
+                    let mesh = load_context.add_labeled_asset(primitive_label, mesh);
+                    (mesh, None)
+                }
             };
 
-            {
-                let morph_target_reader = reader.read_morph_targets();
-                if morph_target_reader.len() != 0 {
-                    let morph_targets_label = morph_targets_label(&gltf_mesh, &primitive);
-                    let morph_target_image = MorphTargetImage::new(
-                        morph_target_reader.map(PrimitiveMorphAttributesIter),
-                        mesh.count_vertices(),
-                        RenderAssetUsages::default(),
-                    )?;
-                    let handle =
-                        load_context.add_labeled_asset(morph_targets_label, morph_target_image.0);
+            #[cfg(not(feature = "meshlet"))]
+            let mesh = {
+                let mesh = load_mesh_primitive(
+                    &primitive_label,
+                    &gltf_mesh,
+                    &primitive,
+                    settings,
+                    &meshes_on_skinned_nodes,
+                    &meshes_on_non_skinned_nodes,
+                    &buffer_data,
+                    loader,
+                    load_context,
+                    &file_name,
+                )?;
+                load_context.add_labeled_asset(primitive_label, mesh)
+            };
 
-                    mesh.set_morph_targets(handle);
-                    let extras = gltf_mesh.extras().as_ref();
-                    if let Option::<MorphTargetNames>::Some(names) =
-                        extras.and_then(|extras| serde_json::from_str(extras.get()).ok())
-                    {
-                        mesh.set_morph_target_names(names.target_names);
-                    }
-                }
-            }
-
-            if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none()
-                && matches!(mesh.primitive_topology(), PrimitiveTopology::TriangleList)
-            {
-                bevy_utils::tracing::debug!(
-                    "Automatically calculating missing vertex normals for geometry."
-                );
-                let vertex_count_before = mesh.count_vertices();
-                mesh.duplicate_vertices();
-                mesh.compute_flat_normals();
-                let vertex_count_after = mesh.count_vertices();
-                if vertex_count_before != vertex_count_after {
-                    bevy_utils::tracing::debug!("Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}", vertex_count_before, vertex_count_after);
-                } else {
-                    bevy_utils::tracing::debug!(
-                        "Missing vertex normals in indexed geometry, computing them as flat."
-                    );
-                }
-            }
-
-            if let Some(vertex_attribute) = reader
-                .read_tangents()
-                .map(|v| VertexAttributeValues::Float32x4(v.collect()))
-            {
-                mesh.insert_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
-            } else if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_some()
-                && material_needs_tangents(&primitive.material())
-            {
-                bevy_utils::tracing::debug!(
-                    "Missing vertex tangents for {}, computing them using the mikktspace algorithm. Consider using a tool such as Blender to pre-compute the tangents.", file_name
-                );
-
-                let generate_tangents_span = info_span!("generate_tangents", name = file_name);
-
-                generate_tangents_span.in_scope(|| {
-                    if let Err(err) = mesh.generate_tangents() {
-                        warn!(
-                        "Failed to generate vertex tangents using the mikktspace algorithm: {:?}",
-                        err
-                    );
-                    }
-                });
-            }
-
-            let mesh = load_context.add_labeled_asset(primitive_label, mesh);
             primitives.push(super::GltfPrimitive {
                 mesh,
+                #[cfg(feature = "meshlet")]
+                meshlet_mesh,
                 material: primitive
                     .material()
                     .index()
@@ -722,6 +718,116 @@ async fn load_gltf<'a, 'b, 'c>(
             None
         },
     })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn load_mesh_primitive(
+    primitive_label: &str,
+    gltf_mesh: &gltf::Mesh,
+    primitive: &Primitive,
+    settings: &GltfLoaderSettings,
+    meshes_on_skinned_nodes: &HashSet<usize>,
+    meshes_on_non_skinned_nodes: &HashSet<usize>,
+    buffer_data: &Vec<Vec<u8>>,
+    loader: &GltfLoader,
+    load_context: &mut LoadContext<'_>,
+    file_name: &String,
+) -> Result<Mesh, GltfError> {
+    let primitive_topology = get_primitive_topology(primitive.mode())?;
+    let mut mesh = Mesh::new(primitive_topology, settings.load_meshes);
+    for (semantic, accessor) in primitive.attributes() {
+        if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
+            if !meshes_on_skinned_nodes.contains(&gltf_mesh.index()) {
+                warn!(
+                "Ignoring attribute {:?} for skinned mesh {:?} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
+                semantic,
+                primitive_label
+            );
+                continue;
+            } else if meshes_on_non_skinned_nodes.contains(&gltf_mesh.index()) {
+                error!("Skinned mesh {:?} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
+            }
+        }
+        match convert_attribute(
+            semantic,
+            accessor,
+            buffer_data,
+            &loader.custom_vertex_attributes,
+        ) {
+            Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
+            Err(err) => warn!("{}", err),
+        }
+    }
+    let reader = primitive.reader(|buffer| Some(buffer_data[buffer.index()].as_slice()));
+    if let Some(indices) = reader.read_indices() {
+        mesh.insert_indices(match indices {
+            ReadIndices::U8(is) => Indices::U16(is.map(|x| x as u16).collect()),
+            ReadIndices::U16(is) => Indices::U16(is.collect()),
+            ReadIndices::U32(is) => Indices::U32(is.collect()),
+        });
+    };
+    {
+        let morph_target_reader = reader.read_morph_targets();
+        if morph_target_reader.len() != 0 {
+            let morph_targets_label = morph_targets_label(gltf_mesh, primitive);
+            let morph_target_image = MorphTargetImage::new(
+                morph_target_reader.map(PrimitiveMorphAttributesIter),
+                mesh.count_vertices(),
+                RenderAssetUsages::default(),
+            )?;
+            let handle = load_context.add_labeled_asset(morph_targets_label, morph_target_image.0);
+
+            mesh.set_morph_targets(handle);
+            let extras = gltf_mesh.extras().as_ref();
+            if let Option::<MorphTargetNames>::Some(names) =
+                extras.and_then(|extras| serde_json::from_str(extras.get()).ok())
+            {
+                mesh.set_morph_target_names(names.target_names);
+            }
+        }
+    }
+    if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none()
+        && matches!(mesh.primitive_topology(), PrimitiveTopology::TriangleList)
+    {
+        bevy_utils::tracing::debug!(
+            "Automatically calculating missing vertex normals for geometry."
+        );
+        let vertex_count_before = mesh.count_vertices();
+        mesh.duplicate_vertices();
+        mesh.compute_flat_normals();
+        let vertex_count_after = mesh.count_vertices();
+        if vertex_count_before != vertex_count_after {
+            bevy_utils::tracing::debug!("Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}", vertex_count_before, vertex_count_after);
+        } else {
+            bevy_utils::tracing::debug!(
+                "Missing vertex normals in indexed geometry, computing them as flat."
+            );
+        }
+    }
+    if let Some(vertex_attribute) = reader
+        .read_tangents()
+        .map(|v| VertexAttributeValues::Float32x4(v.collect()))
+    {
+        mesh.insert_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
+    } else if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_some()
+        && material_needs_tangents(&primitive.material())
+    {
+        bevy_utils::tracing::debug!(
+            "Missing vertex tangents for {}, computing them using the mikktspace algorithm. Consider using a tool such as Blender to pre-compute the tangents.", file_name
+        );
+
+        let generate_tangents_span = info_span!("generate_tangents", name = file_name);
+
+        generate_tangents_span.in_scope(|| {
+            if let Err(err) = mesh.generate_tangents() {
+                warn!(
+                    "Failed to generate vertex tangents using the mikktspace algorithm: {:?}",
+                    err
+                );
+            }
+        });
+    }
+    Ok(mesh)
 }
 
 fn get_gltf_extras(extras: &gltf::json::Extras) -> Option<GltfExtras> {
@@ -1250,12 +1356,33 @@ fn load_node(
                     let primitive_label = primitive_label(&mesh, &primitive);
                     let bounds = primitive.bounding_box();
 
-                    let mut mesh_entity = parent.spawn(PbrBundle {
-                        // TODO: handle missing label handle errors here?
-                        mesh: load_context.get_label_handle(&primitive_label),
-                        material: load_context.get_label_handle(&material_label),
-                        ..Default::default()
-                    });
+                    let mut mesh_entity = if primitive
+                        .extensions()
+                        .map(|extensions| extensions.contains_key("BEVY_meshlet_mesh"))
+                        .unwrap_or(false)
+                    {
+                        #[cfg(feature = "meshlet")]
+                        {
+                            parent.spawn(MaterialMeshletMeshBundle::<StandardMaterial> {
+                                // TODO: handle missing label handle errors here?
+                                meshlet_mesh: load_context.get_label_handle(&primitive_label),
+                                material: load_context.get_label_handle(&material_label),
+                                ..Default::default()
+                            })
+                        }
+                        #[cfg(not(feature = "meshlet"))]
+                        {
+                            panic!("glTF file contained a MeshletMesh, but the meshlet cargo feature is not enabled.")
+                        }
+                    } else {
+                        parent.spawn(PbrBundle {
+                            // TODO: handle missing label handle errors here?
+                            mesh: load_context.get_label_handle(&primitive_label),
+                            material: load_context.get_label_handle(&material_label),
+                            ..Default::default()
+                        })
+                    };
+
                     let target_count = primitive.morph_targets().len();
                     if target_count != 0 {
                         let weights = match mesh.weights() {
@@ -1569,7 +1696,7 @@ fn texture_address_mode(gltf_address_mode: &WrappingMode) -> ImageAddressMode {
 
 /// Maps the `primitive_topology` form glTF to `wgpu`.
 #[allow(clippy::result_large_err)]
-fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
+pub(crate) fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
     match mode {
         Mode::Points => Ok(PrimitiveTopology::PointList),
         Mode::Lines => Ok(PrimitiveTopology::LineList),

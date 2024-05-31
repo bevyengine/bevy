@@ -96,7 +96,7 @@
 //! - `Scene{}`: glTF Scene as a Bevy `Scene`
 //! - `Node{}`: glTF Node as a `GltfNode`
 //! - `Mesh{}`: glTF Mesh as a `GltfMesh`
-//! - `Mesh{}/Primitive{}`: glTF Primitive as a Bevy `Mesh`
+//! - `Mesh{}/Primitive{}`: glTF Primitive as a Bevy `Mesh` or `MeshletMesh`
 //! - `Mesh{}/Primitive{}/MorphTargets`: Morph target animation data for a glTF Primitive
 //! - `Texture{}`: glTF Texture as a Bevy `Image`
 //! - `Material{}`: glTF Material as a Bevy `StandardMaterial`
@@ -109,6 +109,8 @@ use bevy_animation::AnimationClip;
 use bevy_utils::HashMap;
 
 mod loader;
+#[cfg(feature = "meshlet")]
+mod meshlet_saver;
 mod vertex_attributes;
 pub use loader::*;
 
@@ -149,11 +151,18 @@ impl GltfPlugin {
 impl Plugin for GltfPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<GltfExtras>()
+            .init_asset::<RawGltf>()
             .init_asset::<Gltf>()
             .init_asset::<GltfNode>()
             .init_asset::<GltfPrimitive>()
             .init_asset::<GltfMesh>()
             .preregister_asset_loader::<GltfLoader>(&["gltf", "glb"]);
+
+        #[cfg(feature = "meshlet")]
+        app.register_asset_processor_with_alias::<bevy_asset::processor::LoadAndSave<RawGltfLoader, meshlet_saver::MeshletMeshGltfSaver>>(
+                meshlet_saver::MeshletMeshGltfSaver.into(),
+                "bevy::gltf::MeshletMeshProcessor"
+            );
     }
 
     fn finish(&self, app: &mut App) {
@@ -161,6 +170,8 @@ impl Plugin for GltfPlugin {
             Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
             None => CompressedImageFormats::NONE,
         };
+
+        app.register_asset_loader(RawGltfLoader);
         app.register_asset_loader(GltfLoader {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
@@ -168,7 +179,16 @@ impl Plugin for GltfPlugin {
     }
 }
 
-/// Representation of a loaded glTF file.
+/// Underlying JSON Representation of a loaded glTF file.
+#[derive(Asset, Debug, TypePath)]
+pub struct RawGltf {
+    /// The JSON section of a glTF file.
+    pub gltf: gltf::Gltf,
+    /// The buffers of a glTF file, whether from the GLB BIN section, or from external bin files.
+    pub buffer_data: Vec<Vec<u8>>,
+}
+
+/// Bevy representation of a loaded glTF file.
 #[derive(Asset, Debug, TypePath)]
 pub struct Gltf {
     /// All scenes loaded from the glTF file.
@@ -234,6 +254,11 @@ pub struct GltfMesh {
 pub struct GltfPrimitive {
     /// Topology to be rendered.
     pub mesh: Handle<Mesh>,
+    /// Meshlet topology to be rendered.
+    ///
+    /// If this is Some, then `mesh` is [`Handle::default()`].
+    #[cfg(feature = "meshlet")]
+    pub meshlet_mesh: Option<Handle<bevy_pbr::experimental::meshlet::MeshletMesh>>,
     /// Material to apply to the `mesh`.
     pub material: Option<Handle<StandardMaterial>>,
     /// Additional data.

@@ -8,34 +8,29 @@ mod camera_controller;
 use bevy::{
     pbr::{
         experimental::meshlet::{MaterialMeshletMeshBundle, MeshletPlugin},
-        CascadeShadowConfigBuilder, DirectionalLightShadowMap,
+        CascadeShadowConfig, CascadeShadowConfigBuilder, DirectionalLightShadowMap,
     },
     prelude::*,
     render::render_resource::AsBindGroup,
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
-use std::{f32::consts::PI, path::Path, process::ExitCode};
+use std::f32::consts::PI;
 
-const ASSET_URL: &str = "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/bd869887bc5c9c6e74e353f657d342bef84bacd8/bunny.meshlet_mesh";
-
-fn main() -> ExitCode {
-    if !Path::new("./assets/models/bunny.meshlet_mesh").exists() {
-        eprintln!("ERROR: Asset at path <bevy>/assets/models/bunny.meshlet_mesh is missing. Please download it from {ASSET_URL}");
-        return ExitCode::FAILURE;
-    }
-
+fn main() {
     App::new()
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins((
-            DefaultPlugins,
+            DefaultPlugins.set(AssetPlugin {
+                mode: AssetMode::Processed,
+                ..default()
+            }),
             MeshletPlugin,
             MaterialPlugin::<MeshletDebugMaterial>::default(),
             CameraControllerPlugin,
         ))
         .add_systems(Startup, setup)
+        .add_systems(Update, set_shadow_map_config)
         .run();
-
-    ExitCode::SUCCESS
 }
 
 fn setup(
@@ -65,12 +60,6 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        cascade_shadow_config: CascadeShadowConfigBuilder {
-            num_cascades: 1,
-            maximum_distance: 15.0,
-            ..default()
-        }
-        .build(),
         transform: Transform::from_rotation(Quat::from_euler(
             EulerRot::ZYX,
             0.0,
@@ -80,11 +69,7 @@ fn setup(
         ..default()
     });
 
-    // A custom file format storing a [`bevy_render::mesh::Mesh`]
-    // that has been converted to a [`bevy_pbr::meshlet::MeshletMesh`]
-    // using [`bevy_pbr::meshlet::MeshletMesh::from_mesh`], which is
-    // a function only available when the `meshlet_processor` cargo feature is enabled.
-    let meshlet_mesh_handle = asset_server.load("models/bunny.meshlet_mesh");
+    let meshlet_mesh_handle = asset_server.load("models/bunny.glb#Mesh0/Primitive0");
     let debug_material = debug_materials.add(MeshletDebugMaterial::default());
 
     for x in -2..=2 {
@@ -129,6 +114,20 @@ fn setup(
         }),
         ..default()
     });
+}
+
+fn set_shadow_map_config(
+    mut shadow_confg: Query<&mut CascadeShadowConfig>,
+    camera: Query<&Transform, With<Camera3d>>,
+) {
+    let camera_transform = camera.get_single().unwrap();
+    let mut shadow_config = shadow_confg.get_single_mut().unwrap();
+    *shadow_config = CascadeShadowConfigBuilder {
+        num_cascades: 1,
+        maximum_distance: camera_transform.translation.y + 3.0,
+        ..default()
+    }
+    .build();
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Clone, Default)]
