@@ -85,6 +85,9 @@ enum PrimitiveSelected {
     ConicalFrustum,
     Torus,
     Tetrahedron,
+    Arc,
+    CircularSector,
+    CircularSegment,
 }
 
 impl std::fmt::Display for PrimitiveSelected {
@@ -99,7 +102,7 @@ impl std::fmt::Display for PrimitiveSelected {
 }
 
 impl PrimitiveSelected {
-    const ALL: [Self; 16] = [
+    const ALL: [Self; 19] = [
         Self::RectangleAndCuboid,
         Self::CircleAndSphere,
         Self::Ellipse,
@@ -116,6 +119,9 @@ impl PrimitiveSelected {
         Self::ConicalFrustum,
         Self::Torus,
         Self::Tetrahedron,
+        Self::Arc,
+        Self::CircularSector,
+        Self::CircularSegment,
     ];
 
     fn next(self) -> Self {
@@ -267,6 +273,25 @@ const TETRAHEDRON: Tetrahedron = Tetrahedron {
         Vec3::new(0.0, 0.0, -BIG_3D * 1.67),
         Vec3::new(0.0, BIG_3D * 1.67, -BIG_3D * 0.5),
     ],
+};
+
+const ARC: Arc2d = Arc2d {
+    radius: BIG_2D,
+    half_angle: std::f32::consts::FRAC_PI_4,
+};
+
+const CIRCULAR_SECTOR: CircularSector = CircularSector {
+    arc: Arc2d {
+        radius: BIG_2D,
+        half_angle: std::f32::consts::FRAC_PI_4,
+    },
+};
+
+const CIRCULAR_SEGMENT: CircularSegment = CircularSegment {
+    arc: Arc2d {
+        radius: BIG_2D,
+        half_angle: std::f32::consts::FRAC_PI_4,
+    },
 };
 
 fn setup_cameras(mut commands: Commands) {
@@ -446,6 +471,13 @@ fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         PrimitiveSelected::ConicalFrustum => {}
         PrimitiveSelected::Torus => gizmos.primitive_2d(&ANNULUS, POSITION, angle, color),
         PrimitiveSelected::Tetrahedron => {}
+        PrimitiveSelected::Arc => gizmos.primitive_2d(&ARC, POSITION, angle, color),
+        PrimitiveSelected::CircularSector => {
+            gizmos.primitive_2d(&CIRCULAR_SECTOR, POSITION, angle, color);
+        }
+        PrimitiveSelected::CircularSegment => {
+            gizmos.primitive_2d(&CIRCULAR_SEGMENT, POSITION, angle, color);
+        }
     }
 }
 
@@ -675,5 +707,9 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         PrimitiveSelected::Tetrahedron => {
             gizmos.primitive_3d(&TETRAHEDRON, POSITION, rotation, color);
         }
+
+        PrimitiveSelected::Arc => {}
+        PrimitiveSelected::CircularSector => {}
+        PrimitiveSelected::CircularSegment => {}
     }
 }
