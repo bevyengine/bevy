@@ -1,3 +1,4 @@
+pub mod debug;
 pub mod resource;
 mod setup;
 
@@ -21,18 +22,21 @@ use bevy_render::{
 
 use resource::{IntoRenderResource, RenderHandle, RenderResource, RenderResources};
 
-use crate::deps;
+use crate::{core::debug::RenderGraphDebug, deps};
 
-use self::resource::{
-    bind_group::{make_bind_group, RenderGraphBindGroupLayoutMeta, RenderGraphBindGroupMeta},
-    buffer::RenderGraphBufferMeta,
-    pipeline::{
-        CachedRenderGraphPipelines, RenderGraphComputePipelineDescriptor, RenderGraphPipelines,
-        RenderGraphRenderPipelineDescriptor,
+use self::{
+    debug::RenderGraphDebugContext,
+    resource::{
+        bind_group::{make_bind_group, RenderGraphBindGroupLayoutMeta, RenderGraphBindGroupMeta},
+        buffer::RenderGraphBufferMeta,
+        pipeline::{
+            CachedRenderGraphPipelines, RenderGraphComputePipelineDescriptor, RenderGraphPipelines,
+            RenderGraphRenderPipelineDescriptor,
+        },
+        texture::{RenderGraphSamplerDescriptor, RenderGraphTextureViewDescriptor},
+        CachedResources, RenderDependencies, RenderResourceGeneration, RenderResourceId,
+        ResourceTracker, UsagesRenderResource,
     },
-    texture::{RenderGraphSamplerDescriptor, RenderGraphTextureViewDescriptor},
-    CachedResources, RenderDependencies, RenderResourceGeneration, RenderResourceId,
-    ResourceTracker, UsagesRenderResource,
 };
 
 pub type Label<'a> = Option<Cow<'a, str>>;
@@ -45,7 +49,7 @@ struct RenderGraphCachedResources {
 }
 
 #[derive(Default)]
-struct RenderGraph<'g> {
+pub struct RenderGraph<'g> {
     resources: ResourceTracker<'g>,
     bind_group_layouts: RenderResources<'g, BindGroupLayout>,
     bind_groups: RenderResources<'g, BindGroup>,
@@ -121,6 +125,10 @@ impl<'g> RenderGraph<'g> {
             }
         }
         render_queue.submit([encoder.finish()]);
+    }
+
+    fn label(&self, id: RenderResourceId) -> Label<'g> {
+        todo!()
     }
 
     fn generation(&self, id: RenderResourceId) -> RenderResourceGeneration {
@@ -278,8 +286,12 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
 
     #[inline]
     pub fn meta<R: RenderResource>(&self, resource: RenderHandle<'g, R>) -> &R::Meta<'g> {
-        R::get_meta(self, resource)
-            .unwrap_or_else(|| panic!("No descriptor found for resource: {:?}", resource))
+        R::get_meta(self, resource).unwrap_or_else(|| {
+            panic!(
+                "No descriptor found for resource: {:?}",
+                self.debug(&resource)
+            )
+        })
     }
 
     #[inline]
@@ -298,7 +310,8 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
         } else if !R::has_usages(self.meta(resource), &usages) {
             panic!(
                 "Descriptor for resource {:?} does not contain necessary usages: {:?}",
-                resource, usages
+                self.debug(&resource),
+                usages
             )
         }
         self
@@ -348,6 +361,14 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
     #[inline]
     pub fn limits(&self) -> WgpuLimits {
         self.render_device.limits()
+    }
+
+    #[inline]
+    pub fn debug<'a, T: RenderGraphDebug<'g>>(
+        &'a self,
+        value: &'a T,
+    ) -> RenderGraphDebugContext<'a, 'g, T> {
+        value.debug(self.graph)
     }
 }
 
@@ -699,12 +720,23 @@ impl<'n, 'g: 'n> NodeContext<'n, 'g> {
         if !self.dependencies.includes(resource) {
             panic!(
                 "Illegal resource access: {:?}. Have you added it to the node's dependencies?",
-                resource
+                self.debug(&resource)
             );
         }
 
-        R::get(self, resource)
-            .unwrap_or_else(|| panic!("Unable to locate render graph resource: {:?}", resource))
+        R::get(self, resource).unwrap_or_else(|| {
+            panic!(
+                "Unable to locate render graph resource: {:?}",
+                self.debug(&resource)
+            )
+        })
+    }
+
+    fn debug<'a, T: RenderGraphDebug<'g>>(
+        &'a self,
+        value: &'a T,
+    ) -> RenderGraphDebugContext<'a, 'g, T> {
+        value.debug(self.graph)
     }
 
     fn get_texture(&self, texture: RenderHandle<'g, Texture>) -> Option<&Texture> {
