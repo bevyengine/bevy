@@ -6,8 +6,9 @@ use super::helpers::*;
 
 use bevy_color::Color;
 use bevy_math::primitives::{
-    Annulus, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, Ellipse, Line2d, Plane2d, Polygon,
-    Polyline2d, Primitive2d, Rectangle, RegularPolygon, Rhombus, Segment2d, Triangle2d,
+    Annulus, Arc2d, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, CircularSector,
+    CircularSegment, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Primitive2d, Rectangle,
+    RegularPolygon, Rhombus, Segment2d, Triangle2d,
 };
 use bevy_math::{Dir2, Mat2, Vec2};
 
@@ -64,6 +65,36 @@ where
     }
 }
 
+// arc 2d
+
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<Arc2d> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = () where Self: 'a;
+
+    fn primitive_2d(
+        &mut self,
+        primitive: &Arc2d,
+        position: Vec2,
+        angle: f32,
+        color: impl Into<Color>,
+    ) -> Self::Output<'_> {
+        if !self.enabled {
+            return;
+        }
+
+        self.arc_2d(
+            position,
+            angle,
+            primitive.half_angle * 2.0,
+            primitive.radius,
+            color,
+        );
+    }
+}
+
 // circle 2d
 
 impl<'w, 's, Config, Clear> GizmoPrimitive2d<Circle> for Gizmos<'w, 's, Config, Clear>
@@ -85,6 +116,85 @@ where
         }
 
         self.circle_2d(position, primitive.radius, color);
+    }
+}
+
+// circular sector 2d
+
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<CircularSector> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = () where Self: 'a;
+
+    fn primitive_2d(
+        &mut self,
+        primitive: &CircularSector,
+        position: Vec2,
+        angle: f32,
+        color: impl Into<Color>,
+    ) -> Self::Output<'_> {
+        if !self.enabled {
+            return;
+        }
+
+        let color = color.into();
+
+        // we need to draw the arc part of the sector, and the two lines connecting the arc and the center
+        self.arc_2d(
+            position,
+            angle,
+            primitive.arc.half_angle * 2.0,
+            primitive.arc.radius,
+            color,
+        );
+
+        let start = position
+            + primitive.arc.radius * Mat2::from_angle(angle - primitive.arc.half_angle) * Vec2::Y;
+        let end = position
+            + primitive.arc.radius * Mat2::from_angle(angle + primitive.arc.half_angle) * Vec2::Y;
+        self.line_2d(position, start, color);
+        self.line_2d(position, end, color);
+    }
+}
+
+// circular segment 2d
+
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<CircularSegment> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = () where Self: 'a;
+
+    fn primitive_2d(
+        &mut self,
+        primitive: &CircularSegment,
+        position: Vec2,
+        angle: f32,
+        color: impl Into<Color>,
+    ) -> Self::Output<'_> {
+        if !self.enabled {
+            return;
+        }
+
+        let color = color.into();
+
+        // we need to draw the arc part of the segment, and the line connecting the two ends
+        self.arc_2d(
+            position,
+            angle,
+            primitive.arc.half_angle * 2.0,
+            primitive.arc.radius,
+            color,
+        );
+
+        let start = position
+            + primitive.arc.radius * Mat2::from_angle(angle - primitive.arc.half_angle) * Vec2::Y;
+        let end = position
+            + primitive.arc.radius * Mat2::from_angle(angle + primitive.arc.half_angle) * Vec2::Y;
+        self.line_2d(end, start, color);
     }
 }
 
@@ -192,8 +302,6 @@ where
             return;
         }
 
-        let rotation = Mat2::from_angle(angle);
-
         // transform points from the reference unit square to capsule "rectangle"
         let [top_left, top_right, bottom_left, bottom_right, top_center, bottom_center] = [
             [-1.0, 1.0],
@@ -215,11 +323,8 @@ where
         self.line_2d(bottom_left, top_left, polymorphic_color);
         self.line_2d(bottom_right, top_right, polymorphic_color);
 
-        // if the capsule is rotated we have to start the arc at a different offset angle,
-        // calculate that here
-        let angle_offset = (rotation * Vec2::Y).angle_between(Vec2::Y);
-        let start_angle_top = angle_offset;
-        let start_angle_bottom = PI + angle_offset;
+        let start_angle_top = angle;
+        let start_angle_bottom = PI + angle;
 
         // draw arcs
         self.arc_2d(
