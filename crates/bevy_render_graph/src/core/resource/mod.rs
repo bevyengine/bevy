@@ -1,4 +1,5 @@
 use std::{
+    any::type_name_of_val,
     borrow::{Borrow, Cow},
     collections::VecDeque,
     fmt::Debug,
@@ -15,7 +16,7 @@ use bevy_render::{
     renderer::RenderDevice,
 };
 
-use super::{NodeContext, RenderGraph, RenderGraphBuilder};
+use super::{debug::RenderGraphDebug, NodeContext, RenderGraph, RenderGraphBuilder};
 
 pub mod bind_group;
 pub mod buffer;
@@ -407,9 +408,14 @@ impl<'g, R: RenderResource> Clone for RenderHandle<'g, R> {
     }
 }
 
-impl<'g, R: RenderResource> Debug for RenderHandle<'g, R> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("RenderHandle")
+impl<'g, R: RenderResource> RenderGraphDebug<'g> for RenderHandle<'g, R> {
+    fn fmt(
+        &self,
+        graph: &RenderGraph<'g>,
+        f: &mut std::fmt::Formatter,
+    ) -> Result<(), std::fmt::Error> {
+        f.debug_struct(type_name_of_val(self))
+            .field("label", &graph.label(self.id))
             .field("id", &self.id)
             .finish()
     }
