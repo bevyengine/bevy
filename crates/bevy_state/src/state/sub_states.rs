@@ -96,13 +96,11 @@ pub use bevy_state_macros::SubStates;
 /// ```
 ///
 /// However, you can also manually implement them. If you do so, you'll also need to manually implement the `States` & `FreelyMutableState` traits.
-/// Unlike the derive, this does not require an implementation of [`Default`], since you are providing the `exists` function
-/// directly.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_state::prelude::*;
-/// # use bevy_state::state::FreelyMutableState;
+/// # use bevy_state::state::{FreelyMutableState, NextState};
 ///
 /// /// Computed States require some state to derive from
 /// #[derive(States, Clone, PartialEq, Eq, Hash, Debug, Default)]
@@ -128,11 +126,11 @@ pub use bevy_state_macros::SubStates;
 ///     /// We then define the compute function, which takes in the [`Self::SourceStates`]
 ///     fn should_exist(sources: Option<AppState>) -> bool {
 ///         match sources {
-///             /// When we are in game, so we want a GamePhase state to exist, and the default is
-///             /// GamePhase::Setup
+///             /// When we are in game, so we want a GamePhase state to exist.
+///             /// If available, the initial state will be taken from [`NextState`]
+///             /// otherwise [`Default::default()`] will be used.
 ///             Some(AppState::InGame { .. }) => true,
-///             /// Otherwise, we don't want the `State<GamePhase>` resource to exist,
-///             /// so we return `false`.
+///             /// If we don't want the `State<GamePhase>` resource to exist we return `false`.
 ///             _ => false
 ///         }
 ///     }
@@ -156,7 +154,7 @@ pub trait SubStates: States + FreelyMutableState + Default {
     /// The result is used to determine the existence of [`State<Self>`](crate::state::State).
     ///
     /// If the result is `false`, the [`State<Self>`](crate::state::State) resource will be removed from the world, otherwise
-    /// if the [`State<Self>`](crate::state::State) resource doesn't exist it will be created.
+    /// if the [`State<Self>`](crate::state::State) resource doesn't exist it will be created from [`NextState`](crate::state::NextState) or [`Default::default()`].
     fn should_exist(sources: Self::SourceStates) -> bool;
 
     /// This function sets up systems that compute the state whenever one of the [`SourceStates`](Self::SourceStates)
