@@ -306,10 +306,10 @@ impl SubApp {
             self.init_resource::<State<S>>()
                 .init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>();
-            let initial = self.world.resource::<State<S>>().get().clone();
+            let state = self.world.resource::<State<S>>().get().clone();
             self.world.send_event(StateTransitionEvent {
                 exited: None,
-                entered: Some(initial),
+                entered: Some(state),
             });
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
             S::register_state(schedule);
