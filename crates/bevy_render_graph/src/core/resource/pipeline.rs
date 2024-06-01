@@ -50,7 +50,7 @@ pub(in crate::core) struct RenderGraphPipelines<'g> {
 }
 
 /// Describes a render pipeline in the render graph.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RenderGraphRenderPipelineDescriptor<'g> {
     /// Debug label of the pipeline. This will show up in graphics debuggers for easy identification.
     pub label: Option<Cow<'static, str>>,
@@ -100,7 +100,7 @@ impl<'g> RenderGraphRenderPipelineDescriptor<'g> {
 }
 
 /// Describes a compute pipeline in the render graph.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RenderGraphComputePipelineDescriptor<'g> {
     pub label: Option<Cow<'static, str>>,
     pub layout: Vec<RenderHandle<'g, BindGroupLayout>>,

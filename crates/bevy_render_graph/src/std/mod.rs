@@ -1,4 +1,3 @@
-use std::any::type_name_of_val;
 use std::{fmt::Debug, hash::Hash};
 
 pub mod builder;
@@ -12,8 +11,6 @@ pub use copy::*;
 pub mod fullscreen;
 pub use fullscreen::*;
 
-use crate::core::debug::RenderGraphDebug;
-use crate::core::RenderGraph;
 use crate::{
     core::{
         resource::{
@@ -55,15 +52,6 @@ impl<'g, R: WriteRenderResource> Swap<'g, R> {
     }
 }
 
-impl<'g, R: WriteRenderResource> RenderGraphDebug<'g> for Swap<'g, R> {
-    fn fmt(&self, graph: &RenderGraph<'g>, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct(type_name_of_val(self))
-            .field("current", &self.current.debug(graph))
-            .field("next", &self.next.debug(graph))
-            .finish()
-    }
-}
-
 pub struct SrcDst<'g, Src: RenderResource, Dst: WriteRenderResource = Src> {
     pub src: RenderHandle<'g, Src>,
     pub dst: RenderHandle<'g, Dst>,
@@ -92,13 +80,11 @@ impl<'g, Src: RenderResource, Dst: WriteRenderResource> Hash for SrcDst<'g, Src,
     }
 }
 
-impl<'g, Src: RenderResource, Dst: WriteRenderResource> RenderGraphDebug<'g>
-    for SrcDst<'g, Src, Dst>
-{
-    fn fmt(&self, graph: &RenderGraph<'g>, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<'g, Src: RenderResource, Dst: WriteRenderResource> Debug for SrcDst<'g, Src, Dst> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SrcDst")
-            .field("src", &self.src.debug(graph))
-            .field("dst", &self.src.debug(graph))
+            .field("src", &self.src)
+            .field("dst", &self.dst)
             .finish()
     }
 }
