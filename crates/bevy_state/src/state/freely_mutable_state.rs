@@ -17,17 +17,17 @@ pub trait FreelyMutableState: States {
                 apply_state_transition::<Self>.in_set(ApplyStateTransition::<Self>::apply()),
             )
             .add_systems(
-                should_run_transition::<Self, OnEnter<Self>>
+                last_transition::<Self>
                     .pipe(run_enter::<Self>)
                     .in_set(StateTransitionSteps::EnterSchedules),
             )
             .add_systems(
-                should_run_transition::<Self, OnExit<Self>>
+                last_transition::<Self>
                     .pipe(run_exit::<Self>)
                     .in_set(StateTransitionSteps::ExitSchedules),
             )
             .add_systems(
-                should_run_transition::<Self, OnTransition<Self>>
+                last_transition::<Self>
                     .pipe(run_transition::<Self>)
                     .in_set(StateTransitionSteps::TransitionSchedules),
             )
