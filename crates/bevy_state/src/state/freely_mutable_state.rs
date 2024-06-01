@@ -1,9 +1,13 @@
-use bevy_ecs::prelude::Schedule;
 use bevy_ecs::schedule::{IntoSystemConfigs, IntoSystemSetConfigs};
 use bevy_ecs::system::IntoSystem;
+use bevy_ecs::{
+    event::EventWriter,
+    prelude::Schedule,
+    system::{Commands, ResMut},
+};
 
-use super::states::States;
-use super::transitions::*;
+use super::{states::States, NextState, State};
+use super::{take_next_state, transitions::*};
 
 /// This trait allows a state to be mutated directly using the [`NextState<S>`](crate::state::NextState) resource.
 ///
@@ -32,8 +36,24 @@ pub trait FreelyMutableState: States {
                     .in_set(StateTransitionSteps::TransitionSchedules),
             )
             .configure_sets(
-                ApplyStateTransition::<Self>::apply()
-                    .in_set(StateTransitionSteps::ManualTransitions),
+                ApplyStateTransition::<Self>::apply().in_set(StateTransitionSteps::RootTransitions),
             );
+    }
+}
+
+fn apply_state_transition<S: FreelyMutableState>(
+    event: EventWriter<StateTransitionEvent<S>>,
+    commands: Commands,
+    current_state: Option<ResMut<State<S>>>,
+    next_state: Option<ResMut<NextState<S>>>,
+) {
+    let Some(next_state) = take_next_state(next_state) else {
+        return;
+    };
+    let Some(current_state) = current_state else {
+        return;
+    };
+    if next_state != *current_state.get() {
+        internal_apply_state_transition(event, commands, Some(current_state), Some(next_state));
     }
 }

@@ -143,7 +143,7 @@ pub use bevy_state_macros::SubStates;
 ///
 /// impl FreelyMutableState for GamePhase {}
 /// ```
-pub trait SubStates: States + FreelyMutableState {
+pub trait SubStates: States + FreelyMutableState + Default {
     /// The set of states from which the [`Self`] is derived.
     ///
     /// This can either be a single type that implements [`States`], or a tuple
@@ -154,9 +154,9 @@ pub trait SubStates: States + FreelyMutableState {
     /// This function gets called whenever one of the [`SourceStates`](Self::SourceStates) changes.
     /// The result is used to determine the existence of [`State<Self>`](crate::state::State).
     ///
-    /// If the result is [`None`], the [`State<Self>`](crate::state::State) resource will be removed from the world, otherwise
-    /// if the [`State<Self>`](crate::state::State) resource doesn't exist - it will be created with the [`Some`] value.
-    fn should_exist(sources: Self::SourceStates) -> Option<Self>;
+    /// If the result is `false`, the [`State<Self>`](crate::state::State) resource will be removed from the world, otherwise
+    /// if the [`State<Self>`](crate::state::State) resource doesn't exist it will be created.
+    fn should_exist(sources: Self::SourceStates) -> bool;
 
     /// This function sets up systems that compute the state whenever one of the [`SourceStates`](Self::SourceStates)
     /// change. It is called by `App::add_computed_state`, but can be called manually if `App` is not

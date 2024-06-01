@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use bevy_ecs::{
-    system::Resource,
+    system::{ResMut, Resource},
     world::{FromWorld, World},
 };
 
@@ -107,7 +107,7 @@ impl<S: States> Deref for State<S> {
 ///     next_game_state.set(GameState::InGame);
 /// }
 /// ```
-#[derive(Resource, Debug, Default)]
+#[derive(Resource, Debug, Default, Clone)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
@@ -130,5 +130,19 @@ impl<S: FreelyMutableState> NextState<S> {
     /// Remove any pending changes to [`State<S>`]
     pub fn reset(&mut self) {
         *self = Self::Unchanged;
+    }
+}
+
+pub(crate) fn take_next_state<S: FreelyMutableState>(
+    next_state: Option<ResMut<NextState<S>>>,
+) -> Option<S> {
+    let mut next_state = next_state?;
+
+    match next_state.clone() {
+        NextState::Pending(new_state) => {
+            *next_state.as_mut() = NextState::<S>::Unchanged;
+            Some(new_state)
+        }
+        NextState::Unchanged => None,
     }
 }
