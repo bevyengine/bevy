@@ -131,8 +131,8 @@ impl<'g> RenderGraph<'g> {
         self.resources.label(id)
     }
 
-    fn as_debug_ctx(&self) -> debug::RenderGraphDebugContext<'_, 'g> {
-        debug::RenderGraphDebugContext(&self)
+    fn as_debug_ctx(&self) -> RenderGraphDebugContext<'_, 'g> {
+        RenderGraphDebugContext(self)
     }
 
     fn generation(&self, id: RenderResourceId) -> RenderResourceGeneration {

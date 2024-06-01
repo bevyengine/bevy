@@ -1,19 +1,18 @@
-use std::any::type_name_of_val;
-use std::{fmt::Debug, hash::Hash};
-
-pub mod builder;
+use std::any::type_name;
+use std::hash::Hash;
 use std::mem;
 
+mod builder;
+use bevy_render::render_resource::{TextureFormat, TextureView};
 pub use builder::*;
 
-pub mod copy;
+mod copy;
 pub use copy::*;
 
-pub mod fullscreen;
+mod fullscreen;
 pub use fullscreen::*;
 
 use crate::core::debug::{RenderGraphDebug, RenderGraphDebugContext};
-use crate::core::RenderGraph;
 use crate::{
     core::{
         resource::{
@@ -61,7 +60,7 @@ impl<'g, R: WriteRenderResource> RenderGraphDebug<'g> for Swap<'g, R> {
         ctx: RenderGraphDebugContext<'_, 'g>,
         f: &mut std::fmt::Formatter,
     ) -> std::fmt::Result {
-        f.debug_struct(type_name_of_val(self))
+        f.debug_struct(type_name::<Self>())
             .field("current", &ctx.debug(&self.current))
             .field("next", &ctx.debug(&self.next))
             .finish()
@@ -104,7 +103,7 @@ impl<'g, Src: RenderResource, Dst: WriteRenderResource> RenderGraphDebug<'g>
         ctx: RenderGraphDebugContext<'_, 'g>,
         f: &mut std::fmt::Formatter<'_>,
     ) -> std::fmt::Result {
-        f.debug_struct("SrcDst")
+        f.debug_struct(type_name::<Self>())
             .field("src", &ctx.debug(&self.src))
             .field("dst", &ctx.debug(&self.dst))
             .finish()
@@ -118,3 +117,16 @@ impl<'g, Src: RenderResource, Dst: WriteRenderResource> IntoRenderDependencies<'
         extend_deps!(dependencies, &self.src, &mut self.dst);
     }
 }
+
+pub fn texture_view_format<'g>(
+    graph: &RenderGraphBuilder<'_, 'g>,
+    texture_view: RenderHandle<'g, TextureView>,
+) -> TextureFormat {
+    let texture_view_meta = graph.meta(texture_view);
+    texture_view_meta
+        .descriptor
+        .format
+        .unwrap_or_else(|| graph.meta(texture_view_meta.texture).format)
+}
+
+//many utilities to be added here later

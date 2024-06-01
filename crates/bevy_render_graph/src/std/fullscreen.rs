@@ -13,6 +13,8 @@ use crate::core::{
     RenderGraphBuilder,
 };
 
+use super::texture_view_format;
+
 pub struct FullscreenPlugin;
 
 impl Plugin for FullscreenPlugin {
@@ -52,11 +54,7 @@ pub fn fullscreen_pass<'g>(
     clear_color: Option<LinearRgba>,
     bind_groups: &[RenderHandle<'g, BindGroup>],
 ) {
-    let format = graph
-        .meta(target)
-        .descriptor
-        .format
-        .unwrap_or_else(|| graph.meta(graph.meta(target).texture).format);
+    let format = texture_view_format(graph, target);
     let pipeline = graph.new_resource(RenderGraphRenderPipelineDescriptor {
         label: Some("fullscreen_pass_pipeline".into()),
         layout: bind_groups
@@ -138,7 +136,7 @@ pub mod blit {
             RenderGraphBuilder,
         },
         deps,
-        std::{BindGroupBuilder, SrcDst},
+        std::{texture_view_format, BindGroupBuilder, SrcDst},
     };
 
     use super::fullscreen_shader_vertex_state;
@@ -174,11 +172,7 @@ pub mod blit {
         .sampler(sampler)
         .build();
 
-        let format = graph
-            .meta(src_dst.dst)
-            .descriptor
-            .format
-            .unwrap_or_else(|| graph.meta(graph.meta(src_dst.dst).texture).format);
+        let format = texture_view_format(graph, src_dst.dst);
         let pipeline = graph.new_resource(RenderGraphRenderPipelineDescriptor {
             label: Some("blit_pipeline".into()),
             layout: vec![graph.meta(bind_group).descriptor.layout],
@@ -201,23 +195,17 @@ pub mod blit {
         });
 
         let should_clear = graph.is_fresh(src_dst.dst);
-        let ops = if should_clear {
-            if let Some(clear_color) = clear_color {
-                Operations {
-                    load: LoadOp::Clear(clear_color.into()),
-                    store: StoreOp::Store,
+        let ops = Operations {
+            load: if should_clear {
+                if let Some(clear_color) = clear_color {
+                    LoadOp::Clear(clear_color.into())
+                } else {
+                    LoadOp::Load
                 }
             } else {
-                Operations {
-                    load: LoadOp::Load,
-                    store: StoreOp::Store,
-                }
-            }
-        } else {
-            Operations {
-                load: LoadOp::Load,
-                store: StoreOp::Store,
-            }
+                LoadOp::Load
+            },
+            store: StoreOp::Store,
         };
 
         graph.add_node(
