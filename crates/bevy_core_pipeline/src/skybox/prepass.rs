@@ -76,7 +76,7 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some("skybox_prepass_pipeline".into()),
-            layout: vec![],
+            layout: vec![self.bind_group_layout.clone()],
             push_constant_ranges: vec![],
             vertex: VertexState {
                 shader: SKYBOX_PREPASS_SHADER_HANDLE,

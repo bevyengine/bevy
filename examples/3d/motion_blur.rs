@@ -2,7 +2,10 @@
 //! camera using the [`MotionBlur`] component.z
 
 use bevy::{
-    core_pipeline::motion_blur::{MotionBlur, MotionBlurBundle},
+    core_pipeline::{
+        motion_blur::{MotionBlur, MotionBlurBundle},
+        Skybox,
+    },
     prelude::*,
 };
 
@@ -19,7 +22,7 @@ fn main() {
         .run();
 }
 
-fn setup_camera(mut commands: Commands) {
+fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Camera3dBundle::default(),
         // Add the MotionBlurBundle to a camera to enable motion blur.
@@ -33,6 +36,10 @@ fn setup_camera(mut commands: Commands) {
                 _webgl2_padding: Default::default(),
             },
             ..default()
+        },
+        Skybox {
+            image: asset_server.load("textures/Ryfjallet_cubemap_astc4x4.ktx2"),
+            brightness: 1000.0,
         },
     ));
 }
@@ -73,17 +80,6 @@ fn setup_scene(
             ..default()
         },
         transform: Transform::default().looking_to(Vec3::new(-1.0, -0.7, -1.0), Vec3::X),
-        ..default()
-    });
-    // Sky
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Sphere::default()),
-        material: materials.add(StandardMaterial {
-            unlit: true,
-            base_color: Color::linear_rgb(0.1, 0.6, 1.0),
-            ..default()
-        }),
-        transform: Transform::default().with_scale(Vec3::splat(-4000.0)),
         ..default()
     });
     // Ground
@@ -254,6 +250,7 @@ fn spawn_trees(
 fn setup_ui(mut commands: Commands) {
     let style = TextStyle {
         font_size: 20.0,
+        color: Color::BLACK,
         ..default()
     };
     commands.spawn(

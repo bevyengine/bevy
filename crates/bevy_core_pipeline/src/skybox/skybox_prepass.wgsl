@@ -37,7 +37,9 @@ fn vertex_main(@builtin(vertex_index) vertex_index: u32) -> FullscreenVertexOutp
 
 @fragment
 fn fragment_main(in: FullscreenVertexOutput) -> @location(1) vec4<f32> {
-    // TODO: Fill this in
-    // Use `view` above
-    return vec4(1.0, 1.0, 0.0, 1.0);
+    let clip_pos = in.uv * vec2(2.0, -2.0) + vec2(-1.0, 1.0);
+    let world_pos = view.inverse_view_proj * vec4(clip_pos, 0.001, 1.0);
+    let prev_clip_pos = (previous_view.view_proj * world_pos).xy;
+    let velocity = (clip_pos - prev_clip_pos) * vec2(0.5, -0.5);
+    return vec4(velocity.x, velocity.y, 0.0, 1.0);
 }
