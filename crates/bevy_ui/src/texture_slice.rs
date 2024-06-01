@@ -108,11 +108,10 @@ fn compute_texture_slices(
                 image.texture_descriptor.size.width as f32,
                 image.texture_descriptor.size.height as f32,
             );
-            let rect = Rect {
+            Rect {
                 min: Vec2::ZERO,
                 max: size,
-            };
-            rect
+            }
         }
     };
     let slices = match scale_mode {
