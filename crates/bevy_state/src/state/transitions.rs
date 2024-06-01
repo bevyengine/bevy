@@ -202,7 +202,7 @@ pub fn apply_state_transition<S: FreelyMutableState>(
     *next_state_resource.as_mut() = NextState::<S>::Unchanged;
 }
 
-/// Returns the latest state transition event, if any are available.
+/// Returns the latest state transition event of type `S`, if any are available.
 pub fn last_transition<S: States>(
     mut reader: EventReader<StateTransitionEvent<S>>,
 ) -> Option<StateTransitionEvent<S>> {
