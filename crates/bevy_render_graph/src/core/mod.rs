@@ -127,8 +127,8 @@ impl<'g> RenderGraph<'g> {
         render_queue.submit([encoder.finish()]);
     }
 
-    fn label(&self, id: RenderResourceId) -> Label<'g> {
-        todo!()
+    fn label(&self, id: RenderResourceId) -> &Label<'g> {
+        self.resources.label(id)
     }
 
     fn generation(&self, id: RenderResourceId) -> RenderResourceGeneration {

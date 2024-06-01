@@ -43,6 +43,12 @@ impl RenderResource for Buffer {
     ) -> Option<&'a Self::Meta<'g>> {
         graph.get_buffer_meta(resource)
     }
+
+    #[inline]
+    fn meta_label<'g>(meta: &Self::Meta<'g>) -> crate::core::Label<'g> {
+        let label = meta.descriptor.label?;
+        Some(Cow::Borrowed(label))
+    }
 }
 
 impl WriteRenderResource for Buffer {}

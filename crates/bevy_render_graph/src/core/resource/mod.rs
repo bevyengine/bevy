@@ -16,7 +16,7 @@ use bevy_render::{
     renderer::RenderDevice,
 };
 
-use super::{debug::RenderGraphDebug, NodeContext, RenderGraph, RenderGraphBuilder};
+use super::{debug::RenderGraphDebug, Label, NodeContext, RenderGraph, RenderGraphBuilder};
 
 pub mod bind_group;
 pub mod buffer;
@@ -42,6 +42,7 @@ pub enum ResourceType {
 }
 
 struct ResourceInfo<'g> {
+    label: Label<'g>,
     resource_type: ResourceType,
     generation: RenderResourceGeneration,
     dependencies: Option<RenderDependencies<'g>>,
@@ -50,6 +51,7 @@ struct ResourceInfo<'g> {
 impl<'g> ResourceTracker<'g> {
     pub(super) fn new_resource(
         &mut self,
+        label: Label<'g>,
         resource_type: ResourceType,
         dependencies: Option<RenderDependencies<'g>>,
     ) -> RenderResourceId {
@@ -70,6 +72,7 @@ impl<'g> ResourceTracker<'g> {
         let id = self.next_id;
         self.next_id += 1;
         self.resources.push(ResourceInfo {
+            label,
             resource_type,
             generation: 0,
             dependencies,
@@ -89,6 +92,10 @@ impl<'g> ResourceTracker<'g> {
             .iter()
             .map(|id| self.resources[id.id as usize].generation)
             .sum()
+    }
+
+    pub(super) fn label(&self, id: RenderResourceId) -> &Label<'g> {
+        &self.resources[id.id as usize].label
     }
 
     pub(super) fn dependencies_ready(
@@ -184,6 +191,8 @@ pub trait RenderResource: Sized + Send + Sync + Clone + Hash + Eq + 'static {
         graph: &'a RenderGraphBuilder<'b, 'g>,
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'a Self::Meta<'g>>;
+
+    fn meta_label<'g>(meta: &Self::Meta<'g>) -> Label<'g>;
 }
 
 pub trait WriteRenderResource: RenderResource {}
@@ -252,7 +261,7 @@ impl<'g, R: RenderResource> RenderResources<'g, R> {
             .get(&resource)
             .copied()
             .unwrap_or_else(|| {
-                let id = tracker.new_resource(R::RESOURCE_TYPE, dependencies);
+                let id = tracker.new_resource(R::meta_label(&meta), R::RESOURCE_TYPE, dependencies);
                 self.existing_resources.insert(resource.clone(), id);
                 self.resources
                     .insert(id, RenderResourceMeta { meta, resource });
@@ -266,7 +275,7 @@ impl<'g, R: RenderResource> RenderResources<'g, R> {
         dependencies: Option<RenderDependencies<'g>>,
         meta: R::Meta<'g>,
     ) -> RenderResourceId {
-        let id = tracker.new_resource(R::RESOURCE_TYPE, dependencies);
+        let id = tracker.new_resource(R::meta_label(&meta), R::RESOURCE_TYPE, dependencies);
         self.queued_resources.insert(id, meta);
         id
     }

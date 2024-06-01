@@ -2,7 +2,7 @@ use bevy_math::FloatOrd;
 use std::borrow::Cow;
 use std::hash::Hash;
 
-use crate::core::{NodeContext, RenderGraphBuilder};
+use crate::core::{Label, NodeContext, RenderGraphBuilder};
 
 use bevy_render::render_resource::{
     FilterMode, Sampler, SamplerBindingType, SamplerDescriptor, Texture, TextureDescriptor,
@@ -41,6 +41,12 @@ impl RenderResource for Texture {
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'a Self::Meta<'g>> {
         graph.get_texture_meta(resource)
+    }
+
+    #[inline]
+    fn meta_label<'g>(meta: &Self::Meta<'g>) -> Label<'g> {
+        let label = meta.label?;
+        Some(Cow::Borrowed(label))
     }
 }
 
@@ -137,6 +143,12 @@ impl RenderResource for TextureView {
     ) -> Option<&'a Self::Meta<'g>> {
         graph.get_texture_view_meta(resource)
     }
+
+    #[inline]
+    fn meta_label<'g>(meta: &Self::Meta<'g>) -> Label<'g> {
+        let label = meta.descriptor.label?;
+        Some(Cow::Borrowed(label))
+    }
 }
 
 impl WriteRenderResource for TextureView {}
@@ -180,6 +192,12 @@ impl RenderResource for Sampler {
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'a Self::Meta<'g>> {
         graph.get_sampler_meta(resource)
+    }
+
+    #[inline]
+    fn meta_label<'g>(meta: &Self::Meta<'g>) -> Label<'g> {
+        let label = meta.0.label?;
+        Some(Cow::Borrowed(label))
     }
 }
 

@@ -111,6 +111,11 @@ impl RenderResource for BindGroupLayout {
     ) -> Option<&'a Self::Meta<'g>> {
         graph.get_bind_group_layout_meta(resource)
     }
+
+    #[inline]
+    fn meta_label<'g>(meta: &Self::Meta<'g>) -> Label<'g> {
+        meta.descriptor.label.clone()
+    }
 }
 
 impl CacheRenderResource for BindGroupLayout {
@@ -434,6 +439,11 @@ impl RenderResource for BindGroup {
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'a Self::Meta<'g>> {
         graph.get_bind_group_meta(resource)
+    }
+
+    #[inline]
+    fn meta_label<'g>(meta: &Self::Meta<'g>) -> Label<'g> {
+        meta.descriptor.label.clone()
     }
 }
 

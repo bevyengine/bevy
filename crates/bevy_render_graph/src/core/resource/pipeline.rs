@@ -14,7 +14,7 @@ use bevy_render::{
     },
 };
 
-use crate::core::{NodeContext, RenderGraph, RenderGraphBuilder};
+use crate::core::{Label, NodeContext, RenderGraph, RenderGraphBuilder};
 
 use super::{
     IntoRenderResource, RenderDependencies, RenderHandle, RenderResource, RenderResourceId,
@@ -172,7 +172,11 @@ impl<'g> RenderGraphPipelines<'g> {
             .get(&pipeline)
             .copied()
             .unwrap_or_else(|| {
-                let id = tracker.new_resource(ResourceType::RenderPipeline, Some(dependencies)); //todo: add layout dependencies
+                let id = tracker.new_resource(
+                    descriptor.label.clone(),
+                    ResourceType::RenderPipeline,
+                    Some(dependencies),
+                ); //todo: add layout dependencies
                 self.render_pipelines.insert(
                     id,
                     RenderPipelineMeta {
@@ -194,7 +198,11 @@ impl<'g> RenderGraphPipelines<'g> {
             .get(&pipeline)
             .copied()
             .unwrap_or_else(|| {
-                let id = tracker.new_resource(ResourceType::ComputePipeline, None);
+                let id = tracker.new_resource(
+                    descriptor.label.clone(),
+                    ResourceType::ComputePipeline,
+                    None,
+                );
                 self.compute_pipelines.insert(
                     id,
                     ComputePipelineMeta {
@@ -215,7 +223,11 @@ impl<'g> RenderGraphPipelines<'g> {
         for layout in &descriptor.layout {
             dependencies.read(*layout);
         }
-        let id = tracker.new_resource(ResourceType::RenderPipeline, Some(dependencies.clone()));
+        let id = tracker.new_resource(
+            descriptor.label.clone(),
+            ResourceType::RenderPipeline,
+            Some(dependencies.clone()),
+        );
         self.queued_render_pipelines
             .insert(id, (dependencies, descriptor));
         id
@@ -230,7 +242,11 @@ impl<'g> RenderGraphPipelines<'g> {
         for layout in &descriptor.layout {
             dependencies.read(*layout);
         }
-        let id = tracker.new_resource(ResourceType::ComputePipeline, Some(dependencies.clone()));
+        let id = tracker.new_resource(
+            descriptor.label.clone(),
+            ResourceType::ComputePipeline,
+            Some(dependencies.clone()),
+        );
         self.queued_compute_pipelines
             .insert(id, (dependencies, descriptor));
         id
@@ -361,6 +377,11 @@ impl RenderResource for RenderPipeline {
     ) -> Option<&'a Self::Meta<'g>> {
         graph.get_render_pipeline_meta(resource)
     }
+
+    #[inline]
+    fn meta_label<'g>(meta: &Self::Meta<'g>) -> Label<'g> {
+        meta.label.clone()
+    }
 }
 
 impl<'g> IntoRenderResource<'g> for RenderGraphRenderPipelineDescriptor<'g> {
@@ -402,6 +423,11 @@ impl RenderResource for ComputePipeline {
         resource: RenderHandle<'g, Self>,
     ) -> Option<&'a Self::Meta<'g>> {
         graph.get_compute_pipeline_meta(resource)
+    }
+
+    #[inline]
+    fn meta_label<'g>(meta: &Self::Meta<'g>) -> Label<'g> {
+        meta.label.clone()
     }
 }
 
