@@ -413,12 +413,82 @@ mod test {
                 &mut GlobalTransform,
                 &Transform,
                 &Transform,
+                Without<Parent>,
+                (),
+            >| {
+                query.for_each_mut_with(
+                    |global, transform| {
+                        global.0 = transform.0;
+                        global.0
+                    },
+                    |_, parent, global, transform| {
+                        global.0 = transform.0 + *parent;
+                        global.0
+                    },
+                );
+            },
+        );
+
+        world
+            .query::<(&GlobalTransform, &ShouldBe)>()
+            .iter(&world)
+            .for_each(|(a, b)| {
+                assert_eq!(a.0, b.0);
+            });
+
+        let mut world = test_world();
+        world.run_system_once(
+            |mut query: QueryRecursive<
+                &mut GlobalTransform,
+                &Transform,
+                &Transform,
                 (Without<Parent>, Without<Trim>),
                 Without<Trim>,
             >| {
                 query.for_each_mut(
                     |global, transform| global.0 = transform.0,
                     |parent, global, transform| global.0 = transform.0 + parent.0,
+                );
+            },
+        );
+        world
+            .query_filtered::<(&GlobalTransform, &ShouldBe), Without<Trimmed>>()
+            .iter(&world)
+            .for_each(|(a, b)| {
+                assert_eq!(a.0, b.0);
+            });
+        world
+            .query_filtered::<&GlobalTransform, With<Trimmed>>()
+            .iter(&world)
+            .for_each(|a| {
+                assert_eq!(a.0, 0);
+            });
+
+        world
+            .query::<(&GlobalTransform, &ShouldBe)>()
+            .iter(&world)
+            .for_each(|(a, b)| {
+                assert_eq!(a.0, b.0);
+            });
+
+        let mut world = test_world();
+        world.run_system_once(
+            |mut query: QueryRecursive<
+                &mut GlobalTransform,
+                &Transform,
+                &Transform,
+                (Without<Parent>, Without<Trim>),
+                Without<Trim>,
+            >| {
+                query.for_each_mut_with(
+                    |global, transform| {
+                        global.0 = transform.0;
+                        global.0
+                    },
+                    |_, parent, global, transform| {
+                        global.0 = transform.0 + *parent;
+                        global.0
+                    },
                 );
             },
         );
