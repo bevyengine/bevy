@@ -22,7 +22,7 @@ where
     ///
     /// # Arguments
     /// - `position` sets the center of this circle.
-    /// - `direction_angle` sets the clockwise  angle in radians between `Vec2::Y` and
+    /// - `direction_angle` sets the counter-clockwise  angle in radians between `Vec2::Y` and
     /// the vector from `position` to the midpoint of the arc.
     /// - `arc_angle` sets the length of this arc, in radians.
     /// - `radius` controls the distance from `position` to this arc, and thus its curvature.
@@ -128,8 +128,10 @@ fn arc_2d_inner(
     (0..resolution + 1).map(move |i| {
         let start = direction_angle - arc_angle / 2.;
 
-        let angle = start + (i as f32 * (arc_angle / resolution as f32));
-        Vec2::from(angle.sin_cos()) * radius
+        let angle =
+            start + (i as f32 * (arc_angle / resolution as f32)) + std::f32::consts::FRAC_PI_2;
+
+        Vec2::new(angle.cos(), angle.sin()) * radius
     })
 }
 

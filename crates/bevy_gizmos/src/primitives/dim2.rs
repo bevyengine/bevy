@@ -151,9 +151,9 @@ where
         );
 
         let start = position
-            + primitive.arc.radius * Mat2::from_angle(-angle - primitive.arc.half_angle) * Vec2::Y;
+            + primitive.arc.radius * Mat2::from_angle(angle - primitive.arc.half_angle) * Vec2::Y;
         let end = position
-            + primitive.arc.radius * Mat2::from_angle(-angle + primitive.arc.half_angle) * Vec2::Y;
+            + primitive.arc.radius * Mat2::from_angle(angle + primitive.arc.half_angle) * Vec2::Y;
         self.line_2d(position, start, color);
         self.line_2d(position, end, color);
     }
@@ -191,9 +191,9 @@ where
         );
 
         let start = position
-            + primitive.arc.radius * Mat2::from_angle(-angle - primitive.arc.half_angle) * Vec2::Y;
+            + primitive.arc.radius * Mat2::from_angle(angle - primitive.arc.half_angle) * Vec2::Y;
         let end = position
-            + primitive.arc.radius * Mat2::from_angle(-angle + primitive.arc.half_angle) * Vec2::Y;
+            + primitive.arc.radius * Mat2::from_angle(angle + primitive.arc.half_angle) * Vec2::Y;
         self.line_2d(end, start, color);
     }
 }
@@ -302,8 +302,6 @@ where
             return;
         }
 
-        let rotation = Mat2::from_angle(angle);
-
         // transform points from the reference unit square to capsule "rectangle"
         let [top_left, top_right, bottom_left, bottom_right, top_center, bottom_center] = [
             [-1.0, 1.0],
@@ -325,11 +323,8 @@ where
         self.line_2d(bottom_left, top_left, polymorphic_color);
         self.line_2d(bottom_right, top_right, polymorphic_color);
 
-        // if the capsule is rotated we have to start the arc at a different offset angle,
-        // calculate that here
-        let angle_offset = (rotation * Vec2::Y).angle_between(Vec2::Y);
-        let start_angle_top = angle_offset;
-        let start_angle_bottom = PI + angle_offset;
+        let start_angle_top = angle;
+        let start_angle_bottom = PI + angle;
 
         // draw arcs
         self.arc_2d(
