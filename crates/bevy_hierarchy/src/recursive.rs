@@ -12,13 +12,15 @@ use crate::{Children, Parent};
 ///
 /// [`QueryRecursive`] is a generic data structure that accepts `5` type parameters:
 ///
-/// * `QShared` is present in all entities, a read only version of this item is passed down from parent to child during iteration.
-/// * `QRoot` is present on root entities only.
-/// * `QChild` is present on child entities only.
+/// * `QShared` is a [`QueryData`] present on all entities, a read only reference of this item is passed down from parent to child during iteration.
+/// * `QRoot` is a [`QueryData`] present on root entities only.
+/// * `QChild` is a [`QueryData`] present on child entities only.
 /// * `FRoot` is a [`QueryFilter`] for root entities.
 /// * `FChild` is a [`QueryFilter`] for child entities, [`With<Parent>`] is automatically added.
 ///
-/// The user is responsible for excluding the all child entities in `FRoot` (for example use `Without<Parent>`).
+/// The user is responsible for excluding all child entities in `root`
+/// and make sure entities in `root` are not ancestors of each other,
+/// for example using `FRoot` `Without<Parent>`.
 ///
 /// # Example
 ///
@@ -69,7 +71,7 @@ pub struct QueryRecursive<
     FRoot: QueryFilter + 'static,
     FChild: QueryFilter + 'static,
 > {
-    root: Query<'w, 's, (QShared, QRoot, Option<&'static Children>), FRoot>,
+    root: Query<'w, 's, (Entity, QShared, QRoot, Option<&'static Children>), FRoot>,
     children: Query<'w, 's, (QShared, QChild, Option<&'static Children>), (FChild, With<Parent>)>,
     parent: Query<'w, 's, (Entity, &'static Parent)>,
 }
@@ -125,7 +127,7 @@ impl<
         mut root_fn: impl FnMut(&ReadItem<QShared>, ReadItem<QRoot>) -> T,
         mut child_fn: impl FnMut(&ReadItem<QShared>, &T, &ReadItem<QShared>, ReadItem<QChild>) -> T,
     ) {
-        for (shared, owned, children) in self.root.iter() {
+        for (actual_root, shared, owned, children) in self.root.iter() {
             let info = root_fn(&shared, owned);
             let Some(children) = children else {
                 continue;
@@ -134,13 +136,13 @@ impl<
                 // Safety: `self.children` is not fetched while this is running.
                 unsafe {
                     propagate(
-                        *entity,
+                        actual_root,
                         &shared,
                         &info,
                         &self.children.to_readonly(),
                         &self.parent,
                         *entity,
-                        |a, b, c, d| child_fn(a, b, c, d),
+                        &mut |a, b, c, d| child_fn(a, b, c, d),
                     );
                 };
             }
@@ -159,7 +161,7 @@ impl<
         mut root_fn: impl FnMut(&mut Item<QShared>, Item<QRoot>) -> T,
         mut child_fn: impl FnMut(&Item<QShared>, &T, &mut Item<QShared>, Item<QChild>) -> T,
     ) {
-        for (mut shared, owned, children) in self.root.iter_mut() {
+        for (actual_root, mut shared, owned, children) in self.root.iter_mut() {
             let info = root_fn(&mut shared, owned);
             let Some(children) = children else {
                 continue;
@@ -168,7 +170,7 @@ impl<
                 // Safety: `self.children` is not fetched while this is running.
                 unsafe {
                     propagate(
-                        *entity,
+                        actual_root,
                         &shared,
                         &info,
                         &self.children,
@@ -180,6 +182,11 @@ impl<
             }
         }
     }
+
+    // Note: if to be implemented in the future,
+    // `par_for_each_mut` is always unsafe unless we
+    // can guarantee root nodes are not ancestors of each other.
+    // This can be guaranteed if `Without<Parent>` is forced or verified to exist.
 }
 
 /// Recursively run a function on descendants, passing immutable references of parent to child.
@@ -207,7 +214,7 @@ unsafe fn propagate<
     main_query: &Query<(QShared, QMain, Option<&'static Children>), (Filter, With<Parent>)>,
     parent_query: &Query<(Entity, &Parent)>,
     entity: Entity,
-    mut function: impl FnMut(&Item<QShared>, &Info, &mut Item<QShared>, Item<QMain>) -> Info,
+    function: &mut impl FnMut(&Item<QShared>, &Info, &mut Item<QShared>, Item<QMain>) -> Info,
 ) {
     // SAFETY: This call cannot create aliased mutable references.
     //   - The top level iteration parallelizes on the roots of the hierarchy.
@@ -267,8 +274,165 @@ unsafe fn propagate<
                 main_query,
                 parent_query,
                 child,
-                &mut function,
+                function,
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::prelude::*;
+    use bevy_ecs::{prelude::*, system::RunSystemOnce};
+
+    #[derive(Component)]
+    pub struct ShouldBe(u32);
+    #[derive(Component)]
+    pub struct Transform(u32);
+    #[derive(Component, Default)]
+    pub struct GlobalTransform(u32);
+
+    #[derive(Component, Default)]
+    pub struct Trim;
+
+    #[derive(Component, Default)]
+    pub struct Trimmed;
+
+    fn test_world() -> World {
+        let mut world = World::new();
+        world
+            .spawn((Transform(1), GlobalTransform::default(), ShouldBe(1)))
+            .with_children(|s| {
+                s.spawn((Transform(1), GlobalTransform::default(), ShouldBe(2)))
+                    .with_children(|s| {
+                        s.spawn((Transform(2), GlobalTransform::default(), ShouldBe(4)));
+                        s.spawn((
+                            Transform(3),
+                            GlobalTransform::default(),
+                            ShouldBe(5),
+                            Trim,
+                            Trimmed,
+                        ))
+                        .with_children(|s| {
+                            s.spawn((
+                                Transform(0),
+                                GlobalTransform::default(),
+                                ShouldBe(5),
+                                Trimmed,
+                            ));
+                            s.spawn((
+                                Transform(2),
+                                GlobalTransform::default(),
+                                ShouldBe(7),
+                                Trimmed,
+                            ));
+                        });
+                    });
+                s.spawn((Transform(2), GlobalTransform::default(), ShouldBe(3)));
+                s.spawn((
+                    Transform(3),
+                    GlobalTransform::default(),
+                    ShouldBe(4),
+                    Trim,
+                    Trimmed,
+                ))
+                .with_children(|s| {
+                    s.spawn((
+                        Transform(1),
+                        GlobalTransform::default(),
+                        ShouldBe(5),
+                        Trimmed,
+                    ));
+                    s.spawn((
+                        Transform(4),
+                        GlobalTransform::default(),
+                        ShouldBe(8),
+                        Trimmed,
+                    ));
+                });
+                s.spawn((
+                    Transform(4),
+                    GlobalTransform::default(),
+                    ShouldBe(5),
+                    Trim,
+                    Trimmed,
+                ));
+            });
+        world
+    }
+
+    #[test]
+    pub fn test() {
+        let mut world = test_world();
+        world.run_system_once(
+            |mut query: QueryRecursive<
+                (&Transform, &mut GlobalTransform),
+                (),
+                (),
+                Without<Parent>,
+                (),
+            >| {
+                query.for_each_mut(
+                    |(transform, global), ()| global.0 = transform.0,
+                    |(_, parent), (transform, global), ()| global.0 = transform.0 + parent.0,
+                );
+            },
+        );
+        world
+            .query::<(&GlobalTransform, &ShouldBe)>()
+            .iter(&world)
+            .for_each(|(a, b)| {
+                assert_eq!(a.0, b.0);
+            });
+
+        let mut world = test_world();
+        world.run_system_once(
+            |mut query: QueryRecursive<
+                &mut GlobalTransform,
+                &Transform,
+                &Transform,
+                Without<Parent>,
+                (),
+            >| {
+                query.for_each_mut(
+                    |global, transform| global.0 = transform.0,
+                    |parent, global, transform| global.0 = transform.0 + parent.0,
+                );
+            },
+        );
+        world
+            .query::<(&GlobalTransform, &ShouldBe)>()
+            .iter(&world)
+            .for_each(|(a, b)| {
+                assert_eq!(a.0, b.0);
+            });
+
+        let mut world = test_world();
+        world.run_system_once(
+            |mut query: QueryRecursive<
+                &mut GlobalTransform,
+                &Transform,
+                &Transform,
+                (Without<Parent>, Without<Trim>),
+                Without<Trim>,
+            >| {
+                query.for_each_mut(
+                    |global, transform| global.0 = transform.0,
+                    |parent, global, transform| global.0 = transform.0 + parent.0,
+                );
+            },
+        );
+        world
+            .query_filtered::<(&GlobalTransform, &ShouldBe), Without<Trimmed>>()
+            .iter(&world)
+            .for_each(|(a, b)| {
+                assert_eq!(a.0, b.0);
+            });
+        world
+            .query_filtered::<&GlobalTransform, With<Trimmed>>()
+            .iter(&world)
+            .for_each(|a| {
+                assert_eq!(a.0, 0);
+            });
     }
 }
