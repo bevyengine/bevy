@@ -202,7 +202,8 @@ pub fn apply_state_transition<S: FreelyMutableState>(
     *next_state_resource.as_mut() = NextState::<S>::Unchanged;
 }
 
-pub(crate) fn last_event<S: States>(
+/// Returns the latest state transition event, if any are available.
+pub fn last_transition<S: States>(
     mut reader: EventReader<StateTransitionEvent<S>>,
 ) -> Option<StateTransitionEvent<S>> {
     reader.read().last().cloned()
