@@ -81,23 +81,17 @@ pub fn fullscreen_pass<'g>(
     });
 
     let should_clear = graph.is_fresh(target);
-    let ops = if should_clear {
-        if let Some(clear_color) = clear_color {
-            Operations {
-                load: LoadOp::Clear(clear_color.into()),
-                store: StoreOp::Store,
+    let ops = Operations {
+        load: if should_clear {
+            if let Some(clear_color) = clear_color {
+                LoadOp::Clear(clear_color.into())
+            } else {
+                LoadOp::Load
             }
         } else {
-            Operations {
-                load: LoadOp::Load,
-                store: StoreOp::Store,
-            }
-        }
-    } else {
-        Operations {
-            load: LoadOp::Load,
-            store: StoreOp::Store,
-        }
+            LoadOp::Load
+        },
+        store: StoreOp::Store,
     };
 
     let mut dependencies = RenderDependencies::new();
