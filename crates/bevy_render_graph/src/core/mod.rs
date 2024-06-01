@@ -25,7 +25,7 @@ use resource::{IntoRenderResource, RenderHandle, RenderResource, RenderResources
 use crate::{core::debug::RenderGraphDebug, deps};
 
 use self::{
-    debug::RenderGraphDebugContext,
+    debug::{RenderGraphDebugContext, RenderGraphDebugWrapper},
     resource::{
         bind_group::{make_bind_group, RenderGraphBindGroupLayoutMeta, RenderGraphBindGroupMeta},
         buffer::RenderGraphBufferMeta,
@@ -129,6 +129,10 @@ impl<'g> RenderGraph<'g> {
 
     fn label(&self, id: RenderResourceId) -> &Label<'g> {
         self.resources.label(id)
+    }
+
+    fn as_debug_ctx(&self) -> debug::RenderGraphDebugContext<'_, 'g> {
+        debug::RenderGraphDebugContext(&self)
     }
 
     fn generation(&self, id: RenderResourceId) -> RenderResourceGeneration {
@@ -367,8 +371,8 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
     pub fn debug<'a, T: RenderGraphDebug<'g>>(
         &'a self,
         value: &'a T,
-    ) -> RenderGraphDebugContext<'a, 'g, T> {
-        value.debug(self.graph)
+    ) -> RenderGraphDebugWrapper<'a, 'g, T> {
+        self.graph.as_debug_ctx().debug(value)
     }
 }
 
@@ -732,11 +736,11 @@ impl<'n, 'g: 'n> NodeContext<'n, 'g> {
         })
     }
 
-    fn debug<'a, T: RenderGraphDebug<'g>>(
+    pub fn debug<'a, T: RenderGraphDebug<'g>>(
         &'a self,
         value: &'a T,
-    ) -> RenderGraphDebugContext<'a, 'g, T> {
-        value.debug(self.graph)
+    ) -> RenderGraphDebugWrapper<'a, 'g, T> {
+        self.graph.as_debug_ctx().debug(value)
     }
 
     fn get_texture(&self, texture: RenderHandle<'g, Texture>) -> Option<&Texture> {

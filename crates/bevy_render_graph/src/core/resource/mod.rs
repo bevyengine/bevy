@@ -16,7 +16,10 @@ use bevy_render::{
     renderer::RenderDevice,
 };
 
-use super::{debug::RenderGraphDebug, Label, NodeContext, RenderGraph, RenderGraphBuilder};
+use super::{
+    debug::{RenderGraphDebug, RenderGraphDebugContext},
+    Label, NodeContext, RenderGraph, RenderGraphBuilder,
+};
 
 pub mod bind_group;
 pub mod buffer;
@@ -420,11 +423,11 @@ impl<'g, R: RenderResource> Clone for RenderHandle<'g, R> {
 impl<'g, R: RenderResource> RenderGraphDebug<'g> for RenderHandle<'g, R> {
     fn fmt(
         &self,
-        graph: &RenderGraph<'g>,
+        ctx: RenderGraphDebugContext<'_, 'g>,
         f: &mut std::fmt::Formatter,
     ) -> Result<(), std::fmt::Error> {
         f.debug_struct(type_name_of_val(self))
-            .field("label", &graph.label(self.id))
+            .field("label", &ctx.label(*self))
             .field("id", &self.id)
             .finish()
     }
