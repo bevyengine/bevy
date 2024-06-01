@@ -103,7 +103,6 @@ fn setup(
             "Loading Environment Map...",
             TextStyle {
                 font_size: 36.0,
-                color: Color::WHITE,
                 ..default()
             },
         )

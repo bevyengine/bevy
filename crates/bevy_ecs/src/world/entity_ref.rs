@@ -1178,6 +1178,22 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
+    /// Removes all components associated with the entity.
+    pub fn clear(&mut self) -> &mut Self {
+        let component_ids: Vec<ComponentId> = self.archetype().components().collect();
+        let components = &mut self.world.components;
+
+        let bundle_id = self
+            .world
+            .bundles
+            .init_dynamic_info(components, component_ids.as_slice());
+
+        // SAFETY: the `BundleInfo` for this `component_id` is initialized above
+        self.location = unsafe { self.remove_bundle(bundle_id) };
+
+        self
+    }
+
     /// Despawns the current entity.
     ///
     /// See [`World::despawn`] for more details.

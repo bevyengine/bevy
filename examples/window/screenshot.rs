@@ -64,10 +64,7 @@ fn setup(
     commands.spawn(
         TextBundle::from_section(
             "Press <spacebar> to save a screenshot to disk",
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
+            TextStyle::default(),
         )
         .with_style(Style {
             position_type: PositionType::Absolute,

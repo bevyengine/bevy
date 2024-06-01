@@ -104,14 +104,18 @@ fn setup(
 
     commands
         .spawn(SceneBundle {
-            scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
+            scene: asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
             ..default()
         })
         .insert(MainModel::HighPoly);
 
     commands
         .spawn(SceneBundle {
-            scene: asset_server.load("models/FlightHelmetLowPoly/FlightHelmetLowPoly.gltf#Scene0"),
+            scene: asset_server.load(
+                GltfAssetLabel::Scene(0)
+                    .from_asset("models/FlightHelmetLowPoly/FlightHelmetLowPoly.gltf"),
+            ),
             ..default()
         })
         .insert(MainModel::LowPoly);
@@ -154,7 +158,7 @@ fn setup(
     commands.spawn(
         TextBundle {
             text: app_status.create_text(),
-            ..TextBundle::default()
+            ..default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
@@ -323,10 +327,7 @@ Press WASD or use the mouse wheel to move the camera",
                     ' '
                 },
             ),
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
+            TextStyle::default(),
         )
     }
 }

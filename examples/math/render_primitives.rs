@@ -344,23 +344,13 @@ fn switch_cameras(current: Res<State<CameraActive>>, mut next: ResMut<NextState<
     next.set(next_state);
 }
 
-fn setup_text(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    cameras: Query<(Entity, &Camera)>,
-) {
+fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
     let active_camera = cameras
         .iter()
         .find_map(|(entity, camera)| camera.is_active.then_some(entity))
         .expect("run condition ensures existence");
     let text = format!("{text}", text = PrimitiveSelected::default());
-    let font_size = 24.0;
-    let font: Handle<Font> = asset_server.load("fonts/FiraMono-Medium.ttf");
-    let style = TextStyle {
-        font,
-        font_size,
-        color: Color::WHITE,
-    };
+    let style = TextStyle::default();
     let instructions = "Press 'C' to switch between 2D and 3D mode\n\
         Press 'Up' or 'Down' to switch to the next/previous primitive";
     let text = [

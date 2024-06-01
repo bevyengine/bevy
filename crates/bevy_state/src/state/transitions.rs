@@ -32,9 +32,9 @@ pub struct OnExit<S: States>(pub S);
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnTransition<S: States> {
     /// The state being exited.
-    pub from: S,
+    pub exited: S,
     /// The state being entered.
-    pub to: S,
+    pub entered: S,
 }
 
 /// Runs [state transitions](States).
@@ -46,10 +46,10 @@ pub struct StateTransition;
 /// If you know exactly what state you want to respond to ahead of time, consider [`OnEnter`], [`OnTransition`], or [`OnExit`]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Event)]
 pub struct StateTransitionEvent<S: States> {
-    /// the state we were in before
-    pub before: Option<S>,
-    /// the state we're in now
-    pub after: Option<S>,
+    /// The state being exited.
+    pub exited: Option<S>,
+    /// The state being entered.
+    pub entered: Option<S>,
 }
 
 /// Applies manual state transitions using [`NextState<S>`].
@@ -96,8 +96,8 @@ pub(crate) fn internal_apply_state_transition<S: States>(
                         let exited = mem::replace(&mut state_resource.0, entered.clone());
 
                         event.send(StateTransitionEvent {
-                            before: Some(exited.clone()),
-                            after: Some(entered.clone()),
+                            exited: Some(exited.clone()),
+                            entered: Some(entered.clone()),
                         });
                     }
                 }
@@ -106,8 +106,8 @@ pub(crate) fn internal_apply_state_transition<S: States>(
                     commands.insert_resource(State(entered.clone()));
 
                     event.send(StateTransitionEvent {
-                        before: None,
-                        after: Some(entered.clone()),
+                        exited: None,
+                        entered: Some(entered.clone()),
                     });
                 }
             };
@@ -118,8 +118,8 @@ pub(crate) fn internal_apply_state_transition<S: States>(
                 commands.remove_resource::<State<S>>();
 
                 event.send(StateTransitionEvent {
-                    before: Some(resource.get().clone()),
-                    after: None,
+                    exited: Some(resource.get().clone()),
+                    entered: None,
                 });
             }
         }
@@ -215,8 +215,8 @@ pub(crate) fn should_run_transition<S: States, T: ScheduleLabel>(
 
             return (
                 Some(StateTransitionEvent {
-                    before: None,
-                    after: Some(res.get().clone()),
+                    exited: None,
+                    entered: Some(res.get().clone()),
                 }),
                 PhantomData,
             );
@@ -232,12 +232,11 @@ pub(crate) fn run_enter<S: States>(
     let Some(transition) = transition else {
         return;
     };
-
-    let Some(after) = transition.after else {
+    let Some(entered) = transition.entered else {
         return;
     };
 
-    let _ = world.try_run_schedule(OnEnter(after));
+    let _ = world.try_run_schedule(OnEnter(entered));
 }
 
 pub(crate) fn run_exit<S: States>(
@@ -247,12 +246,11 @@ pub(crate) fn run_exit<S: States>(
     let Some(transition) = transition else {
         return;
     };
-
-    let Some(before) = transition.before else {
+    let Some(exited) = transition.exited else {
         return;
     };
 
-    let _ = world.try_run_schedule(OnExit(before));
+    let _ = world.try_run_schedule(OnExit(exited));
 }
 
 pub(crate) fn run_transition<S: States>(
@@ -265,12 +263,12 @@ pub(crate) fn run_transition<S: States>(
     let Some(transition) = transition else {
         return;
     };
-    let Some(from) = transition.before else {
+    let Some(exited) = transition.exited else {
         return;
     };
-    let Some(to) = transition.after else {
+    let Some(entered) = transition.entered else {
         return;
     };
 
-    let _ = world.try_run_schedule(OnTransition { from, to });
+    let _ = world.try_run_schedule(OnTransition { exited, entered });
 }
