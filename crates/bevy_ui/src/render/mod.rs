@@ -797,7 +797,7 @@ pub fn extract_uinode_text(
                     color,
                     rect,
                     image: atlas_info.texture.id(),
-                    atlas_scaling: Some(Vec2::splat(inverse_scale_factor)),//Some(atlas.size.as_vec2() * inverse_scale_factor),
+                    atlas_scaling: Some(Vec2::splat(inverse_scale_factor)),
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
@@ -1096,7 +1096,10 @@ pub fn prepare_uinodes(
                         [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
                     } else {
                         let atlas_image = gpu_images.get(extracted_uinode.image);
-                        let atlas_extent = atlas_image.map(|image| image.size.as_vec2()).unwrap_or(uinode_rect.max) * extracted_uinode.atlas_scaling.unwrap_or(Vec2::ONE);
+                        let atlas_extent = atlas_image
+                            .map(|image| image.size.as_vec2())
+                            .unwrap_or(uinode_rect.max)
+                            * extracted_uinode.atlas_scaling.unwrap_or(Vec2::ONE);
                         if extracted_uinode.flip_x {
                             std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
                             positions_diff[0].x *= -1.;

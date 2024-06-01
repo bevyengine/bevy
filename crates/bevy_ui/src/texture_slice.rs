@@ -100,7 +100,7 @@ fn compute_texture_slices(
     let texture_rect = match atlas {
         Some(a) => {
             let layout = atlas_layouts.get(&a.layout)?;
-                layout.textures.get(a.index)?.as_rect()
+            layout.textures.get(a.index)?.as_rect()
         }
         None => {
             let image = images.get(&image_handle.texture)?;
