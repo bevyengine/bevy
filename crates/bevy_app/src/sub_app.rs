@@ -306,13 +306,13 @@ impl SubApp {
             self.init_resource::<State<S>>()
                 .init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>();
+            let schedule = self.get_schedule_mut(StateTransition).unwrap();
+            S::register_state(schedule);
             let state = self.world.resource::<State<S>>().get().clone();
             self.world.send_event(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
             });
-            let schedule = self.get_schedule_mut(StateTransition).unwrap();
-            S::register_state(schedule);
         }
 
         self
@@ -326,12 +326,12 @@ impl SubApp {
             self.insert_resource::<State<S>>(State::new(state.clone()))
                 .init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>();
+            let schedule = self.get_schedule_mut(StateTransition).unwrap();
+            S::register_state(schedule);
             self.world.send_event(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
             });
-            let schedule = self.get_schedule_mut(StateTransition).unwrap();
-            S::register_state(schedule);
         }
 
         self
@@ -348,6 +348,11 @@ impl SubApp {
             self.add_event::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
             S::register_computed_state_systems(schedule);
+            let state = self.world.resource::<State<S>>().get().clone();
+            self.world.send_event(StateTransitionEvent {
+                exited: None,
+                entered: Some(state),
+            });
         }
 
         self
@@ -365,6 +370,11 @@ impl SubApp {
             self.add_event::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
             S::register_sub_state_systems(schedule);
+            let state = self.world.resource::<State<S>>().get().clone();
+            self.world.send_event(StateTransitionEvent {
+                exited: None,
+                entered: Some(state),
+            });
         }
 
         self

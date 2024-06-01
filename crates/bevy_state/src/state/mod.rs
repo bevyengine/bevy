@@ -497,4 +497,36 @@ mod tests {
             "Should Only Exit Twice"
         );
     }
+
+    #[test]
+    fn all_state_events_fire_during_startup() {
+        let mut world = World::new();
+        setup_state_transitions_in_world(&mut world, Some(Startup.intern()));
+        EventRegistry::register_event::<StateTransitionEvent<SimpleState>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<TestComputedState>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<SubState>>(&mut world);
+        world.init_resource::<State<SimpleState>>();
+        let mut schedules = world.resource_mut::<Schedules>();
+        let apply_changes = schedules
+            .get_mut(StateTransition)
+            .expect("State Transition Schedule Doesn't Exist");
+        SimpleState::register_state(apply_changes);
+        TestComputedState::register_computed_state_systems(apply_changes);
+        SubState::register_sub_state_systems(apply_changes);
+        world.send_event(StateTransitionEvent {
+            exited: None,
+            entered: Some(SimpleState::A),
+        });
+
+        world.run_schedule(Startup);
+        assert!(!world
+            .resource::<Events<StateTransitionEvent<SimpleState>>>()
+            .is_empty());
+        assert!(!world
+            .resource::<Events<StateTransitionEvent<SubState>>>()
+            .is_empty());
+        assert!(!world
+            .resource::<Events<StateTransitionEvent<TestComputedState>>>()
+            .is_empty());
+    }
 }
