@@ -12,20 +12,19 @@ use bevy_render::{
     render_resource::{
         binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
         BindGroupLayoutEntries, CachedRenderPipelineId, CompareFunction, DepthStencilState,
-        FragmentState, PipelineCache, RenderPipelineDescriptor, Shader, ShaderStages,
-        SpecializedRenderPipeline, SpecializedRenderPipelines, VertexState,
+        FragmentState, MultisampleState, PipelineCache, RenderPipelineDescriptor, Shader,
+        ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines,
     },
     renderer::RenderDevice,
-    view::{ViewUniform, ViewUniforms},
+    view::{Msaa, ViewUniform, ViewUniforms},
 };
 use bevy_utils::prelude::default;
-use bitflags::bitflags;
 
 use crate::{
     core_3d::CORE_3D_DEPTH_FORMAT,
     prepass::{
-        prepass_target_descriptors, DeferredPrepass, MotionVectorPrepass, NormalPrepass,
-        PreviousViewData, PreviousViewUniforms,
+        prepass_target_descriptors, MotionVectorPrepass, NormalPrepass, PreviousViewData,
+        PreviousViewUniforms,
     },
     Skybox,
 };
@@ -37,12 +36,10 @@ pub struct SkyboxPrepassPipeline {
     bind_group_layout: BindGroupLayout,
 }
 
-bitflags! {
-    #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-    pub struct SkyboxPrepassPipelineKey: u8 {
-        const NORMAL_PREPASS    = 0x1;
-        const DEFERRED_PREPASS  = 0x2;
-    }
+#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+pub struct SkyboxPrepassPipelineKey {
+    samples: u32,
+    normal_prepass: bool,
 }
 
 #[derive(Component)]
@@ -78,12 +75,7 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
             label: Some("skybox_prepass_pipeline".into()),
             layout: vec![self.bind_group_layout.clone()],
             push_constant_ranges: vec![],
-            vertex: VertexState {
-                shader: SKYBOX_PREPASS_SHADER_HANDLE,
-                shader_defs: vec![],
-                entry_point: "vertex_main".into(),
-                buffers: vec![],
-            },
+            vertex: crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state(),
             primitive: default(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
@@ -92,16 +84,16 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
                 stencil: default(),
                 bias: default(),
             }),
-            multisample: default(),
+            multisample: MultisampleState {
+                count: key.samples,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
             fragment: Some(FragmentState {
                 shader: SKYBOX_PREPASS_SHADER_HANDLE,
                 shader_defs: vec![],
                 entry_point: "fragment_main".into(),
-                targets: prepass_target_descriptors(
-                    key.contains(SkyboxPrepassPipelineKey::NORMAL_PREPASS),
-                    true,
-                    key.contains(SkyboxPrepassPipelineKey::DEFERRED_PREPASS),
-                ),
+                targets: prepass_target_descriptors(key.normal_prepass, true, false),
             }),
         }
     }
@@ -111,16 +103,15 @@ pub fn prepare_skybox_prepass_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPrepassPipeline>>,
+    msaa: Res<Msaa>,
     pipeline: Res<SkyboxPrepassPipeline>,
-    views: Query<
-        (Entity, Has<NormalPrepass>, Has<DeferredPrepass>),
-        (With<Skybox>, With<MotionVectorPrepass>),
-    >,
+    views: Query<(Entity, Has<NormalPrepass>), (With<Skybox>, With<MotionVectorPrepass>)>,
 ) {
-    for (entity, normal_prepass, deferred_prepass) in &views {
-        let mut pipeline_key = SkyboxPrepassPipelineKey::empty();
-        pipeline_key.set(SkyboxPrepassPipelineKey::NORMAL_PREPASS, normal_prepass);
-        pipeline_key.set(SkyboxPrepassPipelineKey::DEFERRED_PREPASS, deferred_prepass);
+    for (entity, normal_prepass) in &views {
+        let pipeline_key = SkyboxPrepassPipelineKey {
+            samples: msaa.samples(),
+            normal_prepass,
+        };
 
         let render_skybox_prepass_pipeline =
             pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key);
