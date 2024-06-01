@@ -306,6 +306,11 @@ impl SubApp {
             self.init_resource::<State<S>>()
                 .init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>();
+            let initial = self.world.resource::<State<S>>().get().clone();
+            self.world.send_event(StateTransitionEvent {
+                exited: None,
+                entered: Some(initial),
+            });
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
             S::register_state(schedule);
         }
@@ -318,10 +323,13 @@ impl SubApp {
     pub fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
         if !self.world.contains_resource::<State<S>>() {
             setup_state_transitions_in_world(&mut self.world, Some(Startup.intern()));
-            self.insert_resource::<State<S>>(State::new(state))
+            self.insert_resource::<State<S>>(State::new(state.clone()))
                 .init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>();
-
+            self.world.send_event(StateTransitionEvent {
+                exited: None,
+                entered: Some(state),
+            });
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
             S::register_state(schedule);
         }

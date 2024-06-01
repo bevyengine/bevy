@@ -1,11 +1,11 @@
-use std::{marker::PhantomData, mem, ops::DerefMut};
+use std::{marker::PhantomData, mem};
 
 use bevy_ecs::{
     event::{Event, EventReader, EventWriter},
     schedule::{
         InternedScheduleLabel, IntoSystemSetConfigs, Schedule, ScheduleLabel, Schedules, SystemSet,
     },
-    system::{Commands, In, Local, Res, ResMut},
+    system::{Commands, In, ResMut},
     world::World,
 };
 
@@ -202,34 +202,17 @@ pub fn apply_state_transition<S: FreelyMutableState>(
     *next_state_resource.as_mut() = NextState::<S>::Unchanged;
 }
 
-pub(crate) fn should_run_transition<S: States, T: ScheduleLabel>(
-    mut first: Local<bool>,
-    res: Option<Res<State<S>>>,
-    mut event: EventReader<StateTransitionEvent<S>>,
-) -> (Option<StateTransitionEvent<S>>, PhantomData<T>) {
-    let first_mut = first.deref_mut();
-    if !*first_mut {
-        *first_mut = true;
-        if let Some(res) = res {
-            event.clear();
-
-            return (
-                Some(StateTransitionEvent {
-                    exited: None,
-                    entered: Some(res.get().clone()),
-                }),
-                PhantomData,
-            );
-        }
-    }
-    (event.read().last().cloned(), PhantomData)
+pub(crate) fn last_event<S: States>(
+    mut reader: EventReader<StateTransitionEvent<S>>,
+) -> Option<StateTransitionEvent<S>> {
+    reader.read().last().cloned()
 }
 
 pub(crate) fn run_enter<S: States>(
-    In((transition, _)): In<(Option<StateTransitionEvent<S>>, PhantomData<OnEnter<S>>)>,
+    transition: In<Option<StateTransitionEvent<S>>>,
     world: &mut World,
 ) {
-    let Some(transition) = transition else {
+    let Some(transition) = transition.0 else {
         return;
     };
     let Some(entered) = transition.entered else {
@@ -240,10 +223,10 @@ pub(crate) fn run_enter<S: States>(
 }
 
 pub(crate) fn run_exit<S: States>(
-    In((transition, _)): In<(Option<StateTransitionEvent<S>>, PhantomData<OnExit<S>>)>,
+    transition: In<Option<StateTransitionEvent<S>>>,
     world: &mut World,
 ) {
-    let Some(transition) = transition else {
+    let Some(transition) = transition.0 else {
         return;
     };
     let Some(exited) = transition.exited else {
@@ -254,13 +237,10 @@ pub(crate) fn run_exit<S: States>(
 }
 
 pub(crate) fn run_transition<S: States>(
-    In((transition, _)): In<(
-        Option<StateTransitionEvent<S>>,
-        PhantomData<OnTransition<S>>,
-    )>,
+    transition: In<Option<StateTransitionEvent<S>>>,
     world: &mut World,
 ) {
-    let Some(transition) = transition else {
+    let Some(transition) = transition.0 else {
         return;
     };
     let Some(exited) = transition.exited else {
