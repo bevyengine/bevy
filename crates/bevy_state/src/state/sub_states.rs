@@ -112,8 +112,9 @@ pub use bevy_state_macros::SubStates;
 ///     InGame { paused: bool }
 /// }
 ///
-/// #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+/// #[derive(Clone, PartialEq, Eq, Hash, Debug, Default)]
 /// enum GamePhase {
+///     #[default]
 ///     Setup,
 ///     Battle,
 ///     Conclusion
@@ -125,14 +126,14 @@ pub use bevy_state_macros::SubStates;
 ///     type SourceStates = Option<AppState>;
 ///
 ///     /// We then define the compute function, which takes in the [`Self::SourceStates`]
-///     fn should_exist(sources: Option<AppState>) -> Option<Self> {
+///     fn should_exist(sources: Option<AppState>) -> bool {
 ///         match sources {
 ///             /// When we are in game, so we want a GamePhase state to exist, and the default is
 ///             /// GamePhase::Setup
-///             Some(AppState::InGame { .. }) => Some(GamePhase::Setup),
+///             Some(AppState::InGame { .. }) => true,
 ///             /// Otherwise, we don't want the `State<GamePhase>` resource to exist,
-///             /// so we return None.
-///             _ => None
+///             /// so we return `false`.
+///             _ => false
 ///         }
 ///     }
 /// }
