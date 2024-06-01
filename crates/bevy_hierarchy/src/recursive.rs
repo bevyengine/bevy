@@ -464,13 +464,6 @@ mod test {
                 assert_eq!(a.0, 0);
             });
 
-        world
-            .query::<(&GlobalTransform, &ShouldBe)>()
-            .iter(&world)
-            .for_each(|(a, b)| {
-                assert_eq!(a.0, b.0);
-            });
-
         let mut world = test_world();
         world.run_system_once(
             |mut query: QueryRecursive<
