@@ -408,13 +408,8 @@ impl TryFrom<Dir2> for Rotation2d {
     type Error = InvalidDirectionError;
 
     fn try_from(dir: Dir2) -> Result<Rotation2d, InvalidDirectionError> {
-        match dir.validate() {
-            Ok(()) => Ok(Rotation2d {
-                sin: dir.y,
-                cos: dir.x,
-            }),
-            Err(err) => Err(err),
-        }
+        dir.validate()
+            .map(|dir| Rotation2d::from_sin_cos(dir.y, dir.x))
     }
 }
 
