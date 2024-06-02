@@ -138,11 +138,11 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
         prev_vertex.joint_weights,
     );
 #else   // HAS_PREVIOUS_SKIN
-    let prev_model = mesh_functions::get_previous_model_matrix(prev_vertex.instance_index);
+    let prev_model = mesh_functions::get_previous_world_from_local(prev_vertex.instance_index);
 #endif  // HAS_PREVIOUS_SKIN
 
 #else   // SKINNED
-    let prev_model = mesh_functions::get_previous_model_matrix(prev_vertex.instance_index);
+    let prev_model = mesh_functions::get_previous_world_from_local(prev_vertex.instance_index);
 #endif  // SKINNED
 
     out.previous_world_position = mesh_functions::mesh_position_local_to_world(

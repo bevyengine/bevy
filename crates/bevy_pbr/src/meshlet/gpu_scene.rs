@@ -4,11 +4,13 @@ use super::{
 };
 use crate::{
     Material, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
-    PreviousGlobalTransform, PreviousViewData, PreviousViewUniforms, RenderMaterialInstances,
-    ShadowView,
+    PreviousGlobalTransform, RenderMaterialInstances, ShadowView,
 };
 use bevy_asset::{AssetEvent, AssetId, AssetServer, Assets, Handle, UntypedAssetId};
-use bevy_core_pipeline::core_3d::Camera3d;
+use bevy_core_pipeline::{
+    core_3d::Camera3d,
+    prepass::{PreviousViewData, PreviousViewUniforms},
+};
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityHashMap},
