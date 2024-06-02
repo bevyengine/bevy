@@ -1807,6 +1807,17 @@ category = "State"
 wasm = false
 
 [[example]]
+name = "custom_transition"
+path = "examples/state/custom_transition.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_transition]
+name = "Custom State Transition"
+description = "Custom state transition behavior"
+category = "State"
+wasm = false
+
+[[example]]
 name = "system_piping"
 path = "examples/ecs/system_piping.rs"
 doc-scrape-examples = true

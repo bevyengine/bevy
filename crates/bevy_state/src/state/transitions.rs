@@ -52,11 +52,16 @@ pub struct StateTransitionEvent<S: States> {
 ///
 /// These system sets are run sequentially, in the order of the enum variants.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
-pub(crate) enum StateTransitionSteps {
+pub enum StateTransitionSteps {
+    /// Parentless states apply their [`NextState<S>`].
     RootTransitions,
+    /// States with parents apply their computation and [`NextState<S>`].
     DependentTransitions,
+    /// Exit schedules are executed.
     ExitSchedules,
+    /// Transition schedules are executed.
     TransitionSchedules,
+    /// Enter schedules are executed.
     EnterSchedules,
 }
 
