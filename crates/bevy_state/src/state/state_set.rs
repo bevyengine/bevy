@@ -183,24 +183,9 @@ impl<S: InnerStateSet> StateSet for S {
                     false => current_state.clone(),
                 };
 
-                match should_exist {
-                    Some(initial_state) => {
-                        let new_state = match (current_state, next_state) {
-                            (_, Some(next_state)) => next_state,
-                            (Some(current_state), None) => current_state,
-                            (None, None) => initial_state,
-                        };
-                        internal_apply_state_transition(
-                            event,
-                            commands,
-                            current_state_res,
-                            Some(new_state),
-                        );
-                    }
-                    None => {
-                        internal_apply_state_transition(event, commands, current_state_res, None);
-                    }
-                };
+                let new_state = should_exist
+                    .map(|initial_state| next_state.or(current_state).unwrap_or(initial_state));
+                internal_apply_state_transition(event, commands, current_state_res, new_state);
             };
 
         schedule
