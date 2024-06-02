@@ -122,7 +122,7 @@ impl DepthAttachment {
 }
 
 /// A wrapper for a [`TextureView`] that is used as a [`RenderPassColorAttachment`] for a view
-/// targets final output texture.
+/// target's final output texture.
 #[derive(Clone)]
 pub struct OutputColorAttachment {
     pub view: TextureView,
