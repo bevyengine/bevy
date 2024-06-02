@@ -151,6 +151,16 @@ impl Dir2 {
     }
 
     /// Creates a new [`Dir2`] from an angle in radians by rotating Dir2::X counterclockwise.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_math::Dir2;
+    /// use approx::assert_relative_eq;
+    ///
+    /// assert_relative_eq!(Dir2::radians(0.), Dir2::X, epsilon = 0.000001);
+    /// assert_relative_eq!(Dir2::radians(std::f32::consts::FRAC_PI_2), Dir2::Y, epsilon = 0.000001);
+    /// ```
     pub fn radians(angle: f32) -> Self {
         let vec = Vec2::new(angle.cos(), angle.sin());
 
@@ -158,6 +168,16 @@ impl Dir2 {
     }
 
     /// Creates a new [`Dir2`] from an angle in degrees by rotating Dir2::X counterclockwise.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_math::Dir2;
+    /// use approx::assert_relative_eq;
+    ///
+    /// assert_relative_eq!(Dir2::degrees(0.), Dir2::X, epsilon = 0.000001);
+    /// assert_relative_eq!(Dir2::degrees(90.), Dir2::Y, epsilon = 0.000001);
+    /// ```
     pub fn degrees(angle: f32) -> Self {
         Self::radians(angle.to_radians())
     }
