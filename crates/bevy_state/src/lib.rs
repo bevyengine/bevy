@@ -27,6 +27,9 @@
 //! - The [`in_state<S>`](crate::condition::in_state) and [`state_changed<S>`](crate::condition::state_changed) run conditions - which are used
 //!   to determine whether a system should run based on the current state.
 
+#[cfg(feature = "bevy_app")]
+/// Provides [`App`](bevy_app::App) and [`SubApp`](bevy_app::SubApp) with state installation methods
+pub mod app;
 /// Provides definitions for the runtime conditions that interact with the state system
 pub mod condition;
 /// Provides definitions for the basic traits required by the state system
@@ -34,6 +37,9 @@ pub mod state;
 
 /// Most commonly used re-exported types.
 pub mod prelude {
+    #[cfg(feature = "bevy_app")]
+    #[doc(hidden)]
+    pub use crate::app::AppStateExt;
     #[doc(hidden)]
     pub use crate::condition::*;
     #[doc(hidden)]
