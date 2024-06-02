@@ -105,6 +105,23 @@ impl Dir2 {
     /// The directional axes.
     pub const AXES: [Self; 2] = [Self::X, Self::Y];
 
+    /// The "north" direction, equivalent to [`Dir2::Y`].
+    pub const NORTH: Self = Self::Y;
+    /// The "south" direction, equivalent to [`Dir2::NEG_Y`].
+    pub const SOUTH: Self = Self::NEG_Y;
+    /// The "east" direction, equivalent to [`Dir2::X`].
+    pub const EAST: Self = Self::X;
+    /// The "west" direction, equivalent to [`Dir2::NEG_X`].
+    pub const WEST: Self = Self::NEG_X;
+    /// The "north-east" direction, between [`Dir2::NORTH`] and [`Dir2::EAST`].
+    pub const NORTH_EAST: Self = Self(Vec2::new(0.70710677, 0.70710677));
+    /// The "north-west" direction, between [`Dir2::NORTH`] and [`Dir2::WEST`].
+    pub const NORTH_WEST: Self = Self(Vec2::new(-0.70710677, 0.70710677));
+    /// The "south-east" direction, between [`Dir2::SOUTH`] and [`Dir2::EAST`].
+    pub const SOUTH_EAST: Self = Self(Vec2::new(0.70710677, -0.70710677));
+    /// The "south-west" direction, between [`Dir2::SOUTH`] and [`Dir2::WEST`].
+    pub const SOUTH_WEST: Self = Self(Vec2::new(-0.70710677, -0.70710677));
+
     /// Create a direction from a finite, nonzero [`Vec2`], normalizing it.
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
