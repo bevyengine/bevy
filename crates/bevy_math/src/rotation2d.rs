@@ -1,8 +1,8 @@
-use core::f32::consts::FRAC_1_SQRT_2;
-
 use glam::FloatExt;
 
 use crate::prelude::{Mat2, Vec2};
+
+use core::f32::consts::FRAC_1_SQRT_2;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
