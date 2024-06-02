@@ -812,106 +812,106 @@ pub fn prepare_view_targets(
     let mut textures = HashMap::default();
     let mut output_textures = HashMap::default();
     for (entity, camera, view, texture_usage) in cameras.iter() {
-        if let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target) {
-            if let Some(out_texture) = output_textures.entry(target.clone()).or_insert_with(|| {
-                if let (Some(out_texture_view), Some(out_texture_format)) = (
-                    target.get_texture_view(&windows, &images, &manual_texture_views),
-                    target.get_texture_format(&windows, &images, &manual_texture_views),
-                ) {
-                    Some(OutputColorAttachment::new(
-                        out_texture_view.clone(),
-                        out_texture_format.add_srgb_suffix(),
-                    ))
-                } else {
-                    None
-                }
-            }) {
-                let size = Extent3d {
-                    width: target_size.x,
-                    height: target_size.y,
-                    depth_or_array_layers: 1,
-                };
+        let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target)
+        else {
+            continue;
+        };
 
-                let main_texture_format = if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                };
+        let Some(out_texture) = output_textures.entry(target.clone()).or_insert_with(|| {
+            target
+                .get_texture_view(&windows, &images, &manual_texture_views)
+                .zip(target.get_texture_format(&windows, &images, &manual_texture_views))
+                .map(|(view, format)| {
+                    OutputColorAttachment::new(view.clone(), format.add_srgb_suffix())
+                })
+        }) else {
+            continue;
+        };
 
-                let clear_color = match camera.clear_color {
-                    ClearColorConfig::Custom(color) => Some(color),
-                    ClearColorConfig::None => None,
-                    _ => Some(clear_color_global.0),
-                };
+        let size = Extent3d {
+            width: target_size.x,
+            height: target_size.y,
+            depth_or_array_layers: 1,
+        };
 
-                let (a, b, sampled, main_texture) = textures
-                    .entry((camera.target.clone(), view.hdr))
-                    .or_insert_with(|| {
-                        let descriptor = TextureDescriptor {
-                            label: None,
+        let main_texture_format = if view.hdr {
+            ViewTarget::TEXTURE_FORMAT_HDR
+        } else {
+            TextureFormat::bevy_default()
+        };
+
+        let clear_color = match camera.clear_color {
+            ClearColorConfig::Custom(color) => Some(color),
+            ClearColorConfig::None => None,
+            _ => Some(clear_color_global.0),
+        };
+
+        let (a, b, sampled, main_texture) = textures
+            .entry((camera.target.clone(), view.hdr))
+            .or_insert_with(|| {
+                let descriptor = TextureDescriptor {
+                    label: None,
+                    size,
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: TextureDimension::D2,
+                    format: main_texture_format,
+                    usage: texture_usage.0,
+                    view_formats: match main_texture_format {
+                        TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
+                        TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
+                        _ => &[],
+                    },
+                };
+                let a = texture_cache.get(
+                    &render_device,
+                    TextureDescriptor {
+                        label: Some("main_texture_a"),
+                        ..descriptor
+                    },
+                );
+                let b = texture_cache.get(
+                    &render_device,
+                    TextureDescriptor {
+                        label: Some("main_texture_b"),
+                        ..descriptor
+                    },
+                );
+                let sampled = if msaa.samples() > 1 {
+                    let sampled = texture_cache.get(
+                        &render_device,
+                        TextureDescriptor {
+                            label: Some("main_texture_sampled"),
                             size,
                             mip_level_count: 1,
-                            sample_count: 1,
+                            sample_count: msaa.samples(),
                             dimension: TextureDimension::D2,
                             format: main_texture_format,
-                            usage: texture_usage.0,
-                            view_formats: match main_texture_format {
-                                TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
-                                TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
-                                _ => &[],
-                            },
-                        };
-                        let a = texture_cache.get(
-                            &render_device,
-                            TextureDescriptor {
-                                label: Some("main_texture_a"),
-                                ..descriptor
-                            },
-                        );
-                        let b = texture_cache.get(
-                            &render_device,
-                            TextureDescriptor {
-                                label: Some("main_texture_b"),
-                                ..descriptor
-                            },
-                        );
-                        let sampled = if msaa.samples() > 1 {
-                            let sampled = texture_cache.get(
-                                &render_device,
-                                TextureDescriptor {
-                                    label: Some("main_texture_sampled"),
-                                    size,
-                                    mip_level_count: 1,
-                                    sample_count: msaa.samples(),
-                                    dimension: TextureDimension::D2,
-                                    format: main_texture_format,
-                                    usage: TextureUsages::RENDER_ATTACHMENT,
-                                    view_formats: descriptor.view_formats,
-                                },
-                            );
-                            Some(sampled)
-                        } else {
-                            None
-                        };
-                        let main_texture = Arc::new(AtomicUsize::new(0));
-                        (a, b, sampled, main_texture)
-                    });
-
-                let converted_clear_color = clear_color.map(|color| color.into());
-
-                let main_textures = MainTargetTextures {
-                    a: ColorAttachment::new(a.clone(), sampled.clone(), converted_clear_color),
-                    b: ColorAttachment::new(b.clone(), sampled.clone(), converted_clear_color),
-                    main_texture: main_texture.clone(),
+                            usage: TextureUsages::RENDER_ATTACHMENT,
+                            view_formats: descriptor.view_formats,
+                        },
+                    );
+                    Some(sampled)
+                } else {
+                    None
                 };
+                let main_texture = Arc::new(AtomicUsize::new(0));
+                (a, b, sampled, main_texture)
+            });
 
-                commands.entity(entity).insert(ViewTarget {
-                    main_texture: main_textures.main_texture.clone(),
-                    main_textures,
-                    main_texture_format,
-                    out_texture: out_texture.clone(),
-                });
-            }
-        }
+        let converted_clear_color = clear_color.map(|color| color.into());
+
+        let main_textures = MainTargetTextures {
+            a: ColorAttachment::new(a.clone(), sampled.clone(), converted_clear_color),
+            b: ColorAttachment::new(b.clone(), sampled.clone(), converted_clear_color),
+            main_texture: main_texture.clone(),
+        };
+
+        commands.entity(entity).insert(ViewTarget {
+            main_texture: main_textures.main_texture.clone(),
+            main_textures,
+            main_texture_format,
+            out_texture: out_texture.clone(),
+        });
     }
 }
