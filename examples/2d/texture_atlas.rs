@@ -56,7 +56,6 @@ fn setup(
     mut textures: ResMut<Assets<Image>>,
 ) {
     let loaded_folder = loaded_folders.get(&rpg_sprite_handles.0).unwrap();
-
     // create texture atlases with different padding and sampling
 
     let (texture_atlas_linear, linear_texture) = create_texture_atlas(
@@ -183,7 +182,7 @@ fn setup(
         create_sprite_from_atlas(
             &mut commands,
             (x, base_y, 0.0),
-            vendor_index,
+            vendor_index[0],
             atlas_handle,
             image_handle,
         );
