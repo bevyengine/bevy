@@ -167,7 +167,8 @@ impl Dir2 {
         self.0
     }
 
-    /// Validates that a direction is well-formed.
+    /// Validates that a direction is well-formed (but not necessarily normalized).
+    /// See [`InvalidDirectionError`] for the ways that a direction can be invalid.
     ///
     /// Note that directions may be valid but not normalized:
     /// some degree of drift is expected due to floating point error accumulation.
@@ -382,7 +383,8 @@ impl Dir3 {
         self.0
     }
 
-    /// Validates that a direction is well-formed.
+    /// Validates that a direction is well-formed (but not necessarily normalized).
+    /// See [`InvalidDirectionError`] for the ways that a direction can be invalid.
     ///
     /// Note that directions may be valid but not normalized:
     /// some degree of drift is expected due to floating point error accumulation.
