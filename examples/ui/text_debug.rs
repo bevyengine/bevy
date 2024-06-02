@@ -36,7 +36,6 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),
                 justify_content: JustifyContent::SpaceBetween,
-
                 ..default()
             },
             ..default()
@@ -83,7 +82,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextStyle {
                     font: font.clone(),
                     font_size: 30.0,
-                    color: WHITE.into(),
+                    ..default()
                 },
             )
             .with_style(Style {
@@ -143,7 +142,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TextStyle {
                         font: font.clone(),
                         font_size: 25.0,
-                        color: Color::WHITE,
+                        ..default()
                     },
                 ),
                 TextSection::new(

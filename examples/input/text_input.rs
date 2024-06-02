@@ -41,7 +41,6 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 value: "IME Enabled: ".to_string(),
                 style: TextStyle {
                     font: font.clone_weak(),
-                    font_size: 20.0,
                     ..default()
                 },
             },
@@ -57,7 +56,6 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 value: "IME Active: ".to_string(),
                 style: TextStyle {
                     font: font.clone_weak(),
-                    font_size: 20.0,
                     ..default()
                 },
             },

@@ -365,10 +365,7 @@ fn setup(
     ));
 
     // Controls Text
-    let text_style = TextStyle {
-        font_size: 20.0,
-        ..default()
-    };
+    let text_style = TextStyle::default();
 
     commands.spawn((
         TextBundle::from_section("", text_style).with_style(Style {

@@ -13,8 +13,7 @@ pub type Layer = usize;
 /// Cameras with this component will only render entities with intersecting
 /// layers.
 ///
-/// There are 32 layers numbered `0` - [`TOTAL_LAYERS`](RenderLayers::TOTAL_LAYERS). Entities may
-/// belong to one or more layers, or no layer at all.
+/// Entities may belong to one or more layers, or no layer at all.
 ///
 /// The [`Default`] instance of `RenderLayers` contains layer `0`, the first layer.
 ///

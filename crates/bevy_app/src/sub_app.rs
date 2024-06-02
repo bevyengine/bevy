@@ -308,6 +308,11 @@ impl SubApp {
                 .add_event::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
             S::register_state(schedule);
+            let state = self.world.resource::<State<S>>().get().clone();
+            self.world.send_event(StateTransitionEvent {
+                exited: None,
+                entered: Some(state),
+            });
         }
 
         self
@@ -318,12 +323,15 @@ impl SubApp {
     pub fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
         if !self.world.contains_resource::<State<S>>() {
             setup_state_transitions_in_world(&mut self.world, Some(Startup.intern()));
-            self.insert_resource::<State<S>>(State::new(state))
+            self.insert_resource::<State<S>>(State::new(state.clone()))
                 .init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>();
-
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
             S::register_state(schedule);
+            self.world.send_event(StateTransitionEvent {
+                exited: None,
+                entered: Some(state),
+            });
         }
 
         self
@@ -340,6 +348,11 @@ impl SubApp {
             self.add_event::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
             S::register_computed_state_systems(schedule);
+            let state = self.world.resource::<State<S>>().get().clone();
+            self.world.send_event(StateTransitionEvent {
+                exited: None,
+                entered: Some(state),
+            });
         }
 
         self
@@ -357,6 +370,11 @@ impl SubApp {
             self.add_event::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
             S::register_sub_state_systems(schedule);
+            let state = self.world.resource::<State<S>>().get().clone();
+            self.world.send_event(StateTransitionEvent {
+                exited: None,
+                entered: Some(state),
+            });
         }
 
         self

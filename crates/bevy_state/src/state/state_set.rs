@@ -9,9 +9,8 @@ use self::sealed::StateSetSealed;
 
 use super::{
     apply_state_transition, computed_states::ComputedStates, internal_apply_state_transition,
-    run_enter, run_exit, run_transition, should_run_transition, sub_states::SubStates,
-    ApplyStateTransition, OnEnter, OnExit, OnTransition, State, StateTransitionEvent,
-    StateTransitionSteps, States,
+    last_transition, run_enter, run_exit, run_transition, sub_states::SubStates,
+    ApplyStateTransition, State, StateTransitionEvent, StateTransitionSteps, States,
 };
 
 mod sealed {
@@ -117,17 +116,17 @@ impl<S: InnerStateSet> StateSet for S {
         schedule
             .add_systems(system.in_set(ApplyStateTransition::<T>::apply()))
             .add_systems(
-                should_run_transition::<T, OnEnter<T>>
+                last_transition::<T>
                     .pipe(run_enter::<T>)
                     .in_set(StateTransitionSteps::EnterSchedules),
             )
             .add_systems(
-                should_run_transition::<T, OnExit<T>>
+                last_transition::<T>
                     .pipe(run_exit::<T>)
                     .in_set(StateTransitionSteps::ExitSchedules),
             )
             .add_systems(
-                should_run_transition::<T, OnTransition<T>>
+                last_transition::<T>
                     .pipe(run_transition::<T>)
                     .in_set(StateTransitionSteps::TransitionSchedules),
             )
@@ -181,17 +180,17 @@ impl<S: InnerStateSet> StateSet for S {
                 apply_state_transition::<T>.in_set(StateTransitionSteps::ManualTransitions),
             )
             .add_systems(
-                should_run_transition::<T, OnEnter<T>>
+                last_transition::<T>
                     .pipe(run_enter::<T>)
                     .in_set(StateTransitionSteps::EnterSchedules),
             )
             .add_systems(
-                should_run_transition::<T, OnExit<T>>
+                last_transition::<T>
                     .pipe(run_exit::<T>)
                     .in_set(StateTransitionSteps::ExitSchedules),
             )
             .add_systems(
-                should_run_transition::<T, OnTransition<T>>
+                last_transition::<T>
                     .pipe(run_transition::<T>)
                     .in_set(StateTransitionSteps::TransitionSchedules),
             )
@@ -232,9 +231,9 @@ macro_rules! impl_state_set_sealed_tuples {
 
                 schedule
                     .add_systems(system.in_set(ApplyStateTransition::<T>::apply()))
-                    .add_systems(should_run_transition::<T, OnEnter<T>>.pipe(run_enter::<T>).in_set(StateTransitionSteps::EnterSchedules))
-                    .add_systems(should_run_transition::<T, OnExit<T>>.pipe(run_exit::<T>).in_set(StateTransitionSteps::ExitSchedules))
-                    .add_systems(should_run_transition::<T, OnTransition<T>>.pipe(run_transition::<T>).in_set(StateTransitionSteps::TransitionSchedules))
+                    .add_systems(last_transition::<T>.pipe(run_enter::<T>).in_set(StateTransitionSteps::EnterSchedules))
+                    .add_systems(last_transition::<T>.pipe(run_exit::<T>).in_set(StateTransitionSteps::ExitSchedules))
+                    .add_systems(last_transition::<T>.pipe(run_transition::<T>).in_set(StateTransitionSteps::TransitionSchedules))
                     .configure_sets(
                         ApplyStateTransition::<T>::apply()
                         .in_set(StateTransitionSteps::DependentTransitions)
@@ -271,9 +270,9 @@ macro_rules! impl_state_set_sealed_tuples {
                 schedule
                     .add_systems(system.in_set(ApplyStateTransition::<T>::apply()))
                     .add_systems(apply_state_transition::<T>.in_set(StateTransitionSteps::ManualTransitions))
-                    .add_systems(should_run_transition::<T, OnEnter<T>>.pipe(run_enter::<T>).in_set(StateTransitionSteps::EnterSchedules))
-                    .add_systems(should_run_transition::<T, OnExit<T>>.pipe(run_exit::<T>).in_set(StateTransitionSteps::ExitSchedules))
-                    .add_systems(should_run_transition::<T, OnTransition<T>>.pipe(run_transition::<T>).in_set(StateTransitionSteps::TransitionSchedules))
+                    .add_systems(last_transition::<T>.pipe(run_enter::<T>).in_set(StateTransitionSteps::EnterSchedules))
+                    .add_systems(last_transition::<T>.pipe(run_exit::<T>).in_set(StateTransitionSteps::ExitSchedules))
+                    .add_systems(last_transition::<T>.pipe(run_transition::<T>).in_set(StateTransitionSteps::TransitionSchedules))
                     .configure_sets(
                         ApplyStateTransition::<T>::apply()
                         .in_set(StateTransitionSteps::DependentTransitions)

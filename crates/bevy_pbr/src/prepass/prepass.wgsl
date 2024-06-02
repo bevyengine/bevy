@@ -31,7 +31,26 @@ fn morph_vertex(vertex_in: Vertex) -> Vertex {
     }
     return vertex;
 }
-#endif
+
+// Returns the morphed position of the given vertex from the previous frame.
+//
+// This function is used for motion vector calculation, and, as such, it doesn't
+// bother morphing the normals and tangents.
+fn morph_prev_vertex(vertex_in: Vertex) -> Vertex {
+    var vertex = vertex_in;
+    let weight_count = morph::layer_count();
+    for (var i: u32 = 0u; i < weight_count; i ++) {
+        let weight = morph::prev_weight_at(i);
+        if weight == 0.0 {
+            continue;
+        }
+        vertex.position += weight * morph::morph(vertex.index, morph::position_offset, i);
+        // Don't bother morphing normals and tangents; we don't need them for
+        // motion vector calculation.
+    }
+    return vertex;
+}
+#endif  // MORPH_TARGETS
 
 @vertex
 fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
@@ -93,12 +112,42 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     out.color = vertex.color;
 #endif
 
+    // Compute the motion vector for TAA among other purposes. For this we need
+    // to know where the vertex was last frame.
 #ifdef MOTION_VECTOR_PREPASS
-    // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
-    // See https://github.com/gfx-rs/naga/issues/2416
+
+    // Take morph targets into account.
+#ifdef MORPH_TARGETS
+
+#ifdef HAS_PREVIOUS_MORPH
+    let prev_vertex = morph_prev_vertex(vertex_no_morph);
+#else   // HAS_PREVIOUS_MORPH
+    let prev_vertex = vertex_no_morph;
+#endif  // HAS_PREVIOUS_MORPH
+
+#else   // MORPH_TARGETS
+    let prev_vertex = vertex_no_morph;
+#endif  // MORPH_TARGETS
+
+    // Take skinning into account.
+#ifdef SKINNED
+
+#ifdef HAS_PREVIOUS_SKIN
+    let prev_model = skinning::skin_prev_model(
+        prev_vertex.joint_indices,
+        prev_vertex.joint_weights,
+    );
+#else   // HAS_PREVIOUS_SKIN
+    let prev_model = mesh_functions::get_previous_model_matrix(prev_vertex.instance_index);
+#endif  // HAS_PREVIOUS_SKIN
+
+#else   // SKINNED
+    let prev_model = mesh_functions::get_previous_model_matrix(prev_vertex.instance_index);
+#endif  // SKINNED
+
     out.previous_world_position = mesh_functions::mesh_position_local_to_world(
-        mesh_functions::get_previous_world_from_local(vertex_no_morph.instance_index),
-        vec4<f32>(vertex.position, 1.0)
+        prev_model,
+        vec4<f32>(prev_vertex.position, 1.0)
     );
 #endif // MOTION_VECTOR_PREPASS
 
