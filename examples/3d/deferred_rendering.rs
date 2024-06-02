@@ -58,7 +58,6 @@ fn setup(
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2000.0,
         },
-        MotionBlur::default(),
         DepthPrepass,
         MotionVectorPrepass,
         DeferredPrepass,

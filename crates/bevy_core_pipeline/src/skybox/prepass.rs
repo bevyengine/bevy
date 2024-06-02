@@ -1,4 +1,6 @@
-//! Skybox prepass.
+#![warn(missing_docs)]
+
+//! Adds motion vector support to skyboxes. See [`SkyboxPrepassPipeline`] for details.
 
 use bevy_asset::Handle;
 use bevy_ecs::{
@@ -31,20 +33,30 @@ use crate::{
 
 pub const SKYBOX_PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(376510055324461154);
 
+/// This pipeline writes motion vectors to the prepass for all [`Skybox`]es.
+///
+/// This allows features like motion blur and TAA to work correctly on the skybox. Without this, for
+/// example, motion blur would not be applied to the skybox when the camera is rotated and motion
+/// blur is enabled.
 #[derive(Resource)]
 pub struct SkyboxPrepassPipeline {
     bind_group_layout: BindGroupLayout,
 }
 
+/// Used to specialize the [`SkyboxPrepassPipeline`].
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct SkyboxPrepassPipelineKey {
     samples: u32,
     normal_prepass: bool,
 }
 
+/// Stores the ID for a camera's specialized pipeline, so it can be retrieved from the
+/// [`PipelineCache`].
 #[derive(Component)]
 pub struct RenderSkyboxPrepassPipeline(pub CachedRenderPipelineId);
 
+/// Stores the [`SkyboxPrepassPipeline`] bind group for a camera. This is later used by the prepass
+/// render graph node to add this binding to the prepass's render pass.
 #[derive(Component)]
 pub struct SkyboxPrepassBindGroup(pub BindGroup);
 
@@ -92,13 +104,14 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
             fragment: Some(FragmentState {
                 shader: SKYBOX_PREPASS_SHADER_HANDLE,
                 shader_defs: vec![],
-                entry_point: "fragment_main".into(),
+                entry_point: "fragment".into(),
                 targets: prepass_target_descriptors(key.normal_prepass, true, false),
             }),
         }
     }
 }
 
+/// Specialize and cache the [`SkyboxPrepassPipeline`] for each camera with a [`Skybox`].
 pub fn prepare_skybox_prepass_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
@@ -121,6 +134,9 @@ pub fn prepare_skybox_prepass_pipelines(
     }
 }
 
+/// Creates the required bind groups for the [`SkyboxPrepassPipeline`]. This binds the view uniforms
+/// from the CPU for access in the prepass shader on the GPU, allowing us to compute camera motion
+/// between frames. This is then stored in the [`SkyboxPrepassBindGroup`] component on the camera.
 pub fn prepare_skybox_prepass_bind_groups(
     mut commands: Commands,
     pipeline: Res<SkyboxPrepassPipeline>,
