@@ -39,7 +39,7 @@ pub mod state;
 pub mod prelude {
     #[cfg(feature = "bevy_app")]
     #[doc(hidden)]
-    pub use crate::app::AppStateExt;
+    pub use crate::app::AppExtStates;
     #[doc(hidden)]
     pub use crate::condition::*;
     #[doc(hidden)]

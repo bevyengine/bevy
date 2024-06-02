@@ -7,7 +7,7 @@ use crate::state::{
 };
 
 /// State installation methods for [`App`](bevy_app::App) and [`SubApp`](bevy_app::SubApp).
-pub trait AppStateExt {
+pub trait AppExtStates {
     /// Initializes a [`State`] with standard starting values.
     ///
     /// This method is idempotent: it has no effect when called again using the same generic type.
@@ -46,7 +46,7 @@ pub trait AppStateExt {
     fn add_sub_state<S: SubStates>(&mut self) -> &mut Self;
 }
 
-impl AppStateExt for SubApp {
+impl AppExtStates for SubApp {
     /// See [`App::init_state`].
     fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
         if !self.world().contains_resource::<State<S>>() {
@@ -126,7 +126,7 @@ impl AppStateExt for SubApp {
     }
 }
 
-impl AppStateExt for App {
+impl AppExtStates for App {
     fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
         self.main_mut().init_state::<S>();
         self
