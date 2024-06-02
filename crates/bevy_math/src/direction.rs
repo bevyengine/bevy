@@ -150,7 +150,7 @@ impl Dir2 {
         Self::new(Vec2::new(x, y))
     }
 
-    /// Creates a new [`Dir2`] from an angle in radians by rotating Dir2::X counterclockwise.
+    /// Creates a new [`Dir2`] from an angle in radians by rotating [`Dir2::X`]` counterclockwise.
     ///
     /// # Example
     ///
@@ -167,7 +167,7 @@ impl Dir2 {
         Dir2::new_unchecked(vec)
     }
 
-    /// Creates a new [`Dir2`] from an angle in degrees by rotating Dir2::X counterclockwise.
+    /// Creates a new [`Dir2`] from an angle in degrees by rotating [`Dir2::X`]` counterclockwise.
     ///
     /// # Example
     ///
