@@ -1,4 +1,5 @@
 //! Utilities for state examples.
+#![allow(dead_code)]
 
 use bevy::prelude::*;
 
