@@ -1,11 +1,11 @@
 //! This example illustrates how to register custom state transition behavior.
 //!
 //! In this case we are trying to add `OnReenter` and `OnReexit`
-//! which will work much like `OnEnter` and `OnExit`, but
-//! additionally trigger if the state changed into itself.
+//! which will work much like `OnEnter` and `OnExit`,
+//! but additionally trigger if the state changed into itself.
 //!
-//! While identity transitions exist internally, the default schedules
-//! intentionally ignore them, as it is not the common use-case.
+//! While identity transitions exist internally in [`StateTransitionEvent`]s,
+//! the default schedules intentionally ignore them, as it is not the common use-case.
 
 use std::marker::PhantomData;
 
@@ -110,12 +110,13 @@ fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
     }
 }
 
+// We can restart the game by pressing "R".
+// This will trigger an [`AppState::InGame`] -> [`AppState::InGame`]
+// transition, which will run our custom schedules.
 fn restart_game(input: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
     if input.just_pressed(KeyCode::KeyR) {
-        // Although we are already in this state
-        // setting it again will generate an identity transition.
-        // While default schedules ignore those kinds of transitions,
-        // out custom schedules will react to them.
+        // Although we are already in this state setting it again will generate an identity transition.
+        // While default schedules ignore those kinds of transitions, out custom schedules will react to them.
         next_state.set(AppState::InGame);
     }
 }
@@ -129,17 +130,26 @@ mod custom_transitions {
     #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
     pub struct OnReenter<S: States>(pub S);
 
+    /// Schedule runner which checks conditions and if they're right
+    /// runs out custom schedule.
     fn run_reenter<S: States>(transition: In<Option<StateTransitionEvent<S>>>, world: &mut World) {
+        // We return early if no transition event happened.
         let Some(transition) = transition.0 else {
             return;
         };
+
         // If we wanted to ignore identity transitions,
         // we'd compare `exited` and `entered` here,
         // and return if they were the same.
+
+        // We check if we actually entered a state.
+        // A [`None`] would indicate that the state was removed from the world.
+        // This only happens in the case of [`SubStates`] and [`ComputedStates`].
         let Some(entered) = transition.entered else {
             return;
         };
 
+        // If all conditions are valid, we run our custom schedule.
         let _ = world.try_run_schedule(OnReenter(entered));
     }
 
@@ -171,12 +181,18 @@ mod custom_transitions {
         fn build(&self, app: &mut App) {
             app.add_systems(
                 StateTransition,
-                // The internals can generate at most one transition event per frame
-                // so we take the latest one and clear the queue.
+                // The internals can generate at most one transition event of specific type per frame.
+                // We take the latest one and clear the queue.
                 last_transition::<S>
                     // We insert the optional event into our schedule runner.
                     .pipe(run_reenter::<S>)
-                    // We use the same transition step as [`OnEnter`].
+                    // We need to pick at which step the schedule will be executed.
+                    // There are 3 intended steps for custom schedules:
+                    // - [`StateTransitionSteps::ExitSchedules`]
+                    // - [`StateTransitionSteps::TransitionSchedules`]
+                    // - [`StateTransitionSteps::EnterSchedules`]
+                    // They are executed in that order and built-in schedules
+                    // belong to them respectively.
                     .in_set(StateTransitionSteps::EnterSchedules),
             )
             .add_systems(
@@ -184,7 +200,6 @@ mod custom_transitions {
                 last_transition::<S>
                     .pipe(run_reexit::<S>)
                     .in_set(StateTransitionSteps::ExitSchedules),
-                // [`StateTransitionSteps::TransitionSchedules`] is another step you can use.
             );
         }
     }
