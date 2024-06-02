@@ -126,9 +126,7 @@ fn antialias(distance: f32) -> f32 {
     return clamp(0.0, 1.0, 0.5 - distance);
 }
 
-fn draw(in: VertexOutput) -> vec4<f32> {
-    let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
-
+fn draw(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
     // Only use the color sampled from the texture if the `TEXTURED` flag is enabled. 
     // This allows us to draw both textured and untextured shapes together in the same batch.
     let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
@@ -158,24 +156,25 @@ fn draw(in: VertexOutput) -> vec4<f32> {
     let t = select(1.0 - step(0.0, border_distance), antialias(border_distance), external_distance < internal_distance);
 
     // Blend mode ALPHA_BLENDING is used for UI elements, so we don't premultiply alpha here.
-    return vec4(color.rgb, color.a * t);
+    return vec4(color.rgb, saturate(color.a * t));
 }
 
-fn draw_background(in: VertexOutput) -> vec4<f32> {
-    let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
+fn draw_background(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
     let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
 
     // When drawing the background only draw the internal area and not the border.
     let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
     let t = antialias(internal_distance);
-    return vec4(color.rgb, color.a * t);
+    return vec4(color.rgb, saturate(color.a * t));
 }
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+    let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
+
     if enabled(in.flags, BORDER) {
-        return draw(in);    
+        return draw(in, texture_color);    
     } else {
-        return draw_background(in);
+        return draw_background(in, texture_color);
     }
 }

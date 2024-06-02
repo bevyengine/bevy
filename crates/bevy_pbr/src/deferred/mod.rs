@@ -254,6 +254,14 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());
+            shader_defs.push(ShaderDefVal::UInt(
+                "TONEMAPPING_LUT_TEXTURE_BINDING_INDEX".into(),
+                20,
+            ));
+            shader_defs.push(ShaderDefVal::UInt(
+                "TONEMAPPING_LUT_SAMPLER_BINDING_INDEX".into(),
+                21,
+            ));
 
             let method = key.intersection(MeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
@@ -307,6 +315,14 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
 
         if key.contains(MeshPipelineKey::SCREEN_SPACE_REFLECTIONS) {
             shader_defs.push("SCREEN_SPACE_REFLECTIONS".into());
+        }
+
+        if key.contains(MeshPipelineKey::HAS_PREVIOUS_SKIN) {
+            shader_defs.push("HAS_PREVIOUS_SKIN".into());
+        }
+
+        if key.contains(MeshPipelineKey::HAS_PREVIOUS_MORPH) {
+            shader_defs.push("HAS_PREVIOUS_MORPH".into());
         }
 
         // Always true, since we're in the deferred lighting pipeline

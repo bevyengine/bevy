@@ -14,7 +14,7 @@
     irradiance_volume,
     mesh_types::{MESH_FLAGS_SHADOW_RECEIVER_BIT, MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT},
 }
-#import bevy_render::maths::E
+#import bevy_render::maths::{E, powsafe}
 
 #ifdef MESHLET_MESH_MATERIAL_PASS
 #import bevy_pbr::meshlet_visibility_buffer_resolve::VertexOutput
@@ -28,7 +28,10 @@
 #import bevy_pbr::environment_map
 #endif
 
-#import bevy_core_pipeline::tonemapping::{screen_space_dither, powsafe, tone_mapping}
+#ifdef TONEMAP_IN_SHADER
+#import bevy_core_pipeline::tonemapping::{tone_mapping, screen_space_dither}
+#endif
+
 
 // Biasing info needed to sample from a texture when calling `sample_texture`.
 // How this is done depends on whether we're rendering meshlets or regular
