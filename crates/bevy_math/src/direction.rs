@@ -150,6 +150,18 @@ impl Dir2 {
         Self::new(Vec2::new(x, y))
     }
 
+    /// Creates a new [`Dir2`] from an angle in radians.
+    pub fn radians(angle: f32) -> Self {
+        let vec = Vec2::new(angle.cos(), angle.sin());
+
+        Dir2::new_unchecked(vec)
+    }
+
+    /// Creates a new [`Dir2`] from an angle in degrees.
+    pub fn degrees(angle: f32) -> Self {
+        Self::radians(angle.to_radians())
+    }
+
     /// Returns the inner [`Vec2`]
     pub const fn as_vec2(&self) -> Vec2 {
         self.0
