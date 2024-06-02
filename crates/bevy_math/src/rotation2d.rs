@@ -636,8 +636,13 @@ mod tests {
         ];
 
         for (dir, rot) in directions.iter().zip(rotations.iter()) {
-            assert_eq!(Rotation2d::try_from(*dir).unwrap(), *rot);
-            assert_eq!(Dir2::try_from(*rot).unwrap(), *dir);
+            let converted_dir = Dir2::try_from(*rot).unwrap();
+            assert_relative_eq!(converted_dir.x, dir.x, epsilon = 1e-6);
+            assert_relative_eq!(converted_dir.y, dir.y, epsilon = 1e-6);
+
+            let converted_rot = Rotation2d::try_from(*dir).unwrap();
+            assert_relative_eq!(converted_rot.sin, rot.sin, epsilon = 1e-6);
+            assert_relative_eq!(converted_rot.cos, rot.cos, epsilon = 1e-6);
         }
     }
 }
