@@ -106,7 +106,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// it's a common technique in 3D modelling for complex UV mapping or other calculations.
 /// - Bevy performs frustum culling based on the [`Aabb`] of meshes, which is calculated
 /// and added automatically for new meshes only. If a mesh is modified, the entity's [`Aabb`]
-/// need to be updated manually, or deleted so that it is re-calculated.
+/// needs to be updated manually or deleted so that it is re-calculated.
 ///
 /// ## Use with `StandardMaterial`
 ///
