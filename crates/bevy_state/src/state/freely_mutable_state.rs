@@ -54,7 +54,5 @@ fn apply_state_transition<S: FreelyMutableState>(
     let Some(current_state) = current_state else {
         return;
     };
-    if next_state != *current_state.get() {
-        internal_apply_state_transition(event, commands, Some(current_state), Some(next_state));
-    }
+    internal_apply_state_transition(event, commands, Some(current_state), Some(next_state));
 }
