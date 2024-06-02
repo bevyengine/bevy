@@ -3,8 +3,8 @@
 use bevy::{
     core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
     pbr::{
-        ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionQualityLevel,
-        ScreenSpaceAmbientOcclusionSettings,
+        ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionMethod,
+        ScreenSpaceAmbientOcclusionQualityLevel, ScreenSpaceAmbientOcclusionSettings,
     },
     prelude::*,
     render::camera::TemporalJitter,
@@ -122,28 +122,66 @@ fn update(
 
     let (camera_entity, ssao_settings, temporal_jitter) = camera.single();
 
+    let current_settings = ssao_settings.cloned().unwrap_or_default();
+
     let mut commands = commands.entity(camera_entity);
+    if keycode.just_pressed(KeyCode::KeyG) {
+        commands.insert(ScreenSpaceAmbientOcclusionSettings {
+            method: ScreenSpaceAmbientOcclusionMethod::Gtao,
+            ..current_settings
+        });
+    }
+    if keycode.just_pressed(KeyCode::KeyV) {
+        commands.insert(ScreenSpaceAmbientOcclusionSettings {
+            method: ScreenSpaceAmbientOcclusionMethod::Vbao { thickness: 0.25 },
+            ..current_settings
+        });
+    }
+    if keycode.just_pressed(KeyCode::ArrowUp) {
+        if let ScreenSpaceAmbientOcclusionMethod::Vbao { thickness } = current_settings.method {
+            commands.insert(ScreenSpaceAmbientOcclusionSettings {
+                method: ScreenSpaceAmbientOcclusionMethod::Vbao {
+                    thickness: (thickness * 2.0).min(4.0),
+                },
+                ..current_settings
+            });
+        }
+    }
+    if keycode.just_pressed(KeyCode::ArrowDown) {
+        if let ScreenSpaceAmbientOcclusionMethod::Vbao { thickness } = current_settings.method {
+            commands.insert(ScreenSpaceAmbientOcclusionSettings {
+                method: ScreenSpaceAmbientOcclusionMethod::Vbao {
+                    thickness: (thickness * 0.5).max(0.0625),
+                },
+                ..current_settings
+            });
+        }
+    }
     if keycode.just_pressed(KeyCode::Digit1) {
         commands.remove::<ScreenSpaceAmbientOcclusionSettings>();
     }
     if keycode.just_pressed(KeyCode::Digit2) {
         commands.insert(ScreenSpaceAmbientOcclusionSettings {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Low,
+            ..current_settings
         });
     }
     if keycode.just_pressed(KeyCode::Digit3) {
         commands.insert(ScreenSpaceAmbientOcclusionSettings {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Medium,
+            ..current_settings
         });
     }
     if keycode.just_pressed(KeyCode::Digit4) {
         commands.insert(ScreenSpaceAmbientOcclusionSettings {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::High,
+            ..current_settings
         });
     }
     if keycode.just_pressed(KeyCode::Digit5) {
         commands.insert(ScreenSpaceAmbientOcclusionSettings {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Ultra,
+            ..current_settings
         });
     }
     if keycode.just_pressed(KeyCode::Space) {
@@ -166,6 +204,21 @@ fn update(
         Some(ScreenSpaceAmbientOcclusionQualityLevel::Ultra) => ("", "", "", "", "*"),
         _ => unreachable!(),
     };
+
+    if let Some(method) = ssao_settings.map(|s| s.method) {
+        let (g, v) = match method {
+            ScreenSpaceAmbientOcclusionMethod::Gtao => ("*", ""),
+            ScreenSpaceAmbientOcclusionMethod::Vbao { .. } => ("", "*"),
+        };
+
+        text.push_str("SSAO Method:\n");
+        text.push_str(&format!("(G) {g}GTAO{g}\n"));
+        text.push_str(&format!("(V) {v}VBAO{v}\n\n"));
+
+        if let ScreenSpaceAmbientOcclusionMethod::Vbao { thickness } = method {
+            text.push_str(&format!("VBAO Thickness: {} (Up/Down)\n\n", thickness));
+        }
+    }
 
     text.push_str("SSAO Quality:\n");
     text.push_str(&format!("(1) {o}Off{o}\n"));
