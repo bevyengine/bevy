@@ -150,14 +150,14 @@ impl Dir2 {
         Self::new(Vec2::new(x, y))
     }
 
-    /// Creates a new [`Dir2`] from an angle in radians.
+    /// Creates a new [`Dir2`] from an angle in radians by rotating Dir2::X counterclockwise.
     pub fn radians(angle: f32) -> Self {
         let vec = Vec2::new(angle.cos(), angle.sin());
 
         Dir2::new_unchecked(vec)
     }
 
-    /// Creates a new [`Dir2`] from an angle in degrees.
+    /// Creates a new [`Dir2`] from an angle in degrees by rotating Dir2::X counterclockwise.
     pub fn degrees(angle: f32) -> Self {
         Self::radians(angle.to_radians())
     }
@@ -174,7 +174,7 @@ impl Dir2 {
     pub fn validate(self) -> Result<Self, InvalidDirectionError> {
         if self.0.length_squared().abs() < f32::EPSILON {
             Err(InvalidDirectionError::Zero)
-        } else if !self.0.length().is_finite() {
+        } else if self.0.length().is_infinite() {
             Err(InvalidDirectionError::Infinite)
         } else if self.0.length().is_nan() {
             Err(InvalidDirectionError::NaN)
@@ -389,7 +389,7 @@ impl Dir3 {
     pub fn validate(self) -> Result<Self, InvalidDirectionError> {
         if self.0.length_squared().abs() < f32::EPSILON {
             Err(InvalidDirectionError::Zero)
-        } else if !self.0.length().is_finite() {
+        } else if self.0.length().is_infinite() {
             Err(InvalidDirectionError::Infinite)
         } else if self.0.length().is_nan() {
             Err(InvalidDirectionError::NaN)
