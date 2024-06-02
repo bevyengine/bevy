@@ -407,8 +407,13 @@ impl TryFrom<Dir2> for Rotation2d {
     type Error = InvalidDirectionError;
 
     fn try_from(dir: Dir2) -> Result<Rotation2d, InvalidDirectionError> {
-        dir.validate()
-            .map(|dir| Rotation2d::from_sin_cos(dir.y, dir.x))
+        dir.validate().map(|dir| {
+            let dir = dir.normalize();
+            Rotation2d {
+                cos: dir.x,
+                sin: dir.y,
+            }
+        })
     }
 }
 
@@ -416,7 +421,7 @@ impl TryFrom<Rotation2d> for Dir2 {
     type Error = InvalidDirectionError;
 
     fn try_from(rot: Rotation2d) -> Result<Dir2, InvalidDirectionError> {
-        Dir2::from_xy(rot.sin, rot.cos)
+        Dir2::from_xy(rot.cos, rot.sin)
     }
 }
 
@@ -636,6 +641,8 @@ mod tests {
         ];
 
         for (dir, rot) in directions.iter().zip(rotations.iter()) {
+            println!("Checking {:?} {:?}", dir, rot);
+
             let converted_dir = Dir2::try_from(*rot).unwrap();
             assert_relative_eq!(converted_dir.x, dir.x, epsilon = 1e-6);
             assert_relative_eq!(converted_dir.y, dir.y, epsilon = 1e-6);
