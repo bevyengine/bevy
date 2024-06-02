@@ -264,11 +264,24 @@ impl AssetServer {
     /// it returns a "strong" [`Handle`]. When the [`Asset`] is loaded (and enters [`LoadState::Loaded`]), it will be added to the
     /// associated [`Assets`] resource.
     ///
-    /// In case the file path contains a hash, the `path` must be specified explicitly,
-    /// because otherwise hash would be interpreted as separator between file path and subasset name, for example:
-    /// `asset_server.load(Path::new("some/file#path"));`
-    /// or there must be set the label of subasset, if `AssetServer` should load subasset, for example:
-    /// `asset_server.load(AssetPath::from_path(Path::new("some/file#path")).with_label("subasset"));`
+    /// In case the file path contains a hashtag (`#`), the `path` must be specified using [`Path`]
+    /// or [`AssetPath`] because otherwise the hashtag would be interpreted as separator between
+    /// the file path and the label. For example:
+    ///
+    /// ```no_run
+    /// // `#path` is a label.
+    /// asset_server.load("some/file#path");
+    ///
+    /// // `#path` is part of the file name.
+    /// asset_server.load(Path::new("some/file#path"));
+    /// ```
+    ///
+    /// Furthermore, if you need to load a file with a hashtag in its name _and_ a label, you can
+    /// manually construct an [`AssetPath`].
+    ///
+    /// ```no_run
+    /// asset_server.load(AssetPath::from_path(Path::new("some/file#path")).with_label("subasset"));
+    /// ```
     ///
     /// You can check the asset's load state by reading [`AssetEvent`] events, calling [`AssetServer::load_state`], or checking
     /// the [`Assets`] storage to see if the [`Asset`] exists yet.
