@@ -1,4 +1,4 @@
-//! This example illustrates how to register custom transition behavior.
+//! This example illustrates how to register custom state transition behavior.
 //!
 //! In this case we are trying to add `OnReenter` and `OnReexit`
 //! which will work much like `OnEnter` and `OnExit`, but
