@@ -188,8 +188,8 @@ mod test {
     use bevy_math::{vec3, Vec3};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
 
+    use crate::bundles::TransformBundle;
     use crate::systems::*;
-    use crate::TransformBundle;
     use bevy_hierarchy::{BuildChildren, BuildWorldChildren};
 
     #[test]

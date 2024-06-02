@@ -490,15 +490,6 @@ mod type_registry;
 mod impls {
     #[cfg(feature = "glam")]
     mod glam;
-
-    #[cfg(feature = "bevy_math")]
-    mod math {
-        mod direction;
-        mod primitives2d;
-        mod primitives3d;
-        mod rect;
-        mod rotation2d;
-    }
     #[cfg(feature = "petgraph")]
     mod petgraph;
     #[cfg(feature = "smallvec")]
@@ -511,6 +502,7 @@ mod impls {
     mod uuid;
 }
 
+pub mod attributes;
 mod enums;
 pub mod serde;
 pub mod std_traits;

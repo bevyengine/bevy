@@ -26,6 +26,7 @@ pub trait Measure: Send + Sync + 'static {
         height: Option<f32>,
         available_width: AvailableSpace,
         available_height: AvailableSpace,
+        style: &taffy::Style,
     ) -> Vec2;
 }
 
@@ -48,20 +49,21 @@ impl Measure for NodeMeasure {
         height: Option<f32>,
         available_width: AvailableSpace,
         available_height: AvailableSpace,
+        style: &taffy::Style,
     ) -> Vec2 {
         match self {
             NodeMeasure::Fixed(fixed) => {
-                fixed.measure(width, height, available_width, available_height)
+                fixed.measure(width, height, available_width, available_height, style)
             }
             #[cfg(feature = "bevy_text")]
             NodeMeasure::Text(text) => {
-                text.measure(width, height, available_width, available_height)
+                text.measure(width, height, available_width, available_height, style)
             }
             NodeMeasure::Image(image) => {
-                image.measure(width, height, available_width, available_height)
+                image.measure(width, height, available_width, available_height, style)
             }
             NodeMeasure::Custom(custom) => {
-                custom.measure(width, height, available_width, available_height)
+                custom.measure(width, height, available_width, available_height, style)
             }
         }
     }
@@ -81,6 +83,7 @@ impl Measure for FixedMeasure {
         _: Option<f32>,
         _: AvailableSpace,
         _: AvailableSpace,
+        _: &taffy::Style,
     ) -> Vec2 {
         self.size
     }

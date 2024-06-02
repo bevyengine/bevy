@@ -1509,7 +1509,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "multi-threaded")]
+    #[cfg(feature = "multi_threaded")]
     #[test]
     fn test_events_par_iter() {
         use std::{collections::HashSet, sync::mpsc};

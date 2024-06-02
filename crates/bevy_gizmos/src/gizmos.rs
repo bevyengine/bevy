@@ -2,7 +2,7 @@
 
 use std::{iter, marker::PhantomData, mem};
 
-use crate::circles::DEFAULT_CIRCLE_SEGMENTS;
+use crate::circles::DEFAULT_CIRCLE_RESOLUTION;
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
     component::Tick,
@@ -476,7 +476,7 @@ where
     ///     // You may want to increase this for larger spheres.
     ///     gizmos
     ///         .sphere(Vec3::ZERO, Quat::IDENTITY, 5., Color::BLACK)
-    ///         .circle_segments(64);
+    ///         .resolution(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -494,7 +494,7 @@ where
             rotation: rotation.normalize(),
             radius,
             color: color.into(),
-            circle_segments: DEFAULT_CIRCLE_SEGMENTS,
+            resolution: DEFAULT_CIRCLE_RESOLUTION,
         }
     }
 
@@ -801,7 +801,7 @@ where
     rotation: Quat,
     radius: f32,
     color: Color,
-    circle_segments: usize,
+    resolution: usize,
 }
 
 impl<Config, Clear> SphereBuilder<'_, '_, '_, Config, Clear>
@@ -810,8 +810,8 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Set the number of line-segments per circle for this sphere.
-    pub fn circle_segments(mut self, segments: usize) -> Self {
-        self.circle_segments = segments;
+    pub fn resolution(mut self, resolution: usize) -> Self {
+        self.resolution = resolution;
         self
     }
 }
@@ -825,15 +825,10 @@ where
         if !self.gizmos.enabled {
             return;
         }
-        for axis in Vec3::AXES {
+        for axis in Dir3::AXES {
             self.gizmos
-                .circle(
-                    self.position,
-                    Dir3::new_unchecked(self.rotation * axis),
-                    self.radius,
-                    self.color,
-                )
-                .segments(self.circle_segments);
+                .circle(self.position, self.rotation * axis, self.radius, self.color)
+                .resolution(self.resolution);
         }
     }
 }

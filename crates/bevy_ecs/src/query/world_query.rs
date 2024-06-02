@@ -1,10 +1,10 @@
 use crate::{
     archetype::Archetype,
-    component::{ComponentId, Tick},
+    component::{ComponentId, ComponentInitializer, Components, Tick},
     entity::Entity,
     query::FilteredAccess,
     storage::{Table, TableRow},
-    world::{unsafe_world_cell::UnsafeWorldCell, World},
+    world::unsafe_world_cell::UnsafeWorldCell,
 };
 use bevy_utils::all_tuples;
 
@@ -79,7 +79,7 @@ pub unsafe trait WorldQuery {
     ///
     /// # Safety
     ///
-    /// - `archetype` and `tables` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
+    /// - `archetype` and `tables` must be from the same [`World`](crate::world::World) that [`WorldQuery::init_state`] was called on.
     /// - `table` must correspond to `archetype`.
     /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
     unsafe fn set_archetype<'w>(
@@ -94,7 +94,7 @@ pub unsafe trait WorldQuery {
     ///
     /// # Safety
     ///
-    /// - `table` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
+    /// - `table` must be from the same [`World`](crate::world::World) that [`WorldQuery::init_state`] was called on.
     /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
     unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table);
 
@@ -127,11 +127,11 @@ pub unsafe trait WorldQuery {
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>);
 
     /// Creates and initializes a [`State`](WorldQuery::State) for this [`WorldQuery`] type.
-    fn init_state(world: &mut World) -> Self::State;
+    fn init_state(initializer: &mut ComponentInitializer) -> Self::State;
 
     /// Attempts to initialize a [`State`](WorldQuery::State) for this [`WorldQuery`] type using read-only
-    /// access to the [`World`].
-    fn get_state(world: &World) -> Option<Self::State>;
+    /// access to [`Components`].
+    fn get_state(components: &Components) -> Option<Self::State>;
 
     /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
     ///
@@ -212,13 +212,13 @@ macro_rules! impl_tuple_world_query {
                 let ($($name,)*) = state;
                 $($name::update_component_access($name, _access);)*
             }
-
-            fn init_state(_world: &mut World) -> Self::State {
-                ($($name::init_state(_world),)*)
+            #[allow(unused_variables)]
+            fn init_state(initializer: &mut ComponentInitializer) -> Self::State {
+                ($($name::init_state(initializer),)*)
             }
-
-            fn get_state(_world: &World) -> Option<Self::State> {
-                Some(($($name::get_state(_world)?,)*))
+            #[allow(unused_variables)]
+            fn get_state(components: &Components) -> Option<Self::State> {
+                Some(($($name::get_state(components)?,)*))
             }
 
             fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {

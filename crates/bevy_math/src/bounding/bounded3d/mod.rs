@@ -7,6 +7,8 @@ use super::{BoundingVolume, IntersectsVolume};
 use crate::{Quat, Vec3, Vec3A};
 
 pub use extrusion::{extrusion_bounding_box, extrusion_bounding_sphere};
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
 
 /// Computes the geometric center of the given set of points.
 #[inline(always)]
@@ -32,6 +34,7 @@ pub trait Bounded3d {
 
 /// A 3D axis-aligned bounding box
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct Aabb3d {
     /// The minimum point of the box
     pub min: Vec3A,
@@ -451,6 +454,7 @@ use crate::primitives::Sphere;
 
 /// A bounding sphere
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct BoundingSphere {
     /// The center of the bounding sphere
     pub center: Vec3A,
