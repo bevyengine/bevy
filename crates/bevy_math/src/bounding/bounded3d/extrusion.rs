@@ -274,6 +274,7 @@ pub fn extrusion_bounding_sphere<T: Primitive2d + Bounded2d>(
 mod tests {
     use std::f32::consts::FRAC_PI_4;
 
+    use approx::assert_relative_eq;
     use glam::{EulerRot, Quat, Vec2, Vec3, Vec3A};
 
     use crate::{
@@ -307,7 +308,7 @@ mod tests {
 
         let aabb = extrusion.aabb_3d(translation, rotation);
         assert_eq!(aabb.center(), Vec3A::from(translation));
-        assert_eq!(aabb.half_size(), Vec3A::new(2.709784, 1.3801551, 2.436141));
+        assert_relative_eq!(aabb.half_size(), Vec3A::new(2.709784, 1.3801551, 2.436141));
 
         let bounding_sphere = extrusion.bounding_sphere(translation, rotation);
         assert_eq!(bounding_sphere.center, translation.into());
