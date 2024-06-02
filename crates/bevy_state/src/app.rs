@@ -1,4 +1,4 @@
-use bevy_app::{App, Startup, SubApp};
+use bevy_app::{App, MainScheduleOrder, Plugin, PreUpdate, Startup, SubApp};
 use bevy_ecs::{event::Events, schedule::ScheduleLabel, world::FromWorld};
 
 use crate::state::{
@@ -145,5 +145,15 @@ impl AppExtStates for App {
     fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
         self.main_mut().add_sub_state::<S>();
         self
+    }
+}
+
+/// Registers the [`StateTransition`] schedule in the [`MainScheduleOrder`] to enable state processing.
+pub struct StatesPlugin;
+
+impl Plugin for StatesPlugin {
+    fn build(&self, app: &mut App) {
+        let mut schedule = app.world_mut().resource_mut::<MainScheduleOrder>();
+        schedule.insert_after(PreUpdate, StateTransition);
     }
 }

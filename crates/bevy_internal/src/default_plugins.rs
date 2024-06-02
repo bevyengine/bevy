@@ -138,6 +138,11 @@ impl PluginGroup for DefaultPlugins {
             group = group.add(bevy_gizmos::GizmoPlugin);
         }
 
+        #[cfg(feature = "bevy_state")]
+        {
+            group = group.add(bevy_state::app::StatesPlugin);
+        }
+
         #[cfg(feature = "bevy_dev_tools")]
         {
             group = group.add(bevy_dev_tools::DevToolsPlugin);
