@@ -6,6 +6,8 @@ use glam::Mat3;
 use super::{BoundingVolume, IntersectsVolume};
 use crate::{Quat, Vec3, Vec3A};
 
+pub use extrusion::{extrusion_bounding_box, extrusion_bounding_sphere};
+
 /// Computes the geometric center of the given set of points.
 #[inline(always)]
 fn point_cloud_3d_center(points: impl Iterator<Item = impl Into<Vec3A>>) -> Vec3A {

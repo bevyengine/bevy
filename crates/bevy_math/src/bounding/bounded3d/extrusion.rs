@@ -36,7 +36,32 @@ impl Bounded3d for Extrusion<Circle> {
 
 impl Bounded3d for Extrusion<Ellipse> {
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
-        extrusion_bounding_box(self, translation, rotation)
+        let Vec2 { x: a, y: b } = self.base_shape.half_size;
+        let normal = rotation * Vec3::Z;
+        let conjugate_rot = rotation.conjugate();
+
+        let [max_x, max_y, max_z] = Vec3::AXES.map(|axis: Vec3| {
+            let Some(axis) = (conjugate_rot * axis.reject_from(normal))
+                .xy()
+                .try_normalize()
+            else {
+                return Vec3::ZERO;
+            };
+
+            if axis.element_product() == 0. {
+                return rotation * Vec3::new(a * axis.y, b * axis.x, 0.);
+            }
+            let m = -axis.x / axis.y;
+            let signum = axis.signum();
+
+            let y = signum.y * b * b / (b * b + m * m * a * a).sqrt();
+            let x = signum.x * a * (1. - y * y / b / b).sqrt();
+            rotation * Vec3::new(x, y, 0.)
+        });
+
+        let half_size =
+            Vec3::new(max_x.x, max_y.y, max_z.z).abs() + (normal * self.half_depth).abs();
+        Aabb3d::new(translation, half_size)
     }
 
     fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
@@ -251,6 +276,7 @@ pub fn extrusion_bounding_box<T: Primitive2d + Bounded2d>(
     Aabb3d::new(Vec3A::from(translation) - offset, cap_size + depth.abs())
 }
 
+/// Computes the [`BoundingSphere`] for an extrusion given its translation and rotation.
 pub fn extrusion_bounding_sphere<T: Primitive2d + Bounded2d>(
     extrusion: &Extrusion<T>,
     translation: Vec3,
@@ -274,7 +300,6 @@ pub fn extrusion_bounding_sphere<T: Primitive2d + Bounded2d>(
 mod tests {
     use std::f32::consts::FRAC_PI_4;
 
-    use approx::assert_relative_eq;
     use glam::{EulerRot, Quat, Vec2, Vec3, Vec3A};
 
     use crate::{
@@ -308,7 +333,7 @@ mod tests {
 
         let aabb = extrusion.aabb_3d(translation, rotation);
         assert_eq!(aabb.center(), Vec3A::from(translation));
-        assert_relative_eq!(aabb.half_size(), Vec3A::new(2.709784, 1.3801551, 2.436141));
+        assert_eq!(aabb.half_size(), Vec3A::new(2.709784, 1.3801551, 2.436141));
 
         let bounding_sphere = extrusion.bounding_sphere(translation, rotation);
         assert_eq!(bounding_sphere.center, translation.into());
