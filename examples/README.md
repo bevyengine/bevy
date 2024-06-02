@@ -373,10 +373,10 @@ Example | Description
 
 Example | Description
 --- | ---
-[Computed States](../examples/state/computed_states.rs) | Advanced state patterns using Computed States
-[State](../examples/state/state.rs) | Illustrates how to use States to control transitioning from a Menu state to an InGame state
+[Computed States](../examples/state/computed_states.rs) | Advanced state patterns using Computed States.
+[Custom State Transition Behavior](../examples/state/custom_transition.rs) | Creating and working with custom state transition schedules.
+[State](../examples/state/state.rs) | Illustrates how to use States to control transitioning from a Menu state to an InGame state.
 [Sub States](../examples/state/sub_states.rs) | Using Sub States for hierarchical state handling.
-[Custom State Transition Behavior](../examples/state/custom_transitions.rs) | Creating and working with custom state transition schedules.
 
 ## Stress Tests
 

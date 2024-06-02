@@ -1778,7 +1778,7 @@ required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.state]
 name = "State"
-description = "Illustrates how to use States to control transitioning from a Menu state to an InGame state"
+description = "Illustrates how to use States to control transitioning from a Menu state to an InGame state."
 category = "State"
 wasm = false
 
@@ -1802,7 +1802,7 @@ required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.computed_states]
 name = "Computed States"
-description = "Advanced state patterns using Computed States"
+description = "Advanced state patterns using Computed States."
 category = "State"
 wasm = false
 
@@ -1812,8 +1812,8 @@ path = "examples/state/custom_transition.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.custom_transition]
-name = "Custom State Transition"
-description = "Custom state transition behavior"
+name = "Custom State Transition Behavior"
+description = "Creating and working with custom state transition schedules."
 category = "State"
 wasm = false
 
