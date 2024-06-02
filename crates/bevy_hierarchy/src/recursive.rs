@@ -133,16 +133,13 @@ impl<
                 continue;
             };
             for entity in children {
-                assert_ne!(
-                    *entity, actual_root,
-                    "Malformed hierarchy. Self-referencing entity detected."
-                );
+                // Self referencing root node is checked by `propagate`.
                 assert_eq!(
                     self.parent.get(*entity).map(|(_, p)| p.get()).ok(), Some(actual_root),
                     "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained."
                 );
                 // Safety: `self.children` is not fetched while this is running.
-                // actual root is the parent of entity and is not self referencing.
+                // `actual_root` is the parent of entity.
                 unsafe {
                     propagate(
                         actual_root,
@@ -176,15 +173,13 @@ impl<
                 continue;
             };
             for entity in children {
-                assert_ne!(
-                    *entity, actual_root,
-                    "Malformed hierarchy. Self-referencing entity detected."
-                );
+                // Self referencing root node is checked by `propagate`.
                 assert_eq!(
                     self.parent.get(*entity).map(|(_, p)| p.get()).ok(), Some(actual_root),
                     "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained."
                 );
                 // Safety: `self.children` is not fetched while this is running.
+                // `actual_root` is the parent of entity.
                 unsafe {
                     propagate(
                         actual_root,
@@ -208,6 +203,18 @@ impl<
 
 /// Recursively run a function on descendants, passing immutable references of parent to child.
 ///
+/// We are iterating through a tree in a DFS, at each point in iteration, we are holding a chain of distinct items,
+/// having a loop would be UB.
+///
+/// They could be caused by
+///
+/// - A broken parent-child chain, detected by a parent-child mismatch.
+/// - A self referencing root node.
+/// - A parent-child loop back to the root node.
+///
+/// These are in general checked by this function, but the parent-child relation between the root and its immediate
+/// child must be validated by the caller.
+///
 /// # Panics
 ///
 /// If `entity`'s descendants have a malformed hierarchy, this function will panic.
@@ -218,8 +225,9 @@ impl<
 /// nor any of its descendants.
 /// - The caller must ensure that the hierarchy leading to `entity`
 /// is well-formed and must remain as a tree or a forest. Each entity must have at most one parent.
-/// - When called externally, `actual_root` must be the parent of `entity` and not self referencing,
-/// when called recursively, `actual_root` must be the ancestor of `entity`.
+/// - `parent` must be fetched from `entity`'s parent.
+/// - When called externally, `actual_root` must be the parent of `entity`.
+/// - When called recursively, `actual_root` must be an ancestor of `entity`.
 #[allow(unsafe_code)]
 unsafe fn propagate<
     QShared: QueryData + 'static,
@@ -235,6 +243,12 @@ unsafe fn propagate<
     entity: Entity,
     function: &mut impl FnMut(&Item<QShared>, &Info, &mut Item<QShared>, Item<QMain>) -> Info,
 ) {
+    // detects self referencing node, proceeding would cause UB.
+    assert_ne!(
+        entity, actual_root,
+        "Malformed hierarchy. Self-referencing entity detected."
+    );
+
     // SAFETY: This call cannot create aliased mutable references.
     //   - The top level iteration parallelizes on the roots of the hierarchy.
     //   - The caller ensures that each child has one and only one unique parent throughout the entire
