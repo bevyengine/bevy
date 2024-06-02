@@ -5,7 +5,6 @@ use std::f32::consts::*;
 use bevy::{
     core_pipeline::{
         fxaa::Fxaa,
-        motion_blur::MotionBlur,
         prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     },
     pbr::{
