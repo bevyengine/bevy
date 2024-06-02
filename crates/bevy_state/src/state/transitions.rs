@@ -9,11 +9,7 @@ use bevy_ecs::{
     world::World,
 };
 
-use super::{
-    freely_mutable_state::FreelyMutableState,
-    resources::{NextState, State},
-    states::States,
-};
+use super::{resources::State, states::States};
 
 /// The label of a [`Schedule`] that runs whenever [`State<S>`]
 /// enters this state.
@@ -57,7 +53,7 @@ pub struct StateTransitionEvent<S: States> {
 /// These system sets are run sequentially, in the order of the enum variants.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum StateTransitionSteps {
-    ManualTransitions,
+    RootTransitions,
     DependentTransitions,
     ExitSchedules,
     TransitionSchedules,
@@ -142,7 +138,7 @@ pub fn setup_state_transitions_in_world(
     let mut schedule = Schedule::new(StateTransition);
     schedule.configure_sets(
         (
-            StateTransitionSteps::ManualTransitions,
+            StateTransitionSteps::RootTransitions,
             StateTransitionSteps::DependentTransitions,
             StateTransitionSteps::ExitSchedules,
             StateTransitionSteps::TransitionSchedules,
@@ -157,49 +153,6 @@ pub fn setup_state_transitions_in_world(
             let _ = world.try_run_schedule(StateTransition);
         });
     }
-}
-
-/// If a new state is queued in [`NextState<S>`], this system
-/// takes the new state value from [`NextState<S>`] and updates [`State<S>`], as well as
-/// sending the relevant [`StateTransitionEvent`].
-///
-/// If the [`State<S>`] resource does not exist, it does nothing. Removing or adding states
-/// should be done at App creation or at your own risk.
-///
-/// For [`SubStates`](crate::state::SubStates) - it only applies the state if the `SubState` currently exists. Otherwise, it is wiped.
-/// When a `SubState` is re-created, it will use the result of it's `should_exist` method.
-pub fn apply_state_transition<S: FreelyMutableState>(
-    event: EventWriter<StateTransitionEvent<S>>,
-    commands: Commands,
-    current_state: Option<ResMut<State<S>>>,
-    next_state: Option<ResMut<NextState<S>>>,
-) {
-    // We want to check if the State and NextState resources exist
-    let Some(mut next_state_resource) = next_state else {
-        return;
-    };
-
-    match next_state_resource.as_ref() {
-        NextState::Pending(new_state) => {
-            if let Some(current_state) = current_state {
-                if new_state != current_state.get() {
-                    let new_state = new_state.clone();
-                    internal_apply_state_transition(
-                        event,
-                        commands,
-                        Some(current_state),
-                        Some(new_state),
-                    );
-                }
-            }
-        }
-        NextState::Unchanged => {
-            // This is the default value, so we don't need to re-insert the resource
-            return;
-        }
-    }
-
-    *next_state_resource.as_mut() = NextState::<S>::Unchanged;
 }
 
 /// Returns the latest state transition event of type `S`, if any are available.
