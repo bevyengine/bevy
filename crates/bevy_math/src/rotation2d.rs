@@ -1,6 +1,10 @@
 use glam::FloatExt;
+use libm::atan2;
 
-use crate::prelude::{Mat2, Vec2};
+use crate::{
+    prelude::{Dir2, Mat2, Vec2},
+    InvalidDirectionError,
+};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -397,6 +401,28 @@ impl std::ops::Mul<Vec2> for Rotation2d {
             rhs.x * self.cos - rhs.y * self.sin,
             rhs.x * self.sin + rhs.y * self.cos,
         )
+    }
+}
+
+impl TryFrom<Dir2> for Rotation2d {
+    type Error = InvalidDirectionError;
+
+    fn try_from(dir: Dir2) -> Result<Rotation2d, InvalidDirectionError> {
+        match dir.validate() {
+            Ok(()) => Ok(Rotation2d {
+                sin: dir.y,
+                cos: dir.x,
+            }),
+            Err(err) => Err(err),
+        }
+    }
+}
+
+impl TryFrom<Rotation2d> for Dir2 {
+    type Error = InvalidDirectionError;
+
+    fn try_from(rot: Rotation2d) -> Result<Dir2, InvalidDirectionError> {
+        Dir2::from_xy(rot.sin, rot.cos)
     }
 }
 

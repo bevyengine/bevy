@@ -155,6 +155,22 @@ impl Dir2 {
         self.0
     }
 
+    /// Validates that a direction is well-formed.
+    ///
+    /// Note that directions may be valid but not normalized:
+    /// some degree of drift is expected due to floating point error accumulation.
+    pub fn validate(&self) -> Result<(), InvalidDirectionError> {
+        if self.0.length_squared().abs() < f32::EPSILON {
+            Err(InvalidDirectionError::Zero)
+        } else if !self.0.length().is_finite() {
+            Err(InvalidDirectionError::Infinite)
+        } else if self.0.length().is_nan() {
+            Err(InvalidDirectionError::NaN)
+        } else {
+            Ok(())
+        }
+    }
+
     /// Performs a spherical linear interpolation between `self` and `rhs`
     /// based on the value `s`.
     ///
@@ -352,6 +368,22 @@ impl Dir3 {
     /// Returns the inner [`Vec3`]
     pub const fn as_vec3(&self) -> Vec3 {
         self.0
+    }
+
+    /// Validates that a direction is well-formed.
+    ///
+    /// Note that directions may be valid but not normalized:
+    /// some degree of drift is expected due to floating point error accumulation.
+    pub fn validate(&self) -> Result<(), InvalidDirectionError> {
+        if self.0.length_squared().abs() < f32::EPSILON {
+            Err(InvalidDirectionError::Zero)
+        } else if !self.0.length().is_finite() {
+            Err(InvalidDirectionError::Infinite)
+        } else if self.0.length().is_nan() {
+            Err(InvalidDirectionError::NaN)
+        } else {
+            Ok(())
+        }
     }
 
     /// Performs a spherical linear interpolation between `self` and `rhs`
