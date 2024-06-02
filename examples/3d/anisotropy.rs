@@ -288,7 +288,7 @@ impl AppStatus {
 
         // Choose the appropriate help text for the light toggle.
         let light_help_text = match self.light_mode {
-            LightMode::Directional => "Press Space to switch to an point light",
+            LightMode::Directional => "Press Space to switch to a point light",
             LightMode::Point => "Press Space to switch to an environment map",
             LightMode::EnvironmentMap => "Press Space to switch to a directional light",
         };

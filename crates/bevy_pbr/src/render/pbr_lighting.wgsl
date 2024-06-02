@@ -160,7 +160,7 @@ fn D_GGX(roughness: f32, NdotH: f32, h: vec3<f32>) -> f32 {
 // * `ab` = α_b = the alpha-roughness in the bitangent direction.
 //
 // This is from the `KHR_materials_anisotropy` spec:
-// <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_anisotropy/README.md#image-based-lighting>
+// <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_anisotropy/README.md#individual-lights>
 fn D_GGX_anisotropic(at: f32, ab: f32, NdotH: f32, TdotH: f32, BdotH: f32) -> f32 {
     let a2 = at * ab;
     let f = vec3(ab * TdotH, at * BdotH, a2 * NdotH);
@@ -579,7 +579,7 @@ fn directional_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3
     let specular_light = specular_anisotropy(input, &derived_input, L, 1.0);
 #else   // STANDARD_MATERIAL_ANISOTROPY
     let specular_light = specular(input, &derived_input, 1.0);
-#endif
+#endif  // STANDARD_MATERIAL_ANISOTROPY
 
 #ifdef STANDARD_MATERIAL_CLEARCOAT
     let clearcoat_N = (*input).layers[LAYER_CLEARCOAT].N;
