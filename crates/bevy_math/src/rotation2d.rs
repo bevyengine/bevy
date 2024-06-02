@@ -1,5 +1,4 @@
 use glam::FloatExt;
-use libm::atan2;
 
 use crate::{
     prelude::{Dir2, Mat2, Vec2},
@@ -611,5 +610,34 @@ mod tests {
         assert!(rot1.slerp(rot2, 0.0).is_near_identity());
         assert_eq!(rot1.slerp(rot2, 0.5).as_degrees(), 90.0);
         assert_eq!(rot1.slerp(rot2, 1.0).as_degrees().abs(), 180.0);
+    }
+
+    #[test]
+    fn rotation_direction_conversion() {
+        let directions = [
+            Dir2::degrees(0.0),
+            Dir2::degrees(45.0),
+            Dir2::degrees(90.0),
+            Dir2::degrees(135.0),
+            Dir2::degrees(180.0),
+            Dir2::degrees(225.0),
+            Dir2::degrees(270.0),
+            Dir2::degrees(315.0),
+            Dir2::degrees(360.0),
+        ];
+
+        let rotations = [
+            Rotation2d::degrees(0.0),
+            Rotation2d::degrees(45.0),
+            Rotation2d::degrees(90.0),
+            Rotation2d::degrees(135.0),
+            Rotation2d::degrees(180.0),
+            Rotation2d::degrees(225.0),
+        ];
+
+        for (dir, rot) in directions.iter().zip(rotations.iter()) {
+            assert_eq!(Rotation2d::try_from(*dir).unwrap(), *rot);
+            assert_eq!(Dir2::try_from(*rot).unwrap(), *dir);
+        }
     }
 }
