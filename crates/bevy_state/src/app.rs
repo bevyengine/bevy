@@ -47,7 +47,6 @@ pub trait AppExtStates {
 }
 
 impl AppExtStates for SubApp {
-    /// See [`App::init_state`].
     fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
         if !self.world().contains_resource::<State<S>>() {
             setup_state_transitions_in_world(self.world_mut(), Some(Startup.intern()));
@@ -66,7 +65,6 @@ impl AppExtStates for SubApp {
         self
     }
 
-    /// See [`App::insert_state`].
     fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
         if !self.world().contains_resource::<State<S>>() {
             setup_state_transitions_in_world(self.world_mut(), Some(Startup.intern()));
@@ -84,7 +82,6 @@ impl AppExtStates for SubApp {
         self
     }
 
-    /// See [`App::add_computed_state`].
     fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
         if !self
             .world()
@@ -104,7 +101,6 @@ impl AppExtStates for SubApp {
         self
     }
 
-    /// See [`App::add_sub_state`].
     fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
         if !self
             .world()
