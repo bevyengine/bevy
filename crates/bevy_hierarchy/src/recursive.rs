@@ -133,7 +133,6 @@ impl<
                 continue;
             };
             for entity in children {
-                // Self referencing root node is checked by `propagate`.
                 assert_eq!(
                     self.parent.get(*entity).map(|(_, p)| p.get()).ok(), Some(actual_root),
                     "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained."
@@ -173,7 +172,6 @@ impl<
                 continue;
             };
             for entity in children {
-                // Self referencing root node is checked by `propagate`.
                 assert_eq!(
                     self.parent.get(*entity).map(|(_, p)| p.get()).ok(), Some(actual_root),
                     "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained."
