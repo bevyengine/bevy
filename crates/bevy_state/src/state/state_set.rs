@@ -177,18 +177,18 @@ impl<S: InnerStateSet> StateSet for S {
                         if let Some(state_set) = S::convert_to_usable_state(state_set.as_deref()) {
                             T::should_exist(state_set)
                         } else {
-                            false
+                            None
                         }
                     }
-                    false => current_state.is_some(),
+                    false => current_state.clone(),
                 };
 
                 match should_exist {
-                    true => {
+                    Some(initial_state) => {
                         let new_state = match (current_state, next_state) {
                             (_, Some(next_state)) => next_state,
                             (Some(current_state), None) => current_state,
-                            (None, None) => T::default(),
+                            (None, None) => initial_state,
                         };
                         internal_apply_state_transition(
                             event,
@@ -197,7 +197,7 @@ impl<S: InnerStateSet> StateSet for S {
                             Some(new_state),
                         );
                     }
-                    false => {
+                    None => {
                         internal_apply_state_transition(event, commands, current_state_res, None);
                     }
                 };
@@ -285,18 +285,18 @@ macro_rules! impl_state_set_sealed_tuples {
                             if let ($(Some($val)),*,) = ($($param::convert_to_usable_state($val.as_deref())),*,) {
                                 T::should_exist(($($val),*, ))
                             } else {
-                                false
+                                None
                             }
                         }
-                        false => current_state.is_some(),
+                        false => current_state.clone(),
                     };
 
                     match should_exist {
-                        true => {
+                        Some(initial_state) => {
                             let new_state = match (current_state, next_state) {
                                 (_, Some(next_state)) => next_state,
                                 (Some(current_state), None) => current_state,
-                                (None, None) => T::default(),
+                                (None, None) => initial_state,
                             };
                             internal_apply_state_transition(
                                 event,
@@ -305,7 +305,7 @@ macro_rules! impl_state_set_sealed_tuples {
                                 Some(new_state),
                             );
                         }
-                        false => {
+                        None => {
                             internal_apply_state_transition(event, commands, current_state_res, None);
                         }
                     };

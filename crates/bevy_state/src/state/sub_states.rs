@@ -110,9 +110,8 @@ pub use bevy_state_macros::SubStates;
 ///     InGame { paused: bool }
 /// }
 ///
-/// #[derive(Clone, PartialEq, Eq, Hash, Debug, Default)]
+/// #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 /// enum GamePhase {
-///     #[default]
 ///     Setup,
 ///     Battle,
 ///     Conclusion
@@ -124,14 +123,13 @@ pub use bevy_state_macros::SubStates;
 ///     type SourceStates = Option<AppState>;
 ///
 ///     /// We then define the compute function, which takes in the [`Self::SourceStates`]
-///     fn should_exist(sources: Option<AppState>) -> bool {
+///     fn should_exist(sources: Option<AppState>) -> Option<Self> {
 ///         match sources {
 ///             /// When we are in game, so we want a GamePhase state to exist.
-///             /// If available, the initial state will be taken from [`NextState`]
-///             /// otherwise [`Default::default()`] will be used.
-///             Some(AppState::InGame { .. }) => true,
-///             /// If we don't want the `State<GamePhase>` resource to exist we return `false`.
-///             _ => false
+///             /// We can set the initial value here or overwrite it through [`NextState`].
+///             Some(AppState::InGame { .. }) => Some(Self::Setup),
+///             /// If we don't want the `State<GamePhase>` resource to exist we return [`None`].
+///             _ => None
 ///         }
 ///     }
 /// }
@@ -142,7 +140,7 @@ pub use bevy_state_macros::SubStates;
 ///
 /// impl FreelyMutableState for GamePhase {}
 /// ```
-pub trait SubStates: States + FreelyMutableState + Default {
+pub trait SubStates: States + FreelyMutableState {
     /// The set of states from which the [`Self`] is derived.
     ///
     /// This can either be a single type that implements [`States`], or a tuple
@@ -153,9 +151,15 @@ pub trait SubStates: States + FreelyMutableState + Default {
     /// This function gets called whenever one of the [`SourceStates`](Self::SourceStates) changes.
     /// The result is used to determine the existence of [`State<Self>`](crate::state::State).
     ///
-    /// If the result is `false`, the [`State<Self>`](crate::state::State) resource will be removed from the world, otherwise
-    /// if the [`State<Self>`](crate::state::State) resource doesn't exist it will be created from [`NextState`](crate::state::NextState) or [`Default::default()`].
-    fn should_exist(sources: Self::SourceStates) -> bool;
+    /// If the result is [`None`], the [`State<Self>`](crate::state::State) resource will be removed from the world,
+    /// otherwise if the [`State<Self>`](crate::state::State) resource doesn't exist
+    /// it will be created from the returned [`Some`] as the initial state.
+    ///
+    /// Value within [`Some`] is ignored if the state already exists in the world
+    /// and only symbolises that the state should still exist.
+    ///
+    /// Initial value can also be overwritten by [`NextState`](crate::state::NextState).
+    fn should_exist(sources: Self::SourceStates) -> Option<Self>;
 
     /// This function sets up systems that compute the state whenever one of the [`SourceStates`](Self::SourceStates)
     /// change. It is called by `App::add_computed_state`, but can be called manually if `App` is not
