@@ -159,7 +159,7 @@ impl Dir2 {
     ///
     /// Note that directions may be valid but not normalized:
     /// some degree of drift is expected due to floating point error accumulation.
-    pub fn validate(&self) -> Result<(), InvalidDirectionError> {
+    pub fn validate(self) -> Result<Self, InvalidDirectionError> {
         if self.0.length_squared().abs() < f32::EPSILON {
             Err(InvalidDirectionError::Zero)
         } else if !self.0.length().is_finite() {
@@ -167,7 +167,7 @@ impl Dir2 {
         } else if self.0.length().is_nan() {
             Err(InvalidDirectionError::NaN)
         } else {
-            Ok(())
+            Ok(self)
         }
     }
 
@@ -374,7 +374,7 @@ impl Dir3 {
     ///
     /// Note that directions may be valid but not normalized:
     /// some degree of drift is expected due to floating point error accumulation.
-    pub fn validate(&self) -> Result<(), InvalidDirectionError> {
+    pub fn validate(self) -> Result<Self, InvalidDirectionError> {
         if self.0.length_squared().abs() < f32::EPSILON {
             Err(InvalidDirectionError::Zero)
         } else if !self.0.length().is_finite() {
@@ -382,7 +382,7 @@ impl Dir3 {
         } else if self.0.length().is_nan() {
             Err(InvalidDirectionError::NaN)
         } else {
-            Ok(())
+            Ok(self)
         }
     }
 
