@@ -6,9 +6,9 @@ use glam::Mat3;
 use super::{BoundingVolume, IntersectsVolume};
 use crate::{Quat, Vec3, Vec3A};
 
-pub use extrusion::{extrusion_bounding_box, extrusion_bounding_sphere};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
+pub use extrusion::{extrusion_bounding_box, extrusion_bounding_sphere};
 
 /// Computes the geometric center of the given set of points.
 #[inline(always)]
