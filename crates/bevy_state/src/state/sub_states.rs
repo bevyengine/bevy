@@ -125,7 +125,7 @@ pub use bevy_state_macros::SubStates;
 ///     /// We then define the compute function, which takes in the [`Self::SourceStates`]
 ///     fn should_exist(sources: Option<AppState>) -> Option<Self> {
 ///         match sources {
-///             /// When we are in game, so we want a GamePhase state to exist.
+///             /// When we are in game, we want a GamePhase state to exist.
 ///             /// We can set the initial value here or overwrite it through [`NextState`].
 ///             Some(AppState::InGame { .. }) => Some(Self::Setup),
 ///             /// If we don't want the `State<GamePhase>` resource to exist we return [`None`].
