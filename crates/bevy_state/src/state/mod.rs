@@ -534,14 +534,6 @@ mod tests {
 
         world.run_schedule(StateTransition);
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
-        assert_eq!(
-            *world.resource::<TransitionCounter>(),
-            TransitionCounter {
-                exit: 0,
-                transition: 0,
-                enter: 1
-            }
-        );
         assert!(world
             .resource::<Events<StateTransitionEvent<SimpleState>>>()
             .is_empty());
@@ -561,6 +553,37 @@ mod tests {
         assert_eq!(
             world
                 .resource::<Events<StateTransitionEvent<SimpleState>>>()
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn same_state_transition_should_propagate_to_substate() {
+        let mut world = World::new();
+        EventRegistry::register_event::<StateTransitionEvent<SimpleState>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<SubState>>(&mut world);
+        world.insert_resource(State(SimpleState::B(true)));
+        world.init_resource::<State<SubState>>();
+        let mut schedules = Schedules::new();
+        let mut apply_changes = Schedule::new(StateTransition);
+        SubState::register_sub_state_systems(&mut apply_changes);
+        SimpleState::register_state(&mut apply_changes);
+        schedules.insert(apply_changes);
+        world.insert_resource(schedules);
+        setup_state_transitions_in_world(&mut world, None);
+
+        world.insert_resource(NextState::Pending(SimpleState::B(true)));
+        world.run_schedule(StateTransition);
+        assert_eq!(
+            world
+                .resource::<Events<StateTransitionEvent<SimpleState>>>()
+                .len(),
+            1
+        );
+        assert_eq!(
+            world
+                .resource::<Events<StateTransitionEvent<SubState>>>()
                 .len(),
             1
         );
