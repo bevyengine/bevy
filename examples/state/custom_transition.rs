@@ -5,14 +5,16 @@
 //! additionally trigger if the state changed into itself.
 //!
 //! While identity transitions exist internally, the default schedules
-//! intentionally ignore them, as it is not a common use-case.
+//! intentionally ignore them, as it is not the common use-case.
 
 use std::marker::PhantomData;
 
 use bevy::{ecs::schedule::ScheduleLabel, prelude::*, state::state::StateTransitionSteps};
 
 use custom_transitions::*;
-use ui::*;
+#[path = "./utils.rs"]
+mod utils;
+use utils::*;
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 enum AppState {
@@ -21,19 +23,10 @@ enum AppState {
     InGame,
 }
 
-#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, SubStates)]
-#[source(AppState = AppState::InGame)]
-enum IsPaused {
-    #[default]
-    Running,
-    Paused,
-}
-
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_state::<AppState>()
-        .add_sub_state::<IsPaused>()
         .add_systems(Startup, setup)
         .add_systems(OnEnter(AppState::Menu), setup_menu)
         .add_systems(Update, menu.run_if(in_state(AppState::Menu)))
@@ -42,18 +35,10 @@ fn main() {
         .add_plugins(IdentityTransitionsPlugin::<AppState>::default())
         .add_systems(OnReenter(AppState::InGame), setup_game)
         .add_systems(OnReexit(AppState::InGame), teardown_game)
-        // Doing it this way allows us to restart the game without any in-between states.
-        .add_systems(OnEnter(IsPaused::Paused), setup_paused_screen)
-        .add_systems(
-            OnExit(IsPaused::Paused),
-            clear_state_bound_entities(IsPaused::Paused),
-        )
+        // Doing it this way allows us to restart the game without any additional in-between states.
         .add_systems(
             Update,
-            (
-                (movement, change_color).run_if(in_state(IsPaused::Running)),
-                (toggle_pause, restart_game).run_if(in_state(AppState::InGame)),
-            ),
+            ((movement, change_color, restart_game).run_if(in_state(AppState::InGame)),),
         )
         .add_systems(Update, log_transitions::<AppState>)
         .run();
@@ -125,19 +110,6 @@ fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
     }
 }
 
-fn toggle_pause(
-    input: Res<ButtonInput<KeyCode>>,
-    current_state: Res<State<IsPaused>>,
-    mut next_state: ResMut<NextState<IsPaused>>,
-) {
-    if input.just_pressed(KeyCode::Space) {
-        next_state.set(match current_state.get() {
-            IsPaused::Running => IsPaused::Paused,
-            IsPaused::Paused => IsPaused::Running,
-        });
-    }
-}
-
 fn restart_game(input: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
     if input.just_pressed(KeyCode::KeyR) {
         // Although we are already in this state
@@ -145,30 +117,6 @@ fn restart_game(input: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextSta
         // While default schedules ignore those kinds of transitions,
         // out custom schedules will react to them.
         next_state.set(AppState::InGame);
-    }
-}
-
-#[derive(Component)]
-struct StateBound<S: States>(S);
-
-fn clear_state_bound_entities<S: States>(
-    state: S,
-) -> impl Fn(Commands, Query<(Entity, &StateBound<S>)>) {
-    move |mut commands, query| {
-        for (entity, bound) in &query {
-            if bound.0 == state {
-                commands.entity(entity).despawn_recursive();
-            }
-        }
-    }
-}
-
-fn log_transitions<S: States>(mut transitions: EventReader<StateTransitionEvent<S>>) {
-    for transition in transitions.read() {
-        info!(
-            "Transition: {:?} => {:?}",
-            transition.exited, transition.entered
-        );
     }
 }
 
@@ -214,7 +162,7 @@ mod custom_transitions {
     /// The plugin registers the transitions for one specific state.
     /// If you use this for multiple states consider:
     /// - installing the plugin multiple times,
-    /// - add an [`App`] extension method that inserts
+    /// - create an [`App`] extension method that inserts
     ///   those transitions during state installation.
     #[derive(Default)]
     pub struct IdentityTransitionsPlugin<S: States>(PhantomData<S>);
@@ -228,7 +176,7 @@ mod custom_transitions {
                 last_transition::<S>
                     // We insert the optional event into our schedule runner.
                     .pipe(run_reenter::<S>)
-                    // We use the same step as [`OnEnter`]
+                    // We use the same transition step as [`OnEnter`].
                     .in_set(StateTransitionSteps::EnterSchedules),
             )
             .add_systems(
@@ -236,124 +184,75 @@ mod custom_transitions {
                 last_transition::<S>
                     .pipe(run_reexit::<S>)
                     .in_set(StateTransitionSteps::ExitSchedules),
+                // [`StateTransitionSteps::TransitionSchedules`] is another step you can use.
             );
         }
     }
 }
 
-mod ui {
-    use crate::*;
+fn setup(mut commands: Commands) {
+    commands.spawn(Camera2dBundle::default());
+}
 
-    #[derive(Resource)]
-    pub struct MenuData {
-        pub button_entity: Entity,
-    }
+fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn(SpriteBundle {
+        texture: asset_server.load("branding/icon.png"),
+        ..default()
+    });
+}
 
-    pub const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
-    pub const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
-    pub const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
+fn teardown_game(mut commands: Commands, player: Query<Entity, With<Sprite>>) {
+    commands.entity(player.single()).despawn();
+}
 
-    pub fn setup(mut commands: Commands) {
-        commands.spawn(Camera2dBundle::default());
-    }
+#[derive(Resource)]
+struct MenuData {
+    pub button_entity: Entity,
+}
 
-    pub fn setup_menu(mut commands: Commands) {
-        let button_entity = commands
-            .spawn(NodeBundle {
-                style: Style {
-                    // center button
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
+const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
+const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
+
+fn setup_menu(mut commands: Commands) {
+    let button_entity = commands
+        .spawn(NodeBundle {
+            style: Style {
+                // center button
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
                 ..default()
-            })
-            .with_children(|parent| {
-                parent
-                    .spawn(ButtonBundle {
-                        style: Style {
-                            width: Val::Px(150.),
-                            height: Val::Px(65.),
-                            // horizontally center child text
-                            justify_content: JustifyContent::Center,
-                            // vertically center child text
-                            align_items: AlignItems::Center,
-                            ..default()
-                        },
-                        image: UiImage::default().with_color(NORMAL_BUTTON),
-                        ..default()
-                    })
-                    .with_children(|parent| {
-                        parent.spawn(TextBundle::from_section(
-                            "Play",
-                            TextStyle {
-                                font_size: 40.0,
-                                color: Color::srgb(0.9, 0.9, 0.9),
-                                ..default()
-                            },
-                        ));
-                    });
-            })
-            .id();
-        commands.insert_resource(MenuData { button_entity });
-    }
-
-    pub fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn(SpriteBundle {
-            texture: asset_server.load("branding/icon.png"),
+            },
             ..default()
-        });
-    }
-
-    pub fn teardown_game(mut commands: Commands, player: Query<Entity, With<Sprite>>) {
-        commands.entity(player.single()).despawn();
-    }
-
-    pub fn setup_paused_screen(mut commands: Commands) {
-        commands
-            .spawn((
-                StateBound(IsPaused::Paused),
-                NodeBundle {
+        })
+        .with_children(|parent| {
+            parent
+                .spawn(ButtonBundle {
                     style: Style {
-                        // center button
-                        width: Val::Percent(100.),
-                        height: Val::Percent(100.),
+                        width: Val::Px(150.),
+                        height: Val::Px(65.),
+                        // horizontally center child text
                         justify_content: JustifyContent::Center,
+                        // vertically center child text
                         align_items: AlignItems::Center,
-                        flex_direction: FlexDirection::Column,
-                        row_gap: Val::Px(10.),
                         ..default()
                     },
+                    image: UiImage::default().with_color(NORMAL_BUTTON),
                     ..default()
-                },
-            ))
-            .with_children(|parent| {
-                parent
-                    .spawn(NodeBundle {
-                        style: Style {
-                            width: Val::Px(400.),
-                            height: Val::Px(400.),
-                            // horizontally center child text
-                            justify_content: JustifyContent::Center,
-                            // vertically center child text
-                            align_items: AlignItems::Center,
+                })
+                .with_children(|parent| {
+                    parent.spawn(TextBundle::from_section(
+                        "Play",
+                        TextStyle {
+                            font_size: 40.0,
+                            color: Color::srgb(0.9, 0.9, 0.9),
                             ..default()
                         },
-                        background_color: NORMAL_BUTTON.into(),
-                        ..default()
-                    })
-                    .with_children(|parent| {
-                        parent.spawn(TextBundle::from_section(
-                            "Paused",
-                            TextStyle {
-                                font_size: 40.0,
-                                color: Color::srgb(0.9, 0.9, 0.9),
-                                ..default()
-                            },
-                        ));
-                    });
-            });
-    }
+                    ));
+                });
+        })
+        .id();
+    commands.insert_resource(MenuData { button_entity });
 }

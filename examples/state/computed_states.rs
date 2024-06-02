@@ -19,6 +19,9 @@
 use bevy::{dev_tools::states::*, prelude::*};
 
 use ui::*;
+#[path = "./utils.rs"]
+mod utils;
+use utils::*;
 
 // To begin, we want to define our state objects.
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
