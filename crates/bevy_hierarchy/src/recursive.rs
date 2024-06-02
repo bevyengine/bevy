@@ -133,7 +133,16 @@ impl<
                 continue;
             };
             for entity in children {
+                assert_ne!(
+                    *entity, actual_root,
+                    "Malformed hierarchy. Self-referencing entity detected."
+                );
+                assert_eq!(
+                    self.parent.get(*entity).map(|(_, p)| p.get()).ok(), Some(actual_root),
+                    "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained."
+                );
                 // Safety: `self.children` is not fetched while this is running.
+                // actual root is the parent of entity and is not self referencing.
                 unsafe {
                     propagate(
                         actual_root,
@@ -167,6 +176,14 @@ impl<
                 continue;
             };
             for entity in children {
+                assert_ne!(
+                    *entity, actual_root,
+                    "Malformed hierarchy. Self-referencing entity detected."
+                );
+                assert_eq!(
+                    self.parent.get(*entity).map(|(_, p)| p.get()).ok(), Some(actual_root),
+                    "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained."
+                );
                 // Safety: `self.children` is not fetched while this is running.
                 unsafe {
                     propagate(
@@ -201,6 +218,8 @@ impl<
 /// nor any of its descendants.
 /// - The caller must ensure that the hierarchy leading to `entity`
 /// is well-formed and must remain as a tree or a forest. Each entity must have at most one parent.
+/// - When called externally, `actual_root` must be the parent of `entity` and not self referencing,
+/// when called recursively, `actual_root` must be the ancestor of `entity`.
 #[allow(unsafe_code)]
 unsafe fn propagate<
     QShared: QueryData + 'static,
