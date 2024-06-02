@@ -1,3 +1,5 @@
+use core::f32::consts::FRAC_1_SQRT_2;
+
 use glam::FloatExt;
 
 use crate::prelude::{Mat2, Vec2};
@@ -81,8 +83,8 @@ impl Rotation2d {
 
     /// A counterclockwise rotation of π/4 radians.
     pub const FRAC_PI_4: Self = Self {
-        cos: std::f32::consts::FRAC_1_SQRT_2,
-        sin: std::f32::consts::FRAC_1_SQRT_2,
+        cos: FRAC_1_SQRT_2,
+        sin: FRAC_1_SQRT_2,
     };
 
     /// A counterclockwise rotation of π/6 radians.
@@ -95,6 +97,41 @@ impl Rotation2d {
     pub const FRAC_PI_8: Self = Self {
         cos: 0.923_879_5,
         sin: 0.382_683_43,
+    };
+
+    /// The "north" direction, equivalent to a counterclockwise rotation of π/2 radians.
+    pub const NORTH: Self = Self { cos: 0.0, sin: 1.0 };
+    /// The "south" direction, equivalent to a counterclockwise rotation of -π/2 radians.
+    pub const SOUTH: Self = Self {
+        cos: 0.0,
+        sin: -1.0,
+    };
+    /// The "east" direction, equivalent to a counterclockwise rotation of 0 radians.
+    pub const EAST: Self = Self { cos: 1.0, sin: 0.0 };
+    /// The "west" direction, equivalent to a counterclockwise rotation of π radians.
+    pub const WEST: Self = Self {
+        cos: -1.0,
+        sin: 0.0,
+    };
+    /// The "north-east" direction, equivalent to a counterclockwise rotation of π/4 radians.
+    pub const NORTH_EAST: Self = Self {
+        cos: FRAC_1_SQRT_2,
+        sin: FRAC_1_SQRT_2,
+    };
+    /// The "north-west" direction, equivalent to a counterclockwise rotation of 3π/4 radians.
+    pub const NORTH_WEST: Self = Self {
+        cos: -FRAC_1_SQRT_2,
+        sin: FRAC_1_SQRT_2,
+    };
+    /// The "south-east" direction, equivalent to a counterclockwise rotation of -π/4 radians.
+    pub const SOUTH_EAST: Self = Self {
+        cos: FRAC_1_SQRT_2,
+        sin: -FRAC_1_SQRT_2,
+    };
+    /// The "south-west" direction, equivalent to a counterclockwise rotation of -3π/4 radians.
+    pub const SOUTH_WEST: Self = Self {
+        cos: -FRAC_1_SQRT_2,
+        sin: -FRAC_1_SQRT_2,
     };
 
     /// Creates a [`Rotation2d`] from a counterclockwise angle in radians.
