@@ -196,7 +196,7 @@ where
     ///     // You may want to increase this for larger spheres.
     ///     gizmos
     ///         .sphere(Vec3::ZERO, Quat::IDENTITY, 5., Color::BLACK)
-    ///         .segments(64);
+    ///         .resolution(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -214,7 +214,7 @@ where
             position,
             rotation,
             color: color.into(),
-            segments: DEFAULT_CIRCLE_SEGMENTS,
+            resolution: DEFAULT_CIRCLE_RESOLUTION,
         }
     }
 }
@@ -324,8 +324,8 @@ where
     // Color of the sphere
     color: Color,
 
-    // Number of segments used to approximate the sphere geometry
-    segments: usize,
+    // Number of line-segments used to approximate the sphere geometry
+    resolution: usize,
 }
 
 impl<Config, Clear> SphereBuilder<'_, '_, '_, Config, Clear>
@@ -333,9 +333,9 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Set the number of segments used to approximate the sphere geometry.
-    pub fn segments(mut self, segments: usize) -> Self {
-        self.segments = segments;
+    /// Set the number of line-segments used to approximate the sphere geometry.
+    pub fn resolution(mut self, resolution: usize) -> Self {
+        self.resolution = resolution;
         self
     }
 }
@@ -355,16 +355,16 @@ where
             position: center,
             rotation,
             color,
-            segments,
+            resolution,
             ..
         } = self;
 
         // draws one great circle around each of the local axes
         Vec3::AXES.into_iter().for_each(|axis| {
-            let normal = rotation * axis;
+            let normal = *rotation * axis;
             self.gizmos
                 .circle(*center, Dir3::new_unchecked(normal), *radius, *color)
-                .segments(*segments);
+                .resolution(*resolution);
         });
     }
 }
