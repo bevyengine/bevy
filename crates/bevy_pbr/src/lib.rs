@@ -22,6 +22,7 @@ pub mod experimental {
 }
 
 mod bundle;
+mod cluster;
 pub mod deferred;
 mod extended_material;
 mod fog;
@@ -41,6 +42,7 @@ use bevy_color::{Color, LinearRgba};
 use std::marker::PhantomData;
 
 pub use bundle::*;
+pub use cluster::*;
 pub use extended_material::*;
 pub use fog::*;
 pub use light::*;
@@ -337,7 +339,7 @@ impl Plugin for PbrPlugin {
                 PostUpdate,
                 (
                     add_clusters.in_set(SimulationLightSystems::AddClusters),
-                    assign_lights_to_clusters
+                    crate::assign_lights_to_clusters
                         .in_set(SimulationLightSystems::AssignLightsToClusters)
                         .after(TransformSystem::TransformPropagate)
                         .after(VisibilitySystems::CheckVisibility)
