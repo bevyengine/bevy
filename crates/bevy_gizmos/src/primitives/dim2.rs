@@ -927,7 +927,7 @@ where
             return;
         }
 
-        // We can save on lines by just drawing a rhombus when the squircle is sufficiantly similar to a rhombus.
+        // We can save on lines by just drawing a rhombus when the squircle is sufficiently similar to a rhombus.
         if self.p.distance(1.) < 0.0001 {
             self.gizmos.primitive_2d(
                 &Rhombus {
@@ -939,7 +939,7 @@ where
             );
         }
 
-        // We can save on lines by just drawing a rectangle when the squircle is sufficiantly square.
+        // We can save on lines by just drawing a rectangle when the squircle is sufficiently square.
         // If `p > 100_000` the difference between a rectangle and a superellipse is less than `0.0000098 * r` for a superellipse with a = b = r.
         if self.p >= 100_000. {
             self.gizmos.rect_2d(
