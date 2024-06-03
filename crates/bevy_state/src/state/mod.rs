@@ -559,7 +559,7 @@ mod tests {
     }
 
     #[test]
-    fn same_state_transition_should_propagate_to_substate() {
+    fn same_state_transition_should_propagate_to_sub_state() {
         let mut world = World::new();
         EventRegistry::register_event::<StateTransitionEvent<SimpleState>>(&mut world);
         EventRegistry::register_event::<StateTransitionEvent<SubState>>(&mut world);
@@ -567,8 +567,8 @@ mod tests {
         world.init_resource::<State<SubState>>();
         let mut schedules = Schedules::new();
         let mut apply_changes = Schedule::new(StateTransition);
-        SubState::register_sub_state_systems(&mut apply_changes);
         SimpleState::register_state(&mut apply_changes);
+        SubState::register_sub_state_systems(&mut apply_changes);
         schedules.insert(apply_changes);
         world.insert_resource(schedules);
         setup_state_transitions_in_world(&mut world, None);
@@ -584,6 +584,37 @@ mod tests {
         assert_eq!(
             world
                 .resource::<Events<StateTransitionEvent<SubState>>>()
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn same_state_transition_should_propagate_to_computed_state() {
+        let mut world = World::new();
+        EventRegistry::register_event::<StateTransitionEvent<SimpleState>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<TestComputedState>>(&mut world);
+        world.insert_resource(State(SimpleState::B(true)));
+        world.insert_resource(State(TestComputedState::BisTrue));
+        let mut schedules = Schedules::new();
+        let mut apply_changes = Schedule::new(StateTransition);
+        SimpleState::register_state(&mut apply_changes);
+        TestComputedState::register_computed_state_systems(&mut apply_changes);
+        schedules.insert(apply_changes);
+        world.insert_resource(schedules);
+        setup_state_transitions_in_world(&mut world, None);
+
+        world.insert_resource(NextState::Pending(SimpleState::B(true)));
+        world.run_schedule(StateTransition);
+        assert_eq!(
+            world
+                .resource::<Events<StateTransitionEvent<SimpleState>>>()
+                .len(),
+            1
+        );
+        assert_eq!(
+            world
+                .resource::<Events<StateTransitionEvent<TestComputedState>>>()
                 .len(),
             1
         );
