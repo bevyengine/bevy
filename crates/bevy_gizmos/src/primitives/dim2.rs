@@ -1,6 +1,6 @@
 //! A module for rendering each of the 2D [`bevy_math::primitives`] with [`Gizmos`].
 
-use std::f32::consts::{FRAC_PI_2, PI, SQRT_2, TAU};
+use std::f32::consts::{FRAC_2_PI, FRAC_PI_2, PI, TAU};
 
 use super::helpers::*;
 
@@ -9,8 +9,9 @@ use bevy_math::primitives::{
     Annulus, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, Ellipse, Line2d, Plane2d, Polygon,
     Polyline2d, Primitive2d, Rectangle, RegularPolygon, Rhombus, Segment2d, Squircle, Triangle2d,
 };
-use bevy_math::{Dir2, Mat2, Vec2};
+use bevy_math::{Dir2, Mat2, NormedVectorSpace, Vec2};
 
+use crate::circles::DEFAULT_CIRCLE_RESOLUTION;
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 
 // some magic number since using directions as offsets will result in lines of length 1 pixel
@@ -692,12 +693,42 @@ where
 
 // squircle
 
+/// Builder for configuring the drawing options of [`Squircle`].
+pub struct SquircleBuilder<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
+
+    half_size: Vec2, // Half of the size of the squircle
+    p: f32,          // The squareness of the squircle
+
+    position: Vec2, // position of the center of the squircle
+    rotation: f32,  // rotation of the squircle
+    color: Color,   // color of the squircle
+
+    resolution: usize,
+}
+
+impl<'a, 'w, 's, Config, Clear> SquircleBuilder<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Set the number of line-segments used to approximate the geometry of this squircle.
+    pub fn resolution(mut self, resolution: usize) -> Self {
+        self.resolution = resolution;
+        self
+    }
+}
+
 impl<'w, 's, Config, Clear> GizmoPrimitive2d<Squircle> for Gizmos<'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a> = SquircleBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
 
     fn primitive_2d(
         &mut self,
@@ -706,31 +737,104 @@ where
         angle: f32,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
-        if !self.enabled {
+        SquircleBuilder {
+            gizmos: self,
+            half_size: primitive.half_size,
+            p: primitive.p,
+            position,
+            rotation: angle,
+            color: color.into(),
+            resolution: DEFAULT_CIRCLE_RESOLUTION,
+        }
+    }
+}
+
+impl<'a, 'w, 's, Config, Clear> Drop for SquircleBuilder<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    fn drop(&mut self) {
+        if !self.gizmos.enabled {
             return;
         }
 
-        let squircle_points = |angle: f32| {
-            let divisor = primitive.squareness * (2. * angle).sin();
-            if divisor.abs() < 0.005 {
-                let (sin, cos) = angle.sin_cos();
-                Vec2::new(cos, sin) * primitive.half_size
-            } else {
-                let angle = if angle.rem_euclid(PI) >= FRAC_PI_2 {
-                    angle + PI
-                } else {
-                    angle
-                };
-                let factor = SQRT_2 * (1. - (1. - divisor * divisor).sqrt()).sqrt() / divisor;
-                let (sin, cos) = angle.sin_cos();
-                factor * Vec2::new(cos, sin) * primitive.half_size
-            }
+        // We can save on lines by just drawing a rhombus when the squircle is sufficiantly similar to a rhombus.
+        if self.p.distance(1.) < 0.001 {
+            self.gizmos.primitive_2d(
+                &Rhombus {
+                    half_diagonals: self.half_size,
+                },
+                self.position,
+                self.rotation,
+                self.color,
+            );
+        }
+
+        // Sufficiently elliptical squircles are visually identical to ellipses.
+        if self.p.distance(2.) < 0.001 {
+            self.gizmos
+                .ellipse_2d(self.position, self.rotation, self.half_size, self.color)
+                .resolution(self.resolution);
+            return;
+        }
+
+        // We can save on lines by just drawing a rectangle when the squircle is sufficiantly square.
+        // If `p > 100_000` the difference between a rectangle and a superellipse is less than `0.0000098 * r` for a superellipse with a = b = r.
+        if self.p >= 100_000. {
+            self.gizmos.rect_2d(
+                self.position,
+                self.rotation,
+                self.half_size * 2.,
+                self.color,
+            );
+            return;
+        }
+
+        // Interpolating between `phi`s that are at equal angles from one another and `normal_phi`s
+        // which are spaced so that the normals at each `normal_phi` change by equal amounts gives the most visually consistent look.
+        let interpolation = (self.p - 2.).abs().atan() * FRAC_2_PI;
+        let squircle_points = |t: f32| {
+            let phi = t * TAU;
+            let normal_phi = {
+                let first_angle = ((phi.rem_euclid(TAU).tan().abs()
+                    * (self.half_size.y / self.half_size.x).powf(self.p))
+                .powf(1. / (self.p - 1.)))
+                .atan();
+
+                match phi {
+                    _ if phi < FRAC_PI_2 => first_angle,
+                    _ if phi < PI => PI - first_angle,
+                    _ if phi < 3. * FRAC_PI_2 => PI + first_angle,
+                    _ => TAU - first_angle,
+                }
+            };
+            let phi = phi * (1. - interpolation) + normal_phi * interpolation;
+
+            let (sin, cos) = phi.sin_cos();
+
+            // The sine and cosine values are scaled so the larger of the two is exactly one.
+            // This ensures valid results even for very large p or very eccentric superellipses.
+            let (scaled_sin, scaled_cos, scale) = {
+                let dir = Vec2::new(self.half_size.x * sin, self.half_size.y * cos).abs();
+                let max = dir.max_element();
+                let Vec2 {
+                    x: scaled_sin,
+                    y: scaled_cos,
+                } = dir / max;
+                (scaled_sin, scaled_cos, max)
+            };
+
+            let r = self.half_size.element_product()
+                / scale
+                / (scaled_sin.powf(self.p) + scaled_cos.powf(self.p)).powf(1. / self.p);
+
+            r * Vec2::new(cos, sin)
         };
 
-        let resolution = 128;
-        let delta = TAU / resolution as f32;
-        let transform = rotate_then_translate_2d(angle, position);
-        let points = (0..=resolution).map(|i| transform(squircle_points(delta * i as f32)));
-        self.linestrip_2d(points, color);
+        let delta = 1. / self.resolution as f32;
+        let transform = rotate_then_translate_2d(self.rotation, self.position);
+        let points = (0..=self.resolution).map(|i| transform(squircle_points(delta * i as f32)));
+        self.gizmos.linestrip_2d(points, self.color);
     }
 }
