@@ -3,6 +3,7 @@
 //! or other IDs that can be packed and expressed within a `u64` sized type.
 //! [`Identifier`]s cannot be created directly, only able to be converted from other
 //! compatible IDs.
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
 use self::{error::IdentifierError, kinds::IdKind, masks::IdentifierMask};
