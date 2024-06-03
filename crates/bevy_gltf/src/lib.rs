@@ -280,6 +280,7 @@ pub struct GltfMeshExtras {
 pub struct GltfMaterialExtras {
     /// Content of the extra data.
     pub value: String,
+}
 
 /// Labels that can be used to load part of a glTF
 ///
