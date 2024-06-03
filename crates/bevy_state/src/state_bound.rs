@@ -59,6 +59,9 @@ pub fn clear_state_bound_entities<S: States>(
     mut transitions: EventReader<StateTransitionEvent<S>>,
     query: Query<(Entity, &StateBound<S>)>,
 ) {
+    // We use the latest event, because state machine internals generate at most 1
+    // transition event (per type) each frame. No event means no change happened
+    // and we skip iterating all entities.
     let Some(transition) = transitions.read().last() else {
         return;
     };
