@@ -5,7 +5,7 @@
 //!
 //! In this case, we're transitioning from a `Menu` state to an `InGame` state.
 
-use bevy::prelude::*;
+use bevy::{dev_tools::states::*, prelude::*};
 
 fn main() {
     App::new()

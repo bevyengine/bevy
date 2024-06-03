@@ -47,8 +47,8 @@ pub mod prelude {
     pub use crate::condition::*;
     #[doc(hidden)]
     pub use crate::state::{
-        log_transitions, ComputedStates, NextState, OnEnter, OnExit, OnTransition, State, StateSet,
-        StateTransition, StateTransitionEvent, States, SubStates,
+        ComputedStates, NextState, OnEnter, OnExit, OnTransition, State, StateSet, StateTransition,
+        StateTransitionEvent, States, SubStates,
     };
     #[cfg(feature = "bevy_hierarchy")]
     #[doc(hidden)]

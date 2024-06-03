@@ -16,7 +16,7 @@
 //! And lastly, we'll add [`Tutorial`], a computed state deriving from [`TutorialState`], [`InGame`] and [`IsPaused`], with 2 distinct
 //! states to display the 2 tutorial texts.
 
-use bevy::prelude::*;
+use bevy::{dev_tools::states::*, prelude::*};
 
 use ui::*;
 
