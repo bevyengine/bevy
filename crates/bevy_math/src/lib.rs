@@ -15,6 +15,7 @@ mod affine3;
 mod aspect_ratio;
 pub mod bounding;
 mod common_traits;
+mod compass;
 pub mod cubic_splines;
 mod direction;
 mod float_ord;
@@ -24,8 +25,7 @@ mod rects;
 mod rotation2d;
 #[cfg(feature = "rand")]
 pub mod sampling;
-mod compass;
-pub use compass::{CompassQuadrant, CompassOctant};
+pub use compass::{CompassOctant, CompassQuadrant};
 
 pub use affine3::*;
 pub use aspect_ratio::AspectRatio;
