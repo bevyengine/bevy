@@ -5,8 +5,6 @@ use bevy_reflect::Reflect;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// A compass enum with 4 directions.
-/// [`CompassQuadrant::North`] corresponds to [`Dir2::Y`]
-/// [`CompassQuadrant::East`] corresponds to [`Dir2::X`]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
@@ -15,15 +13,17 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     reflect(Deserialize, Serialize)
 )]
 pub enum CompassQuadrant {
+    /// Corresponds to [`Dir2::Y`] and [`Dir2::NORTH`]
     North,
+    /// Corresponds to [`Dir2::X`] and [`Dir2::EAST`]
     East,
+    /// Corresponds to [`Dir2::NEG_X`] and [`Dir2::SOUTH`]
     South,
+    /// Corresponds to [`Dir2::NEG_Y`] and [`Dir2::WEST`]
     West,
 }
 
 /// A compass enum with 8 directions.
-/// [`CompassQuadrant::North`] corresponds to [`Dir2::Y`]
-/// [`CompassQuadrant::East`] corresponds to [`Dir2::X`]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
@@ -32,13 +32,21 @@ pub enum CompassQuadrant {
     reflect(Deserialize, Serialize)
 )]
 pub enum CompassOctant {
+    /// Corresponds to [`Dir2::Y`] and [`Dir2::NORTH`]
     North,
+    /// Corresponds to [`Dir2::NORTH_EAST`]
     NorthEast,
+    /// Corresponds to [`Dir2::X`] and [`Dir2::EAST`]
     East,
+    /// Corresponds to [`Dir2::SOUTH_EAST`]
     SouthEast,
+    /// Corresponds to [`Dir2::NEG_X`] and [`Dir2::SOUTH`]
     South,
+    /// Corresponds to [`Dir2::SOUTH_WEST`]
     SouthWest,
+    /// Corresponds to [`Dir2::NEG_Y`] and [`Dir2::WEST`]
     West,
+    /// Corresponds to [`Dir2::NORTH_WEST`]
     NorthWest,
 }
 
