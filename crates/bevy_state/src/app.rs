@@ -10,7 +10,7 @@ use crate::state::{
     StateTransition, StateTransitionEvent, StateTransitionSteps, States, SubStates,
 };
 #[cfg(feature = "bevy_hierarchy")]
-use crate::state_bound::clear_state_bound_entities;
+use crate::state_scoped::clear_state_scoped_entities;
 
 /// State installation methods for [`App`](bevy_app::App) and [`SubApp`](bevy_app::SubApp).
 pub trait AppExtStates {
@@ -52,10 +52,10 @@ pub trait AppExtStates {
     fn add_sub_state<S: SubStates>(&mut self) -> &mut Self;
 
     #[cfg(feature = "bevy_hierarchy")]
-    /// Enable state bound entity clearing for state `S`.
+    /// Enable state scoped entity clearing for state `S`.
     ///
-    /// For more information refer to [`StateBound`](crate::state_bound::StateBound).
-    fn enable_state_bound_entities<S: States>(&mut self) -> &mut Self;
+    /// For more information refer to [`StateScoped`](crate::state_scoped::StateScoped).
+    fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self;
 }
 
 impl AppExtStates for SubApp {
@@ -134,10 +134,10 @@ impl AppExtStates for SubApp {
     }
 
     #[cfg(feature = "bevy_hierarchy")]
-    fn enable_state_bound_entities<S: States>(&mut self) -> &mut Self {
+    fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self {
         self.add_systems(
             StateTransition,
-            clear_state_bound_entities::<S>.in_set(StateTransitionSteps::ExitSchedules),
+            clear_state_scoped_entities::<S>.in_set(StateTransitionSteps::ExitSchedules),
         )
     }
 }
@@ -164,8 +164,8 @@ impl AppExtStates for App {
     }
 
     #[cfg(feature = "bevy_hierarchy")]
-    fn enable_state_bound_entities<S: States>(&mut self) -> &mut Self {
-        self.main_mut().enable_state_bound_entities::<S>();
+    fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self {
+        self.main_mut().enable_state_scoped_entities::<S>();
         self
     }
 }

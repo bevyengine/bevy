@@ -186,7 +186,7 @@ fn main() {
         .add_systems(OnEnter(InGame), setup_game)
         // And we only want to run the [`clear_game`] function when we leave the [`AppState::InGame`] state, regardless
         // of whether we're paused.
-        .enable_state_bound_entities::<InGame>()
+        .enable_state_scoped_entities::<InGame>()
         // We want the color change, toggle_pause and quit_to_menu systems to ignore the paused condition, so we can use the [`InGame`] derived
         // state here as well.
         .add_systems(
@@ -200,15 +200,15 @@ fn main() {
         )
         // We can continue setting things up, following all the same patterns used above and in the `states` example.
         .add_systems(OnEnter(IsPaused::Paused), setup_paused_screen)
-        .enable_state_bound_entities::<IsPaused>()
+        .enable_state_scoped_entities::<IsPaused>()
         .add_systems(OnEnter(TurboMode), setup_turbo_text)
-        .enable_state_bound_entities::<TurboMode>()
+        .enable_state_scoped_entities::<TurboMode>()
         .add_systems(
             OnEnter(Tutorial::MovementInstructions),
             movement_instructions,
         )
         .add_systems(OnEnter(Tutorial::PauseInstructions), pause_instructions)
-        .enable_state_bound_entities::<Tutorial>()
+        .enable_state_scoped_entities::<Tutorial>()
         .add_systems(
             Update,
             (
@@ -422,7 +422,7 @@ mod ui {
 
     pub fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((
-            StateBound(InGame),
+            StateScoped(InGame),
             SpriteBundle {
                 texture: asset_server.load("branding/icon.png"),
                 ..default()
@@ -466,7 +466,7 @@ mod ui {
         info!("Printing Pause");
         commands
             .spawn((
-                StateBound(IsPaused::Paused),
+                StateScoped(IsPaused::Paused),
                 NodeBundle {
                     style: Style {
                         // center button
@@ -516,7 +516,7 @@ mod ui {
     pub fn setup_turbo_text(mut commands: Commands) {
         commands
             .spawn((
-                StateBound(TurboMode),
+                StateScoped(TurboMode),
                 NodeBundle {
                     style: Style {
                         // center button
@@ -558,7 +558,7 @@ mod ui {
     pub fn movement_instructions(mut commands: Commands) {
         commands
             .spawn((
-                StateBound(Tutorial::MovementInstructions),
+                StateScoped(Tutorial::MovementInstructions),
                 NodeBundle {
                     style: Style {
                         // center button
@@ -615,7 +615,7 @@ mod ui {
     pub fn pause_instructions(mut commands: Commands) {
         commands
             .spawn((
-                StateBound(Tutorial::PauseInstructions),
+                StateScoped(Tutorial::PauseInstructions),
                 NodeBundle {
                     style: Style {
                         // center button

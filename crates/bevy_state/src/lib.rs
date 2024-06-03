@@ -35,8 +35,8 @@ pub mod condition;
 /// Provides definitions for the basic traits required by the state system
 pub mod state;
 #[cfg(feature = "bevy_hierarchy")]
-/// Provides [`StateBound`] and [`clear_state_bound_entities`] for managing lifetime of entities.
-pub mod state_bound;
+/// Provides [`StateScoped`] and [`clear_state_scoped_entities`] for managing lifetime of entities.
+pub mod state_scoped;
 
 /// Most commonly used re-exported types.
 pub mod prelude {
@@ -52,5 +52,5 @@ pub mod prelude {
     };
     #[cfg(feature = "bevy_hierarchy")]
     #[doc(hidden)]
-    pub use crate::state_bound::StateBound;
+    pub use crate::state_scoped::StateScoped;
 }
