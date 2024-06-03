@@ -63,7 +63,7 @@ fn touch_camera(
     for rotation in rotations.read() {
         let mut transform = camera.single_mut();
         let forward = transform.forward();
-        transform.rotate_axis(forward, rotation.0 / 10.0)
+        transform.rotate_axis(forward, rotation.0 / 10.0);
     }
 }
 
