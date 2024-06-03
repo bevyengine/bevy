@@ -301,10 +301,7 @@ fn setup(
     commands.spawn(background_cube_bundle(Vec3::new(0., 0., 45.)));
     commands.spawn(background_cube_bundle(Vec3::new(0., 0., -45.)));
 
-    let style = TextStyle {
-        font_size: 20.0,
-        ..default()
-    };
+    let style = TextStyle::default();
 
     // example instructions
     commands.spawn(
