@@ -4,7 +4,7 @@ use bevy::{
     color::palettes::basic::*,
     input::touch::TouchPhase,
     prelude::*,
-    window::{ApplicationLifetime, WindowMode},
+    window::{AppLifecycle, WindowMode},
 };
 
 // the `bevy_main` proc_macro generates the required boilerplate for iOS and Android
@@ -166,14 +166,18 @@ fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
 // Pause audio when app goes into background and resume when it returns.
 // This is handled by the OS on iOS, but not on Android.
 fn handle_lifetime(
-    mut lifetime_events: EventReader<ApplicationLifetime>,
+    mut lifecycle_events: EventReader<AppLifecycle>,
     music_controller: Query<&AudioSink>,
 ) {
-    for event in lifetime_events.read() {
+    let Ok(music_controller) = music_controller.get_single() else {
+        return;
+    };
+
+    for event in lifecycle_events.read() {
         match event {
-            ApplicationLifetime::Suspended => music_controller.single().pause(),
-            ApplicationLifetime::Resumed => music_controller.single().play(),
-            ApplicationLifetime::Started => (),
+            AppLifecycle::Idle | AppLifecycle::WillSuspend | AppLifecycle::WillResume => {}
+            AppLifecycle::Suspended => music_controller.pause(),
+            AppLifecycle::Running => music_controller.play(),
         }
     }
 }

@@ -687,10 +687,10 @@ impl Default for WindowResolution {
 
 impl WindowResolution {
     /// Creates a new [`WindowResolution`].
-    pub fn new(logical_width: f32, logical_height: f32) -> Self {
+    pub fn new(physical_width: f32, physical_height: f32) -> Self {
         Self {
-            physical_width: logical_width as u32,
-            physical_height: logical_height as u32,
+            physical_width: physical_width as u32,
+            physical_height: physical_height as u32,
             ..Default::default()
         }
     }
@@ -783,9 +783,7 @@ impl WindowResolution {
     /// Set the window's scale factor, this may get overridden by the backend.
     #[inline]
     pub fn set_scale_factor(&mut self, scale_factor: f32) {
-        let (width, height) = (self.width(), self.height());
         self.scale_factor = scale_factor;
-        self.set(width, height);
     }
 
     /// Set the window's scale factor, this will be used over what the backend decides.
@@ -794,9 +792,7 @@ impl WindowResolution {
     /// size is not within the limits.
     #[inline]
     pub fn set_scale_factor_override(&mut self, scale_factor_override: Option<f32>) {
-        let (width, height) = (self.width(), self.height());
         self.scale_factor_override = scale_factor_override;
-        self.set(width, height);
     }
 }
 

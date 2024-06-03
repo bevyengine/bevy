@@ -359,6 +359,10 @@ argh = "0.1.12"
 thiserror = "1.0"
 event-listener = "5.3.0"
 
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen = { version = "0.2" }
+web-sys = { version = "0.3", features = ["Window"] }
+
 [[example]]
 name = "hello_world"
 path = "examples/hello_world.rs"
@@ -2833,6 +2837,17 @@ doc-scrape-examples = true
 [package.metadata.example.clear_color]
 name = "Clear Color"
 description = "Creates a solid color window"
+category = "Window"
+wasm = true
+
+[[example]]
+name = "custom_user_event"
+path = "examples/window/custom_user_event.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_user_event]
+name = "Custom User Event"
+description = "Handles custom user events within the event loop"
 category = "Window"
 wasm = true
 
