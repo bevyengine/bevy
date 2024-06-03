@@ -219,7 +219,13 @@ fn main() {
             OnExit(Tutorial::PauseInstructions),
             clear_state_bound_entities(Tutorial::PauseInstructions),
         )
-        .add_systems(Update, log_transitions)
+        .add_systems(
+            Update,
+            (
+                log_transitions::<AppState>,
+                log_transitions::<TutorialState>,
+            ),
+        )
         .run();
 }
 
@@ -277,22 +283,6 @@ fn menu(
     }
 }
 
-#[derive(Component)]
-struct StateBound<S: States>(S);
-
-fn clear_state_bound_entities<S: States>(
-    state: S,
-) -> impl Fn(Commands, Query<(Entity, &StateBound<S>)>) {
-    info!("Clearing entities for {state:?}");
-    move |mut commands, query| {
-        for (entity, bound) in &query {
-            if bound.0 == state {
-                commands.entity(entity).despawn_recursive();
-            }
-        }
-    }
-}
-
 fn toggle_pause(
     input: Res<ButtonInput<KeyCode>>,
     current_state: Res<State<AppState>>,
@@ -326,25 +316,6 @@ fn toggle_turbo(
 fn quit_to_menu(input: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
     if input.just_pressed(KeyCode::Escape) {
         next_state.set(AppState::Menu);
-    }
-}
-
-/// print when either an `AppState` transition or a `TutorialState` transition happens
-fn log_transitions(
-    mut transitions: EventReader<StateTransitionEvent<AppState>>,
-    mut tutorial_transitions: EventReader<StateTransitionEvent<TutorialState>>,
-) {
-    for transition in transitions.read() {
-        info!(
-            "transition: {:?} => {:?}",
-            transition.exited, transition.entered
-        );
-    }
-    for transition in tutorial_transitions.read() {
-        info!(
-            "tutorial transition: {:?} => {:?}",
-            transition.exited, transition.entered
-        );
     }
 }
 

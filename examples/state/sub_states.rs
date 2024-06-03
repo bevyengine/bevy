@@ -59,7 +59,7 @@ fn main() {
                 toggle_pause.run_if(in_state(AppState::InGame)),
             ),
         )
-        .add_systems(Update, log_transitions)
+        .add_systems(Update, log_transitions::<AppState>)
         .run();
 }
 
@@ -139,31 +139,6 @@ fn toggle_pause(
             IsPaused::Running => IsPaused::Paused,
             IsPaused::Paused => IsPaused::Running,
         });
-    }
-}
-
-#[derive(Component)]
-struct StateBound<S: States>(S);
-
-fn clear_state_bound_entities<S: States>(
-    state: S,
-) -> impl Fn(Commands, Query<(Entity, &StateBound<S>)>) {
-    move |mut commands, query| {
-        for (entity, bound) in &query {
-            if bound.0 == state {
-                commands.entity(entity).despawn_recursive();
-            }
-        }
-    }
-}
-
-/// print when an `AppState` transition happens
-fn log_transitions(mut transitions: EventReader<StateTransitionEvent<AppState>>) {
-    for transition in transitions.read() {
-        info!(
-            "transition: {:?} => {:?}",
-            transition.exited, transition.entered
-        );
     }
 }
 
