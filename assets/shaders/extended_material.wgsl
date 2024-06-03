@@ -6,7 +6,7 @@
 #ifdef PREPASS_PIPELINE
 #import bevy_pbr::{
     prepass_io::{VertexOutput, FragmentOutput},
-    pbr_deferred_functions::deferred_output,
+    prepass_utils::prepass_output,
 }
 #else
 #import bevy_pbr::{
@@ -38,7 +38,7 @@ fn fragment(
 
 #ifdef PREPASS_PIPELINE
     // in deferred mode we can't modify anything after that, as lighting is run in a separate fullscreen shader.
-    let out = deferred_output(in, pbr_input);
+    let out = prepass_output(in, pbr_input);
 #else
     var out: FragmentOutput;
     // apply lighting

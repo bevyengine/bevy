@@ -1,6 +1,9 @@
 #define_import_path bevy_pbr::prepass_utils
 
-#import bevy_pbr::mesh_view_bindings as view_bindings
+#import bevy_pbr::{
+    mesh_view_bindings as view_bindings,
+    pbr_deferred_functions::deferred_gbuffer_from_pbr_input,
+}
 
 #ifdef DEPTH_PREPASS
 fn prepass_depth(frag_coord: vec4<f32>, sample_index: u32) -> f32 {
@@ -33,3 +36,30 @@ fn prepass_motion_vector(frag_coord: vec4<f32>, sample_index: u32) -> vec2<f32> 
     return motion_vector_sample.rg;
 }
 #endif // MOTION_VECTOR_PREPASS
+
+#ifdef PREPASS_PIPELINE
+fn prepass_output(in: VertexOutput, pbr_input: PbrInput) -> FragmentOutput {
+    var out: FragmentOutput;
+
+    // gbuffer
+#ifdef DEFERRED_PREPASS
+    out.deferred = deferred_gbuffer_from_pbr_input(pbr_input);
+    // lighting pass id (used to determine which lighting shader to run for the fragment)
+    out.deferred_lighting_pass_id = pbr_input.material.deferred_lighting_pass_id;
+#endif
+    // normal if required
+#ifdef NORMAL_PREPASS
+    out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
+#endif
+    // motion vectors if required
+#ifdef MOTION_VECTOR_PREPASS
+#ifdef MESHLET_MESH_MATERIAL_PASS
+    out.motion_vector = in.motion_vector;
+#else
+    out.motion_vector = calculate_motion_vector(in.world_position, in.previous_world_position);
+#endif
+#endif
+
+    return out;
+}
+#endif
