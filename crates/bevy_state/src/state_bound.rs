@@ -16,8 +16,7 @@ use crate::state::{StateTransitionEvent, States};
 ///
 /// ```
 /// use bevy_state::prelude::*;
-/// use bevy_ecs::prelude::IntoSystemConfigs;
-///
+/// use bevy_ecs::prelude::*;
 ///
 /// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 /// enum GameState {
@@ -39,6 +38,8 @@ use crate::state::{StateTransitionEvent, States};
 ///
 /// # struct AppMock;
 /// # impl AppMock {
+/// #     fn init_state<S>(&mut self) {}
+/// #     fn add_state_bound<S>(&mut self) {}
 /// #     fn add_systems<S, M>(&mut self, schedule: S, systems: impl IntoSystemConfigs<M>) {}
 /// # }
 /// # struct Update;
