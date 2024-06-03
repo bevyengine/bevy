@@ -953,6 +953,7 @@ where
 
         // Interpolating between `phi`s that are at equal angles from one another and `normal_phi`s
         // which are spaced so that the normals at each `normal_phi` change by equal amounts gives the most visually consistent look.
+        // See https://github.com/bevyengine/bevy/pull/13652 for a demonstration
         let interpolation = if self.p > 2. {
             (self.p - 2.).abs().atan() * FRAC_2_PI
         } else {
