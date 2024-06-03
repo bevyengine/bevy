@@ -1,3 +1,4 @@
+use crate::io::SliceReader;
 use crate::{
     io::{
         AssetReaderError, AssetWriterError, MissingAssetWriterError,
@@ -166,13 +167,14 @@ pub enum ProcessError {
     ExtensionRequired,
 }
 
-impl<
-        Loader: AssetLoader,
-        T: AssetTransformer<AssetInput = Loader::Asset>,
-        Saver: AssetSaver<Asset = T::AssetOutput>,
-    > Process for LoadTransformAndSave<Loader, T, Saver>
+impl<Loader, Transformer, Saver> Process for LoadTransformAndSave<Loader, Transformer, Saver>
+where
+    Loader: AssetLoader,
+    Transformer: AssetTransformer<AssetInput = Loader::Asset>,
+    Saver: AssetSaver<Asset = Transformer::AssetOutput>,
 {
-    type Settings = LoadTransformAndSaveSettings<Loader::Settings, T::Settings, Saver::Settings>;
+    type Settings =
+        LoadTransformAndSaveSettings<Loader::Settings, Transformer::Settings, Saver::Settings>;
     type OutputLoader = Saver::OutputLoader;
 
     async fn process<'a>(
@@ -199,7 +201,8 @@ impl<
             .await
             .map_err(|err| ProcessError::AssetTransformError(err.into()))?;
 
-        let saved_asset = SavedAsset::<T::AssetOutput>::from_transformed(&post_transformed_asset);
+        let saved_asset =
+            SavedAsset::<Transformer::AssetOutput>::from_transformed(&post_transformed_asset);
 
         let output_settings = self
             .saver
@@ -343,12 +346,13 @@ impl<'a> ProcessContext<'a> {
         let server = &self.processor.server;
         let loader_name = std::any::type_name::<L>();
         let loader = server.get_asset_loader_with_type_name(loader_name).await?;
+        let mut reader = SliceReader::new(self.asset_bytes);
         let loaded_asset = server
             .load_with_meta_loader_and_reader(
                 self.path,
                 Box::new(meta),
                 &*loader,
-                &mut self.asset_bytes,
+                &mut reader,
                 false,
                 true,
             )

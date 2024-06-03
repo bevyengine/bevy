@@ -21,7 +21,7 @@ fn main() {
 
     #[cfg(feature = "bevy_dev_tools")]
     {
-        app.add_plugins(bevy::dev_tools::debug_overlay::DebugUiPlugin)
+        app.add_plugins(bevy::dev_tools::ui_debug_overlay::DebugUiPlugin)
             .add_systems(Update, toggle_overlay);
     }
 
@@ -62,6 +62,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             style: Style {
                                 width: Val::Percent(100.),
                                 flex_direction: FlexDirection::Column,
+                                padding: UiRect::all(Val::Px(5.)),
+                                row_gap: Val::Px(5.),
                                 ..default()
                             },
                             background_color: Color::srgb(0.15, 0.15, 0.15).into(),
@@ -77,11 +79,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         font_size: 30.0,
                                         ..default()
                                     },
-                                )
-                                .with_style(Style {
-                                    margin: UiRect::all(Val::Px(5.)),
-                                    ..default()
-                                }),
+                                ),
                                 // Because this is a distinct label widget and
                                 // not button/list item text, this is necessary
                                 // for accessibility to treat the text accordingly.
@@ -95,8 +93,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     "Press Space to enable debug outlines.",
                                     TextStyle {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 20.,
-                                        ..Default::default()
+                                        ..default()
                                     },
                                 ),
                                 Label,
@@ -108,8 +105,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     "Try enabling feature \"bevy_dev_tools\".",
                                     TextStyle {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 20.,
-                                        ..Default::default()
+                                        ..default()
                                     },
                                 ),
                                 Label,
@@ -179,7 +175,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 TextStyle {
                                                     font: asset_server
                                                         .load("fonts/FiraSans-Bold.ttf"),
-                                                    font_size: 20.,
                                                     ..default()
                                                 },
                                             ),
@@ -374,7 +369,7 @@ fn mouse_scroll(
 // The system that will enable/disable the debug outlines around the nodes
 fn toggle_overlay(
     input: Res<ButtonInput<KeyCode>>,
-    mut options: ResMut<bevy::dev_tools::debug_overlay::UiDebugOptions>,
+    mut options: ResMut<bevy::dev_tools::ui_debug_overlay::UiDebugOptions>,
 ) {
     info_once!("The debug outlines are enabled, press Space to turn them on/off");
     if input.just_pressed(KeyCode::Space) {

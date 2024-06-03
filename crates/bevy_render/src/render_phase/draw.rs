@@ -1,5 +1,5 @@
 use crate::render_phase::{PhaseItem, TrackedRenderPass};
-use bevy_app::App;
+use bevy_app::{App, SubApp};
 use bevy_ecs::{
     entity::Entity,
     query::{QueryState, ROQueryItem, ReadOnlyQueryData},
@@ -39,7 +39,7 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
 
 // TODO: make this generic?
 /// An identifier for a [`Draw`] function stored in [`DrawFunctions`].
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct DrawFunctionId(u32);
 
 /// Stores all [`Draw`] functions for the [`PhaseItem`] type.
@@ -209,6 +209,7 @@ pub trait RenderCommand<P: PhaseItem> {
 }
 
 /// The result of a [`RenderCommand`].
+#[derive(Debug)]
 pub enum RenderCommandResult {
     Success,
     Failure,
@@ -301,7 +302,7 @@ where
 /// Registers a [`RenderCommand`] as a [`Draw`] function.
 /// They are stored inside the [`DrawFunctions`] resource of the app.
 pub trait AddRenderCommand {
-    /// Adds the [`RenderCommand`] for the specified [`RenderPhase`](super::RenderPhase) to the app.
+    /// Adds the [`RenderCommand`] for the specified render phase to the app.
     fn add_render_command<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static>(
         &mut self,
     ) -> &mut Self
@@ -309,16 +310,16 @@ pub trait AddRenderCommand {
         C::Param: ReadOnlySystemParam;
 }
 
-impl AddRenderCommand for App {
+impl AddRenderCommand for SubApp {
     fn add_render_command<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static>(
         &mut self,
     ) -> &mut Self
     where
         C::Param: ReadOnlySystemParam,
     {
-        let draw_function = RenderCommandState::<P, C>::new(&mut self.world);
+        let draw_function = RenderCommandState::<P, C>::new(self.world_mut());
         let draw_functions = self
-            .world
+            .world()
             .get_resource::<DrawFunctions<P>>()
             .unwrap_or_else(|| {
                 panic!(
@@ -328,6 +329,18 @@ impl AddRenderCommand for App {
                 );
             });
         draw_functions.write().add_with::<C, _>(draw_function);
+        self
+    }
+}
+
+impl AddRenderCommand for App {
+    fn add_render_command<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static>(
+        &mut self,
+    ) -> &mut Self
+    where
+        C::Param: ReadOnlySystemParam,
+    {
+        SubApp::add_render_command::<P, C>(self.main_mut());
         self
     }
 }

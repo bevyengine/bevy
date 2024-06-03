@@ -2,6 +2,9 @@ use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 
 use bevy_core_pipeline::core_2d::Transparent2d;
+use bevy_core_pipeline::tonemapping::{
+    get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
+};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
@@ -11,12 +14,14 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::mesh::MeshVertexBufferLayoutRef;
+use bevy_render::batching::no_gpu_preprocessing::{
+    self, batch_and_prepare_sorted_render_phase, write_batched_instance_buffer,
+    BatchedInstanceBuffer,
+};
+use bevy_render::mesh::{GpuMesh, MeshVertexBufferLayoutRef};
+use bevy_render::texture::FallbackImage;
 use bevy_render::{
-    batching::{
-        batch_and_prepare_render_phase, write_batched_instance_buffer, GetBatchData,
-        NoAutomaticBatching,
-    },
+    batching::{GetBatchData, NoAutomaticBatching},
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{GpuBufferInfo, Mesh},
     render_asset::RenderAssets,
@@ -38,7 +43,7 @@ use crate::Material2dBindGroupId;
 /// Component for rendering with meshes in the 2d pipeline, usually with a [2d material](crate::Material2d) such as [`ColorMaterial`](crate::ColorMaterial).
 ///
 /// It wraps a [`Handle<Mesh>`] to differentiate from the 3d pipelines which use the handles directly as components
-#[derive(Default, Clone, Component, Debug, Reflect, PartialEq, Eq)]
+#[derive(Default, Clone, Component, Debug, Reflect, PartialEq, Eq, Deref, DerefMut)]
 #[reflect(Default, Component)]
 pub struct Mesh2dHandle(pub Handle<Mesh>);
 
@@ -93,7 +98,7 @@ impl Plugin for Mesh2dRenderPlugin {
         );
         load_internal_asset!(app, MESH2D_SHADER_HANDLE, "mesh2d.wgsl", Shader::from_wgsl);
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<RenderMesh2dInstances>()
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
@@ -101,12 +106,15 @@ impl Plugin for Mesh2dRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        batch_and_prepare_render_phase::<Transparent2d, Mesh2dPipeline>
+                        batch_and_prepare_sorted_render_phase::<Transparent2d, Mesh2dPipeline>
                             .in_set(RenderSet::PrepareResources),
                         write_batched_instance_buffer::<Mesh2dPipeline>
                             .in_set(RenderSet::PrepareResourcesFlush),
                         prepare_mesh2d_bind_group.in_set(RenderSet::PrepareBindGroups),
                         prepare_mesh2d_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                        no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<Mesh2dPipeline>
+                            .in_set(RenderSet::Cleanup)
+                            .after(RenderSet::Render),
                     ),
                 );
         }
@@ -115,10 +123,14 @@ impl Plugin for Mesh2dRenderPlugin {
     fn finish(&self, app: &mut bevy_app::App) {
         let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            if let Some(per_object_buffer_batch_size) = GpuArrayBuffer::<Mesh2dUniform>::batch_size(
-                render_app.world.resource::<RenderDevice>(),
-            ) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            let render_device = render_app.world().resource::<RenderDevice>();
+            let batched_instance_buffer =
+                BatchedInstanceBuffer::<Mesh2dUniform>::new(render_device);
+
+            if let Some(per_object_buffer_batch_size) =
+                GpuArrayBuffer::<Mesh2dUniform>::batch_size(render_device)
+            {
                 mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
                     "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
                     per_object_buffer_batch_size,
@@ -126,9 +138,7 @@ impl Plugin for Mesh2dRenderPlugin {
             }
 
             render_app
-                .insert_resource(GpuArrayBuffer::<Mesh2dUniform>::new(
-                    render_app.world.resource::<RenderDevice>(),
-                ))
+                .insert_resource(batched_instance_buffer)
                 .init_resource::<Mesh2dPipeline>();
         }
 
@@ -257,14 +267,22 @@ impl FromWorld for Mesh2dPipeline {
         )> = SystemState::new(world);
         let (render_device, render_queue, default_sampler) = system_state.get_mut(world);
         let render_device = render_device.into_inner();
+        let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
         let view_layout = render_device.create_bind_group_layout(
             "mesh2d_view_layout",
-            &BindGroupLayoutEntries::sequential(
+            &BindGroupLayoutEntries::with_indices(
                 ShaderStages::VERTEX_FRAGMENT,
                 (
-                    // View
-                    uniform_buffer::<ViewUniform>(true),
-                    uniform_buffer::<GlobalsUniform>(false),
+                    (0, uniform_buffer::<ViewUniform>(true)),
+                    (1, uniform_buffer::<GlobalsUniform>(false)),
+                    (
+                        2,
+                        tonemapping_lut_entries[0].visibility(ShaderStages::FRAGMENT),
+                    ),
+                    (
+                        3,
+                        tonemapping_lut_entries[1].visibility(ShaderStages::FRAGMENT),
+                    ),
                 ),
             ),
         );
@@ -323,7 +341,7 @@ impl FromWorld for Mesh2dPipeline {
 impl Mesh2dPipeline {
     pub fn get_image_texture<'a>(
         &'a self,
-        gpu_images: &'a RenderAssets<Image>,
+        gpu_images: &'a RenderAssets<GpuImage>,
         handle_option: &Option<Handle<Image>>,
     ) -> Option<(&'a TextureView, &'a Sampler)> {
         if let Some(handle) = handle_option {
@@ -469,6 +487,14 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
 
         if key.contains(Mesh2dPipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());
+            shader_defs.push(ShaderDefVal::UInt(
+                "TONEMAPPING_LUT_TEXTURE_BINDING_INDEX".into(),
+                2,
+            ));
+            shader_defs.push(ShaderDefVal::UInt(
+                "TONEMAPPING_LUT_SAMPLER_BINDING_INDEX".into(),
+                3,
+            ));
 
             let method = key.intersection(Mesh2dPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
@@ -511,17 +537,6 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             true => ViewTarget::TEXTURE_FORMAT_HDR,
             false => TextureFormat::bevy_default(),
         };
-        let mut push_constant_ranges = Vec::with_capacity(1);
-        if cfg!(all(
-            feature = "webgl",
-            target_arch = "wasm32",
-            not(feature = "webgpu")
-        )) {
-            push_constant_ranges.push(PushConstantRange {
-                stages: ShaderStages::VERTEX,
-                range: 0..4,
-            });
-        }
 
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
@@ -541,7 +556,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 })],
             }),
             layout: vec![self.view_layout.clone(), self.mesh_layout.clone()],
-            push_constant_ranges,
+            push_constant_ranges: vec![],
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
@@ -571,9 +586,9 @@ pub fn prepare_mesh2d_bind_group(
     mut commands: Commands,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     render_device: Res<RenderDevice>,
-    mesh2d_uniforms: Res<GpuArrayBuffer<Mesh2dUniform>>,
+    mesh2d_uniforms: Res<BatchedInstanceBuffer<Mesh2dUniform>>,
 ) {
-    if let Some(binding) = mesh2d_uniforms.binding() {
+    if let Some(binding) = mesh2d_uniforms.instance_data_binding() {
         commands.insert_resource(Mesh2dBindGroup {
             value: render_device.create_bind_group(
                 "mesh2d_bind_group",
@@ -589,29 +604,42 @@ pub struct Mesh2dViewBindGroup {
     pub value: BindGroup,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn prepare_mesh2d_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     view_uniforms: Res<ViewUniforms>,
-    views: Query<Entity, With<ExtractedView>>,
+    views: Query<(Entity, &Tonemapping), With<ExtractedView>>,
     globals_buffer: Res<GlobalsBuffer>,
+    tonemapping_luts: Res<TonemappingLuts>,
+    images: Res<RenderAssets<GpuImage>>,
+    fallback_image: Res<FallbackImage>,
 ) {
-    if let (Some(view_binding), Some(globals)) = (
+    let (Some(view_binding), Some(globals)) = (
         view_uniforms.uniforms.binding(),
         globals_buffer.buffer.binding(),
-    ) {
-        for entity in &views {
-            let view_bind_group = render_device.create_bind_group(
-                "mesh2d_view_bind_group",
-                &mesh2d_pipeline.view_layout,
-                &BindGroupEntries::sequential((view_binding.clone(), globals.clone())),
-            );
+    ) else {
+        return;
+    };
 
-            commands.entity(entity).insert(Mesh2dViewBindGroup {
-                value: view_bind_group,
-            });
-        }
+    for (entity, tonemapping) in &views {
+        let lut_bindings =
+            get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
+        let view_bind_group = render_device.create_bind_group(
+            "mesh2d_view_bind_group",
+            &mesh2d_pipeline.view_layout,
+            &BindGroupEntries::with_indices((
+                (0, view_binding.clone()),
+                (1, globals.clone()),
+                (2, lut_bindings.0),
+                (3, lut_bindings.1),
+            )),
+        );
+
+        commands.entity(entity).insert(Mesh2dViewBindGroup {
+            value: view_bind_group,
+        });
     }
 }
 
@@ -651,7 +679,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
     ) -> RenderCommandResult {
         let mut dynamic_offsets: [u32; 1] = Default::default();
         let mut offset_count = 0;
-        if let Some(dynamic_offset) = item.dynamic_offset() {
+        if let Some(dynamic_offset) = item.extra_index().as_dynamic_offset() {
             dynamic_offsets[offset_count] = dynamic_offset.get();
             offset_count += 1;
         }
@@ -666,7 +694,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
 
 pub struct DrawMesh2d;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
-    type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMesh2dInstances>);
+    type Param = (SRes<RenderAssets<GpuMesh>>, SRes<RenderMesh2dInstances>);
     type ViewQuery = ();
     type ItemQuery = ();
 
@@ -693,12 +721,6 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
         pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
 
         let batch_range = item.batch_range();
-        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-        pass.set_push_constants(
-            ShaderStages::VERTEX,
-            0,
-            &(batch_range.start as i32).to_le_bytes(),
-        );
         match &gpu_mesh.buffer_info {
             GpuBufferInfo::Indexed {
                 buffer,

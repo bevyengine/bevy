@@ -1,6 +1,11 @@
 #![doc = include_str!("../README.md")]
 #![no_std]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![allow(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 use core::fmt::{self, Formatter, Pointer};
 use core::{
@@ -150,7 +155,7 @@ impl<'a, T: ?Sized> From<&'a mut T> for ConstNonNull<T> {
 ///
 /// It may be helpful to think of this type as similar to `&'a dyn Any` but without
 /// the metadata and able to point to data that does not correspond to a Rust type.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 #[repr(transparent)]
 pub struct Ptr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a u8, A)>);
 
@@ -165,6 +170,7 @@ pub struct Ptr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a u8, A)>
 ///
 /// It may be helpful to think of this type as similar to `&'a mut dyn Any` but without
 /// the metadata and able to point to data that does not correspond to a Rust type.
+#[derive(Debug)]
 #[repr(transparent)]
 pub struct PtrMut<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut u8, A)>);
 
@@ -183,6 +189,7 @@ pub struct PtrMut<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut 
 ///
 /// It may be helpful to think of this type as similar to `&'a mut ManuallyDrop<dyn Any>` but
 /// without the metadata and able to point to data that does not correspond to a Rust type.
+#[derive(Debug)]
 #[repr(transparent)]
 pub struct OwningPtr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut u8, A)>);
 
@@ -212,6 +219,7 @@ macro_rules! impl_ptr {
             /// - The offset cannot make the existing ptr null, or take it out of bounds for its allocation.
             /// - If the `A` type parameter is [`Aligned`] then the offset must not make the resulting pointer
             ///   be unaligned for the pointee type.
+            /// - The value pointed by the resulting pointer must outlive the lifetime of this pointer.
             ///
             /// [ptr_offset]: https://doc.rust-lang.org/std/primitive.pointer.html#method.offset
             #[inline]
@@ -233,6 +241,7 @@ macro_rules! impl_ptr {
             /// - The offset cannot make the existing ptr null, or take it out of bounds for its allocation.
             /// - If the `A` type parameter is [`Aligned`] then the offset must not make the resulting pointer
             ///   be unaligned for the pointee type.
+            /// - The value pointed by the resulting pointer must outlive the lifetime of this pointer.
             ///
             /// [ptr_add]: https://doc.rust-lang.org/std/primitive.pointer.html#method.add
             #[inline]

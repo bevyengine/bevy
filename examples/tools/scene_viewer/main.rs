@@ -11,7 +11,6 @@ use bevy::{
     math::Vec3A,
     prelude::*,
     render::primitives::{Aabb, Sphere},
-    window::WindowPlugin,
 };
 
 #[path = "../../helpers/camera_controller.rs"]

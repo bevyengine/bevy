@@ -4,11 +4,12 @@ use super::{Deferred, IntoSystem, RegisterSystem, Resource};
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
+    component::ComponentId,
     entity::{Entities, Entity},
     system::{RunSystemWithInput, SystemId},
+    world::command_queue::RawCommandQueue,
     world::{Command, CommandQueue, EntityWorldMut, FromWorld, World},
 };
-use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
 pub use parallel_scope::*;
 use std::marker::PhantomData;
@@ -64,10 +65,82 @@ use std::marker::PhantomData;
 /// ```
 ///
 /// [`apply_deferred`]: crate::schedule::apply_deferred
-#[derive(SystemParam)]
 pub struct Commands<'w, 's> {
-    queue: Deferred<'s, CommandQueue>,
+    queue: InternalQueue<'s>,
     entities: &'w Entities,
+}
+
+const _: () = {
+    type __StructFieldsAlias<'w, 's> = (Deferred<'s, CommandQueue>, &'w Entities);
+    #[doc(hidden)]
+    pub struct FetchState {
+        state: <__StructFieldsAlias<'static, 'static> as bevy_ecs::system::SystemParam>::State,
+    }
+    // SAFETY: Only reads Entities
+    unsafe impl bevy_ecs::system::SystemParam for Commands<'_, '_> {
+        type State = FetchState;
+        type Item<'w, 's> = Commands<'w, 's>;
+        fn init_state(
+            world: &mut bevy_ecs::world::World,
+            system_meta: &mut bevy_ecs::system::SystemMeta,
+        ) -> Self::State {
+            FetchState {
+                state: <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_state(
+                    world,
+                    system_meta,
+                ),
+            }
+        }
+        unsafe fn new_archetype(
+            state: &mut Self::State,
+            archetype: &bevy_ecs::archetype::Archetype,
+            system_meta: &mut bevy_ecs::system::SystemMeta,
+        ) {
+            // SAFETY: Caller guarantees the archetype is from the world used in `init_state`
+            unsafe {
+                <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::new_archetype(
+                    &mut state.state,
+                    archetype,
+                    system_meta,
+                );
+            };
+        }
+        fn apply(
+            state: &mut Self::State,
+            system_meta: &bevy_ecs::system::SystemMeta,
+            world: &mut bevy_ecs::world::World,
+        ) {
+            <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::apply(
+                &mut state.state,
+                system_meta,
+                world,
+            );
+        }
+        unsafe fn get_param<'w, 's>(
+            state: &'s mut Self::State,
+            system_meta: &bevy_ecs::system::SystemMeta,
+            world: bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell<'w>,
+            change_tick: bevy_ecs::component::Tick,
+        ) -> Self::Item<'w, 's> {
+            let(f0,f1,) =  <(Deferred<'s,CommandQueue> , &'w Entities,)as bevy_ecs::system::SystemParam> ::get_param(&mut state.state,system_meta,world,change_tick);
+            Commands {
+                queue: InternalQueue::CommandQueue(f0),
+                entities: f1,
+            }
+        }
+    }
+    // SAFETY: Only reads Entities
+    unsafe impl<'w, 's> bevy_ecs::system::ReadOnlySystemParam for Commands<'w, 's>
+    where
+        Deferred<'s, CommandQueue>: bevy_ecs::system::ReadOnlySystemParam,
+        &'w Entities: bevy_ecs::system::ReadOnlySystemParam,
+    {
+    }
+};
+
+enum InternalQueue<'s> {
+    CommandQueue(Deferred<'s, CommandQueue>),
+    RawCommandQueue(RawCommandQueue),
 }
 
 impl<'w, 's> Commands<'w, 's> {
@@ -87,7 +160,24 @@ impl<'w, 's> Commands<'w, 's> {
     /// [system parameter]: crate::system::SystemParam
     pub fn new_from_entities(queue: &'s mut CommandQueue, entities: &'w Entities) -> Self {
         Self {
-            queue: Deferred(queue),
+            queue: InternalQueue::CommandQueue(Deferred(queue)),
+            entities,
+        }
+    }
+
+    /// Returns a new `Commands` instance from a [`RawCommandQueue`] and an [`Entities`] reference.
+    ///
+    /// This is used when constructing [`Commands`] from a [`DeferredWorld`](crate::world::DeferredWorld).
+    ///
+    /// # Safety
+    ///
+    /// * Caller ensures that `queue` must outlive 'w
+    pub(crate) unsafe fn new_raw_from_entities(
+        queue: RawCommandQueue,
+        entities: &'w Entities,
+    ) -> Self {
+        Self {
+            queue: InternalQueue::RawCommandQueue(queue),
             entities,
         }
     }
@@ -112,14 +202,25 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     pub fn reborrow(&mut self) -> Commands<'w, '_> {
         Commands {
-            queue: self.queue.reborrow(),
+            queue: match &mut self.queue {
+                InternalQueue::CommandQueue(queue) => InternalQueue::CommandQueue(queue.reborrow()),
+                InternalQueue::RawCommandQueue(queue) => {
+                    InternalQueue::RawCommandQueue(queue.clone())
+                }
+            },
             entities: self.entities,
         }
     }
 
     /// Take all commands from `other` and append them to `self`, leaving `other` empty
     pub fn append(&mut self, other: &mut CommandQueue) {
-        self.queue.append(other);
+        match &mut self.queue {
+            InternalQueue::CommandQueue(queue) => queue.bytes.append(&mut other.bytes),
+            InternalQueue::RawCommandQueue(queue) => {
+                // SAFETY: Pointers in `RawCommandQueue` are never null
+                unsafe { queue.bytes.as_mut() }.append(&mut other.bytes);
+            }
+        }
     }
 
     /// Pushes a [`Command`] to the queue for creating a new empty [`Entity`],
@@ -380,7 +481,23 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator + Send + Sync + 'static,
         I::Item: Bundle,
     {
-        self.queue.push(spawn_batch(bundles_iter));
+        self.push(spawn_batch(bundles_iter));
+    }
+
+    /// Push a [`Command`] onto the queue.
+    pub fn push<C: Command>(&mut self, command: C) {
+        match &mut self.queue {
+            InternalQueue::CommandQueue(queue) => {
+                queue.push(command);
+            }
+            InternalQueue::RawCommandQueue(queue) => {
+                // SAFETY: `RawCommandQueue` is only every constructed in `Commands::new_raw_from_entities`
+                // where the caller of that has ensured that `queue` outlives `self`
+                unsafe {
+                    queue.push(command);
+                }
+            }
+        }
     }
 
     /// Pushes a [`Command`] to the queue for creating entities, if needed,
@@ -404,12 +521,12 @@ impl<'w, 's> Commands<'w, 's> {
     /// Spawning a specific `entity` value is rarely the right choice. Most apps should use [`Commands::spawn_batch`].
     /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
     /// worked out to share an ID space (which doesn't happen by default).
-    pub fn insert_or_spawn_batch<I, B>(&mut self, bundles: I)
+    pub fn insert_or_spawn_batch<I, B>(&mut self, bundles_iter: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle,
     {
-        self.queue.push(insert_or_spawn_batch(bundles));
+        self.push(insert_or_spawn_batch(bundles_iter));
     }
 
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with an inferred value.
@@ -437,7 +554,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(initialise_scoreboard);
     /// ```
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
-        self.queue.push(init_resource::<R>);
+        self.push(init_resource::<R>);
     }
 
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with a specific value.
@@ -466,7 +583,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     pub fn insert_resource<R: Resource>(&mut self, resource: R) {
-        self.queue.push(insert_resource(resource));
+        self.push(insert_resource(resource));
     }
 
     /// Pushes a [`Command`] to the queue for removing a [`Resource`] from the [`World`].
@@ -490,7 +607,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     pub fn remove_resource<R: Resource>(&mut self) {
-        self.queue.push(remove_resource::<R>);
+        self.push(remove_resource::<R>);
     }
 
     /// Runs the system corresponding to the given [`SystemId`].
@@ -516,8 +633,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// execution of the system happens later. To get the output of a system, use
     /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
     pub fn run_system_with_input<I: 'static + Send>(&mut self, id: SystemId<I>, input: I) {
-        self.queue
-            .push(RunSystemWithInput::new_with_input(id, input));
+        self.push(RunSystemWithInput::new_with_input(id, input));
     }
 
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
@@ -579,11 +695,8 @@ impl<'w, 's> Commands<'w, 's> {
         system: S,
     ) -> SystemId<I, O> {
         let entity = self.spawn_empty().id();
-        self.queue.push(RegisterSystem::new(system, entity));
-        SystemId {
-            entity,
-            marker: std::marker::PhantomData,
-        }
+        self.push(RegisterSystem::new(system, entity));
+        SystemId::from_entity(entity)
     }
 
     /// Pushes a generic [`Command`] to the command queue.
@@ -620,7 +733,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(add_twenty_five_to_counter_system);
     /// ```
     pub fn add<C: Command>(&mut self, command: C) {
-        self.queue.push(command);
+        self.push(command);
     }
 }
 
@@ -893,6 +1006,16 @@ impl EntityCommands<'_> {
         self.add(remove::<T>)
     }
 
+    /// Removes a component from the entity.
+    pub fn remove_by_id(&mut self, component_id: ComponentId) -> &mut Self {
+        self.add(remove_by_id(component_id))
+    }
+
+    /// Removes all components associated with the entity.
+    pub fn clear(&mut self) -> &mut Self {
+        self.add(clear())
+    }
+
     /// Despawns the entity.
     ///
     /// See [`World::despawn`] for more details.
@@ -1037,13 +1160,13 @@ where
 /// A [`Command`] that consumes an iterator of [`Bundle`]s to spawn a series of entities.
 ///
 /// This is more efficient than spawning the entities individually.
-fn spawn_batch<I, B>(bundles: I) -> impl Command
+fn spawn_batch<I, B>(bundles_iter: I) -> impl Command
 where
     I: IntoIterator<Item = B> + Send + Sync + 'static,
     B: Bundle,
 {
     move |world: &mut World| {
-        world.spawn_batch(bundles);
+        world.spawn_batch(bundles_iter);
     }
 }
 
@@ -1051,13 +1174,13 @@ where
 /// If any entities do not already exist in the world, they will be spawned.
 ///
 /// This is more efficient than inserting the bundles individually.
-fn insert_or_spawn_batch<I, B>(bundles: I) -> impl Command
+fn insert_or_spawn_batch<I, B>(bundles_iter: I) -> impl Command
 where
     I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
     B: Bundle,
 {
     move |world: &mut World| {
-        if let Err(invalid_entities) = world.insert_or_spawn_batch(bundles) {
+        if let Err(invalid_entities) = world.insert_or_spawn_batch(bundles_iter) {
             error!(
                 "Failed to 'insert or spawn' bundle of type {} into the following invalid entities: {:?}",
                 std::any::type_name::<B>(),
@@ -1102,8 +1225,29 @@ fn try_insert(bundle: impl Bundle) -> impl EntityCommand {
 /// For a [`Bundle`] type `T`, this will remove any components in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
 fn remove<T: Bundle>(entity: Entity, world: &mut World) {
-    if let Some(mut entity_mut) = world.get_entity_mut(entity) {
-        entity_mut.remove::<T>();
+    if let Some(mut entity) = world.get_entity_mut(entity) {
+        entity.remove::<T>();
+    }
+}
+
+/// An [`EntityCommand`] that removes components with a provided [`ComponentId`] from an entity.
+/// # Panics
+///
+/// Panics if the provided [`ComponentId`] does not exist in the [`World`].
+fn remove_by_id(component_id: ComponentId) -> impl EntityCommand {
+    move |entity: Entity, world: &mut World| {
+        if let Some(mut entity) = world.get_entity_mut(entity) {
+            entity.remove_by_id(component_id);
+        }
+    }
+}
+
+/// An [`EntityCommand`] that removes all components associated with a provided entity.
+fn clear() -> impl EntityCommand {
+    move |entity: Entity, world: &mut World| {
+        if let Some(mut entity) = world.get_entity_mut(entity) {
+            entity.clear();
+        }
     }
 }
 
@@ -1153,9 +1297,12 @@ mod tests {
         system::{Commands, Resource},
         world::{CommandQueue, World},
     };
-    use std::sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
+    use std::{
+        any::TypeId,
+        sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        },
     };
 
     #[allow(dead_code)]
@@ -1261,6 +1408,59 @@ mod tests {
             .entity(entity)
             .remove::<W<u32>>()
             .remove::<(W<u32>, W<u64>, SparseDropCk, DropCk)>();
+
+        assert_eq!(dense_is_dropped.load(Ordering::Relaxed), 0);
+        assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 0);
+        command_queue.apply(&mut world);
+        assert_eq!(dense_is_dropped.load(Ordering::Relaxed), 1);
+        assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 1);
+
+        let results_after = world
+            .query::<(&W<u32>, &W<u64>)>()
+            .iter(&world)
+            .map(|(a, b)| (a.0, b.0))
+            .collect::<Vec<_>>();
+        assert_eq!(results_after, vec![]);
+        let results_after_u64 = world
+            .query::<&W<u64>>()
+            .iter(&world)
+            .map(|v| v.0)
+            .collect::<Vec<_>>();
+        assert_eq!(results_after_u64, vec![]);
+    }
+
+    #[test]
+    fn remove_components_by_id() {
+        let mut world = World::default();
+
+        let mut command_queue = CommandQueue::default();
+        let (dense_dropck, dense_is_dropped) = DropCk::new_pair();
+        let (sparse_dropck, sparse_is_dropped) = DropCk::new_pair();
+        let sparse_dropck = SparseDropCk(sparse_dropck);
+
+        let entity = Commands::new(&mut command_queue, &world)
+            .spawn((W(1u32), W(2u64), dense_dropck, sparse_dropck))
+            .id();
+        command_queue.apply(&mut world);
+        let results_before = world
+            .query::<(&W<u32>, &W<u64>)>()
+            .iter(&world)
+            .map(|(a, b)| (a.0, b.0))
+            .collect::<Vec<_>>();
+        assert_eq!(results_before, vec![(1u32, 2u64)]);
+
+        // test component removal
+        Commands::new(&mut command_queue, &world)
+            .entity(entity)
+            .remove_by_id(world.components().get_id(TypeId::of::<W<u32>>()).unwrap())
+            .remove_by_id(world.components().get_id(TypeId::of::<W<u64>>()).unwrap())
+            .remove_by_id(world.components().get_id(TypeId::of::<DropCk>()).unwrap())
+            .remove_by_id(
+                world
+                    .components()
+                    .get_id(TypeId::of::<SparseDropCk>())
+                    .unwrap(),
+            );
 
         assert_eq!(dense_is_dropped.load(Ordering::Relaxed), 0);
         assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 0);

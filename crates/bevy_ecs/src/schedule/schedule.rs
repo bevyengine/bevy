@@ -78,6 +78,13 @@ impl Schedules {
         self.inner.get_mut(&label.intern())
     }
 
+    /// Returns a mutable reference to the schedules associated with `label`, creating one if it doesn't already exist.
+    pub fn entry(&mut self, label: impl ScheduleLabel) -> &mut Schedule {
+        self.inner
+            .entry(label.intern())
+            .or_insert_with(|| Schedule::new(label))
+    }
+
     /// Returns an iterator over all schedules. Iteration order is undefined.
     pub fn iter(&self) -> impl Iterator<Item = (&dyn ScheduleLabel, &Schedule)> {
         self.inner
@@ -145,6 +152,51 @@ impl Schedules {
         }
 
         info!("{}", message);
+    }
+
+    /// Adds one or more systems to the [`Schedule`] matching the provided [`ScheduleLabel`].
+    pub fn add_systems<M>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        systems: impl IntoSystemConfigs<M>,
+    ) -> &mut Self {
+        self.entry(schedule).add_systems(systems);
+
+        self
+    }
+
+    /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.
+    #[track_caller]
+    pub fn configure_sets(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        sets: impl IntoSystemSetConfigs,
+    ) -> &mut Self {
+        self.entry(schedule).configure_sets(sets);
+
+        self
+    }
+
+    /// Suppress warnings and errors that would result from systems in these sets having ambiguities
+    /// (conflicting access but indeterminate order) with systems in `set`.
+    ///
+    /// When possible, do this directly in the `.add_systems(Update, a.ambiguous_with(b))` call.
+    /// However, sometimes two independent plugins `A` and `B` are reported as ambiguous, which you
+    /// can only suppress as the consumer of both.
+    #[track_caller]
+    pub fn ignore_ambiguity<M1, M2, S1, S2>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        a: S1,
+        b: S2,
+    ) -> &mut Self
+    where
+        S1: IntoSystemSet<M1>,
+        S2: IntoSystemSet<M2>,
+    {
+        self.entry(schedule).ignore_ambiguity(a, b);
+
+        self
     }
 }
 
@@ -532,15 +584,27 @@ impl SystemNode {
 }
 
 /// Metadata for a [`Schedule`].
+///
+/// The order isn't optimized; calling `ScheduleGraph::build_schedule` will return a
+/// `SystemSchedule` where the order is optimized for execution.
 #[derive(Default)]
 pub struct ScheduleGraph {
+    /// List of systems in the schedule
     systems: Vec<SystemNode>,
+    /// List of conditions for each system, in the same order as `systems`
     system_conditions: Vec<Vec<BoxedCondition>>,
+    /// List of system sets in the schedule
     system_sets: Vec<SystemSetNode>,
+    /// List of conditions for each system set, in the same order as `system_sets`
     system_set_conditions: Vec<Vec<BoxedCondition>>,
+    /// Map from system set to node id
     system_set_ids: HashMap<InternedSystemSet, NodeId>,
+    /// Systems that have not been initialized yet; for system sets, we store the index of the first uninitialized condition
+    /// (all the conditions after that index still need to be initialized)
     uninit: Vec<(NodeId, usize)>,
+    /// Directed acyclic graph of the hierarchy (which systems/sets are children of which sets)
     hierarchy: Dag,
+    /// Directed acyclic graph of the dependency (which systems/sets have to run before which other systems/sets)
     dependency: Dag,
     ambiguous_with: UnGraphMap<NodeId, ()>,
     ambiguous_with_all: HashSet<NodeId>,
@@ -548,6 +612,7 @@ pub struct ScheduleGraph {
     anonymous_sets: usize,
     changed: bool,
     settings: ScheduleBuildSettings,
+    /// Dependency edges that will **not** automatically insert an instance of `apply_deferred` on the edge.
     no_sync_edges: BTreeSet<(NodeId, NodeId)>,
     auto_sync_node_ids: HashMap<u32, NodeId>,
 }
@@ -613,7 +678,7 @@ impl ScheduleGraph {
             .unwrap()
     }
 
-    /// Returns an iterator over all systems in this schedule.
+    /// Returns an iterator over all systems in this schedule, along with the conditions for each system.
     pub fn systems(
         &self,
     ) -> impl Iterator<Item = (NodeId, &dyn System<In = (), Out = ()>, &[BoxedCondition])> {
@@ -627,7 +692,8 @@ impl ScheduleGraph {
             })
     }
 
-    /// Returns an iterator over all system sets in this schedule.
+    /// Returns an iterator over all system sets in this schedule, along with the conditions for each
+    /// system set.
     pub fn system_sets(&self) -> impl Iterator<Item = (NodeId, &dyn SystemSet, &[BoxedCondition])> {
         self.system_set_ids.iter().map(|(_, &node_id)| {
             let set_node = &self.system_sets[node_id.index()];
@@ -787,6 +853,7 @@ impl ScheduleGraph {
         }
     }
 
+    /// Add a [`SystemConfig`] to the graph, including its dependencies and conditions.
     fn add_system_inner(&mut self, config: SystemConfig) -> Result<NodeId, ScheduleBuildError> {
         let id = NodeId::System(self.systems.len());
 
@@ -806,6 +873,7 @@ impl ScheduleGraph {
         self.process_configs(sets.into_configs(), false);
     }
 
+    /// Add a single `SystemSetConfig` to the graph, including its dependencies and conditions.
     fn configure_set_inner(&mut self, set: SystemSetConfig) -> Result<NodeId, ScheduleBuildError> {
         let SystemSetConfig {
             node: set,
@@ -837,7 +905,13 @@ impl ScheduleGraph {
         id
     }
 
-    fn check_set(&mut self, id: &NodeId, set: InternedSystemSet) -> Result<(), ScheduleBuildError> {
+    /// Checks that a system set isn't included in itself.
+    /// If not present, add the set to the graph.
+    fn check_hierarchy_set(
+        &mut self,
+        id: &NodeId,
+        set: InternedSystemSet,
+    ) -> Result<(), ScheduleBuildError> {
         match self.system_set_ids.get(&set) {
             Some(set_id) => {
                 if id == set_id {
@@ -858,18 +932,22 @@ impl ScheduleGraph {
         AnonymousSet::new(id)
     }
 
-    fn check_sets(
+    /// Check that no set is included in itself.
+    /// Add all the sets from the [`GraphInfo`]'s hierarchy to the graph.
+    fn check_hierarchy_sets(
         &mut self,
         id: &NodeId,
         graph_info: &GraphInfo,
     ) -> Result<(), ScheduleBuildError> {
-        for &set in &graph_info.sets {
-            self.check_set(id, set)?;
+        for &set in &graph_info.hierarchy {
+            self.check_hierarchy_set(id, set)?;
         }
 
         Ok(())
     }
 
+    /// Checks that no system set is dependent on itself.
+    /// Add all the sets from the [`GraphInfo`]'s dependencies to the graph.
     fn check_edges(
         &mut self,
         id: &NodeId,
@@ -899,17 +977,18 @@ impl ScheduleGraph {
         Ok(())
     }
 
+    /// Update the internal graphs (hierarchy, dependency, ambiguity) by adding a single [`GraphInfo`]
     fn update_graphs(
         &mut self,
         id: NodeId,
         graph_info: GraphInfo,
     ) -> Result<(), ScheduleBuildError> {
-        self.check_sets(&id, &graph_info)?;
+        self.check_hierarchy_sets(&id, &graph_info)?;
         self.check_edges(&id, &graph_info)?;
         self.changed = true;
 
         let GraphInfo {
-            sets,
+            hierarchy: sets,
             dependencies,
             ambiguous_with,
             ..
@@ -1137,6 +1216,9 @@ impl ScheduleGraph {
             .unwrap()
     }
 
+    /// Return a map from system set `NodeId` to a list of system `NodeId`s that are included in the set.
+    /// Also return a map from system set `NodeId` to a `FixedBitSet` of system `NodeId`s that are included in the set,
+    /// where the bitset order is the same as `self.systems`
     fn map_sets_to_systems(
         &self,
         hierarchy_topsort: &[NodeId],
@@ -1337,7 +1419,7 @@ impl ScheduleGraph {
         let hg_node_count = self.hierarchy.graph.node_count();
 
         // get the number of dependencies and the immediate dependents of each system
-        // (needed by multi-threaded executor to run systems in the correct order)
+        // (needed by multi_threaded executor to run systems in the correct order)
         let mut system_dependencies = Vec::with_capacity(sys_count);
         let mut system_dependents = Vec::with_capacity(sys_count);
         for &sys_id in &dg_system_ids {
@@ -1397,6 +1479,7 @@ impl ScheduleGraph {
         }
     }
 
+    /// Updates the `SystemSchedule` from the `ScheduleGraph`.
     fn update_schedule(
         &mut self,
         schedule: &mut SystemSchedule,
@@ -1448,7 +1531,7 @@ impl ScheduleGraph {
 
 /// Values returned by [`ScheduleGraph::process_configs`]
 struct ProcessConfigsResult {
-    /// All nodes contained inside this process_configs call's [`NodeConfigs`] hierarchy,
+    /// All nodes contained inside this `process_configs` call's [`NodeConfigs`] hierarchy,
     /// if `ancestor_chained` is true
     nodes: Vec<NodeId>,
     /// True if and only if all nodes are "densely chained", meaning that all nested nodes
@@ -1954,15 +2037,20 @@ pub struct ScheduleNotInitialized;
 
 #[cfg(test)]
 mod tests {
+    use bevy_ecs_macros::ScheduleLabel;
+
     use crate::{
         self as bevy_ecs,
         prelude::{Res, Resource},
         schedule::{
-            IntoSystemConfigs, IntoSystemSetConfigs, Schedule, ScheduleBuildSettings, SystemSet,
+            tests::ResMut, IntoSystemConfigs, IntoSystemSetConfigs, Schedule,
+            ScheduleBuildSettings, SystemSet,
         },
         system::Commands,
         world::World,
     };
+
+    use super::Schedules;
 
     #[derive(Resource)]
     struct Resource1;
@@ -2420,5 +2508,128 @@ mod tests {
                 );
             });
         }
+    }
+
+    #[derive(ScheduleLabel, Hash, Debug, Clone, PartialEq, Eq)]
+    struct TestSchedule;
+
+    #[derive(Resource)]
+    struct CheckSystemRan(usize);
+
+    #[test]
+    fn add_systems_to_existing_schedule() {
+        let mut schedules = Schedules::default();
+        let schedule = Schedule::new(TestSchedule);
+
+        schedules.insert(schedule);
+        schedules.add_systems(TestSchedule, |mut ran: ResMut<CheckSystemRan>| ran.0 += 1);
+
+        let mut world = World::new();
+
+        world.insert_resource(CheckSystemRan(0));
+        world.insert_resource(schedules);
+        world.run_schedule(TestSchedule);
+
+        let value = world
+            .get_resource::<CheckSystemRan>()
+            .expect("CheckSystemRan Resource Should Exist");
+        assert_eq!(value.0, 1);
+    }
+
+    #[test]
+    fn add_systems_to_non_existing_schedule() {
+        let mut schedules = Schedules::default();
+
+        schedules.add_systems(TestSchedule, |mut ran: ResMut<CheckSystemRan>| ran.0 += 1);
+
+        let mut world = World::new();
+
+        world.insert_resource(CheckSystemRan(0));
+        world.insert_resource(schedules);
+        world.run_schedule(TestSchedule);
+
+        let value = world
+            .get_resource::<CheckSystemRan>()
+            .expect("CheckSystemRan Resource Should Exist");
+        assert_eq!(value.0, 1);
+    }
+
+    #[derive(SystemSet, Debug, Hash, Clone, PartialEq, Eq)]
+    enum TestSet {
+        First,
+        Second,
+    }
+
+    #[test]
+    fn configure_set_on_existing_schedule() {
+        let mut schedules = Schedules::default();
+        let schedule = Schedule::new(TestSchedule);
+
+        schedules.insert(schedule);
+
+        schedules.configure_sets(TestSchedule, (TestSet::First, TestSet::Second).chain());
+        schedules.add_systems(
+            TestSchedule,
+            (|mut ran: ResMut<CheckSystemRan>| {
+                assert_eq!(ran.0, 0);
+                ran.0 += 1;
+            })
+            .in_set(TestSet::First),
+        );
+
+        schedules.add_systems(
+            TestSchedule,
+            (|mut ran: ResMut<CheckSystemRan>| {
+                assert_eq!(ran.0, 1);
+                ran.0 += 1;
+            })
+            .in_set(TestSet::Second),
+        );
+
+        let mut world = World::new();
+
+        world.insert_resource(CheckSystemRan(0));
+        world.insert_resource(schedules);
+        world.run_schedule(TestSchedule);
+
+        let value = world
+            .get_resource::<CheckSystemRan>()
+            .expect("CheckSystemRan Resource Should Exist");
+        assert_eq!(value.0, 2);
+    }
+
+    #[test]
+    fn configure_set_on_new_schedule() {
+        let mut schedules = Schedules::default();
+
+        schedules.configure_sets(TestSchedule, (TestSet::First, TestSet::Second).chain());
+        schedules.add_systems(
+            TestSchedule,
+            (|mut ran: ResMut<CheckSystemRan>| {
+                assert_eq!(ran.0, 0);
+                ran.0 += 1;
+            })
+            .in_set(TestSet::First),
+        );
+
+        schedules.add_systems(
+            TestSchedule,
+            (|mut ran: ResMut<CheckSystemRan>| {
+                assert_eq!(ran.0, 1);
+                ran.0 += 1;
+            })
+            .in_set(TestSet::Second),
+        );
+
+        let mut world = World::new();
+
+        world.insert_resource(CheckSystemRan(0));
+        world.insert_resource(schedules);
+        world.run_schedule(TestSchedule);
+
+        let value = world
+            .get_resource::<CheckSystemRan>()
+            .expect("CheckSystemRan Resource Should Exist");
+        assert_eq!(value.0, 2);
     }
 }

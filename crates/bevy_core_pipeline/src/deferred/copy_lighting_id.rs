@@ -35,7 +35,7 @@ impl Plugin for CopyDeferredLightingIdPlugin {
             "copy_deferred_lighting_id.wgsl",
             Shader::from_wgsl
         );
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
         render_app.add_systems(
@@ -45,7 +45,7 @@ impl Plugin for CopyDeferredLightingIdPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 

@@ -63,7 +63,7 @@ fn update_clipping(
         }
     } else if let Some(inherited_clip) = maybe_inherited_clip {
         // No previous calculated clip, add a new CalculatedClip component with the inherited clipping rect
-        commands.entity(entity).insert(CalculatedClip {
+        commands.entity(entity).try_insert(CalculatedClip {
             clip: inherited_clip,
         });
     }
@@ -163,7 +163,7 @@ fn update_children_target_camera(
 
         match camera_to_set {
             Some(camera) => {
-                commands.entity(child).insert(camera.clone());
+                commands.entity(child).try_insert(camera.clone());
             }
             None => {
                 commands.entity(child).remove::<TargetCamera>();

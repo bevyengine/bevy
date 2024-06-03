@@ -1,34 +1,13 @@
 //! Provides types for building cubic splines for rendering curves and use with animation easing.
 
-use std::{
-    fmt::Debug,
-    iter::once,
-    ops::{Add, Div, Mul, Sub},
-};
+use std::{fmt::Debug, iter::once};
 
-use glam::{Quat, Vec2, Vec3, Vec3A, Vec4};
+use crate::{Vec2, VectorSpace};
+
 use thiserror::Error;
 
-/// A point in space of any dimension that supports the math ops needed for cubic spline
-/// interpolation.
-pub trait Point:
-    Mul<f32, Output = Self>
-    + Div<f32, Output = Self>
-    + Add<Self, Output = Self>
-    + Sub<Self, Output = Self>
-    + Default
-    + Debug
-    + Clone
-    + Copy
-{
-}
-
-impl Point for Quat {}
-impl Point for Vec4 {}
-impl Point for Vec3 {}
-impl Point for Vec3A {}
-impl Point for Vec2 {}
-impl Point for f32 {}
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// A spline composed of a single cubic Bezier curve.
 ///
@@ -64,11 +43,14 @@ impl Point for f32 {}
 /// let bezier = CubicBezier::new(points).to_curve();
 /// let positions: Vec<_> = bezier.iter_positions(100).collect();
 /// ```
-pub struct CubicBezier<P: Point> {
-    control_points: Vec<[P; 4]>,
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+pub struct CubicBezier<P: VectorSpace> {
+    /// The control points of the Bezier curve
+    pub control_points: Vec<[P; 4]>,
 }
 
-impl<P: Point> CubicBezier<P> {
+impl<P: VectorSpace> CubicBezier<P> {
     /// Create a new cubic Bezier curve from sets of control points.
     pub fn new(control_points: impl Into<Vec<[P; 4]>>) -> Self {
         Self {
@@ -76,7 +58,7 @@ impl<P: Point> CubicBezier<P> {
         }
     }
 }
-impl<P: Point> CubicGenerator<P> for CubicBezier<P> {
+impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
     #[inline]
     fn to_curve(&self) -> CubicCurve<P> {
         // A derivation for this matrix can be found in "General Matrix Representations for B-splines" by Kaihuai Qin.
@@ -135,10 +117,13 @@ impl<P: Point> CubicGenerator<P> for CubicBezier<P> {
 /// let hermite = CubicHermite::new(points, tangents).to_curve();
 /// let positions: Vec<_> = hermite.iter_positions(100).collect();
 /// ```
-pub struct CubicHermite<P: Point> {
-    control_points: Vec<(P, P)>,
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+pub struct CubicHermite<P: VectorSpace> {
+    /// The control points of the Hermite curve
+    pub control_points: Vec<(P, P)>,
 }
-impl<P: Point> CubicHermite<P> {
+impl<P: VectorSpace> CubicHermite<P> {
     /// Create a new Hermite curve from sets of control points.
     pub fn new(
         control_points: impl IntoIterator<Item = P>,
@@ -149,7 +134,7 @@ impl<P: Point> CubicHermite<P> {
         }
     }
 }
-impl<P: Point> CubicGenerator<P> for CubicHermite<P> {
+impl<P: VectorSpace> CubicGenerator<P> for CubicHermite<P> {
     #[inline]
     fn to_curve(&self) -> CubicCurve<P> {
         let char_matrix = [
@@ -201,12 +186,16 @@ impl<P: Point> CubicGenerator<P> for CubicHermite<P> {
 /// let cardinal = CubicCardinalSpline::new(0.3, points).to_curve();
 /// let positions: Vec<_> = cardinal.iter_positions(100).collect();
 /// ```
-pub struct CubicCardinalSpline<P: Point> {
-    tension: f32,
-    control_points: Vec<P>,
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+pub struct CubicCardinalSpline<P: VectorSpace> {
+    /// Tension
+    pub tension: f32,
+    /// The control points of the Cardinal spline
+    pub control_points: Vec<P>,
 }
 
-impl<P: Point> CubicCardinalSpline<P> {
+impl<P: VectorSpace> CubicCardinalSpline<P> {
     /// Build a new Cardinal spline.
     pub fn new(tension: f32, control_points: impl Into<Vec<P>>) -> Self {
         Self {
@@ -223,7 +212,7 @@ impl<P: Point> CubicCardinalSpline<P> {
         }
     }
 }
-impl<P: Point> CubicGenerator<P> for CubicCardinalSpline<P> {
+impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
     #[inline]
     fn to_curve(&self) -> CubicCurve<P> {
         let s = self.tension;
@@ -288,10 +277,13 @@ impl<P: Point> CubicGenerator<P> for CubicCardinalSpline<P> {
 /// let b_spline = CubicBSpline::new(points).to_curve();
 /// let positions: Vec<_> = b_spline.iter_positions(100).collect();
 /// ```
-pub struct CubicBSpline<P: Point> {
-    control_points: Vec<P>,
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+pub struct CubicBSpline<P: VectorSpace> {
+    /// The control points of the spline
+    pub control_points: Vec<P>,
 }
-impl<P: Point> CubicBSpline<P> {
+impl<P: VectorSpace> CubicBSpline<P> {
     /// Build a new B-Spline.
     pub fn new(control_points: impl Into<Vec<P>>) -> Self {
         Self {
@@ -299,7 +291,7 @@ impl<P: Point> CubicBSpline<P> {
         }
     }
 }
-impl<P: Point> CubicGenerator<P> for CubicBSpline<P> {
+impl<P: VectorSpace> CubicGenerator<P> for CubicBSpline<P> {
     #[inline]
     fn to_curve(&self) -> CubicCurve<P> {
         // A derivation for this matrix can be found in "General Matrix Representations for B-splines" by Kaihuai Qin.
@@ -327,7 +319,7 @@ impl<P: Point> CubicGenerator<P> for CubicBSpline<P> {
 }
 
 /// Error during construction of [`CubicNurbs`]
-#[derive(Debug, Error)]
+#[derive(Clone, Debug, Error)]
 pub enum CubicNurbsError {
     /// Provided the wrong number of knots.
     #[error("Wrong number of knots: expected {expected}, provided {provided}")]
@@ -405,12 +397,17 @@ pub enum CubicNurbsError {
 ///     .to_curve();
 /// let positions: Vec<_> = nurbs.iter_positions(100).collect();
 /// ```
-pub struct CubicNurbs<P: Point> {
-    control_points: Vec<P>,
-    weights: Vec<f32>,
-    knots: Vec<f32>,
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+pub struct CubicNurbs<P: VectorSpace> {
+    /// The control points of the NURBS
+    pub control_points: Vec<P>,
+    /// Weights
+    pub weights: Vec<f32>,
+    /// Knots
+    pub knots: Vec<f32>,
 }
-impl<P: Point> CubicNurbs<P> {
+impl<P: VectorSpace> CubicNurbs<P> {
     /// Build a Non-Uniform Rational B-Spline.
     ///
     /// If provided, weights must be the same length as the control points. Defaults to equal weights.
@@ -570,7 +567,7 @@ impl<P: Point> CubicNurbs<P> {
         ]
     }
 }
-impl<P: Point> RationalGenerator<P> for CubicNurbs<P> {
+impl<P: VectorSpace> RationalGenerator<P> for CubicNurbs<P> {
     #[inline]
     fn to_curve(&self) -> RationalCurve<P> {
         let segments = self
@@ -582,7 +579,7 @@ impl<P: Point> RationalGenerator<P> for CubicNurbs<P> {
             .map(|((points, weights), knots)| {
                 // This is curve segment i. It uses control points P_i, P_i+2, P_i+2 and P_i+3,
                 // It is associated with knot span i+3 (which is the interval between knots i+3
-                // and i+4) and it's characteristic matrix uses knots i+1 through i+6 (because
+                // and i+4) and its characteristic matrix uses knots i+1 through i+6 (because
                 // those define the two knot spans on either side).
                 let span = knots[4] - knots[3];
                 let coefficient_knots = knots.try_into().expect("Knot windows are of length 6");
@@ -609,10 +606,13 @@ impl<P: Point> RationalGenerator<P> for CubicNurbs<P> {
 ///
 /// ### Continuity
 /// The curve is C0 continuous, meaning it has no holes or jumps.
-pub struct LinearSpline<P: Point> {
-    points: Vec<P>,
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+pub struct LinearSpline<P: VectorSpace> {
+    /// The control points of the NURBS
+    pub points: Vec<P>,
 }
-impl<P: Point> LinearSpline<P> {
+impl<P: VectorSpace> LinearSpline<P> {
     /// Create a new linear spline
     pub fn new(points: impl Into<Vec<P>>) -> Self {
         Self {
@@ -620,7 +620,7 @@ impl<P: Point> LinearSpline<P> {
         }
     }
 }
-impl<P: Point> CubicGenerator<P> for LinearSpline<P> {
+impl<P: VectorSpace> CubicGenerator<P> for LinearSpline<P> {
     #[inline]
     fn to_curve(&self) -> CubicCurve<P> {
         let segments = self
@@ -639,7 +639,7 @@ impl<P: Point> CubicGenerator<P> for LinearSpline<P> {
 }
 
 /// Implement this on cubic splines that can generate a cubic curve from their spline parameters.
-pub trait CubicGenerator<P: Point> {
+pub trait CubicGenerator<P: VectorSpace> {
     /// Build a [`CubicCurve`] by computing the interpolation coefficients for each curve segment.
     fn to_curve(&self) -> CubicCurve<P>;
 }
@@ -648,12 +648,14 @@ pub trait CubicGenerator<P: Point> {
 /// Can be evaluated as a parametric curve over the domain `[0, 1)`.
 ///
 /// Segments can be chained together to form a longer compound curve.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct CubicSegment<P: Point> {
-    coeff: [P; 4],
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
+pub struct CubicSegment<P: VectorSpace> {
+    /// Coefficients of the segment
+    pub coeff: [P; 4],
 }
 
-impl<P: Point> CubicSegment<P> {
+impl<P: VectorSpace> CubicSegment<P> {
     /// Instantaneous position of a point at parametric value `t`.
     #[inline]
     pub fn position(&self, t: f32) -> P {
@@ -709,7 +711,7 @@ impl CubicSegment<Vec2> {
     pub fn new_bezier(p1: impl Into<Vec2>, p2: impl Into<Vec2>) -> Self {
         let (p0, p3) = (Vec2::ZERO, Vec2::ONE);
         let bezier = CubicBezier::new([[p0, p1.into(), p2.into(), p3]]).to_curve();
-        bezier.segments[0].clone()
+        bezier.segments[0]
     }
 
     /// Maximum allowable error for iterative Bezier solve
@@ -807,11 +809,13 @@ impl CubicSegment<Vec2> {
 /// Use any struct that implements the [`CubicGenerator`] trait to create a new curve, such as
 /// [`CubicBezier`].
 #[derive(Clone, Debug, PartialEq)]
-pub struct CubicCurve<P: Point> {
-    segments: Vec<CubicSegment<P>>,
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+pub struct CubicCurve<P: VectorSpace> {
+    /// Segments of the curve
+    pub segments: Vec<CubicSegment<P>>,
 }
 
-impl<P: Point> CubicCurve<P> {
+impl<P: VectorSpace> CubicCurve<P> {
     /// Compute the position of a point on the cubic curve at the parametric value `t`.
     ///
     /// Note that `t` varies from `0..=(n_points - 3)`.
@@ -912,13 +916,13 @@ impl<P: Point> CubicCurve<P> {
     }
 }
 
-impl<P: Point> Extend<CubicSegment<P>> for CubicCurve<P> {
+impl<P: VectorSpace> Extend<CubicSegment<P>> for CubicCurve<P> {
     fn extend<T: IntoIterator<Item = CubicSegment<P>>>(&mut self, iter: T) {
         self.segments.extend(iter);
     }
 }
 
-impl<P: Point> IntoIterator for CubicCurve<P> {
+impl<P: VectorSpace> IntoIterator for CubicCurve<P> {
     type IntoIter = <Vec<CubicSegment<P>> as IntoIterator>::IntoIter;
 
     type Item = CubicSegment<P>;
@@ -929,7 +933,7 @@ impl<P: Point> IntoIterator for CubicCurve<P> {
 }
 
 /// Implement this on cubic splines that can generate a rational cubic curve from their spline parameters.
-pub trait RationalGenerator<P: Point> {
+pub trait RationalGenerator<P: VectorSpace> {
     /// Build a [`RationalCurve`] by computing the interpolation coefficients for each curve segment.
     fn to_curve(&self) -> RationalCurve<P>;
 }
@@ -938,17 +942,18 @@ pub trait RationalGenerator<P: Point> {
 /// Can be evaluated as a parametric curve over the domain `[0, knot_span)`.
 ///
 /// Segments can be chained together to form a longer compound curve.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct RationalSegment<P: Point> {
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
+pub struct RationalSegment<P: VectorSpace> {
     /// The coefficients matrix of the cubic curve.
-    coeff: [P; 4],
+    pub coeff: [P; 4],
     /// The homogeneous weight coefficients.
-    weight_coeff: [f32; 4],
+    pub weight_coeff: [f32; 4],
     /// The width of the domain of this segment.
-    knot_span: f32,
+    pub knot_span: f32,
 }
 
-impl<P: Point> RationalSegment<P> {
+impl<P: VectorSpace> RationalSegment<P> {
     /// Instantaneous position of a point at parametric value `t` in `[0, knot_span)`.
     #[inline]
     pub fn position(&self, t: f32) -> P {
@@ -1066,11 +1071,13 @@ impl<P: Point> RationalSegment<P> {
 /// Use any struct that implements the [`RationalGenerator`] trait to create a new curve, such as
 /// [`CubicNurbs`], or convert [`CubicCurve`] using `into/from`.
 #[derive(Clone, Debug, PartialEq)]
-pub struct RationalCurve<P: Point> {
-    segments: Vec<RationalSegment<P>>,
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+pub struct RationalCurve<P: VectorSpace> {
+    /// The segments in the curve
+    pub segments: Vec<RationalSegment<P>>,
 }
 
-impl<P: Point> RationalCurve<P> {
+impl<P: VectorSpace> RationalCurve<P> {
     /// Compute the position of a point on the curve at the parametric value `t`.
     ///
     /// Note that `t` varies from `0..=(n_points - 3)`.
@@ -1190,13 +1197,13 @@ impl<P: Point> RationalCurve<P> {
     }
 }
 
-impl<P: Point> Extend<RationalSegment<P>> for RationalCurve<P> {
+impl<P: VectorSpace> Extend<RationalSegment<P>> for RationalCurve<P> {
     fn extend<T: IntoIterator<Item = RationalSegment<P>>>(&mut self, iter: T) {
         self.segments.extend(iter);
     }
 }
 
-impl<P: Point> IntoIterator for RationalCurve<P> {
+impl<P: VectorSpace> IntoIterator for RationalCurve<P> {
     type IntoIter = <Vec<RationalSegment<P>> as IntoIterator>::IntoIter;
 
     type Item = RationalSegment<P>;
@@ -1206,7 +1213,7 @@ impl<P: Point> IntoIterator for RationalCurve<P> {
     }
 }
 
-impl<P: Point> From<CubicSegment<P>> for RationalSegment<P> {
+impl<P: VectorSpace> From<CubicSegment<P>> for RationalSegment<P> {
     fn from(value: CubicSegment<P>) -> Self {
         Self {
             coeff: value.coeff,
@@ -1216,7 +1223,7 @@ impl<P: Point> From<CubicSegment<P>> for RationalSegment<P> {
     }
 }
 
-impl<P: Point> From<CubicCurve<P>> for RationalCurve<P> {
+impl<P: VectorSpace> From<CubicCurve<P>> for RationalCurve<P> {
     fn from(value: CubicCurve<P>) -> Self {
         Self {
             segments: value.segments.into_iter().map(Into::into).collect(),

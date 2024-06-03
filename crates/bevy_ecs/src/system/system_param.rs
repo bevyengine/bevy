@@ -5,6 +5,7 @@ use crate::{
     change_detection::{Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Tick},
     entity::Entities,
+    prelude::QueryBuilder,
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QueryState,
         ReadOnlyQueryData,
@@ -137,12 +138,16 @@ pub unsafe trait SystemParam: Sized {
     /// and creates a new instance of this param's [`State`](Self::State).
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
 
-    /// For the specified [`Archetype`], registers the components accessed by this [`SystemParam`] (if applicable).
+    /// For the specified [`Archetype`], registers the components accessed by this [`SystemParam`] (if applicable).a
+    ///
+    /// # Safety
+    /// `archetype` must be from the [`World`] used to initialize `state` in `init_state`.
     #[inline]
-    fn new_archetype(
-        _state: &mut Self::State,
-        _archetype: &Archetype,
-        _system_meta: &mut SystemMeta,
+    #[allow(unused_variables)]
+    unsafe fn new_archetype(
+        state: &mut Self::State,
+        archetype: &Archetype,
+        system_meta: &mut SystemMeta,
     ) {
     }
 
@@ -169,6 +174,19 @@ pub unsafe trait SystemParam: Sized {
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
     ) -> Self::Item<'world, 'state>;
+}
+
+/// A parameter that can be built with [`SystemBuilder`](crate::system::builder::SystemBuilder)
+pub trait BuildableSystemParam: SystemParam {
+    /// A mutable reference to this type will be passed to the builder function
+    type Builder<'b>;
+
+    /// Constructs [`SystemParam::State`] for `Self` using a given builder function
+    fn build(
+        world: &mut World,
+        meta: &mut SystemMeta,
+        func: impl FnOnce(&mut Self::Builder<'_>),
+    ) -> Self::State;
 }
 
 /// A [`SystemParam`] that only reads a given [`World`].
@@ -208,7 +226,11 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         state
     }
 
-    fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
+    unsafe fn new_archetype(
+        state: &mut Self::State,
+        archetype: &Archetype,
+        system_meta: &mut SystemMeta,
+    ) {
         state.new_archetype(archetype, &mut system_meta.archetype_component_access);
     }
 
@@ -223,6 +245,35 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         // so the caller ensures that `world` has permission to access any
         // world data that the query needs.
         unsafe { Query::new(world, state, system_meta.last_run, change_tick) }
+    }
+}
+
+impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static> BuildableSystemParam
+    for Query<'w, 's, D, F>
+{
+    type Builder<'b> = QueryBuilder<'b, D, F>;
+
+    #[inline]
+    fn build(
+        world: &mut World,
+        system_meta: &mut SystemMeta,
+        build: impl FnOnce(&mut Self::Builder<'_>),
+    ) -> Self::State {
+        let mut builder = QueryBuilder::new(world);
+        build(&mut builder);
+        let state = builder.build();
+        assert_component_access_compatibility(
+            &system_meta.name,
+            std::any::type_name::<D>(),
+            std::any::type_name::<F>(),
+            &system_meta.component_access_set,
+            &state.component_access,
+            world,
+        );
+        system_meta
+            .component_access_set
+            .add(state.component_access.clone());
+        state
     }
 }
 
@@ -766,6 +817,20 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         Local(state.get())
+    }
+}
+
+impl<'w, T: FromWorld + Send + 'static> BuildableSystemParam for Local<'w, T> {
+    type Builder<'b> = T;
+
+    fn build(
+        world: &mut World,
+        _meta: &mut SystemMeta,
+        func: impl FnOnce(&mut Self::Builder<'_>),
+    ) -> Self::State {
+        let mut value = T::from_world(world);
+        func(&mut value);
+        SyncCell::new(value)
     }
 }
 
@@ -1343,8 +1408,10 @@ macro_rules! impl_system_param_tuple {
             }
 
             #[inline]
-            fn new_archetype(($($param,)*): &mut Self::State, _archetype: &Archetype, _system_meta: &mut SystemMeta) {
-                $($param::new_archetype($param, _archetype, _system_meta);)*
+            #[allow(unused_unsafe)]
+            unsafe fn new_archetype(($($param,)*): &mut Self::State, _archetype: &Archetype, _system_meta: &mut SystemMeta) {
+                // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
+                unsafe { $($param::new_archetype($param, _archetype, _system_meta);)* }
             }
 
             #[inline]
@@ -1487,8 +1554,13 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
         P::init_state(world, system_meta)
     }
 
-    fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
-        P::new_archetype(state, archetype, system_meta);
+    unsafe fn new_archetype(
+        state: &mut Self::State,
+        archetype: &Archetype,
+        system_meta: &mut SystemMeta,
+    ) {
+        // SAFETY: The caller guarantees that the provided `archetype` matches the World used to initialize `state`.
+        unsafe { P::new_archetype(state, archetype, system_meta) };
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -1531,9 +1603,9 @@ mod tests {
     use super::*;
     use crate::{
         self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
-        system::{assert_is_system, Query},
+        system::assert_is_system,
     };
-    use std::{cell::RefCell, marker::PhantomData};
+    use std::cell::RefCell;
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.
     #[test]

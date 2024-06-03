@@ -1,4 +1,9 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 //! Provides math types and functionality for the Bevy game engine.
 //!
@@ -9,29 +14,33 @@
 mod affine3;
 mod aspect_ratio;
 pub mod bounding;
+mod common_traits;
 pub mod cubic_splines;
 mod direction;
+mod float_ord;
 pub mod primitives;
 mod ray;
 mod rects;
 mod rotation2d;
 #[cfg(feature = "rand")]
-mod shape_sampling;
+pub mod sampling;
 
 pub use affine3::*;
 pub use aspect_ratio::AspectRatio;
+pub use common_traits::*;
 pub use direction::*;
+pub use float_ord::*;
 pub use ray::{Ray2d, Ray3d};
 pub use rects::*;
 pub use rotation2d::Rotation2d;
 #[cfg(feature = "rand")]
-pub use shape_sampling::ShapeSample;
+pub use sampling::{FromRng, ShapeSample};
 
 /// The `bevy_math` prelude.
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "rand")]
-    pub use crate::shape_sampling::ShapeSample;
+    pub use crate::sampling::{FromRng, ShapeSample};
     #[doc(hidden)]
     pub use crate::{
         cubic_splines::{

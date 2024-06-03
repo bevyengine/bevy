@@ -1,9 +1,99 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 //! Plugin providing an [`AssetLoader`](bevy_asset::AssetLoader) and type definitions
 //! for loading glTF 2.0 (a standard 3D scene definition format) files in Bevy.
 //!
 //! The [glTF 2.0 specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html) defines the format of the glTF files.
+//!
+//! # Quick Start
+//!
+//! Here's how to spawn a simple glTF scene
+//!
+//! ```
+//! # use bevy_ecs::prelude::*;
+//! # use bevy_asset::prelude::*;
+//! # use bevy_scene::prelude::*;
+//! # use bevy_transform::prelude::*;
+//! # use bevy_gltf::prelude::*;
+//!
+//! fn spawn_gltf(mut commands: Commands, asset_server: Res<AssetServer>) {
+//!     commands.spawn(SceneBundle {
+//!         // This is equivalent to "models/FlightHelmet/FlightHelmet.gltf#Scene0"
+//!         // The `#Scene0` label here is very important because it tells bevy to load the first scene in the glTF file.
+//!         // If this isn't specified bevy doesn't know which part of the glTF file to load.
+//!         scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+//!         // You can use the transform to give it a position
+//!         transform: Transform::from_xyz(2.0, 0.0, -5.0),
+//!         ..Default::default()
+//!     });
+//! }
+//! ```
+//! # Loading parts of a glTF asset
+//!
+//! ## Using `Gltf`
+//!
+//! If you want to access part of the asset, you can load the entire `Gltf` using the `AssetServer`.
+//! Once the `Handle<Gltf>` is loaded you can then use it to access named parts of it.
+//!
+//! ```
+//! # use bevy_ecs::prelude::*;
+//! # use bevy_asset::prelude::*;
+//! # use bevy_scene::prelude::*;
+//! # use bevy_transform::prelude::*;
+//! # use bevy_gltf::Gltf;
+//!
+//! // Holds the scene handle
+//! #[derive(Resource)]
+//! struct HelmetScene(Handle<Gltf>);
+//!
+//! fn load_gltf(mut commands: Commands, asset_server: Res<AssetServer>) {
+//!     let gltf = asset_server.load("models/FlightHelmet/FlightHelmet.gltf");
+//!     commands.insert_resource(HelmetScene(gltf));
+//! }
+//!
+//! fn spawn_gltf_objects(
+//!     mut commands: Commands,
+//!     helmet_scene: Res<HelmetScene>,
+//!     gltf_assets: Res<Assets<Gltf>>,
+//!     mut loaded: Local<bool>,
+//! ) {
+//!     // Only do this once
+//!     if *loaded {
+//!         return;
+//!     }
+//!     // Wait until the scene is loaded
+//!     let Some(gltf) = gltf_assets.get(&helmet_scene.0) else {
+//!         return;
+//!     };
+//!     *loaded = true;
+//!
+//!     commands.spawn(SceneBundle {
+//!         // Gets the first scene in the file
+//!         scene: gltf.scenes[0].clone(),
+//!         ..Default::default()
+//!     });
+//!
+//!     commands.spawn(SceneBundle {
+//!         // Gets the scene named "Lenses_low"
+//!         scene: gltf.named_scenes["Lenses_low"].clone(),
+//!         transform: Transform::from_xyz(1.0, 2.0, 3.0),
+//!         ..Default::default()
+//!     });
+//! }
+//! ```
+//!
+//! ## Asset Labels
+//!
+//! The glTF loader let's you specify labels that let you target specific parts of the glTF.
+//!
+//! Be careful when using this feature, if you misspell a label it will simply ignore it without warning.
+//!
+//! You can use [`GltfAssetLabel`] to ensure you are using the correct label.
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
@@ -14,7 +104,7 @@ mod vertex_attributes;
 pub use loader::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{Asset, AssetApp, Handle};
+use bevy_asset::{Asset, AssetApp, AssetPath, Handle};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_pbr::StandardMaterial;
 use bevy_reflect::{Reflect, TypePath};
@@ -24,6 +114,12 @@ use bevy_render::{
     texture::CompressedImageFormats,
 };
 use bevy_scene::Scene;
+
+/// The `bevy_gltf` prelude.
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::{Gltf, GltfAssetLabel, GltfExtras};
+}
 
 /// Adds support for glTF file loading to the app.
 #[derive(Default)]
@@ -58,9 +154,8 @@ impl Plugin for GltfPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let supported_compressed_formats = match app.world.get_resource::<RenderDevice>() {
+        let supported_compressed_formats = match app.world().get_resource::<RenderDevice>() {
             Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
-
             None => CompressedImageFormats::NONE,
         };
         app.register_asset_loader(GltfLoader {
@@ -152,4 +247,119 @@ pub struct GltfPrimitive {
 pub struct GltfExtras {
     /// Content of the extra data.
     pub value: String,
+}
+
+/// Labels that can be used to load part of a glTF
+///
+/// You can use [`GltfAssetLabel::from_asset`] to add it to an asset path
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_asset::prelude::*;
+/// # use bevy_scene::prelude::*;
+/// # use bevy_gltf::prelude::*;
+///
+/// fn load_gltf_scene(asset_server: Res<AssetServer>) {
+///     let gltf_scene: Handle<Scene> = asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
+/// }
+/// ```
+///
+/// Or when formatting a string for the path
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_asset::prelude::*;
+/// # use bevy_scene::prelude::*;
+/// # use bevy_gltf::prelude::*;
+///
+/// fn load_gltf_scene(asset_server: Res<AssetServer>) {
+///     let gltf_scene: Handle<Scene> = asset_server.load(format!("models/FlightHelmet/FlightHelmet.gltf#{}", GltfAssetLabel::Scene(0)));
+/// }
+/// ```
+#[derive(Debug, Clone, Copy)]
+pub enum GltfAssetLabel {
+    /// `Scene{}`: glTF Scene as a Bevy `Scene`
+    Scene(usize),
+    /// `Node{}`: glTF Node as a `GltfNode`
+    Node(usize),
+    /// `Mesh{}`: glTF Mesh as a `GltfMesh`
+    Mesh(usize),
+    /// `Mesh{}/Primitive{}`: glTF Primitive as a Bevy `Mesh`
+    Primitive {
+        /// Index of the mesh for this primitive
+        mesh: usize,
+        /// Index of this primitive in its parent mesh
+        primitive: usize,
+    },
+    /// `Mesh{}/Primitive{}/MorphTargets`: Morph target animation data for a glTF Primitive
+    MorphTarget {
+        /// Index of the mesh for this primitive
+        mesh: usize,
+        /// Index of this primitive in its parent mesh
+        primitive: usize,
+    },
+    /// `Texture{}`: glTF Texture as a Bevy `Image`
+    Texture(usize),
+    /// `Material{}`: glTF Material as a Bevy `StandardMaterial`
+    Material {
+        /// Index of this material
+        index: usize,
+        /// Used to set the [`Face`](bevy_render::render_resource::Face) of the material, useful if it is used with negative scale
+        is_scale_inverted: bool,
+    },
+    /// `DefaultMaterial`: as above, if the glTF file contains a default material with no index
+    DefaultMaterial,
+    /// `Animation{}`: glTF Animation as Bevy `AnimationClip`
+    Animation(usize),
+    /// `Skin{}`: glTF mesh skin as Bevy `SkinnedMeshInverseBindposes`
+    Skin(usize),
+}
+
+impl std::fmt::Display for GltfAssetLabel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GltfAssetLabel::Scene(index) => f.write_str(&format!("Scene{index}")),
+            GltfAssetLabel::Node(index) => f.write_str(&format!("Node{index}")),
+            GltfAssetLabel::Mesh(index) => f.write_str(&format!("Mesh{index}")),
+            GltfAssetLabel::Primitive { mesh, primitive } => {
+                f.write_str(&format!("Mesh{mesh}/Primitive{primitive}"))
+            }
+            GltfAssetLabel::MorphTarget { mesh, primitive } => {
+                f.write_str(&format!("Mesh{mesh}/Primitive{primitive}/MorphTargets"))
+            }
+            GltfAssetLabel::Texture(index) => f.write_str(&format!("Texture{index}")),
+            GltfAssetLabel::Material {
+                index,
+                is_scale_inverted,
+            } => f.write_str(&format!(
+                "Material{index}{}",
+                if *is_scale_inverted {
+                    " (inverted)"
+                } else {
+                    ""
+                }
+            )),
+            GltfAssetLabel::DefaultMaterial => f.write_str("DefaultMaterial"),
+            GltfAssetLabel::Animation(index) => f.write_str(&format!("Animation{index}")),
+            GltfAssetLabel::Skin(index) => f.write_str(&format!("Skin{index}")),
+        }
+    }
+}
+
+impl GltfAssetLabel {
+    /// Add this label to an asset path
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_asset::prelude::*;
+    /// # use bevy_scene::prelude::*;
+    /// # use bevy_gltf::prelude::*;
+    ///
+    /// fn load_gltf_scene(asset_server: Res<AssetServer>) {
+    ///     let gltf_scene: Handle<Scene> = asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
+    /// }
+    /// ```
+    pub fn from_asset(&self, path: impl Into<AssetPath<'static>>) -> AssetPath<'static> {
+        path.into().with_label(self.to_string())
+    }
 }

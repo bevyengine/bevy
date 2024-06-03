@@ -7,14 +7,13 @@ fn main() {
         // By default, a primary window gets spawned by `WindowPlugin`, contained in `DefaultPlugins`
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup_scene)
-        .add_systems(Update, bevy::window::close_on_esc)
         .run();
 }
 
 fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     // add entities to the world
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/torus/torus.gltf#Scene0"),
+        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/torus/torus.gltf")),
         ..default()
     });
     // light

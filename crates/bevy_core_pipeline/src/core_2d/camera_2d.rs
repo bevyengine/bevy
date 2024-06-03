@@ -18,7 +18,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 #[reflect(Component)]
 pub struct Camera2d;
 
-#[derive(Bundle)]
+#[derive(Bundle, Clone)]
 pub struct Camera2dBundle {
     pub camera: Camera,
     pub camera_render_graph: CameraRenderGraph,

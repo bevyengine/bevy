@@ -11,8 +11,10 @@ pub struct AudioSource {
     /// Raw data of the audio source.
     ///
     /// The data must be one of the file formats supported by Bevy (`wav`, `ogg`, `flac`, or `mp3`).
-    /// It is decoded using [`rodio::decoder::Decoder`](https://docs.rs/rodio/latest/rodio/decoder/struct.Decoder.html).
+    /// However, support for these file formats is not part of Bevy's [`default feature set`](https://docs.rs/bevy/latest/bevy/index.html#default-features).
+    /// In order to be able to use these file formats, you will have to enable the appropriate [`optional features`](https://docs.rs/bevy/latest/bevy/index.html#optional-features).
     ///
+    /// It is decoded using [`rodio::decoder::Decoder`](https://docs.rs/rodio/latest/rodio/decoder/struct.Decoder.html).
     /// The decoder has conditionally compiled methods
     /// depending on the features enabled.
     /// If the format used is not enabled,

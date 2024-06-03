@@ -12,7 +12,7 @@ use bevy_ecs::{
     schedule::IntoSystemConfigs,
     system::{Commands, Local, Query, Res, ResMut, Resource},
 };
-use bevy_math::{Affine3A, Mat4, Vec3A, Vec4};
+use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_instances::ExtractInstancesPlugin,
@@ -21,12 +21,12 @@ use bevy_render::{
     render_resource::{DynamicUniformBuffer, Sampler, Shader, ShaderType, TextureView},
     renderer::{RenderDevice, RenderQueue},
     settings::WgpuFeatures,
-    texture::{FallbackImage, Image},
+    texture::{FallbackImage, GpuImage, Image},
     view::ExtractedView,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::{tracing::error, FloatOrd, HashMap};
+use bevy_utils::{tracing::error, HashMap};
 
 use std::hash::Hash;
 use std::ops::Deref;
@@ -270,7 +270,7 @@ pub trait LightProbeComponent: Send + Sync + Component + Sized {
 
     /// Returns the asset ID or asset IDs of the texture or textures referenced
     /// by this light probe.
-    fn id(&self, image_assets: &RenderAssets<Image>) -> Option<Self::AssetId>;
+    fn id(&self, image_assets: &RenderAssets<GpuImage>) -> Option<Self::AssetId>;
 
     /// Returns the intensity of this light probe.
     ///
@@ -284,7 +284,7 @@ pub trait LightProbeComponent: Send + Sync + Component + Sized {
     /// This is called for every light probe in view every frame.
     fn create_render_view_light_probes(
         view_component: Option<&Self>,
-        image_assets: &RenderAssets<Image>,
+        image_assets: &RenderAssets<GpuImage>,
     ) -> RenderViewLightProbes<Self>;
 }
 
@@ -323,7 +323,7 @@ impl Plugin for LightProbePlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
@@ -342,7 +342,7 @@ impl Plugin for LightProbePlugin {
 /// Gathers up all light probes of a single type in the scene and assigns them
 /// to views, performing frustum culling and distance sorting in the process.
 fn gather_light_probes<C>(
-    image_assets: Res<RenderAssets<Image>>,
+    image_assets: Res<RenderAssets<GpuImage>>,
     light_probe_query: Extract<Query<(&GlobalTransform, &C), With<LightProbe>>>,
     view_query: Extract<Query<(Entity, &GlobalTransform, &Frustum, Option<&C>), With<Camera3d>>>,
     mut reflection_probes: Local<Vec<LightProbeInfo<C>>>,
@@ -505,7 +505,7 @@ where
     /// every frame.
     fn new(
         (light_probe_transform, environment_map): (&GlobalTransform, &C),
-        image_assets: &RenderAssets<Image>,
+        image_assets: &RenderAssets<GpuImage>,
     ) -> Option<LightProbeInfo<C>> {
         environment_map.id(image_assets).map(|id| LightProbeInfo {
             affine_transform: light_probe_transform.affine(),
@@ -634,7 +634,7 @@ pub(crate) fn add_cubemap_texture_view<'a>(
     texture_views: &mut Vec<&'a <TextureView as Deref>::Target>,
     sampler: &mut Option<&'a Sampler>,
     image_id: AssetId<Image>,
-    images: &'a RenderAssets<Image>,
+    images: &'a RenderAssets<GpuImage>,
     fallback_image: &'a FallbackImage,
 ) {
     match images.get(image_id) {

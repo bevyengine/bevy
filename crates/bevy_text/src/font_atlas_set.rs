@@ -3,11 +3,10 @@ use ab_glyph::{GlyphId, OutlinedGlyph, Point};
 use bevy_asset::{AssetEvent, AssetId};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_math::UVec2;
+use bevy_math::{FloatOrd, UVec2};
 use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlasLayout;
-use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 
 type FontSizeKey = FloatOrd;

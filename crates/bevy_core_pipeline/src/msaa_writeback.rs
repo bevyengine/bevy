@@ -21,10 +21,9 @@ pub struct MsaaWritebackPlugin;
 
 impl Plugin for MsaaWritebackPlugin {
     fn build(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-
         render_app.add_systems(
             Render,
             prepare_msaa_writeback_pipelines.in_set(RenderSet::Prepare),
@@ -32,7 +31,7 @@ impl Plugin for MsaaWritebackPlugin {
         {
             render_app
                 .add_render_graph_node::<MsaaWritebackNode>(Core2d, Node2d::MsaaWriteback)
-                .add_render_graph_edge(Core2d, Node2d::MsaaWriteback, Node2d::MainPass);
+                .add_render_graph_edge(Core2d, Node2d::MsaaWriteback, Node2d::StartMainPass);
         }
         {
             render_app

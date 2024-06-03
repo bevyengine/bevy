@@ -10,7 +10,9 @@ use bevy_reflect::TypeRegistryArc;
 use serde::de::DeserializeSeed;
 use thiserror::Error;
 
-/// [`AssetLoader`] for loading serialized Bevy scene files as [`DynamicScene`].
+/// Asset loader for a Bevy dynamic scene (`.scn` / `.scn.ron`).
+///
+/// The loader handles assets serialized with [`DynamicScene::serialize`].
 #[derive(Debug)]
 pub struct SceneLoader {
     type_registry: TypeRegistryArc,

@@ -80,7 +80,7 @@ impl<C> Default for UniformComponentPlugin<C> {
 
 impl<C: Component + ShaderType + WriteInto + Clone> Plugin for UniformComponentPlugin<C> {
     fn build(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .insert_resource(ComponentUniforms::<C>::default())
                 .add_systems(
@@ -123,14 +123,14 @@ impl<C: Component + ShaderType> Default for ComponentUniforms<C> {
 
 /// This system prepares all components of the corresponding component type.
 /// They are transformed into uniforms and stored in the [`ComponentUniforms`] resource.
-fn prepare_uniform_components<C: Component>(
+fn prepare_uniform_components<C>(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut component_uniforms: ResMut<ComponentUniforms<C>>,
     components: Query<(Entity, &C)>,
 ) where
-    C: ShaderType + WriteInto + Clone,
+    C: Component + ShaderType + WriteInto + Clone,
 {
     let components_iter = components.iter();
     let count = components_iter.len();
@@ -184,7 +184,7 @@ impl<C, F> ExtractComponentPlugin<C, F> {
 
 impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
     fn build(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             if self.only_extract_visible {
                 render_app.add_systems(ExtractSchedule, extract_visible_components::<C>);
             } else {

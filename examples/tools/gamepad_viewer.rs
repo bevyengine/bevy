@@ -3,9 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    input::gamepad::{
-        GamepadAxisChangedEvent, GamepadButton, GamepadButtonChangedEvent, GamepadSettings,
-    },
+    input::gamepad::{GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadSettings},
     prelude::*,
     sprite::{Anchor, MaterialMesh2dBundle, Mesh2dHandle},
 };
@@ -418,10 +416,8 @@ fn setup_triggers(
 }
 
 fn setup_connected(mut commands: Commands) {
-    let text_style = TextStyle {
-        font_size: 20.,
-        ..default()
-    };
+    let text_style = TextStyle::default();
+
     commands.spawn((
         TextBundle {
             text: Text::from_sections([

@@ -7,9 +7,15 @@
     rgb9e5,
     mesh_view_bindings::view,
     utils::{octahedral_encode, octahedral_decode},
-    prepass_io::{VertexOutput, FragmentOutput},
+    prepass_io::FragmentOutput,
     view_transformations::{position_ndc_to_world, frag_coord_to_ndc},
 }
+
+#ifdef MESHLET_MESH_MATERIAL_PASS
+#import bevy_pbr::meshlet_visibility_buffer_resolve::VertexOutput
+#else
+#import bevy_pbr::prepass_io::VertexOutput
+#endif
 
 #ifdef MOTION_VECTOR_PREPASS
     #import bevy_pbr::pbr_prepass_functions::calculate_motion_vector
@@ -116,7 +122,11 @@ fn deferred_output(in: VertexOutput, pbr_input: PbrInput) -> FragmentOutput {
 #endif
     // motion vectors if required
 #ifdef MOTION_VECTOR_PREPASS
+#ifdef MESHLET_MESH_MATERIAL_PASS
+    out.motion_vector = in.motion_vector;
+#else
     out.motion_vector = calculate_motion_vector(in.world_position, in.previous_world_position);
+#endif
 #endif
 
     return out;

@@ -1,7 +1,7 @@
 use bevy_app::{Plugin, PluginGroup, PluginGroupBuilder};
 
 /// This plugin group will add all the default plugins for a *Bevy* application:
-/// * [`PanicHandlerPlugin`](crate::panic_handler::PanicHandlerPlugin)
+/// * [`PanicHandlerPlugin`](crate::app::PanicHandlerPlugin)
 /// * [`LogPlugin`](crate::log::LogPlugin)
 /// * [`TaskPoolPlugin`](crate::core::TaskPoolPlugin)
 /// * [`TypeRegistrationPlugin`](crate::core::TypeRegistrationPlugin)
@@ -29,6 +29,7 @@ use bevy_app::{Plugin, PluginGroup, PluginGroupBuilder};
 /// * [`GilrsPlugin`](crate::gilrs::GilrsPlugin) - with feature `bevy_gilrs`
 /// * [`AnimationPlugin`](crate::animation::AnimationPlugin) - with feature `bevy_animation`
 /// * [`DevToolsPlugin`](crate::dev_tools::DevToolsPlugin) - with feature `bevy_dev_tools`
+/// * [`CiTestingPlugin`](crate::dev_tools::ci_testing::CiTestingPlugin) - with feature `bevy_ci_testing`
 ///
 /// [`DefaultPlugins`] obeys *Cargo* *feature* flags. Users may exert control over this plugin group
 /// by disabling `default-features` in their `Cargo.toml` and enabling only those features
@@ -43,7 +44,7 @@ impl PluginGroup for DefaultPlugins {
     fn build(self) -> PluginGroupBuilder {
         let mut group = PluginGroupBuilder::start::<Self>();
         group = group
-            .add(bevy_panic_handler::PanicHandlerPlugin)
+            .add(bevy_app::PanicHandlerPlugin)
             .add(bevy_log::LogPlugin::default())
             .add(bevy_core::TaskPoolPlugin::default())
             .add(bevy_core::TypeRegistrationPlugin)
@@ -79,7 +80,7 @@ impl PluginGroup for DefaultPlugins {
                 // compressed texture formats
                 .add(bevy_render::texture::ImagePlugin::default());
 
-            #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+            #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
             {
                 group = group.add(bevy_render::pipelined_rendering::PipelinedRenderingPlugin);
             }
@@ -142,6 +143,11 @@ impl PluginGroup for DefaultPlugins {
             group = group.add(bevy_dev_tools::DevToolsPlugin);
         }
 
+        #[cfg(feature = "bevy_ci_testing")]
+        {
+            group = group.add(bevy_dev_tools::ci_testing::CiTestingPlugin);
+        }
+
         group = group.add(IgnoreAmbiguitiesPlugin);
 
         group
@@ -155,35 +161,14 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         // bevy_ui owns the Transform and cannot be animated
         #[cfg(all(feature = "bevy_animation", feature = "bevy_ui"))]
-        app.ignore_ambiguity(
-            bevy_app::PostUpdate,
-            bevy_animation::advance_animations,
-            bevy_ui::ui_layout_system,
-        );
-
-        #[cfg(feature = "bevy_render")]
-        if let Ok(render_app) = app.get_sub_app_mut(bevy_render::RenderApp) {
-            #[cfg(all(feature = "bevy_gizmos", feature = "bevy_sprite"))]
-            {
-                render_app.ignore_ambiguity(
-                    bevy_render::Render,
-                    bevy_gizmos::GizmoRenderSystem::QueueLineGizmos2d,
-                    bevy_sprite::queue_sprites,
-                );
-                render_app.ignore_ambiguity(
-                    bevy_render::Render,
-                    bevy_gizmos::GizmoRenderSystem::QueueLineGizmos2d,
-                    bevy_sprite::queue_material2d_meshes::<bevy_sprite::ColorMaterial>,
-                );
-            }
-            #[cfg(all(feature = "bevy_gizmos", feature = "bevy_pbr"))]
-            {
-                render_app.ignore_ambiguity(
-                    bevy_render::Render,
-                    bevy_gizmos::GizmoRenderSystem::QueueLineGizmos3d,
-                    bevy_pbr::queue_material_meshes::<bevy_pbr::StandardMaterial>,
-                );
-            }
+        if app.is_plugin_added::<bevy_animation::AnimationPlugin>()
+            && app.is_plugin_added::<bevy_ui::UiPlugin>()
+        {
+            app.ignore_ambiguity(
+                bevy_app::PostUpdate,
+                bevy_animation::advance_animations,
+                bevy_ui::ui_layout_system,
+            );
         }
     }
 }
@@ -194,7 +179,7 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
 /// * [`FrameCountPlugin`](crate::core::FrameCountPlugin)
 /// * [`TimePlugin`](crate::time::TimePlugin)
 /// * [`ScheduleRunnerPlugin`](crate::app::ScheduleRunnerPlugin)
-/// * [`DevToolsPlugin`](crate::dev_tools::DevToolsPlugin) - with feature `bevy_dev_tools`
+/// * [`CiTestingPlugin`](crate::dev_tools::ci_testing::CiTestingPlugin) - with feature `bevy_ci_testing`
 ///
 /// This group of plugins is intended for use for minimal, *headless* programs –
 /// see the [*Bevy* *headless* example](https://github.com/bevyengine/bevy/blob/main/examples/app/headless.rs)
@@ -215,10 +200,12 @@ impl PluginGroup for MinimalPlugins {
             .add(bevy_core::FrameCountPlugin)
             .add(bevy_time::TimePlugin)
             .add(bevy_app::ScheduleRunnerPlugin::default());
-        #[cfg(feature = "bevy_dev_tools")]
+
+        #[cfg(feature = "bevy_ci_testing")]
         {
-            group = group.add(bevy_dev_tools::DevToolsPlugin);
+            group = group.add(bevy_dev_tools::ci_testing::CiTestingPlugin);
         }
+
         group
     }
 }

@@ -183,6 +183,7 @@ pub enum NativeKeyCode {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
+#[allow(clippy::doc_markdown)] // Clippy doesn't like our use of <kbd>.
 #[repr(u32)]
 pub enum KeyCode {
     /// This variant is used when the key cannot be translated to any other variant.
@@ -191,7 +192,7 @@ pub enum KeyCode {
     /// key-press and key-release events by hashing the [`KeyCode`]. It is also possible to use
     /// this for keybinds for non-standard keys, but such keybinds are tied to a given platform.
     Unidentified(NativeKeyCode),
-    /// <kbd>`</kbd> on a US keyboard. This is also called a backtick or grave.
+    /// <kbd>\`</kbd> on a US keyboard. This is also called a backtick or grave.
     /// This is the <kbd>半角</kbd>/<kbd>全角</kbd>/<kbd>漢字</kbd>
     /// (hankaku/zenkaku/kanji) key on Japanese keyboards
     Backquote,
@@ -700,6 +701,7 @@ pub enum NativeKey {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
+#[allow(clippy::doc_markdown)] // Clippy doesn't like our use of <kbd>.
 pub enum Key {
     /// A key string that corresponds to the character typed by the user, taking into account the
     /// user’s current locale setting, and any system-level keyboard mapping overrides that are in

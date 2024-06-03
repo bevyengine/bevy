@@ -5,7 +5,6 @@ use bevy::{
         embedded_asset,
         io::{Reader, Writer},
         processor::LoadTransformAndSave,
-        ron,
         saver::{AssetSaver, SavedAsset},
         transformer::{AssetTransformer, TransformedAsset},
         AssetLoader, AsyncReadExt, AsyncWriteExt, LoadContext,
@@ -51,7 +50,7 @@ fn main() {
 /// It also defines an asset processor that will load [`CoolText`], resolve embedded dependencies, and write the resulting
 /// output to a "normal" plain text file. When the processed asset is loaded, it is loaded as a Text (plaintext) asset.
 /// This illustrates that when you process an asset, you can change its type! However you don't _need_ to change the type.
-pub struct TextPlugin;
+struct TextPlugin;
 
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
@@ -73,7 +72,7 @@ struct Text(String);
 #[derive(Default)]
 struct TextLoader;
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Clone, Default, Serialize, Deserialize)]
 struct TextSettings {
     text_override: Option<String>,
 }
@@ -108,6 +107,7 @@ struct CoolTextRon {
     text: String,
     dependencies: Vec<String>,
     embedded_dependencies: Vec<String>,
+    dependencies_with_settings: Vec<(String, TextSettings)>,
 }
 
 #[derive(Asset, TypePath, Debug)]
@@ -146,9 +146,23 @@ impl AssetLoader for CoolTextLoader {
         let ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
         let mut base_text = ron.text;
         for embedded in ron.embedded_dependencies {
-            let loaded = load_context.load_direct(&embedded).await?;
-            let text = loaded.get::<Text>().unwrap();
-            base_text.push_str(&text.0);
+            let loaded = load_context
+                .loader()
+                .direct()
+                .load::<Text>(&embedded)
+                .await?;
+            base_text.push_str(&loaded.get().0);
+        }
+        for (path, settings_override) in ron.dependencies_with_settings {
+            let loaded = load_context
+                .loader()
+                .with_settings(move |settings| {
+                    *settings = settings_override.clone();
+                })
+                .direct()
+                .load::<Text>(&path)
+                .await?;
+            base_text.push_str(&loaded.get().0);
         }
         Ok(CoolText {
             text: base_text,

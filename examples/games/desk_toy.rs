@@ -111,7 +111,7 @@ fn setup(
     let text_style = TextStyle {
         font: font.clone(),
         font_size: 30.0,
-        color: Color::WHITE,
+        ..default()
     };
     commands.spawn((
         Text2dBundle {
@@ -334,7 +334,7 @@ fn quit(
         .distance(cursor_world_pos)
         < BEVY_LOGO_RADIUS
     {
-        app_exit.send(AppExit);
+        app_exit.send(AppExit::Success);
     }
 }
 

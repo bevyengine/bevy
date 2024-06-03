@@ -1,5 +1,10 @@
 #![doc = include_str!("../README.md")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 /// Common run conditions
 pub mod common_conditions;
@@ -25,7 +30,7 @@ pub mod prelude {
 }
 
 use bevy_app::{prelude::*, RunFixedMainLoop};
-use bevy_ecs::event::{signal_event_update_system, EventUpdateSignal, EventUpdates};
+use bevy_ecs::event::signal_event_update_system;
 use bevy_ecs::prelude::*;
 use bevy_utils::{Duration, Instant};
 pub use crossbeam_channel::TrySendError;
@@ -46,25 +51,22 @@ impl Plugin for TimePlugin {
             .init_resource::<Time<Real>>()
             .init_resource::<Time<Virtual>>()
             .init_resource::<Time<Fixed>>()
-            .init_resource::<TimeUpdateStrategy>()
-            .register_type::<Time>()
-            .register_type::<Time<Real>>()
-            .register_type::<Time<Virtual>>()
-            .register_type::<Time<Fixed>>()
-            .register_type::<Timer>()
-            .add_systems(
-                First,
-                (time_system, virtual_time_system.after(time_system)).in_set(TimeSystem),
-            )
+            .init_resource::<TimeUpdateStrategy>();
+
+        #[cfg(feature = "bevy_reflect")]
+        {
+            app.register_type::<Time>()
+                .register_type::<Time<Real>>()
+                .register_type::<Time<Virtual>>()
+                .register_type::<Time<Fixed>>()
+                .register_type::<Timer>();
+        }
+
+        app.add_systems(First, time_system.in_set(TimeSystem))
             .add_systems(RunFixedMainLoop, run_fixed_main_schedule);
 
         // ensure the events are not dropped until `FixedMain` systems can observe them
-        app.init_resource::<EventUpdateSignal>()
-            .add_systems(
-                First,
-                bevy_ecs::event::reset_event_update_signal_system.after(EventUpdates),
-            )
-            .add_systems(FixedPostUpdate, signal_event_update_system);
+        app.add_systems(FixedPostUpdate, signal_event_update_system);
     }
 }
 
@@ -106,7 +108,9 @@ pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
 /// The system used to update the [`Time`] used by app logic. If there is a render world the time is
 /// sent from there to this system through channels. Otherwise the time is updated in this system.
 fn time_system(
-    mut time: ResMut<Time<Real>>,
+    mut real_time: ResMut<Time<Real>>,
+    mut virtual_time: ResMut<Time<Virtual>>,
+    mut time: ResMut<Time>,
     update_strategy: Res<TimeUpdateStrategy>,
     time_recv: Option<Res<TimeReceiver>>,
 ) {
@@ -122,10 +126,12 @@ fn time_system(
     };
 
     match update_strategy.as_ref() {
-        TimeUpdateStrategy::Automatic => time.update_with_instant(new_time),
-        TimeUpdateStrategy::ManualInstant(instant) => time.update_with_instant(*instant),
-        TimeUpdateStrategy::ManualDuration(duration) => time.update_with_duration(*duration),
+        TimeUpdateStrategy::Automatic => real_time.update_with_instant(new_time),
+        TimeUpdateStrategy::ManualInstant(instant) => real_time.update_with_instant(*instant),
+        TimeUpdateStrategy::ManualDuration(duration) => real_time.update_with_duration(*duration),
     }
+
+    update_virtual_time(&mut time, &mut virtual_time, &real_time);
 }
 
 #[cfg(test)]

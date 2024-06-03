@@ -18,7 +18,6 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_audio|Provides audio functionality|
 |bevy_color|Provides shared color types and operations|
 |bevy_core_pipeline|Provides cameras and other basic render pipeline features|
-|bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_gilrs|Adds gamepad support|
 |bevy_gizmos|Adds support for rendering gizmos|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
@@ -26,13 +25,14 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_render|Provides rendering functionality|
 |bevy_scene|Provides scene functionality|
 |bevy_sprite|Provides sprite functionality|
+|bevy_state|Enable built in global state machines|
 |bevy_text|Provides text functionality|
 |bevy_ui|A custom ECS-driven UI framework|
 |bevy_winit|winit window and input backend|
 |default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
 |hdr|HDR image format support|
 |ktx2|KTX2 compressed texture support|
-|multi-threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
+|multi_threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |png|PNG image format support|
 |sysinfo_plugin|Enables system information diagnostic plugin|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method on your `Camera2dBundle` or `Camera3dBundle`.|
@@ -50,6 +50,7 @@ The default feature set enables most of the expected features of a game engine, 
 |async-io|Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.|
 |basis-universal|Basis Universal compressed texture support|
 |bevy_ci_testing|Enable systems that allow for automated testing on CI|
+|bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_dev_tools|Provides a collection of developer tools|
 |bevy_dynamic_plugin|Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))|
 |bmp|BMP image format support|
@@ -64,8 +65,11 @@ The default feature set enables most of the expected features of a game engine, 
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
 |ios_simulator|Enable support for the ios_simulator by downgrading some rendering capabilities|
 |jpeg|JPEG image format support|
+|meshlet|Enables the meshlet renderer for dense high-poly scenes (experimental)|
+|meshlet_processor|Enables processing meshes into meshlet meshes for bevy_pbr|
 |minimp3|MP3 audio format support (through minimp3)|
 |mp3|MP3 audio format support|
+|pbr_multi_layer_material_textures|Enable support for multi-layer material textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pbr_transmission_textures|Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pnm|PNM image format support, includes pam, pbm, pgm and ppm|
 |serialize|Enable serialization support through serde|

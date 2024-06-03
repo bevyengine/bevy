@@ -49,6 +49,9 @@ fn setup(
     ));
 
     // cubes
+
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
     let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
     let cube_mesh = meshes.add(Cuboid::new(0.5, 0.5, 0.5));
     let blue = materials.add(Color::srgb_u8(124, 144, 255));
@@ -76,12 +79,12 @@ fn setup(
     let sphere_mesh_direction = meshes.add(Sphere::new(0.1).mesh().uv(32, 18));
     let red_emissive = materials.add(StandardMaterial {
         base_color: RED.into(),
-        emissive: Color::linear_rgba(100.0, 0.0, 0.0, 0.0),
+        emissive: LinearRgba::new(1.0, 0.0, 0.0, 0.0),
         ..default()
     });
     let maroon_emissive = materials.add(StandardMaterial {
         base_color: MAROON.into(),
-        emissive: Color::linear_rgba(50.0, 0.0, 0.0, 0.0),
+        emissive: LinearRgba::new(0.369, 0.0, 0.0, 0.0),
         ..default()
     });
 
@@ -134,14 +137,7 @@ fn setup(
     });
 
     commands.spawn(
-        TextBundle::from_section(
-            INSTRUCTIONS,
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
-        )
-        .with_style(Style {
+        TextBundle::from_section(INSTRUCTIONS, TextStyle::default()).with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),

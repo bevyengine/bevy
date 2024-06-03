@@ -406,6 +406,15 @@ impl TypeRegistry {
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut TypeRegistration> {
         self.registrations.values_mut()
     }
+
+    /// Checks to see if the [`TypeData`] of type `T` is associated with each registered type,
+    /// returning a ([`TypeRegistration`], [`TypeData`]) iterator for all entries where data of that type was found.
+    pub fn iter_with_data<T: TypeData>(&self) -> impl Iterator<Item = (&TypeRegistration, &T)> {
+        self.registrations.values().filter_map(|item| {
+            let type_data = item.data::<T>();
+            type_data.map(|data| (item, data))
+        })
+    }
 }
 
 impl TypeRegistryArc {
@@ -663,6 +672,7 @@ pub struct ReflectFromPtr {
     from_ptr_mut: unsafe fn(PtrMut) -> &mut dyn Reflect,
 }
 
+#[allow(unsafe_code)]
 impl ReflectFromPtr {
     /// Returns the [`TypeId`] that the [`ReflectFromPtr`] was constructed for.
     pub fn type_id(&self) -> TypeId {
@@ -714,6 +724,7 @@ impl ReflectFromPtr {
     }
 }
 
+#[allow(unsafe_code)]
 impl<T: Reflect> FromType<T> for ReflectFromPtr {
     fn from_type() -> Self {
         ReflectFromPtr {
@@ -733,6 +744,7 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
 }
 
 #[cfg(test)]
+#[allow(unsafe_code)]
 mod test {
     use crate::{GetTypeRegistration, ReflectFromPtr};
     use bevy_ptr::{Ptr, PtrMut};

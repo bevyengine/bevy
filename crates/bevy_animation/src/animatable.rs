@@ -1,10 +1,9 @@
 use crate::util;
-use bevy_color::{ClampColor, Laba, LinearRgba, Oklaba, Srgba, Xyza};
+use bevy_color::{Laba, LinearRgba, Oklaba, Srgba, Xyza};
 use bevy_ecs::world::World;
 use bevy_math::*;
 use bevy_reflect::Reflect;
 use bevy_transform::prelude::Transform;
-use bevy_utils::FloatOrd;
 
 /// An individual input for [`Animatable::blend`].
 pub struct BlendInput<T> {
@@ -64,7 +63,7 @@ macro_rules! impl_color_animatable {
             #[inline]
             fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
                 let value = *a * (1. - t) + *b * t;
-                value.clamped()
+                value
             }
 
             #[inline]
@@ -77,7 +76,7 @@ macro_rules! impl_color_animatable {
                         value = Self::interpolate(&value, &input.value, input.weight);
                     }
                 }
-                value.clamped()
+                value
             }
         }
     };

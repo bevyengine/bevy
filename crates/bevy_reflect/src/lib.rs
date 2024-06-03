@@ -1,6 +1,10 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 //! Reflection in Rust.
 //!
@@ -168,7 +172,7 @@
 //! ## Patching
 //!
 //! These dynamic types come in handy when needing to apply multiple changes to another type.
-//! This is known as "patching" and is done using the [`Reflect::apply`] method.
+//! This is known as "patching" and is done using the [`Reflect::apply`] and [`Reflect::try_apply`] methods.
 //!
 //! ```
 //! # use bevy_reflect::{DynamicEnum, Reflect};
@@ -330,7 +334,7 @@
 //! The way it works is by moving the serialization logic into common serializers and deserializers:
 //! * [`ReflectSerializer`]
 //! * [`TypedReflectSerializer`]
-//! * [`UntypedReflectDeserializer`]
+//! * [`ReflectDeserializer`]
 //! * [`TypedReflectDeserializer`]
 //!
 //! All of these structs require a reference to the [registry] so that [type information] can be retrieved,
@@ -343,7 +347,7 @@
 //! and the value is the serialized data.
 //! The `TypedReflectSerializer` will simply output the serialized data.
 //!
-//! The `UntypedReflectDeserializer` can be used to deserialize this map and return a `Box<dyn Reflect>`,
+//! The `ReflectDeserializer` can be used to deserialize this map and return a `Box<dyn Reflect>`,
 //! where the underlying type will be a dynamic type representing some concrete type (except for value types).
 //!
 //! Again, it's important to remember that dynamic types may need to be converted to their concrete counterparts
@@ -353,7 +357,7 @@
 //! ```
 //! # use serde::de::DeserializeSeed;
 //! # use bevy_reflect::{
-//! #     serde::{ReflectSerializer, UntypedReflectDeserializer},
+//! #     serde::{ReflectSerializer, ReflectDeserializer},
 //! #     Reflect, FromReflect, TypeRegistry
 //! # };
 //! #[derive(Reflect, PartialEq, Debug)]
@@ -374,7 +378,7 @@
 //! let serialized_value: String = ron::to_string(&reflect_serializer).unwrap();
 //!
 //! // Deserialize
-//! let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+//! let reflect_deserializer = ReflectDeserializer::new(&registry);
 //! let deserialized_value: Box<dyn Reflect> = reflect_deserializer.deserialize(
 //!   &mut ron::Deserializer::from_str(&serialized_value).unwrap()
 //! ).unwrap();
@@ -456,7 +460,7 @@
 //! [`serde`]: ::serde
 //! [`ReflectSerializer`]: serde::ReflectSerializer
 //! [`TypedReflectSerializer`]: serde::TypedReflectSerializer
-//! [`UntypedReflectDeserializer`]: serde::UntypedReflectDeserializer
+//! [`ReflectDeserializer`]: serde::ReflectDeserializer
 //! [`TypedReflectDeserializer`]: serde::TypedReflectDeserializer
 //! [registry]: TypeRegistry
 //! [type information]: TypeInfo
@@ -486,15 +490,6 @@ mod type_registry;
 mod impls {
     #[cfg(feature = "glam")]
     mod glam;
-
-    #[cfg(feature = "bevy_math")]
-    mod math {
-        mod direction;
-        mod primitives2d;
-        mod primitives3d;
-        mod rect;
-        mod rotation2d;
-    }
     #[cfg(feature = "petgraph")]
     mod petgraph;
     #[cfg(feature = "smallvec")]
@@ -507,6 +502,7 @@ mod impls {
     mod uuid;
 }
 
+pub mod attributes;
 mod enums;
 pub mod serde;
 pub mod std_traits;
@@ -606,8 +602,56 @@ mod tests {
     use super::prelude::*;
     use super::*;
     use crate as bevy_reflect;
-    use crate::serde::{ReflectSerializer, UntypedReflectDeserializer};
+    use crate::serde::{ReflectDeserializer, ReflectSerializer};
     use crate::utility::GenericTypePathCell;
+
+    #[test]
+    fn try_apply_should_detect_kinds() {
+        #[derive(Reflect, Debug)]
+        struct Struct {
+            a: u32,
+            b: f32,
+        }
+
+        #[derive(Reflect, Debug)]
+        enum Enum {
+            A,
+            B(u32),
+        }
+
+        let mut struct_target = Struct {
+            a: 0xDEADBEEF,
+            b: 3.14,
+        };
+
+        let mut enum_target = Enum::A;
+
+        let array_src = [8, 0, 8];
+
+        let result = struct_target.try_apply(&enum_target);
+        assert!(
+            matches!(
+                result,
+                Err(ApplyError::MismatchedKinds {
+                    from_kind: ReflectKind::Enum,
+                    to_kind: ReflectKind::Struct
+                })
+            ),
+            "result was {result:?}"
+        );
+
+        let result = enum_target.try_apply(&array_src);
+        assert!(
+            matches!(
+                result,
+                Err(ApplyError::MismatchedKinds {
+                    from_kind: ReflectKind::Array,
+                    to_kind: ReflectKind::Enum
+                })
+            ),
+            "result was {result:?}"
+        );
+    }
 
     #[test]
     fn reflect_struct() {
@@ -1219,7 +1263,7 @@ mod tests {
         let serialized = to_string_pretty(&serializer, PrettyConfig::default()).unwrap();
 
         let mut deserializer = Deserializer::from_str(&serialized).unwrap();
-        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
         let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
         let dynamic_struct = value.take::<DynamicStruct>().unwrap();
 
@@ -2379,7 +2423,7 @@ bevy_reflect::tests::Test {
             registry.register::<Quat>();
             registry.register::<f32>();
 
-            let de = UntypedReflectDeserializer::new(&registry);
+            let de = ReflectDeserializer::new(&registry);
 
             let mut deserializer =
                 Deserializer::from_str(data).expect("Failed to acquire deserializer");
@@ -2436,7 +2480,7 @@ bevy_reflect::tests::Test {
             registry.add_registration(Vec3::get_type_registration());
             registry.add_registration(f32::get_type_registration());
 
-            let de = UntypedReflectDeserializer::new(&registry);
+            let de = ReflectDeserializer::new(&registry);
 
             let mut deserializer =
                 Deserializer::from_str(data).expect("Failed to acquire deserializer");

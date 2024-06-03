@@ -1,4 +1,8 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 //! `bevy_window` provides a platform-agnostic interface for windowing in Bevy.
 //!
@@ -24,6 +28,7 @@ pub use window::*;
 
 #[allow(missing_docs)]
 pub mod prelude {
+    #[allow(deprecated)]
     #[doc(hidden)]
     pub use crate::{
         CursorEntered, CursorIcon, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection,
@@ -81,8 +86,10 @@ pub struct WindowPlugin {
 impl Plugin for WindowPlugin {
     fn build(&self, app: &mut App) {
         // User convenience events
+        #[allow(deprecated)]
         app.add_event::<WindowResized>()
             .add_event::<WindowCreated>()
+            .add_event::<WindowClosing>()
             .add_event::<WindowClosed>()
             .add_event::<WindowCloseRequested>()
             .add_event::<WindowDestroyed>()
@@ -104,11 +111,11 @@ impl Plugin for WindowPlugin {
 
         if let Some(primary_window) = &self.primary_window {
             let initial_focus = app
-                .world
+                .world_mut()
                 .spawn(primary_window.clone())
                 .insert(PrimaryWindow)
                 .id();
-            if let Some(mut focus) = app.world.get_resource_mut::<Focus>() {
+            if let Some(mut focus) = app.world_mut().get_resource_mut::<Focus>() {
                 **focus = Some(initial_focus);
             }
         }
@@ -129,10 +136,12 @@ impl Plugin for WindowPlugin {
         }
 
         // Register event types
+        #[allow(deprecated)]
         app.register_type::<WindowResized>()
             .register_type::<RequestRedraw>()
             .register_type::<WindowCreated>()
             .register_type::<WindowCloseRequested>()
+            .register_type::<WindowClosing>()
             .register_type::<WindowClosed>()
             .register_type::<CursorMoved>()
             .register_type::<CursorEntered>()

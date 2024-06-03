@@ -27,6 +27,8 @@ fn setup(mut commands: Commands) {
 
     let (tx, rx) = bounded::<u32>(10);
     std::thread::spawn(move || {
+        // We're seeding the PRNG here to make this example deterministic for testing purposes.
+        // This isn't strictly required in practical use unless you need your app to be deterministic.
         let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
         loop {
             // Everything here happens in another thread
@@ -52,10 +54,7 @@ fn read_stream(receiver: Res<StreamReceiver>, mut events: EventWriter<StreamEven
 }
 
 fn spawn_text(mut commands: Commands, mut reader: EventReader<StreamEvent>) {
-    let text_style = TextStyle {
-        font_size: 20.0,
-        ..default()
-    };
+    let text_style = TextStyle::default();
 
     for (per_frame, event) in reader.read().enumerate() {
         commands.spawn(Text2dBundle {

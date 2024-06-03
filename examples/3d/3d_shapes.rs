@@ -5,6 +5,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     color::palettes::basic::SILVER,
+    pbr::wireframe::{WireframeConfig, WireframePlugin},
     prelude::*,
     render::{
         render_asset::RenderAssetUsages,
@@ -14,9 +15,12 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .add_plugins((
+            DefaultPlugins.set(ImagePlugin::default_nearest()),
+            WireframePlugin,
+        ))
         .add_systems(Startup, setup)
-        .add_systems(Update, rotate)
+        .add_systems(Update, (rotate, toggle_wireframe))
         .run();
 }
 
@@ -24,7 +28,7 @@ fn main() {
 #[derive(Component)]
 struct Shape;
 
-const X_EXTENT: f32 = 12.0;
+const X_EXTENT: f32 = 14.0;
 
 fn setup(
     mut commands: Commands,
@@ -39,9 +43,12 @@ fn setup(
 
     let shapes = [
         meshes.add(Cuboid::default()),
+        meshes.add(Tetrahedron::default()),
         meshes.add(Capsule3d::default()),
         meshes.add(Torus::default()),
         meshes.add(Cylinder::default()),
+        meshes.add(Cone::default()),
+        meshes.add(ConicalFrustum::default()),
         meshes.add(Sphere::default().mesh().ico(5).unwrap()),
         meshes.add(Sphere::default().mesh().uv(32, 18)),
     ];
@@ -70,6 +77,7 @@ fn setup(
             shadows_enabled: true,
             intensity: 10_000_000.,
             range: 100.0,
+            shadow_depth_bias: 0.2,
             ..default()
         },
         transform: Transform::from_xyz(8.0, 16.0, 8.0),
@@ -87,6 +95,16 @@ fn setup(
         transform: Transform::from_xyz(0.0, 6., 12.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
         ..default()
     });
+
+    commands.spawn(
+        TextBundle::from_section("Press space to toggle wireframes", TextStyle::default())
+            .with_style(Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            }),
+    );
 }
 
 fn rotate(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>) {
@@ -122,4 +140,13 @@ fn uv_debug_texture() -> Image {
         TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::RENDER_WORLD,
     )
+}
+
+fn toggle_wireframe(
+    mut wireframe_config: ResMut<WireframeConfig>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+) {
+    if keyboard.just_pressed(KeyCode::Space) {
+        wireframe_config.global = !wireframe_config.global;
+    }
 }

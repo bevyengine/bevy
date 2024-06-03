@@ -1,0 +1,14 @@
+error: unexpected token in attribute
+ --> tests/deref_mut_derive/invalid_attribute_fail.rs:9:12
+  |
+9 |     #[deref()] String
+  |            ^
+
+error: unexpected token in attribute
+  --> tests/deref_mut_derive/invalid_attribute_fail.rs:24:12
+   |
+24 |     #[deref()]
+   |            ^
+
+error: aborting due to 2 previous errors
+

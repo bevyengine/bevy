@@ -12,15 +12,24 @@ use bevy_math::{Quat, Vec2, Vec3};
 use bevy_transform::TransformPoint;
 
 /// A builder returned by [`Gizmos::arrow`] and [`Gizmos::arrow_2d`]
-pub struct ArrowBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
-    gizmos: &'a mut Gizmos<'w, 's, T>,
+pub struct ArrowBuilder<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
     start: Vec3,
     end: Vec3,
     color: Color,
+    double_ended: bool,
     tip_length: f32,
 }
 
-impl<T: GizmoConfigGroup> ArrowBuilder<'_, '_, '_, T> {
+impl<Config, Clear> ArrowBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Change the length of the tips to be `length`.
     /// The default tip length is [length of the arrow]/10.
     ///
@@ -41,9 +50,20 @@ impl<T: GizmoConfigGroup> ArrowBuilder<'_, '_, '_, T> {
         self.tip_length = length;
         self
     }
+
+    /// Adds another tip to the arrow, appended in the start point.
+    /// the default is only one tip at the end point.
+    pub fn with_double_end(mut self) -> Self {
+        self.double_ended = true;
+        self
+    }
 }
 
-impl<T: GizmoConfigGroup> Drop for ArrowBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Drop for ArrowBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Draws the arrow, by drawing lines with the stored [`Gizmos`]
     fn drop(&mut self) {
         if !self.gizmos.enabled {
@@ -53,8 +73,8 @@ impl<T: GizmoConfigGroup> Drop for ArrowBuilder<'_, '_, '_, T> {
         self.gizmos.line(self.start, self.end, self.color);
         // now the hard part is to draw the head in a sensible way
         // put us in a coordinate system where the arrow is pointing towards +x and ends at the origin
-        let pointing = (self.end - self.start).normalize();
-        let rotation = Quat::from_rotation_arc(Vec3::X, pointing);
+        let pointing_end = (self.end - self.start).normalize();
+        let rotation_end = Quat::from_rotation_arc(Vec3::X, pointing_end);
         let tips = [
             Vec3::new(-1., 1., 0.),
             Vec3::new(-1., 0., 1.),
@@ -64,15 +84,29 @@ impl<T: GizmoConfigGroup> Drop for ArrowBuilder<'_, '_, '_, T> {
         // - extend the vectors so their length is `tip_length`
         // - rotate the world so +x is facing in the same direction as the arrow
         // - translate over to the tip of the arrow
-        let tips = tips.map(|v| rotation * (v.normalize() * self.tip_length) + self.end);
-        for v in tips {
+        let tips_end = tips.map(|v| rotation_end * (v.normalize() * self.tip_length) + self.end);
+        for v in tips_end {
             // then actually draw the tips
             self.gizmos.line(self.end, v, self.color);
+        }
+        if self.double_ended {
+            let pointing_start = (self.start - self.end).normalize();
+            let rotation_start = Quat::from_rotation_arc(Vec3::X, pointing_start);
+            let tips_start =
+                tips.map(|v| rotation_start * (v.normalize() * self.tip_length) + self.start);
+            for v in tips_start {
+                // draw the start points tips
+                self.gizmos.line(self.start, v, self.color);
+            }
         }
     }
 }
 
-impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Draw an arrow in 3D, from `start` to `end`. Has four tips for convenient viewing from any direction.
     ///
     /// This should be called for each frame the arrow needs to be rendered.
@@ -93,13 +127,14 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         start: Vec3,
         end: Vec3,
         color: impl Into<Color>,
-    ) -> ArrowBuilder<'_, 'w, 's, T> {
+    ) -> ArrowBuilder<'_, 'w, 's, Config, Clear> {
         let length = (end - start).length();
         ArrowBuilder {
             gizmos: self,
             start,
             end,
             color: color.into(),
+            double_ended: false,
             tip_length: length / 10.,
         }
     }
@@ -124,12 +159,16 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         start: Vec2,
         end: Vec2,
         color: impl Into<Color>,
-    ) -> ArrowBuilder<'_, 'w, 's, T> {
+    ) -> ArrowBuilder<'_, 'w, 's, Config, Clear> {
         self.arrow(start.extend(0.), end.extend(0.), color)
     }
 }
 
-impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Draw a set of axes local to the given transform (`transform`), with length scaled by a factor
     /// of `base_length`.
     ///

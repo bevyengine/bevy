@@ -2,12 +2,12 @@ use crate::{
     core_3d::Opaque3d,
     skybox::{SkyboxBindGroup, SkyboxPipelineId},
 };
-use bevy_ecs::{prelude::World, query::QueryItem};
+use bevy_ecs::{entity::Entity, prelude::World, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::{RenderPhase, TrackedRenderPass},
+    render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::{CommandEncoderDescriptor, PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
@@ -17,14 +17,15 @@ use bevy_utils::tracing::info_span;
 
 use super::AlphaMask3d;
 
-/// A [`bevy_render::render_graph::Node`] that runs the [`Opaque3d`] and [`AlphaMask3d`] [`RenderPhase`].
+/// A [`bevy_render::render_graph::Node`] that runs the [`Opaque3d`]
+/// [`BinnedRenderPhase`] and [`AlphaMask3d`]
+/// [`bevy_render::render_phase::SortedRenderPhase`]s.
 #[derive(Default)]
 pub struct MainOpaquePass3dNode;
 impl ViewNode for MainOpaquePass3dNode {
     type ViewQuery = (
+        Entity,
         &'static ExtractedCamera,
-        &'static RenderPhase<Opaque3d>,
-        &'static RenderPhase<AlphaMask3d>,
         &'static ViewTarget,
         &'static ViewDepthTexture,
         Option<&'static SkyboxPipelineId>,
@@ -37,9 +38,8 @@ impl ViewNode for MainOpaquePass3dNode {
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
         (
+            view,
             camera,
-            opaque_phase,
-            alpha_mask_phase,
             target,
             depth,
             skybox_pipeline,
@@ -48,6 +48,19 @@ impl ViewNode for MainOpaquePass3dNode {
         ): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
+        let (Some(opaque_phases), Some(alpha_mask_phases)) = (
+            world.get_resource::<ViewBinnedRenderPhases<Opaque3d>>(),
+            world.get_resource::<ViewBinnedRenderPhases<AlphaMask3d>>(),
+        ) else {
+            return Ok(());
+        };
+
+        let (Some(opaque_phase), Some(alpha_mask_phase)) =
+            (opaque_phases.get(&view), alpha_mask_phases.get(&view))
+        else {
+            return Ok(());
+        };
+
         let diagnostics = render_context.diagnostic_recorder();
 
         let color_attachments = [Some(target.get_color_attachment())];
@@ -80,14 +93,14 @@ impl ViewNode for MainOpaquePass3dNode {
             }
 
             // Opaque draws
-            if !opaque_phase.items.is_empty() {
+            if !opaque_phase.is_empty() {
                 #[cfg(feature = "trace")]
                 let _opaque_main_pass_3d_span = info_span!("opaque_main_pass_3d").entered();
                 opaque_phase.render(&mut render_pass, world, view_entity);
             }
 
             // Alpha draws
-            if !alpha_mask_phase.items.is_empty() {
+            if !alpha_mask_phase.is_empty() {
                 #[cfg(feature = "trace")]
                 let _alpha_mask_main_pass_3d_span = info_span!("alpha_mask_main_pass_3d").entered();
                 alpha_mask_phase.render(&mut render_pass, world, view_entity);

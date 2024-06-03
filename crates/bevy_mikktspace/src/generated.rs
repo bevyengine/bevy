@@ -41,10 +41,11 @@
     non_upper_case_globals,
     unused_mut,
     unused_assignments,
-    unused_variables
+    unused_variables,
+    unsafe_code
 )]
 
-use std::ptr::null_mut;
+use std::ptr::{self, null_mut};
 
 use glam::Vec3;
 
@@ -829,7 +830,7 @@ unsafe fn Build4RuleGroups(
                 let mut neigh_indexR: i32 = 0;
                 let vert_index: i32 = *piTriListIn.offset((f * 3i32 + i) as isize);
                 let ref mut fresh2 = (*pTriInfos.offset(f as isize)).AssignedGroup[i as usize];
-                *fresh2 = &mut *pGroups.offset(iNrActiveGroups as isize) as *mut SGroup;
+                *fresh2 = ptr::from_mut(&mut *pGroups.offset(iNrActiveGroups as isize));
                 (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize])
                     .iVertexRepresentative = vert_index;
                 (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).bOrientPreservering =
@@ -837,7 +838,7 @@ unsafe fn Build4RuleGroups(
                 (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).iNrFaces = 0i32;
                 let ref mut fresh3 =
                     (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).pFaceIndices;
-                *fresh3 = &mut *piGroupTrianglesBuffer.offset(iOffset as isize) as *mut i32;
+                *fresh3 = ptr::from_mut(&mut *piGroupTrianglesBuffer.offset(iOffset as isize));
                 iNrActiveGroups += 1;
                 AddTriToGroup((*pTriInfos.offset(f as isize)).AssignedGroup[i as usize], f);
                 bOrPre = if (*pTriInfos.offset(f as isize)).iFlag & 8i32 != 0i32 {

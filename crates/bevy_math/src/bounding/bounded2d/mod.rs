@@ -3,6 +3,9 @@ mod primitive_impls;
 use super::{BoundingVolume, IntersectsVolume};
 use crate::prelude::{Mat2, Rotation2d, Vec2};
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
+
 /// Computes the geometric center of the given set of points.
 #[inline(always)]
 fn point_cloud_2d_center(points: &[Vec2]) -> Vec2 {
@@ -29,6 +32,7 @@ pub trait Bounded2d {
 /// A 2D axis-aligned bounding box, or bounding rectangle
 #[doc(alias = "BoundingRectangle")]
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct Aabb2d {
     /// The minimum, conventionally bottom-left, point of the box
     pub min: Vec2,
@@ -133,7 +137,8 @@ impl BoundingVolume for Aabb2d {
     }
 
     #[inline(always)]
-    fn grow(&self, amount: Self::HalfSize) -> Self {
+    fn grow(&self, amount: impl Into<Self::HalfSize>) -> Self {
+        let amount = amount.into();
         let b = Self {
             min: self.min - amount,
             max: self.max + amount,
@@ -143,7 +148,8 @@ impl BoundingVolume for Aabb2d {
     }
 
     #[inline(always)]
-    fn shrink(&self, amount: Self::HalfSize) -> Self {
+    fn shrink(&self, amount: impl Into<Self::HalfSize>) -> Self {
+        let amount = amount.into();
         let b = Self {
             min: self.min + amount,
             max: self.max - amount,
@@ -153,7 +159,8 @@ impl BoundingVolume for Aabb2d {
     }
 
     #[inline(always)]
-    fn scale_around_center(&self, scale: Self::HalfSize) -> Self {
+    fn scale_around_center(&self, scale: impl Into<Self::HalfSize>) -> Self {
+        let scale = scale.into();
         let b = Self {
             min: self.center() - (self.half_size() * scale),
             max: self.center() + (self.half_size() * scale),
@@ -172,7 +179,7 @@ impl BoundingVolume for Aabb2d {
     #[inline(always)]
     fn transformed_by(
         mut self,
-        translation: Self::Translation,
+        translation: impl Into<Self::Translation>,
         rotation: impl Into<Self::Rotation>,
     ) -> Self {
         self.transform_by(translation, rotation);
@@ -189,7 +196,7 @@ impl BoundingVolume for Aabb2d {
     #[inline(always)]
     fn transform_by(
         &mut self,
-        translation: Self::Translation,
+        translation: impl Into<Self::Translation>,
         rotation: impl Into<Self::Rotation>,
     ) {
         self.rotate_by(rotation);
@@ -197,7 +204,8 @@ impl BoundingVolume for Aabb2d {
     }
 
     #[inline(always)]
-    fn translate_by(&mut self, translation: Self::Translation) {
+    fn translate_by(&mut self, translation: impl Into<Self::Translation>) {
+        let translation = translation.into();
         self.min += translation;
         self.max += translation;
     }
@@ -267,12 +275,12 @@ mod aabb2d_tests {
             min: Vec2::new(-0.5, -1.),
             max: Vec2::new(1., 1.),
         };
-        assert!((aabb.center() - Vec2::new(0.25, 0.)).length() < std::f32::EPSILON);
+        assert!((aabb.center() - Vec2::new(0.25, 0.)).length() < f32::EPSILON);
         let aabb = Aabb2d {
             min: Vec2::new(5., -10.),
             max: Vec2::new(10., -5.),
         };
-        assert!((aabb.center() - Vec2::new(7.5, -7.5)).length() < std::f32::EPSILON);
+        assert!((aabb.center() - Vec2::new(7.5, -7.5)).length() < f32::EPSILON);
     }
 
     #[test]
@@ -282,7 +290,7 @@ mod aabb2d_tests {
             max: Vec2::new(1., 1.),
         };
         let half_size = aabb.half_size();
-        assert!((half_size - Vec2::new(0.75, 1.)).length() < std::f32::EPSILON);
+        assert!((half_size - Vec2::new(0.75, 1.)).length() < f32::EPSILON);
     }
 
     #[test]
@@ -291,12 +299,12 @@ mod aabb2d_tests {
             min: Vec2::new(-1., -1.),
             max: Vec2::new(1., 1.),
         };
-        assert!((aabb.visible_area() - 4.).abs() < std::f32::EPSILON);
+        assert!((aabb.visible_area() - 4.).abs() < f32::EPSILON);
         let aabb = Aabb2d {
             min: Vec2::new(0., 0.),
             max: Vec2::new(1., 0.5),
         };
-        assert!((aabb.visible_area() - 0.5).abs() < std::f32::EPSILON);
+        assert!((aabb.visible_area() - 0.5).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -328,8 +336,8 @@ mod aabb2d_tests {
             max: Vec2::new(0.75, 1.),
         };
         let merged = a.merge(&b);
-        assert!((merged.min - Vec2::new(-2., -1.)).length() < std::f32::EPSILON);
-        assert!((merged.max - Vec2::new(1., 1.)).length() < std::f32::EPSILON);
+        assert!((merged.min - Vec2::new(-2., -1.)).length() < f32::EPSILON);
+        assert!((merged.max - Vec2::new(1., 1.)).length() < f32::EPSILON);
         assert!(merged.contains(&a));
         assert!(merged.contains(&b));
         assert!(!a.contains(&merged));
@@ -343,8 +351,8 @@ mod aabb2d_tests {
             max: Vec2::new(1., 1.),
         };
         let padded = a.grow(Vec2::ONE);
-        assert!((padded.min - Vec2::new(-2., -2.)).length() < std::f32::EPSILON);
-        assert!((padded.max - Vec2::new(2., 2.)).length() < std::f32::EPSILON);
+        assert!((padded.min - Vec2::new(-2., -2.)).length() < f32::EPSILON);
+        assert!((padded.max - Vec2::new(2., 2.)).length() < f32::EPSILON);
         assert!(padded.contains(&a));
         assert!(!a.contains(&padded));
     }
@@ -356,8 +364,8 @@ mod aabb2d_tests {
             max: Vec2::new(2., 2.),
         };
         let shrunk = a.shrink(Vec2::ONE);
-        assert!((shrunk.min - Vec2::new(-1., -1.)).length() < std::f32::EPSILON);
-        assert!((shrunk.max - Vec2::new(1., 1.)).length() < std::f32::EPSILON);
+        assert!((shrunk.min - Vec2::new(-1., -1.)).length() < f32::EPSILON);
+        assert!((shrunk.max - Vec2::new(1., 1.)).length() < f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
     }
@@ -369,8 +377,8 @@ mod aabb2d_tests {
             max: Vec2::ONE,
         };
         let scaled = a.scale_around_center(Vec2::splat(2.));
-        assert!((scaled.min - Vec2::splat(-2.)).length() < std::f32::EPSILON);
-        assert!((scaled.max - Vec2::splat(2.)).length() < std::f32::EPSILON);
+        assert!((scaled.min - Vec2::splat(-2.)).length() < f32::EPSILON);
+        assert!((scaled.max - Vec2::splat(2.)).length() < f32::EPSILON);
         assert!(!a.contains(&scaled));
         assert!(scaled.contains(&a));
     }
@@ -445,6 +453,7 @@ use crate::primitives::Circle;
 
 /// A bounding circle
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct BoundingCircle {
     /// The center of the bounding circle
     pub center: Vec2,
@@ -557,27 +566,30 @@ impl BoundingVolume for BoundingCircle {
     }
 
     #[inline(always)]
-    fn grow(&self, amount: Self::HalfSize) -> Self {
+    fn grow(&self, amount: impl Into<Self::HalfSize>) -> Self {
+        let amount = amount.into();
         debug_assert!(amount >= 0.);
         Self::new(self.center, self.radius() + amount)
     }
 
     #[inline(always)]
-    fn shrink(&self, amount: Self::HalfSize) -> Self {
+    fn shrink(&self, amount: impl Into<Self::HalfSize>) -> Self {
+        let amount = amount.into();
         debug_assert!(amount >= 0.);
         debug_assert!(self.radius() >= amount);
         Self::new(self.center, self.radius() - amount)
     }
 
     #[inline(always)]
-    fn scale_around_center(&self, scale: Self::HalfSize) -> Self {
+    fn scale_around_center(&self, scale: impl Into<Self::HalfSize>) -> Self {
+        let scale = scale.into();
         debug_assert!(scale >= 0.);
         Self::new(self.center, self.radius() * scale)
     }
 
     #[inline(always)]
-    fn translate_by(&mut self, translation: Self::Translation) {
-        self.center += translation;
+    fn translate_by(&mut self, translation: impl Into<Self::Translation>) {
+        self.center += translation.into();
     }
 
     #[inline(always)]
@@ -640,8 +652,8 @@ mod bounding_circle_tests {
         let a = BoundingCircle::new(Vec2::ONE, 5.);
         let b = BoundingCircle::new(Vec2::new(1., -4.), 1.);
         let merged = a.merge(&b);
-        assert!((merged.center - Vec2::new(1., 0.5)).length() < std::f32::EPSILON);
-        assert!((merged.radius() - 5.5).abs() < std::f32::EPSILON);
+        assert!((merged.center - Vec2::new(1., 0.5)).length() < f32::EPSILON);
+        assert!((merged.radius() - 5.5).abs() < f32::EPSILON);
         assert!(merged.contains(&a));
         assert!(merged.contains(&b));
         assert!(!a.contains(&merged));
@@ -673,7 +685,7 @@ mod bounding_circle_tests {
     fn grow() {
         let a = BoundingCircle::new(Vec2::ONE, 5.);
         let padded = a.grow(1.25);
-        assert!((padded.radius() - 6.25).abs() < std::f32::EPSILON);
+        assert!((padded.radius() - 6.25).abs() < f32::EPSILON);
         assert!(padded.contains(&a));
         assert!(!a.contains(&padded));
     }
@@ -682,7 +694,7 @@ mod bounding_circle_tests {
     fn shrink() {
         let a = BoundingCircle::new(Vec2::ONE, 5.);
         let shrunk = a.shrink(0.5);
-        assert!((shrunk.radius() - 4.5).abs() < std::f32::EPSILON);
+        assert!((shrunk.radius() - 4.5).abs() < f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
     }
@@ -691,7 +703,7 @@ mod bounding_circle_tests {
     fn scale_around_center() {
         let a = BoundingCircle::new(Vec2::ONE, 5.);
         let scaled = a.scale_around_center(2.);
-        assert!((scaled.radius() - 10.).abs() < std::f32::EPSILON);
+        assert!((scaled.radius() - 10.).abs() < f32::EPSILON);
         assert!(!a.contains(&scaled));
         assert!(scaled.contains(&a));
     }

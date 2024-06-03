@@ -222,7 +222,6 @@ mod test {
     use image::{GenericImage, Rgba};
 
     use super::*;
-    use crate::render_asset::RenderAssetUsages;
 
     #[test]
     fn two_way_conversion() {

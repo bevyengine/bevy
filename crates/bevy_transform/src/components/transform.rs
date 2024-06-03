@@ -1,8 +1,9 @@
 use super::GlobalTransform;
+#[cfg(feature = "bevy-support")]
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Dir3, Mat3, Mat4, Quat, Vec3};
-use bevy_reflect::prelude::*;
-use bevy_reflect::Reflect;
+#[cfg(feature = "bevy-support")]
+use bevy_reflect::{prelude::*, Reflect};
 use std::ops::Mul;
 
 /// Describe the position of an entity. If the entity has a parent, the position is relative
@@ -32,9 +33,13 @@ use std::ops::Mul;
 /// - [`transform`]
 ///
 /// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
-#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[reflect(Component, Default, PartialEq)]
+#[cfg_attr(
+    feature = "bevy-support",
+    derive(Component, Reflect),
+    reflect(Component, Default, PartialEq)
+)]
 pub struct Transform {
     /// Position of the entity. In 2d, the last value of the `Vec3` is used for z-ordering.
     ///
@@ -289,8 +294,8 @@ impl Transform {
     ///
     /// If this [`Transform`] has a parent, the `axis` is relative to the rotation of the parent.
     #[inline]
-    pub fn rotate_axis(&mut self, axis: Vec3, angle: f32) {
-        self.rotate(Quat::from_axis_angle(axis, angle));
+    pub fn rotate_axis(&mut self, axis: Dir3, angle: f32) {
+        self.rotate(Quat::from_axis_angle(axis.into(), angle));
     }
 
     /// Rotates this [`Transform`] around the `X` axis by `angle` (in radians).
@@ -327,8 +332,8 @@ impl Transform {
 
     /// Rotates this [`Transform`] around its local `axis` by `angle` (in radians).
     #[inline]
-    pub fn rotate_local_axis(&mut self, axis: Vec3, angle: f32) {
-        self.rotate_local(Quat::from_axis_angle(axis, angle));
+    pub fn rotate_local_axis(&mut self, axis: Dir3, angle: f32) {
+        self.rotate_local(Quat::from_axis_angle(axis.into(), angle));
     }
 
     /// Rotates this [`Transform`] around its local `X` axis by `angle` (in radians).

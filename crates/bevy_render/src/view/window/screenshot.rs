@@ -79,7 +79,7 @@ impl ScreenshotManager {
 
                     #[cfg(target_arch = "wasm32")]
                     {
-                        match (|| {
+                        let save_screenshot = || {
                             use image::EncodableLayout;
                             use wasm_bindgen::{JsCast, JsValue};
 
@@ -107,7 +107,9 @@ impl ScreenshotManager {
                             html_element.click();
                             web_sys::Url::revoke_object_url(&url)?;
                             Ok::<(), JsValue>(())
-                        })() {
+                        };
+
+                        match (save_screenshot)() {
                             Ok(_) => info!("Screenshot saved to {}", path.display()),
                             Err(e) => error!("Cannot save screenshot, error: {e:?}"),
                         };
@@ -137,7 +139,7 @@ impl Plugin for ScreenshotPlugin {
     }
 
     fn finish(&self, app: &mut bevy_app::App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>();
         }
     }

@@ -7,7 +7,7 @@
 use bevy::{
     prelude::*,
     reflect::{
-        serde::{ReflectSerializer, UntypedReflectDeserializer},
+        serde::{ReflectDeserializer, ReflectSerializer},
         DynamicStruct,
     },
 };
@@ -90,7 +90,7 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
     info!("{}\n", ron_string);
 
     // Dynamic properties can be deserialized
-    let reflect_deserializer = UntypedReflectDeserializer::new(&type_registry);
+    let reflect_deserializer = ReflectDeserializer::new(&type_registry);
     let mut deserializer = ron::de::Deserializer::from_str(&ron_string).unwrap();
     let reflect_value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 

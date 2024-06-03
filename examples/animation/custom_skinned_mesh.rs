@@ -4,7 +4,6 @@
 use std::f32::consts::*;
 
 use bevy::{
-    pbr::AmbientLight,
     prelude::*,
     render::{
         mesh::{
@@ -123,6 +122,8 @@ fn setup(
 
     let mesh = meshes.add(mesh);
 
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
     let mut rng = ChaCha8Rng::seed_from_u64(42);
 
     for i in -5..5 {

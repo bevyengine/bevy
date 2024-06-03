@@ -3,7 +3,7 @@
 //! Includes the implementation of [`Gizmos::arc_2d`],
 //! and assorted support items.
 
-use crate::circles::DEFAULT_CIRCLE_SEGMENTS;
+use crate::circles::DEFAULT_CIRCLE_RESOLUTION;
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
 use bevy_math::{Quat, Vec2, Vec3};
@@ -11,17 +11,22 @@ use std::f32::consts::TAU;
 
 // === 2D ===
 
-impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Draw an arc, which is a part of the circumference of a circle, in 2D.
     ///
     /// This should be called for each frame the arc needs to be rendered.
     ///
     /// # Arguments
     /// - `position` sets the center of this circle.
-    /// - `radius` controls the distance from `position` to this arc, and thus its curvature.
-    /// - `direction_angle` sets the clockwise  angle in radians between `Vec2::Y` and
+    /// - `direction_angle` sets the counter-clockwise  angle in radians between `Vec2::Y` and
     /// the vector from `position` to the midpoint of the arc.
     /// - `arc_angle` sets the length of this arc, in radians.
+    /// - `radius` controls the distance from `position` to this arc, and thus its curvature.
+    /// - `color` sets the color to draw the arc.
     ///
     /// # Example
     /// ```
@@ -37,7 +42,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///     // You may want to increase this for larger arcs.
     ///     gizmos
     ///         .arc_2d(Vec2::ZERO, 0., PI / 4., 5., RED)
-    ///         .segments(64);
+    ///         .resolution(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -49,7 +54,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         arc_angle: f32,
         radius: f32,
         color: impl Into<Color>,
-    ) -> Arc2dBuilder<'_, 'w, 's, T> {
+    ) -> Arc2dBuilder<'_, 'w, 's, Config, Clear> {
         Arc2dBuilder {
             gizmos: self,
             position,
@@ -57,42 +62,59 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
             arc_angle,
             radius,
             color: color.into(),
-            segments: None,
+            resolution: None,
         }
     }
 }
 
 /// A builder returned by [`Gizmos::arc_2d`].
-pub struct Arc2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
-    gizmos: &'a mut Gizmos<'w, 's, T>,
+pub struct Arc2dBuilder<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
     position: Vec2,
     direction_angle: f32,
     arc_angle: f32,
     radius: f32,
     color: Color,
-    segments: Option<usize>,
+    resolution: Option<usize>,
 }
 
-impl<T: GizmoConfigGroup> Arc2dBuilder<'_, '_, '_, T> {
-    /// Set the number of line-segments for this arc.
-    pub fn segments(mut self, segments: usize) -> Self {
-        self.segments.replace(segments);
+impl<Config, Clear> Arc2dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Set the number of lines used to approximate the geometry of this arc.
+    pub fn resolution(mut self, resolution: usize) -> Self {
+        self.resolution.replace(resolution);
         self
     }
 }
 
-impl<T: GizmoConfigGroup> Drop for Arc2dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Drop for Arc2dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     fn drop(&mut self) {
         if !self.gizmos.enabled {
             return;
         }
 
-        let segments = self
-            .segments
-            .unwrap_or_else(|| segments_from_angle(self.arc_angle));
+        let resolution = self
+            .resolution
+            .unwrap_or_else(|| resolution_from_angle(self.arc_angle));
 
-        let positions = arc_2d_inner(self.direction_angle, self.arc_angle, self.radius, segments)
-            .map(|vec2| (vec2 + self.position));
+        let positions = arc_2d_inner(
+            self.direction_angle,
+            self.arc_angle,
+            self.radius,
+            resolution,
+        )
+        .map(|vec2| (vec2 + self.position));
         self.gizmos.linestrip_2d(positions, self.color);
     }
 }
@@ -101,19 +123,25 @@ fn arc_2d_inner(
     direction_angle: f32,
     arc_angle: f32,
     radius: f32,
-    segments: usize,
+    resolution: usize,
 ) -> impl Iterator<Item = Vec2> {
-    (0..segments + 1).map(move |i| {
+    (0..resolution + 1).map(move |i| {
         let start = direction_angle - arc_angle / 2.;
 
-        let angle = start + (i as f32 * (arc_angle / segments as f32));
-        Vec2::from(angle.sin_cos()) * radius
+        let angle =
+            start + (i as f32 * (arc_angle / resolution as f32)) + std::f32::consts::FRAC_PI_2;
+
+        Vec2::new(angle.cos(), angle.sin()) * radius
     })
 }
 
 // === 3D ===
 
-impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Draw an arc, which is a part of the circumference of a circle, in 3D. For default values
     /// this is drawing a standard arc. A standard arc is defined as
     ///
@@ -127,15 +155,15 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # Arguments
     /// - `angle`: sets how much of a circle circumference is passed, e.g. PI is half a circle. This
     /// value should be in the range (-2 * PI..=2 * PI)
-    /// - `radius`: distance between the arc and it's center point
+    /// - `radius`: distance between the arc and its center point
     /// - `position`: position of the arcs center point
     /// - `rotation`: defines orientation of the arc, by default we assume the arc is contained in a
     /// plane parallel to the XZ plane and the default starting point is (`position + Vec3::X`)
     /// - `color`: color of the arc
     ///
     /// # Builder methods
-    /// The number of segments of the arc (i.e. the level of detail) can be adjusted with the
-    /// `.segments(...)` method.
+    /// The resolution of the arc (i.e. the level of detail) can be adjusted with the
+    /// `.resolution(...)` method.
     ///
     /// # Example
     /// ```
@@ -156,7 +184,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///          rotation,
     ///          ORANGE
     ///          )
-    ///          .segments(100);
+    ///          .resolution(100);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -168,7 +196,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
-    ) -> Arc3dBuilder<'_, 'w, 's, T> {
+    ) -> Arc3dBuilder<'_, 'w, 's, Config, Clear> {
         Arc3dBuilder {
             gizmos: self,
             start_vertex: Vec3::X,
@@ -177,7 +205,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
             angle,
             radius,
             color: color.into(),
-            segments: None,
+            resolution: None,
         }
     }
 
@@ -191,8 +219,8 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// - `color`: color of the arc
     ///
     /// # Builder methods
-    /// The number of segments of the arc (i.e. the level of detail) can be adjusted with the
-    /// `.segments(...)` method.
+    /// The resolution of the arc (i.e. the level of detail) can be adjusted with the
+    /// `.resolution(...)` method.
     ///
     /// # Examples
     /// ```
@@ -207,7 +235,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///        Vec3::ZERO,
     ///        ORANGE
     ///        )
-    ///        .segments(100);
+    ///        .resolution(100);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -225,7 +253,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         from: Vec3,
         to: Vec3,
         color: impl Into<Color>,
-    ) -> Arc3dBuilder<'_, 'w, 's, T> {
+    ) -> Arc3dBuilder<'_, 'w, 's, Config, Clear> {
         self.arc_from_to(center, from, to, color, |x| x)
     }
 
@@ -238,8 +266,8 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// - `color`: color of the arc
     ///
     /// # Builder methods
-    /// The number of segments of the arc (i.e. the level of detail) can be adjusted with the
-    /// `.segments(...)` method.
+    /// The resolution of the arc (i.e. the level of detail) can be adjusted with the
+    /// `.resolution(...)` method.
     ///
     /// # Examples
     /// ```
@@ -254,7 +282,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///        Vec3::ZERO,
     ///        ORANGE
     ///        )
-    ///        .segments(100);
+    ///        .resolution(100);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -272,7 +300,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         from: Vec3,
         to: Vec3,
         color: impl Into<Color>,
-    ) -> Arc3dBuilder<'_, 'w, 's, T> {
+    ) -> Arc3dBuilder<'_, 'w, 's, Config, Clear> {
         self.arc_from_to(center, from, to, color, |angle| {
             if angle > 0.0 {
                 TAU - angle
@@ -292,7 +320,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         to: Vec3,
         color: impl Into<Color>,
         angle_fn: impl Fn(f32) -> f32,
-    ) -> Arc3dBuilder<'_, 'w, 's, T> {
+    ) -> Arc3dBuilder<'_, 'w, 's, Config, Clear> {
         // `from` and `to` can be the same here since in either case nothing gets rendered and the
         // orientation ambiguity of `up` doesn't matter
         let from_axis = (from - center).normalize_or_zero();
@@ -313,14 +341,18 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
             angle,
             radius,
             color: color.into(),
-            segments: None,
+            resolution: None,
         }
     }
 }
 
 /// A builder returned by [`Gizmos::arc_2d`].
-pub struct Arc3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
-    gizmos: &'a mut Gizmos<'w, 's, T>,
+pub struct Arc3dBuilder<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
     // this is the vertex the arc starts on in the XZ plane. For the normal arc_3d method this is
     // always starting at Vec3::X. For the short/long arc methods we actually need a way to start
     // at the from position and this is where this internal field comes into play. Some implicit
@@ -336,26 +368,34 @@ pub struct Arc3dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     angle: f32,
     radius: f32,
     color: Color,
-    segments: Option<usize>,
+    resolution: Option<usize>,
 }
 
-impl<T: GizmoConfigGroup> Arc3dBuilder<'_, '_, '_, T> {
-    /// Set the number of line-segments for this arc.
-    pub fn segments(mut self, segments: usize) -> Self {
-        self.segments.replace(segments);
+impl<Config, Clear> Arc3dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Set the number of lines for this arc.
+    pub fn resolution(mut self, resolution: usize) -> Self {
+        self.resolution.replace(resolution);
         self
     }
 }
 
-impl<T: GizmoConfigGroup> Drop for Arc3dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Drop for Arc3dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     fn drop(&mut self) {
         if !self.gizmos.enabled {
             return;
         }
 
-        let segments = self
-            .segments
-            .unwrap_or_else(|| segments_from_angle(self.angle));
+        let resolution = self
+            .resolution
+            .unwrap_or_else(|| resolution_from_angle(self.angle));
 
         let positions = arc_3d_inner(
             self.start_vertex,
@@ -363,7 +403,7 @@ impl<T: GizmoConfigGroup> Drop for Arc3dBuilder<'_, '_, '_, T> {
             self.rotation,
             self.angle,
             self.radius,
-            segments,
+            resolution,
         );
         self.gizmos.linestrip(positions, self.color);
     }
@@ -375,20 +415,20 @@ fn arc_3d_inner(
     rotation: Quat,
     angle: f32,
     radius: f32,
-    segments: usize,
+    resolution: usize,
 ) -> impl Iterator<Item = Vec3> {
     // drawing arcs bigger than TAU degrees or smaller than -TAU degrees makes no sense since
-    // we won't see the overlap and we would just decrease the level of details since the segments
+    // we won't see the overlap and we would just decrease the level of details since the resolution
     // would be larger
     let angle = angle.clamp(-TAU, TAU);
-    (0..=segments)
-        .map(move |frac| frac as f32 / segments as f32)
+    (0..=resolution)
+        .map(move |frac| frac as f32 / resolution as f32)
         .map(move |percentage| angle * percentage)
         .map(move |frac_angle| Quat::from_axis_angle(Vec3::Y, frac_angle) * start_vertex)
         .map(move |p| rotation * (p * radius) + center)
 }
 
-// helper function for getting a default value for the segments parameter
-fn segments_from_angle(angle: f32) -> usize {
-    ((angle.abs() / TAU) * DEFAULT_CIRCLE_SEGMENTS as f32).ceil() as usize
+// helper function for getting a default value for the resolution parameter
+fn resolution_from_angle(angle: f32) -> usize {
+    ((angle.abs() / TAU) * DEFAULT_CIRCLE_RESOLUTION as f32).ceil() as usize
 }

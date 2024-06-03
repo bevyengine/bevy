@@ -72,12 +72,12 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
         if !render_app
-            .world
+            .world()
             .resource::<RenderAdapter>()
             .get_texture_format_features(TextureFormat::R16Float)
             .allowed_usages
@@ -88,7 +88,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         }
 
         if render_app
-            .world
+            .world()
             .resource::<RenderDevice>()
             .limits()
             .max_storage_textures_per_shader_stage
@@ -127,7 +127,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
 }
 
 /// Bundle to apply screen space ambient occlusion.
-#[derive(Bundle, Default)]
+#[derive(Bundle, Default, Clone)]
 pub struct ScreenSpaceAmbientOcclusionBundle {
     pub settings: ScreenSpaceAmbientOcclusionSettings,
     pub depth_prepass: DepthPrepass,
@@ -153,13 +153,13 @@ pub struct ScreenSpaceAmbientOcclusionBundle {
 /// Doing so greatly reduces SSAO noise.
 ///
 /// SSAO is not supported on `WebGL2`, and is not currently supported on `WebGPU` or `DirectX12`.
-#[derive(Component, ExtractComponent, Reflect, PartialEq, Eq, Hash, Clone, Default)]
+#[derive(Component, ExtractComponent, Reflect, PartialEq, Eq, Hash, Clone, Default, Debug)]
 #[reflect(Component)]
 pub struct ScreenSpaceAmbientOcclusionSettings {
     pub quality_level: ScreenSpaceAmbientOcclusionQualityLevel,
 }
 
-#[derive(Reflect, PartialEq, Eq, Hash, Clone, Copy, Default)]
+#[derive(Reflect, PartialEq, Eq, Hash, Clone, Copy, Default, Debug)]
 pub enum ScreenSpaceAmbientOcclusionQualityLevel {
     Low,
     Medium,
