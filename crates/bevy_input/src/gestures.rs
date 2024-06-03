@@ -1,4 +1,4 @@
-//! Gestures functionnality, from touchscreens and touchpads.
+//! Gestures functionality, from touchscreens and touchpads.
 
 use bevy_ecs::event::Event;
 use bevy_math::Vec2;
