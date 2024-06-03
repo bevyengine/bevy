@@ -5,6 +5,8 @@ use bevy_reflect::Reflect;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// A compass enum with 4 directions.
+/// [`CompassQuadrant::North`] corresponds to [`Dir2::Y`]
+/// [`CompassQuadrant::East`] corresponds to [`Dir2::X`]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
@@ -13,17 +15,15 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     reflect(Deserialize, Serialize)
 )]
 pub enum CompassQuadrant {
-    /// The north direction.
     North,
-    /// The east direction.
     East,
-    /// The south direction.
     South,
-    /// The west direction.
     West,
 }
 
 /// A compass enum with 8 directions.
+/// [`CompassQuadrant::North`] corresponds to [`Dir2::Y`]
+/// [`CompassQuadrant::East`] corresponds to [`Dir2::X`]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
@@ -32,26 +32,17 @@ pub enum CompassQuadrant {
     reflect(Deserialize, Serialize)
 )]
 pub enum CompassOctant {
-    /// The north direction.
     North,
-    /// The north east direction.
     NorthEast,
-    /// The east direction.
     East,
-    /// The south east direction.
     SouthEast,
-    /// The south direction.
     South,
-    /// The south west direction.
     SouthWest,
-    /// The west direction.
     West,
-    /// The north west direction.
     NorthWest,
 }
 
 impl From<CompassQuadrant> for Dir2 {
-    /// [`CompassQuadrant::North`] corresponds to [`Dir2::Y`].
     fn from(q: CompassQuadrant) -> Self {
         match q {
             CompassQuadrant::North => Dir2::NORTH,
@@ -63,7 +54,6 @@ impl From<CompassQuadrant> for Dir2 {
 }
 
 impl From<Dir2> for CompassQuadrant {
-    /// [`CompassQuadrant::North`] corresponds to [`Dir2::Y`].
     fn from(dir: Dir2) -> Self {
         let angle = dir.to_angle().to_degrees();
 
@@ -78,7 +68,6 @@ impl From<Dir2> for CompassQuadrant {
 }
 
 impl From<CompassOctant> for Dir2 {
-    /// [`CompassQuadrant::North`] corresponds to [`Dir2::Y`].
     fn from(o: CompassOctant) -> Self {
         match o {
             CompassOctant::North => Dir2::NORTH,
@@ -94,7 +83,6 @@ impl From<CompassOctant> for Dir2 {
 }
 
 impl From<Dir2> for CompassOctant {
-    /// [`CompassQuadrant::North`] corresponds to [`Dir2::Y`].
     fn from(dir: Dir2) -> Self {
         let angle = dir.to_angle().to_degrees();
 
