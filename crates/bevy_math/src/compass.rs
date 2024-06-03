@@ -63,6 +63,7 @@ impl From<CompassQuadrant> for Dir2 {
 }
 
 impl From<Dir2> for CompassQuadrant {
+    /// [`CompassQuadrant::North`] corresponds to [`Dir2::Y`].
     fn from(dir: Dir2) -> Self {
         let angle = dir.to_angle().to_degrees();
 
@@ -77,6 +78,7 @@ impl From<Dir2> for CompassQuadrant {
 }
 
 impl From<CompassOctant> for Dir2 {
+    /// [`CompassQuadrant::North`] corresponds to [`Dir2::Y`].
     fn from(o: CompassOctant) -> Self {
         match o {
             CompassOctant::North => Dir2::NORTH,
@@ -92,6 +94,7 @@ impl From<CompassOctant> for Dir2 {
 }
 
 impl From<Dir2> for CompassOctant {
+    /// [`CompassQuadrant::North`] corresponds to [`Dir2::Y`].
     fn from(dir: Dir2) -> Self {
         let angle = dir.to_angle().to_degrees();
 
