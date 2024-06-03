@@ -803,6 +803,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "load_gltf_extras"
+path = "examples/3d/load_gltf_extras.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.load_gltf_extras]
+name = "Load glTF extras"
+description = "Loads and renders a glTF file as a scene, including the gltf extras"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "motion_blur"
 path = "examples/3d/motion_blur.rs"
 doc-scrape-examples = true
