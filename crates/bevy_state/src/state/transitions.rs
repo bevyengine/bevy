@@ -8,6 +8,7 @@ use bevy_ecs::{
     system::{Commands, In, ResMut},
     world::World,
 };
+use bevy_utils::tracing::info;
 
 use super::{resources::State, states::States};
 
@@ -205,4 +206,14 @@ pub(crate) fn run_transition<S: States>(
     };
 
     let _ = world.try_run_schedule(OnTransition { exited, entered });
+}
+
+/// Logs state transitions into console.
+pub fn log_transitions<S: States>(mut transitions: EventReader<StateTransitionEvent<S>>) {
+    for transition in transitions.read() {
+        info!(
+            "Transition: {:?} => {:?}",
+            transition.exited, transition.entered
+        );
+    }
 }

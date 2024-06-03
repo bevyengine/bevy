@@ -27,10 +27,10 @@ use std::hash::Hash;
 ///
 /// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 /// enum GameState {
-///  #[default]
-///   MainMenu,
-///   SettingsMenu,
-///   InGame,
+///     #[default]
+///     MainMenu,
+///     SettingsMenu,
+///     InGame,
 /// }
 ///
 /// fn handle_escape_pressed(mut next_state: ResMut<NextState<GameState>>) {

@@ -34,6 +34,9 @@ pub mod app;
 pub mod condition;
 /// Provides definitions for the basic traits required by the state system
 pub mod state;
+#[cfg(feature = "bevy_hierarchy")]
+/// Provides [`StateBound`] and [`clear_state_bound_entities`] for managing lifetime of entities.
+pub mod state_bound;
 
 /// Most commonly used re-exported types.
 pub mod prelude {
@@ -44,7 +47,10 @@ pub mod prelude {
     pub use crate::condition::*;
     #[doc(hidden)]
     pub use crate::state::{
-        ComputedStates, NextState, OnEnter, OnExit, OnTransition, State, StateSet, StateTransition,
-        StateTransitionEvent, States, SubStates,
+        log_transitions, ComputedStates, NextState, OnEnter, OnExit, OnTransition, State, StateSet,
+        StateTransition, StateTransitionEvent, States, SubStates,
     };
+    #[cfg(feature = "bevy_hierarchy")]
+    #[doc(hidden)]
+    pub use crate::state_bound::*;
 }
