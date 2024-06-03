@@ -452,8 +452,10 @@ fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         PrimitiveSelected::RectangleAndCuboid => {
             gizmos.primitive_2d(&RECTANGLE, POSITION, angle, color);
         }
-        PrimitiveSelected::CircleAndSphere => gizmos.primitive_2d(&CIRCLE, POSITION, angle, color),
-        PrimitiveSelected::Ellipse => gizmos.primitive_2d(&ELLIPSE, POSITION, angle, color),
+        PrimitiveSelected::CircleAndSphere => {
+            gizmos.primitive_2d(&CIRCLE, POSITION, angle, color);
+        }
+        PrimitiveSelected::Ellipse => drop(gizmos.primitive_2d(&ELLIPSE, POSITION, angle, color)),
         PrimitiveSelected::Triangle => gizmos.primitive_2d(&TRIANGLE_2D, POSITION, angle, color),
         PrimitiveSelected::Plane => gizmos.primitive_2d(&PLANE_2D, POSITION, angle, color),
         PrimitiveSelected::Line => drop(gizmos.primitive_2d(&LINE2D, POSITION, angle, color)),
@@ -469,7 +471,7 @@ fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         PrimitiveSelected::Cylinder => {}
         PrimitiveSelected::Cone => {}
         PrimitiveSelected::ConicalFrustum => {}
-        PrimitiveSelected::Torus => gizmos.primitive_2d(&ANNULUS, POSITION, angle, color),
+        PrimitiveSelected::Torus => drop(gizmos.primitive_2d(&ANNULUS, POSITION, angle, color)),
         PrimitiveSelected::Tetrahedron => {}
         PrimitiveSelected::Arc => gizmos.primitive_2d(&ARC, POSITION, angle, color),
         PrimitiveSelected::CircularSector => {

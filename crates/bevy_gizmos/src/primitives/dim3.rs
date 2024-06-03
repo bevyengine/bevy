@@ -1,7 +1,7 @@
 //! A module for rendering each of the 3D [`bevy_math::primitives`] with [`Gizmos`].
 
 use super::helpers::*;
-use std::f32::consts::TAU;
+use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 use bevy_color::Color;
 use bevy_math::primitives::{
@@ -10,6 +10,7 @@ use bevy_math::primitives::{
 };
 use bevy_math::{Dir3, Quat, Vec3};
 
+use crate::circles::SphereBuilder;
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 
 const DEFAULT_RESOLUTION: usize = 5;
@@ -55,41 +56,6 @@ where
 
 // sphere
 
-/// Builder for configuring the drawing options of [`Sphere`].
-pub struct SphereBuilder<'a, 'w, 's, Config, Clear>
-where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
-
-    // Radius of the sphere
-    radius: f32,
-
-    // Rotation of the sphere around the origin in 3D space
-    rotation: Quat,
-    // Center position of the sphere in 3D space
-    position: Vec3,
-    // Color of the sphere
-    color: Color,
-
-    // Resolution of the gizmos used to approximate the sphere geometry
-    // The number of vertices used to approximate the sphere geometry.
-    resolution: usize,
-}
-
-impl<Config, Clear> SphereBuilder<'_, '_, '_, Config, Clear>
-where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    /// Set the number of lines used to approximate the sphere geometry.
-    pub fn resolution(mut self, resolution: usize) -> Self {
-        self.resolution = resolution;
-        self
-    }
-}
-
 impl<'w, 's, Config, Clear> GizmoPrimitive3d<Sphere> for Gizmos<'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
@@ -104,59 +70,7 @@ where
         rotation: Quat,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
-        SphereBuilder {
-            gizmos: self,
-            radius: primitive.radius,
-            position,
-            rotation,
-            color: color.into(),
-            resolution: DEFAULT_RESOLUTION,
-        }
-    }
-}
-
-impl<Config, Clear> Drop for SphereBuilder<'_, '_, '_, Config, Clear>
-where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    fn drop(&mut self) {
-        if !self.gizmos.enabled {
-            return;
-        }
-
-        let SphereBuilder {
-            radius,
-            position: center,
-            rotation,
-            color,
-            resolution,
-            ..
-        } = self;
-
-        // draws the upper and lower semi spheres
-        [-1.0, 1.0].into_iter().for_each(|sign| {
-            let top = *center + (*rotation * Vec3::Y) * sign * *radius;
-            draw_semi_sphere(
-                self.gizmos,
-                *radius,
-                *resolution,
-                *rotation,
-                *center,
-                top,
-                *color,
-            );
-        });
-
-        // draws one great circle of the sphere
-        draw_circle_3d(
-            self.gizmos,
-            *radius,
-            *resolution,
-            *rotation,
-            *center,
-            *color,
-        );
+        self.sphere(position, rotation, primitive.radius, color)
     }
 }
 
@@ -578,30 +492,27 @@ where
             resolution,
         } = self;
 
-        let normal = *rotation * Vec3::Y;
+        let normal = Dir3::new_unchecked(*rotation * Vec3::Y);
+        let up = normal.as_vec3() * *half_height;
 
         // draw upper and lower circle of the cylinder
         [-1.0, 1.0].into_iter().for_each(|sign| {
-            draw_circle_3d(
-                gizmos,
-                *radius,
-                *resolution,
-                *rotation,
-                *position + sign * *half_height * normal,
-                *color,
-            );
+            gizmos
+                .circle(*position + sign * up, normal, *radius, *color)
+                .resolution(*resolution);
         });
 
         // draw lines connecting the two cylinder circles
-        draw_cylinder_vertical_lines(
-            gizmos,
-            *radius,
-            *resolution,
-            *half_height,
-            *rotation,
-            *position,
-            *color,
-        );
+        [Vec3::NEG_X, Vec3::NEG_Z, Vec3::X, Vec3::Z]
+            .into_iter()
+            .for_each(|axis| {
+                let axis = *rotation * axis;
+                gizmos.line(
+                    *position + up + axis * *radius,
+                    *position - up + axis * *radius,
+                    *color,
+                );
+            });
     }
 }
 
@@ -691,26 +602,57 @@ where
             resolution,
         } = self;
 
-        let normal = *rotation * Vec3::Y;
+        // Draw the circles at the top and bottom of the cylinder
+        let y_offset = *rotation * Vec3::Y;
+        gizmos
+            .circle(
+                *position + y_offset * *half_length,
+                Dir3::new_unchecked(y_offset),
+                *radius,
+                *color,
+            )
+            .resolution(*resolution);
+        gizmos
+            .circle(
+                *position - y_offset * *half_length,
+                Dir3::new_unchecked(y_offset),
+                *radius,
+                *color,
+            )
+            .resolution(*resolution);
+        let y_offset = y_offset * *half_length;
 
-        // draw two semi spheres for the capsule
-        [1.0, -1.0].into_iter().for_each(|sign| {
-            let center = *position + sign * *half_length * normal;
-            let top = center + sign * *radius * normal;
-            draw_semi_sphere(gizmos, *radius, *resolution, *rotation, center, top, *color);
-            draw_circle_3d(gizmos, *radius, *resolution, *rotation, center, *color);
+        // Draw the vertical lines and the cap semicircles
+        [Vec3::X, Vec3::Z].into_iter().for_each(|axis| {
+            let normal = *rotation * axis;
+
+            gizmos.line(
+                *position + normal * *radius + y_offset,
+                *position + normal * *radius - y_offset,
+                *color,
+            );
+            gizmos.line(
+                *position - normal * *radius + y_offset,
+                *position - normal * *radius - y_offset,
+                *color,
+            );
+
+            let rotation = *rotation
+                * Quat::from_euler(bevy_math::EulerRot::ZYX, 0., axis.z * FRAC_PI_2, FRAC_PI_2);
+
+            gizmos
+                .arc_3d(PI, *radius, *position + y_offset, rotation, *color)
+                .resolution(*resolution / 2);
+            gizmos
+                .arc_3d(
+                    PI,
+                    *radius,
+                    *position - y_offset,
+                    rotation * Quat::from_rotation_y(PI),
+                    *color,
+                )
+                .resolution(*resolution / 2);
         });
-
-        // connect the two semi spheres with lines
-        draw_cylinder_vertical_lines(
-            gizmos,
-            *radius,
-            *resolution,
-            *half_length,
-            *rotation,
-            *position,
-            *color,
-        );
     }
 }
 
