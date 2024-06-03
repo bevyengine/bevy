@@ -141,6 +141,15 @@ impl AppExtStates for SubApp {
 
     #[cfg(feature = "bevy_hierarchy")]
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self {
+        use bevy_utils::warn_once;
+
+        if !self
+            .world()
+            .contains_resource::<Events<StateTransitionEvent<S>>>()
+        {
+            let name = std::any::type_name::<S>();
+            warn_once!("State scoped entities are enabled for state `{}`, but the state isn't installed in the app!", name);
+        }
         self.add_systems(
             StateTransition,
             clear_state_scoped_entities::<S>.in_set(StateTransitionSteps::ExitSchedules),
