@@ -52,7 +52,7 @@ pub trait AppExtStates {
     fn add_sub_state<S: SubStates>(&mut self) -> &mut Self;
 
     #[cfg(feature = "bevy_hierarchy")]
-    /// Enable state scoped entity clearing for state `S`.
+    /// Enable state-scoped entity clearing for state `S`.
     ///
     /// For more information refer to [`StateScoped`](crate::state_scoped::StateScoped).
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self;
