@@ -1,7 +1,6 @@
 use crate::{
-    GltfAssetLabel,
-    vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfMaterialExtras, GltfMeshExtras,
-    GltfNode, GltfSceneExtras,
+    vertex_attributes::convert_attribute, Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras,
+    GltfMeshExtras, GltfNode, GltfSceneExtras,
 };
 
 #[cfg(feature = "bevy_animation")]
