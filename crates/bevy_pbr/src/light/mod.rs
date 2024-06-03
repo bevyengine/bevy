@@ -277,13 +277,13 @@ pub struct Cascades {
 #[derive(Clone, Debug, Default, Reflect)]
 pub struct Cascade {
     /// The transform of the light, i.e. the view to world matrix.
-    pub(crate) view_transform: Mat4,
+    pub(crate) world_from_cascade: Mat4,
     /// The orthographic projection for this cascade.
-    pub(crate) projection: Mat4,
+    pub(crate) clip_from_cascade: Mat4,
     /// The view-projection matrix for this cascade, converting world space into light clip space.
     /// Importantly, this is derived and stored separately from `view_transform` and `projection` to
     /// ensure shadow stability.
-    pub(crate) view_projection: Mat4,
+    pub(crate) clip_from_world: Mat4,
     /// Size of each shadow map texel in world units.
     pub(crate) texel_size: f32,
 }
@@ -329,8 +329,8 @@ pub fn build_directional_light_cascades<P: CameraProjection + Component>(
         // users to not change any other aspects of the transform - there's no guarantee
         // `transform.compute_matrix()` will give us a matrix with our desired properties.
         // Instead, we directly create a good matrix from just the rotation.
-        let light_to_world = Mat4::from_quat(transform.compute_transform().rotation);
-        let light_to_world_inverse = light_to_world.inverse();
+        let world_from_light = Mat4::from_quat(transform.compute_transform().rotation);
+        let light_to_world_inverse = world_from_light.inverse();
 
         for (view_entity, projection, view_to_world) in views.iter().copied() {
             let camera_to_light_view = light_to_world_inverse * view_to_world;
@@ -353,7 +353,7 @@ pub fn build_directional_light_cascades<P: CameraProjection + Component>(
                     calculate_cascade(
                         corners,
                         directional_light_shadow_map.size as f32,
-                        light_to_world,
+                        world_from_light,
                         camera_to_light_view,
                     )
                 })
@@ -369,13 +369,13 @@ pub fn build_directional_light_cascades<P: CameraProjection + Component>(
 fn calculate_cascade(
     frustum_corners: [Vec3A; 8],
     cascade_texture_size: f32,
-    light_to_world: Mat4,
-    camera_to_light: Mat4,
+    world_from_light: Mat4,
+    light_from_camera: Mat4,
 ) -> Cascade {
     let mut min = Vec3A::splat(f32::MAX);
     let mut max = Vec3A::splat(f32::MIN);
     for corner_camera_view in frustum_corners {
-        let corner_light_view = camera_to_light.transform_point3a(corner_camera_view);
+        let corner_light_view = light_from_camera.transform_point3a(corner_camera_view);
         min = min.min(corner_light_view);
         max = max.max(corner_light_view);
     }
@@ -408,8 +408,8 @@ fn calculate_cascade(
     // It is critical for `world_to_cascade` to be stable. So rather than forming `cascade_to_world`
     // and inverting it, which risks instability due to numerical precision, we directly form
     // `world_to_cascade` as the reference material suggests.
-    let light_to_world_transpose = light_to_world.transpose();
-    let world_to_cascade = Mat4::from_cols(
+    let light_to_world_transpose = world_from_light.transpose();
+    let cascade_from_world = Mat4::from_cols(
         light_to_world_transpose.x_axis,
         light_to_world_transpose.y_axis,
         light_to_world_transpose.z_axis,
@@ -419,18 +419,18 @@ fn calculate_cascade(
     // Right-handed orthographic projection, centered at `near_plane_center`.
     // NOTE: This is different from the reference material, as we use reverse Z.
     let r = (max.z - min.z).recip();
-    let cascade_projection = Mat4::from_cols(
+    let clip_from_cascade = Mat4::from_cols(
         Vec4::new(2.0 / cascade_diameter, 0.0, 0.0, 0.0),
         Vec4::new(0.0, 2.0 / cascade_diameter, 0.0, 0.0),
         Vec4::new(0.0, 0.0, r, 0.0),
         Vec4::new(0.0, 0.0, 1.0, 1.0),
     );
 
-    let cascade_view_projection = cascade_projection * world_to_cascade;
+    let clip_from_world = clip_from_cascade * cascade_from_world;
     Cascade {
-        view_transform: world_to_cascade.inverse(),
-        projection: cascade_projection,
-        view_projection: cascade_view_projection,
+        world_from_cascade: cascade_from_world.inverse(),
+        clip_from_cascade,
+        clip_from_world,
         texel_size: cascade_texel_size,
     }
 }
@@ -551,7 +551,7 @@ pub fn update_directional_light_frusta(
                     *view,
                     cascades
                         .iter()
-                        .map(|c| Frustum::from_view_projection(&c.view_projection))
+                        .map(|c| Frustum::from_clip_from_world(&c.clip_from_world))
                         .collect::<Vec<_>>(),
                 )
             })
@@ -567,7 +567,7 @@ pub fn update_point_light_frusta(
         Or<(Changed<GlobalTransform>, Changed<PointLight>)>,
     >,
 ) {
-    let projection =
+    let clip_from_view =
         Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
     let view_rotations = CUBE_MAP_FACES
         .iter()
@@ -591,11 +591,11 @@ pub fn update_point_light_frusta(
         let view_backward = transform.back();
 
         for (view_rotation, frustum) in view_rotations.iter().zip(cubemap_frusta.iter_mut()) {
-            let view = view_translation * *view_rotation;
-            let view_projection = projection * view.compute_matrix().inverse();
+            let world_from_view = view_translation * *view_rotation;
+            let clip_from_world = clip_from_view * world_from_view.compute_matrix().inverse();
 
-            *frustum = Frustum::from_view_projection_custom_far(
-                &view_projection,
+            *frustum = Frustum::from_clip_from_world_custom_far(
+                &clip_from_world,
                 &transform.translation(),
                 &view_backward,
                 point_light.range,
@@ -625,12 +625,12 @@ pub fn update_spot_light_frusta(
         // by applying those as a view transform to shadow map rendering of objects
         let view_backward = transform.back();
 
-        let spot_view = spot_light_view_matrix(transform);
-        let spot_projection = spot_light_projection_matrix(spot_light.outer_angle);
-        let view_projection = spot_projection * spot_view.inverse();
+        let spot_world_from_view = spot_light_world_from_view(transform);
+        let spot_clip_from_view = spot_light_clip_from_view(spot_light.outer_angle);
+        let clip_from_world = spot_clip_from_view * spot_world_from_view.inverse();
 
-        *frustum = Frustum::from_view_projection_custom_far(
-            &view_projection,
+        *frustum = Frustum::from_clip_from_world_custom_far(
+            &clip_from_world,
             &transform.translation(),
             &view_backward,
             spot_light.range,

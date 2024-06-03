@@ -11,7 +11,7 @@ use bevy_utils::TypeIdMap;
 #[cfg(feature = "serialize")]
 use crate::serde::SceneSerializer;
 use bevy_asset::Asset;
-use bevy_ecs::reflect::ReflectResource;
+use bevy_ecs::reflect::{ReflectMapEntitiesResource, ReflectResource};
 #[cfg(feature = "serialize")]
 use serde::Serialize;
 
@@ -70,28 +70,6 @@ impl DynamicScene {
         type_registry: &AppTypeRegistry,
     ) -> Result<(), SceneSpawnError> {
         let type_registry = type_registry.read();
-
-        for resource in &self.resources {
-            let type_info = resource.get_represented_type_info().ok_or_else(|| {
-                SceneSpawnError::NoRepresentedType {
-                    type_path: resource.reflect_type_path().to_string(),
-                }
-            })?;
-            let registration = type_registry.get(type_info.type_id()).ok_or_else(|| {
-                SceneSpawnError::UnregisteredButReflectedType {
-                    type_path: type_info.type_path().to_string(),
-                }
-            })?;
-            let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
-                SceneSpawnError::UnregisteredResource {
-                    type_path: type_info.type_path().to_string(),
-                }
-            })?;
-
-            // If the world already contains an instance of the given resource
-            // just apply the (possibly) new value, otherwise insert the resource
-            reflect_resource.apply_or_insert(world, &**resource, &type_registry);
-        }
 
         // For each component types that reference other entities, we keep track
         // of which entities in the scene use that component.
@@ -153,6 +131,35 @@ impl DynamicScene {
             }
         }
 
+        // Insert resources after all entities have been added to the world.
+        // This ensures the entities are available for the resources to reference during mapping.
+        for resource in &self.resources {
+            let type_info = resource.get_represented_type_info().ok_or_else(|| {
+                SceneSpawnError::NoRepresentedType {
+                    type_path: resource.reflect_type_path().to_string(),
+                }
+            })?;
+            let registration = type_registry.get(type_info.type_id()).ok_or_else(|| {
+                SceneSpawnError::UnregisteredButReflectedType {
+                    type_path: type_info.type_path().to_string(),
+                }
+            })?;
+            let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
+                SceneSpawnError::UnregisteredResource {
+                    type_path: type_info.type_path().to_string(),
+                }
+            })?;
+
+            // If the world already contains an instance of the given resource
+            // just apply the (possibly) new value, otherwise insert the resource
+            reflect_resource.apply_or_insert(world, &**resource, &type_registry);
+
+            // Map entities in the resource if it implements [`MapEntities`].
+            if let Some(map_entities_reflect) = registration.data::<ReflectMapEntitiesResource>() {
+                map_entities_reflect.map_entities(world, entity_map);
+            }
+        }
+
         Ok(())
     }
 
@@ -198,11 +205,67 @@ where
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs::entity::EntityHashMap;
+    use bevy_ecs::entity::{Entity, EntityHashMap, EntityMapper, MapEntities};
+    use bevy_ecs::reflect::{ReflectMapEntitiesResource, ReflectResource};
+    use bevy_ecs::system::Resource;
     use bevy_ecs::{reflect::AppTypeRegistry, world::Command, world::World};
     use bevy_hierarchy::{Parent, PushChild};
+    use bevy_reflect::Reflect;
 
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
+
+    #[derive(Resource, Reflect, Debug)]
+    #[reflect(Resource, MapEntitiesResource)]
+    struct TestResource {
+        entity_a: Entity,
+        entity_b: Entity,
+    }
+
+    impl MapEntities for TestResource {
+        fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+            self.entity_a = entity_mapper.map_entity(self.entity_a);
+            self.entity_b = entity_mapper.map_entity(self.entity_b);
+        }
+    }
+
+    #[test]
+    fn resource_entity_map_maps_entities() {
+        let type_registry = AppTypeRegistry::default();
+        type_registry.write().register::<TestResource>();
+
+        let mut source_world = World::new();
+        source_world.insert_resource(type_registry.clone());
+
+        let original_entity_a = source_world.spawn_empty().id();
+        let original_entity_b = source_world.spawn_empty().id();
+
+        source_world.insert_resource(TestResource {
+            entity_a: original_entity_a,
+            entity_b: original_entity_b,
+        });
+
+        // Write the scene.
+        let scene = DynamicSceneBuilder::from_world(&source_world)
+            .extract_resources()
+            .extract_entity(original_entity_a)
+            .extract_entity(original_entity_b)
+            .build();
+
+        let mut entity_map = EntityHashMap::default();
+        let mut destination_world = World::new();
+        destination_world.insert_resource(type_registry);
+
+        scene
+            .write_to_world(&mut destination_world, &mut entity_map)
+            .unwrap();
+
+        let &from_entity_a = entity_map.get(&original_entity_a).unwrap();
+        let &from_entity_b = entity_map.get(&original_entity_b).unwrap();
+
+        let test_resource = destination_world.get_resource::<TestResource>().unwrap();
+        assert_eq!(from_entity_a, test_resource.entity_a);
+        assert_eq!(from_entity_b, test_resource.entity_b);
+    }
 
     #[test]
     fn components_not_defined_in_scene_should_not_be_affected_by_scene_entity_map() {

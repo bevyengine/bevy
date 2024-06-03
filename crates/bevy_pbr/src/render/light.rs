@@ -68,7 +68,7 @@ bitflags::bitflags! {
 
 #[derive(Copy, Clone, ShaderType, Default, Debug)]
 pub struct GpuDirectionalCascade {
-    view_projection: Mat4,
+    clip_from_world: Mat4,
     texel_size: f32,
     far_bound: f32,
 }
@@ -479,7 +479,7 @@ pub fn calculate_cluster_factors(
 // we will also construct it in the fragment shader and need our implementations to match,
 // so we reproduce it here to avoid a mismatch if glam changes. we also switch the handedness
 // could move this onto transform but it's pretty niche
-pub(crate) fn spot_light_view_matrix(transform: &GlobalTransform) -> Mat4 {
+pub(crate) fn spot_light_world_from_view(transform: &GlobalTransform) -> Mat4 {
     // the matrix z_local (opposite of transform.forward())
     let fwd_dir = transform.back().extend(0.0);
 
@@ -502,7 +502,7 @@ pub(crate) fn spot_light_view_matrix(transform: &GlobalTransform) -> Mat4 {
     )
 }
 
-pub(crate) fn spot_light_projection_matrix(angle: f32) -> Mat4 {
+pub(crate) fn spot_light_clip_from_view(angle: f32) -> Mat4 {
     // spot light projection FOV is 2x the angle from spot light center to outer edge
     Mat4::perspective_infinite_reverse_rh(angle * 2.0, 1.0, POINT_LIGHT_NEAR_Z)
 }
@@ -828,7 +828,7 @@ pub fn prepare_lights(
         );
         let mut view_lights = Vec::new();
 
-        let is_orthographic = extracted_view.projection.w_axis.w == 1.0;
+        let is_orthographic = extracted_view.clip_from_view.w_axis.w == 1.0;
         let cluster_factors_zw = calculate_cluster_factors(
             clusters.near,
             clusters.far,
@@ -909,9 +909,9 @@ pub fn prepare_lights(
                                 point_light_shadow_map.size as u32,
                                 point_light_shadow_map.size as u32,
                             ),
-                            transform: view_translation * *view_rotation,
-                            view_projection: None,
-                            projection: cube_face_projection,
+                            world_from_view: view_translation * *view_rotation,
+                            clip_from_world: None,
+                            clip_from_view: cube_face_projection,
                             hdr: false,
                             color_grading: Default::default(),
                         },
@@ -936,12 +936,12 @@ pub fn prepare_lights(
             .take(spot_light_shadow_maps_count)
             .enumerate()
         {
-            let spot_view_matrix = spot_light_view_matrix(&light.transform);
-            let spot_view_transform = spot_view_matrix.into();
+            let spot_world_from_view = spot_light_world_from_view(&light.transform);
+            let spot_world_from_view = spot_world_from_view.into();
 
             let angle = light.spot_light_angles.expect("lights should be sorted so that \
                 [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
-            let spot_projection = spot_light_projection_matrix(angle);
+            let spot_projection = spot_light_clip_from_view(angle);
 
             let depth_texture_view =
                 directional_light_depth_texture
@@ -970,9 +970,9 @@ pub fn prepare_lights(
                             directional_light_shadow_map.size as u32,
                             directional_light_shadow_map.size as u32,
                         ),
-                        transform: spot_view_transform,
-                        projection: spot_projection,
-                        view_projection: None,
+                        world_from_view: spot_world_from_view,
+                        clip_from_view: spot_projection,
+                        clip_from_world: None,
                         hdr: false,
                         color_grading: Default::default(),
                     },
@@ -1027,7 +1027,7 @@ pub fn prepare_lights(
             {
                 gpu_lights.directional_lights[light_index].cascades[cascade_index] =
                     GpuDirectionalCascade {
-                        view_projection: cascade.view_projection,
+                        clip_from_world: cascade.clip_from_world,
                         texel_size: cascade.texel_size,
                         far_bound: *bound,
                     };
@@ -1066,9 +1066,9 @@ pub fn prepare_lights(
                                 directional_light_shadow_map.size as u32,
                                 directional_light_shadow_map.size as u32,
                             ),
-                            transform: GlobalTransform::from(cascade.view_transform),
-                            projection: cascade.projection,
-                            view_projection: Some(cascade.view_projection),
+                            world_from_view: GlobalTransform::from(cascade.world_from_cascade),
+                            clip_from_view: cascade.clip_from_cascade,
+                            clip_from_world: Some(cascade.clip_from_world),
                             hdr: false,
                             color_grading: Default::default(),
                         },

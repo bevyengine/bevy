@@ -40,7 +40,7 @@ fn pbr_input_from_vertex_output(
     pbr_input.flags = mesh[in.instance_index].flags;
 #endif
 
-    pbr_input.is_orthographic = view.projection[3].w == 1.0;
+    pbr_input.is_orthographic = view.clip_from_view[3].w == 1.0;
     pbr_input.V = pbr_functions::calculate_view(in.world_position, pbr_input.is_orthographic);
     pbr_input.frag_coord = in.position;
     pbr_input.world_position = in.world_position;
@@ -297,7 +297,7 @@ fn pbr_input_from_standard_material(
         // TODO: Meshlet support
 #ifndef MESHLET_MESH_MATERIAL_PASS
         thickness *= length(
-            (transpose(mesh[in.instance_index].model) * vec4(pbr_input.N, 0.0)).xyz
+            (transpose(mesh[in.instance_index].world_from_local) * vec4(pbr_input.N, 0.0)).xyz
         );
 #endif
         pbr_input.material.thickness = thickness;
