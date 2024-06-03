@@ -52,5 +52,5 @@ pub mod prelude {
     };
     #[cfg(feature = "bevy_hierarchy")]
     #[doc(hidden)]
-    pub use crate::state_bound::*;
+    pub use crate::state_bound::StateBound;
 }
