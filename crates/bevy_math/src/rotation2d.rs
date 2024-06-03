@@ -2,8 +2,6 @@ use glam::FloatExt;
 
 use crate::prelude::{Mat2, Vec2};
 
-use core::f32::consts::FRAC_1_SQRT_2;
-
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
@@ -83,8 +81,8 @@ impl Rotation2d {
 
     /// A counterclockwise rotation of π/4 radians.
     pub const FRAC_PI_4: Self = Self {
-        cos: FRAC_1_SQRT_2,
-        sin: FRAC_1_SQRT_2,
+        cos: core::f32::consts::FRAC_1_SQRT_2,
+        sin: core::f32::consts::FRAC_1_SQRT_2,
     };
 
     /// A counterclockwise rotation of π/6 radians.
