@@ -59,7 +59,7 @@ fn touch_camera(
         }
         *last_position = Some(touch.position);
     }
-    /// Rotation gestures only work on iOS
+    // Rotation gestures only work on iOS
     for rotation in rotations.read() {
         let mut transform = camera.single_mut();
         let forward = transform.forward();
