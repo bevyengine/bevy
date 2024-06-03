@@ -2,8 +2,9 @@ use super::{
     gpu_scene::{MeshletViewBindGroups, MeshletViewResources},
     pipelines::MeshletPipelines,
 };
-use crate::{LightEntity, PreviousViewUniformOffset, ShadowView, ViewLightEntities};
+use crate::{LightEntity, ShadowView, ViewLightEntities};
 use bevy_color::LinearRgba;
+use bevy_core_pipeline::prepass::PreviousViewUniformOffset;
 use bevy_ecs::{
     query::QueryState,
     world::{FromWorld, World},
