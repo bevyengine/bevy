@@ -418,7 +418,6 @@ pub struct ViewUniform {
     frustum: [Vec4; 6],
     color_grading: ColorGradingUniform,
     mip_bias: f32,
-    render_layers: u32,
 }
 
 #[derive(Resource)]
@@ -429,6 +428,7 @@ pub struct ViewUniforms {
 impl FromWorld for ViewUniforms {
     fn from_world(world: &mut World) -> Self {
         let mut uniforms = DynamicUniformBuffer::default();
+        uniforms.set_label(Some("view_uniforms_buffer"));
 
         let render_device = world.resource::<RenderDevice>();
         if render_device.limits().max_storage_buffers_per_shader_stage > 0 {
@@ -714,7 +714,6 @@ pub fn prepare_view_uniforms(
         Option<&Frustum>,
         Option<&TemporalJitter>,
         Option<&MipBias>,
-        Option<&RenderLayers>,
     )>,
 ) {
     let view_iter = views.iter();
@@ -726,16 +725,7 @@ pub fn prepare_view_uniforms(
     else {
         return;
     };
-    for (
-        entity,
-        extracted_camera,
-        extracted_view,
-        frustum,
-        temporal_jitter,
-        mip_bias,
-        maybe_layers,
-    ) in &views
-    {
+    for (entity, extracted_camera, extracted_view, frustum, temporal_jitter, mip_bias) in &views {
         let viewport = extracted_view.viewport.as_vec4();
         let unjittered_projection = extracted_view.projection;
         let mut projection = unjittered_projection;
@@ -778,7 +768,6 @@ pub fn prepare_view_uniforms(
                 frustum,
                 color_grading: extracted_view.color_grading.clone().into(),
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
-                render_layers: maybe_layers.copied().unwrap_or_default().bits(),
             }),
         };
 

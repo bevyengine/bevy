@@ -7,7 +7,10 @@ use std::{
 pub use ui_test;
 
 use ui_test::{
-    default_file_filter, default_per_file_config, run_tests_generic,
+    default_file_filter, default_per_file_config,
+    dependencies::DependencyBuilder,
+    run_tests_generic,
+    spanned::Spanned,
     status_emitter::{Gha, StatusEmitter, Text},
     Args, Config, OutputConflictHandling,
 };
@@ -15,10 +18,14 @@ use ui_test::{
 /// Use this instead of hand rolling configs.
 ///
 /// `root_dir` is the directory your tests are contained in. Needs to be a path from crate root.
+/// This config will build dependencies and will assume that the cargo manifest is placed at the 
+/// current working directory.
 fn basic_config(root_dir: impl Into<PathBuf>, args: &Args) -> Config {
     let mut config = Config {
-        dependencies_crate_manifest_path: Some("Cargo.toml".into()),
-        bless_command: Some("`cargo test` with the BLESS environment variable set to any non empty value".to_string()),
+        bless_command: Some(
+            "`cargo test` with the BLESS environment variable set to any non empty value"
+                .to_string(),
+        ),
         output_conflict_handling: if env::var_os("BLESS").is_some() {
             OutputConflictHandling::Bless
         } else {
@@ -43,6 +50,14 @@ fn basic_config(root_dir: impl Into<PathBuf>, args: &Args) -> Config {
     config.stderr_filter(
         r"[a-zA-Z]:(?:\\|\/)users(?:\\|\/)[\pL\pN_@#\-\. ]+", // NOTE: [\pL\pN_@#\-\. ] is a poor attempt at handling usernames
         "$HOME",
+    );
+
+    // Manually insert @aux-build:<dep> comments into test files. This needs to 
+    // be done to build and link dependencies. Dependencies will be pulled from a
+    // Cargo.toml file.
+    config.comment_defaults.base().custom.insert(
+        "dependencies",
+        Spanned::dummy(vec![Box::new(DependencyBuilder::default())]),
     );
 
     config

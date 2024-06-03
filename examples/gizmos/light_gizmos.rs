@@ -107,10 +107,8 @@ fn setup(
 
     // Example instructions and gizmo config.
     {
-        let text_style = TextStyle {
-            font_size: 20.0,
-            ..default()
-        };
+        let text_style = TextStyle::default();
+
         commands.spawn(
             TextBundle::from_section(
                 "Press 'D' to toggle drawing gizmos on top of everything else in the scene\n\
