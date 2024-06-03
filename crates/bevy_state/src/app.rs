@@ -150,6 +150,8 @@ impl AppExtStates for SubApp {
             let name = std::any::type_name::<S>();
             warn!("State scoped entities are enabled for state `{}`, but the state isn't installed in the app!", name);
         }
+        // We work with [`StateTransition`] in set [`StateTransitionSteps::ExitSchedules`] as opposed to [`OnExit`],
+        // because [`OnExit`] only runs for one specific variant of the state.
         self.add_systems(
             StateTransition,
             clear_state_scoped_entities::<S>.in_set(StateTransitionSteps::ExitSchedules),
