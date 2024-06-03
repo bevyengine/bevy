@@ -99,41 +99,6 @@ impl Rotation2d {
         sin: 0.382_683_43,
     };
 
-    /// The "north" direction, equivalent to a counterclockwise rotation of π/2 radians.
-    pub const NORTH: Self = Self { cos: 0.0, sin: 1.0 };
-    /// The "south" direction, equivalent to a counterclockwise rotation of -π/2 radians.
-    pub const SOUTH: Self = Self {
-        cos: 0.0,
-        sin: -1.0,
-    };
-    /// The "east" direction, equivalent to a counterclockwise rotation of 0 radians.
-    pub const EAST: Self = Self { cos: 1.0, sin: 0.0 };
-    /// The "west" direction, equivalent to a counterclockwise rotation of π radians.
-    pub const WEST: Self = Self {
-        cos: -1.0,
-        sin: 0.0,
-    };
-    /// The "north-east" direction, equivalent to a counterclockwise rotation of π/4 radians.
-    pub const NORTH_EAST: Self = Self {
-        cos: FRAC_1_SQRT_2,
-        sin: FRAC_1_SQRT_2,
-    };
-    /// The "north-west" direction, equivalent to a counterclockwise rotation of 3π/4 radians.
-    pub const NORTH_WEST: Self = Self {
-        cos: -FRAC_1_SQRT_2,
-        sin: FRAC_1_SQRT_2,
-    };
-    /// The "south-east" direction, equivalent to a counterclockwise rotation of -π/4 radians.
-    pub const SOUTH_EAST: Self = Self {
-        cos: FRAC_1_SQRT_2,
-        sin: -FRAC_1_SQRT_2,
-    };
-    /// The "south-west" direction, equivalent to a counterclockwise rotation of -3π/4 radians.
-    pub const SOUTH_WEST: Self = Self {
-        cos: -FRAC_1_SQRT_2,
-        sin: -FRAC_1_SQRT_2,
-    };
-
     /// Creates a [`Rotation2d`] from a counterclockwise angle in radians.
     #[inline]
     pub fn radians(radians: f32) -> Self {
