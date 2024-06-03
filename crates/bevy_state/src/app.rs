@@ -52,7 +52,7 @@ pub trait AppExtStates {
     fn add_sub_state<S: SubStates>(&mut self) -> &mut Self;
 
     #[cfg(feature = "bevy_hierarchy")]
-    /// Register state bound entity clearing for state `S`.
+    /// Enable state bound entity clearing for state `S`.
     ///
     /// For more information refer to [`StateBound`](crate::state_bound::StateBound).
     fn add_state_bound<S: States>(&mut self) -> &mut Self;

@@ -209,6 +209,8 @@ pub(crate) fn run_transition<S: States>(
 }
 
 /// Logs state transitions into console.
+///
+/// This system is provided to make debugging easier for Bevy developers.
 pub fn log_transitions<S: States>(mut transitions: EventReader<StateTransitionEvent<S>>) {
     for transition in transitions.read() {
         info!(

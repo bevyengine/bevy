@@ -9,7 +9,7 @@ use bevy_hierarchy::DespawnRecursiveExt;
 use crate::state::{StateTransitionEvent, States};
 
 /// Entities marked with this component will be removed
-/// when the provided value no longer matches the world state.
+/// when the world's state of the matching type no longer matches the supplied value.
 ///
 /// To enable this feature, register the [`clear_state_bound_entities`]
 /// system for selected states.
