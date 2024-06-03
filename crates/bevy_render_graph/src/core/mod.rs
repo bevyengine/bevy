@@ -27,14 +27,11 @@ use crate::{core::debug::RenderGraphDebug, deps};
 use self::{
     debug::{RenderGraphDebugContext, RenderGraphDebugWrapper},
     resource::{
-        bind_group::{make_bind_group, RenderGraphBindGroupLayoutMeta, RenderGraphBindGroupMeta},
-        buffer::RenderGraphBufferMeta,
-        pipeline::{
-            CachedRenderGraphPipelines, RenderGraphComputePipelineDescriptor, RenderGraphPipelines,
-            RenderGraphRenderPipelineDescriptor,
-        },
-        texture::{RenderGraphSamplerDescriptor, RenderGraphTextureViewDescriptor},
-        CachedResources, RenderDependencies, RenderResourceGeneration, RenderResourceId,
+        make_bind_group, CachedRenderGraphPipelines, CachedResources, RenderDependencies,
+        RenderGraphBindGroupLayoutMeta, RenderGraphBindGroupMeta, RenderGraphBufferMeta,
+        RenderGraphComputePipelineDescriptor, RenderGraphPipelines,
+        RenderGraphRenderPipelineDescriptor, RenderGraphSamplerDescriptor,
+        RenderGraphTextureViewDescriptor, RenderResourceGeneration, RenderResourceId,
         ResourceTracker, UsagesRenderResource,
     },
 };

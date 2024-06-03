@@ -9,7 +9,7 @@ use bevy_render::render_resource::{
 };
 
 use crate::core::{
-    resource::{pipeline::RenderGraphRenderPipelineDescriptor, RenderDependencies, RenderHandle},
+    resource::{RenderDependencies, RenderGraphRenderPipelineDescriptor, RenderHandle},
     RenderGraphBuilder,
 };
 
@@ -132,7 +132,7 @@ pub mod blit {
 
     use crate::{
         core::{
-            resource::{pipeline::RenderGraphRenderPipelineDescriptor, RenderHandle},
+            resource::{RenderGraphRenderPipelineDescriptor, RenderHandle},
             RenderGraphBuilder,
         },
         deps,

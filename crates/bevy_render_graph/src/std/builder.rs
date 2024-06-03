@@ -8,25 +8,14 @@ use bevy_render::render_resource::{
     TextureDimension, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
 };
 
-use crate::{
-    core::{
-        resource::{
-            bind_group::{
-                RenderGraphBindGroupDescriptor, RenderGraphBindGroupEntry,
-                RenderGraphBindingResource, RenderGraphBufferBinding,
-            },
-            pipeline::RenderGraphComputePipelineDescriptor,
-            texture::RenderGraphTextureViewDescriptor,
-            RenderDependencies, RenderHandle,
-        },
-        Label, RenderGraphBuilder,
+use crate::core::{
+    resource::{
+        RenderDependencies, RenderGraphBindGroupDescriptor, RenderGraphBindGroupEntry,
+        RenderGraphBindingResource, RenderGraphBufferBinding, RenderGraphComputePipelineDescriptor,
+        RenderGraphTextureViewDescriptor, RenderHandle,
     },
-    deps,
+    Label, RenderGraphBuilder,
 };
-
-//NOTE: these utilities are in an extremely experimental state, and at least BindGroupBuilder will
-//require a rework of how resource metadata is stored in order to function. At present, these
-//mainly serve as an example of the kind of tools this rewrite enables.
 
 pub struct BindGroupBuilder<'a, 'b: 'a, 'g: 'b> {
     label: Label<'g>,

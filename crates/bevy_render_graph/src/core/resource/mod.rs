@@ -21,10 +21,15 @@ use super::{
     Label, NodeContext, RenderGraph, RenderGraphBuilder,
 };
 
-pub mod bind_group;
-pub mod buffer;
-pub mod pipeline;
-pub mod texture;
+mod bind_group;
+mod buffer;
+mod pipeline;
+mod texture;
+
+pub use bind_group::*;
+pub use buffer::*;
+pub use pipeline::*;
+pub use texture::*;
 
 #[derive(Default)]
 pub struct ResourceTracker<'g> {
