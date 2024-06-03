@@ -5,8 +5,8 @@ use bevy_ecs::prelude::*;
 use bevy_input::keyboard::KeyboardInput;
 use bevy_input::touch::TouchInput;
 use bevy_input::{
+    gestures::*,
     mouse::{MouseButtonInput, MouseMotion, MouseWheel},
-    touchpad::{TouchpadMagnify, TouchpadRotate},
 };
 use bevy_reflect::Reflect;
 #[cfg(feature = "serialize")]
@@ -55,8 +55,10 @@ pub enum WinitEvent {
     MouseMotion(MouseMotion),
     MouseWheel(MouseWheel),
 
-    TouchpadMagnify(TouchpadMagnify),
-    TouchpadRotate(TouchpadRotate),
+    PinchGesture(PinchGesture),
+    RotationGesture(RotationGesture),
+    DoubleTapGesture(DoubleTapGesture),
+    PanGesture(PanGesture),
 
     TouchInput(TouchInput),
 
@@ -168,14 +170,24 @@ impl From<MouseWheel> for WinitEvent {
         Self::MouseWheel(e)
     }
 }
-impl From<TouchpadMagnify> for WinitEvent {
-    fn from(e: TouchpadMagnify) -> Self {
-        Self::TouchpadMagnify(e)
+impl From<PinchGesture> for WinitEvent {
+    fn from(e: PinchGesture) -> Self {
+        Self::PinchGesture(e)
     }
 }
-impl From<TouchpadRotate> for WinitEvent {
-    fn from(e: TouchpadRotate) -> Self {
-        Self::TouchpadRotate(e)
+impl From<RotationGesture> for WinitEvent {
+    fn from(e: RotationGesture) -> Self {
+        Self::RotationGesture(e)
+    }
+}
+impl From<DoubleTapGesture> for WinitEvent {
+    fn from(e: DoubleTapGesture) -> Self {
+        Self::DoubleTapGesture(e)
+    }
+}
+impl From<PanGesture> for WinitEvent {
+    fn from(e: PanGesture) -> Self {
+        Self::PanGesture(e)
     }
 }
 impl From<TouchInput> for WinitEvent {
