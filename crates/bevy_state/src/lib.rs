@@ -34,7 +34,7 @@ pub mod app;
 pub mod condition;
 /// Provides definitions for the basic traits required by the state system
 pub mod state;
-#[cfg(feature = "bevy_hierarchy")]
+
 /// Provides [`StateScoped`] and [`clear_state_scoped_entities`] for managing lifetime of entities.
 pub mod state_scoped;
 
@@ -50,7 +50,6 @@ pub mod prelude {
         ComputedStates, NextState, OnEnter, OnExit, OnTransition, State, StateSet, StateTransition,
         StateTransitionEvent, States, SubStates,
     };
-    #[cfg(feature = "bevy_hierarchy")]
     #[doc(hidden)]
     pub use crate::state_scoped::StateScoped;
 }

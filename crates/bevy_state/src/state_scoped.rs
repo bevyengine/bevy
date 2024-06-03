@@ -4,6 +4,7 @@ use bevy_ecs::{
     event::EventReader,
     system::{Commands, Query},
 };
+#[cfg(feature = "bevy_hierarchy")]
 use bevy_hierarchy::DespawnRecursiveExt;
 
 use crate::state::{StateTransitionEvent, States};
@@ -13,6 +14,8 @@ use crate::state::{StateTransitionEvent, States};
 ///
 /// To enable this feature remember to configure your application
 /// with [`enable_state_scoped_entities`](crate::app::AppExtStates::enable_state_scoped_entities) on your state(s) of choice.
+///
+/// If `bevy_hierarchy` feature is enabled, which it is by default, the despawn will be recursive.
 ///
 /// ```
 /// use bevy_state::prelude::*;
@@ -54,6 +57,8 @@ pub struct StateScoped<S: States>(pub S);
 
 /// Removes entities marked with [`StateScoped<S>`]
 /// when their state no longer matches the world state.
+///
+/// If `bevy_hierarchy` feature is enabled, which it is by default, the despawn will be recursive.
 pub fn clear_state_scoped_entities<S: States>(
     mut commands: Commands,
     mut transitions: EventReader<StateTransitionEvent<S>>,
@@ -70,7 +75,10 @@ pub fn clear_state_scoped_entities<S: States>(
     };
     for (entity, binding) in &query {
         if binding.0 == *exited {
+            #[cfg(feature = "bevy_hierarchy")]
             commands.entity(entity).despawn_recursive();
+            #[cfg(not(feature = "bevy_hierarchy"))]
+            commands.entity(entity).despawn();
         }
     }
 }
