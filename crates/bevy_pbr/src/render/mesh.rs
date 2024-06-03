@@ -4,6 +4,7 @@ use bevy_asset::{load_internal_asset, AssetId};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
+    prepass::MotionVectorPrepass,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashMap;
@@ -33,30 +34,26 @@ use bevy_render::{
     texture::{BevyDefault, DefaultImageSampler, ImageSampler, TextureFormatPixelInfo},
     view::{
         prepare_view_targets, GpuCulling, RenderVisibilityRanges, ViewTarget, ViewUniformOffset,
-        ViewVisibility, VisibilityRange, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
+        ViewVisibility, VisibilityRange,
     },
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{tracing::error, tracing::warn, Entry, HashMap, Parallel};
 
-#[cfg(debug_assertions)]
-use bevy_utils::warn_once;
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
 use static_assertions::const_assert_eq;
 
 use crate::render::{
     morph::{
-        extract_morphs, no_automatic_morph_batching, prepare_morphs, MorphIndices, MorphUniform,
+        extract_morphs, no_automatic_morph_batching, prepare_morphs, MorphIndices, MorphUniforms,
     },
     skin::no_automatic_skin_batching,
 };
 use crate::*;
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
-
-use super::skin::SkinIndices;
 
 /// Provides support for rendering 3D meshes.
 #[derive(Default)]
@@ -142,9 +139,9 @@ impl Plugin for MeshRenderPlugin {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<MeshBindGroups>()
-                .init_resource::<SkinUniform>()
+                .init_resource::<SkinUniforms>()
                 .init_resource::<SkinIndices>()
-                .init_resource::<MorphUniform>()
+                .init_resource::<MorphUniforms>()
                 .init_resource::<MorphIndices>()
                 .init_resource::<MeshCullingDataBuffer>()
                 .add_systems(
@@ -159,6 +156,7 @@ impl Plugin for MeshRenderPlugin {
                 .add_systems(
                     Render,
                     (
+                        set_mesh_motion_vector_flags.before(RenderSet::Queue),
                         prepare_skins.in_set(RenderSet::PrepareResources),
                         prepare_morphs.in_set(RenderSet::PrepareResources),
                         prepare_mesh_bind_group.in_set(RenderSet::PrepareBindGroups),
@@ -234,6 +232,7 @@ impl Plugin for MeshRenderPlugin {
 
             render_app
                 .insert_resource(indirect_parameters_buffer)
+                .init_resource::<MeshPipelineViewLayouts>()
                 .init_resource::<MeshPipeline>();
         }
 
@@ -411,14 +410,21 @@ bitflags::bitflags! {
         const SHADOW_CASTER           = 1 << 0;
         /// The mesh can participate in automatic batching.
         const AUTOMATIC_BATCHING      = 1 << 1;
-        /// The mesh had a transform last frame and so is eligible for TAA.
-        const HAVE_PREVIOUS_TRANSFORM = 1 << 2;
+        /// The mesh had a transform last frame and so is eligible for motion
+        /// vector computation.
+        const HAS_PREVIOUS_TRANSFORM  = 1 << 2;
+        /// The mesh had a skin last frame and so that skin should be taken into
+        /// account for motion vector computation.
+        const HAS_PREVIOUS_SKIN       = 1 << 3;
+        /// The mesh had morph targets last frame and so they should be taken
+        /// into account for motion vector computation.
+        const HAS_PREVIOUS_MORPH      = 1 << 4;
     }
 }
 
 /// CPU data that the render world keeps for each entity, when *not* using GPU
 /// mesh uniform building.
-#[derive(Deref)]
+#[derive(Deref, DerefMut)]
 pub struct RenderMeshInstanceCpu {
     /// Data shared between both the CPU mesh uniform building and the GPU mesh
     /// uniform building paths.
@@ -432,7 +438,7 @@ pub struct RenderMeshInstanceCpu {
 
 /// CPU data that the render world needs to keep for each entity that contains a
 /// mesh when using GPU mesh uniform building.
-#[derive(Deref)]
+#[derive(Deref, DerefMut)]
 pub struct RenderMeshInstanceGpu {
     /// Data shared between both the CPU mesh uniform building and the GPU mesh
     /// uniform building paths.
@@ -525,7 +531,7 @@ impl RenderMeshInstanceShared {
             !no_automatic_batching,
         );
         mesh_instance_flags.set(
-            RenderMeshInstanceFlags::HAVE_PREVIOUS_TRANSFORM,
+            RenderMeshInstanceFlags::HAS_PREVIOUS_TRANSFORM,
             previous_transform.is_some(),
         );
 
@@ -600,6 +606,19 @@ impl RenderMeshInstances {
             }
         }
     }
+
+    /// Inserts the given flags into the CPU or GPU render mesh instance data
+    /// for the given mesh as appropriate.
+    fn insert_mesh_instance_flags(&mut self, entity: Entity, flags: RenderMeshInstanceFlags) {
+        match *self {
+            RenderMeshInstances::CpuBuilding(ref mut instances) => {
+                instances.insert_mesh_instance_flags(entity, flags);
+            }
+            RenderMeshInstances::GpuBuilding(ref mut instances) => {
+                instances.insert_mesh_instance_flags(entity, flags);
+            }
+        }
+    }
 }
 
 impl RenderMeshInstancesCpu {
@@ -615,6 +634,14 @@ impl RenderMeshInstancesCpu {
                 translation: render_mesh_instance.transforms.transform.translation,
             })
     }
+
+    /// Inserts the given flags into the render mesh instance data for the given
+    /// mesh.
+    fn insert_mesh_instance_flags(&mut self, entity: Entity, flags: RenderMeshInstanceFlags) {
+        if let Some(instance) = self.get_mut(&entity) {
+            instance.flags.insert(flags);
+        }
+    }
 }
 
 impl RenderMeshInstancesGpu {
@@ -629,6 +656,14 @@ impl RenderMeshInstancesGpu {
                 shared: &render_mesh_instance.shared,
                 translation: render_mesh_instance.translation,
             })
+    }
+
+    /// Inserts the given flags into the render mesh instance data for the given
+    /// mesh.
+    fn insert_mesh_instance_flags(&mut self, entity: Entity, flags: RenderMeshInstanceFlags) {
+        if let Some(instance) = self.get_mut(&entity) {
+            instance.flags.insert(flags);
+        }
     }
 }
 
@@ -949,7 +984,7 @@ pub fn extract_meshes_for_gpu_building(
 
             let previous_input_index = if shared
                 .flags
-                .contains(RenderMeshInstanceFlags::HAVE_PREVIOUS_TRANSFORM)
+                .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_TRANSFORM)
             {
                 render_mesh_instances
                     .get(&entity)
@@ -976,6 +1011,35 @@ pub fn extract_meshes_for_gpu_building(
         &mut mesh_culling_data_buffer,
         &mut render_mesh_instance_queues,
     );
+}
+
+/// A system that sets the [`RenderMeshInstanceFlags`] for each mesh based on
+/// whether the previous frame had skins and/or morph targets.
+///
+/// Ordinarily, [`RenderMeshInstanceFlags`] are set during the extraction phase.
+/// However, we can't do that for the flags related to skins and morph targets
+/// because the previous frame's skin and morph targets are the responsibility
+/// of [`extract_skins`] and [`extract_morphs`] respectively. We want to run
+/// those systems in parallel with mesh extraction for performance, so we need
+/// to defer setting of these mesh instance flags to after extraction, which
+/// this system does. An alternative to having skin- and morph-target-related
+/// data in [`RenderMeshInstanceFlags`] would be to have
+/// [`crate::material::queue_material_meshes`] check the skin and morph target
+/// tables for each mesh, but that would be too slow in the hot mesh queuing
+/// loop.
+fn set_mesh_motion_vector_flags(
+    mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    skin_indices: Res<SkinIndices>,
+    morph_indices: Res<MorphIndices>,
+) {
+    for &entity in skin_indices.prev.keys() {
+        render_mesh_instances
+            .insert_mesh_instance_flags(entity, RenderMeshInstanceFlags::HAS_PREVIOUS_SKIN);
+    }
+    for &entity in morph_indices.prev.keys() {
+        render_mesh_instances
+            .insert_mesh_instance_flags(entity, RenderMeshInstanceFlags::HAS_PREVIOUS_MORPH);
+    }
 }
 
 /// Creates the [`RenderMeshInstanceGpu`]s and [`MeshInputUniform`]s when GPU
@@ -1032,9 +1096,11 @@ fn collect_meshes_for_gpu_building(
     }
 }
 
+/// All data needed to construct a pipeline for rendering 3D meshes.
 #[derive(Resource, Clone)]
 pub struct MeshPipeline {
-    view_layouts: [MeshPipelineViewLayout; MeshPipelineViewLayoutKey::COUNT],
+    /// A reference to all the mesh pipeline view layouts.
+    pub view_layouts: MeshPipelineViewLayouts,
     // This dummy white texture is to be used in place of optional StandardMaterial textures
     pub dummy_white_gpu_image: GpuImage,
     pub clustered_forward_buffer_binding_type: BufferBindingType,
@@ -1065,18 +1131,13 @@ impl FromWorld for MeshPipeline {
             Res<RenderDevice>,
             Res<DefaultImageSampler>,
             Res<RenderQueue>,
+            Res<MeshPipelineViewLayouts>,
         )> = SystemState::new(world);
-        let (render_device, default_sampler, render_queue) = system_state.get_mut(world);
+        let (render_device, default_sampler, render_queue, view_layouts) =
+            system_state.get_mut(world);
+
         let clustered_forward_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
-        let visibility_ranges_buffer_binding_type = render_device
-            .get_supported_read_only_binding_type(VISIBILITY_RANGES_STORAGE_BUFFER_COUNT);
-
-        let view_layouts = generate_view_layouts(
-            &render_device,
-            clustered_forward_buffer_binding_type,
-            visibility_ranges_buffer_binding_type,
-        );
 
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
         let dummy_white_gpu_image = {
@@ -1113,7 +1174,7 @@ impl FromWorld for MeshPipeline {
         };
 
         MeshPipeline {
-            view_layouts,
+            view_layouts: view_layouts.clone(),
             clustered_forward_buffer_binding_type,
             dummy_white_gpu_image,
             mesh_layouts: MeshLayouts::new(&render_device),
@@ -1141,16 +1202,7 @@ impl MeshPipeline {
     }
 
     pub fn get_view_layout(&self, layout_key: MeshPipelineViewLayoutKey) -> &BindGroupLayout {
-        let index = layout_key.bits() as usize;
-        let layout = &self.view_layouts[index];
-
-        #[cfg(debug_assertions)]
-        if layout.texture_count > MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES {
-            // Issue our own warning here because Naga's error message is a bit cryptic in this situation
-            warn_once!("Too many textures in mesh pipeline view layout, this might cause us to hit `wgpu::Limits::max_sampled_textures_per_shader_stage` in some environments.");
-        }
-
-        &layout.bind_group_layout
+        self.view_layouts.get_view_layout(layout_key)
     }
 }
 
@@ -1355,7 +1407,10 @@ bitflags::bitflags! {
         const LIGHTMAPPED                       = 1 << 13;
         const IRRADIANCE_VOLUME                 = 1 << 14;
         const VISIBILITY_RANGE_DITHER           = 1 << 15;
-        const LAST_FLAG                         = Self::VISIBILITY_RANGE_DITHER.bits();
+        const SCREEN_SPACE_REFLECTIONS          = 1 << 16;
+        const HAS_PREVIOUS_SKIN                 = 1 << 17;
+        const HAS_PREVIOUS_MORPH                = 1 << 18;
+        const LAST_FLAG                         = Self::HAS_PREVIOUS_MORPH.bits();
 
         // Bitfields
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
@@ -1496,22 +1551,41 @@ pub fn setup_morph_and_skinning_defs(
     };
     let is_morphed = key.intersects(MeshPipelineKey::MORPH_TARGETS);
     let is_lightmapped = key.intersects(MeshPipelineKey::LIGHTMAPPED);
-    match (is_skinned(layout), is_morphed, is_lightmapped) {
-        (true, false, _) => {
+    let motion_vector_prepass = key.intersects(MeshPipelineKey::MOTION_VECTOR_PREPASS);
+    match (
+        is_skinned(layout),
+        is_morphed,
+        is_lightmapped,
+        motion_vector_prepass,
+    ) {
+        (true, false, _, true) => {
+            add_skin_data();
+            mesh_layouts.skinned_motion.clone()
+        }
+        (true, false, _, false) => {
             add_skin_data();
             mesh_layouts.skinned.clone()
         }
-        (true, true, _) => {
+        (true, true, _, true) => {
+            add_skin_data();
+            shader_defs.push("MORPH_TARGETS".into());
+            mesh_layouts.morphed_skinned_motion.clone()
+        }
+        (true, true, _, false) => {
             add_skin_data();
             shader_defs.push("MORPH_TARGETS".into());
             mesh_layouts.morphed_skinned.clone()
         }
-        (false, true, _) => {
+        (false, true, _, true) => {
+            shader_defs.push("MORPH_TARGETS".into());
+            mesh_layouts.morphed_motion.clone()
+        }
+        (false, true, _, false) => {
             shader_defs.push("MORPH_TARGETS".into());
             mesh_layouts.morphed.clone()
         }
-        (false, false, true) => mesh_layouts.lightmapped.clone(),
-        (false, false, false) => mesh_layouts.model_only.clone(),
+        (false, false, true, _) => mesh_layouts.lightmapped.clone(),
+        (false, false, false, _) => mesh_layouts.model_only.clone(),
     }
 }
 
@@ -1543,10 +1617,12 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if layout.0.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
+            shader_defs.push("VERTEX_UVS_A".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
         }
 
         if layout.0.contains(Mesh::ATTRIBUTE_UV_1) {
+            shader_defs.push("VERTEX_UVS".into());
             shader_defs.push("VERTEX_UVS_B".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_1.at_shader_location(3));
         }
@@ -1655,6 +1731,14 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("MOTION_VECTOR_PREPASS".into());
         }
 
+        if key.contains(MeshPipelineKey::HAS_PREVIOUS_SKIN) {
+            shader_defs.push("HAS_PREVIOUS_SKIN".into());
+        }
+
+        if key.contains(MeshPipelineKey::HAS_PREVIOUS_MORPH) {
+            shader_defs.push("HAS_PREVIOUS_MORPH".into());
+        }
+
         if key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
             shader_defs.push("DEFERRED_PREPASS".into());
         }
@@ -1677,6 +1761,14 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());
+            shader_defs.push(ShaderDefVal::UInt(
+                "TONEMAPPING_LUT_TEXTURE_BINDING_INDEX".into(),
+                20,
+            ));
+            shader_defs.push(ShaderDefVal::UInt(
+                "TONEMAPPING_LUT_SAMPLER_BINDING_INDEX".into(),
+                21,
+            ));
 
             let method = key.intersection(MeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
@@ -1687,7 +1779,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
                 shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_ACES_FITTED {
-                shader_defs.push("TONEMAP_METHOD_ACES_FITTED ".into());
+                shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_AGX {
                 shader_defs.push("TONEMAP_METHOD_AGX".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM {
@@ -1834,10 +1926,16 @@ impl SpecializedMeshPipeline for MeshPipeline {
 #[derive(Resource, Default)]
 pub struct MeshBindGroups {
     model_only: Option<BindGroup>,
-    skinned: Option<BindGroup>,
-    morph_targets: HashMap<AssetId<Mesh>, BindGroup>,
+    skinned: Option<MeshBindGroupPair>,
+    morph_targets: HashMap<AssetId<Mesh>, MeshBindGroupPair>,
     lightmaps: HashMap<AssetId<Image>, BindGroup>,
 }
+
+pub struct MeshBindGroupPair {
+    motion_vectors: BindGroup,
+    no_motion_vectors: BindGroup,
+}
+
 impl MeshBindGroups {
     pub fn reset(&mut self) {
         self.model_only = None;
@@ -1853,12 +1951,29 @@ impl MeshBindGroups {
         lightmap: Option<AssetId<Image>>,
         is_skinned: bool,
         morph: bool,
+        motion_vectors: bool,
     ) -> Option<&BindGroup> {
         match (is_skinned, morph, lightmap) {
-            (_, true, _) => self.morph_targets.get(&asset_id),
-            (true, false, _) => self.skinned.as_ref(),
+            (_, true, _) => self
+                .morph_targets
+                .get(&asset_id)
+                .map(|bind_group_pair| bind_group_pair.get(motion_vectors)),
+            (true, false, _) => self
+                .skinned
+                .as_ref()
+                .map(|bind_group_pair| bind_group_pair.get(motion_vectors)),
             (false, false, Some(lightmap)) => self.lightmaps.get(&lightmap),
             (false, false, None) => self.model_only.as_ref(),
+        }
+    }
+}
+
+impl MeshBindGroupPair {
+    fn get(&self, motion_vectors: bool) -> &BindGroup {
+        if motion_vectors {
+            &self.motion_vectors
+        } else {
+            &self.no_motion_vectors
         }
     }
 }
@@ -1876,11 +1991,12 @@ pub fn prepare_mesh_bind_group(
     gpu_batched_instance_buffers: Option<
         Res<gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
     >,
-    skins_uniform: Res<SkinUniform>,
-    weights_uniform: Res<MorphUniform>,
+    skins_uniform: Res<SkinUniforms>,
+    weights_uniform: Res<MorphUniforms>,
     render_lightmaps: Res<RenderLightmaps>,
 ) {
     groups.reset();
+
     let layouts = &mesh_pipeline.mesh_layouts;
 
     let model = if let Some(cpu_batched_instance_buffer) = cpu_batched_instance_buffer {
@@ -1898,20 +2014,63 @@ pub fn prepare_mesh_bind_group(
 
     groups.model_only = Some(layouts.model_only(&render_device, &model));
 
-    let skin = skins_uniform.buffer.buffer();
+    // Create the skinned mesh bind group with the current and previous buffers
+    // (the latter being for motion vector computation). If there's no previous
+    // buffer, just use the current one as the shader will ignore it.
+    let skin = skins_uniform.current_buffer.buffer();
     if let Some(skin) = skin {
-        groups.skinned = Some(layouts.skinned(&render_device, &model, skin));
+        let prev_skin = skins_uniform.prev_buffer.buffer().unwrap_or(skin);
+        groups.skinned = Some(MeshBindGroupPair {
+            motion_vectors: layouts.skinned_motion(&render_device, &model, skin, prev_skin),
+            no_motion_vectors: layouts.skinned(&render_device, &model, skin),
+        });
     }
 
-    if let Some(weights) = weights_uniform.buffer.buffer() {
+    // Create the morphed bind groups just like we did for the skinned bind
+    // group.
+    if let Some(weights) = weights_uniform.current_buffer.buffer() {
+        let prev_weights = weights_uniform.prev_buffer.buffer().unwrap_or(weights);
         for (id, gpu_mesh) in meshes.iter() {
             if let Some(targets) = gpu_mesh.morph_targets.as_ref() {
-                let group = if let Some(skin) = skin.filter(|_| is_skinned(&gpu_mesh.layout)) {
-                    layouts.morphed_skinned(&render_device, &model, skin, weights, targets)
-                } else {
-                    layouts.morphed(&render_device, &model, weights, targets)
+                let bind_group_pair = match skin.filter(|_| is_skinned(&gpu_mesh.layout)) {
+                    Some(skin) => {
+                        let prev_skin = skins_uniform.prev_buffer.buffer().unwrap_or(skin);
+                        MeshBindGroupPair {
+                            motion_vectors: layouts.morphed_skinned_motion(
+                                &render_device,
+                                &model,
+                                skin,
+                                weights,
+                                targets,
+                                prev_skin,
+                                prev_weights,
+                            ),
+                            no_motion_vectors: layouts.morphed_skinned(
+                                &render_device,
+                                &model,
+                                skin,
+                                weights,
+                                targets,
+                            ),
+                        }
+                    }
+                    None => MeshBindGroupPair {
+                        motion_vectors: layouts.morphed_motion(
+                            &render_device,
+                            &model,
+                            weights,
+                            targets,
+                            prev_weights,
+                        ),
+                        no_motion_vectors: layouts.morphed(
+                            &render_device,
+                            &model,
+                            weights,
+                            targets,
+                        ),
+                    },
                 };
-                groups.morph_targets.insert(id, group);
+                groups.morph_targets.insert(id, bind_group_pair);
             }
         }
     }
@@ -1934,6 +2093,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         Read<ViewLightsUniformOffset>,
         Read<ViewFogUniformOffset>,
         Read<ViewLightProbesUniformOffset>,
+        Read<ViewScreenSpaceReflectionsUniformOffset>,
         Read<MeshViewBindGroup>,
     );
     type ItemQuery = ();
@@ -1941,7 +2101,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform, view_lights, view_fog, view_light_probes, mesh_view_bind_group): ROQueryItem<
+        (view_uniform, view_lights, view_fog, view_light_probes, view_ssr, mesh_view_bind_group): ROQueryItem<
             'w,
             Self::ViewQuery,
         >,
@@ -1957,6 +2117,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
                 view_lights.offset,
                 view_fog.offset,
                 **view_light_probes,
+                **view_ssr,
             ],
         );
 
@@ -1973,13 +2134,13 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         SRes<MorphIndices>,
         SRes<RenderLightmaps>,
     );
-    type ViewQuery = ();
+    type ViewQuery = Has<MotionVectorPrepass>;
     type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
         item: &P,
-        _view: (),
+        has_motion_vector_prepass: bool,
         _item_query: Option<()>,
         (bind_groups, mesh_instances, skin_indices, morph_indices, lightmaps): SystemParamItem<
             'w,
@@ -1998,19 +2159,26 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         let Some(mesh_asset_id) = mesh_instances.mesh_asset_id(*entity) else {
             return RenderCommandResult::Success;
         };
-        let skin_index = skin_indices.get(entity);
-        let morph_index = morph_indices.get(entity);
+        let current_skin_index = skin_indices.current.get(entity);
+        let prev_skin_index = skin_indices.prev.get(entity);
+        let current_morph_index = morph_indices.current.get(entity);
+        let prev_morph_index = morph_indices.prev.get(entity);
 
-        let is_skinned = skin_index.is_some();
-        let is_morphed = morph_index.is_some();
+        let is_skinned = current_skin_index.is_some();
+        let is_morphed = current_morph_index.is_some();
 
         let lightmap = lightmaps
             .render_lightmaps
             .get(entity)
             .map(|render_lightmap| render_lightmap.image);
 
-        let Some(bind_group) = bind_groups.get(mesh_asset_id, lightmap, is_skinned, is_morphed)
-        else {
+        let Some(bind_group) = bind_groups.get(
+            mesh_asset_id,
+            lightmap,
+            is_skinned,
+            is_morphed,
+            has_motion_vector_prepass,
+        ) else {
             error!(
                 "The MeshBindGroups resource wasn't set in the render phase. \
                 It should be set by the prepare_mesh_bind_group system.\n\
@@ -2025,14 +2193,40 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             dynamic_offsets[offset_count] = dynamic_offset.get();
             offset_count += 1;
         }
-        if let Some(skin_index) = skin_index {
-            dynamic_offsets[offset_count] = skin_index.index;
+        if let Some(current_skin_index) = current_skin_index {
+            dynamic_offsets[offset_count] = current_skin_index.index;
             offset_count += 1;
         }
-        if let Some(morph_index) = morph_index {
-            dynamic_offsets[offset_count] = morph_index.index;
+        if let Some(current_morph_index) = current_morph_index {
+            dynamic_offsets[offset_count] = current_morph_index.index;
             offset_count += 1;
         }
+
+        // Attach motion vectors if needed.
+        if has_motion_vector_prepass {
+            // Attach the previous skin index for motion vector computation. If
+            // there isn't one, just use zero as the shader will ignore it.
+            if current_skin_index.is_some() {
+                match prev_skin_index {
+                    Some(prev_skin_index) => dynamic_offsets[offset_count] = prev_skin_index.index,
+                    None => dynamic_offsets[offset_count] = 0,
+                }
+                offset_count += 1;
+            }
+
+            // Attach the previous morph index for motion vector computation. If
+            // there isn't one, just use zero as the shader will ignore it.
+            if current_morph_index.is_some() {
+                match prev_morph_index {
+                    Some(prev_morph_index) => {
+                        dynamic_offsets[offset_count] = prev_morph_index.index;
+                    }
+                    None => dynamic_offsets[offset_count] = 0,
+                }
+                offset_count += 1;
+            }
+        }
+
         pass.set_bind_group(I, bind_group, &dynamic_offsets[0..offset_count]);
 
         RenderCommandResult::Success

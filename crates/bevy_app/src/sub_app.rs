@@ -1,13 +1,11 @@
-use crate::{App, InternedAppLabel, Plugin, Plugins, PluginsState, Startup};
+use crate::{App, InternedAppLabel, Plugin, Plugins, PluginsState};
 use bevy_ecs::{
     event::EventRegistry,
     prelude::*,
-    schedule::{
-        setup_state_transitions_in_world, FreelyMutableState, InternedScheduleLabel,
-        ScheduleBuildSettings, ScheduleLabel,
-    },
+    schedule::{InternedScheduleLabel, ScheduleBuildSettings, ScheduleLabel},
     system::SystemId,
 };
+
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{HashMap, HashSet};
@@ -291,66 +289,6 @@ impl SubApp {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
         schedules.ignore_ambiguity(schedule, a, b);
-
-        self
-    }
-
-    /// See [`App::init_state`].
-    pub fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
-        if !self.world.contains_resource::<State<S>>() {
-            setup_state_transitions_in_world(&mut self.world, Some(Startup.intern()));
-            self.init_resource::<State<S>>()
-                .init_resource::<NextState<S>>()
-                .add_event::<StateTransitionEvent<S>>();
-            let schedule = self.get_schedule_mut(StateTransition).unwrap();
-            S::register_state(schedule);
-        }
-
-        self
-    }
-
-    /// See [`App::insert_state`].
-    pub fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
-        if !self.world.contains_resource::<State<S>>() {
-            setup_state_transitions_in_world(&mut self.world, Some(Startup.intern()));
-            self.insert_resource::<State<S>>(State::new(state))
-                .init_resource::<NextState<S>>()
-                .add_event::<StateTransitionEvent<S>>();
-
-            let schedule = self.get_schedule_mut(StateTransition).unwrap();
-            S::register_state(schedule);
-        }
-
-        self
-    }
-
-    /// See [`App::add_computed_state`].
-    pub fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
-        if !self
-            .world
-            .contains_resource::<Events<StateTransitionEvent<S>>>()
-        {
-            setup_state_transitions_in_world(&mut self.world, Some(Startup.intern()));
-            self.add_event::<StateTransitionEvent<S>>();
-            let schedule = self.get_schedule_mut(StateTransition).unwrap();
-            S::register_computed_state_systems(schedule);
-        }
-
-        self
-    }
-
-    /// See [`App::add_sub_state`].
-    pub fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
-        if !self
-            .world
-            .contains_resource::<Events<StateTransitionEvent<S>>>()
-        {
-            setup_state_transitions_in_world(&mut self.world, Some(Startup.intern()));
-            self.init_resource::<NextState<S>>();
-            self.add_event::<StateTransitionEvent<S>>();
-            let schedule = self.get_schedule_mut(StateTransition).unwrap();
-            S::register_sub_state_systems(schedule);
-        }
 
         self
     }

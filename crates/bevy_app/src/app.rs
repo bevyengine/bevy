@@ -7,7 +7,7 @@ use bevy_ecs::{
     event::{event_update_system, ManualEventReader},
     intern::Interned,
     prelude::*,
-    schedule::{FreelyMutableState, ScheduleBuildSettings, ScheduleLabel},
+    schedule::{ScheduleBuildSettings, ScheduleLabel},
     system::SystemId,
 };
 #[cfg(feature = "trace")]
@@ -262,61 +262,6 @@ impl App {
     /// Returns `true` if any of the sub-apps are building plugins.
     pub(crate) fn is_building_plugins(&self) -> bool {
         self.sub_apps.iter().any(|s| s.is_building_plugins())
-    }
-
-    /// Initializes a [`State`] with standard starting values.
-    ///
-    /// This method is idempotent: it has no effect when called again using the same generic type.
-    ///
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`], [`OnTransition`] and [`OnExit`] schedules.
-    /// These schedules are triggered before [`Update`](crate::Update) and at startup.
-    ///
-    /// If you would like to control how other systems run based on the current state, you can
-    /// emulate this behavior using the [`in_state`] [`Condition`].
-    ///
-    /// Note that you can also apply state transitions at other points in the schedule
-    /// by triggering the [`StateTransition`](`bevy_ecs::schedule::StateTransition`) schedule manually.
-    pub fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
-        self.main_mut().init_state::<S>();
-        self
-    }
-
-    /// Inserts a specific [`State`] to the current [`App`] and overrides any [`State`] previously
-    /// added of the same type.
-    ///
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`], [`OnTransition`] and [`OnExit`] schedules.
-    /// These schedules are triggered before [`Update`](crate::Update) and at startup.
-    ///
-    /// If you would like to control how other systems run based on the current state, you can
-    /// emulate this behavior using the [`in_state`] [`Condition`].
-    ///
-    /// Note that you can also apply state transitions at other points in the schedule
-    /// by triggering the [`StateTransition`](`bevy_ecs::schedule::StateTransition`) schedule manually.
-    pub fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
-        self.main_mut().insert_state::<S>(state);
-        self
-    }
-
-    /// Sets up a type implementing [`ComputedStates`].
-    ///
-    /// This method is idempotent: it has no effect when called again using the same generic type.
-    ///
-    /// For each source state the derived state depends on, it adds this state's derivation
-    /// to it's [`ComputeDependantStates<Source>`](bevy_ecs::schedule::ComputeDependantStates<S>) schedule.
-    pub fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
-        self.main_mut().add_computed_state::<S>();
-        self
-    }
-
-    /// Sets up a type implementing [`SubStates`].
-    ///
-    /// This method is idempotent: it has no effect when called again using the same generic type.
-    ///
-    /// For each source state the derived state depends on, it adds this state's existence check
-    /// to it's [`ComputeDependantStates<Source>`](bevy_ecs::schedule::ComputeDependantStates<S>) schedule.
-    pub fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
-        self.main_mut().add_sub_state::<S>();
-        self
     }
 
     /// Adds one or more systems to the given schedule in this app's [`Schedules`].
@@ -983,10 +928,7 @@ impl Termination for AppExit {
 mod tests {
     use std::{marker::PhantomData, mem};
 
-    use bevy_ecs::{
-        schedule::{OnEnter, States},
-        system::Commands,
-    };
+    use bevy_ecs::{schedule::ScheduleLabel, system::Commands};
 
     use crate::{App, AppExit, Plugin};
 
@@ -1059,11 +1001,9 @@ mod tests {
         App::new().add_plugins(PluginRun);
     }
 
-    #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
-    enum AppState {
-        #[default]
-        MainMenu,
-    }
+    #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
+    struct EnterMainMenu;
+
     fn bar(mut commands: Commands) {
         commands.spawn_empty();
     }
@@ -1075,20 +1015,9 @@ mod tests {
     #[test]
     fn add_systems_should_create_schedule_if_it_does_not_exist() {
         let mut app = App::new();
-        app.init_state::<AppState>()
-            .add_systems(OnEnter(AppState::MainMenu), (foo, bar));
+        app.add_systems(EnterMainMenu, (foo, bar));
 
-        app.world_mut().run_schedule(OnEnter(AppState::MainMenu));
-        assert_eq!(app.world().entities().len(), 2);
-    }
-
-    #[test]
-    fn add_systems_should_create_schedule_if_it_does_not_exist2() {
-        let mut app = App::new();
-        app.add_systems(OnEnter(AppState::MainMenu), (foo, bar))
-            .init_state::<AppState>();
-
-        app.world_mut().run_schedule(OnEnter(AppState::MainMenu));
+        app.world_mut().run_schedule(EnterMainMenu);
         assert_eq!(app.world().entities().len(), 2);
     }
 

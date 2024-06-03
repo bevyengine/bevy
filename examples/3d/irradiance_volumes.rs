@@ -209,12 +209,7 @@ fn main() {
 }
 
 // Spawns all the scene objects.
-fn setup(
-    mut commands: Commands,
-    assets: Res<ExampleAssets>,
-    app_status: Res<AppStatus>,
-    asset_server: Res<AssetServer>,
-) {
+fn setup(mut commands: Commands, assets: Res<ExampleAssets>, app_status: Res<AppStatus>) {
     spawn_main_scene(&mut commands, &assets);
     spawn_camera(&mut commands, &assets);
     spawn_irradiance_volume(&mut commands, &assets);
@@ -222,7 +217,7 @@ fn setup(
     spawn_sphere(&mut commands, &assets);
     spawn_voxel_cube_parent(&mut commands);
     spawn_fox(&mut commands, &assets);
-    spawn_text(&mut commands, &app_status, &asset_server);
+    spawn_text(&mut commands, &app_status);
 }
 
 fn spawn_main_scene(commands: &mut Commands, assets: &ExampleAssets) {
@@ -301,36 +296,32 @@ fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
         .insert(MainObject);
 }
 
-fn spawn_text(commands: &mut Commands, app_status: &AppStatus, asset_server: &AssetServer) {
+fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
     commands.spawn(
         TextBundle {
-            text: app_status.create_text(asset_server),
-            ..TextBundle::default()
+            text: app_status.create_text(),
+            ..default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(10.0),
-            left: Val::Px(10.0),
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
 }
 
 // A system that updates the help text.
-fn update_text(
-    mut text_query: Query<&mut Text>,
-    app_status: Res<AppStatus>,
-    asset_server: Res<AssetServer>,
-) {
+fn update_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
     for mut text in text_query.iter_mut() {
-        *text = app_status.create_text(&asset_server);
+        *text = app_status.create_text();
     }
 }
 
 impl AppStatus {
     // Constructs the help text at the bottom of the screen based on the
     // application status.
-    fn create_text(&self, asset_server: &AssetServer) -> Text {
+    fn create_text(&self) -> Text {
         let irradiance_volume_help_text = if self.irradiance_volume_present {
             DISABLE_IRRADIANCE_VOLUME_HELP_TEXT
         } else {
@@ -363,11 +354,7 @@ impl AppStatus {
                 rotation_help_text,
                 switch_mesh_help_text
             ),
-            TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 24.0,
-                ..default()
-            },
+            TextStyle::default(),
         )
     }
 }
@@ -516,16 +503,19 @@ fn handle_mouse_clicks(
 
 impl FromWorld for ExampleAssets {
     fn from_world(world: &mut World) -> Self {
-        let fox_animation = world.load_asset("models/animated/Fox.glb#Animation1");
+        let fox_animation =
+            world.load_asset(GltfAssetLabel::Animation(1).from_asset("models/animated/Fox.glb"));
         let (fox_animation_graph, fox_animation_node) =
             AnimationGraph::from_clip(fox_animation.clone());
 
         ExampleAssets {
             main_sphere: world.add_asset(Sphere::default().mesh().uv(32, 18)),
-            fox: world.load_asset("models/animated/Fox.glb#Scene0"),
+            fox: world.load_asset(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
             main_sphere_material: world.add_asset(Color::from(SILVER)),
-            main_scene: world
-                .load_asset("models/IrradianceVolumeExample/IrradianceVolumeExample.glb#Scene0"),
+            main_scene: world.load_asset(
+                GltfAssetLabel::Scene(0)
+                    .from_asset("models/IrradianceVolumeExample/IrradianceVolumeExample.glb"),
+            ),
             irradiance_volume: world.load_asset("irradiance_volumes/Example.vxgi.ktx2"),
             fox_animation_graph: world.add_asset(fox_animation_graph),
             fox_animation_node,

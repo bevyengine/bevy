@@ -9,11 +9,11 @@ use bevy_math::Mat2;
 use bevy_math::{Dir3, Quat, Vec2, Vec3};
 use std::f32::consts::TAU;
 
-pub(crate) const DEFAULT_CIRCLE_SEGMENTS: usize = 32;
+pub(crate) const DEFAULT_CIRCLE_RESOLUTION: usize = 32;
 
-fn ellipse_inner(half_size: Vec2, segments: usize) -> impl Iterator<Item = Vec2> {
-    (0..segments + 1).map(move |i| {
-        let angle = i as f32 * TAU / segments as f32;
+fn ellipse_inner(half_size: Vec2, resolution: usize) -> impl Iterator<Item = Vec2> {
+    (0..resolution + 1).map(move |i| {
+        let angle = i as f32 * TAU / resolution as f32;
         let (x, y) = angle.sin_cos();
         Vec2::new(x, y) * half_size
     })
@@ -41,7 +41,7 @@ where
     ///     // You may want to increase this for larger ellipses.
     ///     gizmos
     ///         .ellipse(Vec3::ZERO, Quat::IDENTITY, Vec2::new(5., 1.), RED)
-    ///         .segments(64);
+    ///         .resolution(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -59,7 +59,7 @@ where
             rotation,
             half_size,
             color: color.into(),
-            segments: DEFAULT_CIRCLE_SEGMENTS,
+            resolution: DEFAULT_CIRCLE_RESOLUTION,
         }
     }
 
@@ -80,7 +80,7 @@ where
     ///     // You may want to increase this for larger ellipses.
     ///     gizmos
     ///         .ellipse_2d(Vec2::ZERO, 180.0_f32.to_radians(), Vec2::new(5., 1.), RED)
-    ///         .segments(64);
+    ///         .resolution(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -98,7 +98,7 @@ where
             rotation: Mat2::from_angle(angle),
             half_size,
             color: color.into(),
-            segments: DEFAULT_CIRCLE_SEGMENTS,
+            resolution: DEFAULT_CIRCLE_RESOLUTION,
         }
     }
 
@@ -119,7 +119,7 @@ where
     ///     // You may want to increase this for larger circles.
     ///     gizmos
     ///         .circle(Vec3::ZERO, Dir3::Z, 5., RED)
-    ///         .segments(64);
+    ///         .resolution(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -137,7 +137,7 @@ where
             rotation: Quat::from_rotation_arc(Vec3::Z, *normal),
             half_size: Vec2::splat(radius),
             color: color.into(),
-            segments: DEFAULT_CIRCLE_SEGMENTS,
+            resolution: DEFAULT_CIRCLE_RESOLUTION,
         }
     }
 
@@ -158,7 +158,7 @@ where
     ///     // You may want to increase this for larger circles.
     ///     gizmos
     ///         .circle_2d(Vec2::ZERO, 5., RED)
-    ///         .segments(64);
+    ///         .resolution(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -175,7 +175,7 @@ where
             rotation: Mat2::IDENTITY,
             half_size: Vec2::splat(radius),
             color: color.into(),
-            segments: DEFAULT_CIRCLE_SEGMENTS,
+            resolution: DEFAULT_CIRCLE_RESOLUTION,
         }
     }
 
@@ -230,7 +230,7 @@ where
     rotation: Quat,
     half_size: Vec2,
     color: Color,
-    segments: usize,
+    resolution: usize,
 }
 
 impl<Config, Clear> EllipseBuilder<'_, '_, '_, Config, Clear>
@@ -238,9 +238,9 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Set the number of line-segments for this ellipse.
-    pub fn segments(mut self, segments: usize) -> Self {
-        self.segments = segments;
+    /// Set the number of lines used to approximate the geometry of this ellipse.
+    pub fn resolution(mut self, resolution: usize) -> Self {
+        self.resolution = resolution;
         self
     }
 }
@@ -255,7 +255,7 @@ where
             return;
         }
 
-        let positions = ellipse_inner(self.half_size, self.segments)
+        let positions = ellipse_inner(self.half_size, self.resolution)
             .map(|vec2| self.rotation * vec2.extend(0.))
             .map(|vec3| vec3 + self.position);
         self.gizmos.linestrip(positions, self.color);
@@ -273,7 +273,7 @@ where
     rotation: Mat2,
     half_size: Vec2,
     color: Color,
-    segments: usize,
+    resolution: usize,
 }
 
 impl<Config, Clear> Ellipse2dBuilder<'_, '_, '_, Config, Clear>
@@ -281,9 +281,9 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Set the number of line-segments for this ellipse.
-    pub fn segments(mut self, segments: usize) -> Self {
-        self.segments = segments;
+    /// Set the number of line-segments used to approximate the geometry of this ellipse.
+    pub fn resolution(mut self, resolution: usize) -> Self {
+        self.resolution = resolution;
         self
     }
 }
@@ -299,7 +299,7 @@ where
             return;
         };
 
-        let positions = ellipse_inner(self.half_size, self.segments)
+        let positions = ellipse_inner(self.half_size, self.resolution)
             .map(|vec2| self.rotation * vec2)
             .map(|vec2| vec2 + self.position);
         self.gizmos.linestrip_2d(positions, self.color);

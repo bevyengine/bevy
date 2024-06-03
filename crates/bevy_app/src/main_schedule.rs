@@ -1,6 +1,6 @@
 use crate::{App, Plugin};
 use bevy_ecs::{
-    schedule::{ExecutorKind, InternedScheduleLabel, Schedule, ScheduleLabel, StateTransition},
+    schedule::{ExecutorKind, InternedScheduleLabel, Schedule, ScheduleLabel},
     system::{Local, Resource},
     world::{Mut, World},
 };
@@ -173,7 +173,6 @@ impl Default for MainScheduleOrder {
             labels: vec![
                 First.intern(),
                 PreUpdate.intern(),
-                StateTransition.intern(),
                 RunFixedMainLoop.intern(),
                 Update.intern(),
                 SpawnScene.intern(),
