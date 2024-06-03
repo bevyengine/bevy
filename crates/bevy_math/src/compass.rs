@@ -51,6 +51,7 @@ pub enum CompassOctant {
 }
 
 impl From<CompassQuadrant> for Dir2 {
+    /// [`CompassQuadrant::North`] corresponds to [`Dir2::Y`].
     fn from(q: CompassQuadrant) -> Self {
         match q {
             CompassQuadrant::North => Dir2::NORTH,
