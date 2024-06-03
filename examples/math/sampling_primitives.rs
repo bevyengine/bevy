@@ -387,10 +387,7 @@ fn setup(
             Zoom camera by scrolling via mouse or +/-.\n\
             Move camera by L/R arrow keys.\n\
             Tab: Toggle this text",
-            TextStyle {
-                font_size: 20.,
-                ..default()
-            },
+            TextStyle::default(),
         )
         .with_style(Style {
             position_type: PositionType::Absolute,

@@ -93,8 +93,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     "Press Space to enable debug outlines.",
                                     TextStyle {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 20.,
-                                        ..Default::default()
+                                        ..default()
                                     },
                                 ),
                                 Label,
@@ -106,8 +105,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     "Try enabling feature \"bevy_dev_tools\".",
                                     TextStyle {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 20.,
-                                        ..Default::default()
+                                        ..default()
                                     },
                                 ),
                                 Label,
@@ -177,7 +175,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 TextStyle {
                                                     font: asset_server
                                                         .load("fonts/FiraSans-Bold.ttf"),
-                                                    font_size: 20.,
                                                     ..default()
                                                 },
                                             ),

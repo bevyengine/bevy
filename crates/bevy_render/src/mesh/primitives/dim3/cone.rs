@@ -6,6 +6,18 @@ use crate::{
     render_asset::RenderAssetUsages,
 };
 
+/// Anchoring options for [`ConeMeshBuilder`]
+#[derive(Debug, Copy, Clone, Default)]
+pub enum ConeAnchor {
+    #[default]
+    /// Midpoint between the tip of the cone and the center of its base.
+    MidPoint,
+    /// The Tip of the triangle
+    Tip,
+    /// The center of the base circle
+    Base,
+}
+
 /// A builder used for creating a [`Mesh`] with a [`Cone`] shape.
 #[derive(Clone, Copy, Debug)]
 pub struct ConeMeshBuilder {
@@ -15,6 +27,9 @@ pub struct ConeMeshBuilder {
     ///
     /// The default is `32`.
     pub resolution: u32,
+    /// The anchor point for the cone mesh, defaults to the midpoint between
+    /// the tip of the cone and the center of its base
+    pub anchor: ConeAnchor,
 }
 
 impl Default for ConeMeshBuilder {
@@ -22,6 +37,7 @@ impl Default for ConeMeshBuilder {
         Self {
             cone: Cone::default(),
             resolution: 32,
+            anchor: ConeAnchor::default(),
         }
     }
 }
@@ -34,6 +50,7 @@ impl ConeMeshBuilder {
         Self {
             cone: Cone { radius, height },
             resolution,
+            anchor: ConeAnchor::MidPoint,
         }
     }
 
@@ -41,6 +58,13 @@ impl ConeMeshBuilder {
     #[inline]
     pub const fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
+        self
+    }
+
+    /// Sets a custom anchor point for the mesh
+    #[inline]
+    pub const fn anchor(mut self, anchor: ConeAnchor) -> Self {
+        self.anchor = anchor;
         self
     }
 }
@@ -129,6 +153,13 @@ impl MeshBuilder for ConeMeshBuilder {
         for i in 1..(self.resolution - 1) {
             indices.extend_from_slice(&[index_offset, index_offset + i, index_offset + i + 1]);
         }
+
+        // Offset the vertex positions Y axis to match the anchor
+        match self.anchor {
+            ConeAnchor::Tip => positions.iter_mut().for_each(|p| p[1] -= half_height),
+            ConeAnchor::Base => positions.iter_mut().for_each(|p| p[1] += half_height),
+            ConeAnchor::MidPoint => (),
+        };
 
         Mesh::new(
             PrimitiveTopology::TriangleList,

@@ -4,8 +4,6 @@ use bevy_ecs::{
     system::{Local, Resource},
     world::{Mut, World},
 };
-#[cfg(feature = "bevy_state")]
-use bevy_state::state::StateTransition;
 
 /// The schedule that contains the app logic that is evaluated each tick of [`App::update()`].
 ///
@@ -175,8 +173,6 @@ impl Default for MainScheduleOrder {
             labels: vec![
                 First.intern(),
                 PreUpdate.intern(),
-                #[cfg(feature = "bevy_state")]
-                StateTransition.intern(),
                 RunFixedMainLoop.intern(),
                 Update.intern(),
                 SpawnScene.intern(),
