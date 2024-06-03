@@ -24,6 +24,8 @@ mod rects;
 mod rotation2d;
 #[cfg(feature = "rand")]
 pub mod sampling;
+mod compass;
+pub use compass::{CompassQuadrant, CompassOctant};
 
 pub use affine3::*;
 pub use aspect_ratio::AspectRatio;
