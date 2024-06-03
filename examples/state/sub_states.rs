@@ -43,7 +43,7 @@ fn main() {
         .add_systems(OnExit(AppState::Menu), cleanup_menu)
         .add_systems(OnEnter(AppState::InGame), setup_game)
         .add_systems(OnEnter(IsPaused::Paused), setup_paused_screen)
-        .add_state_bound::<IsPaused>()
+        .enable_state_bound_entities::<IsPaused>()
         .add_systems(
             Update,
             (

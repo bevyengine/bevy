@@ -55,7 +55,7 @@ pub trait AppExtStates {
     /// Enable state bound entity clearing for state `S`.
     ///
     /// For more information refer to [`StateBound`](crate::state_bound::StateBound).
-    fn add_state_bound<S: States>(&mut self) -> &mut Self;
+    fn enable_state_bound_entities<S: States>(&mut self) -> &mut Self;
 }
 
 impl AppExtStates for SubApp {
@@ -134,7 +134,7 @@ impl AppExtStates for SubApp {
     }
 
     #[cfg(feature = "bevy_hierarchy")]
-    fn add_state_bound<S: States>(&mut self) -> &mut Self {
+    fn enable_state_bound_entities<S: States>(&mut self) -> &mut Self {
         self.add_systems(
             StateTransition,
             clear_state_bound_entities::<S>.in_set(StateTransitionSteps::ExitSchedules),
@@ -164,8 +164,8 @@ impl AppExtStates for App {
     }
 
     #[cfg(feature = "bevy_hierarchy")]
-    fn add_state_bound<S: States>(&mut self) -> &mut Self {
-        self.main_mut().add_state_bound::<S>();
+    fn enable_state_bound_entities<S: States>(&mut self) -> &mut Self {
+        self.main_mut().enable_state_bound_entities::<S>();
         self
     }
 }

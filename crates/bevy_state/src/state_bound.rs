@@ -11,8 +11,8 @@ use crate::state::{StateTransitionEvent, States};
 /// Entities marked with this component will be removed
 /// when the world's state of the matching type no longer matches the supplied value.
 ///
-/// To enable this feature, register the [`clear_state_bound_entities`]
-/// system for selected states.
+/// To enable this feature remember configure your application
+/// with [`enable_state_bound_entities`](crate::app::AppExtStates::enable_state_bound_entities) on your state(s) of choice.
 ///
 /// ```
 /// use bevy_state::prelude::*;
