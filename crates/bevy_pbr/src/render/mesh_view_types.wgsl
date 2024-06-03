@@ -17,7 +17,7 @@ const POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32   = 1u;
 const POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32 = 2u;
 
 struct DirectionalCascade {
-    view_projection: mat4x4<f32>,
+    clip_from_world: mat4x4<f32>,
     texel_size: f32,
     far_bound: f32,
 }
@@ -115,7 +115,7 @@ struct ClusterOffsetsAndCounts {
 struct LightProbe {
     // This is stored as the transpose in order to save space in this structure.
     // It'll be transposed in the `environment_map_light` function.
-    inverse_transpose_transform: mat3x4<f32>,
+    light_from_world_transposed: mat3x4<f32>,
     cubemap_index: i32,
     intensity: f32,
 };

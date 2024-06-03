@@ -36,7 +36,7 @@ fn fragment(
         is_front,
     );
 
-    pbr_input.is_orthographic = view.projection[3].w == 1.0;
+    pbr_input.is_orthographic = view.clip_from_view[3].w == 1.0;
 
     pbr_input.N = normalize(pbr_input.world_normal);
 

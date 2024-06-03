@@ -132,7 +132,7 @@ impl<'m> SceneEntityMapper<'m> {
     }
 
     /// Creates a new [`SceneEntityMapper`], spawning a temporary base [`Entity`] in the provided [`World`]
-    fn new(map: &'m mut EntityHashMap<Entity>, world: &mut World) -> Self {
+    pub fn new(map: &'m mut EntityHashMap<Entity>, world: &mut World) -> Self {
         Self {
             map,
             // SAFETY: Entities data is kept in a valid state via `EntityMapper::world_scope`
@@ -145,7 +145,7 @@ impl<'m> SceneEntityMapper<'m> {
     /// [`Entity`] while reserving extra generations via [`crate::entity::Entities::reserve_generations`]. Because this
     /// renders the [`SceneEntityMapper`] unable to safely allocate any more references, this method takes ownership of
     /// `self` in order to render it unusable.
-    fn finish(self, world: &mut World) {
+    pub fn finish(self, world: &mut World) {
         // SAFETY: Entities data is kept in a valid state via `EntityMap::world_scope`
         let entities = unsafe { world.entities_mut() };
         assert!(entities.free(self.dead_start).is_some());

@@ -22,16 +22,25 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
+use prepass::{SkyboxPrepassPipeline, SKYBOX_PREPASS_SHADER_HANDLE};
 
 use crate::core_3d::CORE_3D_DEPTH_FORMAT;
 
 const SKYBOX_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(55594763423201);
+
+pub mod prepass;
 
 pub struct SkyboxPlugin;
 
 impl Plugin for SkyboxPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, SKYBOX_SHADER_HANDLE, "skybox.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            SKYBOX_PREPASS_SHADER_HANDLE,
+            "skybox_prepass.wgsl",
+            Shader::from_wgsl
+        );
 
         app.add_plugins((
             ExtractComponentPlugin::<Skybox>::default(),
@@ -43,11 +52,15 @@ impl Plugin for SkyboxPlugin {
         };
         render_app
             .init_resource::<SpecializedRenderPipelines<SkyboxPipeline>>()
+            .init_resource::<SpecializedRenderPipelines<SkyboxPrepassPipeline>>()
             .add_systems(
                 Render,
                 (
                     prepare_skybox_pipelines.in_set(RenderSet::Prepare),
+                    prepass::prepare_skybox_prepass_pipelines.in_set(RenderSet::Prepare),
                     prepare_skybox_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                    prepass::prepare_skybox_prepass_bind_groups
+                        .in_set(RenderSet::PrepareBindGroups),
                 ),
             );
     }
@@ -57,7 +70,9 @@ impl Plugin for SkyboxPlugin {
             return;
         };
         let render_device = render_app.world().resource::<RenderDevice>().clone();
-        render_app.insert_resource(SkyboxPipeline::new(&render_device));
+        render_app
+            .insert_resource(SkyboxPipeline::new(&render_device))
+            .init_resource::<SkyboxPrepassPipeline>();
     }
 }
 

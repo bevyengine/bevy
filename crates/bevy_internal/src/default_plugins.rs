@@ -69,7 +69,7 @@ impl PluginGroup for DefaultPlugins {
 
         #[cfg(feature = "bevy_winit")]
         {
-            group = group.add(bevy_winit::WinitPlugin::default());
+            group = group.add::<bevy_winit::WinitPlugin>(bevy_winit::WinitPlugin::default());
         }
 
         #[cfg(feature = "bevy_render")]
@@ -136,6 +136,11 @@ impl PluginGroup for DefaultPlugins {
         #[cfg(feature = "bevy_gizmos")]
         {
             group = group.add(bevy_gizmos::GizmoPlugin);
+        }
+
+        #[cfg(feature = "bevy_state")]
+        {
+            group = group.add(bevy_state::app::StatesPlugin);
         }
 
         #[cfg(feature = "bevy_dev_tools")]
