@@ -143,6 +143,7 @@ Example | Description
 [Lightmaps](../examples/3d/lightmaps.rs) | Rendering a scene with baked lightmaps
 [Lines](../examples/3d/lines.rs) | Create a custom material to draw 3d lines
 [Load glTF](../examples/3d/load_gltf.rs) | Loads and renders a glTF file as a scene
+[Load glTF extras](../examples/3d/load_gltf_extras.rs) | Loads and renders a glTF file as a scene, including the gltf extras
 [Meshlet](../examples/3d/meshlet.rs) | Meshlet rendering for dense high-poly scenes (experimental)
 [Motion Blur](../examples/3d/motion_blur.rs) | Demonstrates per-pixel motion blur
 [Orthographic View](../examples/3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look in games or CAD applications)
@@ -459,6 +460,7 @@ Example | Description
 Example | Description
 --- | ---
 [Clear Color](../examples/window/clear_color.rs) | Creates a solid color window
+[Custom User Event](../examples/window/custom_user_event.rs) | Handles custom user events within the event loop
 [Low Power](../examples/window/low_power.rs) | Demonstrates settings to reduce power use for bevy applications
 [Multiple Windows](../examples/window/multiple_windows.rs) | Demonstrates creating multiple windows, and rendering to them
 [Scale Factor Override](../examples/window/scale_factor_override.rs) | Illustrates how to customize the default window settings

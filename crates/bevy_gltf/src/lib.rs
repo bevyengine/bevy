@@ -146,6 +146,9 @@ impl GltfPlugin {
 impl Plugin for GltfPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<GltfExtras>()
+            .register_type::<GltfSceneExtras>()
+            .register_type::<GltfMeshExtras>()
+            .register_type::<GltfMaterialExtras>()
             .init_asset::<Gltf>()
             .init_asset::<GltfNode>()
             .init_asset::<GltfPrimitive>()
@@ -239,12 +242,42 @@ pub struct GltfPrimitive {
     pub material_extras: Option<GltfExtras>,
 }
 
-/// Additional untyped data that can be present on most glTF types.
+/// Additional untyped data that can be present on most glTF types at the primitive level.
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
 #[derive(Clone, Debug, Reflect, Default, Component)]
 #[reflect(Component)]
 pub struct GltfExtras {
+    /// Content of the extra data.
+    pub value: String,
+}
+
+/// Additional untyped data that can be present on most glTF types at the scene level.
+///
+/// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
+#[derive(Clone, Debug, Reflect, Default, Component)]
+#[reflect(Component)]
+pub struct GltfSceneExtras {
+    /// Content of the extra data.
+    pub value: String,
+}
+
+/// Additional untyped data that can be present on most glTF types at the mesh level.
+///
+/// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
+#[derive(Clone, Debug, Reflect, Default, Component)]
+#[reflect(Component)]
+pub struct GltfMeshExtras {
+    /// Content of the extra data.
+    pub value: String,
+}
+
+/// Additional untyped data that can be present on most glTF types at the material level.
+///
+/// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
+#[derive(Clone, Debug, Reflect, Default, Component)]
+#[reflect(Component)]
+pub struct GltfMaterialExtras {
     /// Content of the extra data.
     pub value: String,
 }
