@@ -14,6 +14,7 @@ use crate::{
 
 use super::SrcDst;
 
+///Performs a copy operation between two textures which must be of the same size and format.
 pub fn copy_texture_to_texture<'g>(
     graph: &mut RenderGraphBuilder<'_, 'g>,
     src_dst: SrcDst<'g, Texture>,
@@ -37,6 +38,9 @@ pub fn copy_texture_to_texture<'g>(
     );
 }
 
+///Performs a copy operation between a texture and a buffer. The copy must not overrun the
+///destination buffer. If `layout` is `None` the graph will check if the buffer has an associated
+///`ImageDataLayout` in its metadata. If not, the function will `panic!`
 pub fn copy_texture_to_buffer<'g>(
     graph: &mut RenderGraphBuilder<'_, 'g>,
     src_dst: SrcDst<'g, Texture, Buffer>,
@@ -48,7 +52,7 @@ pub fn copy_texture_to_buffer<'g>(
     let size = graph.meta(src_dst.src).size;
     let layout = layout
         .or(graph.meta(src_dst.dst).layout)
-        .expect("ImageDataLayout not provided");
+        .expect("ImageDataLayout not provided for copy operation");
 
     graph.add_node(
         Some("copy_texture_to_buffer".into()),
@@ -66,6 +70,9 @@ pub fn copy_texture_to_buffer<'g>(
     );
 }
 
+///Performs a copy operation between a texture and a buffer. The copy must not overrun the
+///destination texture. If `layout` is `None` the graph will check if the buffer has an associated
+///`ImageDataLayout` in its metadata. If not, the function will `panic!`
 pub fn copy_buffer_to_texture<'g>(
     graph: &mut RenderGraphBuilder<'_, 'g>,
     src_dst: SrcDst<'g, Buffer, Texture>,
@@ -95,6 +102,7 @@ pub fn copy_buffer_to_texture<'g>(
     );
 }
 
+///Performs a copy operation between two buffers. The copy must not overrun the destination buffer.
 pub fn copy_buffer_to_buffer<'g>(
     graph: &mut RenderGraphBuilder<'_, 'g>,
     src_dst: SrcDst<'g, Buffer>,
@@ -120,48 +128,62 @@ pub fn copy_buffer_to_buffer<'g>(
     );
 }
 
-pub trait CopyTo<Dst: UsagesRenderResource>: UsagesRenderResource {
-    fn copy_to<'g>(graph: &mut RenderGraphBuilder<'_, 'g>, src_dst: SrcDst<'g, Self, Dst>);
+///Denotes a resource whose data can be copied to others of type `Dst`
+pub trait CopyResource<Dst: UsagesRenderResource>: UsagesRenderResource {
+    ///Perfoms a copy from a resource of type `Self` to a resource of type `Dst` in the render
+    ///graph
+    fn copy_resource<'g>(graph: &mut RenderGraphBuilder<'_, 'g>, src_dst: SrcDst<'g, Self, Dst>);
 }
 
-impl CopyTo<Texture> for Texture {
-    fn copy_to<'g>(graph: &mut RenderGraphBuilder<'_, 'g>, src_dst: SrcDst<'g, Self>) {
+impl CopyResource<Texture> for Texture {
+    fn copy_resource<'g>(graph: &mut RenderGraphBuilder<'_, 'g>, src_dst: SrcDst<'g, Self>) {
         copy_texture_to_texture(graph, src_dst);
     }
 }
 
-impl CopyTo<Buffer> for Texture {
-    fn copy_to<'g>(graph: &mut RenderGraphBuilder<'_, 'g>, src_dst: SrcDst<'g, Self, Buffer>) {
+impl CopyResource<Buffer> for Texture {
+    fn copy_resource<'g>(
+        graph: &mut RenderGraphBuilder<'_, 'g>,
+        src_dst: SrcDst<'g, Self, Buffer>,
+    ) {
         copy_texture_to_buffer(graph, src_dst, None);
     }
 }
 
-impl CopyTo<Texture> for Buffer {
-    fn copy_to<'g>(graph: &mut RenderGraphBuilder<'_, 'g>, src_dst: SrcDst<'g, Self, Texture>) {
+impl CopyResource<Texture> for Buffer {
+    fn copy_resource<'g>(
+        graph: &mut RenderGraphBuilder<'_, 'g>,
+        src_dst: SrcDst<'g, Self, Texture>,
+    ) {
         copy_buffer_to_texture(graph, src_dst, None);
     }
 }
 
-impl CopyTo<Buffer> for Buffer {
-    fn copy_to<'g>(graph: &mut RenderGraphBuilder<'_, 'g>, src_dst: SrcDst<'g, Self>) {
+impl CopyResource<Buffer> for Buffer {
+    fn copy_resource<'g>(graph: &mut RenderGraphBuilder<'_, 'g>, src_dst: SrcDst<'g, Self>) {
         copy_buffer_to_buffer(graph, src_dst);
     }
 }
 
-pub fn copy_to<'g, Src: CopyTo<Dst>, Dst: UsagesRenderResource>(
+///Performs a copy operation between two resources. If copying between a texture and a buffer (or
+///vice-versa) the buffer must have been created with an associated `ImageDataLayout` in its
+///metadata.
+pub fn copy<'g, Src: CopyResource<Dst>, Dst: UsagesRenderResource>(
     graph: &mut RenderGraphBuilder<'_, 'g>,
     src_dst: SrcDst<'g, Src, Dst>,
 ) {
-    CopyTo::copy_to(graph, src_dst);
+    CopyResource::copy_resource(graph, src_dst);
 }
 
-pub fn clone<'g, R: CopyTo<R>>(
+///Clones a resource by creating a new resource from the original's metadata, and performing a copy
+///from the original resource to the new one.
+pub fn clone<'g, R: CopyResource<R>>(
     graph: &mut RenderGraphBuilder<'_, 'g>,
     resource: RenderHandle<'g, R>,
 ) -> RenderHandle<'g, R> {
     let meta = graph.meta(resource).clone();
     let new_resource = graph.new_resource(meta);
-    copy_to(
+    copy(
         graph,
         SrcDst {
             src: resource,
