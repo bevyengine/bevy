@@ -16,6 +16,7 @@ iy = "iy"   # Variable name used in bevy_gizmos. Probably stands for "y-axis ind
 ser = "ser" # ron::ser - Serializer
 SME = "SME" # Subject Matter Expert
 Sur = "Sur" # macOS Big Sur - South
+Ba = "Ba"   # Bitangent for Anisotropy
 
 # Match Inside a Word - Case Insensitive
 [default.extend-words]

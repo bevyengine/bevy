@@ -15,19 +15,21 @@
 @group(2) @binding(10) var normal_map_sampler: sampler;
 @group(2) @binding(11) var depth_map_texture: texture_2d<f32>;
 @group(2) @binding(12) var depth_map_sampler: sampler;
+@group(2) @binding(13) var anisotropy_texture: texture_2d<f32>;
+@group(2) @binding(14) var anisotropy_sampler: sampler;
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
-@group(2) @binding(13) var specular_transmission_texture: texture_2d<f32>;
-@group(2) @binding(14) var specular_transmission_sampler: sampler;
-@group(2) @binding(15) var thickness_texture: texture_2d<f32>;
-@group(2) @binding(16) var thickness_sampler: sampler;
-@group(2) @binding(17) var diffuse_transmission_texture: texture_2d<f32>;
-@group(2) @binding(18) var diffuse_transmission_sampler: sampler;
+@group(2) @binding(15) var specular_transmission_texture: texture_2d<f32>;
+@group(2) @binding(16) var specular_transmission_sampler: sampler;
+@group(2) @binding(17) var thickness_texture: texture_2d<f32>;
+@group(2) @binding(18) var thickness_sampler: sampler;
+@group(2) @binding(19) var diffuse_transmission_texture: texture_2d<f32>;
+@group(2) @binding(20) var diffuse_transmission_sampler: sampler;
 #endif
 #ifdef PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED
-@group(2) @binding(19) var clearcoat_texture: texture_2d<f32>;
-@group(2) @binding(20) var clearcoat_sampler: sampler;
-@group(2) @binding(21) var clearcoat_roughness_texture: texture_2d<f32>;
-@group(2) @binding(22) var clearcoat_roughness_sampler: sampler;
-@group(2) @binding(23) var clearcoat_normal_texture: texture_2d<f32>;
-@group(2) @binding(24) var clearcoat_normal_sampler: sampler;
+@group(2) @binding(21) var clearcoat_texture: texture_2d<f32>;
+@group(2) @binding(22) var clearcoat_sampler: sampler;
+@group(2) @binding(23) var clearcoat_roughness_texture: texture_2d<f32>;
+@group(2) @binding(24) var clearcoat_roughness_sampler: sampler;
+@group(2) @binding(25) var clearcoat_normal_texture: texture_2d<f32>;
+@group(2) @binding(26) var clearcoat_normal_sampler: sampler;
 #endif

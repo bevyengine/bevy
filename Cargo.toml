@@ -3143,6 +3143,18 @@ description = "Demonstrates volumetric fog and lighting"
 category = "3D Rendering"
 wasm = true
 
+[[example]]
+name = "anisotropy"
+path = "examples/3d/anisotropy.rs"
+doc-scrape-examples = true
+required-features = ["jpeg"]
+
+[package.metadata.example.anisotropy]
+name = "Anisotropy"
+description = "Displays an example model with anisotropy"
+category = "3D Rendering"
+wasm = false
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
