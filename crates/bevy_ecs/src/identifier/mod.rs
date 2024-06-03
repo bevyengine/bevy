@@ -3,6 +3,8 @@
 //! or other IDs that can be packed and expressed within a `u64` sized type.
 //! [`Identifier`]s cannot be created directly, only able to be converted from other
 //! compatible IDs.
+use bevy_reflect::Reflect;
+
 use self::{error::IdentifierError, kinds::IdKind, masks::IdentifierMask};
 use std::{hash::Hash, num::NonZeroU32};
 
@@ -15,6 +17,8 @@ pub(crate) mod masks;
 /// segment, a 31-bit high segment, and the significant bit reserved as type flags to denote
 /// entity kinds.
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect_value(Hash, PartialEq))]
 // Alignment repr necessary to allow LLVM to better output
 // optimised codegen for `to_bits`, `PartialEq` and `Ord`.
 #[repr(C, align(8))]
