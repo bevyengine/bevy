@@ -3,6 +3,8 @@ use crate::{
     Quat, Rotation2d, Vec2, Vec3, Vec3A,
 };
 
+use core::f32::consts::FRAC_1_SQRT_2;
+
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
@@ -104,6 +106,23 @@ impl Dir2 {
     pub const NEG_Y: Self = Self(Vec2::NEG_Y);
     /// The directional axes.
     pub const AXES: [Self; 2] = [Self::X, Self::Y];
+
+    /// The "north" direction, equivalent to [`Dir2::Y`].
+    pub const NORTH: Self = Self(Vec2::Y);
+    /// The "south" direction, equivalent to [`Dir2::NEG_Y`].
+    pub const SOUTH: Self = Self(Vec2::NEG_Y);
+    /// The "east" direction, equivalent to [`Dir2::X`].
+    pub const EAST: Self = Self(Vec2::X);
+    /// The "west" direction, equivalent to [`Dir2::NEG_X`].
+    pub const WEST: Self = Self(Vec2::NEG_X);
+    /// The "north-east" direction, between [`Dir2::NORTH`] and [`Dir2::EAST`].
+    pub const NORTH_EAST: Self = Self(Vec2::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2));
+    /// The "north-west" direction, between [`Dir2::NORTH`] and [`Dir2::WEST`].
+    pub const NORTH_WEST: Self = Self(Vec2::new(-FRAC_1_SQRT_2, FRAC_1_SQRT_2));
+    /// The "south-east" direction, between [`Dir2::SOUTH`] and [`Dir2::EAST`].
+    pub const SOUTH_EAST: Self = Self(Vec2::new(FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
+    /// The "south-west" direction, between [`Dir2::SOUTH`] and [`Dir2::WEST`].
+    pub const SOUTH_WEST: Self = Self(Vec2::new(-FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
 
     /// Create a direction from a finite, nonzero [`Vec2`], normalizing it.
     ///
