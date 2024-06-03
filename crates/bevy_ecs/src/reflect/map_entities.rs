@@ -74,12 +74,18 @@ impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
     }
 }
 
+/// For a specific type of resource, this maps any fields with values of type [`Entity`] to a new world.
+/// Since a given `Entity` ID is only valid for the world it came from, when performing deserialization
+/// any stored IDs need to be re-allocated in the destination world.
+///
+/// See [`SceneEntityMapper`] and [`MapEntities`] for more information.
 #[derive(Clone)]
 pub struct ReflectMapEntitiesResource {
     map_entities: fn(&mut World, &mut SceneEntityMapper),
 }
 
 impl ReflectMapEntitiesResource {
+    /// A method for applying [`MapEntities`] behavior to elements in an [`EntityHashMap<Entity>`].
     pub fn map_entities(&self, world: &mut World, entity_map: &mut EntityHashMap<Entity>) {
         SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
             (self.map_entities)(world, mapper);
