@@ -108,19 +108,19 @@ mod test_compass_quadrant {
     fn test_cardinal_directions() {
         let tests = vec![
             (
-                Dir2::new_unchecked(Vec2::new(1.0, 0.0).normalize()),
+                Dir2::new(Vec2::new(1.0, 0.0)).unwrap(),
                 CompassQuadrant::East,
             ),
             (
-                Dir2::new_unchecked(Vec2::new(0.0, 1.0).normalize()),
+                Dir2::new(Vec2::new(0.0, 1.0)).unwrap(),
                 CompassQuadrant::North,
             ),
             (
-                Dir2::new_unchecked(Vec2::new(-1.0, 0.0).normalize()),
+                Dir2::new(Vec2::new(-1.0, 0.0)).unwrap(),
                 CompassQuadrant::West,
             ),
             (
-                Dir2::new_unchecked(Vec2::new(0.0, -1.0).normalize()),
+                Dir2::new(Vec2::new(0.0, -1.0)).unwrap(),
                 CompassQuadrant::South,
             ),
         ];
@@ -134,11 +134,11 @@ mod test_compass_quadrant {
     fn test_north_pie_slice() {
         let tests = vec![
             (
-                Dir2::new_unchecked(Vec2::new(-0.1, 0.9).normalize()),
+                Dir2::new(Vec2::new(-0.1, 0.9)).unwrap(),
                 CompassQuadrant::North,
             ),
             (
-                Dir2::new_unchecked(Vec2::new(0.1, 0.9).normalize()),
+                Dir2::new(Vec2::new(0.1, 0.9)).unwrap(),
                 CompassQuadrant::North,
             ),
         ];
@@ -152,11 +152,11 @@ mod test_compass_quadrant {
     fn test_east_pie_slice() {
         let tests = vec![
             (
-                Dir2::new_unchecked(Vec2::new(0.9, 0.1).normalize()),
+                Dir2::new(Vec2::new(0.9, 0.1)).unwrap(),
                 CompassQuadrant::East,
             ),
             (
-                Dir2::new_unchecked(Vec2::new(0.9, -0.1).normalize()),
+                Dir2::new(Vec2::new(0.9, -0.1)).unwrap(),
                 CompassQuadrant::East,
             ),
         ];
@@ -170,11 +170,11 @@ mod test_compass_quadrant {
     fn test_south_pie_slice() {
         let tests = vec![
             (
-                Dir2::new_unchecked(Vec2::new(-0.1, -0.9).normalize()),
+                Dir2::new(Vec2::new(-0.1, -0.9)).unwrap(),
                 CompassQuadrant::South,
             ),
             (
-                Dir2::new_unchecked(Vec2::new(0.1, -0.9).normalize()),
+                Dir2::new(Vec2::new(0.1, -0.9)).unwrap(),
                 CompassQuadrant::South,
             ),
         ];
@@ -188,11 +188,11 @@ mod test_compass_quadrant {
     fn test_west_pie_slice() {
         let tests = vec![
             (
-                Dir2::new_unchecked(Vec2::new(-0.9, -0.1).normalize()),
+                Dir2::new(Vec2::new(-0.9, -0.1)).unwrap(),
                 CompassQuadrant::West,
             ),
             (
-                Dir2::new_unchecked(Vec2::new(-0.9, 0.1).normalize()),
+                Dir2::new(Vec2::new(-0.9, 0.1)).unwrap(),
                 CompassQuadrant::West,
             ),
         ];
@@ -211,35 +211,32 @@ mod test_compass_octant {
     fn test_cardinal_directions() {
         let tests = vec![
             (
-                Dir2::new_unchecked(Vec2::new(-0.5, 0.5).normalize()),
+                Dir2::new(Vec2::new(-0.5, 0.5)).unwrap(),
                 CompassOctant::NorthWest,
             ),
             (
-                Dir2::new_unchecked(Vec2::new(0.0, 1.0).normalize()),
+                Dir2::new(Vec2::new(0.0, 1.0)).unwrap(),
                 CompassOctant::North,
             ),
             (
-                Dir2::new_unchecked(Vec2::new(0.5, 0.5).normalize()),
+                Dir2::new(Vec2::new(0.5, 0.5)).unwrap(),
                 CompassOctant::NorthEast,
             ),
+            (Dir2::new(Vec2::new(1.0, 0.0)).unwrap(), CompassOctant::East),
             (
-                Dir2::new_unchecked(Vec2::new(1.0, 0.0).normalize()),
-                CompassOctant::East,
-            ),
-            (
-                Dir2::new_unchecked(Vec2::new(0.5, -0.5).normalize()),
+                Dir2::new(Vec2::new(0.5, -0.5)).unwrap(),
                 CompassOctant::SouthEast,
             ),
             (
-                Dir2::new_unchecked(Vec2::new(0.0, -1.0).normalize()),
+                Dir2::new(Vec2::new(0.0, -1.0)).unwrap(),
                 CompassOctant::South,
             ),
             (
-                Dir2::new_unchecked(Vec2::new(-0.5, -0.5).normalize()),
+                Dir2::new(Vec2::new(-0.5, -0.5)).unwrap(),
                 CompassOctant::SouthWest,
             ),
             (
-                Dir2::new_unchecked(Vec2::new(-1.0, 0.0).normalize()),
+                Dir2::new(Vec2::new(-1.0, 0.0)).unwrap(),
                 CompassOctant::West,
             ),
         ];
@@ -253,11 +250,11 @@ mod test_compass_octant {
     fn test_north_pie_slice() {
         let tests = vec![
             (
-                Dir2::new_unchecked(Vec2::new(-0.1, 0.9).normalize()),
+                Dir2::new(Vec2::new(-0.1, 0.9)).unwrap(),
                 CompassOctant::North,
             ),
             (
-                Dir2::new_unchecked(Vec2::new(0.1, 0.9).normalize()),
+                Dir2::new(Vec2::new(0.1, 0.9)).unwrap(),
                 CompassOctant::North,
             ),
         ];
@@ -271,11 +268,11 @@ mod test_compass_octant {
     fn test_north_east_pie_slice() {
         let tests = vec![
             (
-                Dir2::new_unchecked(Vec2::new(0.4, 0.6).normalize()),
+                Dir2::new(Vec2::new(0.4, 0.6)).unwrap(),
                 CompassOctant::NorthEast,
             ),
             (
-                Dir2::new_unchecked(Vec2::new(0.6, 0.4).normalize()),
+                Dir2::new(Vec2::new(0.6, 0.4)).unwrap(),
                 CompassOctant::NorthEast,
             ),
         ];
@@ -288,12 +285,9 @@ mod test_compass_octant {
     #[test]
     fn test_east_pie_slice() {
         let tests = vec![
+            (Dir2::new(Vec2::new(0.9, 0.1)).unwrap(), CompassOctant::East),
             (
-                Dir2::new_unchecked(Vec2::new(0.9, 0.1).normalize()),
-                CompassOctant::East,
-            ),
-            (
-                Dir2::new_unchecked(Vec2::new(0.9, -0.1).normalize()),
+                Dir2::new(Vec2::new(0.9, -0.1)).unwrap(),
                 CompassOctant::East,
             ),
         ];
@@ -307,11 +301,11 @@ mod test_compass_octant {
     fn test_south_east_pie_slice() {
         let tests = vec![
             (
-                Dir2::new_unchecked(Vec2::new(0.4, -0.6).normalize()),
+                Dir2::new(Vec2::new(0.4, -0.6)).unwrap(),
                 CompassOctant::SouthEast,
             ),
             (
-                Dir2::new_unchecked(Vec2::new(0.6, -0.4).normalize()),
+                Dir2::new(Vec2::new(0.6, -0.4)).unwrap(),
                 CompassOctant::SouthEast,
             ),
         ];
@@ -325,11 +319,11 @@ mod test_compass_octant {
     fn test_south_pie_slice() {
         let tests = vec![
             (
-                Dir2::new_unchecked(Vec2::new(-0.1, -0.9).normalize()),
+                Dir2::new(Vec2::new(-0.1, -0.9)).unwrap(),
                 CompassOctant::South,
             ),
             (
-                Dir2::new_unchecked(Vec2::new(0.1, -0.9).normalize()),
+                Dir2::new(Vec2::new(0.1, -0.9)).unwrap(),
                 CompassOctant::South,
             ),
         ];
@@ -343,11 +337,11 @@ mod test_compass_octant {
     fn test_south_west_pie_slice() {
         let tests = vec![
             (
-                Dir2::new_unchecked(Vec2::new(-0.4, -0.6).normalize()),
+                Dir2::new(Vec2::new(-0.4, -0.6)).unwrap(),
                 CompassOctant::SouthWest,
             ),
             (
-                Dir2::new_unchecked(Vec2::new(-0.6, -0.4).normalize()),
+                Dir2::new(Vec2::new(-0.6, -0.4)).unwrap(),
                 CompassOctant::SouthWest,
             ),
         ];
@@ -361,11 +355,11 @@ mod test_compass_octant {
     fn test_west_pie_slice() {
         let tests = vec![
             (
-                Dir2::new_unchecked(Vec2::new(-0.9, -0.1).normalize()),
+                Dir2::new(Vec2::new(-0.9, -0.1)).unwrap(),
                 CompassOctant::West,
             ),
             (
-                Dir2::new_unchecked(Vec2::new(-0.9, 0.1).normalize()),
+                Dir2::new(Vec2::new(-0.9, 0.1)).unwrap(),
                 CompassOctant::West,
             ),
         ];
@@ -379,11 +373,11 @@ mod test_compass_octant {
     fn test_north_west_pie_slice() {
         let tests = vec![
             (
-                Dir2::new_unchecked(Vec2::new(-0.4, 0.6).normalize()),
+                Dir2::new(Vec2::new(-0.4, 0.6)).unwrap(),
                 CompassOctant::NorthWest,
             ),
             (
-                Dir2::new_unchecked(Vec2::new(-0.6, 0.4).normalize()),
+                Dir2::new(Vec2::new(-0.6, 0.4)).unwrap(),
                 CompassOctant::NorthWest,
             ),
         ];
