@@ -49,12 +49,7 @@ use bevy_utils::tracing::warn;
 
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
-    identifier::{
-        error::IdentifierError,
-        kinds::IdKind,
-        masks::{IdentifierMask, HIGH_MASK},
-        Identifier,
-    },
+    identifier::{error::IdentifierError, masks::IdentifierMask, Identifier},
     storage::{SparseSetIndex, TableId, TableRow},
 };
 #[cfg(feature = "serde")]
@@ -221,12 +216,20 @@ pub(crate) enum AllocAtWithoutReplacement {
 
 impl Entity {
     /// Construct an [`Entity`] from a raw `index` value and a non-zero `generation` value.
-    /// Ensure that the generation value is never greater than `0x7FFF_FFFF`.
+    /// Ensure that the masked generation value is never greater than `0x3FFF_FFFF`.
     #[inline(always)]
     pub(crate) const fn from_raw_and_generation(index: u32, generation: NonZeroU32) -> Entity {
-        debug_assert!(generation.get() <= HIGH_MASK);
+        // Create an intermediate Identifier to do debug verification
+        // This will get optimised away as Identifier and Entity have identical layouts
+        let id = Identifier::from_parts(index, generation);
 
-        Self { index, generation }
+        // If the PLACEHOLDER bit flag is set, then it is not a valid generation value for Entity.
+        debug_assert!(!id.is_placeholder());
+
+        Self {
+            index: id.low(),
+            generation: id.high(),
+        }
     }
 
     /// An entity ID with a placeholder value. This may or may not correspond to an actual entity,
@@ -290,7 +293,13 @@ impl Entity {
     /// No particular structure is guaranteed for the returned bits.
     #[inline(always)]
     pub const fn to_bits(self) -> u64 {
-        IdentifierMask::pack_into_u64(self.index, self.generation.get())
+        self.to_identifier().to_bits()
+    }
+
+    /// Convert to an [`Identifier`].
+    #[inline(always)]
+    pub const fn to_identifier(self) -> Identifier {
+        Identifier::from_parts(self.index, self.generation)
     }
 
     /// Reconstruct an `Entity` previously destructured with [`Entity::to_bits`].
@@ -302,12 +311,19 @@ impl Entity {
     /// This method will likely panic if given `u64` values that did not come from [`Entity::to_bits`].
     #[inline]
     pub const fn from_bits(bits: u64) -> Self {
+        #[inline(never)]
+        #[cold]
+        #[track_caller]
+        const fn invalid_entity() -> ! {
+            panic!("Attempted to initialise invalid bits as an entity");
+        }
+
         // Construct an Identifier initially to extract the kind from.
         let id = Self::try_from_bits(bits);
 
         match id {
             Ok(entity) => entity,
-            Err(_) => panic!("Attempted to initialise invalid bits as an entity"),
+            Err(_) => invalid_entity(),
         }
     }
 
@@ -319,9 +335,7 @@ impl Entity {
     #[inline(always)]
     pub const fn try_from_bits(bits: u64) -> Result<Self, IdentifierError> {
         if let Ok(id) = Identifier::try_from_bits(bits) {
-            let kind = id.kind() as u8;
-
-            if kind == (IdKind::Entity as u8) {
+            if !id.is_placeholder() {
                 return Ok(Self {
                     index: id.low(),
                     generation: id.high(),
@@ -347,8 +361,7 @@ impl Entity {
     /// given index has been reused (index, generation) pairs uniquely identify a given Entity.
     #[inline]
     pub const fn generation(self) -> u32 {
-        // Mask so not to expose any flags
-        IdentifierMask::extract_value_from_high(self.generation.get())
+        self.to_identifier().masked_high()
     }
 }
 
@@ -357,6 +370,8 @@ impl TryFrom<Identifier> for Entity {
 
     #[inline]
     fn try_from(value: Identifier) -> Result<Self, Self::Error> {
+        // Every Entity is an Identifier, but not every Identifier
+        // is an Entity.
         Self::try_from_bits(value.to_bits())
     }
 }
@@ -364,7 +379,10 @@ impl TryFrom<Identifier> for Entity {
 impl From<Entity> for Identifier {
     #[inline]
     fn from(value: Entity) -> Self {
-        Identifier::from_bits(value.to_bits())
+        // Entity's layout is exactly the same as Identifier, therefore
+        // this will remove any panic! path as we know Entity -> Identifier
+        // conversions will never panic.
+        value.to_identifier()
     }
 }
 
@@ -690,12 +708,12 @@ impl Entities {
             return None;
         }
 
-        meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, 1);
+        meta.generation = IdentifierMask::inc_entity_generation_by(meta.generation, 1);
 
         if meta.generation == NonZeroU32::MIN {
             warn!(
                 "Entity({}) generation wrapped on Entities::free, aliasing may occur",
-                entity.index
+                entity.index()
             );
         }
 
@@ -781,7 +799,8 @@ impl Entities {
 
         let meta = &mut self.meta[index as usize];
         if meta.location.archetype_id == ArchetypeId::INVALID {
-            meta.generation = IdentifierMask::inc_masked_high_by(meta.generation, generations);
+            meta.generation =
+                IdentifierMask::inc_entity_generation_by(meta.generation, generations);
             true
         } else {
             false
