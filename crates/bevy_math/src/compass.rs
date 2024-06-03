@@ -62,6 +62,8 @@ impl From<CompassQuadrant> for Dir2 {
 }
 
 impl From<Dir2> for CompassQuadrant {
+    /// Converts a [`Dir2`] to a [`CompassQuadrant`] in a lossy manner.
+    /// Converting back to a [`Dir2`] is not guaranteed to yield the same value.
     fn from(dir: Dir2) -> Self {
         let angle = dir.to_angle().to_degrees();
 
@@ -91,6 +93,8 @@ impl From<CompassOctant> for Dir2 {
 }
 
 impl From<Dir2> for CompassOctant {
+    /// Converts a [`Dir2`] to a [`CompassOctant`] in a lossy manner.
+    /// Converting back to a [`Dir2`] is not guaranteed to yield the same value.
     fn from(dir: Dir2) -> Self {
         let angle = dir.to_angle().to_degrees();
 
