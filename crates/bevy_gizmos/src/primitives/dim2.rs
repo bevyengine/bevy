@@ -760,7 +760,7 @@ where
         }
 
         // We can save on lines by just drawing a rhombus when the squircle is sufficiantly similar to a rhombus.
-        if self.p.distance(1.) < 0.001 {
+        if self.p.distance(1.) < 0.0001 {
             self.gizmos.primitive_2d(
                 &Rhombus {
                     half_diagonals: self.half_size,
@@ -769,14 +769,6 @@ where
                 self.rotation,
                 self.color,
             );
-        }
-
-        // Sufficiently elliptical squircles are visually identical to ellipses.
-        if self.p.distance(2.) < 0.001 {
-            self.gizmos
-                .ellipse_2d(self.position, self.rotation, self.half_size, self.color)
-                .resolution(self.resolution);
-            return;
         }
 
         // We can save on lines by just drawing a rectangle when the squircle is sufficiantly square.
@@ -793,7 +785,11 @@ where
 
         // Interpolating between `phi`s that are at equal angles from one another and `normal_phi`s
         // which are spaced so that the normals at each `normal_phi` change by equal amounts gives the most visually consistent look.
-        let interpolation = (self.p - 2.).abs().atan() * FRAC_2_PI;
+        let interpolation = if self.p > 2. {
+            (self.p - 2.).abs().atan() * FRAC_2_PI
+        } else {
+            (2. - self.p).sqrt()
+        };
         let squircle_points = |t: f32| {
             let phi = t * TAU;
             let normal_phi = {
