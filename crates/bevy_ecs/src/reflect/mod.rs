@@ -19,7 +19,7 @@ pub use bundle::{ReflectBundle, ReflectBundleFns};
 pub use component::{ReflectComponent, ReflectComponentFns};
 pub use entity_commands::ReflectCommandExt;
 pub use from_world::{ReflectFromWorld, ReflectFromWorldFns};
-pub use map_entities::ReflectMapEntities;
+pub use map_entities::{ReflectMapEntities, ReflectMapEntitiesResource};
 pub use resource::{ReflectResource, ReflectResourceFns};
 
 /// A [`Resource`] storing [`TypeRegistry`] for
