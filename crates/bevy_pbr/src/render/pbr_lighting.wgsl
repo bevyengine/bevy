@@ -335,7 +335,7 @@ fn point_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> 
     let N = (*input).layers[LAYER_BASE].N;
     let V = (*input).V;
 
-    let light = &view_bindings::point_lights.data[light_id];
+    let light = &view_bindings::clusterable_objects.data[light_id];
     let light_to_frag = (*light).position_radius.xyz - P;
     let distance_square = dot(light_to_frag, light_to_frag);
     let rangeAttenuation = getDistanceAttenuation(distance_square, (*light).color_inverse_square_range.w);
@@ -423,7 +423,7 @@ fn spot_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> {
     // reuse the point light calculations
     let point_light = point_light(light_id, input);
 
-    let light = &view_bindings::point_lights.data[light_id];
+    let light = &view_bindings::clusterable_objects.data[light_id];
 
     // reconstruct spot dir from x/z and y-direction flag
     var spot_dir = vec3<f32>((*light).light_custom_data.x, 0.0, (*light).light_custom_data.y);

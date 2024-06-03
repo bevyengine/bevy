@@ -173,7 +173,7 @@ pub fn extract_lights(
     mut commands: Commands,
     point_light_shadow_map: Extract<Res<PointLightShadowMap>>,
     directional_light_shadow_map: Extract<Res<DirectionalLightShadowMap>>,
-    global_point_lights: Extract<Res<GlobalVisiblePointLights>>,
+    global_point_lights: Extract<Res<GlobalVisibleClusterableObjects>>,
     point_lights: Extract<
         Query<(
             &PointLight,
@@ -513,7 +513,7 @@ pub fn prepare_lights(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    mut global_light_meta: ResMut<GlobalLightMeta>,
+    mut global_light_meta: ResMut<GlobalClusterableObjectMeta>,
     mut light_meta: ResMut<LightMeta>,
     views: Query<(
         Entity,
@@ -634,7 +634,7 @@ pub fn prepare_lights(
     //   point light shadows and `spot_light_shadow_maps_count` spot light shadow maps,
     // - then by entity as a stable key to ensure that a consistent set of lights are chosen if the light count limit is exceeded.
     point_lights.sort_by(|(entity_1, light_1, _), (entity_2, light_2, _)| {
-        crate::cluster::point_light_order(
+        crate::cluster::clusterable_object_order(
             (
                 entity_1,
                 &light_1.shadows_enabled,
@@ -714,7 +714,7 @@ pub fn prepare_lights(
             }
         };
 
-        gpu_point_lights.push(GpuPointLight {
+        gpu_point_lights.push(GpuClusterableObject {
             light_custom_data,
             // premultiply color by intensity
             // we don't use the alpha at all, so no reason to multiply only [0..3]
@@ -779,9 +779,9 @@ pub fn prepare_lights(
         }
     }
 
-    global_light_meta.gpu_point_lights.set(gpu_point_lights);
+    global_light_meta.gpu_clusterable_objects.set(gpu_point_lights);
     global_light_meta
-        .gpu_point_lights
+        .gpu_clusterable_objects
         .write_buffer(&render_device, &render_queue);
 
     live_shadow_mapping_lights.clear();

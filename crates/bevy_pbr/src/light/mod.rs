@@ -561,7 +561,7 @@ pub fn update_directional_light_frusta(
 
 // NOTE: Run this after assign_lights_to_clusters!
 pub fn update_point_light_frusta(
-    global_lights: Res<GlobalVisiblePointLights>,
+    global_lights: Res<GlobalVisibleClusterableObjects>,
     mut views: Query<
         (Entity, &GlobalTransform, &PointLight, &mut CubemapFrusta),
         Or<(Changed<GlobalTransform>, Changed<PointLight>)>,
@@ -605,7 +605,7 @@ pub fn update_point_light_frusta(
 }
 
 pub fn update_spot_light_frusta(
-    global_lights: Res<GlobalVisiblePointLights>,
+    global_lights: Res<GlobalVisibleClusterableObjects>,
     mut views: Query<
         (Entity, &GlobalTransform, &SpotLight, &mut Frustum),
         Or<(Changed<GlobalTransform>, Changed<SpotLight>)>,
@@ -639,7 +639,7 @@ pub fn update_spot_light_frusta(
 }
 
 pub fn check_light_mesh_visibility(
-    visible_point_lights: Query<&VisiblePointLights>,
+    visible_point_lights: Query<&VisibleClusterableObjects>,
     mut point_lights: Query<(
         &PointLight,
         &GlobalTransform,
