@@ -212,10 +212,11 @@ pub(crate) fn run_transition<S: States>(
 ///
 /// This system is provided to make debugging easier for Bevy developers.
 pub fn log_transitions<S: States>(mut transitions: EventReader<StateTransitionEvent<S>>) {
-    for transition in transitions.read() {
-        info!(
-            "Transition: {:?} => {:?}",
-            transition.exited, transition.entered
-        );
-    }
+    // State internals can generate at most one event (of type) per frame.
+    let Some(transition) = transitions.read().last() else {
+        return;
+    };
+    let name = std::any::type_name::<S>();
+    let StateTransitionEvent { exited, entered } = transition;
+    info!("{} transition: {:?} => {:?}", name, exited, entered);
 }
