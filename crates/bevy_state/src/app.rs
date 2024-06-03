@@ -1,9 +1,16 @@
 use bevy_app::{App, MainScheduleOrder, Plugin, PreUpdate, Startup, SubApp};
-use bevy_ecs::{event::Events, schedule::ScheduleLabel, world::FromWorld};
+use bevy_ecs::{
+    event::Events,
+    schedule::{IntoSystemConfigs, ScheduleLabel},
+    world::FromWorld,
+};
 
-use crate::state::{
-    setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
-    StateTransition, StateTransitionEvent, SubStates,
+use crate::{
+    state::{
+        setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
+        StateTransition, StateTransitionEvent, StateTransitionSteps, States, SubStates,
+    },
+    state_bound::clear_state_bound_entities,
 };
 
 /// State installation methods for [`App`](bevy_app::App) and [`SubApp`](bevy_app::SubApp).
@@ -44,6 +51,11 @@ pub trait AppExtStates {
     ///
     /// This method is idempotent: it has no effect when called again using the same generic type.
     fn add_sub_state<S: SubStates>(&mut self) -> &mut Self;
+
+    /// Register state bound entity clearing for state `S`.
+    ///
+    /// For more information refer to [`StateBound`](crate::state_bound::StateBound).
+    fn add_state_bound<S: States>(&mut self) -> &mut Self;
 }
 
 impl AppExtStates for SubApp {
@@ -120,6 +132,13 @@ impl AppExtStates for SubApp {
 
         self
     }
+
+    fn add_state_bound<S: States>(&mut self) -> &mut Self {
+        self.add_systems(
+            StateTransition,
+            clear_state_bound_entities::<S>.in_set(StateTransitionSteps::ExitSchedules),
+        )
+    }
 }
 
 impl AppExtStates for App {
@@ -140,6 +159,11 @@ impl AppExtStates for App {
 
     fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
         self.main_mut().add_sub_state::<S>();
+        self
+    }
+
+    fn add_state_bound<S: States>(&mut self) -> &mut Self {
+        self.main_mut().add_state_bound::<S>();
         self
     }
 }

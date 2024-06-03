@@ -186,7 +186,7 @@ fn main() {
         .add_systems(OnEnter(InGame), setup_game)
         // And we only want to run the [`clear_game`] function when we leave the [`AppState::InGame`] state, regardless
         // of whether we're paused.
-        .add_systems(OnExit(InGame), clear_state_bound_entities(InGame))
+        .add_state_bound::<InGame>()
         // We want the color change, toggle_pause and quit_to_menu systems to ignore the paused condition, so we can use the [`InGame`] derived
         // state here as well.
         .add_systems(
@@ -200,25 +200,15 @@ fn main() {
         )
         // We can continue setting things up, following all the same patterns used above and in the `states` example.
         .add_systems(OnEnter(IsPaused::Paused), setup_paused_screen)
-        .add_systems(
-            OnExit(IsPaused::Paused),
-            clear_state_bound_entities(IsPaused::Paused),
-        )
+        .add_state_bound::<IsPaused>()
         .add_systems(OnEnter(TurboMode), setup_turbo_text)
-        .add_systems(OnExit(TurboMode), clear_state_bound_entities(TurboMode))
+        .add_state_bound::<TurboMode>()
         .add_systems(
             OnEnter(Tutorial::MovementInstructions),
             movement_instructions,
         )
         .add_systems(OnEnter(Tutorial::PauseInstructions), pause_instructions)
-        .add_systems(
-            OnExit(Tutorial::MovementInstructions),
-            clear_state_bound_entities(Tutorial::MovementInstructions),
-        )
-        .add_systems(
-            OnExit(Tutorial::PauseInstructions),
-            clear_state_bound_entities(Tutorial::PauseInstructions),
-        )
+        .add_state_bound::<Tutorial>()
         .add_systems(
             Update,
             (
