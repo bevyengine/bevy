@@ -73,3 +73,28 @@ impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
         }
     }
 }
+
+#[derive(Clone)]
+pub struct ReflectMapEntitiesResource {
+    map_entities: fn(&mut World, &mut SceneEntityMapper),
+}
+
+impl ReflectMapEntitiesResource {
+    pub fn map_entities(&self, world: &mut World, entity_map: &mut EntityHashMap<Entity>) {
+        SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
+            (self.map_entities)(world, mapper);
+        });
+    }
+}
+
+impl<R: crate::system::Resource + MapEntities> FromType<R> for ReflectMapEntitiesResource {
+    fn from_type() -> Self {
+        ReflectMapEntitiesResource {
+            map_entities: |world, entity_mapper| {
+                if let Some(mut resource) = world.get_resource_mut::<R>() {
+                    resource.map_entities(entity_mapper);
+                }
+            },
+        }
+    }
+}

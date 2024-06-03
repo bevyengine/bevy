@@ -11,7 +11,7 @@ use bevy_utils::TypeIdMap;
 #[cfg(feature = "serialize")]
 use crate::serde::SceneSerializer;
 use bevy_asset::Asset;
-use bevy_ecs::reflect::ReflectResource;
+use bevy_ecs::reflect::{ReflectMapEntitiesResource, ReflectResource};
 #[cfg(feature = "serialize")]
 use serde::Serialize;
 
@@ -87,6 +87,10 @@ impl DynamicScene {
                     type_path: type_info.type_path().to_string(),
                 }
             })?;
+
+            if let Some(map_entities_reflect) = registration.data::<ReflectMapEntitiesResource>() {
+                map_entities_reflect.map_entities(world, entity_map);
+            }
 
             // If the world already contains an instance of the given resource
             // just apply the (possibly) new value, otherwise insert the resource
