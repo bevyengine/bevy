@@ -4,7 +4,7 @@ use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_render::mesh::Mesh;
+use bevy_render::mesh::{Mesh, MeshSlabHash};
 use bevy_render::{
     camera::Camera,
     diagnostic::RecordDiagnostics,
@@ -1778,6 +1778,7 @@ pub fn queue_shadows<M: Material>(
                     ShadowBinKey {
                         draw_function: draw_shadow_mesh,
                         pipeline: pipeline_id,
+                        slab_hash: mesh.slab_hash,
                         asset_id: mesh_instance.mesh_asset_id,
                     },
                     entity,
@@ -1795,8 +1796,15 @@ pub struct Shadow {
     pub extra_index: PhaseItemExtraIndex,
 }
 
+/// The data used to bin each mesh in the shadow map pass.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ShadowBinKey {
+    /// Various flags, with the [`MeshSlabHash`] in the top bits.
+    ///
+    /// We want this to be first to minimize IBO and VBO changes. See the
+    /// comments in [`MeshSlabHash`] for more details.
+    pub slab_hash: MeshSlabHash,
+
     /// The identifier of the render pipeline.
     pub pipeline: CachedRenderPipelineId,
 
@@ -1804,6 +1812,8 @@ pub struct ShadowBinKey {
     pub draw_function: DrawFunctionId,
 
     /// The mesh.
+    ///
+    /// This is at the end to minimize binding changes.
     pub asset_id: AssetId<Mesh>,
 }
 
