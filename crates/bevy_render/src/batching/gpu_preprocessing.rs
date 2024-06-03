@@ -6,11 +6,11 @@ use bevy_ecs::{
     entity::Entity,
     query::{Has, With},
     schedule::IntoSystemConfigs as _,
-    system::{Query, Res, ResMut, Resource, StaticSystemParam},
+    system::{EntityCommands, Query, Res, ResMut, Resource, StaticSystemParam},
     world::{FromWorld, World},
 };
 use bevy_encase_derive::ShaderType;
-use bevy_utils::EntityHashMap;
+use bevy_utils::{warn_once, EntityHashMap};
 use bytemuck::{Pod, Zeroable};
 use nonmax::NonMaxU32;
 use smallvec::smallvec;
@@ -69,6 +69,18 @@ pub enum GpuPreprocessingSupport {
     PreprocessingOnly,
     /// Both GPU preprocessing and GPU culling are available.
     Culling,
+}
+
+impl GpuPreprocessingSupport {
+    /// If GPU culling is requested, adds the [`GpuCulling`] component to the
+    /// given entity.
+    pub fn maybe_add_gpu_culling(&self, entity_commands: &mut EntityCommands) {
+        if *self == GpuPreprocessingSupport::Culling {
+            entity_commands.insert(GpuCulling);
+        } else {
+            warn_once!("GPU culling isn't supported on this platform; ignoring `GpuCulling`.");
+        }
+    }
 }
 
 /// The GPU buffers holding the data needed to render batches.

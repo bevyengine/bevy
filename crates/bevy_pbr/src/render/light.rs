@@ -5,7 +5,9 @@ use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_render::camera::CubemapFaceProjections;
 use bevy_render::mesh::Mesh;
+use bevy_render::view::CubemapVisibleEntities;
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::GpuMesh,
@@ -19,7 +21,7 @@ use bevy_render::{
     view::{ExtractedView, RenderLayers, ViewVisibility, VisibleEntities, WithMesh},
     Extract,
 };
-use bevy_transform::{components::GlobalTransform, prelude::Transform};
+use bevy_transform::components::GlobalTransform;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::tracing::{error, warn};
@@ -359,51 +361,6 @@ pub fn extract_lights(
 
 pub(crate) const POINT_LIGHT_NEAR_Z: f32 = 0.1f32;
 
-pub(crate) struct CubeMapFace {
-    pub(crate) target: Vec3,
-    pub(crate) up: Vec3,
-}
-
-// Cubemap faces are [+X, -X, +Y, -Y, +Z, -Z], per https://www.w3.org/TR/webgpu/#texture-view-creation
-// Note: Cubemap coordinates are left-handed y-up, unlike the rest of Bevy.
-// See https://registry.khronos.org/vulkan/specs/1.2/html/chap16.html#_cube_map_face_selection
-//
-// For each cubemap face, we take care to specify the appropriate target/up axis such that the rendered
-// texture using Bevy's right-handed y-up coordinate space matches the expected cubemap face in
-// left-handed y-up cubemap coordinates.
-pub(crate) const CUBE_MAP_FACES: [CubeMapFace; 6] = [
-    // +X
-    CubeMapFace {
-        target: Vec3::X,
-        up: Vec3::Y,
-    },
-    // -X
-    CubeMapFace {
-        target: Vec3::NEG_X,
-        up: Vec3::Y,
-    },
-    // +Y
-    CubeMapFace {
-        target: Vec3::Y,
-        up: Vec3::Z,
-    },
-    // -Y
-    CubeMapFace {
-        target: Vec3::NEG_Y,
-        up: Vec3::NEG_Z,
-    },
-    // +Z (with left-handed conventions, pointing forwards)
-    CubeMapFace {
-        target: Vec3::NEG_Z,
-        up: Vec3::Y,
-    },
-    // -Z (with left-handed conventions, pointing backwards)
-    CubeMapFace {
-        target: Vec3::Z,
-        up: Vec3::Y,
-    },
-];
-
 fn face_index_to_name(face_index: usize) -> &'static str {
     match face_index {
         0 => "+x",
@@ -547,12 +504,10 @@ pub fn prepare_lights(
     };
 
     // Pre-calculate for PointLights
-    let cube_face_projection =
-        Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
-    let cube_face_rotations = CUBE_MAP_FACES
-        .iter()
-        .map(|CubeMapFace { target, up }| Transform::IDENTITY.looking_at(*target, *up))
-        .collect::<Vec<_>>();
+    let CubemapFaceProjections {
+        projection: ref cube_face_projection,
+        rotations: ref cube_face_rotations,
+    } = CubemapFaceProjections::new(POINT_LIGHT_NEAR_Z);
 
     global_light_meta.entity_to_index.clear();
 
@@ -914,7 +869,7 @@ pub fn prepare_lights(
                             ),
                             world_from_view: view_translation * *view_rotation,
                             clip_from_world: None,
-                            clip_from_view: cube_face_projection,
+                            clip_from_view: *cube_face_projection,
                             hdr: false,
                             color_grading: Default::default(),
                         },

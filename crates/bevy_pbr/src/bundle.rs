@@ -6,6 +6,7 @@ use bevy_asset::Handle;
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{bundle::Bundle, component::Component, reflect::ReflectComponent};
 use bevy_reflect::Reflect;
+use bevy_render::view::CubemapVisibleEntities;
 use bevy_render::{
     mesh::Mesh,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum},
@@ -42,31 +43,6 @@ impl<M: Material> Default for MaterialMeshBundle<M> {
             inherited_visibility: Default::default(),
             view_visibility: Default::default(),
         }
-    }
-}
-
-#[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component)]
-pub struct CubemapVisibleEntities {
-    #[reflect(ignore)]
-    data: [VisibleEntities; 6],
-}
-
-impl CubemapVisibleEntities {
-    pub fn get(&self, i: usize) -> &VisibleEntities {
-        &self.data[i]
-    }
-
-    pub fn get_mut(&mut self, i: usize) -> &mut VisibleEntities {
-        &mut self.data[i]
-    }
-
-    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &VisibleEntities> {
-        self.data.iter()
-    }
-
-    pub fn iter_mut(&mut self) -> impl DoubleEndedIterator<Item = &mut VisibleEntities> {
-        self.data.iter_mut()
     }
 }
 

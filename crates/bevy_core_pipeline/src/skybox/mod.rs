@@ -9,8 +9,7 @@ use bevy_ecs::{
 use bevy_render::{
     camera::Exposure,
     extract_component::{
-        ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
-        UniformComponentPlugin,
+        ComponentUniforms, DynamicUniformIndex, ExtractComponent, UniformComponentPlugin,
     },
     render_asset::RenderAssets,
     render_resource::{
@@ -24,7 +23,7 @@ use bevy_render::{
 };
 use prepass::{SkyboxPrepassPipeline, SKYBOX_PREPASS_SHADER_HANDLE};
 
-use crate::core_3d::CORE_3D_DEPTH_FORMAT;
+use crate::core_3d::{ExtractCameraComponentPlugin, CORE_3D_DEPTH_FORMAT};
 
 const SKYBOX_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(55594763423201);
 
@@ -43,7 +42,7 @@ impl Plugin for SkyboxPlugin {
         );
 
         app.add_plugins((
-            ExtractComponentPlugin::<Skybox>::default(),
+            ExtractCameraComponentPlugin::<Skybox>::default(),
             UniformComponentPlugin::<SkyboxUniforms>::default(),
         ));
 

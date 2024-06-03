@@ -34,6 +34,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 use bevy_reflect::Reflect;
 use bevy_render::{
+    extract_component::ExtractComponent,
     mesh::Mesh,
     render_phase::{
         BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem,
@@ -52,21 +53,21 @@ pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
 pub const MOTION_VECTOR_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg16Float;
 
 /// If added to a [`crate::prelude::Camera3d`] then depth values will be copied to a separate texture available to the main pass.
-#[derive(Component, Default, Reflect, Clone)]
+#[derive(Component, Default, Reflect, Clone, ExtractComponent)]
 pub struct DepthPrepass;
 
 /// If added to a [`crate::prelude::Camera3d`] then vertex world normals will be copied to a separate texture available to the main pass.
 /// Normals will have normal map textures already applied.
-#[derive(Component, Default, Reflect, Clone)]
+#[derive(Component, Default, Reflect, Clone, ExtractComponent)]
 pub struct NormalPrepass;
 
 /// If added to a [`crate::prelude::Camera3d`] then screen space motion vectors will be copied to a separate texture available to the main pass.
-#[derive(Component, Default, Reflect, Clone)]
+#[derive(Component, Default, Reflect, Clone, ExtractComponent)]
 pub struct MotionVectorPrepass;
 
 /// If added to a [`crate::prelude::Camera3d`] then deferred materials will be rendered to the deferred gbuffer texture and will be available to subsequent passes.
 /// Note the default deferred lighting plugin also requires `DepthPrepass` to work correctly.
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Default, Reflect, Clone, ExtractComponent)]
 pub struct DeferredPrepass;
 
 #[derive(Component, ShaderType, Clone)]

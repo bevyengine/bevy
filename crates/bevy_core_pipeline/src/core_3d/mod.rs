@@ -62,7 +62,7 @@ pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = false;
 #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
 pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
 
-use std::ops::Range;
+use std::{iter, ops::Range};
 
 use bevy_asset::AssetId;
 use bevy_color::LinearRgba;
@@ -75,7 +75,6 @@ use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use bevy_math::FloatOrd;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
-    extract_component::ExtractComponentPlugin,
     mesh::Mesh,
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
@@ -121,7 +120,14 @@ impl Plugin for Core3dPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Camera3d>()
             .register_type::<ScreenSpaceTransmissionQuality>()
-            .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()))
+            .add_plugins((
+                SkyboxPlugin,
+                ExtractCameraComponentPlugin::<Camera3d>::default(),
+                ExtractCameraComponentPlugin::<DepthPrepass>::default(),
+                ExtractCameraComponentPlugin::<NormalPrepass>::default(),
+                ExtractCameraComponentPlugin::<MotionVectorPrepass>::default(),
+                ExtractCameraComponentPlugin::<DeferredPrepass>::default(),
+            ))
             .add_systems(PostUpdate, check_msaa);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -136,8 +142,13 @@ impl Plugin for Core3dPlugin {
             .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
             .init_resource::<DrawFunctions<Opaque3dDeferred>>()
             .init_resource::<DrawFunctions<AlphaMask3dDeferred>>()
-            .add_systems(ExtractSchedule, extract_core_3d_camera_phases)
-            .add_systems(ExtractSchedule, extract_camera_prepass_phase)
+            .init_resource::<RenderOmnidirectionalCameras>()
+            .add_systems(ExtractSchedule, extract_omnidirectional_cameras)
+            .add_systems(
+                ExtractSchedule,
+                (extract_core_3d_camera_phases, extract_camera_prepass_phase)
+                    .after(extract_omnidirectional_cameras),
+            )
             .add_systems(
                 Render,
                 (
@@ -492,6 +503,7 @@ impl CachedRenderPipelinePhaseItem for Transparent3d {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn extract_core_3d_camera_phases(
     mut commands: Commands,
     mut opaque_3d_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
@@ -499,15 +511,24 @@ pub fn extract_core_3d_camera_phases(
     mut transmissive_3d_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_3d_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     cameras_3d: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
+    omnidirectional_cameras: Res<RenderOmnidirectionalCameras>,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();
 
-    for (entity, camera) in &cameras_3d {
-        if !camera.is_active {
-            continue;
-        }
-
+    for entity in cameras_3d
+        .iter()
+        .filter_map(
+            |(entity, camera)| {
+                if camera.is_active {
+                    Some(entity)
+                } else {
+                    None
+                }
+            },
+        )
+        .chain(omnidirectional_cameras.values().flatten().cloned())
+    {
         commands.get_or_spawn(entity);
 
         opaque_3d_phases.insert_or_clear(entity);
@@ -525,8 +546,8 @@ pub fn extract_core_3d_camera_phases(
 }
 
 // Extract the render phases for the prepass
+#[allow(clippy::too_many_arguments)]
 pub fn extract_camera_prepass_phase(
-    mut commands: Commands,
     mut opaque_3d_prepass_phases: ResMut<ViewBinnedRenderPhases<Opaque3dPrepass>>,
     mut alpha_mask_3d_prepass_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
     mut opaque_3d_deferred_phases: ResMut<ViewBinnedRenderPhases<Opaque3dDeferred>>,
@@ -545,47 +566,48 @@ pub fn extract_camera_prepass_phase(
         >,
     >,
     mut live_entities: Local<EntityHashSet>,
+    omnidirectional_cameras: Res<RenderOmnidirectionalCameras>,
 ) {
     live_entities.clear();
 
-    for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass) in
-        cameras_3d.iter()
+    for (
+        camera_entity,
+        camera,
+        depth_prepass,
+        normal_prepass,
+        motion_vector_prepass,
+        deferred_prepass,
+    ) in cameras_3d.iter()
     {
         if !camera.is_active {
             continue;
         }
 
-        if depth_prepass || normal_prepass || motion_vector_prepass {
-            opaque_3d_prepass_phases.insert_or_clear(entity);
-            alpha_mask_3d_prepass_phases.insert_or_clear(entity);
-        } else {
-            opaque_3d_prepass_phases.remove(&entity);
-            alpha_mask_3d_prepass_phases.remove(&entity);
-        }
+        // Attach the prepass phases to each of the omnidirectional subcameras
+        // if applicable.
+        let view_entities = match omnidirectional_cameras.get(&camera_entity) {
+            Some(view_entities) => view_entities.clone(),
+            None => iter::once(camera_entity).collect(),
+        };
 
-        if deferred_prepass {
-            opaque_3d_deferred_phases.insert_or_clear(entity);
-            alpha_mask_3d_deferred_phases.insert_or_clear(entity);
-        } else {
-            opaque_3d_deferred_phases.remove(&entity);
-            alpha_mask_3d_deferred_phases.remove(&entity);
-        }
+        for entity in view_entities {
+            if depth_prepass || normal_prepass || motion_vector_prepass {
+                opaque_3d_prepass_phases.insert_or_clear(entity);
+                alpha_mask_3d_prepass_phases.insert_or_clear(entity);
+            } else {
+                opaque_3d_prepass_phases.remove(&entity);
+                alpha_mask_3d_prepass_phases.remove(&entity);
+            }
 
-        live_entities.insert(entity);
+            if deferred_prepass {
+                opaque_3d_deferred_phases.insert_or_clear(entity);
+                alpha_mask_3d_deferred_phases.insert_or_clear(entity);
+            } else {
+                opaque_3d_deferred_phases.remove(&entity);
+                alpha_mask_3d_deferred_phases.remove(&entity);
+            }
 
-        let mut entity = commands.get_or_spawn(entity);
-
-        if depth_prepass {
-            entity.insert(DepthPrepass);
-        }
-        if normal_prepass {
-            entity.insert(NormalPrepass);
-        }
-        if motion_vector_prepass {
-            entity.insert(MotionVectorPrepass);
-        }
-        if deferred_prepass {
-            entity.insert(DeferredPrepass);
+            live_entities.insert(entity);
         }
     }
 
