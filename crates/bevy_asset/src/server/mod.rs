@@ -264,6 +264,38 @@ impl AssetServer {
     /// it returns a "strong" [`Handle`]. When the [`Asset`] is loaded (and enters [`LoadState::Loaded`]), it will be added to the
     /// associated [`Assets`] resource.
     ///
+    /// In case the file path contains a hashtag (`#`), the `path` must be specified using [`Path`]
+    /// or [`AssetPath`] because otherwise the hashtag would be interpreted as separator between
+    /// the file path and the label. For example:
+    ///
+    /// ```no_run
+    /// # use bevy_asset::{AssetServer, Handle, LoadedUntypedAsset};
+    /// # use bevy_ecs::prelude::Res;
+    /// # use std::path::Path;
+    /// // `#path` is a label.
+    /// # fn setup(asset_server: Res<AssetServer>) {
+    /// # let handle: Handle<LoadedUntypedAsset> =
+    /// asset_server.load("some/file#path");
+    ///
+    /// // `#path` is part of the file name.
+    /// # let handle: Handle<LoadedUntypedAsset> =
+    /// asset_server.load(Path::new("some/file#path"));
+    /// # }
+    /// ```
+    ///
+    /// Furthermore, if you need to load a file with a hashtag in its name _and_ a label, you can
+    /// manually construct an [`AssetPath`].
+    ///
+    /// ```no_run
+    /// # use bevy_asset::{AssetPath, AssetServer, Handle, LoadedUntypedAsset};
+    /// # use bevy_ecs::prelude::Res;
+    /// # use std::path::Path;
+    /// # fn setup(asset_server: Res<AssetServer>) {
+    /// # let handle: Handle<LoadedUntypedAsset> =
+    /// asset_server.load(AssetPath::from_path(Path::new("some/file#path")).with_label("subasset"));
+    /// # }
+    /// ```
+    ///
     /// You can check the asset's load state by reading [`AssetEvent`] events, calling [`AssetServer::load_state`], or checking
     /// the [`Assets`] storage to see if the [`Asset`] exists yet.
     ///
