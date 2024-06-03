@@ -361,7 +361,7 @@ async fn load_gltf<'a, 'b, 'c>(
     // that the material's load context would no longer track those images as dependencies.
     let mut _texture_handles = Vec::new();
     if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
-        for texture in gltf.textures() {
+        for texture in gltf.textures().into_par_iter() {
             let parent_path = load_context.path().parent().unwrap();
             let image = load_image(
                 texture,
