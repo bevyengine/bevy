@@ -103,10 +103,13 @@ impl AppExtStates for SubApp {
             self.add_event::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
             S::register_computed_state_systems(schedule);
-            let state = self.world().resource::<State<S>>().get().clone();
+            let state = self
+                .world()
+                .get_resource::<State<S>>()
+                .map(|s| s.get().clone());
             self.world_mut().send_event(StateTransitionEvent {
                 exited: None,
-                entered: Some(state),
+                entered: state,
             });
         }
 
@@ -123,10 +126,13 @@ impl AppExtStates for SubApp {
             self.add_event::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
             S::register_sub_state_systems(schedule);
-            let state = self.world().resource::<State<S>>().get().clone();
+            let state = self
+                .world()
+                .get_resource::<State<S>>()
+                .map(|s| s.get().clone());
             self.world_mut().send_event(StateTransitionEvent {
                 exited: None,
-                entered: Some(state),
+                entered: state,
             });
         }
 
