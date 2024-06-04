@@ -281,28 +281,28 @@ pub struct Window {
     /// [`wgpu::SurfaceConfiguration::desired_maximum_frame_latency`]:
     /// https://docs.rs/wgpu/latest/wgpu/type.SurfaceConfiguration.html#structfield.desired_maximum_frame_latency
     pub desired_maximum_frame_latency: Option<NonZeroU32>,
-    /// Sets whether this window recognize [`PinchGesture`]
+    /// Sets whether this window recognizes [`PinchGesture`]
     ///
     /// ## Platform-specific
     ///
     /// - Only used on iOS.
     /// - On macOS, they are recognized by default and can't be disabled.
     pub recognize_pinch_gesture: bool,
-    /// Sets whether this window recognize [`RotationGesture`]
+    /// Sets whether this window recognizes [`RotationGesture`]
     ///
     /// ## Platform-specific
     ///
     /// - Only used on iOS.
     /// - On macOS, they are recognized by default and can't be disabled.
     pub recognize_rotation_gesture: bool,
-    /// Sets whether this window recognize [`DoubleTapGesture`]
+    /// Sets whether this window recognizes [`DoubleTapGesture`]
     ///
     /// ## Platform-specific
     ///
     /// - Only used on iOS.
     /// - On macOS, they are recognized by default and can't be disabled.
     pub recognize_doubletap_gesture: bool,
-    /// Sets whether this window recognize [`PanGesture`], with a number of fingers between the first value and the last.
+    /// Sets whether this window recognizes [`PanGesture`], with a number of fingers between the first value and the last.
     ///
     /// ## Platform-specific
     ///
