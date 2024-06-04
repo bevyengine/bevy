@@ -7,9 +7,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-/// A counterclockwise 2D rotation in radians.
-///
-/// The rotation angle is wrapped to be within the `(-pi, pi]` range.
+/// A counterclockwise 2D rotation.
 ///
 /// # Example
 ///
