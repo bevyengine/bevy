@@ -109,6 +109,16 @@ mod custom_transitions {
 
         // If all conditions are valid, we run our custom schedule.
         let _ = world.try_run_schedule(OnReenter(entered));
+
+        // If you want to overwrite the default `OnEnter` behavior to act like re-enter,
+        // you can do so by running the `OnEnter` schedule here. Note that you don't want
+        // to run `OnEnter` when the default behavior does so.
+        // ```
+        // if transition.entered != transition.exited {
+        //     return;
+        // }
+        // let _ = world.try_run_schedule(OnReenter(entered));
+        // ```
     }
 
     /// Custom schedule that will behave like `OnExit`,
