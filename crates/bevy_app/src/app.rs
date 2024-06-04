@@ -842,17 +842,7 @@ fn run_once(mut app: App) -> AppExit {
 
     app.update();
 
-    let mut exit_code_reader = ManualEventReader::default();
-    if let Some(app_exit_events) = app.world().get_resource::<Events<AppExit>>() {
-        if exit_code_reader
-            .read(app_exit_events)
-            .any(AppExit::is_error)
-        {
-            return AppExit::error();
-        }
-    }
-
-    AppExit::Success
+    app.should_exit().unwrap_or(AppExit::Success)
 }
 
 /// An event that indicates the [`App`] should exit. If one or more of these are present at the end of an update,
@@ -928,9 +918,9 @@ impl Termination for AppExit {
 mod tests {
     use std::{marker::PhantomData, mem};
 
-    use bevy_ecs::{schedule::ScheduleLabel, system::Commands};
+    use bevy_ecs::{event::EventWriter, schedule::ScheduleLabel, system::Commands};
 
-    use crate::{App, AppExit, Plugin};
+    use crate::{App, AppExit, Plugin, Update};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -1131,6 +1121,21 @@ mod tests {
             GenericLabel::<u32>(PhantomData).intern(),
             GenericLabel::<u64>(PhantomData).intern()
         );
+    }
+
+    #[test]
+    fn runner_returns_correct_exit_code() {
+        fn raise_exits(mut exits: EventWriter<AppExit>) {
+            // Exit codes chosen by a fair dice roll.
+            // Unlikely to overlap with default values.
+            exits.send(AppExit::Success);
+            exits.send(AppExit::from_code(4));
+            exits.send(AppExit::from_code(73));
+        }
+
+        let exit = App::new().add_systems(Update, raise_exits).run();
+
+        assert_eq!(exit, AppExit::from_code(4));
     }
 
     /// Custom runners should be in charge of when `app::update` gets called as they may need to
