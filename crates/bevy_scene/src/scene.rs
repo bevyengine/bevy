@@ -209,7 +209,7 @@ impl Scene {
                     type_path: registration.type_info().type_path().to_string(),
                 }
             })?;
-            reflect_resource.copy(&self.world, world, &type_registry);
+            reflect_resource.copy(&self.world, world, type_registry);
         }
         Ok(())
     }
