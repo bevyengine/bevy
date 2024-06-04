@@ -49,7 +49,8 @@ impl Scene {
     }
 
     /// Writes all resources/entities and their corresponding components in the scene world to new
-    /// entities in the given world.
+    /// entities in the given world. On success returns an instance mapping entities in the scene world
+    /// to entities in the instance world.
     ///
     /// This method will return a [`SceneSpawnError`] if a type either is not registered in the
     /// provided [`AppTypeRegistry`] or doesn't reflect the [`Component`](bevy_ecs::component::Component) trait.
@@ -192,7 +193,6 @@ impl Scene {
         for archetype in self.world.archetypes().iter() {
             for scene_entity in archetype.entities() {
                 if let Some(entity) = instance_info.entity_map.get(&scene_entity.id()).cloned() {
-                    //
                     let components: Vec<ComponentId> = world
                         .get_or_spawn(entity)
                         .expect("tried to overwrite an entity with the wrong generation - generation should match scene instance").archetype().components().collect();
@@ -227,6 +227,7 @@ impl Scene {
                 };
             }
         }
+
         Ok(())
     }
 }
