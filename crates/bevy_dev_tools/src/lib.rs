@@ -18,6 +18,27 @@ pub mod fps_overlay;
 #[cfg(feature = "bevy_ui_debug")]
 pub mod ui_debug_overlay;
 
+/// Contains the `DevTool` trait and default dev commands for dev tools
+pub mod dev_tool;
+/// Contains the `DevTool` trait and reflect registration
+pub mod dev_command;
+/// Contains the `Toggable` trait and commands for enabling/disabling Toggable dev tools
+pub mod toggable;
+/// Contains plugins for enable cli parsing and executing dev commands
+pub mod cli_toolbox;
+
+/// Macros for the `bevy_dev_tools` plugin
+pub use bevy_dev_tools_macros::*;
+
+/// Macros for the `bevy_dev_tools` plugin
+pub mod prelude {
+    pub use bevy_dev_tools_macros::*;
+    pub use crate::dev_tool::*;
+    pub use crate::dev_command::*;
+    pub use crate::toggable::*;
+    pub use crate::cli_toolbox::*;
+}
+
 /// Enables developer tools in an [`App`]. This plugin is added automatically with `bevy_dev_tools`
 /// feature.
 ///
