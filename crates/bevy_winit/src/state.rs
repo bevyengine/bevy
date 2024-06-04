@@ -35,10 +35,10 @@ use bevy_window::{
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 
 use crate::accessibility::AccessKitAdapters;
-use crate::system::CachedWindow;
+use crate::system::{create_monitors, CachedWindow};
 use crate::{
-    converters, create_windows, AppSendEvent, CreateWindowParams, UpdateMode, WinitEvent,
-    WinitSettings, WinitWindows,
+    converters, create_windows, AppSendEvent, CreateMonitorParams, CreateWindowParams, UpdateMode,
+    WinitEvent, WinitSettings, WinitWindows,
 };
 
 /// Persistent state that is used to run the [`App`] according to the current
@@ -384,10 +384,13 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        let mut create_monitor = SystemState::<CreateMonitorParams>::from_world(self.world_mut());
         // create any new windows
         // (even if app did not update, some may have been created by plugin setup)
         let mut create_window =
             SystemState::<CreateWindowParams<Added<Window>>>::from_world(self.world_mut());
+        create_monitors(event_loop, create_monitor.get_mut(self.world_mut()));
+        create_monitor.apply(self.world_mut());
         create_windows(event_loop, create_window.get_mut(self.world_mut()));
         create_window.apply(self.world_mut());
 

@@ -49,6 +49,7 @@ impl WinitWindows {
         adapters: &mut AccessKitAdapters,
         handlers: &mut WinitActionRequestHandlers,
         accessibility_requested: &AccessibilityRequested,
+        monitors: &WinitMonitors,
     ) -> &WindowWrapper<WinitWindow> {
         let mut winit_window_attributes = WinitWindow::default_attributes();
 

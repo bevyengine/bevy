@@ -31,6 +31,7 @@ pub use winit_windows::*;
 
 use crate::accessibility::{AccessKitAdapters, AccessKitPlugin, WinitActionRequestHandlers};
 use crate::state::winit_runner;
+use crate::winit_monitors::WinitMonitors;
 
 pub mod accessibility;
 mod converters;
@@ -38,6 +39,7 @@ mod state;
 mod system;
 mod winit_config;
 pub mod winit_event;
+mod winit_monitors;
 mod winit_windows;
 
 /// [`AndroidApp`] provides an interface to query the application state as well as monitor events
@@ -111,6 +113,7 @@ impl<T: Event> Plugin for WinitPlugin<T> {
         }
 
         app.init_non_send_resource::<WinitWindows>()
+            .init_resource::<WinitMonitors>()
             .init_resource::<WinitSettings>()
             .add_event::<WinitEvent>()
             .set_runner(winit_runner::<T>)
@@ -177,4 +180,8 @@ pub type CreateWindowParams<'w, 's, F = ()> = (
     NonSendMut<'w, AccessKitAdapters>,
     ResMut<'w, WinitActionRequestHandlers>,
     Res<'w, AccessibilityRequested>,
+    Res<'w, WinitMonitors>,
 );
+
+/// The parameters of the [`create_monitors`] system.
+pub type CreateMonitorParams<'w, 's> = (Commands<'w, 's>, ResMut<'w, WinitMonitors>);

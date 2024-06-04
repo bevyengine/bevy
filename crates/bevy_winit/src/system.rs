@@ -123,7 +123,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
 }
 
 pub fn create_monitors(
-    event_loop: &EventLoopWindowTarget<crate::UserEvent>,
+    event_loop: &ActiveEventLoop,
     (mut commands, mut monitors): SystemParamItem<CreateMonitorParams>,
 ) {
     let primary_monitor = event_loop.primary_monitor();
