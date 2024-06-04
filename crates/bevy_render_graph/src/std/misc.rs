@@ -2,10 +2,7 @@ use bevy_render::render_resource::{
     Texture, TextureAspect, TextureFormat, TextureView, TextureViewDescriptor,
 };
 
-use crate::core::{
-    resource::{RenderGraphTextureViewDescriptor, RenderHandle},
-    RenderGraphBuilder,
-};
+use crate::core::{RenderGraphBuilder, RenderGraphTextureViewDescriptor, RenderHandle};
 
 ///Returns the default texture view for a given texture
 pub fn default_view<'g>(

@@ -20,8 +20,6 @@ use bevy_utils::HashMap;
 
 use super::{RenderGraph, RenderGraphBuilder, RenderGraphCachedResources};
 
-pub struct RenderGraphPlugin;
-
 #[derive(PartialEq, Eq, Hash, Debug, Copy, Clone, SystemSet)]
 struct ConfigureRenderGraph;
 
@@ -95,20 +93,23 @@ impl<S: for<'g> Configurator<Output<'g> = ()>> Plugin for ConfiguratorPlugin<S> 
         app.add_plugins(ExtractComponentPlugin::<S>::default())
             .add_systems(
                 Render,
-                queue_render_graphs::<S>
-                    .in_set(ConfigureRenderGraph)
-                    .ambiguous_with(ConfigureRenderGraph),
+                (
+                    queue_configurators::<S>
+                        .in_set(ConfigureRenderGraph)
+                        .ambiguous_with(ConfigureRenderGraph),
+                    reset_configurators.in_set(RenderSet::Cleanup),
+                ),
             );
     }
 }
 
-fn queue_render_graphs<S: for<'g> Configurator<Output<'g> = ()>>(
+fn queue_configurators<S: for<'g> Configurator<Output<'g> = ()>>(
     configurators: Query<(Entity, &S)>,
     id: ComponentIdFor<S>,
     mut graph_configurators: ResMut<RenderGraphConfigurators>,
 ) {
     for (entity, config) in &configurators {
-        graph_configurators.add(entity, &id, config.clone())
+        graph_configurators.add(entity, &id, config.clone());
     }
 }
 
@@ -137,6 +138,8 @@ impl Configurator for CameraRenderGraph {
         (self.configurator)(graph);
     }
 }
+
+pub struct RenderGraphPlugin;
 
 impl Plugin for RenderGraphPlugin {
     fn build(&self, app: &mut App) {

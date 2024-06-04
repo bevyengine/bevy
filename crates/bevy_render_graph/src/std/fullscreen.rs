@@ -9,8 +9,7 @@ use bevy_render::render_resource::{
 };
 
 use crate::core::{
-    resource::{RenderDependencies, RenderGraphRenderPipelineDescriptor, RenderHandle},
-    RenderGraphBuilder,
+    RenderDependencies, RenderGraphBuilder, RenderGraphRenderPipelineDescriptor, RenderHandle,
 };
 
 use super::texture_view_format;
@@ -131,10 +130,7 @@ pub mod blit {
     };
 
     use crate::{
-        core::{
-            resource::{RenderGraphRenderPipelineDescriptor, RenderHandle},
-            RenderGraphBuilder,
-        },
+        core::{RenderGraphBuilder, RenderGraphRenderPipelineDescriptor, RenderHandle},
         deps,
         std::{texture_view_format, BindGroupBuilder, SrcDst},
     };

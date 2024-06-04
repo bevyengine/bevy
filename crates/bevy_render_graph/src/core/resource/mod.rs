@@ -557,14 +557,12 @@ pub trait IntoRenderDependencies<'g> {
 macro_rules! deps {
     ($($dep: expr),*) => {
         {
-            let mut dependencies = $crate::core::resource::RenderDependencies::new();
-            $crate::core::resource::extend_deps!(dependencies, $($dep),*);
+            let mut dependencies = $crate::core::RenderDependencies::new();
+            $crate::extend_deps!(dependencies, $($dep),*);
             dependencies
         }
     }
 }
-
-pub use deps;
 
 #[macro_export]
 macro_rules! extend_deps {
@@ -574,5 +572,3 @@ macro_rules! extend_deps {
         }
     }
 }
-
-pub use extend_deps;

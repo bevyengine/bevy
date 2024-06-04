@@ -5,10 +5,7 @@ use bevy_render::render_resource::{
 };
 
 use crate::{
-    core::{
-        resource::{RenderHandle, UsagesRenderResource},
-        RenderGraphBuilder,
-    },
+    core::{RenderGraphBuilder, RenderHandle, UsagesRenderResource},
     deps,
 };
 

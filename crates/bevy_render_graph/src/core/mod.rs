@@ -1,8 +1,10 @@
-pub mod debug;
-pub mod resource;
+mod debug;
+mod resource;
 mod setup;
 
-pub use setup::RenderGraphPlugin;
+pub use debug::*;
+pub use resource::*;
+pub use setup::*;
 
 use bevy_utils::HashMap;
 
@@ -24,21 +26,7 @@ use bevy_render::{
     settings::{WgpuFeatures, WgpuLimits},
 };
 
-use resource::{IntoRenderResource, RenderHandle, RenderResource, RenderResources};
-
-use crate::{core::debug::RenderGraphDebug, deps};
-
-use self::{
-    debug::{RenderGraphDebugContext, RenderGraphDebugWrapper},
-    resource::{
-        make_bind_group, CachedRenderGraphPipelines, CachedResources, RenderDependencies,
-        RenderGraphBindGroupLayoutMeta, RenderGraphBindGroupMeta, RenderGraphBufferMeta,
-        RenderGraphComputePipelineDescriptor, RenderGraphPipelines,
-        RenderGraphRenderPipelineDescriptor, RenderGraphSamplerDescriptor,
-        RenderGraphTextureViewDescriptor, RenderResourceGeneration, RenderResourceId,
-        ResourceTracker, UsagesRenderResource,
-    },
-};
+use crate::deps;
 
 pub type Label<'a> = Option<Cow<'a, str>>;
 

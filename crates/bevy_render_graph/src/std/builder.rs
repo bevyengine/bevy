@@ -9,12 +9,9 @@ use bevy_render::render_resource::{
 };
 
 use crate::core::{
-    resource::{
-        RenderDependencies, RenderGraphBindGroupDescriptor, RenderGraphBindGroupEntry,
-        RenderGraphBindingResource, RenderGraphBufferBinding, RenderGraphComputePipelineDescriptor,
-        RenderGraphTextureViewDescriptor, RenderHandle,
-    },
-    Label, RenderGraphBuilder,
+    Label, RenderDependencies, RenderGraphBindGroupDescriptor, RenderGraphBindGroupEntry,
+    RenderGraphBindingResource, RenderGraphBufferBinding, RenderGraphBuilder,
+    RenderGraphComputePipelineDescriptor, RenderGraphTextureViewDescriptor, RenderHandle,
 };
 
 pub struct BindGroupBuilder<'a, 'b: 'a, 'g: 'b> {

@@ -1,13 +1,10 @@
 use std::{any::type_name, hash::Hash, mem};
 
-use crate::core::debug::{RenderGraphDebug, RenderGraphDebugContext};
 use crate::{
     core::{
-        resource::{
-            IntoRenderDependencies, IntoRenderResource, RenderDependencies, RenderHandle,
-            RenderResource, WriteRenderResource,
-        },
-        RenderGraphBuilder,
+        IntoRenderDependencies, IntoRenderResource, RenderDependencies, RenderGraphBuilder,
+        RenderGraphDebug, RenderGraphDebugContext, RenderHandle, RenderResource,
+        WriteRenderResource,
     },
     extend_deps,
 };
