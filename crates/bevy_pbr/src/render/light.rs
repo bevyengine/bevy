@@ -779,7 +779,9 @@ pub fn prepare_lights(
         }
     }
 
-    global_light_meta.gpu_clusterable_objects.set(gpu_point_lights);
+    global_light_meta
+        .gpu_clusterable_objects
+        .set(gpu_point_lights);
     global_light_meta
         .gpu_clusterable_objects
         .write_buffer(&render_device, &render_queue);

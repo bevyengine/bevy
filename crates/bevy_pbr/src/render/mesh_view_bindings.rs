@@ -41,9 +41,9 @@ use crate::{
         self, IrradianceVolume, RenderViewIrradianceVolumeBindGroupEntries,
         IRRADIANCE_VOLUMES_ARE_USABLE,
     },
-    prepass, FogMeta, GlobalClusterableObjectMeta, GpuFog, GpuLights, GpuClusterableObjects, LightMeta,
-    LightProbesBuffer, LightProbesUniform, MeshPipeline, MeshPipelineKey, RenderViewLightProbes,
-    ScreenSpaceAmbientOcclusionTextures, ScreenSpaceReflectionsBuffer,
+    prepass, FogMeta, GlobalClusterableObjectMeta, GpuClusterableObjects, GpuFog, GpuLights,
+    LightMeta, LightProbesBuffer, LightProbesUniform, MeshPipeline, MeshPipelineKey,
+    RenderViewLightProbes, ScreenSpaceAmbientOcclusionTextures, ScreenSpaceReflectionsBuffer,
     ScreenSpaceReflectionsUniform, ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
 };
@@ -246,9 +246,11 @@ fn layout_entries(
                 buffer_layout(
                     clustered_forward_buffer_binding_type,
                     false,
-                    Some(ViewClusterBindings::min_size_clusterable_object_index_lists(
-                        clustered_forward_buffer_binding_type,
-                    )),
+                    Some(
+                        ViewClusterBindings::min_size_clusterable_object_index_lists(
+                            clustered_forward_buffer_binding_type,
+                        ),
+                    ),
                 ),
             ),
             // ClusterOffsetsAndCounts
@@ -525,7 +527,12 @@ pub fn prepare_mesh_view_bind_groups(
                 (4, &shadow_bindings.directional_light_depth_texture_view),
                 (5, &shadow_samplers.directional_light_sampler),
                 (6, clusterable_objects_binding.clone()),
-                (7, cluster_bindings.clusterable_object_index_lists_binding().unwrap()),
+                (
+                    7,
+                    cluster_bindings
+                        .clusterable_object_index_lists_binding()
+                        .unwrap(),
+                ),
                 (8, cluster_bindings.offsets_and_counts_binding().unwrap()),
                 (9, globals.clone()),
                 (10, fog_binding.clone()),
