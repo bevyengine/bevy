@@ -1,6 +1,7 @@
 use crate::{DynamicScene, Scene};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::entity::EntityHashMap;
+use bevy_ecs::world::WorldId;
 use bevy_ecs::{
     entity::Entity,
     event::{Event, Events, ManualEventReader},
@@ -27,6 +28,8 @@ pub struct SceneInstanceReady {
 pub struct InstanceInfo {
     /// Mapping of entities from the scene world to the instance world.
     pub entity_map: EntityHashMap<Entity>,
+    /// Scene instance mapping is only valid for the instance world it is created for.
+    pub world_id: WorldId,
 }
 
 /// Unique id identifying a scene instance.
@@ -205,8 +208,13 @@ impl SceneSpawner {
         let id = id.into();
         Self::spawn_dynamic_internal(world, id, &mut entity_map)?;
         let instance_id = InstanceId::new();
-        self.spawned_instances
-            .insert(instance_id, InstanceInfo { entity_map });
+        self.spawned_instances.insert(
+            instance_id,
+            InstanceInfo {
+                entity_map,
+                world_id: world.id(),
+            },
+        );
         let spawned = self.spawned_dynamic_scenes.entry(id).or_default();
         spawned.insert(instance_id);
         Ok(instance_id)
@@ -301,8 +309,13 @@ impl SceneSpawner {
 
             match Self::spawn_dynamic_internal(world, handle.id(), &mut entity_map) {
                 Ok(_) => {
-                    self.spawned_instances
-                        .insert(instance_id, InstanceInfo { entity_map });
+                    self.spawned_instances.insert(
+                        instance_id,
+                        InstanceInfo {
+                            entity_map,
+                            world_id: world.id(),
+                        },
+                    );
                     let spawned = self
                         .spawned_dynamic_scenes
                         .entry(handle.id())
