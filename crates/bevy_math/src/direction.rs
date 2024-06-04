@@ -202,6 +202,47 @@ impl Dir2 {
         let angle = self.angle_between(rhs.0);
         Rotation2d::radians(angle * s) * self
     }
+
+    /// Get the rotation that rotates this direction to `other`.
+    #[inline]
+    pub fn rotation_to(self, other: Self) -> Rotation2d {
+        // Rotate `self` to X-axis, then X-axis to `other`:
+        other.rotation_from_x() * self.rotation_to_x()
+    }
+
+    /// Get the rotation that rotates `other` to this direction.
+    #[inline]
+    pub fn rotation_from(self, other: Self) -> Rotation2d {
+        other.rotation_to(self)
+    }
+
+    /// Get the rotation that rotates the X-axis to this direction.
+    #[inline]
+    pub fn rotation_from_x(self) -> Rotation2d {
+        Rotation2d::from_sin_cos(self.0.y, self.0.x)
+    }
+
+    /// Get the rotation that rotates this direction to the X-axis.
+    #[inline]
+    pub fn rotation_to_x(self) -> Rotation2d {
+        // (This is cheap, it just negates one component.)
+        self.rotation_from_x().inverse()
+    }
+
+    /// Get the rotation that rotates this direction to the Y-axis.
+    #[inline]
+    pub fn rotation_from_y(self) -> Rotation2d {
+        // `x <- y`, `y <- -x` correspond to rotating clockwise by pi/2;
+        // this transforms the Y-axis into the X-axis, maintaining the relative position
+        // of our direction. Then we just use the same technique as `rotation_from_x`.
+        Rotation2d::from_sin_cos(-self.0.x, self.0.y)
+    }
+
+    /// Get the rotation that rotates the Y-axis to this direction.
+    #[inline]
+    pub fn rotation_to_y(self) -> Rotation2d {
+        self.rotation_from_y().inverse()
+    }
 }
 
 impl TryFrom<Vec2> for Dir2 {
@@ -762,6 +803,25 @@ mod tests {
             Dir2::X.slerp(Dir2::Y, 2.0 / 3.0),
             Dir2::from_xy(0.5, 0.75_f32.sqrt()).unwrap()
         );
+    }
+
+    #[test]
+    fn dir2_to_rotation2d() {
+        assert_relative_eq!(
+            Dir2::EAST.rotation_to(Dir2::NORTH_EAST),
+            Rotation2d::FRAC_PI_4
+        );
+        assert_relative_eq!(
+            Dir2::NORTH.rotation_from(Dir2::NORTH_EAST),
+            Rotation2d::FRAC_PI_4
+        );
+        assert_relative_eq!(Dir2::SOUTH.rotation_to_x(), Rotation2d::FRAC_PI_2);
+        assert_relative_eq!(Dir2::SOUTH.rotation_to_y(), Rotation2d::PI);
+        assert_relative_eq!(
+            Dir2::NORTH_WEST.rotation_from_x(),
+            Rotation2d::degrees(135.0)
+        );
+        assert_relative_eq!(Dir2::NORTH_WEST.rotation_from_y(), Rotation2d::FRAC_PI_4);
     }
 
     #[test]
