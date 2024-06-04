@@ -7,10 +7,6 @@
 
 use bevy::{dev_tools::states::*, prelude::*};
 
-#[path = "./utils.rs"]
-mod utils;
-use utils::*;
-
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)

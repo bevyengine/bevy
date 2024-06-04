@@ -1810,6 +1810,7 @@ wasm = false
 name = "custom_transition"
 path = "examples/state/custom_transition.rs"
 doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.custom_transition]
 name = "Custom State Transition Behavior"

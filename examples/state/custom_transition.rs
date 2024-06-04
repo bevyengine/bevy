@@ -9,12 +9,12 @@
 
 use std::marker::PhantomData;
 
-use bevy::{ecs::schedule::ScheduleLabel, prelude::*, state::state::StateTransitionSteps};
+use bevy::{
+    dev_tools::states::*, ecs::schedule::ScheduleLabel, prelude::*,
+    state::state::StateTransitionSteps,
+};
 
 use custom_transitions::*;
-#[path = "./utils.rs"]
-mod utils;
-use utils::*;
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 enum AppState {

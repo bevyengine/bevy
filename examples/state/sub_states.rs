@@ -10,9 +10,6 @@
 use bevy::{dev_tools::states::*, prelude::*};
 
 use ui::*;
-#[path = "./utils.rs"]
-mod utils;
-use utils::*;
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 enum AppState {
