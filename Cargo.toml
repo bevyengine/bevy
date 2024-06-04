@@ -358,6 +358,10 @@ crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 thiserror = "1.0"
 event-listener = "5.3.0"
+tracing-subscriber = { version = "0.3.1", features = [
+  "registry",
+  "env-filter",
+] }
 
 [[example]]
 name = "hello_world"
