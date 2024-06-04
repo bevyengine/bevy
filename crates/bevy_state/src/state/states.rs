@@ -54,6 +54,11 @@ use std::hash::Hash;
 /// app.add_systems(Update, handle_escape_pressed.run_if(in_state(GameState::MainMenu)));
 /// app.add_systems(OnEnter(GameState::SettingsMenu), open_settings_menu);
 /// ```
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not be used as a state",
+    label = "invalid state",
+    note = "consider annotating `{Self}` with `#[derive(States)]`"
+)]
 pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {
     /// How many other states this state depends on.
     /// Used to help order transitions and de-duplicate [`ComputedStates`](crate::state::ComputedStates), as well as prevent cyclical

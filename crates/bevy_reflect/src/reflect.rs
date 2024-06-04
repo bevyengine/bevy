@@ -179,6 +179,10 @@ impl std::fmt::Display for ReflectKind {
 /// [`bevy_reflect`]: crate
 /// [derive macro]: bevy_reflect_derive::Reflect
 /// [crate-level documentation]: crate
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not be reflected",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+)]
 pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// Returns the [`TypeInfo`] of the type _represented_ by this value.
     ///
