@@ -17,7 +17,7 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
 accesskit = "0.12"
 
 [features]
-# Remove `#[doc(hidden)] from `accesskit` re-export.
+# Remove `#[doc(hidden)]` from `accesskit` re-export.
 unhide_reexports = []
 
 [lints]

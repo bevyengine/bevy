@@ -30,10 +30,10 @@ pub use ahash::{AHasher, RandomState};
 pub use bevy_utils_proc_macros::*;
 pub use cow_arc::*;
 pub use default::default;
-#[cfg_attr(not(unhide_reexports), doc(hidden))]
+#[cfg_attr(not(feature = "unhide_reexports"), doc(hidden))]
 pub use hashbrown;
 pub use parallel_queue::*;
-#[cfg_attr(not(unhide_reexports), doc(hidden))]
+#[cfg_attr(not(feature = "unhide_reexports"), doc(hidden))]
 pub use tracing;
 pub use web_time::{Duration, Instant, SystemTime, SystemTimeError, TryFromFloatSecsError};
 

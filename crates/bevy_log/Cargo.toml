@@ -11,7 +11,7 @@ keywords = ["bevy"]
 [features]
 trace = ["tracing-error"]
 trace_tracy_memory = ["dep:tracy-client"]
-# Remove `#[doc(hidden)] from `tracing_subscriber` re-export.
+# Remove `#[doc(hidden)]` from `tracing_subscriber` re-export.
 unhide_reexports = []
 
 [dependencies]

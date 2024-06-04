@@ -338,7 +338,7 @@ ios_simulator = ["bevy_internal/ios_simulator"]
 # Enable built in global state machines
 bevy_state = ["bevy_internal/bevy_state"]
 
-# Remove `#[doc(hidden)] from re-exports of certain crates.
+# Remove `#[doc(hidden)]` from re-exports of certain crates.
 unhide_reexports = ["bevy_internal/unhide_reexports"]
 
 [dependencies]
