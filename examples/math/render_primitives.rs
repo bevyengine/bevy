@@ -507,16 +507,16 @@ fn spawn_primitive_2d(
     let material: Handle<ColorMaterial> = materials.add(Color::WHITE);
     let camera_mode = CameraActive::Dim2;
     [
-        Some(RECTANGLE.mesh()),
+        Some(RECTANGLE.mesh().build()),
         Some(CIRCLE.mesh().build()),
         Some(ELLIPSE.mesh().build()),
-        Some(TRIANGLE_2D.mesh()),
+        Some(TRIANGLE_2D.mesh().build()),
         None, // plane
         None, // line
         None, // segment
         None, // polyline
         None, // polygon
-        Some(REGULAR_POLYGON.mesh()),
+        Some(REGULAR_POLYGON.mesh().build()),
         Some(CAPSULE_2D.mesh().build()),
         None, // cylinder
         None, // cone
@@ -554,10 +554,10 @@ fn spawn_primitive_3d(
     let material: Handle<StandardMaterial> = materials.add(Color::WHITE);
     let camera_mode = CameraActive::Dim3;
     [
-        Some(CUBOID.mesh()),
+        Some(CUBOID.mesh().build()),
         Some(SPHERE.mesh().build()),
         None, // ellipse
-        Some(TRIANGLE_3D.mesh()),
+        Some(TRIANGLE_3D.mesh().build()),
         Some(PLANE_3D.mesh().build()),
         None, // line
         None, // segment
@@ -569,7 +569,7 @@ fn spawn_primitive_3d(
         None, // cone
         None, // conical frustum
         Some(TORUS.mesh().build()),
-        Some(TETRAHEDRON.mesh()),
+        Some(TETRAHEDRON.mesh().build()),
     ]
     .into_iter()
     .zip(PrimitiveSelected::ALL)
