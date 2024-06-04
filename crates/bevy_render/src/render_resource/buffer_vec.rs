@@ -9,7 +9,7 @@ use encase::{
     internal::{WriteInto, Writer},
     ShaderType,
 };
-use wgpu::{BufferAddress, BufferUsages};
+use wgpu::{BindingResource, BufferAddress, BufferUsages};
 
 use super::GpuArrayBufferable;
 
@@ -62,6 +62,13 @@ impl<T: NoUninit> RawBufferVec<T> {
     #[inline]
     pub fn buffer(&self) -> Option<&Buffer> {
         self.buffer.as_ref()
+    }
+
+    #[inline]
+    pub fn binding(&self) -> Option<BindingResource> {
+        Some(BindingResource::Buffer(
+            self.buffer()?.as_entire_buffer_binding(),
+        ))
     }
 
     #[inline]
@@ -215,6 +222,14 @@ where
     #[inline]
     pub fn buffer(&self) -> Option<&Buffer> {
         self.buffer.as_ref()
+    }
+
+    /// Returns the binding for the buffer if the data has been updloaded.
+    #[inline]
+    pub fn binding(&self) -> Option<BindingResource> {
+        Some(BindingResource::Buffer(
+            self.buffer()?.as_entire_buffer_binding(),
+        ))
     }
 
     /// Returns the amount of space that the GPU will use before reallocating.
