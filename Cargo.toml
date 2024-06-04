@@ -3170,6 +3170,17 @@ description = "Displays an example model with anisotropy"
 category = "3D Rendering"
 wasm = false
 
+[[example]]
+name = "monitor_info"
+path = "examples/window/monitor_info.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.monitor_info]
+name = "Monitor info"
+description = "Displays information about available monitors (displays)."
+category = "Window"
+wasm = false
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
