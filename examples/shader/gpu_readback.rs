@@ -91,6 +91,7 @@ impl Plugin for GpuReadbackPlugin {
     }
 }
 
+/// Holds the buffers that will be used to communicate between the cpu and gpu
 #[derive(Resource)]
 struct Buffers {
     /// The buffer that will be used by the compute shader
@@ -98,8 +99,8 @@ struct Buffers {
     /// In this example, we want to write a `Vec<u32>` to a `Buffer`. `BufferVec` is a wrapper around a `Buffer`
     /// that will make sure the data is correctly aligned for the gpu and will simplify uploading the data to the gpu.
     gpu_buffer: BufferVec<u32>,
-    // The buffer that will be read on the cpu.
-    // The `gpu_buffer` will be copied to this buffer every frame
+    /// The buffer that will be read on the cpu.
+    /// The `gpu_buffer` will be copied to this buffer every frame
     cpu_buffer: Buffer,
 }
 
