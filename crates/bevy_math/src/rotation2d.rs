@@ -7,9 +7,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-/// A counterclockwise 2D rotation in radians.
-///
-/// The rotation angle is wrapped to be within the `(-pi, pi]` range.
+/// A counterclockwise 2D rotation.
 ///
 /// # Example
 ///
@@ -81,8 +79,8 @@ impl Rotation2d {
 
     /// A counterclockwise rotation of π/4 radians.
     pub const FRAC_PI_4: Self = Self {
-        cos: std::f32::consts::FRAC_1_SQRT_2,
-        sin: std::f32::consts::FRAC_1_SQRT_2,
+        cos: core::f32::consts::FRAC_1_SQRT_2,
+        sin: core::f32::consts::FRAC_1_SQRT_2,
     };
 
     /// A counterclockwise rotation of π/6 radians.

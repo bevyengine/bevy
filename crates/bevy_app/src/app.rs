@@ -10,8 +10,6 @@ use bevy_ecs::{
     schedule::{ScheduleBuildSettings, ScheduleLabel},
     system::SystemId,
 };
-#[cfg(feature = "bevy_state")]
-use bevy_state::{prelude::*, state::FreelyMutableState};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{tracing::debug, HashMap};
@@ -264,59 +262,6 @@ impl App {
     /// Returns `true` if any of the sub-apps are building plugins.
     pub(crate) fn is_building_plugins(&self) -> bool {
         self.sub_apps.iter().any(|s| s.is_building_plugins())
-    }
-
-    #[cfg(feature = "bevy_state")]
-    /// Initializes a [`State`] with standard starting values.
-    ///
-    /// This method is idempotent: it has no effect when called again using the same generic type.
-    ///
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`], [`OnTransition`] and [`OnExit`] schedules.
-    /// These schedules are triggered before [`Update`](crate::Update) and at startup.
-    ///
-    /// If you would like to control how other systems run based on the current state, you can
-    /// emulate this behavior using the [`in_state`] [`Condition`].
-    ///
-    /// Note that you can also apply state transitions at other points in the schedule
-    /// by triggering the [`StateTransition`](`bevy_ecs::schedule::StateTransition`) schedule manually.
-    pub fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
-        self.main_mut().init_state::<S>();
-        self
-    }
-
-    #[cfg(feature = "bevy_state")]
-    /// Inserts a specific [`State`] to the current [`App`] and overrides any [`State`] previously
-    /// added of the same type.
-    ///
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`], [`OnTransition`] and [`OnExit`] schedules.
-    /// These schedules are triggered before [`Update`](crate::Update) and at startup.
-    ///
-    /// If you would like to control how other systems run based on the current state, you can
-    /// emulate this behavior using the [`in_state`] [`Condition`].
-    ///
-    /// Note that you can also apply state transitions at other points in the schedule
-    /// by triggering the [`StateTransition`](`bevy_ecs::schedule::StateTransition`) schedule manually.
-    pub fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
-        self.main_mut().insert_state::<S>(state);
-        self
-    }
-
-    #[cfg(feature = "bevy_state")]
-    /// Sets up a type implementing [`ComputedStates`].
-    ///
-    /// This method is idempotent: it has no effect when called again using the same generic type.
-    pub fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
-        self.main_mut().add_computed_state::<S>();
-        self
-    }
-
-    #[cfg(feature = "bevy_state")]
-    /// Sets up a type implementing [`SubStates`].
-    ///
-    /// This method is idempotent: it has no effect when called again using the same generic type.
-    pub fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
-        self.main_mut().add_sub_state::<S>();
-        self
     }
 
     /// Adds one or more systems to the given schedule in this app's [`Schedules`].

@@ -7,10 +7,10 @@ use super::{
     MeshletGpuScene,
 };
 use crate::{
-    MeshViewBindGroup, PrepassViewBindGroup, PreviousViewUniformOffset, ViewFogUniformOffset,
-    ViewLightProbesUniformOffset, ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
+    MeshViewBindGroup, PrepassViewBindGroup, ViewFogUniformOffset, ViewLightProbesUniformOffset,
+    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
-use bevy_core_pipeline::prepass::ViewPrepassTextures;
+use bevy_core_pipeline::prepass::{PreviousViewUniformOffset, ViewPrepassTextures};
 use bevy_ecs::{query::QueryItem, world::World};
 use bevy_render::{
     camera::ExtractedCamera,
