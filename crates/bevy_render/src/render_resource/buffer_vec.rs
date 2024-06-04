@@ -47,6 +47,7 @@ pub struct RawBufferVec<T: NoUninit> {
 }
 
 impl<T: NoUninit> RawBufferVec<T> {
+    /// Creates a new [`RawBufferVec`] with the given [`BufferUsages`].
     pub const fn new(buffer_usage: BufferUsages) -> Self {
         Self {
             values: Vec::new(),
@@ -398,6 +399,14 @@ where
     #[inline]
     pub fn buffer(&self) -> Option<&Buffer> {
         self.buffer.as_ref()
+    }
+
+    /// Returns the binding for the buffer if the data has been uploaded.
+    #[inline]
+    pub fn binding(&self) -> Option<BindingResource> {
+        Some(BindingResource::Buffer(
+            self.buffer()?.as_entire_buffer_binding(),
+        ))
     }
 
     /// Reserves space for one more element in the buffer and returns its index.
