@@ -17,10 +17,10 @@ use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
 
 use bevy_ecs::query::With;
-#[cfg(target_os = "ios")]
-use winit::platform::ios::WindowExtIOS;
 use bevy_ecs::system::Res;
 use bevy_math::{IVec2, UVec2};
+#[cfg(target_os = "ios")]
+use winit::platform::ios::WindowExtIOS;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 
