@@ -585,7 +585,7 @@ async fn load_gltf<'a, 'b, 'c>(
     }
     let nodes = resolve_node_hierarchy(nodes_intermediate, load_context.path())
         .into_iter()
-        .map(|node| load_context.add_labeled_asset(node.label(), node))
+        .map(|node| load_context.add_labeled_asset(node.asset_label.clone(), node))
         .collect::<Vec<Handle<GltfNode>>>();
     let named_nodes = named_nodes_intermediate
         .into_iter()

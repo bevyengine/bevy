@@ -113,9 +113,9 @@ pub struct Gltf {
 pub struct GltfNode {
     /// Index of the node inside the scene
     pub index: usize,
-    /// Computed name for a node - either a user defined name or a generated name from index
+    /// Computed name for a node - either a user defined node name from gLTF or a generated name from index
     pub name: String,
-    /// Subasset label for this node within the GLTF parent asset.
+    /// Subasset label for this node within the gLTF parent asset.
     ///
     /// ```
     /// asset_server.load(format!("my_glft.glft#{}", node.asset_label());
@@ -132,7 +132,7 @@ pub struct GltfNode {
 }
 
 impl GltfNode {
-    /// Create a node extracting name and index from gltf def
+    /// Create a node extracting name and index from glTF def
     pub fn new(
         node: &gltf::Node,
         children: Vec<GltfNode>,
@@ -164,9 +164,9 @@ impl GltfNode {
 pub struct GltfMesh {
     /// Index of the mesh inside the scene
     pub index: usize,
-    /// Computed name for a mesh - either a user defined name or a generated name from index
+    /// Computed name for a mesh - either a user defined mesh name from gLTF or a generated name from index
     pub name: String,
-    /// Subasset label for this mesh within the GLTF parent asset.
+    /// Subasset label for this mesh within the gLTF parent asset.
     ///
     /// ```
     /// asset_server.load(format!("my_glft.glft#{}", mesh.asset_label());
@@ -179,7 +179,7 @@ pub struct GltfMesh {
 }
 
 impl GltfMesh {
-    /// Create a mesh extracting name and index from gltf def
+    /// Create a mesh extracting name and index from glTF def
     pub fn new(
         mesh: &gltf::Mesh,
         primitives: Vec<GltfPrimitive>,
