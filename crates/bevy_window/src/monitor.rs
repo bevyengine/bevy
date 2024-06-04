@@ -6,7 +6,11 @@ use bevy_reflect::Reflect;
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-/// Represents a monitor attached to the system, which can be used to create windows.
+/// Represents an available monitor as reported by the user's operating system, which can be used
+/// to query information about the display, such as its size, position, and video modes.
+///
+/// Each monitor corresponds to an entity and can be used to position a monitor using
+/// [`crate::window::MonitorSelection::Entity`].
 ///
 /// This component is synchronized with `winit` through `bevy_winit`, but is effectively
 /// read-only as `winit` does not support changing monitor properties.

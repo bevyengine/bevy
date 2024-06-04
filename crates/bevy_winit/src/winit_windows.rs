@@ -376,16 +376,8 @@ pub fn winit_window_position(
                     current_monitor
                 }
                 Primary => primary_monitor,
-                Index(n) => monitors
-                    .monitors
-                    .get(*n)
-                    .as_ref()
-                    .map(|(monitor, _)| monitor.clone()),
-                Entity(entity) => monitors
-                    .monitors
-                    .iter()
-                    .find(|(_, e)| *e == *entity)
-                    .map(|(m, _)| m.clone()),
+                Index(n) => monitors.nth(*n),
+                Entity(entity) => monitors.find_entity(*entity),
             };
 
             if let Some(monitor) = maybe_monitor {

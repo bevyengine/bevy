@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use winit::monitor::MonitorHandle;
 
 use bevy_ecs::entity::Entity;
@@ -7,6 +8,17 @@ use bevy_ecs::system::Resource;
 #[derive(Resource, Debug, Default)]
 pub struct WinitMonitors {
     /// Stores [`winit`] monitors and their corresponding entities
-    // we can't use a `HashMap` here because `MonitorHandle` doesn't implement `Hash` :(
-    pub monitors: Vec<(MonitorHandle, Entity)>,
+    pub monitors: BTreeMap<MonitorHandle, Entity>,
+}
+
+impl WinitMonitors {
+   pub fn nth(&self, n: usize) -> Option<MonitorHandle> {
+        self.monitors.iter().nth(n)
+            .map(|(monitor, _)| monitor.clone())
+    }
+
+    pub fn find_entity(&self, entity: Entity) -> Option<MonitorHandle> {
+        self.monitors.iter().find(|(_, e)| **e == entity)
+            .map(|(monitor, _)| monitor.clone())
+    }
 }

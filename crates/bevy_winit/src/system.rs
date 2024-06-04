@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use bevy_ecs::{
     entity::Entity,
     event::EventWriter,
@@ -122,17 +123,18 @@ pub fn create_windows<F: QueryFilter + 'static>(
     }
 }
 
+/// Synchronize available monitors as reported by [`winit`] with [`Monitor`] entities in the world.
 pub fn create_monitors(
     event_loop: &ActiveEventLoop,
     (mut commands, mut monitors): SystemParamItem<CreateMonitorParams>,
 ) {
     let primary_monitor = event_loop.primary_monitor();
-    let mut seen_monitors = vec![false; monitors.monitors.len()];
+    let mut seen_monitors = BTreeSet::new();
 
     'outer: for monitor in event_loop.available_monitors() {
-        for (idx, (m, _)) in monitors.monitors.iter().enumerate() {
+        for (m, _) in monitors.monitors.iter() {
             if &monitor == m {
-                seen_monitors[idx] = true;
+                seen_monitors.insert(m.clone());
                 continue 'outer;
             }
         }
@@ -166,19 +168,16 @@ pub fn create_monitors(
             commands.entity(entity).insert(PrimaryMonitor);
         }
 
-        monitors.monitors.push((monitor, entity));
-        seen_monitors.push(true);
+        seen_monitors.insert(monitor.clone());
+        monitors.monitors.insert(monitor, entity);
     }
 
-    let mut idx = 0;
-    monitors.monitors.retain(|(m, entity)| {
-        if seen_monitors[idx] {
-            idx += 1;
+    monitors.monitors.retain(|m, entity| {
+        if seen_monitors.contains(m) {
             true
         } else {
             trace!("Despawning monitor {:?}", m.name());
             commands.entity(*entity).despawn();
-            idx += 1;
             false
         }
     });
