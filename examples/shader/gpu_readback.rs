@@ -12,7 +12,7 @@ use bevy::{
     render::{
         render_graph::{self, RenderGraph, RenderLabel},
         render_resource::{binding_types::storage_buffer, *},
-        renderer::{RenderContext, RenderDevice},
+        renderer::{RenderContext, RenderDevice, RenderQueue},
         Render, RenderApp, RenderSet,
     },
 };
@@ -94,7 +94,7 @@ impl Plugin for GpuReadbackPlugin {
 #[derive(Resource)]
 struct Buffers {
     // The buffer that will be used by the compute shader
-    gpu_buffer: Buffer,
+    gpu_buffer: BufferVec<u32>,
     // The buffer that will be read on the cpu.
     // The `gpu_buffer` will be copied to this buffer every frame
     cpu_buffer: Buffer,
@@ -103,16 +103,17 @@ struct Buffers {
 impl FromWorld for Buffers {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
-        let mut init_data = encase::StorageBuffer::new(Vec::new());
-        // Init the buffer with 0
-        let data = vec![0; BUFFER_LEN];
-        init_data.write(&data).expect("Failed to write buffer");
-        // The buffer that will be accessed by the gpu
-        let gpu_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            label: Some("gpu_buffer"),
-            contents: init_data.as_ref(),
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
-        });
+        let render_queue = world.resource::<RenderQueue>();
+
+        // Create the buffer that will be accessed by the gpu
+        let mut gpu_buffer = BufferVec::new(BufferUsages::STORAGE | BufferUsages::COPY_SRC);
+        for _ in 0..BUFFER_LEN {
+            // Init the buffer with zeroes
+            gpu_buffer.push(0);
+        }
+        // Write the buffer so the data is accessible on the gpu
+        gpu_buffer.write_buffer(render_device, render_queue);
+
         // For portability reasons, WebGPU draws a distinction between memory that is
         // accessible by the CPU and memory that is accessible by the GPU. Only
         // buffers accessible by the CPU can be mapped and accessed by the CPU and
@@ -145,7 +146,7 @@ fn prepare_bind_group(
     let bind_group = render_device.create_bind_group(
         None,
         &pipeline.layout,
-        &BindGroupEntries::single(buffers.gpu_buffer.as_entire_binding()),
+        &BindGroupEntries::single(buffers.gpu_buffer.buffer().unwrap().as_entire_binding()),
     );
     commands.insert_resource(GpuBufferBindGroup(bind_group));
 }
@@ -285,7 +286,7 @@ impl render_graph::Node for ComputeNode {
         // Copy the gpu accessible buffer to the cpu accessible buffer
         let buffers = world.resource::<Buffers>();
         render_context.command_encoder().copy_buffer_to_buffer(
-            &buffers.gpu_buffer,
+            buffers.gpu_buffer.buffer().unwrap(),
             0,
             &buffers.cpu_buffer,
             0,
