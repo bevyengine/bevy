@@ -1,3 +1,5 @@
+use std::sync::RwLockReadGuard;
+
 use crate::{DynamicScene, InstanceInfo, SceneSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::component::ComponentId;
@@ -6,7 +8,7 @@ use bevy_ecs::{
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
     world::World,
 };
-use bevy_reflect::TypePath;
+use bevy_reflect::{TypePath, TypeRegistry};
 
 /// To spawn a scene, you can use either:
 /// * [`SceneSpawner::spawn`](crate::SceneSpawner::spawn)
@@ -66,35 +68,7 @@ impl Scene {
 
         let type_registry = type_registry.read();
 
-        // Resources archetype
-        for (component_id, resource_data) in self.world.storages().resources.iter() {
-            if !resource_data.is_present() {
-                continue;
-            }
-
-            let component_info = self
-                .world
-                .components()
-                .get_info(component_id)
-                .expect("component_ids in archetypes should have ComponentInfo");
-
-            let type_id = component_info
-                .type_id()
-                .expect("reflected resources must have a type_id");
-
-            let registration =
-                type_registry
-                    .get(type_id)
-                    .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                        std_type_name: component_info.name().to_string(),
-                    })?;
-            let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
-                SceneSpawnError::UnregisteredResource {
-                    type_path: registration.type_info().type_path().to_string(),
-                }
-            })?;
-            reflect_resource.copy(&self.world, world, &type_registry);
-        }
+        self.update_resources(world, &type_registry)?;
 
         for archetype in self.world.archetypes().iter() {
             for scene_entity in archetype.entities() {
@@ -160,35 +134,7 @@ impl Scene {
 
         let type_registry = type_registry.read();
 
-        // Resources archetype
-        for (component_id, resource_data) in self.world.storages().resources.iter() {
-            if !resource_data.is_present() {
-                continue;
-            }
-
-            let component_info = self
-                .world
-                .components()
-                .get_info(component_id)
-                .expect("component_ids in archetypes should have ComponentInfo");
-
-            let type_id = component_info
-                .type_id()
-                .expect("reflected resources must have a type_id");
-
-            let registration =
-                type_registry
-                    .get(type_id)
-                    .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                        std_type_name: component_info.name().to_string(),
-                    })?;
-            let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
-                SceneSpawnError::UnregisteredResource {
-                    type_path: registration.type_info().type_path().to_string(),
-                }
-            })?;
-            reflect_resource.copy(&self.world, world, &type_registry);
-        }
+        self.update_resources(world, &type_registry)?;
 
         for archetype in self.world.archetypes().iter() {
             for scene_entity in archetype.entities() {
@@ -228,6 +174,43 @@ impl Scene {
             }
         }
 
+        Ok(())
+    }
+
+    fn update_resources(
+        &self,
+        world: &mut World,
+        type_registry: &RwLockReadGuard<TypeRegistry>,
+    ) -> Result<(), SceneSpawnError> {
+        // Resources archetype
+        for (component_id, resource_data) in self.world.storages().resources.iter() {
+            if !resource_data.is_present() {
+                continue;
+            }
+
+            let component_info = self
+                .world
+                .components()
+                .get_info(component_id)
+                .expect("component_ids in archetypes should have ComponentInfo");
+
+            let type_id = component_info
+                .type_id()
+                .expect("reflected resources must have a type_id");
+
+            let registration =
+                type_registry
+                    .get(type_id)
+                    .ok_or_else(|| SceneSpawnError::UnregisteredType {
+                        std_type_name: component_info.name().to_string(),
+                    })?;
+            let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
+                SceneSpawnError::UnregisteredResource {
+                    type_path: registration.type_info().type_path().to_string(),
+                }
+            })?;
+            reflect_resource.copy(&self.world, world, &type_registry);
+        }
         Ok(())
     }
 }
