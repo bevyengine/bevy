@@ -1,3 +1,4 @@
+mod extrusion;
 mod primitive_impls;
 
 use glam::Mat3;
@@ -7,6 +8,7 @@ use crate::{Quat, Vec3, Vec3A};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
+pub use extrusion::{extrusion_bounding_box, extrusion_bounding_sphere};
 
 /// Computes the geometric center of the given set of points.
 #[inline(always)]
