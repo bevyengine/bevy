@@ -93,7 +93,10 @@ impl Plugin for GpuReadbackPlugin {
 
 #[derive(Resource)]
 struct Buffers {
-    // The buffer that will be used by the compute shader
+    /// The buffer that will be used by the compute shader
+    ///
+    /// In this example, we want to write a `Vec<u32>` to a `Buffer`. `BufferVec` is a wrapper around a `Buffer`
+    /// that will make sure the data is correctly aligned for the gpu and will simplify uploading the data to the gpu.
     gpu_buffer: BufferVec<u32>,
     // The buffer that will be read on the cpu.
     // The `gpu_buffer` will be copied to this buffer every frame
@@ -146,7 +149,13 @@ fn prepare_bind_group(
     let bind_group = render_device.create_bind_group(
         None,
         &pipeline.layout,
-        &BindGroupEntries::single(buffers.gpu_buffer.buffer().unwrap().as_entire_binding()),
+        &BindGroupEntries::single(
+            buffers
+                .gpu_buffer
+                .binding()
+                // We already did it when creating the buffer so this should never happen
+                .expect("Buffer should have already been uploaded to the gpu"),
+        ),
     );
     commands.insert_resource(GpuBufferBindGroup(bind_group));
 }
@@ -286,7 +295,10 @@ impl render_graph::Node for ComputeNode {
         // Copy the gpu accessible buffer to the cpu accessible buffer
         let buffers = world.resource::<Buffers>();
         render_context.command_encoder().copy_buffer_to_buffer(
-            buffers.gpu_buffer.buffer().unwrap(),
+            buffers
+                .gpu_buffer
+                .buffer()
+                .expect("Buffer should have already been uploaded to the gpu"),
             0,
             &buffers.cpu_buffer,
             0,
