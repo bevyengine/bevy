@@ -213,6 +213,25 @@ impl MeshBuilder for CircularSectorMeshBuilder {
     }
 }
 
+impl Extrudable for CircularSectorMeshBuilder {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        let resolution = self.resolution as u32;
+        let (sin, cos) = self.sector.arc.half_angle.sin_cos();
+        let first_normal = Vec2::new(sin, cos);
+        let last_normal = Vec2::new(-sin, cos);
+        vec![
+            PerimeterSegment::Flat {
+                indices: vec![resolution, 0, 1],
+            },
+            PerimeterSegment::Smooth {
+                first_normal,
+                last_normal,
+                indices: (1..=resolution).collect(),
+            },
+        ]
+    }
+}
+
 impl Meshable for CircularSector {
     type Output = CircularSectorMeshBuilder;
 
@@ -337,6 +356,25 @@ impl MeshBuilder for CircularSegmentMeshBuilder {
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
         .with_inserted_indices(Indices::U32(indices))
+    }
+}
+
+impl Extrudable for CircularSegmentMeshBuilder {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        let resolution = self.resolution as u32;
+        let (sin, cos) = self.segment.arc.half_angle.sin_cos();
+        let first_normal = Vec2::new(sin, cos);
+        let last_normal = Vec2::new(-sin, cos);
+        vec![
+            PerimeterSegment::Flat {
+                indices: vec![resolution, 0, 1],
+            },
+            PerimeterSegment::Smooth {
+                first_normal,
+                last_normal,
+                indices: (1..=resolution).collect(),
+            },
+        ]
     }
 }
 
@@ -659,6 +697,14 @@ impl MeshBuilder for RhombusMeshBuilder {
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+    }
+}
+
+impl Extrudable for RhombusMeshBuilder {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        vec![PerimeterSegment::Flat {
+            indices: vec![0, 2, 1, 3, 0],
+        }]
     }
 }
 
