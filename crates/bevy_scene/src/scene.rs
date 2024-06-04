@@ -120,7 +120,7 @@ impl Scene {
     ///
     /// This method will return a [`SceneSpawnError`] if a type either is not registered in the
     /// provided [`AppTypeRegistry`] or doesn't reflect the [`Component`](bevy_ecs::component::Component) trait.
-    pub fn overwrite_in_world_using_instance(
+    pub fn overwrite_in_world_for_instance(
         &self,
         world: &mut World,
         type_registry: &AppTypeRegistry,
@@ -256,7 +256,7 @@ mod tests {
 
         // load an older snapshot but reuse the same entities
         snapshot
-            .overwrite_in_world_using_instance(&mut main_world, &app_type_registry, &instance)
+            .overwrite_in_world_for_instance(&mut main_world, &app_type_registry, &instance)
             .unwrap();
 
         assert_eq!(main_world.get::<A>(world_entity).cloned().unwrap(), A(0));
