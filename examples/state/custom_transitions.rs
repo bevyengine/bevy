@@ -215,7 +215,7 @@ fn trigger_game_restart(
 ) {
     if input.just_pressed(KeyCode::KeyR) {
         // Although we are already in this state setting it again will generate an identity transition.
-        // While default schedules ignore those kinds of transitions, out custom schedules will react to them.
+        // While default schedules ignore those kinds of transitions, our custom schedules will react to them.
         next_state.set(AppState::InGame);
     }
 }
