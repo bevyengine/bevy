@@ -5,11 +5,15 @@ mod setup;
 pub use setup::RenderGraphPlugin;
 
 use bevy_utils::HashMap;
-pub use setup::RenderGraphSetup;
 
 use std::{borrow::Cow, mem};
 
-use bevy_ecs::{system::Resource, world::World};
+use bevy_ecs::{
+    component::Component,
+    entity::Entity,
+    system::Resource,
+    world::{EntityRef, Ref, World},
+};
 use bevy_render::{
     render_resource::{
         BindGroup, BindGroupLayout, Buffer, CommandEncoder, CommandEncoderDescriptor, ComputePass,
@@ -55,6 +59,7 @@ pub struct RenderGraph<'g> {
     samplers: RenderResources<'g, Sampler>,
     buffers: RenderResources<'g, Buffer>,
     pipelines: RenderGraphPipelines<'g>,
+
     nodes: Vec<Node<'g>>,
 }
 
@@ -68,8 +73,14 @@ struct Node<'g> {
 enum NodeRunner<'g> {
     Raw(Box<dyn FnOnce(NodeContext<'_, 'g>, &mut CommandEncoder, &RenderDevice) + Send + 'g>),
     //todo: possibility of auto-merging render passes?
-    //Render(Box<dyn FnOnce(NodeContext, &RenderDevice, &RenderQueue, &mut RenderPass) + 'g>),
-    Compute(Box<dyn for<'n> FnOnce(&'n NodeContext<'n, 'g>, &mut ComputePass<'n>) + Send + 'g>),
+    //Render(Box<dyn FnOnce(NodeContext, &RenderDevice, &mut RenderPass) + 'g>),
+    Compute(
+        Box<
+            dyn for<'n> FnOnce(&'n NodeContext<'n, 'g>, &mut ComputePass<'n>, &RenderDevice)
+                + Send
+                + 'g,
+        >,
+    ),
 }
 
 impl<'g> RenderGraph<'g> {
@@ -116,7 +127,7 @@ impl<'g> RenderGraph<'g> {
                             label: label.as_deref(),
                             timestamp_writes: None,
                         });
-                        (f)(&context, &mut compute_pass);
+                        (f)(&context, &mut compute_pass, render_device);
                     }
                 }
             }
@@ -254,7 +265,7 @@ pub struct RenderGraphBuilder<'b, 'g: 'b> {
     // resource_cache: &'b mut RenderGraphCachedResources,
     // pipeline_cache: &'b mut PipelineCache,
     world: &'g World,
-    // view_entity: EntityRef<'g>,
+    view_entity: EntityRef<'g>,
     render_device: &'b RenderDevice,
 }
 
@@ -340,7 +351,9 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
         &mut self,
         label: Label<'g>,
         dependencies: RenderDependencies<'g>,
-        node: impl for<'n> FnOnce(&'n NodeContext<'n, 'g>, &mut ComputePass<'n>) + Send + 'g,
+        node: impl for<'n> FnOnce(&'n NodeContext<'n, 'g>, &mut ComputePass<'n>, &RenderDevice)
+            + Send
+            + 'g,
     ) -> &mut Self {
         //get + save dependency generations here, since they're not stored in RenderDependencies.
         //This is to make creating a RenderDependencies (and cloning!) a pure operation.
@@ -371,6 +384,15 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
     ) -> RenderGraphDebugWrapper<'a, 'g, T> {
         self.graph.as_debug_ctx().debug(value)
     }
+
+    fn as_inner<'a>(&'a mut self, entity: Entity) -> RenderGraphBuilder<'a, 'g> {
+        RenderGraphBuilder {
+            graph: &mut self.graph,
+            world: &self.world,
+            view_entity: self.world.entity(entity),
+            render_device: &self.render_device,
+        }
+    }
 }
 
 impl<'g> RenderGraphBuilder<'_, 'g> {
@@ -384,25 +406,25 @@ impl<'g> RenderGraphBuilder<'_, 'g> {
         self.world.get_resource()
     }
 
-    // pub fn view_id(&self) -> Entity {
-    //     self.view_entity.id()
-    // }
-    //
-    // pub fn view_contains<C: Component>(&self) -> bool {
-    //     self.view_entity.contains::<C>()
-    // }
-    //
-    // pub fn view_get<C: Component>(&self) -> Option<&'g C> {
-    //     self.view_entity.get()
-    // }
-    //
-    // pub fn view_get_ref<C: Component>(&self) -> Option<Ref<'g, C>> {
-    //     self.view_entity.get_ref()
-    // }
-    //
-    // pub fn view_entity(&self) -> EntityRef<'g> {
-    //     self.view_entity
-    // }
+    pub fn view_id(&self) -> Entity {
+        self.view_entity.id()
+    }
+
+    pub fn view_contains<C: Component>(&self) -> bool {
+        self.view_entity.contains::<C>()
+    }
+
+    pub fn view_get<C: Component>(&self) -> Option<&'g C> {
+        self.view_entity.get()
+    }
+
+    pub fn view_get_ref<C: Component>(&self) -> Option<Ref<'g, C>> {
+        self.view_entity.get_ref()
+    }
+
+    pub fn view_entity(&self) -> EntityRef<'g> {
+        self.view_entity
+    }
 
     #[inline]
     pub fn world(&self) -> &'g World {

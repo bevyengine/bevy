@@ -332,15 +332,15 @@ impl<'a, 'b: 'a, 'g: 'b> ComputePass<'a, 'b, 'g> {
         self.dispatch(UVec3 { x, y, z })
     }
 
-    pub fn build(mut self) {
+    pub fn build(self) {
         let (bind_group, graph) = self.bind_group.build_and_return_graph();
         let pipeline = graph.new_resource(RenderGraphComputePipelineDescriptor {
             label: self.label.clone(),
             layout: vec![graph.meta(bind_group).descriptor.layout],
             push_constant_ranges: Vec::new(),
-            shader: mem::take(&mut self.shader),
-            shader_defs: mem::take(&mut self.shader_defs),
-            entry_point: mem::take(&mut self.entry_point),
+            shader: self.shader,
+            shader_defs: self.shader_defs,
+            entry_point: self.entry_point,
         });
 
         let mut dependencies = RenderDependencies::new();
@@ -349,14 +349,10 @@ impl<'a, 'b: 'a, 'g: 'b> ComputePass<'a, 'b, 'g> {
 
         let dispatch_size = self.dispatch_size;
 
-        graph.add_compute_node(
-            mem::take(&mut self.label),
-            dependencies,
-            move |ctx, pass| {
-                pass.set_bind_group(0, ctx.get(bind_group).deref(), &[]);
-                pass.set_pipeline(ctx.get(pipeline).deref());
-                pass.dispatch_workgroups(dispatch_size.x, dispatch_size.y, dispatch_size.z);
-            },
-        );
+        graph.add_compute_node(self.label, dependencies, move |ctx, pass, _| {
+            pass.set_bind_group(0, ctx.get(bind_group).deref(), &[]);
+            pass.set_pipeline(ctx.get(pipeline).deref());
+            pass.dispatch_workgroups(dispatch_size.x, dispatch_size.y, dispatch_size.z);
+        });
     }
 }
