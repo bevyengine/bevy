@@ -932,6 +932,8 @@ pub enum MonitorSelection {
     Primary,
     /// Uses the monitor with the specified index.
     Index(usize),
+    /// Uses a given [`Monitor`] entity.
+    Entity(Entity),
 }
 
 /// Presentation mode for a [`Window`].

@@ -14,6 +14,7 @@ use winit::{
     window::{CursorGrabMode as WinitCursorGrabMode, Fullscreen, Window as WinitWindow, WindowId},
 };
 
+use crate::winit_monitors::WinitMonitors;
 use crate::{
     accessibility::{
         prepare_accessibility_for_window, AccessKitAdapters, WinitActionRequestHandlers,
@@ -39,6 +40,7 @@ pub struct WinitWindows {
 
 impl WinitWindows {
     /// Creates a `winit` window and associates it with our entity.
+    #[allow(clippy::too_many_arguments)]
     pub fn create_window(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -79,7 +81,7 @@ impl WinitWindows {
                 if let Some(position) = winit_window_position(
                     &window.position,
                     &window.resolution,
-                    event_loop.available_monitors(),
+                    monitors,
                     event_loop.primary_monitor(),
                     None,
                 ) {
@@ -354,7 +356,7 @@ pub(crate) fn attempt_grab(winit_window: &WinitWindow, grab_mode: CursorGrabMode
 pub fn winit_window_position(
     position: &WindowPosition,
     resolution: &WindowResolution,
-    mut available_monitors: impl Iterator<Item = MonitorHandle>,
+    monitors: &WinitMonitors,
     primary_monitor: Option<MonitorHandle>,
     current_monitor: Option<MonitorHandle>,
 ) -> Option<PhysicalPosition<i32>> {
@@ -373,7 +375,16 @@ pub fn winit_window_position(
                     current_monitor
                 }
                 Primary => primary_monitor,
-                Index(n) => available_monitors.nth(*n),
+                Index(n) => monitors
+                    .monitors
+                    .get(*n)
+                    .as_ref()
+                    .map(|(monitor, _)| monitor.clone()),
+                Entity(entity) => monitors
+                    .monitors
+                    .iter()
+                    .find(|(_, e)| *e == *entity)
+                    .map(|(m, _)| m.clone()),
             };
 
             if let Some(monitor) = maybe_monitor {

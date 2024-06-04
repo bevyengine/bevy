@@ -6,9 +6,9 @@ use bevy_ecs::{
     removal_detection::RemovedComponents,
     system::{Local, NonSendMut, Query, SystemParamItem},
 };
-use bevy_utils::tracing::{error, info, warn};
+use bevy_utils::tracing::{error, info, trace, warn};
 use bevy_window::{
-    ClosingWindow, RawHandleWrapper, Window, WindowClosed, WindowClosing, WindowCreated,
+    ClosingWindow, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window, WindowClosed, WindowClosing, WindowCreated,
     WindowMode, WindowResized, WindowWrapper,
 };
 
@@ -18,16 +18,20 @@ use winit::event_loop::ActiveEventLoop;
 use bevy_ecs::query::With;
 #[cfg(target_os = "ios")]
 use winit::platform::ios::WindowExtIOS;
+use bevy_ecs::system::Res;
+use bevy_math::{IVec2, UVec2};
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 
 use crate::state::react_to_resize;
+use crate::winit_monitors::WinitMonitors;
 use crate::{
     converters::{
         self, convert_enabled_buttons, convert_window_level, convert_window_theme,
         convert_winit_theme,
     },
-    get_best_videomode, get_fitting_videomode, CreateWindowParams, WinitWindows,
+    get_best_videomode, get_fitting_videomode, CreateMonitorParams, CreateWindowParams,
+    WinitWindows,
 };
 
 /// Creates new windows on the [`winit`] backend for each entity with a newly-added
@@ -46,6 +50,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
         mut adapters,
         mut handlers,
         accessibility_requested,
+        monitors,
     ): SystemParamItem<CreateWindowParams<F>>,
 ) {
     for (entity, mut window, handle_holder) in &mut created_windows {
@@ -66,6 +71,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
             &mut adapters,
             &mut handlers,
             &accessibility_requested,
+            &monitors,
         );
 
         if let Some(theme) = winit_window.theme() {
@@ -114,6 +120,68 @@ pub fn create_windows<F: QueryFilter + 'static>(
 
         window_created_events.send(WindowCreated { window: entity });
     }
+}
+
+pub fn create_monitors(
+    event_loop: &EventLoopWindowTarget<crate::UserEvent>,
+    (mut commands, mut monitors): SystemParamItem<CreateMonitorParams>,
+) {
+    let primary_monitor = event_loop.primary_monitor();
+    let mut seen_monitors = vec![false; monitors.monitors.len()];
+
+    'outer: for monitor in event_loop.available_monitors() {
+        for (idx, (m, _)) in monitors.monitors.iter().enumerate() {
+            if &monitor == m {
+                seen_monitors[idx] = true;
+                continue 'outer;
+            }
+        }
+
+        let size = monitor.size();
+        let position = monitor.position();
+
+        let entity = commands
+            .spawn(Monitor {
+                name: monitor.name(),
+                physical_height: size.height,
+                physical_width: size.width,
+                physical_position: IVec2::new(position.x, position.y),
+                refresh_rate_millihertz: monitor.refresh_rate_millihertz(),
+                scale_factor: monitor.scale_factor(),
+                video_modes: monitor
+                    .video_modes()
+                    .map(|v| {
+                        let size = v.size();
+                        VideoMode {
+                            physical_size: UVec2::new(size.width, size.height),
+                            bit_depth: v.bit_depth(),
+                            refresh_rate_millihertz: v.refresh_rate_millihertz(),
+                        }
+                    })
+                    .collect(),
+            })
+            .id();
+
+        if primary_monitor.as_ref() == Some(&monitor) {
+            commands.entity(entity).insert(PrimaryMonitor);
+        }
+
+        monitors.monitors.push((monitor, entity));
+        seen_monitors.push(true);
+    }
+
+    let mut idx = 0;
+    monitors.monitors.retain(|(m, entity)| {
+        if seen_monitors[idx] {
+            idx += 1;
+            true
+        } else {
+            trace!("Despawning monitor {:?}", m.name());
+            commands.entity(*entity).despawn();
+            idx += 1;
+            false
+        }
+    });
 }
 
 pub(crate) fn despawn_windows(
@@ -165,6 +233,7 @@ pub struct CachedWindow {
 pub(crate) fn changed_windows(
     mut changed_windows: Query<(Entity, &mut Window, &mut CachedWindow), Changed<Window>>,
     winit_windows: NonSendMut<WinitWindows>,
+    monitors: Res<WinitMonitors>,
     mut window_resized: EventWriter<WindowResized>,
 ) {
     for (entity, mut window, mut cache) in &mut changed_windows {
@@ -320,7 +389,7 @@ pub(crate) fn changed_windows(
             if let Some(position) = crate::winit_window_position(
                 &window.position,
                 &window.resolution,
-                winit_window.available_monitors(),
+                &monitors,
                 winit_window.primary_monitor(),
                 winit_window.current_monitor(),
             ) {
