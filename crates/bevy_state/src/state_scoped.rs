@@ -70,6 +70,9 @@ pub fn clear_state_scoped_entities<S: States>(
     let Some(transition) = transitions.read().last() else {
         return;
     };
+    if transition.entered == transition.exited {
+        return;
+    }
     let Some(exited) = &transition.exited else {
         return;
     };
