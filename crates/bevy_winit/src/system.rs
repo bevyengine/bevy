@@ -1,4 +1,3 @@
-use std::collections::BTreeSet;
 use bevy_ecs::{
     entity::Entity,
     event::EventWriter,
@@ -12,6 +11,7 @@ use bevy_window::{
     ClosingWindow, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window, WindowClosed, WindowClosing, WindowCreated,
     WindowMode, WindowResized, WindowWrapper,
 };
+use std::collections::BTreeSet;
 
 use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;

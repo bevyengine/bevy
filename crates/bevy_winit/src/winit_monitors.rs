@@ -12,13 +12,17 @@ pub struct WinitMonitors {
 }
 
 impl WinitMonitors {
-   pub fn nth(&self, n: usize) -> Option<MonitorHandle> {
-        self.monitors.iter().nth(n)
+    pub fn nth(&self, n: usize) -> Option<MonitorHandle> {
+        self.monitors
+            .iter()
+            .nth(n)
             .map(|(monitor, _)| monitor.clone())
     }
 
     pub fn find_entity(&self, entity: Entity) -> Option<MonitorHandle> {
-        self.monitors.iter().find(|(_, e)| **e == entity)
+        self.monitors
+            .iter()
+            .find(|(_, e)| **e == entity)
             .map(|(monitor, _)| monitor.clone())
     }
 }
