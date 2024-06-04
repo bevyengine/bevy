@@ -5,7 +5,7 @@
 //! but additionally trigger if the state changed into itself.
 //!
 //! While identity transitions exist internally in [`StateTransitionEvent`]s,
-//! the default schedules intentionally ignore them, as it is not the common use-case.
+//! the default schedules intentionally ignore them, as this behavior is not commonly needed or expected.
 
 use std::marker::PhantomData;
 

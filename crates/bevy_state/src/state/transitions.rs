@@ -98,6 +98,8 @@ pub(crate) fn internal_apply_state_transition<S: States>(
                         false => mem::replace(&mut state_resource.0, entered.clone()),
                     };
 
+                    // Transition events are sent even for same state transitions
+                    // Although enter and exit schedules are not run by default.
                     event.send(StateTransitionEvent {
                         exited: Some(exited.clone()),
                         entered: Some(entered.clone()),
