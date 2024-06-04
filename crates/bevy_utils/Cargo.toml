@@ -10,6 +10,8 @@ keywords = ["bevy"]
 
 [features]
 detailed_trace = []
+# Remove `#[doc(hidden)] from various re-exports.
+unhide_reexports = []
 
 [dependencies]
 ahash = "0.8.7"

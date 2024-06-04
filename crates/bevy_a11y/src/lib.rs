@@ -12,6 +12,7 @@ use std::sync::{
     Arc,
 };
 
+#[cfg_attr(not(unhide_reexports), doc(hidden))]
 pub use accesskit;
 use accesskit::NodeBuilder;
 use bevy_app::Plugin;

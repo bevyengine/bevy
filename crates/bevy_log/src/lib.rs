@@ -46,6 +46,8 @@ pub use bevy_utils::{
     },
     warn_once,
 };
+
+#[cfg_attr(not(unhide_reexports), doc(hidden))]
 pub use tracing_subscriber;
 
 use bevy_app::{App, Plugin};
