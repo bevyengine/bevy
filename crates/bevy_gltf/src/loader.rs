@@ -555,7 +555,7 @@ async fn load_gltf<'a, 'b, 'c>(
         let mesh =
             super::GltfMesh::new(&gltf_mesh, primitives, get_gltf_extras(gltf_mesh.extras()));
 
-        let handle = load_context.add_labeled_asset(mesh.label(), mesh);
+        let handle = load_context.add_labeled_asset(mesh.asset_label.clone(), mesh);
         if let Some(name) = gltf_mesh.name() {
             named_meshes.insert(name.into(), handle.clone());
         }
@@ -1910,7 +1910,8 @@ mod test {
         fn with_generated_name(index: usize) -> Self {
             GltfNode {
                 index,
-                name: Some(format!("l{}", index)),
+                asset_label: format!("Node{}", index),
+                name: format!("l{}", index),
                 children: vec![],
                 mesh: None,
                 transform: bevy_transform::prelude::Transform::IDENTITY,
@@ -1926,7 +1927,7 @@ mod test {
         );
 
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].name(), "l1");
+        assert_eq!(result[0].name, "l1");
         assert_eq!(result[0].children.len(), 0);
     }
 
@@ -1941,9 +1942,9 @@ mod test {
         );
 
         assert_eq!(result.len(), 2);
-        assert_eq!(result[0].name(), "l1");
+        assert_eq!(result[0].name, "l1");
         assert_eq!(result[0].children.len(), 0);
-        assert_eq!(result[1].name(), "l2");
+        assert_eq!(result[1].name, "l2");
         assert_eq!(result[1].children.len(), 0);
     }
 
@@ -1958,9 +1959,9 @@ mod test {
         );
 
         assert_eq!(result.len(), 2);
-        assert_eq!(result[0].name(), "l1");
+        assert_eq!(result[0].name, "l1");
         assert_eq!(result[0].children.len(), 1);
-        assert_eq!(result[1].name(), "l2");
+        assert_eq!(result[1].name, "l2");
         assert_eq!(result[1].children.len(), 0);
     }
 
@@ -1980,19 +1981,19 @@ mod test {
         );
 
         assert_eq!(result.len(), 7);
-        assert_eq!(result[0].name(), "l1");
+        assert_eq!(result[0].name, "l1");
         assert_eq!(result[0].children.len(), 1);
-        assert_eq!(result[1].name(), "l2");
+        assert_eq!(result[1].name, "l2");
         assert_eq!(result[1].children.len(), 1);
-        assert_eq!(result[2].name(), "l3");
+        assert_eq!(result[2].name, "l3");
         assert_eq!(result[2].children.len(), 3);
-        assert_eq!(result[3].name(), "l4");
+        assert_eq!(result[3].name, "l4");
         assert_eq!(result[3].children.len(), 1);
-        assert_eq!(result[4].name(), "l5");
+        assert_eq!(result[4].name, "l5");
         assert_eq!(result[4].children.len(), 0);
-        assert_eq!(result[5].name(), "l6");
+        assert_eq!(result[5].name, "l6");
         assert_eq!(result[5].children.len(), 0);
-        assert_eq!(result[6].name(), "l7");
+        assert_eq!(result[6].name, "l7");
         assert_eq!(result[6].children.len(), 0);
     }
 
@@ -2020,7 +2021,7 @@ mod test {
         );
 
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].name(), "l2");
+        assert_eq!(result[0].name, "l2");
         assert_eq!(result[0].children.len(), 0);
     }
 }
