@@ -51,8 +51,9 @@ impl Scene {
     }
 
     /// Writes all resources/entities and their corresponding components in the scene world to new
-    /// entities in the given world. On success returns an instance mapping entities in the scene world
-    /// to entities in the instance world.
+    /// entities in the given world.
+    ///
+    /// On success returns an instance mapping entities in the scene world to entities in the instance world.
     ///
     /// This method will return a [`SceneSpawnError`] if a type either is not registered in the
     /// provided [`AppTypeRegistry`] or doesn't reflect the [`Component`](bevy_ecs::component::Component) trait.
