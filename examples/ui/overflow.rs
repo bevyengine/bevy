@@ -15,10 +15,7 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
-    let text_style = TextStyle {
-        font_size: 20.0,
-        ..default()
-    };
+    let text_style = TextStyle::default();
 
     let image = asset_server.load("branding/icon.png");
 

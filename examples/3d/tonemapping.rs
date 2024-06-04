@@ -80,14 +80,7 @@ fn setup(
 
     // ui
     commands.spawn(
-        TextBundle::from_section(
-            "",
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
-        )
-        .with_style(Style {
+        TextBundle::from_section("", TextStyle::default()).with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -100,7 +93,9 @@ fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Main scene
     commands
         .spawn(SceneBundle {
-            scene: asset_server.load("models/TonemappingTest/TonemappingTest.gltf#Scene0"),
+            scene: asset_server.load(
+                GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
+            ),
             ..default()
         })
         .insert(SceneNumber(1));
@@ -108,7 +103,8 @@ fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Flight Helmet
     commands.spawn((
         SceneBundle {
-            scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
+            scene: asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
             transform: Transform::from_xyz(0.5, 0.0, -0.5)
                 .with_rotation(Quat::from_rotation_y(-0.15 * PI)),
             ..default()

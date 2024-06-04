@@ -86,7 +86,7 @@ fn setup(
 
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
+        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0).subdivisions(10)),
         material: materials.add(Color::from(SILVER)),
         ..default()
     });
@@ -97,19 +97,13 @@ fn setup(
     });
 
     commands.spawn(
-        TextBundle::from_section(
-            "Press space to toggle wireframes",
-            TextStyle {
-                font_size: 20.0,
+        TextBundle::from_section("Press space to toggle wireframes", TextStyle::default())
+            .with_style(Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
                 ..default()
-            },
-        )
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        }),
+            }),
     );
 }
 

@@ -88,7 +88,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
 
     // Spawn the scene.
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/DepthOfFieldExample/DepthOfFieldExample.glb#Scene0"),
+        scene: asset_server.load(
+            GltfAssetLabel::Scene(0)
+                .from_asset("models/DepthOfFieldExample/DepthOfFieldExample.glb"),
+        ),
         ..default()
     });
 
@@ -96,7 +99,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     commands.spawn(
         TextBundle {
             text: create_text(&app_settings),
-            ..TextBundle::default()
+            ..default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
@@ -220,13 +223,7 @@ fn update_text(mut texts: Query<&mut Text>, app_settings: Res<AppSettings>) {
 
 /// Regenerates the app text component per the current app settings.
 fn create_text(app_settings: &AppSettings) -> Text {
-    Text::from_section(
-        app_settings.help_text(),
-        TextStyle {
-            font_size: 20.0,
-            ..default()
-        },
-    )
+    Text::from_section(app_settings.help_text(), TextStyle::default())
 }
 
 impl From<AppSettings> for Option<DepthOfFieldSettings> {
