@@ -7,8 +7,8 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemState;
 use bevy_ecs::world::FromWorld;
 use bevy_input::{
+    gestures::*,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
-    touchpad::{TouchpadMagnify, TouchpadRotate},
 };
 use bevy_log::{error, trace, warn};
 use bevy_math::{ivec2, DVec2, Vec2};
@@ -264,10 +264,19 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 });
             }
             WindowEvent::PinchGesture { delta, .. } => {
-                self.winit_events.send(TouchpadMagnify(delta as f32));
+                self.winit_events.send(PinchGesture(delta as f32));
             }
             WindowEvent::RotationGesture { delta, .. } => {
-                self.winit_events.send(TouchpadRotate(delta));
+                self.winit_events.send(RotationGesture(delta));
+            }
+            WindowEvent::DoubleTapGesture { .. } => {
+                self.winit_events.send(DoubleTapGesture);
+            }
+            WindowEvent::PanGesture { delta, .. } => {
+                self.winit_events.send(PanGesture(Vec2 {
+                    x: delta.x,
+                    y: delta.y,
+                }));
             }
             WindowEvent::MouseWheel { delta, .. } => match delta {
                 event::MouseScrollDelta::LineDelta(x, y) => {
@@ -674,10 +683,16 @@ impl<T: Event> WinitAppRunnerState<T> {
                 WinitEvent::MouseWheel(e) => {
                     world.send_event(e);
                 }
-                WinitEvent::TouchpadMagnify(e) => {
+                WinitEvent::PinchGesture(e) => {
                     world.send_event(e);
                 }
-                WinitEvent::TouchpadRotate(e) => {
+                WinitEvent::RotationGesture(e) => {
+                    world.send_event(e);
+                }
+                WinitEvent::DoubleTapGesture(e) => {
+                    world.send_event(e);
+                }
+                WinitEvent::PanGesture(e) => {
                     world.send_event(e);
                 }
                 WinitEvent::TouchInput(e) => {
