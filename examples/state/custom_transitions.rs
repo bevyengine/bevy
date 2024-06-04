@@ -69,10 +69,9 @@ mod custom_transitions {
                 last_transition::<S>
                     // We insert the optional event into our schedule runner.
                     .pipe(run_reenter::<S>)
-                    // We need to pick at which step the schedule will be executed.
-                    // There are 3 intended steps for custom schedules.
-                    // They are executed in that order and built-in schedules
-                    // belong to them respectively. Those sets are:
+                    // State transitions are handled in three ordered steps, exposed as system sets.
+                    // We can add our systems to them, which will run the corresponding schedules when they're evaluated.
+                    // These are:
                     // - [`StateTransitionSteps::ExitSchedules`]
                     // - [`StateTransitionSteps::TransitionSchedules`]
                     // - [`StateTransitionSteps::EnterSchedules`]
