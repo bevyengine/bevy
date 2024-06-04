@@ -6,6 +6,10 @@
 //!
 //! While identity transitions exist internally in [`StateTransitionEvent`]s,
 //! the default schedules intentionally ignore them, as this behavior is not commonly needed or expected.
+//!
+//! While this example displays identity transitions for a single state,
+//! identity transitions are propagated through the entire state graph,
+//! meaning any change to parent state will be propagated to [`ComputedStates`] and [`SubStates`].
 
 use std::marker::PhantomData;
 
@@ -83,8 +87,7 @@ mod custom_transitions {
         }
     }
 
-    /// Custom schedule that will behave like `OnEnter`,
-    /// but run even during identity transitions.
+    /// Custom schedule that will behave like [`OnEnter`], but run on identity transitions.
     #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
     pub struct OnReenter<S: States>(pub S);
 
@@ -121,8 +124,7 @@ mod custom_transitions {
         // ```
     }
 
-    /// Custom schedule that will behave like `OnExit`,
-    /// but run even during identity transitions.
+    /// Custom schedule that will behave like [`OnExit`], but run on identity transitions.
     #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
     pub struct OnReexit<S: States>(pub S);
 

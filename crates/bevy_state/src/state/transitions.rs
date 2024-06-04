@@ -11,20 +11,24 @@ use bevy_ecs::{
 
 use super::{resources::State, states::States};
 
-/// The label of a [`Schedule`] that runs whenever [`State<S>`]
-/// enters this state.
+/// The label of a [`Schedule`] that **only** runs whenever [`State<S>`] enters the provided state.
+///
+/// This schedule ignores identity transitions.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnEnter<S: States>(pub S);
 
-/// The label of a [`Schedule`] that runs whenever [`State<S>`]
-/// exits this state.
+/// The label of a [`Schedule`] that **only** runs whenever [`State<S>`] exits the provided state.
+///
+/// This schedule ignores identity transitions.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnExit<S: States>(pub S);
 
 /// The label of a [`Schedule`] that **only** runs whenever [`State<S>`]
-/// exits the `from` state, AND enters the `to` state.
+/// exits AND enters the provided `exited` and `entered` states.
 ///
 /// Systems added to this schedule are always ran *after* [`OnExit`], and *before* [`OnEnter`].
+///
+/// This schedule will run on identity transitions.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnTransition<S: States> {
     /// The state being exited.
@@ -38,6 +42,7 @@ pub struct OnTransition<S: States> {
 pub struct StateTransition;
 
 /// Event sent when any state transition of `S` happens.
+/// This includes identity transitions, where `exited` and `entered` have the same value.
 ///
 /// If you know exactly what state you want to respond to ahead of time, consider [`OnEnter`], [`OnTransition`], or [`OnExit`]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Event)]
@@ -211,9 +216,6 @@ pub(crate) fn run_transition<S: States>(
     let Some(transition) = transition.0 else {
         return;
     };
-    if transition.entered == transition.exited {
-        return;
-    }
     let Some(exited) = transition.exited else {
         return;
     };
