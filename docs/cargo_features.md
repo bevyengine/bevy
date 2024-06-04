@@ -87,7 +87,6 @@ The default feature set enables most of the expected features of a game engine, 
 |trace_chrome|Tracing support, saving a file in Chrome Tracing format|
 |trace_tracy|Tracing support, exposing a port for Tracy|
 |trace_tracy_memory|Tracing support, with memory profiling, exposing a port for Tracy|
-|unhide_reexports|Remove `#[doc(hidden)]` from re-exports of certain crates.|
 |wav|WAV audio format support|
 |wayland|Wayland display server support|
 |webgpu|Enable support for WebGPU in Wasm. When enabled, this feature will override the `webgl2` feature and you won't be able to run Wasm builds with WebGL2, only with WebGPU.|
