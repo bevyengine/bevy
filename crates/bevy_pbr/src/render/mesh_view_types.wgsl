@@ -1,6 +1,6 @@
 #define_import_path bevy_pbr::mesh_view_types
 
-struct PointLight {
+struct ClusterableObject {
     // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
     // For spot lights: the direction (x,z), spot_scale and spot_offset
     light_custom_data: vec4<f32>,
@@ -88,8 +88,8 @@ const FOG_MODE_EXPONENTIAL_SQUARED: u32   = 3u;
 const FOG_MODE_ATMOSPHERIC: u32           = 4u;
 
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
-struct PointLights {
-    data: array<PointLight>,
+struct ClusterableObjects {
+    data: array<ClusterableObject>,
 };
 struct ClusterLightIndexLists {
     data: array<u32>,
@@ -98,11 +98,11 @@ struct ClusterOffsetsAndCounts {
     data: array<vec4<u32>>,
 };
 #else
-struct PointLights {
-    data: array<PointLight, 256u>,
+struct ClusterableObjects {
+    data: array<ClusterableObject, 256u>,
 };
 struct ClusterLightIndexLists {
-    // each u32 contains 4 u8 indices into the PointLights array
+    // each u32 contains 4 u8 indices into the ClusterableObjects array
     data: array<vec4<u32>, 1024u>,
 };
 struct ClusterOffsetsAndCounts {
