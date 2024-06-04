@@ -1,5 +1,5 @@
 use crate::{
-    impl_componentwise_vector_space, Alpha, ColorToComponents, LinearRgba, Luminance, Mix,
+    impl_componentwise_vector_space, Alpha, ColorToComponents, Gray, LinearRgba, Luminance, Mix,
     StandardColor,
 };
 use bevy_math::{Vec3, Vec4};
@@ -142,6 +142,11 @@ impl Mix for Xyza {
             alpha: self.alpha * n_factor + other.alpha * factor,
         }
     }
+}
+
+impl Gray for Xyza {
+    const BLACK: Self = Self::new(0., 0., 0., 1.);
+    const WHITE: Self = Self::new(0.95047, 1.0, 1.08883, 1.0);
 }
 
 impl ColorToComponents for Xyza {

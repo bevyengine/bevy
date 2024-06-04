@@ -231,10 +231,8 @@ fn setup(
     });
 
     // example instructions
-    let style = TextStyle {
-        font_size: 20.0,
-        ..default()
-    };
+    let style = TextStyle::default();
+
     commands.spawn(
         TextBundle::from_sections(vec![
             TextSection::new(

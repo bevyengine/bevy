@@ -3,6 +3,13 @@ use crate::{
     Quat, Rotation2d, Vec2, Vec3, Vec3A,
 };
 
+use core::f32::consts::FRAC_1_SQRT_2;
+
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// An error indicating that a direction is invalid.
 #[derive(Debug, PartialEq)]
 pub enum InvalidDirectionError {
@@ -79,6 +86,11 @@ pub type Direction3d = Dir3;
 /// A normalized vector pointing in a direction in 2D space
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 #[doc(alias = "Direction2d")]
 pub struct Dir2(Vec2);
 impl Primitive2d for Dir2 {}
@@ -94,6 +106,23 @@ impl Dir2 {
     pub const NEG_Y: Self = Self(Vec2::NEG_Y);
     /// The directional axes.
     pub const AXES: [Self; 2] = [Self::X, Self::Y];
+
+    /// The "north" direction, equivalent to [`Dir2::Y`].
+    pub const NORTH: Self = Self(Vec2::Y);
+    /// The "south" direction, equivalent to [`Dir2::NEG_Y`].
+    pub const SOUTH: Self = Self(Vec2::NEG_Y);
+    /// The "east" direction, equivalent to [`Dir2::X`].
+    pub const EAST: Self = Self(Vec2::X);
+    /// The "west" direction, equivalent to [`Dir2::NEG_X`].
+    pub const WEST: Self = Self(Vec2::NEG_X);
+    /// The "north-east" direction, between [`Dir2::NORTH`] and [`Dir2::EAST`].
+    pub const NORTH_EAST: Self = Self(Vec2::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2));
+    /// The "north-west" direction, between [`Dir2::NORTH`] and [`Dir2::WEST`].
+    pub const NORTH_WEST: Self = Self(Vec2::new(-FRAC_1_SQRT_2, FRAC_1_SQRT_2));
+    /// The "south-east" direction, between [`Dir2::SOUTH`] and [`Dir2::EAST`].
+    pub const SOUTH_EAST: Self = Self(Vec2::new(FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
+    /// The "south-west" direction, between [`Dir2::SOUTH`] and [`Dir2::WEST`].
+    pub const SOUTH_WEST: Self = Self(Vec2::new(-FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
 
     /// Create a direction from a finite, nonzero [`Vec2`], normalizing it.
     ///
@@ -269,6 +298,11 @@ impl approx::UlpsEq for Dir2 {
 /// A normalized vector pointing in a direction in 3D space
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 #[doc(alias = "Direction3d")]
 pub struct Dir3(Vec3);
 impl Primitive3d for Dir3 {}
@@ -470,6 +504,11 @@ impl approx::UlpsEq for Dir3 {
 /// This may or may not be faster than [`Dir3`]: make sure to benchmark!
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 #[doc(alias = "Direction3dA")]
 pub struct Dir3A(Vec3A);
 impl Primitive3d for Dir3A {}

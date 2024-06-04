@@ -17,7 +17,7 @@ const POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32   = 1u;
 const POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32 = 2u;
 
 struct DirectionalCascade {
-    view_projection: mat4x4<f32>,
+    clip_from_world: mat4x4<f32>,
     texel_size: f32,
     far_bound: f32,
 }
@@ -115,7 +115,7 @@ struct ClusterOffsetsAndCounts {
 struct LightProbe {
     // This is stored as the transpose in order to save space in this structure.
     // It'll be transposed in the `environment_map_light` function.
-    inverse_transpose_transform: mat3x4<f32>,
+    light_from_world_transposed: mat3x4<f32>,
     cubemap_index: i32,
     intensity: f32,
 };
@@ -134,4 +134,17 @@ struct LightProbes {
     smallest_specular_mip_level_for_view: u32,
     // The intensity of the environment map associated with the view.
     intensity_for_view: f32,
+};
+
+// Settings for screen space reflections.
+//
+// For more information on these settings, see the documentation for
+// `bevy_pbr::ssr::ScreenSpaceReflectionsSettings`.
+struct ScreenSpaceReflectionsSettings {
+    perceptual_roughness_threshold: f32,
+    thickness: f32,
+    linear_steps: u32,
+    linear_march_exponent: f32,
+    bisection_steps: u32,
+    use_secant: u32,
 };

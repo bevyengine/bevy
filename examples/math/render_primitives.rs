@@ -85,6 +85,9 @@ enum PrimitiveSelected {
     ConicalFrustum,
     Torus,
     Tetrahedron,
+    Arc,
+    CircularSector,
+    CircularSegment,
 }
 
 impl std::fmt::Display for PrimitiveSelected {
@@ -99,7 +102,7 @@ impl std::fmt::Display for PrimitiveSelected {
 }
 
 impl PrimitiveSelected {
-    const ALL: [Self; 16] = [
+    const ALL: [Self; 19] = [
         Self::RectangleAndCuboid,
         Self::CircleAndSphere,
         Self::Ellipse,
@@ -116,6 +119,9 @@ impl PrimitiveSelected {
         Self::ConicalFrustum,
         Self::Torus,
         Self::Tetrahedron,
+        Self::Arc,
+        Self::CircularSector,
+        Self::CircularSegment,
     ];
 
     fn next(self) -> Self {
@@ -269,6 +275,25 @@ const TETRAHEDRON: Tetrahedron = Tetrahedron {
     ],
 };
 
+const ARC: Arc2d = Arc2d {
+    radius: BIG_2D,
+    half_angle: std::f32::consts::FRAC_PI_4,
+};
+
+const CIRCULAR_SECTOR: CircularSector = CircularSector {
+    arc: Arc2d {
+        radius: BIG_2D,
+        half_angle: std::f32::consts::FRAC_PI_4,
+    },
+};
+
+const CIRCULAR_SEGMENT: CircularSegment = CircularSegment {
+    arc: Arc2d {
+        radius: BIG_2D,
+        half_angle: std::f32::consts::FRAC_PI_4,
+    },
+};
+
 fn setup_cameras(mut commands: Commands) {
     let start_in_2d = true;
     let make_camera = |is_active| Camera {
@@ -344,23 +369,13 @@ fn switch_cameras(current: Res<State<CameraActive>>, mut next: ResMut<NextState<
     next.set(next_state);
 }
 
-fn setup_text(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    cameras: Query<(Entity, &Camera)>,
-) {
+fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
     let active_camera = cameras
         .iter()
         .find_map(|(entity, camera)| camera.is_active.then_some(entity))
         .expect("run condition ensures existence");
     let text = format!("{text}", text = PrimitiveSelected::default());
-    let font_size = 24.0;
-    let font: Handle<Font> = asset_server.load("fonts/FiraMono-Medium.ttf");
-    let style = TextStyle {
-        font,
-        font_size,
-        color: Color::WHITE,
-    };
+    let style = TextStyle::default();
     let instructions = "Press 'C' to switch between 2D and 3D mode\n\
         Press 'Up' or 'Down' to switch to the next/previous primitive";
     let text = [
@@ -435,25 +450,36 @@ fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
 
     match state.get() {
         PrimitiveSelected::RectangleAndCuboid => {
-            gizmos.primitive_2d(RECTANGLE, POSITION, angle, color);
+            gizmos.primitive_2d(&RECTANGLE, POSITION, angle, color);
         }
-        PrimitiveSelected::CircleAndSphere => gizmos.primitive_2d(CIRCLE, POSITION, angle, color),
-        PrimitiveSelected::Ellipse => gizmos.primitive_2d(ELLIPSE, POSITION, angle, color),
-        PrimitiveSelected::Triangle => gizmos.primitive_2d(TRIANGLE_2D, POSITION, angle, color),
-        PrimitiveSelected::Plane => gizmos.primitive_2d(PLANE_2D, POSITION, angle, color),
-        PrimitiveSelected::Line => drop(gizmos.primitive_2d(LINE2D, POSITION, angle, color)),
-        PrimitiveSelected::Segment => drop(gizmos.primitive_2d(SEGMENT_2D, POSITION, angle, color)),
-        PrimitiveSelected::Polyline => gizmos.primitive_2d(POLYLINE_2D, POSITION, angle, color),
-        PrimitiveSelected::Polygon => gizmos.primitive_2d(POLYGON_2D, POSITION, angle, color),
+        PrimitiveSelected::CircleAndSphere => {
+            gizmos.primitive_2d(&CIRCLE, POSITION, angle, color);
+        }
+        PrimitiveSelected::Ellipse => drop(gizmos.primitive_2d(&ELLIPSE, POSITION, angle, color)),
+        PrimitiveSelected::Triangle => gizmos.primitive_2d(&TRIANGLE_2D, POSITION, angle, color),
+        PrimitiveSelected::Plane => gizmos.primitive_2d(&PLANE_2D, POSITION, angle, color),
+        PrimitiveSelected::Line => drop(gizmos.primitive_2d(&LINE2D, POSITION, angle, color)),
+        PrimitiveSelected::Segment => {
+            drop(gizmos.primitive_2d(&SEGMENT_2D, POSITION, angle, color));
+        }
+        PrimitiveSelected::Polyline => gizmos.primitive_2d(&POLYLINE_2D, POSITION, angle, color),
+        PrimitiveSelected::Polygon => gizmos.primitive_2d(&POLYGON_2D, POSITION, angle, color),
         PrimitiveSelected::RegularPolygon => {
-            gizmos.primitive_2d(REGULAR_POLYGON, POSITION, angle, color);
+            gizmos.primitive_2d(&REGULAR_POLYGON, POSITION, angle, color);
         }
-        PrimitiveSelected::Capsule => gizmos.primitive_2d(CAPSULE_2D, POSITION, angle, color),
+        PrimitiveSelected::Capsule => gizmos.primitive_2d(&CAPSULE_2D, POSITION, angle, color),
         PrimitiveSelected::Cylinder => {}
         PrimitiveSelected::Cone => {}
         PrimitiveSelected::ConicalFrustum => {}
-        PrimitiveSelected::Torus => gizmos.primitive_2d(ANNULUS, POSITION, angle, color),
+        PrimitiveSelected::Torus => drop(gizmos.primitive_2d(&ANNULUS, POSITION, angle, color)),
         PrimitiveSelected::Tetrahedron => {}
+        PrimitiveSelected::Arc => gizmos.primitive_2d(&ARC, POSITION, angle, color),
+        PrimitiveSelected::CircularSector => {
+            gizmos.primitive_2d(&CIRCULAR_SECTOR, POSITION, angle, color);
+        }
+        PrimitiveSelected::CircularSegment => {
+            gizmos.primitive_2d(&CIRCULAR_SEGMENT, POSITION, angle, color);
+        }
     }
 }
 
@@ -640,48 +666,52 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
 
     match state.get() {
         PrimitiveSelected::RectangleAndCuboid => {
-            gizmos.primitive_3d(CUBOID, POSITION, rotation, color);
+            gizmos.primitive_3d(&CUBOID, POSITION, rotation, color);
         }
         PrimitiveSelected::CircleAndSphere => drop(
             gizmos
-                .primitive_3d(SPHERE, POSITION, rotation, color)
+                .primitive_3d(&SPHERE, POSITION, rotation, color)
                 .resolution(resolution),
         ),
         PrimitiveSelected::Ellipse => {}
-        PrimitiveSelected::Triangle => gizmos.primitive_3d(TRIANGLE_3D, POSITION, rotation, color),
-        PrimitiveSelected::Plane => drop(gizmos.primitive_3d(PLANE_3D, POSITION, rotation, color)),
-        PrimitiveSelected::Line => gizmos.primitive_3d(LINE3D, POSITION, rotation, color),
-        PrimitiveSelected::Segment => gizmos.primitive_3d(SEGMENT_3D, POSITION, rotation, color),
-        PrimitiveSelected::Polyline => gizmos.primitive_3d(POLYLINE_3D, POSITION, rotation, color),
+        PrimitiveSelected::Triangle => gizmos.primitive_3d(&TRIANGLE_3D, POSITION, rotation, color),
+        PrimitiveSelected::Plane => drop(gizmos.primitive_3d(&PLANE_3D, POSITION, rotation, color)),
+        PrimitiveSelected::Line => gizmos.primitive_3d(&LINE3D, POSITION, rotation, color),
+        PrimitiveSelected::Segment => gizmos.primitive_3d(&SEGMENT_3D, POSITION, rotation, color),
+        PrimitiveSelected::Polyline => gizmos.primitive_3d(&POLYLINE_3D, POSITION, rotation, color),
         PrimitiveSelected::Polygon => {}
         PrimitiveSelected::RegularPolygon => {}
         PrimitiveSelected::Capsule => drop(
             gizmos
-                .primitive_3d(CAPSULE_3D, POSITION, rotation, color)
+                .primitive_3d(&CAPSULE_3D, POSITION, rotation, color)
                 .resolution(resolution),
         ),
         PrimitiveSelected::Cylinder => drop(
             gizmos
-                .primitive_3d(CYLINDER, POSITION, rotation, color)
+                .primitive_3d(&CYLINDER, POSITION, rotation, color)
                 .resolution(resolution),
         ),
         PrimitiveSelected::Cone => drop(
             gizmos
-                .primitive_3d(CONE, POSITION, rotation, color)
+                .primitive_3d(&CONE, POSITION, rotation, color)
                 .resolution(resolution),
         ),
         PrimitiveSelected::ConicalFrustum => {
-            gizmos.primitive_3d(CONICAL_FRUSTUM, POSITION, rotation, color);
+            gizmos.primitive_3d(&CONICAL_FRUSTUM, POSITION, rotation, color);
         }
 
         PrimitiveSelected::Torus => drop(
             gizmos
-                .primitive_3d(TORUS, POSITION, rotation, color)
+                .primitive_3d(&TORUS, POSITION, rotation, color)
                 .minor_resolution(resolution)
                 .major_resolution(resolution),
         ),
         PrimitiveSelected::Tetrahedron => {
-            gizmos.primitive_3d(TETRAHEDRON, POSITION, rotation, color);
+            gizmos.primitive_3d(&TETRAHEDRON, POSITION, rotation, color);
         }
+
+        PrimitiveSelected::Arc => {}
+        PrimitiveSelected::CircularSector => {}
+        PrimitiveSelected::CircularSegment => {}
     }
 }

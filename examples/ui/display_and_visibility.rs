@@ -153,7 +153,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             .with_children(|builder| {
                 let text_style = TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 20.0,
                     ..default()
                 };
 

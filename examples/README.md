@@ -128,6 +128,7 @@ Example | Description
 [3D Shapes](../examples/3d/3d_shapes.rs) | A scene showcasing the built-in 3D shapes
 [3D Viewport To World](../examples/3d/3d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world` method
 [Animated Material](../examples/3d/animated_material.rs) | Shows how to animate material properties
+[Anisotropy](../examples/3d/anisotropy.rs) | Displays an example model with anisotropy
 [Anti-aliasing](../examples/3d/anti_aliasing.rs) | Compares different anti-aliasing methods
 [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
 [Auto Exposure](../examples/3d/auto_exposure.rs) | A scene showcasing auto exposure
@@ -143,6 +144,7 @@ Example | Description
 [Lightmaps](../examples/3d/lightmaps.rs) | Rendering a scene with baked lightmaps
 [Lines](../examples/3d/lines.rs) | Create a custom material to draw 3d lines
 [Load glTF](../examples/3d/load_gltf.rs) | Loads and renders a glTF file as a scene
+[Load glTF extras](../examples/3d/load_gltf_extras.rs) | Loads and renders a glTF file as a scene, including the gltf extras
 [Meshlet](../examples/3d/meshlet.rs) | Meshlet rendering for dense high-poly scenes (experimental)
 [Motion Blur](../examples/3d/motion_blur.rs) | Demonstrates per-pixel motion blur
 [Orthographic View](../examples/3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look in games or CAD applications)
@@ -152,6 +154,7 @@ Example | Description
 [Reflection Probes](../examples/3d/reflection_probes.rs) | Demonstrates reflection probes
 [Render to Texture](../examples/3d/render_to_texture.rs) | Shows how to render to a texture, useful for mirrors, UI, or exporting images
 [Screen Space Ambient Occlusion](../examples/3d/ssao.rs) | A scene showcasing screen space ambient occlusion
+[Screen Space Reflections](../examples/3d/ssr.rs) | Demonstrates screen space reflections with water ripples
 [Shadow Biases](../examples/3d/shadow_biases.rs) | Demonstrates how shadow biases affect shadows in a 3d scene
 [Shadow Caster and Receiver](../examples/3d/shadow_caster_receiver.rs) | Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene
 [Skybox](../examples/3d/skybox.rs) | Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats.
@@ -319,7 +322,9 @@ Example | Description
 
 Example | Description
 --- | ---
+[Random Sampling](../examples/math/random_sampling.rs) | Demonstrates how to sample random points from mathematical primitives
 [Rendering Primitives](../examples/math/render_primitives.rs) | Shows off rendering for all math primitives as both Meshes and Gizmos
+[Sampling Primitives](../examples/math/sampling_primitives.rs) | Demonstrates all the primitives which can be sampled.
 
 ## Reflection
 
@@ -456,6 +461,7 @@ Example | Description
 Example | Description
 --- | ---
 [Clear Color](../examples/window/clear_color.rs) | Creates a solid color window
+[Custom User Event](../examples/window/custom_user_event.rs) | Handles custom user events within the event loop
 [Low Power](../examples/window/low_power.rs) | Demonstrates settings to reduce power use for bevy applications
 [Multiple Windows](../examples/window/multiple_windows.rs) | Demonstrates creating multiple windows, and rendering to them
 [Scale Factor Override](../examples/window/scale_factor_override.rs) | Illustrates how to customize the default window settings

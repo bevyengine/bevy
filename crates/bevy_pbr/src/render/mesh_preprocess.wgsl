@@ -14,7 +14,7 @@
 // Per-frame data that the CPU supplies to the GPU.
 struct MeshInput {
     // The model transform.
-    model: mat3x4<f32>,
+    world_from_local: mat3x4<f32>,
     // The lightmap UV rect, packed into 64 bits.
     lightmap_uv_rect: vec2<u32>,
     // Various flags.
@@ -92,7 +92,7 @@ struct IndirectParameters {
 //
 // `aabb_center.w` should be 1.0.
 fn view_frustum_intersects_obb(
-    model: mat4x4<f32>,
+    world_from_local: mat4x4<f32>,
     aabb_center: vec4<f32>,
     aabb_half_extents: vec3<f32>,
 ) -> bool {
@@ -103,9 +103,9 @@ fn view_frustum_intersects_obb(
         let relative_radius = dot(
             abs(
                 vec3(
-                    dot(plane_normal, model[0]),
-                    dot(plane_normal, model[1]),
-                    dot(plane_normal, model[2]),
+                    dot(plane_normal, world_from_local[0]),
+                    dot(plane_normal, world_from_local[1]),
+                    dot(plane_normal, world_from_local[2]),
                 )
             ),
             aabb_half_extents
@@ -135,8 +135,8 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // Unpack.
     let input_index = work_items[instance_index].input_index;
     let output_index = work_items[instance_index].output_index;
-    let model_affine_transpose = current_input[input_index].model;
-    let model = maths::affine3_to_square(model_affine_transpose);
+    let world_from_local_affine_transpose = current_input[input_index].world_from_local;
+    let world_from_local = maths::affine3_to_square(world_from_local_affine_transpose);
 
     // Cull if necessary.
 #ifdef FRUSTUM_CULLING
@@ -144,29 +144,29 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let aabb_half_extents = mesh_culling_data[input_index].aabb_half_extents.xyz;
 
     // Do an OBB-based frustum cull.
-    let model_center = model * vec4(aabb_center, 1.0);
-    if (!view_frustum_intersects_obb(model, model_center, aabb_half_extents)) {
+    let model_center = world_from_local * vec4(aabb_center, 1.0);
+    if (!view_frustum_intersects_obb(world_from_local, model_center, aabb_half_extents)) {
         return;
     }
 #endif
 
     // Calculate inverse transpose.
-    let inverse_transpose_model = transpose(maths::inverse_affine3(transpose(
-        model_affine_transpose)));
+    let local_from_world_transpose = transpose(maths::inverse_affine3(transpose(
+        world_from_local_affine_transpose)));
 
     // Pack inverse transpose.
-    let inverse_transpose_model_a = mat2x4<f32>(
-        vec4<f32>(inverse_transpose_model[0].xyz, inverse_transpose_model[1].x),
-        vec4<f32>(inverse_transpose_model[1].yz, inverse_transpose_model[2].xy));
-    let inverse_transpose_model_b = inverse_transpose_model[2].z;
+    let local_from_world_transpose_a = mat2x4<f32>(
+        vec4<f32>(local_from_world_transpose[0].xyz, local_from_world_transpose[1].x),
+        vec4<f32>(local_from_world_transpose[1].yz, local_from_world_transpose[2].xy));
+    let local_from_world_transpose_b = local_from_world_transpose[2].z;
 
     // Look up the previous model matrix.
     let previous_input_index = current_input[input_index].previous_input_index;
-    var previous_model: mat3x4<f32>;
+    var previous_world_from_local: mat3x4<f32>;
     if (previous_input_index == 0xffffffff) {
-        previous_model = model_affine_transpose;
+        previous_world_from_local = world_from_local_affine_transpose;
     } else {
-        previous_model = previous_input[previous_input_index].model;
+        previous_world_from_local = previous_input[previous_input_index].world_from_local;
     }
 
     // Figure out the output index. In indirect mode, this involves bumping the
@@ -180,10 +180,10 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 #endif
 
     // Write the output.
-    output[mesh_output_index].model = model_affine_transpose;
-    output[mesh_output_index].previous_model = previous_model;
-    output[mesh_output_index].inverse_transpose_model_a = inverse_transpose_model_a;
-    output[mesh_output_index].inverse_transpose_model_b = inverse_transpose_model_b;
+    output[mesh_output_index].world_from_local = world_from_local_affine_transpose;
+    output[mesh_output_index].previous_world_from_local = previous_world_from_local;
+    output[mesh_output_index].local_from_world_transpose_a = local_from_world_transpose_a;
+    output[mesh_output_index].local_from_world_transpose_b = local_from_world_transpose_b;
     output[mesh_output_index].flags = current_input[input_index].flags;
     output[mesh_output_index].lightmap_uv_rect = current_input[input_index].lightmap_uv_rect;
 }

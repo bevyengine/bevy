@@ -6,6 +6,8 @@
     meshlet_cluster_meshlet_ids,
 }
 
+/// Writes out instance_id and meshlet_id to the global buffers for each cluster in the scene.
+
 @compute
 @workgroup_size(128, 1, 1) // 128 threads per workgroup, 1 cluster per thread
 fn fill_cluster_buffers(

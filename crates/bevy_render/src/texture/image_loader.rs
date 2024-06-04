@@ -51,6 +51,7 @@ pub enum ImageFormatSetting {
     #[default]
     FromExtension,
     Format(ImageFormat),
+    Guess,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -100,6 +101,18 @@ impl AssetLoader for ImageLoader {
                 ImageType::Extension(ext)
             }
             ImageFormatSetting::Format(format) => ImageType::Format(format),
+            ImageFormatSetting::Guess => {
+                let format = image::guess_format(&bytes).map_err(|err| FileTextureError {
+                    error: err.into(),
+                    path: format!("{}", load_context.path().display()),
+                })?;
+                ImageType::Format(ImageFormat::from_image_crate_format(format).ok_or_else(
+                    || FileTextureError {
+                        error: TextureError::UnsupportedTextureFormat(format!("{format:?}")),
+                        path: format!("{}", load_context.path().display()),
+                    },
+                )?)
+            }
         };
         Ok(Image::from_buffer(
             #[cfg(all(debug_assertions, feature = "dds"))]

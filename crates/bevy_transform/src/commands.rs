@@ -1,10 +1,9 @@
 //! Extension to [`EntityCommands`] to modify `bevy_hierarchy` hierarchies
 //! while preserving [`GlobalTransform`].
 
+use crate::prelude::{GlobalTransform, Transform};
 use bevy_ecs::{prelude::Entity, system::EntityCommands, world::Command, world::World};
 use bevy_hierarchy::{PushChild, RemoveParent};
-
-use crate::{GlobalTransform, Transform};
 
 /// Command similar to [`PushChild`], but updating the child transform to keep
 /// it at the same [`GlobalTransform`].
