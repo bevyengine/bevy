@@ -38,10 +38,94 @@ fn main() {
         // Doing it this way allows us to restart the game without any additional in-between states.
         .add_systems(
             Update,
-            ((movement, change_color, restart_game).run_if(in_state(AppState::InGame)),),
+            ((movement, change_color, trigger_game_restart).run_if(in_state(AppState::InGame)),),
         )
         .add_systems(Update, log_transitions::<AppState>)
         .run();
+}
+
+/// This module provides the custom `OnReenter` and `OnReexit` transitions for easy installation.
+mod custom_transitions {
+    use crate::*;
+
+    /// The plugin registers the transitions for one specific state.
+    /// If you use this for multiple states consider:
+    /// - installing the plugin multiple times,
+    /// - create an [`App`] extension method that inserts
+    ///   those transitions during state installation.
+    #[derive(Default)]
+    pub struct IdentityTransitionsPlugin<S: States>(PhantomData<S>);
+
+    impl<S: States> Plugin for IdentityTransitionsPlugin<S> {
+        fn build(&self, app: &mut App) {
+            app.add_systems(
+                StateTransition,
+                // The internals can generate at most one transition event of specific type per frame.
+                // We take the latest one and clear the queue.
+                last_transition::<S>
+                    // We insert the optional event into our schedule runner.
+                    .pipe(run_reenter::<S>)
+                    // We need to pick at which step the schedule will be executed.
+                    // There are 3 intended steps for custom schedules.
+                    // They are executed in that order and built-in schedules
+                    // belong to them respectively. Those sets are:
+                    // - [`StateTransitionSteps::ExitSchedules`]
+                    // - [`StateTransitionSteps::TransitionSchedules`]
+                    // - [`StateTransitionSteps::EnterSchedules`]
+                    .in_set(StateTransitionSteps::EnterSchedules),
+            )
+            .add_systems(
+                StateTransition,
+                last_transition::<S>
+                    .pipe(run_reexit::<S>)
+                    .in_set(StateTransitionSteps::ExitSchedules),
+            );
+        }
+    }
+
+    /// Custom schedule that will behave like `OnEnter`,
+    /// but run even during identity transitions.
+    #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+    pub struct OnReenter<S: States>(pub S);
+
+    /// Schedule runner which checks conditions and if they're right
+    /// runs out custom schedule.
+    fn run_reenter<S: States>(transition: In<Option<StateTransitionEvent<S>>>, world: &mut World) {
+        // We return early if no transition event happened.
+        let Some(transition) = transition.0 else {
+            return;
+        };
+
+        // If we wanted to ignore identity transitions,
+        // we'd compare `exited` and `entered` here,
+        // and return if they were the same.
+
+        // We check if we actually entered a state.
+        // A [`None`] would indicate that the state was removed from the world.
+        // This only happens in the case of [`SubStates`] and [`ComputedStates`].
+        let Some(entered) = transition.entered else {
+            return;
+        };
+
+        // If all conditions are valid, we run our custom schedule.
+        let _ = world.try_run_schedule(OnReenter(entered));
+    }
+
+    /// Custom schedule that will behave like `OnExit`,
+    /// but run even during identity transitions.
+    #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+    pub struct OnReexit<S: States>(pub S);
+
+    fn run_reexit<S: States>(transition: In<Option<StateTransitionEvent<S>>>, world: &mut World) {
+        let Some(transition) = transition.0 else {
+            return;
+        };
+        let Some(exited) = transition.exited else {
+            return;
+        };
+
+        let _ = world.try_run_schedule(OnReexit(exited));
+    }
 }
 
 fn menu(
@@ -113,95 +197,14 @@ fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
 // We can restart the game by pressing "R".
 // This will trigger an [`AppState::InGame`] -> [`AppState::InGame`]
 // transition, which will run our custom schedules.
-fn restart_game(input: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
+fn trigger_game_restart(
+    input: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
     if input.just_pressed(KeyCode::KeyR) {
         // Although we are already in this state setting it again will generate an identity transition.
         // While default schedules ignore those kinds of transitions, out custom schedules will react to them.
         next_state.set(AppState::InGame);
-    }
-}
-
-/// This module provides the custom `OnReenter` and `OnReexit` transitions for easy installation.
-mod custom_transitions {
-    use crate::*;
-
-    /// Custom schedule that will behave like `OnEnter`,
-    /// but run even during identity transitions.
-    #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-    pub struct OnReenter<S: States>(pub S);
-
-    /// Schedule runner which checks conditions and if they're right
-    /// runs out custom schedule.
-    fn run_reenter<S: States>(transition: In<Option<StateTransitionEvent<S>>>, world: &mut World) {
-        // We return early if no transition event happened.
-        let Some(transition) = transition.0 else {
-            return;
-        };
-
-        // If we wanted to ignore identity transitions,
-        // we'd compare `exited` and `entered` here,
-        // and return if they were the same.
-
-        // We check if we actually entered a state.
-        // A [`None`] would indicate that the state was removed from the world.
-        // This only happens in the case of [`SubStates`] and [`ComputedStates`].
-        let Some(entered) = transition.entered else {
-            return;
-        };
-
-        // If all conditions are valid, we run our custom schedule.
-        let _ = world.try_run_schedule(OnReenter(entered));
-    }
-
-    /// Custom schedule that will behave like `OnExit`,
-    /// but run even during identity transitions.
-    #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-    pub struct OnReexit<S: States>(pub S);
-
-    fn run_reexit<S: States>(transition: In<Option<StateTransitionEvent<S>>>, world: &mut World) {
-        let Some(transition) = transition.0 else {
-            return;
-        };
-        let Some(exited) = transition.exited else {
-            return;
-        };
-
-        let _ = world.try_run_schedule(OnReexit(exited));
-    }
-
-    /// The plugin registers the transitions for one specific state.
-    /// If you use this for multiple states consider:
-    /// - installing the plugin multiple times,
-    /// - create an [`App`] extension method that inserts
-    ///   those transitions during state installation.
-    #[derive(Default)]
-    pub struct IdentityTransitionsPlugin<S: States>(PhantomData<S>);
-
-    impl<S: States> Plugin for IdentityTransitionsPlugin<S> {
-        fn build(&self, app: &mut App) {
-            app.add_systems(
-                StateTransition,
-                // The internals can generate at most one transition event of specific type per frame.
-                // We take the latest one and clear the queue.
-                last_transition::<S>
-                    // We insert the optional event into our schedule runner.
-                    .pipe(run_reenter::<S>)
-                    // We need to pick at which step the schedule will be executed.
-                    // There are 3 intended steps for custom schedules:
-                    // - [`StateTransitionSteps::ExitSchedules`]
-                    // - [`StateTransitionSteps::TransitionSchedules`]
-                    // - [`StateTransitionSteps::EnterSchedules`]
-                    // They are executed in that order and built-in schedules
-                    // belong to them respectively.
-                    .in_set(StateTransitionSteps::EnterSchedules),
-            )
-            .add_systems(
-                StateTransition,
-                last_transition::<S>
-                    .pipe(run_reexit::<S>)
-                    .in_set(StateTransitionSteps::ExitSchedules),
-            );
-        }
     }
 }
 
