@@ -47,8 +47,8 @@ pub mod prelude {
     pub use crate::condition::*;
     #[doc(hidden)]
     pub use crate::state::{
-        ComputedStates, NextState, OnEnter, OnExit, OnTransition, State, StateSet, StateTransition,
-        StateTransitionEvent, States, SubStates,
+        last_transition, ComputedStates, NextState, OnEnter, OnExit, OnTransition, State, StateSet,
+        StateTransition, StateTransitionEvent, StateTransitionSteps, States, SubStates,
     };
     #[doc(hidden)]
     pub use crate::state_scoped::StateScoped;

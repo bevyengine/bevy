@@ -11,20 +11,24 @@ use bevy_ecs::{
 
 use super::{resources::State, states::States};
 
-/// The label of a [`Schedule`] that runs whenever [`State<S>`]
-/// enters this state.
+/// The label of a [`Schedule`] that **only** runs whenever [`State<S>`] enters the provided state.
+///
+/// This schedule ignores identity transitions.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnEnter<S: States>(pub S);
 
-/// The label of a [`Schedule`] that runs whenever [`State<S>`]
-/// exits this state.
+/// The label of a [`Schedule`] that **only** runs whenever [`State<S>`] exits the provided state.
+///
+/// This schedule ignores identity transitions.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnExit<S: States>(pub S);
 
 /// The label of a [`Schedule`] that **only** runs whenever [`State<S>`]
-/// exits the `from` state, AND enters the `to` state.
+/// exits AND enters the provided `exited` and `entered` states.
 ///
 /// Systems added to this schedule are always ran *after* [`OnExit`], and *before* [`OnEnter`].
+///
+/// This schedule will run on identity transitions.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnTransition<S: States> {
     /// The state being exited.
@@ -38,6 +42,7 @@ pub struct OnTransition<S: States> {
 pub struct StateTransition;
 
 /// Event sent when any state transition of `S` happens.
+/// This includes identity transitions, where `exited` and `entered` have the same value.
 ///
 /// If you know exactly what state you want to respond to ahead of time, consider [`OnEnter`], [`OnTransition`], or [`OnExit`]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Event)]
@@ -52,11 +57,16 @@ pub struct StateTransitionEvent<S: States> {
 ///
 /// These system sets are run sequentially, in the order of the enum variants.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
-pub(crate) enum StateTransitionSteps {
+pub enum StateTransitionSteps {
+    /// Parentless states apply their [`NextState<S>`].
     RootTransitions,
+    /// States with parents apply their computation and [`NextState<S>`].
     DependentTransitions,
+    /// Exit schedules are executed.
     ExitSchedules,
+    /// Transition schedules are executed.
     TransitionSchedules,
+    /// Enter schedules are executed.
     EnterSchedules,
 }
 
@@ -88,14 +98,17 @@ pub(crate) fn internal_apply_state_transition<S: States>(
                 // entering - we need to set the new value, compute dependant states, send transition events
                 // and register transition schedules.
                 Some(mut state_resource) => {
-                    if *state_resource != entered {
-                        let exited = mem::replace(&mut state_resource.0, entered.clone());
+                    let exited = match *state_resource == entered {
+                        true => entered.clone(),
+                        false => mem::replace(&mut state_resource.0, entered.clone()),
+                    };
 
-                        event.send(StateTransitionEvent {
-                            exited: Some(exited.clone()),
-                            entered: Some(entered.clone()),
-                        });
-                    }
+                    // Transition events are sent even for same state transitions
+                    // Although enter and exit schedules are not run by default.
+                    event.send(StateTransitionEvent {
+                        exited: Some(exited.clone()),
+                        entered: Some(entered.clone()),
+                    });
                 }
                 None => {
                     // If the [`State<S>`] resource does not exist, we create it, compute dependant states, send a transition event and register the `OnEnter` schedule.
@@ -169,6 +182,9 @@ pub(crate) fn run_enter<S: States>(
     let Some(transition) = transition.0 else {
         return;
     };
+    if transition.entered == transition.exited {
+        return;
+    }
     let Some(entered) = transition.entered else {
         return;
     };
@@ -183,6 +199,9 @@ pub(crate) fn run_exit<S: States>(
     let Some(transition) = transition.0 else {
         return;
     };
+    if transition.entered == transition.exited {
+        return;
+    }
     let Some(exited) = transition.exited else {
         return;
     };
