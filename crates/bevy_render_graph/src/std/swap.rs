@@ -20,11 +20,11 @@ pub struct Swap<'g, R: WriteRenderResource> {
 impl<'g, R: WriteRenderResource> Swap<'g, R> {
     pub fn new(
         graph: &mut RenderGraphBuilder<'_, 'g>,
-        descriptor: impl IntoRenderResource<'g, Resource = R> + Clone,
+        resource: impl IntoRenderResource<'g, Resource = R> + Clone,
     ) -> Self {
         Self {
-            current: graph.new_resource(descriptor.clone()),
-            next: graph.new_resource(descriptor.clone()),
+            current: graph.new_resource(resource.clone()),
+            next: graph.new_resource(resource),
         }
     }
 
