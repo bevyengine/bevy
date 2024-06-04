@@ -9,7 +9,6 @@ use crate::state::{
     setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
     StateTransition, StateTransitionEvent, StateTransitionSteps, States, SubStates,
 };
-#[cfg(feature = "bevy_hierarchy")]
 use crate::state_scoped::clear_state_scoped_entities;
 
 /// State installation methods for [`App`](bevy_app::App) and [`SubApp`](bevy_app::SubApp).
@@ -51,7 +50,6 @@ pub trait AppExtStates {
     /// This method is idempotent: it has no effect when called again using the same generic type.
     fn add_sub_state<S: SubStates>(&mut self) -> &mut Self;
 
-    #[cfg(feature = "bevy_hierarchy")]
     /// Enable state-scoped entity clearing for state `S`.
     ///
     /// For more information refer to [`StateScoped`](crate::state_scoped::StateScoped).
@@ -139,7 +137,6 @@ impl AppExtStates for SubApp {
         self
     }
 
-    #[cfg(feature = "bevy_hierarchy")]
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self {
         use bevy_utils::tracing::warn;
 
