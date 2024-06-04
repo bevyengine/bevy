@@ -1771,13 +1771,13 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "state"
-path = "examples/state/state.rs"
+name = "states"
+path = "examples/state/states.rs"
 doc-scrape-examples = true
 required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.state]
-name = "State"
+name = "States"
 description = "Illustrates how to use States to control transitioning from a Menu state to an InGame state."
 category = "State"
 wasm = false
@@ -1807,8 +1807,8 @@ category = "State"
 wasm = false
 
 [[example]]
-name = "custom_transition"
-path = "examples/state/custom_transition.rs"
+name = "custom_transitions"
+path = "examples/state/custom_transitions.rs"
 doc-scrape-examples = true
 required-features = ["bevy_dev_tools"]
 
