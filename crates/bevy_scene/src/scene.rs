@@ -143,32 +143,33 @@ impl Scene {
                         .get_or_spawn(entity)
                         .expect("tried to overwrite an entity with the wrong generation - generation should match scene instance").archetype().components().collect();
 
+                    // iterate through all components of mapped entity in world
                     for component_id in components.into_iter() {
-                        let component_info = self
-                            .world
-                            .components()
-                            .get_info(component_id)
-                            .expect("component_ids in archetypes should have ComponentInfo");
-
-                        let reflect_component = type_registry
-                            .get(component_info.type_id().unwrap())
-                            .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                                std_type_name: component_info.name().to_string(),
-                            })
-                            .and_then(|registration| {
-                                registration.data::<ReflectComponent>().ok_or_else(|| {
-                                    SceneSpawnError::UnregisteredComponent {
-                                        type_path: registration.type_info().type_path().to_string(),
-                                    }
+                        if let Some(component_info) = self.world.components().get_info(component_id)
+                        {
+                            let reflect_component = type_registry
+                                .get(component_info.type_id().unwrap())
+                                .ok_or_else(|| SceneSpawnError::UnregisteredType {
+                                    std_type_name: component_info.name().to_string(),
                                 })
-                            })?;
-                        reflect_component.copy(
-                            &self.world,
-                            world,
-                            scene_entity.id(),
-                            entity,
-                            &type_registry,
-                        );
+                                .and_then(|registration| {
+                                    registration.data::<ReflectComponent>().ok_or_else(|| {
+                                        SceneSpawnError::UnregisteredComponent {
+                                            type_path: registration
+                                                .type_info()
+                                                .type_path()
+                                                .to_string(),
+                                        }
+                                    })
+                                })?;
+                            reflect_component.copy(
+                                &self.world,
+                                world,
+                                scene_entity.id(),
+                                entity,
+                                &type_registry,
+                            );
+                        }
                     }
                 };
             }
@@ -226,13 +227,20 @@ mod tests {
     #[reflect(Component)]
     pub struct A(u32);
 
+    #[derive(Component, Reflect, PartialEq, Eq, Debug, Clone, Copy)]
+    #[reflect(Component)]
+    pub struct B(u32);
+
     #[test]
     fn overwrite_test() {
         let mut main_world = World::default();
 
         let app_type_registry = AppTypeRegistry::default();
-        let mut type_registry = app_type_registry.write();
-        type_registry.register::<A>();
+        {
+            let mut type_registry = app_type_registry.write();
+            type_registry.register::<A>();
+            type_registry.register::<B>();
+        }
 
         let mut scene = Scene::new(World::default());
 
@@ -244,6 +252,7 @@ mod tests {
 
         // update component value in entity
         scene.world.entity_mut(scene_entity).insert(A(1));
+        scene.world.entity_mut(scene_entity).insert(B(42));
 
         // write the scene we've constructed to the main_world
         let instance = scene
@@ -253,6 +262,7 @@ mod tests {
         let world_entity = instance.entity_map.get(&scene_entity).cloned().unwrap();
 
         assert_eq!(main_world.get::<A>(world_entity).cloned().unwrap(), A(1));
+        assert_eq!(main_world.get::<B>(world_entity).cloned().unwrap(), B(42));
 
         // load an older snapshot but reuse the same entities
         snapshot
@@ -260,5 +270,6 @@ mod tests {
             .unwrap();
 
         assert_eq!(main_world.get::<A>(world_entity).cloned().unwrap(), A(0));
+        assert!(!main_world.get::<B>(world_entity).is_none());
     }
 }
