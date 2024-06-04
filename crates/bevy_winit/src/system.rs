@@ -12,15 +12,16 @@ use bevy_window::{
     WindowMode, WindowResized,
 };
 
-use winit::{
-    dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
-    event_loop::EventLoopWindowTarget,
-};
+use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
+use winit::event_loop::ActiveEventLoop;
 
 use bevy_ecs::query::With;
+#[cfg(target_os = "ios")]
+use winit::platform::ios::WindowExtIOS;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 
+use crate::state::react_to_resize;
 use crate::{
     converters::{
         self, convert_enabled_buttons, convert_window_level, convert_window_theme,
@@ -36,7 +37,7 @@ use crate::{
 /// default values.
 #[allow(clippy::too_many_arguments)]
 pub fn create_windows<F: QueryFilter + 'static>(
-    event_loop: &EventLoopWindowTarget<crate::UserEvent>,
+    event_loop: &ActiveEventLoop,
     (
         mut commands,
         mut created_windows,
@@ -47,7 +48,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
         accessibility_requested,
     ): SystemParamItem<CreateWindowParams<F>>,
 ) {
-    for (entity, mut window) in &mut created_windows {
+    for (entity, mut window, handle_holder) in &mut created_windows {
         if winit_windows.get_window(entity).is_some() {
             continue;
         }
@@ -80,7 +81,11 @@ pub fn create_windows<F: QueryFilter + 'static>(
         });
 
         if let Ok(handle_wrapper) = RawHandleWrapper::new(winit_window) {
-            commands.entity(entity).insert(handle_wrapper);
+            let mut entity = commands.entity(entity);
+            entity.insert(handle_wrapper.clone());
+            if let Some(handle_holder) = handle_holder {
+                *handle_holder.0.lock().unwrap() = Some(handle_wrapper);
+            }
         }
 
         #[cfg(target_arch = "wasm32")]
@@ -94,6 +99,19 @@ pub fn create_windows<F: QueryFilter + 'static>(
                 style.set_property("height", "100%").unwrap();
             }
         }
+
+        #[cfg(target_os = "ios")]
+        {
+            winit_window.recognize_pinch_gesture(window.recognize_pinch_gesture);
+            winit_window.recognize_rotation_gesture(window.recognize_rotation_gesture);
+            winit_window.recognize_doubletap_gesture(window.recognize_doubletap_gesture);
+            if let Some((min, max)) = window.recognize_pan_gesture {
+                winit_window.recognize_pan_gesture(true, min, max);
+            } else {
+                winit_window.recognize_pan_gesture(false, 0, 0);
+            }
+        }
+
         window_created_events.send(WindowCreated { window: entity });
     }
 }
@@ -181,13 +199,46 @@ pub(crate) fn changed_windows(
                 }
             }
         }
+
         if window.resolution != cache.window.resolution {
-            let physical_size = PhysicalSize::new(
-                window.resolution.physical_width(),
-                window.resolution.physical_height(),
+            let mut physical_size = winit_window.inner_size();
+
+            let cached_physical_size = PhysicalSize::new(
+                cache.window.physical_width(),
+                cache.window.physical_height(),
             );
-            if let Some(size_now) = winit_window.request_inner_size(physical_size) {
-                crate::react_to_resize(&mut window, size_now, &mut window_resized, entity);
+
+            let base_scale_factor = window.resolution.base_scale_factor();
+
+            // Note: this may be different from `winit`'s base scale factor if
+            // `scale_factor_override` is set to Some(f32)
+            let scale_factor = window.scale_factor();
+            let cached_scale_factor = cache.window.scale_factor();
+
+            // Check and update `winit`'s physical size only if the window is not maximized
+            if scale_factor != cached_scale_factor && !winit_window.is_maximized() {
+                let logical_size =
+                    if let Some(cached_factor) = cache.window.resolution.scale_factor_override() {
+                        physical_size.to_logical::<f32>(cached_factor as f64)
+                    } else {
+                        physical_size.to_logical::<f32>(base_scale_factor as f64)
+                    };
+
+                // Scale factor changed, updating physical and logical size
+                if let Some(forced_factor) = window.resolution.scale_factor_override() {
+                    // This window is overriding the OS-suggested DPI, so its physical size
+                    // should be set based on the overriding value. Its logical size already
+                    // incorporates any resize constraints.
+                    physical_size = logical_size.to_physical::<u32>(forced_factor as f64);
+                } else {
+                    physical_size = logical_size.to_physical::<u32>(base_scale_factor as f64);
+                }
+            }
+
+            if physical_size != cached_physical_size {
+                if let Some(new_physical_size) = winit_window.request_inner_size(physical_size) {
+                    react_to_resize(entity, &mut window, new_physical_size, &mut window_resized);
+                }
             }
         }
 
@@ -202,7 +253,7 @@ pub(crate) fn changed_windows(
         }
 
         if window.cursor.icon != cache.window.cursor.icon {
-            winit_window.set_cursor_icon(converters::convert_cursor_icon(window.cursor.icon));
+            winit_window.set_cursor(converters::convert_cursor_icon(window.cursor.icon));
         }
 
         if window.cursor.grab_mode != cache.window.cursor.grab_mode {
@@ -322,6 +373,31 @@ pub(crate) fn changed_windows(
 
         if window.visible != cache.window.visible {
             winit_window.set_visible(window.visible);
+        }
+
+        #[cfg(target_os = "ios")]
+        {
+            if window.recognize_pinch_gesture != cache.window.recognize_pinch_gesture {
+                winit_window.recognize_pinch_gesture(window.recognize_pinch_gesture);
+            }
+            if window.recognize_rotation_gesture != cache.window.recognize_rotation_gesture {
+                winit_window.recognize_rotation_gesture(window.recognize_rotation_gesture);
+            }
+            if window.recognize_doubletap_gesture != cache.window.recognize_doubletap_gesture {
+                winit_window.recognize_doubletap_gesture(window.recognize_doubletap_gesture);
+            }
+            if window.recognize_pan_gesture != cache.window.recognize_pan_gesture {
+                match (
+                    window.recognize_pan_gesture,
+                    cache.window.recognize_pan_gesture,
+                ) {
+                    (Some(_), Some(_)) => {
+                        warn!("Bevy currently doesn't support modifying PanGesture number of fingers recognition. Please disable it before re-enabling it with the new number of fingers");
+                    }
+                    (Some((min, max)), _) => winit_window.recognize_pan_gesture(true, min, max),
+                    _ => winit_window.recognize_pan_gesture(false, 0, 0),
+                }
+            }
         }
 
         cache.window = window.clone();

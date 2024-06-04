@@ -82,7 +82,7 @@ pub struct RenderTargetInfo {
 /// Holds internally computed [`Camera`] values.
 #[derive(Default, Debug, Clone)]
 pub struct ComputedCameraValues {
-    projection_matrix: Mat4,
+    clip_from_view: Mat4,
     target_info: Option<RenderTargetInfo>,
     // size of the `Viewport`
     old_viewport_size: Option<UVec2>,
@@ -340,8 +340,8 @@ impl Camera {
 
     /// The projection matrix computed using this camera's [`CameraProjection`].
     #[inline]
-    pub fn projection_matrix(&self) -> Mat4 {
-        self.computed.projection_matrix
+    pub fn clip_from_view(&self) -> Mat4 {
+        self.computed.clip_from_view
     }
 
     /// Given a position in world space, use the camera to compute the viewport-space coordinates.
@@ -398,7 +398,7 @@ impl Camera {
         let ndc = viewport_position * 2. / target_size - Vec2::ONE;
 
         let ndc_to_world =
-            camera_transform.compute_matrix() * self.computed.projection_matrix.inverse();
+            camera_transform.compute_matrix() * self.computed.clip_from_view.inverse();
         let world_near_plane = ndc_to_world.project_point3(ndc.extend(1.));
         // Using EPSILON because an ndc with Z = 0 returns NaNs.
         let world_far_plane = ndc_to_world.project_point3(ndc.extend(f32::EPSILON));
@@ -453,9 +453,9 @@ impl Camera {
         world_position: Vec3,
     ) -> Option<Vec3> {
         // Build a transformation matrix to convert from world space to NDC using camera data
-        let world_to_ndc: Mat4 =
-            self.computed.projection_matrix * camera_transform.compute_matrix().inverse();
-        let ndc_space_coords: Vec3 = world_to_ndc.project_point3(world_position);
+        let clip_from_world: Mat4 =
+            self.computed.clip_from_view * camera_transform.compute_matrix().inverse();
+        let ndc_space_coords: Vec3 = clip_from_world.project_point3(world_position);
 
         (!ndc_space_coords.is_nan()).then_some(ndc_space_coords)
     }
@@ -473,7 +473,7 @@ impl Camera {
     pub fn ndc_to_world(&self, camera_transform: &GlobalTransform, ndc: Vec3) -> Option<Vec3> {
         // Build a transformation matrix to convert from NDC to world space using camera data
         let ndc_to_world =
-            camera_transform.compute_matrix() * self.computed.projection_matrix.inverse();
+            camera_transform.compute_matrix() * self.computed.clip_from_view.inverse();
 
         let world_space_coords = ndc_to_world.project_point3(ndc);
 
@@ -786,7 +786,7 @@ pub fn camera_system<T: CameraProjection + Component>(
                 camera.computed.target_info = new_computed_target_info;
                 if let Some(size) = camera.logical_viewport_size() {
                     camera_projection.update(size.x, size.y);
-                    camera.computed.projection_matrix = camera_projection.get_projection_matrix();
+                    camera.computed.clip_from_view = camera_projection.get_clip_from_view();
                 }
             }
         }
@@ -905,9 +905,9 @@ pub fn extract_cameras(
                         .unwrap_or_else(|| Exposure::default().exposure()),
                 },
                 ExtractedView {
-                    projection: camera.projection_matrix(),
-                    transform: *transform,
-                    view_projection: None,
+                    clip_from_view: camera.clip_from_view(),
+                    world_from_view: *transform,
+                    clip_from_world: None,
                     hdr: camera.hdr,
                     viewport: UVec4::new(
                         viewport_origin.x,
@@ -1021,8 +1021,8 @@ pub struct TemporalJitter {
 }
 
 impl TemporalJitter {
-    pub fn jitter_projection(&self, projection: &mut Mat4, view_size: Vec2) {
-        if projection.w_axis.w == 1.0 {
+    pub fn jitter_projection(&self, clip_from_view: &mut Mat4, view_size: Vec2) {
+        if clip_from_view.w_axis.w == 1.0 {
             warn!(
                 "TemporalJitter not supported with OrthographicProjection. Use PerspectiveProjection instead."
             );
@@ -1032,8 +1032,8 @@ impl TemporalJitter {
         // https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/d7531ae47d8b36a5d4025663e731a47a38be882f/docs/techniques/media/super-resolution-temporal/jitter-space.svg
         let jitter = (self.offset * vec2(2.0, -2.0)) / view_size;
 
-        projection.z_axis.x += jitter.x;
-        projection.z_axis.y += jitter.y;
+        clip_from_view.z_axis.x += jitter.x;
+        clip_from_view.z_axis.y += jitter.y;
     }
 }
 

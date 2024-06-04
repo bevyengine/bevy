@@ -1,5 +1,8 @@
-use crate::GltfAssetLabel;
-use crate::{vertex_attributes::convert_attribute, Gltf, GltfExtras, GltfNode};
+use crate::{
+    vertex_attributes::convert_attribute, Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras,
+    GltfMeshExtras, GltfNode, GltfSceneExtras,
+};
+
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{AnimationTarget, AnimationTargetId};
 use bevy_asset::{
@@ -48,9 +51,7 @@ use gltf::{
 };
 use gltf::{json, Document};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "pbr_multi_layer_material_textures")]
-use serde_json::value;
-use serde_json::Value;
+use serde_json::{value, Value};
 #[cfg(feature = "bevy_animation")]
 use smallvec::SmallVec;
 use std::io::Error;
@@ -219,6 +220,13 @@ async fn load_gltf<'a, 'b, 'c>(
             .metallic_roughness_texture()
         {
             linear_textures.insert(texture.texture().index());
+        }
+        if let Some(texture_index) = material_extension_texture_index(
+            &material,
+            "KHR_materials_anisotropy",
+            "anisotropyTexture",
+        ) {
+            linear_textures.insert(texture_index);
         }
 
         // None of the clearcoat maps should be loaded as sRGB.
@@ -612,7 +620,7 @@ async fn load_gltf<'a, 'b, 'c>(
         .skins()
         .map(|gltf_skin| {
             let reader = gltf_skin.reader(|buffer| Some(&buffer_data[buffer.index()]));
-            let inverse_bindposes: Vec<Mat4> = reader
+            let local_to_bone_bind_matrices: Vec<Mat4> = reader
                 .read_inverse_bind_matrices()
                 .unwrap()
                 .map(|mat| Mat4::from_cols_array_2d(&mat))
@@ -620,7 +628,7 @@ async fn load_gltf<'a, 'b, 'c>(
 
             load_context.add_labeled_asset(
                 skin_label(&gltf_skin),
-                SkinnedMeshInverseBindposes::from(inverse_bindposes),
+                SkinnedMeshInverseBindposes::from(local_to_bone_bind_matrices),
             )
         })
         .collect();
@@ -634,7 +642,8 @@ async fn load_gltf<'a, 'b, 'c>(
         let mut node_index_to_entity_map = HashMap::new();
         let mut entity_to_skin_index_map = EntityHashMap::default();
         let mut scene_load_context = load_context.begin_labeled_asset();
-        world
+
+        let world_root_id = world
             .spawn(SpatialBundle::INHERITED_IDENTITY)
             .with_children(|parent| {
                 for node in scene.nodes() {
@@ -659,7 +668,15 @@ async fn load_gltf<'a, 'b, 'c>(
                         return;
                     }
                 }
+            })
+            .id();
+
+        if let Some(extras) = scene.extras().as_ref() {
+            world.entity_mut(world_root_id).insert(GltfSceneExtras {
+                value: extras.get().to_string(),
             });
+        }
+
         if let Some(Err(err)) = err {
             return Err(err);
         }
@@ -1004,6 +1021,10 @@ fn load_material(
         let clearcoat =
             ClearcoatExtension::parse(load_context, document, material).unwrap_or_default();
 
+        // Parse the `KHR_materials_anisotropy` extension data if necessary.
+        let anisotropy =
+            AnisotropyExtension::parse(load_context, document, material).unwrap_or_default();
+
         // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
         let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
         let emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
@@ -1066,6 +1087,10 @@ fn load_material(
             clearcoat_normal_channel: clearcoat.clearcoat_normal_channel,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_normal_texture: clearcoat.clearcoat_normal_texture,
+            anisotropy_strength: anisotropy.anisotropy_strength.unwrap_or_default() as f32,
+            anisotropy_rotation: anisotropy.anisotropy_rotation.unwrap_or_default() as f32,
+            anisotropy_channel: anisotropy.anisotropy_channel,
+            anisotropy_texture: anisotropy.anisotropy_texture,
             ..Default::default()
         }
     })
@@ -1270,6 +1295,7 @@ fn load_node(
                         material: load_context.get_label_handle(&material_label),
                         ..Default::default()
                     });
+
                     let target_count = primitive.morph_targets().len();
                     if target_count != 0 {
                         let weights = match mesh.weights() {
@@ -1296,6 +1322,18 @@ fn load_node(
 
                     if let Some(extras) = primitive.extras() {
                         mesh_entity.insert(GltfExtras {
+                            value: extras.get().to_string(),
+                        });
+                    }
+
+                    if let Some(extras) = mesh.extras() {
+                        mesh_entity.insert(GltfMeshExtras {
+                            value: extras.get().to_string(),
+                        });
+                    }
+
+                    if let Some(extras) = material.extras() {
+                        mesh_entity.insert(GltfMaterialExtras {
                             value: extras.get().to_string(),
                         });
                     }
@@ -1861,10 +1899,52 @@ impl ClearcoatExtension {
     }
 }
 
+/// Parsed data from the `KHR_materials_anisotropy` extension.
+///
+/// See the specification:
+/// <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_anisotropy/README.md>
+#[derive(Default)]
+struct AnisotropyExtension {
+    anisotropy_strength: Option<f64>,
+    anisotropy_rotation: Option<f64>,
+    anisotropy_channel: UvChannel,
+    anisotropy_texture: Option<Handle<Image>>,
+}
+
+impl AnisotropyExtension {
+    fn parse(
+        load_context: &mut LoadContext,
+        document: &Document,
+        material: &Material,
+    ) -> Option<AnisotropyExtension> {
+        let extension = material
+            .extensions()?
+            .get("KHR_materials_anisotropy")?
+            .as_object()?;
+
+        let (anisotropy_channel, anisotropy_texture) = extension
+            .get("anisotropyTexture")
+            .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
+            .map(|json_info| {
+                (
+                    get_uv_channel(material, "anisotropy", json_info.tex_coord),
+                    texture_handle_from_info(load_context, document, &json_info),
+                )
+            })
+            .unzip();
+
+        Some(AnisotropyExtension {
+            anisotropy_strength: extension.get("anisotropyStrength").and_then(Value::as_f64),
+            anisotropy_rotation: extension.get("anisotropyRotation").and_then(Value::as_f64),
+            anisotropy_channel: anisotropy_channel.unwrap_or_default(),
+            anisotropy_texture,
+        })
+    }
+}
+
 /// Returns the index (within the `textures` array) of the texture with the
 /// given field name in the data for the material extension with the given name,
 /// if there is one.
-#[cfg(feature = "pbr_multi_layer_material_textures")]
 fn material_extension_texture_index(
     material: &Material,
     extension_name: &str,

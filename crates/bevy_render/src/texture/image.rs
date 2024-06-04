@@ -552,11 +552,13 @@ impl Image {
         debug_assert_eq!(
             pixel.len() % format.pixel_size(),
             0,
-            "Must not have incomplete pixel data."
+            "Must not have incomplete pixel data (pixel size is {}B).",
+            format.pixel_size(),
         );
         debug_assert!(
             pixel.len() <= value.data.len(),
-            "Fill data must fit within pixel buffer."
+            "Fill data must fit within pixel buffer (expected {}B).",
+            value.data.len(),
         );
 
         for current_pixel in value.data.chunks_exact_mut(pixel.len()) {
