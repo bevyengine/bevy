@@ -1081,7 +1081,7 @@ pub enum WindowMode {
     #[default]
     Windowed,
     /// The window should appear fullscreen by being borderless and using the full
-    /// size of the screen.
+    /// size of the screen on the given [`MonitorSelection`].
     ///
     /// When setting this, the window's physical size will be modified to match the size
     /// of the current monitor resolution, and the logical size will follow based
@@ -1092,7 +1092,7 @@ pub enum WindowMode {
     /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`] function
     /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale factor to 1.0.
     BorderlessFullscreen(MonitorSelection),
-    /// The window should be in "true"/"legacy" Fullscreen mode.
+    /// The window should be in "true"/"legacy" Fullscreen mode on the given [`MonitorSelection`].
     ///
     /// When setting this, the operating system will be requested to use the
     /// **closest** resolution available for the current monitor to match as
@@ -1101,7 +1101,7 @@ pub enum WindowMode {
     /// that monitor resolution, and the logical size will follow based on the
     /// scale factor, see [`WindowResolution`].
     SizedFullscreen(MonitorSelection),
-    /// The window should be in "true"/"legacy" Fullscreen mode.
+    /// The window should be in "true"/"legacy" Fullscreen mode on the given [`MonitorSelection`].
     ///
     /// When setting this, the operating system will be requested to use the
     /// **biggest** resolution available for the current monitor.
