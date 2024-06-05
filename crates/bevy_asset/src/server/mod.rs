@@ -1410,6 +1410,9 @@ pub enum AssetLoadError {
         label: String,
         all_labels: Vec<String>,
     },
+    /// An asset failed to load for an unspecified reason. This is useful for custom asset loading behavior.
+    #[error(transparent)]
+    Other(Arc<dyn std::error::Error + Send + Sync + 'static>),
 }
 
 #[derive(Error, Debug, Clone)]
