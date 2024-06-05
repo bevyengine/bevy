@@ -75,7 +75,9 @@ impl WinitWindows {
                             None,
                             &monitor_selection,
                         )
-                        .unwrap_or_else(|| panic!("Could not find monitor for {:?}", monitor_selection)),
+                        .unwrap_or_else(|| {
+                            panic!("Could not find monitor for {:?}", monitor_selection)
+                        }),
                     ),
                     WindowMode::SizedFullscreen(monitor_selection) => get_fitting_videomode(
                         &select_monitor(
@@ -84,7 +86,9 @@ impl WinitWindows {
                             None,
                             &monitor_selection,
                         )
-                        .unwrap_or_else(|| panic!("Could not find monitor for {:?}", monitor_selection)),
+                        .unwrap_or_else(|| {
+                            panic!("Could not find monitor for {:?}", monitor_selection)
+                        }),
                         window.width() as u32,
                         window.height() as u32,
                     ),
@@ -429,7 +433,7 @@ pub fn select_monitor(
     monitor_selection: &MonitorSelection,
 ) -> Option<MonitorHandle> {
     use bevy_window::MonitorSelection::*;
-    
+
     match monitor_selection {
         Current => {
             if current_monitor.is_none() {

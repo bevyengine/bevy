@@ -263,7 +263,9 @@ pub(crate) fn changed_windows(
                                 winit_window.current_monitor(),
                                 &monitor_selection,
                             )
-                            .unwrap_or_else(|| panic!("Could not find monitor for {:?}", monitor_selection)),
+                            .unwrap_or_else(|| {
+                                panic!("Could not find monitor for {:?}", monitor_selection)
+                            }),
                         ),
                         WindowMode::SizedFullscreen(monitor_selection) => get_fitting_videomode(
                             &select_monitor(
@@ -272,7 +274,9 @@ pub(crate) fn changed_windows(
                                 winit_window.current_monitor(),
                                 &monitor_selection,
                             )
-                            .unwrap_or_else(|| panic!("Could not find monitor for {:?}", monitor_selection)),
+                            .unwrap_or_else(|| {
+                                panic!("Could not find monitor for {:?}", monitor_selection)
+                            }),
                             window.width() as u32,
                             window.height() as u32,
                         ),
