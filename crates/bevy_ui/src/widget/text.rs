@@ -144,17 +144,15 @@ pub fn measure_text_system(
             continue;
         };
         let scale_factor = match scale_factors.entry(camera_entity) {
-            Entry::Occupied(entry) => entry.get().clone(),
-            Entry::Vacant(entry) => entry
-                .insert(
-                    camera_query
-                        .get(camera_entity)
-                        .ok()
-                        .and_then(|(_, c)| c.target_scaling_factor())
-                        .unwrap_or(1.0)
-                        * ui_scale.0,
-                )
-                .clone(),
+            Entry::Occupied(entry) => *entry.get(),
+            Entry::Vacant(entry) => *entry.insert(
+                camera_query
+                    .get(camera_entity)
+                    .ok()
+                    .and_then(|(_, c)| c.target_scaling_factor())
+                    .unwrap_or(1.0)
+                    * ui_scale.0,
+            ),
         };
         if last_scale_factors.get(&camera_entity) != Some(&scale_factor)
             || text.is_changed()
@@ -262,17 +260,15 @@ pub fn text_system(
             continue;
         };
         let scale_factor = match scale_factors.entry(camera_entity) {
-            Entry::Occupied(entry) => entry.get().clone(),
-            Entry::Vacant(entry) => entry
-                .insert(
-                    camera_query
-                        .get(camera_entity)
-                        .ok()
-                        .and_then(|(_, c)| c.target_scaling_factor())
-                        .unwrap_or(1.0)
-                        * ui_scale.0,
-                )
-                .clone(),
+            Entry::Occupied(entry) => *entry.get(),
+            Entry::Vacant(entry) => *entry.insert(
+                camera_query
+                    .get(camera_entity)
+                    .ok()
+                    .and_then(|(_, c)| c.target_scaling_factor())
+                    .unwrap_or(1.0)
+                    * ui_scale.0,
+            ),
         };
         let inverse_scale_factor = scale_factor.recip();
 
