@@ -199,7 +199,7 @@ impl<T: BoundedExtrusion> Bounded3d for Extrusion<T> {
 }
 
 /// A trait implemented on 2D shapes which determines the 3D bounding volumes of their extrusions.
-/// 
+///
 /// Since default implementations can be inferred from 2D bounding volumes, this allows a `Bounded2d`
 /// implementation on some shape `MyShape` to be extrapolated to a `Bounded3d` implementation on
 /// `Extrusion<MyShape>` without supplying any additional data; e.g.:
