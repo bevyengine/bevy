@@ -60,7 +60,12 @@ impl WinitWindows {
 
         winit_window_attributes = match window.mode {
             WindowMode::BorderlessFullscreen(monitor_selection) => winit_window_attributes
-                .with_fullscreen(Some(Fullscreen::Borderless(event_loop.primary_monitor()))),
+                .with_fullscreen(Some(Fullscreen::Borderless(select_monitor(
+                    &monitors,
+                    event_loop.primary_monitor(),
+                    None,
+                    &monitor_selection,
+                )))),
             mode @ (WindowMode::Fullscreen(_) | WindowMode::SizedFullscreen(_)) => {
                 let videomode = match mode {
                     WindowMode::Fullscreen(monitor_selection) => get_best_videomode(
@@ -381,7 +386,6 @@ pub fn winit_window_position(
             None
         }
         WindowPosition::Centered(monitor_selection) => {
-            use bevy_window::MonitorSelection::*;
             let maybe_monitor = select_monitor(
                 &monitors,
                 primary_monitor,
@@ -421,6 +425,7 @@ pub fn winit_window_position(
     }
 }
 
+/// Selects a monitor based on the given [`MonitorSelection`].
 pub fn select_monitor(
     monitors: &WinitMonitors,
     primary_monitor: Option<MonitorHandle>,
