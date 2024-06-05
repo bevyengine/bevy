@@ -24,7 +24,9 @@ pub use entity_count_diagnostics_plugin::EntityCountDiagnosticsPlugin;
 pub use frame_time_diagnostics_plugin::FrameTimeDiagnosticsPlugin;
 pub use log_diagnostics_plugin::LogDiagnosticsPlugin;
 #[cfg(feature = "sysinfo_plugin")]
-pub use system_information_diagnostics_plugin::{SystemInfo, SystemInformationDiagnosticsPlugin};
+pub use system_information_diagnostics_plugin::{
+    SystemInfo, SystemInformationDiagnosticsPlugin, EXPECTED_SYSTEM_INFORMATION_INTERVAL,
+};
 
 use bevy_app::prelude::*;
 

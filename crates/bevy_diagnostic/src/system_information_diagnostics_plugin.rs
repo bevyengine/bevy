@@ -1,6 +1,7 @@
 use crate::DiagnosticPath;
 use bevy_app::prelude::*;
 use bevy_ecs::system::Resource;
+use std::time::Duration;
 
 /// Adds a System Information Diagnostic, specifically `cpu_usage` (in %) and `mem_usage` (in %)
 ///
@@ -46,6 +47,13 @@ pub struct SystemInfo {
     pub memory: String,
 }
 
+/// The expected interval at which system information will be queried and generated.
+///
+/// The system diagnostic plugin doesn't work in all situations. In those situations this value will
+/// bet set to None.
+pub const EXPECTED_SYSTEM_INFORMATION_INTERVAL: Option<Duration> =
+    internal::EXPECTED_SYSTEM_INFORMATION_INTERVAL;
+
 // NOTE: sysinfo fails to compile when using bevy dynamic or on iOS and does nothing on wasm
 #[cfg(all(
     any(
@@ -57,6 +65,12 @@ pub struct SystemInfo {
     not(feature = "dynamic_linking")
 ))]
 pub mod internal {
+    use std::{
+        sync::mpsc::{self, Receiver, Sender},
+        thread,
+        time::Duration,
+    };
+
     use bevy_ecs::{prelude::ResMut, system::Local};
     use bevy_utils::tracing::info;
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
@@ -74,35 +88,63 @@ pub mod internal {
             .add(Diagnostic::new(SystemInformationDiagnosticsPlugin::MEM_USAGE).with_suffix("%"));
     }
 
+    pub(crate) const EXPECTED_SYSTEM_INFORMATION_INTERVAL: Option<Duration> =
+        Some(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+
+    /// Continuously collects diagnostic data and sends it into `diagnostic_data_sender`.
+    ///
+    /// This function will run in a loop until the sender closes. It should be run in
+    /// another thread.
+    ///
+    /// The data set into the sender will be (Cpu usage %, Memory usage %)
+    fn diagnostic_thread(diagnostic_data_sender: Sender<(f64, f64)>) {
+        let mut sys = System::new_with_specifics(
+            RefreshKind::new()
+                .with_cpu(CpuRefreshKind::new().with_cpu_usage())
+                .with_memory(MemoryRefreshKind::everything()),
+        );
+
+        loop {
+            sys.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
+            sys.refresh_memory();
+            let current_cpu_usage = sys.global_cpu_info().cpu_usage();
+            // `memory()` fns return a value in bytes
+            let total_mem = sys.total_memory() as f64 / BYTES_TO_GIB;
+            let used_mem = sys.used_memory() as f64 / BYTES_TO_GIB;
+            let current_used_mem = used_mem / total_mem * 100.0;
+
+            if diagnostic_data_sender
+                .send((current_cpu_usage.into(), current_used_mem))
+                .is_err()
+            {
+                break;
+            }
+
+            thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+        }
+    }
+
     pub(crate) fn diagnostic_system(
         mut diagnostics: Diagnostics,
-        mut sysinfo: Local<Option<System>>,
+        mut sysinfo: Local<Option<Receiver<(f64, f64)>>>,
     ) {
-        if sysinfo.is_none() {
-            *sysinfo = Some(System::new_with_specifics(
-                RefreshKind::new()
-                    .with_cpu(CpuRefreshKind::new().with_cpu_usage())
-                    .with_memory(MemoryRefreshKind::everything()),
-            ));
+        let usage_receiver = sysinfo.get_or_insert_with(|| {
+            let (sender, receiver) = mpsc::channel();
+
+            // TODO: Use a builder to give the thread a name
+            thread::spawn(|| diagnostic_thread(sender));
+
+            receiver
+        });
+
+        for (current_cpu_usage, current_used_mem) in usage_receiver.try_iter() {
+            diagnostics.add_measurement(&SystemInformationDiagnosticsPlugin::CPU_USAGE, || {
+                current_cpu_usage
+            });
+            diagnostics.add_measurement(&SystemInformationDiagnosticsPlugin::MEM_USAGE, || {
+                current_used_mem
+            });
         }
-        let Some(sys) = sysinfo.as_mut() else {
-            return;
-        };
-
-        sys.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
-        sys.refresh_memory();
-        let current_cpu_usage = sys.global_cpu_info().cpu_usage();
-        // `memory()` fns return a value in bytes
-        let total_mem = sys.total_memory() as f64 / BYTES_TO_GIB;
-        let used_mem = sys.used_memory() as f64 / BYTES_TO_GIB;
-        let current_used_mem = used_mem / total_mem * 100.0;
-
-        diagnostics.add_measurement(&SystemInformationDiagnosticsPlugin::CPU_USAGE, || {
-            current_cpu_usage as f64
-        });
-        diagnostics.add_measurement(&SystemInformationDiagnosticsPlugin::MEM_USAGE, || {
-            current_used_mem
-        });
     }
 
     impl Default for SystemInfo {
@@ -145,6 +187,8 @@ pub mod internal {
     not(feature = "dynamic_linking")
 )))]
 pub mod internal {
+    use std::time::Duration;
+
     pub(crate) fn setup_system() {
         bevy_utils::tracing::warn!("This platform and/or configuration is not supported!");
     }
@@ -152,6 +196,8 @@ pub mod internal {
     pub(crate) fn diagnostic_system() {
         // no-op
     }
+
+    pub(crate) const EXPECTED_SYSTEM_INFORMATION_INTERVAL: Option<Duration> = None;
 
     impl Default for super::SystemInfo {
         fn default() -> Self {
