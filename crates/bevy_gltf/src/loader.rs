@@ -1990,7 +1990,7 @@ mod test {
         fn with_generated_name(index: usize) -> Self {
             GltfNode {
                 index,
-                asset_label: format!("Node{}", index),
+                asset_label: crate::GltfAssetLabel::Node(index),
                 name: format!("l{}", index),
                 children: vec![],
                 mesh: None,
