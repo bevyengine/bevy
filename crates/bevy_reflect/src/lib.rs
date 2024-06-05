@@ -756,7 +756,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "the given key does not support hashing")]
+    #[should_panic(
+        expected = "the given key bevy_reflect::tests::Foo does not support hashing"
+    )]
     fn reflect_map_no_hash() {
         #[derive(Reflect)]
         struct Foo {

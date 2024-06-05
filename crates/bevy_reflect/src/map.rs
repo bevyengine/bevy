@@ -194,7 +194,17 @@ impl MapInfo {
     }
 }
 
-const HASH_ERROR: &str = "the given key does not support hashing";
+
+#[macro_export]
+macro_rules! hash_error {
+    ( $key:expr ) => {{
+        let type_name = match (*$key).get_represented_type_info(){
+            None=>"Unknown",
+            Some(s)=>s.type_path(),
+        };
+        format!("the given key {} does not support hashing", type_name).as_str()
+    }};
+}
 
 /// An ordered mapping between reflected values.
 #[derive(Default)]
@@ -233,13 +243,13 @@ impl DynamicMap {
 impl Map for DynamicMap {
     fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect> {
         self.indices
-            .get(&key.reflect_hash().expect(HASH_ERROR))
+            .get(&key.reflect_hash().expect(hash_error!(key)))
             .map(|index| &*self.values.get(*index).unwrap().1)
     }
 
     fn get_mut(&mut self, key: &dyn Reflect) -> Option<&mut dyn Reflect> {
         self.indices
-            .get(&key.reflect_hash().expect(HASH_ERROR))
+            .get(&key.reflect_hash().expect(hash_error!(key)))
             .cloned()
             .map(move |index| &mut *self.values.get_mut(index).unwrap().1)
     }
@@ -285,7 +295,7 @@ impl Map for DynamicMap {
         key: Box<dyn Reflect>,
         mut value: Box<dyn Reflect>,
     ) -> Option<Box<dyn Reflect>> {
-        match self.indices.entry(key.reflect_hash().expect(HASH_ERROR)) {
+        match self.indices.entry(key.reflect_hash().expect(hash_error!(key))) {
             Entry::Occupied(entry) => {
                 let (_old_key, old_value) = self.values.get_mut(*entry.get()).unwrap();
                 std::mem::swap(old_value, &mut value);
@@ -302,7 +312,7 @@ impl Map for DynamicMap {
     fn remove(&mut self, key: &dyn Reflect) -> Option<Box<dyn Reflect>> {
         let index = self
             .indices
-            .remove(&key.reflect_hash().expect(HASH_ERROR))?;
+            .remove(&key.reflect_hash().expect(hash_error!(key)))?;
         let (_key, value) = self.values.remove(index);
         Some(value)
     }
