@@ -154,6 +154,9 @@ enum Shape {
     Tetrahedron,
     Triangle,
 }
+struct ShapeMeshBuilder {
+    shape: Shape,
+}
 
 impl Shape {
     /// Return a vector containing all implemented shapes
@@ -195,16 +198,22 @@ impl ShapeSample for Shape {
 }
 
 impl Meshable for Shape {
-    type Output = Mesh;
+    type Output = ShapeMeshBuilder;
 
     fn mesh(&self) -> Self::Output {
-        match self {
-            Shape::Cuboid => CUBOID.mesh(),
+        ShapeMeshBuilder { shape: *self }
+    }
+}
+
+impl MeshBuilder for ShapeMeshBuilder {
+    fn build(&self) -> Mesh {
+        match self.shape {
+            Shape::Cuboid => CUBOID.mesh().into(),
             Shape::Sphere => SPHERE.mesh().into(),
             Shape::Capsule => CAPSULE_3D.mesh().into(),
             Shape::Cylinder => CYLINDER.mesh().into(),
-            Shape::Tetrahedron => TETRAHEDRON.mesh(),
-            Shape::Triangle => TRIANGLE_3D.mesh(),
+            Shape::Tetrahedron => TETRAHEDRON.mesh().into(),
+            Shape::Triangle => TRIANGLE_3D.mesh().into(),
         }
     }
 }
