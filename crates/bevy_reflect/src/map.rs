@@ -194,13 +194,12 @@ impl MapInfo {
     }
 }
 
-
 #[macro_export]
 macro_rules! hash_error {
     ( $key:expr ) => {{
-        let type_name = match (*$key).get_represented_type_info(){
-            None=>"Unknown",
-            Some(s)=>s.type_path(),
+        let type_name = match (*$key).get_represented_type_info() {
+            None => "Unknown",
+            Some(s) => s.type_path(),
         };
         format!("the given key {} does not support hashing", type_name).as_str()
     }};
@@ -295,7 +294,10 @@ impl Map for DynamicMap {
         key: Box<dyn Reflect>,
         mut value: Box<dyn Reflect>,
     ) -> Option<Box<dyn Reflect>> {
-        match self.indices.entry(key.reflect_hash().expect(hash_error!(key))) {
+        match self
+            .indices
+            .entry(key.reflect_hash().expect(hash_error!(key)))
+        {
             Entry::Occupied(entry) => {
                 let (_old_key, old_value) = self.values.get_mut(*entry.get()).unwrap();
                 std::mem::swap(old_value, &mut value);
