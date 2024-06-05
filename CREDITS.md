@@ -30,7 +30,6 @@
 * `MorphStressTest.gltf`, [MorphStressTest] ([CC-BY 4.0] by Analytical Graphics, Inc, Model and textures by Ed Mackey)
 * Mysterious acoustic guitar music sample from [florianreichelt](https://freesound.org/people/florianreichelt/sounds/412429/) (CC0 license)
 * Epic orchestra music sample, modified to loop, from [Migfus20](https://freesound.org/people/Migfus20/sounds/560449/) ([CC BY 4.0 DEED](https://creativecommons.org/licenses/by/4.0/))
-* [Skybox Clouds in the Sky spatial io](https://sketchfab.com/3d-models/skybox-clouds-in-the-sky-spatial-io-c7cac39cba83447eab8c6c90116ee1fc) from [skybox3dArchitect](https://sketchfab.com/skybox3dArchitect)
 
 [MorphStressTest]: https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/MorphStressTest
 [fox]: https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/Fox
