@@ -198,9 +198,14 @@ impl<T: BoundedExtrusion> Bounded3d for Extrusion<T> {
     }
 }
 
-/// A trait that automatically implements `Bounded3d` for `Extrusion<Self>`.
+/// A trait implemented on 2D shapes which determines the 3D bounding volumes of their extrusions.
+/// 
+/// Since default implementations can be inferred from 2D bounding volumes, this allows a `Bounded2d`
+/// implementation on some shape `MyShape` to be extrapolated to a `Bounded3d` implementation on
+/// `Extrusion<MyShape>` without supplying any additional data; e.g.:
+/// `impl BoundedExtrusion for MyShape {}`
 pub trait BoundedExtrusion: Primitive2d + Bounded2d {
-    /// Get an axis-aligned bounding box for an extrusion of the `base_shape` with the given `half_depth` with the given translation and rotation
+    /// Get an axis-aligned bounding box for an extrusion with this shape as a base and the given `half_depth`, transformed by the given `translation` and `rotation`.
     fn extrusion_aabb_3d(&self, half_depth: f32, translation: Vec3, rotation: Quat) -> Aabb3d {
         let cap_normal = rotation * Vec3::Z;
         let conjugate_rot = rotation.conjugate();
