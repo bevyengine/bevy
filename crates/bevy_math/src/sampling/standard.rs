@@ -7,7 +7,7 @@
 //! ```
 //! # use rand::{random, Rng, SeedableRng, rngs::StdRng, distributions::Standard};
 //! # use bevy_math::{Dir3, sampling::FromRng};
-//! let mut rng = StdRng::from_entropy();
+//! let mut rng = StdRng::seed_from_u64(7313429298);
 //! // Random direction using thread-local rng
 //! let random_direction1: Dir3 = random();
 //!
@@ -21,9 +21,11 @@
 //! let many_random_directions: Vec<Dir3> = rng.sample_iter(Standard).take(5).collect();
 //! ```
 
+use std::f32::consts::TAU;
+
 use crate::{
     primitives::{Circle, Sphere},
-    Dir2, Dir3, Dir3A, Quat, ShapeSample, Vec3A,
+    Dir2, Dir3, Dir3A, Quat, Rotation2d, ShapeSample, Vec3A,
 };
 use rand::{
     distributions::{Distribution, Standard},
@@ -37,7 +39,7 @@ use rand::{
 /// ```
 /// # use rand::{Rng, SeedableRng, rngs::StdRng};
 /// # use bevy_math::{Dir3, sampling::FromRng};
-/// let mut rng = StdRng::from_entropy();
+/// let mut rng = StdRng::seed_from_u64(451);
 /// let random_dir = Dir3::from_rng(&mut rng);
 /// ```
 pub trait FromRng
@@ -80,5 +82,14 @@ impl Distribution<Dir3A> for Standard {
 }
 
 impl FromRng for Dir3A {}
+
+impl Distribution<Rotation2d> for Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Rotation2d {
+        let angle = rng.gen_range(0.0..TAU);
+        Rotation2d::radians(angle)
+    }
+}
+
+impl FromRng for Rotation2d {}
 
 impl FromRng for Quat {}
