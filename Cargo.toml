@@ -63,6 +63,7 @@ default = [
   "bevy_winit",
   "bevy_core_pipeline",
   "bevy_pbr",
+  "bevy_picking",
   "bevy_gltf",
   "bevy_render",
   "bevy_sprite",
@@ -122,6 +123,8 @@ bevy_pbr = [
   "bevy_render",
   "bevy_core_pipeline",
 ]
+
+bevy_picking = ["bevy_internal/bevy_picking"]
 
 # Provides rendering functionality
 bevy_render = ["bevy_internal/bevy_render", "bevy_color"]

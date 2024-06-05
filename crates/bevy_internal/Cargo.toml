@@ -179,6 +179,9 @@ meshlet_processor = ["bevy_pbr?/meshlet_processor"]
 # Provides a collection of developer tools
 bevy_dev_tools = ["dep:bevy_dev_tools"]
 
+# Provides a picking functionality
+bevy_picking = ["dep:bevy_picking"]
+
 # Enable support for the ios_simulator by downgrading some rendering capabilities
 ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
 
@@ -225,6 +228,7 @@ bevy_winit = { path = "../bevy_winit", optional = true, version = "0.14.0-dev" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.14.0-dev" }
 bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.14.0-dev", default-features = false }
 bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.14.0-dev" }
+bevy_picking = { path = "../bevy_picking", optional = true, version = "0.14.0-dev" }
 
 [lints]
 workspace = true
