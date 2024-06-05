@@ -1,10 +1,15 @@
 use bevy_app::{App, MainScheduleOrder, Plugin, PreUpdate, Startup, SubApp};
-use bevy_ecs::{event::Events, schedule::ScheduleLabel, world::FromWorld};
+use bevy_ecs::{
+    event::Events,
+    schedule::{IntoSystemConfigs, ScheduleLabel},
+    world::FromWorld,
+};
 
 use crate::state::{
     setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
-    StateTransition, StateTransitionEvent, SubStates,
+    StateTransition, StateTransitionEvent, StateTransitionSteps, States, SubStates,
 };
+use crate::state_scoped::clear_state_scoped_entities;
 
 /// State installation methods for [`App`](bevy_app::App) and [`SubApp`](bevy_app::SubApp).
 pub trait AppExtStates {
@@ -44,6 +49,11 @@ pub trait AppExtStates {
     ///
     /// This method is idempotent: it has no effect when called again using the same generic type.
     fn add_sub_state<S: SubStates>(&mut self) -> &mut Self;
+
+    /// Enable state-scoped entity clearing for state `S`.
+    ///
+    /// For more information refer to [`StateScoped`](crate::state_scoped::StateScoped).
+    fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self;
 }
 
 impl AppExtStates for SubApp {
@@ -91,10 +101,13 @@ impl AppExtStates for SubApp {
             self.add_event::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
             S::register_computed_state_systems(schedule);
-            let state = self.world().resource::<State<S>>().get().clone();
+            let state = self
+                .world()
+                .get_resource::<State<S>>()
+                .map(|s| s.get().clone());
             self.world_mut().send_event(StateTransitionEvent {
                 exited: None,
-                entered: Some(state),
+                entered: state,
             });
         }
 
@@ -111,14 +124,35 @@ impl AppExtStates for SubApp {
             self.add_event::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
             S::register_sub_state_systems(schedule);
-            let state = self.world().resource::<State<S>>().get().clone();
+            let state = self
+                .world()
+                .get_resource::<State<S>>()
+                .map(|s| s.get().clone());
             self.world_mut().send_event(StateTransitionEvent {
                 exited: None,
-                entered: Some(state),
+                entered: state,
             });
         }
 
         self
+    }
+
+    fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self {
+        use bevy_utils::tracing::warn;
+
+        if !self
+            .world()
+            .contains_resource::<Events<StateTransitionEvent<S>>>()
+        {
+            let name = std::any::type_name::<S>();
+            warn!("State scoped entities are enabled for state `{}`, but the state isn't installed in the app!", name);
+        }
+        // We work with [`StateTransition`] in set [`StateTransitionSteps::ExitSchedules`] as opposed to [`OnExit`],
+        // because [`OnExit`] only runs for one specific variant of the state.
+        self.add_systems(
+            StateTransition,
+            clear_state_scoped_entities::<S>.in_set(StateTransitionSteps::ExitSchedules),
+        )
     }
 }
 
@@ -140,6 +174,12 @@ impl AppExtStates for App {
 
     fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
         self.main_mut().add_sub_state::<S>();
+        self
+    }
+
+    #[cfg(feature = "bevy_hierarchy")]
+    fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self {
+        self.main_mut().enable_state_scoped_entities::<S>();
         self
     }
 }

@@ -36,18 +36,18 @@ fn fragment(
         is_front,
     );
 
-    pbr_input.is_orthographic = view.projection[3].w == 1.0;
+    pbr_input.is_orthographic = view.clip_from_view[3].w == 1.0;
 
     pbr_input.N = normalize(pbr_input.world_normal);
 
 #ifdef VERTEX_TANGENTS
     let Nt = textureSampleBias(pbr_bindings::normal_map_texture, pbr_bindings::normal_map_sampler, mesh.uv, view.mip_bias).rgb;
+    let TBN = fns::calculate_tbn_mikktspace(mesh.world_normal, mesh.world_tangent);
     pbr_input.N = fns::apply_normal_mapping(
         pbr_input.material.flags,
-        mesh.world_normal,
+        TBN,
         double_sided,
         is_front,
-        mesh.world_tangent,
         Nt,
         view.mip_bias,
     );

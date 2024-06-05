@@ -1,5 +1,5 @@
 use crate::{
-    mesh::{Indices, Mesh, Meshable},
+    mesh::{Indices, Mesh, MeshBuilder, Meshable},
     render_asset::RenderAssetUsages,
 };
 use bevy_math::{primitives::ConicalFrustum, Vec3};
@@ -59,9 +59,10 @@ impl ConicalFrustumMeshBuilder {
         self.segments = segments;
         self
     }
+}
 
-    /// Builds a [`Mesh`] based on the configuration in `self`.
-    pub fn build(&self) -> Mesh {
+impl MeshBuilder for ConicalFrustumMeshBuilder {
+    fn build(&self) -> Mesh {
         debug_assert!(self.resolution > 2);
         debug_assert!(self.segments > 0);
 
@@ -180,11 +181,5 @@ impl Meshable for ConicalFrustum {
 impl From<ConicalFrustum> for Mesh {
     fn from(frustum: ConicalFrustum) -> Self {
         frustum.mesh().build()
-    }
-}
-
-impl From<ConicalFrustumMeshBuilder> for Mesh {
-    fn from(frustum: ConicalFrustumMeshBuilder) -> Self {
-        frustum.build()
     }
 }

@@ -16,6 +16,8 @@ use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
 
 use bevy_ecs::query::With;
+#[cfg(target_os = "ios")]
+use winit::platform::ios::WindowExtIOS;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 
@@ -97,6 +99,19 @@ pub fn create_windows<F: QueryFilter + 'static>(
                 style.set_property("height", "100%").unwrap();
             }
         }
+
+        #[cfg(target_os = "ios")]
+        {
+            winit_window.recognize_pinch_gesture(window.recognize_pinch_gesture);
+            winit_window.recognize_rotation_gesture(window.recognize_rotation_gesture);
+            winit_window.recognize_doubletap_gesture(window.recognize_doubletap_gesture);
+            if let Some((min, max)) = window.recognize_pan_gesture {
+                winit_window.recognize_pan_gesture(true, min, max);
+            } else {
+                winit_window.recognize_pan_gesture(false, 0, 0);
+            }
+        }
+
         window_created_events.send(WindowCreated { window: entity });
     }
 }
@@ -358,6 +373,31 @@ pub(crate) fn changed_windows(
 
         if window.visible != cache.window.visible {
             winit_window.set_visible(window.visible);
+        }
+
+        #[cfg(target_os = "ios")]
+        {
+            if window.recognize_pinch_gesture != cache.window.recognize_pinch_gesture {
+                winit_window.recognize_pinch_gesture(window.recognize_pinch_gesture);
+            }
+            if window.recognize_rotation_gesture != cache.window.recognize_rotation_gesture {
+                winit_window.recognize_rotation_gesture(window.recognize_rotation_gesture);
+            }
+            if window.recognize_doubletap_gesture != cache.window.recognize_doubletap_gesture {
+                winit_window.recognize_doubletap_gesture(window.recognize_doubletap_gesture);
+            }
+            if window.recognize_pan_gesture != cache.window.recognize_pan_gesture {
+                match (
+                    window.recognize_pan_gesture,
+                    cache.window.recognize_pan_gesture,
+                ) {
+                    (Some(_), Some(_)) => {
+                        warn!("Bevy currently doesn't support modifying PanGesture number of fingers recognition. Please disable it before re-enabling it with the new number of fingers");
+                    }
+                    (Some((min, max)), _) => winit_window.recognize_pan_gesture(true, min, max),
+                    _ => winit_window.recognize_pan_gesture(false, 0, 0),
+                }
+            }
         }
 
         cache.window = window.clone();

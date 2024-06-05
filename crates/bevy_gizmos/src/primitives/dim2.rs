@@ -102,7 +102,7 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a> = crate::circles::Ellipse2dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
 
     fn primitive_2d(
         &mut self,
@@ -111,11 +111,7 @@ where
         _angle: f32,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
-        if !self.enabled {
-            return;
-        }
-
-        self.circle_2d(position, primitive.radius, color);
+        self.circle_2d(position, primitive.radius, color)
     }
 }
 
@@ -205,46 +201,114 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a> = crate::circles::Ellipse2dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
 
-    fn primitive_2d(
+    fn primitive_2d<'a>(
         &mut self,
         primitive: &Ellipse,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
-        if !self.enabled {
-            return;
-        }
-
-        self.ellipse_2d(position, angle, primitive.half_size, color);
+        self.ellipse_2d(position, angle, primitive.half_size, color)
     }
 }
 
 // annulus 2d
+
+/// Builder for configuring the drawing options of [`Annulus`].
+pub struct Annulus2dBuilder<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
+    position: Vec2,
+    inner_radius: f32,
+    outer_radius: f32,
+    color: Color,
+    inner_resolution: usize,
+    outer_resolution: usize,
+}
+
+impl<Config, Clear> Annulus2dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Set the number of line-segments for each circle of the annulus.
+    pub fn resolution(mut self, resolution: usize) -> Self {
+        self.outer_resolution = resolution;
+        self.inner_resolution = resolution;
+        self
+    }
+
+    /// Set the number of line-segments for the outer circle of the annulus.
+    pub fn outer_resolution(mut self, resolution: usize) -> Self {
+        self.outer_resolution = resolution;
+        self
+    }
+
+    /// Set the number of line-segments for the inner circle of the annulus.
+    pub fn inner_resolution(mut self, resolution: usize) -> Self {
+        self.inner_resolution = resolution;
+        self
+    }
+}
 
 impl<'w, 's, Config, Clear> GizmoPrimitive2d<Annulus> for Gizmos<'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a> = Annulus2dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
 
     fn primitive_2d(
         &mut self,
         primitive: &Annulus,
         position: Vec2,
-        angle: f32,
+        _angle: f32,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
-        if !self.enabled {
+        Annulus2dBuilder {
+            gizmos: self,
+            position,
+            inner_radius: primitive.inner_circle.radius,
+            outer_radius: primitive.outer_circle.radius,
+            color: color.into(),
+            inner_resolution: crate::circles::DEFAULT_CIRCLE_RESOLUTION,
+            outer_resolution: crate::circles::DEFAULT_CIRCLE_RESOLUTION,
+        }
+    }
+}
+
+impl<Config, Clear> Drop for Annulus2dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    fn drop(&mut self) {
+        if !self.gizmos.enabled {
             return;
         }
 
-        let color = color.into();
-        self.primitive_2d(&primitive.inner_circle, position, angle, color);
-        self.primitive_2d(&primitive.outer_circle, position, angle, color);
+        let Annulus2dBuilder {
+            gizmos,
+            position,
+            inner_radius,
+            outer_radius,
+            inner_resolution,
+            outer_resolution,
+            color,
+            ..
+        } = self;
+
+        gizmos
+            .circle_2d(*position, *outer_radius, *color)
+            .resolution(*outer_resolution);
+        gizmos
+            .circle_2d(*position, *inner_radius, *color)
+            .resolution(*inner_resolution);
     }
 }
 
@@ -266,8 +330,7 @@ where
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
-        }
-
+        };
         let [a, b, c, d] =
             [(1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0)].map(|(sign_x, sign_y)| {
                 Vec2::new(

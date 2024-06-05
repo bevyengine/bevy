@@ -71,8 +71,8 @@ pub struct DeferredPrepass;
 
 #[derive(Component, ShaderType, Clone)]
 pub struct PreviousViewData {
-    pub inverse_view: Mat4,
-    pub view_proj: Mat4,
+    pub view_from_world: Mat4,
+    pub clip_from_world: Mat4,
 }
 
 #[derive(Resource, Default)]

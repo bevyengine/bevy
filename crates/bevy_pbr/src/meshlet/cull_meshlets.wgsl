@@ -44,11 +44,11 @@ fn cull_meshlets(
     // Calculate world-space culling bounding sphere for the cluster
     let instance_uniform = meshlet_instance_uniforms[instance_id];
     let meshlet_id = meshlet_cluster_meshlet_ids[cluster_id];
-    let model = affine3_to_square(instance_uniform.model);
-    let model_scale = max(length(model[0]), max(length(model[1]), length(model[2])));
+    let world_from_local = affine3_to_square(instance_uniform.world_from_local);
+    let world_scale = max(length(world_from_local[0]), max(length(world_from_local[1]), length(world_from_local[2])));
     let bounding_spheres = meshlet_bounding_spheres[meshlet_id];
-    var culling_bounding_sphere_center = model * vec4(bounding_spheres.self_culling.center, 1.0);
-    var culling_bounding_sphere_radius = model_scale * bounding_spheres.self_culling.radius;
+    var culling_bounding_sphere_center = world_from_local * vec4(bounding_spheres.self_culling.center, 1.0);
+    var culling_bounding_sphere_radius = world_scale * bounding_spheres.self_culling.radius;
 
 #ifdef MESHLET_FIRST_CULLING_PASS
     // Frustum culling
@@ -60,14 +60,14 @@ fn cull_meshlets(
     }
 
     // Calculate view-space LOD bounding sphere for the meshlet
-    let lod_bounding_sphere_center = model * vec4(bounding_spheres.self_lod.center, 1.0);
-    let lod_bounding_sphere_radius = model_scale * bounding_spheres.self_lod.radius;
-    let lod_bounding_sphere_center_view_space = (view.inverse_view * vec4(lod_bounding_sphere_center.xyz, 1.0)).xyz;
+    let lod_bounding_sphere_center = world_from_local * vec4(bounding_spheres.self_lod.center, 1.0);
+    let lod_bounding_sphere_radius = world_scale * bounding_spheres.self_lod.radius;
+    let lod_bounding_sphere_center_view_space = (view.view_from_world * vec4(lod_bounding_sphere_center.xyz, 1.0)).xyz;
 
     // Calculate view-space LOD bounding sphere for the meshlet's parent
-    let parent_lod_bounding_sphere_center = model * vec4(bounding_spheres.parent_lod.center, 1.0);
-    let parent_lod_bounding_sphere_radius = model_scale * bounding_spheres.parent_lod.radius;
-    let parent_lod_bounding_sphere_center_view_space = (view.inverse_view * vec4(parent_lod_bounding_sphere_center.xyz, 1.0)).xyz;
+    let parent_lod_bounding_sphere_center = world_from_local * vec4(bounding_spheres.parent_lod.center, 1.0);
+    let parent_lod_bounding_sphere_radius = world_scale * bounding_spheres.parent_lod.radius;
+    let parent_lod_bounding_sphere_center_view_space = (view.view_from_world * vec4(parent_lod_bounding_sphere_center.xyz, 1.0)).xyz;
 
     // Check LOD cut (meshlet error imperceptible, and parent error not imperceptible)
     let lod_is_ok = lod_error_is_imperceptible(lod_bounding_sphere_center_view_space, lod_bounding_sphere_radius);
@@ -77,12 +77,12 @@ fn cull_meshlets(
 
     // Project the culling bounding sphere to view-space for occlusion culling
 #ifdef MESHLET_FIRST_CULLING_PASS
-    let previous_model = affine3_to_square(instance_uniform.previous_model);
-    let previous_model_scale = max(length(previous_model[0]), max(length(previous_model[1]), length(previous_model[2])));
-    culling_bounding_sphere_center = previous_model * vec4(bounding_spheres.self_culling.center, 1.0);
-    culling_bounding_sphere_radius = previous_model_scale * bounding_spheres.self_culling.radius;
+    let previous_world_from_local = affine3_to_square(instance_uniform.previous_world_from_local);
+    let previous_world_from_local_scale = max(length(previous_world_from_local[0]), max(length(previous_world_from_local[1]), length(previous_world_from_local[2])));
+    culling_bounding_sphere_center = previous_world_from_local * vec4(bounding_spheres.self_culling.center, 1.0);
+    culling_bounding_sphere_radius = previous_world_from_local_scale * bounding_spheres.self_culling.radius;
 #endif
-    let culling_bounding_sphere_center_view_space = (view.inverse_view * vec4(culling_bounding_sphere_center.xyz, 1.0)).xyz;
+    let culling_bounding_sphere_center_view_space = (view.view_from_world * vec4(culling_bounding_sphere_center.xyz, 1.0)).xyz;
 
     let aabb = project_view_space_sphere_to_screen_space_aabb(culling_bounding_sphere_center_view_space, culling_bounding_sphere_radius);
     // Halve the view-space AABB size as the depth pyramid is half the view size
@@ -101,13 +101,13 @@ fn cull_meshlets(
 
     // Check whether or not the cluster would be occluded if drawn
     var meshlet_visible: bool;
-    if view.projection[3][3] == 1.0 {
+    if view.clip_from_view[3][3] == 1.0 {
         // Orthographic
-        let sphere_depth = view.projection[3][2] + (culling_bounding_sphere_center_view_space.z + culling_bounding_sphere_radius) * view.projection[2][2];
+        let sphere_depth = view.clip_from_view[3][2] + (culling_bounding_sphere_center_view_space.z + culling_bounding_sphere_radius) * view.clip_from_view[2][2];
         meshlet_visible = sphere_depth >= occluder_depth;
     } else {
         // Perspective
-        let sphere_depth = -view.projection[3][2] / (culling_bounding_sphere_center_view_space.z + culling_bounding_sphere_radius);
+        let sphere_depth = -view.clip_from_view[3][2] / (culling_bounding_sphere_center_view_space.z + culling_bounding_sphere_radius);
         meshlet_visible = sphere_depth >= occluder_depth;
     }
 
@@ -132,7 +132,7 @@ fn cull_meshlets(
 fn lod_error_is_imperceptible(cp: vec3<f32>, r: f32) -> bool {
     let d2 = dot(cp, cp);
     let r2 = r * r;
-    let sphere_diameter_uv = view.projection[0][0] * r / sqrt(d2 - r2);
+    let sphere_diameter_uv = view.clip_from_view[0][0] * r / sqrt(d2 - r2);
     let view_size = f32(max(view.viewport.z, view.viewport.w));
     let sphere_diameter_pixels = sphere_diameter_uv * view_size;
     return sphere_diameter_pixels < 1.0;
@@ -140,9 +140,9 @@ fn lod_error_is_imperceptible(cp: vec3<f32>, r: f32) -> bool {
 
 // https://zeux.io/2023/01/12/approximate-projected-bounds
 fn project_view_space_sphere_to_screen_space_aabb(cp: vec3<f32>, r: f32) -> vec4<f32> {
-    let inv_width = view.projection[0][0] * 0.5;
-    let inv_height = view.projection[1][1] * 0.5;
-    if view.projection[3][3] == 1.0 {
+    let inv_width = view.clip_from_view[0][0] * 0.5;
+    let inv_height = view.clip_from_view[1][1] * 0.5;
+    if view.clip_from_view[3][3] == 1.0 {
         // Orthographic
         let min_x = cp.x - r;
         let max_x = cp.x + r;

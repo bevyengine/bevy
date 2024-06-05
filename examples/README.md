@@ -128,6 +128,7 @@ Example | Description
 [3D Shapes](../examples/3d/3d_shapes.rs) | A scene showcasing the built-in 3D shapes
 [3D Viewport To World](../examples/3d/3d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world` method
 [Animated Material](../examples/3d/animated_material.rs) | Shows how to animate material properties
+[Anisotropy](../examples/3d/anisotropy.rs) | Displays an example model with anisotropy
 [Anti-aliasing](../examples/3d/anti_aliasing.rs) | Compares different anti-aliasing methods
 [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
 [Auto Exposure](../examples/3d/auto_exposure.rs) | A scene showcasing auto exposure
@@ -372,8 +373,9 @@ Example | Description
 
 Example | Description
 --- | ---
-[Computed States](../examples/state/computed_states.rs) | Advanced state patterns using Computed States
-[State](../examples/state/state.rs) | Illustrates how to use States to control transitioning from a Menu state to an InGame state
+[Computed States](../examples/state/computed_states.rs) | Advanced state patterns using Computed States.
+[Custom State Transition Behavior](../examples/state/custom_transitions.rs) | Creating and working with custom state transition schedules.
+[States](../examples/state/states.rs) | Illustrates how to use States to control transitioning from a Menu state to an InGame state.
 [Sub States](../examples/state/sub_states.rs) | Using Sub States for hierarchical state handling.
 
 ## Stress Tests
