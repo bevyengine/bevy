@@ -6,10 +6,10 @@ use bevy_ecs::{
     removal_detection::RemovedComponents,
     system::{Local, NonSendMut, Query, SystemParamItem},
 };
-use bevy_utils::tracing::{error, info, trace, warn};
+use bevy_utils::tracing::{error, info, warn};
 use bevy_window::{
-    ClosingWindow, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window, WindowClosed, WindowClosing, WindowCreated,
-    WindowMode, WindowResized, WindowWrapper,
+    ClosingWindow, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window, WindowClosed,
+    WindowClosing, WindowCreated, WindowMode, WindowResized, WindowWrapper,
 };
 use std::collections::BTreeSet;
 
@@ -31,8 +31,8 @@ use crate::{
         self, convert_enabled_buttons, convert_window_level, convert_window_theme,
         convert_winit_theme,
     },
-    get_best_videomode, get_fitting_videomode, CreateMonitorParams, CreateWindowParams,
-    WinitWindows,
+    get_best_videomode, get_fitting_videomode, select_monitor, CreateMonitorParams,
+    CreateWindowParams, WinitWindows,
 };
 
 /// Creates new windows on the [`winit`] backend for each entity with a newly-added
@@ -176,7 +176,7 @@ pub fn create_monitors(
         if seen_monitors.contains(m) {
             true
         } else {
-            trace!("Despawning monitor {:?}", m.name());
+            info!("Monitor removed {:?}", entity);
             commands.entity(*entity).despawn();
             false
         }
@@ -246,26 +246,46 @@ pub(crate) fn changed_windows(
 
         if window.mode != cache.window.mode {
             let new_mode = match window.mode {
-                WindowMode::BorderlessFullscreen => {
-                    Some(Some(winit::window::Fullscreen::Borderless(None)))
+                WindowMode::BorderlessFullscreen(monitor_selection) => {
+                    Some(Some(winit::window::Fullscreen::Borderless(select_monitor(
+                        &monitors,
+                        winit_window.primary_monitor(),
+                        winit_window.current_monitor(),
+                        &monitor_selection,
+                    ))))
                 }
-                mode @ (WindowMode::Fullscreen | WindowMode::SizedFullscreen) => {
-                    if let Some(current_monitor) = winit_window.current_monitor() {
-                        let videomode = match mode {
-                            WindowMode::Fullscreen => get_best_videomode(&current_monitor),
-                            WindowMode::SizedFullscreen => get_fitting_videomode(
-                                &current_monitor,
-                                window.width() as u32,
-                                window.height() as u32,
+                mode @ (WindowMode::Fullscreen(_) | WindowMode::SizedFullscreen(_)) => {
+                    let videomode = match mode {
+                        WindowMode::Fullscreen(monitor_selection) => get_best_videomode(
+                            &select_monitor(
+                                &monitors,
+                                winit_window.primary_monitor(),
+                                winit_window.current_monitor(),
+                                &monitor_selection,
+                            )
+                            .expect(
+                                format!("Could not find monitor for {:?}", monitor_selection)
+                                    .as_str(),
                             ),
-                            _ => unreachable!(),
-                        };
+                        ),
+                        WindowMode::SizedFullscreen(monitor_selection) => get_fitting_videomode(
+                            &select_monitor(
+                                &monitors,
+                                winit_window.primary_monitor(),
+                                winit_window.current_monitor(),
+                                &monitor_selection,
+                            )
+                            .expect(
+                                format!("Could not find monitor for {:?}", monitor_selection)
+                                    .as_str(),
+                            ),
+                            window.width() as u32,
+                            window.height() as u32,
+                        ),
+                        _ => unreachable!(),
+                    };
 
-                        Some(Some(winit::window::Fullscreen::Exclusive(videomode)))
-                    } else {
-                        warn!("Could not determine current monitor, ignoring exclusive fullscreen request for window {:?}", window.title);
-                        None
-                    }
+                    Some(Some(winit::window::Fullscreen::Exclusive(videomode)))
                 }
                 WindowMode::Windowed => Some(None),
             };

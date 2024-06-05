@@ -1091,7 +1091,7 @@ pub enum WindowMode {
     /// the window's logical size may be different from its physical size.
     /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`] function
     /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale factor to 1.0.
-    BorderlessFullscreen,
+    BorderlessFullscreen(MonitorSelection),
     /// The window should be in "true"/"legacy" Fullscreen mode.
     ///
     /// When setting this, the operating system will be requested to use the
@@ -1100,7 +1100,7 @@ pub enum WindowMode {
     /// After that, the window's physical size will be modified to match
     /// that monitor resolution, and the logical size will follow based on the
     /// scale factor, see [`WindowResolution`].
-    SizedFullscreen,
+    SizedFullscreen(MonitorSelection),
     /// The window should be in "true"/"legacy" Fullscreen mode.
     ///
     /// When setting this, the operating system will be requested to use the
@@ -1113,7 +1113,7 @@ pub enum WindowMode {
     /// the window's logical size may be different from its physical size.
     /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`] function
     /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale factor to 1.0.
-    Fullscreen,
+    Fullscreen(MonitorSelection),
 }
 
 /// Specifies where a [`Window`] should appear relative to other overlapping windows (on top or under) .

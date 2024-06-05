@@ -1,8 +1,8 @@
 //! Displays information about available monitors (displays).
 
-use bevy::window::{ExitCondition, WindowRef};
-use bevy::{prelude::*, window::Monitor};
 use bevy::render::camera::RenderTarget;
+use bevy::window::{ExitCondition, WindowMode, WindowRef};
+use bevy::{prelude::*, window::Monitor};
 
 fn main() {
     App::new()
@@ -11,7 +11,7 @@ fn main() {
             exit_condition: ExitCondition::DontExit,
             ..default()
         }))
-        .add_systems(Update, update)
+        .add_systems(Update, (update, close_on_esc))
         .run();
 }
 
@@ -26,9 +26,6 @@ fn update(
 ) {
     for (entity, monitor) in monitors_added.iter() {
         // Spawn a new window on each monitor
-        let mut text = TextBundle::default();
-        let mut info = Vec::new();
-
         let name = monitor.name.clone().unwrap_or_else(|| "<no name>".into());
         let size = format!("{}x{}px", monitor.physical_height, monitor.physical_width);
         let hz = monitor
@@ -40,19 +37,12 @@ fn update(
             monitor.physical_position.x, monitor.physical_position.y
         );
         let scale = format!("{:.2}", monitor.scale_factor);
-        info.push(TextSection {
-            value: format!(
-                "Monitor: {name}\nSize: {size}\nRefresh rate: {hz}\nPosition: {position}\nScale: {scale}\n\n",
-            ),
-            ..default()
-        });
-
-        text.text.sections = info;
 
         let window = commands
             .spawn((
                 Window {
-                    title: name,
+                    title: name.clone(),
+                    mode: WindowMode::Fullscreen(MonitorSelection::Entity(entity)),
                     position: WindowPosition::Centered(MonitorSelection::Entity(entity)),
                     ..default()
                 },
@@ -60,15 +50,29 @@ fn update(
             ))
             .id();
 
-        let camera = commands.spawn(Camera2dBundle {
-            camera: Camera {
-                target: RenderTarget::Window(WindowRef::Entity(window)),
+        let camera = commands
+            .spawn(Camera2dBundle {
+                camera: Camera {
+                    target: RenderTarget::Window(WindowRef::Entity(window)),
+                    ..default()
+                },
                 ..default()
-            },
-            ..default()
-        }).id();
+            })
+            .id();
 
-        commands.spawn((text, TargetCamera(camera), MonitorRef(entity)));
+        let info_text = format!(
+            "Monitor: {name}\nSize: {size}\nRefresh rate: {hz}\nPosition: {position}\nScale: {scale}\n\n",
+        );
+        commands.spawn((
+            TextBundle::from_section(info_text, default()).with_style(Style {
+                position_type: PositionType::Relative,
+                height: Val::Percent(100.0),
+                width: Val::Percent(100.0),
+                ..default()
+            }),
+            TargetCamera(camera),
+            MonitorRef(entity),
+        ));
     }
 
     // Remove windows for removed monitors
@@ -77,6 +81,22 @@ fn update(
             if monitor_ref.0 == monitor_entity {
                 commands.entity(ref_entity).despawn_recursive();
             }
+        }
+    }
+}
+
+pub fn close_on_esc(
+    mut commands: Commands,
+    focused_windows: Query<(Entity, &Window)>,
+    input: Res<ButtonInput<KeyCode>>,
+) {
+    for (window, focus) in focused_windows.iter() {
+        if !focus.focused {
+            continue;
+        }
+
+        if input.just_pressed(KeyCode::Escape) {
+            commands.entity(window).despawn();
         }
     }
 }

@@ -8,7 +8,7 @@ use bevy_ecs::system::Resource;
 #[derive(Resource, Debug, Default)]
 pub struct WinitMonitors {
     /// Stores [`winit`] monitors and their corresponding entities
-    pub monitors: BTreeMap<MonitorHandle, Entity>,
+    pub(crate) monitors: BTreeMap<MonitorHandle, Entity>,
 }
 
 impl WinitMonitors {
