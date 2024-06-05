@@ -214,7 +214,7 @@ pub struct GltfNode {
     /// ```
     /// asset_server.load(format!("my_glft.glft#{}", node.asset_label());
     /// ```
-    pub asset_label: String,
+    pub asset_label: GltfAssetLabel,
     /// Direct children of the node.
     pub children: Vec<GltfNode>,
     /// Mesh of the node.
@@ -236,7 +236,7 @@ impl GltfNode {
     ) -> Self {
         Self {
             index: node.index(),
-            asset_label: format!("Node{}", node.index()),
+            asset_label: GltfAssetLabel::Node(node.index()),
             name: if let Some(name) = node.name() {
                 name.to_string()
             } else {
@@ -265,7 +265,7 @@ pub struct GltfMesh {
     /// ```
     /// asset_server.load(format!("my_glft.glft#{}", mesh.asset_label());
     /// ```
-    pub asset_label: String,
+    pub asset_label: GltfAssetLabel,
     /// Primitives of the glTF mesh.
     pub primitives: Vec<GltfPrimitive>,
     /// Additional data.
@@ -281,7 +281,7 @@ impl GltfMesh {
     ) -> Self {
         Self {
             index: mesh.index(),
-            asset_label: format!("Mesh{}", mesh.index()),
+            asset_label: GltfAssetLabel::Mesh(mesh.index()),
             name: if let Some(name) = mesh.name() {
                 name.to_string()
             } else {
@@ -298,6 +298,16 @@ impl GltfMesh {
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-mesh-primitive).
 #[derive(Asset, Debug, Clone, TypePath)]
 pub struct GltfPrimitive {
+    /// Index of the primitive inside the mesh
+    pub index: usize,
+    /// Computed name for a primitive - either a user defined primitive name from gLTF or a generated name from index
+    pub name: String,
+    /// Subasset label for this mesh within the gLTF parent asset.
+    ///
+    /// ```
+    /// asset_server.load(format!("my_glft.glft#{}", primitive.asset_label());
+    /// ```
+    pub asset_label: GltfAssetLabel,
     /// Topology to be rendered.
     pub mesh: Handle<Mesh>,
     /// Material to apply to the `mesh`.
@@ -306,6 +316,38 @@ pub struct GltfPrimitive {
     pub extras: Option<GltfExtras>,
     /// Additional data of the `material`.
     pub material_extras: Option<GltfExtras>,
+}
+
+impl GltfPrimitive {
+    /// Create a primitive extracting name and index from glTF def
+    pub fn new(
+        gltf_mesh: &gltf::Mesh,
+        gltf_primitive: &gltf::Primitive,
+        mesh: Handle<Mesh>,
+        material: Option<Handle<StandardMaterial>>,
+        extras: Option<GltfExtras>,
+        material_extras: Option<GltfExtras>,
+    ) -> Self {
+        GltfPrimitive {
+            index: gltf_primitive.index(),
+            name: {
+                let mesh_name = gltf_mesh.name().unwrap_or("Mesh");
+                if gltf_mesh.primitives().len() > 1 {
+                    format!("{}.{}", mesh_name, gltf_primitive.index())
+                } else {
+                    mesh_name.to_string()
+                }
+            },
+            asset_label: GltfAssetLabel::Primitive {
+                mesh: gltf_mesh.index(),
+                primitive: gltf_primitive.index(),
+            },
+            mesh,
+            material,
+            extras,
+            material_extras,
+        }
+    }
 }
 
 /// Additional untyped data that can be present on most glTF types at the primitive level.
