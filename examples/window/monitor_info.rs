@@ -1,36 +1,34 @@
 //! Displays information about available monitors (displays).
 
+use bevy::window::{ExitCondition, WindowRef};
 use bevy::{prelude::*, window::Monitor};
+use bevy::render::camera::RenderTarget;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup)
-        .add_systems(Update, text_update_system)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: None,
+            exit_condition: ExitCondition::DontExit,
+            ..default()
+        }))
+        .add_systems(Update, update)
         .run();
 }
 
 #[derive(Component)]
-struct MonitorInfoText;
+struct MonitorRef(Entity);
 
-fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
-
-    // Spawn a component that we will update with monitor information
-    commands.spawn((
-        TextBundle::from_section("Monitor Info: loading…", default()),
-        MonitorInfoText,
-    ));
-}
-
-fn text_update_system(
-    mut info_block: Query<(&mut Text,), With<MonitorInfoText>>,
-    monitors: Query<(&Monitor,)>,
+fn update(
+    mut commands: Commands,
+    monitors_added: Query<(Entity, &Monitor), Added<Monitor>>,
+    mut monitors_removed: RemovedComponents<Monitor>,
+    monitor_refs: Query<(Entity, &MonitorRef)>,
 ) {
-    let (mut text,) = info_block.single_mut();
+    for (entity, monitor) in monitors_added.iter() {
+        // Spawn a new window on each monitor
+        let mut text = TextBundle::default();
+        let mut info = Vec::new();
 
-    let mut info = Vec::new();
-    for (monitor,) in monitors.iter() {
         let name = monitor.name.clone().unwrap_or_else(|| "<no name>".into());
         let size = format!("{}x{}px", monitor.physical_height, monitor.physical_width);
         let hz = monitor
@@ -48,6 +46,37 @@ fn text_update_system(
             ),
             ..default()
         });
+
+        text.text.sections = info;
+
+        let window = commands
+            .spawn((
+                Window {
+                    title: name,
+                    position: WindowPosition::Centered(MonitorSelection::Entity(entity)),
+                    ..default()
+                },
+                MonitorRef(entity),
+            ))
+            .id();
+
+        let camera = commands.spawn(Camera2dBundle {
+            camera: Camera {
+                target: RenderTarget::Window(WindowRef::Entity(window)),
+                ..default()
+            },
+            ..default()
+        }).id();
+
+        commands.spawn((text, TargetCamera(camera), MonitorRef(entity)));
     }
-    text.sections = info;
+
+    // Remove windows for removed monitors
+    for monitor_entity in monitors_removed.read() {
+        for (ref_entity, monitor_ref) in monitor_refs.iter() {
+            if monitor_ref.0 == monitor_entity {
+                commands.entity(ref_entity).despawn_recursive();
+            }
+        }
+    }
 }
