@@ -12,6 +12,8 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// Each monitor corresponds to an entity and can be used to position a monitor using
 /// [`crate::window::MonitorSelection::Entity`].
 ///
+/// # Warning
+///
 /// This component is synchronized with `winit` through `bevy_winit`, but is effectively
 /// read-only as `winit` does not support changing monitor properties.
 #[derive(Component, Debug, Clone, Reflect)]
