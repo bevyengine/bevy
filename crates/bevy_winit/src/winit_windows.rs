@@ -61,7 +61,7 @@ impl WinitWindows {
         winit_window_attributes = match window.mode {
             WindowMode::BorderlessFullscreen(monitor_selection) => winit_window_attributes
                 .with_fullscreen(Some(Fullscreen::Borderless(select_monitor(
-                    &monitors,
+                    monitors,
                     event_loop.primary_monitor(),
                     None,
                     &monitor_selection,
@@ -70,25 +70,21 @@ impl WinitWindows {
                 let videomode = match mode {
                     WindowMode::Fullscreen(monitor_selection) => get_best_videomode(
                         &select_monitor(
-                            &monitors,
+                            monitors,
                             event_loop.primary_monitor(),
                             None,
                             &monitor_selection,
                         )
-                        .expect(
-                            format!("Could not find monitor for {:?}", monitor_selection).as_str(),
-                        ),
+                        .unwrap_or_else(|| panic!("Could not find monitor for {:?}", monitor_selection)),
                     ),
                     WindowMode::SizedFullscreen(monitor_selection) => get_fitting_videomode(
                         &select_monitor(
-                            &monitors,
+                            monitors,
                             event_loop.primary_monitor(),
                             None,
                             &monitor_selection,
                         )
-                        .expect(
-                            format!("Could not find monitor for {:?}", monitor_selection).as_str(),
-                        ),
+                        .unwrap_or_else(|| panic!("Could not find monitor for {:?}", monitor_selection)),
                         window.width() as u32,
                         window.height() as u32,
                     ),
@@ -387,7 +383,7 @@ pub fn winit_window_position(
         }
         WindowPosition::Centered(monitor_selection) => {
             let maybe_monitor = select_monitor(
-                &monitors,
+                monitors,
                 primary_monitor,
                 current_monitor,
                 monitor_selection,
@@ -433,7 +429,8 @@ pub fn select_monitor(
     monitor_selection: &MonitorSelection,
 ) -> Option<MonitorHandle> {
     use bevy_window::MonitorSelection::*;
-    let maybe_monitor = match monitor_selection {
+    
+    match monitor_selection {
         Current => {
             if current_monitor.is_none() {
                 warn!("Can't select current monitor on window creation or cannot find current monitor!");
@@ -443,6 +440,5 @@ pub fn select_monitor(
         Primary => primary_monitor,
         Index(n) => monitors.nth(*n),
         Entity(entity) => monitors.find_entity(*entity),
-    };
-    maybe_monitor
+    }
 }
