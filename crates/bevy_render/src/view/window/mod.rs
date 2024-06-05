@@ -119,6 +119,7 @@ fn extract_windows(
     screenshot_manager: Extract<Res<ScreenshotManager>>,
     mut closing: Extract<EventReader<WindowClosing>>,
     windows: Extract<Query<(Entity, &Window, &RawHandleWrapper, Option<&PrimaryWindow>)>>,
+    mut removed: Extract<RemovedComponents<RawHandleWrapper>>,
     mut window_surfaces: ResMut<WindowSurfaces>,
 ) {
     for (entity, window, handle, primary) in windows.iter() {
@@ -179,6 +180,10 @@ fn extract_windows(
     for closing_window in closing.read() {
         extracted_windows.remove(&closing_window.window);
         window_surfaces.remove(&closing_window.window);
+    }
+    for removed_window in removed.read() {
+        extracted_windows.remove(&removed_window);
+        window_surfaces.remove(&removed_window);
     }
     // This lock will never block because `callbacks` is `pub(crate)` and this is the singular callsite where it's locked.
     // Even if a user had multiple copies of this system, since the system has a mutable resource access the two systems would never run
