@@ -198,6 +198,7 @@ impl<T: BoundedExtrusion> Bounded3d for Extrusion<T> {
     }
 }
 
+/// A trait that automatically implements `Bounded3d` for `Extrusion<Self>`.
 pub trait BoundedExtrusion: Primitive2d + Bounded2d + Sized {
     /// Get an axis-aligned bounding box for an extrusion of the `base_shape` with the given `half_depth` with the given translation and rotation
     fn extrusion_aabb_3d(&self, half_depth: f32, translation: Vec3, rotation: Quat) -> Aabb3d {
