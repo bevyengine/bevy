@@ -211,8 +211,8 @@ pub struct GltfNode {
     pub name: String,
     /// Subasset label for this node within the gLTF parent asset.
     ///
-    /// ```
-    /// asset_server.load(format!("my_glft.glft#{}", node.asset_label());
+    /// ```no_run
+    /// asset_server.load(format!("my_glft.glft#{}", node.asset_label()));
     /// ```
     pub asset_label: GltfAssetLabel,
     /// Direct children of the node.
@@ -262,8 +262,8 @@ pub struct GltfMesh {
     pub name: String,
     /// Subasset label for this mesh within the gLTF parent asset.
     ///
-    /// ```
-    /// asset_server.load(format!("my_glft.glft#{}", mesh.asset_label());
+    /// ```no_run
+    /// asset_server.load(format!("my_glft.glft#{}", mesh.asset_label()));
     /// ```
     pub asset_label: GltfAssetLabel,
     /// Primitives of the glTF mesh.
@@ -304,8 +304,8 @@ pub struct GltfPrimitive {
     pub name: String,
     /// Subasset label for this mesh within the gLTF parent asset.
     ///
-    /// ```
-    /// asset_server.load(format!("my_glft.glft#{}", primitive.asset_label());
+    /// ```no_run
+    /// asset_server.load(format!("my_glft.glft#{}", primitive.asset_label()));
     /// ```
     pub asset_label: GltfAssetLabel,
     /// Topology to be rendered.
