@@ -718,7 +718,10 @@ impl AssetServer {
     ///
     /// After the asset has been fully loaded, it will show up in the relevant [`Assets`] storage.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
-    pub fn add_async<A: Asset>(&self, future: impl Future<Output = Result<A, AssetLoadError>>) -> Handle<A> {
+    pub fn add_async<A: Asset>(
+        &self,
+        future: impl Future<Output = Result<A, AssetLoadError>>,
+    ) -> Handle<A> {
         let handle = self
             .data
             .infos
