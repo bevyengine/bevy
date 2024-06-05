@@ -41,7 +41,8 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-pub struct Rotation2d {
+#[doc(alias = "rotation", alias = "rotation2d", alias = "rotation_2d")]
+pub struct Rot2 {
     /// The cosine of the rotation angle in radians.
     ///
     /// This is the real part of the unit complex number representing the rotation.
@@ -52,13 +53,13 @@ pub struct Rotation2d {
     pub sin: f32,
 }
 
-impl Default for Rotation2d {
+impl Default for Rot2 {
     fn default() -> Self {
         Self::IDENTITY
     }
 }
 
-impl Rotation2d {
+impl Rot2 {
     /// No rotation.
     pub const IDENTITY: Self = Self { cos: 1.0, sin: 0.0 };
 
@@ -355,21 +356,21 @@ impl Rotation2d {
     }
 }
 
-impl From<f32> for Rotation2d {
+impl From<f32> for Rot2 {
     /// Creates a [`Rotation2d`] from a counterclockwise angle in radians.
     fn from(rotation: f32) -> Self {
         Self::radians(rotation)
     }
 }
 
-impl From<Rotation2d> for Mat2 {
+impl From<Rot2> for Mat2 {
     /// Creates a [`Mat2`] rotation matrix from a [`Rotation2d`].
-    fn from(rot: Rotation2d) -> Self {
+    fn from(rot: Rot2) -> Self {
         Mat2::from_cols_array(&[rot.cos, -rot.sin, rot.sin, rot.cos])
     }
 }
 
-impl std::ops::Mul for Rotation2d {
+impl std::ops::Mul for Rot2 {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
@@ -380,13 +381,13 @@ impl std::ops::Mul for Rotation2d {
     }
 }
 
-impl std::ops::MulAssign for Rotation2d {
+impl std::ops::MulAssign for Rot2 {
     fn mul_assign(&mut self, rhs: Self) {
         *self = *self * rhs;
     }
 }
 
-impl std::ops::Mul<Vec2> for Rotation2d {
+impl std::ops::Mul<Vec2> for Rot2 {
     type Output = Vec2;
 
     /// Rotates a [`Vec2`] by a [`Rotation2d`].
@@ -399,7 +400,7 @@ impl std::ops::Mul<Vec2> for Rotation2d {
 }
 
 #[cfg(any(feature = "approx", test))]
-impl approx::AbsDiffEq for Rotation2d {
+impl approx::AbsDiffEq for Rot2 {
     type Epsilon = f32;
     fn default_epsilon() -> f32 {
         f32::EPSILON
@@ -410,7 +411,7 @@ impl approx::AbsDiffEq for Rotation2d {
 }
 
 #[cfg(any(feature = "approx", test))]
-impl approx::RelativeEq for Rotation2d {
+impl approx::RelativeEq for Rot2 {
     fn default_max_relative() -> f32 {
         f32::EPSILON
     }
@@ -421,7 +422,7 @@ impl approx::RelativeEq for Rotation2d {
 }
 
 #[cfg(any(feature = "approx", test))]
-impl approx::UlpsEq for Rotation2d {
+impl approx::UlpsEq for Rot2 {
     fn default_max_ulps() -> u32 {
         4
     }
@@ -435,13 +436,13 @@ impl approx::UlpsEq for Rotation2d {
 mod tests {
     use approx::assert_relative_eq;
 
-    use crate::{Dir2, Rotation2d, Vec2};
+    use crate::{Dir2, Rot2, Vec2};
 
     #[test]
     fn creation() {
-        let rotation1 = Rotation2d::radians(std::f32::consts::FRAC_PI_2);
-        let rotation2 = Rotation2d::degrees(90.0);
-        let rotation3 = Rotation2d::from_sin_cos(1.0, 0.0);
+        let rotation1 = Rot2::radians(std::f32::consts::FRAC_PI_2);
+        let rotation2 = Rot2::degrees(90.0);
+        let rotation3 = Rot2::from_sin_cos(1.0, 0.0);
 
         // All three rotations should be equal
         assert_relative_eq!(rotation1.sin, rotation2.sin);
@@ -456,7 +457,7 @@ mod tests {
 
     #[test]
     fn rotate() {
-        let rotation = Rotation2d::degrees(90.0);
+        let rotation = Rot2::degrees(90.0);
 
         assert_relative_eq!(rotation * Vec2::X, Vec2::Y);
         assert_relative_eq!(rotation * Dir2::Y, Dir2::NEG_X);
@@ -464,8 +465,8 @@ mod tests {
 
     #[test]
     fn add() {
-        let rotation1 = Rotation2d::degrees(90.0);
-        let rotation2 = Rotation2d::degrees(180.0);
+        let rotation1 = Rot2::degrees(90.0);
+        let rotation2 = Rot2::degrees(180.0);
 
         // 90 deg + 180 deg becomes -90 deg after it wraps around to be within the ]-180, 180] range
         assert_eq!((rotation1 * rotation2).as_degrees(), -90.0);
@@ -473,8 +474,8 @@ mod tests {
 
     #[test]
     fn subtract() {
-        let rotation1 = Rotation2d::degrees(90.0);
-        let rotation2 = Rotation2d::degrees(45.0);
+        let rotation1 = Rot2::degrees(90.0);
+        let rotation2 = Rot2::degrees(45.0);
 
         assert_relative_eq!((rotation1 * rotation2.inverse()).as_degrees(), 45.0);
 
@@ -487,7 +488,7 @@ mod tests {
 
     #[test]
     fn length() {
-        let rotation = Rotation2d {
+        let rotation = Rot2 {
             sin: 10.0,
             cos: 5.0,
         };
@@ -499,16 +500,16 @@ mod tests {
 
     #[test]
     fn is_near_identity() {
-        assert!(!Rotation2d::radians(0.1).is_near_identity());
-        assert!(!Rotation2d::radians(-0.1).is_near_identity());
-        assert!(Rotation2d::radians(0.00001).is_near_identity());
-        assert!(Rotation2d::radians(-0.00001).is_near_identity());
-        assert!(Rotation2d::radians(0.0).is_near_identity());
+        assert!(!Rot2::radians(0.1).is_near_identity());
+        assert!(!Rot2::radians(-0.1).is_near_identity());
+        assert!(Rot2::radians(0.00001).is_near_identity());
+        assert!(Rot2::radians(-0.00001).is_near_identity());
+        assert!(Rot2::radians(0.0).is_near_identity());
     }
 
     #[test]
     fn normalize() {
-        let rotation = Rotation2d {
+        let rotation = Rot2 {
             sin: 10.0,
             cos: 5.0,
         };
@@ -524,7 +525,7 @@ mod tests {
     #[test]
     fn try_normalize() {
         // Valid
-        assert!(Rotation2d {
+        assert!(Rot2 {
             sin: 10.0,
             cos: 5.0,
         }
@@ -532,7 +533,7 @@ mod tests {
         .is_some());
 
         // NaN
-        assert!(Rotation2d {
+        assert!(Rot2 {
             sin: f32::NAN,
             cos: 5.0,
         }
@@ -540,10 +541,10 @@ mod tests {
         .is_none());
 
         // Zero
-        assert!(Rotation2d { sin: 0.0, cos: 0.0 }.try_normalize().is_none());
+        assert!(Rot2 { sin: 0.0, cos: 0.0 }.try_normalize().is_none());
 
         // Non-finite
-        assert!(Rotation2d {
+        assert!(Rot2 {
             sin: f32::INFINITY,
             cos: 5.0,
         }
@@ -553,16 +554,16 @@ mod tests {
 
     #[test]
     fn nlerp() {
-        let rot1 = Rotation2d::IDENTITY;
-        let rot2 = Rotation2d::degrees(135.0);
+        let rot1 = Rot2::IDENTITY;
+        let rot2 = Rot2::degrees(135.0);
 
         assert_eq!(rot1.nlerp(rot2, 1.0 / 3.0).as_degrees(), 28.675055);
         assert!(rot1.nlerp(rot2, 0.0).is_near_identity());
         assert_eq!(rot1.nlerp(rot2, 0.5).as_degrees(), 67.5);
         assert_eq!(rot1.nlerp(rot2, 1.0).as_degrees(), 135.0);
 
-        let rot1 = Rotation2d::IDENTITY;
-        let rot2 = Rotation2d::from_sin_cos(0.0, -1.0);
+        let rot1 = Rot2::IDENTITY;
+        let rot2 = Rot2::from_sin_cos(0.0, -1.0);
 
         assert!(rot1.nlerp(rot2, 1.0 / 3.0).is_near_identity());
         assert!(rot1.nlerp(rot2, 0.0).is_near_identity());
@@ -573,16 +574,16 @@ mod tests {
 
     #[test]
     fn slerp() {
-        let rot1 = Rotation2d::IDENTITY;
-        let rot2 = Rotation2d::degrees(135.0);
+        let rot1 = Rot2::IDENTITY;
+        let rot2 = Rot2::degrees(135.0);
 
         assert_eq!(rot1.slerp(rot2, 1.0 / 3.0).as_degrees(), 45.0);
         assert!(rot1.slerp(rot2, 0.0).is_near_identity());
         assert_eq!(rot1.slerp(rot2, 0.5).as_degrees(), 67.5);
         assert_eq!(rot1.slerp(rot2, 1.0).as_degrees(), 135.0);
 
-        let rot1 = Rotation2d::IDENTITY;
-        let rot2 = Rotation2d::from_sin_cos(0.0, -1.0);
+        let rot1 = Rot2::IDENTITY;
+        let rot2 = Rot2::from_sin_cos(0.0, -1.0);
 
         assert!((rot1.slerp(rot2, 1.0 / 3.0).as_degrees() - 60.0).abs() < 10e-6);
         assert!(rot1.slerp(rot2, 0.0).is_near_identity());
