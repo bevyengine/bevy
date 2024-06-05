@@ -20,7 +20,7 @@ use std::marker::PhantomData;
 use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalSize;
 use winit::event;
-use winit::event::{DeviceEvent, DeviceId, StartCause, WindowEvent};
+use winit::event::{DeviceEvent, DeviceId, ElementState, StartCause, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::window::WindowId;
 
@@ -223,16 +223,22 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 );
             }
             WindowEvent::CloseRequested => self.winit_events.send(WindowCloseRequested { window }),
-            WindowEvent::KeyboardInput { ref event, .. } => {
-                if event.state.is_pressed() {
-                    if let Some(char) = &event.text {
-                        let char = char.clone();
-                        #[allow(deprecated)]
-                        self.winit_events.send(ReceivedCharacter { window, char });
+            WindowEvent::KeyboardInput {
+                ref event,
+                is_synthetic,
+                ..
+            } => {
+                if !(is_synthetic && event.state == ElementState::Pressed) {
+                    if event.state.is_pressed() {
+                        if let Some(char) = &event.text {
+                            let char = char.clone();
+                            #[allow(deprecated)]
+                            self.winit_events.send(ReceivedCharacter { window, char });
+                        }
                     }
+                    self.winit_events
+                        .send(converters::convert_keyboard_input(event, window));
                 }
-                self.winit_events
-                    .send(converters::convert_keyboard_input(event, window));
             }
             WindowEvent::CursorMoved { position, .. } => {
                 let physical_position = DVec2::new(position.x, position.y);
