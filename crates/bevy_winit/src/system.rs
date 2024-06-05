@@ -1,5 +1,5 @@
 use bevy_ecs::{
-    entity::Entity,
+    entity::{Entity, EntityHashSet},
     event::EventWriter,
     prelude::{Changed, Component},
     query::QueryFilter,
@@ -9,7 +9,7 @@ use bevy_ecs::{
 use bevy_utils::tracing::{error, info, warn};
 use bevy_window::{
     ClosingWindow, RawHandleWrapper, Window, WindowClosed, WindowClosing, WindowCreated,
-    WindowMode, WindowResized, WindowWrapper,
+    WindowMode, WindowResized,
 };
 
 use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
@@ -118,32 +118,39 @@ pub fn create_windows<F: QueryFilter + 'static>(
 
 pub(crate) fn despawn_windows(
     closing: Query<Entity, With<ClosingWindow>>,
-    mut closed: RemovedComponents<Window>,
+    mut removed: RemovedComponents<Window>,
     window_entities: Query<&Window>,
     mut closing_events: EventWriter<WindowClosing>,
     mut closed_events: EventWriter<WindowClosed>,
     mut winit_windows: NonSendMut<WinitWindows>,
-    mut windows_to_drop: Local<Vec<WindowWrapper<winit::window::Window>>>,
+    mut windows_to_drop: Local<EntityHashSet>,
 ) {
-    // Drop all the windows that are waiting to be closed
-    windows_to_drop.clear();
-    for window in closing.iter() {
-        closing_events.send(WindowClosing { window });
-    }
-    for window in closed.read() {
+    // Drain windows that were marked as closing on the last frame
+    for window in windows_to_drop.drain() {
         info!("Closing window {:?}", window);
         // Guard to verify that the window is in fact actually gone,
         // rather than having the component added
         // and removed in the same frame.
         if !window_entities.contains(window) {
-            if let Some(window) = winit_windows.remove_window(window) {
-                // Keeping WindowWrapper that are dropped for one frame
-                // Otherwise the last `Arc` of the window could be in the rendering thread, and dropped there
-                // This would hang on macOS
-                // Keeping the wrapper and dropping it next frame in this system ensure its dropped in the main thread
-                windows_to_drop.push(window);
-            }
+            winit_windows.remove_window(window);
             closed_events.send(WindowClosed { window });
+        }
+    }
+
+    // Signal to the render world that this window will be closed on the next frame
+    for window in closing.iter() {
+        windows_to_drop.insert(window);
+        closing_events.send(WindowClosing { window });
+    }
+
+    // Check for any removed windows that were not marked with `ClosingWindow`, which indicates
+    // they were manually despawned. We'll send the closing event for these windows so the renderer
+    // can clean up.
+    for window in removed.read() {
+        if !windows_to_drop.contains(&window) {
+            closing_events.send(WindowClosing { window });
+            windows_to_drop.insert(window);
+            continue;
         }
     }
 }
