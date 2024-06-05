@@ -54,6 +54,7 @@ where
 }
 
 impl Distribution<Dir2> for Standard {
+    #[inline]
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Dir2 {
         let circle = Circle::new(1.0);
         let vector = circle.sample_boundary(rng);
@@ -64,6 +65,7 @@ impl Distribution<Dir2> for Standard {
 impl FromRng for Dir2 {}
 
 impl Distribution<Dir3> for Standard {
+    #[inline]
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Dir3 {
         let sphere = Sphere::new(1.0);
         let vector = sphere.sample_boundary(rng);
@@ -74,6 +76,7 @@ impl Distribution<Dir3> for Standard {
 impl FromRng for Dir3 {}
 
 impl Distribution<Dir3A> for Standard {
+    #[inline]
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Dir3A {
         let sphere = Sphere::new(1.0);
         let vector: Vec3A = sphere.sample_boundary(rng).into();
@@ -84,6 +87,7 @@ impl Distribution<Dir3A> for Standard {
 impl FromRng for Dir3A {}
 
 impl Distribution<Rotation2d> for Standard {
+    #[inline]
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Rotation2d {
         let angle = rng.gen_range(0.0..TAU);
         Rotation2d::radians(angle)
