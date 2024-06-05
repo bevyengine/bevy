@@ -1,11 +1,11 @@
 //! This module provides a simple interface for implementing a picking backend.
 //!
-//! Don't be dissuaded by terminology like "backend"; the idea is dead simple. `bevy_picking_core`
+//! Don't be dissuaded by terminology like "backend"; the idea is dead simple. `bevy_picking`
 //! will tell you where pointers are, all you have to do is send an event if the pointers are
 //! hitting something. That's it. The rest of this documentation explains the requirements in more
 //! detail.
 //!
-//! Because `bevy_picking_core` is very loosely coupled with its backends, you can mix and match as
+//! Because `bevy_picking` is very loosely coupled with its backends, you can mix and match as
 //! many backends as you want. For example, You could use the `rapier` backend to raycast against
 //! physics objects, a picking shader backend to pick non-physics meshes, and the `bevy_ui` backend
 //! for your UI. The [`PointerHits`]s produced by these various backends will be combined, sorted,
@@ -158,8 +158,8 @@ pub mod ray {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_picking_core::backend::ray::RayMap;
-    /// # use bevy_picking_core::backend::PointerHits;
+    /// # use bevy_picking::backend::ray::RayMap;
+    /// # use bevy_picking::backend::PointerHits;
     /// // My raycasting backend
     /// pub fn update_hits(ray_map: Res<RayMap>, mut output_events: EventWriter<PointerHits>,) {
     ///     for (&ray_id, &ray) in ray_map.iter() {
