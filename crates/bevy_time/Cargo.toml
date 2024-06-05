@@ -24,7 +24,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 
 # other
-crossbeam-channel = "0.5.0"
+concurrent-queue = "2.4"
 serde = { version = "1", features = ["derive"], optional = true }
 thiserror = "1.0"
 

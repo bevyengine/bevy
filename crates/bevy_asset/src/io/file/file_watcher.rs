@@ -1,8 +1,8 @@
 use crate::io::{AssetSourceEvent, AssetWatcher};
 use crate::path::normalize_path;
+use crate::EventSender;
 use bevy_utils::tracing::error;
 use bevy_utils::Duration;
-use crossbeam_channel::Sender;
 use notify_debouncer_full::{
     new_debouncer,
     notify::{
@@ -26,7 +26,7 @@ pub struct FileWatcher {
 impl FileWatcher {
     pub fn new(
         root: PathBuf,
-        sender: Sender<AssetSourceEvent>,
+        sender: EventSender<AssetSourceEvent>,
         debounce_wait_time: Duration,
     ) -> Result<Self, notify::Error> {
         let root = normalize_path(super::get_base_path().join(root).as_path());
@@ -244,7 +244,7 @@ pub(crate) fn new_asset_event_debouncer(
 }
 
 pub(crate) struct FileEventHandler {
-    sender: Sender<AssetSourceEvent>,
+    sender: EventSender<AssetSourceEvent>,
     root: PathBuf,
     last_event: Option<AssetSourceEvent>,
 }
@@ -260,7 +260,7 @@ impl FilesystemEventHandler for FileEventHandler {
     fn handle(&mut self, _absolute_paths: &[PathBuf], event: AssetSourceEvent) {
         if self.last_event.as_ref() != Some(&event) {
             self.last_event = Some(event.clone());
-            self.sender.send(event).unwrap();
+            self.sender.send(event);
         }
     }
 }
