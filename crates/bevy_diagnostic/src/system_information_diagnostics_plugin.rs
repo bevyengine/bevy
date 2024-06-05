@@ -1,7 +1,6 @@
 use crate::DiagnosticPath;
 use bevy_app::prelude::*;
 use bevy_ecs::system::Resource;
-use std::time::Duration;
 
 /// Adds a System Information Diagnostic, specifically `cpu_usage` (in %) and `mem_usage` (in %)
 ///
@@ -20,8 +19,7 @@ use std::time::Duration;
 pub struct SystemInformationDiagnosticsPlugin;
 impl Plugin for SystemInformationDiagnosticsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, internal::setup_system)
-            .add_systems(Update, internal::diagnostic_system);
+        internal::setup_plugin(app);
     }
 }
 
@@ -51,8 +49,7 @@ pub struct SystemInfo {
 ///
 /// The system diagnostic plugin doesn't work in all situations. In those situations this value will
 /// bet set to None.
-pub const EXPECTED_SYSTEM_INFORMATION_INTERVAL: Option<Duration> =
-    internal::EXPECTED_SYSTEM_INFORMATION_INTERVAL;
+pub use internal::EXPECTED_SYSTEM_INFORMATION_INTERVAL;
 
 // NOTE: sysinfo fails to compile when using bevy dynamic or on iOS and does nothing on wasm
 #[cfg(all(
@@ -65,13 +62,15 @@ pub const EXPECTED_SYSTEM_INFORMATION_INTERVAL: Option<Duration> =
     not(feature = "dynamic_linking")
 ))]
 pub mod internal {
+    use bevy_ecs::{prelude::ResMut, system::Local};
     use std::{
-        sync::mpsc::{self, Receiver, Sender},
-        thread,
-        time::Duration,
+        sync::{Arc, Mutex},
+        time::{Duration, Instant},
     };
 
-    use bevy_ecs::{prelude::ResMut, system::Local};
+    use bevy_app::{App, First, Startup, Update};
+    use bevy_ecs::system::Resource;
+    use bevy_tasks::{available_parallelism, block_on, poll_once, AsyncComputeTaskPool, Task};
     use bevy_utils::tracing::info;
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
@@ -81,70 +80,95 @@ pub mod internal {
 
     const BYTES_TO_GIB: f64 = 1.0 / 1024.0 / 1024.0 / 1024.0;
 
-    pub(crate) fn setup_system(mut diagnostics: ResMut<DiagnosticsStore>) {
+    pub(super) fn setup_plugin(app: &mut App) {
+        app.add_systems(Startup, setup_system)
+            .add_systems(First, launch_diagnostic_tasks)
+            .add_systems(Update, read_diagnostic_tasks)
+            .init_resource::<SysinfoTasks>();
+    }
+
+    fn setup_system(mut diagnostics: ResMut<DiagnosticsStore>) {
         diagnostics
             .add(Diagnostic::new(SystemInformationDiagnosticsPlugin::CPU_USAGE).with_suffix("%"));
         diagnostics
             .add(Diagnostic::new(SystemInformationDiagnosticsPlugin::MEM_USAGE).with_suffix("%"));
     }
 
-    pub(crate) const EXPECTED_SYSTEM_INFORMATION_INTERVAL: Option<Duration> =
+    pub const EXPECTED_SYSTEM_INFORMATION_INTERVAL: Option<Duration> =
         Some(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
 
-    /// Continuously collects diagnostic data and sends it into `diagnostic_data_sender`.
-    ///
-    /// This function will run in a loop until the sender closes. It should be run in
-    /// another thread.
-    ///
-    /// The data set into the sender will be (Cpu usage %, Memory usage %)
-    fn diagnostic_thread(diagnostic_data_sender: Sender<(f64, f64)>) {
-        let mut sys = System::new_with_specifics(
-            RefreshKind::new()
-                .with_cpu(CpuRefreshKind::new().with_cpu_usage())
-                .with_memory(MemoryRefreshKind::everything()),
-        );
+    struct SysinfoRefreshData {
+        current_cpu_usage: f64,
+        current_used_mem: f64,
+    }
 
-        loop {
-            sys.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
-            sys.refresh_memory();
-            let current_cpu_usage = sys.global_cpu_info().cpu_usage();
-            // `memory()` fns return a value in bytes
-            let total_mem = sys.total_memory() as f64 / BYTES_TO_GIB;
-            let used_mem = sys.used_memory() as f64 / BYTES_TO_GIB;
-            let current_used_mem = used_mem / total_mem * 100.0;
+    #[derive(Resource, Default)]
+    struct SysinfoTasks {
+        tasks: Vec<Task<SysinfoRefreshData>>,
+    }
 
-            if diagnostic_data_sender
-                .send((current_cpu_usage.into(), current_used_mem))
-                .is_err()
-            {
-                break;
-            }
+    fn launch_diagnostic_tasks(
+        mut tasks: ResMut<SysinfoTasks>,
+        // TODO: Consider a fair mutex
+        mut sysinfo: Local<Option<Arc<Mutex<System>>>>,
+        // TODO: FromWorld for Instant?
+        mut last_refresh: Local<Option<Instant>>,
+    ) {
+        let sysinfo = sysinfo.get_or_insert_with(|| {
+            Arc::new(Mutex::new(System::new_with_specifics(
+                RefreshKind::new()
+                    .with_cpu(CpuRefreshKind::new().with_cpu_usage())
+                    .with_memory(MemoryRefreshKind::everything()),
+            )))
+        });
 
-            thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+        let last_refresh = last_refresh.get_or_insert_with(Instant::now);
+
+        let thread_pool = AsyncComputeTaskPool::get();
+
+        // Only queue a new system refresh task when necessary
+        // Queueing earlier than that will not give new data
+        if last_refresh.elapsed() > sysinfo::MINIMUM_CPU_UPDATE_INTERVAL
+            // These tasks don't yield and will take up all of the task pool's
+            // threads if we don't limit their amount.
+            && tasks.tasks.len() * 2 < available_parallelism()
+        {
+            let sys = Arc::clone(sysinfo);
+            let task = thread_pool.spawn(async move {
+                let mut sys = sys.lock().unwrap();
+
+                sys.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
+                sys.refresh_memory();
+                let current_cpu_usage = sys.global_cpu_info().cpu_usage().into();
+                // `memory()` fns return a value in bytes
+                let total_mem = sys.total_memory() as f64 / BYTES_TO_GIB;
+                let used_mem = sys.used_memory() as f64 / BYTES_TO_GIB;
+                let current_used_mem = used_mem / total_mem * 100.0;
+
+                SysinfoRefreshData {
+                    current_cpu_usage,
+                    current_used_mem,
+                }
+            });
+            tasks.tasks.push(task);
+            *last_refresh = Instant::now();
         }
     }
 
-    pub(crate) fn diagnostic_system(
-        mut diagnostics: Diagnostics,
-        mut sysinfo: Local<Option<Receiver<(f64, f64)>>>,
-    ) {
-        let usage_receiver = sysinfo.get_or_insert_with(|| {
-            let (sender, receiver) = mpsc::channel();
+    fn read_diagnostic_tasks(mut diagnostics: Diagnostics, mut tasks: ResMut<SysinfoTasks>) {
+        tasks.tasks.retain_mut(|task| {
+            let Some(data) = block_on(poll_once(task)) else {
+                return true;
+            };
 
-            // TODO: Use a builder to give the thread a name
-            thread::spawn(|| diagnostic_thread(sender));
-
-            receiver
-        });
-
-        for (current_cpu_usage, current_used_mem) in usage_receiver.try_iter() {
             diagnostics.add_measurement(&SystemInformationDiagnosticsPlugin::CPU_USAGE, || {
-                current_cpu_usage
+                data.current_cpu_usage
             });
             diagnostics.add_measurement(&SystemInformationDiagnosticsPlugin::MEM_USAGE, || {
-                current_used_mem
+                data.current_used_mem
             });
-        }
+            false
+        });
     }
 
     impl Default for SystemInfo {
@@ -189,15 +213,17 @@ pub mod internal {
 pub mod internal {
     use std::time::Duration;
 
-    pub(crate) fn setup_system() {
+    use bevy_app::{App, Startup};
+
+    pub(super) fn setup_plugin(app: &mut App) {
+        app.add_systems(Startup, setup_system);
+    }
+
+    fn setup_system() {
         bevy_utils::tracing::warn!("This platform and/or configuration is not supported!");
     }
 
-    pub(crate) fn diagnostic_system() {
-        // no-op
-    }
-
-    pub(crate) const EXPECTED_SYSTEM_INFORMATION_INTERVAL: Option<Duration> = None;
+    pub const EXPECTED_SYSTEM_INFORMATION_INTERVAL: Option<Duration> = None;
 
     impl Default for super::SystemInfo {
         fn default() -> Self {
