@@ -13,19 +13,19 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// ```
 /// # use approx::assert_relative_eq;
-/// # use bevy_math::{Rotation2d, Vec2};
+/// # use bevy_math::{Rot2, Vec2};
 /// use std::f32::consts::PI;
 ///
 /// // Create rotations from radians or degrees
-/// let rotation1 = Rotation2d::radians(PI / 2.0);
-/// let rotation2 = Rotation2d::degrees(45.0);
+/// let rotation1 = Rot2::radians(PI / 2.0);
+/// let rotation2 = Rot2::degrees(45.0);
 ///
 /// // Get the angle back as radians or degrees
 /// assert_eq!(rotation1.as_degrees(), 90.0);
 /// assert_eq!(rotation2.as_radians(), PI / 4.0);
 ///
 /// // "Add" rotations together using `*`
-/// assert_relative_eq!(rotation1 * rotation2, Rotation2d::degrees(135.0));
+/// assert_relative_eq!(rotation1 * rotation2, Rot2::degrees(135.0));
 ///
 /// // Rotate vectors
 /// assert_relative_eq!(rotation1 * Vec2::X, Vec2::Y);
@@ -96,7 +96,7 @@ impl Rot2 {
         sin: 0.382_683_43,
     };
 
-    /// Creates a [`Rotation2d`] from a counterclockwise angle in radians.
+    /// Creates a [`Rot2`] from a counterclockwise angle in radians.
     #[inline]
     pub fn radians(radians: f32) -> Self {
         #[cfg(feature = "libm")]
@@ -110,13 +110,13 @@ impl Rot2 {
         Self::from_sin_cos(sin, cos)
     }
 
-    /// Creates a [`Rotation2d`] from a counterclockwise angle in degrees.
+    /// Creates a [`Rot2`] from a counterclockwise angle in degrees.
     #[inline]
     pub fn degrees(degrees: f32) -> Self {
         Self::radians(degrees.to_radians())
     }
 
-    /// Creates a [`Rotation2d`] from the sine and cosine of an angle in radians.
+    /// Creates a [`Rot2`] from the sine and cosine of an angle in radians.
     ///
     /// The rotation is only valid if `sin * sin + cos * cos == 1.0`.
     ///
@@ -171,7 +171,7 @@ impl Rot2 {
 
     /// Computes the squared length or norm of the complex number used to represent the rotation.
     ///
-    /// This is generally faster than [`Rotation2d::length()`], as it avoids a square
+    /// This is generally faster than [`Rot2::length()`], as it avoids a square
     /// root operation.
     ///
     /// The length is typically expected to be `1.0`. Unexpectedly denormalized rotations
@@ -196,7 +196,7 @@ impl Rot2 {
     /// `None` will be returned if the sine and cosine of `self` are both zero (or very close to zero),
     /// or if either of them is NaN or infinite.
     ///
-    /// Note that [`Rotation2d`] should typically already be normalized by design.
+    /// Note that [`Rot2`] should typically already be normalized by design.
     /// Manual normalization is only needed when successive operations result in
     /// accumulated floating point error, or if the rotation was constructed
     /// with invalid values.
@@ -212,7 +212,7 @@ impl Rot2 {
 
     /// Returns `self` with a length of `1.0`.
     ///
-    /// Note that [`Rotation2d`] should typically already be normalized by design.
+    /// Note that [`Rot2`] should typically already be normalized by design.
     /// Manual normalization is only needed when successive operations result in
     /// accumulated floating point error, or if the rotation was constructed
     /// with invalid values.
@@ -249,7 +249,7 @@ impl Rot2 {
         (self.length_squared() - 1.0).abs() <= 2e-4
     }
 
-    /// Returns `true` if the rotation is near [`Rotation2d::IDENTITY`].
+    /// Returns `true` if the rotation is near [`Rot2::IDENTITY`].
     #[inline]
     pub fn is_near_identity(self) -> bool {
         // Same as `Quat::is_near_identity`, but using sine and cosine
@@ -301,10 +301,10 @@ impl Rot2 {
     /// # Example
     ///
     /// ```
-    /// # use bevy_math::Rotation2d;
+    /// # use bevy_math::Rot2;
     /// #
-    /// let rot1 = Rotation2d::IDENTITY;
-    /// let rot2 = Rotation2d::degrees(135.0);
+    /// let rot1 = Rot2::IDENTITY;
+    /// let rot2 = Rot2::degrees(135.0);
     ///
     /// let result1 = rot1.nlerp(rot2, 1.0 / 3.0);
     /// assert_eq!(result1.as_degrees(), 28.675055);
@@ -339,10 +339,10 @@ impl Rot2 {
     /// # Example
     ///
     /// ```
-    /// # use bevy_math::Rotation2d;
+    /// # use bevy_math::Rot2;
     /// #
-    /// let rot1 = Rotation2d::IDENTITY;
-    /// let rot2 = Rotation2d::degrees(135.0);
+    /// let rot1 = Rot2::IDENTITY;
+    /// let rot2 = Rot2::degrees(135.0);
     ///
     /// let result1 = rot1.slerp(rot2, 1.0 / 3.0);
     /// assert_eq!(result1.as_degrees(), 45.0);
@@ -357,14 +357,14 @@ impl Rot2 {
 }
 
 impl From<f32> for Rot2 {
-    /// Creates a [`Rotation2d`] from a counterclockwise angle in radians.
+    /// Creates a [`Rot2`] from a counterclockwise angle in radians.
     fn from(rotation: f32) -> Self {
         Self::radians(rotation)
     }
 }
 
 impl From<Rot2> for Mat2 {
-    /// Creates a [`Mat2`] rotation matrix from a [`Rotation2d`].
+    /// Creates a [`Mat2`] rotation matrix from a [`Rot2`].
     fn from(rot: Rot2) -> Self {
         Mat2::from_cols_array(&[rot.cos, -rot.sin, rot.sin, rot.cos])
     }
@@ -390,7 +390,7 @@ impl std::ops::MulAssign for Rot2 {
 impl std::ops::Mul<Vec2> for Rot2 {
     type Output = Vec2;
 
-    /// Rotates a [`Vec2`] by a [`Rotation2d`].
+    /// Rotates a [`Vec2`] by a [`Rot2`].
     fn mul(self, rhs: Vec2) -> Self::Output {
         Vec2::new(
             rhs.x * self.cos - rhs.y * self.sin,

@@ -290,7 +290,7 @@ impl std::ops::Mul<Dir2> for f32 {
 impl std::ops::Mul<Dir2> for Rot2 {
     type Output = Dir2;
 
-    /// Rotates the [`Dir2`] using a [`Rotation2d`].
+    /// Rotates the [`Dir2`] using a [`Rot2`].
     fn mul(self, direction: Dir2) -> Self::Output {
         let rotated = self * *direction;
 
@@ -807,20 +807,11 @@ mod tests {
 
     #[test]
     fn dir2_to_rotation2d() {
-        assert_relative_eq!(
-            Dir2::EAST.rotation_to(Dir2::NORTH_EAST),
-            Rot2::FRAC_PI_4
-        );
-        assert_relative_eq!(
-            Dir2::NORTH.rotation_from(Dir2::NORTH_EAST),
-            Rot2::FRAC_PI_4
-        );
+        assert_relative_eq!(Dir2::EAST.rotation_to(Dir2::NORTH_EAST), Rot2::FRAC_PI_4);
+        assert_relative_eq!(Dir2::NORTH.rotation_from(Dir2::NORTH_EAST), Rot2::FRAC_PI_4);
         assert_relative_eq!(Dir2::SOUTH.rotation_to_x(), Rot2::FRAC_PI_2);
         assert_relative_eq!(Dir2::SOUTH.rotation_to_y(), Rot2::PI);
-        assert_relative_eq!(
-            Dir2::NORTH_WEST.rotation_from_x(),
-            Rot2::degrees(135.0)
-        );
+        assert_relative_eq!(Dir2::NORTH_WEST.rotation_from_x(), Rot2::degrees(135.0));
         assert_relative_eq!(Dir2::NORTH_WEST.rotation_from_y(), Rot2::FRAC_PI_4);
     }
 
