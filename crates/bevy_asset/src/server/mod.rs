@@ -720,7 +720,7 @@ impl AssetServer {
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn add_async<A: Asset>(
         &self,
-        future: impl Future<Output = Result<A, AssetLoadError>>,
+        future: impl Future<Output = Result<A, AssetLoadError>> + Send + 'static,
     ) -> Handle<A> {
         let handle = self
             .data
