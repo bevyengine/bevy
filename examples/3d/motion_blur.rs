@@ -23,12 +23,12 @@ fn main() {
 }
 
 fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let skybox_handle =
-        asset_server.load::<Image>("textures/kloofendal_48d_partly_cloudy_puresky_4k_cubemap.ktx2");
-    let skybox_diffuse =
-        asset_server.load::<Image>("textures/kloofendal_48d_partly_cloudy_puresky_4k_diffuse.ktx2");
+    let skybox_handle = asset_server
+        .load::<Image>("environment_maps/kloofendal_48d_partly_cloudy_puresky_4k_cubemap.ktx2");
+    let skybox_diffuse = asset_server
+        .load::<Image>("environment_maps/kloofendal_48d_partly_cloudy_puresky_4k_diffuse.ktx2");
     let skybox_spec = asset_server
-        .load::<Image>("textures/kloofendal_48d_partly_cloudy_puresky_4k_specular.ktx2");
+        .load::<Image>("environment_maps/kloofendal_48d_partly_cloudy_puresky_4k_specular.ktx2");
 
     commands.spawn((
         Camera3dBundle::default(),
@@ -87,7 +87,7 @@ fn setup_scene(
     commands.insert_resource(CameraMode::Chase);
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 2_000.0,
+            illuminance: 2_500.0,
             shadows_enabled: true,
             ..default()
         },
