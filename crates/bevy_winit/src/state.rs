@@ -20,7 +20,7 @@ use std::marker::PhantomData;
 use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalSize;
 use winit::event;
-use winit::event::{DeviceEvent, DeviceId, ElementState, StartCause, WindowEvent};
+use winit::event::{DeviceEvent, DeviceId, StartCause, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::window::WindowId;
 
@@ -228,7 +228,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 is_synthetic,
                 ..
             } => {
-                if !(is_synthetic && event.state == ElementState::Pressed) {
+                if !(is_synthetic && event.state.is_pressed()) {
                     if event.state.is_pressed() {
                         if let Some(char) = &event.text {
                             let char = char.clone();
