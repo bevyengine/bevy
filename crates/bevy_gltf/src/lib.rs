@@ -210,10 +210,6 @@ pub struct GltfNode {
     /// Computed name for a node - either a user defined node name from gLTF or a generated name from index
     pub name: String,
     /// Subasset label for this node within the gLTF parent asset.
-    ///
-    /// ```no_run
-    /// asset_server.load(format!("my_glft.glft#{}", node.asset_label()));
-    /// ```
     pub asset_label: GltfAssetLabel,
     /// Direct children of the node.
     pub children: Vec<GltfNode>,
@@ -261,10 +257,6 @@ pub struct GltfMesh {
     /// Computed name for a mesh - either a user defined mesh name from gLTF or a generated name from index
     pub name: String,
     /// Subasset label for this mesh within the gLTF parent asset.
-    ///
-    /// ```no_run
-    /// asset_server.load(format!("my_glft.glft#{}", mesh.asset_label()));
-    /// ```
     pub asset_label: GltfAssetLabel,
     /// Primitives of the glTF mesh.
     pub primitives: Vec<GltfPrimitive>,
@@ -303,10 +295,6 @@ pub struct GltfPrimitive {
     /// Computed name for a primitive - either a user defined primitive name from gLTF or a generated name from index
     pub name: String,
     /// Subasset label for this mesh within the gLTF parent asset.
-    ///
-    /// ```no_run
-    /// asset_server.load(format!("my_glft.glft#{}", primitive.asset_label()));
-    /// ```
     pub asset_label: GltfAssetLabel,
     /// Topology to be rendered.
     pub mesh: Handle<Mesh>,
