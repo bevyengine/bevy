@@ -124,6 +124,7 @@ bevy_pbr = [
   "bevy_core_pipeline",
 ]
 
+# Provides picking functionality
 bevy_picking = ["bevy_internal/bevy_picking"]
 
 # Provides rendering functionality
