@@ -1664,7 +1664,6 @@ async fn load_buffers(
 fn resolve_node_hierarchy(
     nodes_intermediate: Vec<(GltfNode, Vec<(usize, Handle<GltfNode>)>)>,
 ) -> Result<Vec<GltfNode>, GltfError> {
-    let mut has_errored = false;
     let mut empty_children = VecDeque::new();
     let mut parents = vec![None; nodes_intermediate.len()];
     let mut unprocessed_nodes = nodes_intermediate
@@ -1672,12 +1671,8 @@ fn resolve_node_hierarchy(
         .enumerate()
         .map(|(i, (node, children))| {
             for (child_index, _child_handle) in &children {
-                if let Some(parent) = parents.get_mut(*child_index) {
-                    *parent = Some(i);
-                } else if !has_errored {
-                    has_errored = true;
-                    warn!("Unexpected child in GLTF Mesh {}", child_index);
-                }
+                let parent = parents.get_mut(*child_index).unwrap();
+                *parent = Some(i);
             }
             let children = children.into_iter().collect::<HashMap<_, _>>();
             if children.is_empty() {
@@ -1694,11 +1689,8 @@ fn resolve_node_hierarchy(
         if let Some(parent_index) = parents[index] {
             let (parent_node, parent_children) = unprocessed_nodes.get_mut(&parent_index).unwrap();
 
-            let handle_option = parent_children.remove(&index);
-            assert!(handle_option.is_some());
-            if let Some(handle) = handle_option {
-                parent_node.children.push(handle);
-            }
+            let handle = parent_children.remove(&index).unwrap();
+            parent_node.children.push(handle);
             if parent_children.is_empty() {
                 empty_children.push_back(parent_index);
             }
