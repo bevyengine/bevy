@@ -1,7 +1,7 @@
 use bevy_ecs::schedule::Schedule;
 
 use super::{freely_mutable_state::FreelyMutableState, state_set::StateSet, states::States};
-pub use bevy_state_macros::SubStates;
+pub use bevy_state_macros_official::SubStates;
 
 /// A sub-state is a state that exists only when the source state meet certain conditions,
 /// but unlike [`ComputedStates`](crate::state::ComputedStates) - while they exist they can be manually modified.

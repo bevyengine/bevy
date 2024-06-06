@@ -180,7 +180,7 @@ mod tests {
     use bevy_ecs::schedule::{Condition, IntoSystemConfigs, Schedule};
 
     use crate::prelude::*;
-    use bevy_state_macros::States;
+    use bevy_state_macros_official::States;
 
     #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
     enum TestState {
