@@ -11,8 +11,8 @@ impl<T> CreateTypeData<T, f32> for ReflectMyTrait {
 }
 
 #[derive(Reflect)]
-//~^ ERROR: mismatched types
 #[reflect(MyTrait)]
+//~^ ERROR: mismatched types
 struct RequiredArgs;
 
 #[derive(Reflect)]
