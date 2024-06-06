@@ -230,7 +230,7 @@ impl SceneSpawner {
     pub fn spawn_sync(
         &mut self,
         world: &mut World,
-        id: AssetId<Scene>,
+        id: impl Into<AssetId<Scene>>,
     ) -> Result<InstanceId, SceneSpawnError> {
         let mut entity_map = EntityHashMap::default();
         let id = id.into();
