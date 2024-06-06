@@ -16,7 +16,6 @@ pub(crate) fn impl_get_type_registration<'a>(
 ) -> proc_macro2::TokenStream {
     let type_path = meta.type_path();
     let bevy_reflect_path = meta.bevy_reflect_path();
-    let registration_data = meta.attrs().idents();
 
     let type_deps_fn = type_dependencies.map(|deps| {
         quote! {
@@ -32,7 +31,9 @@ pub(crate) fn impl_get_type_registration<'a>(
 
     let from_reflect_data = if meta.from_reflect().should_auto_derive() {
         Some(quote! {
-            registration.insert::<#bevy_reflect_path::ReflectFromReflect>(#bevy_reflect_path::FromType::<Self>::from_type());
+            registration.insert(
+                <#bevy_reflect_path::ReflectFromReflect as #bevy_reflect_path::CreateTypeData<Self>>::create_type_data(())
+            );
         })
     } else {
         None
@@ -45,15 +46,26 @@ pub(crate) fn impl_get_type_registration<'a>(
         }
     });
 
+    let type_data = meta.attrs().type_data().iter().map(|data| {
+        let reflect_ident = data.reflect_ident();
+        let args = data.args();
+
+        quote! {
+            <#reflect_ident as #bevy_reflect_path::CreateTypeData<Self, _>>::create_type_data((#args))
+        }
+    });
+
     quote! {
         #[allow(unused_mut)]
         impl #impl_generics #bevy_reflect_path::GetTypeRegistration for #type_path #ty_generics #where_reflect_clause {
             fn get_type_registration() -> #bevy_reflect_path::TypeRegistration {
                 let mut registration = #bevy_reflect_path::TypeRegistration::of::<Self>();
-                registration.insert::<#bevy_reflect_path::ReflectFromPtr>(#bevy_reflect_path::FromType::<Self>::from_type());
+                registration.insert(
+                    <#bevy_reflect_path::ReflectFromPtr as #bevy_reflect_path::CreateTypeData::<Self>>::create_type_data(())
+                );
                 #from_reflect_data
                 #serialization_data
-                #(registration.insert::<#registration_data>(#bevy_reflect_path::FromType::<Self>::from_type());)*
+                #(registration.insert(#type_data);)*
                 registration
             }
 

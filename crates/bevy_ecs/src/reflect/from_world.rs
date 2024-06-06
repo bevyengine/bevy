@@ -7,7 +7,7 @@
 //! Same as [`super::component`], but for [`FromWorld`].
 
 use alloc::boxed::Box;
-use bevy_reflect::{FromType, Reflect};
+use bevy_reflect::{CreateTypeData, Reflect};
 
 use crate::world::{FromWorld, World};
 
@@ -27,12 +27,12 @@ pub struct ReflectFromWorldFns {
 
 impl ReflectFromWorldFns {
     /// Get the default set of [`ReflectFromWorldFns`] for a specific type using its
-    /// [`FromType`] implementation.
+    /// [`CreateTypeData`] implementation.
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
     pub fn new<T: Reflect + FromWorld>() -> Self {
-        <ReflectFromWorld as FromType<T>>::from_type().0
+        <ReflectFromWorld as CreateTypeData<T>>::create_type_data(()).0
     }
 }
 
@@ -78,8 +78,8 @@ impl ReflectFromWorld {
     }
 }
 
-impl<B: Reflect + FromWorld> FromType<B> for ReflectFromWorld {
-    fn from_type() -> Self {
+impl<B: Reflect + FromWorld> CreateTypeData<B> for ReflectFromWorld {
+    fn create_type_data(_input: ()) -> Self {
         ReflectFromWorld(ReflectFromWorldFns {
             from_world: |world| Box::new(B::from_world(world)),
         })

@@ -719,7 +719,7 @@ mod tests {
         system::{Local, RunSystemOnce},
     };
     use alloc::vec;
-    use bevy_reflect::{FromType, Reflect, ReflectRef};
+    use bevy_reflect::{CreateTypeData, Reflect, ReflectRef};
 
     use super::*;
 
@@ -1087,7 +1087,7 @@ mod tests {
         }),)
             .build_state(&mut world)
             .build_system(|res: FilteredResources| {
-                let reflect_resource = <ReflectResource as FromType<R>>::from_type();
+                let reflect_resource = <ReflectResource as CreateTypeData<R>>::create_type_data(());
                 let ReflectRef::Struct(reflect_struct) =
                     reflect_resource.reflect(res).unwrap().reflect_ref()
                 else {

@@ -4,10 +4,10 @@ use core::any::Any;
 use smallvec::{Array as SmallArray, SmallVec};
 
 use crate::{
-    utility::GenericTypeInfoCell, ApplyError, FromReflect, FromType, Generics, GetTypeRegistration,
-    List, ListInfo, ListIter, MaybeTyped, PartialReflect, Reflect, ReflectFromPtr, ReflectKind,
-    ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeParamInfo, TypePath, TypeRegistration,
-    Typed,
+    utility::GenericTypeInfoCell, ApplyError, CreateTypeData, FromReflect, Generics,
+    GetTypeRegistration, List, ListInfo, ListIter, MaybeTyped, PartialReflect, Reflect,
+    ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeParamInfo,
+    TypePath, TypeRegistration, Typed,
 };
 
 impl<T: SmallArray + TypePath + Send + Sync> List for SmallVec<T>
@@ -217,7 +217,7 @@ where
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<SmallVec<T>>();
-        registration.insert::<ReflectFromPtr>(FromType::<SmallVec<T>>::from_type());
+        registration.insert::<ReflectFromPtr>(CreateTypeData::<Self>::create_type_data(()));
         registration
     }
 }

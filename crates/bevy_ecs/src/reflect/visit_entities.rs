@@ -1,5 +1,5 @@
 use crate::entity::{Entity, VisitEntities, VisitEntitiesMut};
-use bevy_reflect::{FromReflect, FromType, PartialReflect};
+use bevy_reflect::{CreateTypeData, FromReflect, PartialReflect};
 
 /// For a reflected value, apply an operation to all contained entities.
 ///
@@ -17,8 +17,8 @@ impl ReflectVisitEntities {
     }
 }
 
-impl<C: FromReflect + VisitEntities> FromType<C> for ReflectVisitEntities {
-    fn from_type() -> Self {
+impl<C: FromReflect + VisitEntities> CreateTypeData<C> for ReflectVisitEntities {
+    fn create_type_data(_input: ()) -> Self {
         ReflectVisitEntities {
             visit_entities: |component, f| {
                 let concrete = C::from_reflect(component).unwrap();
@@ -49,8 +49,8 @@ impl ReflectVisitEntitiesMut {
     }
 }
 
-impl<C: FromReflect + VisitEntitiesMut> FromType<C> for ReflectVisitEntitiesMut {
-    fn from_type() -> Self {
+impl<C: FromReflect + VisitEntitiesMut> CreateTypeData<C> for ReflectVisitEntitiesMut {
+    fn create_type_data(_input: ()) -> Self {
         ReflectVisitEntitiesMut {
             visit_entities_mut: |component, f| {
                 let mut concrete = C::from_reflect(component).unwrap();
