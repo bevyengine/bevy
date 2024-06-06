@@ -107,11 +107,10 @@ impl RenderGraphConfigurators {
         self.configurators
             .iter()
             .filter_map(|(entity, configurator_data)| {
-                if let Some(config) = &configurator_data.config {
-                    Some((*entity, config.deref()))
-                } else {
-                    None
-                }
+                configurator_data
+                    .config
+                    .as_ref()
+                    .map(|config| (*entity, config.deref()))
             })
     }
 }
