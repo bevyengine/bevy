@@ -613,6 +613,7 @@ pub mod set;
 pub mod structs;
 pub mod tuple;
 pub mod tuple_struct;
+mod type_data;
 mod type_info;
 mod type_path;
 mod type_registry;
@@ -683,6 +684,7 @@ pub use path::*;
 pub use reflect::*;
 pub use reflectable::*;
 pub use remote::*;
+pub use type_data::*;
 pub use type_info::*;
 pub use type_path::*;
 pub use type_registry::*;
@@ -4118,8 +4120,8 @@ bevy_reflect::tests::Test {
             #[derive(Clone)]
             struct ReflectA;
 
-            impl<T> FromType<T> for ReflectA {
-                fn from_type() -> Self {
+            impl<T> CreateTypeData<T> for ReflectA {
+                fn create_type_data(_input: ()) -> Self {
                     ReflectA
                 }
 
