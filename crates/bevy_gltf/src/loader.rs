@@ -1661,6 +1661,7 @@ async fn load_buffers(
     Ok(buffer_data)
 }
 
+#[allow(clippy::result_large_err)]
 fn resolve_node_hierarchy(
     nodes_intermediate: Vec<(GltfNode, Vec<(usize, Handle<GltfNode>)>)>,
 ) -> Result<Vec<GltfNode>, GltfError> {
