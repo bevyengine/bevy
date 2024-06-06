@@ -296,7 +296,7 @@ impl GltfMesh {
 pub struct GltfPrimitive {
     /// Index of the primitive inside the mesh
     pub index: usize,
-    /// Index of the parent `GltfMesh`` of this primitive
+    /// Index of the parent [`GltfMesh`] of this primitive
     pub parent_mesh_index: usize,
     /// Computed name for a primitive - either a user defined primitive name from gLTF or a generated name from index
     pub name: String,
@@ -338,7 +338,7 @@ impl GltfPrimitive {
         }
     }
 
-    /// Subasset label for this primitive within its parent `GltfMesh`` within the gLTF parent asset.
+    /// Subasset label for this primitive within its parent [`GltfMesh`] within the gLTF parent asset.
     pub fn asset_label(&self) -> GltfAssetLabel {
         GltfAssetLabel::Primitive {
             mesh: self.parent_mesh_index,

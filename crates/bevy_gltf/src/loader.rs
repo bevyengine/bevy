@@ -105,7 +105,7 @@ pub enum GltfError {
     MorphTarget(#[from] bevy_render::mesh::morph::MorphBuildError),
     /// Circular children in Nodes
     #[error("GLTF model must be a tree, found cycle instead at node indices: {0:?}")]
-    CircularChildren(Vec<usize>),
+    CircularChildren(String),
     /// Failed to load a file.
     #[error("failed to load file: {0}")]
     Io(#[from] std::io::Error),
@@ -1705,12 +1705,13 @@ fn resolve_node_hierarchy(
         }
     }
     if !unprocessed_nodes.is_empty() {
-        return Err(GltfError::CircularChildren(
+        return Err(GltfError::CircularChildren(format!(
+            "{:?}",
             unprocessed_nodes
                 .iter()
                 .map(|(k, _v)| *k)
                 .collect::<Vec<_>>(),
-        ));
+        )));
     }
     let mut nodes_to_sort = nodes.into_iter().collect::<Vec<_>>();
     nodes_to_sort.sort_by_key(|(i, _)| *i);
