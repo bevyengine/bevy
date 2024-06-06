@@ -401,21 +401,21 @@ impl<'g> RenderGraphBuilder<'_, 'g> {
 
     #[inline]
     pub fn view_id(&self) -> Entity {
-        self.entity.id()
+        self.view.id()
     }
 
     #[inline]
     pub fn view_entity(&self) -> EntityRef<'g> {
-        self.entity
+        self.view
     }
 
     #[inline]
     pub fn view_contains<C: Component>(&self) -> bool {
-        self.entity.contains::<C>()
+        self.view.contains::<C>()
     }
 
     pub fn view_component<C: Component>(&self) -> &'g C {
-        self.entity.get().unwrap_or_else(|| {
+        self.view.get().unwrap_or_else(|| {
             panic!(
                 "Component {} not found on entity {}",
                 type_name::<C>(),
@@ -426,7 +426,7 @@ impl<'g> RenderGraphBuilder<'_, 'g> {
 
     #[inline]
     pub fn view_get_component<C: Component>(&self) -> Option<&'g C> {
-        self.entity.get()
+        self.view.get()
     }
 }
 

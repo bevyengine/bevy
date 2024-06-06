@@ -230,7 +230,7 @@ fn run_render_graph(world: &mut World) {
                 let builder = RenderGraphBuilder {
                     graph: &mut render_graph,
                     world,
-                    entity: world.entity(view_entity),
+                    view: world.entity(view_entity),
                     render_device,
                 };
 

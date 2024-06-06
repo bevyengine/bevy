@@ -285,7 +285,7 @@ impl<'g> RenderGraphPipelines<'g> {
             let ctx = NodeContext {
                 graph,
                 world,
-                view: world.entity(Entity::PLACEHOLDER)
+                view: world.entity(Entity::PLACEHOLDER),
                 dependencies,
                 pipeline_cache: None,
             };
