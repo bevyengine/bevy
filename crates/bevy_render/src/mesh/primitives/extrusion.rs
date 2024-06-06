@@ -91,6 +91,7 @@ where
         ExtrusionBuilder {
             base_builder: self.base_shape.mesh(),
             half_depth: self.half_depth,
+            segments: 1,
         }
     }
 }
@@ -101,8 +102,9 @@ where
     P: Primitive2d + Meshable,
     P::Output: Extrudable,
 {
-    base_builder: P::Output,
-    half_depth: f32,
+    pub base_builder: P::Output,
+    pub half_depth: f32,
+    pub segments: usize,
 }
 
 impl<P> ExtrusionBuilder<P>
@@ -115,7 +117,15 @@ where
         Self {
             base_builder: base_shape.mesh(),
             half_depth: depth / 2.,
+            segments: 1,
         }
+    }
+
+    /// Sets the number of segments along the depth of the extrusion.
+    /// Must be greater than `0` for the geometry of the mantel to be generated.
+    pub fn segments(mut self, segments: usize) -> Self {
+        self.segments = segments;
+        self
     }
 }
 
@@ -218,14 +228,17 @@ where
                 panic!("The base mesh did not have vertex positions");
             };
 
+            let layers = self.segments + 1;
+            let layer_depth_delta = self.half_depth * 2.0 / self.segments as f32;
+
             let perimeter = self.base_builder.perimeter();
             let (vert_count, index_count) =
                 perimeter
                     .iter()
                     .fold((0, 0), |(verts, indices), perimeter| {
                         (
-                            verts + 2 * perimeter.vertices_per_layer(),
-                            indices + perimeter.indices_per_segment(),
+                            verts + layers * perimeter.vertices_per_layer(),
+                            indices + self.segments * perimeter.indices_per_segment(),
                         )
                     });
             let mut positions = Vec::with_capacity(vert_count);
@@ -253,36 +266,37 @@ where
                             // Get the index of the next vertex added to the mantel.
                             let index = positions.len() as u32;
 
-                            // Push the positions of the two indices and their equivalent points on the back face.
-                            // This works, since the front face has already been moved to the correct depth.
-                            positions.push(a);
-                            positions.push(b);
-                            positions.push([a[0], a[1], -a[2]]);
-                            positions.push([b[0], b[1], -b[2]]);
+                            // Push the positions of the two indices and their equivalent points on each layer.
+                            for i in 0..layers {
+                                let i = i as f32;
+                                let z = a[2] - layer_depth_delta * i;
+                                positions.push([a[0], a[1], z]);
+                                positions.push([b[0], b[1], z]);
 
-                            // UVs for the mantel are between (0, 0.5) and (1, 1).
-                            uvs.extend_from_slice(&[
-                                [uv_x, 0.5],
-                                [uv_x + uv_delta, 0.5],
-                                [uv_x, 1.],
-                                [uv_x + uv_delta, 1.],
-                            ]);
+                                // UVs for the mantel are between (0, 0.5) and (1, 1).
+                                let uv_y = 0.5 + 0.5 * i / self.segments as f32;
+                                uvs.push([uv_x, uv_y]);
+                                uvs.push([uv_x + uv_delta, uv_y]);
+                            }
 
                             // The normal is calculated to be the normal of the line segment connecting a and b.
                             let n = Vec3::from_array([b[1] - a[1], a[0] - b[0], 0.])
                                 .normalize_or_zero()
                                 .to_array();
-                            normals.extend_from_slice(&[n; 4]);
+                            normals.extend_from_slice(&vec![n; 2 * layers]);
 
                             // Add the indices for the vertices created above to the mesh.
-                            indices.extend_from_slice(&[
-                                index,
-                                index + 2,
-                                index + 1,
-                                index + 1,
-                                index + 2,
-                                index + 3,
-                            ]);
+                            for i in 0..self.segments as u32 {
+                                let base_index = index + 2 * i;
+                                indices.extend_from_slice(&[
+                                    base_index,
+                                    base_index + 2,
+                                    base_index + 1,
+                                    base_index + 1,
+                                    base_index + 2,
+                                    base_index + 3,
+                                ]);
+                            }
                         }
                     }
                     PerimeterSegment::Smooth {
@@ -296,14 +310,22 @@ where
                         // we need to store the index of the first vertex that is part of this segment.
                         let base_index = positions.len() as u32;
 
-                        // If there is a first vertex, we need to add it and its counterpart on the back face.
+                        // If there is a first vertex, we need to add it and its counterparts on each layer.
                         // The normal is provided by `segment.first_normal`.
                         if let Some(i) = segment_indices.first() {
                             let p = cap_verts[*i as usize];
-                            positions.push(p);
-                            positions.push([p[0], p[1], -p[2]]);
-                            uvs.extend_from_slice(&[[uv_start, 0.5], [uv_start, 1.]]);
-                            normals.extend_from_slice(&[first_normal.extend(0.).to_array(); 2]);
+                            for i in 0..layers {
+                                let i = i as f32;
+                                let z = p[2] - layer_depth_delta * i;
+                                positions.push([p[0], p[1], z]);
+
+                                let uv_y = 0.5 + 0.5 * i / self.segments as f32;
+                                uvs.push([uv_start, uv_y]);
+                            }
+                            normals.extend_from_slice(&vec![
+                                first_normal.extend(0.).to_array();
+                                layers
+                            ]);
                         }
 
                         // For all points inbetween the first and last vertices, we can automatically compute the normals.
@@ -315,11 +337,15 @@ where
                             let b = cap_verts[segment_indices[i] as usize];
                             let c = cap_verts[segment_indices[i + 1] as usize];
 
-                            // Add the current vertex and its counterpart on the backface
-                            positions.push(b);
-                            positions.push([b[0], b[1], -b[2]]);
+                            // Add the current vertex and its counterparts on each layer.
+                            for i in 0..layers {
+                                let i = i as f32;
+                                let z = b[2] - layer_depth_delta * i;
+                                positions.push([b[0], b[1], z]);
 
-                            uvs.extend_from_slice(&[[uv_x, 0.5], [uv_x, 1.]]);
+                                let uv_y = 0.5 + 0.5 * i / self.segments as f32;
+                                uvs.push([uv_x, uv_y]);
+                            }
 
                             // The normal for the current vertices can be calculated based on the two neighbouring vertices.
                             // The normal is interpolated between the normals of the two line segments connecting the current vertex with its neighbours.
@@ -333,32 +359,42 @@ where
                                     .extend(0.)
                                     .to_array()
                             };
-                            normals.extend_from_slice(&[n; 2]);
+                            normals.extend_from_slice(&vec![n; layers]);
                         }
 
-                        // If there is a last vertex, we need to add it and its counterpart on the back face.
+                        // If there is a last vertex, we need to add it and its counterparts on each layer.
                         // The normal is provided by `segment.last_normal`.
                         if let Some(i) = segment_indices.last() {
                             let p = cap_verts[*i as usize];
-                            positions.push(p);
-                            positions.push([p[0], p[1], -p[2]]);
-                            uvs.extend_from_slice(&[
-                                [uv_start + uv_segment_delta, 0.5],
-                                [uv_start + uv_segment_delta, 1.],
+                            for i in 0..layers {
+                                let i = i as f32;
+                                let z = p[2] - layer_depth_delta * i;
+                                positions.push([p[0], p[1], z]);
+
+                                let uv_y = 0.5 + 0.5 * i / self.segments as f32;
+                                uvs.push([uv_start + uv_segment_delta, uv_y]);
+                            }
+                            normals.extend_from_slice(&vec![
+                                last_normal.extend(0.).to_array();
+                                layers
                             ]);
-                            normals.extend_from_slice(&[last_normal.extend(0.).to_array(); 2]);
                         }
 
-                        for i in 0..(segment_indices.len() as u32 - 1) {
-                            let index = base_index + 2 * i;
-                            indices.extend_from_slice(&[
-                                index,
-                                index + 1,
-                                index + 2,
-                                index + 2,
-                                index + 1,
-                                index + 3,
-                            ]);
+                        let columns = segment_indices.len() as u32;
+                        let segments = self.segments as u32;
+                        let layers = segments + 1;
+                        for s in 0..segments {
+                            for column in 0..(columns - 1) {
+                                let index = base_index + s + column * layers;
+                                indices.extend_from_slice(&[
+                                    index,
+                                    index + 1,
+                                    index + layers,
+                                    index + layers,
+                                    index + 1,
+                                    index + layers + 1,
+                                ]);
+                            }
                         }
                     }
                 }
