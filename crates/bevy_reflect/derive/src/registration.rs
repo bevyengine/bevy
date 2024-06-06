@@ -4,7 +4,7 @@ use crate::{
     derive_data::ReflectMeta, serialization::SerializationDataDef,
     where_clause_options::WhereClauseOptions,
 };
-use quote::quote;
+use quote::{quote, quote_spanned};
 use syn::Type;
 
 /// Creates the `GetTypeRegistration` impl for the given type data.
@@ -50,8 +50,16 @@ pub(crate) fn impl_get_type_registration<'a>(
         let reflect_ident = data.reflect_ident();
         let args = data.args();
 
+        let args = if args.is_empty() {
+            // Set the span so that we get pointed to the correct identifier
+            let span = reflect_ident.span();
+            quote_spanned!(span => ())
+        } else {
+            quote!((#args))
+        };
+
         quote! {
-            <#reflect_ident as #bevy_reflect_path::CreateTypeData<Self, _>>::create_type_data((#args))
+            <#reflect_ident as #bevy_reflect_path::CreateTypeData<Self, _>>::create_type_data(#args)
         }
     });
 
