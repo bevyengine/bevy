@@ -109,11 +109,11 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
 
     let instance_id = meshlet_cluster_instance_ids[cluster_id];
     let instance_uniform = meshlet_instance_uniforms[instance_id];
-    let model = affine3_to_square(instance_uniform.model);
+    let world_from_local = affine3_to_square(instance_uniform.world_from_local);
 
-    let world_position_1 = mesh_position_local_to_world(model, vec4(vertex_1.position, 1.0));
-    let world_position_2 = mesh_position_local_to_world(model, vec4(vertex_2.position, 1.0));
-    let world_position_3 = mesh_position_local_to_world(model, vec4(vertex_3.position, 1.0));
+    let world_position_1 = mesh_position_local_to_world(world_from_local, vec4(vertex_1.position, 1.0));
+    let world_position_2 = mesh_position_local_to_world(world_from_local, vec4(vertex_2.position, 1.0));
+    let world_position_3 = mesh_position_local_to_world(world_from_local, vec4(vertex_3.position, 1.0));
 
     let clip_position_1 = position_world_to_clip(world_position_1.xyz);
     let clip_position_2 = position_world_to_clip(world_position_2.xyz);
@@ -129,8 +129,8 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let vertex_normal = mat3x3(vertex_1.normal, vertex_2.normal, vertex_3.normal) * partial_derivatives.barycentrics;
     let world_normal = normalize(
         mat2x4_f32_to_mat3x3_unpack(
-            instance_uniform.inverse_transpose_model_a,
-            instance_uniform.inverse_transpose_model_b,
+            instance_uniform.local_from_world_transpose_a,
+            instance_uniform.local_from_world_transpose_b,
         ) * vertex_normal
     );
     let uv = mat3x2(vertex_1.uv, vertex_2.uv, vertex_3.uv) * partial_derivatives.barycentrics;
@@ -140,9 +140,9 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let world_tangent = vec4(
         normalize(
             mat3x3(
-                model[0].xyz,
-                model[1].xyz,
-                model[2].xyz
+                world_from_local[0].xyz,
+                world_from_local[1].xyz,
+                world_from_local[2].xyz
             ) * vertex_tangent.xyz
         ),
         vertex_tangent.w * (f32(bool(instance_uniform.flags & MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT)) * 2.0 - 1.0)
@@ -150,13 +150,13 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
 
 #ifdef PREPASS_FRAGMENT
 #ifdef MOTION_VECTOR_PREPASS
-    let previous_model = affine3_to_square(instance_uniform.previous_model);
-    let previous_world_position_1 = mesh_position_local_to_world(previous_model, vec4(vertex_1.position, 1.0));
-    let previous_world_position_2 = mesh_position_local_to_world(previous_model, vec4(vertex_2.position, 1.0));
-    let previous_world_position_3 = mesh_position_local_to_world(previous_model, vec4(vertex_3.position, 1.0));
-    let previous_clip_position_1 = previous_view_uniforms.view_proj * vec4(previous_world_position_1.xyz, 1.0);
-    let previous_clip_position_2 = previous_view_uniforms.view_proj * vec4(previous_world_position_2.xyz, 1.0);
-    let previous_clip_position_3 = previous_view_uniforms.view_proj * vec4(previous_world_position_3.xyz, 1.0);
+    let previous_world_from_local = affine3_to_square(instance_uniform.previous_world_from_local);
+    let previous_world_position_1 = mesh_position_local_to_world(previous_world_from_local, vec4(vertex_1.position, 1.0));
+    let previous_world_position_2 = mesh_position_local_to_world(previous_world_from_local, vec4(vertex_2.position, 1.0));
+    let previous_world_position_3 = mesh_position_local_to_world(previous_world_from_local, vec4(vertex_3.position, 1.0));
+    let previous_clip_position_1 = previous_view_uniforms.clip_from_world * vec4(previous_world_position_1.xyz, 1.0);
+    let previous_clip_position_2 = previous_view_uniforms.clip_from_world * vec4(previous_world_position_2.xyz, 1.0);
+    let previous_clip_position_3 = previous_view_uniforms.clip_from_world * vec4(previous_world_position_3.xyz, 1.0);
     let previous_partial_derivatives = compute_partial_derivatives(
         array(previous_clip_position_1, previous_clip_position_2, previous_clip_position_3),
         frag_coord_ndc,

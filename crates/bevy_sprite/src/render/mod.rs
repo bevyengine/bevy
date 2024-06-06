@@ -605,10 +605,9 @@ pub fn prepare_sprite_image_bind_groups(
     for event in &events.images {
         match event {
             AssetEvent::Added { .. } |
-            AssetEvent::Unused { .. } |
             // Images don't have dependencies
             AssetEvent::LoadedWithDependencies { .. } => {}
-            AssetEvent::Modified { id } | AssetEvent::Removed { id } => {
+            AssetEvent::Unused { id } | AssetEvent::Modified { id } | AssetEvent::Removed { id } => {
                 image_bind_groups.values.remove(id);
             }
         };

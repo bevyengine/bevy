@@ -377,6 +377,11 @@ impl AssetInfos {
         world: &mut World,
         sender: &Sender<InternalAssetEvent>,
     ) {
+        // Check whether the handle has been dropped since the asset was loaded.
+        if !self.infos.contains_key(&loaded_asset_id) {
+            return;
+        }
+
         loaded_asset.value.insert(loaded_asset_id, world);
         let mut loading_deps = loaded_asset.dependencies;
         let mut failed_deps = HashSet::new();
