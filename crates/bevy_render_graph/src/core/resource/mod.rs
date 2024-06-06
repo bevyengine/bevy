@@ -183,13 +183,6 @@ pub trait RenderResource: Sized + Send + Sync + Clone + Hash + Eq + 'static {
         resource: Cow<'g, Self>,
     ) -> RenderHandle<'g, Self>;
 
-    // fn new_resource<'g>(
-    //     graph: &mut RenderGraphBuilder<'_, 'g>,
-    //     meta: Self::Meta<'g>,
-    // ) -> RenderHandle<'g, Self>;
-
-    // fn new<'g>(graph: &mut RenderGraphBuilder<'g>, meta: Self::Meta<'g>) -> RenderHandle<'g, Self>;
-
     fn get<'n, 'g: 'n>(
         context: &'n NodeContext<'n, 'g>,
         resource: RenderHandle<'g, Self>,

@@ -8,7 +8,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
 };
 
-use crate::core::{NodeContext, RenderGraphBuilder};
+use crate::core::{Label, NodeContext, RenderGraphBuilder};
 
 use super::{
     IntoRenderResource, RenderHandle, RenderResource, ResourceType, UsagesRenderResource,
@@ -45,7 +45,7 @@ impl RenderResource for Buffer {
     }
 
     #[inline]
-    fn meta_label<'g>(meta: &Self::Meta<'g>) -> crate::core::Label<'g> {
+    fn meta_label<'g>(meta: &Self::Meta<'g>) -> Label<'g> {
         let label = meta.descriptor.label?;
         Some(Cow::Borrowed(label))
     }

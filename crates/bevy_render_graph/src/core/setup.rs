@@ -12,7 +12,7 @@ use bevy_ecs::{
     entity::Entity,
     query::With,
     schedule::{IntoSystemConfigs, SystemSet},
-    system::{Local, Query, ResMut, Resource},
+    system::{Query, ResMut, Resource},
     world::World,
 };
 
@@ -70,7 +70,7 @@ impl RenderGraphConfigurators {
             .insert(entity, ConfiguratorData::new(configurator))
         {
             panic!(
-                "Attempted to add a render graph configurator of type {} to entity {:?}, which already contains a render graph configurator of type {}",
+                "Attempted to add a render graph configurator of type {} to entity {}, which already contains a render graph configurator of type {}",
                 type_name::<T>(),
                 entity,
                 old_configurator.name
@@ -84,7 +84,7 @@ impl RenderGraphConfigurators {
             .insert(entity, ConfiguratorData::new_auxiliary::<T>())
         {
             panic!(
-                "Attempted to add a render graph configurator of type {} to entity {:?}, which already contains a render graph configurator of type {}",
+                "Attempted to add a render graph configurator of type {} to entity {}, which already contains a render graph configurator of type {}",
                 type_name::<T>(),
                 entity,
                 old_configurator.name

@@ -249,30 +249,6 @@ impl<'g> RenderGraph<'g> {
         self.bind_groups = bind_groups;
     }
 
-    // //SAFETY: No other method may write to the `outputs` field
-    // #[allow(unsafe_code)]
-    // fn use_view<T: Configurator>(
-    //     &mut self,
-    //     entity: Entity,
-    //     builder: &mut RenderGraphBuilder<'_, 'g>,
-    // ) -> &T::Output<'g> {
-    //     self.configurators.add_auxiliary::<T>(entity);
-    //     if self.stack.contains(&entity) {
-    //         panic!("Circular dependency between render graph configurators");
-    //     }
-    //     let ptr = self.outputs.entry(entity).or_insert_with(|| {
-    //         let inner_builder = builder.as_inner(entity);
-    //         let config = inner_builder.view_component::<T>().clone();
-    //         self.stack.insert(entity);
-    //         let output = config.configure(inner_builder);
-    //         self.stack.remove(&entity);
-    //         self.alloc.emplace_shared().value(output).into()
-    //     });
-    //     //SAFETY: we uphold that `T::Output<'g>` is the correct type above, and by construction T
-    //     //must be the only render graph component on the entity
-    //     unsafe { ptr.deref::<T::Output<'g>>() }
-    // }
-
     fn borrow_cached_resources(&mut self, resource_cache: &'g RenderGraphCachedResources) {
         self.bind_group_layouts
             .borrow_cached_resources(&resource_cache.bind_group_layouts);
@@ -284,7 +260,7 @@ impl<'g> RenderGraph<'g> {
 pub struct RenderGraphBuilder<'b, 'g: 'b> {
     graph: &'b mut RenderGraph<'g>,
     world: &'g World,
-    entity: EntityRef<'g>,
+    view: EntityRef<'g>,
     render_device: &'b RenderDevice,
 }
 
@@ -388,10 +364,6 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
         self
     }
 
-    // pub fn use_view<T: Configurator>(&mut self, view: Entity) -> &T::Output<'g> {
-    //     self.graph.use_view::<T>(view, self)
-    // }
-
     #[inline]
     pub fn features(&self) -> WgpuFeatures {
         self.render_device.features()
@@ -408,15 +380,6 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
         value: &'a T,
     ) -> RenderGraphDebugWrapper<'a, 'g, T> {
         self.graph.as_debug_ctx().debug(value)
-    }
-
-    fn as_inner<'a>(&'a mut self, entity: Entity) -> RenderGraphBuilder<'a, 'g> {
-        RenderGraphBuilder {
-            graph: self.graph,
-            world: self.world,
-            entity: self.world.entity(entity),
-            render_device: self.render_device,
-        }
     }
 }
 
