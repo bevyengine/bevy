@@ -1,5 +1,5 @@
 [package]
-name = "bevy_state_macros"
+name = "bevy_state_macros_official"
 version = "0.14.0-rc.1"
 description = "Bevy ECS Macros"
 edition = "2021"
