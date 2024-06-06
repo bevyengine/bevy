@@ -212,7 +212,7 @@ pub struct GltfNode {
     /// Subasset label for this node within the gLTF parent asset.
     pub asset_label: GltfAssetLabel,
     /// Direct children of the node.
-    pub children: Vec<GltfNode>,
+    pub children: Vec<Handle<GltfNode>>,
     /// Mesh of the node.
     pub mesh: Option<Handle<GltfMesh>>,
     /// Local transform.
@@ -225,7 +225,7 @@ impl GltfNode {
     /// Create a node extracting name and index from glTF def
     pub fn new(
         node: &gltf::Node,
-        children: Vec<GltfNode>,
+        children: Vec<Handle<GltfNode>>,
         mesh: Option<Handle<GltfMesh>>,
         transform: bevy_transform::prelude::Transform,
         extras: Option<GltfExtras>,
@@ -405,7 +405,7 @@ pub struct GltfMaterialExtras {
 ///     let gltf_scene: Handle<Scene> = asset_server.load(format!("models/FlightHelmet/FlightHelmet.gltf#{}", GltfAssetLabel::Scene(0)));
 /// }
 /// ```
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GltfAssetLabel {
     /// `Scene{}`: glTF Scene as a Bevy `Scene`
     Scene(usize),
