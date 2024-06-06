@@ -598,10 +598,6 @@ async fn load_gltf<'a, 'b, 'c>(
                     .and_then(|i: usize| meshes.get(i).cloned()),
                 node_transform(&node),
                 get_gltf_extras(node.extras()),
-                #[cfg(feature = "bevy_animation")]
-                animations,
-                #[cfg(feature = "bevy_animation")]
-                animation_target_id,
             ),
             node.children()
                 .map(|child| {
@@ -619,7 +615,7 @@ async fn load_gltf<'a, 'b, 'c>(
     }
     let nodes = resolve_node_hierarchy(nodes_intermediate)?
         .into_iter()
-        .map(|node| load_context.add_labeled_asset(node.asset_label.to_string(), node))
+        .map(|node| load_context.add_labeled_asset(node.asset_label().to_string(), node))
         .collect::<Vec<Handle<GltfNode>>>();
     let named_nodes = named_nodes_intermediate
         .into_iter()
@@ -2117,7 +2113,7 @@ mod test {
         assert_eq!(gltf_node.name, "TestSingleNode", "Correct name");
         assert_eq!(gltf_node.index, 0, "Correct index");
         assert_eq!(gltf_node.children.len(), 0, "No children");
-        assert_eq!(gltf_node.asset_label, GltfAssetLabel::Node(0));
+        assert_eq!(gltf_node.asset_label(), GltfAssetLabel::Node(0));
     }
 
     #[test]
