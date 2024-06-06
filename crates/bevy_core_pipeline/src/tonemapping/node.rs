@@ -48,6 +48,10 @@ impl ViewNode for TonemappingNode {
         let view_uniforms = &view_uniforms_resource.uniforms;
         let view_uniforms_id = view_uniforms.buffer().unwrap().id();
 
+        if *tonemapping == Tonemapping::None {
+            return Ok(());
+        }
+
         if !target.is_hdr() {
             return Ok(());
         }

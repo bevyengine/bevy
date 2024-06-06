@@ -46,33 +46,6 @@ pub(crate) fn circle_coordinates(radius: f32, resolution: usize) -> impl Iterato
         .take(resolution)
 }
 
-/// Draws a semi-sphere.
-///
-/// This function draws a semi-sphere at the specified `center` point with the given `rotation`,
-/// `radius`, and `color`. The `resolution` parameter determines the level of detail, and the `top`
-/// argument specifies the shape of the semi-sphere's tip.
-pub(crate) fn draw_semi_sphere<Config, Clear>(
-    gizmos: &mut Gizmos<'_, '_, Config, Clear>,
-    radius: f32,
-    resolution: usize,
-    rotation: Quat,
-    center: Vec3,
-    top: Vec3,
-    color: Color,
-) where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    circle_coordinates(radius, resolution)
-        .map(|p| Vec3::new(p.x, 0.0, p.y))
-        .map(rotate_then_translate_3d(rotation, center))
-        .for_each(|from| {
-            gizmos
-                .short_arc_3d_between(center, from, top, color)
-                .resolution(resolution / 2);
-        });
-}
-
 /// Draws a circle in 3D space.
 ///
 /// # Note
@@ -96,29 +69,4 @@ pub(crate) fn draw_circle_3d<Config, Clear>(
         .map(|p| Vec3::new(p.x, 0.0, p.y))
         .map(rotate_then_translate_3d(rotation, translation));
     gizmos.linestrip(positions, color);
-}
-
-/// Draws the connecting lines of a cylinder between the top circle and the bottom circle.
-pub(crate) fn draw_cylinder_vertical_lines<Config, Clear>(
-    gizmos: &mut Gizmos<'_, '_, Config, Clear>,
-    radius: f32,
-    resolution: usize,
-    half_height: f32,
-    rotation: Quat,
-    center: Vec3,
-    color: Color,
-) where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    circle_coordinates(radius, resolution)
-        .map(move |point_2d| {
-            [1.0, -1.0]
-                .map(|sign| sign * half_height)
-                .map(|height| Vec3::new(point_2d.x, height, point_2d.y))
-        })
-        .map(|ps| ps.map(rotate_then_translate_3d(rotation, center)))
-        .for_each(|[start, end]| {
-            gizmos.line(start, end, color);
-        });
 }

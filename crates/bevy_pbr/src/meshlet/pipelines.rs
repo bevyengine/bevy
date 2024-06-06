@@ -67,7 +67,7 @@ impl FromWorld for MeshletPipelines {
                     "MESHLET_CULLING_PASS".into(),
                     "MESHLET_FIRST_CULLING_PASS".into(),
                 ],
-                entry_point: "cull_meshlets".into(),
+                entry_point: "cull_clusters".into(),
             }),
 
             cull_second: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
@@ -79,7 +79,7 @@ impl FromWorld for MeshletPipelines {
                     "MESHLET_CULLING_PASS".into(),
                     "MESHLET_SECOND_CULLING_PASS".into(),
                 ],
-                entry_point: "cull_meshlets".into(),
+                entry_point: "cull_clusters".into(),
             }),
 
             downsample_depth_first: pipeline_cache.queue_compute_pipeline(

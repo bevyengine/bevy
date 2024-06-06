@@ -4,18 +4,20 @@ use bevy_ecs::{
     prelude::{Changed, Component},
     query::QueryFilter,
     removal_detection::RemovedComponents,
-    system::{NonSendMut, Query, SystemParamItem},
+    system::{Local, NonSendMut, Query, SystemParamItem},
 };
 use bevy_utils::tracing::{error, info, warn};
 use bevy_window::{
     ClosingWindow, RawHandleWrapper, Window, WindowClosed, WindowClosing, WindowCreated,
-    WindowMode, WindowResized,
+    WindowMode, WindowResized, WindowWrapper,
 };
 
 use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
 
 use bevy_ecs::query::With;
+#[cfg(target_os = "ios")]
+use winit::platform::ios::WindowExtIOS;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 
@@ -97,6 +99,19 @@ pub fn create_windows<F: QueryFilter + 'static>(
                 style.set_property("height", "100%").unwrap();
             }
         }
+
+        #[cfg(target_os = "ios")]
+        {
+            winit_window.recognize_pinch_gesture(window.recognize_pinch_gesture);
+            winit_window.recognize_rotation_gesture(window.recognize_rotation_gesture);
+            winit_window.recognize_doubletap_gesture(window.recognize_doubletap_gesture);
+            if let Some((min, max)) = window.recognize_pan_gesture {
+                winit_window.recognize_pan_gesture(true, min, max);
+            } else {
+                winit_window.recognize_pan_gesture(false, 0, 0);
+            }
+        }
+
         window_created_events.send(WindowCreated { window: entity });
     }
 }
@@ -108,7 +123,10 @@ pub(crate) fn despawn_windows(
     mut closing_events: EventWriter<WindowClosing>,
     mut closed_events: EventWriter<WindowClosed>,
     mut winit_windows: NonSendMut<WinitWindows>,
+    mut windows_to_drop: Local<Vec<WindowWrapper<winit::window::Window>>>,
 ) {
+    // Drop all the windows that are waiting to be closed
+    windows_to_drop.clear();
     for window in closing.iter() {
         closing_events.send(WindowClosing { window });
     }
@@ -118,7 +136,13 @@ pub(crate) fn despawn_windows(
         // rather than having the component added
         // and removed in the same frame.
         if !window_entities.contains(window) {
-            winit_windows.remove_window(window);
+            if let Some(window) = winit_windows.remove_window(window) {
+                // Keeping WindowWrapper that are dropped for one frame
+                // Otherwise the last `Arc` of the window could be in the rendering thread, and dropped there
+                // This would hang on macOS
+                // Keeping the wrapper and dropping it next frame in this system ensure its dropped in the main thread
+                windows_to_drop.push(window);
+            }
             closed_events.send(WindowClosed { window });
         }
     }
@@ -358,6 +382,31 @@ pub(crate) fn changed_windows(
 
         if window.visible != cache.window.visible {
             winit_window.set_visible(window.visible);
+        }
+
+        #[cfg(target_os = "ios")]
+        {
+            if window.recognize_pinch_gesture != cache.window.recognize_pinch_gesture {
+                winit_window.recognize_pinch_gesture(window.recognize_pinch_gesture);
+            }
+            if window.recognize_rotation_gesture != cache.window.recognize_rotation_gesture {
+                winit_window.recognize_rotation_gesture(window.recognize_rotation_gesture);
+            }
+            if window.recognize_doubletap_gesture != cache.window.recognize_doubletap_gesture {
+                winit_window.recognize_doubletap_gesture(window.recognize_doubletap_gesture);
+            }
+            if window.recognize_pan_gesture != cache.window.recognize_pan_gesture {
+                match (
+                    window.recognize_pan_gesture,
+                    cache.window.recognize_pan_gesture,
+                ) {
+                    (Some(_), Some(_)) => {
+                        warn!("Bevy currently doesn't support modifying PanGesture number of fingers recognition. Please disable it before re-enabling it with the new number of fingers");
+                    }
+                    (Some((min, max)), _) => winit_window.recognize_pan_gesture(true, min, max),
+                    _ => winit_window.recognize_pan_gesture(false, 0, 0),
+                }
+            }
         }
 
         cache.window = window.clone();

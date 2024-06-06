@@ -172,12 +172,12 @@ impl Msaa {
 
 #[derive(Component)]
 pub struct ExtractedView {
-    pub projection: Mat4,
-    pub transform: GlobalTransform,
+    pub clip_from_view: Mat4,
+    pub world_from_view: GlobalTransform,
     // The view-projection matrix. When provided it is used instead of deriving it from
     // `projection` and `transform` fields, which can be helpful in cases where numerical
     // stability matters and there is a more direct way to derive the view-projection matrix.
-    pub view_projection: Option<Mat4>,
+    pub clip_from_world: Option<Mat4>,
     pub hdr: bool,
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
@@ -187,7 +187,7 @@ pub struct ExtractedView {
 impl ExtractedView {
     /// Creates a 3D rangefinder for a view
     pub fn rangefinder3d(&self) -> ViewRangefinder3d {
-        ViewRangefinder3d::from_view_matrix(&self.transform.compute_matrix())
+        ViewRangefinder3d::from_world_from_view(&self.world_from_view.compute_matrix())
     }
 }
 
@@ -404,13 +404,13 @@ impl ColorGrading {
 
 #[derive(Clone, ShaderType)]
 pub struct ViewUniform {
-    view_proj: Mat4,
-    unjittered_view_proj: Mat4,
-    inverse_view_proj: Mat4,
-    view: Mat4,
-    inverse_view: Mat4,
-    projection: Mat4,
-    inverse_projection: Mat4,
+    clip_from_world: Mat4,
+    unjittered_clip_from_world: Mat4,
+    world_from_clip: Mat4,
+    world_from_view: Mat4,
+    view_from_world: Mat4,
+    clip_from_view: Mat4,
+    view_from_clip: Mat4,
     world_position: Vec3,
     exposure: f32,
     // viewport(x_origin, y_origin, width, height)
@@ -727,23 +727,23 @@ pub fn prepare_view_uniforms(
     };
     for (entity, extracted_camera, extracted_view, frustum, temporal_jitter, mip_bias) in &views {
         let viewport = extracted_view.viewport.as_vec4();
-        let unjittered_projection = extracted_view.projection;
-        let mut projection = unjittered_projection;
+        let unjittered_projection = extracted_view.clip_from_view;
+        let mut clip_from_view = unjittered_projection;
 
         if let Some(temporal_jitter) = temporal_jitter {
-            temporal_jitter.jitter_projection(&mut projection, viewport.zw());
+            temporal_jitter.jitter_projection(&mut clip_from_view, viewport.zw());
         }
 
-        let inverse_projection = projection.inverse();
-        let view = extracted_view.transform.compute_matrix();
-        let inverse_view = view.inverse();
+        let view_from_clip = clip_from_view.inverse();
+        let world_from_view = extracted_view.world_from_view.compute_matrix();
+        let view_from_world = world_from_view.inverse();
 
-        let view_proj = if temporal_jitter.is_some() {
-            projection * inverse_view
+        let clip_from_world = if temporal_jitter.is_some() {
+            clip_from_view * view_from_world
         } else {
             extracted_view
-                .view_projection
-                .unwrap_or_else(|| projection * inverse_view)
+                .clip_from_world
+                .unwrap_or_else(|| clip_from_view * view_from_world)
         };
 
         // Map Frustum type to shader array<vec4<f32>, 6>
@@ -753,14 +753,14 @@ pub fn prepare_view_uniforms(
 
         let view_uniforms = ViewUniformOffset {
             offset: writer.write(&ViewUniform {
-                view_proj,
-                unjittered_view_proj: unjittered_projection * inverse_view,
-                inverse_view_proj: view * inverse_projection,
-                view,
-                inverse_view,
-                projection,
-                inverse_projection,
-                world_position: extracted_view.transform.translation(),
+                clip_from_world,
+                unjittered_clip_from_world: unjittered_projection * view_from_world,
+                world_from_clip: world_from_view * view_from_clip,
+                world_from_view,
+                view_from_world,
+                clip_from_view,
+                view_from_clip,
+                world_position: extracted_view.world_from_view.translation(),
                 exposure: extracted_camera
                     .map(|c| c.exposure)
                     .unwrap_or_else(|| Exposure::default().exposure()),

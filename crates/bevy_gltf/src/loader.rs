@@ -51,9 +51,7 @@ use gltf::{
 };
 use gltf::{json, Document};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "pbr_multi_layer_material_textures")]
-use serde_json::value;
-use serde_json::Value;
+use serde_json::{value, Value};
 #[cfg(feature = "bevy_animation")]
 use smallvec::SmallVec;
 use std::io::Error;
@@ -222,6 +220,13 @@ async fn load_gltf<'a, 'b, 'c>(
             .metallic_roughness_texture()
         {
             linear_textures.insert(texture.texture().index());
+        }
+        if let Some(texture_index) = material_extension_texture_index(
+            &material,
+            "KHR_materials_anisotropy",
+            "anisotropyTexture",
+        ) {
+            linear_textures.insert(texture_index);
         }
 
         // None of the clearcoat maps should be loaded as sRGB.
@@ -554,25 +559,24 @@ async fn load_gltf<'a, 'b, 'c>(
                 });
             }
 
-            let mesh = load_context.add_labeled_asset(primitive_label.to_string(), mesh);
-            primitives.push(super::GltfPrimitive {
-                mesh,
-                material: primitive
+            let mesh_handle = load_context.add_labeled_asset(primitive_label.to_string(), mesh);
+            primitives.push(super::GltfPrimitive::new(
+                &gltf_mesh,
+                &primitive,
+                mesh_handle,
+                primitive
                     .material()
                     .index()
                     .and_then(|i| materials.get(i).cloned()),
-                extras: get_gltf_extras(primitive.extras()),
-                material_extras: get_gltf_extras(primitive.material().extras()),
-            });
+                get_gltf_extras(primitive.extras()),
+                get_gltf_extras(primitive.material().extras()),
+            ));
         }
 
-        let handle = load_context.add_labeled_asset(
-            GltfAssetLabel::Mesh(gltf_mesh.index()).to_string(),
-            super::GltfMesh {
-                primitives,
-                extras: get_gltf_extras(gltf_mesh.extras()),
-            },
-        );
+        let mesh =
+            super::GltfMesh::new(&gltf_mesh, primitives, get_gltf_extras(gltf_mesh.extras()));
+
+        let handle = load_context.add_labeled_asset(mesh.asset_label.to_string(), mesh);
         if let Some(name) = gltf_mesh.name() {
             named_meshes.insert(name.into(), handle.clone());
         }
@@ -582,18 +586,16 @@ async fn load_gltf<'a, 'b, 'c>(
     let mut nodes_intermediate = vec![];
     let mut named_nodes_intermediate = HashMap::default();
     for node in gltf.nodes() {
-        let node_label = node_label(&node);
         nodes_intermediate.push((
-            node_label,
-            GltfNode {
-                children: vec![],
-                mesh: node
-                    .mesh()
+            GltfNode::new(
+                &node,
+                vec![],
+                node.mesh()
                     .map(|mesh| mesh.index())
-                    .and_then(|i| meshes.get(i).cloned()),
-                transform: node_transform(&node),
-                extras: get_gltf_extras(node.extras()),
-            },
+                    .and_then(|i: usize| meshes.get(i).cloned()),
+                node_transform(&node),
+                get_gltf_extras(node.extras()),
+            ),
             node.children()
                 .map(|child| child.index())
                 .collect::<Vec<_>>(),
@@ -604,7 +606,7 @@ async fn load_gltf<'a, 'b, 'c>(
     }
     let nodes = resolve_node_hierarchy(nodes_intermediate, load_context.path())
         .into_iter()
-        .map(|(label, node)| load_context.add_labeled_asset(label, node))
+        .map(|node| load_context.add_labeled_asset(node.asset_label.to_string(), node))
         .collect::<Vec<Handle<GltfNode>>>();
     let named_nodes = named_nodes_intermediate
         .into_iter()
@@ -615,7 +617,7 @@ async fn load_gltf<'a, 'b, 'c>(
         .skins()
         .map(|gltf_skin| {
             let reader = gltf_skin.reader(|buffer| Some(&buffer_data[buffer.index()]));
-            let inverse_bindposes: Vec<Mat4> = reader
+            let local_to_bone_bind_matrices: Vec<Mat4> = reader
                 .read_inverse_bind_matrices()
                 .unwrap()
                 .map(|mat| Mat4::from_cols_array_2d(&mat))
@@ -623,7 +625,7 @@ async fn load_gltf<'a, 'b, 'c>(
 
             load_context.add_labeled_asset(
                 skin_label(&gltf_skin),
-                SkinnedMeshInverseBindposes::from(inverse_bindposes),
+                SkinnedMeshInverseBindposes::from(local_to_bone_bind_matrices),
             )
         })
         .collect();
@@ -1016,6 +1018,10 @@ fn load_material(
         let clearcoat =
             ClearcoatExtension::parse(load_context, document, material).unwrap_or_default();
 
+        // Parse the `KHR_materials_anisotropy` extension data if necessary.
+        let anisotropy =
+            AnisotropyExtension::parse(load_context, document, material).unwrap_or_default();
+
         // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
         let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
         let emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
@@ -1078,6 +1084,10 @@ fn load_material(
             clearcoat_normal_channel: clearcoat.clearcoat_normal_channel,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_normal_texture: clearcoat.clearcoat_normal_texture,
+            anisotropy_strength: anisotropy.anisotropy_strength.unwrap_or_default() as f32,
+            anisotropy_rotation: anisotropy.anisotropy_rotation.unwrap_or_default() as f32,
+            anisotropy_channel: anisotropy.anisotropy_channel,
+            anisotropy_texture: anisotropy.anisotropy_texture,
             ..Default::default()
         }
     })
@@ -1517,11 +1527,6 @@ fn texture_handle_from_info(
     texture_handle(load_context, &texture)
 }
 
-/// Returns the label for the `node`.
-fn node_label(node: &Node) -> String {
-    GltfAssetLabel::Node(node.index()).to_string()
-}
-
 /// Returns the label for the `scene`.
 fn scene_label(scene: &gltf::Scene) -> String {
     GltfAssetLabel::Scene(scene.index()).to_string()
@@ -1648,16 +1653,16 @@ async fn load_buffers(
 }
 
 fn resolve_node_hierarchy(
-    nodes_intermediate: Vec<(String, GltfNode, Vec<usize>)>,
+    nodes_intermediate: Vec<(GltfNode, Vec<usize>)>,
     asset_path: &Path,
-) -> Vec<(String, GltfNode)> {
+) -> Vec<GltfNode> {
     let mut has_errored = false;
     let mut empty_children = VecDeque::new();
     let mut parents = vec![None; nodes_intermediate.len()];
     let mut unprocessed_nodes = nodes_intermediate
         .into_iter()
         .enumerate()
-        .map(|(i, (label, node, children))| {
+        .map(|(i, (node, children))| {
             for child in &children {
                 if let Some(parent) = parents.get_mut(*child) {
                     *parent = Some(i);
@@ -1670,20 +1675,19 @@ fn resolve_node_hierarchy(
             if children.is_empty() {
                 empty_children.push_back(i);
             }
-            (i, (label, node, children))
+            (i, (node, children))
         })
         .collect::<HashMap<_, _>>();
-    let mut nodes = std::collections::HashMap::<usize, (String, GltfNode)>::new();
+    let mut nodes = std::collections::HashMap::<usize, GltfNode>::new();
     while let Some(index) = empty_children.pop_front() {
-        let (label, node, children) = unprocessed_nodes.remove(&index).unwrap();
+        let (node, children) = unprocessed_nodes.remove(&index).unwrap();
         assert!(children.is_empty());
-        nodes.insert(index, (label, node));
+        nodes.insert(index, node);
         if let Some(parent_index) = parents[index] {
-            let (_, parent_node, parent_children) =
-                unprocessed_nodes.get_mut(&parent_index).unwrap();
+            let (parent_node, parent_children) = unprocessed_nodes.get_mut(&parent_index).unwrap();
 
             assert!(parent_children.remove(&index));
-            if let Some((_, child_node)) = nodes.get(&index) {
+            if let Some(child_node) = nodes.get(&index) {
                 parent_node.children.push(child_node.clone());
             }
             if parent_children.is_empty() {
@@ -1886,10 +1890,52 @@ impl ClearcoatExtension {
     }
 }
 
+/// Parsed data from the `KHR_materials_anisotropy` extension.
+///
+/// See the specification:
+/// <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_anisotropy/README.md>
+#[derive(Default)]
+struct AnisotropyExtension {
+    anisotropy_strength: Option<f64>,
+    anisotropy_rotation: Option<f64>,
+    anisotropy_channel: UvChannel,
+    anisotropy_texture: Option<Handle<Image>>,
+}
+
+impl AnisotropyExtension {
+    fn parse(
+        load_context: &mut LoadContext,
+        document: &Document,
+        material: &Material,
+    ) -> Option<AnisotropyExtension> {
+        let extension = material
+            .extensions()?
+            .get("KHR_materials_anisotropy")?
+            .as_object()?;
+
+        let (anisotropy_channel, anisotropy_texture) = extension
+            .get("anisotropyTexture")
+            .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
+            .map(|json_info| {
+                (
+                    get_uv_channel(material, "anisotropy", json_info.tex_coord),
+                    texture_handle_from_info(load_context, document, &json_info),
+                )
+            })
+            .unzip();
+
+        Some(AnisotropyExtension {
+            anisotropy_strength: extension.get("anisotropyStrength").and_then(Value::as_f64),
+            anisotropy_rotation: extension.get("anisotropyRotation").and_then(Value::as_f64),
+            anisotropy_channel: anisotropy_channel.unwrap_or_default(),
+            anisotropy_texture,
+        })
+    }
+}
+
 /// Returns the index (within the `textures` array) of the texture with the
 /// given field name in the data for the material extension with the given name,
 /// if there is one.
-#[cfg(feature = "pbr_multi_layer_material_textures")]
 fn material_extension_texture_index(
     material: &Material,
     extension_name: &str,
@@ -1941,8 +1987,11 @@ mod test {
     use crate::GltfNode;
 
     impl GltfNode {
-        fn empty() -> Self {
+        fn with_generated_name(index: usize) -> Self {
             GltfNode {
+                index,
+                asset_label: crate::GltfAssetLabel::Node(index),
+                name: format!("l{}", index),
                 children: vec![],
                 mesh: None,
                 transform: bevy_transform::prelude::Transform::IDENTITY,
@@ -1953,87 +2002,87 @@ mod test {
     #[test]
     fn node_hierarchy_single_node() {
         let result = resolve_node_hierarchy(
-            vec![("l1".to_string(), GltfNode::empty(), vec![])],
+            vec![(GltfNode::with_generated_name(1), vec![])],
             PathBuf::new().as_path(),
         );
 
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].0, "l1");
-        assert_eq!(result[0].1.children.len(), 0);
+        assert_eq!(result[0].name, "l1");
+        assert_eq!(result[0].children.len(), 0);
     }
 
     #[test]
     fn node_hierarchy_no_hierarchy() {
         let result = resolve_node_hierarchy(
             vec![
-                ("l1".to_string(), GltfNode::empty(), vec![]),
-                ("l2".to_string(), GltfNode::empty(), vec![]),
+                (GltfNode::with_generated_name(1), vec![]),
+                (GltfNode::with_generated_name(2), vec![]),
             ],
             PathBuf::new().as_path(),
         );
 
         assert_eq!(result.len(), 2);
-        assert_eq!(result[0].0, "l1");
-        assert_eq!(result[0].1.children.len(), 0);
-        assert_eq!(result[1].0, "l2");
-        assert_eq!(result[1].1.children.len(), 0);
+        assert_eq!(result[0].name, "l1");
+        assert_eq!(result[0].children.len(), 0);
+        assert_eq!(result[1].name, "l2");
+        assert_eq!(result[1].children.len(), 0);
     }
 
     #[test]
     fn node_hierarchy_simple_hierarchy() {
         let result = resolve_node_hierarchy(
             vec![
-                ("l1".to_string(), GltfNode::empty(), vec![1]),
-                ("l2".to_string(), GltfNode::empty(), vec![]),
+                (GltfNode::with_generated_name(1), vec![1]),
+                (GltfNode::with_generated_name(2), vec![]),
             ],
             PathBuf::new().as_path(),
         );
 
         assert_eq!(result.len(), 2);
-        assert_eq!(result[0].0, "l1");
-        assert_eq!(result[0].1.children.len(), 1);
-        assert_eq!(result[1].0, "l2");
-        assert_eq!(result[1].1.children.len(), 0);
+        assert_eq!(result[0].name, "l1");
+        assert_eq!(result[0].children.len(), 1);
+        assert_eq!(result[1].name, "l2");
+        assert_eq!(result[1].children.len(), 0);
     }
 
     #[test]
     fn node_hierarchy_hierarchy() {
         let result = resolve_node_hierarchy(
             vec![
-                ("l1".to_string(), GltfNode::empty(), vec![1]),
-                ("l2".to_string(), GltfNode::empty(), vec![2]),
-                ("l3".to_string(), GltfNode::empty(), vec![3, 4, 5]),
-                ("l4".to_string(), GltfNode::empty(), vec![6]),
-                ("l5".to_string(), GltfNode::empty(), vec![]),
-                ("l6".to_string(), GltfNode::empty(), vec![]),
-                ("l7".to_string(), GltfNode::empty(), vec![]),
+                (GltfNode::with_generated_name(1), vec![1]),
+                (GltfNode::with_generated_name(2), vec![2]),
+                (GltfNode::with_generated_name(3), vec![3, 4, 5]),
+                (GltfNode::with_generated_name(4), vec![6]),
+                (GltfNode::with_generated_name(5), vec![]),
+                (GltfNode::with_generated_name(6), vec![]),
+                (GltfNode::with_generated_name(7), vec![]),
             ],
             PathBuf::new().as_path(),
         );
 
         assert_eq!(result.len(), 7);
-        assert_eq!(result[0].0, "l1");
-        assert_eq!(result[0].1.children.len(), 1);
-        assert_eq!(result[1].0, "l2");
-        assert_eq!(result[1].1.children.len(), 1);
-        assert_eq!(result[2].0, "l3");
-        assert_eq!(result[2].1.children.len(), 3);
-        assert_eq!(result[3].0, "l4");
-        assert_eq!(result[3].1.children.len(), 1);
-        assert_eq!(result[4].0, "l5");
-        assert_eq!(result[4].1.children.len(), 0);
-        assert_eq!(result[5].0, "l6");
-        assert_eq!(result[5].1.children.len(), 0);
-        assert_eq!(result[6].0, "l7");
-        assert_eq!(result[6].1.children.len(), 0);
+        assert_eq!(result[0].name, "l1");
+        assert_eq!(result[0].children.len(), 1);
+        assert_eq!(result[1].name, "l2");
+        assert_eq!(result[1].children.len(), 1);
+        assert_eq!(result[2].name, "l3");
+        assert_eq!(result[2].children.len(), 3);
+        assert_eq!(result[3].name, "l4");
+        assert_eq!(result[3].children.len(), 1);
+        assert_eq!(result[4].name, "l5");
+        assert_eq!(result[4].children.len(), 0);
+        assert_eq!(result[5].name, "l6");
+        assert_eq!(result[5].children.len(), 0);
+        assert_eq!(result[6].name, "l7");
+        assert_eq!(result[6].children.len(), 0);
     }
 
     #[test]
     fn node_hierarchy_cyclic() {
         let result = resolve_node_hierarchy(
             vec![
-                ("l1".to_string(), GltfNode::empty(), vec![1]),
-                ("l2".to_string(), GltfNode::empty(), vec![0]),
+                (GltfNode::with_generated_name(1), vec![1]),
+                (GltfNode::with_generated_name(2), vec![0]),
             ],
             PathBuf::new().as_path(),
         );
@@ -2045,14 +2094,14 @@ mod test {
     fn node_hierarchy_missing_node() {
         let result = resolve_node_hierarchy(
             vec![
-                ("l1".to_string(), GltfNode::empty(), vec![2]),
-                ("l2".to_string(), GltfNode::empty(), vec![]),
+                (GltfNode::with_generated_name(1), vec![2]),
+                (GltfNode::with_generated_name(2), vec![]),
             ],
             PathBuf::new().as_path(),
         );
 
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].0, "l2");
-        assert_eq!(result[0].1.children.len(), 0);
+        assert_eq!(result[0].name, "l2");
+        assert_eq!(result[0].children.len(), 0);
     }
 }

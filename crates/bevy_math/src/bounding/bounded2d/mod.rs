@@ -1,7 +1,7 @@
 mod primitive_impls;
 
 use super::{BoundingVolume, IntersectsVolume};
-use crate::prelude::{Mat2, Rotation2d, Vec2};
+use crate::prelude::{Mat2, Rot2, Vec2};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -22,11 +22,10 @@ fn point_cloud_2d_center(points: &[Vec2]) -> Vec2 {
 pub trait Bounded2d {
     /// Get an axis-aligned bounding box for the shape with the given translation and rotation.
     /// The rotation is in radians, counterclockwise, with 0 meaning no rotation.
-    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rotation2d>) -> Aabb2d;
+    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rot2>) -> Aabb2d;
     /// Get a bounding circle for the shape
     /// The rotation is in radians, counterclockwise, with 0 meaning no rotation.
-    fn bounding_circle(&self, translation: Vec2, rotation: impl Into<Rotation2d>)
-        -> BoundingCircle;
+    fn bounding_circle(&self, translation: Vec2, rotation: impl Into<Rot2>) -> BoundingCircle;
 }
 
 /// A 2D axis-aligned bounding box, or bounding rectangle
@@ -60,11 +59,11 @@ impl Aabb2d {
     #[inline(always)]
     pub fn from_point_cloud(
         translation: Vec2,
-        rotation: impl Into<Rotation2d>,
+        rotation: impl Into<Rot2>,
         points: &[Vec2],
     ) -> Aabb2d {
         // Transform all points by rotation
-        let rotation: Rotation2d = rotation.into();
+        let rotation: Rot2 = rotation.into();
         let mut iter = points.iter().map(|point| rotation * *point);
 
         let first = iter
@@ -101,7 +100,7 @@ impl Aabb2d {
 
 impl BoundingVolume for Aabb2d {
     type Translation = Vec2;
-    type Rotation = Rotation2d;
+    type Rotation = Rot2;
     type HalfSize = Vec2;
 
     #[inline(always)]
@@ -232,7 +231,7 @@ impl BoundingVolume for Aabb2d {
     /// and consider storing the original AABB and rotating that every time instead.
     #[inline(always)]
     fn rotate_by(&mut self, rotation: impl Into<Self::Rotation>) {
-        let rotation: Rotation2d = rotation.into();
+        let rotation: Rot2 = rotation.into();
         let abs_rot_mat = Mat2::from_cols(
             Vec2::new(rotation.cos, rotation.sin),
             Vec2::new(rotation.sin, rotation.cos),
@@ -479,10 +478,10 @@ impl BoundingCircle {
     #[inline(always)]
     pub fn from_point_cloud(
         translation: Vec2,
-        rotation: impl Into<Rotation2d>,
+        rotation: impl Into<Rot2>,
         points: &[Vec2],
     ) -> BoundingCircle {
-        let rotation: Rotation2d = rotation.into();
+        let rotation: Rot2 = rotation.into();
         let center = point_cloud_2d_center(points);
         let mut radius_squared = 0.0;
 
@@ -524,7 +523,7 @@ impl BoundingCircle {
 
 impl BoundingVolume for BoundingCircle {
     type Translation = Vec2;
-    type Rotation = Rotation2d;
+    type Rotation = Rot2;
     type HalfSize = f32;
 
     #[inline(always)]
@@ -594,7 +593,7 @@ impl BoundingVolume for BoundingCircle {
 
     #[inline(always)]
     fn rotate_by(&mut self, rotation: impl Into<Self::Rotation>) {
-        let rotation: Rotation2d = rotation.into();
+        let rotation: Rot2 = rotation.into();
         self.center = rotation * self.center;
     }
 }
