@@ -579,7 +579,7 @@ async fn load_gltf<'a, 'b, 'c>(
         let mesh =
             super::GltfMesh::new(&gltf_mesh, primitives, get_gltf_extras(gltf_mesh.extras()));
 
-        let handle = load_context.add_labeled_asset(mesh.asset_label.to_string(), mesh);
+        let handle = load_context.add_labeled_asset(mesh.asset_label().to_string(), mesh);
         if let Some(name) = gltf_mesh.name() {
             named_meshes.insert(name.into(), handle.clone());
         }
