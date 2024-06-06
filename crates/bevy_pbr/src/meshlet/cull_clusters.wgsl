@@ -114,8 +114,8 @@ fn cull_clusters(
     // Write if the cluster should be occlusion tested in the second pass
 #ifdef MESHLET_FIRST_CULLING_PASS
     if !cluster_visible {
-        let second_pass_candidate = 1u << cluster_id % 32u;
-        atomicOr(&meshlet_second_pass_candidates[cluster_id / 32u], second_pass_candidate);
+        let bit = 1u << cluster_id % 32u;
+        atomicOr(&meshlet_second_pass_candidates[cluster_id / 32u], bit);
     }
 #endif
 
