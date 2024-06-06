@@ -103,7 +103,7 @@ impl Interval {
     }
 
     /// Get an iterator over equally-spaced points from this interval in increasing order.
-    /// Returns `None` if `points` is less than 2; the spaced points always include the endpoints.
+    /// Returns an error if `points` is less than 2 or if the interval is unbounded.
     pub fn spaced_points(
         self,
         points: usize,

@@ -83,6 +83,19 @@ pub trait Curve<T> {
     /// A total of `samples` samples are used, although at least two samples are required to produce
     /// well-formed output. If fewer than two samples are provided, or if this curve has an unbounded
     /// domain, then a [`ResamplingError`] is returned.
+    ///
+    /// The interpolation takes two values by reference together with a scalar parameter and
+    /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
+    /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_math::*;
+    /// # use bevy_math::curve::*;
+    /// let quarter_rotation = function_curve(interval(0.0, 90.0).unwrap(), |t| Rotation2d::degrees(t));
+    /// // A curve which only stores three data points and uses `nlerp` to interpolate them:
+    /// let resampled_rotation = quarter_rotation.resample(3, |x, y, t| x.nlerp(*y, t));
+    /// ```
     fn resample<I>(
         &self,
         samples: usize,
@@ -110,6 +123,25 @@ pub trait Curve<T> {
             samples,
             interpolation,
         })
+    }
+
+    /// Extract an iterator over evenly-spaced samples from this curve. If `samples` is less than 2
+    /// or if this curve has unbounded domain, then an error is returned instead.
+    fn samples(&self, samples: usize) -> Result<impl Iterator<Item = T>, ResamplingError> {
+        if samples < 2 {
+            return Err(ResamplingError::NotEnoughSamples(samples));
+        }
+        if !self.domain().is_finite() {
+            return Err(ResamplingError::InfiniteInterval(InfiniteIntervalError));
+        }
+
+        // Unwrap on `spaced_points` always succeeds because its error conditions are handled
+        // above.
+        Ok(self
+            .domain()
+            .spaced_points(samples)
+            .unwrap()
+            .map(|t| self.sample(t)))
     }
 
     /// Resample this [`Curve`] to produce a new one that is defined by interpolation over samples
@@ -154,6 +186,10 @@ pub trait Curve<T> {
     ///
     /// The domain of the produced curve stretches between the first and last sample times of the
     /// iterator.
+    ///
+    /// The interpolation takes two values by reference together with a scalar parameter and
+    /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
+    /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
     fn resample_uneven<I>(
         &self,
         sample_times: impl IntoIterator<Item = f32>,
@@ -305,7 +341,7 @@ pub trait Curve<T> {
     /// let my_curve = function_curve(interval(0.0, 1.0).unwrap(), |t| t * t + 1.0);
     /// // Borrow `my_curve` long enough to resample a mapped version. Note that `map` takes
     /// // ownership of its input.
-    /// let samples = my_curve.by_ref().map(|x| x * 2.0).resample(100).unwrap();
+    /// let samples = my_curve.by_ref().map(|x| x * 2.0).resample_auto(100).unwrap();
     /// // Do something else with `my_curve` since we retained ownership:
     /// let new_curve = my_curve.reparametrize_linear(interval(-1.0, 1.0).unwrap()).unwrap();
     /// ```
@@ -396,34 +432,6 @@ where
     samples: Vec<T>,
 }
 
-impl<T> SampleAutoCurve<T>
-where
-    T: Interpolable,
-{
-    /// Like [`Curve::map`], but with a concrete return type. Unlike that function, this one is
-    /// not lazy, and `f` is evaluated immediately on samples to produce the result.
-    pub fn map_concrete<S>(self, f: impl Fn(T) -> S) -> SampleAutoCurve<S>
-    where
-        S: Interpolable,
-    {
-        let new_samples: Vec<S> = self.samples.into_iter().map(f).collect();
-        SampleAutoCurve {
-            domain: self.domain,
-            samples: new_samples,
-        }
-    }
-
-    /// Like [`Curve::graph`], but with a concrete return type.
-    pub fn graph_concrete(self) -> SampleAutoCurve<(f32, T)> {
-        let times = self.domain().spaced_points(self.samples.len()).unwrap();
-        let new_samples: Vec<(f32, T)> = times.zip(self.samples).collect();
-        SampleAutoCurve {
-            domain: self.domain,
-            samples: new_samples,
-        }
-    }
-}
-
 impl<T> Curve<T> for SampleAutoCurve<T>
 where
     T: Interpolable,
@@ -511,6 +519,38 @@ where
     }
 }
 
+impl<T, I> SampleCurve<T, I> {
+    /// Create a new [`SampleCurve`] using the specified `interpolation` to interpolate between
+    /// the given `samples`. An error is returned if there are not at least 2 samples or if the
+    /// given `domain` is unbounded.
+    ///
+    /// The interpolation takes two values by reference together with a scalar parameter and
+    /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
+    /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
+    pub fn new(
+        domain: Interval,
+        samples: impl Into<Vec<T>>,
+        interpolation: I,
+    ) -> Result<Self, ResamplingError>
+    where
+        I: Fn(&T, &T, f32) -> T,
+    {
+        let samples: Vec<T> = samples.into();
+        if samples.len() < 2 {
+            return Err(ResamplingError::NotEnoughSamples(samples.len()));
+        }
+        if !domain.is_finite() {
+            return Err(ResamplingError::InfiniteInterval(InfiniteIntervalError));
+        }
+
+        Ok(SampleCurve {
+            domain,
+            samples,
+            interpolation,
+        })
+    }
+}
+
 /// A [`Curve`] that is defined by interpolation over unevenly spaced samples.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -534,33 +574,11 @@ impl<T> UnevenSampleAutoCurve<T>
 where
     T: Interpolable,
 {
-    /// Like [`Curve::map`], but with a concrete return type. Unlike that function, this one is
-    /// not lazy, and `f` is evaluated immediately on samples to produce the result.
-    pub fn map_concrete<S>(self, f: impl Fn(T) -> S) -> UnevenSampleAutoCurve<S>
-    where
-        S: Interpolable,
-    {
-        let new_samples: Vec<S> = self.samples.into_iter().map(f).collect();
-        UnevenSampleAutoCurve {
-            times: self.times,
-            samples: new_samples,
-        }
-    }
-
-    /// Like [`Curve::graph`], but with a concrete return type.
-    pub fn graph_concrete(self) -> UnevenSampleAutoCurve<(f32, T)> {
-        let new_samples = self.times.iter().copied().zip(self.samples).collect();
-        UnevenSampleAutoCurve {
-            times: self.times,
-            samples: new_samples,
-        }
-    }
-
     /// This [`UnevenSampleAutoCurve`], but with the sample times moved by the map `f`.
     /// In principle, when `f` is monotone, this is equivalent to [`Curve::reparametrize`],
     /// but the function inputs to each are inverses of one another.
     ///
-    /// The samples are resorted by time after mapping and deduplicated by output time, so
+    /// The samples are re-sorted by time after mapping and deduplicated by output time, so
     /// the function `f` should generally be injective over the sample times of the curve.
     pub fn map_sample_times(mut self, f: impl Fn(f32) -> f32) -> UnevenSampleAutoCurve<T> {
         let mut timed_samples: Vec<(f32, T)> =
@@ -659,6 +677,55 @@ where
                 }
             }
         }
+    }
+}
+
+impl<T, I> UnevenSampleCurve<T, I> {
+    /// Create a new [`UnevenSampleCurve`] using the provided `interpolation` to interpolate
+    /// between adjacent `timed_samples`. The given samples are filtered to finite times and
+    /// sorted internally; if there are not at least 2 valid timed samples, an error will be
+    /// returned.
+    ///
+    /// The interpolation takes two values by reference together with a scalar parameter and
+    /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
+    /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
+    pub fn new(
+        timed_samples: impl Into<Vec<(f32, T)>>,
+        interpolation: I,
+    ) -> Result<Self, ResamplingError> {
+        let mut timed_samples: Vec<(f32, T)> = timed_samples.into();
+        // Use default Equal to not do anything in case NAN appears; it will get removed in the
+        // next step anyway.
+        timed_samples
+            .sort_by(|(t0, _), (t1, _)| t0.partial_cmp(t1).unwrap_or(std::cmp::Ordering::Equal));
+        let (times, samples): (Vec<f32>, Vec<T>) = timed_samples
+            .into_iter()
+            .filter(|(t, _)| t.is_finite())
+            .unzip();
+        if times.len() < 2 {
+            return Err(ResamplingError::NotEnoughSamples(times.len()));
+        }
+        Ok(UnevenSampleCurve {
+            times,
+            samples,
+            interpolation,
+        })
+    }
+
+    /// This [`UnevenSampleAutoCurve`], but with the sample times moved by the map `f`.
+    /// In principle, when `f` is monotone, this is equivalent to [`Curve::reparametrize`],
+    /// but the function inputs to each are inverses of one another.
+    ///
+    /// The samples are re-sorted by time after mapping and deduplicated by output time, so
+    /// the function `f` should generally be injective over the sample times of the curve.
+    pub fn map_sample_times(mut self, f: impl Fn(f32) -> f32) -> UnevenSampleCurve<T, I> {
+        let mut timed_samples: Vec<(f32, T)> =
+            self.times.into_iter().map(f).zip(self.samples).collect();
+        timed_samples.dedup_by(|(t1, _), (t2, _)| (*t1).eq(t2));
+        timed_samples.sort_by(|(t1, _), (t2, _)| t1.partial_cmp(t2).unwrap());
+        self.times = timed_samples.iter().map(|(t, _)| t).copied().collect();
+        self.samples = timed_samples.into_iter().map(|(_, x)| x).collect();
+        self
     }
 }
 
