@@ -136,7 +136,7 @@ impl Plugin for MeshletPlugin {
         load_internal_asset!(
             app,
             MESHLET_CULLING_SHADER_HANDLE,
-            "cull_meshlets.wgsl",
+            "cull_clusters.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
