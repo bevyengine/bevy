@@ -228,6 +228,8 @@ where
                 panic!("The base mesh did not have vertex positions");
             };
 
+            debug_assert!(self.segments > 0);
+
             let layers = self.segments + 1;
             let layer_depth_delta = self.half_depth * 2.0 / self.segments as f32;
 
