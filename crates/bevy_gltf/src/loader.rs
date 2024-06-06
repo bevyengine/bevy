@@ -2007,9 +2007,7 @@ mod test {
     use bevy_core::TaskPoolPlugin;
     use bevy_ecs::world::World;
     use bevy_log::LogPlugin;
-    use bevy_render::texture::CompressedImageFormats;
     use bevy_scene::ScenePlugin;
-    use bevy_utils::HashMap;
 
     fn test_app(dir: Dir) -> App {
         let mut app = App::new();
@@ -2023,20 +2021,11 @@ mod test {
             TaskPoolPlugin::default(),
             AssetPlugin::default(),
             ScenePlugin,
-        ))
-        // Somehow .finish() is not called on plugin, so we have to manually add stuff
-        .register_type::<crate::GltfExtras>()
-        .register_type::<crate::GltfSceneExtras>()
-        .register_type::<crate::GltfMeshExtras>()
-        .register_type::<crate::GltfMaterialExtras>()
-        .init_asset::<crate::Gltf>()
-        .init_asset::<crate::GltfNode>()
-        .init_asset::<crate::GltfPrimitive>()
-        .init_asset::<crate::GltfMesh>()
-        .register_asset_loader(crate::GltfLoader {
-            supported_compressed_formats: CompressedImageFormats::NONE,
-            custom_vertex_attributes: HashMap::new(),
-        });
+            crate::GltfPlugin::default(),
+        ));
+
+        app.finish();
+        app.cleanup();
 
         app
     }
