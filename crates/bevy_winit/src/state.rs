@@ -228,7 +228,12 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 is_synthetic,
                 ..
             } => {
+                // Winit sends "synthetic" key press events when the window gains focus. These
+                // should not be handled, so we only process key events if they are not synthetic
+                // key presses. "synthetic" key release events should still be handled though, for
+                // properly releasing keys when the window loses focus.
                 if !(is_synthetic && event.state.is_pressed()) {
+                    // Process the keyboard input event, as long as it's not a synthetic key press.
                     if event.state.is_pressed() {
                         if let Some(char) = &event.text {
                             let char = char.clone();
