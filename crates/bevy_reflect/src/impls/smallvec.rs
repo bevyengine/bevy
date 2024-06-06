@@ -5,9 +5,9 @@ use std::any::Any;
 
 use crate::utility::GenericTypeInfoCell;
 use crate::{
-    self as bevy_reflect, ApplyError, FromReflect, FromType, GetTypeRegistration, List, ListInfo,
-    ListIter, Reflect, ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
-    TypePath, TypeRegistration, Typed,
+    self as bevy_reflect, ApplyError, CreateTypeData, FromReflect, GetTypeRegistration, List,
+    ListInfo, ListIter, Reflect, ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
+    TypeInfo, TypePath, TypeRegistration, Typed,
 };
 
 impl<T: smallvec::Array + TypePath + Send + Sync> List for SmallVec<T>
@@ -182,7 +182,7 @@ where
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<SmallVec<T>>();
-        registration.insert::<ReflectFromPtr>(FromType::<SmallVec<T>>::from_type());
+        registration.insert::<ReflectFromPtr>(CreateTypeData::<Self>::create_type_data(()));
         registration
     }
 }

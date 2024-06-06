@@ -7,7 +7,7 @@
 
 use crate::custom_attributes::CustomAttributes;
 use crate::derive_data::ReflectTraitToImpl;
-use crate::utility;
+use crate::type_data::TypeDataRegistration;
 use crate::utility::terminated_parser;
 use bevy_macro_utils::fq_std::{FQAny, FQOption};
 use proc_macro2::{Ident, Span};
@@ -25,12 +25,6 @@ mod kw {
     syn::custom_keyword!(Hash);
     syn::custom_keyword!(no_field_bounds);
 }
-
-// The "special" trait idents that are used internally for reflection.
-// Received via attributes like `#[reflect(PartialEq, Hash, ...)]`
-const DEBUG_ATTR: &str = "Debug";
-const PARTIAL_EQ_ATTR: &str = "PartialEq";
-const HASH_ATTR: &str = "Hash";
 
 // The traits listed below are not considered "special" (i.e. they use the `ReflectMyTrait` syntax)
 // but useful to know exist nonetheless
@@ -189,7 +183,7 @@ pub(crate) struct ContainerAttributes {
     custom_where: Option<WhereClause>,
     no_field_bounds: bool,
     custom_attributes: CustomAttributes,
-    idents: Vec<Ident>,
+    type_data: Vec<TypeDataRegistration>,
 }
 
 impl ContainerAttributes {
@@ -246,34 +240,32 @@ impl ContainerAttributes {
         } else if lookahead.peek(kw::Hash) {
             self.parse_hash(input)
         } else if lookahead.peek(Ident::peek_any) {
-            self.parse_ident(input)
+            self.parse_type_data(input)
         } else {
             Err(lookahead.error())
         }
     }
 
-    /// Parse an ident (for registration).
+    /// Parse a type data registration.
     ///
     /// Examples:
-    /// - `#[reflect(MyTrait)]` (registers `ReflectMyTrait`)
-    fn parse_ident(&mut self, input: ParseStream) -> syn::Result<()> {
-        let ident = input.parse::<Ident>()?;
+    /// - `#[reflect(Default)]`
+    /// - `#[reflect(Hash(custom_hash_fn))]`
+    fn parse_type_data(&mut self, input: ParseStream) -> syn::Result<()> {
+        let type_data = input.parse::<TypeDataRegistration>()?;
 
-        if input.peek(token::Paren) {
-            return Err(syn::Error::new(ident.span(), format!(
-                "only [{DEBUG_ATTR:?}, {PARTIAL_EQ_ATTR:?}, {HASH_ATTR:?}] may specify custom functions",
-            )));
+        if self
+            .type_data
+            .iter()
+            .any(|existing| existing.ident() == type_data.ident())
+        {
+            return Err(syn::Error::new(
+                type_data.ident().span(),
+                CONFLICTING_TYPE_DATA_MESSAGE,
+            ));
         }
 
-        let ident_name = ident.to_string();
-
-        // Create the reflect ident
-        let mut reflect_ident = utility::get_reflect_ident(&ident_name);
-        // We set the span to the old ident so any compile errors point to that ident instead
-        reflect_ident.set_span(ident.span());
-
-        add_unique_ident(&mut self.idents, reflect_ident)?;
-
+        self.type_data.push(type_data);
         Ok(())
     }
 
@@ -425,12 +417,14 @@ impl ContainerAttributes {
     /// Returns true if the given reflected trait name (i.e. `ReflectDefault` for `Default`)
     /// is registered for this type.
     pub fn contains(&self, name: &str) -> bool {
-        self.idents.iter().any(|ident| ident == name)
+        self.type_data
+            .iter()
+            .any(|data| data.reflect_ident() == name)
     }
 
-    /// The list of reflected traits by their reflected ident (i.e. `ReflectDefault` for `Default`).
-    pub fn idents(&self) -> &[Ident] {
-        &self.idents
+    /// The list of type data registrations.
+    pub fn type_data(&self) -> &[TypeDataRegistration] {
+        &self.type_data
     }
 
     /// The `FromReflect` configuration found within `#[reflect(...)]` attributes on this type.
@@ -526,19 +520,6 @@ impl ContainerAttributes {
     pub fn no_field_bounds(&self) -> bool {
         self.no_field_bounds
     }
-}
-
-/// Adds an identifier to a vector of identifiers if it is not already present.
-///
-/// Returns an error if the identifier already exists in the list.
-fn add_unique_ident(idents: &mut Vec<Ident>, ident: Ident) -> Result<(), syn::Error> {
-    let ident_name = ident.to_string();
-    if idents.iter().any(|i| i == ident_name.as_str()) {
-        return Err(syn::Error::new(ident.span(), CONFLICTING_TYPE_DATA_MESSAGE));
-    }
-
-    idents.push(ident);
-    Ok(())
 }
 
 /// Extract a boolean value from an expression.

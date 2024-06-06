@@ -9,7 +9,7 @@ use crate::{
     system::Resource,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
+use bevy_reflect::{CreateTypeData, FromReflect, Reflect, TypeRegistry};
 
 use super::from_reflect_with_fallback;
 
@@ -63,12 +63,12 @@ pub struct ReflectResourceFns {
 
 impl ReflectResourceFns {
     /// Get the default set of [`ReflectResourceFns`] for a specific resource type using its
-    /// [`FromType`] implementation.
+    /// [`CreateTypeData`] implementation.
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
     pub fn new<T: Resource + FromReflect>() -> Self {
-        <ReflectResource as FromType<T>>::from_type().0
+        <ReflectResource as CreateTypeData<T>>::create_type_data(()).0
     }
 }
 
@@ -176,8 +176,8 @@ impl ReflectResource {
     }
 }
 
-impl<R: Resource + FromReflect> FromType<R> for ReflectResource {
-    fn from_type() -> Self {
+impl<R: Resource + FromReflect> CreateTypeData<R> for ReflectResource {
+    fn create_type_data(_input: ()) -> Self {
         ReflectResource(ReflectResourceFns {
             insert: |world, reflected_resource, registry| {
                 let resource = from_reflect_with_fallback::<R>(reflected_resource, world, registry);
