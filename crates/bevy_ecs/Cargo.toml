@@ -1,6 +1,6 @@
 [package]
 name = "bevy_ecs"
-version = "0.14.0-rc.1"
+version = "0.14.0-rc.2"
 edition = "2021"
 description = "Bevy Engine's entity component system"
 homepage = "https://bevyengine.org"
@@ -17,11 +17,11 @@ bevy_debug_stepping = []
 default = ["bevy_reflect"]
 
 [dependencies]
-bevy_ptr = { path = "../bevy_ptr", version = "0.14.0-rc.1" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-rc.1", optional = true }
-bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-rc.1" }
-bevy_utils = { path = "../bevy_utils", version = "0.14.0-rc.1" }
-bevy_ecs_macros = { path = "macros", version = "0.14.0-rc.1" }
+bevy_ptr = { path = "../bevy_ptr", version = "0.14.0-rc.2" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-rc.2", optional = true }
+bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-rc.2" }
+bevy_utils = { path = "../bevy_utils", version = "0.14.0-rc.2" }
+bevy_ecs_macros = { path = "macros", version = "0.14.0-rc.2" }
 
 petgraph = "0.6"
 bitflags = "2.3"
