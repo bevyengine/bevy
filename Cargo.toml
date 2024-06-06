@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.14.0-dev"
+version = "0.14.0-rc.1"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -339,11 +339,11 @@ ios_simulator = ["bevy_internal/ios_simulator"]
 bevy_state = ["bevy_internal/bevy_state"]
 
 [dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.14.0-dev", default-features = false }
+bevy_internal = { path = "crates/bevy_internal", version = "0.14.0-rc.1", default-features = false }
 
 # WASM does not support dynamic linking.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.14.0-dev", default-features = false, optional = true }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.14.0-rc.1", default-features = false, optional = true }
 
 [dev-dependencies]
 rand = "0.8.0"
