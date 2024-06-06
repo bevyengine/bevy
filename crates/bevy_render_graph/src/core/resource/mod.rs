@@ -205,7 +205,7 @@ pub trait RenderResource: Sized + Send + Sync + Clone + Hash + Eq + 'static {
 
 pub trait WriteRenderResource: RenderResource {}
 
-pub trait CacheRenderResource: RenderResource {
+pub(super) trait CacheRenderResource: RenderResource {
     type Key: Clone + Hash + Eq + 'static;
 
     fn key_from_meta<'a, 'g: 'a>(meta: &'a Self::Meta<'g>) -> &'a Self::Key;
@@ -325,7 +325,7 @@ impl<'g, R: RenderResource> RenderResources<'g, R> {
 }
 
 impl<'g, R: CacheRenderResource> RenderResources<'g, R> {
-    pub fn create_queued_resources_cached<
+    pub(super) fn create_queued_resources_cached<
         F: FnMut(&World, &RenderDevice, &RenderGraph<'g>, &R::Meta<'g>) -> R,
     >(
         &mut self,
@@ -343,7 +343,7 @@ impl<'g, R: CacheRenderResource> RenderResources<'g, R> {
         }
     }
 
-    pub fn borrow_cached_resources(&mut self, cache: &'g CachedResources<R>) {
+    pub(super) fn borrow_cached_resources(&mut self, cache: &'g CachedResources<R>) {
         for (id, meta) in self.queued_resources.drain() {
             if let Some(resource) = cache.cached_resources.get(R::key_from_meta(&meta)) {
                 self.resources.insert(
@@ -358,7 +358,7 @@ impl<'g, R: CacheRenderResource> RenderResources<'g, R> {
     }
 }
 
-pub struct CachedResources<R: CacheRenderResource> {
+pub(super) struct CachedResources<R: CacheRenderResource> {
     cached_resources: HashMap<R::Key, R>,
 }
 

@@ -1,13 +1,19 @@
-use std::{any::TypeId, marker::PhantomData, ops::Deref, slice::Iter, sync::Arc};
+use std::{
+    any::{type_name, TypeId},
+    marker::PhantomData,
+    ops::Deref,
+    sync::Arc,
+};
 
 use bevy_app::{App, Plugin};
 
 use bevy_ecs::{
-    component::{Component, ComponentId, ComponentIdFor},
+    component::Component,
     entity::Entity,
+    query::With,
     schedule::{IntoSystemConfigs, SystemSet},
-    system::{Query, ResMut, Resource},
-    world::{EntityWorldMut, World},
+    system::{Local, Query, ResMut, Resource},
+    world::World,
 };
 
 use bevy_render::{
@@ -16,44 +22,74 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::HashMap;
+use bevy_utils::EntityHashMap;
 
 use super::{RenderGraph, RenderGraphBuilder, RenderGraphCachedResources};
 
 #[derive(PartialEq, Eq, Hash, Debug, Copy, Clone, SystemSet)]
 struct ConfigureRenderGraph;
 
-// #[derive(Resource, ExtractResource, Clone)]
-// pub struct RenderGraphSetupFunc {
-//     configurator: Arc<dyn Fn(RenderGraphBuilder) + Send + Sync + 'static>,
-// }
-//
-// impl RenderGraphSetupFunc {
-//     pub fn set_render_graph(
-//         &mut self,
-//         configurator: impl Fn(RenderGraphBuilder) + Send + Sync + 'static,
-//     ) {
-//         self.configurator = Arc::new(configurator);
-//     }
-// }
+#[derive(Resource, Default, Clone)]
+pub(super) struct RenderGraphConfigurators {
+    configurators: EntityHashMap<Entity, ConfiguratorData>,
+}
 
-#[derive(Resource, Default)]
-struct RenderGraphConfigurators {
-    configurators:
-        HashMap<(Entity, ComponentId), Box<dyn Fn(RenderGraphBuilder) + Send + Sync + 'static>>,
+#[derive(Clone)]
+struct ConfiguratorData {
+    id: TypeId,
+    name: &'static str,
+    config: Option<Arc<dyn Fn(RenderGraphBuilder) + Send + Sync + 'static>>,
+}
+
+impl ConfiguratorData {
+    fn new<T: for<'g> Configurator<Output<'g> = ()>>(configurator: T) -> Self {
+        Self {
+            id: TypeId::of::<T>(),
+            name: type_name::<T>(),
+            config: Some(Arc::new(move |builder| configurator.configure(builder))),
+        }
+    }
+
+    fn new_auxiliary<T: Configurator>() -> Self {
+        Self {
+            id: TypeId::of::<T>(),
+            name: type_name::<T>(),
+            config: None,
+        }
+    }
 }
 
 impl RenderGraphConfigurators {
-    fn add<S: for<'g> Configurator<Output<'g> = ()>>(
+    pub fn add<T: for<'g> Configurator<Output<'g> = ()>>(
         &mut self,
         entity: Entity,
-        id: &ComponentIdFor<S>,
-        configurator: S,
+        configurator: T,
     ) {
-        self.configurators.insert(
-            (entity, id.get()),
-            Box::new(move |builder| configurator.configure(builder)),
-        );
+        if let Some(old_configurator) = self
+            .configurators
+            .insert(entity, ConfiguratorData::new(configurator))
+        {
+            panic!(
+                "Attempted to add a render graph configurator of type {} to entity {:?}, which already contains a render graph configurator of type {}",
+                type_name::<T>(),
+                entity,
+                old_configurator.name
+            );
+        };
+    }
+
+    pub fn add_auxiliary<T: Configurator>(&mut self, entity: Entity) {
+        if let Some(old_configurator) = self
+            .configurators
+            .insert(entity, ConfiguratorData::new_auxiliary::<T>())
+        {
+            panic!(
+                "Attempted to add a render graph configurator of type {} to entity {:?}, which already contains a render graph configurator of type {}",
+                type_name::<T>(),
+                entity,
+                old_configurator.name
+            );
+        }
     }
 
     fn reset(&mut self) {
@@ -70,51 +106,73 @@ impl RenderGraphConfigurators {
     > {
         self.configurators
             .iter()
-            .map(|((entity, _), f)| (*entity, f.deref()))
+            .filter_map(|(entity, configurator_data)| {
+                if let Some(config) = &configurator_data.config {
+                    Some((*entity, config.deref()))
+                } else {
+                    None
+                }
+            })
     }
 }
 
-pub trait Configurator: Clone + ExtractComponent {
+pub trait Configurator: Clone + ExtractComponent<Out = Self> {
     type Output<'g>;
 
     fn configure<'g>(&self, graph: RenderGraphBuilder<'_, 'g>) -> Self::Output<'g>;
 }
 
-pub struct ConfiguratorPlugin<S: for<'g> Configurator<Output<'g> = ()>>(PhantomData<S>);
+pub struct ConfiguratorPlugin<T: for<'g> Configurator<Output<'g> = ()>>(PhantomData<T>);
 
-impl<S: for<'g> Configurator<Output<'g> = ()>> Default for ConfiguratorPlugin<S> {
+impl<T: for<'g> Configurator<Output<'g> = ()>> Default for ConfiguratorPlugin<T> {
     fn default() -> Self {
         Self(PhantomData)
     }
 }
 
-impl<S: for<'g> Configurator<Output<'g> = ()>> Plugin for ConfiguratorPlugin<S> {
+impl<T: for<'g> Configurator<Output<'g> = ()>> Plugin for ConfiguratorPlugin<T> {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ExtractComponentPlugin::<S>::default())
+        app.add_plugins(ExtractComponentPlugin::<T>::default())
             .add_systems(
                 Render,
-                (
-                    queue_configurators::<S>
-                        .in_set(ConfigureRenderGraph)
-                        .ambiguous_with(ConfigureRenderGraph),
-                    reset_configurators.in_set(RenderSet::Cleanup),
-                ),
+                queue_configurators::<T>
+                    .in_set(ConfigureRenderGraph)
+                    .ambiguous_with(ConfigureRenderGraph),
             );
     }
 }
 
-fn queue_configurators<S: for<'g> Configurator<Output<'g> = ()>>(
-    configurators: Query<(Entity, &S)>,
-    id: ComponentIdFor<S>,
-    mut graph_configurators: ResMut<RenderGraphConfigurators>,
-) {
-    for (entity, config) in &configurators {
-        graph_configurators.add(entity, &id, config.clone());
+pub struct AuxiliaryConfiguratorPlugin<T: Configurator>(PhantomData<T>);
+
+impl<T: Configurator> Default for AuxiliaryConfiguratorPlugin<T> {
+    fn default() -> Self {
+        Self(PhantomData)
     }
 }
 
-fn reset_configurators(mut graph_configurators: ResMut<RenderGraphConfigurators>) {
-    graph_configurators.reset();
+impl<T: Configurator> Plugin for AuxiliaryConfiguratorPlugin<T> {
+    fn build(&self, app: &mut App) {
+        app.add_plugins(ExtractComponentPlugin::<T>::default())
+            .add_systems(Render, queue_auxiliary_configurators::<T>);
+    }
+}
+
+fn queue_configurators<T: for<'g> Configurator<Output<'g> = ()>>(
+    configurators: Query<(Entity, &T)>,
+    mut graph_configurators: ResMut<RenderGraphConfigurators>,
+) {
+    for (entity, config) in &configurators {
+        graph_configurators.add(entity, config.clone());
+    }
+}
+
+fn queue_auxiliary_configurators<T: Configurator>(
+    configurators: Query<Entity, With<T>>,
+    mut graph_configurators: ResMut<RenderGraphConfigurators>,
+) {
+    for entity in &configurators {
+        graph_configurators.add_auxiliary::<T>(entity);
+    }
 }
 
 #[derive(Component, ExtractComponent, Clone)]
@@ -150,9 +208,12 @@ impl Plugin for RenderGraphPlugin {
                 .init_resource::<RenderGraphConfigurators>()
                 .add_systems(
                     Render,
-                    run_render_graph
-                        .in_set(RenderSet::Render)
-                        .after(ConfigureRenderGraph),
+                    (
+                        run_render_graph
+                            .in_set(RenderSet::Render)
+                            .after(ConfigureRenderGraph),
+                        reset_configurators.in_set(RenderSet::Cleanup),
+                    ),
                 );
         }
     }
@@ -166,11 +227,11 @@ fn run_render_graph(world: &mut World) {
             let configurators = world.resource::<RenderGraphConfigurators>();
             let mut render_graph = RenderGraph::new();
 
-            for (entity, config) in configurators.iter() {
+            for (view_entity, config) in configurators.iter() {
                 let builder = RenderGraphBuilder {
                     graph: &mut render_graph,
                     world,
-                    view_entity: world.entity(entity),
+                    entity: world.entity(view_entity),
                     render_device,
                 };
 
@@ -188,4 +249,8 @@ fn run_render_graph(world: &mut World) {
             render_graph.run(world, render_device, render_queue, &pipeline_cache);
         });
     });
+}
+
+fn reset_configurators(mut graph_configurators: ResMut<RenderGraphConfigurators>) {
+    graph_configurators.reset();
 }

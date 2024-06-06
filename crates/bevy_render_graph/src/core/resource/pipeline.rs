@@ -1,7 +1,7 @@
 use std::borrow::{Borrow, Cow};
 
 use bevy_asset::Handle;
-use bevy_ecs::world::World;
+use bevy_ecs::{entity::Entity, world::World};
 use bevy_utils::HashMap;
 
 use bevy_render::{
@@ -252,7 +252,7 @@ impl<'g> RenderGraphPipelines<'g> {
         id
     }
 
-    pub(in crate::core) fn create_queued_pipelines(
+    pub fn create_queued_pipelines(
         &mut self,
         graph: &RenderGraph<'g>,
         local_cache: &mut CachedRenderGraphPipelines,
@@ -263,6 +263,7 @@ impl<'g> RenderGraphPipelines<'g> {
             let ctx = NodeContext {
                 graph,
                 world,
+                view: world.entity(Entity::PLACEHOLDER),
                 dependencies,
                 pipeline_cache: None,
             };
@@ -284,6 +285,7 @@ impl<'g> RenderGraphPipelines<'g> {
             let ctx = NodeContext {
                 graph,
                 world,
+                view: world.entity(Entity::PLACEHOLDER),
                 dependencies,
                 pipeline_cache: None,
             };

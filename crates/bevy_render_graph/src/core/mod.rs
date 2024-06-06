@@ -8,13 +8,13 @@ pub use setup::*;
 
 use bevy_utils::HashMap;
 
-use std::{borrow::Cow, mem};
+use std::{any::type_name, borrow::Cow, mem};
 
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     system::Resource,
-    world::{EntityRef, Ref, World},
+    world::{EntityRef, World},
 };
 use bevy_render::{
     render_resource::{
@@ -47,12 +47,18 @@ pub struct RenderGraph<'g> {
     samplers: RenderResources<'g, Sampler>,
     buffers: RenderResources<'g, Buffer>,
     pipelines: RenderGraphPipelines<'g>,
-
     nodes: Vec<Node<'g>>,
+}
+
+#[derive(Default)]
+struct SubGraph<'g> {
+    nodes: Vec<Node<'g>>,
+    // output: Option<Ptr<'g>>,
 }
 
 struct Node<'g> {
     label: Label<'g>,
+    view: EntityRef<'g>,
     dependencies: RenderDependencies<'g>,
     runner: NodeRunner<'g>,
 }
@@ -96,11 +102,13 @@ impl<'g> RenderGraph<'g> {
                 let Node {
                     label,
                     dependencies,
+                    view,
                     runner,
                 } = node;
                 let context = NodeContext {
                     graph: &self,
                     world,
+                    view,
                     dependencies,
                     pipeline_cache: Some(pipeline_cache),
                 };
@@ -141,7 +149,6 @@ impl<'g> RenderGraph<'g> {
         pipeline_cache: &mut PipelineCache,
         render_device: &RenderDevice,
         world: &World,
-        // view_entity: EntityRef<'g>,
     ) {
         let mut bind_group_layouts = mem::take(&mut self.bind_group_layouts);
         bind_group_layouts.create_queued_resources_cached(
@@ -200,6 +207,7 @@ impl<'g> RenderGraph<'g> {
                 let context = NodeContext {
                     graph: render_graph,
                     world,
+                    view: world.entity(Entity::PLACEHOLDER),
                     dependencies: deps,
                     pipeline_cache: None,
                 };
@@ -228,6 +236,7 @@ impl<'g> RenderGraph<'g> {
                 let context = NodeContext {
                     graph,
                     world,
+                    view: world.entity(Entity::PLACEHOLDER),
                     dependencies: meta.dependencies(),
                     pipeline_cache: None,
                 };
@@ -240,6 +249,30 @@ impl<'g> RenderGraph<'g> {
         self.bind_groups = bind_groups;
     }
 
+    // //SAFETY: No other method may write to the `outputs` field
+    // #[allow(unsafe_code)]
+    // fn use_view<T: Configurator>(
+    //     &mut self,
+    //     entity: Entity,
+    //     builder: &mut RenderGraphBuilder<'_, 'g>,
+    // ) -> &T::Output<'g> {
+    //     self.configurators.add_auxiliary::<T>(entity);
+    //     if self.stack.contains(&entity) {
+    //         panic!("Circular dependency between render graph configurators");
+    //     }
+    //     let ptr = self.outputs.entry(entity).or_insert_with(|| {
+    //         let inner_builder = builder.as_inner(entity);
+    //         let config = inner_builder.view_component::<T>().clone();
+    //         self.stack.insert(entity);
+    //         let output = config.configure(inner_builder);
+    //         self.stack.remove(&entity);
+    //         self.alloc.emplace_shared().value(output).into()
+    //     });
+    //     //SAFETY: we uphold that `T::Output<'g>` is the correct type above, and by construction T
+    //     //must be the only render graph component on the entity
+    //     unsafe { ptr.deref::<T::Output<'g>>() }
+    // }
+
     fn borrow_cached_resources(&mut self, resource_cache: &'g RenderGraphCachedResources) {
         self.bind_group_layouts
             .borrow_cached_resources(&resource_cache.bind_group_layouts);
@@ -250,10 +283,8 @@ impl<'g> RenderGraph<'g> {
 
 pub struct RenderGraphBuilder<'b, 'g: 'b> {
     graph: &'b mut RenderGraph<'g>,
-    // resource_cache: &'b mut RenderGraphCachedResources,
-    // pipeline_cache: &'b mut PipelineCache,
     world: &'g World,
-    view_entity: EntityRef<'g>,
+    entity: EntityRef<'g>,
     render_device: &'b RenderDevice,
 }
 
@@ -328,6 +359,7 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
         self.graph.resources.write_dependencies(&dependencies);
         self.graph.nodes.push(Node {
             label,
+            view: self.view_entity(),
             dependencies,
             runner: NodeRunner::Raw(Box::new(node)),
         });
@@ -348,12 +380,17 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
         self.graph.resources.write_dependencies(&dependencies);
         self.graph.nodes.push(Node {
             label,
+            view: self.view_entity(),
             dependencies,
             runner: NodeRunner::Compute(Box::new(node)),
         });
 
         self
     }
+
+    // pub fn use_view<T: Configurator>(&mut self, view: Entity) -> &T::Output<'g> {
+    //     self.graph.use_view::<T>(view, self)
+    // }
 
     #[inline]
     pub fn features(&self) -> WgpuFeatures {
@@ -375,48 +412,58 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
 
     fn as_inner<'a>(&'a mut self, entity: Entity) -> RenderGraphBuilder<'a, 'g> {
         RenderGraphBuilder {
-            graph: &mut self.graph,
-            world: &self.world,
-            view_entity: self.world.entity(entity),
-            render_device: &self.render_device,
+            graph: self.graph,
+            world: self.world,
+            entity: self.world.entity(entity),
+            render_device: self.render_device,
         }
     }
 }
 
 impl<'g> RenderGraphBuilder<'_, 'g> {
     #[inline]
+    pub fn world(&self) -> &World {
+        self.world
+    }
+
+    #[inline]
     pub fn world_resource<R: Resource>(&self) -> &'g R {
         self.world.resource()
     }
 
     #[inline]
-    pub fn get_world_resource<R: Resource>(&self) -> Option<&'g R> {
+    pub fn world_get_resource<R: Resource>(&self) -> Option<&'g R> {
         self.world.get_resource()
     }
 
+    #[inline]
     pub fn view_id(&self) -> Entity {
-        self.view_entity.id()
-    }
-
-    pub fn view_contains<C: Component>(&self) -> bool {
-        self.view_entity.contains::<C>()
-    }
-
-    pub fn view_get<C: Component>(&self) -> Option<&'g C> {
-        self.view_entity.get()
-    }
-
-    pub fn view_get_ref<C: Component>(&self) -> Option<Ref<'g, C>> {
-        self.view_entity.get_ref()
-    }
-
-    pub fn view_entity(&self) -> EntityRef<'g> {
-        self.view_entity
+        self.entity.id()
     }
 
     #[inline]
-    pub fn world(&self) -> &'g World {
-        self.world
+    pub fn view_entity(&self) -> EntityRef<'g> {
+        self.entity
+    }
+
+    #[inline]
+    pub fn view_contains<C: Component>(&self) -> bool {
+        self.entity.contains::<C>()
+    }
+
+    pub fn view_component<C: Component>(&self) -> &'g C {
+        self.entity.get().unwrap_or_else(|| {
+            panic!(
+                "Component {} not found on entity {}",
+                type_name::<C>(),
+                self.view_id()
+            )
+        })
+    }
+
+    #[inline]
+    pub fn view_get_component<C: Component>(&self) -> Option<&'g C> {
+        self.entity.get()
     }
 }
 
@@ -722,6 +769,7 @@ impl<'b, 'g: 'b> RenderGraphBuilder<'b, 'g> {
 pub struct NodeContext<'n, 'g: 'n> {
     graph: &'n RenderGraph<'g>,
     world: &'n World,
+    view: EntityRef<'n>,
     dependencies: RenderDependencies<'g>,
     pipeline_cache: Option<&'n PipelineCache>, //Jank
 }
@@ -804,6 +852,10 @@ impl<'n, 'g: 'n> NodeContext<'n, 'g> {
 }
 
 impl<'n, 'g: 'n> NodeContext<'n, 'g> {
+    pub fn world(&self) -> &World {
+        self.world
+    }
+
     pub fn world_resource<R: Resource>(&self) -> &'n R {
         self.world.resource()
     }
@@ -812,27 +864,29 @@ impl<'n, 'g: 'n> NodeContext<'n, 'g> {
         self.world.get_resource()
     }
 
-    // pub fn view_id(&self) -> Entity {
-    //     self.entity.id()
-    // }
-    //
-    // pub fn view_contains<C: Component>(&self) -> bool {
-    //     self.entity.contains::<C>()
-    // }
-    //
-    // pub fn view_get<C: Component>(&self) -> Option<&'g C> {
-    //     self.entity.get()
-    // }
-    //
-    // pub fn view_get_ref<C: Component>(&self) -> Option<Ref<'g, C>> {
-    //     self.entity.get_ref()
-    // }
-    //
-    // pub fn view_entity(&'g self) -> EntityRef<'g> {
-    //     self.entity
-    // }
+    pub fn view_id(&self) -> Entity {
+        self.view.id()
+    }
 
-    pub fn world(&self) -> &World {
-        self.world
+    pub fn view_entity(&'g self) -> EntityRef<'g> {
+        self.view
+    }
+
+    pub fn view_contains<C: Component>(&self) -> bool {
+        self.view.contains::<C>()
+    }
+
+    pub fn view_component<C: Component>(&self) -> &'n C {
+        self.view.get().unwrap_or_else(|| {
+            panic!(
+                "Component {} not found on entity {}",
+                type_name::<C>(),
+                self.view_id()
+            )
+        })
+    }
+
+    pub fn view_get_component<C: Component>(&self) -> Option<&'n C> {
+        self.view.get()
     }
 }
