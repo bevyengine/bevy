@@ -255,7 +255,7 @@ async fn load_gltf<'a, 'b, 'c>(
         for scene in gltf.scenes() {
             for node in scene.nodes() {
                 let root_index = node.index();
-                paths_recur(node, &[], &mut paths, root_index);
+                paths_recur(node, &[], &mut paths, root_index, &mut HashSet::new());
             }
         }
         paths
@@ -801,11 +801,15 @@ fn paths_recur(
     current_path: &[Name],
     paths: &mut HashMap<usize, (usize, Vec<Name>)>,
     root_index: usize,
+    visited: &mut HashSet<usize>,
 ) {
     let mut path = current_path.to_owned();
     path.push(node_name(&node));
+    visited.insert(node.index());
     for child in node.children() {
-        paths_recur(child, &path, paths, root_index);
+        if !visited.contains(&child.index()) {
+            paths_recur(child, &path, paths, root_index, visited);
+        }
     }
     paths.insert(node.index(), (root_index, path));
 }
@@ -2018,7 +2022,7 @@ mod test {
             LogPlugin::default(),
             TaskPoolPlugin::default(),
             AssetPlugin::default(),
-            ScenePlugin::default(),
+            ScenePlugin,
         ))
         // Somehow .finish() is not called on plugin, so we have to manually add stuff
         .register_type::<crate::GltfExtras>()
@@ -2300,7 +2304,8 @@ mod test {
                 None
             }
         });
-        assert!(true);
+        let load_state = asset_server.get_load_state(handle_id).unwrap();
+        assert!(matches!(load_state, LoadState::Failed(_)));
     }
 
     #[test]
@@ -2342,6 +2347,7 @@ mod test {
                 None
             }
         });
-        assert!(true);
+        let load_state = asset_server.get_load_state(handle_id).unwrap();
+        assert!(matches!(load_state, LoadState::Failed(_)));
     }
 }
