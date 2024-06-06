@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, mem};
+use std::{fmt::Debug, hash::Hash, marker::PhantomData, mem};
 
 use bevy_ecs::{
     event::{Event, EventReader, EventWriter},
@@ -68,6 +68,27 @@ pub enum StateTransitionSteps {
     TransitionSchedules,
     /// Enter schedules are executed.
     EnterSchedules,
+}
+
+/// Ensures correct ordering of state transition schedules relative to parent or dependent states
+///
+/// `S` refers to the state being ordered
+/// `Grouping` is an arbitrary categorization used to differentiate between different sets of transition schedules - such as Exit Schedules or Enter Schedules
+/// and can be used to enable correct ordering in custom schedule runners
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct StateTransitionOrderingSet<S: States, Grouping: Clone + Debug + PartialEq + Eq + Hash>(
+    Grouping,
+    PhantomData<S>,
+);
+
+impl<S: States, Grouping: Clone + Debug + PartialEq + Eq + Hash>
+    StateTransitionOrderingSet<S, Grouping>
+{
+    /// Set up a set for ordering `S`` relative to it's decendents or parents, within
+    /// the `Grouping`
+    pub fn new(grouping: Grouping) -> Self {
+        Self(grouping, PhantomData)
+    }
 }
 
 /// Defines a system set to aid with dependent state ordering

@@ -24,16 +24,25 @@ pub trait FreelyMutableState: States {
             .add_systems(
                 last_transition::<Self>
                     .pipe(run_enter::<Self>)
+                    .in_set(StateTransitionOrderingSet::<Self, _>::new(
+                        StateTransitionSteps::EnterSchedules,
+                    ))
                     .in_set(StateTransitionSteps::EnterSchedules),
             )
             .add_systems(
                 last_transition::<Self>
                     .pipe(run_exit::<Self>)
+                    .in_set(StateTransitionOrderingSet::<Self, _>::new(
+                        StateTransitionSteps::ExitSchedules,
+                    ))
                     .in_set(StateTransitionSteps::ExitSchedules),
             )
             .add_systems(
                 last_transition::<Self>
                     .pipe(run_transition::<Self>)
+                    .in_set(StateTransitionOrderingSet::<Self, _>::new(
+                        StateTransitionSteps::TransitionSchedules,
+                    ))
                     .in_set(StateTransitionSteps::TransitionSchedules),
             )
             .configure_sets(

@@ -10,7 +10,8 @@ use self::sealed::StateSetSealed;
 use super::{
     computed_states::ComputedStates, internal_apply_state_transition, last_transition, run_enter,
     run_exit, run_transition, sub_states::SubStates, take_next_state, ApplyStateTransition,
-    NextState, State, StateTransitionEvent, StateTransitionSteps, States,
+    NextState, State, StateTransitionEvent, StateTransitionOrderingSet, StateTransitionSteps,
+    States,
 };
 
 mod sealed {
@@ -114,21 +115,51 @@ impl<S: InnerStateSet> StateSet for S {
                 internal_apply_state_transition(event, commands, current_state, new_state);
             };
 
+        schedule.configure_sets(
+            StateTransitionOrderingSet::<T, _>::new(StateTransitionSteps::EnterSchedules).after(
+                StateTransitionOrderingSet::<S::RawState, _>::new(
+                    StateTransitionSteps::EnterSchedules,
+                ),
+            ),
+        );
+        schedule.configure_sets(
+            StateTransitionOrderingSet::<T, _>::new(StateTransitionSteps::TransitionSchedules)
+                .after(StateTransitionOrderingSet::<S::RawState, _>::new(
+                    StateTransitionSteps::TransitionSchedules,
+                )),
+        );
+        schedule.configure_sets(
+            StateTransitionOrderingSet::<T, _>::new(StateTransitionSteps::ExitSchedules).before(
+                StateTransitionOrderingSet::<S::RawState, _>::new(
+                    StateTransitionSteps::ExitSchedules,
+                ),
+            ),
+        );
+
         schedule
             .add_systems(apply_state_transition.in_set(ApplyStateTransition::<T>::apply()))
             .add_systems(
                 last_transition::<T>
                     .pipe(run_enter::<T>)
+                    .in_set(StateTransitionOrderingSet::<T, _>::new(
+                        StateTransitionSteps::EnterSchedules,
+                    ))
                     .in_set(StateTransitionSteps::EnterSchedules),
             )
             .add_systems(
                 last_transition::<T>
                     .pipe(run_exit::<T>)
+                    .in_set(StateTransitionOrderingSet::<T, _>::new(
+                        StateTransitionSteps::ExitSchedules,
+                    ))
                     .in_set(StateTransitionSteps::ExitSchedules),
             )
             .add_systems(
                 last_transition::<T>
                     .pipe(run_transition::<T>)
+                    .in_set(StateTransitionOrderingSet::<T, _>::new(
+                        StateTransitionSteps::TransitionSchedules,
+                    ))
                     .in_set(StateTransitionSteps::TransitionSchedules),
             )
             .configure_sets(
@@ -186,21 +217,51 @@ impl<S: InnerStateSet> StateSet for S {
                 internal_apply_state_transition(event, commands, current_state_res, new_state);
             };
 
+        schedule.configure_sets(
+            StateTransitionOrderingSet::<T, _>::new(StateTransitionSteps::EnterSchedules).after(
+                StateTransitionOrderingSet::<S::RawState, _>::new(
+                    StateTransitionSteps::EnterSchedules,
+                ),
+            ),
+        );
+        schedule.configure_sets(
+            StateTransitionOrderingSet::<T, _>::new(StateTransitionSteps::TransitionSchedules)
+                .after(StateTransitionOrderingSet::<S::RawState, _>::new(
+                    StateTransitionSteps::TransitionSchedules,
+                )),
+        );
+        schedule.configure_sets(
+            StateTransitionOrderingSet::<T, _>::new(StateTransitionSteps::ExitSchedules).before(
+                StateTransitionOrderingSet::<S::RawState, _>::new(
+                    StateTransitionSteps::ExitSchedules,
+                ),
+            ),
+        );
+
         schedule
             .add_systems(apply_state_transition.in_set(ApplyStateTransition::<T>::apply()))
             .add_systems(
                 last_transition::<T>
                     .pipe(run_enter::<T>)
+                    .in_set(StateTransitionOrderingSet::<T, _>::new(
+                        StateTransitionSteps::EnterSchedules,
+                    ))
                     .in_set(StateTransitionSteps::EnterSchedules),
             )
             .add_systems(
                 last_transition::<T>
                     .pipe(run_exit::<T>)
+                    .in_set(StateTransitionOrderingSet::<T, _>::new(
+                        StateTransitionSteps::ExitSchedules,
+                    ))
                     .in_set(StateTransitionSteps::ExitSchedules),
             )
             .add_systems(
                 last_transition::<T>
                     .pipe(run_transition::<T>)
+                    .in_set(StateTransitionOrderingSet::<T, _>::new(
+                        StateTransitionSteps::TransitionSchedules,
+                    ))
                     .in_set(StateTransitionSteps::TransitionSchedules),
             )
             .configure_sets(
@@ -243,11 +304,17 @@ macro_rules! impl_state_set_sealed_tuples {
                         internal_apply_state_transition(event, commands, current_state, new_state);
                     };
 
+                $(
+                    schedule.configure_sets(StateTransitionOrderingSet::<T,_>::new(StateTransitionSteps::EnterSchedules).after(StateTransitionOrderingSet::<$param::RawState,_>::new(StateTransitionSteps::EnterSchedules)));
+                    schedule.configure_sets(StateTransitionOrderingSet::<T,_>::new(StateTransitionSteps::TransitionSchedules).after(StateTransitionOrderingSet::<$param::RawState,_>::new(StateTransitionSteps::TransitionSchedules)));
+                    schedule.configure_sets(StateTransitionOrderingSet::<T,_>::new(StateTransitionSteps::ExitSchedules).before(StateTransitionOrderingSet::<$param::RawState,_>::new(StateTransitionSteps::ExitSchedules)));
+                )*
+
                 schedule
                     .add_systems(apply_state_transition.in_set(ApplyStateTransition::<T>::apply()))
-                    .add_systems(last_transition::<T>.pipe(run_enter::<T>).in_set(StateTransitionSteps::EnterSchedules))
-                    .add_systems(last_transition::<T>.pipe(run_exit::<T>).in_set(StateTransitionSteps::ExitSchedules))
-                    .add_systems(last_transition::<T>.pipe(run_transition::<T>).in_set(StateTransitionSteps::TransitionSchedules))
+                    .add_systems(last_transition::<T>.pipe(run_enter::<T>).in_set(StateTransitionOrderingSet::<T,_>::new(StateTransitionSteps::EnterSchedules)).in_set(StateTransitionSteps::EnterSchedules))
+                    .add_systems(last_transition::<T>.pipe(run_exit::<T>).in_set(StateTransitionOrderingSet::<T,_>::new(StateTransitionSteps::ExitSchedules)).in_set(StateTransitionSteps::ExitSchedules))
+                    .add_systems(last_transition::<T>.pipe(run_transition::<T>).in_set(StateTransitionOrderingSet::<T,_>::new(StateTransitionSteps::TransitionSchedules)).in_set(StateTransitionSteps::TransitionSchedules))
                     .configure_sets(
                         ApplyStateTransition::<T>::apply()
                         .in_set(StateTransitionSteps::DependentTransitions)
@@ -288,11 +355,19 @@ macro_rules! impl_state_set_sealed_tuples {
                         internal_apply_state_transition(event, commands, current_state_res, new_state);
                     };
 
+
+
+                $(
+                    schedule.configure_sets(StateTransitionOrderingSet::<T,_>::new(StateTransitionSteps::EnterSchedules).after(StateTransitionOrderingSet::<$param::RawState,_>::new(StateTransitionSteps::EnterSchedules)));
+                    schedule.configure_sets(StateTransitionOrderingSet::<T,_>::new(StateTransitionSteps::TransitionSchedules).after(StateTransitionOrderingSet::<$param::RawState,_>::new(StateTransitionSteps::TransitionSchedules)));
+                    schedule.configure_sets(StateTransitionOrderingSet::<T,_>::new(StateTransitionSteps::ExitSchedules).before(StateTransitionOrderingSet::<$param::RawState,_>::new(StateTransitionSteps::ExitSchedules)));
+                )*
+
                 schedule
                     .add_systems(apply_state_transition.in_set(ApplyStateTransition::<T>::apply()))
-                    .add_systems(last_transition::<T>.pipe(run_enter::<T>).in_set(StateTransitionSteps::EnterSchedules))
-                    .add_systems(last_transition::<T>.pipe(run_exit::<T>).in_set(StateTransitionSteps::ExitSchedules))
-                    .add_systems(last_transition::<T>.pipe(run_transition::<T>).in_set(StateTransitionSteps::TransitionSchedules))
+                    .add_systems(last_transition::<T>.pipe(run_enter::<T>).in_set(StateTransitionOrderingSet::<T,_>::new(StateTransitionSteps::EnterSchedules)).in_set(StateTransitionSteps::EnterSchedules))
+                    .add_systems(last_transition::<T>.pipe(run_exit::<T>).in_set(StateTransitionOrderingSet::<T,_>::new(StateTransitionSteps::ExitSchedules)).in_set(StateTransitionSteps::ExitSchedules))
+                    .add_systems(last_transition::<T>.pipe(run_transition::<T>).in_set(StateTransitionOrderingSet::<T,_>::new(StateTransitionSteps::TransitionSchedules)).in_set(StateTransitionSteps::TransitionSchedules))
                     .configure_sets(
                         ApplyStateTransition::<T>::apply()
                         .in_set(StateTransitionSteps::DependentTransitions)
