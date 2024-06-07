@@ -177,7 +177,10 @@ impl NormedVectorSpace for f32 {
 ///    interpolation curve between `p` and `q` must be the *linear* reparametrization of the original
 ///    interpolation curve restricted to the interval `[t0, t1]`.
 ///
-/// The last of these conditions is very strong and indicates something like constant speed.
+/// The last of these conditions is very strong and indicates something like constant speed. It
+/// is called "subdivision stability" because it guarantees that breaking up the interpolation
+/// into segments and joining them back together has no effect.
+///
 /// Here is a diagram depicting it:
 /// ```text
 /// top curve = u.interpolate(v, t)
