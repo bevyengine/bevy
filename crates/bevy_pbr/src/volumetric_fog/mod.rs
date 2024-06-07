@@ -31,7 +31,7 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
-use bevy_color::Color;
+use bevy_color::{ColorToComponents, Color};
 use bevy_core_pipeline::{
     core_3d::{
         graph::{Core3d, Node3d},
@@ -617,18 +617,9 @@ pub fn prepare_volumetric_fog_uniforms(
 
     for (entity, volumetric_fog_settings) in view_targets.iter() {
         let offset = writer.write(&VolumetricFogUniform {
-            fog_color: Vec3::from_slice(
-                &volumetric_fog_settings.fog_color.linear().to_f32_array()[0..3],
-            ),
-            light_tint: Vec3::from_slice(
-                &volumetric_fog_settings.light_tint.linear().to_f32_array()[0..3],
-            ),
-            ambient_color: Vec3::from_slice(
-                &volumetric_fog_settings
-                    .ambient_color
-                    .linear()
-                    .to_f32_array()[0..3],
-            ),
+            fog_color: volumetric_fog_settings.fog_color.to_linear().to_vec3(),
+            light_tint: volumetric_fog_settings.light_tint.to_linear().to_vec3(),
+            ambient_color: volumetric_fog_settings.ambient_color.to_linear().to_vec3(),
             ambient_intensity: volumetric_fog_settings.ambient_intensity,
             step_count: volumetric_fog_settings.step_count,
             max_depth: volumetric_fog_settings.max_depth,

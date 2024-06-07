@@ -168,10 +168,7 @@ impl Srgba {
 
     /// Convert this color to CSS-style hexadecimal notation.
     pub fn to_hex(&self) -> String {
-        let r = (self.red * 255.0).round() as u8;
-        let g = (self.green * 255.0).round() as u8;
-        let b = (self.blue * 255.0).round() as u8;
-        let a = (self.alpha * 255.0).round() as u8;
+        let [r, g, b, a] = self.to_u8_array();
         match a {
             255 => format!("#{:02X}{:02X}{:02X}", r, g, b),
             _ => format!("#{:02X}{:02X}{:02X}{:02X}", r, g, b, a),
@@ -189,7 +186,7 @@ impl Srgba {
     /// See also [`Srgba::new`], [`Srgba::rgba_u8`], [`Srgba::hex`].
     ///
     pub fn rgb_u8(r: u8, g: u8, b: u8) -> Self {
-        Self::rgba_u8(r, g, b, u8::MAX)
+        Self::from_u8_array_no_alpha([r, g, b])
     }
 
     // Float operations in const fn are not stable yet
@@ -206,12 +203,7 @@ impl Srgba {
     /// See also [`Srgba::new`], [`Srgba::rgb_u8`], [`Srgba::hex`].
     ///
     pub fn rgba_u8(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self::new(
-            r as f32 / u8::MAX as f32,
-            g as f32 / u8::MAX as f32,
-            b as f32 / u8::MAX as f32,
-            a as f32 / u8::MAX as f32,
-        )
+        Self::from_u8_array([r, g, b, a])
     }
 
     /// Converts a non-linear sRGB value to a linear one via [gamma correction](https://en.wikipedia.org/wiki/Gamma_correction).
@@ -370,6 +362,22 @@ impl ColorToComponents for Srgba {
             blue: color[2],
             alpha: 1.0,
         }
+    }
+
+    fn to_u8_array(self) -> [u8; 4] {
+        [self.red, self.green, self.blue, self.alpha].map(|v| (v.clamp(0.0, 1.0) * 255.0) as u8)
+    }
+
+    fn to_u8_array_no_alpha(self) -> [u8; 3] {
+        [self.red, self.green, self.blue].map(|v| (v.clamp(0.0, 1.0) * 255.0) as u8)
+    }
+
+    fn from_u8_array(color: [u8; 4]) -> Self {
+        Self::from_f32_array(color.map(|u| u as f32 / 255.0))
+    }
+
+    fn from_u8_array_no_alpha(color: [u8; 3]) -> Self {
+        Self::from_f32_array_no_alpha(color.map(|u| u as f32 / 255.0))
     }
 }
 
