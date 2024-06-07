@@ -4,6 +4,7 @@
 
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
 #import bevy_pbr::{
+    clustered_forward,
     lighting,
     lighting::{LAYER_BASE, LAYER_CLEARCOAT},
     mesh_view_bindings::{view, depth_prepass_texture, deferred_prepass_texture, ssr_settings},
@@ -171,8 +172,16 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     lighting_input.clearcoat_strength = clearcoat;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
+    // Determine which cluster we're in. We'll need this to find the right
+    // reflection probe.
+    let cluster_index = clustered_forward::fragment_cluster_index(
+        frag_coord.xy, frag_coord.z, false);
+    var clusterable_object_index_ranges =
+        clustered_forward::unpack_clusterable_object_index_ranges(cluster_index);
+
     // Sample the environment map.
-    let environment_light = environment_map::environment_map_light(&lighting_input, false);
+    let environment_light = environment_map::environment_map_light(
+        &lighting_input, &clusterable_object_index_ranges, false);
 
     // Accumulate the environment map light.
     indirect_light += view.exposure *

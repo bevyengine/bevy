@@ -1,3 +1,4 @@
+use assign::ClusterableObjectType;
 use bevy_asset::AssetId;
 use bevy_core_pipeline::core_3d::CORE_3D_DEPTH_FORMAT;
 use bevy_ecs::entity::EntityHashSet;
@@ -637,13 +638,11 @@ pub fn prepare_lights(
         crate::cluster::clusterable_object_order(
             (
                 entity_1,
-                &light_1.shadows_enabled,
-                &light_1.spot_light_angles.is_some(),
+                &ClusterableObjectType::from_point_or_spot_light(light_1),
             ),
             (
                 entity_2,
-                &light_2.shadows_enabled,
-                &light_2.spot_light_angles.is_some(),
+                &ClusterableObjectType::from_point_or_spot_light(light_2),
             ),
         )
     });
