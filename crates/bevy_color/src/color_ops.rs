@@ -121,7 +121,6 @@ pub trait ColorToComponents {
     fn from_u8_array(color: [u8; 4]) -> Self;
     /// Convert to [u8; 3] where that makes sense (Srgba is most relevant)
     fn from_u8_array_no_alpha(color: [u8; 3]) -> Self;
-    
 }
 
 /// Utility function for interpolating hue values. This ensures that the interpolation

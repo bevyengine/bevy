@@ -31,7 +31,7 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
-use bevy_color::{ColorToComponents, Color};
+use bevy_color::{Color, ColorToComponents};
 use bevy_core_pipeline::{
     core_3d::{
         graph::{Core3d, Node3d},

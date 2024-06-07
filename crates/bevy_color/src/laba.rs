@@ -212,11 +212,11 @@ impl ColorToComponents for Laba {
     fn to_u8_array_no_alpha(self) -> [u8; 3] {
         unimplemented!()
     }
-       
+
     fn from_u8_array(_color: [u8; 4]) -> Self {
         unimplemented!()
     }
-    
+
     fn from_u8_array_no_alpha(_color: [u8; 3]) -> Self {
         unimplemented!()
     }
