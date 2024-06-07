@@ -23,7 +23,7 @@ use bevy_render::{
         NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner,
     },
     render_resource::{
-        binding_types::{sampler, texture_1d, texture_2d, uniform_buffer},
+        binding_types::{sampler, texture_2d, uniform_buffer},
         BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
         ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d, FilterMode, FragmentState,
         Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
@@ -44,8 +44,11 @@ use crate::{
     fullscreen_vertex_shader,
 };
 
-/// The handle to the built-in postprocessing shader `postprocess.wgsl`.
-const POSTPROCESSING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(14675654334038973533);
+/// The handle to the built-in postprocessing shader `post_process.wgsl`.
+const POST_PROCESSING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(14675654334038973533);
+/// The handle to the chromatic aberration shader `chromatic_aberration.wgsl`.
+const CHROMATIC_ABERRATION_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(10969893303667163833);
 
 /// The handle to the default chromatic aberration lookup texture.
 ///
@@ -56,7 +59,7 @@ const DEFAULT_CHROMATIC_ABERRATION_LUT_HANDLE: Handle<Image> =
 
 /// The default chromatic aberration intensity amount, in a fraction of the
 /// window size.
-const DEFAULT_CHROMATIC_ABBERATION_INTENSITY: f32 = 0.02;
+const DEFAULT_CHROMATIC_ABERRATION_INTENSITY: f32 = 0.02;
 
 /// The default maximum number of samples for chromatic aberration.
 const DEFAULT_CHROMATIC_ABERRATION_MAX_SAMPLES: u32 = 8;
@@ -65,14 +68,14 @@ const DEFAULT_CHROMATIC_ABERRATION_MAX_SAMPLES: u32 = 8;
 ///
 /// This consists of one red pixel, one green pixel, and one blue pixel, in that
 /// order.
-static DEFAULT_CHROMATIC_ABBERATION_LUT_DATA: [u8; 12] =
+static DEFAULT_CHROMATIC_ABERRATION_LUT_DATA: [u8; 12] =
     [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255];
 
 /// A plugin that implements a built-in postprocessing stack with some common
 /// effects.
 ///
 /// Currently, this only consists of chromatic aberration.
-pub struct PostprocessingPlugin;
+pub struct PostProcessingPlugin;
 
 /// Adds colored fringes to the edges of objects in the scene.
 ///
@@ -86,7 +89,7 @@ pub struct PostprocessingPlugin;
 /// It's based on a customizable lookup texture, which allows for changing the
 /// color pattern. By default, the color pattern is simply a 3×1 pixel texture
 /// consisting of red, green, and blue, in that order, but you can change it to
-/// any 1D image in order to achieve different effects.
+/// any image in order to achieve different effects.
 ///
 /// [Chromatic aberration]: https://en.wikipedia.org/wiki/Chromatic_aberration
 ///
@@ -94,12 +97,15 @@ pub struct PostprocessingPlugin;
 #[derive(Reflect, Component, Clone)]
 #[reflect(Component, Default)]
 pub struct ChromaticAberration {
-    /// The 1D lookup texture that determines the color gradient.
+    /// The lookup texture that determines the color gradient.
     ///
-    /// By default, this is a 3×1 pixel texture consisting of one red pixel, one
-    /// green pixel, and one blue pixel, in that order. This recreates the most
+    /// By default, this is a 3×1 texel texture consisting of one red pixel, one
+    /// green pixel, and one blue texel, in that order. This recreates the most
     /// typical chromatic aberration pattern. However, you can change it to
     /// achieve different artistic effects.
+    ///
+    /// The texture is always sampled in its vertical center, so it should
+    /// ordinarily have a height of 1 texel.
     pub color_lut: Handle<Image>,
 
     /// The size of the streaks around the edges of objects, as a fraction of
@@ -120,7 +126,7 @@ pub struct ChromaticAberration {
 ///
 /// This is stored in the render world.
 #[derive(Resource)]
-pub struct PostprocessingPipeline {
+pub struct PostProcessingPipeline {
     /// The layout of bind group 0, containing the source, LUT, and settings.
     bind_group_layout: BindGroupLayout,
     /// Specifies how to sample the source framebuffer texture.
@@ -131,7 +137,7 @@ pub struct PostprocessingPipeline {
 
 /// A key that uniquely identifies a built-in postprocessing pipeline.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct PostprocessingPipelineKey {
+pub struct PostProcessingPipelineKey {
     /// The format of the source and destination textures.
     texture_format: TextureFormat,
 }
@@ -139,19 +145,19 @@ pub struct PostprocessingPipelineKey {
 /// A component attached to cameras in the render world that stores the
 /// specialized pipeline ID for the built-in postprocessing stack.
 #[derive(Component, Deref, DerefMut)]
-pub struct PostprocessingPipelineId(CachedRenderPipelineId);
+pub struct PostProcessingPipelineId(CachedRenderPipelineId);
 
 /// The on-GPU version of the [`ChromaticAberration`] settings.
 ///
 /// See the documentation for [`ChromaticAberration`] for more information on
 /// each of these fields.
 #[derive(ShaderType)]
-pub struct PostprocessingUniform {
+pub struct ChromaticAberrationUniform {
     /// The intensity of the effect, in a fraction of the screen.
-    chromatic_aberration_intensity: f32,
+    intensity: f32,
     /// A cap on the number of samples of the source texture that the shader
     /// will perform.
-    chromatic_aberration_max_samples: u32,
+    max_samples: u32,
     /// Padding data.
     unused_1: u32,
     /// Padding data.
@@ -161,24 +167,34 @@ pub struct PostprocessingUniform {
 /// A resource, part of the render world, that stores the
 /// [`PostprocessingUniform`]s for each view.
 #[derive(Resource, Deref, DerefMut, Default)]
-pub struct PostprocessingUniformBuffer(DynamicUniformBuffer<PostprocessingUniform>);
+pub struct PostProcessingUniformBuffers {
+    chromatic_aberration: DynamicUniformBuffer<ChromaticAberrationUniform>,
+}
 
 /// A component, part of the render world, that stores the appropriate byte
 /// offset within the [`PostprocessingUniformBuffer`] for the camera it's
 /// attached to.
 #[derive(Component, Deref, DerefMut)]
-pub struct PostprocessingUniformBufferOffset(u32);
+pub struct PostProcessingUniformBufferOffsets {
+    chromatic_aberration: u32,
+}
 
 /// The render node that runs the built-in postprocessing stack.
 #[derive(Default)]
-pub struct PostprocessingNode;
+pub struct PostProcessingNode;
 
-impl Plugin for PostprocessingPlugin {
+impl Plugin for PostProcessingPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(
             app,
-            POSTPROCESSING_SHADER_HANDLE,
-            "postprocess.wgsl",
+            POST_PROCESSING_SHADER_HANDLE,
+            "post_process.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            CHROMATIC_ABERRATION_SHADER_HANDLE,
+            "chromatic_aberration.wgsl",
             Shader::from_wgsl
         );
 
@@ -192,8 +208,8 @@ impl Plugin for PostprocessingPlugin {
                     height: 1,
                     depth_or_array_layers: 1,
                 },
-                TextureDimension::D1,
-                DEFAULT_CHROMATIC_ABBERATION_LUT_DATA.to_vec(),
+                TextureDimension::D2,
+                DEFAULT_CHROMATIC_ABERRATION_LUT_DATA.to_vec(),
                 TextureFormat::Rgba8UnormSrgb,
                 RenderAssetUsages::RENDER_WORLD,
             ),
@@ -207,8 +223,8 @@ impl Plugin for PostprocessingPlugin {
         };
 
         render_app
-            .init_resource::<SpecializedRenderPipelines<PostprocessingPipeline>>()
-            .init_resource::<PostprocessingUniformBuffer>()
+            .init_resource::<SpecializedRenderPipelines<PostProcessingPipeline>>()
+            .init_resource::<PostProcessingUniformBuffers>()
             .add_systems(
                 Render,
                 (
@@ -217,7 +233,7 @@ impl Plugin for PostprocessingPlugin {
                 )
                     .in_set(RenderSet::Prepare),
             )
-            .add_render_graph_node::<ViewNodeRunner<PostprocessingNode>>(
+            .add_render_graph_node::<ViewNodeRunner<PostProcessingNode>>(
                 Core3d,
                 Node3d::Postprocessing,
             )
@@ -229,7 +245,7 @@ impl Plugin for PostprocessingPlugin {
                     Node3d::Tonemapping,
                 ),
             )
-            .add_render_graph_node::<ViewNodeRunner<PostprocessingNode>>(
+            .add_render_graph_node::<ViewNodeRunner<PostProcessingNode>>(
                 Core2d,
                 Node2d::Postprocessing,
             )
@@ -243,7 +259,7 @@ impl Plugin for PostprocessingPlugin {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-        render_app.init_resource::<PostprocessingPipeline>();
+        render_app.init_resource::<PostProcessingPipeline>();
     }
 }
 
@@ -251,13 +267,13 @@ impl Default for ChromaticAberration {
     fn default() -> Self {
         Self {
             color_lut: DEFAULT_CHROMATIC_ABERRATION_LUT_HANDLE,
-            intensity: DEFAULT_CHROMATIC_ABBERATION_INTENSITY,
+            intensity: DEFAULT_CHROMATIC_ABERRATION_INTENSITY,
             max_samples: DEFAULT_CHROMATIC_ABERRATION_MAX_SAMPLES,
         }
     }
 }
 
-impl FromWorld for PostprocessingPipeline {
+impl FromWorld for PostProcessingPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
@@ -267,16 +283,16 @@ impl FromWorld for PostprocessingPipeline {
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
                 (
-                    // Source:
+                    // Chromatic aberration source:
                     texture_2d(TextureSampleType::Float { filterable: true }),
-                    // Source sampler:
+                    // Chromatic aberration source sampler:
                     sampler(SamplerBindingType::Filtering),
                     // Chromatic aberration LUT:
-                    texture_1d(TextureSampleType::Float { filterable: true }),
+                    texture_2d(TextureSampleType::Float { filterable: true }),
                     // Chromatic aberration LUT sampler:
                     sampler(SamplerBindingType::Filtering),
-                    // Postprocessing settings:
-                    uniform_buffer::<PostprocessingUniform>(true),
+                    // Chromatic aberration settings:
+                    uniform_buffer::<ChromaticAberrationUniform>(true),
                 ),
             ),
         );
@@ -298,7 +314,7 @@ impl FromWorld for PostprocessingPipeline {
             ..default()
         });
 
-        PostprocessingPipeline {
+        PostProcessingPipeline {
             bind_group_layout,
             source_sampler,
             chromatic_aberration_lut_sampler,
@@ -306,8 +322,8 @@ impl FromWorld for PostprocessingPipeline {
     }
 }
 
-impl SpecializedRenderPipeline for PostprocessingPipeline {
-    type Key = PostprocessingPipelineKey;
+impl SpecializedRenderPipeline for PostProcessingPipeline {
+    type Key = PostProcessingPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
@@ -315,7 +331,7 @@ impl SpecializedRenderPipeline for PostprocessingPipeline {
             layout: vec![self.bind_group_layout.clone()],
             vertex: fullscreen_vertex_shader::fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
-                shader: POSTPROCESSING_SHADER_HANDLE,
+                shader: POST_PROCESSING_SHADER_HANDLE,
                 shader_defs: vec![],
                 entry_point: "fragment_main".into(),
                 targets: vec![Some(ColorTargetState {
@@ -332,24 +348,24 @@ impl SpecializedRenderPipeline for PostprocessingPipeline {
     }
 }
 
-impl ViewNode for PostprocessingNode {
+impl ViewNode for PostProcessingNode {
     type ViewQuery = (
         Read<ViewTarget>,
-        Read<PostprocessingPipelineId>,
+        Read<PostProcessingPipelineId>,
         Read<ChromaticAberration>,
-        Read<PostprocessingUniformBufferOffset>,
+        Read<PostProcessingUniformBufferOffsets>,
     );
 
     fn run<'w>(
         &self,
         _: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (view_target, pipeline_id, chromatic_aberration, postprocessing_uniform_buffer_offset): QueryItem<'w, Self::ViewQuery>,
+        (view_target, pipeline_id, chromatic_aberration, postprocessing_uniform_buffer_offsets): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
-        let postprocessing_pipeline = world.resource::<PostprocessingPipeline>();
-        let postprocessing_uniform_buffer = world.resource::<PostprocessingUniformBuffer>();
+        let postprocessing_pipeline = world.resource::<PostProcessingPipeline>();
+        let postprocessing_uniform_buffers = world.resource::<PostProcessingUniformBuffers>();
         let gpu_image_assets = world.resource::<RenderAssets<GpuImage>>();
 
         // We need a render pipeline to be prepared.
@@ -364,7 +380,9 @@ impl ViewNode for PostprocessingNode {
         };
 
         // We need the postprocessing settings to be uploaded to the GPU.
-        let Some(postprocessing_uniform_buffer_binding) = postprocessing_uniform_buffer.binding()
+        let Some(chromatic_aberration_uniform_buffer_binding) = postprocessing_uniform_buffers
+            .chromatic_aberration
+            .binding()
         else {
             return Ok(());
         };
@@ -393,7 +411,7 @@ impl ViewNode for PostprocessingNode {
                 &postprocessing_pipeline.source_sampler,
                 &chromatic_aberration_lut.texture_view,
                 &postprocessing_pipeline.chromatic_aberration_lut_sampler,
-                postprocessing_uniform_buffer_binding,
+                chromatic_aberration_uniform_buffer_binding,
             )),
         );
 
@@ -402,7 +420,7 @@ impl ViewNode for PostprocessingNode {
             .begin_render_pass(&pass_descriptor);
 
         render_pass.set_pipeline(pipeline);
-        render_pass.set_bind_group(0, &bind_group, &[**postprocessing_uniform_buffer_offset]);
+        render_pass.set_bind_group(0, &bind_group, &[**postprocessing_uniform_buffer_offsets]);
         render_pass.draw(0..3, 0..1);
 
         Ok(())
@@ -413,15 +431,15 @@ impl ViewNode for PostprocessingNode {
 pub fn prepare_postprocessing_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<PostprocessingPipeline>>,
-    postprocessing_pipeline: Res<PostprocessingPipeline>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<PostProcessingPipeline>>,
+    postprocessing_pipeline: Res<PostProcessingPipeline>,
     views: Query<(Entity, &ExtractedView), With<ChromaticAberration>>,
 ) {
     for (entity, view) in views.iter() {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &postprocessing_pipeline,
-            PostprocessingPipelineKey {
+            PostProcessingPipelineKey {
                 texture_format: if view.hdr {
                     ViewTarget::TEXTURE_FORMAT_HDR
                 } else {
@@ -432,7 +450,7 @@ pub fn prepare_postprocessing_pipelines(
 
         commands
             .entity(entity)
-            .insert(PostprocessingPipelineId(pipeline_id));
+            .insert(PostProcessingPipelineId(pipeline_id));
     }
 }
 
@@ -440,28 +458,31 @@ pub fn prepare_postprocessing_pipelines(
 /// to the GPU.
 pub fn prepare_postprocessing_uniforms(
     mut commands: Commands,
-    mut postprocessing_uniform_buffer: ResMut<PostprocessingUniformBuffer>,
+    mut post_processing_uniform_buffers: ResMut<PostProcessingUniformBuffers>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut views: Query<(Entity, &ChromaticAberration)>,
 ) {
-    postprocessing_uniform_buffer.clear();
+    post_processing_uniform_buffers.clear();
 
     // Gather up all the postprocessing settings.
     for (view_entity, chromatic_aberration) in views.iter_mut() {
-        let uniform_buffer_offset = postprocessing_uniform_buffer.push(&PostprocessingUniform {
-            chromatic_aberration_intensity: chromatic_aberration.intensity,
-            chromatic_aberration_max_samples: chromatic_aberration.max_samples,
-            unused_1: 0,
-            unused_2: 0,
-        });
+        let chromatic_aberration_uniform_buffer_offset =
+            post_processing_uniform_buffers.push(&ChromaticAberrationUniform {
+                intensity: chromatic_aberration.intensity,
+                max_samples: chromatic_aberration.max_samples,
+                unused_1: 0,
+                unused_2: 0,
+            });
         commands
             .entity(view_entity)
-            .insert(PostprocessingUniformBufferOffset(uniform_buffer_offset));
+            .insert(PostProcessingUniformBufferOffsets {
+                chromatic_aberration: chromatic_aberration_uniform_buffer_offset,
+            });
     }
 
     // Upload to the GPU.
-    postprocessing_uniform_buffer.write_buffer(&render_device, &render_queue);
+    post_processing_uniform_buffers.write_buffer(&render_device, &render_queue);
 }
 
 impl ExtractComponent for ChromaticAberration {

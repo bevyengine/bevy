@@ -3172,11 +3172,11 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
-name = "postprocessing"
-path = "examples/3d/postprocessing.rs"
+name = "post_processing"
+path = "examples/3d/post_processing.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.postprocessing]
+[package.metadata.example.post_processing]
 name = "Built-in postprocessing"
 description = "Demonstrates the built-in postprocessing features"
 category = "3D Rendering"
