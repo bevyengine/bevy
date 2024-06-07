@@ -1,4 +1,13 @@
-//! Shows how to create a 2D top-down camera to smoothly follow the player.
+//! This example showcases a 2D top-down camera with smooth player tracking.
+//!
+//! ## Controls
+//!
+//! | Key Binding          | Action        |
+//! |:---------------------|:--------------|
+//! | `Z`(azerty), `W`(US) | Move forward  |
+//! | `S`                  | Move backward |
+//! | `Q`(azerty), `A`(US) | Move left     |
+//! | `D`                  | Move right    |
 
 use bevy::core_pipeline::bloom::BloomSettings;
 use bevy::log::{Level, LogPlugin};
@@ -15,28 +24,20 @@ const CAM_LERP_FACTOR: f32 = 2.;
 #[derive(Component)]
 struct Player;
 
-#[derive(Bundle)]
-struct PlayerBundle<M: Material2d> {
-    player: Player,
-    mesh_bundle: MaterialMesh2dBundle<M>,
-}
-
 fn main() {
-    let default_plugins = DefaultPlugins.set(LogPlugin {
-        filter: "info,wgpu_core=warn,wgpu_hal=warn,2d_top_down=debug".into(),
-        level: Level::INFO,
-        ..default()
-    });
-
     App::new()
-        .add_plugins(default_plugins)
+        .add_plugins(DefaultPlugins.set(LogPlugin {
+            filter: "info,wgpu_core=warn,wgpu_hal=warn,2d_top_down=debug".into(),
+            level: Level::INFO,
+            ..default()
+        }))
         .insert_resource(ClearColor(Color::BLACK))
-        .add_systems(Startup, (scene_setup, camera_setup).chain())
+        .add_systems(Startup, (setup_scene, setup_camera).chain())
         .add_systems(Update, (move_player, update_camera).chain())
         .run();
 }
 
-fn scene_setup(
+fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
@@ -44,14 +45,14 @@ fn scene_setup(
     // World where we move the player
     commands.spawn(MaterialMesh2dBundle {
         mesh: Mesh2dHandle(meshes.add(Rectangle::new(1000., 700.))),
-        material: materials.add(Color::srgb(52. / 255., 39. / 255., 69. / 255.)), //77 57 102
+        material: materials.add(Color::srgb(0.2, 0.2, 0.3)),
         ..default()
     });
 
     // Player
-    commands.spawn(PlayerBundle {
-        player: Player,
-        mesh_bundle: MaterialMesh2dBundle {
+    commands.spawn((
+        Player,
+        MaterialMesh2dBundle {
             mesh: meshes.add(Circle::new(25.)).into(),
             material: materials.add(Color::srgb(6.25, 9.4, 9.1)),
             transform: Transform {
@@ -60,26 +61,28 @@ fn scene_setup(
             },
             ..default()
         },
-    });
+    ));
 
     debug!("Scene setup finished");
 }
 
-fn camera_setup(mut commands: Commands) {
-    let camera = Camera2dBundle {
-        transform: Transform::from_xyz(0., 0., 1.),
-        camera: Camera {
-            hdr: true,
+fn setup_camera(mut commands: Commands) {
+    commands.spawn((
+        Camera2dBundle {
+            transform: Transform::from_xyz(0., 0., 1.),
+            camera: Camera {
+                hdr: true,
+                ..default()
+            },
             ..default()
         },
-        ..default()
-    };
-
-    commands.spawn((camera, BloomSettings::NATURAL));
+        BloomSettings::NATURAL,
+    ));
 
     debug!("Camera setup finished");
 }
 
+/// Update the camera position by tracking the player.
 fn update_camera(
     mut camera: Query<&mut Transform, (With<Camera2d>, Without<Player>)>,
     player: Query<&Transform, (With<Player>, Without<Camera2d>)>,
@@ -98,12 +101,16 @@ fn update_camera(
     let Vec3 { x, y, .. } = player.translation;
     let direction = Vec3::new(x, y, camera.translation.z);
 
-    // Move camera with a smooth effect
+    // Applies a smooth effect to camera movement using interpolation between
+    // the camera position and the player position on the x and y axes.
+    // Here we use the in-game time (in seconds), to get the elapsed time since
+    // the previous time update. This avoids jittery when tracking the player.
     camera.translation = camera
         .translation
         .lerp(direction, time.delta_seconds() * CAM_LERP_FACTOR);
 }
 
+/// Update the player position with keyboard inputs.
 fn move_player(
     mut player: Query<&mut Transform, With<Player>>,
     time: Res<Time>,
