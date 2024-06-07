@@ -18,7 +18,7 @@ bevy_hierarchy = ["dep:bevy_hierarchy"]
 
 [dependencies]
 bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-rc.2" }
-bevy_state_macros_official = { path = "macros", version = "0.14.0-rc.2" }
+bevy_state_macros = { path = "macros", version = "0.14.0-rc.2" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-rc.2" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-rc.2", optional = true }
 bevy_app = { path = "../bevy_app", version = "0.14.0-rc.2", optional = true }
