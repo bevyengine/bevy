@@ -365,11 +365,11 @@ impl ColorToComponents for Srgba {
     }
 
     fn to_u8_array(self) -> [u8; 4] {
-        [self.red, self.green, self.blue, self.alpha].map(|v| (v.clamp(0.0, 1.0) * 255.0) as u8)
+        [self.red, self.green, self.blue, self.alpha].map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
     }
 
     fn to_u8_array_no_alpha(self) -> [u8; 3] {
-        [self.red, self.green, self.blue].map(|v| (v.clamp(0.0, 1.0) * 255.0) as u8)
+        [self.red, self.green, self.blue].map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
     }
 
     fn from_u8_array(color: [u8; 4]) -> Self {
