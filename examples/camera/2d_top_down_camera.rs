@@ -13,7 +13,7 @@ use bevy::core_pipeline::bloom::BloomSettings;
 use bevy::log::{Level, LogPlugin};
 use bevy::math::{vec2, vec3};
 use bevy::prelude::*;
-use bevy::sprite::{Material2d, MaterialMesh2dBundle, Mesh2dHandle};
+use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
 
 /// Player movement speed factor.
 const PLAYER_SPEED: f32 = 100.;
@@ -32,7 +32,10 @@ fn main() {
             ..default()
         }))
         .insert_resource(ClearColor(Color::BLACK))
-        .add_systems(Startup, (setup_scene, setup_camera).chain())
+        .add_systems(
+            Startup,
+            (setup_scene, setup_instructions, setup_camera).chain(),
+        )
         .add_systems(Update, (move_player, update_camera).chain())
         .run();
 }
@@ -64,6 +67,21 @@ fn setup_scene(
     ));
 
     debug!("Scene setup finished");
+}
+
+fn setup_instructions(mut commands: Commands) {
+    commands.spawn(
+        TextBundle::from_section(
+            "Move the light with ZQSD or WASD.\nThe camera will smoothly track the light.",
+            TextStyle::default(),
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        }),
+    );
 }
 
 fn setup_camera(mut commands: Commands) {
