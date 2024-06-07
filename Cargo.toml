@@ -3231,3 +3231,6 @@ panic = "abort"
 rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
 all-features = true
 cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
+
+[patch.crates-io]
+cosmic-text = { git = 'https://github.com/pop-os/cosmic-text.git'}

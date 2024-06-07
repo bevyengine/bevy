@@ -11,7 +11,8 @@ use bevy_utils::HashMap;
 use cosmic_text::{Attrs, Buffer, Metrics, Shaping, Wrap};
 
 use crate::{
-    error::TextError, BreakLineOn, Font, FontAtlasSets, JustifyText, PositionedGlyph, TextSection, YAxisOrientation,
+    error::TextError, BreakLineOn, Font, FontAtlasSets, JustifyText, PositionedGlyph, TextSection,
+    YAxisOrientation,
 };
 
 /// A wrapper around a [`cosmic_text::FontSystem`]
@@ -380,6 +381,7 @@ fn get_attrs<'a>(
         .stretch(face.stretch)
         .style(face.style)
         .weight(face.weight)
+        .metrics(Metrics::relative(section.style.font_size, 1.2))
         .color(cosmic_text::Color(section.style.color.linear().as_u32()));
     attrs
 }

@@ -77,9 +77,9 @@ pub struct TextPlugin;
 /// `BottomToTop` y axis, while UI is rendered with a `TopToBottom` y axis. This matters for text because
 /// the glyph positioning is different in either layout.
 pub enum YAxisOrientation {
-    /// Ui Y-Axis orientation
+    /// Ui Y-axis orientation
     TopToBottom,
-    /// Text2dBundles axises
+    /// Text2dBundles Y-axis orientation
     BottomToTop,
 }
 

@@ -162,7 +162,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     " fps, ",
                     TextStyle {
                         font: font.clone(),
-                        font_size: 25.0,
+                        font_size: 12.0,
                         color: YELLOW.into(),
                     },
                 ),
@@ -175,7 +175,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     " ms/frame",
                     TextStyle {
                         font: font.clone(),
-                        font_size: 25.0,
+                        font_size: 50.0,
                         color: BLUE.into(),
                     },
                 ),

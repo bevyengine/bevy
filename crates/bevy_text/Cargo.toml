@@ -28,7 +28,7 @@ bevy_window = { path = "../bevy_window", version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 
 # other
-cosmic-text = "0.11.0"
+cosmic-text = "0.11.2"
 thiserror = "1.0"
 serde = { version = "1", features = ["derive"] }
 unicode-bidi = "0.3.13"
