@@ -6,7 +6,7 @@ mod states;
 mod sub_states;
 mod transitions;
 
-pub use bevy_state_macros::*;
+pub use bevy_state_macros_official::*;
 pub use computed_states::*;
 pub use freely_mutable_state::*;
 pub use resources::*;
@@ -20,8 +20,8 @@ mod tests {
     use bevy_ecs::event::EventRegistry;
     use bevy_ecs::prelude::*;
     use bevy_ecs::schedule::ScheduleLabel;
-    use bevy_state_macros::States;
-    use bevy_state_macros::SubStates;
+    use bevy_state_macros_official::States;
+    use bevy_state_macros_official::SubStates;
 
     use super::*;
     use crate as bevy_state;

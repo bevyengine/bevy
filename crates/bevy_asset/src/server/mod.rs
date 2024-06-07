@@ -26,6 +26,7 @@ use futures_lite::StreamExt;
 use info::*;
 use loaders::*;
 use parking_lot::RwLock;
+use std::future::Future;
 use std::{any::Any, path::PathBuf};
 use std::{any::TypeId, path::Path, sync::Arc};
 use thiserror::Error;
@@ -710,6 +711,50 @@ impl AssetServer {
             loaded_asset,
         });
         handle
+    }
+
+    /// Queues a new asset to be tracked by the [`AssetServer`] and returns a [`Handle`] to it. This can be used to track
+    /// dependencies of assets created at runtime.
+    ///
+    /// After the asset has been fully loaded, it will show up in the relevant [`Assets`] storage.
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
+    pub fn add_async<A: Asset>(
+        &self,
+        future: impl Future<Output = Result<A, AssetLoadError>> + Send + 'static,
+    ) -> Handle<A> {
+        let handle = self
+            .data
+            .infos
+            .write()
+            .create_loading_handle_untyped(std::any::TypeId::of::<A>(), std::any::type_name::<A>());
+        let id = handle.id();
+
+        let event_sender = self.data.asset_event_sender.clone();
+
+        IoTaskPool::get()
+            .spawn(async move {
+                match future.await {
+                    Ok(asset) => {
+                        let loaded_asset = LoadedAsset::new_with_dependencies(asset, None).into();
+                        event_sender
+                            .send(InternalAssetEvent::Loaded { id, loaded_asset })
+                            .unwrap();
+                    }
+                    Err(error) => {
+                        error!("{error}");
+                        event_sender
+                            .send(InternalAssetEvent::Failed {
+                                id,
+                                path: Default::default(),
+                                error,
+                            })
+                            .unwrap();
+                    }
+                }
+            })
+            .detach();
+
+        handle.typed_debug_checked()
     }
 
     /// Loads all assets from the specified folder recursively. The [`LoadedFolder`] asset (when it loads) will
