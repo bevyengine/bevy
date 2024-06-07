@@ -33,6 +33,7 @@ pub struct AnimationTransitions {
     transitions: Vec<AnimationTransition>,
 }
 
+// This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
 impl Clone for AnimationTransitions {
     fn clone(&self) -> Self {
         Self {
