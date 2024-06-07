@@ -206,7 +206,7 @@ impl NormedVectorSpace for f32 {
 ///
 /// [`Quat::lerp`]: crate::Quat::lerp
 /// [`Rot2::nlerp`]: crate::Rot2::nlerp
-pub trait StrongInterpolate: Clone {
+pub trait StableInterpolate: Clone {
     /// Interpolate between this value and the `other` given value using the parameter `t`.
     /// Note that the parameter `t` is not necessarily clamped to lie between `0` and `1`.
     /// When `t = 0.0`, `self` is recovered, while `other` is recovered at `t = 1.0`,
@@ -215,7 +215,7 @@ pub trait StrongInterpolate: Clone {
 
     /// A version of [`interpolate`] that assigns the result to `self` for convenience.
     ///
-    /// [`interpolate`]: StrongInterpolate::interpolate
+    /// [`interpolate`]: StableInterpolate::interpolate
     fn interpolate_assign(&mut self, other: &Self, t: f32) {
         *self = self.interpolate(other, t);
     }
@@ -236,7 +236,7 @@ pub trait StrongInterpolate: Clone {
     ///
     /// # Example
     /// ```
-    /// # use bevy_math::{Vec3, StrongInterpolate};
+    /// # use bevy_math::{Vec3, StableInterpolate};
     /// # let delta_time: f32 = 1.0 / 60.0;
     /// let mut object_position: Vec3 = Vec3::ZERO;
     /// let target_position: Vec3 = Vec3::new(2.0, 3.0, 5.0);
@@ -250,7 +250,7 @@ pub trait StrongInterpolate: Clone {
     }
 }
 
-impl<V> StrongInterpolate for V
+impl<V> StableInterpolate for V
 where
     V: VectorSpace,
 {
@@ -260,28 +260,28 @@ where
     }
 }
 
-impl StrongInterpolate for Quat {
+impl StableInterpolate for Quat {
     #[inline]
     fn interpolate(&self, other: &Self, t: f32) -> Self {
         self.slerp(*other, t)
     }
 }
 
-impl StrongInterpolate for Dir2 {
+impl StableInterpolate for Dir2 {
     #[inline]
     fn interpolate(&self, other: &Self, t: f32) -> Self {
         self.slerp(*other, t)
     }
 }
 
-impl StrongInterpolate for Dir3 {
+impl StableInterpolate for Dir3 {
     #[inline]
     fn interpolate(&self, other: &Self, t: f32) -> Self {
         self.slerp(*other, t)
     }
 }
 
-impl StrongInterpolate for Dir3A {
+impl StableInterpolate for Dir3A {
     #[inline]
     fn interpolate(&self, other: &Self, t: f32) -> Self {
         self.slerp(*other, t)
