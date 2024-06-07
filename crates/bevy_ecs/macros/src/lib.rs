@@ -411,6 +411,56 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let state_struct_visibility = &ast.vis;
     let state_struct_name = ensure_no_collision(format_ident!("FetchState"), token_stream);
 
+    let mut builder_name = None;
+    for meta in ast
+        .attrs
+        .iter()
+        .filter(|a| a.path().is_ident("system_param"))
+    {
+        if let Err(e) = meta.parse_nested_meta(|nested| {
+            if nested.path.is_ident("builder") {
+                builder_name = Some(format_ident!("{struct_name}Builder"));
+                Ok(())
+            } else {
+                Err(nested.error("Unsupported attribute"))
+            }
+        }) {
+            return e.into_compile_error().into();
+        }
+    }
+
+    let builder = builder_name.map(|builder_name| {
+        let builder_type_parameters: Vec<_> = (0..fields.len()).map(|i| format_ident!("B{i}")).collect();
+        let builder_doc_comment = format!("A [`SystemParamBuilder`] for a [`{struct_name}`].");
+        let builder_struct = quote! {
+            #[doc = #builder_doc_comment]
+            struct #builder_name<#(#builder_type_parameters,)*> {
+                #(#fields: #builder_type_parameters,)*
+            }
+        };
+        let lifetimes: Vec<_> = generics.lifetimes().collect();
+        let generic_struct = quote!{ #struct_name <#(#lifetimes,)* #punctuated_generic_idents> };
+        let builder_impl = quote!{
+            // SAFETY: This delegates to the `SystemParamBuilder` for tuples.
+            unsafe impl<
+                #(#lifetimes,)*
+                #(#builder_type_parameters: #path::system::SystemParamBuilder<#field_types>,)*
+                #punctuated_generics
+            > #path::system::SystemParamBuilder<#generic_struct> for #builder_name<#(#builder_type_parameters,)*>
+                #where_clause
+            {
+                fn build(self, world: &mut #path::world::World, meta: &mut #path::system::SystemMeta) -> <#generic_struct as #path::system::SystemParam>::State {
+                    let #builder_name { #(#fields: #field_locals,)* } = self;
+                    #state_struct_name {
+                        state: #path::system::SystemParamBuilder::build((#(#tuple_patterns,)*), world, meta)
+                    }
+                }
+            }
+        };
+        (builder_struct, builder_impl)
+    });
+    let (builder_struct, builder_impl) = builder.unzip();
+
     TokenStream::from(quote! {
         // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
         // The struct can still be accessed via SystemParam::State, e.g. EventReaderState can be accessed via
@@ -467,7 +517,11 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
             // Safety: Each field is `ReadOnlySystemParam`, so this can only read from the `World`
             unsafe impl<'w, 's, #punctuated_generics> #path::system::ReadOnlySystemParam for #struct_name #ty_generics #read_only_where_clause {}
+
+            #builder_impl
         };
+
+        #builder_struct
     })
 }
 

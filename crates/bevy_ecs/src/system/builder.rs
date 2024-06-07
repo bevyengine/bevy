@@ -382,4 +382,31 @@ mod tests {
         let result = world.run_system_once(system);
         assert_eq!(result, 5);
     }
+
+    #[derive(SystemParam)]
+    #[system_param(builder)]
+    struct CustomParam<'w, 's> {
+        query: Query<'w, 's, ()>,
+        local: Local<'s, usize>,
+    }
+
+    #[test]
+    fn custom_param_builder() {
+        let mut world = World::new();
+
+        world.spawn(A);
+        world.spawn_empty();
+
+        let system = (CustomParamBuilder {
+            local: LocalBuilder(100),
+            query: QueryParamBuilder::new(|builder| {
+                builder.with::<A>();
+            }),
+        },)
+            .build_state(&mut world)
+            .build_system(|param: CustomParam| *param.local + param.query.iter().count());
+
+        let result = world.run_system_once(system);
+        assert_eq!(result, 101);
+    }
 }
