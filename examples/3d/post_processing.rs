@@ -37,21 +37,53 @@ fn main() {
         .add_systems(Update, handle_keyboard_input)
         .add_systems(
             Update,
-            (update_chromatic_aberration_settings, update_help_text).after(handle_keyboard_input),
+            (update_chromatic_aberration_settings, update_help_text)
+                .run_if(resource_changed::<AppSettings>)
+                .after(handle_keyboard_input),
         )
         .run();
 }
 
 /// Creates the example scene and spawns the UI.
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: Res<AppSettings>) {
-    // Create the scene.
-    spawn_scene(&mut commands, &asset_server);
-
     // Spawn the camera.
     spawn_camera(&mut commands, &asset_server);
 
+    // Create the scene.
+    spawn_scene(&mut commands, &asset_server);
+
     // Spawn the help text.
     spawn_text(&mut commands, &app_settings);
+}
+
+/// Spawns the camera, including the [`ChromaticAberration`] component.
+fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
+    commands.spawn((
+        Camera3dBundle {
+            camera: Camera {
+                hdr: true,
+                ..default()
+            },
+            transform: Transform::from_xyz(0.7, 0.7, 1.0)
+                .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+            ..default()
+        },
+        FogSettings {
+            color: Color::srgb_u8(43, 44, 47),
+            falloff: FogFalloff::Linear {
+                start: 1.0,
+                end: 8.0,
+            },
+            ..default()
+        },
+        EnvironmentMapLight {
+            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            intensity: 2000.0,
+        },
+        // Include the `ChromaticAberration` component.
+        ChromaticAberration::default(),
+    ));
 }
 
 /// Spawns the scene.
@@ -99,36 +131,6 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
     });
 }
 
-/// Spawns the camera, including the [`ChromaticAberration`] component.
-fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
-    commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            transform: Transform::from_xyz(0.7, 0.7, 1.0)
-                .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-            ..default()
-        },
-        FogSettings {
-            color: Color::srgb_u8(43, 44, 47),
-            falloff: FogFalloff::Linear {
-                start: 1.0,
-                end: 8.0,
-            },
-            ..default()
-        },
-        EnvironmentMapLight {
-            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            intensity: 2000.0,
-        },
-        // Include the `ChromaticAberration` component.
-        ChromaticAberration::default(),
-    ));
-}
-
 /// Spawns the help text at the bottom of the screen.
 fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
     commands.spawn(
@@ -138,8 +140,8 @@ fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(10.0),
-            left: Val::Px(10.0),
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );

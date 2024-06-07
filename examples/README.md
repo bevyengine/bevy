@@ -133,7 +133,7 @@ Example | Description
 [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
 [Auto Exposure](../examples/3d/auto_exposure.rs) | A scene showcasing auto exposure
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
-[Built-in postprocessing](../examples/3d/postprocessing.rs) | Demonstrates the built-in postprocessing features
+[Built-in postprocessing](../examples/3d/post_processing.rs) | Demonstrates the built-in postprocessing features
 [Clearcoat](../examples/3d/clearcoat.rs) | Demonstrates the clearcoat PBR feature
 [Color grading](../examples/3d/color_grading.rs) | Demonstrates color grading
 [Deferred Rendering](../examples/3d/deferred_rendering.rs) | Renders meshes with both forward and deferred pipelines

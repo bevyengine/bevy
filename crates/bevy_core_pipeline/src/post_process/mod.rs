@@ -165,14 +165,14 @@ pub struct ChromaticAberrationUniform {
 }
 
 /// A resource, part of the render world, that stores the
-/// [`PostprocessingUniform`]s for each view.
+/// [`PostProcessingUniform`]s for each view.
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct PostProcessingUniformBuffers {
     chromatic_aberration: DynamicUniformBuffer<ChromaticAberrationUniform>,
 }
 
 /// A component, part of the render world, that stores the appropriate byte
-/// offset within the [`PostprocessingUniformBuffer`] for the camera it's
+/// offset within the [`PostProcessingUniformBuffer`] for the camera it's
 /// attached to.
 #[derive(Component, Deref, DerefMut)]
 pub struct PostProcessingUniformBufferOffsets {
@@ -228,30 +228,30 @@ impl Plugin for PostProcessingPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_postprocessing_pipelines,
-                    prepare_postprocessing_uniforms,
+                    prepare_post_processing_pipelines,
+                    prepare_post_processing_uniforms,
                 )
                     .in_set(RenderSet::Prepare),
             )
             .add_render_graph_node::<ViewNodeRunner<PostProcessingNode>>(
                 Core3d,
-                Node3d::Postprocessing,
+                Node3d::PostProcessing,
             )
             .add_render_graph_edges(
                 Core3d,
                 (
                     Node3d::DepthOfField,
-                    Node3d::Postprocessing,
+                    Node3d::PostProcessing,
                     Node3d::Tonemapping,
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<PostProcessingNode>>(
                 Core2d,
-                Node2d::Postprocessing,
+                Node2d::PostProcessing,
             )
             .add_render_graph_edges(
                 Core2d,
-                (Node2d::Bloom, Node2d::Postprocessing, Node2d::Tonemapping),
+                (Node2d::Bloom, Node2d::PostProcessing, Node2d::Tonemapping),
             );
     }
 
@@ -360,12 +360,12 @@ impl ViewNode for PostProcessingNode {
         &self,
         _: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (view_target, pipeline_id, chromatic_aberration, postprocessing_uniform_buffer_offsets): QueryItem<'w, Self::ViewQuery>,
+        (view_target, pipeline_id, chromatic_aberration, post_processing_uniform_buffer_offsets): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
-        let postprocessing_pipeline = world.resource::<PostProcessingPipeline>();
-        let postprocessing_uniform_buffers = world.resource::<PostProcessingUniformBuffers>();
+        let post_processing_pipeline = world.resource::<PostProcessingPipeline>();
+        let post_processing_uniform_buffers = world.resource::<PostProcessingUniformBuffers>();
         let gpu_image_assets = world.resource::<RenderAssets<GpuImage>>();
 
         // We need a render pipeline to be prepared.
@@ -380,7 +380,7 @@ impl ViewNode for PostProcessingNode {
         };
 
         // We need the postprocessing settings to be uploaded to the GPU.
-        let Some(chromatic_aberration_uniform_buffer_binding) = postprocessing_uniform_buffers
+        let Some(chromatic_aberration_uniform_buffer_binding) = post_processing_uniform_buffers
             .chromatic_aberration
             .binding()
         else {
@@ -389,12 +389,12 @@ impl ViewNode for PostProcessingNode {
 
         // Use the [`PostProcessWrite`] infrastructure, since this is a
         // full-screen pass.
-        let postprocess = view_target.post_process_write();
+        let post_process = view_target.post_process_write();
 
         let pass_descriptor = RenderPassDescriptor {
             label: Some("postprocessing pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
-                view: postprocess.destination,
+                view: post_process.destination,
                 resolve_target: None,
                 ops: Operations::default(),
             })],
@@ -405,12 +405,12 @@ impl ViewNode for PostProcessingNode {
 
         let bind_group = render_context.render_device().create_bind_group(
             Some("postprocessing bind group"),
-            &postprocessing_pipeline.bind_group_layout,
+            &post_processing_pipeline.bind_group_layout,
             &BindGroupEntries::sequential((
-                postprocess.source,
-                &postprocessing_pipeline.source_sampler,
+                post_process.source,
+                &post_processing_pipeline.source_sampler,
                 &chromatic_aberration_lut.texture_view,
-                &postprocessing_pipeline.chromatic_aberration_lut_sampler,
+                &post_processing_pipeline.chromatic_aberration_lut_sampler,
                 chromatic_aberration_uniform_buffer_binding,
             )),
         );
@@ -420,7 +420,7 @@ impl ViewNode for PostProcessingNode {
             .begin_render_pass(&pass_descriptor);
 
         render_pass.set_pipeline(pipeline);
-        render_pass.set_bind_group(0, &bind_group, &[**postprocessing_uniform_buffer_offsets]);
+        render_pass.set_bind_group(0, &bind_group, &[**post_processing_uniform_buffer_offsets]);
         render_pass.draw(0..3, 0..1);
 
         Ok(())
@@ -428,17 +428,17 @@ impl ViewNode for PostProcessingNode {
 }
 
 /// Specializes the built-in postprocessing pipeline for each applicable view.
-pub fn prepare_postprocessing_pipelines(
+pub fn prepare_post_processing_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<PostProcessingPipeline>>,
-    postprocessing_pipeline: Res<PostProcessingPipeline>,
+    post_processing_pipeline: Res<PostProcessingPipeline>,
     views: Query<(Entity, &ExtractedView), With<ChromaticAberration>>,
 ) {
     for (entity, view) in views.iter() {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
-            &postprocessing_pipeline,
+            &post_processing_pipeline,
             PostProcessingPipelineKey {
                 texture_format: if view.hdr {
                     ViewTarget::TEXTURE_FORMAT_HDR
@@ -456,7 +456,7 @@ pub fn prepare_postprocessing_pipelines(
 
 /// Gathers the built-in postprocessing settings for every view and uploads them
 /// to the GPU.
-pub fn prepare_postprocessing_uniforms(
+pub fn prepare_post_processing_uniforms(
     mut commands: Commands,
     mut post_processing_uniform_buffers: ResMut<PostProcessingUniformBuffers>,
     render_device: Res<RenderDevice>,
