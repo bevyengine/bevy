@@ -250,9 +250,12 @@ pub trait StableInterpolate: Clone {
     }
 }
 
+// Conservatively, we presently only apply this for normed vector spaces, where the notion
+// of being constant-speed is literally true. The technical axioms are satisfied for any
+// VectorSpace type, but the "natural from the semantics" part is less clear in general.
 impl<V> StableInterpolate for V
 where
-    V: VectorSpace,
+    V: NormedVectorSpace,
 {
     #[inline]
     fn interpolate(&self, other: &Self, t: f32) -> Self {
