@@ -326,7 +326,7 @@ pub enum RepeatAnimation {
 /// playing, but is presently paused.
 ///
 /// An stopped animation is considered no longer active.
-#[derive(Debug, Reflect)]
+#[derive(Debug, Clone, Copy, Reflect)]
 pub struct ActiveAnimation {
     /// The factor by which the weight from the [`AnimationGraph`] is multiplied.
     weight: f32,
@@ -506,7 +506,7 @@ impl ActiveAnimation {
 }
 
 /// Animation controls
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Clone, Default, Reflect)]
 #[reflect(Component)]
 pub struct AnimationPlayer {
     /// We use a `BTreeMap` instead of a `HashMap` here to ensure a consistent
