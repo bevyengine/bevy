@@ -13,23 +13,23 @@
 #import bevy_render::maths::{affine3_to_square, mat2x4_f32_to_mat3x3_unpack}
 
 
-fn get_model_matrix(instance_index: u32) -> mat4x4<f32> {
-    return affine3_to_square(mesh[instance_index].model);
+fn get_world_from_local(instance_index: u32) -> mat4x4<f32> {
+    return affine3_to_square(mesh[instance_index].world_from_local);
 }
 
-fn get_previous_model_matrix(instance_index: u32) -> mat4x4<f32> {
-    return affine3_to_square(mesh[instance_index].previous_model);
+fn get_previous_world_from_local(instance_index: u32) -> mat4x4<f32> {
+    return affine3_to_square(mesh[instance_index].previous_world_from_local);
 }
 
-fn mesh_position_local_to_world(model: mat4x4<f32>, vertex_position: vec4<f32>) -> vec4<f32> {
-    return model * vertex_position;
+fn mesh_position_local_to_world(world_from_local: mat4x4<f32>, vertex_position: vec4<f32>) -> vec4<f32> {
+    return world_from_local * vertex_position;
 }
 
 // NOTE: The intermediate world_position assignment is important
 // for precision purposes when using the 'equals' depth comparison
 // function.
-fn mesh_position_local_to_clip(model: mat4x4<f32>, vertex_position: vec4<f32>) -> vec4<f32> {
-    let world_position = mesh_position_local_to_world(model, vertex_position);
+fn mesh_position_local_to_clip(world_from_local: mat4x4<f32>, vertex_position: vec4<f32>) -> vec4<f32> {
+    let world_position = mesh_position_local_to_world(world_from_local, vertex_position);
     return position_world_to_clip(world_position.xyz);
 }
 
@@ -44,8 +44,8 @@ fn mesh_normal_local_to_world(vertex_normal: vec3<f32>, instance_index: u32) -> 
     if any(vertex_normal != vec3<f32>(0.0)) {
         return normalize(
             mat2x4_f32_to_mat3x3_unpack(
-                mesh[instance_index].inverse_transpose_model_a,
-                mesh[instance_index].inverse_transpose_model_b,
+                mesh[instance_index].local_from_world_transpose_a,
+                mesh[instance_index].local_from_world_transpose_b,
             ) * vertex_normal
         );
     } else {
@@ -62,7 +62,7 @@ fn sign_determinant_model_3x3m(instance_index: u32) -> f32 {
     return f32(bool(mesh[instance_index].flags & MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT)) * 2.0 - 1.0;
 }
 
-fn mesh_tangent_local_to_world(model: mat4x4<f32>, vertex_tangent: vec4<f32>, instance_index: u32) -> vec4<f32> {
+fn mesh_tangent_local_to_world(world_from_local: mat4x4<f32>, vertex_tangent: vec4<f32>, instance_index: u32) -> vec4<f32> {
     // NOTE: The mikktspace method of normal mapping requires that the world tangent is
     // re-normalized in the vertex shader to match the way mikktspace bakes vertex tangents
     // and normal maps so that the exact inverse process is applied when shading. Blender, Unity,
@@ -74,9 +74,9 @@ fn mesh_tangent_local_to_world(model: mat4x4<f32>, vertex_tangent: vec4<f32>, in
         return vec4<f32>(
             normalize(
                 mat3x3<f32>(
-                    model[0].xyz,
-                    model[1].xyz,
-                    model[2].xyz
+                    world_from_local[0].xyz,
+                    world_from_local[1].xyz,
+                    world_from_local[2].xyz
                 ) * vertex_tangent.xyz
             ),
             // NOTE: Multiplying by the sign of the determinant of the 3x3 model matrix accounts for

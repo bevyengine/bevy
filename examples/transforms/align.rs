@@ -108,10 +108,7 @@ fn setup(
             Press 'T' to align the cube to those directions.\n\
             Click and drag the mouse to rotate the camera.\n\
             Press 'H' to hide/show these instructions.",
-            TextStyle {
-                font_size: 20.,
-                ..default()
-            },
+            TextStyle::default(),
         )
         .with_style(Style {
             position_type: PositionType::Absolute,

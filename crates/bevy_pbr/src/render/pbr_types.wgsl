@@ -17,6 +17,8 @@ struct StandardMaterial {
     attenuation_distance: f32,
     clearcoat: f32,
     clearcoat_perceptual_roughness: f32,
+    anisotropy_strength: f32,
+    anisotropy_rotation: vec2<f32>,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
     alpha_cutoff: f32,
@@ -49,6 +51,7 @@ const STANDARD_MATERIAL_FLAGS_ATTENUATION_ENABLED_BIT: u32        = 8192u;
 const STANDARD_MATERIAL_FLAGS_CLEARCOAT_TEXTURE_BIT: u32          = 16384u;
 const STANDARD_MATERIAL_FLAGS_CLEARCOAT_ROUGHNESS_TEXTURE_BIT: u32 = 32768u;
 const STANDARD_MATERIAL_FLAGS_CLEARCOAT_NORMAL_TEXTURE_BIT: u32   = 65536u;
+const STANDARD_MATERIAL_FLAGS_ANISOTROPY_TEXTURE_BIT: u32         = 131072u;
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS: u32       = 3758096384u; // (0b111u32 << 29)
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE: u32              = 0u;          // (0u32 << 29)
 const STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK: u32                = 536870912u;  // (1u32 << 29)
@@ -109,6 +112,11 @@ struct PbrInput {
     V: vec3<f32>,
     lightmap_light: vec3<f32>,
     clearcoat_N: vec3<f32>,
+    anisotropy_strength: f32,
+    // These two aren't specific to anisotropy, but we only fill them in if
+    // we're doing anisotropy, so they're prefixed with `anisotropy_`.
+    anisotropy_T: vec3<f32>,
+    anisotropy_B: vec3<f32>,
     is_orthographic: bool,
     flags: u32,
 };
@@ -130,6 +138,10 @@ fn pbr_input_new() -> PbrInput {
 
     pbr_input.N = vec3<f32>(0.0, 0.0, 1.0);
     pbr_input.V = vec3<f32>(1.0, 0.0, 0.0);
+
+    pbr_input.clearcoat_N = vec3<f32>(0.0);
+    pbr_input.anisotropy_T = vec3<f32>(0.0);
+    pbr_input.anisotropy_B = vec3<f32>(0.0);
 
     pbr_input.lightmap_light = vec3<f32>(0.0);
 

@@ -14,7 +14,7 @@
     irradiance_volume,
     mesh_types::{MESH_FLAGS_SHADOW_RECEIVER_BIT, MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT},
 }
-#import bevy_render::maths::E
+#import bevy_render::maths::{E, powsafe}
 
 #ifdef MESHLET_MESH_MATERIAL_PASS
 #import bevy_pbr::meshlet_visibility_buffer_resolve::VertexOutput
@@ -28,7 +28,10 @@
 #import bevy_pbr::environment_map
 #endif
 
-#import bevy_core_pipeline::tonemapping::{screen_space_dither, powsafe, tone_mapping}
+#ifdef TONEMAP_IN_SHADER
+#import bevy_core_pipeline::tonemapping::{tone_mapping, screen_space_dither}
+#endif
+
 
 // Biasing info needed to sample from a texture when calling `sample_texture`.
 // How this is done depends on whether we're rendering meshlets or regular
@@ -149,15 +152,11 @@ fn prepare_world_normal(
     return output;
 }
 
-fn apply_normal_mapping(
-    standard_material_flags: u32,
-    world_normal: vec3<f32>,
-    double_sided: bool,
-    is_front: bool,
-    world_tangent: vec4<f32>,
-    in_Nt: vec3<f32>,
-    mip_bias: f32,
-) -> vec3<f32> {
+// Calculates the three TBN vectors according to [mikktspace]. Returns a matrix
+// with T, B, N columns in that order.
+//
+// [mikktspace]: http://www.mikktspace.com/
+fn calculate_tbn_mikktspace(world_normal: vec3<f32>, world_tangent: vec4<f32>) -> mat3x3<f32> {
     // NOTE: The mikktspace method of normal mapping explicitly requires that the world normal NOT
     // be re-normalized in the fragment shader. This is primarily to match the way mikktspace
     // bakes vertex tangents and normal maps so that this is the exact inverse. Blender, Unity,
@@ -172,6 +171,22 @@ fn apply_normal_mapping(
     // http://www.mikktspace.com/
     var T: vec3<f32> = world_tangent.xyz;
     var B: vec3<f32> = world_tangent.w * cross(N, T);
+
+    return mat3x3(T, B, N);
+}
+
+fn apply_normal_mapping(
+    standard_material_flags: u32,
+    TBN: mat3x3<f32>,
+    double_sided: bool,
+    is_front: bool,
+    in_Nt: vec3<f32>,
+    mip_bias: f32,
+) -> vec3<f32> {
+    // Unpack the TBN vectors.
+    var T = TBN[0];
+    var B = TBN[1];
+    var N = TBN[2];
 
     // Nt is the tangent-space normal.
     var Nt = in_Nt;
@@ -201,6 +216,42 @@ fn apply_normal_mapping(
     return normalize(N);
 }
 
+#ifdef STANDARD_MATERIAL_ANISOTROPY
+
+// Modifies the normal to achieve a better approximate direction from the
+// environment map when using anisotropy.
+//
+// This follows the suggested implementation in the `KHR_materials_anisotropy` specification:
+// https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_anisotropy/README.md#image-based-lighting
+fn bend_normal_for_anisotropy(lighting_input: ptr<function, lighting::LightingInput>) {
+    // Unpack.
+    let N = (*lighting_input).layers[LAYER_BASE].N;
+    let roughness = (*lighting_input).layers[LAYER_BASE].roughness;
+    let V = (*lighting_input).V;
+    let anisotropy = (*lighting_input).anisotropy;
+    let Ba = (*lighting_input).Ba;
+
+    var bent_normal = normalize(cross(cross(Ba, V), Ba));
+
+    // The `KHR_materials_anisotropy` spec states:
+    //
+    // > This heuristic can probably be improved upon
+    let a = pow(2.0, pow(2.0, 1.0 - anisotropy * (1.0 - roughness)));
+    bent_normal = normalize(mix(bent_normal, N, a));
+
+    // The `KHR_materials_anisotropy` spec states:
+    //
+    // > Mixing the reflection with the normal is more accurate both with and
+    // > without anisotropy and keeps rough objects from gathering light from
+    // > behind their tangent plane.
+    let R = normalize(mix(reflect(-V, bent_normal), bent_normal, roughness * roughness));
+
+    (*lighting_input).layers[LAYER_BASE].N = bent_normal;
+    (*lighting_input).layers[LAYER_BASE].R = R;
+}
+
+#endif  // STANDARD_MATERIAL_ANISTROPY
+
 // NOTE: Correctly calculates the view vector depending on whether
 // the projection is orthographic or perspective.
 fn calculate_view(
@@ -210,7 +261,7 @@ fn calculate_view(
     var V: vec3<f32>;
     if is_orthographic {
         // Orthographic view vector
-        V = normalize(vec3<f32>(view_bindings::view.view_proj[0].z, view_bindings::view.view_proj[1].z, view_bindings::view.view_proj[2].z));
+        V = normalize(vec3<f32>(view_bindings::view.clip_from_world[0].z, view_bindings::view.clip_from_world[1].z, view_bindings::view.clip_from_world[2].z));
     } else {
         // Only valid for a perspective projection
         V = normalize(view_bindings::view.world_position.xyz - world_position.xyz);
@@ -314,6 +365,11 @@ fn apply_pbr_lighting(
     lighting_input.layers[LAYER_CLEARCOAT].roughness = clearcoat_roughness;
     lighting_input.clearcoat_strength = clearcoat;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
+#ifdef STANDARD_MATERIAL_ANISOTROPY
+    lighting_input.anisotropy = in.anisotropy_strength;
+    lighting_input.Ta = in.anisotropy_T;
+    lighting_input.Ba = in.anisotropy_B;
+#endif  // STANDARD_MATERIAL_ANISOTROPY
 
     // And do the same for transmissive if we need to.
 #ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
@@ -336,23 +392,28 @@ fn apply_pbr_lighting(
     transmissive_lighting_input.layers[LAYER_CLEARCOAT].roughness = 0.0;
     transmissive_lighting_input.clearcoat_strength = 0.0;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
+#ifdef STANDARD_MATERIAL_ANISOTROPY
+    lighting_input.anisotropy = in.anisotropy_strength;
+    lighting_input.Ta = in.anisotropy_T;
+    lighting_input.Ba = in.anisotropy_B;
+#endif  // STANDARD_MATERIAL_ANISOTROPY
 #endif  // STANDARD_MATERIAL_DIFFUSE_TRANSMISSION
 
     let view_z = dot(vec4<f32>(
-        view_bindings::view.inverse_view[0].z,
-        view_bindings::view.inverse_view[1].z,
-        view_bindings::view.inverse_view[2].z,
-        view_bindings::view.inverse_view[3].z
+        view_bindings::view.view_from_world[0].z,
+        view_bindings::view.view_from_world[1].z,
+        view_bindings::view.view_from_world[2].z,
+        view_bindings::view.view_from_world[3].z
     ), in.world_position);
     let cluster_index = clustering::fragment_cluster_index(in.frag_coord.xy, view_z, in.is_orthographic);
     let offset_and_counts = clustering::unpack_offset_and_counts(cluster_index);
 
     // Point lights (direct)
     for (var i: u32 = offset_and_counts[0]; i < offset_and_counts[0] + offset_and_counts[1]; i = i + 1u) {
-        let light_id = clustering::get_light_id(i);
+        let light_id = clustering::get_clusterable_object_id(i);
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (view_bindings::point_lights.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = shadows::fetch_point_shadow(light_id, in.world_position, in.world_normal);
         }
 
@@ -371,7 +432,7 @@ fn apply_pbr_lighting(
         // F0 = vec3<f32>(0.0)
         var transmitted_shadow: f32 = 1.0;
         if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
-                && (view_bindings::point_lights.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             transmitted_shadow = shadows::fetch_point_shadow(light_id, diffuse_transmissive_lobe_world_position, -in.world_normal);
         }
 
@@ -383,11 +444,11 @@ fn apply_pbr_lighting(
 
     // Spot lights (direct)
     for (var i: u32 = offset_and_counts[0] + offset_and_counts[1]; i < offset_and_counts[0] + offset_and_counts[1] + offset_and_counts[2]; i = i + 1u) {
-        let light_id = clustering::get_light_id(i);
+        let light_id = clustering::get_clusterable_object_id(i);
 
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (view_bindings::point_lights.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = shadows::fetch_spot_shadow(light_id, in.world_position, in.world_normal);
         }
 
@@ -406,7 +467,7 @@ fn apply_pbr_lighting(
         // F0 = vec3<f32>(0.0)
         var transmitted_shadow: f32 = 1.0;
         if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
-                && (view_bindings::point_lights.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             transmitted_shadow = shadows::fetch_spot_shadow(light_id, diffuse_transmissive_lobe_world_position, -in.world_normal);
         }
 
@@ -503,6 +564,19 @@ fn apply_pbr_lighting(
 
     // Environment map light (indirect)
 #ifdef ENVIRONMENT_MAP
+
+#ifdef STANDARD_MATERIAL_ANISOTROPY
+    var bent_normal_lighting_input = lighting_input;
+    bend_normal_for_anisotropy(&bent_normal_lighting_input);
+    let environment_map_lighting_input = &bent_normal_lighting_input;
+#else   // STANDARD_MATERIAL_ANISOTROPY
+    let environment_map_lighting_input = &lighting_input;
+#endif  // STANDARD_MATERIAL_ANISOTROPY
+
+    let environment_light = environment_map::environment_map_light(
+        environment_map_lighting_input,
+        any(indirect_light != vec3(0.0f))
+    );
 
     // If screen space reflections are going to be used for this material, don't
     // accumulate environment map light yet. The SSR shader will do it.

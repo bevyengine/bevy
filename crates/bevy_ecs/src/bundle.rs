@@ -141,6 +141,11 @@ use std::ptr::NonNull;
 // bundle, in the _exact_ order that [`DynamicBundle::get_components`] is called.
 // - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
 //   [`Bundle::component_ids`].
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a `Bundle`",
+    label = "invalid `Bundle`",
+    note = "consider annotating `{Self}` with `#[derive(Component)]` or `#[derive(Bundle)]`"
+)]
 pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
     #[doc(hidden)]
@@ -1205,14 +1210,14 @@ mod tests {
             .register_component_hooks::<A>()
             .on_add(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(0);
-                world.commands().entity(entity).insert(B).insert(D);
+                world.commands().entity(entity).insert(B).insert(C);
             });
 
         world
             .register_component_hooks::<B>()
             .on_add(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(1);
-                world.commands().entity(entity).insert(C);
+                world.commands().entity(entity).insert(D);
             });
 
         world

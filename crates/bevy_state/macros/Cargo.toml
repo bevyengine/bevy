@@ -1,7 +1,7 @@
 [package]
-name = "bevy_state_macros"
+name = "bevy_state_macros_official"
 version = "0.14.0-dev"
-description = "Bevy ECS Macros"
+description = "Macros for bevy_state"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 

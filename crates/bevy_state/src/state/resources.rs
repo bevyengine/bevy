@@ -1,7 +1,8 @@
 use std::ops::Deref;
 
 use bevy_ecs::{
-    system::Resource,
+    change_detection::DetectChangesMut,
+    system::{ResMut, Resource},
     world::{FromWorld, World},
 };
 
@@ -22,7 +23,7 @@ use bevy_ecs::prelude::ReflectResource;
 /// ```
 /// use bevy_state::prelude::*;
 /// use bevy_ecs::prelude::*;
-/// use bevy_state_macros::States;
+/// use bevy_state_macros_official::States;
 ///
 /// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 /// enum GameState {
@@ -85,7 +86,8 @@ impl<S: States> Deref for State<S> {
 
 /// The next state of [`State<S>`].
 ///
-/// To queue a transition, just set the contained value to `Some(next_state)`.
+/// This can be fetched as a resource and used to queue state transitions.
+/// To queue a transition, call [`NextState::set`] or mutate the value to [`NextState::Pending`] directly.
 ///
 /// Note that these transitions can be overridden by other systems:
 /// only the actual value of this resource at the time of [`apply_state_transition`](crate::state::apply_state_transition) matters.
@@ -106,7 +108,7 @@ impl<S: States> Deref for State<S> {
 ///     next_game_state.set(GameState::InGame);
 /// }
 /// ```
-#[derive(Resource, Debug, Default)]
+#[derive(Resource, Debug, Default, Clone)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
@@ -129,5 +131,19 @@ impl<S: FreelyMutableState> NextState<S> {
     /// Remove any pending changes to [`State<S>`]
     pub fn reset(&mut self) {
         *self = Self::Unchanged;
+    }
+}
+
+pub(crate) fn take_next_state<S: FreelyMutableState>(
+    next_state: Option<ResMut<NextState<S>>>,
+) -> Option<S> {
+    let mut next_state = next_state?;
+
+    match std::mem::take(next_state.bypass_change_detection()) {
+        NextState::Pending(x) => {
+            next_state.set_changed();
+            Some(x)
+        }
+        NextState::Unchanged => None,
     }
 }
