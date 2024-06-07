@@ -164,7 +164,7 @@ impl NormedVectorSpace for f32 {
 
 /// A type with a natural interpolation that provides strong subdivision guarantees.
 ///
-/// Although the only required method is `interpolate`, many things are expected of it:
+/// Although the only required method is `interpolate_stable`, many things are expected of it:
 ///
 /// 1. The notion of interpolation should follow naturally from the semantics of the type, so
 ///    that inferring the interpolation mode from the type alone is sensible.
@@ -183,7 +183,7 @@ impl NormedVectorSpace for f32 {
 ///
 /// Here is a diagram depicting it:
 /// ```text
-/// top curve = u.interpolate(v, t)
+/// top curve = u.interpolate_stable(v, t)
 ///
 ///              t0 => p   t1 => q    
 ///   |-------------|---------|-------------|
@@ -197,7 +197,7 @@ impl NormedVectorSpace for f32 {
 ///   |-------------------------------------|
 /// 0 => p                                1 => q
 ///
-/// bottom curve = p.interpolate(q, s)
+/// bottom curve = p.interpolate_stable(q, s)
 /// ```
 ///
 /// Note that some common forms of interpolation do not satisfy this criterion. For example,
@@ -214,13 +214,13 @@ pub trait StableInterpolate: Clone {
     /// Note that the parameter `t` is not necessarily clamped to lie between `0` and `1`.
     /// When `t = 0.0`, `self` is recovered, while `other` is recovered at `t = 1.0`,
     /// with intermediate values lying between the two.
-    fn interpolate(&self, other: &Self, t: f32) -> Self;
+    fn interpolate_stable(&self, other: &Self, t: f32) -> Self;
 
-    /// A version of [`interpolate`] that assigns the result to `self` for convenience.
+    /// A version of [`interpolate_stable`] that assigns the result to `self` for convenience.
     ///
-    /// [`interpolate`]: StableInterpolate::interpolate
-    fn interpolate_assign(&mut self, other: &Self, t: f32) {
-        *self = self.interpolate(other, t);
+    /// [`interpolate_stable`]: StableInterpolate::interpolate_stable
+    fn interpolate_stable_assign(&mut self, other: &Self, t: f32) {
+        *self = self.interpolate_stable(other, t);
     }
 
     /// Smoothly nudge this value towards the `target` at a given decay rate. The `decay_rate`
@@ -249,7 +249,7 @@ pub trait StableInterpolate: Clone {
     /// object_position.smooth_nudge(&target_position, decay_rate, delta_time);
     /// ```
     fn smooth_nudge(&mut self, target: &Self, decay_rate: f32, delta: f32) {
-        self.interpolate_assign(target, 1.0 - f32::exp(-decay_rate * delta));
+        self.interpolate_stable_assign(target, 1.0 - f32::exp(-decay_rate * delta));
     }
 }
 
@@ -261,42 +261,42 @@ where
     V: NormedVectorSpace,
 {
     #[inline]
-    fn interpolate(&self, other: &Self, t: f32) -> Self {
+    fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
         self.lerp(*other, t)
     }
 }
 
 impl StableInterpolate for Rot2 {
     #[inline]
-    fn interpolate(&self, other: &Self, t: f32) -> Self {
+    fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
         self.slerp(*other, t)
     }
 }
 
 impl StableInterpolate for Quat {
     #[inline]
-    fn interpolate(&self, other: &Self, t: f32) -> Self {
+    fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
         self.slerp(*other, t)
     }
 }
 
 impl StableInterpolate for Dir2 {
     #[inline]
-    fn interpolate(&self, other: &Self, t: f32) -> Self {
+    fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
         self.slerp(*other, t)
     }
 }
 
 impl StableInterpolate for Dir3 {
     #[inline]
-    fn interpolate(&self, other: &Self, t: f32) -> Self {
+    fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
         self.slerp(*other, t)
     }
 }
 
 impl StableInterpolate for Dir3A {
     #[inline]
-    fn interpolate(&self, other: &Self, t: f32) -> Self {
+    fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
         self.slerp(*other, t)
     }
 }
