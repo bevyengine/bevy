@@ -1,6 +1,6 @@
 use crate::{
     color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ColorToComponents,
-    Gray, Luminance, Mix, StandardColor,
+    ColorToPacked, Gray, Luminance, Mix, StandardColor,
 };
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
@@ -296,7 +296,9 @@ impl ColorToComponents for LinearRgba {
             alpha: 1.0,
         }
     }
+}
 
+impl ColorToPacked for LinearRgba {
     fn to_u8_array(self) -> [u8; 4] {
         [self.red, self.green, self.blue, self.alpha]
             .map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
