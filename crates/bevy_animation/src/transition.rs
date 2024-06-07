@@ -27,10 +27,24 @@ use crate::{graph::AnimationNodeIndex, ActiveAnimation, AnimationPlayer};
 /// the [`AnimationPlayer`] directly will cause the [`AnimationTransitions`]
 /// component to get confused about which animation is the "main" animation, and
 /// transitions will usually be incorrect as a result.
-#[derive(Component, Clone, Default, Reflect)]
+#[derive(Component, Default, Reflect)]
 pub struct AnimationTransitions {
     main_animation: Option<AnimationNodeIndex>,
     transitions: Vec<AnimationTransition>,
+}
+
+impl Clone for AnimationTransitions {
+    fn clone(&self) -> Self {
+        Self {
+            main_animation: self.main_animation,
+            transitions: self.transitions.clone(),
+        }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.main_animation = source.main_animation;
+        self.transitions.clone_from(&source.transitions);
+    }
 }
 
 /// An animation that is being faded out as part of a transition

@@ -236,7 +236,7 @@ impl Hash for AnimationTargetId {
 /// Note that each entity can only be animated by one animation player at a
 /// time. However, you can change [`AnimationTarget`]'s `player` property at
 /// runtime to change which player is responsible for animating the entity.
-#[derive(Clone, Component, Reflect)]
+#[derive(Clone, Copy, Component, Reflect)]
 #[reflect(Component, MapEntities)]
 pub struct AnimationTarget {
     /// The ID of this animation target.
@@ -506,13 +506,28 @@ impl ActiveAnimation {
 }
 
 /// Animation controls
-#[derive(Component, Clone, Default, Reflect)]
+#[derive(Component, Default, Reflect)]
 #[reflect(Component)]
 pub struct AnimationPlayer {
     /// We use a `BTreeMap` instead of a `HashMap` here to ensure a consistent
     /// ordering when applying the animations.
     active_animations: BTreeMap<AnimationNodeIndex, ActiveAnimation>,
     blend_weights: HashMap<AnimationNodeIndex, f32>,
+}
+
+// This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
+impl Clone for AnimationPlayer {
+    fn clone(&self) -> Self {
+        Self {
+            active_animations: self.active_animations.clone(),
+            blend_weights: self.blend_weights.clone(),
+        }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.active_animations.clone_from(&source.active_animations);
+        self.blend_weights.clone_from(&source.blend_weights);
+    }
 }
 
 /// The components that we might need to read or write during animation of each
