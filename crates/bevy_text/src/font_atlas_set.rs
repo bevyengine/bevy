@@ -106,13 +106,7 @@ impl FontAtlasSet {
         let font_atlases = self
             .font_atlases
             .entry(physical_glyph.cache_key.font_size_bits.into())
-            .or_insert_with(|| {
-                vec![FontAtlas::new(
-                    textures,
-                    texture_atlases,
-                    Vec2::splat(512.0),
-                )]
-            });
+            .or_insert_with(|| vec![FontAtlas::new(textures, texture_atlases, UVec2::splat(512))]);
 
         let (glyph_texture, offset) =
             Self::get_outlined_glyph_texture(font_system, swash_cache, &physical_glyph)?;

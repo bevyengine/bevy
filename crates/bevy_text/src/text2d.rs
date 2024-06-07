@@ -149,7 +149,7 @@ pub fn extract_text2d_sprite(
                 ExtractedSprite {
                     transform: transform * GlobalTransform::from_translation(position.extend(0.)),
                     color,
-                    rect: Some(atlas.textures[atlas_info.location.glyph_index]),
+                    rect: Some(atlas.textures[atlas_info.location.glyph_index].as_rect()),
                     custom_size: None,
                     image_handle_id: atlas_info.texture.id(),
                     flip_x: false,
@@ -256,11 +256,9 @@ pub fn calculate_bounds_text2d(
     for (entity, layout_info, anchor, aabb) in &mut text_to_update_aabb {
         // `Anchor::as_vec` gives us an offset relative to the text2d bounds, by negating it and scaling
         // by the logical size we compensate the transform offset in local space to get the center.
-        let center = (-anchor.as_vec() * layout_info.logical_size)
-            .extend(0.0)
-            .into();
+        let center = (-anchor.as_vec() * layout_info.size).extend(0.0).into();
         // Distance in local space from the center to the x and y limits of the text2d bounds.
-        let half_extents = (layout_info.logical_size / 2.0).extend(0.0).into();
+        let half_extents = (layout_info.size / 2.0).extend(0.0).into();
         if let Some(mut aabb) = aabb {
             *aabb = Aabb {
                 center,

@@ -1,5 +1,5 @@
 use bevy_asset::{Assets, Handle};
-use bevy_math::{IVec2, Vec2};
+use bevy_math::{IVec2, UVec2, Vec2};
 use bevy_render::{
     render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
@@ -28,7 +28,7 @@ impl FontAtlas {
     pub fn new(
         textures: &mut Assets<Image>,
         texture_atlases_layout: &mut Assets<TextureAtlasLayout>,
-        size: Vec2,
+        size: UVec2,
     ) -> FontAtlas {
         let texture = textures.add(Image::new_fill(
             Extent3d {

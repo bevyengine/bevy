@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use bevy_asset::{AssetId, Assets};
 use bevy_ecs::{component::Component, reflect::ReflectComponent, system::Resource};
-use bevy_math::Vec2;
+use bevy_math::{UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlasLayout;
@@ -208,11 +208,11 @@ impl TextPipeline {
                 let glyph_rect = texture_atlas.textures[location.glyph_index];
                 let left = location.offset.x as f32;
                 let top = location.offset.y as f32;
-                let glyph_size = Vec2::new(glyph_rect.width(), glyph_rect.height());
+                let glyph_size = UVec2::new(glyph_rect.width(), glyph_rect.height());
 
                 // offset by half the size because the origin is center
-                let x = glyph_size.x / 2.0 + left + physical_glyph.x as f32;
-                let y = line_y + physical_glyph.y as f32 - top + glyph_size.y / 2.0;
+                let x = glyph_size.x as f32 / 2.0 + left + physical_glyph.x as f32;
+                let y = line_y + physical_glyph.y as f32 - top + glyph_size.y as f32 / 2.0;
                 // TODO: use cosmic text's implementation (per-BufferLine alignment) as it will be editor aware
                 // see https://github.com/pop-os/cosmic-text/issues/130 (currently bugged)
                 let x = x + match text_alignment {
@@ -234,7 +234,7 @@ impl TextPipeline {
                 // TODO: recreate the byte index, that keeps track of where a cursor is,
                 // when glyphs are not limited to single byte representation, relevant for #1319
                 let pos_glyph =
-                    PositionedGlyph::new(position, glyph_size, atlas_info, section_index);
+                    PositionedGlyph::new(position, glyph_size.as_vec2(), atlas_info, section_index);
                 Ok(pos_glyph)
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -325,57 +325,6 @@ impl std::fmt::Debug for TextMeasureInfo {
 }
 
 impl TextMeasureInfo {
-    pub fn from_text(
-        text: &Text,
-        fonts: &Assets<Font>,
-        scale_factor: f32,
-    ) -> Result<TextMeasureInfo, TextError> {
-        let sections = &text.sections;
-        let mut auto_fonts = Vec::with_capacity(sections.len());
-        let mut out_sections = Vec::with_capacity(sections.len());
-        for (i, section) in sections.iter().enumerate() {
-            match fonts.get(&section.style.font) {
-                Some(font) => {
-                    auto_fonts.push(font.font.clone());
-                    out_sections.push(TextMeasureSection {
-                        font_id: FontId(i),
-                        scale: scale_value(section.style.font_size, scale_factor),
-                        text: section.value.clone().into_boxed_str(),
-                    });
-                }
-                None => return Err(TextError::NoSuchFont),
-            }
-        }
-
-        Ok(Self::new(
-            auto_fonts,
-            out_sections,
-            text.justify,
-            text.linebreak_behavior.into(),
-        ))
-    }
-    fn new(
-        fonts: Vec<ab_glyph::FontArc>,
-        sections: Vec<TextMeasureSection>,
-        justification: JustifyText,
-        linebreak_behavior: glyph_brush_layout::BuiltInLineBreaker,
-    ) -> Self {
-        let mut info = Self {
-            fonts: fonts.into_boxed_slice(),
-            sections: sections.into_boxed_slice(),
-            justification,
-            linebreak_behavior,
-            min: Vec2::ZERO,
-            max: Vec2::ZERO,
-        };
-
-        let min = info.compute_size(Vec2::new(0.0, f32::INFINITY));
-        let max = info.compute_size(Vec2::INFINITY);
-        info.min = min;
-        info.max = max;
-        info
-    }
-
     pub fn compute_size(&self, bounds: Vec2) -> Vec2 {
         let font_system = &mut self.font_system.try_lock().expect("Failed to acquire lock");
         let mut buffer = self.buffer.lock().expect("Failed to acquire the lock");
@@ -398,7 +347,7 @@ fn get_attrs<'a>(
     let face_id = map_handle_to_font_id
         .entry(font_handle_id)
         .or_insert_with(|| {
-            let font = fonts.get(font_handle).unwrap();
+            let font = fonts.get(font_handle.id()).unwrap();
             let data = Arc::clone(&font.data);
             let ids = font_system
                 .db_mut()
@@ -424,7 +373,7 @@ fn get_attrs<'a>(
         .stretch(face.stretch)
         .style(face.style)
         .weight(face.weight)
-        .color(cosmic_text::Color(section.style.color.as_linear_rgba_u32()));
+        .color(cosmic_text::Color(section.style.color.linear().as_u32()));
     attrs
 }
 
