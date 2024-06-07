@@ -90,6 +90,13 @@ impl TextPipeline {
 
         let font_system = &mut acquire_font_system(&mut self.font_system)?;
 
+        // return early if the fonts are not loaded yet
+        for section in sections {
+            fonts
+                .get(section.style.font.id())
+                .ok_or(TextError::NoSuchFont)?;
+        }
+
         let spans: Vec<(&str, Attrs)> = sections
             .iter()
             .enumerate()
@@ -343,11 +350,12 @@ fn get_attrs<'a>(
     fonts: &Assets<Font>,
 ) -> Attrs<'a> {
     let font_handle = section.style.font.clone();
-    let font_handle_id = font_handle.id();
     let face_id = map_handle_to_font_id
-        .entry(font_handle_id)
+        .entry(font_handle.id())
         .or_insert_with(|| {
-            let font = fonts.get(font_handle.id()).unwrap();
+            let font = fonts.get(font_handle.id()).expect(
+                "Tried getting a font that was not available, probably due to not being loaded yet",
+            );
             let data = Arc::clone(&font.data);
             let ids = font_system
                 .db_mut()

@@ -68,7 +68,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextSection::from_style(if cfg!(feature = "default_font") {
                 TextStyle {
                     font_size: 40.0,
-                    color: Color::GOLD,
+                    color: GOLD.into(),
                     // If no font is specified, the default font (a minimal subset of FiraMono) will be used.
                     ..default()
                 }
@@ -77,7 +77,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextStyle {
                     font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                     font_size: 40.0,
-                    color: Color::GOLD,
+                    color: GOLD.into(),
                 }
             }),
         ]),
