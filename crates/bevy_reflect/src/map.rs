@@ -198,25 +198,25 @@ impl MapInfo {
 macro_rules! hash_error {
     ( $key:expr ) => {{
         let type_path = (*$key).reflect_type_path();
-        {if !$key.is_dynamic(){
+        if !$key.is_dynamic() {
             format!(
                 "the given key of type `{}` does not support hashing",
                 type_path
             )
-        }
-        else {
+        } else {
             match (*$key).get_represented_type_info() {
                 // Handle dynamic types that do not represent a type (i.e a plain `DynamicStruct`):
                 None => format!("the dynamic type `{}` does not support hashing", type_path),
                 // Handle dynamic types that do represent a type (i.e. a `DynamicStruct` proxying `Foo`):
                 Some(s) => format!(
-                  "the dynamic type `{}` (representing `{}`) does not support hashing",
-                  type_path,
-                  s.type_path()
+                    "the dynamic type `{}` (representing `{}`) does not support hashing",
+                    type_path,
+                    s.type_path()
                 ),
             }
-        }.as_str()
-    }}}
+        }
+        .as_str()
+    }}
 }
 
 /// An ordered mapping between reflected values.
