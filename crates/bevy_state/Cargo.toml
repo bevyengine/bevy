@@ -2,12 +2,11 @@
 name = "bevy_state"
 version = "0.14.0-rc.2"
 edition = "2021"
-description = "Bevy Engine's entity component system"
+description = "Finite state machines for Bevy"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
-keywords = ["ecs", "game", "bevy"]
-categories = ["game-engines", "data-structures"]
+keywords = ["bevy"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
