@@ -76,6 +76,7 @@ default = [
   "bevy_gizmos",
   "android_shared_stdcxx",
   "tonemapping_luts",
+  "smaa_luts",
   "default_font",
   "webgl2",
   "sysinfo_plugin",
@@ -104,6 +105,7 @@ bevy_core_pipeline = [
   "bevy_internal/bevy_core_pipeline",
   "bevy_asset",
   "bevy_render",
+  "bevy_pbr",
 ]
 
 # Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))
@@ -281,6 +283,9 @@ detailed_trace = ["bevy_internal/detailed_trace"]
 
 # Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method on your `Camera2dBundle` or `Camera3dBundle`.
 tonemapping_luts = ["bevy_internal/tonemapping_luts", "ktx2", "zstd"]
+
+# Include SMAA Look Up Tables KTX2 files.
+smaa_luts = ["bevy_internal/smaa_luts", "ktx2", "zstd"]
 
 # Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)
 accesskit_unix = ["bevy_internal/accesskit_unix"]
