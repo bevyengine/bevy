@@ -1,5 +1,5 @@
 [package]
-name = "bevy_state_macros_official"
+name = "bevy_state_macros"
 version = "0.14.0-dev"
 description = "Macros for bevy_state"
 edition = "2021"
