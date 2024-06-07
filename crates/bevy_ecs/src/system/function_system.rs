@@ -196,6 +196,52 @@ pub struct SystemState<Param: SystemParam + 'static> {
     archetype_generation: ArchetypeGeneration,
 }
 
+// Allow closure arguments to be inferred.
+// For a closure to be used as a `SystemParamFunction`, it needs to be generic in any `'w` or `'s` lifetimes.
+// Rust will only infer a closure to be generic over lifetimes if it's passed to a function with a Fn constraint.
+// So, generate a function for each arity with an explicit `FnMut` constraint to enable higher-order lifetimes,
+// along with a regular `SystemParamFunction` constraint to allow the system to be built.
+macro_rules! impl_build_system {
+    ($($param: ident),*) => {
+        impl<$($param: SystemParam),*> SystemState<($($param,)*)> {
+            /// Create a [`FunctionSystem`] from a [`SystemState`].
+            /// This method signature allows type inference of closure parameters for a system with no input.
+            /// You can use [`SystemState::build_system_with_input()`] if you have input, or [`SystemState::build_any_system()`] if you don't need type inference.
+            pub fn build_system<
+                Out: 'static,
+                Marker,
+                F: FnMut($(SystemParamItem<$param>),*) -> Out
+                    + SystemParamFunction<Marker, Param = ($($param,)*), In = (), Out = Out>
+            >
+            (
+                self,
+                func: F,
+            ) -> FunctionSystem<Marker, F>
+            {
+                self.build_any_system(func)
+            }
+
+            /// Create a [`FunctionSystem`] from a [`SystemState`].
+            /// This method signature allows type inference of closure parameters for a system with input.
+            /// You can use [`SystemState::build_system()`] if you have no input, or [`SystemState::build_any_system()`] if you don't need type inference.
+            pub fn build_system_with_input<
+                Input,
+                Out: 'static,
+                Marker,
+                F: FnMut(In<Input>, $(SystemParamItem<$param>),*) -> Out
+                    + SystemParamFunction<Marker, Param = ($($param,)*), In = Input, Out = Out>,
+            >(
+                self,
+                func: F,
+            ) -> FunctionSystem<Marker, F> {
+                self.build_any_system(func)
+            }
+        }
+    }
+}
+
+all_tuples!(impl_build_system, 0, 16, P);
+
 impl<Param: SystemParam> SystemState<Param> {
     /// Creates a new [`SystemState`] with default state.
     ///
@@ -230,7 +276,9 @@ impl<Param: SystemParam> SystemState<Param> {
     }
 
     /// Create a [`FunctionSystem`] from a [`SystemState`].
-    pub fn build_system<Marker, F: SystemParamFunction<Marker, Param = Param>>(
+    /// This method signature allows any system function, but the compiler will not perform type inference on closure parameters.
+    /// You can use [`SystemState::build_system()`] or [`SystemState::build_system_with_input()`] to get type inference on parameters.
+    pub fn build_any_system<Marker, F: SystemParamFunction<Marker, Param = Param>>(
         self,
         func: F,
     ) -> FunctionSystem<Marker, F> {
