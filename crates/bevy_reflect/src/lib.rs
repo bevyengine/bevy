@@ -758,7 +758,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "the given key (of type bevy_reflect::tests::Foo) does not support hashing"
+        expected = "the given key of type `bevy_reflect::tests::Foo` does not support hashing"
     )]
     fn reflect_map_no_hash() {
         #[derive(Reflect)]
@@ -775,9 +775,9 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "the given key (of type bevy_reflect::DynamicStruct) does not support hashing"
+        expected = "the dynamic type `bevy_reflect::DynamicStruct` (representing `bevy_reflect::tests::Foo`) does not support hashing"
     )]
-    fn reflect_map_no_hash_dynamic() {
+    fn reflect_map_no_hash_dynamic_representing() {
         #[derive(Reflect, Hash)]
         #[reflect(Hash)]
         struct Foo {
@@ -787,6 +787,25 @@ mod tests {
         let foo = Foo { a: 1 };
         assert!(foo.reflect_hash().is_some());
         let dynamic = foo.clone_dynamic();
+
+        let mut map = DynamicMap::default();
+        map.insert(dynamic, 11u32);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "the dynamic type `bevy_reflect::DynamicStruct` does not support hashing"
+    )]
+    fn reflect_map_no_hash_dynamic() {
+        #[derive(Reflect, Hash)]
+        #[reflect(Hash)]
+        struct Foo {
+            a: u32,
+        }
+
+        let mut dynamic = DynamicStruct::default();
+        dynamic.insert("a", 4u32);
+        assert!(dynamic.reflect_hash().is_none());
 
         let mut map = DynamicMap::default();
         map.insert(dynamic, 11u32);
