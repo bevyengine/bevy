@@ -1,4 +1,4 @@
-use crate::{Dir2, Dir3, Dir3A, Quat, Vec2, Vec3, Vec3A, Vec4};
+use crate::{Dir2, Dir3, Dir3A, Quat, Rot2, Vec2, Vec3, Vec3A, Vec4};
 use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
@@ -257,6 +257,13 @@ where
     #[inline]
     fn interpolate(&self, other: &Self, t: f32) -> Self {
         self.lerp(*other, t)
+    }
+}
+
+impl StableInterpolate for Rot2 {
+    #[inline]
+    fn interpolate(&self, other: &Self, t: f32) -> Self {
+        self.slerp(*other, t)
     }
 }
 
