@@ -1,3 +1,4 @@
+use crate::util;
 use bevy_color::{Laba, LinearRgba, Oklaba, Srgba, Xyza};
 use bevy_ecs::world::World;
 use bevy_math::*;
@@ -15,7 +16,12 @@ pub struct BlendInput<T> {
 }
 
 /// An animatable value type.
-pub trait Animatable: Reflect + Interpolate + Sized + Send + Sync + 'static {
+pub trait Animatable: Reflect + Sized + Send + Sync + 'static {
+    /// Interpolates between `a` and `b` with  a interpolation factor of `time`.
+    ///
+    /// The `time` parameter here may not be clamped to the range `[0.0, 1.0]`.
+    fn interpolate(a: &Self, b: &Self, time: f32) -> Self;
+
     /// Blends one or more values together.
     ///
     /// Implementors should return a default value when no inputs are provided here.
@@ -29,6 +35,12 @@ pub trait Animatable: Reflect + Interpolate + Sized + Send + Sync + 'static {
 macro_rules! impl_float_animatable {
     ($ty: ty, $base: ty) => {
         impl Animatable for $ty {
+            #[inline]
+            fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
+                let t = <$base>::from(t);
+                (*a) * (1.0 - t) + (*b) * t
+            }
+
             #[inline]
             fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
                 let mut value = Default::default();
@@ -48,6 +60,12 @@ macro_rules! impl_float_animatable {
 macro_rules! impl_color_animatable {
     ($ty: ident) => {
         impl Animatable for $ty {
+            #[inline]
+            fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
+                let value = *a * (1. - t) + *b * t;
+                value
+            }
+
             #[inline]
             fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
                 let mut value = Default::default();
@@ -83,6 +101,11 @@ impl_color_animatable!(Xyza);
 // Vec3 is special cased to use Vec3A internally for blending
 impl Animatable for Vec3 {
     #[inline]
+    fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
+        (*a) * (1.0 - t) + (*b) * t
+    }
+
+    #[inline]
     fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
         let mut value = Vec3A::ZERO;
         for input in inputs {
@@ -98,6 +121,11 @@ impl Animatable for Vec3 {
 
 impl Animatable for bool {
     #[inline]
+    fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
+        util::step_unclamped(*a, *b, t)
+    }
+
+    #[inline]
     fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
         inputs
             .max_by(|a, b| FloatOrd(a.weight).cmp(&FloatOrd(b.weight)))
@@ -107,6 +135,14 @@ impl Animatable for bool {
 }
 
 impl Animatable for Transform {
+    fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
+        Self {
+            translation: Vec3::interpolate(&a.translation, &b.translation, t),
+            rotation: Quat::interpolate(&a.rotation, &b.rotation, t),
+            scale: Vec3::interpolate(&a.scale, &b.scale, t),
+        }
+    }
+
     fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
         let mut translation = Vec3A::ZERO;
         let mut scale = Vec3A::ZERO;
@@ -137,6 +173,14 @@ impl Animatable for Transform {
 }
 
 impl Animatable for Quat {
+    /// Performs a slerp to smoothly interpolate between quaternions.
+    #[inline]
+    fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
+        // We want to smoothly interpolate between the two quaternions by default,
+        // rather than using a quicker but less correct linear interpolation.
+        a.slerp(*b, t)
+    }
+
     #[inline]
     fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
         let mut value = Self::IDENTITY;

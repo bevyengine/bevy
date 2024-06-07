@@ -1,4 +1,4 @@
-use crate::{DVec2, DVec3, DVec4, Dir2, Dir3, Dir3A, Quat, Vec2, Vec3, Vec3A, Vec4};
+use crate::{Dir2, Dir3, Dir3A, Quat, Vec2, Vec3, Vec3A, Vec4};
 use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
@@ -162,25 +162,60 @@ impl NormedVectorSpace for f32 {
     }
 }
 
-/// A type that can be intermediately interpolated between two given values
-/// using an auxiliary linear parameter.
+/// A type with a natural interpolation that provides strong subdivision guarantees.
 ///
-/// The expectations for the implementing type are as follows:
-/// - `interpolate(&first, &second, t)` produces `first.clone()` when `t = 0.0`
-///   and `second.clone()` when `t = 1.0`.
-/// - `interpolate` is self-similar in the sense that, for any values `t0`, `t1`,
-///   `interpolate(interpolate(&first, &second, t0), interpolate(&first, &second, t1), t)`
-///   is equivalent to `interpolate(&first, &second, interpolate(&t0, &t1, t))`.
-pub trait Interpolate: Clone {
+/// Although the only required method is `interpolate`, many things are expected of it:
+///
+/// 1. The notion of interpolation should follow naturally from the semantics of the type, so
+///    that inferring the interpolation mode from the type alone is sensible.
+///
+/// 2. The interpolation recovers something equivalent to the starting value at `t = 0.0`
+///    and likewise with the ending value at `t = 1.0`.
+///
+/// 3. Importantly, the interpolation must be *subdivision-stable*: for any interpolation curve
+///    between two (unnamed) values and any parameter-value pairs `(t0, p)` and `(t1, q)`, the
+///    interpolation curve between `p` and `q` must be the *linear* reparametrization of the original
+///    interpolation curve restricted to the interval `[t0, t1]`.
+///
+/// The last of these conditions is very strong and indicates something like constant speed.
+/// Here is a diagram depicting it:
+/// ```text
+/// top curve = u.interpolate(v, t)
+///
+///              t0 => p   t1 => q    
+///   |-------------|---------|-------------|
+/// 0 => u         /           \          1 => v
+///              /               \
+///            /                   \
+///          /        linear         \
+///        /     reparametrization     \
+///      /   t = t0 * (1 - s) + t1 * s   \
+///    /                                   \
+///   |-------------------------------------|
+/// 0 => p                                1 => q
+///
+/// bottom curve = p.interpolate(q, s)
+/// ```
+///
+/// Note that some common forms of interpolation do not satisfy this criterion. For example,
+/// [`Quat::lerp`] and [`Rot2::nlerp`] are not subdivision-stable.
+///
+/// Furthermore, this is not to be used as a general trait for abstract interpolation.
+/// Consumers rely on the strong guarantees in order for behavior based on this trait to be
+/// well-behaved.
+///
+/// [`Quat::lerp`]: crate::Quat::lerp
+/// [`Rot2::nlerp`]: crate::Rot2::nlerp
+pub trait StrongInterpolate: Clone {
     /// Interpolate between this value and the `other` given value using the parameter `t`.
     /// Note that the parameter `t` is not necessarily clamped to lie between `0` and `1`.
-    /// However, when `t = 0.0`, `self` is recovered, while `other` is recovered at `t = 1.0`,
-    /// with intermediate values lying between the two in some appropriate sense.
+    /// When `t = 0.0`, `self` is recovered, while `other` is recovered at `t = 1.0`,
+    /// with intermediate values lying between the two.
     fn interpolate(&self, other: &Self, t: f32) -> Self;
 
     /// A version of [`interpolate`] that assigns the result to `self` for convenience.
     ///
-    /// [`interpolate`]: Interpolate::interpolate
+    /// [`interpolate`]: StrongInterpolate::interpolate
     fn interpolate_assign(&mut self, other: &Self, t: f32) {
         *self = self.interpolate(other, t);
     }
@@ -201,7 +236,7 @@ pub trait Interpolate: Clone {
     ///
     /// # Example
     /// ```
-    /// # use bevy_math::{Vec3, Interpolate};
+    /// # use bevy_math::{Vec3, StrongInterpolate};
     /// # let delta_time: f32 = 1.0 / 60.0;
     /// let mut object_position: Vec3 = Vec3::ZERO;
     /// let target_position: Vec3 = Vec3::new(2.0, 3.0, 5.0);
@@ -215,20 +250,7 @@ pub trait Interpolate: Clone {
     }
 }
 
-/// Steps between two different discrete values of any type.
-/// Returns `a` if `t < 1.0`, otherwise returns `b`.
-///
-/// This is a common form of interpolation for discrete types.
-#[inline]
-fn step_unclamped<T>(a: T, b: T, t: f32) -> T {
-    if t < 1.0 {
-        a
-    } else {
-        b
-    }
-}
-
-impl<V> Interpolate for V
+impl<V> StrongInterpolate for V
 where
     V: VectorSpace,
 {
@@ -238,56 +260,30 @@ where
     }
 }
 
-impl Interpolate for Quat {
+impl StrongInterpolate for Quat {
     #[inline]
     fn interpolate(&self, other: &Self, t: f32) -> Self {
         self.slerp(*other, t)
     }
 }
 
-impl Interpolate for Dir2 {
+impl StrongInterpolate for Dir2 {
     #[inline]
     fn interpolate(&self, other: &Self, t: f32) -> Self {
         self.slerp(*other, t)
     }
 }
 
-impl Interpolate for Dir3 {
+impl StrongInterpolate for Dir3 {
     #[inline]
     fn interpolate(&self, other: &Self, t: f32) -> Self {
         self.slerp(*other, t)
     }
 }
 
-impl Interpolate for Dir3A {
+impl StrongInterpolate for Dir3A {
     #[inline]
     fn interpolate(&self, other: &Self, t: f32) -> Self {
         self.slerp(*other, t)
-    }
-}
-
-/// This macro is for implementing `Interpolate` on non-f32-based vector-space-like entities.
-macro_rules! impl_float_interpolate {
-    ($ty: ty, $base: ty) => {
-        impl Interpolate for $ty {
-            #[inline]
-            fn interpolate(&self, other: &Self, t: f32) -> Self {
-                let t = <$base>::from(t);
-                (*self) * (1.0 - t) + (*other) * t
-            }
-        }
-    };
-}
-
-impl_float_interpolate!(f64, f64);
-impl_float_interpolate!(DVec2, f64);
-impl_float_interpolate!(DVec3, f64);
-impl_float_interpolate!(DVec4, f64);
-
-// This is slightly cursed but necessary for unifying with an `Animatable` implementation for `bool`
-impl Interpolate for bool {
-    #[inline]
-    fn interpolate(&self, other: &Self, t: f32) -> Self {
-        step_unclamped(*self, *other, t)
     }
 }
