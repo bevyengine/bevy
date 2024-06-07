@@ -1,5 +1,5 @@
 use bevy_asset::{Assets, Handle};
-use bevy_math::{IVec2, UVec2, Vec2};
+use bevy_math::{IVec2, UVec2};
 use bevy_render::{
     render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},

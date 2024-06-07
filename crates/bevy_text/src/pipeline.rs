@@ -11,8 +11,7 @@ use bevy_utils::HashMap;
 use cosmic_text::{Attrs, Buffer, Metrics, Shaping, Wrap};
 
 use crate::{
-    error::TextError, scale_value, BreakLineOn, Font, FontAtlasSets, JustifyText, PositionedGlyph,
-    Text, TextSection, YAxisOrientation,
+    error::TextError, BreakLineOn, Font, FontAtlasSets, JustifyText, PositionedGlyph, TextSection, YAxisOrientation,
 };
 
 /// A wrapper around a [`cosmic_text::FontSystem`]

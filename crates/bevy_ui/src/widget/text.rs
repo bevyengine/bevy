@@ -16,7 +16,7 @@ use bevy_render::{camera::Camera, texture::Image};
 use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
     scale_value, BreakLineOn, Font, FontAtlasSets, Text, TextError, TextLayoutInfo,
-    TextMeasureInfo, TextPipeline, TextSettings, YAxisOrientation,
+    TextMeasureInfo, TextPipeline, YAxisOrientation,
 };
 use bevy_utils::Entry;
 use taffy::style::AvailableSpace;
@@ -259,7 +259,6 @@ pub fn text_system(
     fonts: Res<Assets<Font>>,
     camera_query: Query<(Entity, &Camera)>,
     default_ui_camera: DefaultUiCamera,
-    text_settings: Res<TextSettings>,
     ui_scale: Res<UiScale>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,

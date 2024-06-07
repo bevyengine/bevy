@@ -50,6 +50,7 @@ pub use pipeline::*;
 pub use text::*;
 pub use text2d::*;
 
+/// Most commonly used re-exported types.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{Font, JustifyText, Text, Text2dBundle, TextError, TextSection, TextStyle};
@@ -64,7 +65,6 @@ use bevy_render::{
     camera::CameraUpdateSystem, view::VisibilitySystems, ExtractSchedule, RenderApp,
 };
 use bevy_sprite::SpriteSystem;
-use std::num::NonZeroUsize;
 
 /// Adds text rendering support to an app.
 ///
@@ -73,31 +73,13 @@ use std::num::NonZeroUsize;
 #[derive(Default)]
 pub struct TextPlugin;
 
-/// Settings used to configure the [`TextPlugin`].
-#[derive(Resource)]
-pub struct TextSettings {
-    /// Soft maximum number of font atlases supported in a [`FontAtlasSet`]. When this is exceeded,
-    /// a warning will be emitted a single time.
-    pub soft_max_font_atlases: NonZeroUsize,
-    /// Allows font size to be set dynamically exceeding the amount set in `soft_max_font_atlases`.
-    /// Note each font size has to be generated which can have a strong performance impact.
-    pub allow_dynamic_font_size: bool,
-}
-
-impl Default for TextSettings {
-    fn default() -> Self {
-        Self {
-            soft_max_font_atlases: NonZeroUsize::new(16).unwrap(),
-            allow_dynamic_font_size: false,
-        }
-    }
-}
-
 /// Text is rendered for two different view projections, a [`Text2dBundle`] is rendered with a
 /// `BottomToTop` y axis, while UI is rendered with a `TopToBottom` y axis. This matters for text because
 /// the glyph positioning is different in either layout.
 pub enum YAxisOrientation {
+    /// Ui Y-Axis orientation
     TopToBottom,
+    /// Text2dBundles axises
     BottomToTop,
 }
 
@@ -111,7 +93,6 @@ impl Plugin for TextPlugin {
             .register_type::<Text>()
             .register_type::<Text2dBounds>()
             .init_asset_loader::<FontLoader>()
-            .init_resource::<TextSettings>()
             .init_resource::<FontAtlasSets>()
             .insert_resource(TextPipeline::default())
             .add_systems(
