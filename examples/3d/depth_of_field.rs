@@ -88,20 +88,23 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
 
     // Spawn the scene.
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/DepthOfFieldExample/DepthOfFieldExample.glb#Scene0"),
+        scene: asset_server.load(
+            GltfAssetLabel::Scene(0)
+                .from_asset("models/DepthOfFieldExample/DepthOfFieldExample.glb"),
+        ),
         ..default()
     });
 
     // Spawn the help text.
     commands.spawn(
         TextBundle {
-            text: create_text(&asset_server, &app_settings),
-            ..TextBundle::default()
+            text: create_text(&app_settings),
+            ..default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(10.0),
-            left: Val::Px(10.0),
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
@@ -212,26 +215,15 @@ fn tweak_scene(
 }
 
 /// Update the help text entity per the current app settings.
-fn update_text(
-    mut texts: Query<&mut Text>,
-    asset_server: Res<AssetServer>,
-    app_settings: Res<AppSettings>,
-) {
+fn update_text(mut texts: Query<&mut Text>, app_settings: Res<AppSettings>) {
     for mut text in texts.iter_mut() {
-        *text = create_text(&asset_server, &app_settings);
+        *text = create_text(&app_settings);
     }
 }
 
 /// Regenerates the app text component per the current app settings.
-fn create_text(asset_server: &AssetServer, app_settings: &AppSettings) -> Text {
-    Text::from_section(
-        app_settings.help_text(),
-        TextStyle {
-            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-            font_size: 24.0,
-            ..default()
-        },
-    )
+fn create_text(app_settings: &AppSettings) -> Text {
+    Text::from_section(app_settings.help_text(), TextStyle::default())
 }
 
 impl From<AppSettings> for Option<DepthOfFieldSettings> {

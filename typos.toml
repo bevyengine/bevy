@@ -12,10 +12,13 @@ extend-exclude = [
 
 # Match Whole Word - Case Sensitive
 [default.extend-identifiers]
-iy = "iy"   # Variable name used in bevy_gizmos. Probably stands for "y-axis index", as it's being used in loops.
-ser = "ser" # ron::ser - Serializer
-SME = "SME" # Subject Matter Expert
-Sur = "Sur" # macOS Big Sur - South
+iy = "iy"       # Variable name used in bevy_gizmos. Probably stands for "y-axis index", as it's being used in loops.
+ser = "ser"     # ron::ser - Serializer
+SME = "SME"     # Subject Matter Expert
+Sur = "Sur"     # macOS Big Sur - South
+Masia = "Masia" # The surname of one of the authors of SMAA
+Ba = "Ba"       # Bitangent for Anisotropy
+ba = "ba"       # Part of an accessor in WGSL - color.ba
 
 # Match Inside a Word - Case Insensitive
 [default.extend-words]

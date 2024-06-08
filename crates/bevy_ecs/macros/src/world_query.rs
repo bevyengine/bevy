@@ -164,9 +164,9 @@ pub(crate) fn world_query_impl(
                 #( <#field_types>::update_component_access(&state.#named_field_idents, _access); )*
             }
 
-            fn init_state(world: &mut #path::world::World) -> #state_struct_name #user_ty_generics {
+            fn init_state(initializer: &mut #path::component::ComponentInitializer) -> #state_struct_name #user_ty_generics {
                 #state_struct_name {
-                    #(#named_field_idents: <#field_types>::init_state(world),)*
+                    #(#named_field_idents: <#field_types>::init_state(initializer),)*
                 }
             }
 

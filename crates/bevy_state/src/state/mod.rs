@@ -497,4 +497,126 @@ mod tests {
             "Should Only Exit Twice"
         );
     }
+
+    #[derive(Resource, Default, PartialEq, Debug)]
+    struct TransitionCounter {
+        exit: u8,
+        transition: u8,
+        enter: u8,
+    }
+
+    #[test]
+    fn same_state_transition_should_emit_event_and_not_run_schedules() {
+        let mut world = World::new();
+        EventRegistry::register_event::<StateTransitionEvent<SimpleState>>(&mut world);
+        world.init_resource::<State<SimpleState>>();
+        let mut schedules = Schedules::new();
+        let mut apply_changes = Schedule::new(StateTransition);
+        SimpleState::register_state(&mut apply_changes);
+        schedules.insert(apply_changes);
+
+        world.insert_resource(TransitionCounter::default());
+        let mut on_exit = Schedule::new(OnExit(SimpleState::A));
+        on_exit.add_systems(|mut c: ResMut<TransitionCounter>| c.exit += 1);
+        schedules.insert(on_exit);
+        let mut on_transition = Schedule::new(OnTransition {
+            exited: SimpleState::A,
+            entered: SimpleState::A,
+        });
+        on_transition.add_systems(|mut c: ResMut<TransitionCounter>| c.transition += 1);
+        schedules.insert(on_transition);
+        let mut on_enter = Schedule::new(OnEnter(SimpleState::A));
+        on_enter.add_systems(|mut c: ResMut<TransitionCounter>| c.enter += 1);
+        schedules.insert(on_enter);
+
+        world.insert_resource(schedules);
+        setup_state_transitions_in_world(&mut world, None);
+
+        world.run_schedule(StateTransition);
+        assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
+        assert!(world
+            .resource::<Events<StateTransitionEvent<SimpleState>>>()
+            .is_empty());
+
+        world.insert_resource(TransitionCounter::default());
+        world.insert_resource(NextState::Pending(SimpleState::A));
+        world.run_schedule(StateTransition);
+        assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
+        assert_eq!(
+            *world.resource::<TransitionCounter>(),
+            TransitionCounter {
+                exit: 0,
+                transition: 0,
+                enter: 0
+            }
+        );
+        assert_eq!(
+            world
+                .resource::<Events<StateTransitionEvent<SimpleState>>>()
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn same_state_transition_should_propagate_to_sub_state() {
+        let mut world = World::new();
+        EventRegistry::register_event::<StateTransitionEvent<SimpleState>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<SubState>>(&mut world);
+        world.insert_resource(State(SimpleState::B(true)));
+        world.init_resource::<State<SubState>>();
+        let mut schedules = Schedules::new();
+        let mut apply_changes = Schedule::new(StateTransition);
+        SimpleState::register_state(&mut apply_changes);
+        SubState::register_sub_state_systems(&mut apply_changes);
+        schedules.insert(apply_changes);
+        world.insert_resource(schedules);
+        setup_state_transitions_in_world(&mut world, None);
+
+        world.insert_resource(NextState::Pending(SimpleState::B(true)));
+        world.run_schedule(StateTransition);
+        assert_eq!(
+            world
+                .resource::<Events<StateTransitionEvent<SimpleState>>>()
+                .len(),
+            1
+        );
+        assert_eq!(
+            world
+                .resource::<Events<StateTransitionEvent<SubState>>>()
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn same_state_transition_should_propagate_to_computed_state() {
+        let mut world = World::new();
+        EventRegistry::register_event::<StateTransitionEvent<SimpleState>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<TestComputedState>>(&mut world);
+        world.insert_resource(State(SimpleState::B(true)));
+        world.insert_resource(State(TestComputedState::BisTrue));
+        let mut schedules = Schedules::new();
+        let mut apply_changes = Schedule::new(StateTransition);
+        SimpleState::register_state(&mut apply_changes);
+        TestComputedState::register_computed_state_systems(&mut apply_changes);
+        schedules.insert(apply_changes);
+        world.insert_resource(schedules);
+        setup_state_transitions_in_world(&mut world, None);
+
+        world.insert_resource(NextState::Pending(SimpleState::B(true)));
+        world.run_schedule(StateTransition);
+        assert_eq!(
+            world
+                .resource::<Events<StateTransitionEvent<SimpleState>>>()
+                .len(),
+            1
+        );
+        assert_eq!(
+            world
+                .resource::<Events<StateTransitionEvent<TestComputedState>>>()
+                .len(),
+            1
+        );
+    }
 }

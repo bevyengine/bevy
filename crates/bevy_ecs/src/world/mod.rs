@@ -9,6 +9,7 @@ pub mod unsafe_world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
 pub use crate::world::command_queue::CommandQueue;
+use crate::{component::ComponentInitializer, entity::EntityHashSet};
 pub use deferred_world::DeferredWorld;
 pub use entity_ref::{
     EntityMut, EntityRef, EntityWorldMut, Entry, FilteredEntityMut, FilteredEntityRef,
@@ -216,6 +217,15 @@ impl World {
     #[inline]
     pub fn bundles(&self) -> &Bundles {
         &self.bundles
+    }
+
+    /// Creates a [`ComponentInitializer`] for this world.
+    #[inline]
+    pub fn component_initializer(&mut self) -> ComponentInitializer {
+        ComponentInitializer {
+            components: &mut self.components,
+            storages: &mut self.storages,
+        }
     }
 
     /// Retrieves this world's [`RemovedComponentEvents`] collection
@@ -572,6 +582,40 @@ impl World {
         Ok(refs)
     }
 
+    /// Gets an [`EntityRef`] for multiple entities at once, whose number is determined at runtime.
+    ///
+    /// # Errors
+    ///
+    /// If any entity does not exist in the world.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut world = World::new();
+    /// # let id1 = world.spawn_empty().id();
+    /// # let id2 = world.spawn_empty().id();
+    /// // Getting multiple entities.
+    /// let entities = world.get_many_entities_dynamic(&[id1, id2]).unwrap();
+    /// let entity1 = entities.get(0).unwrap();
+    /// let entity2 = entities.get(1).unwrap();
+    ///
+    /// // Trying to get a despawned entity will fail.
+    /// world.despawn(id2);
+    /// assert!(world.get_many_entities_dynamic(&[id1, id2]).is_err());
+    /// ```
+    pub fn get_many_entities_dynamic<'w>(
+        &'w self,
+        entities: &[Entity],
+    ) -> Result<Vec<EntityRef<'w>>, Entity> {
+        let mut borrows = Vec::with_capacity(entities.len());
+        for &id in entities {
+            borrows.push(self.get_entity(id).ok_or(id)?);
+        }
+
+        Ok(borrows)
+    }
+
     /// Returns an [`Entity`] iterator of current entities.
     ///
     /// This is useful in contexts where you only have read-only access to the [`World`].
@@ -655,6 +699,23 @@ impl World {
         Some(unsafe { EntityWorldMut::new(self, entity, location) })
     }
 
+    /// Verify that no duplicate entities are present in the given slice.
+    /// Does NOT check if the entities actually exist in the world.
+    ///
+    /// # Errors
+    ///
+    /// If any entities are duplicated.
+    fn verify_unique_entities(entities: &[Entity]) -> Result<(), QueryEntityError> {
+        for i in 0..entities.len() {
+            for j in 0..i {
+                if entities[i] == entities[j] {
+                    return Err(QueryEntityError::AliasedMutability(entities[i]));
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Gets mutable access to multiple entities.
     ///
     /// # Errors
@@ -679,14 +740,7 @@ impl World {
         &mut self,
         entities: [Entity; N],
     ) -> Result<[EntityMut<'_>; N], QueryEntityError> {
-        // Ensure each entity is unique.
-        for i in 0..N {
-            for j in 0..i {
-                if entities[i] == entities[j] {
-                    return Err(QueryEntityError::AliasedMutability(entities[i]));
-                }
-            }
-        }
+        Self::verify_unique_entities(&entities)?;
 
         // SAFETY: Each entity is unique.
         unsafe { self.get_entities_mut_unchecked(entities) }
@@ -716,6 +770,101 @@ impl World {
         // - The caller ensures that each entity is unique, so none
         //   of the borrows will conflict with one another.
         let borrows = cells.map(|c| unsafe { EntityMut::new(c) });
+
+        Ok(borrows)
+    }
+
+    /// Gets mutable access to multiple entities, whose number is determined at runtime.
+    ///
+    /// # Errors
+    ///
+    /// If any entities do not exist in the world,
+    /// or if the same entity is specified multiple times.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut world = World::new();
+    /// # let id1 = world.spawn_empty().id();
+    /// # let id2 = world.spawn_empty().id();
+    /// // Disjoint mutable access.
+    /// let mut entities = world.get_many_entities_dynamic_mut(&[id1, id2]).unwrap();
+    /// let entity1 = entities.get_mut(0).unwrap();
+    ///
+    /// // Trying to access the same entity multiple times will fail.
+    /// assert!(world.get_many_entities_dynamic_mut(&[id1, id1]).is_err());
+    /// ```
+    pub fn get_many_entities_dynamic_mut<'w>(
+        &'w mut self,
+        entities: &[Entity],
+    ) -> Result<Vec<EntityMut<'w>>, QueryEntityError> {
+        Self::verify_unique_entities(entities)?;
+
+        // SAFETY: Each entity is unique.
+        unsafe { self.get_entities_dynamic_mut_unchecked(entities.iter().copied()) }
+    }
+
+    /// Gets mutable access to multiple entities, contained in a [`HashSet`].
+    /// The uniqueness of items in a [`HashSet`] allows us to avoid checking for duplicates.
+    ///
+    /// # Errors
+    ///
+    /// If any entities do not exist in the world.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::entity::EntityHash;
+    /// # use bevy_ecs::entity::EntityHashSet;
+    /// # use bevy_utils::hashbrown::HashSet;
+    /// # use bevy_utils::hashbrown::hash_map::DefaultHashBuilder;
+    /// # let mut world = World::new();
+    /// # let id1 = world.spawn_empty().id();
+    /// # let id2 = world.spawn_empty().id();
+    /// let s = EntityHash::default();
+    /// let mut set = EntityHashSet::with_hasher(s);
+    /// set.insert(id1);
+    /// set.insert(id2);
+    ///
+    /// // Disjoint mutable access.
+    /// let mut entities = world.get_many_entities_from_set_mut(&set).unwrap();
+    /// let entity1 = entities.get_mut(0).unwrap();
+    /// ```
+    pub fn get_many_entities_from_set_mut<'w>(
+        &'w mut self,
+        entities: &EntityHashSet,
+    ) -> Result<Vec<EntityMut<'w>>, QueryEntityError> {
+        // SAFETY: Each entity is unique.
+        unsafe { self.get_entities_dynamic_mut_unchecked(entities.iter().copied()) }
+    }
+
+    /// # Safety
+    /// `entities` must produce no duplicate [`Entity`] IDs.
+    unsafe fn get_entities_dynamic_mut_unchecked(
+        &mut self,
+        entities: impl ExactSizeIterator<Item = Entity>,
+    ) -> Result<Vec<EntityMut<'_>>, QueryEntityError> {
+        let world_cell = self.as_unsafe_world_cell();
+
+        let mut cells = Vec::with_capacity(entities.len());
+        for id in entities {
+            cells.push(
+                world_cell
+                    .get_entity(id)
+                    .ok_or(QueryEntityError::NoSuchEntity(id))?,
+            );
+        }
+
+        let borrows = cells
+            .into_iter()
+            // SAFETY:
+            // - `world_cell` has exclusive access to the entire world.
+            // - The caller ensures that each entity is unique, so none
+            //   of the borrows will conflict with one another.
+            .map(|c| unsafe { EntityMut::new(c) })
+            .collect();
 
         Ok(borrows)
     }
@@ -3141,5 +3290,24 @@ mod tests {
     fn spawn_empty_bundle() {
         let mut world = World::new();
         world.spawn(());
+    }
+
+    #[test]
+    fn test_verify_unique_entities() {
+        let mut world = World::new();
+        let entity1 = world.spawn(()).id();
+        let entity2 = world.spawn(()).id();
+        let entity3 = world.spawn(()).id();
+        let entity4 = world.spawn(()).id();
+        let entity5 = world.spawn(()).id();
+
+        assert!(
+            World::verify_unique_entities(&[entity1, entity2, entity3, entity4, entity5]).is_ok()
+        );
+        assert!(World::verify_unique_entities(&[entity1, entity1, entity2, entity5]).is_err());
+        assert!(World::verify_unique_entities(&[
+            entity1, entity2, entity3, entity4, entity5, entity1
+        ])
+        .is_err());
     }
 }
