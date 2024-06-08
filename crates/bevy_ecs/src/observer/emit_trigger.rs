@@ -56,7 +56,6 @@ fn apply_trigger<T, Targets: TriggerTargets>(
 ) {
     let mut world = DeferredWorld::from(world);
     if targets.entities().len() == 0 {
-        eprintln!("triggering");
         // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
         unsafe {
             world.trigger_observers_with_data(
