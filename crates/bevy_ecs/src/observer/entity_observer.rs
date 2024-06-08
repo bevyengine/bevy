@@ -1,5 +1,9 @@
-use super::*;
-use crate::component::{ComponentHooks, StorageType};
+use crate::{
+    component::{Component, ComponentHooks, StorageType},
+    entity::Entity,
+    observer::Command,
+    world::World,
+};
 
 /// Command to attach an entity observer to an entity
 pub(crate) struct AttachObserver {

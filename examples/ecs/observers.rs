@@ -8,8 +8,36 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .init_resource::<SpatialIndex>()
         .add_systems(Startup, setup)
         .add_systems(Update, (draw_shapes, handle_click))
+        // Observers run when a certain trigger is fired, each trigger is represented by a type.
+        // This observer runs whenever `TriggerMines` is fired.
+        .observe(
+            |observer: Observer<TriggerMines>,
+             mines: Query<&Mine>,
+             index: Res<SpatialIndex>,
+             mut commands: Commands| {
+                // You can access the trigger data via the `Observer`
+                let trigger = observer.data();
+                // Access resources
+                for e in index.get_nearby(trigger.pos) {
+                    // Run queries
+                    let mine = mines.get(e).unwrap();
+                    if mine.pos.distance(trigger.pos) < mine.size + trigger.radius {
+                        // And queue commands, including firing additional triggers
+                        // Here we fire the `Explode` trigger at entity `e`
+                        commands.trigger_targets(Explode, e);
+                    }
+                }
+            },
+        )
+        // This observer runs whenever the `Mine` component is added to an entity, and places it in a simple spatial index.
+        .observe(add_mine)
+        // Since observers run systems you can also define them as standalone functions rather than closures.
+        // This observer runs whenever the `Mine` component is removed from an entity (including despawning it)
+        // and removes it from the spatial index.
+        .observe(remove_mine)
         .run();
 }
 
@@ -44,51 +72,7 @@ fn setup(world: &mut World) {
         },
     ));
 
-    // Pre-register all our components, resource and trigger types.
-    world.init_resource::<SpatialIndex>();
-    world.init_component::<Mine>();
-    world.init_trigger::<TriggerMines>();
-    world.init_trigger::<Explode>();
-
-    // Observers run when a certain trigger is fired, each trigger is represented by a type.
-    // This observer runs whenever `TriggerMines` is fired, observers run systems which can be defined as closures.
-    world.observer(
-        |observer: Observer<TriggerMines>,
-         mines: Query<&Mine>,
-         index: Res<SpatialIndex>,
-         mut commands: Commands| {
-            // You can access the trigger data via the `Observer`
-            let trigger = observer.data();
-            // Access resources
-            for e in index.get_nearby(trigger.pos) {
-                // Run queries
-                let mine = mines.get(e).unwrap();
-                if mine.pos.distance(trigger.pos) < mine.size + trigger.radius {
-                    // And queue commands, including firing additional triggers
-                    // Here we fire the `Explode` trigger at entity `e`
-                    commands.trigger(Explode).entity(e).emit();
-                }
-            }
-        },
-    );
-
     // Observers can also listen for triggers for a specific component.
-    // This observer runs whenever the `Mine` component is added to an entity, and places it in a simple spatial index.
-    world.observer(
-        |observer: Observer<OnAdd, Mine>, query: Query<&Mine>, mut index: ResMut<SpatialIndex>| {
-            let mine = query.get(observer.source()).unwrap();
-            let tile = (
-                (mine.pos.x / CELL_SIZE).floor() as i32,
-                (mine.pos.y / CELL_SIZE).floor() as i32,
-            );
-            index.map.entry(tile).or_default().insert(observer.source());
-        },
-    );
-
-    // Since observers run systems you can also define them as standalone functions rather than closures.
-    // This observer runs whenever the `Mine` component is removed from an entity (including despawning it)
-    // and removes it from the spatial index.
-    world.observer(remove_mine);
 
     // Now we spawn a set of random mines.
     for _ in 0..1000 {
@@ -113,12 +97,10 @@ fn setup(world: &mut World) {
                     entity.despawn();
                     let mine = query.get(source).unwrap();
                     // Fire another trigger to cascade into other mines.
-                    commands
-                        .trigger(TriggerMines {
-                            pos: mine.pos,
-                            radius: mine.size,
-                        })
-                        .emit();
+                    commands.trigger(TriggerMines {
+                        pos: mine.pos,
+                        radius: mine.size,
+                    });
                 },
             );
     }
@@ -149,6 +131,15 @@ impl SpatialIndex {
         }
         nearby
     }
+}
+
+fn add_mine(observer: Observer<OnAdd, Mine>, query: Query<&Mine>, mut index: ResMut<SpatialIndex>) {
+    let mine = query.get(observer.source()).unwrap();
+    let tile = (
+        (mine.pos.x / CELL_SIZE).floor() as i32,
+        (mine.pos.y / CELL_SIZE).floor() as i32,
+    );
+    index.map.entry(tile).or_default().insert(observer.source());
 }
 
 // Remove despawned mines from our index
@@ -193,7 +184,7 @@ fn handle_click(
         .map(|ray| ray.origin.truncate())
     {
         if mouse_button_input.just_pressed(MouseButton::Left) {
-            commands.trigger(TriggerMines { pos, radius: 1.0 }).emit();
+            commands.trigger(TriggerMines { pos, radius: 1.0 });
         }
     }
 }

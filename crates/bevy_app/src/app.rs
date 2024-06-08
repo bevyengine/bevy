@@ -8,7 +8,7 @@ use bevy_ecs::{
     intern::Interned,
     prelude::*,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
-    system::SystemId,
+    system::{IntoObserverSystem, SystemId},
 };
 #[cfg(feature = "bevy_state")]
 use bevy_state::{prelude::*, state::FreelyMutableState};
@@ -882,6 +882,15 @@ impl App {
         }
 
         None
+    }
+
+    /// Spawn the given [`Observer`].
+    pub fn observe<T: Trigger, B: Bundle, M>(
+        &mut self,
+        observer: impl IntoObserverSystem<T, B, M>,
+    ) -> &mut Self {
+        self.world_mut().observe(observer);
+        self
     }
 }
 

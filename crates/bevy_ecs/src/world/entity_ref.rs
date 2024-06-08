@@ -4,7 +4,7 @@ use crate::{
     change_detection::MutUntyped,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
-    observer::{AttachObserver, ObserverBuilder, Observers},
+    observer::{ObserverSystemComponent, Observers, Trigger},
     query::{Access, DebugCheckedUnwrap},
     removal_detection::RemovedComponentEvents,
     storage::Storages,
@@ -1399,18 +1399,11 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Creates an [`Observer`](crate::observer::Observer) listening for `E` events targeting this entity.
     /// In order to trigger the callback the entity must also match the query when the event is fired.
-    pub fn observe<E: Component, B: Bundle, M>(
+    pub fn observe<T: Trigger, B: Bundle, M>(
         &mut self,
-        callback: impl IntoObserverSystem<E, B, M>,
+        observer: impl IntoObserverSystem<T, B, M>,
     ) -> &mut Self {
-        let observer = ObserverBuilder::new(self.world.commands())
-            .source(self.entity)
-            .run(IntoObserverSystem::into_system(callback));
-        self.world.commands().add(AttachObserver {
-            target: self.entity,
-            observer,
-        });
-        self
+        self.insert(ObserverSystemComponent::new(observer).with_source(self.entity))
     }
 }
 

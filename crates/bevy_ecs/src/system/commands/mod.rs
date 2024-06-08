@@ -1,14 +1,15 @@
 mod parallel_scope;
 
-use super::{Deferred, IntoObserverSystem, IntoSystem, ObserverSystem, RegisterSystem, Resource};
+use super::{Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource};
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     component::{ComponentId, Components},
     entity::{Entities, Entity},
-    prelude::Component,
+    observer::{EmitTrigger, ObserverSystemComponent, TriggerTargets},
+    prelude::Trigger,
     system::{RunSystemWithInput, SystemId},
-    world::{Command, CommandQueue, DeferredWorld, EntityWorldMut, FromWorld, World},
+    world::{Command, CommandQueue, EntityWorldMut, FromWorld, World},
 };
 use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
@@ -633,6 +634,27 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn components(&self) -> &Components {
         self.components
     }
+
+    /// Sends a "global" [`Trigger`] without any targets.
+    pub fn trigger(&mut self, trigger: impl Trigger) {
+        self.add(EmitTrigger {
+            trigger,
+            targets: (),
+        })
+    }
+
+    /// Sends a [`Trigger`] with the given `targets`.
+    pub fn trigger_targets(&mut self, trigger: impl Trigger, targets: impl TriggerTargets) {
+        self.add(EmitTrigger { trigger, targets })
+    }
+
+    /// Spawn an [`Observer`] and returns it's [`Entity`].
+    pub fn observe<T: Trigger, B: Bundle, M>(
+        &mut self,
+        observer: impl IntoObserverSystem<T, B, M>,
+    ) -> EntityCommands {
+        self.spawn(ObserverSystemComponent::new(observer))
+    }
 }
 
 /// A [`Command`] which gets executed for a given [`Entity`].
@@ -1022,16 +1044,12 @@ impl EntityCommands<'_> {
         self.commands.reborrow()
     }
 
-    /// Creates an [`Observer`](crate::observer::Observer) listening for any event of type `E` that targets this entity.
-    pub fn observe<E: Component, B: Bundle, M>(
+    /// Creates an [`Observer`](crate::observer::Observer) listening for a trigger of type `T` that targets this entity.
+    pub fn observe<T: Trigger, B: Bundle, M>(
         &mut self,
-        system: impl IntoObserverSystem<E, B, M>,
+        system: impl IntoObserverSystem<T, B, M>,
     ) -> &mut Self {
-        self.commands.add(Observe::<E, B, _> {
-            entity: self.entity,
-            system: IntoObserverSystem::into_system(system),
-            marker: PhantomData,
-        });
+        self.add(observe(system));
         self
     }
 }
@@ -1185,79 +1203,12 @@ fn log_components(entity: Entity, world: &mut World) {
     info!("Entity {:?}: {:?}", entity, debug_infos);
 }
 
-/// A [`Command`] that spawns an observer attached to a specific entity.
-#[derive(Debug)]
-pub struct Observe<E: Component, B: Bundle, C: ObserverSystem<E, B>> {
-    /// The entity that will be observed.
-    pub entity: Entity,
-    /// The callback to run when the event is observed.
-    pub system: C,
-    /// Marker for type parameters
-    pub marker: PhantomData<(E, B)>,
-}
-
-impl<E: Component, B: Bundle, C: ObserverSystem<E, B>> Command for Observe<E, B, C> {
-    fn apply(self, world: &mut World) {
-        world.entity_mut(self.entity).observe(self.system);
-    }
-}
-
-/// A [`Command`] that emits a trigger to be received by observers.
-#[derive(Debug)]
-pub(crate) struct EmitTrigger<T> {
-    /// [`ComponentId`] for this trigger.
-    trigger: ComponentId,
-    /// Entities to trigger observers for.
-    entities: Vec<Entity>,
-    /// Components to trigger observers for.
-    components: Vec<ComponentId>,
-    /// Data for the trigger.
-    data: T,
-}
-
-impl<T> EmitTrigger<T> {
-    // SAFETY: Caller must ensure the type represented by `trigger` is accessible as `T`.
-    pub(crate) unsafe fn new(
-        trigger: ComponentId,
-        entities: Vec<Entity>,
-        components: Vec<ComponentId>,
-        data: T,
-    ) -> Self {
-        Self {
-            trigger,
-            entities,
-            components,
-            data,
-        }
-    }
-}
-
-impl<T: Send + 'static> Command for EmitTrigger<T> {
-    fn apply(mut self, world: &mut World) {
-        let mut world = DeferredWorld::from(world);
-
-        if self.entities.is_empty() {
-            // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
-            unsafe {
-                world.trigger_observers_with_data(
-                    self.trigger,
-                    Entity::PLACEHOLDER,
-                    self.components.iter().cloned(),
-                    &mut self.data,
-                );
-            };
-        } else {
-            for &target in &self.entities {
-                // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
-                unsafe {
-                    world.trigger_observers_with_data(
-                        self.trigger,
-                        target,
-                        self.components.iter().cloned(),
-                        &mut self.data,
-                    );
-                };
-            }
+fn observe<T: Trigger, B: Bundle, M>(
+    observer: impl IntoObserverSystem<T, B, M>,
+) -> impl EntityCommand {
+    move |entity, world: &mut World| {
+        if let Some(mut entity) = world.get_entity_mut(entity) {
+            entity.observe(observer);
         }
     }
 }
