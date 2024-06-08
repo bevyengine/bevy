@@ -7,10 +7,7 @@ use bevy_ecs::{
     system::{Local, NonSendMut, Query, SystemParamItem},
 };
 use bevy_utils::tracing::{error, info, warn};
-use bevy_window::{
-    ClosingWindow, RawHandleWrapper, Window, WindowClosed, WindowClosing, WindowCreated,
-    WindowMode, WindowResized, WindowWrapper,
-};
+use bevy_window::{ClosingWindow, RawHandleWrapper, Window, WindowClosed, WindowClosing, WindowCreated, WindowMode, WindowResized, WindowWrapper};
 
 use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
@@ -122,7 +119,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
 pub(crate) fn despawn_windows(
     closing: Query<Entity, With<ClosingWindow>>,
     mut closed: RemovedComponents<Window>,
-    window_entities: Query<&Window>,
+    window_entities: Query<Entity, With<Window>>,
     mut closing_events: EventWriter<WindowClosing>,
     mut closed_events: EventWriter<WindowClosed>,
     mut winit_windows: NonSendMut<WinitWindows>,
