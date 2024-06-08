@@ -20,6 +20,9 @@ use bevy_ecs::query::With;
 use winit::platform::ios::WindowExtIOS;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
+use bevy_app::AppExit;
+use bevy_ecs::prelude::EventReader;
+use bevy_ecs::system::Commands;
 
 use crate::state::react_to_resize;
 use crate::{
@@ -117,13 +120,15 @@ pub fn create_windows<F: QueryFilter + 'static>(
 }
 
 pub(crate) fn despawn_windows(
+    mut commands: Commands,
     closing: Query<Entity, With<ClosingWindow>>,
     mut closed: RemovedComponents<Window>,
-    window_entities: Query<&Window>,
+    window_entities: Query<Entity, With<Window>>,
     mut closing_events: EventWriter<WindowClosing>,
     mut closed_events: EventWriter<WindowClosed>,
     mut winit_windows: NonSendMut<WinitWindows>,
     mut windows_to_drop: Local<Vec<WindowWrapper<winit::window::Window>>>,
+    mut exit_events: EventReader<AppExit>,
 ) {
     // Drop all the windows that are waiting to be closed
     windows_to_drop.clear();
@@ -144,6 +149,16 @@ pub(crate) fn despawn_windows(
                 windows_to_drop.push(window);
             }
             closed_events.send(WindowClosed { window });
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        // On macOS, when exiting, we need to despawn all windows to make sure they
+        // are dropped on the main thread. Otherwise, the app will hang.
+        for _ in exit_events.read() {
+            for window in window_entities.iter() {
+                commands.entity(window).despawn();
+            }
         }
     }
 }
