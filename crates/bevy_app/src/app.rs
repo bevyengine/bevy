@@ -196,7 +196,7 @@ impl App {
     /// App::new()
     ///     .set_runner(my_runner);
     /// ```
-    pub fn set_runner(&mut self, f: impl FnOnce(App) -> AppExit + 'static) -> &mut Self {
+    pub fn set_runner(&mut self, f: impl FnOnce(App) -> AppExit + 'static + Send) -> &mut Self {
         self.runner = Box::new(f);
         self
     }
@@ -830,7 +830,7 @@ impl App {
     }
 }
 
-type RunnerFn = Box<dyn FnOnce(App) -> AppExit>;
+type RunnerFn = Box<dyn FnOnce(App) -> AppExit + Send>;
 
 fn run_once(mut app: App) -> AppExit {
     while app.plugins_state() == PluginsState::Adding {
@@ -1177,5 +1177,11 @@ mod tests {
         // There wont be many of them so the size isn't a issue but
         // it's nice they're so small let's keep it that way.
         assert_eq!(mem::size_of::<AppExit>(), mem::size_of::<u8>());
+    }
+
+    #[test]
+    fn test_app_send() {
+        fn g<T: Send>() {}
+        g::<App>();
     }
 }
