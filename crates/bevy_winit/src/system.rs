@@ -7,10 +7,7 @@ use bevy_ecs::{
     system::{Local, NonSendMut, Query, SystemParamItem},
 };
 use bevy_utils::tracing::{error, info, warn};
-use bevy_window::{
-    ClosingWindow, RawHandleWrapper, Window, WindowClosed, WindowClosing, WindowCreated,
-    WindowMode, WindowResized, WindowWrapper,
-};
+use bevy_window::{ClosingWindow, RawHandleWrapper, Window, WindowClosed, WindowClosing, WindowCreated, WindowMode, WindowResized, WindowWrapper};
 
 use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
@@ -18,7 +15,6 @@ use winit::event_loop::ActiveEventLoop;
 use bevy_app::AppExit;
 use bevy_ecs::prelude::EventReader;
 use bevy_ecs::query::With;
-use bevy_ecs::system::Commands;
 #[cfg(target_os = "ios")]
 use winit::platform::ios::WindowExtIOS;
 #[cfg(target_arch = "wasm32")]
@@ -119,11 +115,11 @@ pub fn create_windows<F: QueryFilter + 'static>(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn despawn_windows(
-    mut commands: Commands,
     closing: Query<Entity, With<ClosingWindow>>,
     mut closed: RemovedComponents<Window>,
-    window_entities: Query<Entity, With<Window>>,
+    window_entities: Query<&Window>,
     mut closing_events: EventWriter<WindowClosing>,
     mut closed_events: EventWriter<WindowClosed>,
     mut winit_windows: NonSendMut<WinitWindows>,
@@ -153,11 +149,11 @@ pub(crate) fn despawn_windows(
     }
     #[cfg(target_os = "macos")]
     {
-        // On macOS, when exiting, we need to despawn all windows to make sure they
-        // are dropped on the main thread. Otherwise, the app will hang.
+        // On macOS, when exiting, we need to tell the rendering thread the windows are about to
+        // close to ensure that they are dropped on the main thread. Otherwise, the app will hang.
         for _ in exit_events.read() {
             for window in window_entities.iter() {
-                commands.entity(window).despawn();
+                closing_events.send(WindowClosing { window });
             }
         }
     }
