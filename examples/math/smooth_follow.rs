@@ -4,7 +4,6 @@ use bevy::math::{prelude::*, vec3, NormedVectorSpace};
 use bevy::prelude::*;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
-use std::cmp::min_by;
 
 fn main() {
     App::new()
@@ -112,10 +111,8 @@ fn move_target(
             let delta_time = time.delta_seconds();
             let abs_delta = (target_pos.0 - target.translation).norm();
 
-            // Avoid overshooting in case of high values of `delta_time``:
-            let magnitude = min_by(abs_delta, delta_time * target_speed.0, |f0, f1| {
-                f0.partial_cmp(f1).unwrap()
-            });
+            // Avoid overshooting in case of high values of `delta_time`:
+            let magnitude = f32::min(abs_delta, delta_time * target_speed.0);
             target.translation += dir * magnitude;
         }
 

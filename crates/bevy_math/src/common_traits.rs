@@ -170,7 +170,9 @@ impl NormedVectorSpace for f32 {
 ///    that inferring the interpolation mode from the type alone is sensible.
 ///
 /// 2. The interpolation recovers something equivalent to the starting value at `t = 0.0`
-///    and likewise with the ending value at `t = 1.0`.
+///    and likewise with the ending value at `t = 1.0`. They do not have to be data-identical, but
+///    they should be semantically identical. For example, [`Quat::slerp`] doesn't always yield its
+///    second rotation input exactly at `t = 1.0`, but it always returns an equivalent rotation.
 ///
 /// 3. Importantly, the interpolation must be *subdivision-stable*: for any interpolation curve
 ///    between two (unnamed) values and any parameter-value pairs `(t0, p)` and `(t1, q)`, the
@@ -207,13 +209,16 @@ impl NormedVectorSpace for f32 {
 /// Consumers rely on the strong guarantees in order for behavior based on this trait to be
 /// well-behaved.
 ///
+/// [`Quat::slerp`]: crate::Quat::slerp
 /// [`Quat::lerp`]: crate::Quat::lerp
 /// [`Rot2::nlerp`]: crate::Rot2::nlerp
 pub trait StableInterpolate: Clone {
-    /// Interpolate between this value and the `other` given value using the parameter `t`.
-    /// Note that the parameter `t` is not necessarily clamped to lie between `0` and `1`.
-    /// When `t = 0.0`, `self` is recovered, while `other` is recovered at `t = 1.0`,
-    /// with intermediate values lying between the two.
+    /// Interpolate between this value and the `other` given value using the parameter `t`. At
+    /// `t = 0.0`, a value equivalent to `self` is recovered, while `t = 1.0` recovers a value
+    /// equivalent to `other`, with intermediate values interpolating between the two.
+    /// See the [trait-level documentation] for details.
+    ///
+    /// [trait-level documentation]: StableInterpolate
     fn interpolate_stable(&self, other: &Self, t: f32) -> Self;
 
     /// A version of [`interpolate_stable`] that assigns the result to `self` for convenience.
