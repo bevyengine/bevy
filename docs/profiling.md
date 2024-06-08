@@ -64,7 +64,7 @@ Or you can select an individual system and inspect its statistics (available thr
 
 If you enabled memory tracing then the Zone Info window will also show the allocation events which occurred during a span:
 
-![A table in the Tracy GUI showing details of the allocations which occured during a span](https://user-images.githubusercontent.com/8672791/228987498-77b26178-ef60-4e37-8356-dd07320ee159.png)
+![A table in the Tracy GUI showing details of the allocations which occurred during a span](https://user-images.githubusercontent.com/8672791/228987498-77b26178-ef60-4e37-8356-dd07320ee159.png)
 
 Note that the `Bottom-up call stack tree` and `Top-down call stack tree` views reached by clicking the `Memory` button at the top of the UI will not show a usable backtrace even if memory tracking is enabled, as backtraces are not fully supported yet.
 
