@@ -47,7 +47,7 @@ pub mod prelude {
         component::Component,
         entity::{Entity, EntityMapper},
         event::{Event, EventReader, EventWriter, Events},
-        observer::{Observer, Trigger},
+        observer::Trigger,
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{

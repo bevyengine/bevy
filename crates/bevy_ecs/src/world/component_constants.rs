@@ -1,5 +1,5 @@
 use super::*;
-use crate::{self as bevy_ecs, prelude::Trigger};
+use crate::{self as bevy_ecs};
 /// Internal components used by bevy with a fixed component id.
 /// Constants are used to skip [`TypeId`] lookups in hot paths.
 
@@ -11,13 +11,13 @@ pub const ON_INSERT: ComponentId = ComponentId::new(1);
 pub const ON_REMOVE: ComponentId = ComponentId::new(2);
 
 /// Trigger emitted when a component is added to an entity.
-#[derive(Trigger)]
+#[derive(Event)]
 pub struct OnAdd;
 
 /// Trigger emitted when a component is inserted on to to an entity.
-#[derive(Trigger)]
+#[derive(Event)]
 pub struct OnInsert;
 
 /// Trigger emitted when a component is removed from an entity.
-#[derive(Trigger)]
+#[derive(Event)]
 pub struct OnRemove;

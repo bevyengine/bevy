@@ -6,7 +6,7 @@ use crate::{
     component::ComponentId,
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
-    observer::{Observers, Trigger, TriggerTargets},
+    observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
     system::{Commands, Query, Resource},
@@ -368,12 +368,12 @@ impl<'w> DeferredWorld<'w> {
     }
 
     /// Sends a "global" [`Trigger`] without any targets.
-    pub fn trigger<T: Trigger>(&mut self, trigger: impl Trigger) {
+    pub fn trigger<T: Event>(&mut self, trigger: impl Event) {
         self.commands().trigger(trigger);
     }
 
     /// Sends a [`Trigger`] with the given `targets`.
-    pub fn trigger_targets(&mut self, trigger: impl Trigger, targets: impl TriggerTargets) {
+    pub fn trigger_targets(&mut self, trigger: impl Event, targets: impl TriggerTargets) {
         self.commands().trigger_targets(trigger, targets);
     }
 

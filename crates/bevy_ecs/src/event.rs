@@ -1,11 +1,10 @@
 //! Event handling types.
 
 use crate as bevy_ecs;
-use crate::batching::BatchingStrategy;
-use crate::change_detection::MutUntyped;
 use crate::{
-    change_detection::{DetectChangesMut, Mut},
-    component::{ComponentId, Tick},
+    batching::BatchingStrategy,
+    change_detection::{DetectChangesMut, Mut, MutUntyped},
+    component::{Component, ComponentId, Tick},
     system::{Local, Res, ResMut, Resource, SystemParam},
     world::World,
 };
@@ -28,7 +27,7 @@ use std::{
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
 ///
 /// Events must be thread-safe.
-pub trait Event: Send + Sync + 'static {}
+pub trait Event: Component {}
 
 /// An `EventId` uniquely identifies an event stored in a specific [`World`].
 ///

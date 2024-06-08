@@ -27,15 +27,15 @@ impl Default for ObserverComponent {
 }
 
 impl ObserverComponent {
-    /// Adds the given `trigger`
-    pub fn with_trigger(mut self, trigger: ComponentId) -> Self {
-        self.descriptor.triggers.push(trigger);
+    /// Adds the given `event`
+    pub fn with_event(mut self, event: ComponentId) -> Self {
+        self.descriptor.events.push(event);
         self
     }
 
-    /// Adds the given `triggers`
-    pub fn with_triggers(mut self, triggers: impl IntoIterator<Item = ComponentId>) -> Self {
-        self.descriptor.triggers.extend(triggers);
+    /// Adds the given `events`
+    pub fn with_events(mut self, events: impl IntoIterator<Item = ComponentId>) -> Self {
+        self.descriptor.events.extend(events);
         self
     }
 
@@ -88,9 +88,9 @@ pub struct ObserverSystemComponent<T: 'static, B: Bundle> {
     descriptor: ObserverDescriptor,
 }
 
-impl<T: Trigger, B: Bundle> ObserverSystemComponent<T, B> {
+impl<E: Event, B: Bundle> ObserverSystemComponent<E, B> {
     /// Creates a new [`ObserverSystemComponent`], which defaults to a "global" observer.
-    pub fn new<M>(system: impl IntoObserverSystem<T, B, M>) -> Self {
+    pub fn new<M>(system: impl IntoObserverSystem<E, B, M>) -> Self {
         Self {
             system: Box::new(IntoObserverSystem::into_system(system)),
             descriptor: Default::default(),
@@ -110,30 +110,30 @@ impl<T: Trigger, B: Bundle> ObserverSystemComponent<T, B> {
     }
 
     /// Observe the given [`trigger`].
-    pub fn with_trigger(mut self, component: ComponentId) -> Self {
-        self.descriptor.triggers.push(component);
+    pub fn with_event(mut self, event: ComponentId) -> Self {
+        self.descriptor.events.push(event);
         self
     }
 }
 
-impl<T: Trigger, B: Bundle> Component for ObserverSystemComponent<T, B> {
+impl<E: Event, B: Bundle> Component for ObserverSystemComponent<E, B> {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
     fn register_component_hooks(hooks: &mut ComponentHooks) {
         hooks.on_add(|mut world, entity, _| {
             world.commands().add(move |world: &mut World| {
-                let trigger_id = world.init_component::<T>();
+                let event_type = world.init_component::<E>();
                 let mut components = Vec::new();
                 B::component_ids(&mut world.components, &mut world.storages, &mut |id| {
                     components.push(id);
                 });
                 let mut descriptor = ObserverDescriptor {
-                    triggers: vec![trigger_id],
+                    events: vec![event_type],
                     components,
                     ..Default::default()
                 };
 
                 // Initialize System
-                let system: *mut dyn ObserverSystem<T, B> =
+                let system: *mut dyn ObserverSystem<E, B> =
                     if let Some(mut observe) = world.get_mut::<Self>(entity) {
                         descriptor.merge(&observe.descriptor);
                         &mut *observe.system
@@ -151,7 +151,7 @@ impl<T: Trigger, B: Bundle> Component for ObserverSystemComponent<T, B> {
                     {
                         entry.insert(ObserverComponent {
                             descriptor,
-                            runner: observer_system_runner::<T, B>,
+                            runner: observer_system_runner::<E, B>,
                             ..Default::default()
                         });
                     }
@@ -162,9 +162,9 @@ impl<T: Trigger, B: Bundle> Component for ObserverSystemComponent<T, B> {
 }
 
 /// Equivalent to [`BoxedSystem`](crate::system::BoxedSystem) for [`ObserverSystem`].
-pub type BoxedObserverSystem<T = (), B = ()> = Box<dyn ObserverSystem<T, B>>;
+pub type BoxedObserverSystem<E = (), B = ()> = Box<dyn ObserverSystem<E, B>>;
 
-fn observer_system_runner<T: Trigger, B: Bundle>(
+fn observer_system_runner<E: Event, B: Bundle>(
     mut world: DeferredWorld,
     trigger: ObserverTrigger,
     ptr: PtrMut,
@@ -188,13 +188,13 @@ fn observer_system_runner<T: Trigger, B: Bundle>(
     }
     state.last_trigger_id = last_trigger;
 
-    let observer: Observer<T, B> =
+    let observer: Trigger<E, B> =
         // SAFETY: Caller ensures `ptr` is castable to `&mut T`
-            Observer::new(unsafe { ptr.deref_mut() }, trigger);
+            Trigger::new(unsafe { ptr.deref_mut() }, trigger);
     // SAFETY: Observer was triggered so must have an `ObserverSystemComponent`
     let system = unsafe {
         &mut observer_cell
-            .get_mut::<ObserverSystemComponent<T, B>>()
+            .get_mut::<ObserverSystemComponent<E, B>>()
             .debug_checked_unwrap()
             .system
     };

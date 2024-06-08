@@ -6,8 +6,8 @@ use crate::{
     bundle::Bundle,
     component::{ComponentId, Components},
     entity::{Entities, Entity},
-    observer::{EmitTrigger, ObserverSystemComponent, TriggerTargets},
-    prelude::Trigger,
+    event::Event,
+    observer::{ObserverSystemComponent, TriggerEvent, TriggerTargets},
     system::{RunSystemWithInput, SystemId},
     world::{Command, CommandQueue, EntityWorldMut, FromWorld, World},
 };
@@ -636,22 +636,19 @@ impl<'w, 's> Commands<'w, 's> {
     }
 
     /// Sends a "global" [`Trigger`] without any targets.
-    pub fn trigger(&mut self, trigger: impl Trigger) {
-        self.add(EmitTrigger {
-            trigger,
-            targets: (),
-        })
+    pub fn trigger(&mut self, event: impl Event) {
+        self.add(TriggerEvent { event, targets: () })
     }
 
     /// Sends a [`Trigger`] with the given `targets`.
-    pub fn trigger_targets(&mut self, trigger: impl Trigger, targets: impl TriggerTargets) {
-        self.add(EmitTrigger { trigger, targets })
+    pub fn trigger_targets(&mut self, event: impl Event, targets: impl TriggerTargets) {
+        self.add(TriggerEvent { event, targets })
     }
 
     /// Spawn an [`Observer`] and returns it's [`Entity`].
-    pub fn observe<T: Trigger, B: Bundle, M>(
+    pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
-        observer: impl IntoObserverSystem<T, B, M>,
+        observer: impl IntoObserverSystem<E, B, M>,
     ) -> EntityCommands {
         self.spawn(ObserverSystemComponent::new(observer))
     }
@@ -1045,9 +1042,9 @@ impl EntityCommands<'_> {
     }
 
     /// Creates an [`Observer`](crate::observer::Observer) listening for a trigger of type `T` that targets this entity.
-    pub fn observe<T: Trigger, B: Bundle, M>(
+    pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
-        system: impl IntoObserverSystem<T, B, M>,
+        system: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
         self.add(observe(system));
         self
@@ -1203,8 +1200,8 @@ fn log_components(entity: Entity, world: &mut World) {
     info!("Entity {:?}: {:?}", entity, debug_infos);
 }
 
-fn observe<T: Trigger, B: Bundle, M>(
-    observer: impl IntoObserverSystem<T, B, M>,
+fn observe<E: Event, B: Bundle, M>(
+    observer: impl IntoObserverSystem<E, B, M>,
 ) -> impl EntityCommand {
     move |entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {

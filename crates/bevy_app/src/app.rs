@@ -885,9 +885,9 @@ impl App {
     }
 
     /// Spawn the given [`Observer`].
-    pub fn observe<T: Trigger, B: Bundle, M>(
+    pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
-        observer: impl IntoObserverSystem<T, B, M>,
+        observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
         self.world_mut().observe(observer);
         self

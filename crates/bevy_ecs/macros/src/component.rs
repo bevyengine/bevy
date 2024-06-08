@@ -18,6 +18,10 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {
         }
+
+        impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
+            const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #bevy_ecs_path::component::StorageType::SparseSet;
+        }
     })
 }
 
@@ -62,29 +66,6 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
         }
-    })
-}
-
-pub fn derive_trigger(input: TokenStream) -> TokenStream {
-    let mut ast = parse_macro_input!(input as DeriveInput);
-    let bevy_ecs_path: Path = crate::bevy_ecs_path();
-
-    let storage = storage_path(&bevy_ecs_path, StorageTy::SparseSet);
-
-    ast.generics
-        .make_where_clause()
-        .predicates
-        .push(parse_quote! { Self: Send + Sync + 'static });
-
-    let struct_name = &ast.ident;
-    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
-
-    TokenStream::from(quote! {
-        impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
-            const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
-        }
-
-        impl #bevy_ecs_path::observer::Trigger for #struct_name #type_generics {}
     })
 }
 

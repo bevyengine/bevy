@@ -1,57 +1,57 @@
 use crate::{
     component::ComponentId,
     entity::Entity,
-    observer::Trigger,
+    event::Event,
     world::{Command, DeferredWorld, World},
 };
 
 /// A [`Command`] that emits a given trigger for a given set of targets.
-pub struct EmitTrigger<T, Targets: TriggerTargets = ()> {
-    /// The trigger to emit.
-    pub trigger: T,
+pub struct TriggerEvent<E, Targets: TriggerTargets = ()> {
+    /// The event to trigger.
+    pub event: E,
 
-    /// The targets to emit the trigger for.
+    /// The targets to trigger the event for.
     pub targets: Targets,
 }
 
-impl<T: Trigger, Targets: TriggerTargets> Command for EmitTrigger<T, Targets> {
+impl<E: Event, Targets: TriggerTargets> Command for TriggerEvent<E, Targets> {
     fn apply(mut self, world: &mut World) {
-        let trigger_id = world.init_component::<T>();
-        apply_trigger(world, trigger_id, &mut self.trigger, self.targets);
+        let event_type = world.init_component::<E>();
+        trigger_event(world, event_type, &mut self.event, self.targets);
     }
 }
 
 /// Emit a trigger for a dynamic component id. This is unsafe and must be verified manually.
 pub struct EmitDynamicTrigger<T, Targets: TriggerTargets = ()> {
-    trigger: ComponentId,
-    data: T,
+    event_type: ComponentId,
+    event_data: T,
     targets: Targets,
 }
 
-impl<T, Targets: TriggerTargets> EmitDynamicTrigger<T, Targets> {
+impl<E, Targets: TriggerTargets> EmitDynamicTrigger<E, Targets> {
     /// Sets the trigger id of the resulting trigger, used for dynamic triggers
     /// # Safety
-    /// Caller must ensure that the component associated with `id` is accessible as E
-    pub unsafe fn new_with_id(trigger: ComponentId, data: T, targets: Targets) -> Self {
+    /// Caller must ensure that the component associated with `event_type` is accessible as E
+    pub unsafe fn new_with_id(event_type: ComponentId, event_data: E, targets: Targets) -> Self {
         Self {
-            trigger,
-            data,
+            event_type,
+            event_data,
             targets,
         }
     }
 }
 
-impl<T: Trigger, Targets: TriggerTargets> Command for EmitDynamicTrigger<T, Targets> {
+impl<E: Event, Targets: TriggerTargets> Command for EmitDynamicTrigger<E, Targets> {
     fn apply(mut self, world: &mut World) {
-        apply_trigger(world, self.trigger, &mut self.data, self.targets);
+        trigger_event(world, self.event_type, &mut self.event_data, self.targets);
     }
 }
 
 #[inline]
-fn apply_trigger<T, Targets: TriggerTargets>(
+fn trigger_event<E, Targets: TriggerTargets>(
     world: &mut World,
-    trigger_id: ComponentId,
-    data: &mut T,
+    event_type: ComponentId,
+    event_data: &mut E,
     targets: Targets,
 ) {
     let mut world = DeferredWorld::from(world);
@@ -59,17 +59,22 @@ fn apply_trigger<T, Targets: TriggerTargets>(
         // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
         unsafe {
             world.trigger_observers_with_data(
-                trigger_id,
+                event_type,
                 Entity::PLACEHOLDER,
                 targets.components(),
-                data,
+                event_data,
             );
         };
     } else {
         for target in targets.entities() {
             // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
             unsafe {
-                world.trigger_observers_with_data(trigger_id, target, targets.components(), data);
+                world.trigger_observers_with_data(
+                    event_type,
+                    target,
+                    targets.components(),
+                    event_data,
+                );
             };
         }
     }

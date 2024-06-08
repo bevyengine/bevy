@@ -4,7 +4,6 @@ mod emit_trigger;
 mod entity_observer;
 mod runner;
 
-pub use bevy_ecs_macros::Trigger;
 pub use emit_trigger::*;
 pub use runner::*;
 
@@ -14,44 +13,41 @@ use bevy_ptr::Ptr;
 use bevy_utils::{EntityHashMap, HashMap};
 use std::marker::PhantomData;
 
-/// Trait implemented for types that are used as ECS triggers observed by [`Observer`]
-pub trait Trigger: Component {}
-
 /// Type used in callbacks registered for observers.
-pub struct Observer<'w, T, B: Bundle = ()> {
-    data: &'w mut T,
+pub struct Trigger<'w, E, B: Bundle = ()> {
+    event: &'w mut E,
     trigger: ObserverTrigger,
     _marker: PhantomData<B>,
 }
 
-impl<'w, T, B: Bundle> Observer<'w, T, B> {
-    /// Creates a new observer for the given trigger.
-    pub fn new(data: &'w mut T, trigger: ObserverTrigger) -> Self {
+impl<'w, E, B: Bundle> Trigger<'w, E, B> {
+    /// Creates a new trigger for the given event and observer information.
+    pub fn new(event: &'w mut E, trigger: ObserverTrigger) -> Self {
         Self {
-            data,
+            event,
             trigger,
             _marker: PhantomData,
         }
     }
 
-    /// Returns the trigger id for the triggering trigger
-    pub fn trigger(&self) -> ComponentId {
-        self.trigger.trigger
+    /// Returns the event type of this trigger.
+    pub fn event_type(&self) -> ComponentId {
+        self.trigger.event_type
     }
 
-    /// Returns a reference to the data associated with the trigger that triggered the observer.
-    pub fn data(&self) -> &T {
-        self.data
+    /// Returns a reference to the triggered event.
+    pub fn event(&self) -> &E {
+        self.event
     }
 
-    /// Returns a mutable reference to the data associated with the trigger that triggered the observer.
-    pub fn data_mut(&mut self) -> &mut T {
-        self.data
+    /// Returns a mutable reference to the triggered event.
+    pub fn event_mut(&mut self) -> &mut E {
+        self.event
     }
 
-    /// Returns a pointer to the data associated with the trigger that triggered the observer.
-    pub fn data_ptr(&self) -> Ptr {
-        Ptr::from(&self.data)
+    /// Returns a pointer to the triggered event.
+    pub fn event_ptr(&self) -> Ptr {
+        Ptr::from(&self.event)
     }
 
     /// Returns the entity that triggered the observer, could be [`Entity::PLACEHOLDER`].
@@ -63,8 +59,8 @@ impl<'w, T, B: Bundle> Observer<'w, T, B> {
 /// A description of what an [`Observer`] observes.
 #[derive(Default, Clone)]
 pub struct ObserverDescriptor {
-    /// The triggers the observer is triggered for.
-    triggers: Vec<ComponentId>,
+    /// The events the observer is watching.
+    events: Vec<ComponentId>,
 
     /// The components the observer is watching.
     components: Vec<ComponentId>,
@@ -76,7 +72,7 @@ pub struct ObserverDescriptor {
 impl ObserverDescriptor {
     /// Add the given `triggers` to the descriptor.
     pub fn with_triggers(mut self, triggers: Vec<ComponentId>) -> Self {
-        self.triggers = triggers;
+        self.events = triggers;
         self
     }
 
@@ -93,7 +89,7 @@ impl ObserverDescriptor {
     }
 
     pub(crate) fn merge(&mut self, descriptor: &ObserverDescriptor) {
-        self.triggers.extend(descriptor.triggers.iter().copied());
+        self.events.extend(descriptor.events.iter().copied());
         self.components
             .extend(descriptor.components.iter().copied());
         self.sources.extend(descriptor.sources.iter().copied());
@@ -106,7 +102,7 @@ pub struct ObserverTrigger {
     pub observer: Entity,
 
     /// The [`ComponentId`] for the given trigger.
-    pub trigger: ComponentId,
+    pub event_type: ComponentId,
 
     /// The source where the trigger occurred.
     pub source: Entity,
@@ -147,27 +143,27 @@ pub struct Observers {
 }
 
 impl Observers {
-    pub(crate) fn get_observers(&mut self, trigger: ComponentId) -> &mut CachedObservers {
-        match trigger {
+    pub(crate) fn get_observers(&mut self, event_type: ComponentId) -> &mut CachedObservers {
+        match event_type {
             ON_ADD => &mut self.on_add,
             ON_INSERT => &mut self.on_insert,
             ON_REMOVE => &mut self.on_remove,
-            _ => self.cache.entry(trigger).or_default(),
+            _ => self.cache.entry(event_type).or_default(),
         }
     }
 
-    pub(crate) fn try_get_observers(&self, trigger: ComponentId) -> Option<&CachedObservers> {
-        match trigger {
+    pub(crate) fn try_get_observers(&self, event_type: ComponentId) -> Option<&CachedObservers> {
+        match event_type {
             ON_ADD => Some(&self.on_add),
             ON_INSERT => Some(&self.on_insert),
             ON_REMOVE => Some(&self.on_remove),
-            _ => self.cache.get(&trigger),
+            _ => self.cache.get(&event_type),
         }
     }
 
     pub(crate) fn invoke<T>(
         mut world: DeferredWorld,
-        trigger: ComponentId,
+        event_type: ComponentId,
         source: Entity,
         components: impl Iterator<Item = ComponentId>,
         data: &mut T,
@@ -178,7 +174,7 @@ impl Observers {
             // SAFETY: There are no outstanding world references
             world.increment_trigger_id();
             let observers = world.observers();
-            let Some(observers) = observers.try_get_observers(trigger) else {
+            let Some(observers) = observers.try_get_observers(event_type) else {
                 return;
             };
             // SAFETY: The only outstanding reference to world is `observers`
@@ -190,7 +186,7 @@ impl Observers {
                 world.reborrow(),
                 ObserverTrigger {
                     observer,
-                    trigger,
+                    event_type,
                     source,
                 },
                 data.into(),
@@ -224,8 +220,8 @@ impl Observers {
         });
     }
 
-    pub(crate) fn is_archetype_cached(trigger: ComponentId) -> Option<ArchetypeFlags> {
-        match trigger {
+    pub(crate) fn is_archetype_cached(event_type: ComponentId) -> Option<ArchetypeFlags> {
+        match event_type {
             ON_ADD => Some(ArchetypeFlags::ON_ADD_OBSERVER),
             ON_INSERT => Some(ArchetypeFlags::ON_INSERT_OBSERVER),
             ON_REMOVE => Some(ArchetypeFlags::ON_REMOVE_OBSERVER),
@@ -260,25 +256,21 @@ impl Observers {
 
 impl World {
     /// Spawn an [`Observer`] and returns it's [`Entity`].
-    pub fn observe<T: Trigger, B: Bundle, M>(
+    pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
-        system: impl IntoObserverSystem<T, B, M>,
+        system: impl IntoObserverSystem<E, B, M>,
     ) -> EntityWorldMut {
         self.spawn(ObserverSystemComponent::new(system))
     }
 
-    /// Emits the given `trigger``.
-    pub fn trigger(&mut self, trigger: impl Trigger) {
-        EmitTrigger {
-            trigger,
-            targets: (),
-        }
-        .apply(self);
+    /// Triggers the given `event`, which will run any observers watching for it.
+    pub fn trigger(&mut self, event: impl Event) {
+        TriggerEvent { event, targets: () }.apply(self);
     }
 
-    /// Emits the given `trigger` for the given `targets`.
-    pub fn trigger_targets(&mut self, trigger: impl Trigger, targets: impl TriggerTargets) {
-        EmitTrigger { trigger, targets }.apply(self);
+    /// Triggers the given `event` for the given `targets`, which will run any observers watching for it.
+    pub fn trigger_targets(&mut self, event: impl Event, targets: impl TriggerTargets) {
+        TriggerEvent { event, targets }.apply(self);
     }
 
     /// Register an observer to the cache, called when an observer is created
@@ -295,8 +287,8 @@ impl World {
         };
         let descriptor = &observer_component.descriptor;
 
-        for &trigger in &descriptor.triggers {
-            let cache = observers.get_observers(trigger);
+        for &event_type in &descriptor.events {
+            let cache = observers.get_observers(event_type);
 
             if descriptor.components.is_empty() && descriptor.sources.is_empty() {
                 cache.map.insert(entity, observer_component.runner);
@@ -314,7 +306,7 @@ impl World {
                             .component_observers
                             .entry(component)
                             .or_insert_with(|| {
-                                if let Some(flag) = Observers::is_archetype_cached(trigger) {
+                                if let Some(flag) = Observers::is_archetype_cached(event_type) {
                                     archetypes.update_flags(component, flag, true);
                                 }
                                 CachedComponentObservers::default()
@@ -339,8 +331,8 @@ impl World {
         let archetypes = &mut self.archetypes;
         let observers = &mut self.observers;
 
-        for &trigger in &descriptor.triggers {
-            let cache = observers.get_observers(trigger);
+        for &event_type in &descriptor.events {
+            let cache = observers.get_observers(event_type);
             if descriptor.components.is_empty() && descriptor.sources.is_empty() {
                 cache.map.remove(&entity);
             } else if descriptor.components.is_empty() {
@@ -375,7 +367,7 @@ impl World {
 
                     if observers.map.is_empty() && observers.entity_map.is_empty() {
                         cache.component_observers.remove(component);
-                        if let Some(flag) = Observers::is_archetype_cached(trigger) {
+                        if let Some(flag) = Observers::is_archetype_cached(event_type) {
                             archetypes.update_flags(*component, flag, false);
                         }
                     }
@@ -404,8 +396,8 @@ mod tests {
     #[derive(Component)]
     struct C;
 
-    #[derive(Trigger)]
-    struct TriggerA;
+    #[derive(Event)]
+    struct EventA;
 
     #[derive(Resource, Default)]
     struct R(usize);
@@ -423,9 +415,9 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<R>();
 
-        world.observe(|_: Observer<OnAdd, A>, mut res: ResMut<R>| res.assert_order(0));
-        world.observe(|_: Observer<OnInsert, A>, mut res: ResMut<R>| res.assert_order(1));
-        world.observe(|_: Observer<OnRemove, A>, mut res: ResMut<R>| res.assert_order(2));
+        world.observe(|_: Trigger<OnAdd, A>, mut res: ResMut<R>| res.assert_order(0));
+        world.observe(|_: Trigger<OnInsert, A>, mut res: ResMut<R>| res.assert_order(1));
+        world.observe(|_: Trigger<OnRemove, A>, mut res: ResMut<R>| res.assert_order(2));
 
         let entity = world.spawn(A).id();
         world.despawn(entity);
@@ -437,9 +429,9 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<R>();
 
-        world.observe(|_: Observer<OnAdd, A>, mut res: ResMut<R>| res.assert_order(0));
-        world.observe(|_: Observer<OnInsert, A>, mut res: ResMut<R>| res.assert_order(1));
-        world.observe(|_: Observer<OnRemove, A>, mut res: ResMut<R>| res.assert_order(2));
+        world.observe(|_: Trigger<OnAdd, A>, mut res: ResMut<R>| res.assert_order(0));
+        world.observe(|_: Trigger<OnInsert, A>, mut res: ResMut<R>| res.assert_order(1));
+        world.observe(|_: Trigger<OnRemove, A>, mut res: ResMut<R>| res.assert_order(2));
 
         let mut entity = world.spawn_empty();
         entity.insert(A);
@@ -453,25 +445,25 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<R>();
         world.observe(
-            |obs: Observer<OnAdd, A>, mut res: ResMut<R>, mut commands: Commands| {
+            |obs: Trigger<OnAdd, A>, mut res: ResMut<R>, mut commands: Commands| {
                 res.assert_order(0);
                 commands.entity(obs.source()).insert(B);
             },
         );
         world.observe(
-            |obs: Observer<OnRemove, A>, mut res: ResMut<R>, mut commands: Commands| {
+            |obs: Trigger<OnRemove, A>, mut res: ResMut<R>, mut commands: Commands| {
                 res.assert_order(2);
                 commands.entity(obs.source()).remove::<B>();
             },
         );
 
         world.observe(
-            |obs: Observer<OnAdd, B>, mut res: ResMut<R>, mut commands: Commands| {
+            |obs: Trigger<OnAdd, B>, mut res: ResMut<R>, mut commands: Commands| {
                 res.assert_order(1);
                 commands.entity(obs.source()).remove::<A>();
             },
         );
-        world.observe(|_: Observer<OnRemove, B>, mut res: ResMut<R>| {
+        world.observe(|_: Trigger<OnRemove, B>, mut res: ResMut<R>| {
             res.assert_order(3);
         });
 
@@ -487,8 +479,8 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<R>();
 
-        world.observe(|_: Observer<OnAdd, A>, mut res: ResMut<R>| res.0 += 1);
-        world.observe(|_: Observer<OnAdd, A>, mut res: ResMut<R>| res.0 += 1);
+        world.observe(|_: Trigger<OnAdd, A>, mut res: ResMut<R>| res.0 += 1);
+        world.observe(|_: Trigger<OnAdd, A>, mut res: ResMut<R>| res.0 += 1);
 
         world.spawn(A).flush();
         assert_eq!(2, world.resource::<R>().0);
@@ -497,13 +489,13 @@ mod tests {
     }
 
     #[test]
-    fn observer_multiple_triggerss() {
+    fn observer_multiple_events() {
         let mut world = World::new();
         world.init_resource::<R>();
         let on_remove = world.init_component::<OnRemove>();
         world.spawn(
-            ObserverSystemComponent::new(|_: Observer<OnAdd, A>, mut res: ResMut<R>| res.0 += 1)
-                .with_trigger(on_remove),
+            ObserverSystemComponent::new(|_: Trigger<OnAdd, A>, mut res: ResMut<R>| res.0 += 1)
+                .with_event(on_remove),
         );
 
         let entity = world.spawn(A).id();
@@ -518,7 +510,7 @@ mod tests {
         world.init_component::<A>();
         world.init_component::<B>();
 
-        world.observe(|_: Observer<OnAdd, (A, B)>, mut res: ResMut<R>| res.0 += 1);
+        world.observe(|_: Trigger<OnAdd, (A, B)>, mut res: ResMut<R>| res.0 += 1);
 
         let entity = world.spawn(A).id();
         world.entity_mut(entity).insert(B);
@@ -532,7 +524,7 @@ mod tests {
         world.init_resource::<R>();
 
         let observer = world
-            .observe(|_: Observer<OnAdd, A>| panic!("Observer triggered after being despawned."))
+            .observe(|_: Trigger<OnAdd, A>| panic!("Observer triggered after being despawned."))
             .id();
         world.despawn(observer);
         world.spawn(A).flush();
@@ -543,7 +535,7 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<R>();
 
-        world.observe(|_: Observer<OnAdd, (A, B)>, mut res: ResMut<R>| res.0 += 1);
+        world.observe(|_: Trigger<OnAdd, (A, B)>, mut res: ResMut<R>| res.0 += 1);
 
         world.spawn((A, B)).flush();
         assert_eq!(1, world.resource::<R>().0);
@@ -556,13 +548,13 @@ mod tests {
 
         world
             .spawn_empty()
-            .observe(|_: Observer<TriggerA>| panic!("Trigger routed to non-targeted entity."));
-        world.observe(move |obs: Observer<TriggerA>, mut res: ResMut<R>| {
+            .observe(|_: Trigger<EventA>| panic!("Trigger routed to non-targeted entity."));
+        world.observe(move |obs: Trigger<EventA>, mut res: ResMut<R>| {
             assert_eq!(obs.source(), Entity::PLACEHOLDER);
             res.0 += 1;
         });
 
-        world.trigger(TriggerA);
+        world.trigger(EventA);
         world.flush();
         assert_eq!(1, world.resource::<R>().0);
     }
@@ -574,17 +566,17 @@ mod tests {
 
         world
             .spawn_empty()
-            .observe(|_: Observer<TriggerA>| panic!("Trigger routed to non-targeted entity."));
+            .observe(|_: Trigger<EventA>| panic!("Trigger routed to non-targeted entity."));
         let entity = world
             .spawn_empty()
-            .observe(|_: Observer<TriggerA>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventA>, mut res: ResMut<R>| res.0 += 1)
             .id();
-        world.observe(move |obs: Observer<TriggerA>, mut res: ResMut<R>| {
+        world.observe(move |obs: Trigger<EventA>, mut res: ResMut<R>| {
             assert_eq!(obs.source(), entity);
             res.0 += 1;
         });
 
-        world.trigger_targets(TriggerA, entity);
+        world.trigger_targets(EventA, entity);
         world.flush();
         assert_eq!(2, world.resource::<R>().0);
     }
@@ -596,7 +588,7 @@ mod tests {
 
         let component_id = world.init_component::<A>();
         world.spawn(
-            ObserverSystemComponent::new(|_: Observer<OnAdd>, mut res: ResMut<R>| res.0 += 1)
+            ObserverSystemComponent::new(|_: Trigger<OnAdd>, mut res: ResMut<R>| res.0 += 1)
                 .with_component(component_id),
         );
 
@@ -607,7 +599,7 @@ mod tests {
         });
         let entity = entity.flush();
 
-        world.trigger_targets(TriggerA, entity);
+        world.trigger_targets(EventA, entity);
         world.flush();
         assert_eq!(1, world.resource::<R>().0);
     }
@@ -616,10 +608,10 @@ mod tests {
     fn observer_dynamic_trigger() {
         let mut world = World::new();
         world.init_resource::<R>();
-        let trigger_a = world.init_component::<TriggerA>();
+        let event_a = world.init_component::<EventA>();
 
         world.spawn(ObserverComponent {
-            descriptor: ObserverDescriptor::default().with_triggers(vec![trigger_a]),
+            descriptor: ObserverDescriptor::default().with_triggers(vec![event_a]),
             runner: |mut world, _trigger, _ptr| {
                 world.resource_mut::<R>().0 += 1;
             },
@@ -628,7 +620,7 @@ mod tests {
 
         world.commands().add(
             // SAFETY: we registered `trigger` above and it matches the type of TriggerA
-            unsafe { EmitDynamicTrigger::new_with_id(trigger_a, TriggerA, ()) },
+            unsafe { EmitDynamicTrigger::new_with_id(event_a, EventA, ()) },
         );
         world.flush();
         assert_eq!(1, world.resource::<R>().0);
