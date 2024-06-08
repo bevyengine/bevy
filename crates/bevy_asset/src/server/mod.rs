@@ -1453,7 +1453,7 @@ pub struct AddAsyncError {
 }
 
 impl PartialEq for AddAsyncError {
-    /// Equality comparison for `AssetLoaderError::error` is not full (only through `TypeId`)
+    /// Equality comparison is not full (only through `TypeId`)
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.error.type_id() == other.error.type_id()
