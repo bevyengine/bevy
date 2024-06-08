@@ -622,25 +622,77 @@ mod tests {
         );
     }
 
-    #[derive(Debug, Clone, Eq, PartialEq, Hash, crate::state::States)]
-    enum MyState {
-        Foo,
-        Bar,
+    #[derive(Debug, Clone, Eq, PartialEq, Hash, States)]
+    enum MyRootState {
+        Root1,
+        Root2,
+        Root3,
+    }
+
+    #[derive(Debug, Clone, Eq, PartialEq, Hash, SubStates, Default)]
+    #[source(MyRootState = MyRootState::Root1)]
+    enum MySubState {
+        #[default]
+        Sub1,
+        Sub2,
+        Sub3,
+    }
+
+    #[derive(Debug, Clone, Eq, PartialEq, Hash)]
+    enum MyComState {
+        Com1,
+        Com2,
+        Com3,
+    }
+
+    impl ComputedStates for MyComState {
+        type SourceStates = MyRootState;
+
+        fn compute(sources: Self::SourceStates) -> Option<Self> {
+            match sources {
+                MyRootState::Root1 => Some(Self::Com2),
+                MyRootState::Root2 => Some(Self::Com3),
+                MyRootState::Root3 => Some(Self::Com1),
+            }
+        }
     }
 
     #[test]
     fn first_test() {
         let mut registry = StateRegistry::default();
         let mut world = World::new();
-        EventRegistry::register_event::<StateTransitionEvent<MyState>>(&mut world);
-        world.insert_resource(State(MyState::Bar));
-        world.insert_resource(NextState::Pending(MyState::Foo));
+        EventRegistry::register_event::<StateTransitionEvent<MyRootState>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<MySubState>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<MyComState>>(&mut world);
+        world.insert_resource(State(MyRootState::Root1));
+        world.insert_resource(State(MySubState::Sub1));
+        world.insert_resource(State(MyComState::Com2));
+        world.insert_resource(NextState::Pending(MyRootState::Root1));
+        world.insert_resource(NextState::<MySubState>::Unchanged);
 
-        registry.register_root_state::<MyState>(&mut world);
+        registry.register_root_state::<MyRootState>(&mut world);
+        registry.register_sub_state::<MySubState>(&mut world);
+        registry.register_computed_state::<MyComState>(&mut world);
 
         registry.update(&mut world);
 
-        let events = world.resource::<Events<StateTransitionEvent<MyState>>>();
-        assert_eq!(events.len(), 1);
+        assert_eq!(
+            world
+                .resource::<Events<StateTransitionEvent<MyRootState>>>()
+                .len(),
+            1
+        );
+        assert_eq!(
+            world
+                .resource::<Events<StateTransitionEvent<MySubState>>>()
+                .len(),
+            1
+        );
+        assert_eq!(
+            world
+                .resource::<Events<StateTransitionEvent<MyComState>>>()
+                .len(),
+            1
+        );
     }
 }

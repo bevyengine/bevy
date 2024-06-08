@@ -1,7 +1,8 @@
 use bevy_ecs::{
     event::{EventReader, EventWriter},
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, Schedule},
-    system::{Commands, IntoSystem, Res, ResMut},
+    system::{Commands, IntoSystem, Res, ResMut, SystemId},
+    world::World,
 };
 use bevy_utils::all_tuples;
 
@@ -34,11 +35,18 @@ pub trait StateSet: sealed::StateSetSealed {
     /// computed states.
     const SET_DEPENDENCY_DEPTH: usize;
 
+    fn computed_state_apply_transition<T: ComputedStates<SourceStates = Self>>(
+        world: &mut World,
+    ) -> SystemId;
+
     /// Sets up the systems needed to compute `T` whenever any `State` in this
     /// `StateSet` is changed.
     fn register_computed_state_systems_in_schedule<T: ComputedStates<SourceStates = Self>>(
         schedule: &mut Schedule,
     );
+
+    fn sub_state_apply_transition<T: SubStates<SourceStates = Self>>(world: &mut World)
+        -> SystemId;
 
     /// Sets up the systems needed to compute whether `T` exists whenever any `State` in this
     /// `StateSet` is changed.
@@ -138,6 +146,32 @@ impl<S: InnerStateSet> StateSet for S {
             );
     }
 
+    fn computed_state_apply_transition<T: ComputedStates<SourceStates = Self>>(
+        world: &mut World,
+    ) -> SystemId {
+        world.register_system(
+            |mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
+             event: EventWriter<StateTransitionEvent<T>>,
+             commands: Commands,
+             current_state: Option<ResMut<State<T>>>,
+             state_set: Option<Res<State<S::RawState>>>| {
+                if parent_changed.is_empty() {
+                    return;
+                }
+                parent_changed.clear();
+
+                let new_state =
+                    if let Some(state_set) = S::convert_to_usable_state(state_set.as_deref()) {
+                        T::compute(state_set)
+                    } else {
+                        None
+                    };
+
+                internal_apply_state_transition(event, commands, current_state, new_state);
+            },
+        )
+    }
+
     fn register_sub_state_systems_in_schedule<T: SubStates<SourceStates = Self>>(
         schedule: &mut Schedule,
     ) {
@@ -209,6 +243,41 @@ impl<S: InnerStateSet> StateSet for S {
                     .after(ApplyStateTransition::<S::RawState>::apply()),
             );
     }
+
+    fn sub_state_apply_transition<T: SubStates<SourceStates = Self>>(
+        world: &mut World,
+    ) -> SystemId {
+        world.register_system(
+            |mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
+             event: EventWriter<StateTransitionEvent<T>>,
+             commands: Commands,
+             current_state_res: Option<ResMut<State<T>>>,
+             next_state_res: Option<ResMut<NextState<T>>>,
+             state_set: Option<Res<State<S::RawState>>>| {
+                let parent_changed = parent_changed.read().last().is_some();
+                let next_state = take_next_state(next_state_res);
+
+                if !parent_changed && next_state.is_none() {
+                    return;
+                }
+
+                let current_state = current_state_res.as_ref().map(|s| s.get()).cloned();
+
+                let initial_state = if parent_changed {
+                    if let Some(state_set) = S::convert_to_usable_state(state_set.as_deref()) {
+                        T::should_exist(state_set)
+                    } else {
+                        None
+                    }
+                } else {
+                    current_state.clone()
+                };
+                let new_state = initial_state.map(|x| next_state.or(current_state).unwrap_or(x));
+
+                internal_apply_state_transition(event, commands, current_state_res, new_state);
+            },
+        )
+    }
 }
 
 macro_rules! impl_state_set_sealed_tuples {
@@ -255,6 +324,31 @@ macro_rules! impl_state_set_sealed_tuples {
                     );
             }
 
+            fn computed_state_apply_transition<T: ComputedStates<SourceStates = Self>>(
+                world: &mut World,
+            ) -> SystemId {
+                world.register_system(
+                    |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,),
+                     event: EventWriter<StateTransitionEvent<T>>,
+                     commands: Commands,
+                     current_state: Option<ResMut<State<T>>>,
+                     ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
+                        if ($($evt.is_empty())&&*) {
+                            return;
+                        }
+                        $($evt.clear();)*
+
+                        let new_state = if let ($(Some($val)),*,) = ($($param::convert_to_usable_state($val.as_deref())),*,) {
+                            T::compute(($($val),*, ))
+                        } else {
+                            None
+                        };
+
+                        internal_apply_state_transition(event, commands, current_state, new_state);
+                    }
+                )
+            }
+
             fn register_sub_state_systems_in_schedule<T: SubStates<SourceStates = Self>>(
                 schedule: &mut Schedule,
             ) {
@@ -298,6 +392,41 @@ macro_rules! impl_state_set_sealed_tuples {
                         .in_set(StateTransitionSteps::DependentTransitions)
                         $(.after(ApplyStateTransition::<$param::RawState>::apply()))*
                     );
+            }
+
+            fn sub_state_apply_transition<T: SubStates<SourceStates = Self>>(
+                world: &mut World,
+            ) -> SystemId {
+                world.register_system(
+                    |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,),
+                     event: EventWriter<StateTransitionEvent<T>>,
+                     commands: Commands,
+                     current_state_res: Option<ResMut<State<T>>>,
+                     next_state_res: Option<ResMut<NextState<T>>>,
+                     ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
+                        let parent_changed = ($($evt.read().last().is_some())&&*);
+                        let next_state = take_next_state(next_state_res);
+
+                        if !parent_changed && next_state.is_none() {
+                            return;
+                        }
+
+                        let current_state = current_state_res.as_ref().map(|s| s.get()).cloned();
+
+                        let initial_state = if parent_changed {
+                            if let ($(Some($val)),*,) = ($($param::convert_to_usable_state($val.as_deref())),*,) {
+                                T::should_exist(($($val),*, ))
+                            } else {
+                                None
+                            }
+                        } else {
+                            current_state.clone()
+                        };
+                        let new_state = initial_state.map(|x| next_state.or(current_state).unwrap_or(x));
+
+                        internal_apply_state_transition(event, commands, current_state_res, new_state);
+                    }
+                )
             }
         }
     };

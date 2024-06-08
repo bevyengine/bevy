@@ -1,9 +1,13 @@
+use crate::state::state_set::StateSet;
 use bevy_ecs::{
     system::{IntoSystem, SystemId},
     world::World,
 };
 
-use super::{last_transition, run_enter, run_exit, run_transition, FreelyMutableState};
+use super::{
+    last_transition, run_enter, run_exit, run_transition, ComputedStates, FreelyMutableState,
+    States, SubStates,
+};
 
 /// Linearized state graph.
 #[derive(Default)]
@@ -31,9 +35,43 @@ impl StateRegistry {
         self.insert_entry(entry);
     }
 
-    //pub fn register_sub_state() {}
+    /// Register a sub state
+    pub fn register_sub_state<S: States + SubStates>(&mut self, world: &mut World) {
+        let depth = S::DEPENDENCY_DEPTH;
+        let update = S::SourceStates::sub_state_apply_transition::<S>(world);
+        let on_exit = vec![world.register_system(last_transition::<S>.pipe(run_exit::<S>))];
+        let on_transition =
+            vec![world.register_system(last_transition::<S>.pipe(run_transition::<S>))];
+        let on_enter = vec![world.register_system(last_transition::<S>.pipe(run_enter::<S>))];
 
-    //pub fn register_computed_state() {}
+        let entry = StateEntry {
+            depth,
+            update,
+            on_exit,
+            on_transition,
+            on_enter,
+        };
+        self.insert_entry(entry);
+    }
+
+    /// Register a computed state
+    pub fn register_computed_state<S: States + ComputedStates>(&mut self, world: &mut World) {
+        let depth = S::DEPENDENCY_DEPTH;
+        let update = S::SourceStates::computed_state_apply_transition::<S>(world);
+        let on_exit = vec![world.register_system(last_transition::<S>.pipe(run_exit::<S>))];
+        let on_transition =
+            vec![world.register_system(last_transition::<S>.pipe(run_transition::<S>))];
+        let on_enter = vec![world.register_system(last_transition::<S>.pipe(run_enter::<S>))];
+
+        let entry = StateEntry {
+            depth,
+            update,
+            on_exit,
+            on_transition,
+            on_enter,
+        };
+        self.insert_entry(entry);
+    }
 
     /// Inserts one type erased state behavior into a depth-sorted vector.
     fn insert_entry(&mut self, entry: StateEntry) {
