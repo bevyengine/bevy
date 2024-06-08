@@ -493,16 +493,24 @@ impl AssetSource {
                 not(target_arch = "wasm32"),
                 not(target_os = "android")
             ))]
-            return Some(Box::new(
-                super::file::FileWatcher::new(
-                    std::path::PathBuf::from(path.clone()),
-                    sender,
-                    file_debounce_wait_time,
-                )
-                .unwrap_or_else(|e| {
-                    panic!("Failed to create file watcher from path {path:?}, {e:?}")
-                }),
-            ));
+            {
+                let path = std::path::PathBuf::from(path.clone());
+                if path.exists() {
+                    return Some(Box::new(
+                        super::file::FileWatcher::new(
+                            path.clone(),
+                            sender,
+                            file_debounce_wait_time,
+                        )
+                        .unwrap_or_else(|e| {
+                            panic!("Failed to create file watcher from path {path:?}, {e:?}")
+                        }),
+                    ));
+                } else {
+                    warn!("Skip creating file watcher because path {path:?} does not exist.");
+                    return None;
+                }
+            }
             #[cfg(any(
                 not(feature = "file_watcher"),
                 target_arch = "wasm32",
