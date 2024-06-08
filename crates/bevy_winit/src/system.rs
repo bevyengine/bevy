@@ -15,14 +15,14 @@ use bevy_window::{
 use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
 
+use bevy_app::AppExit;
+use bevy_ecs::prelude::EventReader;
 use bevy_ecs::query::With;
+use bevy_ecs::system::Commands;
 #[cfg(target_os = "ios")]
 use winit::platform::ios::WindowExtIOS;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
-use bevy_app::AppExit;
-use bevy_ecs::prelude::EventReader;
-use bevy_ecs::system::Commands;
 
 use crate::state::react_to_resize;
 use crate::{
