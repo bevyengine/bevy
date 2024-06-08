@@ -42,15 +42,15 @@ struct ConfiguratorData {
 }
 
 impl ConfiguratorData {
-    fn new<T: for<'g> Configurator<Output<'g> = ()>>(configurator: T) -> Self {
+    fn new<T: MainConfigurator>(configurator: T) -> Self {
         Self {
             id: TypeId::of::<T>(),
             name: type_name::<T>(),
-            config: Some(Arc::new(move |builder| configurator.configure(builder))),
+            config: Some(Arc::new(move |builder| configurator.configure(builder, ()))),
         }
     }
 
-    fn new_auxiliary<T: Configurator>() -> Self {
+    fn new_auxiliary<T: for<'g> Configurator<'g>>() -> Self {
         Self {
             id: TypeId::of::<T>(),
             name: type_name::<T>(),
@@ -60,35 +60,35 @@ impl ConfiguratorData {
 }
 
 impl RenderGraphConfigurators {
-    pub fn add<T: for<'g> Configurator<Output<'g> = ()>>(
-        &mut self,
-        entity: Entity,
-        configurator: T,
-    ) {
+    pub fn add<T: MainConfigurator>(&mut self, entity: Entity, configurator: T) {
         if let Some(old_configurator) = self
             .configurators
             .insert(entity, ConfiguratorData::new(configurator))
         {
-            panic!(
-                "Attempted to add a render graph configurator of type {} to entity {}, which already contains a render graph configurator of type {}",
-                type_name::<T>(),
-                entity,
-                old_configurator.name
-            );
+            if TypeId::of::<T>() != old_configurator.id {
+                panic!(
+                    "Attempted to add a render graph configurator of type {} to entity {}, which already contains a render graph configurator of type {}",
+                    type_name::<T>(),
+                    entity,
+                    old_configurator.name
+                );
+            }
         };
     }
 
-    pub fn add_auxiliary<T: Configurator>(&mut self, entity: Entity) {
+    pub fn add_auxiliary<T: for<'g> Configurator<'g>>(&mut self, entity: Entity) {
         if let Some(old_configurator) = self
             .configurators
             .insert(entity, ConfiguratorData::new_auxiliary::<T>())
         {
-            panic!(
-                "Attempted to add a render graph configurator of type {} to entity {}, which already contains a render graph configurator of type {}",
-                type_name::<T>(),
-                entity,
-                old_configurator.name
-            );
+            if TypeId::of::<T>() != old_configurator.id {
+                panic!(
+                    "Attempted to add a render graph configurator of type {} to entity {}, which already contains a render graph configurator of type {}",
+                    type_name::<T>(),
+                    entity,
+                    old_configurator.name
+                );
+            }
         }
     }
 
@@ -115,21 +115,26 @@ impl RenderGraphConfigurators {
     }
 }
 
-pub trait Configurator: Clone + ExtractComponent<Out = Self> {
-    type Output<'g>;
+pub trait Configurator<'g>: Clone + Component {
+    type In: 'g;
+    type Out: 'g;
 
-    fn configure<'g>(&self, graph: RenderGraphBuilder<'_, 'g>) -> Self::Output<'g>;
+    fn configure(&self, graph: RenderGraphBuilder<'_, 'g>, input: Self::In) -> Self::Out;
 }
 
-pub struct ConfiguratorPlugin<T: for<'g> Configurator<Output<'g> = ()>>(PhantomData<T>);
+pub trait MainConfigurator: for<'g> Configurator<'g, In = (), Out = ()> {}
 
-impl<T: for<'g> Configurator<Output<'g> = ()>> Default for ConfiguratorPlugin<T> {
+impl<T: for<'g> Configurator<'g, In = (), Out = ()>> MainConfigurator for T {}
+
+pub struct MainConfiguratorPlugin<T: ExtractComponent + MainConfigurator>(PhantomData<T>);
+
+impl<T: ExtractComponent + MainConfigurator> Default for MainConfiguratorPlugin<T> {
     fn default() -> Self {
         Self(PhantomData)
     }
 }
 
-impl<T: for<'g> Configurator<Output<'g> = ()>> Plugin for ConfiguratorPlugin<T> {
+impl<T: ExtractComponent + MainConfigurator> Plugin for MainConfiguratorPlugin<T> {
     fn build(&self, app: &mut App) {
         app.add_plugins(ExtractComponentPlugin::<T>::default())
             .add_systems(
@@ -141,22 +146,24 @@ impl<T: for<'g> Configurator<Output<'g> = ()>> Plugin for ConfiguratorPlugin<T> 
     }
 }
 
-pub struct AuxiliaryConfiguratorPlugin<T: Configurator>(PhantomData<T>);
+pub struct AuxiliaryConfiguratorPlugin<T: ExtractComponent + for<'g> Configurator<'g>>(
+    PhantomData<T>,
+);
 
-impl<T: Configurator> Default for AuxiliaryConfiguratorPlugin<T> {
+impl<T: ExtractComponent + for<'g> Configurator<'g>> Default for AuxiliaryConfiguratorPlugin<T> {
     fn default() -> Self {
         Self(PhantomData)
     }
 }
 
-impl<T: Configurator> Plugin for AuxiliaryConfiguratorPlugin<T> {
+impl<T: ExtractComponent + for<'g> Configurator<'g>> Plugin for AuxiliaryConfiguratorPlugin<T> {
     fn build(&self, app: &mut App) {
         app.add_plugins(ExtractComponentPlugin::<T>::default())
             .add_systems(Render, queue_auxiliary_configurators::<T>);
     }
 }
 
-fn queue_configurators<T: for<'g> Configurator<Output<'g> = ()>>(
+fn queue_configurators<T: MainConfigurator>(
     configurators: Query<(Entity, &T)>,
     mut graph_configurators: ResMut<RenderGraphConfigurators>,
 ) {
@@ -165,7 +172,7 @@ fn queue_configurators<T: for<'g> Configurator<Output<'g> = ()>>(
     }
 }
 
-fn queue_auxiliary_configurators<T: Configurator>(
+fn queue_auxiliary_configurators<T: for<'g> Configurator<'g>>(
     configurators: Query<Entity, With<T>>,
     mut graph_configurators: ResMut<RenderGraphConfigurators>,
 ) {
@@ -187,11 +194,12 @@ impl CameraRenderGraph {
     }
 }
 
-impl Configurator for CameraRenderGraph {
-    type Output<'g> = ();
+impl<'g> Configurator<'g> for CameraRenderGraph {
+    type In = ();
+    type Out = ();
 
     #[inline]
-    fn configure<'g>(&self, graph: RenderGraphBuilder<'_, 'g>) -> Self::Output<'g> {
+    fn configure(&self, graph: RenderGraphBuilder<'_, 'g>, _: ()) -> Self::Out {
         (self.configurator)(graph);
     }
 }
@@ -202,7 +210,7 @@ impl Plugin for RenderGraphPlugin {
     fn build(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .add_plugins(ConfiguratorPlugin::<CameraRenderGraph>::default())
+                .add_plugins(MainConfiguratorPlugin::<CameraRenderGraph>::default())
                 .init_resource::<RenderGraphCachedResources>()
                 .init_resource::<RenderGraphConfigurators>()
                 .add_systems(
