@@ -3193,6 +3193,16 @@ description = "Displays an example model with anisotropy"
 category = "3D Rendering"
 wasm = false
 
+[[example]]
+name = "mirror"
+path = "examples/3d/mirror.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mirror]
+name = "Mirror"
+description = "Demonstrates how to create a mirror"
+category = "3D Rendering"
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"

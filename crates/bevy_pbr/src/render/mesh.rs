@@ -1412,7 +1412,8 @@ bitflags::bitflags! {
         const SCREEN_SPACE_REFLECTIONS          = 1 << 16;
         const HAS_PREVIOUS_SKIN                 = 1 << 17;
         const HAS_PREVIOUS_MORPH                = 1 << 18;
-        const LAST_FLAG                         = Self::HAS_PREVIOUS_MORPH.bits();
+        const INVERT_CULLING                    = 1 << 19;
+        const LAST_FLAG                         = Self::INVERT_CULLING.bits();
 
         // Bitfields
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
