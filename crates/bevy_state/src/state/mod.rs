@@ -1,6 +1,7 @@
 mod computed_states;
 mod freely_mutable_state;
 mod resources;
+mod state_registry;
 mod state_set;
 mod states;
 mod sub_states;
@@ -10,6 +11,7 @@ pub use bevy_state_macros::*;
 pub use computed_states::*;
 pub use freely_mutable_state::*;
 pub use resources::*;
+pub use state_registry::*;
 pub use state_set::*;
 pub use states::*;
 pub use sub_states::*;
@@ -618,5 +620,27 @@ mod tests {
                 .len(),
             1
         );
+    }
+
+    #[derive(Debug, Clone, Eq, PartialEq, Hash, crate::state::States)]
+    enum MyState {
+        Foo,
+        Bar,
+    }
+
+    #[test]
+    fn first_test() {
+        let mut registry = StateRegistry::default();
+        let mut world = World::new();
+        EventRegistry::register_event::<StateTransitionEvent<MyState>>(&mut world);
+        world.insert_resource(State(MyState::Bar));
+        world.insert_resource(NextState::Pending(MyState::Foo));
+
+        registry.register_root_state::<MyState>(&mut world);
+
+        registry.update(&mut world);
+
+        let events = world.resource::<Events<StateTransitionEvent<MyState>>>();
+        assert_eq!(events.len(), 1);
     }
 }

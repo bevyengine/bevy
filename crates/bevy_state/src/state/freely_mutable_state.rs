@@ -42,7 +42,8 @@ pub trait FreelyMutableState: States {
     }
 }
 
-fn apply_state_transition<S: FreelyMutableState>(
+///
+pub fn apply_state_transition<S: FreelyMutableState>(
     event: EventWriter<StateTransitionEvent<S>>,
     commands: Commands,
     current_state: Option<ResMut<State<S>>>,
