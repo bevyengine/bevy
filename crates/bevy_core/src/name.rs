@@ -100,13 +100,18 @@ impl std::fmt::Debug for Name {
 ///     for (name, mut score) in &mut scores {
 ///         score.0 += 1.0;
 ///         if score.0.is_nan() {
-///             bevy_utils::tracing::error!("Score for {:?} is invalid", name);
+///             // use the Display impl to return either the Name,
+///             // or Entity's Display impl for entities which don't
+///             // have one.
+///             // You can still use the Debug impl it is just quite verbose.
+///             bevy_utils::tracing::error!("Score for {} is invalid", name);
 ///         }
 ///     }
 /// }
 /// # bevy_ecs::system::assert_is_system(increment_score);
 /// ```
 #[derive(QueryData)]
+#[query_data(derive(Debug))]
 pub struct DebugName {
     /// A [`Name`] that the entity might have that is displayed if available.
     pub name: Option<&'static Name>,
@@ -114,12 +119,12 @@ pub struct DebugName {
     pub entity: Entity,
 }
 
-impl<'a> std::fmt::Debug for DebugNameItem<'a> {
+impl<'a> std::fmt::Display for DebugNameItem<'a> {
     #[inline(always)]
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self.name {
-            Some(name) => write!(f, "{:?} ({:?})", &name, &self.entity),
-            None => std::fmt::Debug::fmt(&self.entity, f),
+            Some(name) => std::fmt::Display::fmt(name, f),
+            None => std::fmt::Display::fmt(&self.entity, f),
         }
     }
 }
@@ -196,5 +201,26 @@ impl Deref for Name {
 
     fn deref(&self) -> &Self::Target {
         self.name.as_ref()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_ecs::world::World;
+
+    #[test]
+    fn test_display_of_debug_name() {
+        let mut world = World::new();
+        let e1 = world.spawn_empty().id();
+        let name = Name::new("MyName");
+        let e2 = world.spawn(name.clone()).id();
+        let mut query = world.query::<DebugName>();
+        let d1 = query.get(&world, e1).unwrap();
+        let d2 = query.get(&world, e2).unwrap();
+        // DebugName Display for entities without a Name should be Display impl of the Entity
+        assert_eq!(d1.to_string(), format!("{e1}"));
+        // DebugName Display for entiites with a Name should be the Name
+        assert_eq!(d2.to_string(), "MyName");
     }
 }
