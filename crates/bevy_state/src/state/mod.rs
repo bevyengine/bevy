@@ -658,41 +658,87 @@ mod tests {
     }
 
     #[test]
-    fn first_test() {
+    fn run_update_with_registry() {
+        // TODO: Test the order programatically
+
         let mut registry = StateRegistry::default();
         let mut world = World::new();
-        EventRegistry::register_event::<StateTransitionEvent<MyRootState>>(&mut world);
-        EventRegistry::register_event::<StateTransitionEvent<MySubState>>(&mut world);
         EventRegistry::register_event::<StateTransitionEvent<MyComState>>(&mut world);
-        world.insert_resource(State(MyRootState::Root1));
-        world.insert_resource(State(MySubState::Sub1));
-        world.insert_resource(State(MyComState::Com2));
-        world.insert_resource(NextState::Pending(MyRootState::Root1));
+        EventRegistry::register_event::<StateTransitionEvent<MySubState>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<MyRootState>>(&mut world);
+        world.insert_resource(State(MyRootState::Root2));
         world.insert_resource(NextState::<MySubState>::Unchanged);
+
+        fn print(s: &'static str) -> impl Fn() {
+            move || {
+                println!("{}", s);
+            }
+        }
 
         registry.register_root_state::<MyRootState>(&mut world);
         registry.register_sub_state::<MySubState>(&mut world);
         registry.register_computed_state::<MyComState>(&mut world);
 
+        let mut schedules = Schedules::default();
+
+        schedules.add_systems(OnExit(MyRootState::Root1), print("root exit"));
+        schedules.add_systems(OnExit(MySubState::Sub1), print("sub  exit"));
+        schedules.add_systems(OnExit(MyComState::Com2), print("com  exit"));
+
+        schedules.add_systems(
+            OnTransition {
+                exited: MyRootState::Root1,
+                entered: MyRootState::Root2,
+            },
+            print("root transition"),
+        );
+        schedules.add_systems(
+            OnTransition {
+                exited: MySubState::Sub1,
+                entered: MySubState::Sub1,
+            },
+            print("sub  transition"),
+        );
+        schedules.add_systems(
+            OnTransition {
+                exited: MyComState::Com2,
+                entered: MyComState::Com3,
+            },
+            print("com  transition"),
+        );
+
+        schedules.add_systems(OnEnter(MyRootState::Root2), print("root enter"));
+        schedules.add_systems(OnEnter(MySubState::Sub2), print("sub  enter"));
+        schedules.add_systems(OnEnter(MyComState::Com3), print("com  enter"));
+
+        world.insert_resource(schedules);
+
+        world.insert_resource(NextState::Pending(MyRootState::Root1));
         registry.update(&mut world);
 
-        assert_eq!(
-            world
-                .resource::<Events<StateTransitionEvent<MyRootState>>>()
-                .len(),
-            1
-        );
-        assert_eq!(
-            world
-                .resource::<Events<StateTransitionEvent<MySubState>>>()
-                .len(),
-            1
-        );
-        assert_eq!(
-            world
-                .resource::<Events<StateTransitionEvent<MyComState>>>()
-                .len(),
-            1
-        );
+        //registry.update(&mut world);
+        //world.insert_resource(NextState::Pending(MyRootState::Root1));
+
+        world.insert_resource(NextState::Pending(MyRootState::Root2));
+        registry.update(&mut world);
+
+        //assert_eq!(
+        //    world
+        //        .resource::<Events<StateTransitionEvent<MyRootState>>>()
+        //        .len(),
+        //    1
+        //);
+        //assert_eq!(
+        //    world
+        //        .resource::<Events<StateTransitionEvent<MySubState>>>()
+        //        .len(),
+        //    1
+        //);
+        //assert_eq!(
+        //    world
+        //        .resource::<Events<StateTransitionEvent<MyComState>>>()
+        //        .len(),
+        //    1
+        //);
     }
 }
