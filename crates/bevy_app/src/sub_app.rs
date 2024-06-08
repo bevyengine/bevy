@@ -429,8 +429,6 @@ impl SubApps {
             sub_app.extract(&mut self.main.world);
             sub_app.update();
         }
-
-        self.main.world.clear_trackers();
     }
 
     /// Returns an iterator over the sub-apps (starting with the main one).
