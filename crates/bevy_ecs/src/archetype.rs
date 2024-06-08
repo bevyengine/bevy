@@ -787,8 +787,8 @@ impl Archetypes {
         sparse_set_components: Vec<ComponentId>,
     ) -> ArchetypeId {
         let archetype_identity = ArchetypeComponents {
-            sparse_set_components: sparse_set_components.clone().into_boxed_slice(),
-            table_components: table_components.clone().into_boxed_slice(),
+            sparse_set_components: sparse_set_components.into_boxed_slice(),
+            table_components: table_components.into_boxed_slice(),
         };
 
         let archetypes = &mut self.archetypes;
@@ -796,23 +796,34 @@ impl Archetypes {
         *self
             .by_components
             .entry(archetype_identity)
-            .or_insert_with(move || {
+            .or_insert_with_key(move |identity| {
+                let ArchetypeComponents {
+                    table_components,
+                    sparse_set_components,
+                } = identity;
+
                 let id = ArchetypeId::new(archetypes.len());
                 let table_start = *archetype_component_count;
                 *archetype_component_count += table_components.len();
                 let table_archetype_components =
                     (table_start..*archetype_component_count).map(ArchetypeComponentId);
+
                 let sparse_start = *archetype_component_count;
                 *archetype_component_count += sparse_set_components.len();
                 let sparse_set_archetype_components =
                     (sparse_start..*archetype_component_count).map(ArchetypeComponentId);
+
                 archetypes.push(Archetype::new(
                     components,
                     id,
                     table_id,
-                    table_components.into_iter().zip(table_archetype_components),
+                    table_components
+                        .iter()
+                        .copied()
+                        .zip(table_archetype_components),
                     sparse_set_components
-                        .into_iter()
+                        .iter()
+                        .copied()
                         .zip(sparse_set_archetype_components),
                 ));
                 id
