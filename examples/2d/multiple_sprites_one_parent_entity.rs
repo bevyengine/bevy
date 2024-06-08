@@ -1,4 +1,4 @@
-//! Constructs a large entity composed of multiple sprites
+//! Constructs a large parent entity composed of multiple sprites
 //!
 //! See also the `hierarchy` example, which also nests child and parent entities.
 
