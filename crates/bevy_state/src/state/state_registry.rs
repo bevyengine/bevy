@@ -115,6 +115,8 @@ impl StateRegistry {
 
 // What about:
 // - related type/component ids
+
+/// Type erased state information, holds ordering, update and transition systems.
 pub struct StateEntry {
     /// Depth in the dependency graph
     depth: usize,
