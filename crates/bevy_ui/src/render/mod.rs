@@ -1095,11 +1095,14 @@ pub fn prepare_uinodes(
                     let uvs = if flags == shader_flags::UNTEXTURED {
                         [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
                     } else {
-                        let atlas_image = gpu_images.get(extracted_uinode.image);
-                        let atlas_extent = atlas_image
-                            .map(|image| image.size.as_vec2())
-                            .unwrap_or(uinode_rect.max)
-                            * extracted_uinode.atlas_scaling.unwrap_or(Vec2::ONE);
+                        let image = gpu_images
+                            .get(extracted_uinode.image)
+                            .expect("Image was checked during batching and should still exist");
+                        // Rescale atlases. This is done here because we need texture data that might not be available in Extract.
+                        let atlas_extent = extracted_uinode
+                            .atlas_scaling
+                            .map(|scaling| image.size.as_vec2() * scaling)
+                            .unwrap_or(uinode_rect.max);
                         if extracted_uinode.flip_x {
                             std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
                             positions_diff[0].x *= -1.;
