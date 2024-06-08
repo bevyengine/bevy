@@ -52,6 +52,9 @@ pub trait MapEntities {
 ///
 /// More generally, this can be used to map [`Entity`] references between any two [`Worlds`](World).
 ///
+/// Note that this trait is _not_ [object safe](https://doc.rust-lang.org/reference/items/traits.html#object-safety).
+/// Please see [`DynEntityMapper`] for an object safe alternative.
+///
 /// ## Example
 ///
 /// ```
