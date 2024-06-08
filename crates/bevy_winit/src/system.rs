@@ -153,7 +153,8 @@ pub(crate) fn despawn_windows(
 
     // On macOS, when exiting, we need to tell the rendering thread the windows are about to
     // close to ensure that they are dropped on the main thread. Otherwise, the app will hang.
-    for _ in exit_events.read() {
+    if !exit_events.is_empty() {
+        exit_events.clear();
         for window in window_entities.iter() {
             closing_events.send(WindowClosing { window });
         }
