@@ -7,7 +7,10 @@ use bevy_ecs::{
     system::{Local, NonSendMut, Query, SystemParamItem},
 };
 use bevy_utils::tracing::{error, info, warn};
-use bevy_window::{ClosingWindow, RawHandleWrapper, Window, WindowClosed, WindowClosing, WindowCreated, WindowMode, WindowResized, WindowWrapper};
+use bevy_window::{
+    ClosingWindow, RawHandleWrapper, Window, WindowClosed, WindowClosing, WindowCreated,
+    WindowMode, WindowResized, WindowWrapper,
+};
 
 use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
