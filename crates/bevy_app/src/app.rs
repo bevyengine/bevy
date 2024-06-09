@@ -1141,7 +1141,7 @@ mod tests {
 
         fn despawn_one_foo(mut commands: Commands, foos: Query<Entity, With<Foo>>) {
             if let Some(e) = foos.iter().next() {
-                commands.entity(e).despawn()
+                commands.entity(e).despawn();
             };
         }
         fn check_despawns(mut removed_foos: RemovedComponents<Foo>) {
