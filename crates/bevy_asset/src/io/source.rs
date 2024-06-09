@@ -482,7 +482,7 @@ impl AssetSource {
             not(target_os = "android"),
             feature = "file_watcher"
         ))]
-        return "Consider adding an `assets` directory.";
+        return "Consider adding an \"assets\" directory.";
     }
 
     /// Returns a builder function for this platform's default [`AssetWatcher`]. `path` is the relative path to
