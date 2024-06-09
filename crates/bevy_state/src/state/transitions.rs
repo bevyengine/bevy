@@ -84,7 +84,7 @@ pub struct StateTransitionOrderingSet<S: States, Grouping: Clone + Debug + Parti
 impl<S: States, Grouping: Clone + Debug + PartialEq + Eq + Hash>
     StateTransitionOrderingSet<S, Grouping>
 {
-    /// Set up a set for ordering `S`` relative to it's decendents or parents, within
+    /// Set up a set for ordering `S`` relative to its descendants or parents, within
     /// the `Grouping`
     pub fn new(grouping: Grouping) -> Self {
         Self(grouping, PhantomData)
