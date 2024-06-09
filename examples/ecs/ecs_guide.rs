@@ -119,7 +119,7 @@ fn score_system(mut query: Query<(&Player, &mut Score, &mut PlayerStreak)>) {
             // `Mut<T>` implements `Deref<T>`, so struct fields can be updated using
             // standard field update syntax ...
             score.value += 1;
-            // ... and matching against enums requires deferencing them
+            // ... and matching against enums requires dereferencing them
             *streak = match *streak {
                 PlayerStreak::Hot(n) => PlayerStreak::Hot(n + 1),
                 PlayerStreak::Cold(_) | PlayerStreak::None => PlayerStreak::Hot(1),
