@@ -95,7 +95,7 @@ pub trait AssetReader: Send + Sync + 'static {
         path: &'a Path,
     ) -> impl ConditionalSendFuture<Output = Result<Box<Reader<'a>>, AssetReaderError>>;
     /// Returns a future to load the folder's default meta data for the provided path.
-    fn read_folder_meta<'a>(
+    fn read_meta_defaults<'a>(
         &'a self,
         path: &'a Path,
     ) -> impl ConditionalSendFuture<Output = Result<Box<Reader<'a>>, AssetReaderError>> {
@@ -128,7 +128,7 @@ pub trait AssetReader: Send + Sync + 'static {
                 Err(e) => {
                     if let AssetReaderError::NotFound(_) = e {
                         // There is no asset specific meta. Check to see if default meta exists.
-                        self.read_folder_meta_bytes(path).await
+                        self.read_default_meta_bytes(path).await
                     } else {
                         Err(e)
                     }
@@ -136,12 +136,12 @@ pub trait AssetReader: Send + Sync + 'static {
             }
         }
     }
-    fn read_folder_meta_bytes<'a>(
+    fn read_default_meta_bytes<'a>(
         &'a self,
         path: &'a Path,
     ) -> impl ConditionalSendFuture<Output = Result<Vec<u8>, AssetReaderError>> {
         async {
-            let mut meta_reader = self.read_folder_meta(path).await?;
+            let mut meta_reader = self.read_meta_defaults(path).await?;
             let mut meta_bytes = Vec::new();
             meta_reader.read_to_end(&mut meta_bytes).await?;
             Ok(meta_bytes)
@@ -438,6 +438,12 @@ pub enum AssetSourceEvent {
     RemovedMeta(PathBuf),
     /// Asset metadata at this path was renamed.
     RenamedMeta { old: PathBuf, new: PathBuf },
+    /// Asset default metadata at this path was added.
+    AddedDefaultMeta(PathBuf),
+    /// Asset default metadata at this path was modified.
+    ModifiedDefaultMeta(PathBuf),
+    /// Asset default metadata at this path was removed.
+    RemovedDefaultMeta(PathBuf),
     /// A folder at the given path was added.
     AddedFolder(PathBuf),
     /// A folder at the given path was removed.
@@ -454,6 +460,7 @@ pub enum AssetSourceEvent {
         /// then this event corresponds to a meta removal (not an asset removal) . If `false`, then this event corresponds to an asset removal
         /// (not a meta removal).
         is_meta: bool,
+        is_default_meta: bool,
     },
 }
 
@@ -605,15 +612,15 @@ pub(crate) fn get_meta_path(path: &Path) -> PathBuf {
 }
 
 /// Strips the extension from the path and looks for an `extension.meta` file in the same directory.
-pub(crate) fn get_folder_meta_path(path: &Path) -> PathBuf {
+pub(crate) fn get_default_meta_path(path: &Path) -> PathBuf {
     let mut extension = path.extension().unwrap_or_default().to_os_string();
-    extension.push(".meta");
+    extension.push(".meta_default");
 
-    let mut folder_meta_path = path.to_path_buf();
-    folder_meta_path.pop();
-    folder_meta_path.push(extension);
+    let mut default_meta_path = path.to_path_buf();
+    default_meta_path.pop();
+    default_meta_path.push(extension);
 
-    folder_meta_path
+    default_meta_path
 }
 
 /// A [`PathBuf`] [`Stream`] implementation that immediately returns nothing.
@@ -628,4 +635,16 @@ impl Stream for EmptyPathStream {
     ) -> Poll<Option<Self::Item>> {
         Poll::Ready(None)
     }
+}
+
+#[derive(PartialEq)]
+pub(crate) enum FileWatcherEventType {
+    Asset,
+    Meta,
+    MetaDefaults,
+}
+
+pub(crate) struct FileWatcherEventPath {
+    pub path: PathBuf,
+    pub file_type: FileWatcherEventType,
 }

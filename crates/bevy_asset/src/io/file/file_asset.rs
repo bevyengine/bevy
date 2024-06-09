@@ -1,5 +1,5 @@
 use crate::io::{
-    get_folder_meta_path, get_meta_path, AssetReader, AssetReaderError, AssetWriter,
+    get_default_meta_path, get_meta_path, AssetReader, AssetReaderError, AssetWriter,
     AssetWriterError, PathStream, Reader, Writer,
 };
 use async_fs::{read_dir, File};
@@ -45,12 +45,12 @@ impl AssetReader for FileAssetReader {
         }
     }
 
-    async fn read_folder_meta<'a>(
+    async fn read_meta_defaults<'a>(
         &'a self,
         path: &'a Path,
     ) -> Result<Box<Reader<'a>>, AssetReaderError> {
-        let folder_meta_path = get_folder_meta_path(path);
-        let full_path = self.root_path.join(folder_meta_path);
+        let default_meta_path = get_default_meta_path(path);
+        let full_path = self.root_path.join(default_meta_path);
         match File::open(&full_path).await {
             Ok(file) => {
                 let reader: Box<Reader> = Box::new(file);
@@ -79,7 +79,7 @@ impl AssetReader for FileAssetReader {
                         let path = dir_entry.path();
                         // filter out meta files as they are not considered assets
                         if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-                            if ext.eq_ignore_ascii_case("meta") {
+                            if ext.eq_ignore_ascii_case("meta") || ext.eq_ignore_ascii_case("meta_default") {
                                 return None;
                             }
                         }

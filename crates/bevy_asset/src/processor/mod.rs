@@ -227,6 +227,11 @@ impl AssetProcessor {
             | AssetSourceEvent::ModifiedMeta(path) => {
                 self.process_asset(source, path).await;
             }
+            AssetSourceEvent::AddedDefaultMeta(path)
+            | AssetSourceEvent::ModifiedDefaultMeta(path)
+            | AssetSourceEvent::RemovedDefaultMeta(path) => {
+                self.process_assets_using_defaults(source, path).await;
+            }
             AssetSourceEvent::RemovedAsset(path) => {
                 self.handle_removed_asset(source, path).await;
             }
@@ -279,7 +284,11 @@ impl AssetProcessor {
                     self.handle_added_folder(source, new).await;
                 }
             }
-            AssetSourceEvent::RemovedUnknown { path, is_meta } => {
+            AssetSourceEvent::RemovedUnknown {
+                path,
+                is_meta,
+                is_default_meta,
+            } => {
                 let processed_reader = source.processed_reader().unwrap();
                 match processed_reader.is_directory(&path).await {
                     Ok(is_directory) => {
@@ -287,6 +296,8 @@ impl AssetProcessor {
                             self.handle_removed_folder(source, &path).await;
                         } else if is_meta {
                             self.handle_removed_meta(source, path).await;
+                        } else if is_default_meta {
+                            self.process_assets_using_defaults(source, path).await;
                         } else {
                             self.handle_removed_asset(source, path).await;
                         }
@@ -669,6 +680,29 @@ impl AssetProcessor {
                 // if we fail to delete a folder, stop walking up the tree
                 break;
             }
+        }
+    }
+
+    async fn process_assets_using_defaults(&self, source: &AssetSource, path: PathBuf) {
+        let Some(file_stem) = path.file_stem() else {
+            return;
+        };
+
+        let mut directory = path.clone();
+        directory.pop();
+
+        let reader = source.reader();
+        let mut path_stream = reader.read_directory(&directory).await.unwrap();
+        while let Some(child_path) = path_stream.next().await {
+            // Only reprocess assets with an extension that matches the file stem of the meta defaults file.
+            if child_path.extension() != Some(file_stem) {
+                continue;
+            }
+
+            // Only reprocess assets that don't have a meta file.
+            // (todo) -
+
+            self.process_asset(source, child_path).await;
         }
     }
 
