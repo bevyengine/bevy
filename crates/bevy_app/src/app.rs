@@ -916,9 +916,17 @@ impl Termination for AppExit {
 
 #[cfg(test)]
 mod tests {
-    use std::{marker::PhantomData, mem};
+    use std::{iter, marker::PhantomData, mem};
 
-    use bevy_ecs::{event::EventWriter, schedule::ScheduleLabel, system::Commands};
+    use bevy_ecs::{
+        component::Component,
+        entity::Entity,
+        event::EventWriter,
+        query::With,
+        removal_detection::RemovedComponents,
+        schedule::{IntoSystemConfigs, ScheduleLabel},
+        system::{Commands, Query},
+    };
 
     use crate::{App, AppExit, Plugin, Update};
 
@@ -1121,6 +1129,33 @@ mod tests {
             GenericLabel::<u32>(PhantomData).intern(),
             GenericLabel::<u64>(PhantomData).intern()
         );
+    }
+
+    #[test]
+    fn test_update_clears_trackers_once() {
+        #[derive(Component, Copy, Clone)]
+        struct Foo;
+
+        let mut app = App::new();
+        app.world_mut().spawn_batch(iter::repeat(Foo).take(5));
+
+        fn despawn_one_foo(mut commands: Commands, foos: Query<Entity, With<Foo>>) {
+            foos.iter().next().map(|e| commands.entity(e).despawn());
+        }
+        fn check_despawns(mut removed_foos: RemovedComponents<Foo>) {
+            let mut despawn_count = 0;
+            for _ in removed_foos.read() {
+                despawn_count += 1;
+            }
+
+            assert_eq!(despawn_count, 2);
+        }
+
+        app.add_systems(Update, despawn_one_foo);
+        app.update(); // Frame 0
+        app.update(); // Frame 1
+        app.add_systems(Update, check_despawns.after(despawn_one_foo));
+        app.update(); // Should see despawns from frames 1 & 2, but not frame 0
     }
 
     #[test]
