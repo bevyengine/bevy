@@ -157,7 +157,7 @@ impl VariableCurve {
         Some(step_start)
     }
 
-    /// Write the output of this [`VariableCurve`] at `seek_time` to a [`Transform`] component, with influence, `influence`.
+    /// Write the output of this [`VariableCurve`] at `seek_time` to a [`Transform`] component with influence `influence`.
     pub fn write_to_transform(&self, seek_time: f32, influence: f32, transform: &mut Transform) {
         let Some((idx, fac, step_duration)) = (match self.find_current_keyframe(seek_time) {
             Some(idx) => (|| {
