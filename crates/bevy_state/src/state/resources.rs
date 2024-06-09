@@ -18,7 +18,7 @@ use bevy_ecs::prelude::ReflectResource;
 /// queue a transition in the [`NextState<S>`] resource, and it will be applied during the
 /// [`StateTransition`](crate::transition::StateTransition) schedule - which by default runs after `PreUpdate`.
 ///
-/// You can also manually trigger the [`StateTransition`](crate::transition::StateTransition schedule to apply the changes
+/// You can also manually trigger the [`StateTransition`](crate::transition::StateTransition) schedule to apply the changes
 /// at an arbitrary time.
 ///
 /// The starting state is defined via the [`Default`] implementation for `S`.
