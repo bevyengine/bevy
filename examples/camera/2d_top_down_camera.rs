@@ -10,7 +10,6 @@
 //! | `D`                  | Move right    |
 
 use bevy::core_pipeline::bloom::BloomSettings;
-use bevy::log::{Level, LogPlugin};
 use bevy::math::{vec2, vec3};
 use bevy::prelude::*;
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
@@ -26,11 +25,7 @@ struct Player;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(LogPlugin {
-            filter: "info,wgpu_core=warn,wgpu_hal=warn,2d_top_down_camera=debug".into(),
-            level: Level::INFO,
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(Color::BLACK))
         .add_systems(
             Startup,
@@ -65,8 +60,6 @@ fn setup_scene(
             ..default()
         },
     ));
-
-    debug!("Scene setup finished");
 }
 
 fn setup_instructions(mut commands: Commands) {
@@ -96,8 +89,6 @@ fn setup_camera(mut commands: Commands) {
         },
         BloomSettings::NATURAL,
     ));
-
-    debug!("Camera setup finished");
 }
 
 /// Update the camera position by tracking the player.
@@ -107,12 +98,10 @@ fn update_camera(
     time: Res<Time>,
 ) {
     let Ok(mut camera) = camera.get_single_mut() else {
-        debug!("Camera2d not found");
         return;
     };
 
     let Ok(player) = player.get_single() else {
-        debug!("Player not found");
         return;
     };
 
@@ -135,7 +124,6 @@ fn move_player(
     kb_input: Res<ButtonInput<KeyCode>>,
 ) {
     let Ok(mut player) = player.get_single_mut() else {
-        debug!("Player not found");
         return;
     };
 
