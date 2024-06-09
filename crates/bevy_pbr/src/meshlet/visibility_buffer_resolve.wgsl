@@ -109,7 +109,7 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let vertex_3 = unpack_meshlet_vertex(meshlet_vertex_data[vertex_ids.z]);
 
     let instance_id = meshlet_cluster_instance_ids[cluster_id];
-    let instance_uniform = meshlet_instance_uniforms[instance_id];
+    var instance_uniform = meshlet_instance_uniforms[instance_id];
 
     let world_from_local = affine3_to_square(instance_uniform.world_from_local);
     let world_position_1 = mesh_position_local_to_world(world_from_local, vec4(vertex_1.position, 1.0));
@@ -128,9 +128,9 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
 
     let world_position = mat3x4(world_position_1, world_position_2, world_position_3) * partial_derivatives.barycentrics;
     let world_normal = mat3x3(
-        normal_local_to_world(vertex_1.normal, instance_uniform.local_from_world_transpose_a, instance_uniform.local_from_world_transpose_b),
-        normal_local_to_world(vertex_2.normal, instance_uniform.local_from_world_transpose_a, instance_uniform.local_from_world_transpose_b),
-        normal_local_to_world(vertex_3.normal, instance_uniform.local_from_world_transpose_a, instance_uniform.local_from_world_transpose_b),
+        normal_local_to_world(vertex_1.normal, &instance_uniform),
+        normal_local_to_world(vertex_2.normal, &instance_uniform),
+        normal_local_to_world(vertex_3.normal, &instance_uniform),
     ) * partial_derivatives.barycentrics;
     let uv = mat3x2(vertex_1.uv, vertex_2.uv, vertex_3.uv) * partial_derivatives.barycentrics;
     let ddx_uv = mat3x2(vertex_1.uv, vertex_2.uv, vertex_3.uv) * partial_derivatives.ddx;
@@ -170,16 +170,12 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     );
 }
 
-fn normal_local_to_world(
-    vertex_normal: vec3<f32>,
-    local_from_world_transpose_a: mat2x4<f32>,
-    local_from_world_transpose_b: f32,
-) -> vec3<f32> {
+fn normal_local_to_world(vertex_normal: vec3<f32>, instance_uniform: ptr<function, Mesh>) -> vec3<f32> {
     if any(vertex_normal != vec3<f32>(0.0)) {
         return normalize(
             mat2x4_f32_to_mat3x3_unpack(
-                local_from_world_transpose_a,
-                local_from_world_transpose_b,
+                (*instance_uniform).local_from_world_transpose_a,
+                (*instance_uniform).local_from_world_transpose_b,
             ) * vertex_normal
         );
     } else {
