@@ -125,7 +125,9 @@ impl SubApp {
     }
 
     /// Runs the default schedule.
-    pub fn update(&mut self) {
+    ///
+    /// Does not clear internal trackers used for change detection.
+    pub fn run_default_schedule(&mut self) {
         if self.is_building_plugins() {
             panic!("SubApp::update() was called while a plugin was building.");
         }
@@ -133,6 +135,11 @@ impl SubApp {
         if let Some(label) = self.update_schedule {
             self.world.run_schedule(label);
         }
+    }
+
+    /// Runs the default schedule and updates internal component trackers.
+    pub fn update(&mut self) {
+        self.run_default_schedule();
         self.world.clear_trackers();
     }
 
@@ -421,7 +428,7 @@ impl SubApps {
         {
             #[cfg(feature = "trace")]
             let _bevy_frame_update_span = info_span!("main app").entered();
-            self.main.update();
+            self.main.run_default_schedule();
         }
         for (_label, sub_app) in self.sub_apps.iter_mut() {
             #[cfg(feature = "trace")]
@@ -429,6 +436,8 @@ impl SubApps {
             sub_app.extract(&mut self.main.world);
             sub_app.update();
         }
+
+        self.main.world.clear_trackers();
     }
 
     /// Returns an iterator over the sub-apps (starting with the main one).
