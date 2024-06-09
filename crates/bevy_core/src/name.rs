@@ -100,9 +100,9 @@ impl std::fmt::Debug for Name {
 ///     for (name, mut score) in &mut scores {
 ///         score.0 += 1.0;
 ///         if score.0.is_nan() {
-///             // use the Display impl to return either the Name,
-///             // or Entity's Display impl for entities which don't
-///             // have one.
+///             // use the Display impl to return either the Name
+///             // where there is one, or {index}v{generation} 
+///             // for entities which don't have a Name.
 ///             // You can still use the Debug impl it is just quite verbose.
 ///             bevy_utils::tracing::error!("Score for {} is invalid", name);
 ///         }
@@ -124,7 +124,7 @@ impl<'a> std::fmt::Display for DebugNameItem<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self.name {
             Some(name) => std::fmt::Display::fmt(name, f),
-            None => std::fmt::Display::fmt(&self.entity, f),
+            None => write!(f, "{}v{}", self.entity.index(), self.entity.generation()),
         }
     }
 }
@@ -218,8 +218,8 @@ mod tests {
         let mut query = world.query::<DebugName>();
         let d1 = query.get(&world, e1).unwrap();
         let d2 = query.get(&world, e2).unwrap();
-        // DebugName Display for entities without a Name should be Display impl of the Entity
-        assert_eq!(d1.to_string(), format!("{e1}"));
+        // DebugName Display for entities without a Name should be {index}v{generation}
+        assert_eq!(d1.to_string(), "0v1");
         // DebugName Display for entiites with a Name should be the Name
         assert_eq!(d2.to_string(), "MyName");
     }
