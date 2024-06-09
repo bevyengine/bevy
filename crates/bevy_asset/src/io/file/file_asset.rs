@@ -1,6 +1,6 @@
 use crate::io::{
-    get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError, PathStream,
-    Reader, Writer,
+    get_folder_meta_path, get_meta_path, AssetReader, AssetReaderError, AssetWriter,
+    AssetWriterError, PathStream, Reader, Writer,
 };
 use async_fs::{read_dir, File};
 use futures_lite::StreamExt;
@@ -30,6 +30,27 @@ impl AssetReader for FileAssetReader {
     async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
         let meta_path = get_meta_path(path);
         let full_path = self.root_path.join(meta_path);
+        match File::open(&full_path).await {
+            Ok(file) => {
+                let reader: Box<Reader> = Box::new(file);
+                Ok(reader)
+            }
+            Err(e) => {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    Err(AssetReaderError::NotFound(full_path))
+                } else {
+                    Err(e.into())
+                }
+            }
+        }
+    }
+
+    async fn read_folder_meta<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> Result<Box<Reader<'a>>, AssetReaderError> {
+        let folder_meta_path = get_folder_meta_path(path);
+        let full_path = self.root_path.join(folder_meta_path);
         match File::open(&full_path).await {
             Ok(file) => {
                 let reader: Box<Reader> = Box::new(file);

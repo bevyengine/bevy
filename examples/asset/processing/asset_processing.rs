@@ -229,6 +229,7 @@ struct TextAssets {
     c: Handle<Text>,
     d: Handle<Text>,
     e: Handle<Text>,
+    f: Handle<Text>,
 }
 
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
@@ -240,6 +241,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         c: assets.load("foo/c.cool.ron"),
         d: assets.load("d.cool.ron"),
         e: assets.load("embedded://asset_processing/e.txt"),
+        f: assets.load("f.cool.ron"),
     });
 }
 
@@ -257,6 +259,7 @@ fn print_text(
         println!("  c: {:?}", texts.get(&handles.c));
         println!("  d: {:?}", texts.get(&handles.d));
         println!("  e: {:?}", texts.get(&handles.e));
+        println!("  f: {:?}", texts.get(&handles.f));
         println!("(You can modify source assets and their .meta files to hot-reload changes!)");
         println!();
         asset_events.clear();

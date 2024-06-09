@@ -89,11 +89,19 @@ pub trait AssetReader: Send + Sync + 'static {
         &'a self,
         path: &'a Path,
     ) -> impl ConditionalSendFuture<Output = Result<Box<Reader<'a>>, AssetReaderError>>;
-    /// Returns a future to load the full file data at the provided path.
+    /// Returns a future to load the meta data at the provided path.
     fn read_meta<'a>(
         &'a self,
         path: &'a Path,
     ) -> impl ConditionalSendFuture<Output = Result<Box<Reader<'a>>, AssetReaderError>>;
+    /// Returns a future to load the folder's default meta data for the provided path.
+    fn read_folder_meta<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> impl ConditionalSendFuture<Output = Result<Box<Reader<'a>>, AssetReaderError>> {
+        // For now...
+        self.read_meta(path)
+    }
     /// Returns an iterator of directory entry names at the provided path.
     fn read_directory<'a>(
         &'a self,
@@ -111,7 +119,29 @@ pub trait AssetReader: Send + Sync + 'static {
         path: &'a Path,
     ) -> impl ConditionalSendFuture<Output = Result<Vec<u8>, AssetReaderError>> {
         async {
-            let mut meta_reader = self.read_meta(path).await?;
+            match self.read_meta(path).await {
+                Ok(mut meta_reader) => {
+                    let mut meta_bytes = Vec::new();
+                    meta_reader.read_to_end(&mut meta_bytes).await?;
+                    Ok(meta_bytes)
+                }
+                Err(e) => {
+                    if let AssetReaderError::NotFound(_) = e {
+                        // There is no asset specific meta. Check to see if default meta exists.
+                        self.read_folder_meta_bytes(path).await
+                    } else {
+                        Err(e)
+                    }
+                }
+            }
+        }
+    }
+    fn read_folder_meta_bytes<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> impl ConditionalSendFuture<Output = Result<Vec<u8>, AssetReaderError>> {
+        async {
+            let mut meta_reader = self.read_folder_meta(path).await?;
             let mut meta_bytes = Vec::new();
             meta_reader.read_to_end(&mut meta_bytes).await?;
             Ok(meta_bytes)
@@ -572,6 +602,18 @@ pub(crate) fn get_meta_path(path: &Path) -> PathBuf {
     extension.push(".meta");
     meta_path.set_extension(extension);
     meta_path
+}
+
+/// Strips the extension from the path and looks for an `extension.meta` file in the same directory.
+pub(crate) fn get_folder_meta_path(path: &Path) -> PathBuf {
+    let mut extension = path.extension().unwrap_or_default().to_os_string();
+    extension.push(".meta");
+
+    let mut folder_meta_path = path.to_path_buf();
+    folder_meta_path.pop();
+    folder_meta_path.push(extension);
+
+    folder_meta_path
 }
 
 /// A [`PathBuf`] [`Stream`] implementation that immediately returns nothing.
