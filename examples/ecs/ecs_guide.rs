@@ -47,8 +47,8 @@ struct Score {
     value: usize,
 }
 
-// This component tracks how many consecutive rounds a player has/hasn't
-// scored in - enums can also be used as components.
+// Enums can also be used as components.
+// This component tracks how many consecutive rounds a player has/hasn't scored in.
 #[derive(Component)]
 enum PlayerStreak {
     Hot(usize),
