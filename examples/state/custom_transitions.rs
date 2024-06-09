@@ -72,13 +72,13 @@ mod custom_transitions {
                     // - [`ExitSchedules`] - Ran from leaf-states to root-states,
                     // - [`TransitionSchedules`] - Ran in arbitrary order,
                     // - [`EnterSchedules`] - Ran from root-states to leaf-states.
-                    .in_set(EnterSchedules<S>::default()),
+                    .in_set(EnterSchedules::<S>::default()),
             )
             .add_systems(
                 StateTransition,
                 last_transition::<S>
                     .pipe(run_reexit::<S>)
-                    .in_set(ExitSchedules<S>::default()),
+                    .in_set(ExitSchedules::<S>::default()),
             );
         }
     }
