@@ -10,7 +10,7 @@
 //! | `D`                  | Move right    |
 
 use bevy::core_pipeline::bloom::BloomSettings;
-use bevy::math::{vec2, vec3};
+use bevy::math::vec3;
 use bevy::prelude::*;
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
 
@@ -26,11 +26,7 @@ struct Player;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(ClearColor(Color::BLACK))
-        .add_systems(
-            Startup,
-            (setup_scene, setup_instructions, setup_camera).chain(),
-        )
+        .add_systems(Startup, (setup_scene, setup_instructions, setup_camera))
         .add_systems(Update, (move_player, update_camera).chain())
         .run();
 }
@@ -52,7 +48,7 @@ fn setup_scene(
         Player,
         MaterialMesh2dBundle {
             mesh: meshes.add(Circle::new(25.)).into(),
-            material: materials.add(Color::srgb(6.25, 9.4, 9.1)),
+            material: materials.add(Color::srgb(6.25, 9.4, 9.1)), // RGB values exceed 1 to achieve a bright color for the bloom effect
             transform: Transform {
                 translation: vec3(0., 0., 2.),
                 ..default()
@@ -80,9 +76,8 @@ fn setup_instructions(mut commands: Commands) {
 fn setup_camera(mut commands: Commands) {
     commands.spawn((
         Camera2dBundle {
-            transform: Transform::from_xyz(0., 0., 1.),
             camera: Camera {
-                hdr: true,
+                hdr: true, // HDR is required for the bloom effect
                 ..default()
             },
             ..default()
@@ -110,8 +105,9 @@ fn update_camera(
 
     // Applies a smooth effect to camera movement using interpolation between
     // the camera position and the player position on the x and y axes.
-    // Here we use the in-game time (in seconds), to get the elapsed time since
-    // the previous time update. This avoids jittery when tracking the player.
+    // Here we use the in-game time, to get the elapsed time (in seconds)
+    // since the previous update. This avoids jittery movement when tracking
+    // the player.
     camera.translation = camera
         .translation
         .lerp(direction, time.delta_seconds() * CAM_LERP_FACTOR);
@@ -127,22 +123,22 @@ fn move_player(
         return;
     };
 
-    let mut direction = vec2(0., 0.);
+    let mut direction = Vec2::ZERO;
 
     if kb_input.pressed(KeyCode::KeyW) {
-        direction.y = 1.;
+        direction.y += 1.;
     }
 
     if kb_input.pressed(KeyCode::KeyS) {
-        direction.y = -1.;
+        direction.y -= 1.;
     }
 
     if kb_input.pressed(KeyCode::KeyA) {
-        direction.x = -1.;
+        direction.x -= 1.;
     }
 
     if kb_input.pressed(KeyCode::KeyD) {
-        direction.x = 1.;
+        direction.x += 1.;
     }
 
     // Progressively update the player's position over time. Normalize the
