@@ -157,6 +157,9 @@ fn move_player(
         direction.x = 1.;
     }
 
-    let move_delta = direction * PLAYER_SPEED * time.delta_seconds();
+    // Progressively update the player's position over time. Normalize the
+    // direction vector to prevent it from exceeding a magnitude of 1 when
+    // moving diagonally.
+    let move_delta = direction.normalize_or_zero() * PLAYER_SPEED * time.delta_seconds();
     player.translation += move_delta.extend(0.);
 }
