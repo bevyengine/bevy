@@ -619,4 +619,84 @@ mod tests {
             1
         );
     }
+
+    #[derive(Resource, Default, Debug)]
+    struct TransitionTracker(Vec<&'static str>);
+
+    #[test]
+    fn check_transition_orders() {
+        let mut world = World::new();
+        setup_state_transitions_in_world(&mut world, None);
+        EventRegistry::register_event::<StateTransitionEvent<SimpleState>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<SubState>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<TestComputedState>>(&mut world);
+        world.insert_resource(State(SimpleState::B(true)));
+        world.init_resource::<State<SubState>>();
+        world.insert_resource(State(TestComputedState::BisTrue));
+        let mut schedules = world.remove_resource::<Schedules>().unwrap();
+        let mut apply_changes = Schedule::new(StateTransition);
+        SimpleState::register_state(&mut apply_changes);
+        SubState::register_sub_state_systems(&mut apply_changes);
+        TestComputedState::register_computed_state_systems(&mut apply_changes);
+        schedules.insert(apply_changes);
+
+        world.init_resource::<TransitionTracker>();
+        fn register_transition(string: &'static str) -> impl Fn(ResMut<TransitionTracker>) {
+            move |mut transitions: ResMut<TransitionTracker>| transitions.0.push(string)
+        }
+
+        schedules.add_systems(
+            StateTransition,
+            register_transition("simple exit").in_set(ExitSchedules::<SimpleState>::default()),
+        );
+        schedules.add_systems(
+            StateTransition,
+            register_transition("simple transition")
+                .in_set(TransitionSchedules::<SimpleState>::default()),
+        );
+        schedules.add_systems(
+            StateTransition,
+            register_transition("simple enter").in_set(EnterSchedules::<SimpleState>::default()),
+        );
+
+        schedules.add_systems(
+            StateTransition,
+            register_transition("sub exit").in_set(ExitSchedules::<SubState>::default()),
+        );
+        schedules.add_systems(
+            StateTransition,
+            register_transition("sub transition")
+                .in_set(TransitionSchedules::<SubState>::default()),
+        );
+        schedules.add_systems(
+            StateTransition,
+            register_transition("sub enter").in_set(EnterSchedules::<SubState>::default()),
+        );
+
+        schedules.add_systems(
+            StateTransition,
+            register_transition("computed exit")
+                .in_set(ExitSchedules::<TestComputedState>::default()),
+        );
+        schedules.add_systems(
+            StateTransition,
+            register_transition("computed transition")
+                .in_set(TransitionSchedules::<TestComputedState>::default()),
+        );
+        schedules.add_systems(
+            StateTransition,
+            register_transition("computed enter")
+                .in_set(EnterSchedules::<TestComputedState>::default()),
+        );
+
+        world.insert_resource(schedules);
+
+        world.run_schedule(StateTransition);
+
+        let transitions = &world.resource::<TransitionTracker>().0;
+        println!("{:?}", transitions);
+        assert_eq!(transitions.len(), 9);
+        assert_eq!(transitions[0], "simple");
+        assert_eq!(transitions[8], "simple");
+    }
 }
