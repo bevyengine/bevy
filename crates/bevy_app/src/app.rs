@@ -1140,7 +1140,9 @@ mod tests {
         app.world_mut().spawn_batch(iter::repeat(Foo).take(5));
 
         fn despawn_one_foo(mut commands: Commands, foos: Query<Entity, With<Foo>>) {
-            foos.iter().next().map(|e| commands.entity(e).despawn());
+            if let Some(e) = foos.iter().next() {
+                commands.entity(e).despawn()
+            };
         }
         fn check_despawns(mut removed_foos: RemovedComponents<Foo>) {
             let mut despawn_count = 0;
