@@ -508,14 +508,13 @@ mod tests {
     #[test]
     fn same_state_transition_should_emit_event_and_not_run_schedules() {
         let mut world = World::new();
+        setup_state_transitions_in_world(&mut world, None);
         EventRegistry::register_event::<StateTransitionEvent<SimpleState>>(&mut world);
         world.init_resource::<State<SimpleState>>();
-        let mut schedules = Schedules::new();
-        let mut apply_changes = Schedule::new(StateTransition);
-        SimpleState::register_state(&mut apply_changes);
-        schedules.insert(apply_changes);
+        let mut schedules = world.resource_mut::<Schedules>();
+        let apply_changes = schedules.get_mut(StateTransition).unwrap();
+        SimpleState::register_state(apply_changes);
 
-        world.insert_resource(TransitionCounter::default());
         let mut on_exit = Schedule::new(OnExit(SimpleState::A));
         on_exit.add_systems(|mut c: ResMut<TransitionCounter>| c.exit += 1);
         schedules.insert(on_exit);
@@ -528,9 +527,7 @@ mod tests {
         let mut on_enter = Schedule::new(OnEnter(SimpleState::A));
         on_enter.add_systems(|mut c: ResMut<TransitionCounter>| c.enter += 1);
         schedules.insert(on_enter);
-
-        world.insert_resource(schedules);
-        setup_state_transitions_in_world(&mut world, None);
+        world.insert_resource(TransitionCounter::default());
 
         world.run_schedule(StateTransition);
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
@@ -546,7 +543,7 @@ mod tests {
             *world.resource::<TransitionCounter>(),
             TransitionCounter {
                 exit: 0,
-                transition: 0,
+                transition: 1, // Same state transitions are allowed
                 enter: 0
             }
         );
