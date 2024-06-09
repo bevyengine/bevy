@@ -57,26 +57,56 @@ pub struct StateTransitionEvent<S: States> {
 ///
 /// These system sets are run sequentially, in the order of the enum variants.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
-pub enum StateTransitionSteps {
+pub(crate) enum StateTransitionSteps {
     /// Parentless states apply their [`NextState<S>`].
     RootTransitions,
     /// States with parents apply their computation and [`NextState<S>`].
     DependentTransitions,
-    /// Exit schedules are executed.
+    /// Exit schedules are executed in leaf-root order
     ExitSchedules,
-    /// Transition schedules are executed.
+    /// Transition schedules are executed in arbitrary order.
     TransitionSchedules,
-    /// Enter schedules are executed.
+    /// Enter schedules are executed in root-leaf order.
     EnterSchedules,
 }
 
-/// Defines a system set to aid with dependent state ordering
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ApplyStateTransition<S: States>(PhantomData<S>);
+/// Exit schedules are executed.
+pub struct ExitSchedules<S: States>(PhantomData<S>);
 
-impl<S: States> ApplyStateTransition<S> {
-    pub(crate) fn apply() -> Self {
-        Self(PhantomData)
+impl<S: States> Default for ExitSchedules<S> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+/// Transition schedules are executed.
+pub struct TransitionSchedules<S: States>(PhantomData<S>);
+
+impl<S: States> Default for TransitionSchedules<S> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+/// Enter schedules are executed.
+pub struct EnterSchedules<S: States>(PhantomData<S>);
+
+impl<S: States> Default for EnterSchedules<S> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+/// Defines a system set to aid with dependent state ordering.
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct ApplyStateTransition<S: States>(PhantomData<S>);
+
+impl<S: States> Default for ApplyStateTransition<S> {
+    fn default() -> Self {
+        Self(Default::default())
     }
 }
 
