@@ -13,8 +13,8 @@
         unpack_meshlet_vertex,
     },
     mesh_view_bindings::view,
-    mesh_functions::mesh_position_local_to_world,
-    mesh_types::MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT,
+    mesh_functions::{mesh_position_local_to_world, sign_determinant_model_3x3m},
+    mesh_types::{Mesh, MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT},
     view_transformations::{position_world_to_clip, frag_coord_to_ndc},
 }
 #import bevy_render::maths::{affine3_to_square, mat2x4_f32_to_mat3x3_unpack}
@@ -99,6 +99,7 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let cluster_id = packed_ids >> 6u;
     let meshlet_id = meshlet_cluster_meshlet_ids[cluster_id];
     let meshlet = meshlets[meshlet_id];
+
     let triangle_id = extractBits(packed_ids, 0u, 6u);
     let index_ids = meshlet.start_index_id + vec3(triangle_id * 3u) + vec3(0u, 1u, 2u);
     let indices = meshlet.start_vertex_id + vec3(get_meshlet_index(index_ids.x), get_meshlet_index(index_ids.y), get_meshlet_index(index_ids.z));
@@ -109,8 +110,8 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
 
     let instance_id = meshlet_cluster_instance_ids[cluster_id];
     let instance_uniform = meshlet_instance_uniforms[instance_id];
-    let world_from_local = affine3_to_square(instance_uniform.world_from_local);
 
+    let world_from_local = affine3_to_square(instance_uniform.world_from_local);
     let world_position_1 = mesh_position_local_to_world(world_from_local, vec4(vertex_1.position, 1.0));
     let world_position_2 = mesh_position_local_to_world(world_from_local, vec4(vertex_2.position, 1.0));
     let world_position_3 = mesh_position_local_to_world(world_from_local, vec4(vertex_3.position, 1.0));
@@ -126,27 +127,19 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     );
 
     let world_position = mat3x4(world_position_1, world_position_2, world_position_3) * partial_derivatives.barycentrics;
-    let vertex_normal = mat3x3(vertex_1.normal, vertex_2.normal, vertex_3.normal) * partial_derivatives.barycentrics;
-    let world_normal = normalize(
-        mat2x4_f32_to_mat3x3_unpack(
-            instance_uniform.local_from_world_transpose_a,
-            instance_uniform.local_from_world_transpose_b,
-        ) * vertex_normal
-    );
+    let world_normal = mat3x3(
+        normal_local_to_world(vertex_1.normal, instance_uniform.local_from_world_transpose_a, instance_uniform.local_from_world_transpose_b),
+        normal_local_to_world(vertex_2.normal, instance_uniform.local_from_world_transpose_a, instance_uniform.local_from_world_transpose_b),
+        normal_local_to_world(vertex_3.normal, instance_uniform.local_from_world_transpose_a, instance_uniform.local_from_world_transpose_b),
+    ) * partial_derivatives.barycentrics;
     let uv = mat3x2(vertex_1.uv, vertex_2.uv, vertex_3.uv) * partial_derivatives.barycentrics;
     let ddx_uv = mat3x2(vertex_1.uv, vertex_2.uv, vertex_3.uv) * partial_derivatives.ddx;
     let ddy_uv = mat3x2(vertex_1.uv, vertex_2.uv, vertex_3.uv) * partial_derivatives.ddy;
-    let vertex_tangent = mat3x4(vertex_1.tangent, vertex_2.tangent, vertex_3.tangent) * partial_derivatives.barycentrics;
-    let world_tangent = vec4(
-        normalize(
-            mat3x3(
-                world_from_local[0].xyz,
-                world_from_local[1].xyz,
-                world_from_local[2].xyz
-            ) * vertex_tangent.xyz
-        ),
-        vertex_tangent.w * (f32(bool(instance_uniform.flags & MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT)) * 2.0 - 1.0)
-    );
+    let world_tangent = mat3x4(
+        tangent_local_to_world(vertex_1.tangent, world_from_local, instance_uniform.flags),
+        tangent_local_to_world(vertex_2.tangent, world_from_local, instance_uniform.flags),
+        tangent_local_to_world(vertex_3.tangent, world_from_local, instance_uniform.flags),
+    ) * partial_derivatives.barycentrics;
 
 #ifdef PREPASS_FRAGMENT
 #ifdef MOTION_VECTOR_PREPASS
@@ -154,15 +147,7 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let previous_world_position_1 = mesh_position_local_to_world(previous_world_from_local, vec4(vertex_1.position, 1.0));
     let previous_world_position_2 = mesh_position_local_to_world(previous_world_from_local, vec4(vertex_2.position, 1.0));
     let previous_world_position_3 = mesh_position_local_to_world(previous_world_from_local, vec4(vertex_3.position, 1.0));
-    let previous_clip_position_1 = previous_view_uniforms.clip_from_world * vec4(previous_world_position_1.xyz, 1.0);
-    let previous_clip_position_2 = previous_view_uniforms.clip_from_world * vec4(previous_world_position_2.xyz, 1.0);
-    let previous_clip_position_3 = previous_view_uniforms.clip_from_world * vec4(previous_world_position_3.xyz, 1.0);
-    let previous_partial_derivatives = compute_partial_derivatives(
-        array(previous_clip_position_1, previous_clip_position_2, previous_clip_position_3),
-        frag_coord_ndc,
-        view.viewport.zw,
-    );
-    let previous_world_position = mat3x4(previous_world_position_1, previous_world_position_2, previous_world_position_3) * previous_partial_derivatives.barycentrics;
+    let previous_world_position = mat3x4(previous_world_position_1, previous_world_position_2, previous_world_position_3) * partial_derivatives.barycentrics;
     let motion_vector = calculate_motion_vector(world_position, previous_world_position);
 #endif
 #endif
@@ -183,5 +168,39 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
 #endif
 #endif
     );
+}
+
+fn normal_local_to_world(
+    vertex_normal: vec3<f32>,
+    local_from_world_transpose_a: mat2x4<f32>,
+    local_from_world_transpose_b: f32,
+) -> vec3<f32> {
+    if any(vertex_normal != vec3<f32>(0.0)) {
+        return normalize(
+            mat2x4_f32_to_mat3x3_unpack(
+                local_from_world_transpose_a,
+                local_from_world_transpose_b,
+            ) * vertex_normal
+        );
+    } else {
+        return vertex_normal;
+    }
+}
+
+fn tangent_local_to_world(vertex_tangent: vec4<f32>, world_from_local: mat4x4<f32>, mesh_flags: u32) -> vec4<f32> {
+    if any(vertex_tangent != vec4<f32>(0.0)) {
+        return vec4<f32>(
+            normalize(
+                mat3x3<f32>(
+                    world_from_local[0].xyz,
+                    world_from_local[1].xyz,
+                    world_from_local[2].xyz,
+                ) * vertex_tangent.xyz
+            ),
+            vertex_tangent.w * sign_determinant_model_3x3m(mesh_flags)
+        );
+    } else {
+        return vertex_tangent;
+    }
 }
 #endif
