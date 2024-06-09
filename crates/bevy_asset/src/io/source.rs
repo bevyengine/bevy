@@ -471,8 +471,10 @@ impl AssetSource {
         return "Web does not currently support watching assets.";
         #[cfg(target_os = "android")]
         return "Android does not currently support watching assets.";
-        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
+        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android"), not(feature = "file_watcher")))]
         return "Consider enabling the `file_watcher` feature.";
+        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android"), feature = "file_watcher"))]
+        return "Consider adding an `assets` directory.";
     }
 
     /// Returns a builder function for this platform's default [`AssetWatcher`]. `path` is the relative path to
