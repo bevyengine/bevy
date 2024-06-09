@@ -187,8 +187,12 @@ pub async fn initialize_renderer(
     let adapter_info = adapter.get_info();
     info!("{:?}", adapter_info);
 
-    if adapter_info.driver == "llvmpipe" {
-        warn!("The selected adapter is using the llvmpipe software renderer. This is likely to be very slow.");
+    if adapter_info.driver == "llvmpipe" || adapter_info.driver == "Microsoft Basic Display Adapter"
+    {
+        warn!(
+            "The selected adapter is using the a driver that only supports software rendering. \
+             This is likely to be very slow. See https://bevyengine.org/learn/errors/b0006/"
+        );
     }
 
     #[cfg(feature = "wgpu_trace")]
