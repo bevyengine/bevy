@@ -197,7 +197,7 @@ mod tests {
         Schedule::default().add_systems(
             (test_system, test_system)
                 .distributive_run_if(state_exists::<TestState>)
-                .distributive_run_if(in_state(TestState::A).or_else(in_state(TestState::B)))
+                .distributive_run_if(in_state(TestState::A).or(in_state(TestState::B)))
                 .distributive_run_if(state_changed::<TestState>),
         );
     }
