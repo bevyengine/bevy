@@ -38,15 +38,15 @@ pub struct OnTransition<S: States> {
 }
 
 /// Runs [state transitions](States).
-/// 
+///
 /// By default, it will be triggered after `PreUpdate`, but
 /// you can manually trigger it at arbitrary times by creating an exclusive
 /// system to run the schedule.
-/// 
+///
 /// ```rust
 /// use bevy_state::prelude::*;
 /// use bevy_ecs::prelude::*;
-/// 
+///
 /// fn run_state_transitions(world: &mut World) {
 ///     let _ = world.try_run_schedule(StateTransition);
 /// }
