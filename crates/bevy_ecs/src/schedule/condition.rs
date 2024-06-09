@@ -1212,16 +1212,16 @@ mod tests {
 
         schedule.add_systems(
             (
-                increment_counter.run_if(every_other_time.and(|| true)),   // Run every odd cycle.
+                increment_counter.run_if(every_other_time.and(|| true)), // Run every odd cycle.
                 increment_counter.run_if(every_other_time.nand(|| false)), // Always run.
-                double_counter.run_if(every_other_time.nor(|| false)),     // Run every even cycle.
-                increment_counter.run_if(every_other_time.or(|| true)),    // Always run.
-                increment_counter.run_if(every_other_time.xnor(|| true)),  // Run every odd cycle.
-                double_counter.run_if(every_other_time.xnor(|| false)),    // Run every even cycle.
-                increment_counter.run_if(every_other_time.xor(|| false)),  // Run every odd cycle.
-                double_counter.run_if(every_other_time.xor(|| true)),      // Run every even cycle.
+                double_counter.run_if(every_other_time.nor(|| false)),   // Run every even cycle.
+                increment_counter.run_if(every_other_time.or(|| true)),  // Always run.
+                increment_counter.run_if(every_other_time.xnor(|| true)), // Run every odd cycle.
+                double_counter.run_if(every_other_time.xnor(|| false)),  // Run every even cycle.
+                increment_counter.run_if(every_other_time.xor(|| false)), // Run every odd cycle.
+                double_counter.run_if(every_other_time.xor(|| true)),    // Run every even cycle.
             )
-            .chain()
+                .chain(),
         );
 
         schedule.run(&mut world);
