@@ -623,21 +623,50 @@ mod tests {
     #[derive(Resource, Default, Debug)]
     struct TransitionTracker(Vec<&'static str>);
 
+
+    #[derive(PartialEq, Eq, Debug, Hash, Clone)]
+    enum TransitionTestingComputedState {
+        IsA,
+        IsBAndEven,
+        IsBAndOdd
+    }
+
+    impl ComputedStates for TransitionTestingComputedState {
+        type SourceStates = (Option<SimpleState>, Option<SubState>);
+
+        fn compute(sources: (Option<SimpleState>, Option<SubState>)) -> Option<Self> {
+            match sources {
+                (Some(simple), sub) => {
+                    if simple == SimpleState::A
+                    {
+                        Some(Self::IsA)
+                    } else if sub == Some(SubState::One) {
+                        Some(Self::IsBAndOdd)
+                    } else if sub == Some(SubState::Two) {
+                        Some(Self::IsBAndEven)
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            }
+        }
+    }
     #[test]
     fn check_transition_orders() {
         let mut world = World::new();
         setup_state_transitions_in_world(&mut world, None);
         EventRegistry::register_event::<StateTransitionEvent<SimpleState>>(&mut world);
         EventRegistry::register_event::<StateTransitionEvent<SubState>>(&mut world);
-        EventRegistry::register_event::<StateTransitionEvent<TestComputedState>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<TransitionTestingComputedState>>(&mut world);
         world.insert_resource(State(SimpleState::B(true)));
         world.init_resource::<State<SubState>>();
-        world.insert_resource(State(TestComputedState::BisTrue));
+        world.insert_resource(State(TransitionTestingComputedState::IsA));
         let mut schedules = world.remove_resource::<Schedules>().unwrap();
-        let mut apply_changes = Schedule::new(StateTransition);
+        let mut apply_changes = schedules.get_mut(StateTransition).unwrap();
         SimpleState::register_state(&mut apply_changes);
         SubState::register_sub_state_systems(&mut apply_changes);
-        TestComputedState::register_computed_state_systems(&mut apply_changes);
+        TransitionTestingComputedState::register_computed_state_systems(&mut apply_changes);
         schedules.insert(apply_changes);
 
         world.init_resource::<TransitionTracker>();
@@ -676,17 +705,17 @@ mod tests {
         schedules.add_systems(
             StateTransition,
             register_transition("computed exit")
-                .in_set(ExitSchedules::<TestComputedState>::default()),
+                .in_set(ExitSchedules::<TransitionTestingComputedState>::default()),
         );
         schedules.add_systems(
             StateTransition,
             register_transition("computed transition")
-                .in_set(TransitionSchedules::<TestComputedState>::default()),
+                .in_set(TransitionSchedules::<TransitionTestingComputedState>::default()),
         );
         schedules.add_systems(
             StateTransition,
             register_transition("computed enter")
-                .in_set(EnterSchedules::<TestComputedState>::default()),
+                .in_set(EnterSchedules::<TransitionTestingComputedState>::default()),
         );
 
         world.insert_resource(schedules);
@@ -696,7 +725,15 @@ mod tests {
         let transitions = &world.resource::<TransitionTracker>().0;
         println!("{:?}", transitions);
         assert_eq!(transitions.len(), 9);
-        assert_eq!(transitions[0], "simple");
-        assert_eq!(transitions[8], "simple");
+        
+        assert_eq!(transitions[0], "computed exit");
+        assert_eq!(transitions[1], "sub exit");
+        assert_eq!(transitions[2], "simple exit");
+        assert_eq!(transitions[3], "simple transition");
+        assert_eq!(transitions[4], "sub transition");
+        assert_eq!(transitions[5], "computed transition");
+        assert_eq!(transitions[6], "simple enter");
+        assert_eq!(transitions[7], "sub enter");
+        assert_eq!(transitions[8], "computed enter");
     }
 }
