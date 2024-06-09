@@ -1447,7 +1447,7 @@ impl AssetLoaderError {
 }
 
 #[derive(Error, Debug, Clone)]
-#[error("An error occurred while resolving an asset added by `add_async`")]
+#[error("An error occurred while resolving an asset added by `add_async`: {error}")]
 pub struct AddAsyncError {
     error: Arc<dyn std::error::Error + Send + Sync + 'static>,
 }
