@@ -130,8 +130,8 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     ///
     /// # Examples
     ///
-    /// ```
-    /// use bevy_ecs::prelude::*;
+    /// ```compile_fail
+    /// use bevy::prelude::*;
     ///
     /// #[derive(States, Debug, Clone, PartialEq, Eq, Hash)]
     /// pub enum PlayerState {
@@ -147,7 +147,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     ///
     /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
-    /// # fn my_system() {}
+    /// # fn game_over_credits() {}
     /// app.add_systems(
     ///     // The game_over_credits system will only execute if either the `in_state(PlayerState::Alive)`
     ///     // run condition or `in_state(EnemyState::Alive)` run condition evaluates to `false`.
@@ -160,7 +160,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     ///
     /// Equivalent logic can be achieved by using `not` in concert with `and`:
     ///
-    /// ```
+    /// ```compile_fail
     /// app.add_systems(
     ///     game_over_credits.run_if(
     ///         not(in_state(PlayerState::Alive).and(in_state(EnemyState::Alive)))
@@ -182,8 +182,8 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     ///
     /// # Examples
     ///
-    /// ```
-    /// use bevy_ecs::prelude::*;
+    /// ```compile_fail
+    /// use bevy::prelude::*;
     ///
     /// #[derive(States, Debug, Clone, PartialEq, Eq, Hash)]
     /// pub enum WeatherState {
@@ -199,7 +199,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     ///
     /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
-    /// # fn my_system() {}
+    /// # fn slow_plant_growth() {}
     /// app.add_systems(
     ///     // The slow_plant_growth system will only execute if both the `in_state(WeatherState::Sunny)`
     ///     // run condition and `in_state(SoilState::Fertilized)` run condition evaluate to `false`.
@@ -212,7 +212,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     ///
     /// Equivalent logic can be achieved by using `not` in concert with `or`:
     ///
-    /// ```
+    /// ```compile_fail
     /// app.add_systems(
     ///     slow_plant_growth.run_if(
     ///         not(in_state(WeatherState::Sunny).or(in_state(SoilState::Fertilized)))
@@ -278,8 +278,8 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     ///
     /// # Examples
     ///
-    /// ```
-    /// use bevy_ecs::prelude::*;
+    /// ```compile_fail
+    /// use bevy::prelude::*;
     ///
     /// #[derive(States, Debug, Clone, PartialEq, Eq, Hash)]
     /// pub enum CoffeeMachineState {
@@ -297,7 +297,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     ///
     /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
-    /// # fn my_system() {}
+    /// # fn take_drink_orders() {}
     /// app.add_systems(
     ///     // The take_drink_orders system will only execute if the `in_state(CoffeeMachineState::Inactive)`
     ///     // run condition and `in_state(TeaKettleState::Inactive)` run conditions both evaluate to `false`,
@@ -311,7 +311,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     ///
     /// Equivalent logic can be achieved by using `not` in concert with `xor`:
     ///
-    /// ```
+    /// ```compile_fail
     /// app.add_systems(
     ///     take_drink_orders.run_if(
     ///         not(in_state(CoffeeMachineState::Inactive).xor(in_state(TeaKettleState::Inactive)))
@@ -330,8 +330,8 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     ///
     /// # Examples
     ///
-    /// ```
-    /// use bevy_ecs::prelude::*;
+    /// ```compile_fail
+    /// use bevy::prelude::*;
     ///
     /// #[derive(States, Debug, Clone, PartialEq, Eq, Hash)]
     /// pub enum CoffeeMachineState {
@@ -349,7 +349,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     ///
     /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
-    /// # fn my_system() {}
+    /// # fn prepare_beverage() {}
     /// app.add_systems(
     ///     // The prepare_beverage system will only execute if either the `in_state(CoffeeMachineState::Inactive)`
     ///     // run condition or `in_state(TeaKettleState::Inactive)` run condition evaluates to `true`,
