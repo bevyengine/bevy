@@ -122,6 +122,57 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
         CombinatorSystem::new(a, b, Cow::Owned(name))
     }
 
+    /// Returns a new run condition that only returns `true`
+    /// if both this one and the passed `and_then` return `true`.
+    ///
+    /// The returned run condition is short-circuiting, meaning
+    /// `and_then` will only be invoked if `self` returns `true`.
+    ///
+    /// # Examples
+    ///
+    /// ```should_panic
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Resource, PartialEq)]
+    /// struct R(u32);
+    ///
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # fn my_system() {}
+    /// app.add_systems(
+    ///     // The `resource_equals` run condition will panic since we don't initialize `R`,
+    ///     // just like if we used `Res<R>` in a system.
+    ///     my_system.run_if(resource_equals(R(0))),
+    /// );
+    /// # app.run(&mut world);
+    /// ```
+    ///
+    /// Use `.and_then()` to avoid checking the condition.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource, PartialEq)]
+    /// # struct R(u32);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # fn my_system() {}
+    /// app.add_systems(
+    ///     // `resource_equals` will only get run if the resource `R` exists.
+    ///     my_system.run_if(resource_exists::<R>.and_then(resource_equals(R(0)))),
+    /// );
+    /// # app.run(&mut world);
+    /// ```
+    ///
+    /// Note that in this case, it's better to just use the run condition [`resource_exists_and_equals`].
+    ///
+    /// [`resource_exists_and_equals`]: common_conditions::resource_exists_and_equals
+    #[deprecated(
+        note = "Users should use the `.and(condition)` method in lieu of `.and_then(condition)`"
+    )]
+    fn and_then<M, C: Condition<M, In>>(self, and_then: C) -> And<Self::System, C::System> {
+        self.and(and_then)
+    }
+
     /// Returns a new run condition that only returns `false`
     /// if both this one and the passed `nand` return `true`.
     ///
@@ -167,9 +218,9 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     ///     ),
     /// );
     /// ```
-    fn nand<M, C: Condition<M, In>>(self, and: C) -> Nand<Self::System, C::System> {
+    fn nand<M, C: Condition<M, In>>(self, nand: C) -> Nand<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
-        let b = IntoSystem::into_system(and);
+        let b = IntoSystem::into_system(nand);
         let name = format!("!({} && {})", a.name(), b.name());
         CombinatorSystem::new(a, b, Cow::Owned(name))
     }
@@ -219,9 +270,9 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     ///     ),
     /// );
     /// ```
-    fn nor<M, C: Condition<M, In>>(self, and: C) -> Nor<Self::System, C::System> {
+    fn nor<M, C: Condition<M, In>>(self, nor: C) -> Nor<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
-        let b = IntoSystem::into_system(and);
+        let b = IntoSystem::into_system(nor);
         let name = format!("!({} || {})", a.name(), b.name());
         CombinatorSystem::new(a, b, Cow::Owned(name))
     }
@@ -273,6 +324,53 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
         CombinatorSystem::new(a, b, Cow::Owned(name))
     }
 
+    /// Returns a new run condition that returns `true`
+    /// if either this one or the passed `or` return `true`.
+    ///
+    /// The returned run condition is short-circuiting, meaning
+    /// `or` will only be invoked if `self` returns `false`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Resource, PartialEq)]
+    /// struct A(u32);
+    ///
+    /// #[derive(Resource, PartialEq)]
+    /// struct B(u32);
+    ///
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # #[derive(Resource)] struct C(bool);
+    /// # fn my_system(mut c: ResMut<C>) { c.0 = true; }
+    /// app.add_systems(
+    ///     // Only run the system if either `A` or `B` exist.
+    ///     my_system.run_if(resource_exists::<A>.or(resource_exists::<B>)),
+    /// );
+    /// #
+    /// # world.insert_resource(C(false));
+    /// # app.run(&mut world);
+    /// # assert!(!world.resource::<C>().0);
+    /// #
+    /// # world.insert_resource(A(0));
+    /// # app.run(&mut world);
+    /// # assert!(world.resource::<C>().0);
+    /// #
+    /// # world.remove_resource::<A>();
+    /// # world.insert_resource(B(0));
+    /// # world.insert_resource(C(false));
+    /// # app.run(&mut world);
+    /// # assert!(world.resource::<C>().0);
+    /// ```
+    #[deprecated(
+        note = "Users should use the `.or(condition)` method in lieu of `.or_else(condition)`"
+    )]
+    fn or_else<M, C: Condition<M, In>>(self, or_else: C) -> Or<Self::System, C::System> {
+        self.or(or_else)
+    }
+
     /// Returns a new run condition that only returns `true`
     /// if `self` and `xnor` **both** return `false` or **both** return `true`.
     ///
@@ -318,9 +416,9 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     ///     ),
     /// );
     /// ```
-    fn xnor<M, C: Condition<M, In>>(self, and: C) -> Xnor<Self::System, C::System> {
+    fn xnor<M, C: Condition<M, In>>(self, xnor: C) -> Xnor<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
-        let b = IntoSystem::into_system(and);
+        let b = IntoSystem::into_system(xnor);
         let name = format!("!({} ^ {})", a.name(), b.name());
         CombinatorSystem::new(a, b, Cow::Owned(name))
     }
@@ -360,9 +458,9 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// );
     /// # app.run(&mut world);
     /// ```
-    fn xor<M, C: Condition<M, In>>(self, and: C) -> Xor<Self::System, C::System> {
+    fn xor<M, C: Condition<M, In>>(self, xor: C) -> Xor<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
-        let b = IntoSystem::into_system(and);
+        let b = IntoSystem::into_system(xor);
         let name = format!("!({} ^ {})", a.name(), b.name());
         CombinatorSystem::new(a, b, Cow::Owned(name))
     }
@@ -1213,21 +1311,23 @@ mod tests {
         schedule.add_systems(
             (
                 increment_counter.run_if(every_other_time.and(|| true)), // Run every odd cycle.
-                increment_counter.run_if(every_other_time.nand(|| false)), // Always run.
-                double_counter.run_if(every_other_time.nor(|| false)),   // Run every even cycle.
-                increment_counter.run_if(every_other_time.or(|| true)),  // Always run.
+                increment_counter.run_if(every_other_time.and_then(|| true)), // Run every odd cycle.
+                increment_counter.run_if(every_other_time.nand(|| false)),    // Always run.
+                double_counter.run_if(every_other_time.nor(|| false)), // Run every even cycle.
+                increment_counter.run_if(every_other_time.or(|| true)), // Always run.
+                increment_counter.run_if(every_other_time.or_else(|| true)), // Always run.
                 increment_counter.run_if(every_other_time.xnor(|| true)), // Run every odd cycle.
-                double_counter.run_if(every_other_time.xnor(|| false)),  // Run every even cycle.
+                double_counter.run_if(every_other_time.xnor(|| false)), // Run every even cycle.
                 increment_counter.run_if(every_other_time.xor(|| false)), // Run every odd cycle.
-                double_counter.run_if(every_other_time.xor(|| true)),    // Run every even cycle.
+                double_counter.run_if(every_other_time.xor(|| true)),  // Run every even cycle.
             )
                 .chain(),
         );
 
         schedule.run(&mut world);
-        assert_eq!(world.resource::<Counter>().0, 5);
+        assert_eq!(world.resource::<Counter>().0, 7);
         schedule.run(&mut world);
-        assert_eq!(world.resource::<Counter>().0, 52);
+        assert_eq!(world.resource::<Counter>().0, 72);
     }
 
     #[test]
