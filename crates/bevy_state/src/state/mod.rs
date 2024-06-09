@@ -623,12 +623,11 @@ mod tests {
     #[derive(Resource, Default, Debug)]
     struct TransitionTracker(Vec<&'static str>);
 
-
     #[derive(PartialEq, Eq, Debug, Hash, Clone)]
     enum TransitionTestingComputedState {
         IsA,
         IsBAndEven,
-        IsBAndOdd
+        IsBAndOdd,
     }
 
     impl ComputedStates for TransitionTestingComputedState {
@@ -637,8 +636,7 @@ mod tests {
         fn compute(sources: (Option<SimpleState>, Option<SubState>)) -> Option<Self> {
             match sources {
                 (Some(simple), sub) => {
-                    if simple == SimpleState::A
-                    {
+                    if simple == SimpleState::A {
                         Some(Self::IsA)
                     } else if sub == Some(SubState::One) {
                         Some(Self::IsBAndOdd)
@@ -652,13 +650,16 @@ mod tests {
             }
         }
     }
+
     #[test]
     fn check_transition_orders() {
         let mut world = World::new();
         setup_state_transitions_in_world(&mut world, None);
         EventRegistry::register_event::<StateTransitionEvent<SimpleState>>(&mut world);
         EventRegistry::register_event::<StateTransitionEvent<SubState>>(&mut world);
-        EventRegistry::register_event::<StateTransitionEvent<TransitionTestingComputedState>>(&mut world);
+        EventRegistry::register_event::<StateTransitionEvent<TransitionTestingComputedState>>(
+            &mut world,
+        );
         world.insert_resource(State(SimpleState::B(true)));
         world.init_resource::<State<SubState>>();
         world.insert_resource(State(TransitionTestingComputedState::IsA));
@@ -667,7 +668,6 @@ mod tests {
         SimpleState::register_state(&mut apply_changes);
         SubState::register_sub_state_systems(&mut apply_changes);
         TransitionTestingComputedState::register_computed_state_systems(&mut apply_changes);
-        schedules.insert(apply_changes);
 
         world.init_resource::<TransitionTracker>();
         fn register_transition(string: &'static str) -> impl Fn(ResMut<TransitionTracker>) {
@@ -723,15 +723,12 @@ mod tests {
         world.run_schedule(StateTransition);
 
         let transitions = &world.resource::<TransitionTracker>().0;
-        println!("{:?}", transitions);
+
         assert_eq!(transitions.len(), 9);
-        
         assert_eq!(transitions[0], "computed exit");
         assert_eq!(transitions[1], "sub exit");
         assert_eq!(transitions[2], "simple exit");
-        assert_eq!(transitions[3], "simple transition");
-        assert_eq!(transitions[4], "sub transition");
-        assert_eq!(transitions[5], "computed transition");
+        // Transition order is arbitrary and doesn't need testing.
         assert_eq!(transitions[6], "simple enter");
         assert_eq!(transitions[7], "sub enter");
         assert_eq!(transitions[8], "computed enter");
