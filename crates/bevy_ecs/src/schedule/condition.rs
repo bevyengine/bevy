@@ -1303,6 +1303,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn run_condition_combinators() {
         let mut world = World::new();
         world.init_resource::<Counter>();
