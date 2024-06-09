@@ -18,12 +18,15 @@ use std::hash::{Hash, Hasher};
 use std::iter;
 use std::ops::{Add, Mul};
 
+use animatable::Animatable;
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
 use bevy_ecs::entity::MapEntities;
 use bevy_ecs::prelude::*;
 use bevy_ecs::reflect::ReflectMapEntities;
+use bevy_ecs::system::QueryLens;
+use bevy_hierarchy::Parent;
 use bevy_math::{FloatExt, Quat, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::mesh::morph::MorphWeights;
@@ -155,10 +158,76 @@ impl VariableCurve {
 
         Some(step_start)
     }
+
+    /// Write the output of this [`VariableCurve`] at `seek_time` to a [`Transform`] component, with influence, `influence`.
+    pub fn write_to_transform(&self, seek_time: f32, influence: f32, transform: &mut Transform) {
+        let Some((idx, fac, step_duration)) = (match self.find_current_keyframe(seek_time) {
+            Some(idx) => (|| {
+                let l = *self.keyframe_timestamps.get(idx)?;
+                let r = *self.keyframe_timestamps.get(idx)?;
+                let fac = (seek_time - l) / (r - l);
+                Some((idx, fac, r - l))
+            })(),
+            None => self
+                .keyframe_timestamps
+                .len()
+                .checked_sub(1)
+                .map(|x| (x, 0.0, 0.0)),
+        }) else {
+            return;
+        };
+        match &self.keyframes {
+            Keyframes::Rotation(r) => {
+                let rot = sample(r, self.interpolation, idx, fac, step_duration);
+                transform.rotation = Quat::slerp(transform.rotation, rot, influence);
+            }
+            Keyframes::Translation(t) => {
+                let translation = sample(t, self.interpolation, idx, fac, step_duration);
+                transform.translation = Vec3::lerp(transform.translation, translation, influence);
+            }
+            Keyframes::Scale(s) => {
+                let scale = sample(s, self.interpolation, idx, fac, step_duration);
+                transform.scale = Vec3::lerp(transform.scale, scale, influence);
+            }
+            Keyframes::Weights(_) => (),
+        }
+    }
+}
+
+/// Sample a [`Keyframes`] buffer.
+fn sample<V: Mul<f32, Output = V> + Add<Output = V> + Default + Copy>(
+    buffer: &[V],
+    interpolation: Interpolation,
+    idx: usize,
+    fac: f32,
+    step_duration: f32,
+) -> V {
+    if idx * interpolation.points_per_keyframe()
+        >= buffer.len() - interpolation.points_per_keyframe()
+    {
+        return match interpolation {
+            Interpolation::Linear | Interpolation::Step => buffer.last(),
+            Interpolation::CubicSpline => buffer.get(buffer.len().wrapping_sub(2)),
+        }
+        .copied()
+        .unwrap_or_default();
+    }
+    match interpolation {
+        Interpolation::Linear => buffer[idx],
+        Interpolation::Step => buffer[idx] * (1.0 - fac) + buffer[idx + 1] * fac,
+        Interpolation::CubicSpline => cubic_spline_interpolation(
+            buffer[idx * 3 + 1],
+            buffer[idx * 3 + 2],
+            buffer[idx * 3 + 3],
+            buffer[idx * 3 + 4],
+            fac,
+            step_duration,
+        ),
+    }
 }
 
 /// Interpolation method to use between keyframes.
-#[derive(Reflect, Clone, Debug)]
+#[derive(Reflect, Clone, Copy, Debug)]
 pub enum Interpolation {
     /// Linear interpolation between the two closest keyframes.
     Linear,
@@ -167,6 +236,15 @@ pub enum Interpolation {
     /// Cubic spline interpolation. The value of the two closest keyframes is used, with the out
     /// tangent of the start keyframe and the in tangent of the end keyframe.
     CubicSpline,
+}
+
+impl Interpolation {
+    fn points_per_keyframe(&self) -> usize {
+        match self {
+            Interpolation::Linear | Interpolation::Step => 1,
+            Interpolation::CubicSpline => 3,
+        }
+    }
 }
 
 /// A list of [`VariableCurve`]s and the [`AnimationTargetId`]s to which they
@@ -307,6 +385,44 @@ impl AnimationClip {
             .duration
             .max(*curve.keyframe_timestamps.last().unwrap_or(&0.0));
         self.curves.entry(target_id).or_default().push(curve);
+    }
+
+    /// Obtain the transform of a bone at a specific time relative to the position of the [`AnimationPlayer`]
+    /// if under the sole influence of this [`AnimationClip`].
+    ///
+    /// Returns None if the [`Entity`] does not exist,
+    /// no ancestor [`AnimationPlayer`] found or have a broken transform hierarchy.
+    ///
+    /// # Limitations
+    ///
+    /// The existing [`Transform`] is used if the clip is not responsible for animating an ancestor bone.
+    /// Which means this realistically only works if the animation has control over all moving bones leading back to the
+    /// armature root.
+    pub fn sample_transform_at(
+        &mut self,
+        entity: Entity,
+        time: f32,
+        query: &Query<(
+            &Transform,
+            Option<&AnimationTarget>,
+            Option<&Parent>,
+            Has<AnimationPlayer>,
+        )>,
+    ) -> Option<Transform> {
+        let (transform, target, parent, is_root) = query.get(entity).ok()?;
+        let mut transform = *transform;
+        let parent_transform = if is_root {
+            Transform::IDENTITY
+        } else {
+            self.sample_transform_at(parent?.get(), time, query)?
+        };
+        // If not animated by this, use the existing `Transform` component.
+        if let Some(curves) = target.and_then(|t| self.curves.get(&t.id)) {
+            for curve in curves {
+                curve.write_to_transform(time, 1.0, &mut transform);
+            }
+        }
+        Some(parent_transform.mul_transform(transform))
     }
 }
 
