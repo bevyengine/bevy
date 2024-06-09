@@ -93,7 +93,7 @@ impl<S: States> Deref for State<S> {
 /// To queue a transition, call [`NextState::set`] or mutate the value to [`NextState::Pending`] directly.
 ///
 /// Note that these transitions can be overridden by other systems:
-/// only the actual value of this resource during the [`StateTransition``](crate::transition::StateTransition) schedule matters.
+/// only the actual value of this resource during the [`StateTransition`](crate::transition::StateTransition) schedule matters.
 ///
 /// ```
 /// use bevy_state::prelude::*;
