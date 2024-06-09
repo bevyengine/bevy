@@ -3,7 +3,7 @@ mod render_device;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_tasks::ComputeTaskPool;
-use bevy_utils::tracing::{error, info, info_span};
+use bevy_utils::tracing::{error, info, info_span, warn};
 pub use graph_runner::*;
 pub use render_device::*;
 
@@ -186,6 +186,10 @@ pub async fn initialize_renderer(
 
     let adapter_info = adapter.get_info();
     info!("{:?}", adapter_info);
+
+    if adapter_info.driver == "llvmpipe" {
+        warn!("The selected adapter is using the llvmpipe software renderer. This is likely to be very slow.");
+    }
 
     #[cfg(feature = "wgpu_trace")]
     let trace_path = {
