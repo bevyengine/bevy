@@ -664,10 +664,10 @@ mod tests {
         world.init_resource::<State<SubState>>();
         world.insert_resource(State(TransitionTestingComputedState::IsA));
         let mut schedules = world.remove_resource::<Schedules>().unwrap();
-        let mut apply_changes = schedules.get_mut(StateTransition).unwrap();
-        SimpleState::register_state(&mut apply_changes);
-        SubState::register_sub_state_systems(&mut apply_changes);
-        TransitionTestingComputedState::register_computed_state_systems(&mut apply_changes);
+        let apply_changes = schedules.get_mut(StateTransition).unwrap();
+        SimpleState::register_state(apply_changes);
+        SubState::register_sub_state_systems(apply_changes);
+        TransitionTestingComputedState::register_computed_state_systems(apply_changes);
 
         world.init_resource::<TransitionTracker>();
         fn register_transition(string: &'static str) -> impl Fn(ResMut<TransitionTracker>) {
