@@ -27,7 +27,7 @@ struct Player;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(LogPlugin {
-            filter: "info,wgpu_core=warn,wgpu_hal=warn,2d_top_down=debug".into(),
+            filter: "info,wgpu_core=warn,wgpu_hal=warn,2d_top_down_camera=debug".into(),
             level: Level::INFO,
             ..default()
         }))
