@@ -321,6 +321,7 @@ impl Heart {
 }
 
 // The `Measured2d` and `Measured3d` traits are used to compute the perimeter, the area or the volume of a primitive.
+// If you implement `Measured2d` for a 2D primitive, `Measured3d` is automatically implemented for `Extrusion<T>`.
 impl Measured2d for Heart {
     fn perimeter(&self) -> f32 {
         self.radius * (2.5 * PI + 2f32.powf(1.5) + 2.0)
