@@ -1,13 +1,13 @@
 //! The [`Curve`] trait, used to describe curves in a number of different domains. This module also
-//! contains the [`Interpolable`] trait and the [`Interval`] type.
+//! contains the [`Interval`] type, along with a selection of core data structures used to back
+//! curves that are interpolated from samples.
 
 pub mod cores;
-pub mod interpolable;
 pub mod interval;
 
-pub use interpolable::Interpolable;
 pub use interval::{everywhere, interval, Interval};
 
+use crate::StableInterpolate;
 use cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
 use interval::{InfiniteIntervalError, InvalidIntervalError};
 use std::{marker::PhantomData, ops::Deref};
@@ -108,7 +108,7 @@ pub trait Curve<T> {
     /// or if this curve has an unbounded domain, then a [`ResamplingError`] is returned.
     fn resample_auto(&self, samples: usize) -> Result<SampleAutoCurve<T>, ResamplingError>
     where
-        T: Interpolable,
+        T: StableInterpolate,
     {
         if samples < 2 {
             return Err(ResamplingError::NotEnoughSamples(samples));
@@ -206,7 +206,7 @@ pub trait Curve<T> {
     ) -> Result<UnevenSampleAutoCurve<T>, ResamplingError>
     where
         Self: Sized,
-        T: Interpolable,
+        T: StableInterpolate,
     {
         let mut times: Vec<f32> = sample_times
             .into_iter()
@@ -480,7 +480,7 @@ pub struct SampleAutoCurve<T> {
 
 impl<T> Curve<T> for SampleAutoCurve<T>
 where
-    T: Interpolable,
+    T: StableInterpolate,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -489,7 +489,8 @@ where
 
     #[inline]
     fn sample(&self, t: f32) -> T {
-        self.core.sample_with(t, <T as Interpolable>::interpolate)
+        self.core
+            .sample_with(t, <T as StableInterpolate>::interpolate_stable)
     }
 }
 
@@ -570,7 +571,7 @@ pub struct UnevenSampleAutoCurve<T> {
 
 impl<T> Curve<T> for UnevenSampleAutoCurve<T>
 where
-    T: Interpolable,
+    T: StableInterpolate,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -579,7 +580,8 @@ where
 
     #[inline]
     fn sample(&self, t: f32) -> T {
-        self.core.sample_with(t, <T as Interpolable>::interpolate)
+        self.core
+            .sample_with(t, <T as StableInterpolate>::interpolate_stable)
     }
 }
 
