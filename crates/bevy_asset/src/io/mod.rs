@@ -34,6 +34,8 @@ use std::{
 };
 use thiserror::Error;
 
+use crate::meta::{DEFAULTS_EXTENSION, META_EXTENSION};
+
 /// Errors that occur while loading assets.
 #[derive(Error, Debug, Clone)]
 pub enum AssetReaderError {
@@ -89,36 +91,50 @@ pub trait AssetReader: Send + Sync + 'static {
         &'a self,
         path: &'a Path,
     ) -> impl ConditionalSendFuture<Output = Result<Box<Reader<'a>>, AssetReaderError>>;
+
     /// Returns a future to load the meta data at the provided path.
     fn read_meta<'a>(
         &'a self,
         path: &'a Path,
     ) -> impl ConditionalSendFuture<Output = Result<Box<Reader<'a>>, AssetReaderError>>;
-    /// Returns a future to load the folder's default meta data for the provided path.
-    fn read_meta_defaults<'a>(
+
+    /// Returns a future to load the folder's default meta data (if any) for the provided asset file.
+    fn read_defaults<'a>(
         &'a self,
         path: &'a Path,
+        _extension: &'a str,
     ) -> impl ConditionalSendFuture<Output = Result<Box<Reader<'a>>, AssetReaderError>> {
         // For now...
         self.read_meta(path)
     }
+
     /// Returns an iterator of directory entry names at the provided path.
     fn read_directory<'a>(
         &'a self,
         path: &'a Path,
     ) -> impl ConditionalSendFuture<Output = Result<Box<PathStream>, AssetReaderError>>;
+
     /// Returns true if the provided path points to a directory.
     fn is_directory<'a>(
         &'a self,
         path: &'a Path,
     ) -> impl ConditionalSendFuture<Output = Result<bool, AssetReaderError>>;
+
     /// Reads asset metadata bytes at the given `path` into a [`Vec<u8>`]. This is a convenience
     /// function that wraps [`AssetReader::read_meta`] by default.
+    /// If metadata bytes are not found at the given path, this function will attempt to find
+    /// metadata defaults for the asset type deduced from the path by its extension.
     fn read_meta_bytes<'a>(
         &'a self,
         path: &'a Path,
     ) -> impl ConditionalSendFuture<Output = Result<Vec<u8>, AssetReaderError>> {
         async {
+            let mut current_path = path.to_path_buf();
+            let asset_extension = extract_extension(&current_path)?;
+
+            // Attempt to read meta at the specified path.
+            // If we can't find any, try to read defaults at this and every parent directory.
+            // If we can't find defaults, return an error.
             match self.read_meta(path).await {
                 Ok(mut meta_reader) => {
                     let mut meta_bytes = Vec::new();
@@ -127,8 +143,32 @@ pub trait AssetReader: Send + Sync + 'static {
                 }
                 Err(e) => {
                     if let AssetReaderError::NotFound(_) = e {
-                        // There is no asset specific meta. Check to see if default meta exists.
-                        self.read_default_meta_bytes(path).await
+                        // There is no asset specific meta. Check to see if defaults exist in
+                        // any parent directory.
+                        loop {
+                            current_path.pop();
+                            match self
+                                .read_defaults_bytes(current_path.as_path(), &asset_extension)
+                                .await
+                            {
+                                Ok(defaults) => return Ok(defaults),
+                                Err(e) => {
+                                    if let AssetReaderError::NotFound(_) = e {
+                                        // No defaults found. Move up a directory.
+                                        if let Some(parent) = current_path.parent() {
+                                            current_path = parent.to_path_buf();
+                                        } else {
+                                            // We've reached the root directory.
+                                            return Err(AssetReaderError::NotFound(
+                                                path.to_owned(),
+                                            ));
+                                        }
+                                    } else {
+                                        return Err(e);
+                                    }
+                                }
+                            }
+                        }
                     } else {
                         Err(e)
                     }
@@ -136,16 +176,39 @@ pub trait AssetReader: Send + Sync + 'static {
             }
         }
     }
-    fn read_default_meta_bytes<'a>(
+
+    /// Reads asset metadata defaults at the given `path` into a [`Vec<u8>`].
+    fn read_defaults_bytes<'a>(
         &'a self,
         path: &'a Path,
+        extension: &'a str,
     ) -> impl ConditionalSendFuture<Output = Result<Vec<u8>, AssetReaderError>> {
         async {
-            let mut meta_reader = self.read_meta_defaults(path).await?;
+            let mut meta_reader = self.read_defaults(path, extension).await?;
             let mut meta_bytes = Vec::new();
             meta_reader.read_to_end(&mut meta_bytes).await?;
             Ok(meta_bytes)
         }
+    }
+}
+
+// Some assets may have multiple extensions, so we need to extract the complete, compound extension from the path.
+// Ex: "file.tar.gz" -> "tar.gz"
+fn extract_extension(current_path: &PathBuf) -> Result<String, AssetReaderError> {
+    let Some(file_name) = current_path.file_name() else {
+        return Err(AssetReaderError::NotFound(current_path.to_owned()));
+    };
+
+    let Some(file_name) = file_name.to_str() else {
+        return Err(AssetReaderError::NotFound(current_path.to_owned()));
+    };
+
+    let parts: Vec<&str> = file_name.split('.').collect();
+    if parts.len() > 1 {
+        let extension = parts[1..].join(".");
+        Ok(extension)
+    } else {
+        Err(AssetReaderError::NotFound(current_path.to_owned()))
     }
 }
 
@@ -605,22 +668,28 @@ impl<'a> AsyncSeek for SliceReader<'a> {
 /// Appends `.meta` to the given path.
 pub(crate) fn get_meta_path(path: &Path) -> PathBuf {
     let mut meta_path = path.to_path_buf();
+    let meta_extension = format!(".{}", META_EXTENSION);
     let mut extension = path.extension().unwrap_or_default().to_os_string();
-    extension.push(".meta");
+    extension.push(meta_extension);
     meta_path.set_extension(extension);
     meta_path
 }
 
-/// Strips the extension from the path and looks for an `extension.meta` file in the same directory.
-pub(crate) fn get_default_meta_path(path: &Path) -> PathBuf {
-    let mut extension = path.extension().unwrap_or_default().to_os_string();
-    extension.push(".meta_default");
+/// Looks for an `extension.defaults` file in the specified directory.
+pub(crate) fn get_defaults_path(path: &Path, extension: &str) -> PathBuf {
+    // Make sure we're just using the directory portion of the path.
+    let path = if path.is_file() {
+        path.parent().unwrap_or(path)
+    } else {
+        path
+    };
 
-    let mut default_meta_path = path.to_path_buf();
-    default_meta_path.pop();
-    default_meta_path.push(extension);
+    let defaults_file = format!("{}.{}", extension, DEFAULTS_EXTENSION);
 
-    default_meta_path
+    let mut defaults_path = path.to_path_buf();
+    defaults_path.push(defaults_file);
+
+    defaults_path
 }
 
 /// A [`PathBuf`] [`Stream`] implementation that immediately returns nothing.
@@ -637,14 +706,16 @@ impl Stream for EmptyPathStream {
     }
 }
 
+/// A helper type that indicates the type of file that was changed.
 #[derive(PartialEq)]
-pub(crate) enum FileWatcherEventType {
+pub(crate) enum AssetWatcherFileType {
     Asset,
     Meta,
     MetaDefaults,
 }
 
-pub(crate) struct FileWatcherEventPath {
+/// A helper type that bundles a path with the type of file that was changed.
+pub(crate) struct AssetWatcherEventPath {
     pub path: PathBuf,
-    pub file_type: FileWatcherEventType,
+    pub file_type: AssetWatcherFileType,
 }

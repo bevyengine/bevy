@@ -135,7 +135,9 @@ impl AssetReader for FileAssetReader {
                         let path = dir_entry.path();
                         // filter out meta files as they are not considered assets
                         if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-                            if ext.eq_ignore_ascii_case("meta") || ext.eq_ignore_ascii_case("meta_default") {
+                            if ext.eq_ignore_ascii_case(META_EXTENSION)
+                                || ext.eq_ignore_ascii_case(DEFAULTS_EXTENSION)
+                            {
                                 return None;
                             }
                         }

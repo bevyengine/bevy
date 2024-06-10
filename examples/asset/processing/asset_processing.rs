@@ -241,7 +241,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         c: assets.load("foo/c.cool.ron"),
         d: assets.load("d.cool.ron"),
         e: assets.load("embedded://asset_processing/e.txt"),
-        f: assets.load("f.cool.ron"),
+        f: assets.load("foo/f.cool.ron"),
     });
 }
 

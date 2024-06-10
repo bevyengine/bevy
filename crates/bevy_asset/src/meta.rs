@@ -6,6 +6,9 @@ use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 
 pub const META_FORMAT_VERSION: &str = "1.0";
+pub const META_EXTENSION: &str = "meta";
+pub const DEFAULTS_EXTENSION: &str = "defaults";
+
 pub type MetaTransform = Box<dyn Fn(&mut dyn AssetMetaDyn) + Send + Sync>;
 
 /// Asset metadata that informs how an [`Asset`] should be handled by the asset system.
