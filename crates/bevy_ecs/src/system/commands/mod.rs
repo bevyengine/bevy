@@ -7,7 +7,7 @@ use crate::{
     component::{ComponentId, Components},
     entity::{Entities, Entity},
     event::Event,
-    observer::{ObserverSystemComponent, TriggerEvent, TriggerTargets},
+    observer::{Observer, TriggerEvent, TriggerTargets},
     system::{RunSystemWithInput, SystemId},
     world::{Command, CommandQueue, EntityWorldMut, FromWorld, World},
 };
@@ -650,7 +650,7 @@ impl<'w, 's> Commands<'w, 's> {
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> EntityCommands {
-        self.spawn(ObserverSystemComponent::new(observer))
+        self.spawn(Observer::new(observer))
     }
 }
 

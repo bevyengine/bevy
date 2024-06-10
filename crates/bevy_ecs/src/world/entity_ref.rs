@@ -5,7 +5,7 @@ use crate::{
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
     event::Event,
-    observer::{ObserverSystemComponent, Observers},
+    observer::{Observer, Observers},
     query::{Access, DebugCheckedUnwrap},
     removal_detection::RemovedComponentEvents,
     storage::Storages,
@@ -1404,7 +1404,7 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
-        self.insert(ObserverSystemComponent::new(observer).with_source(self.entity))
+        self.insert(Observer::new(observer).with_source(self.entity))
     }
 }
 

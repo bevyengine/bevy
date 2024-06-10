@@ -260,7 +260,7 @@ impl World {
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
     ) -> EntityWorldMut {
-        self.spawn(ObserverSystemComponent::new(system))
+        self.spawn(Observer::new(system))
     }
 
     /// Triggers the given `event`, which will run any observers watching for it.
@@ -277,8 +277,8 @@ impl World {
     pub(crate) fn register_observer(&mut self, entity: Entity) {
         // SAFETY: References do not alias.
         let (observer_component, archetypes, observers) = unsafe {
-            let observer_component: *const ObserverComponent =
-                self.get::<ObserverComponent>(entity).unwrap();
+            let observer_component: *const ObserverState =
+                self.get::<ObserverState>(entity).unwrap();
             (
                 &*observer_component,
                 &mut self.archetypes,
@@ -382,9 +382,7 @@ mod tests {
     use bevy_ptr::OwningPtr;
 
     use crate as bevy_ecs;
-    use crate::observer::{
-        EmitDynamicTrigger, ObserverComponent, ObserverDescriptor, ObserverSystemComponent,
-    };
+    use crate::observer::{EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState};
     use crate::prelude::*;
 
     #[derive(Component)]
@@ -494,7 +492,7 @@ mod tests {
         world.init_resource::<R>();
         let on_remove = world.init_component::<OnRemove>();
         world.spawn(
-            ObserverSystemComponent::new(|_: Trigger<OnAdd, A>, mut res: ResMut<R>| res.0 += 1)
+            Observer::new(|_: Trigger<OnAdd, A>, mut res: ResMut<R>| res.0 += 1)
                 .with_event(on_remove),
         );
 
@@ -588,7 +586,7 @@ mod tests {
 
         let component_id = world.init_component::<A>();
         world.spawn(
-            ObserverSystemComponent::new(|_: Trigger<OnAdd>, mut res: ResMut<R>| res.0 += 1)
+            Observer::new(|_: Trigger<OnAdd>, mut res: ResMut<R>| res.0 += 1)
                 .with_component(component_id),
         );
 
@@ -610,7 +608,7 @@ mod tests {
         world.init_resource::<R>();
         let event_a = world.init_component::<EventA>();
 
-        world.spawn(ObserverComponent {
+        world.spawn(ObserverState {
             descriptor: ObserverDescriptor::default().with_triggers(vec![event_a]),
             runner: |mut world, _trigger, _ptr| {
                 world.resource_mut::<R>().0 += 1;

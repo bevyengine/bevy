@@ -29,7 +29,7 @@ pub struct EmitDynamicTrigger<T, Targets: TriggerTargets = ()> {
 }
 
 impl<E, Targets: TriggerTargets> EmitDynamicTrigger<E, Targets> {
-    /// Sets the trigger id of the resulting trigger, used for dynamic triggers
+    /// Sets the event type of the resulting trigger, used for dynamic triggers
     /// # Safety
     /// Caller must ensure that the component associated with `event_type` is accessible as E
     pub unsafe fn new_with_id(event_type: ComponentId, event_data: E, targets: Targets) -> Self {

@@ -10,13 +10,13 @@ use bevy_ptr::PtrMut;
 
 /// Contains [`Observer`]` information. This defines how a given observer behaves. It is the
 /// "source of truth" for a given observer entity's behavior.
-pub struct ObserverComponent {
+pub struct ObserverState {
     pub(crate) descriptor: ObserverDescriptor,
     pub(crate) runner: ObserverRunner,
     pub(crate) last_trigger_id: u32,
 }
 
-impl Default for ObserverComponent {
+impl Default for ObserverState {
     fn default() -> Self {
         Self {
             runner: |_, _, _| {},
@@ -26,7 +26,7 @@ impl Default for ObserverComponent {
     }
 }
 
-impl ObserverComponent {
+impl ObserverState {
     /// Adds the given `event`
     pub fn with_event(mut self, event: ComponentId) -> Self {
         self.descriptor.events.push(event);
@@ -52,7 +52,7 @@ impl ObserverComponent {
     }
 }
 
-impl Component for ObserverComponent {
+impl Component for ObserverState {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
 
     fn register_component_hooks(hooks: &mut ComponentHooks) {
@@ -65,7 +65,7 @@ impl Component for ObserverComponent {
             let descriptor = std::mem::take(
                 &mut world
                     .entity_mut(entity)
-                    .get_mut::<ObserverComponent>()
+                    .get_mut::<ObserverState>()
                     .unwrap()
                     .as_mut()
                     .descriptor,
@@ -83,13 +83,13 @@ impl Component for ObserverComponent {
 pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut);
 
 /// An [`Observer`] system. Add this [`Component`] to an [`Entity`] to give it observer behaviors for the given system.
-pub struct ObserverSystemComponent<T: 'static, B: Bundle> {
+pub struct Observer<T: 'static, B: Bundle> {
     system: BoxedObserverSystem<T, B>,
     descriptor: ObserverDescriptor,
 }
 
-impl<E: Event, B: Bundle> ObserverSystemComponent<E, B> {
-    /// Creates a new [`ObserverSystemComponent`], which defaults to a "global" observer.
+impl<E: Event, B: Bundle> Observer<E, B> {
+    /// Creates a new [`Observer`], which defaults to a "global" observer.
     pub fn new<M>(system: impl IntoObserverSystem<E, B, M>) -> Self {
         Self {
             system: Box::new(IntoObserverSystem::into_system(system)),
@@ -116,7 +116,7 @@ impl<E: Event, B: Bundle> ObserverSystemComponent<E, B> {
     }
 }
 
-impl<E: Event, B: Bundle> Component for ObserverSystemComponent<E, B> {
+impl<E: Event, B: Bundle> Component for Observer<E, B> {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
     fn register_component_hooks(hooks: &mut ComponentHooks) {
         hooks.on_add(|mut world, entity, _| {
@@ -147,9 +147,8 @@ impl<E: Event, B: Bundle> Component for ObserverSystemComponent<E, B> {
 
                 {
                     let mut entity = world.entity_mut(entity);
-                    if let crate::world::Entry::Vacant(entry) = entity.entry::<ObserverComponent>()
-                    {
-                        entry.insert(ObserverComponent {
+                    if let crate::world::Entry::Vacant(entry) = entity.entry::<ObserverState>() {
+                        entry.insert(ObserverState {
                             descriptor,
                             runner: observer_system_runner::<E, B>,
                             ..Default::default()
@@ -173,10 +172,10 @@ fn observer_system_runner<E: Event, B: Bundle>(
     let observer_cell =
     // SAFETY: Observer was triggered so must still exist in world
         unsafe { world.get_entity(trigger.observer).debug_checked_unwrap() };
-    // SAFETY: Observer was triggered so must have an `ObserverComponent`
+    // SAFETY: Observer was triggered so must have an `ObserverState`
     let mut state = unsafe {
         observer_cell
-            .get_mut::<ObserverComponent>()
+            .get_mut::<ObserverState>()
             .debug_checked_unwrap()
     };
 
@@ -194,7 +193,7 @@ fn observer_system_runner<E: Event, B: Bundle>(
     // SAFETY: Observer was triggered so must have an `ObserverSystemComponent`
     let system = unsafe {
         &mut observer_cell
-            .get_mut::<ObserverSystemComponent<E, B>>()
+            .get_mut::<Observer<E, B>>()
             .debug_checked_unwrap()
             .system
     };
