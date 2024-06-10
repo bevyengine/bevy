@@ -1113,9 +1113,9 @@ impl World {
     /// By clearing this internal state, the world "forgets" about those changes, allowing a new round
     /// of detection to be recorded.
     ///
-    /// When using `bevy_ecs` as part of the full Bevy engine, this method is added as a system to the
-    /// main app, to run during `Last`, so you don't need to call it manually. When using `bevy_ecs`
-    /// as a separate standalone crate however, you need to call this manually.
+    /// When using `bevy_ecs` as part of the full Bevy engine, this method is called automatically
+    /// by `bevy_app::App::update` and `bevy_app::SubApp::update`, so you don't need to call it manually.
+    /// When using `bevy_ecs` as a separate standalone crate however, you do need to call this manually.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
