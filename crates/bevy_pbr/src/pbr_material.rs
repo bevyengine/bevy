@@ -872,7 +872,7 @@ bitflags::bitflags! {
         const UNLIT                      = 1 << 5;
         const TWO_COMPONENT_NORMAL_MAP   = 1 << 6;
         const FLIP_NORMAL_MAP_Y          = 1 << 7;
-        // const UNUSED                  = 1 << 8; // USE THIS IF YOU ADD A NEW FLAG
+        const FOG_ENABLED                = 1 << 8;
         const DEPTH_MAP                  = 1 << 9; // Used for parallax mapping
         const SPECULAR_TRANSMISSION_TEXTURE = 1 << 10;
         const THICKNESS_TEXTURE          = 1 << 11;
@@ -979,6 +979,9 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         }
         if self.unlit {
             flags |= StandardMaterialFlags::UNLIT;
+        }
+        if self.fog_enabled {
+            flags |= StandardMaterialFlags::FOG_ENABLED;
         }
         if self.depth_map.is_some() {
             flags |= StandardMaterialFlags::DEPTH_MAP;
@@ -1117,7 +1120,6 @@ bitflags! {
         const CLEARCOAT_UV             = 0x040000;
         const CLEARCOAT_ROUGHNESS_UV   = 0x080000;
         const CLEARCOAT_NORMAL_UV      = 0x100000;
-        const FOG_ENABLED              = 0x200000;
         const DEPTH_BIAS               = 0xffffffff_00000000;
     }
 }
@@ -1225,7 +1227,6 @@ impl From<&StandardMaterial> for StandardMaterialKey {
                 material.clearcoat_normal_channel != UvChannel::Uv0,
             );
         }
-        key.set(StandardMaterialKey::FOG_ENABLED, material.fog_enabled);
 
         key.insert(StandardMaterialKey::from_bits_retain(
             (material.depth_bias as u64) << STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT,
@@ -1382,7 +1383,6 @@ impl Material for StandardMaterial {
                     StandardMaterialKey::ANISOTROPY_UV,
                     "STANDARD_MATERIAL_ANISOTROPY_UV",
                 ),
-                (StandardMaterialKey::FOG_ENABLED, "FOG_ENABLED"),
             ] {
                 if key.bind_group_data.intersects(flags) {
                     shader_defs.push(shader_def.into());
