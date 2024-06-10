@@ -1,14 +1,14 @@
 //! The [`Curve`] trait, used to describe curves in a number of different domains. This module also
 //! contains the [`Interpolable`] trait and the [`Interval`] type.
 
-pub mod builders;
+pub mod cores;
 pub mod interpolable;
 pub mod interval;
 
 pub use interpolable::Interpolable;
 pub use interval::{everywhere, interval, Interval};
 
-use builders::{SampleCore, SampleCoreError, UnevenSampleCore, UnevenSampleCoreError};
+use cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
 use interval::{InfiniteIntervalError, InvalidIntervalError};
 use std::{marker::PhantomData, ops::Deref};
 use thiserror::Error;
@@ -94,7 +94,7 @@ pub trait Curve<T> {
             .map(|t| self.sample(t))
             .collect();
         Ok(SampleCurve {
-            core: SampleCore {
+            core: EvenCore {
                 domain: self.domain(),
                 samples,
             },
@@ -124,7 +124,7 @@ pub trait Curve<T> {
             .map(|t| self.sample(t))
             .collect();
         Ok(SampleAutoCurve {
-            core: SampleCore {
+            core: EvenCore {
                 domain: self.domain(),
                 samples,
             },
@@ -185,7 +185,7 @@ pub trait Curve<T> {
         times.sort_by(|t1, t2| t1.partial_cmp(t2).unwrap());
         let samples = times.iter().copied().map(|t| self.sample(t)).collect();
         Ok(UnevenSampleCurve {
-            core: UnevenSampleCore { times, samples },
+            core: UnevenCore { times, samples },
             interpolation,
         })
     }
@@ -219,7 +219,7 @@ pub trait Curve<T> {
         times.sort_by(|t1, t2| t1.partial_cmp(t2).unwrap());
         let samples = times.iter().copied().map(|t| self.sample(t)).collect();
         Ok(UnevenSampleAutoCurve {
-            core: UnevenSampleCore { times, samples },
+            core: UnevenCore { times, samples },
         })
     }
 
@@ -428,7 +428,7 @@ where
 /// A [`Curve`] that is defined by explicit neighbor interpolation over a set of samples.
 #[derive(Clone, Debug)]
 pub struct SampleCurve<T, I> {
-    core: SampleCore<T>,
+    core: EvenCore<T>,
     interpolation: I,
 }
 
@@ -460,12 +460,12 @@ impl<T, I> SampleCurve<T, I> {
         domain: Interval,
         samples: impl Into<Vec<T>>,
         interpolation: I,
-    ) -> Result<Self, SampleCoreError>
+    ) -> Result<Self, EvenCoreError>
     where
         I: Fn(&T, &T, f32) -> T,
     {
         Ok(Self {
-            core: SampleCore::new(domain, samples)?,
+            core: EvenCore::new(domain, samples)?,
             interpolation,
         })
     }
@@ -475,7 +475,7 @@ impl<T, I> SampleCurve<T, I> {
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct SampleAutoCurve<T> {
-    core: SampleCore<T>,
+    core: EvenCore<T>,
 }
 
 impl<T> Curve<T> for SampleAutoCurve<T>
@@ -497,9 +497,9 @@ impl<T> SampleAutoCurve<T> {
     /// Create a new [`SampleCurve`] using type-inferred interpolation to interpolate between
     /// the given `samples`. An error is returned if there are not at least 2 samples or if the
     /// given `domain` is unbounded.
-    pub fn new(domain: Interval, samples: impl Into<Vec<T>>) -> Result<Self, SampleCoreError> {
+    pub fn new(domain: Interval, samples: impl Into<Vec<T>>) -> Result<Self, EvenCoreError> {
         Ok(Self {
-            core: SampleCore::new(domain, samples)?,
+            core: EvenCore::new(domain, samples)?,
         })
     }
 }
@@ -508,7 +508,7 @@ impl<T> SampleAutoCurve<T> {
 /// interpolation.
 #[derive(Clone, Debug)]
 pub struct UnevenSampleCurve<T, I> {
-    core: UnevenSampleCore<T>,
+    core: UnevenCore<T>,
     interpolation: I,
 }
 
@@ -540,9 +540,9 @@ impl<T, I> UnevenSampleCurve<T, I> {
     pub fn new(
         timed_samples: impl Into<Vec<(f32, T)>>,
         interpolation: I,
-    ) -> Result<Self, UnevenSampleCoreError> {
+    ) -> Result<Self, UnevenCoreError> {
         Ok(Self {
-            core: UnevenSampleCore::new(timed_samples)?,
+            core: UnevenCore::new(timed_samples)?,
             interpolation,
         })
     }
@@ -565,7 +565,7 @@ impl<T, I> UnevenSampleCurve<T, I> {
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct UnevenSampleAutoCurve<T> {
-    core: UnevenSampleCore<T>,
+    core: UnevenCore<T>,
 }
 
 impl<T> Curve<T> for UnevenSampleAutoCurve<T>
@@ -588,9 +588,9 @@ impl<T> UnevenSampleAutoCurve<T> {
     /// using the  The samples are filtered to finite times and
     /// sorted internally; if there are not at least 2 valid timed samples, an error will be
     /// returned.
-    pub fn new(timed_samples: impl Into<Vec<(f32, T)>>) -> Result<Self, UnevenSampleCoreError> {
+    pub fn new(timed_samples: impl Into<Vec<(f32, T)>>) -> Result<Self, UnevenCoreError> {
         Ok(Self {
-            core: UnevenSampleCore::new(timed_samples)?,
+            core: UnevenCore::new(timed_samples)?,
         })
     }
 
