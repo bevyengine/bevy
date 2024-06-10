@@ -221,6 +221,7 @@ impl SceneSpawner {
             let scene = scenes
                 .get(id)
                 .ok_or(SceneSpawnError::NonExistentScene { id })?;
+
             scene.write_to_world(world, entity_map)
         })
     }
@@ -229,27 +230,33 @@ impl SceneSpawner {
     pub fn spawn_sync(
         &mut self,
         world: &mut World,
-        id: AssetId<Scene>,
+        id: impl Into<AssetId<Scene>>,
     ) -> Result<InstanceId, SceneSpawnError> {
-        self.spawn_sync_internal(world, id, InstanceId::new())
+        let mut entity_map = EntityHashMap::default();
+        let id = id.into();
+        Self::spawn_sync_internal(world, id, &mut entity_map)?;
+        let instance_id = InstanceId::new();
+        self.spawned_instances
+            .insert(instance_id, InstanceInfo { entity_map });
+        Ok(instance_id)
     }
 
     fn spawn_sync_internal(
-        &mut self,
+        // &mut self,
         world: &mut World,
         id: AssetId<Scene>,
-        instance_id: InstanceId,
-    ) -> Result<InstanceId, SceneSpawnError> {
+        entity_map: &mut EntityHashMap<Entity>,
+    ) -> Result<(), SceneSpawnError> {
         world.resource_scope(|world, scenes: Mut<Assets<Scene>>| {
             let scene = scenes
                 .get(id)
                 .ok_or(SceneSpawnError::NonExistentRealScene { id })?;
 
-            let instance_info =
-                scene.write_to_world_with(world, &world.resource::<AppTypeRegistry>().clone())?;
-
-            self.spawned_instances.insert(instance_id, instance_info);
-            Ok(instance_id)
+            scene.write_to_world_with(
+                world,
+                entity_map,
+                &world.resource::<AppTypeRegistry>().clone(),
+            )
         })
     }
 
@@ -319,7 +326,9 @@ impl SceneSpawner {
         let scenes_to_spawn = std::mem::take(&mut self.scenes_to_spawn);
 
         for (scene_handle, instance_id) in scenes_to_spawn {
-            match self.spawn_sync_internal(world, scene_handle.id(), instance_id) {
+            let mut entity_map = EntityHashMap::default();
+
+            match Self::spawn_sync_internal(world, scene_handle.id(), &mut entity_map) {
                 Ok(_) => {}
                 Err(SceneSpawnError::NonExistentRealScene { .. }) => {
                     self.scenes_to_spawn.push((scene_handle, instance_id));

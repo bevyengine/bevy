@@ -85,7 +85,7 @@ struct VertexOutput {
     ddy_uv: vec2<f32>,
     world_tangent: vec4<f32>,
     mesh_flags: u32,
-    meshlet_id: u32,
+    cluster_id: u32,
 #ifdef PREPASS_FRAGMENT
 #ifdef MOTION_VECTOR_PREPASS
     motion_vector: vec2<f32>,
@@ -176,7 +176,7 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
         ddy_uv,
         world_tangent,
         instance_uniform.flags,
-        meshlet_id,
+        cluster_id,
 #ifdef PREPASS_FRAGMENT
 #ifdef MOTION_VECTOR_PREPASS
         motion_vector,
