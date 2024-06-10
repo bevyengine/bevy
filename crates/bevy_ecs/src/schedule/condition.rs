@@ -461,7 +461,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     fn xor<M, C: Condition<M, In>>(self, xor: C) -> Xor<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(xor);
-        let name = format!("!({} ^ {})", a.name(), b.name());
+        let name = format!("({} ^ {})", a.name(), b.name());
         CombinatorSystem::new(a, b, Cow::Owned(name))
     }
 }
