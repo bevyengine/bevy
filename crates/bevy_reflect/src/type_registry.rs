@@ -56,6 +56,10 @@ impl Debug for TypeRegistryArc {
 /// See the [crate-level documentation] for more information on type registration.
 ///
 /// [crate-level documentation]: crate
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not provide type registration information",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+)]
 pub trait GetTypeRegistration: 'static {
     /// Returns the default [`TypeRegistration`] for this type.
     fn get_type_registration() -> TypeRegistration;
@@ -405,6 +409,15 @@ impl TypeRegistry {
     /// types.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut TypeRegistration> {
         self.registrations.values_mut()
+    }
+
+    /// Checks to see if the [`TypeData`] of type `T` is associated with each registered type,
+    /// returning a ([`TypeRegistration`], [`TypeData`]) iterator for all entries where data of that type was found.
+    pub fn iter_with_data<T: TypeData>(&self) -> impl Iterator<Item = (&TypeRegistration, &T)> {
+        self.registrations.values().filter_map(|item| {
+            let type_data = item.data::<T>();
+            type_data.map(|data| (item, data))
+        })
     }
 }
 

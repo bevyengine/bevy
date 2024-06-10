@@ -1,9 +1,9 @@
 use crate::color_difference::EuclideanDistance;
 use crate::{
-    impl_componentwise_vector_space, Alpha, ClampColor, LinearRgba, Luminance, Mix, StandardColor,
-    Xyza,
+    impl_componentwise_vector_space, Alpha, ColorToComponents, ColorToPacked, Gray, LinearRgba,
+    Luminance, Mix, StandardColor, Xyza,
 };
-use bevy_math::Vec4;
+use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
 use thiserror::Error;
 
@@ -168,10 +168,7 @@ impl Srgba {
 
     /// Convert this color to CSS-style hexadecimal notation.
     pub fn to_hex(&self) -> String {
-        let r = (self.red * 255.0).round() as u8;
-        let g = (self.green * 255.0).round() as u8;
-        let b = (self.blue * 255.0).round() as u8;
-        let a = (self.alpha * 255.0).round() as u8;
+        let [r, g, b, a] = self.to_u8_array();
         match a {
             255 => format!("#{:02X}{:02X}{:02X}", r, g, b),
             _ => format!("#{:02X}{:02X}{:02X}{:02X}", r, g, b, a),
@@ -189,7 +186,7 @@ impl Srgba {
     /// See also [`Srgba::new`], [`Srgba::rgba_u8`], [`Srgba::hex`].
     ///
     pub fn rgb_u8(r: u8, g: u8, b: u8) -> Self {
-        Self::rgba_u8(r, g, b, u8::MAX)
+        Self::from_u8_array_no_alpha([r, g, b])
     }
 
     // Float operations in const fn are not stable yet
@@ -206,12 +203,7 @@ impl Srgba {
     /// See also [`Srgba::new`], [`Srgba::rgb_u8`], [`Srgba::hex`].
     ///
     pub fn rgba_u8(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self::new(
-            r as f32 / u8::MAX as f32,
-            g as f32 / u8::MAX as f32,
-            b as f32 / u8::MAX as f32,
-            a as f32 / u8::MAX as f32,
-        )
+        Self::from_u8_array([r, g, b, a])
     }
 
     /// Converts a non-linear sRGB value to a linear one via [gamma correction](https://en.wikipedia.org/wiki/Gamma_correction).
@@ -314,21 +306,81 @@ impl EuclideanDistance for Srgba {
     }
 }
 
-impl ClampColor for Srgba {
-    fn clamped(&self) -> Self {
+impl Gray for Srgba {
+    const BLACK: Self = Self::BLACK;
+    const WHITE: Self = Self::WHITE;
+}
+
+impl ColorToComponents for Srgba {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.red, self.green, self.blue, self.alpha]
+    }
+
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
+        [self.red, self.green, self.blue]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.red, self.green, self.blue, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.red, self.green, self.blue)
+    }
+
+    fn from_f32_array(color: [f32; 4]) -> Self {
         Self {
-            red: self.red.clamp(0., 1.),
-            green: self.green.clamp(0., 1.),
-            blue: self.blue.clamp(0., 1.),
-            alpha: self.alpha.clamp(0., 1.),
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: color[3],
         }
     }
 
-    fn is_within_bounds(&self) -> bool {
-        (0. ..=1.).contains(&self.red)
-            && (0. ..=1.).contains(&self.green)
-            && (0. ..=1.).contains(&self.blue)
-            && (0. ..=1.).contains(&self.alpha)
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: 1.0,
+        }
+    }
+
+    fn from_vec4(color: Vec4) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_vec3(color: Vec3) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: 1.0,
+        }
+    }
+}
+
+impl ColorToPacked for Srgba {
+    fn to_u8_array(self) -> [u8; 4] {
+        [self.red, self.green, self.blue, self.alpha]
+            .map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
+    }
+
+    fn to_u8_array_no_alpha(self) -> [u8; 3] {
+        [self.red, self.green, self.blue].map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
+    }
+
+    fn from_u8_array(color: [u8; 4]) -> Self {
+        Self::from_f32_array(color.map(|u| u as f32 / 255.0))
+    }
+
+    fn from_u8_array_no_alpha(color: [u8; 3]) -> Self {
+        Self::from_f32_array_no_alpha(color.map(|u| u as f32 / 255.0))
     }
 }
 
@@ -353,18 +405,6 @@ impl From<Srgba> for LinearRgba {
             blue: Srgba::gamma_function(value.blue),
             alpha: value.alpha,
         }
-    }
-}
-
-impl From<Srgba> for [f32; 4] {
-    fn from(color: Srgba) -> Self {
-        [color.red, color.green, color.blue, color.alpha]
-    }
-}
-
-impl From<Srgba> for Vec4 {
-    fn from(color: Srgba) -> Self {
-        Vec4::new(color.red, color.green, color.blue, color.alpha)
     }
 }
 
@@ -472,22 +512,5 @@ mod tests {
 
         assert!(matches!(Srgba::hex("yyy"), Err(HexColorError::Parse(_))));
         assert!(matches!(Srgba::hex("##fff"), Err(HexColorError::Parse(_))));
-    }
-
-    #[test]
-    fn test_clamp() {
-        let color_1 = Srgba::rgb(2., -1., 0.4);
-        let color_2 = Srgba::rgb(0.031, 0.749, 1.);
-        let mut color_3 = Srgba::rgb(-1., 1., 1.);
-
-        assert!(!color_1.is_within_bounds());
-        assert_eq!(color_1.clamped(), Srgba::rgb(1., 0., 0.4));
-
-        assert!(color_2.is_within_bounds());
-        assert_eq!(color_2, color_2.clamped());
-
-        color_3.clamp();
-        assert!(color_3.is_within_bounds());
-        assert_eq!(color_3, Srgba::rgb(0., 1., 1.));
     }
 }

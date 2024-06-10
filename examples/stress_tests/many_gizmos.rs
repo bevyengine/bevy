@@ -87,13 +87,14 @@ fn setup(mut commands: Commands) {
         ..default()
     });
 
-    commands.spawn(TextBundle::from_section(
-        "",
-        TextStyle {
-            font_size: 30.,
+    commands.spawn(
+        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
-        },
-    ));
+        }),
+    );
 }
 
 fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<DiagnosticsStore>) {

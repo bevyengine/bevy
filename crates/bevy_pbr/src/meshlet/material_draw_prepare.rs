@@ -14,7 +14,7 @@ use bevy_render::{
     render_resource::*,
     view::ExtractedView,
 };
-use bevy_utils::HashMap;
+use bevy_utils::{HashMap, HashSet};
 use std::hash::Hash;
 
 /// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`super::MeshletMainOpaquePass3dNode`].
@@ -113,11 +113,11 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
             ShadowFilteringMethod::Hardware2x2 => {
                 view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2;
             }
-            ShadowFilteringMethod::Castano13 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13;
+            ShadowFilteringMethod::Gaussian => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_GAUSSIAN;
             }
-            ShadowFilteringMethod::Jimenez14 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14;
+            ShadowFilteringMethod::Temporal => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_TEMPORAL;
             }
         }
 
@@ -135,11 +135,9 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
 
-        // TODO: Lightmaps
-
         view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
-        for material_id in render_material_instances.values() {
+        for material_id in render_material_instances.values().collect::<HashSet<_>>() {
             let Some(material) = render_materials.get(*material_id) else {
                 continue;
             };
@@ -264,7 +262,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
 
         view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
-        for material_id in render_material_instances.values() {
+        for material_id in render_material_instances.values().collect::<HashSet<_>>() {
             let Some(material) = render_materials.get(*material_id) else {
                 continue;
             };

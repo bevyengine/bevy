@@ -17,8 +17,8 @@ use bevy_render::{
         prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
     },
     render_phase::{
-        AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
-        SetItemPipeline, SortedRenderPhase, TrackedRenderPass,
+        AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand,
+        RenderCommandResult, SetItemPipeline, TrackedRenderPass, ViewSortedRenderPhases,
     },
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout,
@@ -37,7 +37,7 @@ use std::marker::PhantomData;
 
 use crate::{
     DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
-    SetMesh2dBindGroup, SetMesh2dViewBindGroup,
+    SetMesh2dBindGroup, SetMesh2dViewBindGroup, WithMesh2d,
 };
 
 /// Materials are used alongside [`Material2dPlugin`] and [`MaterialMesh2dBundle`]
@@ -374,12 +374,13 @@ pub fn queue_material2d_meshes<M: Material2d>(
     render_materials: Res<RenderAssets<PreparedMaterial2d<M>>>,
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
     render_material_instances: Res<RenderMaterial2dInstances<M>>,
+    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut views: Query<(
+        Entity,
         &ExtractedView,
         &VisibleEntities,
         Option<&Tonemapping>,
         Option<&DebandDither>,
-        &mut SortedRenderPhase<Transparent2d>,
     )>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -388,8 +389,12 @@ pub fn queue_material2d_meshes<M: Material2d>(
         return;
     }
 
-    for (view, visible_entities, tonemapping, dither, mut transparent_phase) in &mut views {
-        let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial2d<M>>();
+    for (view_entity, view, visible_entities, tonemapping, dither) in &mut views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+            continue;
+        };
+
+        let draw_transparent_2d = transparent_draw_functions.read().id::<DrawMaterial2d<M>>();
 
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
@@ -403,14 +408,14 @@ pub fn queue_material2d_meshes<M: Material2d>(
                 view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
             }
         }
-        for visible_entity in &visible_entities.entities {
+        for visible_entity in visible_entities.iter::<WithMesh2d>() {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
             let Some(mesh_instance) = render_mesh_instances.get_mut(visible_entity) else {
                 continue;
             };
-            let Some(material2d) = render_materials.get(*material_asset_id) else {
+            let Some(material_2d) = render_materials.get(*material_asset_id) else {
                 continue;
             };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
@@ -424,7 +429,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                 &material2d_pipeline,
                 Material2dKey {
                     mesh_key,
-                    bind_group_data: material2d.key.clone(),
+                    bind_group_data: material_2d.key.clone(),
                 },
                 &mesh.layout,
             );
@@ -437,21 +442,21 @@ pub fn queue_material2d_meshes<M: Material2d>(
                 }
             };
 
-            mesh_instance.material_bind_group_id = material2d.get_bind_group_id();
+            mesh_instance.material_bind_group_id = material_2d.get_bind_group_id();
 
-            let mesh_z = mesh_instance.transforms.transform.translation.z;
+            let mesh_z = mesh_instance.transforms.world_from_local.translation.z;
             transparent_phase.add(Transparent2d {
                 entity: *visible_entity,
-                draw_function: draw_transparent_pbr,
+                draw_function: draw_transparent_2d,
                 pipeline: pipeline_id,
                 // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
                 // lowest sort key and getting closer should increase. As we have
                 // -z in front of the camera, the largest distance is -far with values increasing toward the
                 // camera. As such we can just use mesh_z as the distance
-                sort_key: FloatOrd(mesh_z + material2d.depth_bias),
+                sort_key: FloatOrd(mesh_z + material_2d.depth_bias),
                 // Batching is done in batch_and_prepare_render_phase
                 batch_range: 0..1,
-                dynamic_offset: None,
+                extra_index: PhaseItemExtraIndex::NONE,
             });
         }
     }

@@ -6,9 +6,19 @@ use std::{
 };
 use thiserror::Error;
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// A nonempty closed interval, possibly infinite in either direction.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Interval {
     start: f32,
     end: f32,
@@ -103,7 +113,7 @@ impl Interval {
     }
 
     /// Get an iterator over equally-spaced points from this interval in increasing order.
-    /// Returns `None` if `points` is less than 2; the spaced points always include the endpoints.
+    /// Returns an error if `points` is less than 2 or if the interval is unbounded.
     pub fn spaced_points(
         self,
         points: usize,

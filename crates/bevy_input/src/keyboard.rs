@@ -105,6 +105,20 @@ pub struct KeyboardInput {
     pub window: Entity,
 }
 
+/// Gets generated from `bevy_winit::winit_runner`
+///
+/// Used for clearing all cached states to avoid having 'stuck' key presses
+/// when, for example, switching between windows with 'Alt-Tab' or using any other
+/// OS specific key combination that leads to Bevy window losing focus and not receiving any
+/// input events
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct KeyboardFocusLost;
+
 /// Updates the [`ButtonInput<KeyCode>`] resource with the latest [`KeyboardInput`] events.
 ///
 /// ## Differences
@@ -114,6 +128,7 @@ pub struct KeyboardInput {
 pub fn keyboard_input_system(
     mut key_input: ResMut<ButtonInput<KeyCode>>,
     mut keyboard_input_events: EventReader<KeyboardInput>,
+    mut focus_events: EventReader<KeyboardFocusLost>,
 ) {
     // Avoid clearing if it's not empty to ensure change detection is not triggered.
     key_input.bypass_change_detection().clear();
@@ -125,6 +140,12 @@ pub fn keyboard_input_system(
             ButtonState::Pressed => key_input.press(*key_code),
             ButtonState::Released => key_input.release(*key_code),
         }
+    }
+
+    // Release all cached input to avoid having stuck input when switching between windows in os
+    if !focus_events.is_empty() {
+        key_input.release_all();
+        focus_events.clear();
     }
 }
 
@@ -183,6 +204,7 @@ pub enum NativeKeyCode {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
+#[allow(clippy::doc_markdown)] // Clippy doesn't like our use of <kbd>.
 #[repr(u32)]
 pub enum KeyCode {
     /// This variant is used when the key cannot be translated to any other variant.
@@ -191,7 +213,7 @@ pub enum KeyCode {
     /// key-press and key-release events by hashing the [`KeyCode`]. It is also possible to use
     /// this for keybinds for non-standard keys, but such keybinds are tied to a given platform.
     Unidentified(NativeKeyCode),
-    /// <kbd>`</kbd> on a US keyboard. This is also called a backtick or grave.
+    /// <kbd>\`</kbd> on a US keyboard. This is also called a backtick or grave.
     /// This is the <kbd>半角</kbd>/<kbd>全角</kbd>/<kbd>漢字</kbd>
     /// (hankaku/zenkaku/kanji) key on Japanese keyboards
     Backquote,
@@ -700,6 +722,7 @@ pub enum NativeKey {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
+#[allow(clippy::doc_markdown)] // Clippy doesn't like our use of <kbd>.
 pub enum Key {
     /// A key string that corresponds to the character typed by the user, taking into account the
     /// user’s current locale setting, and any system-level keyboard mapping overrides that are in

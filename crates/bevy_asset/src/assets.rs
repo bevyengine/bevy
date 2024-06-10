@@ -1,7 +1,5 @@
 use crate::{self as bevy_asset};
-use crate::{
-    Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, LoadState, UntypedHandle,
-};
+use crate::{Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, UntypedHandle};
 use bevy_ecs::{
     prelude::EventWriter,
     system::{Res, ResMut, Resource},
@@ -51,7 +49,7 @@ pub(crate) struct AssetIndexAllocator {
     /// A monotonically increasing index.
     next_index: AtomicU32,
     recycled_queue_sender: Sender<AssetIndex>,
-    /// This receives every recycled AssetIndex. It serves as a buffer/queue to store indices ready for reuse.
+    /// This receives every recycled [`AssetIndex`]. It serves as a buffer/queue to store indices ready for reuse.
     recycled_queue_receiver: Receiver<AssetIndex>,
     recycled_sender: Sender<AssetIndex>,
     recycled_receiver: Receiver<AssetIndex>,
@@ -545,18 +543,11 @@ impl<A: Asset> Assets<A> {
         // re-loads are kicked off appropriately. This function must be "transactional" relative
         // to other asset info operations
         let mut infos = asset_server.data.infos.write();
-        let mut not_ready = Vec::new();
         while let Ok(drop_event) = assets.handle_provider.drop_receiver.try_recv() {
             let id = drop_event.id.typed();
 
             if drop_event.asset_server_managed {
                 let untyped_id = id.untyped();
-                if let Some(info) = infos.get(untyped_id) {
-                    if let LoadState::Loading | LoadState::NotLoaded = info.load_state {
-                        not_ready.push(drop_event);
-                        continue;
-                    }
-                }
 
                 // the process_handle_drop call checks whether new handles have been created since the drop event was fired, before removing the asset
                 if !infos.process_handle_drop(untyped_id) {
@@ -567,12 +558,6 @@ impl<A: Asset> Assets<A> {
 
             assets.queued_events.push(AssetEvent::Unused { id });
             assets.remove_dropped(id);
-        }
-
-        // TODO: this is _extremely_ inefficient find a better fix
-        // This will also loop failed assets indefinitely. Is that ok?
-        for event in not_ready {
-            assets.handle_provider.drop_sender.send(event).unwrap();
         }
     }
 

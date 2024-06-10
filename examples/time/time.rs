@@ -1,5 +1,6 @@
 //! An example that illustrates how Time is handled in ECS.
 
+use bevy::app::AppExit;
 use bevy::prelude::*;
 
 use std::io::{self, BufRead};
@@ -30,7 +31,7 @@ fn help() {
     println!("  u: Unpause");
 }
 
-fn runner(mut app: App) {
+fn runner(mut app: App) -> AppExit {
     banner();
     help();
     let stdin = io::stdin();
@@ -78,6 +79,8 @@ fn runner(mut app: App) {
             }
         }
     }
+
+    AppExit::Success
 }
 
 fn print_real_time(time: Res<Time<Real>>) {

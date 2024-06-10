@@ -101,12 +101,14 @@ impl<T> SyncUnsafeCell<[T]> {
     /// assert_eq!(slice_cell.len(), 3);
     /// ```
     pub fn as_slice_of_cells(&self) -> &[SyncUnsafeCell<T>] {
+        let self_ptr: *const SyncUnsafeCell<[T]> = ptr::from_ref(self);
+        let slice_ptr = self_ptr as *const [SyncUnsafeCell<T>];
         // SAFETY: `UnsafeCell<T>` and `SyncUnsafeCell<T>` have #[repr(transparent)]
         // therefore:
         // - `SyncUnsafeCell<T>` has the same layout as `T`
         // - `SyncUnsafeCell<[T]>` has the same layout as `[T]`
         // - `SyncUnsafeCell<[T]>` has the same layout as `[SyncUnsafeCell<T>]`
-        unsafe { &*(ptr::from_ref(self) as *const [SyncUnsafeCell<T>]) }
+        unsafe { &*slice_ptr }
     }
 }
 

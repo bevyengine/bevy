@@ -38,7 +38,7 @@
 mod map_entities;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-#[cfg(all(feature = "bevy_reflect", feature = "serde"))]
+#[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 pub use map_entities::*;
 
@@ -57,7 +57,7 @@ use crate::{
     },
     storage::{SparseSetIndex, TableId, TableRow},
 };
-#[cfg(feature = "serde")]
+#[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 use std::{fmt, hash::Hash, mem, num::NonZeroU32, sync::atomic::Ordering};
 
@@ -146,7 +146,7 @@ type IdCursor = isize;
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect_value(Hash, PartialEq))]
 #[cfg_attr(
-    all(feature = "bevy_reflect", feature = "serde"),
+    all(feature = "bevy_reflect", feature = "serialize"),
     reflect_value(Serialize, Deserialize)
 )]
 // Alignment repr necessary to allow LLVM to better output
@@ -368,7 +368,7 @@ impl From<Entity> for Identifier {
     }
 }
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "serialize")]
 impl Serialize for Entity {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -378,7 +378,7 @@ impl Serialize for Entity {
     }
 }
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "serialize")]
 impl<'de> Deserialize<'de> for Entity {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -1060,10 +1060,8 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::nonminimal_bool)] // This is intentionally testing `lt` and `ge` as separate functions.
     fn entity_comparison() {
-        // This is intentionally testing `lt` and `ge` as separate functions.
-        #![allow(clippy::nonminimal_bool)]
-
         assert_eq!(
             Entity::from_raw_and_generation(123, NonZeroU32::new(456).unwrap()),
             Entity::from_raw_and_generation(123, NonZeroU32::new(456).unwrap())

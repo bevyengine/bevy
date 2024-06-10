@@ -174,21 +174,42 @@ macro_rules! define_label {
             }
 
             fn ref_eq(&self, other: &Self) -> bool {
-                if self.as_dyn_eq().type_id() == other.as_dyn_eq().type_id() {
-                    (self as *const Self).cast::<()>() == (other as *const Self).cast::<()>()
-                } else {
-                    false
-                }
+                use ::std::ptr;
+
+                // Test that both the type id and pointer address are equivalent.
+                self.as_dyn_eq().type_id() == other.as_dyn_eq().type_id()
+                    && ptr::addr_eq(ptr::from_ref::<Self>(self), ptr::from_ref::<Self>(other))
             }
 
             fn ref_hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
-                use ::std::hash::Hash;
+                use ::std::{hash::Hash, ptr};
+
+                // Hash the type id...
                 self.as_dyn_eq().type_id().hash(state);
-                (self as *const Self).cast::<()>().hash(state);
+
+                // ...and the pointer address.
+                // Cast to a unit `()` first to discard any pointer metadata.
+                ptr::from_ref::<Self>(self).cast::<()>().hash(state);
             }
         }
 
         static $interner_name: $crate::intern::Interner<dyn $label_trait_name> =
             $crate::intern::Interner::new();
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{DynEq, DynHash};
+    use bevy_utils::assert_object_safe;
+
+    #[test]
+    fn dyn_eq_object_safe() {
+        assert_object_safe::<dyn DynEq>();
+    }
+
+    #[test]
+    fn dyn_hash_object_safe() {
+        assert_object_safe::<dyn DynHash>();
+    }
 }

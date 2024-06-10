@@ -129,7 +129,7 @@ impl VariableCurve {
             .binary_search_by(|probe| probe.partial_cmp(&seek_time).unwrap());
 
         // Subtract one for zero indexing!
-        let last_keyframe = self.keyframes.len() - 1;
+        let last_keyframe = self.keyframe_timestamps.len() - 1;
 
         // We want to find the index of the keyframe before the current time
         // If the keyframe is past the second-to-last keyframe, the animation cannot be interpolated.
@@ -237,7 +237,7 @@ impl Hash for AnimationTargetId {
 /// Note that each entity can only be animated by one animation player at a
 /// time. However, you can change [`AnimationTarget`]'s `player` property at
 /// runtime to change which player is responsible for animating the entity.
-#[derive(Clone, Component, Reflect)]
+#[derive(Clone, Copy, Component, Reflect)]
 #[reflect(Component, MapEntities)]
 pub struct AnimationTarget {
     /// The ID of this animation target.
@@ -256,6 +256,12 @@ impl AnimationClip {
         &self.curves
     }
 
+    #[inline]
+    /// Get mutable references of [`VariableCurve`]s for each animation target. Indexed by the [`AnimationTargetId`].
+    pub fn curves_mut(&mut self) -> &mut AnimationCurves {
+        &mut self.curves
+    }
+
     /// Gets the curves for a single animation target.
     ///
     /// Returns `None` if this clip doesn't animate the target.
@@ -267,10 +273,27 @@ impl AnimationClip {
         self.curves.get(&target_id)
     }
 
+    /// Gets mutable references of the curves for a single animation target.
+    ///
+    /// Returns `None` if this clip doesn't animate the target.
+    #[inline]
+    pub fn curves_for_target_mut(
+        &mut self,
+        target_id: AnimationTargetId,
+    ) -> Option<&'_ mut Vec<VariableCurve>> {
+        self.curves.get_mut(&target_id)
+    }
+
     /// Duration of the clip, represented in seconds.
     #[inline]
     pub fn duration(&self) -> f32 {
         self.duration
+    }
+
+    /// Set the duration of the clip in seconds.
+    #[inline]
+    pub fn set_duration(&mut self, duration_sec: f32) {
+        self.duration = duration_sec;
     }
 
     /// Adds a [`VariableCurve`] to an [`AnimationTarget`] named by an
@@ -304,7 +327,7 @@ pub enum RepeatAnimation {
 /// playing, but is presently paused.
 ///
 /// An stopped animation is considered no longer active.
-#[derive(Debug, Reflect)]
+#[derive(Debug, Clone, Copy, Reflect)]
 pub struct ActiveAnimation {
     /// The factor by which the weight from the [`AnimationGraph`] is multiplied.
     weight: f32,
@@ -491,6 +514,21 @@ pub struct AnimationPlayer {
     /// ordering when applying the animations.
     active_animations: BTreeMap<AnimationNodeIndex, ActiveAnimation>,
     blend_weights: HashMap<AnimationNodeIndex, f32>,
+}
+
+// This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
+impl Clone for AnimationPlayer {
+    fn clone(&self) -> Self {
+        Self {
+            active_animations: self.active_animations.clone(),
+            blend_weights: self.blend_weights.clone(),
+        }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.active_animations.clone_from(&source.active_animations);
+        self.blend_weights.clone_from(&source.blend_weights);
+    }
 }
 
 /// The components that we might need to read or write during animation of each

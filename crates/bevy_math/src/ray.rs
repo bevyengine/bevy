@@ -1,11 +1,21 @@
 use crate::{
-    primitives::{Plane2d, Plane3d},
+    primitives::{InfinitePlane3d, Plane2d},
     Dir2, Dir3, Vec2, Vec3,
 };
+
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// An infinite half-line starting at `origin` and going in `direction` in 2D space.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Deserialize, Serialize)
+)]
 pub struct Ray2d {
     /// The origin of the ray.
     pub origin: Vec2,
@@ -50,6 +60,11 @@ impl Ray2d {
 /// An infinite half-line starting at `origin` and going in `direction` in 3D space.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Deserialize, Serialize)
+)]
 pub struct Ray3d {
     /// The origin of the ray.
     pub origin: Vec3,
@@ -79,7 +94,7 @@ impl Ray3d {
 
     /// Get the distance to a plane if the ray intersects it
     #[inline]
-    pub fn intersect_plane(&self, plane_origin: Vec3, plane: Plane3d) -> Option<f32> {
+    pub fn intersect_plane(&self, plane_origin: Vec3, plane: InfinitePlane3d) -> Option<f32> {
         let denominator = plane.normal.dot(*self.direction);
         if denominator.abs() > f32::EPSILON {
             let distance = (plane_origin - self.origin).dot(*plane.normal) / denominator;
@@ -141,37 +156,40 @@ mod tests {
 
         // Orthogonal, and test that an inverse plane_normal has the same result
         assert_eq!(
-            ray.intersect_plane(Vec3::Z, Plane3d::new(Vec3::Z)),
+            ray.intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::Z)),
             Some(1.0)
         );
         assert_eq!(
-            ray.intersect_plane(Vec3::Z, Plane3d::new(Vec3::NEG_Z)),
+            ray.intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::NEG_Z)),
             Some(1.0)
         );
         assert!(ray
-            .intersect_plane(Vec3::NEG_Z, Plane3d::new(Vec3::Z))
+            .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::Z))
             .is_none());
         assert!(ray
-            .intersect_plane(Vec3::NEG_Z, Plane3d::new(Vec3::NEG_Z))
+            .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::NEG_Z))
             .is_none());
 
         // Diagonal
         assert_eq!(
-            ray.intersect_plane(Vec3::Z, Plane3d::new(Vec3::ONE)),
+            ray.intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::ONE)),
             Some(1.0)
         );
         assert!(ray
-            .intersect_plane(Vec3::NEG_Z, Plane3d::new(Vec3::ONE))
+            .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::ONE))
             .is_none());
 
         // Parallel
         assert!(ray
-            .intersect_plane(Vec3::X, Plane3d::new(Vec3::X))
+            .intersect_plane(Vec3::X, InfinitePlane3d::new(Vec3::X))
             .is_none());
 
         // Parallel with simulated rounding error
         assert!(ray
-            .intersect_plane(Vec3::X, Plane3d::new(Vec3::X + Vec3::Z * f32::EPSILON))
+            .intersect_plane(
+                Vec3::X,
+                InfinitePlane3d::new(Vec3::X + Vec3::Z * f32::EPSILON)
+            )
             .is_none());
     }
 }

@@ -109,6 +109,26 @@ impl ImageFormat {
             ImageFormat::Basis | ImageFormat::Ktx2 => return None,
         })
     }
+
+    pub fn from_image_crate_format(format: image::ImageFormat) -> Option<ImageFormat> {
+        Some(match format {
+            image::ImageFormat::Avif => ImageFormat::Avif,
+            image::ImageFormat::Bmp => ImageFormat::Bmp,
+            image::ImageFormat::Dds => ImageFormat::Dds,
+            image::ImageFormat::Farbfeld => ImageFormat::Farbfeld,
+            image::ImageFormat::Gif => ImageFormat::Gif,
+            image::ImageFormat::OpenExr => ImageFormat::OpenExr,
+            image::ImageFormat::Hdr => ImageFormat::Hdr,
+            image::ImageFormat::Ico => ImageFormat::Ico,
+            image::ImageFormat::Jpeg => ImageFormat::Jpeg,
+            image::ImageFormat::Png => ImageFormat::Png,
+            image::ImageFormat::Pnm => ImageFormat::Pnm,
+            image::ImageFormat::Tga => ImageFormat::Tga,
+            image::ImageFormat::Tiff => ImageFormat::Tiff,
+            image::ImageFormat::WebP => ImageFormat::WebP,
+            _ => return None,
+        })
+    }
 }
 
 #[derive(Asset, Reflect, Debug, Clone)]
@@ -279,7 +299,7 @@ pub struct ImageSamplerDescriptor {
     pub compare: Option<ImageCompareFunction>,
     /// Must be at least 1. If this is not 1, all filter modes must be linear.
     pub anisotropy_clamp: u16,
-    /// Border color to use when `address_mode`` is [`ImageAddressMode::ClampToBorder`].
+    /// Border color to use when `address_mode` is [`ImageAddressMode::ClampToBorder`].
     pub border_color: Option<ImageSamplerBorderColor>,
 }
 
@@ -532,11 +552,13 @@ impl Image {
         debug_assert_eq!(
             pixel.len() % format.pixel_size(),
             0,
-            "Must not have incomplete pixel data."
+            "Must not have incomplete pixel data (pixel size is {}B).",
+            format.pixel_size(),
         );
         debug_assert!(
             pixel.len() <= value.data.len(),
-            "Fill data must fit within pixel buffer."
+            "Fill data must fit within pixel buffer (expected {}B).",
+            value.data.len(),
         );
 
         for current_pixel in value.data.chunks_exact_mut(pixel.len()) {
@@ -837,6 +859,11 @@ impl RenderAsset for GpuImage {
     #[inline]
     fn asset_usage(image: &Self::SourceAsset) -> RenderAssetUsages {
         image.asset_usage
+    }
+
+    #[inline]
+    fn byte_len(image: &Self::SourceAsset) -> Option<usize> {
+        Some(image.data.len())
     }
 
     /// Converts the extracted image into a [`GpuImage`].

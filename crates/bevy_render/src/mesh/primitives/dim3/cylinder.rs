@@ -2,9 +2,21 @@ use bevy_math::primitives::Cylinder;
 use wgpu::PrimitiveTopology;
 
 use crate::{
-    mesh::{Indices, Mesh, Meshable},
+    mesh::{Indices, Mesh, MeshBuilder, Meshable},
     render_asset::RenderAssetUsages,
 };
+
+/// Anchoring options for [`CylinderMeshBuilder`]
+#[derive(Debug, Copy, Clone, Default)]
+pub enum CylinderAnchor {
+    #[default]
+    /// Midpoint between the top and bottom caps of the cylinder
+    MidPoint,
+    /// The center of the top circle cap
+    Top,
+    /// The center of the bottom circle cap
+    Bottom,
+}
 
 /// A builder used for creating a [`Mesh`] with a [`Cylinder`] shape.
 #[derive(Clone, Copy, Debug)]
@@ -20,6 +32,12 @@ pub struct CylinderMeshBuilder {
     ///
     /// The default is `1`.
     pub segments: u32,
+    /// If set to `true`, the cylinder caps (flat circle faces) are built,
+    /// otherwise the mesh will be a shallow tube
+    pub caps: bool,
+    /// The anchor point for the cylinder mesh, defaults to the midpoint between
+    /// the top and bottom caps
+    pub anchor: CylinderAnchor,
 }
 
 impl Default for CylinderMeshBuilder {
@@ -28,6 +46,8 @@ impl Default for CylinderMeshBuilder {
             cylinder: Cylinder::default(),
             resolution: 32,
             segments: 1,
+            caps: true,
+            anchor: CylinderAnchor::default(),
         }
     }
 }
@@ -59,8 +79,23 @@ impl CylinderMeshBuilder {
         self
     }
 
-    /// Builds a [`Mesh`] based on the configuration in `self`.
-    pub fn build(&self) -> Mesh {
+    /// Ignore the cylinder caps, making the mesh a shallow tube instead
+    #[inline]
+    pub const fn without_caps(mut self) -> Self {
+        self.caps = false;
+        self
+    }
+
+    /// Sets a custom anchor point for the mesh
+    #[inline]
+    pub const fn anchor(mut self, anchor: CylinderAnchor) -> Self {
+        self.anchor = anchor;
+        self
+    }
+}
+
+impl MeshBuilder for CylinderMeshBuilder {
+    fn build(&self) -> Mesh {
         let resolution = self.resolution;
         let segments = self.segments;
 
@@ -117,37 +152,47 @@ impl CylinderMeshBuilder {
         }
 
         // caps
+        if self.caps {
+            let mut build_cap = |top: bool| {
+                let offset = positions.len() as u32;
+                let (y, normal_y, winding) = if top {
+                    (self.cylinder.half_height, 1., (1, 0))
+                } else {
+                    (-self.cylinder.half_height, -1., (0, 1))
+                };
 
-        let mut build_cap = |top: bool| {
-            let offset = positions.len() as u32;
-            let (y, normal_y, winding) = if top {
-                (self.cylinder.half_height, 1., (1, 0))
-            } else {
-                (-self.cylinder.half_height, -1., (0, 1))
+                for i in 0..self.resolution {
+                    let theta = i as f32 * step_theta;
+                    let (sin, cos) = theta.sin_cos();
+
+                    positions.push([cos * self.cylinder.radius, y, sin * self.cylinder.radius]);
+                    normals.push([0.0, normal_y, 0.0]);
+                    uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
+                }
+
+                for i in 1..(self.resolution - 1) {
+                    indices.extend_from_slice(&[
+                        offset,
+                        offset + i + winding.0,
+                        offset + i + winding.1,
+                    ]);
+                }
             };
 
-            for i in 0..self.resolution {
-                let theta = i as f32 * step_theta;
-                let (sin, cos) = theta.sin_cos();
+            build_cap(true);
+            build_cap(false);
+        }
 
-                positions.push([cos * self.cylinder.radius, y, sin * self.cylinder.radius]);
-                normals.push([0.0, normal_y, 0.0]);
-                uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
-            }
-
-            for i in 1..(self.resolution - 1) {
-                indices.extend_from_slice(&[
-                    offset,
-                    offset + i + winding.0,
-                    offset + i + winding.1,
-                ]);
-            }
+        // Offset the vertex positions Y axis to match the anchor
+        match self.anchor {
+            CylinderAnchor::Top => positions
+                .iter_mut()
+                .for_each(|p| p[1] -= self.cylinder.half_height),
+            CylinderAnchor::Bottom => positions
+                .iter_mut()
+                .for_each(|p| p[1] += self.cylinder.half_height),
+            CylinderAnchor::MidPoint => (),
         };
-
-        // top
-
-        build_cap(true);
-        build_cap(false);
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
@@ -174,11 +219,5 @@ impl Meshable for Cylinder {
 impl From<Cylinder> for Mesh {
     fn from(cylinder: Cylinder) -> Self {
         cylinder.mesh().build()
-    }
-}
-
-impl From<CylinderMeshBuilder> for Mesh {
-    fn from(cylinder: CylinderMeshBuilder) -> Self {
-        cylinder.build()
     }
 }

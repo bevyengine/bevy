@@ -15,6 +15,7 @@ mod affine3;
 mod aspect_ratio;
 pub mod bounding;
 mod common_traits;
+mod compass;
 pub mod cubic_splines;
 pub mod curve;
 mod direction;
@@ -25,6 +26,7 @@ mod rects;
 mod rotation2d;
 #[cfg(feature = "rand")]
 pub mod sampling;
+pub use compass::{CompassOctant, CompassQuadrant};
 
 pub use affine3::*;
 pub use aspect_ratio::AspectRatio;
@@ -33,7 +35,7 @@ pub use direction::*;
 pub use float_ord::*;
 pub use ray::{Ray2d, Ray3d};
 pub use rects::*;
-pub use rotation2d::Rotation2d;
+pub use rotation2d::Rot2;
 #[cfg(feature = "rand")]
 pub use sampling::{FromRng, ShapeSample};
 
@@ -52,8 +54,8 @@ pub mod prelude {
         direction::{Dir2, Dir3, Dir3A},
         primitives::*,
         BVec2, BVec3, BVec4, EulerRot, FloatExt, IRect, IVec2, IVec3, IVec4, Mat2, Mat3, Mat4,
-        Quat, Ray2d, Ray3d, Rect, Rotation2d, URect, UVec2, UVec3, UVec4, Vec2, Vec2Swizzles, Vec3,
-        Vec3Swizzles, Vec4, Vec4Swizzles,
+        Quat, Ray2d, Ray3d, Rect, Rot2, StableInterpolate, URect, UVec2, UVec3, UVec4, Vec2,
+        Vec2Swizzles, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles,
     };
 }
 
