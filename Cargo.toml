@@ -3025,6 +3025,17 @@ category = "Math"
 wasm = true
 
 [[example]]
+name = "custom_primitives"
+path = "examples/math/custom_primitives.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_primitives]
+name = "Custom Primitives"
+description = "Demonstrates how to add custom primitives and useful traits for them."
+category = "Math"
+wasm = true
+
+[[example]]
 name = "random_sampling"
 path = "examples/math/random_sampling.rs"
 doc-scrape-examples = true
