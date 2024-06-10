@@ -13,7 +13,6 @@ trace = []
 bevy_debug_stepping = []
 default = ["bevy_reflect"]
 bevy_reflect = ["dep:bevy_reflect", "bevy_ecs/bevy_reflect"]
-serialize = ["bevy_ecs/serde"]
 
 [dependencies]
 # bevy
@@ -24,7 +23,6 @@ bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
 
 # other
-serde = { version = "1.0", features = ["derive"], optional = true }
 downcast-rs = "1.2.0"
 thiserror = "1.0"
 
