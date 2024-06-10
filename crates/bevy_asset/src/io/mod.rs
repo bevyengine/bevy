@@ -731,6 +731,7 @@ pub enum AssetSourceFileType {
     Defaults,
 }
 
+#[cfg(any(feature = "embedded_watcher", feature = "file_watcher"))]
 /// A helper type that bundles a path with the type of file that was changed.
 #[derive(Debug)]
 pub(crate) struct AssetSourceEventPath {
