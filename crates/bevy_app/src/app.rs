@@ -919,16 +919,17 @@ mod tests {
     use std::{iter, marker::PhantomData, mem};
 
     use bevy_ecs::{
+        change_detection::{DetectChanges, ResMut},
         component::Component,
         entity::Entity,
         event::EventWriter,
         query::With,
         removal_detection::RemovedComponents,
         schedule::{IntoSystemConfigs, ScheduleLabel},
-        system::{Commands, Query},
+        system::{Commands, Query, Resource},
     };
 
-    use crate::{App, AppExit, Plugin, Update};
+    use crate::{App, AppExit, Plugin, SubApp, Update};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -1158,6 +1159,33 @@ mod tests {
         app.update(); // Frame 1
         app.add_systems(Update, check_despawns.after(despawn_one_foo));
         app.update(); // Should see despawns from frames 1 & 2, but not frame 0
+    }
+
+    #[test]
+    fn test_extract_sees_changes() {
+        use super::AppLabel;
+        use crate::{self as bevy_app};
+
+        #[derive(AppLabel, Clone, Copy, Hash, PartialEq, Eq, Debug)]
+        struct MySubApp;
+
+        #[derive(Resource)]
+        struct Foo(usize);
+
+        let mut app = App::new();
+        app.world_mut().insert_resource(Foo(0));
+        app.add_systems(Update, |mut foo: ResMut<Foo>| {
+            (*foo).0 += 1;
+        });
+
+        let mut sub_app = SubApp::new();
+        sub_app.set_extract(|main_world, _sub_world| {
+            assert!(main_world.get_resource_ref::<Foo>().unwrap().is_changed());
+        });
+
+        app.insert_sub_app(MySubApp, sub_app);
+
+        app.update();
     }
 
     #[test]
