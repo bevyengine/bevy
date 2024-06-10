@@ -507,6 +507,8 @@ pub enum AssetSourceEvent {
     ModifiedDefaults(PathBuf),
     /// Asset default metadata at this path was removed.
     RemovedDefaults(PathBuf),
+    /// Asset default metadata at this path was renamed.
+    RenamedDefaults { old: PathBuf, new: PathBuf },
     /// A folder at the given path was added.
     AddedFolder(PathBuf),
     /// A folder at the given path was removed.

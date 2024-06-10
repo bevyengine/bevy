@@ -272,6 +272,11 @@ impl AssetProcessor {
                     infos.check_reprocess_queue.push_back(new_asset_path);
                 }
             }
+            AssetSourceEvent::RenamedDefaults { old, new } => {
+                // If defaults have been renamed, we should reprocess all assets that use either the old or new defaults.
+                self.process_assets_using_defaults(source, old).await;
+                self.process_assets_using_defaults(source, new).await;
+            }
             AssetSourceEvent::RenamedFolder { old, new } => {
                 // If there was a rename event, but the path hasn't changed, this asset folder might need reprocessing.
                 // Sometimes this event is returned when an asset meta is moved "back" into the asset folder

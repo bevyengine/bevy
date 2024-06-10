@@ -198,16 +198,16 @@ pub(crate) fn new_asset_event_debouncer(
                                 }
                             }
                             notify::EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => {
-                                let Some(old_event_path) = handler.get_path(&event.paths[0]) else {
+                                let Some(old_event) = handler.get_path(&event.paths[0]) else {
                                     continue;
                                 };
 
-                                let Some(new_event_path) = handler.get_path(&event.paths[1]) else {
+                                let Some(new_event) = handler.get_path(&event.paths[1]) else {
                                     continue;
                                 };
 
-                                let old_path = old_event_path.path;
-                                let new_path = new_event_path.path;
+                                let old_path = old_event.path;
+                                let new_path = new_event.path;
 
                                 // only the new "real" path is considered a directory
                                 if event.paths[1].is_dir() {
@@ -218,37 +218,40 @@ pub(crate) fn new_asset_event_debouncer(
                                             new: new_path,
                                         },
                                     );
+                                } else if old_event.file_type != new_event.file_type {
+                                    error!(
+                                            "An asset file {old_path:?} of type {:?} was changed to file {new_path:?} of a different type {:?}, which is not supported. Try restarting your app to see if configuration is still valid.", old_event.file_type, new_event.file_type
+                                        );
                                 } else {
-                                    // match (old_is_meta, new_is_meta) {
-                                    //     (true, true) => {
-                                    //         handler.handle(
-                                    //             &event.paths,
-                                    //             AssetSourceEvent::RenamedMeta {
-                                    //                 old: old_path,
-                                    //                 new: new_path,
-                                    //             },
-                                    //         );
-                                    //     }
-                                    //     (false, false) => {
-                                    //         handler.handle(
-                                    //             &event.paths,
-                                    //             AssetSourceEvent::RenamedAsset {
-                                    //                 old: old_path,
-                                    //                 new: new_path,
-                                    //             },
-                                    //         );
-                                    //     }
-                                    //     (true, false) => {
-                                    //         error!(
-                                    //         "Asset metafile {old_path:?} was changed to asset file {new_path:?}, which is not supported. Try restarting your app to see if configuration is still valid"
-                                    //     );
-                                    //     }
-                                    //     (false, true) => {
-                                    //         error!(
-                                    //         "Asset file {old_path:?} was changed to meta file {new_path:?}, which is not supported. Try restarting your app to see if configuration is still valid"
-                                    //     );
-                                    //     }
-                                    // }
+                                    match old_event.file_type {
+                                        AssetSourceFileType::Asset => {
+                                            handler.handle(
+                                                &event.paths,
+                                                AssetSourceEvent::RenamedAsset {
+                                                    old: old_path,
+                                                    new: new_path,
+                                                },
+                                            );
+                                        }
+                                        AssetSourceFileType::Meta => {
+                                            handler.handle(
+                                                &event.paths,
+                                                AssetSourceEvent::RenamedMeta {
+                                                    old: old_path,
+                                                    new: new_path,
+                                                },
+                                            );
+                                        }
+                                        AssetSourceFileType::Defaults => {
+                                            handler.handle(
+                                                &event.paths,
+                                                AssetSourceEvent::RenamedDefaults {
+                                                    old: old_path,
+                                                    new: new_path,
+                                                },
+                                            );
+                                        }
+                                    }
                                 }
                             }
                             notify::EventKind::Modify(_) => {
@@ -256,11 +259,9 @@ pub(crate) fn new_asset_event_debouncer(
                                     continue;
                                 };
 
-                                let path = event_path.path;
+                                if !event.paths[0].is_dir() {
+                                    let path = event_path.path;
 
-                                if event.paths[0].is_dir() {
-                                    // modified folder means nothing in this case
-                                } else {
                                     match event_path.file_type {
                                         AssetSourceFileType::Asset => {
                                             handler.handle(
