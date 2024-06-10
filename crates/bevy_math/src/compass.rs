@@ -5,7 +5,7 @@ use bevy_reflect::Reflect;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// A compass enum with 4 directions.
-/// ``` ignore 
+/// ``` ignore
 ///          N (North)
 ///          ▲
 ///          │
@@ -35,7 +35,7 @@ pub enum CompassQuadrant {
 }
 
 /// A compass enum with 8 directions.
-/// ``` ignore 
+/// ``` ignore
 ///          N (North)
 ///          ▲
 ///     NW   │   NE
