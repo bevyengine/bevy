@@ -249,7 +249,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         f: assets.load("foo/f.cool.ron"),
         // This asset `g.cool.ron` will inherit its processing metadata from the root directory `cool.ron.defaults`
         g: assets.load("nested/directory/g.cool.ron"),
-        // This asset `h.cool.ron` will inherit its processing metadata from `nested/directory/tree/cool.ron.deafults` which masks the root directory defaults.
+        // This asset `h.cool.ron` will inherit its processing metadata from `nested/directory/tree/cool.ron.defaults` which masks the root directory defaults.
         h: assets.load("nested/directory/tree/h.cool.ron"),
     });
 }
