@@ -48,6 +48,8 @@ pub use bevy_ptr as ptr;
 pub use bevy_reflect as reflect;
 #[cfg(feature = "bevy_render")]
 pub use bevy_render as render;
+#[cfg(feature = "bevy_render_graph")]
+pub use bevy_render_graph as render_graph;
 #[cfg(feature = "bevy_scene")]
 pub use bevy_scene as scene;
 #[cfg(feature = "bevy_sprite")]

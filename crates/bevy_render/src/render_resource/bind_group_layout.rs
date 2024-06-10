@@ -1,5 +1,8 @@
 use crate::{define_atomic_id, render_resource::resource_macros::*};
-use std::ops::Deref;
+use std::{
+    hash::{Hash, Hasher},
+    ops::Deref,
+};
 
 define_atomic_id!(BindGroupLayoutId);
 render_resource_wrapper!(ErasedBindGroupLayout, wgpu::BindGroupLayout);
@@ -15,6 +18,8 @@ impl PartialEq for BindGroupLayout {
         self.id == other.id
     }
 }
+
+impl Eq for BindGroupLayout {}
 
 impl BindGroupLayout {
     #[inline]
@@ -34,6 +39,12 @@ impl From<wgpu::BindGroupLayout> for BindGroupLayout {
             id: BindGroupLayoutId::new(),
             value: ErasedBindGroupLayout::new(value),
         }
+    }
+}
+
+impl Hash for BindGroupLayout {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
     }
 }
 

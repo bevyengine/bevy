@@ -1,5 +1,5 @@
 use crate::define_atomic_id;
-use std::ops::Deref;
+use std::{hash::Hash, ops::Deref};
 
 use crate::render_resource::resource_macros::*;
 
@@ -29,6 +29,20 @@ impl Texture {
     }
 }
 
+impl Hash for Texture {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+impl PartialEq for Texture {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for Texture {}
+
 impl From<wgpu::Texture> for Texture {
     fn from(value: wgpu::Texture) -> Self {
         Texture {
@@ -57,6 +71,20 @@ pub struct TextureView {
     id: TextureViewId,
     value: ErasedTextureView,
 }
+
+impl Hash for TextureView {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+impl PartialEq for TextureView {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for TextureView {}
 
 pub struct SurfaceTexture {
     value: ErasedSurfaceTexture,
@@ -132,6 +160,20 @@ impl Sampler {
         self.id
     }
 }
+
+impl Hash for Sampler {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+impl PartialEq for Sampler {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for Sampler {}
 
 impl From<wgpu::Sampler> for Sampler {
     fn from(value: wgpu::Sampler) -> Self {

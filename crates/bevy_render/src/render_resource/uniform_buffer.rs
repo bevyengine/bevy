@@ -5,7 +5,7 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
 };
 use encase::{
-    internal::{AlignmentValue, BufferMut, WriteInto},
+    internal::{AlignmentValue, BufferMut, BufferRef, WriteInto},
     DynamicUniformBuffer as DynamicUniformBufferWrapper, ShaderType,
     UniformBuffer as UniformBufferWrapper,
 };
@@ -119,6 +119,15 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
     pub fn add_usages(&mut self, usage: BufferUsages) {
         self.buffer_usage |= usage;
         self.changed = true;
+    }
+
+    pub fn descriptor(&self) -> BufferDescriptor<'static> {
+        BufferDescriptor {
+            label: None, //label needs to be static :(
+            size: self.value.size().get(),
+            usage: self.buffer_usage,
+            mapped_at_creation: true, //does this apply for buffers created withBufferInitDescriptor?
+        }
     }
 
     /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]

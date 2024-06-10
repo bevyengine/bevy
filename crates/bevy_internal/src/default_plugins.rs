@@ -86,6 +86,12 @@ impl PluginGroup for DefaultPlugins {
             }
         }
 
+        #[cfg(feature = "bevy_render_graph")]
+        {
+            //TODO: UNCOMMENT THIS FOLLOWING THE MIGRATION
+            // group = group.add_group(bevy_render_graph::std::DefaultRenderGraphPlugins);
+        }
+
         #[cfg(feature = "bevy_core_pipeline")]
         {
             group = group.add(bevy_core_pipeline::CorePipelinePlugin);

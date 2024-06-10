@@ -7,7 +7,7 @@ use crate::{
 };
 pub use bevy_render_macros::AsBindGroup;
 use encase::ShaderType;
-use std::ops::Deref;
+use std::{hash::Hash, ops::Deref};
 use thiserror::Error;
 use wgpu::{BindGroupEntry, BindGroupLayoutEntry, BindingResource};
 
@@ -33,6 +33,20 @@ impl BindGroup {
         self.id
     }
 }
+
+impl Hash for BindGroup {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+impl PartialEq for BindGroup {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for BindGroup {}
 
 impl From<wgpu::BindGroup> for BindGroup {
     fn from(value: wgpu::BindGroup) -> Self {
