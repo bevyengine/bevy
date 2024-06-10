@@ -4,7 +4,7 @@ use bevy_ecs::system::Resource;
 
 /// Adds a System Information Diagnostic, specifically `cpu_usage` (in %) and `mem_usage` (in %)
 ///
-/// Note that gather system information is a time intensive task and therefore can't be done on every frame.
+/// Note that gathering system information is a time intensive task and therefore can't be done on every frame.
 /// Any system diagnostics gathered by this plugin may not be current when you access them.
 ///
 /// Supported targets:
