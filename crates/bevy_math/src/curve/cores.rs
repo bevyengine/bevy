@@ -58,7 +58,7 @@ impl<T> Betweenness<T> {
 /// # Example
 /// ```rust
 /// # use bevy_math::curve::*;
-/// # use bevy_math::curve::builders::*;
+/// # use bevy_math::curve::cores::*;
 /// enum InterpolationMode {
 ///     Linear,
 ///     Step,
@@ -222,6 +222,9 @@ pub fn even_betweenness(domain: Interval, samples: usize, t: f32) -> Betweenness
 /// The data core of a curve defined by unevenly-spaced samples or keyframes. The intention is to
 /// use this in concert with implicitly or explicitly-defined interpolation in user-space in
 /// order to implement the curve interface using [`domain`] and [`sample_with`].
+///
+/// [`domain`]: UnevenCore::domain
+/// [`sample_with`]: UnevenCore::sample_with
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -332,6 +335,8 @@ impl<T> UnevenCore<T> {
     ///
     /// The samples are re-sorted by time after mapping and deduplicated by output time, so
     /// the function `f` should generally be injective over the sample times of the curve.
+    ///
+    /// [`Curve::reparametrize`]: crate::curve::Curve::reparametrize
     pub fn map_sample_times(mut self, f: impl Fn(f32) -> f32) -> UnevenCore<T> {
         let mut timed_samples: Vec<(f32, T)> =
             self.times.into_iter().map(f).zip(self.samples).collect();
