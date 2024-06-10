@@ -1175,7 +1175,7 @@ mod tests {
         let mut app = App::new();
         app.world_mut().insert_resource(Foo(0));
         app.add_systems(Update, |mut foo: ResMut<Foo>| {
-            (*foo).0 += 1;
+            foo.0 += 1;
         });
 
         let mut sub_app = SubApp::new();
