@@ -6,8 +6,9 @@ use super::helpers::*;
 
 use bevy_color::Color;
 use bevy_math::primitives::{
-    BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, Ellipse, Line2d, Plane2d, Polygon,
-    Polyline2d, Primitive2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
+    Annulus, Arc2d, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, CircularSector,
+    CircularSegment, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Primitive2d, Rectangle,
+    RegularPolygon, Rhombus, Segment2d, Triangle2d,
 };
 use bevy_math::{Dir2, Mat2, Vec2};
 
@@ -29,7 +30,7 @@ pub trait GizmoPrimitive2d<P: Primitive2d> {
     /// Renders a 2D primitive with its associated details.
     fn primitive_2d(
         &mut self,
-        primitive: P,
+        primitive: &P,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -38,12 +39,16 @@ pub trait GizmoPrimitive2d<P: Primitive2d> {
 
 // direction 2d
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Dir2> for Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<Dir2> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     type Output<'a> = () where Self : 'a;
 
     fn primitive_2d(
         &mut self,
-        primitive: Dir2,
+        primitive: &Dir2,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -52,7 +57,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Dir2> for Gizmos<'w, 's, T> {
             return;
         }
 
-        let direction = Mat2::from_angle(angle) * *primitive;
+        let direction = Mat2::from_angle(angle) * **primitive;
 
         let start = position;
         let end = position + MIN_LINE_LEN * direction;
@@ -60,34 +65,18 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Dir2> for Gizmos<'w, 's, T> {
     }
 }
 
-// circle 2d
+// arc 2d
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Circle> for Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<Arc2d> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     type Output<'a> = () where Self: 'a;
 
     fn primitive_2d(
         &mut self,
-        primitive: Circle,
-        position: Vec2,
-        _angle: f32,
-        color: impl Into<Color>,
-    ) -> Self::Output<'_> {
-        if !self.enabled {
-            return;
-        }
-
-        self.circle_2d(position, primitive.radius, color);
-    }
-}
-
-// ellipse 2d
-
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Ellipse> for Gizmos<'w, 's, T> {
-    type Output<'a> = () where Self: 'a;
-
-    fn primitive_2d(
-        &mut self,
-        primitive: Ellipse,
+        primitive: &Arc2d,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -96,18 +85,276 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Ellipse> for Gizmos<'w, 's, T
             return;
         }
 
-        self.ellipse_2d(position, angle, primitive.half_size, color);
+        self.arc_2d(
+            position,
+            angle,
+            primitive.half_angle * 2.0,
+            primitive.radius,
+            color,
+        );
+    }
+}
+
+// circle 2d
+
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<Circle> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = crate::circles::Ellipse2dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+
+    fn primitive_2d(
+        &mut self,
+        primitive: &Circle,
+        position: Vec2,
+        _angle: f32,
+        color: impl Into<Color>,
+    ) -> Self::Output<'_> {
+        self.circle_2d(position, primitive.radius, color)
+    }
+}
+
+// circular sector 2d
+
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<CircularSector> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = () where Self: 'a;
+
+    fn primitive_2d(
+        &mut self,
+        primitive: &CircularSector,
+        position: Vec2,
+        angle: f32,
+        color: impl Into<Color>,
+    ) -> Self::Output<'_> {
+        if !self.enabled {
+            return;
+        }
+
+        let color = color.into();
+
+        // we need to draw the arc part of the sector, and the two lines connecting the arc and the center
+        self.arc_2d(
+            position,
+            angle,
+            primitive.arc.half_angle * 2.0,
+            primitive.arc.radius,
+            color,
+        );
+
+        let start = position
+            + primitive.arc.radius * Mat2::from_angle(angle - primitive.arc.half_angle) * Vec2::Y;
+        let end = position
+            + primitive.arc.radius * Mat2::from_angle(angle + primitive.arc.half_angle) * Vec2::Y;
+        self.line_2d(position, start, color);
+        self.line_2d(position, end, color);
+    }
+}
+
+// circular segment 2d
+
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<CircularSegment> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = () where Self: 'a;
+
+    fn primitive_2d(
+        &mut self,
+        primitive: &CircularSegment,
+        position: Vec2,
+        angle: f32,
+        color: impl Into<Color>,
+    ) -> Self::Output<'_> {
+        if !self.enabled {
+            return;
+        }
+
+        let color = color.into();
+
+        // we need to draw the arc part of the segment, and the line connecting the two ends
+        self.arc_2d(
+            position,
+            angle,
+            primitive.arc.half_angle * 2.0,
+            primitive.arc.radius,
+            color,
+        );
+
+        let start = position
+            + primitive.arc.radius * Mat2::from_angle(angle - primitive.arc.half_angle) * Vec2::Y;
+        let end = position
+            + primitive.arc.radius * Mat2::from_angle(angle + primitive.arc.half_angle) * Vec2::Y;
+        self.line_2d(end, start, color);
+    }
+}
+
+// ellipse 2d
+
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<Ellipse> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = crate::circles::Ellipse2dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+
+    fn primitive_2d<'a>(
+        &mut self,
+        primitive: &Ellipse,
+        position: Vec2,
+        angle: f32,
+        color: impl Into<Color>,
+    ) -> Self::Output<'_> {
+        self.ellipse_2d(position, angle, primitive.half_size, color)
+    }
+}
+
+// annulus 2d
+
+/// Builder for configuring the drawing options of [`Annulus`].
+pub struct Annulus2dBuilder<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
+    position: Vec2,
+    inner_radius: f32,
+    outer_radius: f32,
+    color: Color,
+    inner_resolution: usize,
+    outer_resolution: usize,
+}
+
+impl<Config, Clear> Annulus2dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Set the number of line-segments for each circle of the annulus.
+    pub fn resolution(mut self, resolution: usize) -> Self {
+        self.outer_resolution = resolution;
+        self.inner_resolution = resolution;
+        self
+    }
+
+    /// Set the number of line-segments for the outer circle of the annulus.
+    pub fn outer_resolution(mut self, resolution: usize) -> Self {
+        self.outer_resolution = resolution;
+        self
+    }
+
+    /// Set the number of line-segments for the inner circle of the annulus.
+    pub fn inner_resolution(mut self, resolution: usize) -> Self {
+        self.inner_resolution = resolution;
+        self
+    }
+}
+
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<Annulus> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = Annulus2dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+
+    fn primitive_2d(
+        &mut self,
+        primitive: &Annulus,
+        position: Vec2,
+        _angle: f32,
+        color: impl Into<Color>,
+    ) -> Self::Output<'_> {
+        Annulus2dBuilder {
+            gizmos: self,
+            position,
+            inner_radius: primitive.inner_circle.radius,
+            outer_radius: primitive.outer_circle.radius,
+            color: color.into(),
+            inner_resolution: crate::circles::DEFAULT_CIRCLE_RESOLUTION,
+            outer_resolution: crate::circles::DEFAULT_CIRCLE_RESOLUTION,
+        }
+    }
+}
+
+impl<Config, Clear> Drop for Annulus2dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    fn drop(&mut self) {
+        if !self.gizmos.enabled {
+            return;
+        }
+
+        let Annulus2dBuilder {
+            gizmos,
+            position,
+            inner_radius,
+            outer_radius,
+            inner_resolution,
+            outer_resolution,
+            color,
+            ..
+        } = self;
+
+        gizmos
+            .circle_2d(*position, *outer_radius, *color)
+            .resolution(*outer_resolution);
+        gizmos
+            .circle_2d(*position, *inner_radius, *color)
+            .resolution(*inner_resolution);
+    }
+}
+
+// rhombus 2d
+
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<Rhombus> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = () where Self: 'a;
+
+    fn primitive_2d(
+        &mut self,
+        primitive: &Rhombus,
+        position: Vec2,
+        angle: f32,
+        color: impl Into<Color>,
+    ) -> Self::Output<'_> {
+        if !self.enabled {
+            return;
+        };
+        let [a, b, c, d] =
+            [(1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0)].map(|(sign_x, sign_y)| {
+                Vec2::new(
+                    primitive.half_diagonals.x * sign_x,
+                    primitive.half_diagonals.y * sign_y,
+                )
+            });
+        let positions = [a, b, c, d, a].map(rotate_then_translate_2d(angle, position));
+        self.linestrip_2d(positions, color);
     }
 }
 
 // capsule 2d
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Capsule2d> for Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<Capsule2d> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     type Output<'a> = () where Self: 'a;
 
     fn primitive_2d(
         &mut self,
-        primitive: Capsule2d,
+        primitive: &Capsule2d,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -117,8 +364,6 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Capsule2d> for Gizmos<'w, 's,
         if !self.enabled {
             return;
         }
-
-        let rotation = Mat2::from_angle(angle);
 
         // transform points from the reference unit square to capsule "rectangle"
         let [top_left, top_right, bottom_left, bottom_right, top_center, bottom_center] = [
@@ -141,11 +386,8 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Capsule2d> for Gizmos<'w, 's,
         self.line_2d(bottom_left, top_left, polymorphic_color);
         self.line_2d(bottom_right, top_right, polymorphic_color);
 
-        // if the capsule is rotated we have to start the arc at a different offset angle,
-        // calculate that here
-        let angle_offset = (rotation * Vec2::Y).angle_between(Vec2::Y);
-        let start_angle_top = angle_offset;
-        let start_angle_bottom = PI + angle_offset;
+        let start_angle_top = angle;
+        let start_angle_bottom = PI + angle;
 
         // draw arcs
         self.arc_2d(
@@ -168,8 +410,12 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Capsule2d> for Gizmos<'w, 's,
 // line 2d
 //
 /// Builder for configuring the drawing options of [`Line2d`].
-pub struct Line2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
-    gizmos: &'a mut Gizmos<'w, 's, T>,
+pub struct Line2dBuilder<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
 
     direction: Dir2, // Direction of the line
 
@@ -180,7 +426,11 @@ pub struct Line2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     draw_arrow: bool, // decides whether to indicate the direction of the line with an arrow
 }
 
-impl<T: GizmoConfigGroup> Line2dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Line2dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Set the drawing mode of the line (arrow vs. plain line)
     pub fn draw_arrow(mut self, is_enabled: bool) -> Self {
         self.draw_arrow = is_enabled;
@@ -188,12 +438,16 @@ impl<T: GizmoConfigGroup> Line2dBuilder<'_, '_, '_, T> {
     }
 }
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Line2d> for Gizmos<'w, 's, T> {
-    type Output<'a> = Line2dBuilder<'a, 'w, 's, T> where Self: 'a;
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<Line2d> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = Line2dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
 
     fn primitive_2d(
         &mut self,
-        primitive: Line2d,
+        primitive: &Line2d,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -209,7 +463,11 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Line2d> for Gizmos<'w, 's, T>
     }
 }
 
-impl<T: GizmoConfigGroup> Drop for Line2dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Drop for Line2dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     fn drop(&mut self) {
         if !self.gizmos.enabled {
             return;
@@ -239,12 +497,16 @@ impl<T: GizmoConfigGroup> Drop for Line2dBuilder<'_, '_, '_, T> {
 
 // plane 2d
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Plane2d> for Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<Plane2d> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     type Output<'a> = () where Self: 'a;
 
     fn primitive_2d(
         &mut self,
-        primitive: Plane2d,
+        primitive: &Plane2d,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -263,7 +525,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Plane2d> for Gizmos<'w, 's, T
             half_length: HALF_MIN_LINE_LEN,
         };
         self.primitive_2d(
-            normal_segment,
+            &normal_segment,
             // offset the normal so it starts on the plane line
             position + HALF_MIN_LINE_LEN * rotation * *normal,
             angle,
@@ -273,7 +535,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Plane2d> for Gizmos<'w, 's, T
 
         // draw the plane line
         let direction = Dir2::new_unchecked(-normal.perp());
-        self.primitive_2d(Line2d { direction }, position, angle, polymorphic_color)
+        self.primitive_2d(&Line2d { direction }, position, angle, polymorphic_color)
             .draw_arrow(false);
 
         // draw an arrow such that the normal is always left side of the plane with respect to the
@@ -289,8 +551,12 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Plane2d> for Gizmos<'w, 's, T
 // segment 2d
 
 /// Builder for configuring the drawing options of [`Segment2d`].
-pub struct Segment2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
-    gizmos: &'a mut Gizmos<'w, 's, T>,
+pub struct Segment2dBuilder<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
 
     direction: Dir2,  // Direction of the line segment
     half_length: f32, // Half-length of the line segment
@@ -302,7 +568,11 @@ pub struct Segment2dBuilder<'a, 'w, 's, T: GizmoConfigGroup> {
     draw_arrow: bool, // decides whether to draw just a line or an arrow
 }
 
-impl<T: GizmoConfigGroup> Segment2dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Segment2dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     /// Set the drawing mode of the line (arrow vs. plain line)
     pub fn draw_arrow(mut self, is_enabled: bool) -> Self {
         self.draw_arrow = is_enabled;
@@ -310,12 +580,16 @@ impl<T: GizmoConfigGroup> Segment2dBuilder<'_, '_, '_, T> {
     }
 }
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Segment2d> for Gizmos<'w, 's, T> {
-    type Output<'a> = Segment2dBuilder<'a, 'w, 's, T> where Self: 'a;
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<Segment2d> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = Segment2dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
 
     fn primitive_2d(
         &mut self,
-        primitive: Segment2d,
+        primitive: &Segment2d,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -334,7 +608,11 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Segment2d> for Gizmos<'w, 's,
     }
 }
 
-impl<T: GizmoConfigGroup> Drop for Segment2dBuilder<'_, '_, '_, T> {
+impl<Config, Clear> Drop for Segment2dBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     fn drop(&mut self) {
         if !self.gizmos.enabled {
             return;
@@ -354,14 +632,17 @@ impl<T: GizmoConfigGroup> Drop for Segment2dBuilder<'_, '_, '_, T> {
 
 // polyline 2d
 
-impl<'w, 's, const N: usize, T: GizmoConfigGroup> GizmoPrimitive2d<Polyline2d<N>>
-    for Gizmos<'w, 's, T>
+impl<'w, 's, const N: usize, Config, Clear> GizmoPrimitive2d<Polyline2d<N>>
+    for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
 {
     type Output<'a> = () where Self: 'a;
 
     fn primitive_2d(
         &mut self,
-        primitive: Polyline2d<N>,
+        primitive: &Polyline2d<N>,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -383,12 +664,16 @@ impl<'w, 's, const N: usize, T: GizmoConfigGroup> GizmoPrimitive2d<Polyline2d<N>
 
 // boxed polyline 2d
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<BoxedPolyline2d> for Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<BoxedPolyline2d> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     type Output<'a> = () where Self: 'a;
 
     fn primitive_2d(
         &mut self,
-        primitive: BoxedPolyline2d,
+        primitive: &BoxedPolyline2d,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -410,12 +695,16 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<BoxedPolyline2d> for Gizmos<'
 
 // triangle 2d
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Triangle2d> for Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<Triangle2d> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     type Output<'a> = () where Self: 'a;
 
     fn primitive_2d(
         &mut self,
-        primitive: Triangle2d,
+        primitive: &Triangle2d,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -431,12 +720,16 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Triangle2d> for Gizmos<'w, 's
 
 // rectangle 2d
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Rectangle> for Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<Rectangle> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     type Output<'a> = () where Self: 'a;
 
     fn primitive_2d(
         &mut self,
-        primitive: Rectangle,
+        primitive: &Rectangle,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -459,14 +752,17 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<Rectangle> for Gizmos<'w, 's,
 
 // polygon 2d
 
-impl<'w, 's, const N: usize, T: GizmoConfigGroup> GizmoPrimitive2d<Polygon<N>>
-    for Gizmos<'w, 's, T>
+impl<'w, 's, const N: usize, Config, Clear> GizmoPrimitive2d<Polygon<N>>
+    for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
 {
     type Output<'a> = () where Self: 'a;
 
     fn primitive_2d(
         &mut self,
-        primitive: Polygon<N>,
+        primitive: &Polygon<N>,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -498,12 +794,16 @@ impl<'w, 's, const N: usize, T: GizmoConfigGroup> GizmoPrimitive2d<Polygon<N>>
 
 // boxed polygon 2d
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<BoxedPolygon> for Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<BoxedPolygon> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     type Output<'a> = () where Self: 'a;
 
     fn primitive_2d(
         &mut self,
-        primitive: BoxedPolygon,
+        primitive: &BoxedPolygon,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,
@@ -533,12 +833,16 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<BoxedPolygon> for Gizmos<'w, 
 
 // regular polygon 2d
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive2d<RegularPolygon> for Gizmos<'w, 's, T> {
+impl<'w, 's, Config, Clear> GizmoPrimitive2d<RegularPolygon> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
     type Output<'a> = () where Self: 'a;
 
     fn primitive_2d(
         &mut self,
-        primitive: RegularPolygon,
+        primitive: &RegularPolygon,
         position: Vec2,
         angle: f32,
         color: impl Into<Color>,

@@ -141,6 +141,11 @@ use std::ptr::NonNull;
 // bundle, in the _exact_ order that [`DynamicBundle::get_components`] is called.
 // - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
 //   [`Bundle::component_ids`].
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a `Bundle`",
+    label = "invalid `Bundle`",
+    note = "consider annotating `{Self}` with `#[derive(Component)]` or `#[derive(Bundle)]`"
+)]
 pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
     #[doc(hidden)]
@@ -178,7 +183,7 @@ pub trait DynamicBundle {
 
 // SAFETY:
 // - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
-// - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on it's associated constant.
+// - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
 // - `Bundle::from_components` calls `func` exactly once for C, which is the exact value returned by `Bundle::component_ids`.
 unsafe impl<C: Component> Bundle for C {
     fn component_ids(
@@ -990,10 +995,10 @@ impl Bundles {
             T::component_ids(components, storages, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
             let bundle_info =
-                // SAFETY: T::component_id ensures its:
-                // - info was created
+                // SAFETY: T::component_id ensures:
+                // - its info was created
                 // - appropriate storage for it has been initialized.
-                // - was created in the same order as the components in T
+                // - it was created in the same order as the components in T
                 unsafe { BundleInfo::new(std::any::type_name::<T>(), components, component_ids, id) };
             bundle_infos.push(bundle_info);
             id
@@ -1205,14 +1210,14 @@ mod tests {
             .register_component_hooks::<A>()
             .on_add(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(0);
-                world.commands().entity(entity).insert(B).insert(D);
+                world.commands().entity(entity).insert(B).insert(C);
             });
 
         world
             .register_component_hooks::<B>()
             .on_add(|mut world, entity, _| {
                 world.resource_mut::<R>().assert_order(1);
-                world.commands().entity(entity).insert(C);
+                world.commands().entity(entity).insert(D);
             });
 
         world

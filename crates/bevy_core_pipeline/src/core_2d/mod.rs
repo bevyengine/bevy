@@ -1,5 +1,5 @@
 mod camera_2d;
-mod main_pass_2d_node;
+mod main_transparent_pass_2d_node;
 
 pub mod graph {
     use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
@@ -14,10 +14,13 @@ pub mod graph {
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
     pub enum Node2d {
         MsaaWriteback,
-        MainPass,
+        StartMainPass,
+        MainTransparentPass,
+        EndMainPass,
         Bloom,
         Tonemapping,
         Fxaa,
+        Smaa,
         Upscaling,
         ContrastAdaptiveSharpening,
         EndMainPassPostProcessing,
@@ -27,10 +30,10 @@ pub mod graph {
 use std::ops::Range;
 
 pub use camera_2d::*;
-pub use main_pass_2d_node::*;
+pub use main_transparent_pass_2d_node::*;
 
 use bevy_app::{App, Plugin};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use bevy_math::FloatOrd;
 use bevy_render::{
     camera::Camera,
@@ -38,12 +41,11 @@ use bevy_render::{
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
         sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
-        SortedPhaseItem, SortedRenderPhase,
+        PhaseItemExtraIndex, SortedPhaseItem, ViewSortedRenderPhases,
     },
     render_resource::CachedRenderPipelineId,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use nonmax::NonMaxU32;
 
 use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
 
@@ -61,6 +63,7 @@ impl Plugin for Core2dPlugin {
         };
         render_app
             .init_resource::<DrawFunctions<Transparent2d>>()
+            .init_resource::<ViewSortedRenderPhases<Transparent2d>>()
             .add_systems(ExtractSchedule, extract_core_2d_camera_phases)
             .add_systems(
                 Render,
@@ -69,14 +72,21 @@ impl Plugin for Core2dPlugin {
 
         render_app
             .add_render_sub_graph(Core2d)
-            .add_render_graph_node::<MainPass2dNode>(Core2d, Node2d::MainPass)
+            .add_render_graph_node::<EmptyNode>(Core2d, Node2d::StartMainPass)
+            .add_render_graph_node::<ViewNodeRunner<MainTransparentPass2dNode>>(
+                Core2d,
+                Node2d::MainTransparentPass,
+            )
+            .add_render_graph_node::<EmptyNode>(Core2d, Node2d::EndMainPass)
             .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(Core2d, Node2d::Tonemapping)
             .add_render_graph_node::<EmptyNode>(Core2d, Node2d::EndMainPassPostProcessing)
             .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(Core2d, Node2d::Upscaling)
             .add_render_graph_edges(
                 Core2d,
                 (
-                    Node2d::MainPass,
+                    Node2d::StartMainPass,
+                    Node2d::MainTransparentPass,
+                    Node2d::EndMainPass,
                     Node2d::Tonemapping,
                     Node2d::EndMainPassPostProcessing,
                     Node2d::Upscaling,
@@ -91,7 +101,7 @@ pub struct Transparent2d {
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
-    pub dynamic_offset: Option<NonMaxU32>,
+    pub extra_index: PhaseItemExtraIndex,
 }
 
 impl PhaseItem for Transparent2d {
@@ -116,13 +126,13 @@ impl PhaseItem for Transparent2d {
     }
 
     #[inline]
-    fn dynamic_offset(&self) -> Option<NonMaxU32> {
-        self.dynamic_offset
+    fn extra_index(&self) -> PhaseItemExtraIndex {
+        self.extra_index
     }
 
     #[inline]
-    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
-        &mut self.dynamic_offset
+    fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
+        (&mut self.batch_range, &mut self.extra_index)
     }
 }
 
@@ -150,13 +160,23 @@ impl CachedRenderPipelinePhaseItem for Transparent2d {
 
 pub fn extract_core_2d_camera_phases(
     mut commands: Commands,
+    mut transparent_2d_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     cameras_2d: Extract<Query<(Entity, &Camera), With<Camera2d>>>,
+    mut live_entities: Local<EntityHashSet>,
 ) {
+    live_entities.clear();
+
     for (entity, camera) in &cameras_2d {
-        if camera.is_active {
-            commands
-                .get_or_spawn(entity)
-                .insert(SortedRenderPhase::<Transparent2d>::default());
+        if !camera.is_active {
+            continue;
         }
+
+        commands.get_or_spawn(entity);
+        transparent_2d_phases.insert_or_clear(entity);
+
+        live_entities.insert(entity);
     }
+
+    // Clear out all dead views.
+    transparent_2d_phases.retain(|camera_entity, _| live_entities.contains(camera_entity));
 }

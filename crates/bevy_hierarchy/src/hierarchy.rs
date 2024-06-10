@@ -91,6 +91,7 @@ pub trait DespawnRecursiveExt {
 
 impl DespawnRecursiveExt for EntityCommands<'_> {
     /// Despawns the provided entity and its children.
+    /// This will emit warnings for any entity that does not exist.
     fn despawn_recursive(mut self) {
         let entity = self.id();
         self.commands().add(DespawnRecursive { entity });
@@ -105,6 +106,7 @@ impl DespawnRecursiveExt for EntityCommands<'_> {
 
 impl<'w> DespawnRecursiveExt for EntityWorldMut<'w> {
     /// Despawns the provided entity and its children.
+    /// This will emit warnings for any entity that does not exist.
     fn despawn_recursive(self) {
         let entity = self.id();
 

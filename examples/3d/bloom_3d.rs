@@ -41,15 +41,15 @@ fn setup_scene(
     ));
 
     let material_emissive1 = materials.add(StandardMaterial {
-        emissive: Color::linear_rgb(23000.0, 9000.0, 3000.0), // 4. Put something bright in a dark environment to see the effect
+        emissive: LinearRgba::rgb(13.99, 5.32, 2.0), // 4. Put something bright in a dark environment to see the effect
         ..default()
     });
     let material_emissive2 = materials.add(StandardMaterial {
-        emissive: Color::linear_rgb(3000.0, 23000.0, 9000.0),
+        emissive: LinearRgba::rgb(2.0, 13.99, 5.32),
         ..default()
     });
     let material_emissive3 = materials.add(StandardMaterial {
-        emissive: Color::linear_rgb(9000.0, 3000.0, 23000.0),
+        emissive: LinearRgba::rgb(5.32, 2.0, 13.99),
         ..default()
     });
     let material_non_emissive = materials.add(StandardMaterial {
@@ -89,15 +89,7 @@ fn setup_scene(
 
     // example instructions
     commands.spawn(
-        TextBundle::from_section(
-            "",
-            TextStyle {
-                font_size: 20.0,
-                color: Color::WHITE,
-                ..default()
-            },
-        )
-        .with_style(Style {
+        TextBundle::from_section("", TextStyle::default()).with_style(Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),

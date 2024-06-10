@@ -20,7 +20,7 @@ use bevy::{
         batching::NoAutomaticBatching,
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
-        view::NoFrustumCulling,
+        view::{GpuCulling, NoCpuCulling, NoFrustumCulling},
     },
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -51,13 +51,21 @@ struct Args {
     #[argh(option, default = "1")]
     mesh_count: usize,
 
-    /// whether to disable frustum culling. Stresses queuing and batching as all mesh material entities in the scene are always drawn.
+    /// whether to disable all frustum culling. Stresses queuing and batching as all mesh material entities in the scene are always drawn.
     #[argh(switch)]
     no_frustum_culling: bool,
 
     /// whether to disable automatic batching. Skips batching resulting in heavy stress on render pass draw command encoding.
     #[argh(switch)]
     no_automatic_batching: bool,
+
+    /// whether to enable GPU culling.
+    #[argh(switch)]
+    gpu_culling: bool,
+
+    /// whether to disable CPU culling.
+    #[argh(switch)]
+    no_cpu_culling: bool,
 
     /// whether to enable directional light cascaded shadow mapping.
     #[argh(switch)]
@@ -172,7 +180,14 @@ fn setup(
             }
 
             // camera
-            commands.spawn(Camera3dBundle::default());
+            let mut camera = commands.spawn(Camera3dBundle::default());
+            if args.gpu_culling {
+                camera.insert(GpuCulling);
+            }
+            if args.no_cpu_culling {
+                camera.insert(NoCpuCulling);
+            }
+
             // Inside-out box around the meshes onto which shadows are cast (though you cannot see them...)
             commands.spawn((
                 PbrBundle {
@@ -388,6 +403,7 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
                 assets.add(
                     Plane3d {
                         normal: Dir3::NEG_Z,
+                        half_size: Vec2::splat(0.5),
                     }
                     .mesh()
                     .size(radius, radius),

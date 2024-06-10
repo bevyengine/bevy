@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 
 use crate::primitives::Frustum;
+use crate::view::VisibilitySystems;
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::prelude::*;
 use bevy_math::{AspectRatio, Mat4, Rect, Vec2, Vec3A};
@@ -9,9 +10,12 @@ use bevy_reflect::{
     std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
 };
 use bevy_transform::components::GlobalTransform;
+use bevy_transform::TransformSystem;
 use serde::{Deserialize, Serialize};
 
 /// Adds [`Camera`](crate::camera::Camera) driver systems for a given projection type.
+///
+/// If you are using `bevy_pbr`, then you need to add `PbrProjectionPlugin` along with this.
 pub struct CameraProjectionPlugin<T: CameraProjection + Component + GetTypeRegistration>(
     PhantomData<T>,
 );
@@ -29,12 +33,22 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
             )
             .add_systems(
                 PostUpdate,
-                crate::camera::camera_system::<T>
-                    .in_set(CameraUpdateSystem)
-                    // We assume that each camera will only have one projection,
-                    // so we can ignore ambiguities with all other monomorphizations.
-                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                    .ambiguous_with(CameraUpdateSystem),
+                (
+                    crate::camera::camera_system::<T>
+                        .in_set(CameraUpdateSystem)
+                        // We assume that each camera will only have one projection,
+                        // so we can ignore ambiguities with all other monomorphizations.
+                        // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                        .ambiguous_with(CameraUpdateSystem),
+                    crate::view::update_frusta::<T>
+                        .in_set(VisibilitySystems::UpdateFrusta)
+                        .after(crate::camera::camera_system::<T>)
+                        .after(TransformSystem::TransformPropagate)
+                        // We assume that no camera will have more than one projection component,
+                        // so these systems will run independently of one another.
+                        // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                        .ambiguous_with(VisibilitySystems::UpdateFrusta),
+                ),
             );
     }
 }
@@ -56,9 +70,12 @@ pub struct CameraUpdateSystem;
 /// to recompute the camera projection matrix of the [`Camera`] component attached to
 /// the same entity as the component implementing this trait.
 ///
+/// Use the plugins [`CameraProjectionPlugin`] and `bevy::pbr::PbrProjectionPlugin` to setup the
+/// systems for your [`CameraProjection`] implementation.
+///
 /// [`Camera`]: crate::camera::Camera
 pub trait CameraProjection {
-    fn get_projection_matrix(&self) -> Mat4;
+    fn get_clip_from_view(&self) -> Mat4;
     fn update(&mut self, width: f32, height: f32);
     fn far(&self) -> f32;
     fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8];
@@ -68,10 +85,10 @@ pub trait CameraProjection {
     /// This code is called by [`update_frusta`](crate::view::visibility::update_frusta) system
     /// for each camera to update its frustum.
     fn compute_frustum(&self, camera_transform: &GlobalTransform) -> Frustum {
-        let view_projection =
-            self.get_projection_matrix() * camera_transform.compute_matrix().inverse();
-        Frustum::from_view_projection_custom_far(
-            &view_projection,
+        let clip_from_world =
+            self.get_clip_from_view() * camera_transform.compute_matrix().inverse();
+        Frustum::from_clip_from_world_custom_far(
+            &clip_from_world,
             &camera_transform.translation(),
             &camera_transform.back(),
             self.far(),
@@ -100,10 +117,10 @@ impl From<OrthographicProjection> for Projection {
 }
 
 impl CameraProjection for Projection {
-    fn get_projection_matrix(&self) -> Mat4 {
+    fn get_clip_from_view(&self) -> Mat4 {
         match self {
-            Projection::Perspective(projection) => projection.get_projection_matrix(),
-            Projection::Orthographic(projection) => projection.get_projection_matrix(),
+            Projection::Perspective(projection) => projection.get_clip_from_view(),
+            Projection::Orthographic(projection) => projection.get_clip_from_view(),
         }
     }
 
@@ -168,7 +185,7 @@ pub struct PerspectiveProjection {
 }
 
 impl CameraProjection for PerspectiveProjection {
-    fn get_projection_matrix(&self) -> Mat4 {
+    fn get_clip_from_view(&self) -> Mat4 {
         Mat4::perspective_infinite_reverse_rh(self.fov, self.aspect_ratio, self.near)
     }
 
@@ -374,7 +391,7 @@ pub struct OrthographicProjection {
 }
 
 impl CameraProjection for OrthographicProjection {
-    fn get_projection_matrix(&self) -> Mat4 {
+    fn get_clip_from_view(&self) -> Mat4 {
         Mat4::orthographic_rh(
             self.area.min.x,
             self.area.max.x,
@@ -423,8 +440,16 @@ impl CameraProjection for OrthographicProjection {
             ScalingMode::Fixed { width, height } => (width, height),
         };
 
-        let origin_x = projection_width * self.viewport_origin.x;
-        let origin_y = projection_height * self.viewport_origin.y;
+        let mut origin_x = projection_width * self.viewport_origin.x;
+        let mut origin_y = projection_height * self.viewport_origin.y;
+
+        // If projection is based on window pixels,
+        // ensure we don't end up with fractional pixels!
+        if let ScalingMode::WindowSize(pixel_scale) = self.scaling_mode {
+            // round to nearest multiple of `pixel_scale`
+            origin_x = (origin_x * pixel_scale).round() / pixel_scale;
+            origin_y = (origin_y * pixel_scale).round() / pixel_scale;
+        }
 
         self.area = Rect::new(
             self.scale * -origin_x,

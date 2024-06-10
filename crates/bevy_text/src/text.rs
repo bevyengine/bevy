@@ -14,7 +14,7 @@ pub struct Text {
     /// The text's internal alignment.
     /// Should not affect its position within a container.
     pub justify: JustifyText,
-    /// How the text should linebreak when running out of the bounds determined by max_size
+    /// How the text should linebreak when running out of the bounds determined by `max_size`
     pub linebreak_behavior: BreakLineOn,
 }
 
@@ -202,7 +202,7 @@ impl Default for TextStyle {
     fn default() -> Self {
         Self {
             font: Default::default(),
-            font_size: 12.0,
+            font_size: 24.0,
             color: Color::WHITE,
         }
     }

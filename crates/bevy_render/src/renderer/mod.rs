@@ -458,6 +458,8 @@ impl<'w> RenderContext<'w> {
     ///
     /// This function will wait until all command buffer generation tasks are complete
     /// by running them in parallel (where supported).
+    ///
+    /// The [`CommandBuffer`]s will be returned in the order that they were added.
     pub fn finish(
         mut self,
     ) -> (

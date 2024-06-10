@@ -22,7 +22,7 @@ pub struct SceneInstance(pub(crate) InstanceId);
 ///
 /// The scene from `scene` will be spawned as a child of the entity with this component.
 /// Once it's spawned, the entity will have a [`SceneInstance`] component.
-#[derive(Default, Bundle)]
+#[derive(Default, Bundle, Clone)]
 pub struct SceneBundle {
     /// Handle to the scene to spawn.
     pub scene: Handle<Scene>,
@@ -46,7 +46,7 @@ pub struct SceneBundle {
 ///
 /// The dynamic scene from `scene` will be spawn as a child of the entity with this component.
 /// Once it's spawned, the entity will have a [`SceneInstance`] component.
-#[derive(Default, Bundle)]
+#[derive(Default, Bundle, Clone)]
 pub struct DynamicSceneBundle {
     /// Handle to the scene to spawn.
     pub scene: Handle<DynamicScene>,

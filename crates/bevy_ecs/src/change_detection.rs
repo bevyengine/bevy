@@ -131,6 +131,12 @@ pub trait DetectChangesMut: DetectChanges {
     /// This is useful to ensure change detection is only triggered when the underlying value
     /// changes, instead of every time it is mutably accessed.
     ///
+    /// If you're dealing with non-trivial structs which have multiple fields of non-trivial size,
+    /// then consider applying a `map_unchanged` beforehand to allow changing only the relevant
+    /// field and prevent unnecessary copying and cloning.
+    /// See the docs of [`Mut::map_unchanged`], [`MutUntyped::map_unchanged`],
+    /// [`ResMut::map_unchanged`] or [`NonSendMut::map_unchanged`] for an example
+    ///
     /// If you need the previous value, use [`replace_if_neq`](DetectChangesMut::replace_if_neq).
     ///
     /// # Examples
@@ -180,6 +186,12 @@ pub trait DetectChangesMut: DetectChanges {
     ///
     /// This is useful to ensure change detection is only triggered when the underlying value
     /// changes, instead of every time it is mutably accessed.
+    ///
+    /// If you're dealing with non-trivial structs which have multiple fields of non-trivial size,
+    /// then consider applying a [`map_unchanged`](Mut::map_unchanged) beforehand to allow
+    /// changing only the relevant field and prevent unnecessary copying and cloning.
+    /// See the docs of [`Mut::map_unchanged`], [`MutUntyped::map_unchanged`],
+    /// [`ResMut::map_unchanged`] or [`NonSendMut::map_unchanged`] for an example
     ///
     /// If you don't need the previous value, use [`set_if_neq`](DetectChangesMut::set_if_neq).
     ///
@@ -716,6 +728,65 @@ change_detection_impl!(Ref<'w, T>, T,);
 impl_debug!(Ref<'w, T>,);
 
 /// Unique mutable borrow of an entity's component or of a resource.
+///
+/// This can be used in queries to opt into change detection on both their mutable and immutable forms, as opposed to
+/// `&mut T`, which only provides access to change detection while in its mutable form:
+///
+/// ```rust
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::query::QueryData;
+/// #
+/// #[derive(Component, Clone)]
+/// struct Name(String);
+///
+/// #[derive(Component, Clone, Copy)]
+/// struct Health(f32);
+///
+/// #[derive(Component, Clone, Copy)]
+/// struct Position {
+///     x: f32,
+///     y: f32,
+/// };
+///
+/// #[derive(Component, Clone, Copy)]
+/// struct Player {
+///     id: usize,
+/// };
+///
+/// #[derive(QueryData)]
+/// #[query_data(mutable)]
+/// struct PlayerQuery {
+///     id: &'static Player,
+///
+///     // Reacting to `PlayerName` changes is expensive, so we need to enable change detection when reading it.
+///     name: Mut<'static, Name>,
+///
+///     health: &'static mut Health,
+///     position: &'static mut Position,
+/// }
+///
+/// fn update_player_avatars(players_query: Query<PlayerQuery>) {
+///     // The item returned by the iterator is of type `PlayerQueryReadOnlyItem`.
+///     for player in players_query.iter() {
+///         if player.name.is_changed() {
+///             // Update the player's name. This clones a String, and so is more expensive.
+///             update_player_name(player.id, player.name.clone());
+///         }
+///
+///         // Update the health bar.
+///         update_player_health(player.id, *player.health);
+///
+///         // Update the player's position.
+///         update_player_position(player.id, *player.position);
+///     }
+/// }
+///
+/// # bevy_ecs::system::assert_is_system(update_player_avatars);
+///
+/// # fn update_player_name(player: &Player, new_name: Name) {}
+/// # fn update_player_health(player: &Player, new_health: Health) {}
+/// # fn update_player_position(player: &Player, new_position: Position) {}
+/// ```
 pub struct Mut<'w, T: ?Sized> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
@@ -831,6 +902,12 @@ impl<'w> MutUntyped<'w> {
                 this_run: self.ticks.this_run,
             },
         }
+    }
+
+    /// Returns `true` if this value was changed or mutably dereferenced
+    /// either since a specific change tick.
+    pub fn has_changed_since(&self, tick: Tick) -> bool {
+        self.ticks.changed.is_newer_than(tick, self.ticks.this_run)
     }
 
     /// Returns a pointer to the value without taking ownership of this smart pointer, marking it as changed.

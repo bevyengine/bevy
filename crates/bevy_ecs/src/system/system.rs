@@ -22,6 +22,7 @@ use super::IntoSystem;
 /// Systems are executed in parallel, in opportunistic order; data access is managed automatically.
 /// It's possible to specify explicit execution order between specific systems,
 /// see [`IntoSystemConfigs`](crate::schedule::IntoSystemConfigs).
+#[diagnostic::on_unimplemented(message = "`{Self}` is not a system", label = "invalid system")]
 pub trait System: Send + Sync + 'static {
     /// The system's input. See [`In`](crate::system::In) for
     /// [`FunctionSystem`](crate::system::FunctionSystem)s.
@@ -105,6 +106,8 @@ pub trait System: Send + Sync + 'static {
     fn check_change_tick(&mut self, change_tick: Tick);
 
     /// Returns the system's default [system sets](crate::schedule::SystemSet).
+    ///
+    /// Each system will create a default system set that contains the system.
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         Vec::new()
     }
@@ -176,7 +179,7 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// Trait used to run a system immediately on a [`World`].
 ///
 /// # Warning
-/// This function is not an efficient method of running systems and its meant to be used as a utility
+/// This function is not an efficient method of running systems and it's meant to be used as a utility
 /// for testing and/or diagnostics.
 ///
 /// Systems called through [`run_system_once`](RunSystemOnce::run_system_once) do not hold onto any state,

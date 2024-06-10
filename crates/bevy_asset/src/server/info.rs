@@ -35,7 +35,7 @@ pub(crate) struct AssetInfo {
     /// [`LoadedAsset`]: crate::loader::LoadedAsset
     loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
     /// The number of handle drops to skip for this asset.
-    /// See usage (and comments) in get_or_create_path_handle for context.
+    /// See usage (and comments) in `get_or_create_path_handle` for context.
     handle_drops_to_skip: usize,
 }
 
@@ -377,6 +377,11 @@ impl AssetInfos {
         world: &mut World,
         sender: &Sender<InternalAssetEvent>,
     ) {
+        // Check whether the handle has been dropped since the asset was loaded.
+        if !self.infos.contains_key(&loaded_asset_id) {
+            return;
+        }
+
         loaded_asset.value.insert(loaded_asset_id, world);
         let mut loading_deps = loaded_asset.dependencies;
         let mut failed_deps = HashSet::new();
