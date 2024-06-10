@@ -597,6 +597,18 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "mesh2d_transforms"
+path = "examples/2d/mesh2d_transforms.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mesh2d_transforms]
+name = "Mesh2d Transforms"
+description = "Used to test transforms with mesh2d"
+category = "2D Rendering"
+wasm = true
+
+
+[[example]]
 name = "pixel_grid_snap"
 path = "examples/2d/pixel_grid_snap.rs"
 doc-scrape-examples = true
