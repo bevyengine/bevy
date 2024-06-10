@@ -37,7 +37,7 @@ use std::{
 /// Derived `SystemParam` structs may have two lifetimes: `'w` for data stored in the [`World`],
 /// and `'s` for data stored in the parameter's state.
 /// instead of `'w` and `'s`, you are permitted to use `'world` and `'state`
-/// 
+///
 /// The following list shows the most common [`SystemParam`]s and which lifetime they require
 ///
 /// ```
@@ -125,7 +125,7 @@ use std::{
 ///   by [`SystemParam::get_param`] with the provided [`system_meta`](SystemMeta).
 /// - None of the world accesses may conflict with any prior accesses registered
 ///   on `system_meta`.
-/// 
+///
 /// Doc test to ensure that 'world and 'state are permitted aswell
 /// ```
 /// # use bevy_ecs::prelude::*;
