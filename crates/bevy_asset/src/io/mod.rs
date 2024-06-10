@@ -710,14 +710,19 @@ impl Stream for EmptyPathStream {
 /// A helper type that indicates the type of file that was changed.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum AssetSourceFileType {
+    /// The file is an asset. (e.g. `.png`, `.obj`, etc.)
     Asset,
+    /// The file contains metadata for an asset. (e.g.`test.png.meta`, `animal.obj.meta`, etc.)
     Meta,
+    /// The file contains default metadata for a class of asset (e.g. `png.defaults`, `obj.defaults`, etc.)
     Defaults,
 }
 
 /// A helper type that bundles a path with the type of file that was changed.
 #[derive(Debug)]
 pub(crate) struct AssetSourceEventPath {
+    /// The path of the asset file that is the subject of the event.
     pub path: PathBuf,
+    /// The type of asset file that was changed.
     pub file_type: AssetSourceFileType,
 }
