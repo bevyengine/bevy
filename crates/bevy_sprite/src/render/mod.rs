@@ -5,7 +5,7 @@ use crate::{
     ComputedTextureSlices, Sprite, WithSprite, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
-use bevy_color::LinearRgba;
+use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_core_pipeline::{
     core_2d::Transparent2d,
     tonemapping::{

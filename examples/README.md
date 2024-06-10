@@ -45,6 +45,7 @@ git checkout v0.4.0
   - [Assets](#assets)
   - [Async Tasks](#async-tasks)
   - [Audio](#audio)
+  - [Camera](#camera)
   - [Dev tools](#dev-tools)
   - [Diagnostics](#diagnostics)
   - [ECS (Entity Component System)](#ecs-entity-component-system)
@@ -240,6 +241,12 @@ Example | Description
 [Spatial Audio 2D](../examples/audio/spatial_audio_2d.rs) | Shows how to play spatial audio, and moving the emitter in 2D
 [Spatial Audio 3D](../examples/audio/spatial_audio_3d.rs) | Shows how to play spatial audio, and moving the emitter in 3D
 
+## Camera
+
+Example | Description
+--- | ---
+[2D top-down camera](../examples/camera/2d_top_down_camera.rs) | A 2D top-down camera smoothly following player movements
+
 ## Dev tools
 
 Example | Description
@@ -325,6 +332,7 @@ Example | Description
 [Random Sampling](../examples/math/random_sampling.rs) | Demonstrates how to sample random points from mathematical primitives
 [Rendering Primitives](../examples/math/render_primitives.rs) | Shows off rendering for all math primitives as both Meshes and Gizmos
 [Sampling Primitives](../examples/math/sampling_primitives.rs) | Demonstrates all the primitives which can be sampled.
+[Smooth Follow](../examples/math/smooth_follow.rs) | Demonstrates how to make an entity smoothly follow another using interpolation
 
 ## Reflection
 
