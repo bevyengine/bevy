@@ -53,30 +53,58 @@ pub struct StateTransitionEvent<S: States> {
     pub entered: Option<S>,
 }
 
-/// Applies manual state transitions using [`NextState<S>`].
+/// Applies state transitions and runs transitions schedules in order.
 ///
 /// These system sets are run sequentially, in the order of the enum variants.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
-pub enum StateTransitionSteps {
-    /// Parentless states apply their [`NextState<S>`].
-    RootTransitions,
-    /// States with parents apply their computation and [`NextState<S>`].
+pub(crate) enum StateTransitionSteps {
+    /// States apply their transitions from [`NextState`] and compute functions based on their parent states.
     DependentTransitions,
-    /// Exit schedules are executed.
+    /// Exit schedules are executed in leaf to root order
     ExitSchedules,
-    /// Transition schedules are executed.
+    /// Transition schedules are executed in arbitrary order.
     TransitionSchedules,
-    /// Enter schedules are executed.
+    /// Enter schedules are executed in root to leaf order.
     EnterSchedules,
 }
 
-/// Defines a system set to aid with dependent state ordering
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ApplyStateTransition<S: States>(PhantomData<S>);
+/// System set that runs exit schedule(s) for state `S`.
+pub struct ExitSchedules<S: States>(PhantomData<S>);
 
-impl<S: States> ApplyStateTransition<S> {
-    pub(crate) fn apply() -> Self {
-        Self(PhantomData)
+impl<S: States> Default for ExitSchedules<S> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+/// System set that runs transition schedule(s) for state `S`.
+pub struct TransitionSchedules<S: States>(PhantomData<S>);
+
+impl<S: States> Default for TransitionSchedules<S> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+/// System set that runs enter schedule(s) for state `S`.
+pub struct EnterSchedules<S: States>(PhantomData<S>);
+
+impl<S: States> Default for EnterSchedules<S> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+/// System set that applies transitions for state `S`.
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct ApplyStateTransition<S: States>(PhantomData<S>);
+
+impl<S: States> Default for ApplyStateTransition<S> {
+    fn default() -> Self {
+        Self(Default::default())
     }
 }
 
@@ -151,7 +179,6 @@ pub fn setup_state_transitions_in_world(
     let mut schedule = Schedule::new(StateTransition);
     schedule.configure_sets(
         (
-            StateTransitionSteps::RootTransitions,
             StateTransitionSteps::DependentTransitions,
             StateTransitionSteps::ExitSchedules,
             StateTransitionSteps::TransitionSchedules,
