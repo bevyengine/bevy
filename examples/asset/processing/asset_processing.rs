@@ -230,6 +230,8 @@ struct TextAssets {
     d: Handle<Text>,
     e: Handle<Text>,
     f: Handle<Text>,
+    g: Handle<Text>,
+    h: Handle<Text>,
 }
 
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
@@ -241,7 +243,14 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         c: assets.load("foo/c.cool.ron"),
         d: assets.load("d.cool.ron"),
         e: assets.load("embedded://asset_processing/e.txt"),
+        // This asset `f.cool.ron` will inherit its processing metadata from the root directory `cool.ron.defaults`
+        // If no `.meta` file is found, the asset will be processed with the default settings.
+        // If no `.defaults` file is found, default metadata will be generated for the asset.
         f: assets.load("foo/f.cool.ron"),
+        // This asset `g.cool.ron` will inherit its processing metadata from the root directory `cool.ron.defaults`
+        g: assets.load("nested/directory/g.cool.ron"),
+        // This asset `h.cool.ron` will inherit its processing metadata from `nested/directory/tree/cool.ron.deafults` which masks the root directory defaults.
+        h: assets.load("nested/directory/tree/h.cool.ron"),
     });
 }
 
@@ -260,6 +269,8 @@ fn print_text(
         println!("  d: {:?}", texts.get(&handles.d));
         println!("  e: {:?}", texts.get(&handles.e));
         println!("  f: {:?}", texts.get(&handles.f));
+        println!("  g: {:?}", texts.get(&handles.g));
+        println!("  h: {:?}", texts.get(&handles.h));
         println!("(You can modify source assets and their .meta files to hot-reload changes!)");
         println!();
         asset_events.clear();
