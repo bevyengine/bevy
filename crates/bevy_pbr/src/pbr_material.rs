@@ -747,6 +747,11 @@ impl StandardMaterial {
         self.flip(horizontal, vertical);
         self
     }
+
+    /// Creates a new material from a given color
+    pub fn from_color(color: impl Into<Color>) -> Self {
+        Self::from(color.into())
+    }
 }
 
 impl Default for StandardMaterial {
