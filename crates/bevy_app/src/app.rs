@@ -10,8 +10,6 @@ use bevy_ecs::{
     schedule::{ScheduleBuildSettings, ScheduleLabel},
     system::{IntoObserverSystem, SystemId},
 };
-#[cfg(feature = "bevy_state")]
-use bevy_state::{prelude::*, state::FreelyMutableState};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{tracing::debug, HashMap};
@@ -264,59 +262,6 @@ impl App {
     /// Returns `true` if any of the sub-apps are building plugins.
     pub(crate) fn is_building_plugins(&self) -> bool {
         self.sub_apps.iter().any(|s| s.is_building_plugins())
-    }
-
-    #[cfg(feature = "bevy_state")]
-    /// Initializes a [`State`] with standard starting values.
-    ///
-    /// This method is idempotent: it has no effect when called again using the same generic type.
-    ///
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`], [`OnTransition`] and [`OnExit`] schedules.
-    /// These schedules are triggered before [`Update`](crate::Update) and at startup.
-    ///
-    /// If you would like to control how other systems run based on the current state, you can
-    /// emulate this behavior using the [`in_state`] [`Condition`].
-    ///
-    /// Note that you can also apply state transitions at other points in the schedule
-    /// by triggering the [`StateTransition`](`bevy_ecs::schedule::StateTransition`) schedule manually.
-    pub fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
-        self.main_mut().init_state::<S>();
-        self
-    }
-
-    #[cfg(feature = "bevy_state")]
-    /// Inserts a specific [`State`] to the current [`App`] and overrides any [`State`] previously
-    /// added of the same type.
-    ///
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`], [`OnTransition`] and [`OnExit`] schedules.
-    /// These schedules are triggered before [`Update`](crate::Update) and at startup.
-    ///
-    /// If you would like to control how other systems run based on the current state, you can
-    /// emulate this behavior using the [`in_state`] [`Condition`].
-    ///
-    /// Note that you can also apply state transitions at other points in the schedule
-    /// by triggering the [`StateTransition`](`bevy_ecs::schedule::StateTransition`) schedule manually.
-    pub fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
-        self.main_mut().insert_state::<S>(state);
-        self
-    }
-
-    #[cfg(feature = "bevy_state")]
-    /// Sets up a type implementing [`ComputedStates`].
-    ///
-    /// This method is idempotent: it has no effect when called again using the same generic type.
-    pub fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
-        self.main_mut().add_computed_state::<S>();
-        self
-    }
-
-    #[cfg(feature = "bevy_state")]
-    /// Sets up a type implementing [`SubStates`].
-    ///
-    /// This method is idempotent: it has no effect when called again using the same generic type.
-    pub fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
-        self.main_mut().add_sub_state::<S>();
-        self
     }
 
     /// Adds one or more systems to the given schedule in this app's [`Schedules`].
@@ -906,17 +851,7 @@ fn run_once(mut app: App) -> AppExit {
 
     app.update();
 
-    let mut exit_code_reader = ManualEventReader::default();
-    if let Some(app_exit_events) = app.world().get_resource::<Events<AppExit>>() {
-        if exit_code_reader
-            .read(app_exit_events)
-            .any(AppExit::is_error)
-        {
-            return AppExit::error();
-        }
-    }
-
-    AppExit::Success
+    app.should_exit().unwrap_or(AppExit::Success)
 }
 
 /// An event that indicates the [`App`] should exit. If one or more of these are present at the end of an update,
@@ -992,9 +927,9 @@ impl Termination for AppExit {
 mod tests {
     use std::{marker::PhantomData, mem};
 
-    use bevy_ecs::{schedule::ScheduleLabel, system::Commands};
+    use bevy_ecs::{event::EventWriter, schedule::ScheduleLabel, system::Commands};
 
-    use crate::{App, AppExit, Plugin};
+    use crate::{App, AppExit, Plugin, Update};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -1195,6 +1130,21 @@ mod tests {
             GenericLabel::<u32>(PhantomData).intern(),
             GenericLabel::<u64>(PhantomData).intern()
         );
+    }
+
+    #[test]
+    fn runner_returns_correct_exit_code() {
+        fn raise_exits(mut exits: EventWriter<AppExit>) {
+            // Exit codes chosen by a fair dice roll.
+            // Unlikely to overlap with default values.
+            exits.send(AppExit::Success);
+            exits.send(AppExit::from_code(4));
+            exits.send(AppExit::from_code(73));
+        }
+
+        let exit = App::new().add_systems(Update, raise_exits).run();
+
+        assert_eq!(exit, AppExit::from_code(4));
     }
 
     /// Custom runners should be in charge of when `app::update` gets called as they may need to

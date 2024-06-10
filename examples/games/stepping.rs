@@ -85,10 +85,8 @@ fn initialized(state: Res<State>) -> bool {
     !state.systems.is_empty()
 }
 
-const FONT_SIZE: f32 = 20.0;
 const FONT_COLOR: Color = Color::srgb(0.2, 0.2, 0.2);
 const FONT_BOLD: &str = "fonts/FiraSans-Bold.ttf";
-const FONT_MEDIUM: &str = "fonts/FiraMono-Medium.ttf";
 
 #[derive(Component)]
 struct SteppingUi;
@@ -120,8 +118,8 @@ fn build_ui(
             format!("{:?}\n", label),
             TextStyle {
                 font: asset_server.load(FONT_BOLD),
-                font_size: FONT_SIZE,
                 color: FONT_COLOR,
+                ..default()
             },
         ));
 
@@ -146,9 +144,8 @@ fn build_ui(
             text_sections.push(TextSection::new(
                 "   ",
                 TextStyle {
-                    font: asset_server.load(FONT_MEDIUM),
-                    font_size: FONT_SIZE,
                     color: FONT_COLOR,
+                    ..default()
                 },
             ));
 
@@ -156,9 +153,8 @@ fn build_ui(
             text_sections.push(TextSection::new(
                 format!("{}\n", system.name()),
                 TextStyle {
-                    font: asset_server.load(FONT_MEDIUM),
-                    font_size: FONT_SIZE,
                     color: FONT_COLOR,
+                    ..default()
                 },
             ));
         }
@@ -186,7 +182,7 @@ fn build_ui(
     ));
 }
 
-fn build_stepping_hint(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn build_stepping_hint(mut commands: Commands) {
     let hint_text = if cfg!(feature = "bevy_debug_stepping") {
         "Press ` to toggle stepping mode (S: step system, Space: step frame)"
     } else {
@@ -197,9 +193,9 @@ fn build_stepping_hint(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((TextBundle::from_sections([TextSection::new(
         hint_text,
         TextStyle {
-            font: asset_server.load(FONT_MEDIUM),
             font_size: 18.0,
             color: FONT_COLOR,
+            ..default()
         },
     )])
     .with_style(Style {

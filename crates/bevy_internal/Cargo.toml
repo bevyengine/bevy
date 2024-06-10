@@ -62,7 +62,10 @@ symphonia-vorbis = ["bevy_audio/symphonia-vorbis"]
 symphonia-wav = ["bevy_audio/symphonia-wav"]
 
 # Shader formats
-shader_format_glsl = ["bevy_render/shader_format_glsl"]
+shader_format_glsl = [
+  "bevy_render/shader_format_glsl",
+  "bevy_pbr?/shader_format_glsl",
+]
 shader_format_spirv = ["bevy_render/shader_format_spirv"]
 
 serialize = [
@@ -180,7 +183,7 @@ bevy_dev_tools = ["dep:bevy_dev_tools"]
 ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
 
 # Enable built in global state machines
-bevy_state = ["dep:bevy_state", "bevy_app/bevy_state"]
+bevy_state = ["dep:bevy_state"]
 
 [dependencies]
 # bevy

@@ -75,7 +75,7 @@ pub struct CameraUpdateSystem;
 ///
 /// [`Camera`]: crate::camera::Camera
 pub trait CameraProjection {
-    fn get_projection_matrix(&self) -> Mat4;
+    fn get_clip_from_view(&self) -> Mat4;
     fn update(&mut self, width: f32, height: f32);
     fn far(&self) -> f32;
     fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8];
@@ -85,10 +85,10 @@ pub trait CameraProjection {
     /// This code is called by [`update_frusta`](crate::view::visibility::update_frusta) system
     /// for each camera to update its frustum.
     fn compute_frustum(&self, camera_transform: &GlobalTransform) -> Frustum {
-        let view_projection =
-            self.get_projection_matrix() * camera_transform.compute_matrix().inverse();
-        Frustum::from_view_projection_custom_far(
-            &view_projection,
+        let clip_from_world =
+            self.get_clip_from_view() * camera_transform.compute_matrix().inverse();
+        Frustum::from_clip_from_world_custom_far(
+            &clip_from_world,
             &camera_transform.translation(),
             &camera_transform.back(),
             self.far(),
@@ -117,10 +117,10 @@ impl From<OrthographicProjection> for Projection {
 }
 
 impl CameraProjection for Projection {
-    fn get_projection_matrix(&self) -> Mat4 {
+    fn get_clip_from_view(&self) -> Mat4 {
         match self {
-            Projection::Perspective(projection) => projection.get_projection_matrix(),
-            Projection::Orthographic(projection) => projection.get_projection_matrix(),
+            Projection::Perspective(projection) => projection.get_clip_from_view(),
+            Projection::Orthographic(projection) => projection.get_clip_from_view(),
         }
     }
 
@@ -185,7 +185,7 @@ pub struct PerspectiveProjection {
 }
 
 impl CameraProjection for PerspectiveProjection {
-    fn get_projection_matrix(&self) -> Mat4 {
+    fn get_clip_from_view(&self) -> Mat4 {
         Mat4::perspective_infinite_reverse_rh(self.fov, self.aspect_ratio, self.near)
     }
 
@@ -391,7 +391,7 @@ pub struct OrthographicProjection {
 }
 
 impl CameraProjection for OrthographicProjection {
-    fn get_projection_matrix(&self) -> Mat4 {
+    fn get_clip_from_view(&self) -> Mat4 {
         Mat4::orthographic_rh(
             self.area.min.x,
             self.area.max.x,

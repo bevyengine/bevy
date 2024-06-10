@@ -178,6 +178,45 @@ where
             resolution: DEFAULT_CIRCLE_RESOLUTION,
         }
     }
+
+    /// Draw a wireframe sphere in 3D made out of 3 circles around the axes.
+    ///
+    /// This should be called for each frame the sphere needs to be rendered.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// # use bevy_color::Color;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.sphere(Vec3::ZERO, Quat::IDENTITY, 1., Color::BLACK);
+    ///
+    ///     // Each circle has 32 line-segments by default.
+    ///     // You may want to increase this for larger spheres.
+    ///     gizmos
+    ///         .sphere(Vec3::ZERO, Quat::IDENTITY, 5., Color::BLACK)
+    ///         .resolution(64);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn sphere(
+        &mut self,
+        position: Vec3,
+        rotation: Quat,
+        radius: f32,
+        color: impl Into<Color>,
+    ) -> SphereBuilder<'_, 'w, 's, Config, Clear> {
+        SphereBuilder {
+            gizmos: self,
+            radius,
+            position,
+            rotation,
+            color: color.into(),
+            resolution: DEFAULT_CIRCLE_RESOLUTION,
+        }
+    }
 }
 
 /// A builder returned by [`Gizmos::ellipse`].
@@ -264,5 +303,68 @@ where
             .map(|vec2| self.rotation * vec2)
             .map(|vec2| vec2 + self.position);
         self.gizmos.linestrip_2d(positions, self.color);
+    }
+}
+
+/// Builder for configuring the drawing options of [`Sphere`].
+pub struct SphereBuilder<'a, 'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
+
+    // Radius of the sphere
+    radius: f32,
+
+    // Rotation of the sphere around the origin in 3D space
+    rotation: Quat,
+    // Center position of the sphere in 3D space
+    position: Vec3,
+    // Color of the sphere
+    color: Color,
+
+    // Number of line-segments used to approximate the sphere geometry
+    resolution: usize,
+}
+
+impl<Config, Clear> SphereBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Set the number of line-segments used to approximate the sphere geometry.
+    pub fn resolution(mut self, resolution: usize) -> Self {
+        self.resolution = resolution;
+        self
+    }
+}
+
+impl<Config, Clear> Drop for SphereBuilder<'_, '_, '_, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    fn drop(&mut self) {
+        if !self.gizmos.enabled {
+            return;
+        }
+
+        let SphereBuilder {
+            radius,
+            position: center,
+            rotation,
+            color,
+            resolution,
+            ..
+        } = self;
+
+        // draws one great circle around each of the local axes
+        Vec3::AXES.into_iter().for_each(|axis| {
+            let normal = *rotation * axis;
+            self.gizmos
+                .circle(*center, Dir3::new_unchecked(normal), *radius, *color)
+                .resolution(*resolution);
+        });
     }
 }

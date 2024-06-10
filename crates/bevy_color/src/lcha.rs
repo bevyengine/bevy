@@ -1,5 +1,6 @@
 use crate::{
-    Alpha, ColorToComponents, Hue, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
+    Alpha, ColorToComponents, Gray, Hue, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor,
+    Xyza,
 };
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::prelude::*;
@@ -120,6 +121,11 @@ impl Mix for Lcha {
             alpha: self.alpha * n_factor + other.alpha * factor,
         }
     }
+}
+
+impl Gray for Lcha {
+    const BLACK: Self = Self::new(0.0, 0.0, 0.0000136603785, 1.0);
+    const WHITE: Self = Self::new(1.0, 0.0, 0.0000136603785, 1.0);
 }
 
 impl Alpha for Lcha {

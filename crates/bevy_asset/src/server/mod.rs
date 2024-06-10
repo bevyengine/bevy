@@ -26,6 +26,7 @@ use futures_lite::StreamExt;
 use info::*;
 use loaders::*;
 use parking_lot::RwLock;
+use std::future::Future;
 use std::{any::Any, path::PathBuf};
 use std::{any::TypeId, path::Path, sync::Arc};
 use thiserror::Error;
@@ -264,13 +265,69 @@ impl AssetServer {
     /// it returns a "strong" [`Handle`]. When the [`Asset`] is loaded (and enters [`LoadState::Loaded`]), it will be added to the
     /// associated [`Assets`] resource.
     ///
+    /// In case the file path contains a hashtag (`#`), the `path` must be specified using [`Path`]
+    /// or [`AssetPath`] because otherwise the hashtag would be interpreted as separator between
+    /// the file path and the label. For example:
+    ///
+    /// ```no_run
+    /// # use bevy_asset::{AssetServer, Handle, LoadedUntypedAsset};
+    /// # use bevy_ecs::prelude::Res;
+    /// # use std::path::Path;
+    /// // `#path` is a label.
+    /// # fn setup(asset_server: Res<AssetServer>) {
+    /// # let handle: Handle<LoadedUntypedAsset> =
+    /// asset_server.load("some/file#path");
+    ///
+    /// // `#path` is part of the file name.
+    /// # let handle: Handle<LoadedUntypedAsset> =
+    /// asset_server.load(Path::new("some/file#path"));
+    /// # }
+    /// ```
+    ///
+    /// Furthermore, if you need to load a file with a hashtag in its name _and_ a label, you can
+    /// manually construct an [`AssetPath`].
+    ///
+    /// ```no_run
+    /// # use bevy_asset::{AssetPath, AssetServer, Handle, LoadedUntypedAsset};
+    /// # use bevy_ecs::prelude::Res;
+    /// # use std::path::Path;
+    /// # fn setup(asset_server: Res<AssetServer>) {
+    /// # let handle: Handle<LoadedUntypedAsset> =
+    /// asset_server.load(AssetPath::from_path(Path::new("some/file#path")).with_label("subasset"));
+    /// # }
+    /// ```
+    ///
     /// You can check the asset's load state by reading [`AssetEvent`] events, calling [`AssetServer::load_state`], or checking
     /// the [`Assets`] storage to see if the [`Asset`] exists yet.
     ///
     /// The asset load will fail and an error will be printed to the logs if the asset stored at `path` is not of type `A`.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A> {
-        self.load_with_meta_transform(path, None)
+        self.load_with_meta_transform(path, None, ())
+    }
+
+    /// Begins loading an [`Asset`] of type `A` stored at `path` while holding a guard item.
+    /// The guard item is dropped when either the asset is loaded or loading has failed.
+    ///
+    /// This function returns a "strong" [`Handle`]. When the [`Asset`] is loaded (and enters [`LoadState::Loaded`]), it will be added to the
+    /// associated [`Assets`] resource.
+    ///
+    /// The guard item should notify the caller in its [`Drop`] implementation. See example `multi_asset_sync`.
+    /// Synchronously this can be a [`Arc<AtomicU32>`] that decrements its counter, asynchronously this can be a `Barrier`.
+    /// This function only guarantees the asset referenced by the [`Handle`] is loaded. If your asset is separated into
+    /// multiple files, sub-assets referenced by the main asset might still be loading, depend on the implementation of the [`AssetLoader`].
+    ///
+    /// Additionally, you can check the asset's load state by reading [`AssetEvent`] events, calling [`AssetServer::load_state`], or checking
+    /// the [`Assets`] storage to see if the [`Asset`] exists yet.
+    ///
+    /// The asset load will fail and an error will be printed to the logs if the asset stored at `path` is not of type `A`.
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
+    pub fn load_acquire<'a, A: Asset, G: Send + Sync + 'static>(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+        guard: G,
+    ) -> Handle<A> {
+        self.load_with_meta_transform(path, None, guard)
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path`. The given `settings` function will override the asset's
@@ -282,13 +339,33 @@ impl AssetServer {
         path: impl Into<AssetPath<'a>>,
         settings: impl Fn(&mut S) + Send + Sync + 'static,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, Some(loader_settings_meta_transform(settings)))
+        self.load_with_meta_transform(path, Some(loader_settings_meta_transform(settings)), ())
     }
 
-    pub(crate) fn load_with_meta_transform<'a, A: Asset>(
+    /// Begins loading an [`Asset`] of type `A` stored at `path` while holding a guard item.
+    /// The guard item is dropped when either the asset is loaded or loading has failed.
+    ///
+    /// This function only guarantees the asset referenced by the [`Handle`] is loaded. If your asset is separated into
+    /// multiple files, sub-assets referenced by the main asset might still be loading, depend on the implementation of the [`AssetLoader`].
+    ///
+    /// The given `settings` function will override the asset's
+    /// [`AssetLoader`] settings. The type `S` _must_ match the configured [`AssetLoader::Settings`] or `settings` changes
+    /// will be ignored and an error will be printed to the log.
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
+    pub fn load_acquire_with_settings<'a, A: Asset, S: Settings, G: Send + Sync + 'static>(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+        settings: impl Fn(&mut S) + Send + Sync + 'static,
+        guard: G,
+    ) -> Handle<A> {
+        self.load_with_meta_transform(path, Some(loader_settings_meta_transform(settings)), guard)
+    }
+
+    pub(crate) fn load_with_meta_transform<'a, A: Asset, G: Send + Sync + 'static>(
         &self,
         path: impl Into<AssetPath<'a>>,
         meta_transform: Option<MetaTransform>,
+        guard: G,
     ) -> Handle<A> {
         let path = path.into().into_owned();
         let (handle, should_load) = self.data.infos.write().get_or_create_path_handle::<A>(
@@ -305,6 +382,7 @@ impl AssetServer {
                     if let Err(err) = server.load_internal(owned_handle, path, false, None).await {
                         error!("{}", err);
                     }
+                    drop(guard);
                 })
                 .detach();
         }
@@ -633,6 +711,50 @@ impl AssetServer {
             loaded_asset,
         });
         handle
+    }
+
+    /// Queues a new asset to be tracked by the [`AssetServer`] and returns a [`Handle`] to it. This can be used to track
+    /// dependencies of assets created at runtime.
+    ///
+    /// After the asset has been fully loaded, it will show up in the relevant [`Assets`] storage.
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
+    pub fn add_async<A: Asset>(
+        &self,
+        future: impl Future<Output = Result<A, AssetLoadError>> + Send + 'static,
+    ) -> Handle<A> {
+        let handle = self
+            .data
+            .infos
+            .write()
+            .create_loading_handle_untyped(std::any::TypeId::of::<A>(), std::any::type_name::<A>());
+        let id = handle.id();
+
+        let event_sender = self.data.asset_event_sender.clone();
+
+        IoTaskPool::get()
+            .spawn(async move {
+                match future.await {
+                    Ok(asset) => {
+                        let loaded_asset = LoadedAsset::new_with_dependencies(asset, None).into();
+                        event_sender
+                            .send(InternalAssetEvent::Loaded { id, loaded_asset })
+                            .unwrap();
+                    }
+                    Err(error) => {
+                        error!("{error}");
+                        event_sender
+                            .send(InternalAssetEvent::Failed {
+                                id,
+                                path: Default::default(),
+                                error,
+                            })
+                            .unwrap();
+                    }
+                }
+            })
+            .detach();
+
+        handle.typed_debug_checked()
     }
 
     /// Loads all assets from the specified folder recursively. The [`LoadedFolder`] asset (when it loads) will

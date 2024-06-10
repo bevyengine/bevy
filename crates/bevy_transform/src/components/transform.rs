@@ -1,8 +1,9 @@
 use super::GlobalTransform;
+#[cfg(feature = "bevy-support")]
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Dir3, Mat3, Mat4, Quat, Vec3};
-use bevy_reflect::prelude::*;
-use bevy_reflect::Reflect;
+#[cfg(feature = "bevy-support")]
+use bevy_reflect::{prelude::*, Reflect};
 use std::ops::Mul;
 
 /// Describe the position of an entity. If the entity has a parent, the position is relative
@@ -29,12 +30,16 @@ use std::ops::Mul;
 ///
 /// # Examples
 ///
-/// - [`transform`]
+/// - [`transform`][transform_example]
 ///
-/// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
-#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
+/// [transform_example]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
+#[derive(Debug, PartialEq, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[reflect(Component, Default, PartialEq)]
+#[cfg_attr(
+    feature = "bevy-support",
+    derive(Component, Reflect),
+    reflect(Component, Default, PartialEq)
+)]
 pub struct Transform {
     /// Position of the entity. In 2d, the last value of the `Vec3` is used for z-ordering.
     ///
@@ -75,8 +80,8 @@ impl Transform {
     /// Extracts the translation, rotation, and scale from `matrix`. It must be a 3d affine
     /// transformation matrix.
     #[inline]
-    pub fn from_matrix(matrix: Mat4) -> Self {
-        let (scale, rotation, translation) = matrix.to_scale_rotation_translation();
+    pub fn from_matrix(world_from_local: Mat4) -> Self {
+        let (scale, rotation, translation) = world_from_local.to_scale_rotation_translation();
 
         Transform {
             translation,
