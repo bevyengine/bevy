@@ -122,6 +122,28 @@ impl AssetReader for FileAssetReader {
         }
     }
 
+    async fn read_defaults<'a>(
+        &'a self,
+        path: &'a Path,
+        extension: &'a str,
+    ) -> Result<Box<Reader<'a>>, AssetReaderError> {
+        let default_meta_path = get_defaults_path(path, extension);
+        let full_path = self.root_path.join(default_meta_path);
+        match File::open(&full_path) {
+            Ok(file) => {
+                let reader: Box<Reader> = Box::new(file);
+                Ok(reader)
+            }
+            Err(e) => {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    Err(AssetReaderError::NotFound(full_path))
+                } else {
+                    Err(e.into())
+                }
+            }
+        }
+    }
+
     async fn read_directory<'a>(
         &'a self,
         path: &'a Path,
