@@ -165,7 +165,7 @@ fn setup(
         ..default()
     });
 
-    // example instructions
+    // Example instructions
     commands.spawn(
         TextBundle::from_section(
             "Press 'B' to toggle between no bounding shapes, bounding boxes (AABBs) and bounding spheres / circles\n\
@@ -419,7 +419,7 @@ impl MeshBuilder for HeartMeshBuilder {
         // The curved parts of each wing (half) of the heart have an angle of `PI * 1.25` or 225°
         let wing_angle = PI * 1.25;
 
-        // We create buffers for the vertices, their normals and UVs, aswell as the indices used to connect the vertices
+        // We create buffers for the vertices, their normals and UVs, as well as the indices used to connect the vertices.
         let mut vertices = Vec::with_capacity(2 * self.resolution);
         let mut uvs = Vec::with_capacity(2 * self.resolution);
         let mut indices = Vec::with_capacity(6 * self.resolution - 9);
@@ -475,7 +475,7 @@ impl Extrudable for HeartMeshBuilder {
         vec![
             // The left wing of the heart
             PerimeterSegment::Smooth {
-                // the normals of the first and last vertices of smooth segments have to be specified manually
+                // The normals of the first and last vertices of smooth segments have to be specified manually.
                 first_normal: Vec2::X,
                 last_normal: Vec2::new(-1.0, -1.0).normalize(),
                 // These indices are used to index into the `ATTRIBUTE_POSITION` vec of your 2D mesh.
