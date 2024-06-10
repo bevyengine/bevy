@@ -14,6 +14,7 @@ pub struct ObserverState {
     pub(crate) descriptor: ObserverDescriptor,
     pub(crate) runner: ObserverRunner,
     pub(crate) last_trigger_id: u32,
+    pub(crate) despawned_sources: u32,
 }
 
 impl Default for ObserverState {
@@ -21,6 +22,7 @@ impl Default for ObserverState {
         Self {
             runner: |_, _, _| {},
             last_trigger_id: 0,
+            despawned_sources: 0,
             descriptor: Default::default(),
         }
     }
@@ -62,6 +64,7 @@ impl Component for ObserverState {
             });
         });
         hooks.on_remove(|mut world, entity, _| {
+            println!("Despawned observer {entity:?}");
             let descriptor = std::mem::take(
                 &mut world
                     .entity_mut(entity)
@@ -101,6 +104,11 @@ impl<E: Event, B: Bundle> Observer<E, B> {
     pub fn with_source(mut self, entity: Entity) -> Self {
         self.descriptor.sources.push(entity);
         self
+    }
+
+    /// Observe the given `entity`. Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
+    pub fn add_source(&mut self, entity: Entity) {
+        self.descriptor.sources.push(entity);
     }
 
     /// Observe the given `component`.

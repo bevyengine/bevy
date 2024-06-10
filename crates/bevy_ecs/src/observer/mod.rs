@@ -7,6 +7,7 @@ mod runner;
 pub use emit_trigger::*;
 pub use runner::*;
 
+use crate::observer::entity_observer::ObservedBy;
 use crate::{archetype::ArchetypeFlags, system::IntoObserverSystem, world::*};
 use crate::{component::ComponentId, prelude::*, world::DeferredWorld};
 use bevy_ptr::Ptr;
@@ -276,27 +277,28 @@ impl World {
     /// Register an observer to the cache, called when an observer is created
     pub(crate) fn register_observer(&mut self, entity: Entity) {
         // SAFETY: References do not alias.
-        let (observer_component, archetypes, observers) = unsafe {
-            let observer_component: *const ObserverState =
-                self.get::<ObserverState>(entity).unwrap();
-            (
-                &*observer_component,
-                &mut self.archetypes,
-                &mut self.observers,
-            )
+        let (observer_state, archetypes, observers) = unsafe {
+            let observer_state: *const ObserverState = self.get::<ObserverState>(entity).unwrap();
+            // Populate ObservedBy for each observed source.
+            for source in &(*observer_state).descriptor.sources {
+                let mut source_mut = self.entity_mut(*source);
+                let mut observed_by = source_mut.entry::<ObservedBy>().or_default();
+                observed_by.0.push(entity);
+            }
+            (&*observer_state, &mut self.archetypes, &mut self.observers)
         };
-        let descriptor = &observer_component.descriptor;
+        let descriptor = &observer_state.descriptor;
 
         for &event_type in &descriptor.events {
             let cache = observers.get_observers(event_type);
 
             if descriptor.components.is_empty() && descriptor.sources.is_empty() {
-                cache.map.insert(entity, observer_component.runner);
+                cache.map.insert(entity, observer_state.runner);
             } else if descriptor.components.is_empty() {
                 // Observer is not targeting any components so register it as an entity observer
-                for &source in &observer_component.descriptor.sources {
+                for &source in &observer_state.descriptor.sources {
                     let map = cache.entity_observers.entry(source).or_default();
-                    map.insert(entity, observer_component.runner);
+                    map.insert(entity, observer_state.runner);
                 }
             } else {
                 // Register observer for each source component
@@ -313,12 +315,12 @@ impl World {
                             });
                     if descriptor.sources.is_empty() {
                         // Register for all triggers targeting the component
-                        observers.map.insert(entity, observer_component.runner);
+                        observers.map.insert(entity, observer_state.runner);
                     } else {
                         // Register for each targeted entity
                         for &source in &descriptor.sources {
                             let map = observers.entity_map.entry(source).or_default();
-                            map.insert(entity, observer_component.runner);
+                            map.insert(entity, observer_state.runner);
                         }
                     }
                 }
