@@ -809,9 +809,11 @@ fn main_pass_post_lighting_processing(
     var output_color = input_color;
 
     // fog
-    if (view_bindings::fog.mode != mesh_view_types::FOG_MODE_OFF && (pbr_input.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
+#ifdef FOG_ENABLED
+    if (view_bindings::fog.mode != mesh_view_types::FOG_MODE_OFF) {
         output_color = apply_fog(view_bindings::fog, output_color, pbr_input.world_position.xyz, view_bindings::view.world_position.xyz);
     }
+#endif // FOG_ENABLED
 
 #ifdef TONEMAP_IN_SHADER
     output_color = tone_mapping(output_color, view_bindings::view.color_grading);
