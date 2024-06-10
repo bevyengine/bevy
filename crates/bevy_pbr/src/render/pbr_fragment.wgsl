@@ -378,7 +378,6 @@ fn pbr_input_from_standard_material(
             double_sided,
             is_front,
             Nt,
-            view.mip_bias,
         );
 
 #endif  // STANDARD_MATERIAL_NORMAL_MAP
@@ -408,7 +407,6 @@ fn pbr_input_from_standard_material(
             double_sided,
             is_front,
             clearcoat_Nt,
-            view.mip_bias,
         );
 
 #endif  // STANDARD_MATERIAL_CLEARCOAT_NORMAL_MAP

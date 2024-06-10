@@ -13,10 +13,7 @@
 
 use std::marker::PhantomData;
 
-use bevy::{
-    dev_tools::states::*, ecs::schedule::ScheduleLabel, prelude::*,
-    state::state::StateTransitionSteps,
-};
+use bevy::{dev_tools::states::*, ecs::schedule::ScheduleLabel, prelude::*};
 
 use custom_transitions::*;
 
@@ -72,16 +69,16 @@ mod custom_transitions {
                     // State transitions are handled in three ordered steps, exposed as system sets.
                     // We can add our systems to them, which will run the corresponding schedules when they're evaluated.
                     // These are:
-                    // - [`StateTransitionSteps::ExitSchedules`]
-                    // - [`StateTransitionSteps::TransitionSchedules`]
-                    // - [`StateTransitionSteps::EnterSchedules`]
-                    .in_set(StateTransitionSteps::EnterSchedules),
+                    // - [`ExitSchedules`] - Ran from leaf-states to root-states,
+                    // - [`TransitionSchedules`] - Ran in arbitrary order,
+                    // - [`EnterSchedules`] - Ran from root-states to leaf-states.
+                    .in_set(EnterSchedules::<S>::default()),
             )
             .add_systems(
                 StateTransition,
                 last_transition::<S>
                     .pipe(run_reexit::<S>)
-                    .in_set(StateTransitionSteps::ExitSchedules),
+                    .in_set(ExitSchedules::<S>::default()),
             );
         }
     }

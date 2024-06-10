@@ -73,7 +73,12 @@ impl StandardColor for Color {}
 
 impl Color {
     /// Return the color as a linear RGBA color.
-    pub fn linear(&self) -> LinearRgba {
+    pub fn to_linear(&self) -> LinearRgba {
+        (*self).into()
+    }
+
+    /// Return the color as an SRGBA color.
+    pub fn to_srgba(&self) -> Srgba {
         (*self).into()
     }
 
