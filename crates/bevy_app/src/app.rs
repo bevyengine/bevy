@@ -424,9 +424,12 @@ impl App {
         self
     }
 
-    /// Inserts the [`!Send`](Send) resource into the app, initialized with its default value,
-    /// if there is no existing instance of `R`.
-    pub fn init_non_send_resource<R: 'static + Default>(&mut self) -> &mut Self {
+    /// Inserts the [`!Send`](Send) resource into the app if there is no existing instance of `R`.
+    ///
+    /// `R` must implement [`FromWorld`].
+    /// If `R` implements [`Default`], [`FromWorld`] will be automatically implemented and
+    /// initialize the [`Resource`] with [`Default::default`].
+    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
         self.world_mut().init_non_send_resource::<R>();
         self
     }
@@ -916,8 +919,11 @@ impl Termination for AppExit {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Mutex;
     use std::{marker::PhantomData, mem};
 
+    use bevy_ecs::prelude::{Resource, World};
+    use bevy_ecs::world::FromWorld;
     use bevy_ecs::{event::EventWriter, schedule::ScheduleLabel, system::Commands};
 
     use crate::{App, AppExit, Plugin, Update};
@@ -1177,5 +1183,32 @@ mod tests {
         // There wont be many of them so the size isn't a issue but
         // it's nice they're so small let's keep it that way.
         assert_eq!(mem::size_of::<AppExit>(), mem::size_of::<u8>());
+    }
+
+    #[test]
+    fn initializing_resources_from_world() {
+        #[derive(Resource)]
+        struct TestResource;
+        impl FromWorld for TestResource {
+            fn from_world(_world: &mut World) -> Self {
+                TestResource
+            }
+        }
+
+        #[derive(Resource)]
+        struct NonSendTestResource {
+            _marker: PhantomData<Mutex<()>>,
+        }
+        impl FromWorld for NonSendTestResource {
+            fn from_world(_world: &mut World) -> Self {
+                NonSendTestResource {
+                    _marker: PhantomData,
+                }
+            }
+        }
+
+        App::new()
+            .init_non_send_resource::<NonSendTestResource>()
+            .init_resource::<TestResource>();
     }
 }
