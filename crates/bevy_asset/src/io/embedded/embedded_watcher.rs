@@ -1,7 +1,7 @@
 use crate::io::{
     file::{get_asset_path, get_base_path, new_asset_event_debouncer, FilesystemEventHandler},
     memory::Dir,
-    AssetSourceEvent, AssetWatcher, AssetSourceEventPath, AssetSourceFileType,
+    AssetSourceEvent, AssetSourceEventPath, AssetSourceFileType, AssetWatcher,
 };
 use bevy_utils::tracing::warn;
 use bevy_utils::{Duration, HashMap};
