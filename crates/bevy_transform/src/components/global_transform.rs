@@ -32,9 +32,9 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 ///
 /// # Examples
 ///
-/// - [`transform`]
+/// - [`transform`][transform_example]
 ///
-/// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
+/// [transform_example]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -224,8 +224,8 @@ impl From<Affine3A> for GlobalTransform {
 }
 
 impl From<Mat4> for GlobalTransform {
-    fn from(matrix: Mat4) -> Self {
-        Self(Affine3A::from_mat4(matrix))
+    fn from(world_from_local: Mat4) -> Self {
+        Self(Affine3A::from_mat4(world_from_local))
     }
 }
 

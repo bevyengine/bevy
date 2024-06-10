@@ -27,18 +27,29 @@
 //! - The [`in_state<S>`](crate::condition::in_state) and [`state_changed<S>`](crate::condition::state_changed) run conditions - which are used
 //!   to determine whether a system should run based on the current state.
 
+#[cfg(feature = "bevy_app")]
+/// Provides [`App`](bevy_app::App) and [`SubApp`](bevy_app::SubApp) with state installation methods
+pub mod app;
 /// Provides definitions for the runtime conditions that interact with the state system
 pub mod condition;
 /// Provides definitions for the basic traits required by the state system
 pub mod state;
 
+/// Provides [`StateScoped`] and [`clear_state_scoped_entities`] for managing lifetime of entities.
+pub mod state_scoped;
+
 /// Most commonly used re-exported types.
 pub mod prelude {
+    #[cfg(feature = "bevy_app")]
+    #[doc(hidden)]
+    pub use crate::app::AppExtStates;
     #[doc(hidden)]
     pub use crate::condition::*;
     #[doc(hidden)]
     pub use crate::state::{
-        ComputedStates, NextState, OnEnter, OnExit, OnTransition, State, StateSet, StateTransition,
-        StateTransitionEvent, States, SubStates,
+        last_transition, ComputedStates, NextState, OnEnter, OnExit, OnTransition, State, StateSet,
+        StateTransition, StateTransitionEvent, StateTransitionSteps, States, SubStates,
     };
+    #[doc(hidden)]
+    pub use crate::state_scoped::StateScoped;
 }

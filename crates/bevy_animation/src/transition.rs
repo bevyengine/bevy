@@ -33,8 +33,23 @@ pub struct AnimationTransitions {
     transitions: Vec<AnimationTransition>,
 }
 
+// This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
+impl Clone for AnimationTransitions {
+    fn clone(&self) -> Self {
+        Self {
+            main_animation: self.main_animation,
+            transitions: self.transitions.clone(),
+        }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.main_animation = source.main_animation;
+        self.transitions.clone_from(&source.transitions);
+    }
+}
+
 /// An animation that is being faded out as part of a transition
-#[derive(Debug, Reflect)]
+#[derive(Debug, Clone, Copy, Reflect)]
 pub struct AnimationTransition {
     /// The current weight. Starts at 1.0 and goes to 0.0 during the fade-out.
     current_weight: f32,

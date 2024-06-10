@@ -10,8 +10,6 @@ use bevy_ecs::{
     schedule::{ScheduleBuildSettings, ScheduleLabel},
     system::SystemId,
 };
-#[cfg(feature = "bevy_state")]
-use bevy_state::{prelude::*, state::FreelyMutableState};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{tracing::debug, HashMap};
@@ -266,59 +264,6 @@ impl App {
         self.sub_apps.iter().any(|s| s.is_building_plugins())
     }
 
-    #[cfg(feature = "bevy_state")]
-    /// Initializes a [`State`] with standard starting values.
-    ///
-    /// This method is idempotent: it has no effect when called again using the same generic type.
-    ///
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`], [`OnTransition`] and [`OnExit`] schedules.
-    /// These schedules are triggered before [`Update`](crate::Update) and at startup.
-    ///
-    /// If you would like to control how other systems run based on the current state, you can
-    /// emulate this behavior using the [`in_state`] [`Condition`].
-    ///
-    /// Note that you can also apply state transitions at other points in the schedule
-    /// by triggering the [`StateTransition`](`bevy_ecs::schedule::StateTransition`) schedule manually.
-    pub fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
-        self.main_mut().init_state::<S>();
-        self
-    }
-
-    #[cfg(feature = "bevy_state")]
-    /// Inserts a specific [`State`] to the current [`App`] and overrides any [`State`] previously
-    /// added of the same type.
-    ///
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`], [`OnTransition`] and [`OnExit`] schedules.
-    /// These schedules are triggered before [`Update`](crate::Update) and at startup.
-    ///
-    /// If you would like to control how other systems run based on the current state, you can
-    /// emulate this behavior using the [`in_state`] [`Condition`].
-    ///
-    /// Note that you can also apply state transitions at other points in the schedule
-    /// by triggering the [`StateTransition`](`bevy_ecs::schedule::StateTransition`) schedule manually.
-    pub fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
-        self.main_mut().insert_state::<S>(state);
-        self
-    }
-
-    #[cfg(feature = "bevy_state")]
-    /// Sets up a type implementing [`ComputedStates`].
-    ///
-    /// This method is idempotent: it has no effect when called again using the same generic type.
-    pub fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
-        self.main_mut().add_computed_state::<S>();
-        self
-    }
-
-    #[cfg(feature = "bevy_state")]
-    /// Sets up a type implementing [`SubStates`].
-    ///
-    /// This method is idempotent: it has no effect when called again using the same generic type.
-    pub fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
-        self.main_mut().add_sub_state::<S>();
-        self
-    }
-
     /// Adds one or more systems to the given schedule in this app's [`Schedules`].
     ///
     /// # Examples
@@ -479,9 +424,12 @@ impl App {
         self
     }
 
-    /// Inserts the [`NonSendRes`] resource into the app, initialized with its default value,
-    /// if there is no existing instance of `R`.
-    pub fn init_non_send_resource<R: 'static + Default>(&mut self) -> &mut Self {
+    /// Inserts the [`NonSendRes`] resource into the app if there is no existing instance of `R`.
+    ///
+    /// `R` must implement [`FromWorld`].
+    /// If `R` implements [`Default`], [`FromWorld`] will be automatically implemented and
+    /// initialize the [`Resource`] with [`Default::default`].
+    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
         self.world_mut().init_non_send_resource::<R>();
         self
     }
@@ -897,17 +845,7 @@ fn run_once(mut app: App) -> AppExit {
 
     app.update();
 
-    let mut exit_code_reader = ManualEventReader::default();
-    if let Some(app_exit_events) = app.world().get_resource::<Events<AppExit>>() {
-        if exit_code_reader
-            .read(app_exit_events)
-            .any(AppExit::is_error)
-        {
-            return AppExit::error();
-        }
-    }
-
-    AppExit::Success
+    app.should_exit().unwrap_or(AppExit::Success)
 }
 
 /// An event that indicates the [`App`] should exit. If one or more of these are present at the end of an update,
@@ -981,11 +919,14 @@ impl Termination for AppExit {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Mutex;
     use std::{marker::PhantomData, mem};
 
-    use bevy_ecs::{schedule::ScheduleLabel, system::Commands};
+    use bevy_ecs::prelude::{Resource, World};
+    use bevy_ecs::world::FromWorld;
+    use bevy_ecs::{event::EventWriter, schedule::ScheduleLabel, system::Commands};
 
-    use crate::{App, AppExit, Plugin};
+    use crate::{App, AppExit, Plugin, Update};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -1188,6 +1129,21 @@ mod tests {
         );
     }
 
+    #[test]
+    fn runner_returns_correct_exit_code() {
+        fn raise_exits(mut exits: EventWriter<AppExit>) {
+            // Exit codes chosen by a fair dice roll.
+            // Unlikely to overlap with default values.
+            exits.send(AppExit::Success);
+            exits.send(AppExit::from_code(4));
+            exits.send(AppExit::from_code(73));
+        }
+
+        let exit = App::new().add_systems(Update, raise_exits).run();
+
+        assert_eq!(exit, AppExit::from_code(4));
+    }
+
     /// Custom runners should be in charge of when `app::update` gets called as they may need to
     /// coordinate some state.
     /// bug: <https://github.com/bevyengine/bevy/issues/10385>
@@ -1227,5 +1183,32 @@ mod tests {
         // There wont be many of them so the size isn't a issue but
         // it's nice they're so small let's keep it that way.
         assert_eq!(mem::size_of::<AppExit>(), mem::size_of::<u8>());
+    }
+
+    #[test]
+    fn initializing_resources_from_world() {
+        #[derive(Resource)]
+        struct TestResource;
+        impl FromWorld for TestResource {
+            fn from_world(_world: &mut World) -> Self {
+                TestResource
+            }
+        }
+
+        #[derive(Resource)]
+        struct NonSendTestResource {
+            _marker: PhantomData<Mutex<()>>,
+        }
+        impl FromWorld for NonSendTestResource {
+            fn from_world(_world: &mut World) -> Self {
+                NonSendTestResource {
+                    _marker: PhantomData,
+                }
+            }
+        }
+
+        App::new()
+            .init_non_send_resource::<NonSendTestResource>()
+            .init_resource::<TestResource>();
     }
 }

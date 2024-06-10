@@ -3,10 +3,12 @@
 //! This is useful for making desktop applications, or any other program that doesn't need to be
 //! running the event loop non-stop.
 
+use bevy::window::WindowResolution;
+use bevy::winit::WakeUp;
 use bevy::{
     prelude::*,
     utils::Duration,
-    window::{PresentMode, RequestRedraw, WindowPlugin},
+    window::{PresentMode, WindowPlugin},
     winit::{EventLoopProxy, WinitSettings},
 };
 
@@ -19,15 +21,14 @@ fn main() {
         // You can also customize update behavior with the fields of [`WinitSettings`]
         .insert_resource(WinitSettings {
             focused_mode: bevy::winit::UpdateMode::Continuous,
-            unfocused_mode: bevy::winit::UpdateMode::ReactiveLowPower {
-                wait: Duration::from_millis(10),
-            },
+            unfocused_mode: bevy::winit::UpdateMode::reactive_low_power(Duration::from_millis(10)),
         })
         .insert_resource(ExampleMode::Game)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 // Turn off vsync to maximize CPU/GPU usage
                 present_mode: PresentMode::AutoNoVsync,
+                resolution: WindowResolution::new(800., 640.).with_scale_factor_override(1.),
                 ..default()
             }),
             ..default()
@@ -56,7 +57,7 @@ enum ExampleMode {
 fn update_winit(
     mode: Res<ExampleMode>,
     mut winit_config: ResMut<WinitSettings>,
-    event_loop_proxy: NonSendRes<EventLoopProxy>,
+    event_loop_proxy: NonSendRes<EventLoopProxy<WakeUp>>,
 ) {
     use ExampleMode::*;
     *winit_config = match *mode {
@@ -78,7 +79,10 @@ fn update_winit(
             //     (e.g. the mouse hovers over a visible part of the out of focus window), a
             //     [`RequestRedraw`] event is received, or one minute has passed without the app
             //     updating.
-            WinitSettings::desktop_app()
+            WinitSettings {
+                focused_mode: bevy::winit::UpdateMode::reactive(Duration::from_secs(1)),
+                unfocused_mode: bevy::winit::UpdateMode::reactive_low_power(Duration::from_secs(5)),
+            }
         }
         ApplicationWithRedraw => {
             // Sending a `RequestRedraw` event is useful when you want the app to update the next
@@ -87,7 +91,7 @@ fn update_winit(
             // when there are no inputs, so you send redraw requests while the animation is playing.
             // Note that in this example the RequestRedraw winit event will make the app run in the same
             // way as continuous
-            let _ = event_loop_proxy.send_event(RequestRedraw);
+            let _ = event_loop_proxy.send_event(WakeUp);
             WinitSettings::desktop_app()
         }
     };
