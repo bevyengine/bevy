@@ -118,6 +118,17 @@ const _: () = {
                 world,
             );
         }
+        fn queue(
+            state: &mut Self::State,
+            system_meta: &bevy_ecs::system::SystemMeta,
+            world: bevy_ecs::world::DeferredWorld,
+        ) {
+            <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::queue(
+                &mut state.state,
+                system_meta,
+                world,
+            );
+        }
         unsafe fn get_param<'w, 's>(
             state: &'s mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
