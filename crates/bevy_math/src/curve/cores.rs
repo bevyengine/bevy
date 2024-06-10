@@ -2,12 +2,19 @@
 //! and access patterns for reuse.
 
 use super::interval::Interval;
+use core::fmt::Debug;
 use thiserror::Error;
+
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
 
 /// This type expresses the relationship of a value to a linear collection of values. It is a kind
 /// of summary used intermediately by sampling operations.
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub enum Betweenness<T> {
-    /// This value lies exactly on another.
+    /// This value lies exactly on a value in the family.
     Exact(T),
 
     /// This value is off the left tail of the family; the inner value is the family's leftmost.
@@ -90,8 +97,9 @@ impl<T> Betweenness<T> {
 ///     }
 /// }
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct EvenCore<T> {
     /// The domain over which the samples are taken, which corresponds to the domain of the curve
     /// formed by interpolating them.
@@ -108,7 +116,9 @@ pub struct EvenCore<T> {
 }
 
 /// An error indicating that a [`EvenCore`] could not be constructed.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub enum EvenCoreError {
     /// Not enough samples were provided.
     #[error("Need at least two samples to create a EvenCore, but {samples} were provided")]
@@ -214,6 +224,7 @@ pub fn even_betweenness(domain: Interval, samples: usize, t: f32) -> Betweenness
 /// order to implement the curve interface using [`domain`] and [`sample_with`].
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct UnevenCore<T> {
     /// The times for the samples of this curve.
     ///
@@ -231,6 +242,8 @@ pub struct UnevenCore<T> {
 
 /// An error indicating that an [`UnevenCore`] could not be constructed.
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub enum UnevenCoreError {
     /// Not enough samples were provided.
     #[error("Need at least two samples to create an UnevenCore, but {samples} were provided")]
@@ -338,6 +351,7 @@ impl<T> UnevenCore<T> {
 /// [sampling width]: ChunkedUnevenCore::width
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct ChunkedUnevenCore<T> {
     /// The times, one for each sample.
     ///
@@ -362,6 +376,8 @@ pub struct ChunkedUnevenCore<T> {
 
 /// An error that indicates that a [`ChunkedUnevenCore`] could not be formed.
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub enum ChunkedUnevenSampleCoreError {
     /// The width of a `ChunkedUnevenCore` cannot be zero.
     #[error("Chunk width must be at least 1")]

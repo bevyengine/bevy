@@ -13,19 +13,8 @@ use interval::{InfiniteIntervalError, InvalidIntervalError};
 use std::{marker::PhantomData, ops::Deref};
 use thiserror::Error;
 
-/// An error indicating that a resampling operation could not be performed because of
-/// malformed inputs.
-#[derive(Debug, Error)]
-#[error("Could not resample from this curve because of bad inputs")]
-pub enum ResamplingError {
-    /// This resampling operation was not provided with enough samples to have well-formed output.
-    #[error("Not enough samples to construct resampled curve")]
-    NotEnoughSamples(usize),
-
-    /// This resampling operation failed because of an unbounded interval.
-    #[error("Could not resample because this curve has unbounded domain")]
-    InfiniteInterval(InfiniteIntervalError),
-}
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
 
 /// A trait for a type that can represent values of type `T` parametrized over a fixed interval.
 /// Typical examples of this are actual geometric curves where `T: VectorSpace`, but other kinds
@@ -67,7 +56,7 @@ pub trait Curve<T> {
     /// ```
     /// # use bevy_math::*;
     /// # use bevy_math::curve::*;
-    /// let quarter_rotation = function_curve(interval(0.0, 90.0).unwrap(), |t| Rotation2d::degrees(t));
+    /// let quarter_rotation = function_curve(interval(0.0, 90.0).unwrap(), |t| Rot2::degrees(t));
     /// // A curve which only stores three data points and uses `nlerp` to interpolate them:
     /// let resampled_rotation = quarter_rotation.resample(3, |x, y, t| x.nlerp(*y, t));
     /// ```
@@ -374,9 +363,24 @@ where
     }
 }
 
+/// An error indicating that a resampling operation could not be performed because of
+/// malformed inputs.
+#[derive(Debug, Error)]
+#[error("Could not resample from this curve because of bad inputs")]
+pub enum ResamplingError {
+    /// This resampling operation was not provided with enough samples to have well-formed output.
+    #[error("Not enough samples to construct resampled curve")]
+    NotEnoughSamples(usize),
+
+    /// This resampling operation failed because of an unbounded interval.
+    #[error("Could not resample because this curve has unbounded domain")]
+    InfiniteInterval(InfiniteIntervalError),
+}
+
 /// A [`Curve`] which takes a constant value over its domain.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct ConstantCurve<T>
 where
     T: Clone,
@@ -402,6 +406,8 @@ where
 
 /// A [`Curve`] defined by a function.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct FunctionCurve<T, F>
 where
     F: Fn(f32) -> T,
@@ -427,6 +433,8 @@ where
 
 /// A [`Curve`] that is defined by explicit neighbor interpolation over a set of samples.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct SampleCurve<T, I> {
     core: EvenCore<T>,
     interpolation: I,
@@ -474,6 +482,7 @@ impl<T, I> SampleCurve<T, I> {
 /// A [`Curve`] that is defined by neighbor interpolation over a set of samples.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct SampleAutoCurve<T> {
     core: EvenCore<T>,
 }
@@ -508,6 +517,8 @@ impl<T> SampleAutoCurve<T> {
 /// A [`Curve`] that is defined by interpolation over unevenly spaced samples with explicit
 /// interpolation.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct UnevenSampleCurve<T, I> {
     core: UnevenCore<T>,
     interpolation: I,
@@ -565,6 +576,7 @@ impl<T, I> UnevenSampleCurve<T, I> {
 /// A [`Curve`] that is defined by interpolation over unevenly spaced samples.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct UnevenSampleAutoCurve<T> {
     core: UnevenCore<T>,
 }
@@ -612,6 +624,8 @@ impl<T> UnevenSampleAutoCurve<T> {
 /// A [`Curve`] whose samples are defined by mapping samples from another curve through a
 /// given function.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct MapCurve<S, T, C, F>
 where
     C: Curve<S>,
@@ -667,6 +681,8 @@ where
 
 /// A [`Curve`] whose sample space is mapped onto that of some base curve's before sampling.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct ReparamCurve<T, C, F>
 where
     C: Curve<T>,
@@ -728,6 +744,8 @@ where
 /// Briefly, the point is that the curve just absorbs new functions instead of rebasing
 /// itself inside new structs.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct MapReparamCurve<S, T, C, F, G>
 where
     C: Curve<S>,
@@ -791,6 +809,7 @@ where
 /// A [`Curve`] that is the graph of another curve over its parameter space.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct GraphCurve<T, C>
 where
     C: Curve<T>,
@@ -817,6 +836,7 @@ where
 /// A [`Curve`] that combines the data from two constituent curves into a tuple output type.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct ProductCurve<S, T, C, D>
 where
     C: Curve<S>,
