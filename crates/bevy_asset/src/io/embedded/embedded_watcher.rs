@@ -1,7 +1,7 @@
 use crate::io::{
     file::{get_asset_path, get_base_path, new_asset_event_debouncer, FilesystemEventHandler},
     memory::Dir,
-    AssetSourceEvent, AssetWatcher, AssetWatcherEventPath, AssetWatcherFileType,
+    AssetSourceEvent, AssetWatcher, AssetSourceEventPath, AssetSourceFileType,
 };
 use bevy_utils::tracing::warn;
 use bevy_utils::{Duration, HashMap};
@@ -59,19 +59,19 @@ impl FilesystemEventHandler for EmbeddedEventHandler {
         self.last_event = None;
     }
 
-    fn get_path(&self, absolute_path: &Path) -> Option<AssetWatcherEventPath> {
+    fn get_path(&self, absolute_path: &Path) -> Option<AssetSourceEventPath> {
         let asset_path = get_asset_path(&self.root, absolute_path);
         let final_path = self
             .root_paths
             .read()
             .get(asset_path.path.as_path())?
             .clone();
-        if asset_path.file_type != AssetWatcherFileType::Asset {
+        if asset_path.file_type != AssetSourceFileType::Asset {
             warn!("Meta file asset hot-reloading is not supported yet: {final_path:?}");
         }
-        Some(AssetWatcherEventPath {
+        Some(AssetSourceEventPath {
             path: final_path,
-            file_type: AssetWatcherFileType::Asset,
+            file_type: AssetSourceFileType::Asset,
         })
     }
 

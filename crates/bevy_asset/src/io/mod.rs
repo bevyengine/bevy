@@ -148,7 +148,7 @@ pub trait AssetReader: Send + Sync + 'static {
                         loop {
                             current_path.pop();
                             match self
-                                .read_defaults_bytes(current_path.as_path(), &asset_extension)
+                                .read_defaults_bytes(&current_path, &asset_extension)
                                 .await
                             {
                                 Ok(defaults) => return Ok(defaults),
@@ -192,9 +192,9 @@ pub trait AssetReader: Send + Sync + 'static {
     }
 }
 
-// Some assets may have multiple extensions, so we need to extract the complete, compound extension from the path.
-// Ex: "file.tar.gz" -> "tar.gz"
-fn extract_extension(current_path: &PathBuf) -> Result<String, AssetReaderError> {
+/// Some assets may have multiple extensions, so we need to extract the complete, compound extension from the path.
+/// Ex: "file.tar.gz" -> "tar.gz"
+pub(crate) fn extract_extension(current_path: &PathBuf) -> Result<String, AssetReaderError> {
     let Some(file_name) = current_path.file_name() else {
         return Err(AssetReaderError::NotFound(current_path.to_owned()));
     };
@@ -502,11 +502,11 @@ pub enum AssetSourceEvent {
     /// Asset metadata at this path was renamed.
     RenamedMeta { old: PathBuf, new: PathBuf },
     /// Asset default metadata at this path was added.
-    AddedDefaultMeta(PathBuf),
+    AddedDefaults(PathBuf),
     /// Asset default metadata at this path was modified.
-    ModifiedDefaultMeta(PathBuf),
+    ModifiedDefaults(PathBuf),
     /// Asset default metadata at this path was removed.
-    RemovedDefaultMeta(PathBuf),
+    RemovedDefaults(PathBuf),
     /// A folder at the given path was added.
     AddedFolder(PathBuf),
     /// A folder at the given path was removed.
@@ -522,8 +522,7 @@ pub enum AssetSourceEvent {
         /// This field is only relevant if `path` is determined to be an asset path (and therefore not a folder). If this field is `true`,
         /// then this event corresponds to a meta removal (not an asset removal) . If `false`, then this event corresponds to an asset removal
         /// (not a meta removal).
-        is_meta: bool,
-        is_default_meta: bool,
+        file_type: AssetSourceFileType,
     },
 }
 
@@ -707,15 +706,16 @@ impl Stream for EmptyPathStream {
 }
 
 /// A helper type that indicates the type of file that was changed.
-#[derive(PartialEq)]
-pub(crate) enum AssetWatcherFileType {
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub enum AssetSourceFileType {
     Asset,
     Meta,
-    MetaDefaults,
+    Defaults,
 }
 
 /// A helper type that bundles a path with the type of file that was changed.
-pub(crate) struct AssetWatcherEventPath {
+#[derive(Debug)]
+pub(crate) struct AssetSourceEventPath {
     pub path: PathBuf,
-    pub file_type: AssetWatcherFileType,
+    pub file_type: AssetSourceFileType,
 }

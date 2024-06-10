@@ -1,4 +1,4 @@
-use crate::io::{AssetSourceEvent, AssetWatcher, AssetWatcherEventPath, AssetWatcherFileType};
+use crate::io::{AssetSourceEvent, AssetSourceEventPath, AssetSourceFileType, AssetWatcher};
 use crate::meta::{DEFAULTS_EXTENSION, META_EXTENSION};
 use crate::path::normalize_path;
 use bevy_utils::tracing::error;
@@ -46,7 +46,7 @@ impl FileWatcher {
 
 impl AssetWatcher for FileWatcher {}
 
-pub(crate) fn get_asset_path(root: &Path, absolute_path: &Path) -> AssetWatcherEventPath {
+pub(crate) fn get_asset_path(root: &Path, absolute_path: &Path) -> AssetSourceEventPath {
     let relative_path = absolute_path.strip_prefix(root).unwrap_or_else(|_| {
         panic!(
             "FileWatcher::get_asset_path() failed to strip prefix from absolute path: absolute_path={:?}, root={:?}",
@@ -55,7 +55,7 @@ pub(crate) fn get_asset_path(root: &Path, absolute_path: &Path) -> AssetWatcherE
         )
     });
 
-    let mut file_type = AssetWatcherFileType::Asset;
+    let mut file_type = AssetSourceFileType::Asset;
 
     let is_meta = relative_path
         .extension()
@@ -63,7 +63,7 @@ pub(crate) fn get_asset_path(root: &Path, absolute_path: &Path) -> AssetWatcherE
         .unwrap_or(false);
 
     let asset_path = if is_meta {
-        file_type = AssetWatcherFileType::Meta;
+        file_type = AssetSourceFileType::Meta;
         relative_path.with_extension("")
     } else {
         relative_path.to_owned()
@@ -74,10 +74,10 @@ pub(crate) fn get_asset_path(root: &Path, absolute_path: &Path) -> AssetWatcherE
         .map(|e| e == DEFAULTS_EXTENSION)
         .unwrap_or(false);
     if is_default_meta {
-        file_type = AssetWatcherFileType::MetaDefaults;
+        file_type = AssetSourceFileType::Defaults;
     }
 
-    AssetWatcherEventPath {
+    AssetSourceEventPath {
         path: asset_path,
         file_type,
     }
@@ -105,22 +105,22 @@ pub(crate) fn new_asset_event_debouncer(
                                 if let Some(event_path) = handler.get_path(&event.paths[0]) {
                                     let path = event_path.path;
                                     match event_path.file_type {
-                                        AssetWatcherFileType::Asset => {
+                                        AssetSourceFileType::Asset => {
                                             handler.handle(
                                                 &event.paths,
                                                 AssetSourceEvent::AddedAsset(path),
                                             );
                                         }
-                                        AssetWatcherFileType::Meta => {
+                                        AssetSourceFileType::Meta => {
                                             handler.handle(
                                                 &event.paths,
                                                 AssetSourceEvent::AddedMeta(path),
                                             );
                                         }
-                                        AssetWatcherFileType::MetaDefaults => {
+                                        AssetSourceFileType::Defaults => {
                                             handler.handle(
                                                 &event.paths,
-                                                AssetSourceEvent::AddedDefaultMeta(path),
+                                                AssetSourceEvent::AddedDefaults(path),
                                             );
                                         }
                                     }
@@ -137,22 +137,22 @@ pub(crate) fn new_asset_event_debouncer(
                                 if let Some(event_path) = handler.get_path(&event.paths[0]) {
                                     let path = event_path.path;
                                     match event_path.file_type {
-                                        AssetWatcherFileType::Asset => {
+                                        AssetSourceFileType::Asset => {
                                             handler.handle(
                                                 &event.paths,
                                                 AssetSourceEvent::ModifiedAsset(path),
                                             );
                                         }
-                                        AssetWatcherFileType::Meta => {
+                                        AssetSourceFileType::Meta => {
                                             handler.handle(
                                                 &event.paths,
                                                 AssetSourceEvent::ModifiedMeta(path),
                                             );
                                         }
-                                        AssetWatcherFileType::MetaDefaults => {
+                                        AssetSourceFileType::Defaults => {
                                             handler.handle(
                                                 &event.paths,
-                                                AssetSourceEvent::ModifiedDefaultMeta(path),
+                                                AssetSourceEvent::ModifiedDefaults(path),
                                             );
                                         }
                                     }
@@ -166,16 +166,11 @@ pub(crate) fn new_asset_event_debouncer(
                             | notify::EventKind::Modify(ModifyKind::Name(RenameMode::From)) => {
                                 if let Some(event_path) = handler.get_path(&event.paths[0]) {
                                     let path = event_path.path;
-                                    let is_meta =
-                                        event_path.file_type == AssetWatcherFileType::Meta;
-                                    let is_default_meta =
-                                        event_path.file_type == AssetWatcherFileType::MetaDefaults;
                                     handler.handle(
                                         &event.paths,
                                         AssetSourceEvent::RemovedUnknown {
                                             path,
-                                            is_meta,
-                                            is_default_meta,
+                                            file_type: event_path.file_type,
                                         },
                                     );
                                 }
@@ -188,14 +183,14 @@ pub(crate) fn new_asset_event_debouncer(
                                         AssetSourceEvent::AddedFolder(path)
                                     } else {
                                         match event_path.file_type {
-                                            AssetWatcherFileType::Asset => {
+                                            AssetSourceFileType::Asset => {
                                                 AssetSourceEvent::AddedAsset(path)
                                             }
-                                            AssetWatcherFileType::Meta => {
+                                            AssetSourceFileType::Meta => {
                                                 AssetSourceEvent::AddedMeta(path)
                                             }
-                                            AssetWatcherFileType::MetaDefaults => {
-                                                AssetSourceEvent::AddedDefaultMeta(path)
+                                            AssetSourceFileType::Defaults => {
+                                                AssetSourceEvent::AddedDefaults(path)
                                             }
                                         }
                                     };
@@ -267,53 +262,51 @@ pub(crate) fn new_asset_event_debouncer(
                                     // modified folder means nothing in this case
                                 } else {
                                     match event_path.file_type {
-                                        AssetWatcherFileType::Asset => {
+                                        AssetSourceFileType::Asset => {
                                             handler.handle(
                                                 &event.paths,
                                                 AssetSourceEvent::ModifiedAsset(path),
                                             );
                                         }
-                                        AssetWatcherFileType::Meta => {
+                                        AssetSourceFileType::Meta => {
                                             handler.handle(
                                                 &event.paths,
                                                 AssetSourceEvent::ModifiedMeta(path),
                                             );
                                         }
-                                        AssetWatcherFileType::MetaDefaults => {
+                                        AssetSourceFileType::Defaults => {
                                             handler.handle(
                                                 &event.paths,
-                                                AssetSourceEvent::ModifiedDefaultMeta(path),
+                                                AssetSourceEvent::ModifiedDefaults(path),
                                             );
                                         }
                                     }
                                 }
                             }
                             notify::EventKind::Remove(RemoveKind::File) => {
-                                error!("Removal?");
                                 let Some(event_path) = handler.get_path(&event.paths[0]) else {
                                     continue;
                                 };
 
                                 let path = event_path.path;
-                                error!("remove kind was detected {:?}", path);
 
                                 match event_path.file_type {
-                                    AssetWatcherFileType::Asset => {
+                                    AssetSourceFileType::Asset => {
                                         handler.handle(
                                             &event.paths,
                                             AssetSourceEvent::RemovedAsset(path),
                                         );
                                     }
-                                    AssetWatcherFileType::Meta => {
+                                    AssetSourceFileType::Meta => {
                                         handler.handle(
                                             &event.paths,
                                             AssetSourceEvent::RemovedMeta(path),
                                         );
                                     }
-                                    AssetWatcherFileType::MetaDefaults => {
+                                    AssetSourceFileType::Defaults => {
                                         handler.handle(
                                             &event.paths,
-                                            AssetSourceEvent::RemovedDefaultMeta(path),
+                                            AssetSourceEvent::RemovedDefaults(path),
                                         );
                                     }
                                 }
@@ -350,7 +343,7 @@ impl FilesystemEventHandler for FileEventHandler {
     fn begin(&mut self) {
         self.last_event = None;
     }
-    fn get_path(&self, absolute_path: &Path) -> Option<AssetWatcherEventPath> {
+    fn get_path(&self, absolute_path: &Path) -> Option<AssetSourceEventPath> {
         Some(get_asset_path(&self.root, absolute_path))
     }
 
@@ -367,7 +360,7 @@ pub(crate) trait FilesystemEventHandler: Send + Sync + 'static {
     fn begin(&mut self);
     /// Returns an actual asset path (if one exists for the given `absolute_path`), as well as a [`bool`] that is
     /// true if the `absolute_path` corresponds to a meta file.
-    fn get_path(&self, absolute_path: &Path) -> Option<AssetWatcherEventPath>;
+    fn get_path(&self, absolute_path: &Path) -> Option<AssetSourceEventPath>;
     /// Handle the given event
     fn handle(&mut self, absolute_paths: &[PathBuf], event: AssetSourceEvent);
 }

@@ -5,7 +5,7 @@
         settings: (
             loader_settings: (),
             transformer_settings: (
-                appended: "-modified_by_default_metaTEST",
+                appended: "-modified_by_default_meta",
             ),
             saver_settings: (),
         ),

@@ -6,9 +6,9 @@ pub use process::*;
 
 use crate::{
     io::{
-        AssetReaderError, AssetSource, AssetSourceBuilders, AssetSourceEvent, AssetSourceId,
-        AssetSources, AssetWriterError, ErasedAssetReader, ErasedAssetWriter,
-        MissingAssetSourceError,
+        extract_extension, get_meta_path, AssetReaderError, AssetSource, AssetSourceBuilders,
+        AssetSourceEvent, AssetSourceFileType, AssetSourceId, AssetSources, AssetWriterError,
+        ErasedAssetReader, ErasedAssetWriter, MissingAssetSourceError,
     },
     meta::{
         get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
@@ -227,9 +227,9 @@ impl AssetProcessor {
             | AssetSourceEvent::ModifiedMeta(path) => {
                 self.process_asset(source, path).await;
             }
-            AssetSourceEvent::AddedDefaultMeta(path)
-            | AssetSourceEvent::ModifiedDefaultMeta(path)
-            | AssetSourceEvent::RemovedDefaultMeta(path) => {
+            AssetSourceEvent::AddedDefaults(path)
+            | AssetSourceEvent::ModifiedDefaults(path)
+            | AssetSourceEvent::RemovedDefaults(path) => {
                 self.process_assets_using_defaults(source, path).await;
             }
             AssetSourceEvent::RemovedAsset(path) => {
@@ -284,42 +284,43 @@ impl AssetProcessor {
                     self.handle_added_folder(source, new).await;
                 }
             }
-            AssetSourceEvent::RemovedUnknown {
-                path,
-                is_meta,
-                is_default_meta,
-            } => {
-                let processed_reader = source.processed_reader().unwrap();
-                match processed_reader.is_directory(&path).await {
-                    Ok(is_directory) => {
-                        if is_directory {
-                            self.handle_removed_folder(source, &path).await;
-                        } else if is_meta {
-                            self.handle_removed_meta(source, path).await;
-                        } else if is_default_meta {
-                            self.process_assets_using_defaults(source, path).await;
-                        } else {
-                            self.handle_removed_asset(source, path).await;
-                        }
-                    }
-                    Err(err) => {
-                        match err {
-                            AssetReaderError::NotFound(_) => {
-                                // if the path is not found, a processed version does not exist
+            AssetSourceEvent::RemovedUnknown { path, file_type } => {
+                if file_type == AssetSourceFileType::Defaults {
+                    self.process_assets_using_defaults(source, path).await;
+                } else {
+                    let processed_reader = source.processed_reader().unwrap();
+                    match processed_reader.is_directory(&path).await {
+                        Ok(is_directory) => {
+                            if is_directory {
+                                self.handle_removed_folder(source, &path).await;
+                            } else if file_type == AssetSourceFileType::Meta {
+                                self.handle_removed_meta(source, path).await;
+                            } else if file_type == AssetSourceFileType::Defaults {
+                                // This is a little strange, there shouldn't be defaults in the processed folder.
+                                self.process_assets_using_defaults(source, path).await;
+                            } else {
+                                self.handle_removed_asset(source, path).await;
                             }
-                            AssetReaderError::Io(err) => {
-                                error!(
+                        }
+                        Err(err) => {
+                            match err {
+                                AssetReaderError::NotFound(_) => {
+                                    // If the path is not found, a processed version does not exist.
+                                }
+                                AssetReaderError::Io(err) => {
+                                    error!(
                                     "Path '{}' was removed, but the destination reader could not determine if it \
                                     was a folder or a file due to the following error: {err}",
                                     AssetPath::from_path(&path).with_source(source.id())
                                 );
-                            }
-                            AssetReaderError::HttpError(status) => {
-                                error!(
+                                }
+                                AssetReaderError::HttpError(status) => {
+                                    error!(
                                     "Path '{}' was removed, but the destination reader could not determine if it \
                                     was a folder or a file due to receiving an unexpected HTTP Status {status}",
                                     AssetPath::from_path(&path).with_source(source.id())
                                 );
+                                }
                             }
                         }
                     }
@@ -683,26 +684,59 @@ impl AssetProcessor {
         }
     }
 
-    async fn process_assets_using_defaults(&self, source: &AssetSource, path: PathBuf) {
-        let Some(file_stem) = path.file_stem() else {
+    /// This is called any time the processor believes that assets need to be reprocessed that depend on the specified defaults file.
+    /// The defaults file may have been added, modified, or removed.
+    async fn process_assets_using_defaults(&self, source: &AssetSource, defaults_path: PathBuf) {
+        let Some(file_stem) = defaults_path.file_stem() else {
             return;
         };
 
-        let mut directory = path.clone();
+        let Some(file_stem) = file_stem.to_str() else {
+            return;
+        };
+
+        let mut directory = defaults_path.clone();
         directory.pop();
 
-        let reader = source.reader();
-        let mut path_stream = reader.read_directory(&directory).await.unwrap();
-        while let Some(child_path) = path_stream.next().await {
-            // Only reprocess assets with an extension that matches the file stem of the meta defaults file.
-            if child_path.extension() != Some(file_stem) {
-                continue;
+        // Starting at the directory that contained the modified defaults file, reprocess all assets that:
+        // 1. Have the same extension as the defaults file_stem.
+        // 2. Do not have a meta file.
+        // 3. Are in this directory or any subdirectories.
+
+        let mut directories_to_process = VecDeque::new();
+        directories_to_process.push_back(directory.to_path_buf());
+
+        while let Some(current_directory) = directories_to_process.pop_front() {
+            let reader = source.reader();
+            let mut path_stream = reader.read_directory(&current_directory).await.unwrap();
+            while let Some(child_path) = path_stream.next().await {
+                let Ok(is_dir) = reader.is_directory(&child_path).await else {
+                    continue;
+                };
+                if is_dir {
+                    directories_to_process.push_back(child_path);
+                } else {
+                    let Ok(asset_extension) = extract_extension(&child_path) else {
+                        continue;
+                    };
+
+                    // Only reprocess assets with an extension that matches the file stem of the meta defaults file.
+                    if asset_extension != file_stem {
+                        continue;
+                    }
+
+                    // Only reprocess assets that don't have a meta file.
+                    let meta_path = get_meta_path(&child_path);
+                    if let Ok(meta_exists) = reader.is_directory(&meta_path).await {
+                        if !meta_exists {
+                            // If the meta doesn't exist (as a file) then we should reprocess the asset.
+                            continue;
+                        }
+                    }
+
+                    self.process_asset(source, child_path).await;
+                }
             }
-
-            // Only reprocess assets that don't have a meta file.
-            // (todo) -
-
-            self.process_asset(source, child_path).await;
         }
     }
 
