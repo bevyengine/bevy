@@ -6,6 +6,8 @@ use crate::io::{
     PathStream, Reader, Writer,
 };
 
+use crate::meta::{DEFAULTS_EXTENSION, META_EXTENSION};
+
 use std::{
     fs::{read_dir, File},
     io::{Read, Seek, Write},
@@ -131,7 +133,7 @@ impl AssetReader for FileAssetReader {
         let full_path = self.root_path.join(default_meta_path);
         match File::open(&full_path) {
             Ok(file) => {
-                let reader: Box<Reader> = Box::new(file);
+                let reader: Box<Reader> = Box::new(FileReader(file));
                 Ok(reader)
             }
             Err(e) => {

@@ -29,7 +29,7 @@ impl AssetReader for CustomAssetReader {
         path: &'a Path,
         extension: &'a str,
     ) -> Result<Box<Reader<'a>>, AssetReaderError> {
-        self.0.read_defaults(path, defaults).await
+        self.0.read_defaults(path, extension).await
     }
 
     async fn read_directory<'a>(
