@@ -2,8 +2,8 @@ use futures_io::{AsyncRead, AsyncSeek, AsyncWrite};
 use futures_lite::Stream;
 
 use crate::io::{
-    get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError, PathStream,
-    Reader, Writer,
+    get_defaults_path, get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError,
+    PathStream, Reader, Writer,
 };
 
 use std::{

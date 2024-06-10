@@ -1,5 +1,6 @@
 use crate::io::{
-    get_meta_path, AssetReader, AssetReaderError, EmptyPathStream, PathStream, Reader, VecReader,
+    get_defaults_path, get_meta_path, AssetReader, AssetReaderError, EmptyPathStream, PathStream,
+    Reader, VecReader,
 };
 use bevy_utils::tracing::error;
 use std::{ffi::CString, path::Path};
@@ -37,6 +38,24 @@ impl AssetReader for AndroidAssetReader {
             .asset_manager();
         let mut opened_asset = asset_manager
             .open(&CString::new(meta_path.to_str().unwrap()).unwrap())
+            .ok_or(AssetReaderError::NotFound(meta_path))?;
+        let bytes = opened_asset.buffer()?;
+        let reader: Box<Reader> = Box::new(VecReader::new(bytes.to_vec()));
+        Ok(reader)
+    }
+
+    async fn read_defaults<'a>(
+        &'a self,
+        path: &'a Path,
+        extension: &'a str,
+    ) -> Result<Box<Reader<'a>>, AssetReaderError> {
+        let default_meta_path = get_defaults_path(path, extension);
+        let asset_manager = bevy_winit::ANDROID_APP
+            .get()
+            .expect("Bevy must be setup with the #[bevy_main] macro on Android")
+            .asset_manager();
+        let mut opened_asset = asset_manager
+            .open(&CString::new(default_meta_path.to_str().unwrap()).unwrap())
             .ok_or(AssetReaderError::NotFound(meta_path))?;
         let bytes = opened_asset.buffer()?;
         let reader: Box<Reader> = Box::new(VecReader::new(bytes.to_vec()));
