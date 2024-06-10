@@ -275,11 +275,11 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
 }
 
 // replace 'world with 'w and 'state with 's
-fn replace_lifetimes(stream: TokenStream, f: &dyn Fn(&str) -> &str) -> TokenStream {
-    struct LifetimeReplacer<'a> {
-        f: Box<&'a dyn Fn(&str) -> &str>,
+fn replace_lifetimes(stream: TokenStream, f: Box<dyn Fn(&str) -> &str>) -> TokenStream {
+    struct LifetimeReplacer {
+        f: Box<dyn Fn(&str) -> &str>,
     }
-    impl VisitMut for LifetimeReplacer<'_> {
+    impl VisitMut for LifetimeReplacer {
         fn visit_lifetime_mut(&mut self, lifetime: &mut syn::Lifetime) {
             lifetime.ident = syn::Ident::new(
                 (self.f)(lifetime.ident.to_string().as_str()),
@@ -289,7 +289,7 @@ fn replace_lifetimes(stream: TokenStream, f: &dyn Fn(&str) -> &str) -> TokenStre
     }
 
     let mut ast = parse_macro_input!(stream as DeriveInput);
-    LifetimeReplacer { f: Box::new(f) }.visit_derive_input_mut(&mut ast);
+    LifetimeReplacer { f }.visit_derive_input_mut(&mut ast);
 
     quote! {#ast}.into()
 }
@@ -297,11 +297,14 @@ fn replace_lifetimes(stream: TokenStream, f: &dyn Fn(&str) -> &str) -> TokenStre
 /// Implement `SystemParam` to use a struct as a parameter in a system
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
-    let input = replace_lifetimes(input, &|s| match s {
-        "world" => "w",
-        "state" => "s",
-        other => other,
-    });
+    let input = replace_lifetimes(
+        input,
+        Box::new(|s| match s {
+            "world" => "w",
+            "state" => "s",
+            other => other,
+        }),
+    );
     let token_stream = input.clone();
     let ast = parse_macro_input!(input as DeriveInput);
     let syn::Data::Struct(syn::DataStruct {

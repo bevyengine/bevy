@@ -141,7 +141,7 @@ use std::{
 /// #    query: Query<'world, 'state, Entity>,
 /// #    res: Res<'world, SomeResource>,
 /// #    res_mut: ResMut<'world, SomeOtherResource>,
-/// #    local: Local<'state, u8>,
+/// #    world: Local<'state, u8>,
 /// #    commands: Commands<'world, 'state>,
 /// #    eventreader: EventReader<'world, 'state, SomeEvent>,
 /// #    eventwriter: EventWriter<'world, SomeEvent>
