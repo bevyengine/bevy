@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - main
+      - release-*
 
 env:
   CARGO_TERM_COLOR: always

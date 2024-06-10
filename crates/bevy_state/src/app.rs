@@ -177,7 +177,6 @@ impl AppExtStates for App {
         self
     }
 
-    #[cfg(feature = "bevy_hierarchy")]
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self {
         self.main_mut().enable_state_scoped_entities::<S>();
         self

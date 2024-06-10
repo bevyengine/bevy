@@ -25,7 +25,7 @@ use std::f32::consts::TAU;
 
 use crate::{
     primitives::{Circle, Sphere},
-    Dir2, Dir3, Dir3A, Quat, Rotation2d, ShapeSample, Vec3A,
+    Dir2, Dir3, Dir3A, Quat, Rot2, ShapeSample, Vec3A,
 };
 use rand::{
     distributions::{Distribution, Standard},
@@ -86,14 +86,14 @@ impl Distribution<Dir3A> for Standard {
 
 impl FromRng for Dir3A {}
 
-impl Distribution<Rotation2d> for Standard {
+impl Distribution<Rot2> for Standard {
     #[inline]
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Rotation2d {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Rot2 {
         let angle = rng.gen_range(0.0..TAU);
-        Rotation2d::radians(angle)
+        Rot2::radians(angle)
     }
 }
 
-impl FromRng for Rotation2d {}
+impl FromRng for Rot2 {}
 
 impl FromRng for Quat {}
