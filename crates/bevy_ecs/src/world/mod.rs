@@ -231,7 +231,7 @@ impl World {
     /// Use [`World::flush`] to apply all queued commands
     #[inline]
     pub fn commands(&mut self) -> Commands {
-        Commands::new_from_entities(&mut self.command_queue, &self.entities, &self.components)
+        Commands::new_from_entities(&mut self.command_queue, &self.entities)
     }
 
     /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.

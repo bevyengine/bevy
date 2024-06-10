@@ -4,7 +4,7 @@ use super::{Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource};
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
-    component::{ComponentId, Components},
+    component::ComponentId,
     entity::{Entities, Entity},
     event::Event,
     observer::{Observer, TriggerEvent, TriggerTargets},
@@ -71,7 +71,6 @@ use std::marker::PhantomData;
 pub struct Commands<'w, 's> {
     queue: Deferred<'s, CommandQueue>,
     entities: &'w Entities,
-    components: &'w Components,
 }
 
 impl<'w, 's> Commands<'w, 's> {
@@ -81,7 +80,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// [system parameter]: crate::system::SystemParam
     pub fn new(queue: &'s mut CommandQueue, world: &'w World) -> Self {
-        Self::new_from_entities(queue, &world.entities, &world.components)
+        Self::new_from_entities(queue, &world.entities)
     }
 
     /// Returns a new `Commands` instance from a [`CommandQueue`] and an [`Entities`] reference.
@@ -89,14 +88,9 @@ impl<'w, 's> Commands<'w, 's> {
     /// It is not required to call this constructor when using `Commands` as a [system parameter].
     ///
     /// [system parameter]: crate::system::SystemParam
-    pub fn new_from_entities(
-        queue: &'s mut CommandQueue,
-        entities: &'w Entities,
-        components: &'w Components,
-    ) -> Self {
+    pub fn new_from_entities(queue: &'s mut CommandQueue, entities: &'w Entities) -> Self {
         Self {
             queue: Deferred(queue),
-            components,
             entities,
         }
     }
@@ -123,7 +117,6 @@ impl<'w, 's> Commands<'w, 's> {
         Commands {
             queue: self.queue.reborrow(),
             entities: self.entities,
-            components: self.components,
         }
     }
 
@@ -628,11 +621,6 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     pub fn add<C: Command>(&mut self, command: C) {
         self.queue.push(command);
-    }
-
-    /// Returns a reference to the [`World`]'s [`Components`].
-    pub fn components(&self) -> &Components {
-        self.components
     }
 
     /// Sends a "global" [`Trigger`] without any targets.
