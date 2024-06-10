@@ -919,14 +919,21 @@ impl Termination for AppExit {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
-    use std::{marker::PhantomData, mem};
+    use std::{iter, marker::PhantomData, mem, sync::Mutex};
 
-    use bevy_ecs::prelude::{Resource, World};
-    use bevy_ecs::world::FromWorld;
-    use bevy_ecs::{event::EventWriter, schedule::ScheduleLabel, system::Commands};
+    use bevy_ecs::{
+        change_detection::{DetectChanges, ResMut},
+        component::Component,
+        entity::Entity,
+        event::EventWriter,
+        query::With,
+        removal_detection::RemovedComponents,
+        schedule::{IntoSystemConfigs, ScheduleLabel},
+        system::{Commands, Query, Resource},
+        world::{FromWorld, World},
+    };
 
-    use crate::{App, AppExit, Plugin, Update};
+    use crate::{App, AppExit, Plugin, SubApp, Update};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -1127,6 +1134,62 @@ mod tests {
             GenericLabel::<u32>(PhantomData).intern(),
             GenericLabel::<u64>(PhantomData).intern()
         );
+    }
+
+    #[test]
+    fn test_update_clears_trackers_once() {
+        #[derive(Component, Copy, Clone)]
+        struct Foo;
+
+        let mut app = App::new();
+        app.world_mut().spawn_batch(iter::repeat(Foo).take(5));
+
+        fn despawn_one_foo(mut commands: Commands, foos: Query<Entity, With<Foo>>) {
+            if let Some(e) = foos.iter().next() {
+                commands.entity(e).despawn();
+            };
+        }
+        fn check_despawns(mut removed_foos: RemovedComponents<Foo>) {
+            let mut despawn_count = 0;
+            for _ in removed_foos.read() {
+                despawn_count += 1;
+            }
+
+            assert_eq!(despawn_count, 2);
+        }
+
+        app.add_systems(Update, despawn_one_foo);
+        app.update(); // Frame 0
+        app.update(); // Frame 1
+        app.add_systems(Update, check_despawns.after(despawn_one_foo));
+        app.update(); // Should see despawns from frames 1 & 2, but not frame 0
+    }
+
+    #[test]
+    fn test_extract_sees_changes() {
+        use super::AppLabel;
+        use crate::{self as bevy_app};
+
+        #[derive(AppLabel, Clone, Copy, Hash, PartialEq, Eq, Debug)]
+        struct MySubApp;
+
+        #[derive(Resource)]
+        struct Foo(usize);
+
+        let mut app = App::new();
+        app.world_mut().insert_resource(Foo(0));
+        app.add_systems(Update, |mut foo: ResMut<Foo>| {
+            foo.0 += 1;
+        });
+
+        let mut sub_app = SubApp::new();
+        sub_app.set_extract(|main_world, _sub_world| {
+            assert!(main_world.get_resource_ref::<Foo>().unwrap().is_changed());
+        });
+
+        app.insert_sub_app(MySubApp, sub_app);
+
+        app.update();
     }
 
     #[test]
