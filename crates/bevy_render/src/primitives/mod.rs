@@ -168,7 +168,7 @@ impl HalfSpace {
     /// Returns the unit normal vector of the bisecting plane that characterizes the `HalfSpace`.
     #[inline]
     pub fn normal(&self) -> Vec3A {
-        Vec3A::from(self.normal_d)
+        Vec3A::from_vec4(self.normal_d)
     }
 
     /// Returns the signed distance from the bisecting plane to the origin along
