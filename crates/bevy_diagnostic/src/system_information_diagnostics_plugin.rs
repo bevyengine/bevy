@@ -4,6 +4,9 @@ use bevy_ecs::system::Resource;
 
 /// Adds a System Information Diagnostic, specifically `cpu_usage` (in %) and `mem_usage` (in %)
 ///
+/// Note that gather system information is a time intensive task and therefore can't be done on every frame.
+/// Any system diagnostics gathered by this plugin may not be current when you access them.
+///
 /// Supported targets:
 /// * linux,
 /// * windows,
@@ -45,12 +48,6 @@ pub struct SystemInfo {
     pub memory: String,
 }
 
-/// The expected interval at which system information will be queried and generated.
-///
-/// The system diagnostic plugin doesn't work in all situations. In those situations this value will
-/// bet set to None.
-pub use internal::EXPECTED_SYSTEM_INFORMATION_INTERVAL;
-
 // NOTE: sysinfo fails to compile when using bevy dynamic or on iOS and does nothing on wasm
 #[cfg(all(
     any(
@@ -65,7 +62,7 @@ pub mod internal {
     use bevy_ecs::{prelude::ResMut, system::Local};
     use std::{
         sync::{Arc, Mutex},
-        time::{Duration, Instant},
+        time::Instant,
     };
 
     use bevy_app::{App, First, Startup, Update};
@@ -93,9 +90,6 @@ pub mod internal {
         diagnostics
             .add(Diagnostic::new(SystemInformationDiagnosticsPlugin::MEM_USAGE).with_suffix("%"));
     }
-
-    pub const EXPECTED_SYSTEM_INFORMATION_INTERVAL: Option<Duration> =
-        Some(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
 
     struct SysinfoRefreshData {
         current_cpu_usage: f64,
@@ -211,8 +205,6 @@ pub mod internal {
     not(feature = "dynamic_linking")
 )))]
 pub mod internal {
-    use std::time::Duration;
-
     use bevy_app::{App, Startup};
 
     pub(super) fn setup_plugin(app: &mut App) {
@@ -222,8 +214,6 @@ pub mod internal {
     fn setup_system() {
         bevy_utils::tracing::warn!("This platform and/or configuration is not supported!");
     }
-
-    pub const EXPECTED_SYSTEM_INFORMATION_INTERVAL: Option<Duration> = None;
 
     impl Default for super::SystemInfo {
         fn default() -> Self {
