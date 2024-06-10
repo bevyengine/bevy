@@ -223,6 +223,12 @@ pub trait ErasedAssetReader: Send + Sync + 'static {
         &'a self,
         path: &'a Path,
     ) -> BoxedFuture<Result<Box<Reader<'a>>, AssetReaderError>>;
+    /// Returns a future to load the defaults file data at the provided path.
+    fn read_defaults<'a>(
+        &'a self,
+        path: &'a Path,
+        extension: &'a str,
+    ) -> BoxedFuture<Result<Box<Reader<'a>>, AssetReaderError>>;
     /// Returns an iterator of directory entry names at the provided path.
     fn read_directory<'a>(
         &'a self,
@@ -250,6 +256,13 @@ impl<T: AssetReader> ErasedAssetReader for T {
         path: &'a Path,
     ) -> BoxedFuture<Result<Box<Reader<'a>>, AssetReaderError>> {
         Box::pin(Self::read_meta(self, path))
+    }
+    fn read_defaults<'a>(
+        &'a self,
+        path: &'a Path,
+        extension: &'a str,
+    ) -> BoxedFuture<Result<Box<Reader<'a>>, AssetReaderError>> {
+        Box::pin(Self::read_defaults(self, path, extension))
     }
     fn read_directory<'a>(
         &'a self,

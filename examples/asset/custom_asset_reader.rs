@@ -19,8 +19,17 @@ impl AssetReader for CustomAssetReader {
         info!("Reading {:?}", path);
         self.0.read(path).await
     }
+
     async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
         self.0.read_meta(path).await
+    }
+
+    async fn read_defaults<'a>(
+        &'a self,
+        path: &'a Path,
+        extension: &'a str,
+    ) -> Result<Box<Reader<'a>>, AssetReaderError> {
+        self.0.read_defaults(path, defaults).await
     }
 
     async fn read_directory<'a>(
