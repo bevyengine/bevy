@@ -20,7 +20,8 @@ use bevy_time::TimeSender;
 use bevy_utils::Instant;
 use std::sync::Arc;
 use wgpu::{
-    Adapter, AdapterInfo, CommandBuffer, CommandEncoder, Instance, Queue, RequestAdapterOptions,
+    Adapter, AdapterInfo, CommandBuffer, CommandEncoder, DeviceType, Instance, Queue,
+    RequestAdapterOptions,
 };
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
@@ -187,8 +188,7 @@ pub async fn initialize_renderer(
     let adapter_info = adapter.get_info();
     info!("{:?}", adapter_info);
 
-    if adapter_info.driver == "llvmpipe" || adapter_info.driver == "Microsoft Basic Display Adapter"
-    {
+    if adapter_info.device_type == DeviceType::Cpu {
         warn!(
             "The selected adapter is using the a driver that only supports software rendering. \
              This is likely to be very slow. See https://bevyengine.org/learn/errors/b0006/"
