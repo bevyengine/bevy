@@ -2,12 +2,10 @@
 #![allow(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
-use std::{os::unix::process, path::PathBuf};
-
-use bevy_macro_utils::{get_lit_str, get_struct_fields, BevyManifest};
+use bevy_macro_utils::{get_struct_fields, BevyManifest};
 use proc_macro::{Span, TokenStream};
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DeriveInput, Field, LitStr, Path};
+use syn::{parse_macro_input, Data, DeriveInput, Field, Path};
 
 pub(crate) fn bevy_app_path() -> Path {
     BevyManifest::default().get_path("bevy_app")

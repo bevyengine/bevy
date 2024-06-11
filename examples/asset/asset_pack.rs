@@ -1,8 +1,7 @@
 //! Example of a custom asset bundle
 
-use bevy::asset::pack::AssetPack;
+use bevy::asset::io::pack::{AssetPack, AssetPackPlugin, GetPack};
 use bevy::prelude::*;
-use bevy_internal::asset::pack::{AssetPackPlugin, GetPack};
 
 fn main() {
     App::new()
