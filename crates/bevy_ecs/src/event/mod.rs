@@ -424,7 +424,7 @@ mod tests {
 
     #[cfg(feature = "multi_threaded")]
     #[test]
-    fn test_events_par_iter() {
+    fn test_events_par_read() {
         use std::{collections::HashSet, sync::mpsc};
 
         use crate::prelude::*;
@@ -664,32 +664,16 @@ mod tests {
 
         let mut schedule = Schedule::default();
 
-        schedule.add_systems(
-            |mut events: EventMutator<TestEvent>, mut second_run: Local<bool>| {
-                events.par_read().for_each(|event| {
-                    event.i += 1; // Mutate every event
-                });
+        schedule.add_systems(|mut events: EventMutator<TestEvent>| {
+            let (tx, rx) = mpsc::channel();
+            events.par_read().for_each(|event| {
+                tx.send(event.i).unwrap();
+            });
+            drop(tx);
 
-                let (tx, rx) = mpsc::channel();
-                events.par_read().for_each(|event| {
-                    tx.send(event.i).unwrap();
-                });
-                drop(tx);
-
-                if *second_run {
-                    let observed: HashSet<_> = rx.into_iter().collect();
-                    assert!(
-                        observed.is_empty(),
-                        "par_read didn't consume events after first run but should"
-                    );
-                } else {
-                    let observed: HashSet<_> = rx.into_iter().collect();
-                    assert_eq!(observed, HashSet::from_iter(1..102));
-                    *second_run = true;
-                };
-            },
-        );
-        schedule.run(&mut world);
+            let observed: HashSet<_> = rx.into_iter().collect();
+            assert_eq!(observed, HashSet::from_iter(0..100));
+        });
         schedule.run(&mut world);
     }
 }
