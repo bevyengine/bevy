@@ -210,7 +210,15 @@ mod tests {
             .init_resource::<FixedUpdateCounter>()
             .insert_resource(TimeUpdateStrategy::ManualDuration(time_step));
 
-        // Update the app by a single timestep
+        // Frame 0
+        // Fixed update should not have run yet
+        app.update();
+
+        assert!(Duration::ZERO < fixed_update_timestep);
+        let counter = app.world().resource::<FixedUpdateCounter>();
+        assert_eq!(counter.0, 0, "Fixed update should not have run yet");
+
+        // Frame 1
         // Fixed update should not have run yet
         app.update();
 
@@ -218,7 +226,7 @@ mod tests {
         let counter = app.world().resource::<FixedUpdateCounter>();
         assert_eq!(counter.0, 0, "Fixed update should not have run yet");
 
-        // Update the app by another timestep
+        // Frame 2
         // Fixed update should have run now
         app.update();
 
@@ -226,7 +234,7 @@ mod tests {
         let counter = app.world().resource::<FixedUpdateCounter>();
         assert_eq!(counter.0, 1, "Fixed update should have run once");
 
-        // Update the app by another timestep
+        // Frame 3
         // Fixed update should have run exactly once still
         app.update();
 
@@ -234,7 +242,7 @@ mod tests {
         let counter = app.world().resource::<FixedUpdateCounter>();
         assert_eq!(counter.0, 1, "Fixed update should have run once");
 
-        // Update the app by another timestep
+        // Frame 4
         // Fixed update should have run twice now
         app.update();
 
