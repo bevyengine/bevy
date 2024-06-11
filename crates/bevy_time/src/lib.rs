@@ -190,9 +190,15 @@ mod tests {
             .init_resource::<FixedUpdateCounter>()
             .insert_resource(TimeUpdateStrategy::ManualDuration(time_step));
 
+        let fixed_time = app.world().resource::<Time<Fixed>>();
+        println!("Fixed time on frame 0: {:?}", fixed_time);
+
         // Update the app by a single timestep
         // Fixed update should not have run yet
         app.update();
+        let fixed_time = app.world().resource::<Time<Fixed>>();
+        println!("Fixed time on frame 1: {:?}", fixed_time);
+
         assert!(time_step < fixed_update_timestep);
         let counter = app.world().resource::<FixedUpdateCounter>();
         assert_eq!(counter.0, 0, "Fixed update should not have run yet");
@@ -200,6 +206,9 @@ mod tests {
         // Update the app by another timestep
         // Fixed update should have run now
         app.update();
+        let fixed_time = app.world().resource::<Time<Fixed>>();
+        println!("Fixed time on frame 2: {:?}", fixed_time);
+
         assert!(2 * time_step > fixed_update_timestep);
         let counter = app.world().resource::<FixedUpdateCounter>();
         assert_eq!(counter.0, 1, "Fixed update should have run once");
@@ -207,6 +216,9 @@ mod tests {
         // Update the app by another timestep
         // Fixed update should have run exactly once still
         app.update();
+        let fixed_time = app.world().resource::<Time<Fixed>>();
+        println!("Fixed time on frame 3: {:?}", fixed_time);
+
         assert!(3 * time_step < 2 * fixed_update_timestep);
         let counter = app.world().resource::<FixedUpdateCounter>();
         assert_eq!(counter.0, 1, "Fixed update should have run once");
@@ -214,6 +226,9 @@ mod tests {
         // Update the app by another timestep
         // Fixed update should have run twice now
         app.update();
+        let fixed_time = app.world().resource::<Time<Fixed>>();
+        println!("Fixed time on frame 4: {:?}", fixed_time);
+
         assert!(4 * time_step > 2 * fixed_update_timestep);
         let counter = app.world().resource::<FixedUpdateCounter>();
         assert_eq!(counter.0, 2, "Fixed update should have run twice");
