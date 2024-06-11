@@ -161,7 +161,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
 
             drop(render_pass);
 
-            // Copy prepass depth to the main depth texture
+            // After rendering to the view depth texture, copy it to the prepass depth texture
             if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
                 command_encoder.copy_texture_to_texture(
                     view_depth_texture.texture.as_image_copy(),
