@@ -8,7 +8,6 @@ use bevy_ecs::{
 };
 
 #[doc(hidden)]
-#[derive(Debug)]
 struct RegisteredEvent {
     component_id: ComponentId,
     // Required to flush the secondary buffer and drop events even if left unchanged.
@@ -20,7 +19,7 @@ struct RegisteredEvent {
 
 /// A registry of all of the [`Events`] in the [`World`], used by [`event_update_system`]
 /// to update all of the events.
-#[derive(Resource, Default, Debug)]
+#[derive(Resource, Default)]
 pub struct EventRegistry {
     pub(super) needs_update: bool,
     event_updates: Vec<RegisteredEvent>,
@@ -47,11 +46,7 @@ impl EventRegistry {
 
     /// Updates all of the registered events in the World.
     pub fn run_updates(&mut self, world: &mut World, last_change_tick: Tick) {
-        println!("Running event updates");
-
         for registered_event in &mut self.event_updates {
-            println!("Checking if we should update an event");
-
             // Bypass the type ID -> Component ID lookup with the cached component ID.
             if let Some(events) = world.get_resource_mut_by_id(registered_event.component_id) {
                 let has_changed = events.has_changed_since(last_change_tick);

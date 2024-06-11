@@ -23,7 +23,6 @@ pub fn signal_event_update_system(signal: Option<ResMut<EventRegistry>>) {
 
 /// A system that calls [`Events::update`] on all registered [`Events`] in the world.
 pub fn event_update_system(world: &mut World, mut last_change_tick: Local<Tick>) {
-    println!("Running event_update_system");
     if world.contains_resource::<EventRegistry>() {
         world.resource_scope(|world, mut registry: Mut<EventRegistry>| {
             registry.run_updates(world, *last_change_tick);
@@ -36,10 +35,6 @@ pub fn event_update_system(world: &mut World, mut last_change_tick: Local<Tick>)
 
 /// A run condition for [`event_update_system`].
 pub fn event_update_condition(signal: Option<Res<EventRegistry>>) -> bool {
-    println!("Checking if we should run event_update_system");
-
-    println!("signal: {:?}", signal);
-
     // If we haven't got a signal to update the events, but we *could* get such a signal
     // return early and update the events later.
     signal.map_or(false, |signal| signal.needs_update)
