@@ -2,7 +2,9 @@
 
 use std::f32::consts::PI;
 
+use bevy::animation::curves::{RotationCurve, ScaleCurve, TranslationCurve};
 use bevy::animation::{AnimationTarget, AnimationTargetId};
+use bevy::math::curve::UnevenSampleAutoCurve;
 use bevy::prelude::*;
 
 fn main() {
@@ -51,9 +53,9 @@ fn setup(
     let planet_animation_target_id = AnimationTargetId::from_name(&planet);
     animation.add_curve_to_target(
         planet_animation_target_id,
-        VariableCurve {
-            keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0, 4.0],
-            keyframes: Keyframes::Translation(vec![
+        VariableCurve::Translation(TranslationCurve::Linear(UnevenSampleAutoCurve::new_raw(
+            vec![0.0, 1.0, 2.0, 3.0, 4.0],
+            vec![
                 Vec3::new(1.0, 0.0, 1.0),
                 Vec3::new(-1.0, 0.0, 1.0),
                 Vec3::new(-1.0, 0.0, -1.0),
@@ -61,9 +63,8 @@ fn setup(
                 // in case seamless looping is wanted, the last keyframe should
                 // be the same as the first one
                 Vec3::new(1.0, 0.0, 1.0),
-            ]),
-            interpolation: Interpolation::Linear,
-        },
+            ],
+        ))),
     );
     // Or it can modify the rotation of the transform.
     // To find the entity to modify, the hierarchy will be traversed looking for
@@ -72,17 +73,18 @@ fn setup(
         AnimationTargetId::from_names([planet.clone(), orbit_controller.clone()].iter());
     animation.add_curve_to_target(
         orbit_controller_animation_target_id,
-        VariableCurve {
-            keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0, 4.0],
-            keyframes: Keyframes::Rotation(vec![
-                Quat::IDENTITY,
-                Quat::from_axis_angle(Vec3::Y, PI / 2.),
-                Quat::from_axis_angle(Vec3::Y, PI / 2. * 2.),
-                Quat::from_axis_angle(Vec3::Y, PI / 2. * 3.),
-                Quat::IDENTITY,
-            ]),
-            interpolation: Interpolation::Linear,
-        },
+        VariableCurve::Rotation(RotationCurve::SphericalLinear(
+            UnevenSampleAutoCurve::new_raw(
+                vec![0.0, 1.0, 2.0, 3.0, 4.0],
+                vec![
+                    Quat::IDENTITY,
+                    Quat::from_axis_angle(Vec3::Y, PI / 2.),
+                    Quat::from_axis_angle(Vec3::Y, PI / 2. * 2.),
+                    Quat::from_axis_angle(Vec3::Y, PI / 2. * 3.),
+                    Quat::IDENTITY,
+                ],
+            ),
+        )),
     );
     // If a curve in an animation is shorter than the other, it will not repeat
     // until all other curves are finished. In that case, another animation should
@@ -92,9 +94,9 @@ fn setup(
     );
     animation.add_curve_to_target(
         satellite_animation_target_id,
-        VariableCurve {
-            keyframe_timestamps: vec![0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0],
-            keyframes: Keyframes::Scale(vec![
+        VariableCurve::Scale(ScaleCurve::Linear(UnevenSampleAutoCurve::new_raw(
+            vec![0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0],
+            vec![
                 Vec3::splat(0.8),
                 Vec3::splat(1.2),
                 Vec3::splat(0.8),
@@ -104,26 +106,26 @@ fn setup(
                 Vec3::splat(0.8),
                 Vec3::splat(1.2),
                 Vec3::splat(0.8),
-            ]),
-            interpolation: Interpolation::Linear,
-        },
+            ],
+        ))),
     );
     // There can be more than one curve targeting the same entity path
     animation.add_curve_to_target(
         AnimationTargetId::from_names(
             [planet.clone(), orbit_controller.clone(), satellite.clone()].iter(),
         ),
-        VariableCurve {
-            keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0, 4.0],
-            keyframes: Keyframes::Rotation(vec![
-                Quat::IDENTITY,
-                Quat::from_axis_angle(Vec3::Y, PI / 2.),
-                Quat::from_axis_angle(Vec3::Y, PI / 2. * 2.),
-                Quat::from_axis_angle(Vec3::Y, PI / 2. * 3.),
-                Quat::IDENTITY,
-            ]),
-            interpolation: Interpolation::Linear,
-        },
+        VariableCurve::Rotation(RotationCurve::SphericalLinear(
+            UnevenSampleAutoCurve::new_raw(
+                vec![0.0, 1.0, 2.0, 3.0, 4.0],
+                vec![
+                    Quat::IDENTITY,
+                    Quat::from_axis_angle(Vec3::Y, PI / 2.),
+                    Quat::from_axis_angle(Vec3::Y, PI / 2. * 2.),
+                    Quat::from_axis_angle(Vec3::Y, PI / 2. * 3.),
+                    Quat::IDENTITY,
+                ],
+            ),
+        )),
     );
 
     // Create the animation graph
