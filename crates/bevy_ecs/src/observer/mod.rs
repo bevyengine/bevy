@@ -554,6 +554,9 @@ mod tests {
             res.0 += 1;
         });
 
+        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
+        // and therefore does not automatically flush.
+        world.flush();
         world.trigger(EventA);
         world.flush();
         assert_eq!(1, world.resource::<R>().0);
@@ -576,6 +579,9 @@ mod tests {
             res.0 += 1;
         });
 
+        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
+        // and therefore does not automatically flush.
+        world.flush();
         world.trigger_targets(EventA, entity);
         world.flush();
         assert_eq!(2, world.resource::<R>().0);

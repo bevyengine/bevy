@@ -64,7 +64,6 @@ impl Component for ObserverState {
             });
         });
         hooks.on_remove(|mut world, entity, _| {
-            println!("Despawned observer {entity:?}");
             let descriptor = std::mem::take(
                 &mut world
                     .entity_mut(entity)

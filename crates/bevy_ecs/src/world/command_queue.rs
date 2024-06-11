@@ -20,11 +20,8 @@ struct CommandMeta {
     /// `world` is optional to allow this one function pointer to perform double-duty as a drop.
     ///
     /// Advances `cursor` by the size of `T` in bytes.
-    consume_command_and_get_size: unsafe fn(
-        value: OwningPtr<Unaligned>,
-        world: Option<NonNull<World>>,
-        cursor: NonNull<usize>,
-    ),
+    consume_command_and_get_size:
+        unsafe fn(value: OwningPtr<Unaligned>, world: Option<NonNull<World>>, cursor: &mut usize),
 }
 
 /// Densely and efficiently stores a queue of heterogenous types implementing [`Command`].
@@ -166,9 +163,8 @@ impl RawCommandQueue {
         }
 
         let meta = CommandMeta {
-            consume_command_and_get_size: |command, world, mut cursor| {
-                // SAFETY: Pointer is assured to be valid in `CommandQueue.apply_or_drop_queued`
-                unsafe { *cursor.as_mut() += std::mem::size_of::<C>() }
+            consume_command_and_get_size: |command, world, cursor| {
+                *cursor += std::mem::size_of::<C>();
 
                 // SAFETY: According to the invariants of `CommandMeta.consume_command_and_get_size`,
                 // `command` must point to a value of type `C`.
@@ -224,34 +220,35 @@ impl RawCommandQueue {
     pub(crate) unsafe fn apply_or_drop_queued(&mut self, world: Option<NonNull<World>>) {
         // SAFETY: If this is the command queue on world, world will not be dropped as we have a mutable reference
         // If this is not the command queue on world we have exclusive ownership and self will not be mutated
-        while *self.cursor.as_ref() < self.bytes.as_ref().len() {
+        let start = *self.cursor.as_ref();
+        let stop = self.bytes.as_ref().len();
+        let length = stop - start;
+        let mut local_cursor = start;
+        // SAFETY: we are setting the global cursor to the current length to prevent the executing commands from applying
+        // the remaining commands currently in this list. This is safe.
+        *self.cursor.as_mut() = stop;
+
+        while local_cursor < stop {
             // SAFETY: The cursor is either at the start of the buffer, or just after the previous command.
             // Since we know that the cursor is in bounds, it must point to the start of a new command.
             let meta = unsafe {
                 self.bytes
                     .as_mut()
                     .as_mut_ptr()
-                    .add(*self.cursor.as_ref())
+                    .add(local_cursor)
                     .cast::<CommandMeta>()
                     .read_unaligned()
             };
 
             // Advance to the bytes just after `meta`, which represent a type-erased command.
-            // SAFETY: For most types of `Command`, the pointer immediately following the metadata
-            // is guaranteed to be in bounds. If the command is a zero-sized type (ZST), then the cursor
-            // might be 1 byte past the end of the buffer, which is safe.
-            unsafe { *self.cursor.as_mut() += std::mem::size_of::<CommandMeta>() };
+            local_cursor += std::mem::size_of::<CommandMeta>();
             // Construct an owned pointer to the command.
             // SAFETY: It is safe to transfer ownership out of `self.bytes`, since the increment of `cursor` above
             // guarantees that nothing stored in the buffer will get observed after this function ends.
             // `cmd` points to a valid address of a stored command, so it must be non-null.
             let cmd = unsafe {
                 OwningPtr::<Unaligned>::new(std::ptr::NonNull::new_unchecked(
-                    self.bytes
-                        .as_mut()
-                        .as_mut_ptr()
-                        .add(*self.cursor.as_ref())
-                        .cast(),
+                    self.bytes.as_mut().as_mut_ptr().add(local_cursor).cast(),
                 ))
             };
             // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
@@ -260,14 +257,19 @@ impl RawCommandQueue {
             // This also advances the cursor past the command. For ZSTs, the cursor will not move.
             // At this point, it will either point to the next `CommandMeta`,
             // or the cursor will be out of bounds and the loop will end.
-            unsafe { (meta.consume_command_and_get_size)(cmd, world, self.cursor) };
+            unsafe { (meta.consume_command_and_get_size)(cmd, world, &mut local_cursor) };
+
+            // We call this again, with the cursor still at `stop`, to ensure that any new Commands queued by the command
+            // are also applied.
+            self.apply_or_drop_queued(world);
         }
 
-        // Reset the buffer, so it can be reused after this function ends.
-        // SAFETY: `set_len(0)` is always valid.
+        // Reset the buffer: all commands past the original `start` cursor have been applied.
+        // SAFETY: we are setting the length of bytes to the original length, minus the length of the original
+        // list of commands being considered. All bytes remaining in the Vec are still valid, unapplied commands.
         unsafe {
-            self.bytes.as_mut().set_len(0);
-            *self.cursor.as_mut() = 0;
+            self.bytes.as_mut().set_len(stop - length);
+            *self.cursor.as_mut() = start;
         };
     }
 }

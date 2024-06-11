@@ -1242,13 +1242,13 @@ mod tests {
         world
             .register_component_hooks::<C>()
             .on_add(|mut world, _, _| {
-                world.resource_mut::<R>().assert_order(2);
+                world.resource_mut::<R>().assert_order(3);
             });
 
         world
             .register_component_hooks::<D>()
             .on_add(|mut world, _, _| {
-                world.resource_mut::<R>().assert_order(3);
+                world.resource_mut::<R>().assert_order(2);
             });
 
         world.spawn(A).flush();
