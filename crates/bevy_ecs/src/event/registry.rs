@@ -21,8 +21,20 @@ struct RegisteredEvent {
 /// to update all of the events.
 #[derive(Resource, Default)]
 pub struct EventRegistry {
-    pub(super) needs_update: bool,
+    pub(super) needs_update: ShouldUpdateEvents,
     event_updates: Vec<RegisteredEvent>,
+}
+
+/// Controls whether or not the events should be updated.
+#[derive(Default)]
+pub(crate) enum ShouldUpdateEvents {
+    /// Without any fixed timestep shenanigans, events should always be updated each frame.
+    #[default]
+    AlwaysUpdate,
+    /// We need to wait until at least one pass of the fixed update schedules to update the events.
+    WaitingToUpdate,
+    /// At least one pass of the fixed update schedules has occurred, and the events are ready to be updated.
+    ReadyToUpdate,
 }
 
 impl EventRegistry {
