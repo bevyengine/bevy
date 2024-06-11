@@ -325,13 +325,7 @@ mod tests {
             println!("Total events: {n_total_events} | Current events: {n_current_events}",);
 
             match frame {
-                0 => {
-                    assert_eq!(fixed_updates_seen, 0);
-                    assert_eq!(n_total_events, 1);
-                    assert_eq!(n_current_events, 1);
-                    assert_eq!(should_update, ShouldUpdateEvents::Waiting);
-                }
-                1 => {
+                0 | 1 => {
                     assert_eq!(fixed_updates_seen, 0);
                     assert_eq!(n_total_events, 1);
                     assert_eq!(n_current_events, 1);
