@@ -8,7 +8,7 @@ use crate::{
 };
 use bevy_ptr::PtrMut;
 
-/// Contains [`Observer`]` information. This defines how a given observer behaves. It is the
+/// Contains [`Observer`] information. This defines how a given observer behaves. It is the
 /// "source of truth" for a given observer entity's behavior.
 pub struct ObserverState {
     pub(crate) descriptor: ObserverDescriptor,
@@ -172,13 +172,13 @@ pub type BoxedObserverSystem<E = (), B = ()> = Box<dyn ObserverSystem<E, B>>;
 
 fn observer_system_runner<E: Event, B: Bundle>(
     mut world: DeferredWorld,
-    trigger: ObserverTrigger,
+    observer_trigger: ObserverTrigger,
     ptr: PtrMut,
 ) {
     let world = world.as_unsafe_world_cell();
     let observer_cell =
     // SAFETY: Observer was triggered so must still exist in world
-        unsafe { world.get_entity(trigger.observer).debug_checked_unwrap() };
+        unsafe { world.get_entity(observer_trigger.observer).debug_checked_unwrap() };
     // SAFETY: Observer was triggered so must have an `ObserverState`
     let mut state = unsafe {
         observer_cell
@@ -194,9 +194,16 @@ fn observer_system_runner<E: Event, B: Bundle>(
     }
     state.last_trigger_id = last_trigger;
 
-    let observer: Trigger<E, B> =
+    let trigger: Trigger<E, B> =
         // SAFETY: Caller ensures `ptr` is castable to `&mut T`
-            Trigger::new(unsafe { ptr.deref_mut() }, trigger);
+            Trigger::new(unsafe { ptr.deref_mut() }, observer_trigger);
+    // SAFETY: the static lifetime is encapsulated in Trigger / cannot leak out.
+    // Additionally, IntoObserverSystem is only implemented for functions starting
+    // with for<'a> Trigger<'a>, meaning users cannot specify Trigger<'static> manually,
+    // allowing the Trigger<'static> to be moved outside of the context of the system.
+    // This transmute is obviously not ideal, but it is safe. Ideally we can remove the
+    // static constraint from ObserverSystem, but so far we have not found a way.
+    let trigger: Trigger<'static, E, B> = unsafe { std::mem::transmute(trigger) };
     // SAFETY: Observer was triggered so must have an `ObserverSystemComponent`
     let system = unsafe {
         &mut observer_cell
@@ -213,7 +220,7 @@ fn observer_system_runner<E: Event, B: Bundle>(
     // - system is an `ObserverSystem` so won't mutate world beyond the access of a `DeferredWorld`
     // - system is the same type erased system from above
     unsafe {
-        system.run_unsafe(std::mem::transmute(observer), world);
+        system.run_unsafe(trigger, world);
         system.queue_deferred(world.into_deferred());
     }
 }

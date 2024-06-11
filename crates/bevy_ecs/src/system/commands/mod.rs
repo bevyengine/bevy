@@ -751,12 +751,12 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Sends a "global" [`Trigger`] without any targets.
     pub fn trigger(&mut self, event: impl Event) {
-        self.add(TriggerEvent { event, targets: () })
+        self.add(TriggerEvent { event, targets: () });
     }
 
     /// Sends a [`Trigger`] with the given `targets`.
     pub fn trigger_targets(&mut self, event: impl Event, targets: impl TriggerTargets) {
-        self.add(TriggerEvent { event, targets })
+        self.add(TriggerEvent { event, targets });
     }
 
     /// Spawn an [`Observer`] and returns it's [`Entity`].

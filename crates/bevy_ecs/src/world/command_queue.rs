@@ -262,13 +262,13 @@ impl RawCommandQueue {
                     self.bytes.as_mut().as_mut_ptr().add(local_cursor).cast(),
                 ))
             };
-            // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
-            // since they were stored next to each other by `.push()`.
-            // For ZSTs, the type doesn't matter as long as the pointer is non-null.
-            // This also advances the cursor past the command. For ZSTs, the cursor will not move.
-            // At this point, it will either point to the next `CommandMeta`,
-            // or the cursor will be out of bounds and the loop will end.
             let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
+                // since they were stored next to each other by `.push()`.
+                // For ZSTs, the type doesn't matter as long as the pointer is non-null.
+                // This also advances the cursor past the command. For ZSTs, the cursor will not move.
+                // At this point, it will either point to the next `CommandMeta`,
+                // or the cursor will be out of bounds and the loop will end.
                 unsafe { (meta.consume_command_and_get_size)(cmd, world, &mut local_cursor) };
             }));
 
@@ -293,7 +293,7 @@ impl RawCommandQueue {
                 // when we call`resume_unwind" the caller "closer to the top" will catch the unwind and do this check,
                 // until we reach the top.
                 if start == 0 {
-                    bytes.extend(panic_recovery.drain(..))
+                    bytes.append(panic_recovery);
                 }
                 panic::resume_unwind(payload);
             }
