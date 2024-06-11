@@ -1,4 +1,5 @@
-use crate::cubic_spline_interpolation;
+//! Curve structures used by the animation system.
+
 use bevy_math::{curve::cores::*, curve::*, Quat, Vec3, Vec4, VectorSpace};
 use bevy_reflect::Reflect;
 
@@ -35,10 +36,12 @@ impl<V> Curve<V> for CubicKeyframeCurve<V>
 where
     V: VectorSpace,
 {
+    #[inline]
     fn domain(&self) -> Interval {
         self.core.domain()
     }
 
+    #[inline]
     fn sample(&self, t: f32) -> V {
         match self.core.sample_betweenness_timed(t) {
             // In all the cases where only one frame matters, defer to the position within it.
@@ -80,6 +83,7 @@ pub enum TranslationCurve {
 }
 
 impl Curve<Vec3> for TranslationCurve {
+    #[inline]
     fn domain(&self) -> Interval {
         match self {
             TranslationCurve::Constant(c) => c.domain(),
@@ -89,12 +93,27 @@ impl Curve<Vec3> for TranslationCurve {
         }
     }
 
+    #[inline]
     fn sample(&self, t: f32) -> Vec3 {
         match self {
             TranslationCurve::Constant(c) => c.sample(t),
             TranslationCurve::Linear(c) => c.sample(t),
             TranslationCurve::Step(c) => c.sample(t),
             TranslationCurve::CubicSpline(c) => c.sample(t),
+        }
+    }
+}
+
+impl TranslationCurve {
+    /// The time of the last keyframe for this animation curve. If the curve is constant, None
+    /// is returned instead.
+    #[inline]
+    pub fn duration(&self) -> Option<f32> {
+        match self {
+            TranslationCurve::Constant(_) => None,
+            TranslationCurve::Linear(c) => Some(c.domain().end()),
+            TranslationCurve::Step(c) => Some(c.domain().end()),
+            TranslationCurve::CubicSpline(c) => Some(c.domain().end()),
         }
     }
 }
@@ -122,6 +141,7 @@ pub enum ScaleCurve {
 }
 
 impl Curve<Vec3> for ScaleCurve {
+    #[inline]
     fn domain(&self) -> Interval {
         match self {
             ScaleCurve::Constant(c) => c.domain(),
@@ -131,12 +151,27 @@ impl Curve<Vec3> for ScaleCurve {
         }
     }
 
+    #[inline]
     fn sample(&self, t: f32) -> Vec3 {
         match self {
             ScaleCurve::Constant(c) => c.sample(t),
             ScaleCurve::Linear(c) => c.sample(t),
             ScaleCurve::Step(c) => c.sample(t),
             ScaleCurve::CubicSpline(c) => c.sample(t),
+        }
+    }
+}
+
+impl ScaleCurve {
+    /// The time of the last keyframe for this animation curve. If the curve is constant, None
+    /// is returned instead.
+    #[inline]
+    pub fn duration(&self) -> Option<f32> {
+        match self {
+            ScaleCurve::Constant(_) => None,
+            ScaleCurve::Linear(c) => Some(c.domain().end()),
+            ScaleCurve::Step(c) => Some(c.domain().end()),
+            ScaleCurve::CubicSpline(c) => Some(c.domain().end()),
         }
     }
 }
@@ -165,6 +200,7 @@ pub enum RotationCurve {
 }
 
 impl Curve<Quat> for RotationCurve {
+    #[inline]
     fn domain(&self) -> Interval {
         match self {
             RotationCurve::Constant(c) => c.domain(),
@@ -174,12 +210,27 @@ impl Curve<Quat> for RotationCurve {
         }
     }
 
+    #[inline]
     fn sample(&self, t: f32) -> Quat {
         match self {
             RotationCurve::Constant(c) => c.sample(t),
             RotationCurve::SphericalLinear(c) => c.sample(t),
             RotationCurve::Step(c) => c.sample(t),
             RotationCurve::CubicSpline(c) => c.map(|x| Quat::from_vec4(x).normalize()).sample(t),
+        }
+    }
+}
+
+impl RotationCurve {
+    /// The time of the last keyframe for this animation curve. If the curve is constant, None
+    /// is returned instead.
+    #[inline]
+    pub fn duration(&self) -> Option<f32> {
+        match self {
+            RotationCurve::Constant(_) => None,
+            RotationCurve::SphericalLinear(c) => Some(c.domain().end()),
+            RotationCurve::Step(c) => Some(c.domain().end()),
+            RotationCurve::CubicSpline(c) => Some(c.domain().end()),
         }
     }
 }
@@ -196,10 +247,12 @@ impl<T> IterableCurve<T> for WideLinearKeyframeCurve<T>
 where
     T: VectorSpace,
 {
+    #[inline]
     fn domain(&self) -> Interval {
         self.core.domain()
     }
 
+    #[inline]
     fn sample_iter<'a>(&self, t: f32) -> impl Iterator<Item = T>
     where
         Self: 'a,
@@ -229,10 +282,12 @@ impl<T> IterableCurve<T> for WideSteppedKeyframeCurve<T>
 where
     T: Clone,
 {
+    #[inline]
     fn domain(&self) -> Interval {
         self.core.domain()
     }
 
+    #[inline]
     fn sample_iter<'a>(&self, t: f32) -> impl Iterator<Item = T>
     where
         Self: 'a,
@@ -264,10 +319,12 @@ impl<T> IterableCurve<T> for WideCubicKeyframeCurve<T>
 where
     T: VectorSpace,
 {
+    #[inline]
     fn domain(&self) -> Interval {
         self.core.domain()
     }
 
+    #[inline]
     fn sample_iter<'a>(&self, t: f32) -> impl Iterator<Item = T>
     where
         Self: 'a,
@@ -287,25 +344,6 @@ where
             ),
         }
     }
-}
-
-fn cubic_spline_interpolate_slices<'a, T: VectorSpace>(
-    width: usize,
-    first: &'a [T],
-    second: &'a [T],
-    s: f32,
-    step_between: f32,
-) -> impl Iterator<Item = T> + 'a {
-    (0..width).map(move |idx| {
-        cubic_spline_interpolation(
-            first[idx + width],
-            first[idx + (width * 2)],
-            second[idx + width],
-            second[idx],
-            s,
-            step_between,
-        )
-    })
 }
 
 /// A curve specifying the [`MorphWeights`] for a mesh in animation. The variants are broken
@@ -332,6 +370,7 @@ pub enum WeightsCurve {
 }
 
 impl IterableCurve<f32> for WeightsCurve {
+    #[inline]
     fn domain(&self) -> Interval {
         match self {
             WeightsCurve::Constant(c) => IterableCurve::domain(c),
@@ -341,6 +380,7 @@ impl IterableCurve<f32> for WeightsCurve {
         }
     }
 
+    #[inline]
     fn sample_iter<'a>(&self, t: f32) -> impl Iterator<Item = f32>
     where
         Self: 'a,
@@ -354,13 +394,17 @@ impl IterableCurve<f32> for WeightsCurve {
     }
 }
 
-impl Curve<Vec<f32>> for WeightsCurve {
-    fn domain(&self) -> Interval {
-        IterableCurve::domain(self)
-    }
-
-    fn sample(&self, t: f32) -> Vec<f32> {
-        self.sample_iter(t).collect()
+impl WeightsCurve {
+    /// The time of the last keyframe for this animation curve. If the curve is constant, None
+    /// is returned instead.
+    #[inline]
+    pub fn duration(&self) -> Option<f32> {
+        match self {
+            WeightsCurve::Constant(_) => None,
+            WeightsCurve::Linear(c) => Some(c.domain().end()),
+            WeightsCurve::Step(c) => Some(c.domain().end()),
+            WeightsCurve::CubicSpline(c) => Some(c.domain().end()),
+        }
     }
 }
 
@@ -368,6 +412,9 @@ impl Curve<Vec<f32>> for WeightsCurve {
 /// or the [`MorphWeights`] of morph targets for a mesh.
 ///
 /// Each variant yields a [`Curve`] over the data that it parametrizes.
+///
+/// This follows the [glTF design].
+/// [glTF design]: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#animations
 #[derive(Debug, Clone, Reflect)]
 pub enum VariableCurve {
     /// A [`TranslationCurve`] for animating the `translation` component of a [`Transform`].
@@ -383,9 +430,58 @@ pub enum VariableCurve {
     Weights(WeightsCurve),
 }
 
-//--------------//
-// HELPER STUFF //
-//--------------//
+impl VariableCurve {
+    /// The domain of this curve as an interval.
+    #[inline]
+    pub fn domain(&self) -> Interval {
+        match self {
+            VariableCurve::Translation(c) => c.domain(),
+            VariableCurve::Rotation(c) => c.domain(),
+            VariableCurve::Scale(c) => c.domain(),
+            VariableCurve::Weights(c) => c.domain(),
+        }
+    }
+
+    /// The time of the last keyframe for this animation curve. If the curve is constant, None
+    /// is returned instead.
+    #[inline]
+    pub fn duration(&self) -> Option<f32> {
+        match self {
+            VariableCurve::Translation(c) => c.duration(),
+            VariableCurve::Rotation(c) => c.duration(),
+            VariableCurve::Scale(c) => c.duration(),
+            VariableCurve::Weights(c) => c.duration(),
+        }
+    }
+}
+
+impl From<TranslationCurve> for VariableCurve {
+    fn from(curve: TranslationCurve) -> Self {
+        Self::Translation(curve)
+    }
+}
+
+impl From<RotationCurve> for VariableCurve {
+    fn from(curve: RotationCurve) -> Self {
+        Self::Rotation(curve)
+    }
+}
+
+impl From<ScaleCurve> for VariableCurve {
+    fn from(curve: ScaleCurve) -> Self {
+        Self::Scale(curve)
+    }
+}
+
+impl From<WeightsCurve> for VariableCurve {
+    fn from(curve: WeightsCurve) -> Self {
+        Self::Weights(curve)
+    }
+}
+
+//---------//
+// HELPERS //
+//---------//
 
 enum TwoIterators<A, B> {
     Left(A),
@@ -431,4 +527,41 @@ where
             FourIterators::Fourth(d) => d.next(),
         }
     }
+}
+
+/// Helper function for cubic spline interpolation.
+fn cubic_spline_interpolation<T>(
+    value_start: T,
+    tangent_out_start: T,
+    tangent_in_end: T,
+    value_end: T,
+    lerp: f32,
+    step_duration: f32,
+) -> T
+where
+    T: VectorSpace,
+{
+    value_start * (2.0 * lerp.powi(3) - 3.0 * lerp.powi(2) + 1.0)
+        + tangent_out_start * (step_duration) * (lerp.powi(3) - 2.0 * lerp.powi(2) + lerp)
+        + value_end * (-2.0 * lerp.powi(3) + 3.0 * lerp.powi(2))
+        + tangent_in_end * step_duration * (lerp.powi(3) - lerp.powi(2))
+}
+
+fn cubic_spline_interpolate_slices<'a, T: VectorSpace>(
+    width: usize,
+    first: &'a [T],
+    second: &'a [T],
+    s: f32,
+    step_between: f32,
+) -> impl Iterator<Item = T> + 'a {
+    (0..width).map(move |idx| {
+        cubic_spline_interpolation(
+            first[idx + width],
+            first[idx + (width * 2)],
+            second[idx + width],
+            second[idx],
+            s,
+            step_between,
+        )
+    })
 }
