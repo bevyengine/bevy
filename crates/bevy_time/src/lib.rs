@@ -142,8 +142,11 @@ fn time_system(
 #[cfg(test)]
 mod tests {
     use crate::{Fixed, Time, TimePlugin, TimeUpdateStrategy};
-    use bevy_app::{App, Startup, Update};
-    use bevy_ecs::event::{Event, EventReader, EventWriter, Events};
+    use bevy_app::{App, FixedUpdate, Startup, Update};
+    use bevy_ecs::{
+        event::{Event, EventReader, EventWriter, Events},
+        system::{ResMut, Resource},
+    };
     use bevy_utils::Duration;
     use std::error::Error;
 
@@ -162,6 +165,9 @@ mod tests {
 
     #[derive(Event)]
     struct DummyEvent;
+
+    #[derive(Resource, Default)]
+    struct FixedUpdateCounter(u8);
 
     #[test]
     fn events_get_dropped_regression_test_11528() -> Result<(), impl Error> {
@@ -212,14 +218,22 @@ mod tests {
         let fixed_update_timestep = Time::<Fixed>::default().timestep();
         let time_step = fixed_update_timestep / 2 + Duration::from_millis(1);
 
+        fn count_fixed_updates(mut counter: ResMut<FixedUpdateCounter>) {
+            counter.0 += 1;
+        }
+
         let mut app = App::new();
         app.add_event::<DummyEvent>();
+        app.init_resource::<FixedUpdateCounter>();
+        app.add_systems(FixedUpdate, count_fixed_updates);
         app.add_plugins(TimePlugin::default());
         app.insert_resource(TimeUpdateStrategy::ManualDuration(time_step));
 
         // Start with 0 events
         let events = app.world().resource::<Events<DummyEvent>>();
         assert_eq!(events.len(), 0);
+        let counter = app.world().resource::<FixedUpdateCounter>();
+        assert_eq!(counter.0, 0);
 
         // Send an event
         app.world_mut().send_event(DummyEvent);
@@ -231,6 +245,8 @@ mod tests {
         // Fixed update should not have run yet
         app.update();
         assert!(time_step < fixed_update_timestep);
+        let counter = app.world().resource::<FixedUpdateCounter>();
+        assert_eq!(counter.0, 0, "Fixed update should not have run yet");
 
         let events = app.world().resource::<Events<DummyEvent>>();
         assert_eq!(events.len(), 1);
@@ -240,6 +256,8 @@ mod tests {
         // Fixed update should have run now
         app.update();
         assert!(2 * time_step > fixed_update_timestep);
+        let counter = app.world().resource::<FixedUpdateCounter>();
+        assert_eq!(counter.0, 1, "Fixed update should have run once");
 
         let events = app.world().resource::<Events<DummyEvent>>();
         assert_eq!(events.len(), 1);
@@ -249,6 +267,8 @@ mod tests {
         // Fixed update should have run exactly once still
         app.update();
         assert!(3 * time_step < 2 * fixed_update_timestep);
+        let counter = app.world().resource::<FixedUpdateCounter>();
+        assert_eq!(counter.0, 1, "Fixed update should have run once");
 
         let events = app.world().resource::<Events<DummyEvent>>();
         assert_eq!(events.len(), 1);
@@ -258,6 +278,8 @@ mod tests {
         // Fixed update should have run twice now
         app.update();
         assert!(4 * time_step > 2 * fixed_update_timestep);
+        let counter = app.world().resource::<FixedUpdateCounter>();
+        assert_eq!(counter.0, 2, "Fixed update should have run twice");
 
         let events = app.world().resource::<Events<DummyEvent>>();
         assert_eq!(events.len(), 0);
