@@ -439,12 +439,7 @@ impl App {
         plugin: Box<dyn Plugin>,
     ) -> Result<&mut Self, AppError> {
         debug!("added plugin: {}", plugin.name());
-        if plugin.is_unique()
-            && !self
-                .main_mut()
-                .plugin_names
-                .insert(plugin.name().to_string())
-        {
+        if plugin.is_unique() && self.main_mut().plugin_names.contains(plugin.name()) {
             Err(AppError::DuplicatePlugin {
                 plugin_name: plugin.name().to_string(),
             })?;
@@ -459,6 +454,9 @@ impl App {
 
         self.main_mut().plugin_build_depth += 1;
         let result = catch_unwind(AssertUnwindSafe(|| plugin.build(self)));
+        self.main_mut()
+            .plugin_names
+            .insert(plugin.name().to_string());
         self.main_mut().plugin_build_depth -= 1;
 
         if let Err(payload) = result {
@@ -1273,5 +1271,21 @@ mod tests {
         App::new()
             .init_non_send_resource::<NonSendTestResource>()
             .init_resource::<TestResource>();
+    }
+
+    #[test]
+    /// Plugin should not be considered inserted while it's being built
+    ///
+    /// bug: <https://github.com/bevyengine/bevy/issues/13815>
+    fn regression_test_13815() {
+        pub struct Foo;
+
+        impl Plugin for Foo {
+            fn build(&self, app: &mut App) {
+                assert!(!app.is_plugin_added::<Self>());
+            }
+        }
+
+        App::new().add_plugins(Foo);
     }
 }
