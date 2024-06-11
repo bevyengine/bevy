@@ -44,8 +44,8 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     let position = positions[vertex.index];
 
     // algorithm based on https://wwwtyro.net/2019/11/18/instanced-lines.html
-    var clip_a = view.view_proj * vec4(vertex.position_a, 1.);
-    var clip_b = view.view_proj * vec4(vertex.position_b, 1.);
+    var clip_a = view.clip_from_world * vec4(vertex.position_a, 1.);
+    var clip_b = view.clip_from_world * vec4(vertex.position_b, 1.);
 
     // Manual near plane clipping to avoid errors when doing the perspective divide inside this shader.
     clip_a = clip_near_plane(clip_a, clip_b);
@@ -69,13 +69,13 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     line_width /= clip.w;
 
     // get height of near clipping plane in world space
-    let pos0 = view.inverse_projection * vec4(0, -1, 0, 1); // Bottom of the screen
-    let pos1 = view.inverse_projection * vec4(0, 1, 0, 1); // Top of the screen
+    let pos0 = view.view_from_clip * vec4(0, -1, 0, 1); // Bottom of the screen
+    let pos1 = view.view_from_clip * vec4(0, 1, 0, 1); // Top of the screen
     let near_clipping_plane_height = length(pos0.xyz - pos1.xyz);
 
     // We can't use vertex.position_X because we may have changed the clip positions with clip_near_plane
-    let position_a = view.inverse_view_proj * clip_a;
-    let position_b = view.inverse_view_proj * clip_b;
+    let position_a = view.world_from_clip * clip_a;
+    let position_b = view.world_from_clip * clip_b;
     let world_distance = length(position_a.xyz - position_b.xyz);
 
     // Offset to compensate for moved clip positions. If removed dots on lines will slide when position a is ofscreen.
@@ -84,7 +84,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     uv = (clipped_offset + position.y * world_distance) * resolution.y / near_clipping_plane_height / line_gizmo.line_width;
 #else
     // Get the distance of b to the camera along camera axes
-    let camera_b = view.inverse_projection * clip_b;
+    let camera_b = view.view_from_clip * clip_b;
 
     // This differentiates between orthographic and perspective cameras.
     // For orthographic cameras no depth adaptment (depth_adaptment = 1) is needed.

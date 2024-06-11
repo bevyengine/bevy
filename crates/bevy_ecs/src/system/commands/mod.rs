@@ -1011,7 +1011,13 @@ impl EntityCommands<'_> {
         self.add(remove_by_id(component_id))
     }
 
+    /// Removes all components associated with the entity.
+    pub fn clear(&mut self) -> &mut Self {
+        self.add(clear())
+    }
+
     /// Despawns the entity.
+    /// This will emit a warning if the entity does not exist.
     ///
     /// See [`World::despawn`] for more details.
     ///
@@ -1019,10 +1025,6 @@ impl EntityCommands<'_> {
     ///
     /// This won't clean up external references to the entity (such as parent-child relationships
     /// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
-    ///
-    /// # Panics
-    ///
-    /// The command will panic when applied if the associated entity does not exist.
     ///
     /// # Example
     ///
@@ -1233,6 +1235,15 @@ fn remove_by_id(component_id: ComponentId) -> impl EntityCommand {
     move |entity: Entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
             entity.remove_by_id(component_id);
+        }
+    }
+}
+
+/// An [`EntityCommand`] that removes all components associated with a provided entity.
+fn clear() -> impl EntityCommand {
+    move |entity: Entity, world: &mut World| {
+        if let Some(mut entity) = world.get_entity_mut(entity) {
+            entity.clear();
         }
     }
 }

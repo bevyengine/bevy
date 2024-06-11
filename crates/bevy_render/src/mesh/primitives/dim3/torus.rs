@@ -1,4 +1,5 @@
 use bevy_math::{primitives::Torus, Vec3};
+use std::ops::RangeInclusive;
 use wgpu::PrimitiveTopology;
 
 use crate::{
@@ -7,7 +8,7 @@ use crate::{
 };
 
 /// A builder used for creating a [`Mesh`] with a [`Torus`] shape.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct TorusMeshBuilder {
     /// The [`Torus`] shape.
     pub torus: Torus,
@@ -23,6 +24,8 @@ pub struct TorusMeshBuilder {
     ///
     /// The default is `32`.
     pub major_resolution: usize,
+    /// Optional angle range in radians, defaults to a full circle (0.0..=2 * PI)
+    pub angle_range: RangeInclusive<f32>,
 }
 
 impl Default for TorusMeshBuilder {
@@ -31,6 +34,7 @@ impl Default for TorusMeshBuilder {
             torus: Torus::default(),
             minor_resolution: 24,
             major_resolution: 32,
+            angle_range: (0.0..=2.0 * std::f32::consts::PI),
         }
     }
 }
@@ -65,6 +69,13 @@ impl TorusMeshBuilder {
         self.major_resolution = resolution;
         self
     }
+
+    /// Sets a custom angle range in radians instead of a full circle
+    #[inline]
+    pub const fn angle_range(mut self, range: RangeInclusive<f32>) -> Self {
+        self.angle_range = range;
+        self
+    }
 }
 
 impl MeshBuilder for TorusMeshBuilder {
@@ -76,11 +87,14 @@ impl MeshBuilder for TorusMeshBuilder {
         let mut normals: Vec<[f32; 3]> = Vec::with_capacity(n_vertices);
         let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(n_vertices);
 
-        let segment_stride = 2.0 * std::f32::consts::PI / self.major_resolution as f32;
+        let start_angle = self.angle_range.start();
+        let end_angle = self.angle_range.end();
+
+        let segment_stride = (end_angle - start_angle) / self.major_resolution as f32;
         let side_stride = 2.0 * std::f32::consts::PI / self.minor_resolution as f32;
 
         for segment in 0..=self.major_resolution {
-            let theta = segment_stride * segment as f32;
+            let theta = start_angle + segment_stride * segment as f32;
 
             for side in 0..=self.minor_resolution {
                 let phi = side_stride * side as f32;

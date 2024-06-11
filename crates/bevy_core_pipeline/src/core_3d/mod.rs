@@ -32,6 +32,7 @@ pub mod graph {
         DepthOfField,
         Tonemapping,
         Fxaa,
+        Smaa,
         Upscaling,
         ContrastAdaptiveSharpening,
         EndMainPassPostProcessing,

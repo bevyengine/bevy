@@ -74,15 +74,14 @@ fn fragment(
             uv,
             bias,
         ).rgb;
+        let TBN = pbr_functions::calculate_tbn_mikktspace(normal, in.world_tangent);
 
         normal = pbr_functions::apply_normal_mapping(
             material.flags,
-            world_normal,
+            TBN,
             double_sided,
             is_front,
-            in.world_tangent,
             Nt,
-            view.mip_bias,
         );
 
 #endif  // STANDARD_MATERIAL_NORMAL_MAP

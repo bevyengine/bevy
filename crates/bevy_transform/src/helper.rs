@@ -88,9 +88,10 @@ mod tests {
     use bevy_math::{Quat, Vec3};
 
     use crate::{
+        bundles::TransformBundle,
         components::{GlobalTransform, Transform},
         helper::TransformHelper,
-        TransformBundle, TransformPlugin,
+        plugins::TransformPlugin,
     };
 
     #[test]

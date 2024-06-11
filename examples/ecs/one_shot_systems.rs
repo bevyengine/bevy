@@ -102,17 +102,10 @@ fn setup_ui(mut commands: Commands) {
                     ..default()
                 },
             ),
-            TextSection::new(
-                "Last Triggered: ",
-                TextStyle {
-                    font_size: 20.0,
-                    ..default()
-                },
-            ),
+            TextSection::new("Last Triggered: ", TextStyle::default()),
             TextSection::new(
                 "-",
                 TextStyle {
-                    font_size: 20.0,
                     color: bevy::color::palettes::css::ORANGE.into(),
                     ..default()
                 },

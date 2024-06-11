@@ -1,20 +1,23 @@
 use super::triangle3d;
 use crate::{
-    mesh::{Indices, Mesh, Meshable},
+    mesh::{Indices, Mesh, MeshBuilder, Meshable},
     render_asset::RenderAssetUsages,
 };
 use bevy_math::primitives::{Tetrahedron, Triangle3d};
 use wgpu::PrimitiveTopology;
 
-impl Meshable for Tetrahedron {
-    type Output = Mesh;
+/// A builder used for creating a [`Mesh`] with a [`Tetrahedron`] shape.
+pub struct TetrahedronMeshBuilder {
+    tetrahedron: Tetrahedron,
+}
 
-    fn mesh(&self) -> Self::Output {
-        let mut faces: Vec<_> = self.faces().into();
+impl MeshBuilder for TetrahedronMeshBuilder {
+    fn build(&self) -> Mesh {
+        let mut faces: Vec<_> = self.tetrahedron.faces().into();
 
         // If the tetrahedron has negative orientation, reverse all the triangles so that
         // they still face outward.
-        if self.signed_volume().is_sign_negative() {
+        if self.tetrahedron.signed_volume().is_sign_negative() {
             faces.iter_mut().for_each(Triangle3d::reverse);
         }
 
@@ -48,8 +51,16 @@ impl Meshable for Tetrahedron {
     }
 }
 
+impl Meshable for Tetrahedron {
+    type Output = TetrahedronMeshBuilder;
+
+    fn mesh(&self) -> Self::Output {
+        TetrahedronMeshBuilder { tetrahedron: *self }
+    }
+}
+
 impl From<Tetrahedron> for Mesh {
     fn from(tetrahedron: Tetrahedron) -> Self {
-        tetrahedron.mesh()
+        tetrahedron.mesh().build()
     }
 }
