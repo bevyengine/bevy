@@ -187,6 +187,20 @@ impl<T> EvenCore<T> {
     pub fn sample_betweenness(&self, t: f32) -> Betweenness<&T> {
         even_betweenness(self.domain, self.samples.len(), t).map(|idx| &self.samples[idx])
     }
+
+    /// Like [`sample_betweenness`], but the returned values include the sample times. This can be
+    /// useful when sampling is not scale-invariant.
+    ///
+    /// [`sample_betweenness`]: EvenCore::sample_betweenness
+    pub fn sample_betweenness_timed(&self, t: f32) -> Betweenness<(f32, &T)> {
+        let segment_len = self.domain.length() / (self.samples.len() - 1) as f32;
+        even_betweenness(self.domain, self.samples.len(), t).map(|idx| {
+            (
+                self.domain.start() + segment_len * idx as f32,
+                &self.samples[idx],
+            )
+        })
+    }
 }
 
 /// Given a domain and a number of samples taken over that interval, return a [`Betweenness`]
@@ -329,6 +343,14 @@ impl<T> UnevenCore<T> {
         uneven_betweenness(&self.times, t).map(|idx| &self.samples[idx])
     }
 
+    /// Like [`sample_betweenness`], but the returned values include the sample times. This can be
+    /// useful when sampling is not scale-invariant.
+    ///
+    /// [`sample_betweenness`]: UnevenCore::sample_betweenness
+    pub fn sample_betweenness_timed(&self, t: f32) -> Betweenness<(f32, &T)> {
+        uneven_betweenness(&self.times, t).map(|idx| (self.times[idx], &self.samples[idx]))
+    }
+
     /// This core, but with the sample times moved by the map `f`.
     /// In principle, when `f` is monotone, this is equivalent to [`Curve::reparametrize`],
     /// but the function inputs to each are inverses of one another.
@@ -469,6 +491,15 @@ impl<T> ChunkedUnevenCore<T> {
     #[inline]
     pub fn sample_betweenness(&self, t: f32) -> Betweenness<&[T]> {
         uneven_betweenness(&self.times, t).map(|idx| self.time_index_to_slice(idx))
+    }
+
+    /// Like [`sample_betweenness`], but the returned values include the sample times. This can be
+    /// useful when sampling is not scale-invariant.
+    ///
+    /// [`sample_betweenness`]: ChunkedUnevenCore::sample_betweenness
+    pub fn sample_betweenness_timed(&self, t: f32) -> Betweenness<(f32, &[T])> {
+        uneven_betweenness(&self.times, t)
+            .map(|idx| (self.times[idx], self.time_index_to_slice(idx)))
     }
 
     /// Given an index in [times], returns the slice of [values] that correspond to the sample at
