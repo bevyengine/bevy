@@ -144,11 +144,11 @@ fn time_system(
 
 #[cfg(test)]
 mod tests {
-    use crate::{Fixed, Time, TimePlugin, TimeUpdateStrategy};
+    use crate::{Fixed, Time, TimePlugin, TimeUpdateStrategy, Virtual};
     use bevy_app::{App, FixedUpdate, Startup, Update};
     use bevy_ecs::{
         event::{Event, EventReader, EventWriter, Events},
-        system::{ResMut, Resource},
+        system::{Local, Res, ResMut, Resource},
     };
     use bevy_utils::Duration;
     use std::error::Error;
@@ -176,6 +176,25 @@ mod tests {
         counter.0 += 1;
     }
 
+    fn report_time(
+        mut frame_count: Local<u64>,
+        virtual_time: Res<Time<Virtual>>,
+        fixed_time: Res<Time<Fixed>>,
+    ) {
+        println!(
+            "Virtual time on frame {}: {:?}",
+            *frame_count,
+            virtual_time.elapsed()
+        );
+        println!(
+            "Fixed time on frame {}: {:?}",
+            *frame_count,
+            fixed_time.elapsed()
+        );
+
+        *frame_count += 1;
+    }
+
     #[test]
     fn fixed_main_schedule_should_run_with_time_plugin_enabled() {
         // Set the time step to just over half the fixed update timestep
@@ -187,17 +206,13 @@ mod tests {
         let mut app = App::new();
         app.add_plugins(TimePlugin)
             .add_systems(FixedUpdate, count_fixed_updates)
+            .add_systems(Update, report_time)
             .init_resource::<FixedUpdateCounter>()
             .insert_resource(TimeUpdateStrategy::ManualDuration(time_step));
-
-        let fixed_time = app.world().resource::<Time<Fixed>>();
-        println!("Fixed time on frame 0: {:?}", fixed_time);
 
         // Update the app by a single timestep
         // Fixed update should not have run yet
         app.update();
-        let fixed_time = app.world().resource::<Time<Fixed>>();
-        println!("Fixed time on frame 1: {:?}", fixed_time);
 
         assert!(time_step < fixed_update_timestep);
         let counter = app.world().resource::<FixedUpdateCounter>();
@@ -206,8 +221,6 @@ mod tests {
         // Update the app by another timestep
         // Fixed update should have run now
         app.update();
-        let fixed_time = app.world().resource::<Time<Fixed>>();
-        println!("Fixed time on frame 2: {:?}", fixed_time);
 
         assert!(2 * time_step > fixed_update_timestep);
         let counter = app.world().resource::<FixedUpdateCounter>();
@@ -216,8 +229,6 @@ mod tests {
         // Update the app by another timestep
         // Fixed update should have run exactly once still
         app.update();
-        let fixed_time = app.world().resource::<Time<Fixed>>();
-        println!("Fixed time on frame 3: {:?}", fixed_time);
 
         assert!(3 * time_step < 2 * fixed_update_timestep);
         let counter = app.world().resource::<FixedUpdateCounter>();
@@ -226,8 +237,6 @@ mod tests {
         // Update the app by another timestep
         // Fixed update should have run twice now
         app.update();
-        let fixed_time = app.world().resource::<Time<Fixed>>();
-        println!("Fixed time on frame 4: {:?}", fixed_time);
 
         assert!(4 * time_step > 2 * fixed_update_timestep);
         let counter = app.world().resource::<FixedUpdateCounter>();
@@ -286,6 +295,7 @@ mod tests {
         let mut app = App::new();
         app.add_event::<DummyEvent>();
         app.add_plugins(TimePlugin::default());
+        app.add_systems(Update, report_time);
         app.insert_resource(TimeUpdateStrategy::ManualDuration(time_step));
 
         // Start with 0 events
