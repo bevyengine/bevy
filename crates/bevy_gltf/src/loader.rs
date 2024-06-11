@@ -286,7 +286,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     return Err(GltfError::MissingAnimationSampler(animation.index()));
                 };
 
-                if keyframe_timestamps.len() == 0 {
+                if keyframe_timestamps.is_empty() {
                     warn!("Tried to load animation with no keyframe timestamps");
                     continue;
                 }

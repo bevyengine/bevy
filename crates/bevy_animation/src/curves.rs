@@ -488,7 +488,7 @@ impl WeightsCurve {
 /// Each variant yields a [`Curve`] over the data that it parametrizes.
 ///
 /// This follows the [glTF design].
-/// [glTF design]: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#animations
+/// [glTF design]: <https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#animations/>
 #[derive(Debug, Clone, Reflect)]
 pub enum VariableCurve {
     /// A [`TranslationCurve`] for animating the `translation` component of a [`Transform`].
