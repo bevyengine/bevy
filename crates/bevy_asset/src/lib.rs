@@ -6,7 +6,6 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
-pub mod bundle;
 pub mod io;
 pub mod meta;
 pub mod processor;

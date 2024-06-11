@@ -146,7 +146,7 @@ pub fn derive_asset_pack(input: TokenStream) -> TokenStream {
 
 enum FieldLoadMethod {
     Embedded(syn::Ident, syn::Result<syn::LitStr>),
-    Load(syn::Ident, syn::Result<syn::LitStr>),
+    Load(syn::Ident, syn::Result<syn::Expr>),
     Unknown(syn::Error),
 }
 
@@ -157,14 +157,13 @@ impl FieldLoadMethod {
             .attrs
             .iter()
             .find_map(|attr| {
-                let path = attr.parse_args::<syn::LitStr>();
                 if attr.path().is_ident(EMBEDDED_ATTRIBUTE) {
                     Some(Self::Embedded(
                         ident.clone(),
                         attr.parse_args::<syn::LitStr>(),
                     ))
                 } else if attr.path().is_ident(LOAD_ATTRIBUTE) {
-                    Some(Self::Load(ident.clone(), path))
+                    Some(Self::Load(ident.clone(), attr.parse_args::<syn::Expr>()))
                 } else {
                     None
                 }
@@ -232,7 +231,7 @@ fn derive_asset_pack_internal(
     Ok(quote! {
         #(#error)*
 
-        impl #impl_generics #bevy_asset_path::bundle::AssetPack for #struct_name #type_generics #where_clause {
+        impl #impl_generics #bevy_asset_path::io::pack::AssetPack for #struct_name #type_generics #where_clause {
             fn init(app: &mut #bevy_app_path::App) {
                 #(#init)*
             }

@@ -1396,13 +1396,13 @@ category = "Assets"
 wasm = true
 
 [[example]]
-name = "asset_bundle"
-path = "examples/asset/asset_bundle.rs"
+name = "asset_pack"
+path = "examples/asset/asset_pack.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.asset_bundle]
+[package.metadata.example.asset_pack]
 name = "Asset Bundle"
-description = "Load an asset from an AssetBundle"
+description = "Load an asset from an AssetPack"
 category = "Assets"
 wasm = true
 
