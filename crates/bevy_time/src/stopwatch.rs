@@ -2,7 +2,7 @@
 use bevy_reflect::{prelude::*, Reflect};
 use bevy_utils::Duration;
 
-/// A Stopwatch is a struct that track elapsed time when started.
+/// A Stopwatch is a struct that tracks elapsed time when started.
 ///
 /// Note that in order to advance the stopwatch [`tick`](Stopwatch::tick) **MUST** be called.
 /// # Examples

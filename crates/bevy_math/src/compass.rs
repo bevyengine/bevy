@@ -5,6 +5,17 @@ use bevy_reflect::Reflect;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// A compass enum with 4 directions.
+/// ``` ignore
+///          N (North)
+///          ▲
+///          │
+///          │
+/// W (West) ┼─────► E (East)
+///          │
+///          │
+///          ▼
+///          S (South)
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
@@ -24,6 +35,17 @@ pub enum CompassQuadrant {
 }
 
 /// A compass enum with 8 directions.
+/// ``` ignore
+///          N (North)
+///          ▲
+///     NW   │   NE
+///        ╲ │ ╱
+/// W (West) ┼─────► E (East)
+///        ╱ │ ╲
+///     SW   │   SE
+///          ▼
+///          S (South)
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
