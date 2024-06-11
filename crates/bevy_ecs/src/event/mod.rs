@@ -2,6 +2,8 @@
 mod base;
 mod collections;
 mod iterators;
+mod mut_iterators;
+mod mutator;
 mod reader;
 mod registry;
 mod update;
@@ -12,6 +14,8 @@ pub use base::{Event, EventId};
 pub use bevy_ecs_macros::Event;
 pub use collections::{Events, SendBatchIds};
 pub use iterators::{EventIterator, EventIteratorWithId, EventParIter};
+pub use mut_iterators::{EventMutatorIterator, EventMutatorIteratorWithId, EventMutatorParIter};
+pub use mutator::{EventMutator, ManualEventMutator};
 pub use reader::{EventReader, ManualEventReader};
 pub use registry::EventRegistry;
 pub use update::{
@@ -446,5 +450,246 @@ mod tests {
         schedule.run(&mut world);
     }
 
-    // Peak tests
+    // Mutation tests
+    fn events_clear_and_mutate_impl(clear_func: impl FnOnce(&mut Events<E>)) {
+        let mut events = Events::<E>::default();
+        let mut mutator = events.get_mutator();
+        let mut reader = events.get_reader();
+        assert!(mutator.read(&mut events).next().is_none());
+        assert!(reader.read(&events).next().is_none());
+
+        events.send(E(0));
+        let sent_event = mutator.read(&mut events).next().unwrap();
+        assert_eq!(sent_event, &mut E(0));
+        *sent_event = E(1); // Mutate whole event
+        assert_eq!(reader.read(&events).next().unwrap(), &E(1));
+
+        events.send(E(2));
+        let sent_event = mutator.read(&mut events).next().unwrap();
+        assert_eq!(sent_event, &mut E(2));
+        sent_event.0 = 3; // Mutate sub value
+        assert_eq!(reader.read(&events).next().unwrap(), &E(3));
+
+        clear_func(&mut events);
+        assert!(mutator.read(&mut events).next().is_none());
+        assert!(reader.read(&events).next().is_none());
+    }
+
+    #[test]
+    fn test_events_clear_and_mutate() {
+        events_clear_and_mutate_impl(|events| events.clear());
+    }
+
+    #[test]
+    fn test_event_mutator_len_empty() {
+        let events = Events::<TestEvent>::default();
+        assert_eq!(events.get_mutator().len(&events), 0);
+        assert!(events.get_mutator().is_empty(&events));
+    }
+
+    #[test]
+    fn test_event_mutator_len_filled() {
+        let mut events = Events::<TestEvent>::default();
+        events.send(TestEvent { i: 0 });
+        assert_eq!(events.get_mutator().len(&events), 1);
+        assert!(!events.get_mutator().is_empty(&events));
+    }
+
+    #[test]
+    fn test_event_mutator_iter_len_updated() {
+        let mut events = Events::<TestEvent>::default();
+        events.send(TestEvent { i: 0 });
+        events.send(TestEvent { i: 1 });
+        events.send(TestEvent { i: 2 });
+        let mut mutator = events.get_mutator();
+        let mut iter = mutator.read(&mut events);
+        assert_eq!(iter.len(), 3);
+        iter.next();
+        assert_eq!(iter.len(), 2);
+        iter.next();
+        assert_eq!(iter.len(), 1);
+        iter.next();
+        assert_eq!(iter.len(), 0);
+    }
+
+    #[test]
+    fn test_event_mutator_len_current() {
+        let mut events = Events::<TestEvent>::default();
+        events.send(TestEvent { i: 0 });
+        let mutator = events.get_mutator_current();
+        dbg!(&mutator);
+        dbg!(&events);
+        assert!(mutator.is_empty(&events));
+        events.send(TestEvent { i: 0 });
+        assert_eq!(mutator.len(&events), 1);
+        assert!(!mutator.is_empty(&events));
+    }
+
+    #[test]
+    fn test_event_mutator_len_update() {
+        let mut events = Events::<TestEvent>::default();
+        events.send(TestEvent { i: 0 });
+        events.send(TestEvent { i: 0 });
+        let mutator = events.get_mutator();
+        assert_eq!(mutator.len(&events), 2);
+        events.update();
+        events.send(TestEvent { i: 0 });
+        assert_eq!(mutator.len(&events), 3);
+        events.update();
+        assert_eq!(mutator.len(&events), 1);
+        events.update();
+        assert!(mutator.is_empty(&events));
+    }
+
+    #[test]
+    fn test_event_mutator_clear() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        let mut events = Events::<TestEvent>::default();
+        events.send(TestEvent { i: 0 });
+        world.insert_resource(events);
+
+        let mut mutator = IntoSystem::into_system(|mut events: EventMutator<TestEvent>| -> bool {
+            if !events.is_empty() {
+                events.clear();
+                false
+            } else {
+                true
+            }
+        });
+        mutator.initialize(&mut world);
+
+        let is_empty = mutator.run((), &mut world);
+        assert!(!is_empty, "EventMutator should not be empty");
+        let is_empty = mutator.run((), &mut world);
+        assert!(is_empty, "EventMutator should be empty");
+    }
+
+    #[test]
+    fn test_mutator_update_drain() {
+        let mut events = Events::<TestEvent>::default();
+        let mut mutator = events.get_mutator();
+
+        events.send(TestEvent { i: 0 });
+        events.send(TestEvent { i: 1 });
+        assert_eq!(mutator.read(&mut events).count(), 2);
+
+        let mut old_events = Vec::from_iter(events.update_drain());
+        assert!(old_events.is_empty());
+
+        events.send(TestEvent { i: 2 });
+        assert_eq!(mutator.read(&mut events).count(), 1);
+
+        old_events.extend(events.update_drain());
+        assert_eq!(old_events.len(), 2);
+
+        old_events.extend(events.update_drain());
+        assert_eq!(
+            old_events,
+            &[TestEvent { i: 0 }, TestEvent { i: 1 }, TestEvent { i: 2 }]
+        );
+    }
+
+    #[allow(clippy::iter_nth_zero)]
+    #[test]
+    fn test_event_mutator_read_nth() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        world.init_resource::<Events<TestEvent>>();
+
+        world.send_event(TestEvent { i: 0 });
+        world.send_event(TestEvent { i: 1 });
+        world.send_event(TestEvent { i: 2 });
+        world.send_event(TestEvent { i: 3 });
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(|mut events: EventMutator<TestEvent>| {
+            let mut iter = events.read();
+
+            // Peek does not consume events put should still advance the iterator
+            assert_eq!(iter.next(), Some(&mut TestEvent { i: 0 }));
+            assert_eq!(iter.nth(0), Some(&mut TestEvent { i: 1 }));
+            assert_eq!(iter.nth(1), Some(&mut TestEvent { i: 3 }));
+            assert_eq!(iter.nth(2), None);
+
+            assert!(events.is_empty());
+        });
+        schedule.run(&mut world);
+    }
+
+    #[test]
+    fn test_event_mutator_read_last() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        world.init_resource::<Events<TestEvent>>();
+
+        let mut mutator =
+            IntoSystem::into_system(|mut events: EventMutator<TestEvent>| -> Option<TestEvent> {
+                events.read().last().copied()
+            });
+        mutator.initialize(&mut world);
+
+        let last = mutator.run((), &mut world);
+        assert!(last.is_none(), "EventMutator should be empty");
+
+        world.send_event(TestEvent { i: 0 });
+        let last = mutator.run((), &mut world);
+        assert_eq!(last, Some(TestEvent { i: 0 }));
+
+        world.send_event(TestEvent { i: 1 });
+        world.send_event(TestEvent { i: 2 });
+        world.send_event(TestEvent { i: 3 });
+        let last = mutator.run((), &mut world);
+        assert_eq!(last, Some(TestEvent { i: 3 }));
+
+        let last = mutator.run((), &mut world);
+        assert!(last.is_none(), "EventMutator should be empty");
+    }
+
+    #[cfg(feature = "multi_threaded")]
+    #[test]
+    fn test_events_mutator_par_read() {
+        use std::{collections::HashSet, sync::mpsc};
+
+        use crate::prelude::*;
+
+        let mut world = World::new();
+        world.init_resource::<Events<TestEvent>>();
+        for i in 0..100 {
+            world.send_event(TestEvent { i });
+        }
+
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems(
+            |mut events: EventMutator<TestEvent>, mut second_run: Local<bool>| {
+                events.par_read().for_each(|event| {
+                    event.i += 1; // Mutate every event
+                });
+
+                let (tx, rx) = mpsc::channel();
+                events.par_read().for_each(|event| {
+                    tx.send(event.i).unwrap();
+                });
+                drop(tx);
+
+                if *second_run {
+                    let observed: HashSet<_> = rx.into_iter().collect();
+                    assert!(
+                        observed.is_empty(),
+                        "par_read didn't consume events after first run but should"
+                    );
+                } else {
+                    let observed: HashSet<_> = rx.into_iter().collect();
+                    assert_eq!(observed, HashSet::from_iter(1..102));
+                    *second_run = true;
+                };
+            },
+        );
+        schedule.run(&mut world);
+        schedule.run(&mut world);
+    }
 }

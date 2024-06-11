@@ -1,33 +1,61 @@
 use crate as bevy_ecs;
 use bevy_ecs::{
-    event::{Event, EventIterator, EventIteratorWithId, EventParIter, Events},
-    system::{Local, Res, SystemParam},
+    event::{Event, EventMutatorIterator, EventMutatorIteratorWithId, EventMutatorParIter, Events},
+    system::{Local, ResMut, SystemParam},
 };
 use std::marker::PhantomData;
 
-/// Reads events of type `T` in order and tracks which events have already been read.
+/// Mutably reads events of type `T` keeping track of which events have already been read
+/// by each system allowing multiple systems to read the same events. Ideal for chains of systems
+/// that all want to modify the same events.
+///
+/// # Usage
+///
+/// `EventMutators`s are usually declared as a [`SystemParam`].
+/// ```
+/// # use bevy_ecs::prelude::*;
+///
+/// #[derive(Event, Debug)]
+/// pub struct MyEvent(pub u32); // Custom event type.
+/// fn my_system(mut reader: EventMutator<MyEvent>) {
+///     for event in reader.read() {
+///         event.0 += 1;
+///         println!("received event: {:?}", event);
+///     }
+/// }
+/// ```
 ///
 /// # Concurrency
 ///
-/// Unlike [`EventWriter<T>`], systems with `EventReader<T>` param can be executed concurrently
-/// (but not concurrently with `EventWriter<T>` or `EventMutator<T>` systems for the same event type).
+/// Multiple systems with `EventMutator<T>` of the same event type can not run concurrently.
+/// They also can not be executed in parallel with [`EventReader`] and [`EventWriter`].
+///
+/// # Clearing, Reading, and Peeking
+///
+/// Events are stored in a double buffered queue that switches each frame. This switch also clears the previous
+/// frame's events. Events should be read each frame otherwise they may be lost. For manual control over this
+/// behavior, see [`Events`].
+///
+/// Most of the time systems will want to use [`EventMutator::read()`]. This function creates an iterator over
+/// all events that haven't been read yet by this system, marking the event as read in the process.
+///
 #[derive(SystemParam, Debug)]
-pub struct EventReader<'w, 's, E: Event> {
-    pub(super) reader: Local<'s, ManualEventReader<E>>,
-    events: Res<'w, Events<E>>,
+pub struct EventMutator<'w, 's, E: Event> {
+    pub(super) reader: Local<'s, ManualEventMutator<E>>,
+    events: ResMut<'w, Events<E>>,
 }
 
-impl<'w, 's, E: Event> EventReader<'w, 's, E> {
+impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
     /// Iterates over the events this [`EventReader`] has not seen yet. This updates the
     /// [`EventReader`]'s event counter, which means subsequent event reads will not include events
     /// that happened before now.
-    pub fn read(&mut self) -> EventIterator<'_, E> {
-        self.reader.read(&self.events)
+    pub fn read(&mut self) -> EventMutatorIterator<'_, E> {
+        self.reader.read(&mut self.events)
     }
 
     /// Like [`read`](Self::read), except also returning the [`EventId`] of the events.
-    pub fn read_with_id(&mut self) -> EventIteratorWithId<'_, E> {
-        self.reader.read_with_id(&self.events)
+    pub fn read_with_id(&mut self) -> EventMutatorIteratorWithId<'_, E> {
+        self.reader.read_with_id(&mut self.events)
     }
 
     /// Returns a parallel iterator over the events this [`EventReader`] has not seen yet.
@@ -66,8 +94,8 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// assert_eq!(counter.into_inner(), 4950);
     /// ```
     ///
-    pub fn par_read(&mut self) -> EventParIter<'_, E> {
-        self.reader.par_read(&self.events)
+    pub fn par_read(&mut self) -> EventMutatorParIter<'_, E> {
+        self.reader.par_read(&mut self.events)
     }
 
     /// Determines the number of events available to be read from this [`EventReader`] without consuming any.
@@ -153,23 +181,23 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 /// # bevy_ecs::system::assert_is_system(send_and_receive_manual_event_reader);
 /// ```
 #[derive(Debug)]
-pub struct ManualEventReader<E: Event> {
+pub struct ManualEventMutator<E: Event> {
     pub(super) last_event_count: usize,
     pub(super) _marker: PhantomData<E>,
 }
 
-impl<E: Event> Default for ManualEventReader<E> {
+impl<E: Event> Default for ManualEventMutator<E> {
     fn default() -> Self {
-        ManualEventReader {
+        ManualEventMutator {
             last_event_count: 0,
             _marker: Default::default(),
         }
     }
 }
 
-impl<E: Event> Clone for ManualEventReader<E> {
+impl<E: Event> Clone for ManualEventMutator<E> {
     fn clone(&self) -> Self {
-        ManualEventReader {
+        ManualEventMutator {
             last_event_count: self.last_event_count,
             _marker: PhantomData,
         }
@@ -177,20 +205,23 @@ impl<E: Event> Clone for ManualEventReader<E> {
 }
 
 #[allow(clippy::len_without_is_empty)] // Check fails since the is_empty implementation has a signature other than `(&self) -> bool`
-impl<E: Event> ManualEventReader<E> {
+impl<E: Event> ManualEventMutator<E> {
     /// See [`EventReader::read`]
-    pub fn read<'a>(&'a mut self, events: &'a Events<E>) -> EventIterator<'a, E> {
+    pub fn read<'a>(&'a mut self, events: &'a mut Events<E>) -> EventMutatorIterator<'a, E> {
         self.read_with_id(events).without_id()
     }
 
     /// See [`EventReader::read_with_id`]
-    pub fn read_with_id<'a>(&'a mut self, events: &'a Events<E>) -> EventIteratorWithId<'a, E> {
-        EventIteratorWithId::new(self, events)
+    pub fn read_with_id<'a>(
+        &'a mut self,
+        events: &'a mut Events<E>,
+    ) -> EventMutatorIteratorWithId<'a, E> {
+        EventMutatorIteratorWithId::new(self, events)
     }
 
     /// See [`EventReader::par_read`]
-    pub fn par_read<'a>(&'a mut self, events: &'a Events<E>) -> EventParIter<'a, E> {
-        EventParIter::new(self, events)
+    pub fn par_read<'a>(&'a mut self, events: &'a mut Events<E>) -> EventMutatorParIter<'a, E> {
+        EventMutatorParIter::new(self, events)
     }
 
     /// See [`EventReader::len`]

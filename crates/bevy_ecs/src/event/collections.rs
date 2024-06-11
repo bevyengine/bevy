@@ -1,6 +1,6 @@
 use crate as bevy_ecs;
 use bevy_ecs::{
-    event::{Event, EventId, EventInstance, ManualEventReader},
+    event::{Event, EventId, EventInstance, ManualEventMutator, ManualEventReader},
     system::Resource,
 };
 #[cfg(feature = "bevy_reflect")]
@@ -162,6 +162,20 @@ impl<E: Event> Events<E> {
     /// It will read all future events.
     pub fn get_reader_current(&self) -> ManualEventReader<E> {
         ManualEventReader {
+            last_event_count: self.event_count,
+            ..Default::default()
+        }
+    }
+
+    /// Gets a new [`ManualEventReader`]. This will include all events already in the event buffers.
+    pub fn get_mutator(&self) -> ManualEventMutator<E> {
+        ManualEventMutator::default()
+    }
+
+    /// Gets a new [`ManualEventReader`]. This will ignore all events already in the event buffers.
+    /// It will read all future events.
+    pub fn get_mutator_current(&self) -> ManualEventMutator<E> {
+        ManualEventMutator {
             last_event_count: self.event_count,
             ..Default::default()
         }
