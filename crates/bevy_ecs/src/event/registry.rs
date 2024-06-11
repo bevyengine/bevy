@@ -28,7 +28,7 @@ pub struct EventRegistry {
 /// Controls whether or not the events should be updated.
 #[derive(Default)]
 pub(crate) enum ShouldUpdateEvents {
-    /// Without any fixed timestep shenanigans, events should always be updated each frame.
+    /// Without any fixed timestep, events should always be updated each frame.
     #[default]
     Always,
     /// We need to wait until at least one pass of the fixed update schedules to update the events.
