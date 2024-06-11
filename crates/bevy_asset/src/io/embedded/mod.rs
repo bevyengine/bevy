@@ -107,7 +107,7 @@ impl EmbeddedAssetRegistry {
 #[macro_export]
 macro_rules! embedded_path {
     ($path_str: expr) => {{
-        embedded_path!("src", $path_str)
+        $crate::embedded_path!("src", $path_str)
     }};
 
     ($source_path: expr, $path_str: expr) => {{

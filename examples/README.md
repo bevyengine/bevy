@@ -214,6 +214,7 @@ Example | Description
 [Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader
 [Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader
 [Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
+[Asset Bundle](../examples/asset/asset_bundle.rs) | Load an asset from an AssetBundle
 [Extra asset source](../examples/asset/extra_source.rs) | Load an asset from a non-standard asset source
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
 [Mult-asset synchronization](../examples/asset/multi_asset_sync.rs) | Demonstrates how to wait for multiple assets to be loaded.
