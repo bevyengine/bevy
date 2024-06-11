@@ -307,6 +307,7 @@ impl SubApp {
     {
         if !self.world.contains_resource::<Events<T>>() {
             EventRegistry::register_event::<T>(self.world_mut());
+            println!("Registered event: {:?}", std::any::type_name::<T>());
         }
 
         self
