@@ -30,7 +30,7 @@ pub mod prelude {
 }
 
 use bevy_app::{prelude::*, RunFixedMainLoop};
-use bevy_ecs::event::signal_event_update_system;
+use bevy_ecs::event::{signal_event_update_system, EventRegistry, ShouldUpdateEvents};
 use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::warn, Duration, Instant};
 pub use crossbeam_channel::TrySendError;
@@ -65,8 +65,11 @@ impl Plugin for TimePlugin {
         app.add_systems(First, time_system.in_set(TimeSystem))
             .add_systems(RunFixedMainLoop, run_fixed_main_schedule);
 
-        // ensure the events are not dropped until `FixedMain` systems can observe them
+        // Ensure the events are not dropped until `FixedMain` systems can observe them
         app.add_systems(FixedPostUpdate, signal_event_update_system);
+        let mut event_registry = app.world_mut().resource_mut::<EventRegistry>();
+        // We need to start in a waiting state so that the events are not updated until the first fixed update
+        event_registry.should_update = ShouldUpdateEvents::Waiting;
     }
 }
 
