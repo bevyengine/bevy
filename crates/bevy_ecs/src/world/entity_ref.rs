@@ -6,7 +6,7 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     event::Event,
     observer::{Observer, Observers},
-    query::{Access, DebugCheckedUnwrap},
+    query::Access,
     removal_detection::RemovedComponentEvents,
     storage::Storages,
     system::IntoObserverSystem,

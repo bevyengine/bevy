@@ -2045,14 +2045,15 @@ impl World {
         }
     }
 
-    /// Applies any commands in the world's internal [`CommandQueue`].
-    /// This does not apply commands from any systems, only those stored in the world.
+    /// Calls both [`World::flush_entities`] and [`World::flush_commands`].
     #[inline]
     pub fn flush(&mut self) {
         self.flush_entities();
         self.flush_commands();
     }
 
+    /// Applies any commands in the world's internal [`CommandQueue`].
+    /// This does not apply commands from any systems, only those stored in the world.
     pub fn flush_commands(&mut self) {
         // SAFETY: `self.command_queue` is only de-allocated in `World`'s `Drop`
         if !unsafe { self.command_queue.is_empty() } {
