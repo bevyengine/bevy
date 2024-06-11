@@ -5,17 +5,21 @@ mod component_constants;
 mod deferred_world;
 mod entity_ref;
 pub mod error;
+mod identifier;
 mod spawn_batch;
 pub mod unsafe_world_cell;
 
-pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
-pub use crate::world::command_queue::CommandQueue;
+pub use crate::{
+    change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
+    world::command_queue::CommandQueue,
+};
 pub use component_constants::*;
 pub use deferred_world::DeferredWorld;
 pub use entity_ref::{
     EntityMut, EntityRef, EntityWorldMut, Entry, FilteredEntityMut, FilteredEntityRef,
     OccupiedEntry, VacantEntry,
 };
+pub use identifier::WorldId;
 pub use spawn_batch::*;
 
 use crate::{
@@ -26,7 +30,7 @@ use crate::{
         Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
         Components, Tick,
     },
-    entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
+    entity::{AllocAtWithoutReplacement, Entities, Entity, EntityHashSet, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryEntityError, QueryFilter, QueryState},
@@ -37,7 +41,6 @@ use crate::{
     world::command_queue::RawCommandQueue,
     world::error::TryRunScheduleError,
 };
-use crate::{component::ComponentInitializer, entity::EntityHashSet};
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::warn;
 use std::{
@@ -46,10 +49,7 @@ use std::{
     mem::MaybeUninit,
     sync::atomic::{AtomicU32, Ordering},
 };
-mod identifier;
-
-use self::unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
-pub use identifier::WorldId;
+use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
 /// A [`World`] mutation.
 ///
@@ -232,15 +232,6 @@ impl World {
     #[inline]
     pub fn bundles(&self) -> &Bundles {
         &self.bundles
-    }
-
-    /// Creates a [`ComponentInitializer`] for this world.
-    #[inline]
-    pub fn component_initializer(&mut self) -> ComponentInitializer {
-        ComponentInitializer {
-            components: &mut self.components,
-            storages: &mut self.storages,
-        }
     }
 
     /// Retrieves this world's [`RemovedComponentEvents`] collection
