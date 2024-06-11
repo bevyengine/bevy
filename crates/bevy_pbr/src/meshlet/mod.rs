@@ -206,18 +206,18 @@ impl Plugin for MeshletPlugin {
             .add_render_graph_edges(
                 Core3d,
                 (
-                    // TODO: Meshlet VisibilityBufferRaster should be after main pass when not using depth prepass
+                    // Non-meshlet shading passes _must_ come before meshlet shading passes
                     NodePbr::ShadowPass,
-                    Node3d::Prepass,
-                    Node3d::DeferredPrepass,
                     NodeMeshlet::VisibilityBufferRasterPass,
                     NodeMeshlet::Prepass,
+                    Node3d::Prepass,
                     NodeMeshlet::DeferredPrepass,
+                    Node3d::DeferredPrepass,
                     Node3d::CopyDeferredLightingId,
                     Node3d::EndPrepasses,
                     Node3d::StartMainPass,
-                    Node3d::MainOpaquePass,
                     NodeMeshlet::MainOpaquePass,
+                    Node3d::MainOpaquePass,
                     Node3d::EndMainPass,
                 ),
             )
