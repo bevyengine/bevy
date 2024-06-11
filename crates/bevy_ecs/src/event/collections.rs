@@ -366,3 +366,41 @@ impl<E: Event> ExactSizeIterator for SendBatchIds<E> {
         self.event_count.saturating_sub(self.last_count)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{self as bevy_ecs, event::Events};
+    use bevy_ecs_macros::Event;
+
+    #[test]
+    fn iter_current_update_events_iterates_over_current_events() {
+        #[derive(Event, Clone)]
+        struct TestEvent;
+
+        let mut test_events = Events::<TestEvent>::default();
+
+        // Starting empty
+        assert_eq!(test_events.len(), 0);
+        assert_eq!(test_events.iter_current_update_events().count(), 0);
+        test_events.update();
+
+        // Sending one event
+        test_events.send(TestEvent);
+
+        assert_eq!(test_events.len(), 1);
+        assert_eq!(test_events.iter_current_update_events().count(), 1);
+        test_events.update();
+
+        // Sending two events on the next frame
+        test_events.send(TestEvent);
+        test_events.send(TestEvent);
+
+        assert_eq!(test_events.len(), 3); // Events are double-buffered, so we see 1 + 2 = 3
+        assert_eq!(test_events.iter_current_update_events().count(), 2);
+        test_events.update();
+
+        // Sending zero events
+        assert_eq!(test_events.len(), 2); // Events are double-buffered, so we see 2 + 0 = 2
+        assert_eq!(test_events.iter_current_update_events().count(), 0);
+    }
+}
