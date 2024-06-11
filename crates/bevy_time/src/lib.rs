@@ -147,7 +147,7 @@ mod tests {
     use crate::{Fixed, Time, TimePlugin, TimeUpdateStrategy, Virtual};
     use bevy_app::{App, FixedUpdate, Startup, Update};
     use bevy_ecs::{
-        event::{Event, EventReader, EventRegistry, EventWriter, Events},
+        event::{Event, EventReader, EventRegistry, EventWriter, Events, ShouldUpdateEvents},
         system::{Local, Res, ResMut, Resource},
     };
     use bevy_utils::Duration;
@@ -312,7 +312,7 @@ mod tests {
             .add_systems(FixedUpdate, count_fixed_updates)
             .insert_resource(TimeUpdateStrategy::ManualDuration(time_step));
 
-        for i in 0..10 {
+        for frame in 0..10 {
             app.update();
             let fixed_updates_seen = app.world().resource::<FixedUpdateCounter>().0;
             let events = app.world().resource::<Events<DummyEvent>>();
@@ -321,8 +321,51 @@ mod tests {
             let event_registry = app.world().resource::<EventRegistry>();
             let should_update = event_registry.should_update;
 
-            println!("Frame {i}, {fixed_updates_seen} fixed updates seen. Should update: {should_update:?}");
+            println!("Frame {frame}, {fixed_updates_seen} fixed updates seen. Should update: {should_update:?}");
             println!("Total events: {n_total_events} | Current events: {n_current_events}",);
+
+            match frame {
+                0 => {
+                    assert_eq!(fixed_updates_seen, 0);
+                    assert_eq!(n_total_events, 1);
+                    assert_eq!(n_current_events, 1);
+                    assert_eq!(should_update, ShouldUpdateEvents::Waiting);
+                }
+                1 => {
+                    assert_eq!(fixed_updates_seen, 0);
+                    assert_eq!(n_total_events, 1);
+                    assert_eq!(n_current_events, 1);
+                    assert_eq!(should_update, ShouldUpdateEvents::Waiting);
+                }
+                2 => {
+                    assert_eq!(fixed_updates_seen, 1); // Time to trigger event updates
+                    assert_eq!(n_total_events, 1);
+                    assert_eq!(n_current_events, 1);
+                    assert_eq!(should_update, ShouldUpdateEvents::Ready); // Prepping first update
+                }
+                3 => {
+                    assert_eq!(fixed_updates_seen, 1);
+                    assert_eq!(n_total_events, 1);
+                    assert_eq!(n_current_events, 0); // First update has occurred
+                    assert_eq!(should_update, ShouldUpdateEvents::Waiting);
+                }
+                4 => {
+                    assert_eq!(fixed_updates_seen, 2); // Time to trigger the second update
+                    assert_eq!(n_total_events, 1);
+                    assert_eq!(n_current_events, 0);
+                    assert_eq!(should_update, ShouldUpdateEvents::Ready); // Prepping second update
+                }
+                5 => {
+                    assert_eq!(fixed_updates_seen, 2);
+                    assert_eq!(n_total_events, 0); // Second update has occurred
+                    assert_eq!(n_current_events, 0);
+                    assert_eq!(should_update, ShouldUpdateEvents::Waiting);
+                }
+                _ => {
+                    assert_eq!(n_total_events, 0); // No more events are sent
+                    assert_eq!(n_current_events, 0);
+                }
+            }
         }
     }
 }
