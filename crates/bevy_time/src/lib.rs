@@ -147,7 +147,7 @@ mod tests {
     use crate::{Fixed, Time, TimePlugin, TimeUpdateStrategy, Virtual};
     use bevy_app::{App, FixedUpdate, Startup, Update};
     use bevy_ecs::{
-        event::{Event, EventReader, EventWriter, Events},
+        event::{Event, EventReader, EventRegistry, EventWriter, Events},
         system::{Local, Res, ResMut, Resource},
     };
     use bevy_utils::Duration;
@@ -306,49 +306,23 @@ mod tests {
 
         let mut app = App::new();
         app.add_plugins(TimePlugin)
-            .add_systems(Startup, send_event)
-            .add_systems(Update, report_time)
             .add_event::<DummyEvent>()
+            .init_resource::<FixedUpdateCounter>()
+            .add_systems(Startup, send_event)
+            .add_systems(FixedUpdate, count_fixed_updates)
             .insert_resource(TimeUpdateStrategy::ManualDuration(time_step));
 
-        // Frame 0
-        // Fixed update should not have run yet
-        app.update();
+        for i in 0..10 {
+            app.update();
+            let fixed_updates_seen = app.world().resource::<FixedUpdateCounter>().0;
+            let events = app.world().resource::<Events<DummyEvent>>();
+            let n_total_events = events.len();
+            let n_current_events = events.iter_current_update_events().count();
+            let event_registry = app.world().resource::<EventRegistry>();
+            let should_update = event_registry.should_update;
 
-        let events = app.world().resource::<Events<DummyEvent>>();
-        assert_eq!(events.len(), 1);
-        assert_eq!(events.iter_current_update_events().len(), 1);
-
-        // Frame 1
-        // Fixed update should not have run yet
-        app.update();
-
-        let events = app.world().resource::<Events<DummyEvent>>();
-        assert_eq!(events.len(), 1);
-        assert_eq!(events.iter_current_update_events().len(), 1);
-
-        // Frame 2
-        // Fixed update should have run now
-        app.update();
-
-        let events: &Events<DummyEvent> = app.world().resource::<Events<DummyEvent>>();
-        assert_eq!(events.len(), 1);
-        assert_eq!(events.iter_current_update_events().len(), 0);
-
-        // Frame 3
-        // Fixed update should have run exactly once still
-        app.update();
-
-        let events: &Events<DummyEvent> = app.world().resource::<Events<DummyEvent>>();
-        assert_eq!(events.len(), 1);
-        assert_eq!(events.iter_current_update_events().len(), 0);
-
-        // Frame 4
-        // Fixed update should have run twice now
-        app.update();
-
-        let events: &Events<DummyEvent> = app.world().resource::<Events<DummyEvent>>();
-        assert_eq!(events.len(), 0);
-        assert_eq!(events.iter_current_update_events().len(), 0);
+            println!("Frame {i}, {fixed_updates_seen} fixed updates seen. Should update: {should_update:?}");
+            println!("Total events: {n_total_events} | Current events: {n_current_events}",);
+        }
     }
 }

@@ -29,7 +29,7 @@ pub struct EventRegistry {
 }
 
 /// Controls whether or not the events in an [`EventRegistry`] should be updated.
-#[derive(Default)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShouldUpdateEvents {
     /// Without any fixed timestep, events should always be updated each frame.
     #[default]
