@@ -293,59 +293,62 @@ mod tests {
     }
 
     #[test]
-    fn events_should_wait_for_fixed_time_update() {
+    fn event_update_should_wait_for_fixed_main() {
         // Set the time step to just over half the fixed update timestep
         // This way, it will have not accumulated enough time to run the fixed update after one update
         // But will definitely have enough time after two updates
         let fixed_update_timestep = Time::<Fixed>::default().timestep();
         let time_step = fixed_update_timestep / 2 + Duration::from_millis(1);
 
+        fn send_event(mut events: ResMut<Events<DummyEvent>>) {
+            events.send(DummyEvent);
+        }
+
         let mut app = App::new();
-        app.add_event::<DummyEvent>();
-        app.add_plugins(TimePlugin::default());
-        app.add_systems(Update, report_time);
-        app.insert_resource(TimeUpdateStrategy::ManualDuration(time_step));
+        app.add_plugins(TimePlugin)
+            .add_systems(Startup, send_event)
+            .add_systems(Update, report_time)
+            .add_event::<DummyEvent>()
+            .insert_resource(TimeUpdateStrategy::ManualDuration(time_step));
 
-        // Start with 0 events
-        let events = app.world().resource::<Events<DummyEvent>>();
-        assert_eq!(events.len(), 0);
-
-        // Send an event
-        app.world_mut().send_event(DummyEvent);
-        let events = app.world().resource::<Events<DummyEvent>>();
-        assert_eq!(events.len(), 1);
-        assert_eq!(events.iter_current_update_events().count(), 1);
-
-        // Update the app by a single timestep
+        // Frame 0
         // Fixed update should not have run yet
         app.update();
 
         let events = app.world().resource::<Events<DummyEvent>>();
         assert_eq!(events.len(), 1);
-        assert_eq!(events.iter_current_update_events().count(), 1);
+        assert_eq!(events.iter_current_update_events().len(), 1);
 
-        // Update the app by another timestep
+        // Frame 1
+        // Fixed update should not have run yet
+        app.update();
+
+        let events = app.world().resource::<Events<DummyEvent>>();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events.iter_current_update_events().len(), 1);
+
+        // Frame 2
         // Fixed update should have run now
         app.update();
 
-        let events = app.world().resource::<Events<DummyEvent>>();
+        let events: &Events<DummyEvent> = app.world().resource::<Events<DummyEvent>>();
         assert_eq!(events.len(), 1);
-        assert_eq!(events.iter_current_update_events().count(), 0);
+        assert_eq!(events.iter_current_update_events().len(), 0);
 
-        // Update the app by another timestep
+        // Frame 3
         // Fixed update should have run exactly once still
         app.update();
 
-        let events = app.world().resource::<Events<DummyEvent>>();
+        let events: &Events<DummyEvent> = app.world().resource::<Events<DummyEvent>>();
         assert_eq!(events.len(), 1);
-        assert_eq!(events.iter_current_update_events().count(), 0);
+        assert_eq!(events.iter_current_update_events().len(), 0);
 
-        // Update the app by another timestep
+        // Frame 4
         // Fixed update should have run twice now
         app.update();
 
-        let events = app.world().resource::<Events<DummyEvent>>();
+        let events: &Events<DummyEvent> = app.world().resource::<Events<DummyEvent>>();
         assert_eq!(events.len(), 0);
-        assert_eq!(events.iter_current_update_events().count(), 0);
+        assert_eq!(events.iter_current_update_events().len(), 0);
     }
 }
