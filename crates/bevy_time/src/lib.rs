@@ -28,7 +28,7 @@ pub use virt::*;
 pub mod prelude {
     //! The Bevy Time Prelude.
     #[doc(hidden)]
-    pub use crate::{Fixed, Real, Time, Timer, TimerMode, Virtual};
+    pub use crate::{Fixed, Real, Time, TimeTrackingAppExtension, Timer, TimerMode, Virtual};
 }
 
 use bevy_app::{prelude::*, RunFixedMainLoop};
@@ -46,6 +46,11 @@ pub struct TimePlugin;
 /// Updates the elapsed time. Any system that interacts with [`Time`] component should run after
 /// this.
 pub struct TimeSystem;
+
+#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
+/// Updates all the time trackers. Any systems that interact with [`TimeTracker`]s in the [`First`]
+/// and [`FixedPreUpdate`] schedules should run after this.
+pub struct UpdateTimeTrackers;
 
 impl Plugin for TimePlugin {
     fn build(&self, app: &mut App) {
@@ -67,7 +72,9 @@ impl Plugin for TimePlugin {
         app.add_systems(First, time_system.in_set(TimeSystem))
             .add_systems(RunFixedMainLoop, run_fixed_main_schedule);
 
-        // Ensure the events are not dropped until `FixedMain` systems can observe them
+        app.configure_sets(First, UpdateTimeTrackers.after(TimeSystem));
+
+        // ensure the events are not dropped until `FixedMain` systems can observe them
         app.add_systems(FixedPostUpdate, signal_event_update_system);
         let mut event_registry = app.world_mut().resource_mut::<EventRegistry>();
         // We need to start in a waiting state so that the events are not updated until the first fixed update
