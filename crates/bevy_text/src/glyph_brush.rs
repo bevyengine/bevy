@@ -12,7 +12,7 @@ use glyph_brush_layout::{
 
 use crate::{
     error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasSets, GlyphAtlasInfo, JustifyText,
-    TextSettings, YAxisOrientation,
+    PlacedGlyph, TextSettings, YAxisOrientation,
 };
 
 pub struct GlyphBrush {
@@ -94,8 +94,10 @@ impl GlyphBrush {
                 mut glyph,
                 font_id: _,
             } = sg;
-            let glyph_id = glyph.id;
-            let glyph_position = glyph.position;
+            let placed_glyph = PlacedGlyph {
+                glyph_id: glyph.id,
+                subpixel_offset: glyph.position.into(),
+            };
             let adjust = GlyphPlacementAdjuster::new(&mut glyph);
             let section_data = sections_data[sg.section_index];
             if let Some(outlined_glyph) = section_data.1.font.outline_glyph(glyph) {
@@ -106,7 +108,7 @@ impl GlyphBrush {
                     .or_insert_with(FontAtlasSet::default);
 
                 let atlas_info = font_atlas_set
-                    .get_glyph_atlas_info(section_data.2, glyph_id, glyph_position)
+                    .get_glyph_atlas_info(section_data.2, &placed_glyph)
                     .map(Ok)
                     .unwrap_or_else(|| {
                         font_atlas_set.add_glyph_to_atlas(texture_atlases, textures, outlined_glyph)

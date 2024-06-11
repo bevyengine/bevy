@@ -1,4 +1,5 @@
 use bevy_asset::AssetId;
+use bevy_color::ColorToComponents;
 use bevy_core_pipeline::core_3d::CORE_3D_DEPTH_FORMAT;
 use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;

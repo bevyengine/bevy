@@ -1,7 +1,7 @@
 use crate::{Material2d, Material2dPlugin, MaterialMesh2dBundle};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
-use bevy_color::{Color, LinearRgba};
+use bevy_color::{Color, ColorToComponents, LinearRgba};
 use bevy_math::Vec4;
 use bevy_reflect::prelude::*;
 use bevy_render::{
@@ -49,6 +49,13 @@ pub struct ColorMaterial {
     #[texture(1)]
     #[sampler(2)]
     pub texture: Option<Handle<Image>>,
+}
+
+impl ColorMaterial {
+    /// Creates a new material from a given color
+    pub fn from_color(color: impl Into<Color>) -> Self {
+        Self::from(color.into())
+    }
 }
 
 impl Default for ColorMaterial {

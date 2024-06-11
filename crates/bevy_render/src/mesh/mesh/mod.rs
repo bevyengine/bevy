@@ -741,7 +741,7 @@ impl Mesh {
     /// Panics if the vertex attribute values of `other` are incompatible with `self`.
     /// For example, [`VertexAttributeValues::Float32`] is incompatible with [`VertexAttributeValues::Float32x3`].
     #[allow(clippy::match_same_arms)]
-    pub fn merge(&mut self, other: Mesh) {
+    pub fn merge(&mut self, other: &Mesh) {
         use VertexAttributeValues::*;
 
         // The indices of `other` should start after the last vertex of `self`.

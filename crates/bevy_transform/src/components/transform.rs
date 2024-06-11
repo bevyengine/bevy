@@ -30,9 +30,9 @@ use std::ops::Mul;
 ///
 /// # Examples
 ///
-/// - [`transform`]
+/// - [`transform`][transform_example]
 ///
-/// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
+/// [transform_example]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
