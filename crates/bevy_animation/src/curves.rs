@@ -25,6 +25,20 @@ where
     }
 }
 
+impl<T> SteppedKeyframeCurve<T> {
+    /// Create a new [`SteppedKeyframeCurve`], bypassing any formatting. If you use this, you must
+    /// uphold the invariants of [`UnevenCore`] yourself.
+    #[inline]
+    pub fn new_raw(times: impl Into<Vec<f32>>, samples: impl Into<Vec<T>>) -> Self {
+        Self {
+            core: UnevenCore {
+                times: times.into(),
+                samples: samples.into(),
+            },
+        }
+    }
+}
+
 /// A keyframe-defined curve that uses cubic spline interpolation, backed by a contiguous buffer.
 #[derive(Debug, Clone, Reflect)]
 pub struct CubicKeyframeCurve<T> {
@@ -52,6 +66,21 @@ where
             Betweenness::Between((t0, u), (t1, v), s) => {
                 cubic_spline_interpolation(u[1], u[2], v[0], v[1], s, t1 - t0)
             }
+        }
+    }
+}
+
+impl<T> CubicKeyframeCurve<T> {
+    /// Create a new [`CubicKeyframeCurve`] from raw data, bypassing all checks. If you use this, you
+    /// must uphold the invariants of [`ChunkedUnevenCore`] yourself.
+    #[inline]
+    pub fn new_raw(times: impl Into<Vec<f32>>, values: impl Into<Vec<T>>) -> Self {
+        Self {
+            core: ChunkedUnevenCore {
+                times: times.into(),
+                values: values.into(),
+                width: 3,
+            },
         }
     }
 }
@@ -270,6 +299,21 @@ where
     }
 }
 
+impl<T> WideLinearKeyframeCurve<T> {
+    /// Create a new [`WideLinearKeyframeCurve`] from raw data, bypassing all checks. If you use this, you
+    /// must uphold the invariants of [`ChunkedUnevenCore`] yourself.
+    #[inline]
+    pub fn new_raw(times: impl Into<Vec<f32>>, values: impl Into<Vec<T>>, width: usize) -> Self {
+        Self {
+            core: ChunkedUnevenCore {
+                times: times.into(),
+                values: values.into(),
+                width,
+            },
+        }
+    }
+}
+
 /// A keyframe-defined curve that uses stepped "interpolation" over many samples at once, backed
 /// by a contiguous buffer.
 #[derive(Debug, Clone, Reflect)]
@@ -308,6 +352,21 @@ where
     }
 }
 
+impl<T> WideSteppedKeyframeCurve<T> {
+    /// Create a new [`WideSteppedKeyframeCurve`] from raw data, bypassing all checks. If you use this, you
+    /// must uphold the invariants of [`ChunkedUnevenCore`] yourself.
+    #[inline]
+    pub fn new_raw(times: impl Into<Vec<f32>>, values: impl Into<Vec<T>>, width: usize) -> Self {
+        Self {
+            core: ChunkedUnevenCore {
+                times: times.into(),
+                values: values.into(),
+                width,
+            },
+        }
+    }
+}
+
 /// A keyframe-defined curve that uses cubic interpolation over many samples at once, backed by a
 /// contiguous buffer.
 #[derive(Debug, Clone, Reflect)]
@@ -342,6 +401,21 @@ where
             Betweenness::Between((t0, u), (t1, v), s) => TwoIterators::Right(
                 cubic_spline_interpolate_slices(self.core.width / 3, u, v, s, t1 - t0),
             ),
+        }
+    }
+}
+
+impl<T> WideCubicKeyframeCurve<T> {
+    /// Create a new [`WideCubicKeyframeCurve`] from raw data, bypassing all checks. If you use this, you
+    /// must uphold the invariants of [`ChunkedUnevenCore`] yourself.
+    #[inline]
+    pub fn new_raw(times: impl Into<Vec<f32>>, values: impl Into<Vec<T>>, width: usize) -> Self {
+        Self {
+            core: ChunkedUnevenCore {
+                times: times.into(),
+                values: values.into(),
+                width: width * 3,
+            },
         }
     }
 }

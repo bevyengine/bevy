@@ -512,6 +512,17 @@ impl<T> SampleAutoCurve<T> {
             core: EvenCore::new(domain, samples)?,
         })
     }
+
+    /// Create a new [`SampleAutoCurve`] from raw data, bypassing all checks. If you use this, you
+    /// must uphold the invariants of [`EvenCore`] yourself.
+    pub fn new_raw(domain: Interval, samples: impl Into<Vec<T>>) -> Self {
+        Self {
+            core: EvenCore {
+                domain,
+                samples: samples.into(),
+            },
+        }
+    }
 }
 
 /// A [`Curve`] that is defined by interpolation over unevenly spaced samples with explicit
@@ -606,6 +617,17 @@ impl<T> UnevenSampleAutoCurve<T> {
         Ok(Self {
             core: UnevenCore::new(timed_samples)?,
         })
+    }
+
+    /// Create a new [`UnevenSampleAutoCurve`] from raw data, bypassing all checks. If you use this, you
+    /// must uphold the invariants of [`UnevenCore`] yourself.
+    pub fn new_raw(times: impl Into<Vec<f32>>, samples: impl Into<Vec<T>>) -> Self {
+        Self {
+            core: UnevenCore {
+                times: times.into(),
+                samples: samples.into(),
+            },
+        }
     }
 
     /// This [`UnevenSampleAutoCurve`], but with the sample times moved by the map `f`.
@@ -865,13 +887,13 @@ where
 }
 
 /// Create a [`Curve`] that constantly takes the given `value` over the given `domain`.
-pub fn constant_curve<T: Clone>(domain: Interval, value: T) -> impl Curve<T> {
+pub fn constant_curve<T: Clone>(domain: Interval, value: T) -> ConstantCurve<T> {
     ConstantCurve { domain, value }
 }
 
 /// Convert the given function `f` into a [`Curve`] with the given `domain`, sampled by
 /// evaluating the function.
-pub fn function_curve<T, F>(domain: Interval, f: F) -> impl Curve<T>
+pub fn function_curve<T, F>(domain: Interval, f: F) -> FunctionCurve<T, F>
 where
     F: Fn(f32) -> T,
 {

@@ -260,7 +260,9 @@ async fn load_gltf<'a, 'b, 'c>(
 
     #[cfg(feature = "bevy_animation")]
     let (animations, named_animations, animation_roots) = {
-        use bevy_animation::{Interpolation, Keyframes};
+        use bevy_animation::curves::*;
+        use bevy_math::curve::{constant_curve, everywhere, UnevenSampleAutoCurve};
+        use bevy_math::{Quat, Vec4};
         use gltf::animation::util::ReadOutputs;
         let mut animations = vec![];
         let mut named_animations = HashMap::default();
@@ -268,12 +270,8 @@ async fn load_gltf<'a, 'b, 'c>(
         for animation in gltf.animations() {
             let mut animation_clip = bevy_animation::AnimationClip::default();
             for channel in animation.channels() {
-                let interpolation = match channel.sampler().interpolation() {
-                    gltf::animation::Interpolation::Linear => Interpolation::Linear,
-                    gltf::animation::Interpolation::Step => Interpolation::Step,
-                    gltf::animation::Interpolation::CubicSpline => Interpolation::CubicSpline,
-                };
                 let node = channel.target().node();
+                let interpolation = channel.sampler().interpolation();
                 let reader = channel.reader(|buffer| Some(&buffer_data[buffer.index()]));
                 let keyframe_timestamps: Vec<f32> = if let Some(inputs) = reader.read_inputs() {
                     match inputs {
@@ -288,19 +286,127 @@ async fn load_gltf<'a, 'b, 'c>(
                     return Err(GltfError::MissingAnimationSampler(animation.index()));
                 };
 
-                let keyframes = if let Some(outputs) = reader.read_outputs() {
+                if keyframe_timestamps.len() == 0 {
+                    warn!("Tried to load animation with no keyframe timestamps");
+                    continue;
+                }
+
+                let curve = if let Some(outputs) = reader.read_outputs() {
                     match outputs {
                         ReadOutputs::Translations(tr) => {
-                            Keyframes::Translation(tr.map(Vec3::from).collect())
+                            let translations: Vec<Vec3> = tr.map(Vec3::from).collect();
+                            VariableCurve::Translation(if keyframe_timestamps.len() == 1 {
+                                TranslationCurve::Constant(constant_curve(
+                                    everywhere(),
+                                    translations[0],
+                                ))
+                            } else {
+                                match interpolation {
+                                    gltf::animation::Interpolation::Linear => {
+                                        TranslationCurve::Linear(UnevenSampleAutoCurve::new_raw(
+                                            keyframe_timestamps,
+                                            translations,
+                                        ))
+                                    }
+                                    gltf::animation::Interpolation::Step => {
+                                        TranslationCurve::Step(SteppedKeyframeCurve::new_raw(
+                                            keyframe_timestamps,
+                                            translations,
+                                        ))
+                                    }
+                                    gltf::animation::Interpolation::CubicSpline => {
+                                        TranslationCurve::CubicSpline(CubicKeyframeCurve::new_raw(
+                                            keyframe_timestamps,
+                                            translations,
+                                        ))
+                                    }
+                                }
+                            })
                         }
-                        ReadOutputs::Rotations(rots) => Keyframes::Rotation(
-                            rots.into_f32().map(bevy_math::Quat::from_array).collect(),
-                        ),
+                        ReadOutputs::Rotations(rots) => {
+                            let rotations: Vec<Quat> =
+                                rots.into_f32().map(bevy_math::Quat::from_array).collect();
+                            VariableCurve::Rotation(if keyframe_timestamps.len() == 1 {
+                                RotationCurve::Constant(constant_curve(everywhere(), rotations[0]))
+                            } else {
+                                match interpolation {
+                                    gltf::animation::Interpolation::Linear => {
+                                        RotationCurve::SphericalLinear(
+                                            UnevenSampleAutoCurve::new_raw(
+                                                keyframe_timestamps,
+                                                rotations,
+                                            ),
+                                        )
+                                    }
+                                    gltf::animation::Interpolation::Step => {
+                                        RotationCurve::Step(SteppedKeyframeCurve::new_raw(
+                                            keyframe_timestamps,
+                                            rotations,
+                                        ))
+                                    }
+                                    gltf::animation::Interpolation::CubicSpline => {
+                                        RotationCurve::CubicSpline(CubicKeyframeCurve::new_raw(
+                                            keyframe_timestamps,
+                                            rotations
+                                                .into_iter()
+                                                .map(Vec4::from)
+                                                .collect::<Vec<_>>(),
+                                        ))
+                                    }
+                                }
+                            })
+                        }
                         ReadOutputs::Scales(scale) => {
-                            Keyframes::Scale(scale.map(Vec3::from).collect())
+                            let scales: Vec<Vec3> = scale.map(Vec3::from).collect();
+                            VariableCurve::Scale(if keyframe_timestamps.len() == 1 {
+                                ScaleCurve::Constant(constant_curve(everywhere(), scales[0]))
+                            } else {
+                                match interpolation {
+                                    gltf::animation::Interpolation::Linear => ScaleCurve::Linear(
+                                        UnevenSampleAutoCurve::new_raw(keyframe_timestamps, scales),
+                                    ),
+                                    gltf::animation::Interpolation::Step => ScaleCurve::Step(
+                                        SteppedKeyframeCurve::new_raw(keyframe_timestamps, scales),
+                                    ),
+                                    gltf::animation::Interpolation::CubicSpline => {
+                                        ScaleCurve::CubicSpline(CubicKeyframeCurve::new_raw(
+                                            keyframe_timestamps,
+                                            scales,
+                                        ))
+                                    }
+                                }
+                            })
                         }
                         ReadOutputs::MorphTargetWeights(weights) => {
-                            Keyframes::Weights(weights.into_f32().collect())
+                            let weights: Vec<f32> = weights.into_f32().collect();
+                            let width = weights.len() / keyframe_timestamps.len();
+                            VariableCurve::Weights(if keyframe_timestamps.len() == 1 {
+                                WeightsCurve::Constant(constant_curve(everywhere(), weights))
+                            } else {
+                                match interpolation {
+                                    gltf::animation::Interpolation::Linear => {
+                                        WeightsCurve::Linear(WideLinearKeyframeCurve::new_raw(
+                                            keyframe_timestamps,
+                                            weights,
+                                            width,
+                                        ))
+                                    }
+                                    gltf::animation::Interpolation::Step => {
+                                        WeightsCurve::Step(WideSteppedKeyframeCurve::new_raw(
+                                            keyframe_timestamps,
+                                            weights,
+                                            width,
+                                        ))
+                                    }
+                                    gltf::animation::Interpolation::CubicSpline => {
+                                        WeightsCurve::CubicSpline(WideCubicKeyframeCurve::new_raw(
+                                            keyframe_timestamps,
+                                            weights,
+                                            width,
+                                        ))
+                                    }
+                                }
+                            })
                         }
                     }
                 } else {
@@ -310,14 +416,8 @@ async fn load_gltf<'a, 'b, 'c>(
 
                 if let Some((root_index, path)) = paths.get(&node.index()) {
                     animation_roots.insert(*root_index);
-                    animation_clip.add_curve_to_target(
-                        AnimationTargetId::from_names(path.iter()),
-                        bevy_animation::VariableCurve {
-                            keyframe_timestamps,
-                            keyframes,
-                            interpolation,
-                        },
-                    );
+                    animation_clip
+                        .add_curve_to_target(AnimationTargetId::from_names(path.iter()), curve);
                 } else {
                     warn!(
                         "Animation ignored for node {}: part of its hierarchy is missing a name",
