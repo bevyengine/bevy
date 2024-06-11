@@ -925,7 +925,7 @@ mod tests {
         change_detection::{DetectChanges, ResMut},
         component::Component,
         entity::Entity,
-        event::{Event, EventWriter},
+        event::{signal_event_update_system, Event, EventWriter},
         query::With,
         removal_detection::RemovedComponents,
         schedule::{IntoSystemConfigs, ScheduleLabel},
@@ -933,7 +933,7 @@ mod tests {
         world::{FromWorld, World},
     };
 
-    use crate::{App, AppExit, Plugin, SubApp, Update};
+    use crate::{App, AppExit, Last, Plugin, SubApp, Update};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -1283,6 +1283,8 @@ mod tests {
         println!("Starting test");
 
         let mut app = App::new();
+        // Without minimal plugins, we need to make sure that this system is added
+        app.add_systems(Last, signal_event_update_system);
         app.add_event::<TestEvent>();
 
         // Starts empty
