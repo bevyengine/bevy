@@ -172,6 +172,53 @@ mod tests {
     #[derive(Resource, Default)]
     struct FixedUpdateCounter(u8);
 
+    fn count_fixed_updates(mut counter: ResMut<FixedUpdateCounter>) {
+        counter.0 += 1;
+    }
+
+    #[test]
+    fn fixed_main_schedule_should_run_with_time_plugin_enabled() {
+        // Set the time step to just over half the fixed update timestep
+        // This way, it will have not accumulated enough time to run the fixed update after one update
+        // But will definitely have enough time after two updates
+        let fixed_update_timestep = Time::<Fixed>::default().timestep();
+        let time_step = fixed_update_timestep / 2 + Duration::from_millis(1);
+
+        let mut app = App::new();
+        app.add_plugins(TimePlugin)
+            .add_systems(FixedUpdate, count_fixed_updates)
+            .init_resource::<FixedUpdateCounter>()
+            .insert_resource(TimeUpdateStrategy::ManualDuration(time_step));
+
+        // Update the app by a single timestep
+        // Fixed update should not have run yet
+        app.update();
+        assert!(time_step < fixed_update_timestep);
+        let counter = app.world().resource::<FixedUpdateCounter>();
+        assert_eq!(counter.0, 0, "Fixed update should not have run yet");
+
+        // Update the app by another timestep
+        // Fixed update should have run now
+        app.update();
+        assert!(2 * time_step > fixed_update_timestep);
+        let counter = app.world().resource::<FixedUpdateCounter>();
+        assert_eq!(counter.0, 1, "Fixed update should have run once");
+
+        // Update the app by another timestep
+        // Fixed update should have run exactly once still
+        app.update();
+        assert!(3 * time_step < 2 * fixed_update_timestep);
+        let counter = app.world().resource::<FixedUpdateCounter>();
+        assert_eq!(counter.0, 1, "Fixed update should have run once");
+
+        // Update the app by another timestep
+        // Fixed update should have run twice now
+        app.update();
+        assert!(4 * time_step > 2 * fixed_update_timestep);
+        let counter = app.world().resource::<FixedUpdateCounter>();
+        assert_eq!(counter.0, 2, "Fixed update should have run twice");
+    }
+
     #[test]
     fn events_get_dropped_regression_test_11528() -> Result<(), impl Error> {
         let (tx1, rx1) = std::sync::mpsc::channel();
@@ -221,22 +268,14 @@ mod tests {
         let fixed_update_timestep = Time::<Fixed>::default().timestep();
         let time_step = fixed_update_timestep / 2 + Duration::from_millis(1);
 
-        fn count_fixed_updates(mut counter: ResMut<FixedUpdateCounter>) {
-            counter.0 += 1;
-        }
-
         let mut app = App::new();
         app.add_event::<DummyEvent>();
-        app.init_resource::<FixedUpdateCounter>();
-        app.add_systems(FixedUpdate, count_fixed_updates);
         app.add_plugins(TimePlugin::default());
         app.insert_resource(TimeUpdateStrategy::ManualDuration(time_step));
 
         // Start with 0 events
         let events = app.world().resource::<Events<DummyEvent>>();
         assert_eq!(events.len(), 0);
-        let counter = app.world().resource::<FixedUpdateCounter>();
-        assert_eq!(counter.0, 0);
 
         // Send an event
         app.world_mut().send_event(DummyEvent);
@@ -247,9 +286,6 @@ mod tests {
         // Update the app by a single timestep
         // Fixed update should not have run yet
         app.update();
-        assert!(time_step < fixed_update_timestep);
-        let counter = app.world().resource::<FixedUpdateCounter>();
-        assert_eq!(counter.0, 0, "Fixed update should not have run yet");
 
         let events = app.world().resource::<Events<DummyEvent>>();
         assert_eq!(events.len(), 1);
@@ -258,9 +294,6 @@ mod tests {
         // Update the app by another timestep
         // Fixed update should have run now
         app.update();
-        assert!(2 * time_step > fixed_update_timestep);
-        let counter = app.world().resource::<FixedUpdateCounter>();
-        assert_eq!(counter.0, 1, "Fixed update should have run once");
 
         let events = app.world().resource::<Events<DummyEvent>>();
         assert_eq!(events.len(), 1);
@@ -269,9 +302,6 @@ mod tests {
         // Update the app by another timestep
         // Fixed update should have run exactly once still
         app.update();
-        assert!(3 * time_step < 2 * fixed_update_timestep);
-        let counter = app.world().resource::<FixedUpdateCounter>();
-        assert_eq!(counter.0, 1, "Fixed update should have run once");
 
         let events = app.world().resource::<Events<DummyEvent>>();
         assert_eq!(events.len(), 1);
@@ -280,9 +310,6 @@ mod tests {
         // Update the app by another timestep
         // Fixed update should have run twice now
         app.update();
-        assert!(4 * time_step > 2 * fixed_update_timestep);
-        let counter = app.world().resource::<FixedUpdateCounter>();
-        assert_eq!(counter.0, 2, "Fixed update should have run twice");
 
         let events = app.world().resource::<Events<DummyEvent>>();
         assert_eq!(events.len(), 0);
