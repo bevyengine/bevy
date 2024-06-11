@@ -1277,7 +1277,7 @@ mod tests {
     /// Plugin should not be considered inserted while it's being built
     ///
     /// bug: <https://github.com/bevyengine/bevy/issues/13815>
-    fn regression_test_13815() {
+    fn plugin_should_not_be_added_during_build_time() {
         pub struct Foo;
 
         impl Plugin for Foo {
