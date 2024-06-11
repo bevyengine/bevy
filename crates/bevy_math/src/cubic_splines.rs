@@ -1285,9 +1285,7 @@ mod tests {
     fn cubic_empty() {
         let points: [[glam::Vec4; 4]; 0] = [];
         let bezier = CubicBezier::new(points);
-        if let Some(_) = bezier {
-            assert!(false);
-        }
+        assert!(bezier.is_none());
     }
 
     #[test]
@@ -1313,11 +1311,9 @@ mod tests {
                 glam::Vec4::new(0., 1., 0., 1.),
             ],
         ];
-        assert!(&(&points[0])[3] != &(&points[1])[0]);
+        assert!((&points[0])[3] != (&points[1])[0]);
         let bezier = CubicBezier::new(points);
-        if let Some(_) = bezier {
-            assert!(false);
-        }
+        assert!(bezier.is_none());
     }
 
     /// Manual, hardcoded function for computing the position along a cubic bezier.
