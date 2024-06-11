@@ -30,11 +30,11 @@ pub struct EventRegistry {
 pub(crate) enum ShouldUpdateEvents {
     /// Without any fixed timestep shenanigans, events should always be updated each frame.
     #[default]
-    AlwaysUpdate,
+    Always,
     /// We need to wait until at least one pass of the fixed update schedules to update the events.
-    WaitingToUpdate,
+    Waiting,
     /// At least one pass of the fixed update schedules has occurred, and the events are ready to be updated.
-    ReadyToUpdate,
+    Ready,
 }
 
 impl EventRegistry {

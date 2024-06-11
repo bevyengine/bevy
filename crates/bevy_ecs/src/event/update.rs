@@ -22,7 +22,7 @@ pub struct EventUpdates;
 /// Normally, this will simply run every frame.
 pub fn signal_event_update_system(signal: Option<ResMut<EventRegistry>>) {
     if let Some(mut registry) = signal {
-        registry.needs_update = ShouldUpdateEvents::ReadyToUpdate;
+        registry.needs_update = ShouldUpdateEvents::Ready;
     }
 }
 
@@ -34,10 +34,10 @@ pub fn event_update_system(world: &mut World, mut last_change_tick: Local<Tick>)
 
             registry.needs_update = match registry.needs_update {
                 // If we're always updating, keep doing so.
-                ShouldUpdateEvents::AlwaysUpdate => ShouldUpdateEvents::AlwaysUpdate,
+                ShouldUpdateEvents::Always => ShouldUpdateEvents::Always,
                 // Disable the system until signal_event_update_system runs again.
-                ShouldUpdateEvents::WaitingToUpdate | ShouldUpdateEvents::ReadyToUpdate => {
-                    ShouldUpdateEvents::WaitingToUpdate
+                ShouldUpdateEvents::Waiting | ShouldUpdateEvents::Ready => {
+                    ShouldUpdateEvents::Waiting
                 }
             };
         });
@@ -54,8 +54,8 @@ pub fn event_update_system(world: &mut World, mut last_change_tick: Local<Tick>)
 pub fn event_update_condition(maybe_signal: Option<Res<EventRegistry>>) -> bool {
     match maybe_signal {
         Some(signal) => match signal.needs_update {
-            ShouldUpdateEvents::AlwaysUpdate | ShouldUpdateEvents::ReadyToUpdate => true,
-            ShouldUpdateEvents::WaitingToUpdate => false,
+            ShouldUpdateEvents::Always | ShouldUpdateEvents::Ready => true,
+            ShouldUpdateEvents::Waiting => false,
         },
         None => true,
     }
