@@ -8,6 +8,7 @@
 
 /// Common run conditions
 pub mod common_conditions;
+mod components;
 mod fixed;
 mod real;
 mod stopwatch;
@@ -17,6 +18,7 @@ mod time_tracking;
 mod timer;
 mod virt;
 
+pub use components::*;
 pub use fixed::*;
 pub use real::*;
 pub use stopwatch::*;
