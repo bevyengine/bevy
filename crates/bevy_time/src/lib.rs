@@ -143,7 +143,8 @@ fn time_system(
 mod tests {
     use crate::{Fixed, Time, TimePlugin, TimeUpdateStrategy};
     use bevy_app::{App, Startup, Update};
-    use bevy_ecs::event::{Event, EventReader, EventWriter};
+    use bevy_ecs::event::{Event, EventReader, EventWriter, Events};
+    use bevy_utils::Duration;
     use std::error::Error;
 
     #[derive(Event)]
@@ -158,6 +159,9 @@ mod tests {
                 .expect("Failed to send drop signal");
         }
     }
+
+    #[derive(Event)]
+    struct DummyEvent;
 
     #[test]
     fn events_get_dropped_regression_test_11528() -> Result<(), impl Error> {
@@ -198,5 +202,65 @@ mod tests {
         let _drop_signal = rx1.try_recv()?;
         // Check event type 2 has been dropped
         rx2.try_recv()
+    }
+
+    #[test]
+    fn events_should_wait_for_fixed_time_update() {
+        // Set the time step to just over half the fixed update timestep
+        // This way, it will have not accumulated enough time to run the fixed update after one update
+        // But will definitely have enough time after two updates
+        let fixed_update_timestep = Time::<Fixed>::default().timestep();
+        let time_step = fixed_update_timestep / 2 + Duration::from_millis(1);
+
+        let mut app = App::new();
+        app.add_event::<DummyEvent>();
+        app.add_plugins(TimePlugin::default());
+        app.insert_resource(TimeUpdateStrategy::ManualDuration(time_step));
+
+        // Start with 0 events
+        let events = app.world().resource::<Events<DummyEvent>>();
+        assert_eq!(events.len(), 0);
+
+        // Send an event
+        app.world_mut().send_event(DummyEvent);
+        let events = app.world().resource::<Events<DummyEvent>>();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events.iter_current_update_events().count(), 1);
+
+        // Update the app by a single timestep
+        // Fixed update should not have run yet
+        app.update();
+        assert!(time_step < fixed_update_timestep);
+
+        let events = app.world().resource::<Events<DummyEvent>>();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events.iter_current_update_events().count(), 1);
+
+        // Update the app by another timestep
+        // Fixed update should have run now
+        app.update();
+        assert!(2 * time_step > fixed_update_timestep);
+
+        let events = app.world().resource::<Events<DummyEvent>>();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events.iter_current_update_events().count(), 0);
+
+        // Update the app by another timestep
+        // Fixed update should have run exactly once still
+        app.update();
+        assert!(3 * time_step < 2 * fixed_update_timestep);
+
+        let events = app.world().resource::<Events<DummyEvent>>();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events.iter_current_update_events().count(), 0);
+
+        // Update the app by another timestep
+        // Fixed update should have run twice now
+        app.update();
+        assert!(4 * time_step > 2 * fixed_update_timestep);
+
+        let events = app.world().resource::<Events<DummyEvent>>();
+        assert_eq!(events.len(), 0);
+        assert_eq!(events.iter_current_update_events().count(), 0);
     }
 }
