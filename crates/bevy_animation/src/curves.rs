@@ -24,33 +24,14 @@ where
     }
 }
 
-/// A keyframe-defined curve that uses linear interpolation for [`VectorSpace`] types.
-#[derive(Debug, Clone, Reflect)]
-pub struct LinearKeyframeCurve<T> {
-    core: UnevenCore<T>,
-}
-
-impl<V> Curve<V> for LinearKeyframeCurve<V>
-where
-    V: VectorSpace,
-{
-    fn domain(&self) -> Interval {
-        self.core.domain()
-    }
-
-    fn sample(&self, t: f32) -> V {
-        self.core.sample_with(t, |x, y, t| x.lerp(*y, t))
-    }
-}
-
 /// A keyframe-defined curve that uses cubic spline interpolation, backed by a contiguous buffer.
 #[derive(Debug, Clone, Reflect)]
-pub struct CubicSplineKeyframeCurve<T> {
+pub struct CubicKeyframeCurve<T> {
     // Note: the sample width here should be 3.
     core: ChunkedUnevenCore<T>,
 }
 
-impl<V> Curve<V> for CubicSplineKeyframeCurve<V>
+impl<V> Curve<V> for CubicKeyframeCurve<V>
 where
     V: VectorSpace,
 {
@@ -59,25 +40,28 @@ where
     }
 
     fn sample(&self, t: f32) -> V {
-        match self.core.sample_betweenness(t) {
+        match self.core.sample_betweenness_timed(t) {
             // In all the cases where only one frame matters, defer to the position within it.
-            Betweenness::Exact(v) => v[1],
-            Betweenness::LeftTail(v) => v[1],
-            Betweenness::RightTail(v) => v[1],
-            Betweenness::Between(u, v, s) => {
-                cubic_spline_interpolation(u[1], u[2], v[0], v[1], s, todo!())
+            Betweenness::Exact((_, v))
+            | Betweenness::LeftTail((_, v))
+            | Betweenness::RightTail((_, v)) => v[1],
+
+            Betweenness::Between((t0, u), (t1, v), s) => {
+                cubic_spline_interpolation(u[1], u[2], v[0], v[1], s, t1 - t0)
             }
         }
     }
 }
 
 // Pie in the sky: `TranslationCurve` is basically the same thing as a `Box<dyn Curve<Vec3>>` etc.
+// The first couple variants can be taken "off the shelf" from the Curve library, while the others
+// are built on top of the core abstractions.
 
 /// A curve specifying the translation component of a [`Transform`] in animation. The variants are
 /// broken down by interpolation mode (with the exception of `Constant`, which never interpolates).
 ///
 /// This type is, itself, a `Curve<Vec3>`, and it internally uses the provided sampling modes; each
-/// variant "knows" its own sampling type
+/// variant "knows" its own interpolation mode.
 #[derive(Clone, Debug, Reflect)]
 pub enum TranslationCurve {
     /// A curve which takes a constant value over its domain. Notably, this is how animations with
@@ -92,7 +76,7 @@ pub enum TranslationCurve {
 
     /// A curve which interpolates between keyframes by using auxiliary tangent data to join
     /// adjacent keyframes with a cubic Hermite spline, which is then sampled.
-    CubicSpline(CubicSplineKeyframeCurve<Vec3>),
+    CubicSpline(CubicKeyframeCurve<Vec3>),
 }
 
 impl Curve<Vec3> for TranslationCurve {
@@ -118,10 +102,8 @@ impl Curve<Vec3> for TranslationCurve {
 /// A curve specifying the scale component of a [`Transform`] in animation. The variants are
 /// broken down by interpolation mode (with the exception of `Constant`, which never interpolates).
 ///
-/// This type is, itself, a `Curve<Vec3>`, and it internally uses the provided sampling modes;
-/// however, linear interpolation is intrinsic to `Vec3` itself, so the interpolation metadata
-/// itself will be lost if the curve is resampled. On the other hand, the variant curves each
-/// properly know their own modes of interpolation.
+/// This type is, itself, a `Curve<Vec3>`, and it internally uses the provided sampling modes; each
+/// variant "knows" its own interpolation mode.
 #[derive(Clone, Debug, Reflect)]
 pub enum ScaleCurve {
     /// A curve which takes a constant value over its domain. Notably, this is how animations with
@@ -129,14 +111,14 @@ pub enum ScaleCurve {
     Constant(ConstantCurve<Vec3>),
 
     /// A curve which interpolates linearly between keyframes.
-    Linear(LinearKeyframeCurve<Vec3>),
+    Linear(UnevenSampleAutoCurve<Vec3>),
 
     /// A curve which interpolates between keyframes in steps.
     Step(SteppedKeyframeCurve<Vec3>),
 
     /// A curve which interpolates between keyframes by using auxiliary tangent data to join
     /// adjacent keyframes with a cubic Hermite spline, which is then sampled.
-    CubicSpline(CubicSplineKeyframeCurve<Vec3>),
+    CubicSpline(CubicKeyframeCurve<Vec3>),
 }
 
 impl Curve<Vec3> for ScaleCurve {
@@ -162,10 +144,8 @@ impl Curve<Vec3> for ScaleCurve {
 /// A curve specifying the scale component of a [`Transform`] in animation. The variants are
 /// broken down by interpolation mode (with the exception of `Constant`, which never interpolates).
 ///
-/// This type is, itself, a `Curve<Quat>`, and it internally uses the provided sampling modes;
-/// however, spherical linear interpolation is intrinsic to `Vec3` itself, so the interpolation
-/// metadata itself will be lost if the curve is resampled. On the other hand, the variant curves each
-/// properly know their own modes of interpolation.
+/// This type is, itself, a `Curve<Quat>`, and it internally uses the provided sampling modes; each
+/// variant "knows" its own interpolation mode.
 #[derive(Clone, Debug, Reflect)]
 pub enum RotationCurve {
     /// A curve which takes a constant value over its domain. Notably, this is how animations with
@@ -181,7 +161,7 @@ pub enum RotationCurve {
     /// A curve which interpolates between keyframes by using auxiliary tangent data to join
     /// adjacent keyframes with a cubic Hermite spline. For quaternions, this means interpolating
     /// the underlying 4-vectors, sampling, and normalizing the result.
-    CubicSpline(CubicSplineKeyframeCurve<Vec4>),
+    CubicSpline(CubicKeyframeCurve<Vec4>),
 }
 
 impl Curve<Quat> for RotationCurve {
@@ -204,6 +184,130 @@ impl Curve<Quat> for RotationCurve {
     }
 }
 
+/// A keyframe-defined curve that uses linear interpolation over many samples at once, backed
+/// by a contiguous buffer.
+#[derive(Debug, Clone, Reflect)]
+pub struct WideLinearKeyframeCurve<T> {
+    // Here the sample width is the number of things to simultaneously interpolate.
+    core: ChunkedUnevenCore<T>,
+}
+
+impl<T> IterableCurve<T> for WideLinearKeyframeCurve<T>
+where
+    T: VectorSpace,
+{
+    fn domain(&self) -> Interval {
+        self.core.domain()
+    }
+
+    fn sample_iter<'a>(&self, t: f32) -> impl Iterator<Item = T>
+    where
+        Self: 'a,
+    {
+        match self.core.sample_betweenness(t) {
+            Betweenness::Exact(v) | Betweenness::LeftTail(v) | Betweenness::RightTail(v) => {
+                TwoIterators::Left(v.iter().copied())
+            }
+
+            Betweenness::Between(u, v, s) => {
+                let interpolated = u.iter().zip(v.iter()).map(move |(x, y)| x.lerp(*y, s));
+                TwoIterators::Right(interpolated)
+            }
+        }
+    }
+}
+
+/// A keyframe-defined curve that uses stepped "interpolation" over many samples at once, backed
+/// by a contiguous buffer.
+#[derive(Debug, Clone, Reflect)]
+pub struct WideSteppedKeyframeCurve<T> {
+    // Here the sample width is the number of things to simultaneously interpolate.
+    core: ChunkedUnevenCore<T>,
+}
+
+impl<T> IterableCurve<T> for WideSteppedKeyframeCurve<T>
+where
+    T: Clone,
+{
+    fn domain(&self) -> Interval {
+        self.core.domain()
+    }
+
+    fn sample_iter<'a>(&self, t: f32) -> impl Iterator<Item = T>
+    where
+        Self: 'a,
+    {
+        match self.core.sample_betweenness(t) {
+            Betweenness::Exact(v) | Betweenness::LeftTail(v) | Betweenness::RightTail(v) => {
+                TwoIterators::Left(v.iter().cloned())
+            }
+
+            Betweenness::Between(u, v, s) => {
+                let interpolated =
+                    u.iter()
+                        .zip(v.iter())
+                        .map(move |(x, y)| if s >= 1.0 { y.clone() } else { x.clone() });
+                TwoIterators::Right(interpolated)
+            }
+        }
+    }
+}
+
+/// A keyframe-defined curve that uses cubic interpolation over many samples at once, backed by a
+/// contiguous buffer.
+#[derive(Debug, Clone, Reflect)]
+pub struct WideCubicKeyframeCurve<T> {
+    core: ChunkedUnevenCore<T>,
+}
+
+impl<T> IterableCurve<T> for WideCubicKeyframeCurve<T>
+where
+    T: VectorSpace,
+{
+    fn domain(&self) -> Interval {
+        self.core.domain()
+    }
+
+    fn sample_iter<'a>(&self, t: f32) -> impl Iterator<Item = T>
+    where
+        Self: 'a,
+    {
+        match self.core.sample_betweenness_timed(t) {
+            Betweenness::Exact((_, v))
+            | Betweenness::LeftTail((_, v))
+            | Betweenness::RightTail((_, v)) => {
+                // Pick out the part of this that actually represents the position (instead of tangents),
+                // which is the middle third.
+                let width = self.core.width;
+                TwoIterators::Left(v[width..(width * 2)].iter().copied())
+            }
+
+            Betweenness::Between((t0, u), (t1, v), s) => TwoIterators::Right(
+                cubic_spline_interpolate_slices(self.core.width / 3, u, v, s, t1 - t0),
+            ),
+        }
+    }
+}
+
+fn cubic_spline_interpolate_slices<'a, T: VectorSpace>(
+    width: usize,
+    first: &'a [T],
+    second: &'a [T],
+    s: f32,
+    step_between: f32,
+) -> impl Iterator<Item = T> + 'a {
+    (0..width).map(move |idx| {
+        cubic_spline_interpolation(
+            first[idx + width],
+            first[idx + (width * 2)],
+            second[idx + width],
+            second[idx],
+            s,
+            step_between,
+        )
+    })
+}
+
 /// A curve specifying the [`MorphWeights`] for a mesh in animation. The variants are broken
 /// down by interpolation mode (with the exception of `Constant`, which never interpolates).
 ///
@@ -216,15 +320,15 @@ pub enum WeightsCurve {
     /// only a single keyframe are interpreted.
     Constant(ConstantCurve<Vec<f32>>),
 
-    /// A curve which interpolates linearly between keyframes.
-    Linear(DynamicArrayCurve<f32>),
+    /// A curve which interpolates weights linearly between keyframes.
+    Linear(WideLinearKeyframeCurve<f32>),
 
-    /// A curve which interpolates between keyframes in steps.
-    Step(DynamicArrayCurve<Stepped<f32>>),
+    /// A curve which interpolates weights between keyframes in steps.
+    Step(WideSteppedKeyframeCurve<f32>),
 
     /// A curve which interpolates between keyframes by using auxiliary tangent data to join
     /// adjacent keyframes with a cubic Hermite spline, which is then sampled.
-    CubicSpline(DynamicArrayCurve<TwoSidedHermite<f32>>),
+    CubicSpline(WideCubicKeyframeCurve<f32>),
 }
 
 impl IterableCurve<f32> for WeightsCurve {
@@ -242,14 +346,10 @@ impl IterableCurve<f32> for WeightsCurve {
         Self: 'a,
     {
         match self {
-            WeightsCurve::Constant(c) => QuaternaryIteratorDisjunction::First(c.sample_iter(t)),
-            WeightsCurve::Linear(c) => QuaternaryIteratorDisjunction::Second(c.sample_iter(t)),
-            WeightsCurve::Step(c) => {
-                QuaternaryIteratorDisjunction::Third(c.sample_iter(t).map(|v| v.0))
-            }
-            WeightsCurve::CubicSpline(c) => {
-                QuaternaryIteratorDisjunction::Fourth(c.sample_iter(t).map(|v| v.point))
-            }
+            WeightsCurve::Constant(c) => FourIterators::First(c.sample_iter(t)),
+            WeightsCurve::Linear(c) => FourIterators::Second(c.sample_iter(t)),
+            WeightsCurve::Step(c) => FourIterators::Third(c.sample_iter(t)),
+            WeightsCurve::CubicSpline(c) => FourIterators::Fourth(c.sample_iter(t)),
         }
     }
 }
@@ -268,7 +368,7 @@ impl Curve<Vec<f32>> for WeightsCurve {
 /// or the [`MorphWeights`] of morph targets for a mesh.
 ///
 /// Each variant yields a [`Curve`] over the data that it parametrizes.
-//#[derive(Reflect, Clone, Debug)]
+#[derive(Debug, Clone, Reflect)]
 pub enum VariableCurve {
     /// A [`TranslationCurve`] for animating the `translation` component of a [`Transform`].
     Translation(TranslationCurve),
@@ -287,16 +387,12 @@ pub enum VariableCurve {
 // HELPER STUFF //
 //--------------//
 
-enum IteratorDisjunction<A, B, T>
-where
-    A: Iterator<Item = T>,
-    B: Iterator<Item = T>,
-{
+enum TwoIterators<A, B> {
     Left(A),
     Right(B),
 }
 
-impl<A, B, T> Iterator for IteratorDisjunction<A, B, T>
+impl<A, B, T> Iterator for TwoIterators<A, B>
 where
     A: Iterator<Item = T>,
     B: Iterator<Item = T>,
@@ -305,26 +401,20 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            IteratorDisjunction::Left(a) => a.next(),
-            IteratorDisjunction::Right(b) => b.next(),
+            TwoIterators::Left(a) => a.next(),
+            TwoIterators::Right(b) => b.next(),
         }
     }
 }
 
-enum QuaternaryIteratorDisjunction<A, B, C, D, T>
-where
-    A: Iterator<Item = T>,
-    B: Iterator<Item = T>,
-    C: Iterator<Item = T>,
-    D: Iterator<Item = T>,
-{
+enum FourIterators<A, B, C, D> {
     First(A),
     Second(B),
     Third(C),
     Fourth(D),
 }
 
-impl<A, B, C, D, T> Iterator for QuaternaryIteratorDisjunction<A, B, C, D, T>
+impl<A, B, C, D, T> Iterator for FourIterators<A, B, C, D>
 where
     A: Iterator<Item = T>,
     B: Iterator<Item = T>,
@@ -335,10 +425,10 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            QuaternaryIteratorDisjunction::First(a) => a.next(),
-            QuaternaryIteratorDisjunction::Second(b) => b.next(),
-            QuaternaryIteratorDisjunction::Third(c) => c.next(),
-            QuaternaryIteratorDisjunction::Fourth(d) => d.next(),
+            FourIterators::First(a) => a.next(),
+            FourIterators::Second(b) => b.next(),
+            FourIterators::Third(c) => c.next(),
+            FourIterators::Fourth(d) => d.next(),
         }
     }
 }
