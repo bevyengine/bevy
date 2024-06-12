@@ -14,7 +14,7 @@ pub struct ObserverState {
     pub(crate) descriptor: ObserverDescriptor,
     pub(crate) runner: ObserverRunner,
     pub(crate) last_trigger_id: u32,
-    pub(crate) despawned_sources: u32,
+    pub(crate) despawned_watched_entities: u32,
 }
 
 impl Default for ObserverState {
@@ -22,7 +22,7 @@ impl Default for ObserverState {
         Self {
             runner: |_, _, _| {},
             last_trigger_id: 0,
-            despawned_sources: 0,
+            despawned_watched_entities: 0,
             descriptor: Default::default(),
         }
     }
@@ -41,13 +41,13 @@ impl ObserverState {
         self
     }
 
-    /// Adds the given [`Entity`] `sources`
-    pub fn with_sources(mut self, sources: impl IntoIterator<Item = Entity>) -> Self {
-        self.descriptor.sources.extend(sources);
+    /// Watches the given [`Entity`] list.
+    pub fn with_entities(mut self, entities: impl IntoIterator<Item = Entity>) -> Self {
+        self.descriptor.entities.extend(entities);
         self
     }
 
-    /// Adds the given [`ComponentId`] `components`
+    /// Watches the given [`ComponentId`] list.
     pub fn with_components(mut self, components: impl IntoIterator<Item = ComponentId>) -> Self {
         self.descriptor.components.extend(components);
         self
@@ -100,14 +100,14 @@ impl<E: Event, B: Bundle> Observer<E, B> {
     }
 
     /// Observe the given `entity`.
-    pub fn with_source(mut self, entity: Entity) -> Self {
-        self.descriptor.sources.push(entity);
+    pub fn with_entity(mut self, entity: Entity) -> Self {
+        self.descriptor.entities.push(entity);
         self
     }
 
     /// Observe the given `entity`. Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
-    pub fn add_source(&mut self, entity: Entity) {
-        self.descriptor.sources.push(entity);
+    pub fn watch_entity(&mut self, entity: Entity) {
+        self.descriptor.entities.push(entity);
     }
 
     /// Observe the given `component`.

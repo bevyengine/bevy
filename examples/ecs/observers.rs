@@ -99,7 +99,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // As we spawn entities, we can make this observer watch each of them:
     for _ in 0..1000 {
         let entity = commands.spawn(Mine::random()).id();
-        observer.add_source(entity);
+        observer.watch_entity(entity);
     }
 
     // By spawning the Observer component, it becomes active!
@@ -107,12 +107,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn add_mine(trigger: Trigger<OnAdd, Mine>, query: Query<&Mine>, mut index: ResMut<SpatialIndex>) {
-    let mine = query.get(trigger.source()).unwrap();
+    let mine = query.get(trigger.entity()).unwrap();
     let tile = (
         (mine.pos.x / CELL_SIZE).floor() as i32,
         (mine.pos.y / CELL_SIZE).floor() as i32,
     );
-    index.map.entry(tile).or_default().insert(trigger.source());
+    index.map.entry(tile).or_default().insert(trigger.entity());
 }
 
 // Remove despawned mines from our index
@@ -121,25 +121,25 @@ fn remove_mine(
     query: Query<&Mine>,
     mut index: ResMut<SpatialIndex>,
 ) {
-    let mine = query.get(trigger.source()).unwrap();
+    let mine = query.get(trigger.entity()).unwrap();
     let tile = (
         (mine.pos.x / CELL_SIZE).floor() as i32,
         (mine.pos.y / CELL_SIZE).floor() as i32,
     );
     index.map.entry(tile).and_modify(|set| {
-        set.remove(&trigger.source());
+        set.remove(&trigger.entity());
     });
 }
 
 fn explode_mine(trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Commands) {
     // If a triggered event is targeting a specific entity you can access it with `.source()`
-    let source = trigger.source();
-    let Some(mut entity) = commands.get_entity(source) else {
+    let id = trigger.entity();
+    let Some(mut entity) = commands.get_entity(id) else {
         return;
     };
-    println!("Boom! {:?} exploded.", source.index());
+    println!("Boom! {:?} exploded.", id.index());
     entity.despawn();
-    let mine = query.get(source).unwrap();
+    let mine = query.get(id).unwrap();
     // Fire another trigger to cascade into other mines.
     commands.trigger(ExplodeMines {
         pos: mine.pos,
@@ -149,7 +149,7 @@ fn explode_mine(trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Co
 
 // Draw a circle for each mine using `Gizmos`
 fn draw_shapes(mut gizmos: Gizmos, mines: Query<&Mine>) {
-    for mine in mines.iter() {
+    for mine in &mines {
         gizmos.circle_2d(
             mine.pos,
             mine.size,

@@ -347,10 +347,10 @@ impl<'w> DeferredWorld<'w> {
     pub(crate) unsafe fn trigger_observers(
         &mut self,
         event: ComponentId,
-        source: Entity,
+        entity: Entity,
         components: impl Iterator<Item = ComponentId>,
     ) {
-        Observers::invoke(self.reborrow(), event, source, components, &mut ());
+        Observers::invoke(self.reborrow(), event, entity, components, &mut ());
     }
 
     /// Triggers all event observers for [`ComponentId`] in target.
@@ -361,11 +361,11 @@ impl<'w> DeferredWorld<'w> {
     pub(crate) unsafe fn trigger_observers_with_data<E>(
         &mut self,
         event: ComponentId,
-        source: Entity,
+        entity: Entity,
         components: impl Iterator<Item = ComponentId>,
         data: &mut E,
     ) {
-        Observers::invoke(self.reborrow(), event, source, components, data);
+        Observers::invoke(self.reborrow(), event, entity, components, data);
     }
 
     /// Sends a "global" [`Trigger`] without any targets.

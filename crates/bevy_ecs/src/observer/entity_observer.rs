@@ -18,22 +18,22 @@ impl Component for ObservedBy {
                 std::mem::take(&mut component.0)
             };
             for e in observed_by {
-                let (total_sources, despawned_sources) = {
+                let (total_entities, despawned_watched_entities) = {
                     let Some(mut entity_mut) = world.get_entity_mut(e) else {
                         continue;
                     };
                     let Some(mut state) = entity_mut.get_mut::<ObserverState>() else {
                         continue;
                     };
-                    state.despawned_sources += 1;
+                    state.despawned_watched_entities += 1;
                     (
-                        state.descriptor.sources.len(),
-                        state.despawned_sources as usize,
+                        state.descriptor.entities.len(),
+                        state.despawned_watched_entities as usize,
                     )
                 };
 
                 // Despawn Observer if it has no more active sources.
-                if total_sources == despawned_sources {
+                if total_entities == despawned_watched_entities {
                     world.commands().entity(e).despawn();
                 }
             }

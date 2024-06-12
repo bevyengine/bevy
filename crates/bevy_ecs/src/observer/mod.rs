@@ -52,8 +52,8 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     }
 
     /// Returns the entity that triggered the observer, could be [`Entity::PLACEHOLDER`].
-    pub fn source(&self) -> Entity {
-        self.trigger.source
+    pub fn entity(&self) -> Entity {
+        self.trigger.entity
     }
 }
 
@@ -67,7 +67,7 @@ pub struct ObserverDescriptor {
     components: Vec<ComponentId>,
 
     /// The entities the observer is watching.
-    sources: Vec<Entity>,
+    entities: Vec<Entity>,
 }
 
 impl ObserverDescriptor {
@@ -83,9 +83,9 @@ impl ObserverDescriptor {
         self
     }
 
-    /// Add the given `sources` to the descriptor.
-    pub fn with_sources(mut self, sources: Vec<Entity>) -> Self {
-        self.sources = sources;
+    /// Add the given `entities` to the descriptor.
+    pub fn with_entities(mut self, entities: Vec<Entity>) -> Self {
+        self.entities = entities;
         self
     }
 
@@ -93,20 +93,20 @@ impl ObserverDescriptor {
         self.events.extend(descriptor.events.iter().copied());
         self.components
             .extend(descriptor.components.iter().copied());
-        self.sources.extend(descriptor.sources.iter().copied());
+        self.entities.extend(descriptor.entities.iter().copied());
     }
 }
 
-/// Metadata for the source triggering an [`Observer`],
+/// Event trigger metadata for a given [`Observer`],
 pub struct ObserverTrigger {
-    /// The [`Entity`] of observer handling the trigger.
+    /// The [`Entity`] of the observer handling the trigger.
     pub observer: Entity,
 
-    /// The [`ComponentId`] for the given trigger.
+    /// The [`ComponentId`] the trigger targeted.
     pub event_type: ComponentId,
 
-    /// The source where the trigger occurred.
-    pub source: Entity,
+    /// The entity the trigger targeted.
+    pub entity: Entity,
 }
 
 // Map between an observer entity and it's runner
@@ -165,7 +165,7 @@ impl Observers {
     pub(crate) fn invoke<T>(
         mut world: DeferredWorld,
         event_type: ComponentId,
-        source: Entity,
+        entity: Entity,
         components: impl Iterator<Item = ComponentId>,
         data: &mut T,
     ) {
@@ -188,7 +188,7 @@ impl Observers {
                 ObserverTrigger {
                     observer,
                     event_type,
-                    source,
+                    entity,
                 },
                 data.into(),
             );
@@ -198,8 +198,8 @@ impl Observers {
         observers.map.iter().for_each(&mut trigger_observer);
 
         // Trigger entity observers listening for this kind of trigger
-        if source != Entity::PLACEHOLDER {
-            if let Some(map) = observers.entity_observers.get(&source) {
+        if entity != Entity::PLACEHOLDER {
+            if let Some(map) = observers.entity_observers.get(&entity) {
                 map.iter().for_each(&mut trigger_observer);
             }
         }
@@ -212,8 +212,8 @@ impl Observers {
                     .iter()
                     .for_each(&mut trigger_observer);
 
-                if source != Entity::PLACEHOLDER {
-                    if let Some(map) = component_observers.entity_map.get(&source) {
+                if entity != Entity::PLACEHOLDER {
+                    if let Some(map) = component_observers.entity_map.get(&entity) {
                         map.iter().for_each(&mut trigger_observer);
                     }
                 }
@@ -275,15 +275,16 @@ impl World {
     }
 
     /// Register an observer to the cache, called when an observer is created
-    pub(crate) fn register_observer(&mut self, entity: Entity) {
+    pub(crate) fn register_observer(&mut self, observer_entity: Entity) {
         // SAFETY: References do not alias.
         let (observer_state, archetypes, observers) = unsafe {
-            let observer_state: *const ObserverState = self.get::<ObserverState>(entity).unwrap();
-            // Populate ObservedBy for each observed source.
-            for source in &(*observer_state).descriptor.sources {
-                let mut source_mut = self.entity_mut(*source);
-                let mut observed_by = source_mut.entry::<ObservedBy>().or_default();
-                observed_by.0.push(entity);
+            let observer_state: *const ObserverState =
+                self.get::<ObserverState>(observer_entity).unwrap();
+            // Populate ObservedBy for each observed entity.
+            for watched_entity in &(*observer_state).descriptor.entities {
+                let mut entity_mut = self.entity_mut(*watched_entity);
+                let mut observed_by = entity_mut.entry::<ObservedBy>().or_default();
+                observed_by.0.push(observer_entity);
             }
             (&*observer_state, &mut self.archetypes, &mut self.observers)
         };
@@ -292,16 +293,16 @@ impl World {
         for &event_type in &descriptor.events {
             let cache = observers.get_observers(event_type);
 
-            if descriptor.components.is_empty() && descriptor.sources.is_empty() {
-                cache.map.insert(entity, observer_state.runner);
+            if descriptor.components.is_empty() && descriptor.entities.is_empty() {
+                cache.map.insert(observer_entity, observer_state.runner);
             } else if descriptor.components.is_empty() {
                 // Observer is not targeting any components so register it as an entity observer
-                for &source in &observer_state.descriptor.sources {
-                    let map = cache.entity_observers.entry(source).or_default();
-                    map.insert(entity, observer_state.runner);
+                for &watched_entity in &observer_state.descriptor.entities {
+                    let map = cache.entity_observers.entry(watched_entity).or_default();
+                    map.insert(observer_entity, observer_state.runner);
                 }
             } else {
-                // Register observer for each source component
+                // Register observer for each watched component
                 for &component in &descriptor.components {
                     let observers =
                         cache
@@ -313,14 +314,14 @@ impl World {
                                 }
                                 CachedComponentObservers::default()
                             });
-                    if descriptor.sources.is_empty() {
+                    if descriptor.entities.is_empty() {
                         // Register for all triggers targeting the component
-                        observers.map.insert(entity, observer_state.runner);
+                        observers.map.insert(observer_entity, observer_state.runner);
                     } else {
-                        // Register for each targeted entity
-                        for &source in &descriptor.sources {
-                            let map = observers.entity_map.entry(source).or_default();
-                            map.insert(entity, observer_state.runner);
+                        // Register for each watched entity
+                        for &watched_entity in &descriptor.entities {
+                            let map = observers.entity_map.entry(watched_entity).or_default();
+                            map.insert(observer_entity, observer_state.runner);
                         }
                     }
                 }
@@ -335,17 +336,17 @@ impl World {
 
         for &event_type in &descriptor.events {
             let cache = observers.get_observers(event_type);
-            if descriptor.components.is_empty() && descriptor.sources.is_empty() {
+            if descriptor.components.is_empty() && descriptor.entities.is_empty() {
                 cache.map.remove(&entity);
             } else if descriptor.components.is_empty() {
-                for source in &descriptor.sources {
+                for watched_entity in &descriptor.entities {
                     // This check should be unnecessary since this observer hasn't been unregistered yet
-                    let Some(observers) = cache.entity_observers.get_mut(source) else {
+                    let Some(observers) = cache.entity_observers.get_mut(watched_entity) else {
                         continue;
                     };
                     observers.remove(&entity);
                     if observers.is_empty() {
-                        cache.entity_observers.remove(source);
+                        cache.entity_observers.remove(watched_entity);
                     }
                 }
             } else {
@@ -353,16 +354,16 @@ impl World {
                     let Some(observers) = cache.component_observers.get_mut(component) else {
                         continue;
                     };
-                    if descriptor.sources.is_empty() {
+                    if descriptor.entities.is_empty() {
                         observers.map.remove(&entity);
                     } else {
-                        for source in &descriptor.sources {
-                            let Some(map) = observers.entity_map.get_mut(source) else {
+                        for watched_entity in &descriptor.entities {
+                            let Some(map) = observers.entity_map.get_mut(watched_entity) else {
                                 continue;
                             };
                             map.remove(&entity);
                             if map.is_empty() {
-                                observers.entity_map.remove(source);
+                                observers.entity_map.remove(watched_entity);
                             }
                         }
                     }
@@ -447,20 +448,20 @@ mod tests {
         world.observe(
             |obs: Trigger<OnAdd, A>, mut res: ResMut<R>, mut commands: Commands| {
                 res.assert_order(0);
-                commands.entity(obs.source()).insert(B);
+                commands.entity(obs.entity()).insert(B);
             },
         );
         world.observe(
             |obs: Trigger<OnRemove, A>, mut res: ResMut<R>, mut commands: Commands| {
                 res.assert_order(2);
-                commands.entity(obs.source()).remove::<B>();
+                commands.entity(obs.entity()).remove::<B>();
             },
         );
 
         world.observe(
             |obs: Trigger<OnAdd, B>, mut res: ResMut<R>, mut commands: Commands| {
                 res.assert_order(1);
-                commands.entity(obs.source()).remove::<A>();
+                commands.entity(obs.entity()).remove::<A>();
             },
         );
         world.observe(|_: Trigger<OnRemove, B>, mut res: ResMut<R>| {
@@ -542,7 +543,7 @@ mod tests {
     }
 
     #[test]
-    fn observer_no_source() {
+    fn observer_no_target() {
         let mut world = World::new();
         world.init_resource::<R>();
 
@@ -550,7 +551,7 @@ mod tests {
             .spawn_empty()
             .observe(|_: Trigger<EventA>| panic!("Trigger routed to non-targeted entity."));
         world.observe(move |obs: Trigger<EventA>, mut res: ResMut<R>| {
-            assert_eq!(obs.source(), Entity::PLACEHOLDER);
+            assert_eq!(obs.entity(), Entity::PLACEHOLDER);
             res.0 += 1;
         });
 
@@ -575,7 +576,7 @@ mod tests {
             .observe(|_: Trigger<EventA>, mut res: ResMut<R>| res.0 += 1)
             .id();
         world.observe(move |obs: Trigger<EventA>, mut res: ResMut<R>| {
-            assert_eq!(obs.source(), entity);
+            assert_eq!(obs.entity(), entity);
             res.0 += 1;
         });
 

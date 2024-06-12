@@ -1420,7 +1420,7 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
-        self.insert(Observer::new(observer).with_source(self.entity))
+        self.insert(Observer::new(observer).with_entity(self.entity))
     }
 }
 
