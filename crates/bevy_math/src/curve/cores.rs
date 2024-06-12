@@ -373,7 +373,7 @@ impl<T> UnevenCore<T> {
 /// The data core of a curve using uneven samples (i.e. keyframes), where each sample time
 /// yields some fixed number of values — the [sampling width]. This may serve as storage for
 /// curves that yield vectors or iterators, and in some cases, it may be useful for cache locality
-/// if the sample type can effectively be encoded as a fixed-length array.
+/// if the sample type can effectively be encoded as a fixed-length slice of values.
 ///
 /// [sampling width]: ChunkedUnevenCore::width
 #[derive(Debug, Clone)]
@@ -383,22 +383,15 @@ pub struct ChunkedUnevenCore<T> {
     /// The times, one for each sample.
     ///
     /// # Invariants
-    /// This must always have a length of at least 2, be sorted, and have no
-    /// duplicated or non-finite times.
+    /// This must always have a length of at least 2, be sorted, and have no duplicated or
+    /// non-finite times.
     pub times: Vec<f32>,
 
-    /// The values that are used in sampling. Each `width` of these correspond to a single sample.
+    /// The values that are used in sampling. Each width-worth of these correspond to a single sample.
     ///
     /// # Invariants
-    /// This must always have a length of `width` times that of `times`.
+    /// The length of this vector must always be some fixed integer multiple of that of `times`.
     pub values: Vec<T>,
-
-    /// The sampling width, determining how many consecutive elements of `values` are taken in a
-    /// single sample.
-    ///
-    /// # Invariants
-    /// This must never be zero.
-    pub width: usize,
 }
 
 /// An error that indicates that a [`ChunkedUnevenCore`] could not be formed.
@@ -464,11 +457,7 @@ impl<T> ChunkedUnevenCore<T> {
             });
         }
 
-        Ok(Self {
-            times,
-            values,
-            width,
-        })
+        Ok(Self { times, values })
     }
 
     /// The domain of the curve derived from this core.
@@ -480,6 +469,12 @@ impl<T> ChunkedUnevenCore<T> {
         let start = self.times.first().unwrap();
         let end = self.times.last().unwrap();
         Interval::new(*start, *end).unwrap()
+    }
+
+    /// The sample width: the number of values that are contained in each sample.
+    #[inline]
+    pub fn width(&self) -> usize {
+        self.values.len() / self.times.len()
     }
 
     /// Given a time `t`, obtain a [`Betweenness`] which governs how interpolation might recover
@@ -509,8 +504,9 @@ impl<T> ChunkedUnevenCore<T> {
     /// [values]: ChunkedUnevenCore::values
     #[inline]
     fn time_index_to_slice(&self, idx: usize) -> &[T] {
-        let lower_idx = self.width * idx;
-        let upper_idx = lower_idx + self.width;
+        let width = self.width();
+        let lower_idx = width * idx;
+        let upper_idx = lower_idx + width;
         &self.values[lower_idx..upper_idx]
     }
 }
