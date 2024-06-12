@@ -70,7 +70,7 @@ pub use valid_parent_check_plugin::*;
 mod query_extension;
 pub use query_extension::*;
 
-#[doc(hidden)]
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{child_builder::*, components::*, hierarchy::*, query_extension::*};

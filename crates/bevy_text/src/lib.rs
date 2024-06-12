@@ -27,6 +27,7 @@ pub use pipeline::*;
 pub use text::*;
 pub use text2d::*;
 
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{Font, JustifyText, Text, Text2dBundle, TextError, TextSection, TextStyle};

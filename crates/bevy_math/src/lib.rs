@@ -38,7 +38,7 @@ pub use rotation2d::Rot2;
 #[cfg(feature = "rand")]
 pub use sampling::{FromRng, ShapeSample};
 
-/// The `bevy_math` prelude.
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "rand")]

@@ -38,7 +38,7 @@ pub use ui_material::*;
 pub use ui_node::*;
 use widget::UiImageSize;
 
-#[doc(hidden)]
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

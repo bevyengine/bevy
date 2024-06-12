@@ -58,6 +58,7 @@ pub use ssao::*;
 pub use ssr::*;
 pub use volumetric_fog::*;
 
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

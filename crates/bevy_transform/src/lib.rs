@@ -28,7 +28,7 @@ pub mod helper;
 #[cfg(feature = "bevy-support")]
 pub mod systems;
 
-#[doc(hidden)]
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::components::*;

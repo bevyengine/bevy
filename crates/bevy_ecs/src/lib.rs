@@ -32,7 +32,7 @@ pub mod world;
 
 pub use bevy_ptr as ptr;
 
-/// Most commonly used re-exported types.
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]

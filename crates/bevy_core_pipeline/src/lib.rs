@@ -40,6 +40,7 @@ pub mod experimental {
     }
 }
 
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

@@ -24,7 +24,7 @@ pub mod touch;
 pub use axis::*;
 pub use button_input::*;
 
-/// Most commonly used re-exported types.
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

@@ -16,8 +16,8 @@ use bevy_ecs::system::Resource;
 pub use name::*;
 pub use task_pool_options::*;
 
+#[allow(missing_docs)]
 pub mod prelude {
-    //! The Bevy Core Prelude.
     #[doc(hidden)]
     pub use crate::{
         DebugName, FrameCountPlugin, Name, TaskPoolOptions, TaskPoolPlugin, TypeRegistrationPlugin,

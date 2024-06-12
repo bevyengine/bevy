@@ -23,8 +23,8 @@ pub use time::*;
 pub use timer::*;
 pub use virt::*;
 
+#[allow(missing_docs)]
 pub mod prelude {
-    //! The Bevy Time Prelude.
     #[doc(hidden)]
     pub use crate::{Fixed, Real, Time, Timer, TimerMode, Virtual};
 }
