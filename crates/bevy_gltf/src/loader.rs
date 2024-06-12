@@ -379,7 +379,6 @@ async fn load_gltf<'a, 'b, 'c>(
                         }
                         ReadOutputs::MorphTargetWeights(weights) => {
                             let weights: Vec<f32> = weights.into_f32().collect();
-                            let width = weights.len() / keyframe_timestamps.len();
                             VariableCurve::Weights(if keyframe_timestamps.len() == 1 {
                                 WeightsCurve::Constant(constant_curve(everywhere(), weights))
                             } else {
@@ -388,21 +387,18 @@ async fn load_gltf<'a, 'b, 'c>(
                                         WeightsCurve::Linear(WideLinearKeyframeCurve::new_raw(
                                             keyframe_timestamps,
                                             weights,
-                                            width,
                                         ))
                                     }
                                     gltf::animation::Interpolation::Step => {
                                         WeightsCurve::Step(WideSteppedKeyframeCurve::new_raw(
                                             keyframe_timestamps,
                                             weights,
-                                            width,
                                         ))
                                     }
                                     gltf::animation::Interpolation::CubicSpline => {
                                         WeightsCurve::CubicSpline(WideCubicKeyframeCurve::new_raw(
                                             keyframe_timestamps,
                                             weights,
-                                            width,
                                         ))
                                     }
                                 }

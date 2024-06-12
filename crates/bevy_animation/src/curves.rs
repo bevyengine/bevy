@@ -79,7 +79,6 @@ impl<T> CubicKeyframeCurve<T> {
             core: ChunkedUnevenCore {
                 times: times.into(),
                 values: values.into(),
-                width: 3,
             },
         }
     }
@@ -303,12 +302,11 @@ impl<T> WideLinearKeyframeCurve<T> {
     /// Create a new [`WideLinearKeyframeCurve`] from raw data, bypassing all checks. If you use this, you
     /// must uphold the invariants of [`ChunkedUnevenCore`] yourself.
     #[inline]
-    pub fn new_raw(times: impl Into<Vec<f32>>, values: impl Into<Vec<T>>, width: usize) -> Self {
+    pub fn new_raw(times: impl Into<Vec<f32>>, values: impl Into<Vec<T>>) -> Self {
         Self {
             core: ChunkedUnevenCore {
                 times: times.into(),
                 values: values.into(),
-                width,
             },
         }
     }
@@ -356,12 +354,11 @@ impl<T> WideSteppedKeyframeCurve<T> {
     /// Create a new [`WideSteppedKeyframeCurve`] from raw data, bypassing all checks. If you use this, you
     /// must uphold the invariants of [`ChunkedUnevenCore`] yourself.
     #[inline]
-    pub fn new_raw(times: impl Into<Vec<f32>>, values: impl Into<Vec<T>>, width: usize) -> Self {
+    pub fn new_raw(times: impl Into<Vec<f32>>, values: impl Into<Vec<T>>) -> Self {
         Self {
             core: ChunkedUnevenCore {
                 times: times.into(),
                 values: values.into(),
-                width,
             },
         }
     }
@@ -394,12 +391,12 @@ where
             | Betweenness::RightTail((_, v)) => {
                 // Pick out the part of this that actually represents the position (instead of tangents),
                 // which is the middle third.
-                let width = self.core.width;
+                let width = self.core.width();
                 TwoIterators::Left(v[width..(width * 2)].iter().copied())
             }
 
             Betweenness::Between((t0, u), (t1, v), s) => TwoIterators::Right(
-                cubic_spline_interpolate_slices(self.core.width / 3, u, v, s, t1 - t0),
+                cubic_spline_interpolate_slices(self.core.width() / 3, u, v, s, t1 - t0),
             ),
         }
     }
@@ -409,12 +406,11 @@ impl<T> WideCubicKeyframeCurve<T> {
     /// Create a new [`WideCubicKeyframeCurve`] from raw data, bypassing all checks. If you use this, you
     /// must uphold the invariants of [`ChunkedUnevenCore`] yourself.
     #[inline]
-    pub fn new_raw(times: impl Into<Vec<f32>>, values: impl Into<Vec<T>>, width: usize) -> Self {
+    pub fn new_raw(times: impl Into<Vec<f32>>, values: impl Into<Vec<T>>) -> Self {
         Self {
             core: ChunkedUnevenCore {
                 times: times.into(),
                 values: values.into(),
-                width: width * 3,
             },
         }
     }
