@@ -14,20 +14,20 @@ rust-version = "1.78.0"
 
 [workspace]
 exclude = [
-    "benches",
-    "crates/bevy_derive/compile_fail",
-    "crates/bevy_ecs/compile_fail",
-    "crates/bevy_reflect/compile_fail",
-    "tools/compile_fail_utils",
+  "benches",
+  "crates/bevy_derive/compile_fail",
+  "crates/bevy_ecs/compile_fail",
+  "crates/bevy_reflect/compile_fail",
+  "tools/compile_fail_utils",
 ]
 members = [
-    "crates/*",
-    "examples/mobile",
-    "tools/ci",
-    "tools/build-templated-pages",
-    "tools/build-wasm-example",
-    "tools/example-showcase",
-    "errors",
+  "crates/*",
+  "examples/mobile",
+  "tools/ci",
+  "tools/build-templated-pages",
+  "tools/build-wasm-example",
+  "tools/example-showcase",
+  "errors",
 ]
 
 [workspace.lints.clippy]
@@ -53,32 +53,32 @@ workspace = true
 
 [features]
 default = [
-    "animation",
-    "bevy_asset",
-    "bevy_state",
-    "bevy_audio",
-    "bevy_color",
-    "bevy_gilrs",
-    "bevy_scene",
-    "bevy_winit",
-    "bevy_core_pipeline",
-    "bevy_pbr",
-    "bevy_gltf",
-    "bevy_render",
-    "bevy_sprite",
-    "bevy_text",
-    "bevy_ui",
-    "multi_threaded",
-    "png",
-    "hdr",
-    "vorbis",
-    "x11",
-    "bevy_gizmos",
-    "android_shared_stdcxx",
-    "tonemapping_luts",
-    "default_font",
-    "webgl2",
-    "sysinfo_plugin",
+  "animation",
+  "bevy_asset",
+  "bevy_state",
+  "bevy_audio",
+  "bevy_color",
+  "bevy_gilrs",
+  "bevy_scene",
+  "bevy_winit",
+  "bevy_core_pipeline",
+  "bevy_pbr",
+  "bevy_gltf",
+  "bevy_render",
+  "bevy_sprite",
+  "bevy_text",
+  "bevy_ui",
+  "multi_threaded",
+  "png",
+  "hdr",
+  "vorbis",
+  "x11",
+  "bevy_gizmos",
+  "android_shared_stdcxx",
+  "tonemapping_luts",
+  "default_font",
+  "webgl2",
+  "sysinfo_plugin",
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -101,9 +101,9 @@ bevy_color = ["bevy_internal/bevy_color"]
 
 # Provides cameras and other basic render pipeline features
 bevy_core_pipeline = [
-    "bevy_internal/bevy_core_pipeline",
-    "bevy_asset",
-    "bevy_render",
+  "bevy_internal/bevy_core_pipeline",
+  "bevy_asset",
+  "bevy_render",
 ]
 
 # Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))
@@ -117,10 +117,10 @@ bevy_gltf = ["bevy_internal/bevy_gltf", "bevy_asset", "bevy_scene", "bevy_pbr"]
 
 # Adds PBR rendering
 bevy_pbr = [
-    "bevy_internal/bevy_pbr",
-    "bevy_asset",
-    "bevy_render",
-    "bevy_core_pipeline",
+  "bevy_internal/bevy_pbr",
+  "bevy_asset",
+  "bevy_render",
+  "bevy_core_pipeline",
 ]
 
 # Provides rendering functionality
@@ -131,10 +131,10 @@ bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
 
 # Provides sprite functionality
 bevy_sprite = [
-    "bevy_internal/bevy_sprite",
-    "bevy_render",
-    "bevy_core_pipeline",
-    "bevy_color",
+  "bevy_internal/bevy_sprite",
+  "bevy_render",
+  "bevy_core_pipeline",
+  "bevy_color",
 ]
 
 # Provides text functionality
@@ -142,11 +142,11 @@ bevy_text = ["bevy_internal/bevy_text", "bevy_asset", "bevy_sprite"]
 
 # A custom ECS-driven UI framework
 bevy_ui = [
-    "bevy_internal/bevy_ui",
-    "bevy_core_pipeline",
-    "bevy_text",
-    "bevy_sprite",
-    "bevy_color",
+  "bevy_internal/bevy_ui",
+  "bevy_core_pipeline",
+  "bevy_text",
+  "bevy_sprite",
+  "bevy_color",
 ]
 
 # winit window and input backend
@@ -166,9 +166,9 @@ trace_tracy = ["trace", "bevy_internal/trace_tracy"]
 
 # Tracing support, with memory profiling, exposing a port for Tracy
 trace_tracy_memory = [
-    "trace",
-    "bevy_internal/trace_tracy",
-    "bevy_internal/trace_tracy_memory",
+  "trace",
+  "bevy_internal/trace_tracy",
+  "bevy_internal/trace_tracy_memory",
 ]
 
 # Tracing support
@@ -305,7 +305,7 @@ pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
 
 # Enable support for multi-layer material textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_multi_layer_material_textures = [
-    "bevy_internal/pbr_multi_layer_material_textures",
+  "bevy_internal/pbr_multi_layer_material_textures",
 ]
 
 # Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
@@ -1046,12 +1046,12 @@ description = "Meshlet rendering for dense high-poly scenes (experimental)"
 category = "3D Rendering"
 wasm = false
 setup = [
-    [
-        "curl",
-        "-o",
-        "assets/models/bunny.meshlet_mesh",
-        "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/bd869887bc5c9c6e74e353f657d342bef84bacd8/bunny.meshlet_mesh",
-    ],
+  [
+    "curl",
+    "-o",
+    "assets/models/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/bd869887bc5c9c6e74e353f657d342bef84bacd8/bunny.meshlet_mesh",
+  ],
 ]
 
 [[example]]

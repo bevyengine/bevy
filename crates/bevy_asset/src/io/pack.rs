@@ -16,6 +16,7 @@ use crate::AssetServer;
 /// literal, or something else depending on the use-case.
 ///
 /// ```no_run
+/// use bevy_asset::Handle;
 /// # type Image = (); //dunno how to avoid dependency issues and still have a good example
 ///
 /// #[derive(AssetPack)]
@@ -51,7 +52,7 @@ impl<T: AssetPack> Plugin for AssetPackPlugin<T> {
     }
 }
 
-/// A Resource that wraps access to an `AssetPack`
+/// A `Resource` that wraps access to an `AssetPack`
 #[derive(Resource)]
 struct Pack<T: AssetPack>(OnceLock<T>);
 
@@ -67,7 +68,7 @@ impl<T: AssetPack> Default for Pack<T> {
     }
 }
 
-/// A SystemParam that wraps `Pack<T>` and `AssetServer` for simple access
+/// A `SystemParam` that wraps `Pack<T>` and `AssetServer` for simple access
 #[derive(SystemParam)]
 pub struct GetPack<'w, T: AssetPack> {
     handles: Res<'w, Pack<T>>,
