@@ -1,6 +1,7 @@
 //! Demonstrates how to observe life-cycle triggers as well as define custom ones.
 
 use bevy::{
+    ecs::observer::Observer,
     prelude::*,
     utils::{HashMap, HashSet},
 };
@@ -11,7 +12,8 @@ fn main() {
         .init_resource::<SpatialIndex>()
         .add_systems(Startup, setup)
         .add_systems(Update, (draw_shapes, handle_click))
-        // Observers run when a certain event is triggered. This observer runs whenever `ExplodeMines` is triggered.
+        // Observers are systems that run when an event is "triggered". This observer runs whenever
+        // `ExplodeMines` is triggered.
         .observe(
             |trigger: Trigger<ExplodeMines>,
              mines: Query<&Mine>,
@@ -33,7 +35,6 @@ fn main() {
         )
         // This observer runs whenever the `Mine` component is added to an entity, and places it in a simple spatial index.
         .observe(add_mine)
-        // Since observers run systems you can also define them as standalone functions rather than closures.
         // This observer runs whenever the `Mine` component is removed from an entity (including despawning it)
         // and removes it from the spatial index.
         .observe(remove_mine)
@@ -46,6 +47,18 @@ struct Mine {
     size: f32,
 }
 
+impl Mine {
+    fn random() -> Self {
+        Mine {
+            pos: Vec2::new(
+                (rand::random::<f32>() - 0.5) * 1200.0,
+                (rand::random::<f32>() - 0.5) * 600.0,
+            ),
+            size: 4.0 + rand::random::<f32>() * 16.0,
+        }
+    }
+}
+
 #[derive(Event)]
 struct ExplodeMines {
     pos: Vec2,
@@ -55,81 +68,42 @@ struct ExplodeMines {
 #[derive(Event)]
 struct Explode;
 
-fn setup(world: &mut World) {
-    world.spawn(Camera2dBundle::default());
-
-    let font = world
-        .resource::<AssetServer>()
-        .load("fonts/FiraMono-Medium.ttf");
-    world.spawn(TextBundle::from_section(
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn(Camera2dBundle::default());
+    commands.spawn(TextBundle::from_section(
         "Click on a \"Mine\" to trigger it.\n\
             When it explodes it will trigger all overlapping mines.",
         TextStyle {
-            font,
+            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
             font_size: 24.,
             color: Color::WHITE,
         },
     ));
 
-    // Observers can also listen for triggers for a specific component.
+    commands
+        .spawn(Mine::random())
+        // Observers can watch for events targeting a specific entity.
+        // This will create a new observer that runs whenever the Explode event
+        // is triggered for this spawned entity.
+        .observe(explode_mine);
 
-    // Now we spawn a set of random mines.
+    // We want to spawn a bunch of mines. We could just call the code above for each of them.
+    // That would create a new observer instance for every Mine entity. Having duplicate observers
+    // generally isn't worth worrying about as the overhead is low. But if you want to be maximally efficient,
+    // you can reuse observers across entities.
+    //
+    // First, observers are actually just entities with the Observer component! The `observe()` functions
+    // you've seen so far in this example are just shorthand for manually spawning an observer.
+    let mut observer = Observer::new(explode_mine);
+
+    // As we spawn entities, we can make this observer watch each of them:
     for _ in 0..1000 {
-        world
-            .spawn(Mine {
-                pos: Vec2::new(
-                    (rand::random::<f32>() - 0.5) * 1200.0,
-                    (rand::random::<f32>() - 0.5) * 600.0,
-                ),
-                size: 4.0 + rand::random::<f32>() * 16.0,
-            })
-            // Observers can also listen to events targeting a specific entity.
-            // This observer listens to `Explode` event triggers targeted at our mine.
-            .observe(
-                |trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Commands| {
-                    // If a triggered event is targeting a specific entity you can access it with `.source()`
-                    let source = trigger.source();
-                    let Some(mut entity) = commands.get_entity(source) else {
-                        return;
-                    };
-                    println!("Boom! {:?} exploded.", source.index());
-                    entity.despawn();
-                    let mine = query.get(source).unwrap();
-                    // Fire another trigger to cascade into other mines.
-                    commands.trigger(ExplodeMines {
-                        pos: mine.pos,
-                        radius: mine.size,
-                    });
-                },
-            );
+        let entity = commands.spawn(Mine::random()).id();
+        observer.add_source(entity);
     }
-}
 
-#[derive(Resource, Default)]
-struct SpatialIndex {
-    map: HashMap<(i32, i32), HashSet<Entity>>,
-}
-
-/// Cell size has to be bigger than any `TriggerMine::radius`
-const CELL_SIZE: f32 = 64.0;
-
-impl SpatialIndex {
-    // Lookup all entities within adjacent cells of our spatial index
-    fn get_nearby(&self, pos: Vec2) -> Vec<Entity> {
-        let tile = (
-            (pos.x / CELL_SIZE).floor() as i32,
-            (pos.y / CELL_SIZE).floor() as i32,
-        );
-        let mut nearby = Vec::new();
-        for x in -1..2 {
-            for y in -1..2 {
-                if let Some(mines) = self.map.get(&(tile.0 + x, tile.1 + y)) {
-                    nearby.extend(mines.iter());
-                }
-            }
-        }
-        nearby
-    }
+    // By spawning the Observer component, it becomes active!
+    commands.spawn(observer);
 }
 
 fn add_mine(trigger: Trigger<OnAdd, Mine>, query: Query<&Mine>, mut index: ResMut<SpatialIndex>) {
@@ -154,6 +128,22 @@ fn remove_mine(
     );
     index.map.entry(tile).and_modify(|set| {
         set.remove(&trigger.source());
+    });
+}
+
+fn explode_mine(trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Commands) {
+    // If a triggered event is targeting a specific entity you can access it with `.source()`
+    let source = trigger.source();
+    let Some(mut entity) = commands.get_entity(source) else {
+        return;
+    };
+    println!("Boom! {:?} exploded.", source.index());
+    entity.despawn();
+    let mine = query.get(source).unwrap();
+    // Fire another trigger to cascade into other mines.
+    commands.trigger(ExplodeMines {
+        pos: mine.pos,
+        radius: mine.size,
     });
 }
 
@@ -185,5 +175,32 @@ fn handle_click(
         if mouse_button_input.just_pressed(MouseButton::Left) {
             commands.trigger(ExplodeMines { pos, radius: 1.0 });
         }
+    }
+}
+
+#[derive(Resource, Default)]
+struct SpatialIndex {
+    map: HashMap<(i32, i32), HashSet<Entity>>,
+}
+
+/// Cell size has to be bigger than any `TriggerMine::radius`
+const CELL_SIZE: f32 = 64.0;
+
+impl SpatialIndex {
+    // Lookup all entities within adjacent cells of our spatial index
+    fn get_nearby(&self, pos: Vec2) -> Vec<Entity> {
+        let tile = (
+            (pos.x / CELL_SIZE).floor() as i32,
+            (pos.y / CELL_SIZE).floor() as i32,
+        );
+        let mut nearby = Vec::new();
+        for x in -1..2 {
+            for y in -1..2 {
+                if let Some(mines) = self.map.get(&(tile.0 + x, tile.1 + y)) {
+                    nearby.extend(mines.iter());
+                }
+            }
+        }
+        nearby
     }
 }
