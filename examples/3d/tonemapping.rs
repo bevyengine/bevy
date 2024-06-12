@@ -13,6 +13,9 @@ use bevy::{
 };
 use std::f32::consts::PI;
 
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/tonemapping_test_patterns.wgsl";
+
 fn main() {
     App::new()
         .add_plugins((
@@ -600,7 +603,7 @@ impl Default for PerMethodSettings {
 
 impl Material for ColorGradientMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/tonemapping_test_patterns.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 }
 

@@ -18,6 +18,9 @@ use bevy::{
 };
 use crossbeam_channel::{Receiver, Sender};
 
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/gpu_readback.wgsl";
+
 // The length of the buffer sent to the gpu
 const BUFFER_LEN: usize = 16;
 
@@ -177,7 +180,7 @@ impl FromWorld for ComputePipeline {
                 storage_buffer::<Vec<u32>>(false),
             ),
         );
-        let shader = world.load_asset("shaders/gpu_readback.wgsl");
+        let shader = world.load_asset(SHADER_ASSET_PATH);
         let pipeline_cache = world.resource::<PipelineCache>();
         let pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("GPU readback compute shader".into()),
