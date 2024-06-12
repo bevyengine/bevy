@@ -346,6 +346,11 @@ impl Camera {
 
     /// Given a position in world space, use the camera to compute the viewport-space coordinates.
     ///
+    /// Note that the [`GlobalTransform`] can be out of sync with the [`Transform`] when
+    /// you modify the [`Transform`] of the camera in a system. When it seems the result of this function
+    /// lags behind the actual position make sure to run the system using this function in the [`CoreStage::PostUpdate`]
+    /// stage after the [`TransformSystem::TransformPropagate`] label.
+    ///
     /// To get the coordinates in Normalized Device Coordinates, you should use
     /// [`world_to_ndc`](Self::world_to_ndc).
     ///
@@ -379,6 +384,11 @@ impl Camera {
     /// The resulting ray starts on the near plane of the camera.
     ///
     /// If the camera's projection is orthographic the direction of the ray is always equal to `camera_transform.forward()`.
+    ///
+    /// Note that the [`GlobalTransform`] can be out of sync with the [`Transform`] when
+    /// you modify the [`Transform`] of the camera in a system. When it seems the result of this function
+    /// lags behind the actual position make sure to run the system using this function in the [`CoreStage::PostUpdate`]
+    /// stage after the [`TransformSystem::TransformPropagate`] label.
     ///
     /// To get the world space coordinates with Normalized Device Coordinates, you should use
     /// [`ndc_to_world`](Self::ndc_to_world).
@@ -440,6 +450,11 @@ impl Camera {
 
     /// Given a position in world space, use the camera's viewport to compute the Normalized Device Coordinates.
     ///
+    /// Note that the [`GlobalTransform`] can be out of sync with the [`Transform`] when
+    /// you modify the [`Transform`] of the camera in a system. When it seems the result of this function
+    /// lags behind the actual position make sure to run the system using this function in the [`CoreStage::PostUpdate`]
+    /// stage after the [`TransformSystem::TransformPropagate`] label.
+    ///
     /// When the position is within the viewport the values returned will be between -1.0 and 1.0 on the X and Y axes,
     /// and between 0.0 and 1.0 on the Z axis.
     /// To get the coordinates in the render target's viewport dimensions, you should use
@@ -465,6 +480,12 @@ impl Camera {
     ///
     /// When the position is within the viewport the values returned will be between -1.0 and 1.0 on the X and Y axes,
     /// and between 0.0 and 1.0 on the Z axis.
+    ///
+    /// Note that the [`GlobalTransform`] can be out of sync with the [`Transform`] when
+    /// you modify the [`Transform`] of the camera in a system. When it seems the result of this function
+    /// lags behind the actual position make sure to run the system using this function in the [`CoreStage::PostUpdate`]
+    /// stage after the [`TransformSystem::TransformPropagate`] label.
+    ///
     /// To get the world space coordinates with the viewport position, you should use
     /// [`world_to_viewport`](Self::world_to_viewport).
     ///
