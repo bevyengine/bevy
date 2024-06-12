@@ -29,7 +29,8 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         gamepad::{
-            Gamepad, GamepadAxis, GamepadAxisType, GamepadButton, GamepadButtonType, Gamepads,
+            Gamepad, GamepadAxes, GamepadAxisType, GamepadButtonType, GamepadButtons, GamepadId,
+            GamepadSettings, Gamepads,
         },
         keyboard::KeyCode,
         mouse::MouseButton,
@@ -48,11 +49,12 @@ use touch::{touch_screen_input_system, TouchInput, Touches};
 
 use gamepad::{
     gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system,
-    gamepad_event_system, GamepadAxis, GamepadAxisChangedEvent, GamepadButton,
-    GamepadButtonChangedEvent, GamepadButtonInput, GamepadConnectionEvent, GamepadEvent,
-    GamepadRumbleRequest, GamepadSettings, Gamepads,
+    GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadButtonStateChangedEvent,
+    GamepadConnectionEvent, GamepadRumbleRequest, GamepadSettings, Gamepads,
+    RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent, RawGamepadEvent,
 };
 
+use crate::gamepad::{Gamepad, GamepadConnection, GamepadId, GamepadInfo};
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
@@ -84,27 +86,20 @@ impl Plugin for InputPlugin {
             .add_event::<PanGesture>()
             // gamepad
             .add_event::<GamepadConnectionEvent>()
+            .add_event::<RawGamepadButtonChangedEvent>()
             .add_event::<GamepadButtonChangedEvent>()
-            .add_event::<GamepadButtonInput>()
+            .add_event::<GamepadButtonStateChangedEvent>()
             .add_event::<GamepadAxisChangedEvent>()
-            .add_event::<GamepadEvent>()
+            .add_event::<RawGamepadAxisChangedEvent>()
+            .add_event::<RawGamepadEvent>()
             .add_event::<GamepadRumbleRequest>()
-            .init_resource::<GamepadSettings>()
             .init_resource::<Gamepads>()
-            .init_resource::<ButtonInput<GamepadButton>>()
-            .init_resource::<Axis<GamepadAxis>>()
-            .init_resource::<Axis<GamepadButton>>()
             .add_systems(
                 PreUpdate,
                 (
-                    gamepad_event_system,
-                    gamepad_connection_system.after(gamepad_event_system),
-                    gamepad_button_event_system
-                        .after(gamepad_event_system)
-                        .after(gamepad_connection_system),
-                    gamepad_axis_event_system
-                        .after(gamepad_event_system)
-                        .after(gamepad_connection_system),
+                    gamepad_connection_system,
+                    gamepad_button_event_system.after(gamepad_connection_system),
+                    gamepad_axis_event_system.after(gamepad_connection_system),
                 )
                     .in_set(InputSystem),
             )
@@ -122,8 +117,18 @@ impl Plugin for InputPlugin {
             .register_type::<DoubleTapGesture>()
             .register_type::<PanGesture>()
             .register_type::<TouchInput>()
-            .register_type::<GamepadEvent>()
-            .register_type::<GamepadButtonInput>()
+            .register_type::<RawGamepadEvent>()
+            .register_type::<RawGamepadAxisChangedEvent>()
+            .register_type::<RawGamepadButtonChangedEvent>()
+            .register_type::<GamepadConnectionEvent>()
+            .register_type::<GamepadButtonChangedEvent>()
+            .register_type::<GamepadAxisChangedEvent>()
+            .register_type::<GamepadButtonStateChangedEvent>()
+            .register_type::<Gamepads>()
+            .register_type::<Gamepad>()
+            .register_type::<GamepadId>()
+            .register_type::<GamepadInfo>()
+            .register_type::<GamepadConnection>()
             .register_type::<GamepadSettings>();
     }
 }
@@ -147,5 +152,14 @@ impl ButtonState {
     /// Is this button pressed?
     pub fn is_pressed(&self) -> bool {
         matches!(self, ButtonState::Pressed)
+    }
+}
+
+impl From<InputState> for ButtonState {
+    fn from(state: InputState) -> Self {
+        match state {
+            InputState::Pressed => Self::Pressed,
+            InputState::Released => Self::Released,
+        }
     }
 }

@@ -69,15 +69,11 @@ use std::hash::Hash;
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
 /// # use bevy_ecs::{prelude::{IntoSystemConfigs, Res, Resource, resource_changed}, schedule::Condition};
-/// # use bevy_input::{ButtonInput, prelude::{GamepadButton, KeyCode, MouseButton}};
+/// # use bevy_input::{ButtonInput, prelude::{KeyCode, MouseButton}};
 ///
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
-///         .add_systems(
-///             Update,
-///             print_gamepad.run_if(resource_changed::<ButtonInput<GamepadButton>>),
-///         )
 ///         .add_systems(
 ///             Update,
 ///             print_mouse.run_if(resource_changed::<ButtonInput<MouseButton>>),
@@ -87,10 +83,6 @@ use std::hash::Hash;
 ///             print_keyboard.run_if(resource_changed::<ButtonInput<KeyCode>>),
 ///         )
 ///         .run();
-/// }
-///
-/// fn print_gamepad(gamepad: Res<ButtonInput<GamepadButton>>) {
-///     println!("Gamepad: {:?}", gamepad.get_pressed().collect::<Vec<_>>());
 /// }
 ///
 /// fn print_mouse(mouse: Res<ButtonInput<MouseButton>>) {
@@ -112,22 +104,19 @@ use std::hash::Hash;
 /// ```
 ///
 /// Accepting input from multiple devices:
-/// ```no_run
+///```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
 /// # use bevy_ecs::{prelude::IntoSystemConfigs, schedule::Condition};
-/// # use bevy_input::{ButtonInput, common_conditions::{input_just_pressed}, prelude::{GamepadButton, Gamepad, GamepadButtonType, KeyCode}};
+/// # use bevy_input::{ButtonInput, common_conditions::{input_just_pressed}, prelude::{ MouseButton, KeyCode}};
 ///
 /// fn main() {
-///     App::new()
+///    App::new()
 ///         .add_plugins(DefaultPlugins)
 ///         .add_systems(
 ///             Update,
 ///             something_used.run_if(
 ///                 input_just_pressed(KeyCode::KeyE)
-///                     .or_else(input_just_pressed(GamepadButton::new(
-///                         Gamepad::new(0),
-///                         GamepadButtonType::West,
-///                     ))),
+///                     .or_else(input_just_pressed(MouseButton::Left)),
 ///             ),
 ///         )
 ///         .run();
@@ -294,6 +283,22 @@ where
     pub fn get_just_released(&self) -> impl ExactSizeIterator<Item = &T> {
         self.just_released.iter()
     }
+
+    /// Returns the current state of the input.
+    pub fn pressed_state(&self, input: T) -> InputState {
+        if self.pressed(input) {
+            return InputState::Pressed;
+        }
+        InputState::Released
+    }
+}
+
+/// State of the input
+pub enum InputState {
+    /// Input is pressed
+    Pressed,
+    /// Input is released
+    Released,
 }
 
 #[cfg(test)]
