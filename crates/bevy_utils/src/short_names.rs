@@ -1,78 +1,72 @@
+use std::{borrow::Cow, fmt, str};
+
+const SPECIAL_TYPE_CHARS: [u8; 9] = *b" <>()[],;";
 /// Shortens a type name to remove all module paths.
 ///
 /// The short name of a type is its full name as returned by
 /// [`std::any::type_name`], but with the prefix of all paths removed. For
 /// example, the short name of `alloc::vec::Vec<core::option::Option<u32>>`
 /// would be `Vec<Option<u32>>`.
-pub fn get_short_name(full_name: &str) -> String {
+pub fn get_short_name(full_name: &str) -> Cow<str> {
     // Generics result in nested paths within <..> blocks.
     // Consider "bevy_render::camera::camera::extract_cameras<bevy_render::camera::bundle::Camera3d>".
     // To tackle this, we parse the string from left to right, collapsing as we go.
-    let mut index: usize = 0;
-    let end_of_string = full_name.len();
-    let mut parsed_name = String::new();
+    let mut remaining = full_name.as_bytes();
+    let mut parsed_name = Vec::new();
+    let mut complex_type = false;
 
-    while index < end_of_string {
-        let rest_of_string = full_name.get(index..end_of_string).unwrap_or_default();
-
+    loop {
         // Collapse everything up to the next special character,
         // then skip over it
-        if let Some(special_character_index) = rest_of_string.find(|c: char| {
-            (c == ' ')
-                || (c == '<')
-                || (c == '>')
-                || (c == '(')
-                || (c == ')')
-                || (c == '[')
-                || (c == ']')
-                || (c == ',')
-                || (c == ';')
-        }) {
-            let segment_to_collapse = rest_of_string
-                .get(0..special_character_index)
-                .unwrap_or_default();
-            parsed_name += collapse_type_name(segment_to_collapse);
-            // Insert the special character
-            let special_character =
-                &rest_of_string[special_character_index..=special_character_index];
-            parsed_name.push_str(special_character);
-
-            match special_character {
-                ">" | ")" | "]"
-                    if rest_of_string[special_character_index + 1..].starts_with("::") =>
-                {
-                    parsed_name.push_str("::");
+        let is_special = |c| SPECIAL_TYPE_CHARS.contains(c);
+        if let Some(next_special_index) = remaining.iter().position(is_special) {
+            complex_type = true;
+            if parsed_name.is_empty() {
+                parsed_name.reserve(remaining.len());
+            }
+            let (pre_special, post_special) = remaining.split_at(next_special_index + 1);
+            parsed_name.extend_from_slice(collapse_type_name(pre_special));
+            match pre_special.last().unwrap() {
+                b'>' | b')' | b']' if post_special.get(..2) == Some(b"::") => {
+                    parsed_name.extend_from_slice(b"::");
                     // Move the index past the "::"
-                    index += special_character_index + 3;
+                    remaining = &post_special[2..];
                 }
                 // Move the index just past the special character
-                _ => index += special_character_index + 1,
+                _ => remaining = post_special,
             }
+        } else if !complex_type {
+            let collapsed = collapse_type_name(remaining);
+            // SAFETY: We only split on ASCII characters, and the input is valid UTF8, since
+            // it was a &str
+            let str = unsafe { str::from_utf8_unchecked(collapsed) };
+            return Cow::Borrowed(str);
         } else {
             // If there are no special characters left, we're done!
-            parsed_name += collapse_type_name(rest_of_string);
-            index = end_of_string;
+            parsed_name.extend_from_slice(collapse_type_name(remaining));
+            // SAFETY: see above
+            let utf8_name = unsafe { String::from_utf8_unchecked(parsed_name) };
+            return Cow::Owned(utf8_name);
         }
     }
-    parsed_name
+}
+
+/// Wrapper around `AsRef<str>` that uses the [`get_short_name`] format when
+/// displayed.
+pub struct DisplayShortName<T: AsRef<str>>(pub T);
+
+impl<T: AsRef<str>> fmt::Display for DisplayShortName<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let as_short_name = get_short_name(self.0.as_ref());
+        write!(f, "{as_short_name}")
+    }
 }
 
 #[inline(always)]
-fn collapse_type_name(string: &str) -> &str {
-    // Enums types are retained.
-    // As heuristic, we assume the enum type to be uppercase.
-    let mut segments = string.rsplit("::");
-    let (last, second_last): (&str, Option<&str>) = (segments.next().unwrap(), segments.next());
-    let Some(second_last) = second_last else {
-        return last;
-    };
-
-    if second_last.starts_with(char::is_uppercase) {
-        let index = string.len() - last.len() - second_last.len() - 2;
-        &string[index..]
-    } else {
-        last
-    }
+fn collapse_type_name(string: &[u8]) -> &[u8] {
+    let find = |(index, window)| (window == b"::").then_some(index + 2);
+    let split_index = string.windows(2).enumerate().rev().find_map(find);
+    &string[split_index.unwrap_or(0)..]
 }
 
 #[cfg(test)]
@@ -133,6 +127,14 @@ mod name_formatting_tests {
         assert_eq!(
             get_short_name("bevy_render::camera::camera::extract_cameras<bevy_render::camera::bundle::Camera3d>"),
             "extract_cameras<Camera3d>".to_string()
+        );
+    }
+
+    #[test]
+    fn utf8_generics() {
+        assert_eq!(
+            get_short_name("bévï::camérą::łørđ::_öñîòñ<ķràźÿ::Москва::東京>"),
+            "_öñîòñ<東京>".to_string()
         );
     }
 
