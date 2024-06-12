@@ -30,9 +30,9 @@ use std::ops::Mul;
 ///
 /// # Examples
 ///
-/// - [`transform`]
+/// - [`transform`][transform_example]
 ///
-/// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
+/// [transform_example]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -80,8 +80,8 @@ impl Transform {
     /// Extracts the translation, rotation, and scale from `matrix`. It must be a 3d affine
     /// transformation matrix.
     #[inline]
-    pub fn from_matrix(matrix: Mat4) -> Self {
-        let (scale, rotation, translation) = matrix.to_scale_rotation_translation();
+    pub fn from_matrix(world_from_local: Mat4) -> Self {
+        let (scale, rotation, translation) = world_from_local.to_scale_rotation_translation();
 
         Transform {
             translation,

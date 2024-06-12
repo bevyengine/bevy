@@ -71,6 +71,7 @@ shader_format_spirv = ["bevy_render/shader_format_spirv"]
 serialize = [
   "bevy_core/serialize",
   "bevy_input/serialize",
+  "bevy_ecs/serialize",
   "bevy_time/serialize",
   "bevy_window/serialize",
   "bevy_winit?/serialize",
@@ -185,7 +186,7 @@ bevy_dev_tools = ["dep:bevy_dev_tools"]
 ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
 
 # Enable built in global state machines
-bevy_state = ["dep:bevy_state", "bevy_app/bevy_state"]
+bevy_state = ["dep:bevy_state"]
 
 [dependencies]
 # bevy

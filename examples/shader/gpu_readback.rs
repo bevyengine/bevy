@@ -12,7 +12,7 @@ use bevy::{
     render::{
         render_graph::{self, RenderGraph, RenderLabel},
         render_resource::{binding_types::storage_buffer, *},
-        renderer::{RenderContext, RenderDevice},
+        renderer::{RenderContext, RenderDevice, RenderQueue},
         Render, RenderApp, RenderSet,
     },
 };
@@ -91,28 +91,33 @@ impl Plugin for GpuReadbackPlugin {
     }
 }
 
+/// Holds the buffers that will be used to communicate between the cpu and gpu
 #[derive(Resource)]
 struct Buffers {
-    // The buffer that will be used by the compute shader
-    gpu_buffer: Buffer,
-    // The buffer that will be read on the cpu.
-    // The `gpu_buffer` will be copied to this buffer every frame
+    /// The buffer that will be used by the compute shader
+    ///
+    /// In this example, we want to write a `Vec<u32>` to a `Buffer`. `BufferVec` is a wrapper around a `Buffer`
+    /// that will make sure the data is correctly aligned for the gpu and will simplify uploading the data to the gpu.
+    gpu_buffer: BufferVec<u32>,
+    /// The buffer that will be read on the cpu.
+    /// The `gpu_buffer` will be copied to this buffer every frame
     cpu_buffer: Buffer,
 }
 
 impl FromWorld for Buffers {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
-        let mut init_data = encase::StorageBuffer::new(Vec::new());
-        // Init the buffer with 0
-        let data = vec![0; BUFFER_LEN];
-        init_data.write(&data).expect("Failed to write buffer");
-        // The buffer that will be accessed by the gpu
-        let gpu_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            label: Some("gpu_buffer"),
-            contents: init_data.as_ref(),
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
-        });
+        let render_queue = world.resource::<RenderQueue>();
+
+        // Create the buffer that will be accessed by the gpu
+        let mut gpu_buffer = BufferVec::new(BufferUsages::STORAGE | BufferUsages::COPY_SRC);
+        for _ in 0..BUFFER_LEN {
+            // Init the buffer with zeroes
+            gpu_buffer.push(0);
+        }
+        // Write the buffer so the data is accessible on the gpu
+        gpu_buffer.write_buffer(render_device, render_queue);
+
         // For portability reasons, WebGPU draws a distinction between memory that is
         // accessible by the CPU and memory that is accessible by the GPU. Only
         // buffers accessible by the CPU can be mapped and accessed by the CPU and
@@ -145,7 +150,13 @@ fn prepare_bind_group(
     let bind_group = render_device.create_bind_group(
         None,
         &pipeline.layout,
-        &BindGroupEntries::single(buffers.gpu_buffer.as_entire_binding()),
+        &BindGroupEntries::single(
+            buffers
+                .gpu_buffer
+                .binding()
+                // We already did it when creating the buffer so this should never happen
+                .expect("Buffer should have already been uploaded to the gpu"),
+        ),
     );
     commands.insert_resource(GpuBufferBindGroup(bind_group));
 }
@@ -285,7 +296,10 @@ impl render_graph::Node for ComputeNode {
         // Copy the gpu accessible buffer to the cpu accessible buffer
         let buffers = world.resource::<Buffers>();
         render_context.command_encoder().copy_buffer_to_buffer(
-            &buffers.gpu_buffer,
+            buffers
+                .gpu_buffer
+                .buffer()
+                .expect("Buffer should have already been uploaded to the gpu"),
             0,
             &buffers.cpu_buffer,
             0,

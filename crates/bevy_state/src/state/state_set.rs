@@ -10,7 +10,8 @@ use self::sealed::StateSetSealed;
 use super::{
     computed_states::ComputedStates, internal_apply_state_transition, last_transition, run_enter,
     run_exit, run_transition, sub_states::SubStates, take_next_state, ApplyStateTransition,
-    NextState, State, StateTransitionEvent, StateTransitionSteps, States,
+    EnterSchedules, ExitSchedules, NextState, State, StateTransitionEvent, StateTransitionSteps,
+    States, TransitionSchedules,
 };
 
 mod sealed {
@@ -114,27 +115,35 @@ impl<S: InnerStateSet> StateSet for S {
                 internal_apply_state_transition(event, commands, current_state, new_state);
             };
 
+        schedule.configure_sets((
+            ApplyStateTransition::<T>::default()
+                .in_set(StateTransitionSteps::DependentTransitions)
+                .after(ApplyStateTransition::<S::RawState>::default()),
+            ExitSchedules::<T>::default()
+                .in_set(StateTransitionSteps::ExitSchedules)
+                .before(ExitSchedules::<S::RawState>::default()),
+            TransitionSchedules::<T>::default().in_set(StateTransitionSteps::TransitionSchedules),
+            EnterSchedules::<T>::default()
+                .in_set(StateTransitionSteps::EnterSchedules)
+                .after(EnterSchedules::<S::RawState>::default()),
+        ));
+
         schedule
-            .add_systems(apply_state_transition.in_set(ApplyStateTransition::<T>::apply()))
-            .add_systems(
-                last_transition::<T>
-                    .pipe(run_enter::<T>)
-                    .in_set(StateTransitionSteps::EnterSchedules),
-            )
+            .add_systems(apply_state_transition.in_set(ApplyStateTransition::<T>::default()))
             .add_systems(
                 last_transition::<T>
                     .pipe(run_exit::<T>)
-                    .in_set(StateTransitionSteps::ExitSchedules),
+                    .in_set(ExitSchedules::<T>::default()),
             )
             .add_systems(
                 last_transition::<T>
                     .pipe(run_transition::<T>)
-                    .in_set(StateTransitionSteps::TransitionSchedules),
+                    .in_set(TransitionSchedules::<T>::default()),
             )
-            .configure_sets(
-                ApplyStateTransition::<T>::apply()
-                    .in_set(StateTransitionSteps::DependentTransitions)
-                    .after(ApplyStateTransition::<S::RawState>::apply()),
+            .add_systems(
+                last_transition::<T>
+                    .pipe(run_enter::<T>)
+                    .in_set(EnterSchedules::<T>::default()),
             );
     }
 
@@ -172,43 +181,49 @@ impl<S: InnerStateSet> StateSet for S {
 
                 let current_state = current_state_res.as_ref().map(|s| s.get()).cloned();
 
-                let should_exist = match parent_changed {
-                    true => {
-                        if let Some(state_set) = S::convert_to_usable_state(state_set.as_deref()) {
-                            T::should_exist(state_set)
-                        } else {
-                            None
-                        }
+                let initial_state = if parent_changed {
+                    if let Some(state_set) = S::convert_to_usable_state(state_set.as_deref()) {
+                        T::should_exist(state_set)
+                    } else {
+                        None
                     }
-                    false => current_state.clone(),
+                } else {
+                    current_state.clone()
                 };
+                let new_state = initial_state.map(|x| next_state.or(current_state).unwrap_or(x));
 
-                let new_state = should_exist
-                    .map(|initial_state| next_state.or(current_state).unwrap_or(initial_state));
                 internal_apply_state_transition(event, commands, current_state_res, new_state);
             };
 
+        schedule.configure_sets((
+            ApplyStateTransition::<T>::default()
+                .in_set(StateTransitionSteps::DependentTransitions)
+                .after(ApplyStateTransition::<S::RawState>::default()),
+            ExitSchedules::<T>::default()
+                .in_set(StateTransitionSteps::ExitSchedules)
+                .before(ExitSchedules::<S::RawState>::default()),
+            TransitionSchedules::<T>::default().in_set(StateTransitionSteps::TransitionSchedules),
+            EnterSchedules::<T>::default()
+                .in_set(StateTransitionSteps::EnterSchedules)
+                .after(EnterSchedules::<S::RawState>::default()),
+        ));
+
         schedule
-            .add_systems(apply_state_transition.in_set(ApplyStateTransition::<T>::apply()))
-            .add_systems(
-                last_transition::<T>
-                    .pipe(run_enter::<T>)
-                    .in_set(StateTransitionSteps::EnterSchedules),
-            )
+            .add_systems(apply_state_transition.in_set(ApplyStateTransition::<T>::default()))
             .add_systems(
                 last_transition::<T>
                     .pipe(run_exit::<T>)
-                    .in_set(StateTransitionSteps::ExitSchedules),
+                    .in_set(ExitSchedules::<T>::default()),
             )
             .add_systems(
                 last_transition::<T>
                     .pipe(run_transition::<T>)
-                    .in_set(StateTransitionSteps::TransitionSchedules),
+                    .in_set(TransitionSchedules::<T>::default()),
             )
-            .configure_sets(
-                ApplyStateTransition::<T>::apply()
-                    .in_set(StateTransitionSteps::DependentTransitions)
-                    .after(ApplyStateTransition::<S::RawState>::apply()),
+            .add_systems(
+                last_transition::<T>
+                    .pipe(run_enter::<T>)
+                    .in_set(EnterSchedules::<T>::default()),
             );
     }
 }
@@ -225,87 +240,99 @@ macro_rules! impl_state_set_sealed_tuples {
             fn register_computed_state_systems_in_schedule<T: ComputedStates<SourceStates = Self>>(
                 schedule: &mut Schedule,
             ) {
-                let apply_state_transition = |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,), event: EventWriter<StateTransitionEvent<T>>, commands: Commands, current_state: Option<ResMut<State<T>>>, ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
-                    if ($($evt.is_empty())&&*) {
-                        return;
-                    }
-                    $($evt.clear();)*
+                let apply_state_transition =
+                    |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,),
+                     event: EventWriter<StateTransitionEvent<T>>,
+                     commands: Commands,
+                     current_state: Option<ResMut<State<T>>>,
+                     ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
+                        if ($($evt.is_empty())&&*) {
+                            return;
+                        }
+                        $($evt.clear();)*
 
-                    let new_state = if let ($(Some($val)),*,) = ($($param::convert_to_usable_state($val.as_deref())),*,) {
-                        T::compute(($($val),*, ))
-                    } else {
-                        None
+                        let new_state = if let ($(Some($val)),*,) = ($($param::convert_to_usable_state($val.as_deref())),*,) {
+                            T::compute(($($val),*, ))
+                        } else {
+                            None
+                        };
+
+                        internal_apply_state_transition(event, commands, current_state, new_state);
                     };
 
-                    internal_apply_state_transition(event, commands, current_state, new_state);
-                };
+                schedule.configure_sets((
+                    ApplyStateTransition::<T>::default()
+                        .in_set(StateTransitionSteps::DependentTransitions)
+                        $(.after(ApplyStateTransition::<$param::RawState>::default()))*,
+                    ExitSchedules::<T>::default()
+                        .in_set(StateTransitionSteps::ExitSchedules)
+                        $(.before(ExitSchedules::<$param::RawState>::default()))*,
+                    TransitionSchedules::<T>::default()
+                        .in_set(StateTransitionSteps::TransitionSchedules),
+                    EnterSchedules::<T>::default()
+                        .in_set(StateTransitionSteps::EnterSchedules)
+                        $(.after(EnterSchedules::<$param::RawState>::default()))*,
+                ));
 
                 schedule
-                    .add_systems(apply_state_transition.in_set(ApplyStateTransition::<T>::apply()))
-                    .add_systems(last_transition::<T>.pipe(run_enter::<T>).in_set(StateTransitionSteps::EnterSchedules))
-                    .add_systems(last_transition::<T>.pipe(run_exit::<T>).in_set(StateTransitionSteps::ExitSchedules))
-                    .add_systems(last_transition::<T>.pipe(run_transition::<T>).in_set(StateTransitionSteps::TransitionSchedules))
-                    .configure_sets(
-                        ApplyStateTransition::<T>::apply()
-                        .in_set(StateTransitionSteps::DependentTransitions)
-                        $(.after(ApplyStateTransition::<$param::RawState>::apply()))*
-                    );
+                    .add_systems(apply_state_transition.in_set(ApplyStateTransition::<T>::default()))
+                    .add_systems(last_transition::<T>.pipe(run_exit::<T>).in_set(ExitSchedules::<T>::default()))
+                    .add_systems(last_transition::<T>.pipe(run_transition::<T>).in_set(TransitionSchedules::<T>::default()))
+                    .add_systems(last_transition::<T>.pipe(run_enter::<T>).in_set(EnterSchedules::<T>::default()));
             }
 
             fn register_sub_state_systems_in_schedule<T: SubStates<SourceStates = Self>>(
                 schedule: &mut Schedule,
             ) {
-                let apply_state_transition = |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,), event: EventWriter<StateTransitionEvent<T>>, commands: Commands, current_state_res: Option<ResMut<State<T>>>, next_state_res: Option<ResMut<NextState<T>>>, ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
-                    let parent_changed = ($($evt.read().last().is_some())&&*);
-                    let next_state = take_next_state(next_state_res);
+                let apply_state_transition =
+                    |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,),
+                     event: EventWriter<StateTransitionEvent<T>>,
+                     commands: Commands,
+                     current_state_res: Option<ResMut<State<T>>>,
+                     next_state_res: Option<ResMut<NextState<T>>>,
+                     ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
+                        let parent_changed = ($($evt.read().last().is_some())&&*);
+                        let next_state = take_next_state(next_state_res);
 
-                    if !parent_changed && next_state.is_none() {
-                        return;
-                    }
+                        if !parent_changed && next_state.is_none() {
+                            return;
+                        }
 
-                    let current_state = current_state_res.as_ref().map(|s| s.get()).cloned();
+                        let current_state = current_state_res.as_ref().map(|s| s.get()).cloned();
 
-                    let should_exist = match parent_changed {
-                        true => {
+                        let initial_state = if parent_changed {
                             if let ($(Some($val)),*,) = ($($param::convert_to_usable_state($val.as_deref())),*,) {
                                 T::should_exist(($($val),*, ))
                             } else {
                                 None
                             }
-                        }
-                        false => current_state.clone(),
+                        } else {
+                            current_state.clone()
+                        };
+                        let new_state = initial_state.map(|x| next_state.or(current_state).unwrap_or(x));
+
+                        internal_apply_state_transition(event, commands, current_state_res, new_state);
                     };
 
-                    match should_exist {
-                        Some(initial_state) => {
-                            let new_state = match (current_state, next_state) {
-                                (_, Some(next_state)) => next_state,
-                                (Some(current_state), None) => current_state,
-                                (None, None) => initial_state,
-                            };
-                            internal_apply_state_transition(
-                                event,
-                                commands,
-                                current_state_res,
-                                Some(new_state),
-                            );
-                        }
-                        None => {
-                            internal_apply_state_transition(event, commands, current_state_res, None);
-                        }
-                    };
-                };
+                schedule.configure_sets((
+                    ApplyStateTransition::<T>::default()
+                        .in_set(StateTransitionSteps::DependentTransitions)
+                        $(.after(ApplyStateTransition::<$param::RawState>::default()))*,
+                    ExitSchedules::<T>::default()
+                        .in_set(StateTransitionSteps::ExitSchedules)
+                        $(.before(ExitSchedules::<$param::RawState>::default()))*,
+                    TransitionSchedules::<T>::default()
+                        .in_set(StateTransitionSteps::TransitionSchedules),
+                    EnterSchedules::<T>::default()
+                        .in_set(StateTransitionSteps::EnterSchedules)
+                        $(.after(EnterSchedules::<$param::RawState>::default()))*,
+                ));
 
                 schedule
-                    .add_systems(apply_state_transition.in_set(ApplyStateTransition::<T>::apply()))
-                    .add_systems(last_transition::<T>.pipe(run_enter::<T>).in_set(StateTransitionSteps::EnterSchedules))
-                    .add_systems(last_transition::<T>.pipe(run_exit::<T>).in_set(StateTransitionSteps::ExitSchedules))
-                    .add_systems(last_transition::<T>.pipe(run_transition::<T>).in_set(StateTransitionSteps::TransitionSchedules))
-                    .configure_sets(
-                        ApplyStateTransition::<T>::apply()
-                        .in_set(StateTransitionSteps::DependentTransitions)
-                        $(.after(ApplyStateTransition::<$param::RawState>::apply()))*
-                    );
+                    .add_systems(apply_state_transition.in_set(ApplyStateTransition::<T>::default()))
+                    .add_systems(last_transition::<T>.pipe(run_exit::<T>).in_set(ExitSchedules::<T>::default()))
+                    .add_systems(last_transition::<T>.pipe(run_transition::<T>).in_set(TransitionSchedules::<T>::default()))
+                    .add_systems(last_transition::<T>.pipe(run_enter::<T>).in_set(EnterSchedules::<T>::default()));
             }
         }
     };

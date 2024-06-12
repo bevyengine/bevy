@@ -1,22 +1,22 @@
 #![allow(deprecated)]
 #![allow(missing_docs)]
 
-use bevy_app::App;
 use bevy_ecs::prelude::*;
 use bevy_input::keyboard::KeyboardInput;
 use bevy_input::touch::TouchInput;
 use bevy_input::{
+    gestures::*,
+    keyboard::KeyboardFocusLost,
     mouse::{MouseButtonInput, MouseMotion, MouseWheel},
-    touchpad::{TouchpadMagnify, TouchpadRotate},
 };
 use bevy_reflect::Reflect;
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_window::{
-    ApplicationLifetime, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
-    ReceivedCharacter, RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested,
-    WindowCreated, WindowDestroyed, WindowFocused, WindowGlContextLost, WindowMoved,
-    WindowOccluded, WindowResized, WindowScaleFactorChanged, WindowThemeChanged,
+    AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, ReceivedCharacter,
+    RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated,
+    WindowDestroyed, WindowFocused, WindowMoved, WindowOccluded, WindowResized,
+    WindowScaleFactorChanged, WindowThemeChanged, WindowGlContextLost,
 };
 
 /// Wraps all `bevy_window` events in a common enum.
@@ -33,7 +33,7 @@ use bevy_window::{
     reflect(Serialize, Deserialize)
 )]
 pub enum WinitEvent {
-    ApplicationLifetime(ApplicationLifetime),
+    AppLifecycle(AppLifecycle),
     CursorEntered(CursorEntered),
     CursorLeft(CursorLeft),
     CursorMoved(CursorMoved),
@@ -56,19 +56,22 @@ pub enum WinitEvent {
     MouseMotion(MouseMotion),
     MouseWheel(MouseWheel),
 
-    TouchpadMagnify(TouchpadMagnify),
-    TouchpadRotate(TouchpadRotate),
+    PinchGesture(PinchGesture),
+    RotationGesture(RotationGesture),
+    DoubleTapGesture(DoubleTapGesture),
+    PanGesture(PanGesture),
 
     TouchInput(TouchInput),
 
     KeyboardInput(KeyboardInput),
+    KeyboardFocusLost(KeyboardFocusLost),
 
     WindowGlContextLost(WindowGlContextLost),
 }
 
-impl From<ApplicationLifetime> for WinitEvent {
-    fn from(e: ApplicationLifetime) -> Self {
-        Self::ApplicationLifetime(e)
+impl From<AppLifecycle> for WinitEvent {
+    fn from(e: AppLifecycle) -> Self {
+        Self::AppLifecycle(e)
     }
 }
 impl From<CursorEntered> for WinitEvent {
@@ -171,14 +174,24 @@ impl From<MouseWheel> for WinitEvent {
         Self::MouseWheel(e)
     }
 }
-impl From<TouchpadMagnify> for WinitEvent {
-    fn from(e: TouchpadMagnify) -> Self {
-        Self::TouchpadMagnify(e)
+impl From<PinchGesture> for WinitEvent {
+    fn from(e: PinchGesture) -> Self {
+        Self::PinchGesture(e)
     }
 }
-impl From<TouchpadRotate> for WinitEvent {
-    fn from(e: TouchpadRotate) -> Self {
-        Self::TouchpadRotate(e)
+impl From<RotationGesture> for WinitEvent {
+    fn from(e: RotationGesture) -> Self {
+        Self::RotationGesture(e)
+    }
+}
+impl From<DoubleTapGesture> for WinitEvent {
+    fn from(e: DoubleTapGesture) -> Self {
+        Self::DoubleTapGesture(e)
+    }
+}
+impl From<PanGesture> for WinitEvent {
+    fn from(e: PanGesture) -> Self {
+        Self::PanGesture(e)
     }
 }
 impl From<TouchInput> for WinitEvent {
@@ -191,100 +204,14 @@ impl From<KeyboardInput> for WinitEvent {
         Self::KeyboardInput(e)
     }
 }
+
+impl From<KeyboardFocusLost> for WinitEvent {
+    fn from(e: KeyboardFocusLost) -> Self {
+        Self::KeyboardFocusLost(e)
+    }
+}
 impl From<WindowGlContextLost> for WinitEvent {
     fn from(e: WindowGlContextLost) -> Self {
         Self::WindowGlContextLost(e)
     }
-}
-
-/// Forwards buffered [`WinitEvent`] events to the app.
-pub(crate) fn forward_winit_events(buffered_events: &mut Vec<WinitEvent>, app: &mut App) {
-    if buffered_events.is_empty() {
-        return;
-    }
-    for winit_event in buffered_events.iter() {
-        match winit_event.clone() {
-            WinitEvent::ApplicationLifetime(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::CursorEntered(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::CursorLeft(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::CursorMoved(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::FileDragAndDrop(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::Ime(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::ReceivedCharacter(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::RequestRedraw(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::WindowBackendScaleFactorChanged(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::WindowCloseRequested(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::WindowCreated(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::WindowDestroyed(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::WindowFocused(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::WindowMoved(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::WindowOccluded(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::WindowResized(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::WindowScaleFactorChanged(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::WindowThemeChanged(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::MouseButtonInput(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::MouseMotion(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::MouseWheel(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::TouchpadMagnify(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::TouchpadRotate(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::TouchInput(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::KeyboardInput(e) => {
-                app.world_mut().send_event(e);
-            }
-            WinitEvent::WindowGlContextLost(e) => {
-                app.world_mut().send_event(e);
-            }
-        }
-    }
-    app.world_mut()
-        .resource_mut::<Events<WinitEvent>>()
-        .send_batch(buffered_events.drain(..));
 }

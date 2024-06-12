@@ -388,15 +388,30 @@ pub struct WindowThemeChanged {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub enum ApplicationLifetime {
-    /// The application just started.
-    Started,
+pub enum AppLifecycle {
+    /// The application is not started yet.
+    Idle,
+    /// The application is running.
+    Running,
+    /// The application is going to be suspended.
+    /// Applications have one frame to react to this event before being paused in the background.
+    WillSuspend,
     /// The application was suspended.
-    ///
-    /// On Android, applications have one frame to react to this event before being paused in the background.
     Suspended,
-    /// The application was resumed.
-    Resumed,
+    /// The application is going to be resumed.
+    /// Applications have one extra frame to react to this event before being fully resumed.
+    WillResume,
+}
+
+impl AppLifecycle {
+    /// Return `true` if the app can be updated.
+    #[inline]
+    pub fn is_active(&self) -> bool {
+        match self {
+            Self::Idle | Self::Suspended => false,
+            Self::Running | Self::WillSuspend | Self::WillResume => true,
+        }
+    }
 }
 
 /// A window event that is sent whenever a window's GL context is lost.
