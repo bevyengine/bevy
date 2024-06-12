@@ -11,12 +11,14 @@ use crate::AssetServer;
 /// whose sources are known at compile time. When using the derive macro, all fields must have
 /// either an `#[embedded("...")]` attribute or a `#[load(...)]` attribute.
 ///
-/// `embedded` takes as argument a relative path to the embedded asset
+/// `embedded` takes as argument a relative path to the embedded asset, while
 /// `load` takes as argument an expression that implements `Into<AssetPath<'_>>`. This could be a string
 /// literal, or something else depending on the use-case.
 ///
+/// For accessing an `AssetPack`, see `AssetPackPlugin`, `Pack` and `GetPack`
+///
 /// ```no_run
-/// use bevy_asset::Handle;
+/// use bevy_asset::{Handle, io::pack::AssetPack};
 /// # type Image = (); //dunno how to avoid dependency issues and still have a good example
 ///
 /// #[derive(AssetPack)]
