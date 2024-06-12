@@ -1,11 +1,11 @@
 //! Types for creating and storing [`Observer`]s
 
-mod emit_trigger;
 mod entity_observer;
 mod runner;
+mod trigger_event;
 
-pub use emit_trigger::*;
 pub use runner::*;
+pub use trigger_event::*;
 
 use crate::observer::entity_observer::ObservedBy;
 use crate::{archetype::ArchetypeFlags, system::IntoObserverSystem, world::*};
