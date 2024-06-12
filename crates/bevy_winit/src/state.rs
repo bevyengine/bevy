@@ -505,7 +505,8 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 let window = winit_windows.get_window(entity).expect("Window must exist");
 
                 if !has_gl_context(&window) {
-                    self.winit_events.send(WindowGlContextLost { window: entity });
+                    self.winit_events
+                        .send(WindowGlContextLost { window: entity });
 
                     // Pauses sub-apps to stop WGPU from crashing when there's no OpenGL context.
                     // Ensures that the rest of the systems in the main app keep running (i.e. physics).
