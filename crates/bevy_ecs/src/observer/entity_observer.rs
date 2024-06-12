@@ -4,7 +4,7 @@ use crate::{
     observer::ObserverState,
 };
 
-/// Tracks a list of entity observers for the attached entity
+/// Tracks a list of entity observers for the [`Entity`] [`ObservedBy`] is added to.
 #[derive(Default)]
 pub(crate) struct ObservedBy(pub(crate) Vec<Entity>);
 

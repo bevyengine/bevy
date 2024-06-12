@@ -80,7 +80,12 @@ fn trigger_event<E, Targets: TriggerTargets>(
     }
 }
 
-/// Represents a collection of targets, which can be of type [`Entity`] or [`ComponentId`].
+/// Represents a collection of targets for a specific [`Trigger`] of an [`Event`]. Targets can be of type [`Entity`] or [`ComponentId`].
+/// When a trigger occurs for a given event and [`TriggerTargets`], any [`Observer`] that watches for that specific event-target combination
+/// will run.
+///
+/// [`Trigger`]: crate::observer::Trigger
+/// [`Observer`]: crate::observer::Observer
 pub trait TriggerTargets: Send + Sync + 'static {
     /// The components the trigger should target.
     fn components(&self) -> impl ExactSizeIterator<Item = ComponentId>;

@@ -8,10 +8,24 @@ use std::{
     marker::PhantomData,
 };
 
-/// A type that can be stored in an [`Events<E>`] resource
+/// Something that "happens" and might be read / observed by app logic.
+///
+/// Events can be stored in an [`Events<E>`] resource
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
 ///
+/// Events can also be "triggered" on a [`World`], which will then cause any [`Observer`] of that trigger to run.
+///
+/// This trait can be derived.
+///
+/// Events implement the [`Component`] type (and they automatically do when they are derived). Events are (generally)
+/// not directly inserted as components. More often, the [`ComponentId`] is used to identify the event type within the
+/// context of the ECS.
+///
 /// Events must be thread-safe.
+///
+/// [`World`]: crate::world::World
+/// [`ComponentId`]: crate::component::ComponentId
+/// [`Observer`]: crate::observer::Observer
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not an `Event`",
     label = "invalid `Event`",

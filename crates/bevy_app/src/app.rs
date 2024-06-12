@@ -832,7 +832,7 @@ impl App {
         None
     }
 
-    /// Spawn the given [`Observer`].
+    /// Spawns an [`Observer`] entity, which will watch for and respond to the given event.
     pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,

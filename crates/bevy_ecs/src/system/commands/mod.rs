@@ -749,17 +749,19 @@ impl<'w, 's> Commands<'w, 's> {
         self.push(command);
     }
 
-    /// Sends a "global" [`Trigger`] without any targets.
+    /// Sends a "global" [`Trigger`] without any targets. This will run any [`Observer`] of the `event` that
+    /// isn't scoped to specific targets.
     pub fn trigger(&mut self, event: impl Event) {
         self.add(TriggerEvent { event, targets: () });
     }
 
-    /// Sends a [`Trigger`] with the given `targets`.
+    /// Sends a [`Trigger`] for the given targets. This will run any [`Observer`] of the `event` that
+    /// watches those targets.
     pub fn trigger_targets(&mut self, event: impl Event, targets: impl TriggerTargets) {
         self.add(TriggerEvent { event, targets });
     }
 
-    /// Spawn an [`Observer`] and returns it's [`Entity`].
+    /// Spawn an [`Observer`] and returns the [`EntityCommands`] associated with the entity that stores the observer.  
     pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,

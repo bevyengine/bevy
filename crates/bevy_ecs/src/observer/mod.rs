@@ -14,7 +14,8 @@ use bevy_ptr::Ptr;
 use bevy_utils::{EntityHashMap, HashMap};
 use std::marker::PhantomData;
 
-/// Type used in callbacks registered for observers.
+/// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
+/// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well.
 pub struct Trigger<'w, E, B: Bundle = ()> {
     event: &'w mut E,
     trigger: ObserverTrigger,
@@ -98,6 +99,7 @@ impl ObserverDescriptor {
 }
 
 /// Event trigger metadata for a given [`Observer`],
+#[derive(Debug)]
 pub struct ObserverTrigger {
     /// The [`Entity`] of the observer handling the trigger.
     pub observer: Entity,
@@ -109,7 +111,7 @@ pub struct ObserverTrigger {
     pub entity: Entity,
 }
 
-// Map between an observer entity and it's runner
+// Map between an observer entity and its runner
 type ObserverMap = EntityHashMap<Entity, ObserverRunner>;
 
 /// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular trigger targeted at a specific component.
@@ -162,6 +164,7 @@ impl Observers {
         }
     }
 
+    /// This will run the observers of the given `event_type`, targeting the given `entity` and `components`.
     pub(crate) fn invoke<T>(
         mut world: DeferredWorld,
         event_type: ComponentId,
@@ -256,7 +259,7 @@ impl Observers {
 }
 
 impl World {
-    /// Spawn an [`Observer`] and returns it's [`Entity`].
+    /// Spawn a "global" [`Observer`] and returns it's [`Entity`].
     pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,

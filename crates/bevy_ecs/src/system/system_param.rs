@@ -717,7 +717,7 @@ unsafe impl SystemParam for &'_ World {
     }
 }
 
-/// # Safety: `DeferredWorld` can read all components and resources but cannot be used to gain any other mutable references.
+/// SAFETY: `DeferredWorld` can read all components and resources but cannot be used to gain any other mutable references.
 unsafe impl<'w> SystemParam for DeferredWorld<'w> {
     type State = ();
     type Item<'world, 'state> = DeferredWorld<'world>;

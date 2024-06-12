@@ -29,25 +29,29 @@ impl Default for ObserverState {
 }
 
 impl ObserverState {
-    /// Adds the given `event`
+    /// Observe the given `event`. This will cause the [`Observer`] to run whenever an event with the given [`ComponentId`]
+    /// is triggered.
     pub fn with_event(mut self, event: ComponentId) -> Self {
         self.descriptor.events.push(event);
         self
     }
 
-    /// Adds the given `events`
+    /// Observe the given event list. This will cause the [`Observer`] to run whenever an event with any of the given [`ComponentId`]s
+    /// is triggered.
     pub fn with_events(mut self, events: impl IntoIterator<Item = ComponentId>) -> Self {
         self.descriptor.events.extend(events);
         self
     }
 
-    /// Watches the given [`Entity`] list.
+    /// Observe the given [`Entity`] list. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
+    /// for any [`Entity`] target in the list.
     pub fn with_entities(mut self, entities: impl IntoIterator<Item = Entity>) -> Self {
         self.descriptor.entities.extend(entities);
         self
     }
 
-    /// Watches the given [`ComponentId`] list.
+    /// Observe the given [`ComponentId`] list. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
+    /// for any [`ComponentId`] target in the list.
     pub fn with_components(mut self, components: impl IntoIterator<Item = ComponentId>) -> Self {
         self.descriptor.components.extend(components);
         self
@@ -91,7 +95,8 @@ pub struct Observer<T: 'static, B: Bundle> {
 }
 
 impl<E: Event, B: Bundle> Observer<E, B> {
-    /// Creates a new [`Observer`], which defaults to a "global" observer.
+    /// Creates a new [`Observer`], which defaults to a "global" observer. This means it will run whenever the event `E` is triggered
+    /// for _any_ entity (or no entity).
     pub fn new<M>(system: impl IntoObserverSystem<E, B, M>) -> Self {
         Self {
             system: Box::new(IntoObserverSystem::into_system(system)),
@@ -99,24 +104,29 @@ impl<E: Event, B: Bundle> Observer<E, B> {
         }
     }
 
-    /// Observe the given `entity`.
+    /// Observe the given `entity`. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
+    /// for the `entity`.
     pub fn with_entity(mut self, entity: Entity) -> Self {
         self.descriptor.entities.push(entity);
         self
     }
 
-    /// Observe the given `entity`. Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
+    /// Observe the given `entity`. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
+    /// for the `entity`.
+    /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
     pub fn watch_entity(&mut self, entity: Entity) {
         self.descriptor.entities.push(entity);
     }
 
-    /// Observe the given `component`.
+    /// Observe the given `component`. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
+    /// with the given component target.
     pub fn with_component(mut self, component: ComponentId) -> Self {
         self.descriptor.components.push(component);
         self
     }
 
-    /// Observe the given [`trigger`].
+    /// Observe the given `event`. This will cause the [`Observer`] to run whenever an event with the given [`ComponentId`]
+    /// is triggered.
     pub fn with_event(mut self, event: ComponentId) -> Self {
         self.descriptor.events.push(event);
         self

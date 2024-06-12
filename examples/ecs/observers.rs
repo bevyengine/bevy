@@ -1,7 +1,6 @@
 //! Demonstrates how to observe life-cycle triggers as well as define custom ones.
 
 use bevy::{
-    ecs::observer::Observer,
     prelude::*,
     utils::{HashMap, HashSet},
 };
@@ -34,10 +33,10 @@ fn main() {
             },
         )
         // This observer runs whenever the `Mine` component is added to an entity, and places it in a simple spatial index.
-        .observe(add_mine)
+        .observe(on_add_mine)
         // This observer runs whenever the `Mine` component is removed from an entity (including despawning it)
         // and removes it from the spatial index.
-        .observe(remove_mine)
+        .observe(on_remove_mine)
         .run();
 }
 
@@ -106,7 +105,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(observer);
 }
 
-fn add_mine(trigger: Trigger<OnAdd, Mine>, query: Query<&Mine>, mut index: ResMut<SpatialIndex>) {
+fn on_add_mine(
+    trigger: Trigger<OnAdd, Mine>,
+    query: Query<&Mine>,
+    mut index: ResMut<SpatialIndex>,
+) {
     let mine = query.get(trigger.entity()).unwrap();
     let tile = (
         (mine.pos.x / CELL_SIZE).floor() as i32,
@@ -116,7 +119,7 @@ fn add_mine(trigger: Trigger<OnAdd, Mine>, query: Query<&Mine>, mut index: ResMu
 }
 
 // Remove despawned mines from our index
-fn remove_mine(
+fn on_remove_mine(
     trigger: Trigger<OnRemove, Mine>,
     query: Query<&Mine>,
     mut index: ResMut<SpatialIndex>,
@@ -132,7 +135,7 @@ fn remove_mine(
 }
 
 fn explode_mine(trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Commands) {
-    // If a triggered event is targeting a specific entity you can access it with `.source()`
+    // If a triggered event is targeting a specific entity you can access it with `.entity()`
     let id = trigger.entity();
     let Some(mut entity) = commands.get_entity(id) else {
         return;
@@ -140,7 +143,7 @@ fn explode_mine(trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Co
     println!("Boom! {:?} exploded.", id.index());
     entity.despawn();
     let mine = query.get(id).unwrap();
-    // Fire another trigger to cascade into other mines.
+    // Trigger another explosion cascade.
     commands.trigger(ExplodeMines {
         pos: mine.pos,
         radius: mine.size,
@@ -158,7 +161,7 @@ fn draw_shapes(mut gizmos: Gizmos, mines: Query<&Mine>) {
     }
 }
 
-// Fire an initial `ExplodeMines` trigger on click
+// Trigger `ExplodeMines` at the position of a given click
 fn handle_click(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     camera: Query<(&Camera, &GlobalTransform)>,

@@ -647,7 +647,7 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
             .extend(filtered_access_set.filtered_accesses);
     }
 
-    /// Marks the set as reading all T.
+    /// Marks the set as reading all possible indices of type T.
     pub fn read_all(&mut self) {
         self.combined_access.read_all();
     }

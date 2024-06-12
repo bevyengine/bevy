@@ -605,19 +605,25 @@ impl Archetype {
         self.flags().contains(ArchetypeFlags::ON_REMOVE_HOOK)
     }
 
-    /// Returns true if any of the components in this archetype have at least one `OnAdd` observer
+    /// Returns true if any of the components in this archetype have at least one [`OnAdd`] observer
+    ///
+    /// [`OnAdd`]: crate::world::OnAdd
     #[inline]
     pub fn has_add_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_ADD_OBSERVER)
     }
 
-    /// Returns true if any of the components in this archetype have at least one `OnInsert` observer
+    /// Returns true if any of the components in this archetype have at least one [`OnInsert`] observer
+    ///
+    /// [`OnInsert`]: crate::world::OnInsert
     #[inline]
     pub fn has_insert_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_INSERT_OBSERVER)
     }
 
-    /// Returns true if any of the components in this archetype have at least one `OnRemove` observer
+    /// Returns true if any of the components in this archetype have at least one [`OnRemove`] observer
+    ///
+    /// [`OnRemove`]: crate::world::OnRemove
     #[inline]
     pub fn has_remove_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_REMOVE_OBSERVER)
