@@ -18,6 +18,7 @@ pub mod graph {
         MainTransparentPass,
         EndMainPass,
         Bloom,
+        PostProcessing,
         Tonemapping,
         Fxaa,
         Smaa,
