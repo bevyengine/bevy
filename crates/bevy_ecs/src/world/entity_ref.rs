@@ -10,7 +10,7 @@ use crate::{
     removal_detection::RemovedComponentEvents,
     storage::Storages,
     system::IntoObserverSystem,
-    world::{Mut, World},
+    world::{DeferredWorld, Mut, World},
 };
 use bevy_ptr::{OwningPtr, Ptr};
 use std::{any::TypeId, marker::PhantomData};
@@ -902,16 +902,14 @@ impl<'w> EntityWorldMut<'w> {
             )
         };
 
-        // SAFETY: All components in the archetype exist in world
+        // SAFETY: all bundle components exist in World
         unsafe {
-            deferred_world.trigger_on_remove(old_archetype, entity, bundle_info.iter_components());
-            if old_archetype.has_remove_observer() {
-                deferred_world.trigger_observers(
-                    ON_REMOVE,
-                    self.entity,
-                    bundle_info.iter_components(),
-                );
-            }
+            trigger_on_remove_hooks_and_observers(
+                &mut deferred_world,
+                old_archetype,
+                entity,
+                bundle_info,
+            );
         }
 
         let archetypes = &mut world.archetypes;
@@ -1085,16 +1083,14 @@ impl<'w> EntityWorldMut<'w> {
             )
         };
 
-        // SAFETY: All components in the archetype exist in world
+        // SAFETY: all bundle components exist in World
         unsafe {
-            deferred_world.trigger_on_remove(old_archetype, entity, bundle_info.iter_components());
-            if old_archetype.has_remove_observer() {
-                deferred_world.trigger_observers(
-                    ON_REMOVE,
-                    self.entity,
-                    bundle_info.iter_components(),
-                );
-            }
+            trigger_on_remove_hooks_and_observers(
+                &mut deferred_world,
+                old_archetype,
+                entity,
+                bundle_info,
+            );
         }
 
         let old_archetype = &world.archetypes[location.archetype_id];
@@ -1423,6 +1419,19 @@ impl<'w> EntityWorldMut<'w> {
         self.world
             .spawn(Observer::new(observer).with_entity(self.entity));
         self
+    }
+}
+
+/// SAFETY: all components in the archetype must exist in world
+unsafe fn trigger_on_remove_hooks_and_observers(
+    deferred_world: &mut DeferredWorld,
+    archetype: &Archetype,
+    entity: Entity,
+    bundle_info: &BundleInfo,
+) {
+    deferred_world.trigger_on_remove(archetype, entity, bundle_info.iter_components());
+    if archetype.has_remove_observer() {
+        deferred_world.trigger_observers(ON_REMOVE, entity, bundle_info.iter_components());
     }
 }
 
