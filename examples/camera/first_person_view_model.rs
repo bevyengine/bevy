@@ -235,6 +235,7 @@ fn change_fov(
 ) {
     let mut projection = world_model_projection.single_mut();
     let Projection::Perspective(ref mut projection) = projection.as_mut() else {
+        // We've explicitly built this component with `Projection::Perspective`.
         unreachable!();
     };
 
