@@ -8,8 +8,8 @@ mod spawn_batch;
 pub mod unsafe_world_cell;
 
 pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
+use crate::entity::EntityHashSet;
 pub use crate::world::command_queue::CommandQueue;
-use crate::{component::ComponentInitializer, entity::EntityHashSet};
 pub use deferred_world::DeferredWorld;
 pub use entity_ref::{
     EntityMut, EntityRef, EntityWorldMut, Entry, FilteredEntityMut, FilteredEntityRef,
@@ -217,15 +217,6 @@ impl World {
     #[inline]
     pub fn bundles(&self) -> &Bundles {
         &self.bundles
-    }
-
-    /// Creates a [`ComponentInitializer`] for this world.
-    #[inline]
-    pub fn component_initializer(&mut self) -> ComponentInitializer {
-        ComponentInitializer {
-            components: &mut self.components,
-            storages: &mut self.storages,
-        }
     }
 
     /// Retrieves this world's [`RemovedComponentEvents`] collection
@@ -1113,9 +1104,9 @@ impl World {
     /// By clearing this internal state, the world "forgets" about those changes, allowing a new round
     /// of detection to be recorded.
     ///
-    /// When using `bevy_ecs` as part of the full Bevy engine, this method is added as a system to the
-    /// main app, to run during `Last`, so you don't need to call it manually. When using `bevy_ecs`
-    /// as a separate standalone crate however, you need to call this manually.
+    /// When using `bevy_ecs` as part of the full Bevy engine, this method is called automatically
+    /// by `bevy_app::App::update` and `bevy_app::SubApp::update`, so you don't need to call it manually.
+    /// When using `bevy_ecs` as a separate standalone crate however, you do need to call this manually.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;

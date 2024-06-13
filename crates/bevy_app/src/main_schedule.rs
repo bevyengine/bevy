@@ -17,7 +17,7 @@ use bevy_ecs::{
 /// Then it will run:
 /// * [`First`]
 /// * [`PreUpdate`]
-/// * [`StateTransition`]
+/// * [`StateTransition`](bevy_state::transition::StateTransition)
 /// * [`RunFixedMainLoop`]
 ///     * This will run [`FixedMain`] zero to many times, based on how much time has elapsed.
 /// * [`Update`]

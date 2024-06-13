@@ -43,9 +43,8 @@ pub struct QueryBuilder<'w, D: QueryData = (), F: QueryFilter = ()> {
 impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
     /// Creates a new builder with the accesses required for `Q` and `F`
     pub fn new(world: &'w mut World) -> Self {
-        let initializer = &mut world.component_initializer();
-        let fetch_state = D::init_state(initializer);
-        let filter_state = F::init_state(initializer);
+        let fetch_state = D::init_state(world);
+        let filter_state = F::init_state(world);
 
         let mut access = FilteredAccess::default();
         D::update_component_access(&fetch_state, &mut access);
@@ -96,7 +95,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 
     /// Adds accesses required for `T` to self.
     pub fn data<T: QueryData>(&mut self) -> &mut Self {
-        let state = T::init_state(&mut self.world.component_initializer());
+        let state = T::init_state(self.world);
         let mut access = FilteredAccess::default();
         T::update_component_access(&state, &mut access);
         self.extend_access(access);
@@ -105,7 +104,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 
     /// Adds filter from `T` to self.
     pub fn filter<T: QueryFilter>(&mut self) -> &mut Self {
-        let state = T::init_state(&mut self.world.component_initializer());
+        let state = T::init_state(self.world);
         let mut access = FilteredAccess::default();
         T::update_component_access(&state, &mut access);
         self.extend_access(access);
@@ -223,9 +222,8 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
     pub fn transmute_filtered<NewD: QueryData, NewF: QueryFilter>(
         &mut self,
     ) -> &mut QueryBuilder<'w, NewD, NewF> {
-        let initializer = &mut self.world.component_initializer();
-        let mut fetch_state = NewD::init_state(initializer);
-        let filter_state = NewF::init_state(initializer);
+        let mut fetch_state = NewD::init_state(self.world);
+        let filter_state = NewF::init_state(self.world);
 
         NewD::set_access(&mut fetch_state, &self.access);
 

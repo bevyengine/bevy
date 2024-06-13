@@ -4,6 +4,9 @@ use bevy::prelude::*;
 use bevy::reflect::TypePath;
 use bevy::render::render_resource::*;
 
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/circle_shader.wgsl";
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -60,6 +63,6 @@ struct CustomUiMaterial {
 
 impl UiMaterial for CustomUiMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/circle_shader.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 }
