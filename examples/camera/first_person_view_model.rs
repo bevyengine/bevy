@@ -70,7 +70,7 @@ struct Player;
 #[derive(Debug, Component)]
 struct WorldModelCamera;
 
-const VIEW_MODEL_RENDER_LAYERS: RenderLayers = RenderLayers::layer(1);
+const VIEW_MODEL_RENDER_LAYER: usize = 1;
 
 fn spawn_view_model(
     mut commands: Commands,
@@ -117,7 +117,7 @@ fn spawn_view_model(
                     ..default()
                 },
                 // Only render objects belonging to the view model.
-                VIEW_MODEL_RENDER_LAYERS,
+                RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
             ));
 
             // Spawn the player's right arm.
@@ -129,7 +129,7 @@ fn spawn_view_model(
                     ..default()
                 },
                 // Ensure the arm is only rendered by the view model camera.
-                VIEW_MODEL_RENDER_LAYERS,
+                RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
                 // The arm is free-floating, so shadows would look weird.
                 NotShadowCaster,
             ));
@@ -180,8 +180,8 @@ fn spawn_lights(mut commands: Commands) {
             transform: Transform::from_xyz(-2.0, 4.0, -0.75),
             ..default()
         },
-        // The light source illuminates both the view model and the world model.
-        RenderLayers::all(),
+        // The light source illuminates both the world model and the view model.
+        RenderLayers::from_layers(&[0, VIEW_MODEL_RENDER_LAYER]),
     ));
 }
 
