@@ -1,23 +1,26 @@
 use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
+use bevy::render::view::RenderLayers;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, (spawn_view_model, spawn_world_model))
-        .add_systems(Update, move_player)
+        .add_systems(Update, (move_player, change_fov))
         .run();
 }
 
 #[derive(Debug, Component)]
 struct Player;
+#[derive(Debug, Component)]
+struct WorldModelCamera;
 
 fn spawn_view_model(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let arm = meshes.add(Cuboid::new(0.1, 0.1, 0.8));
+    let arm = meshes.add(Cuboid::new(0.1, 0.1, 0.5));
     let arm_material = materials.add(Color::srgb(0.5, 0.5, 1.0));
 
     commands
@@ -31,8 +34,32 @@ fn spawn_view_model(
         ))
         .with_children(|parent| {
             parent.spawn((
+                Name::new("World Model Camera"),
+                Camera3dBundle {
+                    projection: PerspectiveProjection {
+                        fov: 90.0_f32.to_radians(),
+                        ..default()
+                    }
+                    .into(),
+                    ..default()
+                },
+                WorldModelCamera
+            ));
+            parent.spawn((
                 Name::new("View Model Camera"),
-                Camera3dBundle { ..default() },
+                Camera3dBundle {
+                    camera: Camera {
+                        order: 1,
+                        ..default()
+                    },
+                    projection: PerspectiveProjection {
+                        fov: 70.0_f32.to_radians(),
+                        ..default()
+                    }
+                    .into(),
+                    ..default()
+                },
+                RenderLayers::layer(1),
             ));
 
             parent.spawn((
@@ -40,9 +67,10 @@ fn spawn_view_model(
                 MaterialMeshBundle {
                     mesh: arm,
                     material: arm_material,
-                    transform: Transform::from_xyz(0.2, -0.1, -0.4),
+                    transform: Transform::from_xyz(0.2, -0.1, -0.25),
                     ..default()
                 },
+                RenderLayers::layer(1),
             ));
         });
 }
@@ -73,16 +101,17 @@ fn spawn_world_model(
         }),
     );
 
-    commands.spawn(
-        (PointLightBundle {
+    commands.spawn((
+        PointLightBundle {
             point_light: PointLight {
                 shadows_enabled: true,
                 ..default()
             },
             transform: Transform::from_xyz(4.0, 8.0, 4.0),
             ..default()
-        }),
-    );
+        },
+        RenderLayers::from_layers(&[0, 1]),
+    ));
 }
 
 fn move_player(
@@ -91,9 +120,33 @@ fn move_player(
 ) {
     let mut transform = player.single_mut();
     for motion in mouse_motion.read() {
-        let yaw = -motion.delta.x * 0.002;
+        let yaw = -motion.delta.x * 0.003;
         let pitch = -motion.delta.y * 0.002;
         transform.rotate_y(yaw);
         transform.rotate_local_x(pitch);
+    }
+}
+
+fn change_fov(
+    input: Res<ButtonInput<KeyCode>>,
+    mut world_model_projection: Query<
+        &mut Projection,
+        With<WorldModelCamera>,
+    >,
+) {
+    let mut projection = world_model_projection.single_mut();
+    let Projection::Perspective(ref mut projection) =
+        projection.as_mut()
+    else {
+        unreachable!();
+    };
+
+    if input.pressed(KeyCode::ArrowUp) {
+        projection.fov -= 1.0_f32.to_radians();
+        projection.fov = projection.fov.max(20.0_f32.to_radians());
+    }
+    if input.pressed(KeyCode::ArrowDown) {
+        projection.fov += 1.0_f32.to_radians();
+        projection.fov = projection.fov.min(160.0_f32.to_radians());
     }
 }
