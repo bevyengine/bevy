@@ -1,17 +1,28 @@
+use bevy::color::palettes::tailwind;
 use bevy::input::mouse::MouseMotion;
+use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(Startup, (spawn_view_model, spawn_world_model, spawn_text))
+        .add_systems(
+            Startup,
+            (
+                spawn_view_model,
+                spawn_world_model,
+                spawn_lights,
+                spawn_text,
+            ),
+        )
         .add_systems(Update, (move_player, change_fov))
         .run();
 }
 
 #[derive(Debug, Component)]
 struct Player;
+
 #[derive(Debug, Component)]
 struct WorldModelCamera;
 
@@ -23,7 +34,7 @@ fn spawn_view_model(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let arm = meshes.add(Cuboid::new(0.1, 0.1, 0.5));
-    let arm_material = materials.add(Color::srgb(0.5, 0.5, 1.0));
+    let arm_material = materials.add(Color::from(tailwind::TEAL_200));
 
     commands
         .spawn((
@@ -73,6 +84,7 @@ fn spawn_view_model(
                     ..default()
                 },
                 RenderLayers::layer(1),
+                NotShadowCaster,
             ));
         });
 }
@@ -83,8 +95,8 @@ fn spawn_world_model(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let floor = meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(10.0)));
-    let cube = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
-    let material = materials.add(Color::srgb(1.0, 0.5, 0.5));
+    let cube = meshes.add(Cuboid::new(2.0, 0.5, 1.0));
+    let material = materials.add(Color::WHITE);
 
     commands.spawn(
         (MaterialMeshBundle {
@@ -98,18 +110,21 @@ fn spawn_world_model(
         (MaterialMeshBundle {
             mesh: cube,
             material,
-            transform: Transform::from_xyz(0.0, 0.0, -3.0),
+            transform: Transform::from_xyz(0.0, 0.25, -3.0),
             ..default()
         }),
     );
+}
 
+fn spawn_lights(mut commands: Commands) {
     commands.spawn((
         PointLightBundle {
             point_light: PointLight {
+                color: Color::from(tailwind::ROSE_300),
                 shadows_enabled: true,
                 ..default()
             },
-            transform: Transform::from_xyz(4.0, 8.0, 4.0),
+            transform: Transform::from_xyz(-3.0, 3.0, -0.75),
             ..default()
         },
         RenderLayers::from_layers(&[0, 1]),
