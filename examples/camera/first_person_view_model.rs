@@ -71,9 +71,10 @@ struct Player;
 struct WorldModelCamera;
 
 /// Used implicitly by all entities without a `RenderLayers` component.
+/// Our world model camera and all objects other than the player are on this layer.
 const DEFAULT_RENDER_LAYER: usize = 0;
+
 /// Used by the view model camera and the player's arm.
-/// The light source illuminates both this layer and the default layer.
 const VIEW_MODEL_RENDER_LAYER: usize = 1;
 
 fn spawn_view_model(
