@@ -234,17 +234,17 @@ fn change_fov(
     mut world_model_projection: Query<&mut Projection, With<WorldModelCamera>>,
 ) {
     let mut projection = world_model_projection.single_mut();
-    let Projection::Perspective(ref mut projection) = projection.as_mut() else {
+    let Projection::Perspective(ref mut perspective) = projection.as_mut() else {
         // We've explicitly built this component with `Projection::Perspective`.
         unreachable!();
     };
 
     if input.pressed(KeyCode::ArrowUp) {
-        projection.fov -= 1.0_f32.to_radians();
-        projection.fov = projection.fov.max(20.0_f32.to_radians());
+        perspective.fov -= 1.0_f32.to_radians();
+        perspective.fov = perspective.fov.max(20.0_f32.to_radians());
     }
     if input.pressed(KeyCode::ArrowDown) {
-        projection.fov += 1.0_f32.to_radians();
-        projection.fov = projection.fov.min(160.0_f32.to_radians());
+        perspective.fov += 1.0_f32.to_radians();
+        perspective.fov = perspective.fov.min(160.0_f32.to_radians());
     }
 }
