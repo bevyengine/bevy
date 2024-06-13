@@ -235,7 +235,7 @@ impl<'a, E: Event> EventMutatorParIter<'a, E> {
                 }
             });
 
-            // At this point we're gaurenteed to have seen all events
+            // At this point we're guaranteed to have seen all events
             self.mutator.last_event_count += self.unread;
             self.unread = 0;
         }
