@@ -70,6 +70,8 @@ struct Player;
 #[derive(Debug, Component)]
 struct WorldModelCamera;
 
+const VIEW_MODEL_RENDER_LAYERS: RenderLayers = RenderLayers::layer(1);
+
 fn spawn_view_model(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -114,8 +116,8 @@ fn spawn_view_model(
                     .into(),
                     ..default()
                 },
-                // Only render objects on layer 1.
-                RenderLayers::layer(1),
+                // Only render objects belonging to the view model.
+                VIEW_MODEL_RENDER_LAYERS,
             ));
 
             // Spawn the player's right arm.
@@ -127,7 +129,7 @@ fn spawn_view_model(
                     ..default()
                 },
                 // Ensure the arm is only rendered by the view model camera.
-                RenderLayers::layer(1),
+                VIEW_MODEL_RENDER_LAYERS,
                 // The arm is free-floating, so shadows would look weird.
                 NotShadowCaster,
             ));
@@ -142,7 +144,8 @@ fn spawn_world_model(
     let floor = meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(10.0)));
     let cube = meshes.add(Cuboid::new(2.0, 0.5, 1.0));
     let material = materials.add(Color::WHITE);
-    // The world model camera will render the floor and the cube.
+
+    // The world model camera will render the floor and the cubes spawned in this system.
     // Assigning no `RenderLayers` component defaults to layer 0.
 
     commands.spawn(MaterialMeshBundle {
@@ -178,7 +181,7 @@ fn spawn_lights(mut commands: Commands) {
             ..default()
         },
         // The light source illuminates both the view model and the world model.
-        RenderLayers::from_layers(&[0, 1]),
+        RenderLayers::all(),
     ));
 }
 
@@ -216,7 +219,7 @@ fn move_player(
     for motion in mouse_motion.read() {
         let yaw = -motion.delta.x * 0.003;
         let pitch = -motion.delta.y * 0.002;
-        // Order of rotations in important, see <https://gamedev.stackexchange.com/a/136175/103059>
+        // Order of rotations is important, see <https://gamedev.stackexchange.com/a/136175/103059>
         transform.rotate_y(yaw);
         transform.rotate_local_x(pitch);
     }
