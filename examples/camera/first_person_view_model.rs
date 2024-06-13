@@ -9,7 +9,7 @@
 //!
 //! ## Motivation
 //!
-//! The reason for this distinction is that these two models should be rendered with different FOVs.
+//! The reason for this distinction is that these two models should be rendered with different field of views (FOV).
 //! The view model is typically designed and animated with a very specific FOV in mind, so it is
 //! generally *fixed* and cannot be changed by a player. The world model, on the other hand, should
 //! be able to change its FOV to accommodate the player's preferences for the following reasons:

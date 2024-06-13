@@ -246,7 +246,7 @@ Example | Description
 Example | Description
 --- | ---
 [2D top-down camera](../examples/camera/2d_top_down_camera.rs) | A 2D top-down camera smoothly following player movements
-[First person view model](../examples/camera/first_person_view_model.rs) | A first-person camera that uses a world model and a view model with different FOVs
+[First person view model](../examples/camera/first_person_view_model.rs) | A first-person camera that uses a world model and a view model with different field of views (FOV)
 
 ## Dev tools
 

@@ -3126,7 +3126,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.first_person_view_model]
 name = "First person view model"
-description = "A first-person camera that uses a world model and a view model with different FOVs"
+description = "A first-person camera that uses a world model and a view model with different field of views (FOV)"
 category = "Camera"
 wasm = true
 
