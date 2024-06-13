@@ -652,28 +652,38 @@ mod tests {
     #[cfg(feature = "multi_threaded")]
     #[test]
     fn test_events_mutator_par_read() {
-        use std::{collections::HashSet, sync::mpsc};
-
         use crate::prelude::*;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        #[derive(Resource)]
+        struct Counter(AtomicUsize);
 
         let mut world = World::new();
         world.init_resource::<Events<TestEvent>>();
-        for i in 0..100 {
-            world.send_event(TestEvent { i });
+        for _ in 0..100 {
+            world.send_event(TestEvent { i: 1 });
         }
-
         let mut schedule = Schedule::default();
-
-        schedule.add_systems(|mut events: EventMutator<TestEvent>| {
-            let (tx, rx) = mpsc::channel();
-            events.par_read().for_each(|event| {
-                tx.send(event.i).unwrap();
-            });
-            drop(tx);
-
-            let observed: HashSet<_> = rx.into_iter().collect();
-            assert_eq!(observed, HashSet::from_iter(0..100));
-        });
+        schedule.add_systems(
+            |mut events: EventMutator<TestEvent>, counter: ResMut<Counter>| {
+                events.par_read().for_each(|event| {
+                    event.i += 1;
+                    counter.0.fetch_add(event.i, Ordering::Relaxed);
+                });
+            },
+        );
+        world.insert_resource(Counter(AtomicUsize::new(0)));
         schedule.run(&mut world);
+        let counter = world.remove_resource::<Counter>().unwrap();
+        assert_eq!(counter.0.into_inner(), 200, "Initial run failed");
+
+        world.insert_resource(Counter(AtomicUsize::new(0)));
+        schedule.run(&mut world);
+        let counter = world.remove_resource::<Counter>().unwrap();
+        assert_eq!(
+            counter.0.into_inner(),
+            0,
+            "par_read should have consumed events but didn't"
+        );
     }
 }

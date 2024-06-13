@@ -141,9 +141,10 @@ impl<'a, E: Event> ExactSizeIterator for EventMutatorIteratorWithId<'a, E> {
 /// A parallel iterator over `Event`s.
 #[derive(Debug)]
 pub struct EventMutatorParIter<'a, E: Event> {
-    reader: &'a mut ManualEventMutator<E>,
+    mutator: &'a mut ManualEventMutator<E>,
     slices: [&'a mut [EventInstance<E>]; 2],
     batching_strategy: BatchingStrategy,
+    unread: usize,
 }
 
 impl<'a, E: Event> EventMutatorParIter<'a, E> {
@@ -162,9 +163,10 @@ impl<'a, E: Event> EventMutatorParIter<'a, E> {
         mutator.last_event_count = events.event_count - unread_count;
 
         Self {
-            reader: mutator,
+            mutator,
             slices: [a, b],
             batching_strategy: BatchingStrategy::default(),
+            unread: unread_count,
         }
     }
 
@@ -200,7 +202,10 @@ impl<'a, E: Event> EventMutatorParIter<'a, E> {
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
-    pub fn for_each_with_id<FN: Fn(&'a mut E, EventId<E>) + Send + Sync + Clone>(self, func: FN) {
+    pub fn for_each_with_id<FN: Fn(&'a mut E, EventId<E>) + Send + Sync + Clone>(
+        mut self,
+        func: FN,
+    ) {
         #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
         {
             self.into_iter().for_each(|(e, i)| func(e, i));
@@ -229,6 +234,10 @@ impl<'a, E: Event> EventMutatorParIter<'a, E> {
                     });
                 }
             });
+
+            // At this point we're gaurenteed to have seen all events
+            self.mutator.last_event_count += self.unread;
+            self.unread = 0;
         }
     }
 
@@ -249,7 +258,7 @@ impl<'a, E: Event> IntoIterator for EventMutatorParIter<'a, E> {
 
     fn into_iter(self) -> Self::IntoIter {
         let EventMutatorParIter {
-            reader,
+            mutator: reader,
             slices: [a, b],
             ..
         } = self;

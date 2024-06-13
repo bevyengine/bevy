@@ -1,0 +1,51 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "(MacOS) Launch",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=zombies",
+          "--package=zombies"
+        ],
+        "filter": {
+          "name": "zombies",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "CARGO_MANIFEST_DIR": "${workspaceFolder}",
+        "DYLD_LIBRARY_PATH": "${workspaceFolder}/target/debug/deps:${env:HOME}/.rustup/toolchains/nightly-aarch64-apple-darwin/lib",
+      }
+    },
+    {
+      "name": "(Windows) Launch",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/target/debug/zombies.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [
+        {
+          "name": "CARGO_MANIFEST_DIR",
+          "value": "${workspaceFolder}"
+        },
+        {
+          "name": "PATH",
+          "value": "%USERPROFILE%/scoop/persist/rustup-msvc/.rustup/toolchains/nightly-x86_64-pc-windows-msvc/bin;${workspaceFolder}/target/debug/deps;%PATH%"
+        }
+      ],
+      "console": "integratedTerminal",
+      "preLaunchTask": "rust: cargo build",
+    },
+  ]
+}

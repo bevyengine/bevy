@@ -1,0 +1,5 @@
+{
+  "rust-analyzer.cargo.targetDir": true,
+  "rust-analyzer.diagnostics.styleLints.enable": true,
+  "rust-analyzer.imports.preferPrelude": true,
+}
