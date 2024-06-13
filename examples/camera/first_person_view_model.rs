@@ -80,16 +80,15 @@ fn spawn_view_model(
 
     commands
         .spawn((
-            Name::new("Player"),
+            Player,
             SpatialBundle {
                 transform: Transform::from_xyz(0.0, 1.0, 0.0),
                 ..default()
             },
-            Player,
         ))
         .with_children(|parent| {
             parent.spawn((
-                Name::new("World Model Camera"),
+                WorldModelCamera,
                 Camera3dBundle {
                     projection: PerspectiveProjection {
                         fov: 90.0_f32.to_radians(),
@@ -98,10 +97,10 @@ fn spawn_view_model(
                     .into(),
                     ..default()
                 },
-                WorldModelCamera,
             ));
+
+            // Spawn view model camera.
             parent.spawn((
-                Name::new("View Model Camera"),
                 Camera3dBundle {
                     camera: Camera {
                         // Bump the order to render on top of the world model.
@@ -119,8 +118,8 @@ fn spawn_view_model(
                 RenderLayers::layer(1),
             ));
 
+            // Spawn the player's right arm.
             parent.spawn((
-                Name::new("Arm"),
                 MaterialMeshBundle {
                     mesh: arm,
                     material: arm_material,
@@ -129,7 +128,7 @@ fn spawn_view_model(
                 },
                 // Ensure the arm is only rendered by the view model camera.
                 RenderLayers::layer(1),
-                // The arms is free-floating, so shadows would look weird.
+                // The arm is free-floating, so shadows would look weird.
                 NotShadowCaster,
             ));
         });
