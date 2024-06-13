@@ -7,7 +7,7 @@
 //! In this case, we're transitioning from a `Menu` state to an `InGame` state, at which point we create
 //! a substate called `IsPaused` to track whether the game is paused or not.
 
-use bevy::prelude::*;
+use bevy::{dev_tools::states::*, prelude::*};
 
 use ui::*;
 
@@ -43,10 +43,7 @@ fn main() {
         .add_systems(OnExit(AppState::Menu), cleanup_menu)
         .add_systems(OnEnter(AppState::InGame), setup_game)
         .add_systems(OnEnter(IsPaused::Paused), setup_paused_screen)
-        .add_systems(
-            OnExit(IsPaused::Paused),
-            clear_state_bound_entities(IsPaused::Paused),
-        )
+        .enable_state_scoped_entities::<IsPaused>()
         .add_systems(
             Update,
             (
@@ -59,7 +56,7 @@ fn main() {
                 toggle_pause.run_if(in_state(AppState::InGame)),
             ),
         )
-        .add_systems(Update, log_transitions)
+        .add_systems(Update, log_transitions::<AppState>)
         .run();
 }
 
@@ -142,31 +139,6 @@ fn toggle_pause(
     }
 }
 
-#[derive(Component)]
-struct StateBound<S: States>(S);
-
-fn clear_state_bound_entities<S: States>(
-    state: S,
-) -> impl Fn(Commands, Query<(Entity, &StateBound<S>)>) {
-    move |mut commands, query| {
-        for (entity, bound) in &query {
-            if bound.0 == state {
-                commands.entity(entity).despawn_recursive();
-            }
-        }
-    }
-}
-
-/// print when an `AppState` transition happens
-fn log_transitions(mut transitions: EventReader<StateTransitionEvent<AppState>>) {
-    for transition in transitions.read() {
-        info!(
-            "transition: {:?} => {:?}",
-            transition.before, transition.after
-        );
-    }
-}
-
 mod ui {
     use crate::*;
 
@@ -236,7 +208,7 @@ mod ui {
     pub fn setup_paused_screen(mut commands: Commands) {
         commands
             .spawn((
-                StateBound(IsPaused::Paused),
+                StateScoped(IsPaused::Paused),
                 NodeBundle {
                     style: Style {
                         // center button

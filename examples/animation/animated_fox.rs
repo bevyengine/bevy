@@ -41,9 +41,9 @@ fn setup(
     let animations = graph
         .add_clips(
             [
-                "models/animated/Fox.glb#Animation2",
-                "models/animated/Fox.glb#Animation1",
-                "models/animated/Fox.glb#Animation0",
+                GltfAssetLabel::Animation(2).from_asset("models/animated/Fox.glb"),
+                GltfAssetLabel::Animation(1).from_asset("models/animated/Fox.glb"),
+                GltfAssetLabel::Animation(0).from_asset("models/animated/Fox.glb"),
             ]
             .into_iter()
             .map(|path| asset_server.load(path)),
@@ -91,7 +91,7 @@ fn setup(
 
     // Fox
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/animated/Fox.glb#Scene0"),
+        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
         ..default()
     });
 

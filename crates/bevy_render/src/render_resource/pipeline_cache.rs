@@ -979,7 +979,7 @@ fn create_pipeline_task(
 #[derive(Error, Debug)]
 pub enum PipelineCacheError {
     #[error(
-        "Pipeline could not be compiled because the following shader is not loaded yet: {0:?}"
+        "Pipeline could not be compiled because the following shader could not be loaded: {0:?}"
     )]
     ShaderNotLoaded(AssetId<Shader>),
     #[error(transparent)]

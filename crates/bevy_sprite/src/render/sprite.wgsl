@@ -37,7 +37,7 @@ fn vertex(in: VertexInput) -> VertexOutput {
         0.0
     );
 
-    out.clip_position = view.view_proj * affine3_to_square(mat3x4<f32>(
+    out.clip_position = view.clip_from_world * affine3_to_square(mat3x4<f32>(
         in.i_model_transpose_col0,
         in.i_model_transpose_col1,
         in.i_model_transpose_col2,
