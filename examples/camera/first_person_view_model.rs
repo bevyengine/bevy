@@ -64,15 +64,11 @@ fn main() {
         .run();
 }
 
-// Components.
-
 #[derive(Debug, Component)]
 struct Player;
 
 #[derive(Debug, Component)]
 struct WorldModelCamera;
-
-// Setup systems.
 
 fn spawn_view_model(
     mut commands: Commands,
@@ -212,8 +208,6 @@ fn spawn_text(mut commands: Commands) {
             ));
         });
 }
-
-// Functional systems.
 
 fn move_player(
     mut mouse_motion: EventReader<MouseMotion>,
