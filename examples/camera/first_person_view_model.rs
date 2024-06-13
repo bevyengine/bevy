@@ -163,7 +163,6 @@ fn spawn_world_model(
         ..default()
     });
 
-
     commands.spawn(MaterialMeshBundle {
         mesh: cube,
         material,
