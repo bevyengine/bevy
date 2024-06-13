@@ -133,6 +133,7 @@ fn spawn_view_model(
                 },
                 // Ensure the arm is only rendered by the view model camera.
                 RenderLayers::layer(1),
+                // The arms is free-floating, so shadows would look weird.
                 NotShadowCaster,
             ));
         });
