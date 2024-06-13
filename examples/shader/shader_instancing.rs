@@ -26,6 +26,9 @@ use bevy::{
 };
 use bytemuck::{Pod, Zeroable};
 
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/instancing.wgsl";
+
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, CustomMaterialPlugin))
@@ -190,7 +193,7 @@ impl FromWorld for CustomPipeline {
         let mesh_pipeline = world.resource::<MeshPipeline>();
 
         CustomPipeline {
-            shader: world.load_asset("shaders/instancing.wgsl"),
+            shader: world.load_asset(SHADER_ASSET_PATH),
             mesh_pipeline: mesh_pipeline.clone(),
         }
     }

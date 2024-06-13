@@ -17,7 +17,7 @@ pub use iterators::{EventIterator, EventIteratorWithId, EventParIter};
 pub use mut_iterators::{EventMutatorIterator, EventMutatorIteratorWithId, EventMutatorParIter};
 pub use mutator::{EventMutator, ManualEventMutator};
 pub use reader::{EventReader, ManualEventReader};
-pub use registry::EventRegistry;
+pub use registry::{EventRegistry, ShouldUpdateEvents};
 pub use update::{
     event_update_condition, event_update_system, signal_event_update_system, EventUpdates,
 };
