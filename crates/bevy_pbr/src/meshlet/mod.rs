@@ -109,6 +109,10 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 ///
 /// This plugin does not work on WASM.
 ///
+/// Mixing forward+prepass and deferred rendering for opaque materials is not currently supported when using this plugin.
+/// You must use one or the other by setting [`crate::DefaultOpaqueRendererMethod`].
+/// Do not override [`crate::Material::opaque_render_method`] for any material when using this plugin.
+///
 /// ![A render of the Stanford dragon as a `MeshletMesh`](https://raw.githubusercontent.com/bevyengine/bevy/main/crates/bevy_pbr/src/meshlet/meshlet_preview.png)
 pub struct MeshletPlugin;
 
