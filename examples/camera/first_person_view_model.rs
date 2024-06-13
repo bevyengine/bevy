@@ -70,6 +70,10 @@ struct Player;
 #[derive(Debug, Component)]
 struct WorldModelCamera;
 
+/// Used implicitly by all entities without a `RenderLayers` component.
+const DEFAULT_RENDER_LAYER: usize = 0;
+/// Used by the view model camera and the player's arm.
+/// The light source illuminates both this layer and the default layer.
 const VIEW_MODEL_RENDER_LAYER: usize = 1;
 
 fn spawn_view_model(
@@ -181,7 +185,7 @@ fn spawn_lights(mut commands: Commands) {
             ..default()
         },
         // The light source illuminates both the world model and the view model.
-        RenderLayers::from_layers(&[0, VIEW_MODEL_RENDER_LAYER]),
+        RenderLayers::from_layers(&[DEFAULT_RENDER_LAYER, VIEW_MODEL_RENDER_LAYER]),
     ));
 }
 
