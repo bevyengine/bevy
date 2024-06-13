@@ -145,6 +145,7 @@ pub struct EventParIter<'a, E: Event> {
     reader: &'a mut ManualEventReader<E>,
     slices: [&'a [EventInstance<E>]; 2],
     batching_strategy: BatchingStrategy,
+    unread: usize,
 }
 
 impl<'a, E: Event> EventParIter<'a, E> {
@@ -168,6 +169,7 @@ impl<'a, E: Event> EventParIter<'a, E> {
             reader,
             slices: [a, b],
             batching_strategy: BatchingStrategy::default(),
+            unread: unread_count,
         }
     }
 
@@ -203,7 +205,7 @@ impl<'a, E: Event> EventParIter<'a, E> {
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
-    pub fn for_each_with_id<FN: Fn(&'a E, EventId<E>) + Send + Sync + Clone>(self, func: FN) {
+    pub fn for_each_with_id<FN: Fn(&'a E, EventId<E>) + Send + Sync + Clone>(mut self, func: FN) {
         #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
         {
             self.into_iter().for_each(|(e, i)| func(e, i));
@@ -233,6 +235,10 @@ impl<'a, E: Event> EventParIter<'a, E> {
                     });
                 }
             });
+
+            // If we get to hear we're gaurenteed to have seen all events
+            self.reader.last_event_count += self.unread;
+            self.unread = 0;
         }
     }
 
