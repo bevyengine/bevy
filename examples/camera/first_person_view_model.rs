@@ -5,7 +5,7 @@ use bevy::render::view::RenderLayers;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(Startup, (spawn_view_model, spawn_world_model))
+        .add_systems(Startup, (spawn_view_model, spawn_world_model, spawn_text))
         .add_systems(Update, (move_player, change_fov))
         .run();
 }
@@ -14,6 +14,8 @@ fn main() {
 struct Player;
 #[derive(Debug, Component)]
 struct WorldModelCamera;
+
+// Setup systems
 
 fn spawn_view_model(
     mut commands: Commands,
@@ -43,7 +45,7 @@ fn spawn_view_model(
                     .into(),
                     ..default()
                 },
-                WorldModelCamera
+                WorldModelCamera,
             ));
             parent.spawn((
                 Name::new("View Model Camera"),
@@ -114,6 +116,34 @@ fn spawn_world_model(
     ));
 }
 
+fn spawn_text(mut commands: Commands) {
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                bottom: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            },
+            ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                concat!(
+                    "Move the camera with your mouse.\n",
+                    "Press arrow up to decrease the FOV of the world model.\n",
+                    "Press arrow down to increase the FOV of the world model."
+                ),
+                TextStyle {
+                    font_size: 25.0,
+                    ..default()
+                },
+            ));
+        });
+}
+
+// Functional systems
+
 fn move_player(
     mut mouse_motion: EventReader<MouseMotion>,
     mut player: Query<&mut Transform, With<Player>>,
@@ -129,15 +159,10 @@ fn move_player(
 
 fn change_fov(
     input: Res<ButtonInput<KeyCode>>,
-    mut world_model_projection: Query<
-        &mut Projection,
-        With<WorldModelCamera>,
-    >,
+    mut world_model_projection: Query<&mut Projection, With<WorldModelCamera>>,
 ) {
     let mut projection = world_model_projection.single_mut();
-    let Projection::Perspective(ref mut projection) =
-        projection.as_mut()
-    else {
+    let Projection::Perspective(ref mut projection) = projection.as_mut() else {
         unreachable!();
     };
 
