@@ -156,9 +156,17 @@ fn spawn_world_model(
     });
 
     commands.spawn(MaterialMeshBundle {
+        mesh: cube.clone(),
+        material: material.clone(),
+        transform: Transform::from_xyz(0.0, 0.25, -3.0),
+        ..default()
+    });
+
+
+    commands.spawn(MaterialMeshBundle {
         mesh: cube,
         material,
-        transform: Transform::from_xyz(0.0, 0.25, -3.0),
+        transform: Transform::from_xyz(0.75, 1.75, 0.0),
         ..default()
     });
 }
@@ -171,7 +179,7 @@ fn spawn_lights(mut commands: Commands) {
                 shadows_enabled: true,
                 ..default()
             },
-            transform: Transform::from_xyz(-3.0, 3.0, -0.75),
+            transform: Transform::from_xyz(-2.0, 4.0, -0.75),
             ..default()
         },
         // The light source illuminates both the view model and the world model.
