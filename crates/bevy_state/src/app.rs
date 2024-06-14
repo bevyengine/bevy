@@ -4,6 +4,7 @@ use bevy_ecs::{
     schedule::{IntoSystemConfigs, ScheduleLabel},
     world::FromWorld,
 };
+use bevy_utils::tracing::warn;
 
 use crate::state::{
     setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
@@ -70,6 +71,9 @@ impl AppExtStates for SubApp {
                 exited: None,
                 entered: Some(state),
             });
+        } else {
+            let name = std::any::type_name::<S>();
+            warn!("State {} is already initialized.", name);
         }
 
         self
@@ -83,6 +87,16 @@ impl AppExtStates for SubApp {
                 .add_event::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
             S::register_state(schedule);
+            self.world_mut().send_event(StateTransitionEvent {
+                exited: None,
+                entered: Some(state),
+            });
+        } else {
+            // Overwrite previous state and setup event
+            self.insert_resource::<State<S>>(State::new(state.clone()));
+            self.world_mut()
+                .resource_mut::<Events<StateTransitionEvent<S>>>()
+                .clear();
             self.world_mut().send_event(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
@@ -109,6 +123,9 @@ impl AppExtStates for SubApp {
                 exited: None,
                 entered: state,
             });
+        } else {
+            let name = std::any::type_name::<S>();
+            warn!("Computed state {} is already initialized.", name);
         }
 
         self
@@ -132,6 +149,9 @@ impl AppExtStates for SubApp {
                 exited: None,
                 entered: state,
             });
+        } else {
+            let name = std::any::type_name::<S>();
+            warn!("Sub state {} is already initialized.", name);
         }
 
         self
