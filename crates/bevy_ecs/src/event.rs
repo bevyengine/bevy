@@ -1010,8 +1010,23 @@ struct RegisteredEvent {
 /// to update all of the events.
 #[derive(Resource, Default)]
 pub struct EventRegistry {
-    needs_update: bool,
+    /// Should the events be updated?
+    ///
+    /// This field is generally automatically updated by the [`signal_event_update_system`](crate::event::update::signal_event_update_system).
+    pub should_update: ShouldUpdateEvents,
     event_updates: Vec<RegisteredEvent>,
+}
+
+/// Controls whether or not the events in an [`EventRegistry`] should be updated.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShouldUpdateEvents {
+    /// Without any fixed timestep, events should always be updated each frame.
+    #[default]
+    Always,
+    /// We need to wait until at least one pass of the fixed update schedules to update the events.
+    Waiting,
+    /// At least one pass of the fixed update schedules has occurred, and the events are ready to be updated.
+    Ready,
 }
 
 impl EventRegistry {
@@ -1058,9 +1073,12 @@ impl EventRegistry {
 pub struct EventUpdates;
 
 /// Signals the [`event_update_system`] to run after `FixedUpdate` systems.
+///
+/// This will change the behavior of the [`EventRegistry`] to only run after a fixed update cycle has passed.
+/// Normally, this will simply run every frame.
 pub fn signal_event_update_system(signal: Option<ResMut<EventRegistry>>) {
     if let Some(mut registry) = signal {
-        registry.needs_update = true;
+        registry.should_update = ShouldUpdateEvents::Ready;
     }
 }
 
@@ -1069,18 +1087,34 @@ pub fn event_update_system(world: &mut World, mut last_change_tick: Local<Tick>)
     if world.contains_resource::<EventRegistry>() {
         world.resource_scope(|world, mut registry: Mut<EventRegistry>| {
             registry.run_updates(world, *last_change_tick);
-            // Disable the system until signal_event_update_system runs again.
-            registry.needs_update = false;
+
+            registry.should_update = match registry.should_update {
+                // If we're always updating, keep doing so.
+                ShouldUpdateEvents::Always => ShouldUpdateEvents::Always,
+                // Disable the system until signal_event_update_system runs again.
+                ShouldUpdateEvents::Waiting | ShouldUpdateEvents::Ready => {
+                    ShouldUpdateEvents::Waiting
+                }
+            };
         });
     }
     *last_change_tick = world.change_tick();
 }
 
 /// A run condition for [`event_update_system`].
-pub fn event_update_condition(signal: Option<Res<EventRegistry>>) -> bool {
-    // If we haven't got a signal to update the events, but we *could* get such a signal
-    // return early and update the events later.
-    signal.map_or(false, |signal| signal.needs_update)
+///
+/// If [`signal_event_update_system`] has been run at least once,
+/// we will wait for it to be run again before updating the events.
+///
+/// Otherwise, we will always update the events.
+pub fn event_update_condition(maybe_signal: Option<Res<EventRegistry>>) -> bool {
+    match maybe_signal {
+        Some(signal) => match signal.should_update {
+            ShouldUpdateEvents::Always | ShouldUpdateEvents::Ready => true,
+            ShouldUpdateEvents::Waiting => false,
+        },
+        None => true,
+    }
 }
 
 /// [`Iterator`] over sent [`EventIds`](`EventId`) from a batch.
@@ -1540,5 +1574,37 @@ mod tests {
             assert_eq!(observed, HashSet::from_iter(0..100));
         });
         schedule.run(&mut world);
+    }
+
+    #[test]
+    fn iter_current_update_events_iterates_over_current_events() {
+        #[derive(Event, Clone)]
+        struct TestEvent;
+
+        let mut test_events = Events::<TestEvent>::default();
+
+        // Starting empty
+        assert_eq!(test_events.len(), 0);
+        assert_eq!(test_events.iter_current_update_events().count(), 0);
+        test_events.update();
+
+        // Sending one event
+        test_events.send(TestEvent);
+
+        assert_eq!(test_events.len(), 1);
+        assert_eq!(test_events.iter_current_update_events().count(), 1);
+        test_events.update();
+
+        // Sending two events on the next frame
+        test_events.send(TestEvent);
+        test_events.send(TestEvent);
+
+        assert_eq!(test_events.len(), 3); // Events are double-buffered, so we see 1 + 2 = 3
+        assert_eq!(test_events.iter_current_update_events().count(), 2);
+        test_events.update();
+
+        // Sending zero events
+        assert_eq!(test_events.len(), 2); // Events are double-buffered, so we see 2 + 0 = 2
+        assert_eq!(test_events.iter_current_update_events().count(), 0);
     }
 }
