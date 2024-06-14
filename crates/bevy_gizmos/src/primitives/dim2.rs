@@ -852,7 +852,13 @@ where
         }
 
         let points = (0..=primitive.sides)
-            .map(|p| single_circle_coordinate(primitive.circumcircle.radius, primitive.sides, p))
+            .map(|p| {
+                single_circle_coordinate(
+                    primitive.circumcircle.radius,
+                    primitive.sides as usize,
+                    p as usize,
+                )
+            })
             .map(rotate_then_translate_2d(angle, position));
         self.linestrip_2d(points, color);
     }

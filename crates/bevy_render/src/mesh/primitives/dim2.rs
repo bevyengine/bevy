@@ -56,8 +56,9 @@ impl CircleMeshBuilder {
 
 impl MeshBuilder for CircleMeshBuilder {
     fn build(&self) -> Mesh {
-        RegularPolygon::new(self.circle.radius, self.resolution)
+        Ellipse::new(self.circle.radius, self.circle.radius)
             .mesh()
+            .resolution(self.resolution)
             .build()
     }
 }
@@ -401,7 +402,7 @@ impl From<CircularSegment> for Mesh {
 /// A builder used for creating a [`Mesh`] with a [`RegularPolygon`] shape.
 pub struct RegularPolygonMeshBuilder {
     circumradius: f32,
-    sides: usize,
+    sides: u32,
 }
 impl Meshable for RegularPolygon {
     type Output = RegularPolygonMeshBuilder;
@@ -419,7 +420,7 @@ impl MeshBuilder for RegularPolygonMeshBuilder {
         // The ellipse mesh is just a regular polygon with two radii
         Ellipse::new(self.circumradius, self.circumradius)
             .mesh()
-            .resolution(self.sides)
+            .resolution(self.sides as usize)
             .build()
     }
 }
