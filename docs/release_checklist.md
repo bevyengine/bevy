@@ -85,3 +85,5 @@
     1. Discord: Bevy, #dev-announcements
 
 ### RC Post-Release
+
+1. Update Bevy version used for Bevy book code validation to latest release.
