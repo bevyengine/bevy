@@ -92,7 +92,7 @@ impl AppExtStates for SubApp {
                 entered: Some(state),
             });
         } else {
-            // Overwrite previous state and setup event
+            // Overwrite previous state and initial event
             self.insert_resource::<State<S>>(State::new(state.clone()));
             self.world_mut()
                 .resource_mut::<Events<StateTransitionEvent<S>>>()
