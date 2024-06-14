@@ -64,6 +64,7 @@ impl GlyphBrush {
         textures: &mut Assets<Image>,
         text_settings: &TextSettings,
         y_axis_orientation: YAxisOrientation,
+        h_anchor: f32,
     ) -> Result<Vec<PositionedGlyph>, TextError> {
         if glyphs.is_empty() {
             return Ok(Vec::new());
@@ -124,7 +125,7 @@ impl GlyphBrush {
                 let glyph_rect = texture_atlas.textures[atlas_info.glyph_index];
                 let size = glyph_rect.size().as_vec2();
 
-                let x = bounds.min.x + size.x / 2.0 - text_bounds.min.x;
+                let x = bounds.min.x + size.x / 2.0 + h_anchor;
 
                 let y = match y_axis_orientation {
                     YAxisOrientation::BottomToTop => {
