@@ -16,23 +16,8 @@ use crate::AssetServer;
 /// literal, or something else depending on the use-case.
 ///
 /// For accessing an `AssetPack`, see `AssetPackPlugin`, `Pack` and `GetPack`
-///
-/// ```no_run
-/// use bevy_asset::{Handle, io::pack::AssetPack};
-/// # type Image = (); //dunno how to avoid dependency issues and still have a good example
-///
-/// #[derive(AssetPack)]
-/// struct MyAssets {
-///     // loads "sprite_1.png" from the current directory into the application binary, and loads
-///     // sprite_1 from there
-///     #[embedded("sprite_1.png")]
-///     pub sprite_1: Handle<Image>,
-///
-///     // loads "sprite_2.png" from the default asset source (most likely the `assets` directory)
-///     #[load("sprite_2.png")] //
-///     pub sprite_2: Handle<Image>,
-/// }
-/// ```
+/// For a usage example, see examples/asset_pack
+
 pub trait AssetPack: Send + Sync + 'static {
     fn init(app: &mut App);
     fn load(asset_server: &AssetServer) -> Self;
