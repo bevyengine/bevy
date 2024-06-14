@@ -183,7 +183,7 @@ impl RawCommandQueue {
                         // The command may have queued up world commands, which we flush here to ensure they are also picked up.
                         // If the current command queue already the World Command queue, this will still behave appropriately because the global cursor
                         // is still at the current `stop`, ensuring only the newly queued Commands will be applied.
-                        world.flush_commands();
+                        world.flush();
                     }
                     // ...or discard it.
                     None => drop(command),
