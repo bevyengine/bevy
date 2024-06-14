@@ -923,7 +923,7 @@ mod tests {
         change_detection::{DetectChanges, ResMut},
         component::Component,
         entity::Entity,
-        event::EventWriter,
+        event::{Event, EventWriter, Events},
         query::With,
         removal_detection::RemovedComponents,
         schedule::{IntoSystemConfigs, ScheduleLabel},
@@ -1287,5 +1287,41 @@ mod tests {
         }
 
         App::new().add_plugins(Foo);
+
+    #[test]
+    fn events_should_be_updated_once_per_update() {
+        #[derive(Event, Clone)]
+        struct TestEvent;
+
+        let mut app = App::new();
+        app.add_event::<TestEvent>();
+
+        // Starts empty
+        let test_events = app.world().resource::<Events<TestEvent>>();
+        assert_eq!(test_events.len(), 0);
+        assert_eq!(test_events.iter_current_update_events().count(), 0);
+        app.update();
+
+        // Sending one event
+        app.world_mut().send_event(TestEvent);
+
+        let test_events = app.world().resource::<Events<TestEvent>>();
+        assert_eq!(test_events.len(), 1);
+        assert_eq!(test_events.iter_current_update_events().count(), 1);
+        app.update();
+
+        // Sending two events on the next frame
+        app.world_mut().send_event(TestEvent);
+        app.world_mut().send_event(TestEvent);
+
+        let test_events = app.world().resource::<Events<TestEvent>>();
+        assert_eq!(test_events.len(), 3); // Events are double-buffered, so we see 1 + 2 = 3
+        assert_eq!(test_events.iter_current_update_events().count(), 2);
+        app.update();
+
+        // Sending zero events
+        let test_events = app.world().resource::<Events<TestEvent>>();
+        assert_eq!(test_events.len(), 2); // Events are double-buffered, so we see 2 + 0 = 2
+        assert_eq!(test_events.iter_current_update_events().count(), 0);
     }
 }

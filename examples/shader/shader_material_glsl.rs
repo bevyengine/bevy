@@ -12,6 +12,10 @@ use bevy::{
     },
 };
 
+/// This example uses shader source files from the assets subdirectory
+const VERTEX_SHADER_ASSET_PATH: &str = "shaders/custom_material.vert";
+const FRAGMENT_SHADER_ASSET_PATH: &str = "shaders/custom_material.frag";
+
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, MaterialPlugin::<CustomMaterial>::default()))
@@ -61,11 +65,11 @@ struct CustomMaterial {
 /// When using the GLSL shading language for your shader, the specialize method must be overridden.
 impl Material for CustomMaterial {
     fn vertex_shader() -> ShaderRef {
-        "shaders/custom_material.vert".into()
+        VERTEX_SHADER_ASSET_PATH.into()
     }
 
     fn fragment_shader() -> ShaderRef {
-        "shaders/custom_material.frag".into()
+        FRAGMENT_SHADER_ASSET_PATH.into()
     }
 
     fn alpha_mode(&self) -> AlphaMode {

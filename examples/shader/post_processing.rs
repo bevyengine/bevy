@@ -15,7 +15,8 @@ use bevy::{
     prelude::*,
     render::{
         extract_component::{
-            ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
+            ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
+            UniformComponentPlugin,
         },
         render_graph::{
             NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel, ViewNode, ViewNodeRunner,
@@ -30,6 +31,9 @@ use bevy::{
         RenderApp,
     },
 };
+
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/post_processing.wgsl";
 
 fn main() {
     App::new()
@@ -124,6 +128,9 @@ impl ViewNode for PostProcessNode {
         &'static ViewTarget,
         // This makes sure the node only runs on cameras with the PostProcessSettings component
         &'static PostProcessSettings,
+        // As there could be multiple post processing components sent to the GPU (one per camera),
+        // we need to get the index of the one that is associated with the current view.
+        &'static DynamicUniformIndex<PostProcessSettings>,
     );
 
     // Runs the node logic
@@ -137,7 +144,7 @@ impl ViewNode for PostProcessNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (view_target, _post_process_settings): QueryItem<Self::ViewQuery>,
+        (view_target, _post_process_settings, settings_index): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         // Get the pipeline resource that contains the global data we need
@@ -209,7 +216,10 @@ impl ViewNode for PostProcessNode {
         // This is mostly just wgpu boilerplate for drawing a fullscreen triangle,
         // using the pipeline/bind_group created above
         render_pass.set_render_pipeline(pipeline);
-        render_pass.set_bind_group(0, &bind_group, &[]);
+        // By passing in the index of the post process settings on this view, we ensure
+        // that in the event that multiple settings were sent to the GPU (as would be the
+        // case with multiple cameras), we use the correct one.
+        render_pass.set_bind_group(0, &bind_group, &[settings_index.index()]);
         render_pass.draw(0..3, 0..1);
 
         Ok(())
@@ -240,7 +250,7 @@ impl FromWorld for PostProcessPipeline {
                     // The sampler that will be used to sample the screen texture
                     sampler(SamplerBindingType::Filtering),
                     // The settings uniform that will control the effect
-                    uniform_buffer::<PostProcessSettings>(false),
+                    uniform_buffer::<PostProcessSettings>(true),
                 ),
             ),
         );
@@ -249,7 +259,7 @@ impl FromWorld for PostProcessPipeline {
         let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
         // Get the shader handle
-        let shader = world.load_asset("shaders/post_processing.wgsl");
+        let shader = world.load_asset(SHADER_ASSET_PATH);
 
         let pipeline_id = world
             .resource_mut::<PipelineCache>()
