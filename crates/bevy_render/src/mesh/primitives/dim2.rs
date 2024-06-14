@@ -428,7 +428,7 @@ impl MeshBuilder for RegularPolygonMeshBuilder {
 impl Extrudable for RegularPolygonMeshBuilder {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
         vec![PerimeterSegment::Flat {
-            indices: (0..self.sides as u32).chain([0]).collect(),
+            indices: (0..self.sides).chain([0]).collect(),
         }]
     }
 }
