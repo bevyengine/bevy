@@ -236,7 +236,7 @@ impl<'a, E: Event> EventParIter<'a, E> {
                 }
             });
 
-            // If we get to hear we're guaranteed to have seen all events
+            // Events are guaranteed to be read at this point.
             self.reader.last_event_count += self.unread;
             self.unread = 0;
         }
