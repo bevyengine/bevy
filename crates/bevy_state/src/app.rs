@@ -212,3 +212,62 @@ impl Plugin for StatesPlugin {
         schedule.insert_after(PreUpdate, StateTransition);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        self as bevy_state,
+        state::{State, StateTransition, StateTransitionEvent},
+    };
+    use bevy_app::App;
+    use bevy_ecs::event::Events;
+    use bevy_state_macros::States;
+
+    use super::AppExtStates;
+
+    #[derive(States, Default, PartialEq, Eq, Hash, Debug, Clone)]
+    enum TestState {
+        #[default]
+        A,
+        B,
+        C,
+    }
+
+    #[test]
+    fn insert_state_can_overwrite_init_state() {
+        let mut app = App::new();
+
+        app.init_state::<TestState>();
+        app.insert_state(TestState::B);
+
+        let world = app.world_mut();
+        world.run_schedule(StateTransition);
+
+        assert_eq!(world.resource::<State<TestState>>().0, TestState::B);
+        let events = world.resource::<Events<StateTransitionEvent<TestState>>>();
+        assert_eq!(events.len(), 1);
+        let mut reader = events.get_reader();
+        let last = reader.read(events).last().unwrap();
+        assert_eq!(last.exited, None);
+        assert_eq!(last.entered, Some(TestState::B));
+    }
+
+    #[test]
+    fn insert_state_can_overwrite_insert_state() {
+        let mut app = App::new();
+
+        app.insert_state(TestState::B);
+        app.insert_state(TestState::C);
+
+        let world = app.world_mut();
+        world.run_schedule(StateTransition);
+
+        assert_eq!(world.resource::<State<TestState>>().0, TestState::C);
+        let events = world.resource::<Events<StateTransitionEvent<TestState>>>();
+        assert_eq!(events.len(), 1);
+        let mut reader = events.get_reader();
+        let last = reader.read(events).last().unwrap();
+        assert_eq!(last.exited, None);
+        assert_eq!(last.entered, Some(TestState::C));
+    }
+}
