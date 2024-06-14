@@ -1287,7 +1287,7 @@ mod tests {
         }
 
         App::new().add_plugins(Foo);
-
+    }
     #[test]
     fn events_should_be_updated_once_per_update() {
         #[derive(Event, Clone)]
