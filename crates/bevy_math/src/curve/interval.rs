@@ -84,10 +84,22 @@ impl Interval {
         self.end - self.start
     }
 
-    /// Returns `true` if this interval is finite.
+    /// Returns `true` if both endpoints of this interval are finite.
     #[inline]
     pub fn is_finite(self) -> bool {
         self.length().is_finite()
+    }
+
+    /// Returns `true` if this interval has a finite left endpoint.
+    #[inline]
+    pub fn is_left_finite(self) -> bool {
+        self.start.is_finite()
+    }
+
+    /// Returns `true` if this interval has a finite right endpoint.
+    #[inline]
+    pub fn is_right_finite(self) -> bool {
+        self.end.is_finite()
     }
 
     /// Returns `true` if `item` is contained in this interval.

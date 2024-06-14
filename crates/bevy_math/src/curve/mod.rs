@@ -308,7 +308,7 @@ pub trait Curve<T> {
         }
     }
 
-    /// Create a new [`Curve`] by joining this curve together with another. The sample at time `t`
+    /// Create a new [`Curve`] by zipping this curve together with another. The sample at time `t`
     /// in the new curve is `(x, y)`, where `x` is the sample of `self` at time `t` and `y` is the
     /// sample of `other` at time `t`. The domain of the new curve is the intersection of the
     /// domains of its constituents. If the domain intersection would be empty, an
@@ -321,6 +321,28 @@ pub trait Curve<T> {
         let domain = self.domain().intersect(other.domain())?;
         Ok(ProductCurve {
             domain,
+            first: self,
+            second: other,
+            _phantom: PhantomData,
+        })
+    }
+
+    /// Create a new [`Curve`] by composing this curve end-to-end with another, producing another curve
+    /// with outputs of the same type. The domain of the other curve is translated so that its start
+    /// coincides with where this curve ends. A [`CompositionError`] is returned if this curve's domain
+    /// doesn't have a finite right endpoint or if `other`'s domain doesn't have a finite left endpoint.
+    fn compose<C>(self, other: C) -> Result<impl Curve<T>, CompositionError>
+    where
+        Self: Sized,
+        C: Curve<T>,
+    {
+        if !self.domain().is_right_finite() {
+            return Err(CompositionError::RightInfiniteFirst);
+        }
+        if !other.domain().is_left_finite() {
+            return Err(CompositionError::LeftInfiniteSecond);
+        }
+        Ok(ComposeCurve {
             first: self,
             second: other,
             _phantom: PhantomData,
@@ -375,6 +397,20 @@ pub enum ResamplingError {
     /// This resampling operation failed because of an unbounded interval.
     #[error("Could not resample because this curve has unbounded domain")]
     InfiniteInterval(InfiniteIntervalError),
+}
+
+/// An error indicating that an end-to-end composition couldn't be performed because of
+/// malformed inputs.
+#[derive(Debug, Error)]
+#[error("Could not compose these curves together")]
+pub enum CompositionError {
+    /// The right endpoint of the first curve was infinite.
+    #[error("The first curve has an infinite right endpoint")]
+    RightInfiniteFirst,
+
+    /// The left endpoint of the second curve was infinite.
+    #[error("The second curve has an infinite left endpoint")]
+    LeftInfiniteSecond,
 }
 
 /// A [`Curve`] which takes a constant value over its domain.
@@ -861,6 +897,50 @@ where
     #[inline]
     fn sample(&self, t: f32) -> (S, T) {
         (self.first.sample(t), self.second.sample(t))
+    }
+}
+
+/// The [`Curve`] that results from composing one curve with another. The second curve is
+/// effectively reparametrized so that its start is at the end of the first.
+///
+/// For this to be well-formed, the first curve's domain must be right-finite and the second's
+/// must be left-finite.
+pub struct ComposeCurve<T, C, D>
+where
+    C: Curve<T>,
+    D: Curve<T>,
+{
+    first: C,
+    second: D,
+    _phantom: PhantomData<T>,
+}
+
+impl<T, C, D> Curve<T> for ComposeCurve<T, C, D>
+where
+    C: Curve<T>,
+    D: Curve<T>,
+{
+    #[inline]
+    fn domain(&self) -> Interval {
+        // This unwrap always succeeds because `first` has a valid Interval as its domain and the
+        // length of `second` cannot be NAN. It's still fine if it's infinity.
+        Interval::new(
+            self.first.domain().start(),
+            self.first.domain().end() + self.second.domain().length(),
+        )
+        .unwrap()
+    }
+
+    #[inline]
+    fn sample(&self, t: f32) -> T {
+        if t > self.first.domain().end() {
+            self.second.sample(
+                // `t - first.domain.end` computes the offset into the domain of the second.
+                t - self.first.domain().end() + self.second.domain().start(),
+            )
+        } else {
+            self.first.sample(t)
+        }
     }
 }
 
