@@ -76,13 +76,6 @@ impl TextPipeline {
             as f64
             * scale_factor;
 
-        // TODO: maybe we would like to render negative fontsizes or scaling upside down or something? for now, no text is rendered
-        if font_size <= 0.0 {
-            // return empty buffer, making sure that the line height is not zero,
-            // since that results in a panic in cosmic-text
-            let metrics = Metrics::new(0.0, 0.000001);
-            return Ok(Buffer::new_empty(metrics));
-        };
         // TODO: Support line height as an option. Unitless `1.2` is the default used in browsers (1.2x font size).
         let line_height = font_size * 1.2;
         let (font_size, line_height) = (font_size as f32, line_height as f32);
@@ -99,6 +92,7 @@ impl TextPipeline {
 
         let spans: Vec<(&str, Attrs)> = sections
             .iter()
+            .filter(|section| section.style.font_size > 0.0)
             .enumerate()
             .map(|(section_index, section)| {
                 (
@@ -114,10 +108,16 @@ impl TextPipeline {
             })
             .collect();
 
+        if spans.is_empty() {
+            // return empty buffer if no fonts are larger than 0, making sure that the line height is not zero,
+            // since that results in a panic in cosmic-text
+            let metrics = Metrics::new(0.0, 0.000001);
+            return Ok(Buffer::new_empty(metrics));
+        }
+
         // TODO: cache buffers (see Iced / glyphon)
         let mut buffer = Buffer::new_empty(metrics);
-        let buffer_height = f32::INFINITY;
-        buffer.set_size(font_system, Some(bounds.x.ceil()), Some(buffer_height));
+        buffer.set_size(font_system, Some(bounds.x.ceil()), None);
 
         buffer.set_wrap(
             font_system,
@@ -254,12 +254,9 @@ impl TextPipeline {
         fonts: &Assets<Font>,
         sections: &[TextSection],
         scale_factor: f64,
-        // TODO: not currently required
-        _text_alignment: JustifyText,
         linebreak_behavior: BreakLineOn,
     ) -> Result<TextMeasureInfo, TextError> {
         const MIN_WIDTH_CONTENT_BOUNDS: Vec2 = Vec2::new(0.0, f32::INFINITY);
-        const MAX_WIDTH_CONTENT_BOUNDS: Vec2 = Vec2::new(f32::INFINITY, f32::INFINITY);
 
         let mut buffer = self.create_buffer(
             fonts,
@@ -273,13 +270,7 @@ impl TextPipeline {
 
         let max_width_content_size = {
             let font_system = &mut acquire_font_system(&mut self.font_system)?;
-
-            buffer.set_size(
-                font_system,
-                Some(MAX_WIDTH_CONTENT_BOUNDS.x),
-                Some(MAX_WIDTH_CONTENT_BOUNDS.y),
-            );
-
+            buffer.set_size(font_system, None, None);
             buffer_dimensions(&buffer)
         };
 
@@ -298,7 +289,9 @@ impl TextPipeline {
 #[derive(Component, Clone, Default, Debug, Reflect)]
 #[reflect(Component, Default)]
 pub struct TextLayoutInfo {
+    /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
+    /// The glyphs resulting size
     pub size: Vec2,
 }
 
@@ -381,59 +374,16 @@ fn get_attrs<'a>(
 
 /// Calculate the size of the text area for the given buffer.
 fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
-    // TODO: see https://github.com/pop-os/cosmic-text/issues/70 Let a Buffer figure out its height during set_size
     // TODO: see https://github.com/pop-os/cosmic-text/issues/42 Request: Allow buffer dimensions to be undefined
     let width = buffer
         .layout_runs()
         .map(|run| run.line_w)
         .reduce(|max_w, w| max_w.max(w))
         .unwrap_or_else(|| 0.0);
-    // TODO: support multiple line heights / font sizes (once supported by cosmic text), see https://github.com/pop-os/cosmic-text/issues/64
     let line_height = buffer.metrics().line_height.ceil();
     let height = buffer.layout_runs().count() as f32 * line_height;
 
-    // `width.ceil() + 0.001` gets around a rare text layout bug in the tonemapping example.
-    // See https://github.com/pop-os/cosmic-text/issues/134
-    Vec2::new(width.ceil() + 0.001, height).ceil()
-}
-
-/// An iterator over the paragraphs in the input text.
-/// It is equivalent to [`core::str::Lines`] but follows [`unicode_bidi`] behavior.
-// TODO: upstream to cosmic_text, see https://github.com/pop-os/cosmic-text/pull/124
-// TODO: create separate iterator that keeps the ranges, or simply use memory address introspection (as_ptr())
-// TODO: this breaks for lines ending in newlines, e.g. "foo\n" should split into ["foo", ""] but we actually get ["foo"]
-pub struct BidiParagraphs<'text> {
-    text: &'text str,
-    info: std::vec::IntoIter<unicode_bidi::ParagraphInfo>,
-}
-
-impl<'text> BidiParagraphs<'text> {
-    /// Create an iterator to split the input text into paragraphs
-    /// in accordance with [`unicode_bidi`] behavior.
-    pub fn new(text: &'text str) -> Self {
-        let info = unicode_bidi::BidiInfo::new(text, None);
-        let info = info.paragraphs.into_iter();
-        Self { text, info }
-    }
-}
-
-impl<'text> Iterator for BidiParagraphs<'text> {
-    type Item = &'text str;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let para = self.info.next()?;
-        let paragraph = &self.text[para.range];
-        // `para.range` includes the newline that splits the line, so remove it if present
-        let mut char_indices = paragraph.char_indices();
-        if let Some(i) = char_indices.next_back().and_then(|(i, c)| {
-            // `BidiClass::B` is a Paragraph_Separator (various newline characters)
-            (unicode_bidi::BidiClass::B == unicode_bidi::bidi_class(c)).then_some(i)
-        }) {
-            Some(&paragraph[0..i])
-        } else {
-            Some(paragraph)
-        }
-    }
+    Vec2::new(width.ceil(), height).ceil()
 }
 
 /// Helper method to acquire a font system mutex.

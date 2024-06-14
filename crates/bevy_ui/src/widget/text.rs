@@ -93,7 +93,6 @@ fn create_text_measure(
         fonts,
         &text.sections,
         scale_factor,
-        text.justify,
         text.linebreak_behavior,
     ) {
         Ok(measure) => {

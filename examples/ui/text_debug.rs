@@ -146,6 +146,14 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                 ),
                 TextSection::new(
+                    " this text has zero fontsize",
+                    TextStyle {
+                        font: font.clone(),
+                        font_size: 0.0,
+                        color: BLUE.into(),
+                    },
+                ),
+                TextSection::new(
                     "\nThis text changes in the bottom right - ",
                     TextStyle {
                         font: font.clone(),
@@ -176,6 +184,14 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TextStyle {
                         font: font.clone(),
                         font_size: 50.0,
+                        color: BLUE.into(),
+                    },
+                ),
+                TextSection::new(
+                    " this text has negative fontsize",
+                    TextStyle {
+                        font: font.clone(),
+                        font_size: -50.0,
                         color: BLUE.into(),
                     },
                 ),
@@ -216,8 +232,8 @@ fn change_text_system(
             "This text changes in the bottom right - {fps:.1} fps, {frame_time:.3} ms/frame",
         );
 
-        text.sections[2].value = format!("{fps:.1}");
+        text.sections[3].value = format!("{fps:.1}");
 
-        text.sections[4].value = format!("{frame_time:.3}");
+        text.sections[5].value = format!("{frame_time:.3}");
     }
 }

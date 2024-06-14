@@ -53,7 +53,7 @@ impl DynamicTextureAtlasBuilder {
             (texture.height() + self.padding).try_into().unwrap(),
         ));
         if let Some(allocation) = allocation {
-            let atlas_texture = textures.get_mut(atlas_texture_handle).unwrap();
+            let atlas_texture = textures.get_mut(atlas_texture_handle)?;
             assert!(
                 <GpuImage as RenderAsset>::asset_usage(atlas_texture)
                     .contains(RenderAssetUsages::MAIN_WORLD),
