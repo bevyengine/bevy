@@ -1,11 +1,10 @@
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
-use bevy_ecs::prelude::*;
 use bevy_ecs::{
     event::EventReader,
     system::{ResMut, Resource},
 };
 use bevy_math::{IVec2, UVec2};
-use bevy_reflect::{Reflect, TypePath};
+use bevy_reflect::TypePath;
 use bevy_render::{
     render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
