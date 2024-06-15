@@ -88,7 +88,178 @@ impl Component for ObserverState {
 /// but can be overridden for custom behaviour.
 pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut);
 
-/// An [`Observer`] system. Add this [`Component`] to an [`Entity`] to give it observer behaviors for the given system.
+/// An [`Observer`] system. Add this [`Component`] to an [`Entity`] to turn it into an "observer".
+///
+/// Observers listen for a "trigger" of a specific [`Event`]. Events are triggered by calling [`World::trigger`] or [`World::trigger_targets`].
+///
+/// Note that "buffered" events sent using [`EventReader`] and [`EventWriter`] are _not_ automatically triggered. They must be triggered at a specific
+/// point in the schedule.
+///
+/// # Usage
+///
+/// The simplest usage
+/// of the observer pattern looks like this:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let mut world = World::default();
+/// #[derive(Event)]
+/// struct Speak {
+///     message: String,
+/// }
+///
+/// world.observe(|trigger: Trigger<Speak>| {
+///     println!("{}", trigger.event().message);
+/// });
+///
+/// // Observers currently require a flush() to be registered. In the context of schedules,
+/// // this will generally be done for you.
+/// world.flush();
+///
+/// world.trigger(Speak {
+///     message: "Hello!".into(),
+/// });
+/// ```
+///
+/// Notice that we used [`World::observe`]. This is just a shorthand for spawning an [`Observer`] manually:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let mut world = World::default();
+/// # #[derive(Event)]
+/// # struct Speak;
+/// // These are functionally the same:
+/// world.observe(|trigger: Trigger<Speak>| {});
+/// world.spawn(Observer::new(|trigger: Trigger<Speak>| {}));
+/// ```
+///
+/// Observers are systems. They can access arbitrary [`World`] data by adding [`SystemParam`]s:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let mut world = World::default();
+/// # #[derive(Event)]
+/// # struct PrintNames;
+/// # #[derive(Component, Debug)]
+/// # struct Name;
+/// world.observe(|trigger: Trigger<PrintNames>, names: Query<&Name>| {
+///     for name in &names {
+///         println!("{name:?}");
+///     }
+/// });
+/// ```
+///
+/// Note that [`Trigger`] must always be the first parameter.
+///
+/// You can also add [`Commands`], which means you can spawn new entities, insert new components, etc:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let mut world = World::default();
+/// # #[derive(Event)]
+/// # struct SpawnThing;
+/// # #[derive(Component, Debug)]
+/// # struct Thing;
+/// world.observe(|trigger: Trigger<SpawnThing>, mut commands: Commands| {
+///     commands.spawn(Thing);
+/// });
+/// ```
+///
+/// Observers can also trigger new events:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let mut world = World::default();
+/// # #[derive(Event)]
+/// # struct A;
+/// # #[derive(Event)]
+/// # struct B;
+/// world.observe(|trigger: Trigger<A>, mut commands: Commands| {
+///     commands.trigger(B);
+/// });
+/// ```
+///
+/// When the commands are flushed (including these "nested triggers") they will be
+/// recursively evaluated until there are no commands left, meaning nested triggers all
+/// evaluate at the same time!
+///
+/// Events can be triggered for entities, which will be passed to the [`Observer`]:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let mut world = World::default();
+/// # let entity = world.spawn_empty().id();
+/// #[derive(Event)]
+/// struct Explode;
+///
+/// world.observe(|trigger: Trigger<Explode>, mut commands: Commands| {
+///     println!("Entity {:?} goes BOOM!", trigger.entity());
+///     commands.entity(trigger.entity()).despawn();
+/// });
+///
+/// world.flush();
+///
+/// world.trigger_targets(Explode, entity);
+/// ```
+///
+/// You can trigger multiple entities at once:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let mut world = World::default();
+/// # let e1 = world.spawn_empty().id();
+/// # let e2 = world.spawn_empty().id();
+/// # #[derive(Event)]
+/// # struct Explode;
+/// world.trigger_targets(Explode, [e1, e2]);
+/// ```
+///
+/// Observers can also watch _specific_ entities, which enables you to assign entity-specific logic:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component, Debug)]
+/// # struct Name(String);
+/// # let mut world = World::default();
+/// # let e1 = world.spawn_empty().id();
+/// # let e2 = world.spawn_empty().id();
+/// # #[derive(Event)]
+/// # struct Explode;
+/// world.entity_mut(e1).observe(|trigger: Trigger<Explode>, mut commands: Commands| {
+///     println!("Boom!");
+///     commands.entity(trigger.entity()).despawn();
+/// });
+///
+/// world.entity_mut(e2).observe(|trigger: Trigger<Explode>, mut commands: Commands| {
+///     println!("The explosion fizzles! This entity is immune!");
+/// });
+/// ```
+///
+/// If all entities watched by a given [`Observer`] are despawned, the [`Observer`] entity will also be despawned.
+/// This protects against observer "garbage" building up over time.
+///
+/// The examples above calling [`EntityWorldMut::observe`] to add entity-specific observer logic are (once again)
+/// just shorthand for spawning an [`Observer`] directly:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let mut world = World::default();
+/// # let entity = world.spawn_empty().id();
+/// # #[derive(Event)]
+/// # struct Explode;
+/// let mut observer = Observer::new(|trigger: Trigger<Explode>| {});
+/// observer.watch_entity(entity);
+/// world.spawn(observer);
+/// ```
+///
+/// Note that the [`Observer`] component is not added to the entity it is observing. Observers should always be their own entities!
+///
+/// You can call [`Observer::watch_entity`] more than once, which allows you to watch multiple entities with the same [`Observer`].
+///
+/// When first added, [`Observer`] will also create an [`ObserverState`] component, which registers the observer with the [`World`] and
+/// serves as the "source of truth" of the observer.
+///
+/// [`SystemParam`]: crate::system::SystemParam
 pub struct Observer<T: 'static, B: Bundle> {
     system: BoxedObserverSystem<T, B>,
     descriptor: ObserverDescriptor,
@@ -186,9 +357,12 @@ fn observer_system_runner<E: Event, B: Bundle>(
     ptr: PtrMut,
 ) {
     let world = world.as_unsafe_world_cell();
-    let observer_cell =
     // SAFETY: Observer was triggered so must still exist in world
-        unsafe { world.get_entity(observer_trigger.observer).debug_checked_unwrap() };
+    let observer_cell = unsafe {
+        world
+            .get_entity(observer_trigger.observer)
+            .debug_checked_unwrap()
+    };
     // SAFETY: Observer was triggered so must have an `ObserverState`
     let mut state = unsafe {
         observer_cell
@@ -204,9 +378,8 @@ fn observer_system_runner<E: Event, B: Bundle>(
     }
     state.last_trigger_id = last_trigger;
 
-    let trigger: Trigger<E, B> =
-        // SAFETY: Caller ensures `ptr` is castable to `&mut T`
-            Trigger::new(unsafe { ptr.deref_mut() }, observer_trigger);
+    // SAFETY: Caller ensures `ptr` is castable to `&mut T`
+    let trigger: Trigger<E, B> = Trigger::new(unsafe { ptr.deref_mut() }, observer_trigger);
     // SAFETY: the static lifetime is encapsulated in Trigger / cannot leak out.
     // Additionally, IntoObserverSystem is only implemented for functions starting
     // with for<'a> Trigger<'a>, meaning users cannot specify Trigger<'static> manually,
