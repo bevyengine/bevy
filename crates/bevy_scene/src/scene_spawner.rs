@@ -18,8 +18,8 @@ use uuid::Uuid;
 /// See also [`SceneSpawner::instance_is_ready`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Event)]
 pub struct SceneInstanceReady {
-    /// Entity to which the scene was spawned as a child.
-    pub parent: Entity,
+    /// Instance which has been spawned.
+    pub instance_id: InstanceId,
 }
 
 /// Information about a scene instance.
@@ -356,7 +356,10 @@ impl SceneSpawner {
                     }
                 }
 
-                world.send_event(SceneInstanceReady { parent });
+                // Defer via commands otherwise SceneSpawner is not available in the observer.
+                world
+                    .commands()
+                    .trigger_targets(SceneInstanceReady { instance_id }, parent);
             } else {
                 self.scenes_with_parent.push((instance_id, parent));
             }
@@ -439,7 +442,7 @@ pub fn scene_spawner_system(world: &mut World) {
 mod tests {
     use bevy_app::App;
     use bevy_asset::{AssetPlugin, AssetServer};
-    use bevy_ecs::event::EventReader;
+    use bevy_ecs::observer::Trigger;
     use bevy_ecs::prelude::ReflectComponent;
     use bevy_ecs::query::With;
     use bevy_ecs::system::{Commands, Res, ResMut, RunSystemOnce};
@@ -505,10 +508,14 @@ mod tests {
     #[reflect(Component)]
     struct ComponentA;
 
+    #[derive(Resource, Default)]
+    struct TriggerCount(u32);
+
     #[test]
     fn event() {
         let mut app = App::new();
         app.add_plugins((AssetPlugin::default(), ScenePlugin));
+        app.init_resource::<TriggerCount>();
 
         app.register_type::<ComponentA>();
         app.world_mut().spawn(ComponentA);
@@ -530,22 +537,33 @@ mod tests {
             },
         );
 
-        // Check for event arrival.
-        app.update();
-        app.world_mut().run_system_once(
-            move |mut ev_scene: EventReader<'_, '_, SceneInstanceReady>| {
-                let mut events = ev_scene.read();
-
+        // Add observer
+        app.world_mut().observe(
+            move |trigger: Trigger<SceneInstanceReady>,
+                  scene_spawner: Res<SceneSpawner>,
+                  mut trigger_count: ResMut<TriggerCount>| {
                 assert_eq!(
-                    events.next().expect("found no `SceneInstanceReady` event"),
-                    &SceneInstanceReady {
-                        parent: scene_entity
-                    },
-                    "`SceneInstanceReady` contains the wrong parent entity"
+                    trigger.entity(),
+                    scene_entity,
+                    "`SceneInstanceReady` triggered on the wrong parent entity"
                 );
-                assert!(events.next().is_none(), "found more than one event");
+                assert!(
+                    scene_spawner.instance_is_ready(trigger.event().instance_id),
+                    "`InstanceId` is not ready"
+                );
+                trigger_count.0 += 1;
             },
         );
+
+        // Check observer is triggered once.
+        app.update();
+        app.world_mut()
+            .run_system_once(|trigger_count: Res<TriggerCount>| {
+                assert_eq!(
+                    trigger_count.0, 1,
+                    "wrong number of `SceneInstanceReady` triggers"
+                );
+            });
     }
 
     #[test]
