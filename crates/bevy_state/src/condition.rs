@@ -1,5 +1,5 @@
-use bevy_ecs::{change_detection::DetectChanges, system::Res};
-use bevy_utils::warn_once;
+use bevy_ecs::{change_detection::DetectChanges, system::{Commands, Res}};
+use bevy_utils::{once, warn_once};
 
 use crate::state::{State, States};
 
@@ -100,15 +100,6 @@ pub fn in_state<S: States>(state: S) -> impl FnMut(Option<Res<State<S>>>) -> boo
     move |current_state: Option<Res<State<S>>>| match current_state {
         Some(current_state) => *current_state == state,
         None => {
-            warn_once!("No state matching the type for {} exists - did you forget to `init_state` when initializing the app?", {
-                        let debug_state = format!("{state:?}");
-                        let result = debug_state
-                            .split("::")
-                            .next()
-                            .unwrap_or("Unknown State Type");
-                        result.to_string()
-                    });
-
             false
         }
     }
