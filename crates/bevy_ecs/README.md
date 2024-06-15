@@ -319,6 +319,8 @@ struct MyEvent {
     message: String
 }
 
+let mut world = World::new();
+
 world.observe(|trigger: Trigger<MyEvent>| {
     println!("{}", trigger.event().message);
 });
@@ -337,11 +339,11 @@ Events can also be triggered to target specific entities:
 ```rust
 use bevy_ecs::prelude::*;
 
-let mut world = World::new();
-let entity = world.spawn_empty().id();
-
 #[derive(Event)]
 struct Explode;
+
+let mut world = World::new();
+let entity = world.spawn_empty().id();
 
 world.observe(|trigger: Trigger<Explode>, mut commands: Commands| {
     println!("Entity {:?} goes BOOM!", trigger.entity());
