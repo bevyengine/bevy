@@ -29,6 +29,7 @@ pub struct PositionedGlyph {
 }
 
 impl PositionedGlyph {
+    /// Creates a new [`PositionedGlyph`]
     pub fn new(
         position: Vec2,
         size: Vec2,

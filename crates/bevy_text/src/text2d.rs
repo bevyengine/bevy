@@ -291,7 +291,6 @@ mod tests {
         app.init_resource::<Assets<Font>>()
             .init_resource::<Assets<Image>>()
             .init_resource::<Assets<TextureAtlasLayout>>()
-            .init_resource::<TextSettings>()
             .init_resource::<FontAtlasSets>()
             .init_resource::<Events<WindowScaleFactorChanged>>()
             .insert_resource(TextPipeline::default())
@@ -308,7 +307,7 @@ mod tests {
             app,
             Handle::default(),
             "FiraMono-subset.ttf",
-            |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
+            |bytes: &[u8], _path: String| { Font::from_bytes(bytes.to_vec()) }
         );
 
         let entity = app

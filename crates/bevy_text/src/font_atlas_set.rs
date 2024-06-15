@@ -209,7 +209,7 @@ impl FontAtlasSet {
                 .collect(),
             cosmic_text::SwashContent::Color => image.data,
             cosmic_text::SwashContent::SubpixelMask => {
-                // TODO
+                // TODO: implement
                 todo!()
             }
         };
