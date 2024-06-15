@@ -2543,6 +2543,7 @@ doc-scrape-examples = true
 name = "Observers"
 description = "Demonstrates observers that react to events (both built-in life-cycle events and custom events)"
 category = "ECS (Entity Component System)"
+wasm = true
 
 [[example]]
 name = "3d_rotation"
