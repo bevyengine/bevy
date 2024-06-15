@@ -242,7 +242,6 @@ impl SceneSpawner {
     }
 
     fn spawn_sync_internal(
-        // &mut self,
         world: &mut World,
         id: AssetId<Scene>,
         entity_map: &mut EntityHashMap<Entity>,
