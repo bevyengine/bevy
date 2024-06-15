@@ -14,6 +14,7 @@ use std::{
 
 use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
 use pbr::ProgressBar;
+use regex::Regex;
 use toml_edit::DocumentMut;
 use xshell::{cmd, Shell};
 
@@ -545,7 +546,7 @@ aliases = [\"/examples{}/{}/{}\"]
 technical_name = \"{}\"
 link = \"/examples{}/{}/{}\"
 image = \"../static/screenshots/{}/{}.png\"
-code_path = \"content/examples{}/{}\"
+code_path = \"content/examples{}/{}\"{}
 github_code_path = \"{}\"
 header_message = \"Examples ({})\"
 +++",
@@ -580,6 +581,10 @@ header_message = \"Examples ({})\"
                                 .skip(1)
                                 .collect::<PathBuf>()
                                 .display(),
+                            match to_show.wgsl_path {
+                                None => "".to_string(),
+                                Some(wgsl) => format!("\nwgsl_code_path = \"{wgsl}\""),
+                            },
                             &to_show.path,
                             match api {
                                 WebApi::Webgpu => "WebGPU",
@@ -723,6 +728,9 @@ fn parse_examples() -> Vec<Example> {
         .flat_map(|val| {
             let technical_name = val.get("name").unwrap().as_str().unwrap().to_string();
 
+            let source_code = fs::read_to_string(&val["path"].as_str().unwrap()).unwrap();
+            let shader_regex = Regex::new(r"shaders\/\w+\.wgsl").unwrap();
+            let has_wgsl = shader_regex.find(&source_code);
             if metadatas
                 .get(&technical_name)
                 .and_then(|metadata| metadata.get("hidden"))
@@ -736,6 +744,10 @@ fn parse_examples() -> Vec<Example> {
             metadatas.get(&technical_name).map(|metadata| Example {
                 technical_name,
                 path: val["path"].as_str().unwrap().to_string(),
+                wgsl_path: match has_wgsl {
+                    None => None,
+                    Some(path) => Some(path.as_str().to_string()),
+                },
                 name: metadata["name"].as_str().unwrap().to_string(),
                 description: metadata["description"].as_str().unwrap().to_string(),
                 category: metadata["category"].as_str().unwrap().to_string(),
@@ -780,9 +792,10 @@ struct Example {
     technical_name: String,
     /// Path to the example file
     path: String,
+    /// Path to the associated wgsl file if it exists
+    wgsl_path: Option<String>,
     /// List of non default required features
     required_features: Vec<String>,
-
     // From the example metadata
     /// Pretty name, used for display
     name: String,
