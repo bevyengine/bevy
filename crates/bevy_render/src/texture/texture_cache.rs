@@ -28,7 +28,7 @@ pub struct CachedTexture {
 /// are only required for one frame.
 #[derive(Resource, Default)]
 pub struct TextureCache {
-    textures: HashMap<wgpu::TextureDescriptor<'static>, Vec<CachedTextureMeta>>,
+    textures: HashMap<TextureDescriptor<'static>, Vec<CachedTextureMeta>>,
 }
 
 impl TextureCache {

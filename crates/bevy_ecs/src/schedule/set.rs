@@ -3,17 +3,20 @@ use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 
+pub use crate::label::DynEq;
 pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
-use bevy_utils::define_label;
-use bevy_utils::intern::Interned;
-pub use bevy_utils::label::DynEq;
 
-use crate::system::{
-    ExclusiveSystemParamFunction, IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
+use crate::{
+    define_label,
+    intern::Interned,
+    system::{
+        ExclusiveFunctionSystem, ExclusiveSystemParamFunction, FunctionSystem,
+        IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
+    },
 };
 
 define_label!(
-    /// A strongly-typed class of labels used to identify an [`Schedule`].
+    /// A strongly-typed class of labels used to identify a [`Schedule`](crate::schedule::Schedule).
     ScheduleLabel,
     SCHEDULE_LABEL_INTERNER
 );
@@ -109,7 +112,7 @@ impl<T> SystemSet for SystemTypeSet<T> {
     }
 
     fn dyn_hash(&self, mut state: &mut dyn Hasher) {
-        std::any::TypeId::of::<Self>().hash(&mut state);
+        TypeId::of::<Self>().hash(&mut state);
         self.hash(&mut state);
     }
 }
@@ -131,21 +134,25 @@ impl SystemSet for AnonymousSet {
         true
     }
 
+    fn dyn_clone(&self) -> Box<dyn SystemSet> {
+        Box::new(*self)
+    }
+
     fn as_dyn_eq(&self) -> &dyn DynEq {
         self
     }
 
     fn dyn_hash(&self, mut state: &mut dyn Hasher) {
-        std::any::TypeId::of::<Self>().hash(&mut state);
+        TypeId::of::<Self>().hash(&mut state);
         self.hash(&mut state);
-    }
-
-    fn dyn_clone(&self) -> Box<dyn SystemSet> {
-        Box::new(*self)
     }
 }
 
 /// Types that can be converted into a [`SystemSet`].
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a system set",
+    label = "invalid system set"
+)]
 pub trait IntoSystemSet<Marker>: Sized {
     /// The type of [`SystemSet`] this instance converts into.
     type Set: SystemSet;
@@ -167,26 +174,28 @@ impl<S: SystemSet> IntoSystemSet<()> for S {
 // systems
 impl<Marker, F> IntoSystemSet<(IsFunctionSystem, Marker)> for F
 where
+    Marker: 'static,
     F: SystemParamFunction<Marker>,
 {
-    type Set = SystemTypeSet<Self>;
+    type Set = SystemTypeSet<FunctionSystem<Marker, F>>;
 
     #[inline]
     fn into_system_set(self) -> Self::Set {
-        SystemTypeSet::new()
+        SystemTypeSet::<FunctionSystem<Marker, F>>::new()
     }
 }
 
 // exclusive systems
 impl<Marker, F> IntoSystemSet<(IsExclusiveFunctionSystem, Marker)> for F
 where
+    Marker: 'static,
     F: ExclusiveSystemParamFunction<Marker>,
 {
-    type Set = SystemTypeSet<Self>;
+    type Set = SystemTypeSet<ExclusiveFunctionSystem<Marker, F>>;
 
     #[inline]
     fn into_system_set(self) -> Self::Set {
-        SystemTypeSet::new()
+        SystemTypeSet::<ExclusiveFunctionSystem<Marker, F>>::new()
     }
 }
 

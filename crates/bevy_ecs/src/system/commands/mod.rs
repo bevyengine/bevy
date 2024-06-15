@@ -1,66 +1,26 @@
-mod command_queue;
 mod parallel_scope;
 
+use super::{Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource};
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
+    component::ComponentId,
     entity::{Entities, Entity},
-    system::{RunSystem, SystemId},
-    world::{EntityWorldMut, FromWorld, World},
+    event::Event,
+    observer::{Observer, TriggerEvent, TriggerTargets},
+    system::{RunSystemWithInput, SystemId},
+    world::command_queue::RawCommandQueue,
+    world::{Command, CommandQueue, EntityWorldMut, FromWorld, World},
 };
-use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
-pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
 
-use super::{Deferred, Resource, SystemBuffer, SystemMeta};
-
-/// A [`World`] mutation.
-///
-/// Should be used with [`Commands::add`].
-///
-/// # Usage
-///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::system::Command;
-/// // Our world resource
-/// #[derive(Resource, Default)]
-/// struct Counter(u64);
-///
-/// // Our custom command
-/// struct AddToCounter(u64);
-///
-/// impl Command for AddToCounter {
-///     fn apply(self, world: &mut World) {
-///         let mut counter = world.get_resource_or_insert_with(Counter::default);
-///         counter.0 += self.0;
-///     }
-/// }
-///
-/// fn some_system(mut commands: Commands) {
-///     commands.add(AddToCounter(42));
-/// }
-/// ```
-pub trait Command: Send + 'static {
-    /// Applies this command, causing it to mutate the provided `world`.
-    ///
-    /// This method is used to define what a command "does" when it is ultimately applied.
-    /// Because this method takes `self`, you can store data or settings on the type that implements this trait.
-    /// This data is set by the system or other source of the command, and then ultimately read in this method.
-    fn apply(self, world: &mut World);
-}
-
-/// A [`Command`] queue to perform impactful changes to the [`World`].
+/// A [`Command`] queue to perform structural changes to the [`World`].
 ///
 /// Since each command requires exclusive access to the `World`,
 /// all queued commands are automatically applied in sequence
-/// when the [`apply_deferred`] system runs.
-///
-/// The command queue of an individual system can also be manually applied
-/// by calling [`System::apply_deferred`].
-/// Similarly, the command queue of a schedule can be manually applied via [`Schedule::apply_deferred`].
+/// when the `apply_deferred` system runs (see [`apply_deferred`] documentation for more details).
 ///
 /// Each command can be used to modify the [`World`] in arbitrary ways:
 /// * spawning or despawning entities
@@ -106,22 +66,94 @@ pub trait Command: Send + 'static {
 /// # }
 /// ```
 ///
-/// [`System::apply_deferred`]: crate::system::System::apply_deferred
 /// [`apply_deferred`]: crate::schedule::apply_deferred
-/// [`Schedule::apply_deferred`]: crate::schedule::Schedule::apply_deferred
-#[derive(SystemParam)]
 pub struct Commands<'w, 's> {
-    queue: Deferred<'s, CommandQueue>,
+    queue: InternalQueue<'s>,
     entities: &'w Entities,
 }
 
-impl SystemBuffer for CommandQueue {
-    #[inline]
-    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
-        #[cfg(feature = "trace")]
-        let _span_guard = _system_meta.commands_span.enter();
-        self.apply(world);
+const _: () = {
+    type __StructFieldsAlias<'w, 's> = (Deferred<'s, CommandQueue>, &'w Entities);
+    #[doc(hidden)]
+    pub struct FetchState {
+        state: <__StructFieldsAlias<'static, 'static> as bevy_ecs::system::SystemParam>::State,
     }
+    // SAFETY: Only reads Entities
+    unsafe impl bevy_ecs::system::SystemParam for Commands<'_, '_> {
+        type State = FetchState;
+        type Item<'w, 's> = Commands<'w, 's>;
+        fn init_state(
+            world: &mut bevy_ecs::world::World,
+            system_meta: &mut bevy_ecs::system::SystemMeta,
+        ) -> Self::State {
+            FetchState {
+                state: <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_state(
+                    world,
+                    system_meta,
+                ),
+            }
+        }
+        unsafe fn new_archetype(
+            state: &mut Self::State,
+            archetype: &bevy_ecs::archetype::Archetype,
+            system_meta: &mut bevy_ecs::system::SystemMeta,
+        ) {
+            // SAFETY: Caller guarantees the archetype is from the world used in `init_state`
+            unsafe {
+                <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::new_archetype(
+                    &mut state.state,
+                    archetype,
+                    system_meta,
+                );
+            };
+        }
+        fn apply(
+            state: &mut Self::State,
+            system_meta: &bevy_ecs::system::SystemMeta,
+            world: &mut bevy_ecs::world::World,
+        ) {
+            <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::apply(
+                &mut state.state,
+                system_meta,
+                world,
+            );
+        }
+        fn queue(
+            state: &mut Self::State,
+            system_meta: &bevy_ecs::system::SystemMeta,
+            world: bevy_ecs::world::DeferredWorld,
+        ) {
+            <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::queue(
+                &mut state.state,
+                system_meta,
+                world,
+            );
+        }
+        unsafe fn get_param<'w, 's>(
+            state: &'s mut Self::State,
+            system_meta: &bevy_ecs::system::SystemMeta,
+            world: bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell<'w>,
+            change_tick: bevy_ecs::component::Tick,
+        ) -> Self::Item<'w, 's> {
+            let(f0,f1,) =  <(Deferred<'s,CommandQueue> , &'w Entities,)as bevy_ecs::system::SystemParam> ::get_param(&mut state.state,system_meta,world,change_tick);
+            Commands {
+                queue: InternalQueue::CommandQueue(f0),
+                entities: f1,
+            }
+        }
+    }
+    // SAFETY: Only reads Entities
+    unsafe impl<'w, 's> bevy_ecs::system::ReadOnlySystemParam for Commands<'w, 's>
+    where
+        Deferred<'s, CommandQueue>: bevy_ecs::system::ReadOnlySystemParam,
+        &'w Entities: bevy_ecs::system::ReadOnlySystemParam,
+    {
+    }
+};
+
+enum InternalQueue<'s> {
+    CommandQueue(Deferred<'s, CommandQueue>),
+    RawCommandQueue(RawCommandQueue),
 }
 
 impl<'w, 's> Commands<'w, 's> {
@@ -131,7 +163,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// [system parameter]: crate::system::SystemParam
     pub fn new(queue: &'s mut CommandQueue, world: &'w World) -> Self {
-        Self::new_from_entities(queue, world.entities())
+        Self::new_from_entities(queue, &world.entities)
     }
 
     /// Returns a new `Commands` instance from a [`CommandQueue`] and an [`Entities`] reference.
@@ -141,8 +173,66 @@ impl<'w, 's> Commands<'w, 's> {
     /// [system parameter]: crate::system::SystemParam
     pub fn new_from_entities(queue: &'s mut CommandQueue, entities: &'w Entities) -> Self {
         Self {
-            queue: Deferred(queue),
+            queue: InternalQueue::CommandQueue(Deferred(queue)),
             entities,
+        }
+    }
+
+    /// Returns a new `Commands` instance from a [`RawCommandQueue`] and an [`Entities`] reference.
+    ///
+    /// This is used when constructing [`Commands`] from a [`DeferredWorld`](crate::world::DeferredWorld).
+    ///
+    /// # Safety
+    ///
+    /// * Caller ensures that `queue` must outlive 'w
+    pub(crate) unsafe fn new_raw_from_entities(
+        queue: RawCommandQueue,
+        entities: &'w Entities,
+    ) -> Self {
+        Self {
+            queue: InternalQueue::RawCommandQueue(queue),
+            entities,
+        }
+    }
+
+    /// Returns a [`Commands`] with a smaller lifetime.
+    /// This is useful if you have `&mut Commands` but need `Commands`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// fn my_system(mut commands: Commands) {
+    ///     // We do our initialization in a separate function,
+    ///     // which expects an owned `Commands`.
+    ///     do_initialization(commands.reborrow());
+    ///
+    ///     // Since we only reborrowed the commands instead of moving them, we can still use them.
+    ///     commands.spawn_empty();
+    /// }
+    /// #
+    /// # fn do_initialization(_: Commands) {}
+    /// ```
+    pub fn reborrow(&mut self) -> Commands<'w, '_> {
+        Commands {
+            queue: match &mut self.queue {
+                InternalQueue::CommandQueue(queue) => InternalQueue::CommandQueue(queue.reborrow()),
+                InternalQueue::RawCommandQueue(queue) => {
+                    InternalQueue::RawCommandQueue(queue.clone())
+                }
+            },
+            entities: self.entities,
+        }
+    }
+
+    /// Take all commands from `other` and append them to `self`, leaving `other` empty
+    pub fn append(&mut self, other: &mut CommandQueue) {
+        match &mut self.queue {
+            InternalQueue::CommandQueue(queue) => queue.bytes.append(&mut other.bytes),
+            InternalQueue::RawCommandQueue(queue) => {
+                // SAFETY: Pointers in `RawCommandQueue` are never null
+                unsafe { queue.bytes.as_mut() }.append(&mut other.bytes);
+            }
         }
     }
 
@@ -181,11 +271,11 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// - [`spawn`](Self::spawn) to spawn an entity with a bundle.
     /// - [`spawn_batch`](Self::spawn_batch) to spawn entities with a bundle each.
-    pub fn spawn_empty<'a>(&'a mut self) -> EntityCommands<'w, 's, 'a> {
+    pub fn spawn_empty(&mut self) -> EntityCommands {
         let entity = self.entities.reserve_entity();
         EntityCommands {
             entity,
-            commands: self,
+            commands: self.reborrow(),
         }
     }
 
@@ -203,13 +293,13 @@ impl<'w, 's> Commands<'w, 's> {
     /// [`Commands::spawn`]. This method should generally only be used for sharing entities across
     /// apps, and only when they have a scheme worked out to share an ID space (which doesn't happen
     /// by default).
-    pub fn get_or_spawn<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
+    pub fn get_or_spawn(&mut self, entity: Entity) -> EntityCommands {
         self.add(move |world: &mut World| {
             world.get_or_spawn(entity);
         });
         EntityCommands {
             entity,
-            commands: self,
+            commands: self.reborrow(),
         }
     }
 
@@ -263,7 +353,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// - [`spawn_empty`](Self::spawn_empty) to spawn an entity without any components.
     /// - [`spawn_batch`](Self::spawn_batch) to spawn entities with a bundle each.
-    pub fn spawn<'a, T: Bundle>(&'a mut self, bundle: T) -> EntityCommands<'w, 's, 'a> {
+    pub fn spawn<T: Bundle>(&mut self, bundle: T) -> EntityCommands {
         let mut e = self.spawn_empty();
         e.insert(bundle);
         e
@@ -305,7 +395,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`get_entity`](Self::get_entity) for the fallible version.
     #[inline]
     #[track_caller]
-    pub fn entity<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
+    pub fn entity(&mut self, entity: Entity) -> EntityCommands {
         #[inline(never)]
         #[cold]
         #[track_caller]
@@ -354,10 +444,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`entity`](Self::entity) for the panicking version.
     #[inline]
     #[track_caller]
-    pub fn get_entity<'a>(&'a mut self, entity: Entity) -> Option<EntityCommands<'w, 's, 'a>> {
+    pub fn get_entity(&mut self, entity: Entity) -> Option<EntityCommands> {
         self.entities.contains(entity).then_some(EntityCommands {
             entity,
-            commands: self,
+            commands: self.reborrow(),
         })
     }
 
@@ -404,7 +494,23 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator + Send + Sync + 'static,
         I::Item: Bundle,
     {
-        self.queue.push(SpawnBatch { bundles_iter });
+        self.push(spawn_batch(bundles_iter));
+    }
+
+    /// Push a [`Command`] onto the queue.
+    pub fn push<C: Command>(&mut self, command: C) {
+        match &mut self.queue {
+            InternalQueue::CommandQueue(queue) => {
+                queue.push(command);
+            }
+            InternalQueue::RawCommandQueue(queue) => {
+                // SAFETY: `RawCommandQueue` is only every constructed in `Commands::new_raw_from_entities`
+                // where the caller of that has ensured that `queue` outlives `self`
+                unsafe {
+                    queue.push(command);
+                }
+            }
+        }
     }
 
     /// Pushes a [`Command`] to the queue for creating entities, if needed,
@@ -430,11 +536,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// worked out to share an ID space (which doesn't happen by default).
     pub fn insert_or_spawn_batch<I, B>(&mut self, bundles_iter: I)
     where
-        I: IntoIterator + Send + Sync + 'static,
-        I::IntoIter: Iterator<Item = (Entity, B)>,
+        I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle,
     {
-        self.queue.push(InsertOrSpawnBatch { bundles_iter });
+        self.push(insert_or_spawn_batch(bundles_iter));
     }
 
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with an inferred value.
@@ -462,7 +567,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(initialise_scoreboard);
     /// ```
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
-        self.queue.push(InitResource::<R>::new());
+        self.push(init_resource::<R>);
     }
 
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with a specific value.
@@ -491,7 +596,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     pub fn insert_resource<R: Resource>(&mut self, resource: R) {
-        self.queue.push(InsertResource { resource });
+        self.push(insert_resource(resource));
     }
 
     /// Pushes a [`Command`] to the queue for removing a [`Resource`] from the [`World`].
@@ -515,16 +620,96 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     pub fn remove_resource<R: Resource>(&mut self) {
-        self.queue.push(RemoveResource::<R>::new());
+        self.push(remove_resource::<R>);
     }
 
     /// Runs the system corresponding to the given [`SystemId`].
     /// Systems are ran in an exclusive and single threaded way.
     /// Running slow systems can become a bottleneck.
     ///
-    /// Calls [`World::run_system`](crate::system::World::run_system).
+    /// Calls [`World::run_system`](World::run_system).
+    ///
+    /// There is no way to get the output of a system when run as a command, because the
+    /// execution of the system happens later. To get the output of a system, use
+    /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
     pub fn run_system(&mut self, id: SystemId) {
-        self.queue.push(RunSystem::new(id));
+        self.run_system_with_input(id, ());
+    }
+
+    /// Runs the system corresponding to the given [`SystemId`].
+    /// Systems are ran in an exclusive and single threaded way.
+    /// Running slow systems can become a bottleneck.
+    ///
+    /// Calls [`World::run_system_with_input`](World::run_system_with_input).
+    ///
+    /// There is no way to get the output of a system when run as a command, because the
+    /// execution of the system happens later. To get the output of a system, use
+    /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
+    pub fn run_system_with_input<I: 'static + Send>(&mut self, id: SystemId<I>, input: I) {
+        self.push(RunSystemWithInput::new_with_input(id, input));
+    }
+
+    /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
+    ///
+    /// It's possible to register the same systems more than once, they'll be stored separately.
+    ///
+    /// This is different from adding systems to a [`Schedule`](crate::schedule::Schedule),
+    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
+    /// This allows for running systems in a push-based fashion.
+    /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
+    /// due to its better performance and ability to run non-conflicting systems simultaneously.
+    ///
+    /// If you want to prevent Commands from registering the same system multiple times, consider using [`Local`](crate::system::Local)
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::CommandQueue, system::SystemId};
+    ///
+    /// #[derive(Resource)]
+    /// struct Counter(i32);
+    ///
+    /// fn register_system(mut local_system: Local<Option<SystemId>>, mut commands: Commands) {
+    ///     if let Some(system) = *local_system {
+    ///         commands.run_system(system);
+    ///     } else {
+    ///         *local_system = Some(commands.register_one_shot_system(increment_counter));
+    ///     }
+    /// }
+    ///
+    /// fn increment_counter(mut value: ResMut<Counter>) {
+    ///     value.0 += 1;
+    /// }
+    ///
+    /// # let mut world = World::default();
+    /// # world.insert_resource(Counter(0));
+    /// # let mut queue_1 = CommandQueue::default();
+    /// # let systemid = {
+    /// #   let mut commands = Commands::new(&mut queue_1, &world);
+    /// #   commands.register_one_shot_system(increment_counter)
+    /// # };
+    /// # let mut queue_2 = CommandQueue::default();
+    /// # {
+    /// #   let mut commands = Commands::new(&mut queue_2, &world);
+    /// #   commands.run_system(systemid);
+    /// # }
+    /// # queue_1.append(&mut queue_2);
+    /// # queue_1.apply(&mut world);
+    /// # assert_eq!(1, world.resource::<Counter>().0);
+    /// # bevy_ecs::system::assert_is_system(register_system);
+    /// ```
+    pub fn register_one_shot_system<
+        I: 'static + Send,
+        O: 'static + Send,
+        M,
+        S: IntoSystem<I, O, M> + 'static,
+    >(
+        &mut self,
+        system: S,
+    ) -> SystemId<I, O> {
+        let entity = self.spawn_empty().id();
+        self.push(RegisterSystem::new(system, entity));
+        SystemId::from_entity(entity)
     }
 
     /// Pushes a generic [`Command`] to the command queue.
@@ -534,7 +719,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # Example
     ///
     /// ```
-    /// # use bevy_ecs::{system::Command, prelude::*};
+    /// # use bevy_ecs::{world::Command, prelude::*};
     /// #[derive(Resource, Default)]
     /// struct Counter(u64);
     ///
@@ -561,7 +746,27 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(add_twenty_five_to_counter_system);
     /// ```
     pub fn add<C: Command>(&mut self, command: C) {
-        self.queue.push(command);
+        self.push(command);
+    }
+
+    /// Sends a "global" [`Trigger`] without any targets. This will run any [`Observer`] of the `event` that
+    /// isn't scoped to specific targets.
+    pub fn trigger(&mut self, event: impl Event) {
+        self.add(TriggerEvent { event, targets: () });
+    }
+
+    /// Sends a [`Trigger`] for the given targets. This will run any [`Observer`] of the `event` that
+    /// watches those targets.
+    pub fn trigger_targets(&mut self, event: impl Event, targets: impl TriggerTargets) {
+        self.add(TriggerEvent { event, targets });
+    }
+
+    /// Spawn an [`Observer`] and returns the [`EntityCommands`] associated with the entity that stores the observer.  
+    pub fn observe<E: Event, B: Bundle, M>(
+        &mut self,
+        observer: impl IntoObserverSystem<E, B, M>,
+    ) -> EntityCommands {
+        self.spawn(Observer::new(observer))
     }
 }
 
@@ -585,18 +790,14 @@ impl<'w, 's> Commands<'w, 's> {
 /// struct Counter(i64);
 ///
 /// /// A `Command` which names an entity based on a global counter.
-/// struct CountName;
+/// fn count_name(entity: Entity, world: &mut World) {
+///     // Get the current value of the counter, and increment it for next time.
+///     let mut counter = world.resource_mut::<Counter>();
+///     let i = counter.0;
+///     counter.0 += 1;
 ///
-/// impl EntityCommand for CountName {
-///     fn apply(self, id: Entity, world: &mut World) {
-///         // Get the current value of the counter, and increment it for next time.
-///         let mut counter = world.resource_mut::<Counter>();
-///         let i = counter.0;
-///         counter.0 += 1;
-///
-///         // Name the entity after the value of the counter.
-///         world.entity_mut(id).insert(Name::new(format!("Entity #{i}")));
-///     }
+///     // Name the entity after the value of the counter.
+///     world.entity_mut(entity).insert(Name::new(format!("Entity #{i}")));
 /// }
 ///
 /// // App creation boilerplate omitted...
@@ -612,8 +813,8 @@ impl<'w, 's> Commands<'w, 's> {
 /// # assert_schedule.run(&mut world);
 ///
 /// fn setup(mut commands: Commands) {
-///     commands.spawn_empty().add(CountName);
-///     commands.spawn_empty().add(CountName);
+///     commands.spawn_empty().add(count_name);
+///     commands.spawn_empty().add(count_name);
 /// }
 ///
 /// fn assert_names(named: Query<&Name>) {
@@ -622,25 +823,33 @@ impl<'w, 's> Commands<'w, 's> {
 ///     assert_eq!(names, HashSet::from_iter(["Entity #0", "Entity #1"]));
 /// }
 /// ```
-pub trait EntityCommand: Send + 'static {
+pub trait EntityCommand<Marker = ()>: Send + 'static {
     /// Executes this command for the given [`Entity`].
     fn apply(self, id: Entity, world: &mut World);
     /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
-    fn with_entity(self, id: Entity) -> WithEntity<Self>
+    fn with_entity(self, id: Entity) -> WithEntity<Marker, Self>
     where
         Self: Sized,
     {
-        WithEntity { cmd: self, id }
+        WithEntity {
+            cmd: self,
+            id,
+            marker: PhantomData,
+        }
     }
 }
 
 /// Turns an [`EntityCommand`] type into a [`Command`] type.
-pub struct WithEntity<C: EntityCommand> {
+pub struct WithEntity<Marker, C: EntityCommand<Marker>> {
     cmd: C,
     id: Entity,
+    marker: PhantomData<fn() -> Marker>,
 }
 
-impl<C: EntityCommand> Command for WithEntity<C> {
+impl<M, C: EntityCommand<M>> Command for WithEntity<M, C>
+where
+    M: 'static,
+{
     #[inline]
     fn apply(self, world: &mut World) {
         self.cmd.apply(self.id, world);
@@ -648,12 +857,12 @@ impl<C: EntityCommand> Command for WithEntity<C> {
 }
 
 /// A list of commands that will be run to modify an [entity](crate::entity).
-pub struct EntityCommands<'w, 's, 'a> {
+pub struct EntityCommands<'a> {
     pub(crate) entity: Entity,
-    pub(crate) commands: &'a mut Commands<'w, 's>,
+    pub(crate) commands: Commands<'a, 'a>,
 }
 
-impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
+impl EntityCommands<'_> {
     /// Returns the [`Entity`] id of the entity.
     ///
     /// # Example
@@ -670,6 +879,15 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
         self.entity
+    }
+
+    /// Returns an [`EntityCommands`] with a smaller lifetime.
+    /// This is useful if you have `&mut EntityCommands` but you need `EntityCommands`.
+    pub fn reborrow(&mut self) -> EntityCommands {
+        EntityCommands {
+            entity: self.entity,
+            commands: self.commands.reborrow(),
+        }
     }
 
     /// Adds a [`Bundle`] of components to the entity.
@@ -724,11 +942,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
     /// ```
     pub fn insert(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.commands.add(Insert {
-            entity: self.entity,
-            bundle,
-        });
-        self
+        self.add(insert(bundle))
     }
 
     /// Tries to add a [`Bundle`] of components to the entity.
@@ -762,13 +976,13 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     ///   commands.entity(player.entity)
     ///    // You can try_insert individual components:
     ///     .try_insert(Defense(10))
-    ///     
+    ///
     ///    // You can also insert tuples of components:
     ///     .try_insert(CombatBundle {
     ///         health: Health(100),
     ///         strength: Strength(40),
     ///     });
-    ///    
+    ///
     ///    // Suppose this occurs in a parallel adjacent system or process
     ///    commands.entity(player.entity)
     ///      .despawn();
@@ -780,17 +994,10 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
     /// ```
     pub fn try_insert(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.commands.add(TryInsert {
-            entity: self.entity,
-            bundle,
-        });
-        self
+        self.add(try_insert(bundle))
     }
 
     /// Removes a [`Bundle`] of components from the entity.
-    ///
-    /// See [`EntityWorldMut::remove`](crate::world::EntityWorldMut::remove) for more
-    /// details.
     ///
     /// # Example
     ///
@@ -829,17 +1036,28 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     where
         T: Bundle,
     {
-        self.commands.add(Remove::<T>::new(self.entity));
-        self
+        self.add(remove::<T>)
+    }
+
+    /// Removes a component from the entity.
+    pub fn remove_by_id(&mut self, component_id: ComponentId) -> &mut Self {
+        self.add(remove_by_id(component_id))
+    }
+
+    /// Removes all components associated with the entity.
+    pub fn clear(&mut self) -> &mut Self {
+        self.add(clear())
     }
 
     /// Despawns the entity.
+    /// This will emit a warning if the entity does not exist.
     ///
     /// See [`World::despawn`] for more details.
     ///
-    /// # Panics
+    /// # Note
     ///
-    /// The command will panic when applied if the associated entity does not exist.
+    /// This won't clean up external references to the entity (such as parent-child relationships
+    /// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
     ///
     /// # Example
     ///
@@ -859,9 +1077,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # bevy_ecs::system::assert_is_system(remove_character_system);
     /// ```
     pub fn despawn(&mut self) {
-        self.commands.add(Despawn {
-            entity: self.entity,
-        });
+        self.add(despawn);
     }
 
     /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
@@ -880,9 +1096,53 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(my_system);
     /// ```
-    pub fn add<C: EntityCommand>(&mut self, command: C) -> &mut Self {
+    pub fn add<M: 'static>(&mut self, command: impl EntityCommand<M>) -> &mut Self {
         self.commands.add(command.with_entity(self.entity));
         self
+    }
+
+    /// Removes all components except the given [`Bundle`] from the entity.
+    ///
+    /// This can also be used to remove all the components from the entity by passing it an empty Bundle.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Resource)]
+    /// # struct PlayerEntity { entity: Entity }
+    /// #[derive(Component)]
+    /// struct Health(u32);
+    /// #[derive(Component)]
+    /// struct Strength(u32);
+    /// #[derive(Component)]
+    /// struct Defense(u32);
+    ///
+    /// #[derive(Bundle)]
+    /// struct CombatBundle {
+    ///     health: Health,
+    ///     strength: Strength,
+    /// }
+    ///
+    /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///     commands
+    ///         .entity(player.entity)
+    ///         // You can retain a pre-defined Bundle of components,
+    ///         // with this removing only the Defense component
+    ///         .retain::<CombatBundle>()
+    ///         // You can also retain only a single component
+    ///         .retain::<Health>()
+    ///         // And you can remove all the components by passing in an empty Bundle
+    ///         .retain::<()>();
+    /// }
+    /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
+    /// ```
+    pub fn retain<T>(&mut self) -> &mut Self
+    where
+        T: Bundle,
+    {
+        self.add(retain::<T>)
     }
 
     /// Logs the components of the entity at the info level.
@@ -891,14 +1151,21 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     ///
     /// The command will panic when applied if the associated entity does not exist.
     pub fn log_components(&mut self) {
-        self.commands.add(LogComponents {
-            entity: self.entity,
-        });
+        self.add(log_components);
     }
 
     /// Returns the underlying [`Commands`].
-    pub fn commands(&mut self) -> &mut Commands<'w, 's> {
-        self.commands
+    pub fn commands(&mut self) -> Commands {
+        self.commands.reborrow()
+    }
+
+    /// Creates an [`Observer`](crate::observer::Observer) listening for a trigger of type `T` that targets this entity.
+    pub fn observe<E: Event, B: Bundle, M>(
+        &mut self,
+        system: impl IntoObserverSystem<E, B, M>,
+    ) -> &mut Self {
+        self.add(observe(system));
+        self
     }
 }
 
@@ -911,7 +1178,7 @@ where
     }
 }
 
-impl<F> EntityCommand for F
+impl<F> EntityCommand<World> for F
 where
     F: FnOnce(EntityWorldMut) + Send + 'static,
 {
@@ -920,41 +1187,25 @@ where
     }
 }
 
-/// A [`Command`] that spawns a new entity and adds the components in a [`Bundle`] to it.
-#[derive(Debug)]
-pub struct Spawn<T> {
-    /// The [`Bundle`] of components that will be added to the newly-spawned entity.
-    pub bundle: T,
-}
-
-impl<T> Command for Spawn<T>
+impl<F> EntityCommand for F
 where
-    T: Bundle,
+    F: FnOnce(Entity, &mut World) + Send + 'static,
 {
-    fn apply(self, world: &mut World) {
-        world.spawn(self.bundle);
+    fn apply(self, id: Entity, world: &mut World) {
+        self(id, world);
     }
 }
 
 /// A [`Command`] that consumes an iterator of [`Bundle`]s to spawn a series of entities.
 ///
 /// This is more efficient than spawning the entities individually.
-pub struct SpawnBatch<I>
+fn spawn_batch<I, B>(bundles_iter: I) -> impl Command
 where
-    I: IntoIterator,
-    I::Item: Bundle,
+    I: IntoIterator<Item = B> + Send + Sync + 'static,
+    B: Bundle,
 {
-    /// The iterator that returns the [`Bundle`]s which will be added to each newly-spawned entity.
-    pub bundles_iter: I,
-}
-
-impl<I> Command for SpawnBatch<I>
-where
-    I: IntoIterator + Send + Sync + 'static,
-    I::Item: Bundle,
-{
-    fn apply(self, world: &mut World) {
-        world.spawn_batch(self.bundles_iter);
+    move |world: &mut World| {
+        world.spawn_batch(bundles_iter);
     }
 }
 
@@ -962,24 +1213,13 @@ where
 /// If any entities do not already exist in the world, they will be spawned.
 ///
 /// This is more efficient than inserting the bundles individually.
-pub struct InsertOrSpawnBatch<I, B>
+fn insert_or_spawn_batch<I, B>(bundles_iter: I) -> impl Command
 where
-    I: IntoIterator + Send + Sync + 'static,
+    I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
     B: Bundle,
-    I::IntoIter: Iterator<Item = (Entity, B)>,
 {
-    /// The iterator that returns each [entity ID](Entity) and corresponding [`Bundle`].
-    pub bundles_iter: I,
-}
-
-impl<I, B> Command for InsertOrSpawnBatch<I, B>
-where
-    I: IntoIterator + Send + Sync + 'static,
-    B: Bundle,
-    I::IntoIter: Iterator<Item = (Entity, B)>,
-{
-    fn apply(self, world: &mut World) {
-        if let Err(invalid_entities) = world.insert_or_spawn_batch(self.bundles_iter) {
+    move |world: &mut World| {
+        if let Err(invalid_entities) = world.insert_or_spawn_batch(bundles_iter) {
             error!(
                 "Failed to 'insert or spawn' bundle of type {} into the following invalid entities: {:?}",
                 std::any::type_name::<B>(),
@@ -991,155 +1231,109 @@ where
 
 /// A [`Command`] that despawns a specific entity.
 /// This will emit a warning if the entity does not exist.
-#[derive(Debug)]
-pub struct Despawn {
-    /// The entity that will be despawned.
-    pub entity: Entity,
+///
+/// # Note
+///
+/// This won't clean up external references to the entity (such as parent-child relationships
+/// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
+fn despawn(entity: Entity, world: &mut World) {
+    world.despawn(entity);
 }
 
-impl Command for Despawn {
-    fn apply(self, world: &mut World) {
-        world.despawn(self.entity);
-    }
-}
-
-/// A [`Command`] that adds the components in a [`Bundle`] to an entity.
-pub struct Insert<T> {
-    /// The entity to which the components will be added.
-    pub entity: Entity,
-    /// The [`Bundle`] containing the components that will be added to the entity.
-    pub bundle: T,
-}
-
-impl<T> Command for Insert<T>
-where
-    T: Bundle + 'static,
-{
-    fn apply(self, world: &mut World) {
-        if let Some(mut entity) = world.get_entity_mut(self.entity) {
-            entity.insert(self.bundle);
+/// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity.
+fn insert<T: Bundle>(bundle: T) -> impl EntityCommand {
+    move |entity: Entity, world: &mut World| {
+        if let Some(mut entity) = world.get_entity_mut(entity) {
+            entity.insert(bundle);
         } else {
-            panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.", std::any::type_name::<T>(), self.entity);
+            panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/#b0003", std::any::type_name::<T>(), entity);
         }
     }
 }
 
-/// A [`Command`] that attempts to add the components in a [`Bundle`] to an entity.
-pub struct TryInsert<T> {
-    /// The entity to which the components will be added.
-    pub entity: Entity,
-    /// The [`Bundle`] containing the components that will be added to the entity.
-    pub bundle: T,
-}
-
-impl<T> Command for TryInsert<T>
-where
-    T: Bundle + 'static,
-{
-    fn apply(self, world: &mut World) {
-        if let Some(mut entity) = world.get_entity_mut(self.entity) {
-            entity.insert(self.bundle);
+/// An [`EntityCommand`] that attempts to add the components in a [`Bundle`] to an entity.
+fn try_insert(bundle: impl Bundle) -> impl EntityCommand {
+    move |entity, world: &mut World| {
+        if let Some(mut entity) = world.get_entity_mut(entity) {
+            entity.insert(bundle);
         }
     }
 }
 
-/// A [`Command`] that removes components from an entity.
+/// An [`EntityCommand`] that removes components from an entity.
 /// For a [`Bundle`] type `T`, this will remove any components in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
-#[derive(Debug)]
-pub struct Remove<T> {
-    /// The entity from which the components will be removed.
-    pub entity: Entity,
-    _marker: PhantomData<T>,
+fn remove<T: Bundle>(entity: Entity, world: &mut World) {
+    if let Some(mut entity) = world.get_entity_mut(entity) {
+        entity.remove::<T>();
+    }
 }
 
-impl<T> Command for Remove<T>
-where
-    T: Bundle,
-{
-    fn apply(self, world: &mut World) {
-        if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
-            entity_mut.remove::<T>();
+/// An [`EntityCommand`] that removes components with a provided [`ComponentId`] from an entity.
+/// # Panics
+///
+/// Panics if the provided [`ComponentId`] does not exist in the [`World`].
+fn remove_by_id(component_id: ComponentId) -> impl EntityCommand {
+    move |entity: Entity, world: &mut World| {
+        if let Some(mut entity) = world.get_entity_mut(entity) {
+            entity.remove_by_id(component_id);
         }
     }
 }
 
-impl<T> Remove<T> {
-    /// Creates a [`Command`] which will remove the specified [`Entity`] when applied.
-    pub const fn new(entity: Entity) -> Self {
-        Self {
-            entity,
-            _marker: PhantomData,
+/// An [`EntityCommand`] that removes all components associated with a provided entity.
+fn clear() -> impl EntityCommand {
+    move |entity: Entity, world: &mut World| {
+        if let Some(mut entity) = world.get_entity_mut(entity) {
+            entity.clear();
         }
+    }
+}
+
+/// An [`EntityCommand`] that removes components from an entity.
+/// For a [`Bundle`] type `T`, this will remove all components except those in the bundle.
+/// Any components in the bundle that aren't found on the entity will be ignored.
+fn retain<T: Bundle>(entity: Entity, world: &mut World) {
+    if let Some(mut entity_mut) = world.get_entity_mut(entity) {
+        entity_mut.retain::<T>();
     }
 }
 
 /// A [`Command`] that inserts a [`Resource`] into the world using a value
 /// created with the [`FromWorld`] trait.
-pub struct InitResource<R: Resource + FromWorld> {
-    _marker: PhantomData<R>,
-}
-
-impl<R: Resource + FromWorld> Command for InitResource<R> {
-    fn apply(self, world: &mut World) {
-        world.init_resource::<R>();
-    }
-}
-
-impl<R: Resource + FromWorld> InitResource<R> {
-    /// Creates a [`Command`] which will insert a default created [`Resource`] into the [`World`]
-    pub const fn new() -> Self {
-        Self {
-            _marker: PhantomData,
-        }
-    }
-}
-
-/// A [`Command`] that inserts a [`Resource`] into the world.
-pub struct InsertResource<R: Resource> {
-    /// The resource that will be added to the world.
-    pub resource: R,
-}
-
-impl<R: Resource> Command for InsertResource<R> {
-    fn apply(self, world: &mut World) {
-        world.insert_resource(self.resource);
-    }
+fn init_resource<R: Resource + FromWorld>(world: &mut World) {
+    world.init_resource::<R>();
 }
 
 /// A [`Command`] that removes the [resource](Resource) `R` from the world.
-pub struct RemoveResource<R: Resource> {
-    _marker: PhantomData<R>,
+fn remove_resource<R: Resource>(world: &mut World) {
+    world.remove_resource::<R>();
 }
 
-impl<R: Resource> Command for RemoveResource<R> {
-    fn apply(self, world: &mut World) {
-        world.remove_resource::<R>();
+/// A [`Command`] that inserts a [`Resource`] into the world.
+fn insert_resource<R: Resource>(resource: R) -> impl Command {
+    move |world: &mut World| {
+        world.insert_resource(resource);
     }
 }
 
-impl<R: Resource> RemoveResource<R> {
-    /// Creates a [`Command`] which will remove a [`Resource`] from the [`World`]
-    pub const fn new() -> Self {
-        Self {
-            _marker: PhantomData,
+/// [`EntityCommand`] to log the components of a given entity. See [`EntityCommands::log_components`].
+fn log_components(entity: Entity, world: &mut World) {
+    let debug_infos: Vec<_> = world
+        .inspect_entity(entity)
+        .into_iter()
+        .map(|component_info| component_info.name())
+        .collect();
+    info!("Entity {:?}: {:?}", entity, debug_infos);
+}
+
+fn observe<E: Event, B: Bundle, M>(
+    observer: impl IntoObserverSystem<E, B, M>,
+) -> impl EntityCommand {
+    move |entity, world: &mut World| {
+        if let Some(mut entity) = world.get_entity_mut(entity) {
+            entity.observe(observer);
         }
-    }
-}
-
-/// [`Command`] to log the components of a given entity. See [`EntityCommands::log_components`].
-pub struct LogComponents {
-    entity: Entity,
-}
-
-impl Command for LogComponents {
-    fn apply(self, world: &mut World) {
-        let debug_infos: Vec<_> = world
-            .inspect_entity(self.entity)
-            .into_iter()
-            .map(|component_info| component_info.name())
-            .collect();
-        info!("Entity {:?}: {:?}", self.entity, debug_infos);
     }
 }
 
@@ -1149,14 +1343,18 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         component::Component,
-        system::{CommandQueue, Commands, Resource},
-        world::World,
+        system::{Commands, Resource},
+        world::{CommandQueue, World},
     };
-    use std::sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
+    use std::{
+        any::TypeId,
+        sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        },
     };
 
+    #[allow(dead_code)]
     #[derive(Component)]
     #[component(storage = "SparseSet")]
     struct SparseDropCk(DropCk);
@@ -1191,7 +1389,7 @@ mod tests {
             .spawn((W(1u32), W(2u64)))
             .id();
         command_queue.apply(&mut world);
-        assert!(world.entities().len() == 1);
+        assert_eq!(world.entities().len(), 1);
         let results = world
             .query::<(&W<u32>, &W<u64>)>()
             .iter(&world)
@@ -1281,6 +1479,59 @@ mod tests {
     }
 
     #[test]
+    fn remove_components_by_id() {
+        let mut world = World::default();
+
+        let mut command_queue = CommandQueue::default();
+        let (dense_dropck, dense_is_dropped) = DropCk::new_pair();
+        let (sparse_dropck, sparse_is_dropped) = DropCk::new_pair();
+        let sparse_dropck = SparseDropCk(sparse_dropck);
+
+        let entity = Commands::new(&mut command_queue, &world)
+            .spawn((W(1u32), W(2u64), dense_dropck, sparse_dropck))
+            .id();
+        command_queue.apply(&mut world);
+        let results_before = world
+            .query::<(&W<u32>, &W<u64>)>()
+            .iter(&world)
+            .map(|(a, b)| (a.0, b.0))
+            .collect::<Vec<_>>();
+        assert_eq!(results_before, vec![(1u32, 2u64)]);
+
+        // test component removal
+        Commands::new(&mut command_queue, &world)
+            .entity(entity)
+            .remove_by_id(world.components().get_id(TypeId::of::<W<u32>>()).unwrap())
+            .remove_by_id(world.components().get_id(TypeId::of::<W<u64>>()).unwrap())
+            .remove_by_id(world.components().get_id(TypeId::of::<DropCk>()).unwrap())
+            .remove_by_id(
+                world
+                    .components()
+                    .get_id(TypeId::of::<SparseDropCk>())
+                    .unwrap(),
+            );
+
+        assert_eq!(dense_is_dropped.load(Ordering::Relaxed), 0);
+        assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 0);
+        command_queue.apply(&mut world);
+        assert_eq!(dense_is_dropped.load(Ordering::Relaxed), 1);
+        assert_eq!(sparse_is_dropped.load(Ordering::Relaxed), 1);
+
+        let results_after = world
+            .query::<(&W<u32>, &W<u64>)>()
+            .iter(&world)
+            .map(|(a, b)| (a.0, b.0))
+            .collect::<Vec<_>>();
+        assert_eq!(results_after, vec![]);
+        let results_after_u64 = world
+            .query::<&W<u64>>()
+            .iter(&world)
+            .map(|v| v.0)
+            .collect::<Vec<_>>();
+        assert_eq!(results_after_u64, vec![]);
+    }
+
+    #[test]
     fn remove_resources() {
         let mut world = World::default();
         let mut queue = CommandQueue::default();
@@ -1301,6 +1552,25 @@ mod tests {
         }
         queue.apply(&mut world);
         assert!(!world.contains_resource::<W<i32>>());
+        assert!(world.contains_resource::<W<f64>>());
+    }
+
+    #[test]
+    fn append() {
+        let mut world = World::default();
+        let mut queue_1 = CommandQueue::default();
+        {
+            let mut commands = Commands::new(&mut queue_1, &world);
+            commands.insert_resource(W(123i32));
+        }
+        let mut queue_2 = CommandQueue::default();
+        {
+            let mut commands = Commands::new(&mut queue_2, &world);
+            commands.insert_resource(W(456.0f64));
+        }
+        queue_1.append(&mut queue_2);
+        queue_1.apply(&mut world);
+        assert!(world.contains_resource::<W<i32>>());
         assert!(world.contains_resource::<W<f64>>());
     }
 }

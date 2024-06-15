@@ -7,30 +7,23 @@ use bevy::{
         fxaa::Fxaa,
         prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     },
-    pbr::NotShadowReceiver,
-    pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
-    pbr::{DefaultOpaqueRendererMethod, NotShadowCaster, OpaqueRendererMethod},
+    pbr::{
+        CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, DirectionalLightShadowMap,
+        NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
+    },
     prelude::*,
-    render::render_resource::TextureFormat,
+    render::texture::ImageLoaderSettings,
 };
 
 fn main() {
     App::new()
         .insert_resource(Msaa::Off)
         .insert_resource(DefaultOpaqueRendererMethod::deferred())
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 1.0 / 5.0f32,
-        })
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins(DefaultPlugins)
-        .insert_resource(Normal(None))
         .insert_resource(Pause(true))
         .add_systems(Startup, (setup, setup_parallax))
-        .add_systems(
-            Update,
-            (animate_light_direction, switch_mode, spin, update_normal),
-        )
+        .add_systems(Update, (animate_light_direction, switch_mode, spin))
         .run();
 }
 
@@ -52,7 +45,7 @@ fn setup(
             ..default()
         },
         FogSettings {
-            color: Color::rgba_u8(43, 44, 47, 255),
+            color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
                 start: 1.0,
                 end: 8.0,
@@ -62,6 +55,7 @@ fn setup(
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            intensity: 2000.0,
         },
         DepthPrepass,
         MotionVectorPrepass,
@@ -71,6 +65,7 @@ fn setup(
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
+            illuminance: 15_000.,
             shadows_enabled: true,
             ..default()
         },
@@ -85,7 +80,8 @@ fn setup(
     });
 
     // FlightHelmet
-    let helmet_scene = asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0");
+    let helmet_scene = asset_server
+        .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
 
     commands.spawn(SceneBundle {
         scene: helmet_scene.clone(),
@@ -97,22 +93,19 @@ fn setup(
         ..default()
     });
 
-    let mut forward_mat: StandardMaterial = Color::rgb(0.1, 0.2, 0.1).into();
+    let mut forward_mat: StandardMaterial = Color::srgb(0.1, 0.2, 0.1).into();
     forward_mat.opaque_render_method = OpaqueRendererMethod::Forward;
     let forward_mat_h = materials.add(forward_mat);
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(50.0).into()),
+        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
         material: forward_mat_h.clone(),
         ..default()
     });
 
-    let cube_h = meshes.add(Mesh::from(shape::Cube { size: 0.1 }));
-    let sphere_h = meshes.add(Mesh::from(shape::UVSphere {
-        radius: 0.125,
-        ..default()
-    }));
+    let cube_h = meshes.add(Cuboid::new(0.1, 0.1, 0.1));
+    let sphere_h = meshes.add(Sphere::new(0.125).mesh().uv(32, 18));
 
     // Cubes
     commands.spawn(PbrBundle {
@@ -128,7 +121,7 @@ fn setup(
         ..default()
     });
 
-    let sphere_color = Color::rgb(10.0, 4.0, 1.0);
+    let sphere_color = Color::srgb(10.0, 4.0, 1.0);
     let sphere_pos = Transform::from_xyz(0.4, 0.5, -0.8);
     // Emissive sphere
     let mut unlit_mat: StandardMaterial = sphere_color.into();
@@ -145,7 +138,7 @@ fn setup(
     // Light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 1.0,
+            intensity: 800.0,
             radius: 0.125,
             shadows_enabled: true,
             color: sphere_color,
@@ -161,21 +154,21 @@ fn setup(
         let s_val = if i < 3 { 0.0 } else { 0.2 };
         let material = if j == 0 {
             materials.add(StandardMaterial {
-                base_color: Color::rgb(s_val, s_val, 1.0),
+                base_color: Color::srgb(s_val, s_val, 1.0),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
             })
         } else if j == 1 {
             materials.add(StandardMaterial {
-                base_color: Color::rgb(s_val, 1.0, s_val),
+                base_color: Color::srgb(s_val, 1.0, s_val),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
             })
         } else {
             materials.add(StandardMaterial {
-                base_color: Color::rgb(1.0, s_val, s_val),
+                base_color: Color::srgb(1.0, s_val, s_val),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
                 ..default()
@@ -196,9 +189,9 @@ fn setup(
     // sky
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Box::default())),
+            mesh: meshes.add(Cuboid::new(2.0, 1.0, 1.0)),
             material: materials.add(StandardMaterial {
-                base_color: Color::hex("888888").unwrap(),
+                base_color: Srgba::hex("888888").unwrap().into(),
                 unlit: true,
                 cull_mode: None,
                 ..default()
@@ -212,17 +205,10 @@ fn setup(
 
     // Example instructions
     commands.spawn(
-        TextBundle::from_section(
-            "",
-            TextStyle {
-                font_size: 18.0,
-                ..default()
-            },
-        )
-        .with_style(Style {
+        TextBundle::from_section("", TextStyle::default()).with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
@@ -248,16 +234,19 @@ fn setup_parallax(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut normal: ResMut<Normal>,
     asset_server: Res<AssetServer>,
 ) {
     // The normal map. Note that to generate it in the GIMP image editor, you should
     // open the depth map, and do Filters → Generic → Normal Map
     // You should enable the "flip X" checkbox.
-    let normal_handle = asset_server.load("textures/parallax_example/cube_normal.png");
-    normal.0 = Some(normal_handle);
+    let normal_handle = asset_server.load_with_settings(
+        "textures/parallax_example/cube_normal.png",
+        // The normal map texture is in linear color space. Lighting won't look correct
+        // if `is_srgb` is `true`, which is the default.
+        |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
+    );
 
-    let mut cube: Mesh = shape::Cube { size: 0.15 }.into();
+    let mut cube = Mesh::from(Cuboid::new(0.15, 0.15, 0.15));
 
     // NOTE: for normal maps and depth maps to work, the mesh
     // needs tangents generated.
@@ -266,7 +255,7 @@ fn setup_parallax(
     let parallax_material = materials.add(StandardMaterial {
         perceptual_roughness: 0.4,
         base_color_texture: Some(asset_server.load("textures/parallax_example/cube_color.png")),
-        normal_map_texture: normal.0.clone(),
+        normal_map_texture: Some(normal_handle),
         // The depth map is a greyscale texture where black is the highest level and
         // white the lowest.
         depth_map: Some(asset_server.load("textures/parallax_example/cube_depth.png")),
@@ -285,28 +274,6 @@ fn setup_parallax(
         Spin { speed: 0.3 },
     ));
 }
-
-/// Store handle of the normal to later modify its format in [`update_normal`].
-#[derive(Resource)]
-struct Normal(Option<Handle<Image>>);
-
-// See `examples/3d/parallax_mapping.rs` example for reasoning
-fn update_normal(
-    mut already_ran: Local<bool>,
-    mut images: ResMut<Assets<Image>>,
-    normal: Res<Normal>,
-) {
-    if *already_ran {
-        return;
-    }
-    if let Some(normal) = normal.0.as_ref() {
-        if let Some(image) = images.get_mut(normal) {
-            image.texture_descriptor.format = TextureFormat::Rgba8Unorm;
-            *already_ran = true;
-        }
-    }
-}
-
 #[derive(Component)]
 struct Spin {
     speed: f32,
@@ -335,7 +302,7 @@ enum DefaultRenderMode {
 fn switch_mode(
     mut text: Query<&mut Text>,
     mut commands: Commands,
-    keys: Res<Input<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     mut default_opaque_renderer_method: ResMut<DefaultOpaqueRendererMethod>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     cameras: Query<Entity, With<Camera>>,
@@ -352,7 +319,7 @@ fn switch_mode(
         pause.0 = !pause.0;
     }
 
-    if keys.just_pressed(KeyCode::Key1) {
+    if keys.just_pressed(KeyCode::Digit1) {
         *mode = DefaultRenderMode::Deferred;
         default_opaque_renderer_method.set_to_deferred();
         println!("DefaultOpaqueRendererMethod: Deferred");
@@ -364,7 +331,7 @@ fn switch_mode(
             commands.entity(camera).insert(DeferredPrepass);
         }
     }
-    if keys.just_pressed(KeyCode::Key2) {
+    if keys.just_pressed(KeyCode::Digit2) {
         *mode = DefaultRenderMode::Forward;
         default_opaque_renderer_method.set_to_forward();
         println!("DefaultOpaqueRendererMethod: Forward");
@@ -376,7 +343,7 @@ fn switch_mode(
             commands.entity(camera).remove::<DeferredPrepass>();
         }
     }
-    if keys.just_pressed(KeyCode::Key3) {
+    if keys.just_pressed(KeyCode::Digit3) {
         *mode = DefaultRenderMode::ForwardPrepass;
         default_opaque_renderer_method.set_to_forward();
         println!("DefaultOpaqueRendererMethod: Forward + Prepass");
@@ -389,7 +356,7 @@ fn switch_mode(
         }
     }
 
-    if keys.just_pressed(KeyCode::H) {
+    if keys.just_pressed(KeyCode::KeyH) {
         *hide_ui = !*hide_ui;
     }
 

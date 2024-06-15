@@ -36,7 +36,7 @@ use std::fmt;
 ///
 /// # Example
 ///
-/// ```rust
+/// ```
 /// use bevy_reflect::TypePath;
 ///
 /// // This type path will not change with compiler versions or recompiles,
@@ -72,13 +72,17 @@ use std::fmt;
 /// ```
 ///
 /// [utility]: crate::utility
-/// [(de)serialization]: crate::serde::UntypedReflectDeserializer
+/// [(de)serialization]: crate::serde::ReflectDeserializer
 /// [`Reflect`]: crate::Reflect
 /// [`type_path`]: TypePath::type_path
 /// [`short_type_path`]: TypePath::short_type_path
 /// [`crate_name`]: TypePath::crate_name
 /// [`module_path`]: TypePath::module_path
 /// [`type_ident`]: TypePath::type_ident
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not have a type path",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]` or `#[derive(TypePath)]`"
+)]
 pub trait TypePath: 'static {
     /// Returns the fully qualified path of the underlying type.
     ///
@@ -129,6 +133,10 @@ pub trait TypePath: 'static {
 /// Since this is a supertrait of [`Reflect`] its methods can be called on a `dyn Reflect`.
 ///
 /// [`Reflect`]: crate::Reflect
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not be used as a dynamic type path",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]` or `#[derive(TypePath)]`"
+)]
 pub trait DynamicTypePath {
     /// See [`TypePath::type_path`].
     fn reflect_type_path(&self) -> &str;
@@ -147,22 +155,27 @@ pub trait DynamicTypePath {
 }
 
 impl<T: TypePath> DynamicTypePath for T {
+    #[inline]
     fn reflect_type_path(&self) -> &str {
         Self::type_path()
     }
 
+    #[inline]
     fn reflect_short_type_path(&self) -> &str {
         Self::short_type_path()
     }
 
+    #[inline]
     fn reflect_type_ident(&self) -> Option<&str> {
         Self::type_ident()
     }
 
+    #[inline]
     fn reflect_crate_name(&self) -> Option<&str> {
         Self::crate_name()
     }
 
+    #[inline]
     fn reflect_module_path(&self) -> Option<&str> {
         Self::module_path()
     }

@@ -1,12 +1,12 @@
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::all_tuples;
 
-use crate::TypePathTable;
 use crate::{
-    self as bevy_reflect, utility::GenericTypePathCell, FromReflect, GetTypeRegistration, Reflect,
-    ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypeRegistration, Typed,
-    UnnamedField,
+    self as bevy_reflect, utility::GenericTypePathCell, ApplyError, FromReflect,
+    GetTypeRegistration, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
+    TypeRegistration, TypeRegistry, Typed, UnnamedField,
 };
+use crate::{ReflectKind, TypePathTable};
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
@@ -75,7 +75,7 @@ impl<'a> Iterator for TupleFieldIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let value = self.tuple.field(self.index);
-        self.index += 1;
+        self.index += value.is_some() as usize;
         value
     }
 
@@ -335,9 +335,18 @@ impl Reflect for DynamicTuple {
         self
     }
 
+    fn apply(&mut self, value: &dyn Reflect) {
+        tuple_apply(self, value);
+    }
+
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
+    }
+
     #[inline]
-    fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone_dynamic())
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Tuple
     }
 
     #[inline]
@@ -355,13 +364,13 @@ impl Reflect for DynamicTuple {
         ReflectOwned::Tuple(self)
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        tuple_apply(self, value);
+    #[inline]
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(self.clone_dynamic())
     }
 
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        tuple_try_apply(self, value)
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
@@ -389,15 +398,33 @@ impl_type_path!((in bevy_reflect) DynamicTuple);
 /// This function panics if `b` is not a tuple.
 #[inline]
 pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) {
+    if let Err(err) = tuple_try_apply(a, b) {
+        panic!("{err}");
+    }
+}
+
+/// Tries to apply the elements of `b` to the corresponding elements of `a` and
+/// returns a Result.
+///
+/// # Errors
+///
+/// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a tuple or if
+/// applying elements to each other fails.
+#[inline]
+pub fn tuple_try_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) -> Result<(), ApplyError> {
     if let ReflectRef::Tuple(tuple) = b.reflect_ref() {
         for (i, value) in tuple.iter_fields().enumerate() {
             if let Some(v) = a.field_mut(i) {
-                v.apply(value);
+                v.try_apply(value)?;
             }
         }
     } else {
-        panic!("Attempted to apply non-Tuple type to Tuple type.");
+        return Err(ApplyError::MismatchedKinds {
+            from_kind: b.reflect_kind(),
+            to_kind: ReflectKind::Tuple,
+        });
     }
+    Ok(())
 }
 
 /// Compares a [`Tuple`] with a [`Reflect`] value.
@@ -446,7 +473,7 @@ pub fn tuple_partial_eq<T: Tuple>(a: &T, b: &dyn Reflect) -> Option<bool> {
 /// // )
 /// ```
 #[inline]
-pub fn tuple_debug(dyn_tuple: &dyn Tuple, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+pub fn tuple_debug(dyn_tuple: &dyn Tuple, f: &mut Formatter<'_>) -> std::fmt::Result {
     let mut debug = f.debug_tuple("");
     for field in dyn_tuple.iter_fields() {
         debug.field(&field as &dyn Debug);
@@ -456,7 +483,7 @@ pub fn tuple_debug(dyn_tuple: &dyn Tuple, f: &mut std::fmt::Formatter<'_>) -> st
 
 macro_rules! impl_reflect_tuple {
     {$($index:tt : $name:tt),*} => {
-        impl<$($name: Reflect + TypePath),*> Tuple for ($($name,)*) {
+        impl<$($name: Reflect + TypePath + GetTypeRegistration),*> Tuple for ($($name,)*) {
             #[inline]
             fn field(&self, index: usize) -> Option<&dyn Reflect> {
                 match index {
@@ -507,7 +534,7 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: Reflect + TypePath),*> Reflect for ($($name,)*) {
+        impl<$($name: Reflect + TypePath + GetTypeRegistration),*> Reflect for ($($name,)*) {
             fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
                 Some(<Self as Typed>::type_info())
             }
@@ -540,9 +567,17 @@ macro_rules! impl_reflect_tuple {
                 crate::tuple_apply(self, value);
             }
 
+            fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+                crate::tuple_try_apply(self, value)
+            }
+
             fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
                 *self = value.take()?;
                 Ok(())
+            }
+
+            fn reflect_kind(&self) -> ReflectKind {
+                ReflectKind::Tuple
             }
 
             fn reflect_ref(&self) -> ReflectRef {
@@ -566,7 +601,7 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl <$($name: Reflect + TypePath),*> Typed for ($($name,)*) {
+        impl <$($name: Reflect + TypePath + GetTypeRegistration),*> Typed for ($($name,)*) {
             fn type_info() -> &'static TypeInfo {
                 static CELL: $crate::utility::GenericTypeInfoCell = $crate::utility::GenericTypeInfoCell::new();
                 CELL.get_or_insert::<Self, _>(|| {
@@ -579,14 +614,17 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-
-        impl<$($name: Reflect + TypePath),*> GetTypeRegistration for ($($name,)*) {
+        impl<$($name: Reflect + TypePath + GetTypeRegistration),*> GetTypeRegistration for ($($name,)*) {
             fn get_type_registration() -> TypeRegistration {
                 TypeRegistration::of::<($($name,)*)>()
             }
+
+            fn register_type_dependencies(_registry: &mut TypeRegistry) {
+                $(_registry.register::<$name>();)*
+            }
         }
 
-        impl<$($name: FromReflect + TypePath),*> FromReflect for ($($name,)*)
+        impl<$($name: FromReflect + TypePath + GetTypeRegistration),*> FromReflect for ($($name,)*)
         {
             fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
                 if let ReflectRef::Tuple(_ref_tuple) = reflect.reflect_ref() {
@@ -671,3 +709,24 @@ macro_rules! impl_type_path_tuple {
 }
 
 all_tuples!(impl_type_path_tuple, 0, 12, P);
+
+#[cfg(test)]
+mod tests {
+    use super::Tuple;
+
+    #[test]
+    fn next_index_increment() {
+        let mut iter = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11).iter_fields();
+        let size = iter.len();
+        iter.index = size - 1;
+        let prev_index = iter.index;
+        assert!(iter.next().is_some());
+        assert_eq!(prev_index, iter.index - 1);
+
+        // When None we should no longer increase index
+        assert!(iter.next().is_none());
+        assert_eq!(size, iter.index);
+        assert!(iter.next().is_none());
+        assert_eq!(size, iter.index);
+    }
+}

@@ -4,25 +4,27 @@ use crate::render_resource::{
 };
 use bevy_ecs::system::Resource;
 use wgpu::{
-    util::DeviceExt, BindGroupDescriptor, BindGroupEntry, BufferAsyncError, BufferBindingType,
+    util::DeviceExt, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, BufferAsyncError, BufferBindingType, MaintainResult,
 };
 
 use super::RenderQueue;
 
 use crate::render_resource::resource_macros::*;
+use crate::WgpuWrapper;
 
 render_resource_wrapper!(ErasedRenderDevice, wgpu::Device);
 
 /// This GPU device is responsible for the creation of most rendering and compute resources.
 #[derive(Resource, Clone)]
 pub struct RenderDevice {
-    device: ErasedRenderDevice,
+    device: WgpuWrapper<ErasedRenderDevice>,
 }
 
 impl From<wgpu::Device> for RenderDevice {
     fn from(device: wgpu::Device) -> Self {
         Self {
-            device: ErasedRenderDevice::new(device),
+            device: WgpuWrapper::new(ErasedRenderDevice::new(device)),
         }
     }
 }
@@ -60,7 +62,7 @@ impl RenderDevice {
     ///
     /// no-op on the web, device is automatically polled.
     #[inline]
-    pub fn poll(&self, maintain: wgpu::Maintain) -> bool {
+    pub fn poll(&self, maintain: wgpu::Maintain) -> MaintainResult {
         self.device.poll(maintain)
     }
 
@@ -100,11 +102,18 @@ impl RenderDevice {
 
     /// Creates a [`BindGroupLayout`](wgpu::BindGroupLayout).
     #[inline]
-    pub fn create_bind_group_layout(
+    pub fn create_bind_group_layout<'a>(
         &self,
-        desc: &wgpu::BindGroupLayoutDescriptor,
+        label: impl Into<wgpu::Label<'a>>,
+        entries: &'a [BindGroupLayoutEntry],
     ) -> BindGroupLayout {
-        BindGroupLayout::from(self.device.create_bind_group_layout(desc))
+        BindGroupLayout::from(
+            self.device
+                .create_bind_group_layout(&BindGroupLayoutDescriptor {
+                    label: label.into(),
+                    entries,
+                }),
+        )
     }
 
     /// Creates a [`PipelineLayout`](wgpu::PipelineLayout).
@@ -153,11 +162,12 @@ impl RenderDevice {
         &self,
         render_queue: &RenderQueue,
         desc: &wgpu::TextureDescriptor,
+        order: wgpu::util::TextureDataOrder,
         data: &[u8],
     ) -> Texture {
-        let wgpu_texture = self
-            .device
-            .create_texture_with_data(render_queue.as_ref(), desc, data);
+        let wgpu_texture =
+            self.device
+                .create_texture_with_data(render_queue.as_ref(), desc, order, data);
         Texture::from(wgpu_texture)
     }
 

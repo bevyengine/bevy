@@ -13,8 +13,8 @@ fn main() {
 // and releases it when the escape key is pressed
 fn grab_mouse(
     mut windows: Query<&mut Window>,
-    mouse: Res<Input<MouseButton>>,
-    key: Res<Input<KeyCode>>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    key: Res<ButtonInput<KeyCode>>,
 ) {
     let mut window = windows.single_mut();
 

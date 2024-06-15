@@ -1,8 +1,8 @@
 use crate::components::{Children, Parent};
 use bevy_ecs::{
     entity::Entity,
-    system::{Command, EntityCommands},
-    world::{EntityWorldMut, World},
+    system::EntityCommands,
+    world::{Command, EntityWorldMut, World},
 };
 use bevy_utils::tracing::debug;
 
@@ -89,8 +89,9 @@ pub trait DespawnRecursiveExt {
     fn despawn_descendants(&mut self) -> &mut Self;
 }
 
-impl<'w, 's, 'a> DespawnRecursiveExt for EntityCommands<'w, 's, 'a> {
+impl DespawnRecursiveExt for EntityCommands<'_> {
     /// Despawns the provided entity and its children.
+    /// This will emit warnings for any entity that does not exist.
     fn despawn_recursive(mut self) {
         let entity = self.id();
         self.commands().add(DespawnRecursive { entity });
@@ -105,6 +106,7 @@ impl<'w, 's, 'a> DespawnRecursiveExt for EntityCommands<'w, 's, 'a> {
 
 impl<'w> DespawnRecursiveExt for EntityWorldMut<'w> {
     /// Despawns the provided entity and its children.
+    /// This will emit warnings for any entity that does not exist.
     fn despawn_recursive(self) {
         let entity = self.id();
 
@@ -139,8 +141,8 @@ impl<'w> DespawnRecursiveExt for EntityWorldMut<'w> {
 mod tests {
     use bevy_ecs::{
         component::Component,
-        system::{CommandQueue, Commands},
-        world::World,
+        system::Commands,
+        world::{CommandQueue, World},
     };
 
     use super::DespawnRecursiveExt;
@@ -272,7 +274,7 @@ mod tests {
         // The parent's Children component should still have two children.
         let children = world.entity(parent).get::<Children>();
         assert!(children.is_some());
-        assert!(children.unwrap().len() == 2_usize);
+        assert_eq!(children.unwrap().len(), 2_usize);
         // The original child should be despawned.
         assert!(world.get_entity(child).is_none());
     }

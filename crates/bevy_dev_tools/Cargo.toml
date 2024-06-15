@@ -1,0 +1,50 @@
+[package]
+name = "bevy_dev_tools"
+version = "0.14.0-dev"
+edition = "2021"
+description = "Collection of developer tools for the Bevy Engine"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
+
+[features]
+default = ["bevy_ui_debug"]
+bevy_ci_testing = ["serde", "ron"]
+bevy_ui_debug = []
+
+[dependencies]
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
+bevy_color = { path = "../bevy_color", version = "0.14.0-dev" }
+bevy_core = { path = "../bevy_core", version = "0.14.0-dev" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.14.0-dev" }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.14.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
+bevy_gizmos = { path = "../bevy_gizmos", version = "0.14.0-dev" }
+bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
+bevy_input = { path = "../bevy_input", version = "0.14.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev" }
+bevy_render = { path = "../bevy_render", version = "0.14.0-dev" }
+bevy_time = { path = "../bevy_time", version = "0.14.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.14.0-dev" }
+bevy_ui = { path = "../bevy_ui", version = "0.14.0-dev", features = [
+  "bevy_text",
+] }
+bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
+bevy_window = { path = "../bevy_window", version = "0.14.0-dev" }
+bevy_text = { path = "../bevy_text", version = "0.14.0-dev" }
+bevy_state = { path = "../bevy_state", version = "0.14.0-dev" }
+
+# other
+serde = { version = "1.0", features = ["derive"], optional = true }
+ron = { version = "0.8.0", optional = true }
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+all-features = true

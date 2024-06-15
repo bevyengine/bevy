@@ -25,7 +25,7 @@ use std::fmt::Debug;
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, ValueInfo};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, ValueInfo, ApplyError};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///
@@ -60,7 +60,7 @@ use std::fmt::Debug;
 /// #   fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
 /// #   fn as_reflect(&self) -> &dyn Reflect { todo!() }
 /// #   fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
-/// #   fn apply(&mut self, value: &dyn Reflect) { todo!() }
+/// #   fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> { todo!() }
 /// #   fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
 /// #   fn reflect_ref(&self) -> ReflectRef { todo!() }
 /// #   fn reflect_mut(&mut self) -> ReflectMut { todo!() }
@@ -70,6 +70,10 @@ use std::fmt::Debug;
 /// ```
 ///
 /// [utility]: crate::utility
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not provide type information through reflection",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+)]
 pub trait Typed: Reflect + TypePath {
     /// Returns the compile-time [info] for the underlying type.
     ///
@@ -95,9 +99,8 @@ pub trait Typed: Reflect + TypePath {
 /// it can be more performant. This is because those other methods may require attaining a lock on
 /// the static [`TypeInfo`], while the registry simply checks a map.
 ///
-/// [`Reflect::get_represented_type_info`]: crate::Reflect::get_represented_type_info
+/// [`Reflect::get_represented_type_info`]: Reflect::get_represented_type_info
 /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
-/// [`TypeId`]: std::any::TypeId
 /// [type path]: TypePath::type_path
 #[derive(Debug, Clone)]
 pub enum TypeInfo {
@@ -179,7 +182,7 @@ impl TypeInfo {
 /// due to technical reasons (or by definition), but it can also be a purposeful choice.
 ///
 /// For example, [`i32`] cannot be broken down any further, so it is represented by a [`ValueInfo`].
-/// And while [`String`] itself is a struct, it's fields are private, so we don't really treat
+/// And while [`String`] itself is a struct, its fields are private, so we don't really treat
 /// it _as_ a struct. It therefore makes more sense to represent it as a [`ValueInfo`].
 #[derive(Debug, Clone)]
 pub struct ValueInfo {

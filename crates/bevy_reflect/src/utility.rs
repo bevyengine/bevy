@@ -1,7 +1,7 @@
 //! Helpers for working with Bevy reflection.
 
 use crate::TypeInfo;
-use bevy_utils::{FixedState, StableHashMap};
+use bevy_utils::{FixedState, NoOpHash, TypeIdMap};
 use std::{
     any::{Any, TypeId},
     hash::BuildHasher,
@@ -49,7 +49,7 @@ mod sealed {
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, Typed, TypeInfo, TypePath};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, Typed, TypeInfo, TypePath, ApplyError};
 /// use bevy_reflect::utility::NonGenericTypeInfoCell;
 ///
 /// struct Foo {
@@ -78,7 +78,7 @@ mod sealed {
 /// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
 /// #     fn as_reflect(&self) -> &dyn Reflect { todo!() }
 /// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
-/// #     fn apply(&mut self, value: &dyn Reflect) { todo!() }
+/// #     fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> { todo!() }
 /// #     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
 /// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
 /// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
@@ -110,6 +110,12 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
     }
 }
 
+impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// A container for [`TypedProperty`] over generic types, allowing instances to be stored statically.
 ///
 /// This is specifically meant for use with generic types. If your type isn't generic,
@@ -124,7 +130,7 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, TypePath, UnnamedField};
+/// # use bevy_reflect::{DynamicTypePath, Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, TypePath, UnnamedField, ApplyError};
 /// use bevy_reflect::utility::GenericTypeInfoCell;
 ///
 /// struct Foo<T>(T);
@@ -151,7 +157,7 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
 /// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
 /// #     fn as_reflect(&self) -> &dyn Reflect { todo!() }
 /// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
-/// #     fn apply(&mut self, value: &dyn Reflect) { todo!() }
+/// #     fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> { todo!() }
 /// #     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
 /// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
 /// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
@@ -195,7 +201,7 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
 /// ```
 /// [`impl_type_path`]: crate::impl_type_path
 /// [`TypePath`]: crate::TypePath
-pub struct GenericTypeCell<T: TypedProperty>(RwLock<StableHashMap<TypeId, &'static T::Stored>>);
+pub struct GenericTypeCell<T: TypedProperty>(RwLock<TypeIdMap<&'static T::Stored>>);
 
 /// See [`GenericTypeCell`].
 pub type GenericTypeInfoCell = GenericTypeCell<TypeInfo>;
@@ -205,9 +211,7 @@ pub type GenericTypePathCell = GenericTypeCell<TypePathComponent>;
 impl<T: TypedProperty> GenericTypeCell<T> {
     /// Initialize a [`GenericTypeCell`] for generic types.
     pub const fn new() -> Self {
-        // Use `bevy_utils::StableHashMap` over `bevy_utils::HashMap`
-        // because `BuildHasherDefault` is unfortunately not const.
-        Self(RwLock::new(StableHashMap::with_hasher(FixedState)))
+        Self(RwLock::new(TypeIdMap::with_hasher(NoOpHash)))
     }
 
     /// Returns a reference to the [`TypedProperty`] stored in the cell.
@@ -244,6 +248,12 @@ impl<T: TypedProperty> GenericTypeCell<T> {
                 Box::leak(Box::new(value))
             })
             .get()
+    }
+}
+
+impl<T: TypedProperty> Default for GenericTypeCell<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

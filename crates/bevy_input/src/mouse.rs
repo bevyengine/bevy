@@ -1,6 +1,6 @@
 //! The mouse input functionality.
 
-use crate::{ButtonState, Input};
+use crate::{ButtonInput, ButtonState};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -20,7 +20,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// ## Usage
 ///
 /// The event is read inside of the [`mouse_button_input_system`]
-/// to update the [`Input<MouseButton>`](crate::Input<MouseButton>) resource.
+/// to update the [`ButtonInput<MouseButton>`] resource.
 #[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -41,7 +41,7 @@ pub struct MouseButtonInput {
 ///
 /// ## Usage
 ///
-/// It is used as the generic `T` value of an [`Input`] to create a `bevy`
+/// It is used as the generic `T` value of an [`ButtonInput`] to create a `bevy`
 /// resource.
 ///
 /// ## Updating
@@ -61,6 +61,10 @@ pub enum MouseButton {
     Right,
     /// The middle mouse button.
     Middle,
+    /// The back mouse button.
+    Back,
+    /// The forward mouse button.
+    Forward,
     /// Another mouse button with the associated number.
     Other(u16),
 }
@@ -133,14 +137,14 @@ pub struct MouseWheel {
     pub window: Entity,
 }
 
-/// Updates the [`Input<MouseButton>`] resource with the latest [`MouseButtonInput`] events.
+/// Updates the [`ButtonInput<MouseButton>`] resource with the latest [`MouseButtonInput`] events.
 ///
 /// ## Differences
 ///
-/// The main difference between the [`MouseButtonInput`] event and the [`Input<MouseButton>`] resource is that
-/// the latter has convenient functions like [`Input::pressed`], [`Input::just_pressed`] and [`Input::just_released`].
+/// The main difference between the [`MouseButtonInput`] event and the [`ButtonInput<MouseButton>`] resource is that
+/// the latter has convenient functions like [`ButtonInput::pressed`], [`ButtonInput::just_pressed`] and [`ButtonInput::just_released`].
 pub fn mouse_button_input_system(
-    mut mouse_button_input: ResMut<Input<MouseButton>>,
+    mut mouse_button_input: ResMut<ButtonInput<MouseButton>>,
     mut mouse_button_input_events: EventReader<MouseButtonInput>,
 ) {
     mouse_button_input.bypass_change_detection().clear();

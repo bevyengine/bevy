@@ -1,10 +1,8 @@
 use std::fmt::Debug;
 
-use bevy_utils::{
-    petgraph::{algo::TarjanScc, graphmap::NodeTrait, prelude::*},
-    HashMap, HashSet,
-};
+use bevy_utils::{HashMap, HashSet};
 use fixedbitset::FixedBitSet;
+use petgraph::{algo::TarjanScc, graphmap::NodeTrait, prelude::*};
 
 use crate::schedule::set::*;
 
@@ -45,6 +43,10 @@ pub(crate) enum DependencyKind {
     Before,
     /// A node that should be succeeded.
     After,
+    /// A node that should be preceded and will **not** automatically insert an instance of `apply_deferred` on the edge.
+    BeforeNoSync,
+    /// A node that should be succeeded and will **not** automatically insert an instance of `apply_deferred` on the edge.
+    AfterNoSync,
 }
 
 /// An edge to be added to the dependency graph.
@@ -71,9 +73,12 @@ pub(crate) enum Ambiguity {
     IgnoreAll,
 }
 
+/// Metadata about how the node fits in the schedule graph
 #[derive(Clone, Default)]
 pub(crate) struct GraphInfo {
-    pub(crate) sets: Vec<InternedSystemSet>,
+    /// the sets that the node belongs to (hierarchy)
+    pub(crate) hierarchy: Vec<InternedSystemSet>,
+    /// the sets that the node depends on (must run before or after)
     pub(crate) dependencies: Vec<Dependency>,
     pub(crate) ambiguous_with: Ambiguity,
 }
@@ -152,7 +157,7 @@ where
         map.insert(node, i);
         topsorted.add_node(node);
         // insert nodes as successors to their predecessors
-        for pred in graph.neighbors_directed(node, Direction::Incoming) {
+        for pred in graph.neighbors_directed(node, Incoming) {
             topsorted.add_edge(pred, node, ());
         }
     }
@@ -177,7 +182,7 @@ where
     for a in topsorted.nodes().rev() {
         let index_a = *map.get(&a).unwrap();
         // iterate their successors in topological order
-        for b in topsorted.neighbors_directed(a, Direction::Outgoing) {
+        for b in topsorted.neighbors_directed(a, Outgoing) {
             let index_b = *map.get(&b).unwrap();
             debug_assert!(index_a < index_b);
             if !visited[index_b] {
@@ -187,7 +192,7 @@ where
                 reachable.insert(index(index_a, index_b, n));
 
                 let successors = transitive_closure
-                    .neighbors_directed(b, Direction::Outgoing)
+                    .neighbors_directed(b, Outgoing)
                     .collect::<Vec<_>>();
                 for c in successors {
                     let index_c = *map.get(&c).unwrap();

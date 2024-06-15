@@ -9,16 +9,25 @@
 #[macro_export]
 macro_rules! render_resource_wrapper {
     ($wrapper_type:ident, $wgpu_type:ty) => {
+        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         #[derive(Debug)]
         // SAFETY: while self is live, self.0 comes from `into_raw` of an Arc<$wgpu_type> with a strong ref.
         pub struct $wrapper_type(*const ());
+
+        #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
+        #[derive(Debug)]
+        pub struct $wrapper_type(send_wrapper::SendWrapper<*const ()>);
 
         impl $wrapper_type {
             pub fn new(value: $wgpu_type) -> Self {
                 let arc = std::sync::Arc::new(value);
                 let value_ptr = std::sync::Arc::into_raw(arc);
                 let unit_ptr = value_ptr.cast::<()>();
-                Self(unit_ptr)
+
+                #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+                return Self(unit_ptr);
+                #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
+                return Self(send_wrapper::SendWrapper::new(unit_ptr));
             }
 
             pub fn try_unwrap(self) -> Option<$wgpu_type> {
@@ -53,12 +62,16 @@ macro_rules! render_resource_wrapper {
             }
         }
 
+        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         // SAFETY: We manually implement Send and Sync, which is valid for Arc<T> when T: Send + Sync.
         // We ensure correctness by checking that $wgpu_type does implement Send and Sync.
         // If in future there is a case where a wrapper is required for a non-send/sync type
         // we can implement a macro variant that omits these manual Send + Sync impls
         unsafe impl Send for $wrapper_type {}
+        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+        // SAFETY: As explained above, we ensure correctness by checking that $wgpu_type implements Send and Sync.
         unsafe impl Sync for $wrapper_type {}
+        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         const _: () = {
             trait AssertSendSyncBound: Send + Sync {}
             impl AssertSendSyncBound for $wgpu_type {}
@@ -74,7 +87,14 @@ macro_rules! render_resource_wrapper {
                 std::mem::forget(arc);
                 let cloned_value_ptr = std::sync::Arc::into_raw(cloned);
                 let cloned_unit_ptr = cloned_value_ptr.cast::<()>();
-                Self(cloned_unit_ptr)
+
+                #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+                return Self(cloned_unit_ptr);
+
+                // Note: this implementation means that this Clone will panic
+                // when called off the wgpu thread.
+                #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
+                return Self(send_wrapper::SendWrapper::new(cloned_unit_ptr));
             }
         }
     };
@@ -84,16 +104,28 @@ macro_rules! render_resource_wrapper {
 #[macro_export]
 macro_rules! render_resource_wrapper {
     ($wrapper_type:ident, $wgpu_type:ty) => {
+        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         #[derive(Clone, Debug)]
         pub struct $wrapper_type(std::sync::Arc<$wgpu_type>);
+        #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
+        #[derive(Clone, Debug)]
+        pub struct $wrapper_type(std::sync::Arc<send_wrapper::SendWrapper<$wgpu_type>>);
 
         impl $wrapper_type {
             pub fn new(value: $wgpu_type) -> Self {
-                Self(std::sync::Arc::new(value))
+                #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+                return Self(std::sync::Arc::new(value));
+
+                #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
+                return Self(std::sync::Arc::new(send_wrapper::SendWrapper::new(value)));
             }
 
             pub fn try_unwrap(self) -> Option<$wgpu_type> {
-                std::sync::Arc::try_unwrap(self.0).ok()
+                #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+                return std::sync::Arc::try_unwrap(self.0).ok();
+
+                #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
+                return std::sync::Arc::try_unwrap(self.0).ok().map(|p| p.take());
             }
         }
 
@@ -105,6 +137,7 @@ macro_rules! render_resource_wrapper {
             }
         }
 
+        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         const _: () = {
             trait AssertSendSyncBound: Send + Sync {}
             impl AssertSendSyncBound for $wgpu_type {}
@@ -115,7 +148,7 @@ macro_rules! render_resource_wrapper {
 #[macro_export]
 macro_rules! define_atomic_id {
     ($atomic_id_type:ident) => {
-        #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+        #[derive(Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord, Debug)]
         pub struct $atomic_id_type(core::num::NonZeroU32);
 
         // We use new instead of default to indicate that each ID created will be unique.
@@ -133,6 +166,18 @@ macro_rules! define_atomic_id {
                         stringify!($atomic_id_type)
                     );
                 }))
+            }
+        }
+
+        impl From<$atomic_id_type> for core::num::NonZeroU32 {
+            fn from(value: $atomic_id_type) -> Self {
+                value.0
+            }
+        }
+
+        impl From<core::num::NonZeroU32> for $atomic_id_type {
+            fn from(value: core::num::NonZeroU32) -> Self {
+                Self(value)
             }
         }
     };

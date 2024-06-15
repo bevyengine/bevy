@@ -6,7 +6,7 @@ use super::{Sampler, TextureView};
 /// Helper for constructing bindgroups.
 ///
 /// Allows constructing the descriptor's entries as:
-/// ```ignore
+/// ```ignore (render_device cannot be easily accessed)
 /// render_device.create_bind_group(
 ///     "my_bind_group",
 ///     &my_layout,
@@ -19,7 +19,7 @@ use super::{Sampler, TextureView};
 ///
 /// instead of
 ///
-/// ```ignore
+/// ```ignore (render_device cannot be easily accessed)
 /// render_device.create_bind_group(
 ///     "my_bind_group",
 ///     &my_layout,
@@ -38,7 +38,7 @@ use super::{Sampler, TextureView};
 ///
 /// or
 ///
-/// ```ignore
+/// ```ignore (render_device cannot be easily accessed)
 /// render_device.create_bind_group(
 ///     "my_bind_group",
 ///     &my_layout,
@@ -51,7 +51,7 @@ use super::{Sampler, TextureView};
 ///
 /// instead of
 ///
-/// ```ignore
+/// ```ignore (render_device cannot be easily accessed)
 /// render_device.create_bind_group(
 ///     "my_bind_group",
 ///     &my_layout,
@@ -70,7 +70,7 @@ use super::{Sampler, TextureView};
 ///
 /// or
 ///
-/// ```ignore
+/// ```ignore (render_device cannot be easily accessed)
 /// render_device.create_bind_group(
 ///     "my_bind_group",
 ///     &my_layout,
@@ -80,7 +80,7 @@ use super::{Sampler, TextureView};
 ///
 /// instead of
 ///
-/// ```ignore
+/// ```ignore (render_device cannot be easily accessed)
 /// render_device.create_bind_group(
 ///     "my_bind_group",
 ///     &my_layout,

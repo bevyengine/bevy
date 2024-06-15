@@ -1,12 +1,14 @@
 use bevy_reflect_derive::impl_type_path;
 
+use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
 use crate::{
-    self as bevy_reflect, DynamicTuple, Reflect, ReflectMut, ReflectOwned, ReflectRef, Tuple,
-    TypeInfo, TypePath, TypePathTable, UnnamedField,
+    self as bevy_reflect, ApplyError, DynamicTuple, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, Tuple, TypeInfo, TypePath, TypePathTable, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
+use std::sync::Arc;
 
 /// A trait used to power [tuple struct-like] operations via [reflection].
 ///
@@ -59,6 +61,7 @@ pub struct TupleStructInfo {
     type_path: TypePathTable,
     type_id: TypeId,
     fields: Box<[UnnamedField]>,
+    custom_attributes: Arc<CustomAttributes>,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
@@ -75,6 +78,7 @@ impl TupleStructInfo {
             type_path: TypePathTable::of::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
+            custom_attributes: Arc::new(CustomAttributes::default()),
             #[cfg(feature = "documentation")]
             docs: None,
         }
@@ -84,6 +88,14 @@ impl TupleStructInfo {
     #[cfg(feature = "documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
+    }
+
+    /// Sets the custom attributes for this struct.
+    pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
+        Self {
+            custom_attributes: Arc::new(custom_attributes),
+            ..self
+        }
     }
 
     /// Get the field at the given index.
@@ -133,6 +145,8 @@ impl TupleStructInfo {
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
+
+    impl_custom_attribute_methods!(self.custom_attributes, "struct");
 }
 
 /// An iterator over the field values of a tuple struct.
@@ -155,7 +169,7 @@ impl<'a> Iterator for TupleStructFieldIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let value = self.tuple_struct.field(self.index);
-        self.index += 1;
+        self.index += value.is_some() as usize;
         value
     }
 
@@ -329,9 +343,31 @@ impl Reflect for DynamicTupleStruct {
         self
     }
 
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        if let ReflectRef::TupleStruct(tuple_struct) = value.reflect_ref() {
+            for (i, value) in tuple_struct.iter_fields().enumerate() {
+                if let Some(v) = self.field_mut(i) {
+                    v.try_apply(value)?;
+                }
+            }
+        } else {
+            return Err(ApplyError::MismatchedKinds {
+                from_kind: value.reflect_kind(),
+                to_kind: ReflectKind::TupleStruct,
+            });
+        }
+        Ok(())
+    }
+
     #[inline]
-    fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone_dynamic())
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
+    }
+
+    #[inline]
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::TupleStruct
     }
 
     #[inline]
@@ -349,23 +385,12 @@ impl Reflect for DynamicTupleStruct {
         ReflectOwned::TupleStruct(self)
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        if let ReflectRef::TupleStruct(tuple_struct) = value.reflect_ref() {
-            for (i, value) in tuple_struct.iter_fields().enumerate() {
-                if let Some(v) = self.field_mut(i) {
-                    v.apply(value);
-                }
-            }
-        } else {
-            panic!("Attempted to apply non-TupleStruct type to TupleStruct type.");
-        }
+    #[inline]
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(self.clone_dynamic())
     }
 
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
-    }
-
+    #[inline]
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         tuple_struct_partial_eq(self, value)
     }
@@ -451,11 +476,39 @@ pub fn tuple_struct_partial_eq<S: TupleStruct>(a: &S, b: &dyn Reflect) -> Option
 #[inline]
 pub fn tuple_struct_debug(
     dyn_tuple_struct: &dyn TupleStruct,
-    f: &mut std::fmt::Formatter<'_>,
+    f: &mut Formatter<'_>,
 ) -> std::fmt::Result {
-    let mut debug = f.debug_tuple(dyn_tuple_struct.reflect_type_path());
+    let mut debug = f.debug_tuple(
+        dyn_tuple_struct
+            .get_represented_type_info()
+            .map(|s| s.type_path())
+            .unwrap_or("_"),
+    );
     for field in dyn_tuple_struct.iter_fields() {
         debug.field(&field as &dyn Debug);
     }
     debug.finish()
+}
+
+#[cfg(test)]
+mod tests {
+    use crate as bevy_reflect;
+    use crate::*;
+    #[derive(Reflect)]
+    struct Ts(u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8);
+    #[test]
+    fn next_index_increment() {
+        let mut iter = Ts(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11).iter_fields();
+        let size = iter.len();
+        iter.index = size - 1;
+        let prev_index = iter.index;
+        assert!(iter.next().is_some());
+        assert_eq!(prev_index, iter.index - 1);
+
+        // When None we should no longer increase index
+        assert!(iter.next().is_none());
+        assert_eq!(size, iter.index);
+        assert!(iter.next().is_none());
+        assert_eq!(size, iter.index);
+    }
 }

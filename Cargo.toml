@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.12.0"
+version = "0.14.0-dev"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -8,16 +8,17 @@ exclude = ["assets/", "tools/", ".github/", "crates/", "examples/wasm/assets/"]
 homepage = "https://bevyengine.org"
 keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
-readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
-rust-version = "1.70.0"
+documentation = "https://docs.rs/bevy"
+rust-version = "1.78.0"
 
 [workspace]
 exclude = [
   "benches",
-  "crates/bevy_ecs_compile_fail_tests",
-  "crates/bevy_macros_compile_fail_tests",
-  "crates/bevy_reflect_compile_fail_tests",
+  "crates/bevy_derive/compile_fail",
+  "crates/bevy_ecs/compile_fail",
+  "crates/bevy_reflect/compile_fail",
+  "tools/compile_fail_utils",
 ]
 members = [
   "crates/*",
@@ -29,11 +30,34 @@ members = [
   "errors",
 ]
 
+[workspace.lints.clippy]
+type_complexity = "allow"
+doc_markdown = "warn"
+manual_let_else = "warn"
+undocumented_unsafe_blocks = "warn"
+redundant_else = "warn"
+match_same_arms = "warn"
+semicolon_if_nothing_returned = "warn"
+
+ptr_as_ptr = "warn"
+ptr_cast_constness = "warn"
+ref_as_ptr = "warn"
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "warn"
+missing_docs = "warn"
+unsafe_code = "deny"
+
+[lints]
+workspace = true
+
 [features]
 default = [
   "animation",
   "bevy_asset",
+  "bevy_state",
   "bevy_audio",
+  "bevy_color",
   "bevy_gilrs",
   "bevy_scene",
   "bevy_winit",
@@ -44,7 +68,7 @@ default = [
   "bevy_sprite",
   "bevy_text",
   "bevy_ui",
-  "multi-threaded",
+  "multi_threaded",
   "png",
   "hdr",
   "vorbis",
@@ -54,19 +78,26 @@ default = [
   "tonemapping_luts",
   "default_font",
   "webgl2",
+  "sysinfo_plugin",
 ]
 
 # Force dynamic linking, which improves iterative compile times
 dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
 
+# Enables system information diagnostic plugin
+sysinfo_plugin = ["bevy_internal/sysinfo_plugin"]
+
 # Provides animation functionality
-bevy_animation = ["bevy_internal/bevy_animation"]
+bevy_animation = ["bevy_internal/bevy_animation", "bevy_color"]
 
 # Provides asset functionality
 bevy_asset = ["bevy_internal/bevy_asset"]
 
 # Provides audio functionality
 bevy_audio = ["bevy_internal/bevy_audio"]
+
+# Provides shared color types and operations
+bevy_color = ["bevy_internal/bevy_color"]
 
 # Provides cameras and other basic render pipeline features
 bevy_core_pipeline = [
@@ -93,13 +124,18 @@ bevy_pbr = [
 ]
 
 # Provides rendering functionality
-bevy_render = ["bevy_internal/bevy_render"]
+bevy_render = ["bevy_internal/bevy_render", "bevy_color"]
 
 # Provides scene functionality
 bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
 
 # Provides sprite functionality
-bevy_sprite = ["bevy_internal/bevy_sprite", "bevy_render", "bevy_core_pipeline"]
+bevy_sprite = [
+  "bevy_internal/bevy_sprite",
+  "bevy_render",
+  "bevy_core_pipeline",
+  "bevy_color",
+]
 
 # Provides text functionality
 bevy_text = ["bevy_internal/bevy_text", "bevy_asset", "bevy_sprite"]
@@ -110,13 +146,17 @@ bevy_ui = [
   "bevy_core_pipeline",
   "bevy_text",
   "bevy_sprite",
+  "bevy_color",
 ]
 
 # winit window and input backend
 bevy_winit = ["bevy_internal/bevy_winit"]
 
 # Adds support for rendering gizmos
-bevy_gizmos = ["bevy_internal/bevy_gizmos"]
+bevy_gizmos = ["bevy_internal/bevy_gizmos", "bevy_color"]
+
+# Provides a collection of developer tools
+bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
 
 # Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
@@ -213,7 +253,7 @@ symphonia-wav = ["bevy_internal/symphonia-wav"]
 serialize = ["bevy_internal/serialize"]
 
 # Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.
-multi-threaded = ["bevy_internal/multi-threaded"]
+multi_threaded = ["bevy_internal/multi_threaded"]
 
 # Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.
 async-io = ["bevy_internal/async-io"]
@@ -263,8 +303,16 @@ shader_format_spirv = ["bevy_internal/shader_format_spirv"]
 # Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
 
-# Enable some limitations to be able to use WebGL2. If not enabled, it will default to WebGPU in Wasm. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
+# Enable support for multi-layer material textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
+pbr_multi_layer_material_textures = [
+  "bevy_internal/pbr_multi_layer_material_textures",
+]
+
+# Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
 webgl2 = ["bevy_internal/webgl"]
+
+# Enable support for WebGPU in Wasm. When enabled, this feature will override the `webgl2` feature and you won't be able to run Wasm builds with WebGL2, only with WebGPU.
+webgpu = ["bevy_internal/webgpu"]
 
 # Enables the built-in asset processor for processed assets.
 asset_processor = ["bevy_internal/asset_processor"]
@@ -275,19 +323,46 @@ file_watcher = ["bevy_internal/file_watcher"]
 # Enables watching in memory asset providers for Bevy Asset hot-reloading
 embedded_watcher = ["bevy_internal/embedded_watcher"]
 
+# Enable stepping-based debugging of Bevy systems
+bevy_debug_stepping = ["bevy_internal/bevy_debug_stepping"]
+
+# Enables the meshlet renderer for dense high-poly scenes (experimental)
+meshlet = ["bevy_internal/meshlet"]
+
+# Enables processing meshes into meshlet meshes for bevy_pbr
+meshlet_processor = ["bevy_internal/meshlet_processor"]
+
+# Enable support for the ios_simulator by downgrading some rendering capabilities
+ios_simulator = ["bevy_internal/ios_simulator"]
+
+# Enable built in global state machines
+bevy_state = ["bevy_internal/bevy_state"]
+
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.12.0", default-features = false, optional = true }
-bevy_internal = { path = "crates/bevy_internal", version = "0.12.0", default-features = false }
+bevy_internal = { path = "crates/bevy_internal", version = "0.14.0-dev", default-features = false }
+
+# WASM does not support dynamic linking.
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.14.0-dev", default-features = false, optional = true }
 
 [dev-dependencies]
 rand = "0.8.0"
+rand_chacha = "0.3.1"
 ron = "0.8.0"
+flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
 bytemuck = "1.7"
 # Needed to poll Task examples
-futures-lite = "1.11.3"
+futures-lite = "2.0.1"
+async-std = "1.12"
 crossbeam-channel = "0.5.0"
 argh = "0.1.12"
+thiserror = "1.0"
+event-listener = "5.3.0"
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen = { version = "0.2" }
+web-sys = { version = "0.3", features = ["Window"] }
 
 [[example]]
 name = "hello_world"
@@ -323,6 +398,7 @@ wasm = true
 [[example]]
 name = "2d_viewport_to_world"
 path = "examples/2d/2d_viewport_to_world.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.2d_viewport_to_world]
 name = "2D Viewport To World"
@@ -349,6 +425,17 @@ doc-scrape-examples = true
 [package.metadata.example.mesh2d]
 name = "Mesh 2D"
 description = "Renders a 2d mesh"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "mesh2d_arcs"
+path = "examples/2d/mesh2d_arcs.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mesh2d_arcs]
+name = "Arc 2D Meshes"
+description = "Demonstrates UV-mapping of the circular segment and sector primitives"
 category = "2D Rendering"
 wasm = true
 
@@ -381,7 +468,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.2d_shapes]
 name = "2D Shapes"
-description = "Renders a rectangle, circle, and hexagon"
+description = "Renders simple 2D primitive shapes like circles and polygons"
 category = "2D Rendering"
 wasm = true
 
@@ -397,17 +484,6 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
-name = "2d_gizmos"
-path = "examples/2d/2d_gizmos.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.2d_gizmos]
-name = "2D Gizmos"
-description = "A scene showcasing 2D gizmos"
-category = "2D Rendering"
-wasm = true
-
-[[example]]
 name = "sprite"
 path = "examples/2d/sprite.rs"
 doc-scrape-examples = true
@@ -415,6 +491,17 @@ doc-scrape-examples = true
 [package.metadata.example.sprite]
 name = "Sprite"
 description = "Renders a sprite"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "sprite_animation"
+path = "examples/2d/sprite_animation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sprite_animation]
+name = "Sprite Animation"
+description = "Animates a sprite in response to an event"
 category = "2D Rendering"
 wasm = true
 
@@ -437,6 +524,28 @@ doc-scrape-examples = true
 [package.metadata.example.sprite_sheet]
 name = "Sprite Sheet"
 description = "Renders an animated sprite"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "sprite_tile"
+path = "examples/2d/sprite_tile.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sprite_tile]
+name = "Sprite Tile"
+description = "Renders a sprite tiled in a grid"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "sprite_slice"
+path = "examples/2d/sprite_slice.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sprite_slice]
+name = "Sprite Slice"
+description = "Showcases slicing sprites into sections that can be scaled independently via the 9-patch technique"
 category = "2D Rendering"
 wasm = true
 
@@ -474,15 +583,37 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
-name = "pixel_perfect"
-path = "examples/2d/pixel_perfect.rs"
+name = "pixel_grid_snap"
+path = "examples/2d/pixel_grid_snap.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.pixel_perfect]
-name = "Pixel Perfect"
-description = "Demonstrates pixel perfect in 2d"
+[package.metadata.example.pixel_grid_snap]
+name = "Pixel Grid Snapping"
+description = "Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D"
 category = "2D Rendering"
 wasm = true
+
+[[example]]
+name = "bounding_2d"
+path = "examples/2d/bounding_2d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.bounding_2d]
+name = "2D Bounding Volume Intersections"
+description = "Showcases bounding volumes and intersection tests"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "wireframe_2d"
+path = "examples/2d/wireframe_2d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.wireframe_2d]
+name = "2D Wireframe"
+description = "Showcases wireframes for 2d meshes"
+category = "2D Rendering"
+wasm = false
 
 # 3D Rendering
 [[example]]
@@ -519,6 +650,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "animated_material"
+path = "examples/3d/animated_material.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animated_material]
+name = "Animated Material"
+description = "Shows how to animate material properties"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "generate_custom_mesh"
 path = "examples/3d/generate_custom_mesh.rs"
 doc-scrape-examples = true
@@ -541,17 +683,6 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
-name = "3d_gizmos"
-path = "examples/3d/3d_gizmos.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.3d_gizmos]
-name = "3D Gizmos"
-description = "A scene showcasing 3D gizmos"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
 name = "atmospheric_fog"
 path = "examples/3d/atmospheric_fog.rs"
 doc-scrape-examples = true
@@ -572,6 +703,17 @@ name = "Fog"
 description = "A scene showcasing the distance fog effect"
 category = "3D Rendering"
 wasm = true
+
+[[example]]
+name = "auto_exposure"
+path = "examples/3d/auto_exposure.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.auto_exposure]
+name = "Auto Exposure"
+description = "A scene showcasing auto exposure"
+category = "3D Rendering"
+wasm = false
 
 [[example]]
 name = "blend_modes"
@@ -642,6 +784,7 @@ wasm = true
 [[example]]
 name = "deferred_rendering"
 path = "examples/3d/deferred_rendering.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.deferred_rendering]
 name = "Deferred Rendering"
@@ -659,6 +802,28 @@ name = "Load glTF"
 description = "Loads and renders a glTF file as a scene"
 category = "3D Rendering"
 wasm = true
+
+[[example]]
+name = "load_gltf_extras"
+path = "examples/3d/load_gltf_extras.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.load_gltf_extras]
+name = "Load glTF extras"
+description = "Loads and renders a glTF file as a scene, including the gltf extras"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "motion_blur"
+path = "examples/3d/motion_blur.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.motion_blur]
+name = "Motion Blur"
+description = "Demonstrates per-pixel motion blur"
+category = "3D Rendering"
+wasm = false
 
 [[example]]
 name = "tonemapping"
@@ -806,6 +971,7 @@ wasm = true
 [[example]]
 name = "transmission"
 path = "examples/3d/transmission.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.transmission]
 name = "Transmission"
@@ -858,6 +1024,48 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "irradiance_volumes"
+path = "examples/3d/irradiance_volumes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.irradiance_volumes]
+name = "Irradiance Volumes"
+description = "Demonstrates irradiance volumes"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "meshlet"
+path = "examples/3d/meshlet.rs"
+doc-scrape-examples = true
+required-features = ["meshlet"]
+
+[package.metadata.example.meshlet]
+name = "Meshlet"
+description = "Meshlet rendering for dense high-poly scenes (experimental)"
+category = "3D Rendering"
+wasm = false
+setup = [
+  [
+    "curl",
+    "-o",
+    "assets/models/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/bd869887bc5c9c6e74e353f657d342bef84bacd8/bunny.meshlet_mesh",
+  ],
+]
+
+[[example]]
+name = "lightmaps"
+path = "examples/3d/lightmaps.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.lightmaps]
+name = "Lightmaps"
+description = "Rendering a scene with baked lightmaps"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "no_prepass"
 path = "tests/3d/no_prepass.rs"
 doc-scrape-examples = true
@@ -874,6 +1082,17 @@ doc-scrape-examples = true
 [package.metadata.example.animated_fox]
 name = "Animated Fox"
 description = "Plays an animation from a skinned glTF"
+category = "Animation"
+wasm = true
+
+[[example]]
+name = "animation_graph"
+path = "examples/animation/animation_graph.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animation_graph]
+name = "Animation Graph"
+description = "Blends multiple animations together with a graph"
 category = "Animation"
 wasm = true
 
@@ -896,6 +1115,17 @@ doc-scrape-examples = true
 [package.metadata.example.animated_transform]
 name = "Animated Transform"
 description = "Create and play an animation defined by code that operates on the `Transform` component"
+category = "Animation"
+wasm = true
+
+[[example]]
+name = "color_animation"
+path = "examples/animation/color_animation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.color_animation]
+name = "Color animation"
+description = "Demonstrates how to animate colors using mixing and splines in different color spaces"
 category = "Animation"
 wasm = true
 
@@ -1000,6 +1230,28 @@ category = "Application"
 wasm = true
 
 [[example]]
+name = "log_layers"
+path = "examples/app/log_layers.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.log_layers]
+name = "Log layers"
+description = "Illustrate how to add custom log layers"
+category = "Application"
+wasm = false
+
+[[example]]
+name = "log_layers_ecs"
+path = "examples/app/log_layers_ecs.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.log_layers_ecs]
+name = "Advanced log layers"
+description = "Illustrate how to transfer data between log layers and Bevy's ECS"
+category = "Application"
+wasm = false
+
+[[example]]
 name = "plugin"
 path = "examples/app/plugin.rs"
 doc-scrape-examples = true
@@ -1055,6 +1307,17 @@ category = "Application"
 wasm = false
 
 [[example]]
+name = "headless_renderer"
+path = "examples/app/headless_renderer.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.headless_renderer]
+name = "Headless Renderer"
+description = "An application that runs with no window, but renders into image file"
+category = "Application"
+wasm = false
+
+[[example]]
 name = "without_winit"
 path = "examples/app/without_winit.rs"
 doc-scrape-examples = true
@@ -1074,6 +1337,28 @@ doc-scrape-examples = true
 [package.metadata.example.asset_loading]
 name = "Asset Loading"
 description = "Demonstrates various methods to load assets"
+category = "Assets"
+wasm = false
+
+[[example]]
+name = "asset_settings"
+path = "examples/asset/asset_settings.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.asset_settings]
+name = "Asset Settings"
+description = "Demonstrates various methods of applying settings when loading an asset"
+category = "Assets"
+wasm = false
+
+[[example]]
+name = "asset_decompression"
+path = "examples/asset/asset_decompression.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.asset_decompression]
+name = "Asset Decompression"
+description = "Demonstrates loading a compressed asset"
 category = "Assets"
 wasm = false
 
@@ -1100,6 +1385,28 @@ category = "Assets"
 wasm = true
 
 [[example]]
+name = "embedded_asset"
+path = "examples/asset/embedded_asset.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.embedded_asset]
+name = "Embedded Asset"
+description = "Embed an asset in the application binary and load it"
+category = "Assets"
+wasm = true
+
+[[example]]
+name = "extra_asset_source"
+path = "examples/asset/extra_source.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.extra_asset_source]
+name = "Extra asset source"
+description = "Load an asset from a non-standard asset source"
+category = "Assets"
+wasm = true
+
+[[example]]
 name = "hot_asset_reloading"
 path = "examples/asset/hot_asset_reloading.rs"
 doc-scrape-examples = true
@@ -1109,7 +1416,7 @@ required-features = ["file_watcher"]
 name = "Hot Reloading of Assets"
 description = "Demonstrates automatic reloading of assets when modified on disk"
 category = "Assets"
-wasm = true
+wasm = false
 
 [[example]]
 name = "asset_processing"
@@ -1122,6 +1429,29 @@ name = "Asset Processing"
 description = "Demonstrates how to process and load custom assets"
 category = "Assets"
 wasm = false
+
+[[example]]
+name = "repeated_texture"
+path = "examples/asset/repeated_texture.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.repeated_texture]
+name = "Repeated texture configuration"
+description = "How to configure the texture to repeat instead of the default clamp to edges"
+category = "Assets"
+wasm = true
+
+# Assets
+[[example]]
+name = "multi_asset_sync"
+path = "examples/asset/multi_asset_sync.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.multi_asset_sync]
+name = "Mult-asset synchronization"
+description = "Demonstrates how to wait for multiple assets to be loaded."
+category = "Assets"
+wasm = true
 
 # Async Tasks
 [[example]]
@@ -1181,6 +1511,17 @@ category = "Audio"
 wasm = true
 
 [[example]]
+name = "soundtrack"
+path = "examples/audio/soundtrack.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.soundtrack]
+name = "Soundtrack"
+description = "Shows how to play different soundtracks based on game state"
+category = "Audio"
+wasm = true
+
+[[example]]
 name = "spatial_audio_2d"
 path = "examples/audio/spatial_audio_2d.rs"
 doc-scrape-examples = true
@@ -1205,6 +1546,7 @@ wasm = true
 [[example]]
 name = "pitch"
 path = "examples/audio/pitch.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.pitch]
 name = "Pitch"
@@ -1247,11 +1589,6 @@ description = "Full guide to Bevy's ECS"
 category = "ECS (Entity Component System)"
 wasm = false
 
-[[example]]
-name = "apply_deferred"
-path = "examples/ecs/apply_deferred.rs"
-doc-scrape-examples = true
-
 [package.metadata.example.apply_deferred]
 name = "Apply System Buffers"
 description = "Show how to use `apply_deferred` system"
@@ -1270,6 +1607,28 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "component_hooks"
+path = "examples/ecs/component_hooks.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.component_hooks]
+name = "Component Hooks"
+description = "Define component hooks to manage component lifecycle events"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "custom_schedule"
+path = "examples/ecs/custom_schedule.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_schedule]
+name = "Custom Schedule"
+description = "Demonstrates how to add custom schedules"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "custom_query_param"
 path = "examples/ecs/custom_query_param.rs"
 doc-scrape-examples = true
@@ -1281,6 +1640,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "dynamic"
+path = "examples/ecs/dynamic.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.dynamic]
+name = "Dynamic ECS"
+description = "Dynamically create components, spawn entities with those components and query those components"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "event"
 path = "examples/ecs/event.rs"
 doc-scrape-examples = true
@@ -1288,6 +1658,17 @@ doc-scrape-examples = true
 [package.metadata.example.event]
 name = "Event"
 description = "Illustrates event creation, activation, and reception"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "send_and_receive_events"
+path = "examples/ecs/send_and_receive_events.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.send_and_receive_events]
+name = "Send and receive events"
+description = "Demonstrates how to send and receive events of the same type in a single system"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -1338,6 +1719,7 @@ wasm = true
 [[example]]
 name = "one_shot_systems"
 path = "examples/ecs/one_shot_systems.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.one_shot_systems]
 name = "One Shot Systems"
@@ -1390,14 +1772,51 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "state"
-path = "examples/ecs/state.rs"
+name = "states"
+path = "examples/state/states.rs"
 doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
 
-[package.metadata.example.state]
-name = "State"
-description = "Illustrates how to use States to control transitioning from a Menu state to an InGame state"
-category = "ECS (Entity Component System)"
+[package.metadata.example.states]
+name = "States"
+description = "Illustrates how to use States to control transitioning from a Menu state to an InGame state."
+category = "State"
+wasm = false
+
+[[example]]
+name = "sub_states"
+path = "examples/state/sub_states.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
+
+[package.metadata.example.sub_states]
+name = "Sub States"
+description = "Using Sub States for hierarchical state handling."
+category = "State"
+wasm = false
+
+[[example]]
+name = "computed_states"
+path = "examples/state/computed_states.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
+
+[package.metadata.example.computed_states]
+name = "Computed States"
+description = "Advanced state patterns using Computed States."
+category = "State"
+wasm = false
+
+[[example]]
+name = "custom_transitions"
+path = "examples/state/custom_transitions.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
+
+[package.metadata.example.custom_transitions]
+name = "Custom State Transition Behavior"
+description = "Creating and working with custom state transition schedules."
+category = "State"
 wasm = false
 
 [[example]]
@@ -1433,10 +1852,23 @@ description = "Illustrates creating custom system parameters with `SystemParam`"
 category = "ECS (Entity Component System)"
 wasm = false
 
+[[example]]
+name = "system_stepping"
+path = "examples/ecs/system_stepping.rs"
+doc-scrape-examples = true
+required-features = ["bevy_debug_stepping"]
+
+[package.metadata.example.system_stepping]
+name = "System Stepping"
+description = "Demonstrate stepping through systems in order of execution."
+category = "ECS (Entity Component System)"
+wasm = false
+
 # Time
 [[example]]
 name = "time"
 path = "examples/time/time.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.time]
 name = "Time handling"
@@ -1447,6 +1879,7 @@ wasm = false
 [[example]]
 name = "virtual_time"
 path = "examples/time/virtual_time.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.virtual_time]
 name = "Virtual time"
@@ -1485,7 +1918,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.breakout]
 name = "Breakout"
-description = "An implementation of the classic game \"Breakout\""
+description = "An implementation of the classic game \"Breakout\"."
 category = "Games"
 wasm = true
 
@@ -1501,6 +1934,17 @@ category = "Games"
 wasm = true
 
 [[example]]
+name = "desk_toy"
+path = "examples/games/desk_toy.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.desk_toy]
+name = "Desk Toy"
+description = "Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!"
+category = "Games"
+wasm = false
+
+[[example]]
 name = "game_menu"
 path = "examples/games/game_menu.rs"
 doc-scrape-examples = true
@@ -1508,6 +1952,17 @@ doc-scrape-examples = true
 [package.metadata.example.game_menu]
 name = "Game Menu"
 description = "A simple game menu"
+category = "Games"
+wasm = true
+
+[[example]]
+name = "loading_screen"
+path = "examples/games/loading_screen.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.loading_screen]
+name = "Loading Screen"
+description = "Demonstrates how to create a loading screen that waits for all assets to be loaded and render pipelines to be compiled."
 category = "Games"
 wasm = true
 
@@ -1668,6 +2123,28 @@ category = "Reflection"
 wasm = false
 
 [[example]]
+name = "custom_attributes"
+path = "examples/reflection/custom_attributes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_attributes]
+name = "Custom Attributes"
+description = "Registering and accessing custom attributes on reflected types"
+category = "Reflection"
+wasm = false
+
+[[example]]
+name = "dynamic_types"
+path = "examples/reflection/dynamic_types.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.dynamic_types]
+name = "Dynamic Types"
+description = "How dynamic types are used with reflection"
+category = "Reflection"
+wasm = false
+
+[[example]]
 name = "generic_reflection"
 path = "examples/reflection/generic_reflection.rs"
 doc-scrape-examples = true
@@ -1768,8 +2245,20 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "shader_material_2d"
+path = "examples/shader/shader_material_2d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.shader_material_2d]
+name = "Material"
+description = "A shader and a material that uses it on a 2d mesh"
+category = "Shaders"
+wasm = true
+
+[[example]]
 name = "extended_material"
 path = "examples/shader/extended_material.rs"
+doc-scrape-examples = true
 
 [package.metadata.example.extended_material]
 name = "Extended Material"
@@ -1803,6 +2292,7 @@ wasm = true
 name = "shader_material_glsl"
 path = "examples/shader/shader_material_glsl.rs"
 doc-scrape-examples = true
+required-features = ["shader_format_glsl"]
 
 [package.metadata.example.shader_material_glsl]
 name = "Material - GLSL"
@@ -1840,6 +2330,17 @@ doc-scrape-examples = true
 [package.metadata.example.compute_shader_game_of_life]
 name = "Compute - Game of Life"
 description = "A compute shader that simulates Conway's Game of Life"
+category = "Shaders"
+wasm = false
+
+[[example]]
+name = "gpu_readback"
+path = "examples/shader/gpu_readback.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gpu_readback]
+name = "GPU readback"
+description = "A very simple compute shader that writes to a buffer that is read by the cpu"
 category = "Shaders"
 wasm = false
 
@@ -2034,6 +2535,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "observers"
+path = "examples/ecs/observers.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.observers]
+name = "Observers"
+description = "Demonstrates observers that react to events (both built-in life-cycle events and custom events)"
+category = "ECS (Entity Component System)"
+wasm = true
+
+[[example]]
 name = "3d_rotation"
 path = "examples/transforms/3d_rotation.rs"
 doc-scrape-examples = true
@@ -2041,6 +2553,17 @@ doc-scrape-examples = true
 [package.metadata.example.3d_rotation]
 name = "3D Rotation"
 description = "Illustrates how to (constantly) rotate an object around an axis"
+category = "Transforms"
+wasm = true
+
+[[example]]
+name = "align"
+path = "examples/transforms/align.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.align]
+name = "Alignment"
+description = "A demonstration of Transform's axis-alignment feature"
 category = "Transforms"
 wasm = true
 
@@ -2086,6 +2609,17 @@ doc-scrape-examples = true
 [package.metadata.example.borders]
 name = "Borders"
 description = "Demonstrates how to create a node with a border"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "rounded_borders"
+path = "examples/ui/rounded_borders.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.rounded_borders]
+name = "Rounded Borders"
+description = "Demonstrates how to create a node with a rounded border"
 category = "UI (User Interface)"
 wasm = true
 
@@ -2163,6 +2697,17 @@ doc-scrape-examples = true
 [package.metadata.example.relative_cursor_position]
 name = "Relative Cursor Position"
 description = "Showcases the RelativeCursorPosition component"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "render_ui_to_texture"
+path = "examples/ui/render_ui_to_texture.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.render_ui_to_texture]
+name = "Render UI to Texture"
+description = "An example of rendering UI as a part of a 3D world"
 category = "UI (User Interface)"
 wasm = true
 
@@ -2289,6 +2834,28 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "ui_texture_slice"
+path = "examples/ui/ui_texture_slice.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_texture_slice]
+name = "UI Texture Slice"
+description = "Illustrates how to use 9 Slicing in UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "ui_texture_atlas_slice"
+path = "examples/ui/ui_texture_atlas_slice.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_texture_atlas_slice]
+name = "UI Texture Atlas Slice"
+description = "Illustrates how to use 9 Slicing for TextureAtlases in UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "viewport_debug"
 path = "examples/ui/viewport_debug.rs"
 doc-scrape-examples = true
@@ -2308,6 +2875,17 @@ doc-scrape-examples = true
 [package.metadata.example.clear_color]
 name = "Clear Color"
 description = "Creates a solid color window"
+category = "Window"
+wasm = true
+
+[[example]]
+name = "custom_user_event"
+path = "examples/window/custom_user_event.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_user_event]
+name = "Custom User Event"
+description = "Handles custom user events within the event loop"
 category = "Window"
 wasm = true
 
@@ -2403,6 +2981,17 @@ name = "fallback_image"
 path = "examples/shader/fallback_image.rs"
 doc-scrape-examples = true
 
+[[example]]
+name = "reflection_probes"
+path = "examples/3d/reflection_probes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.reflection_probes]
+name = "Reflection Probes"
+description = "Demonstrates reflection probes"
+category = "3D Rendering"
+wasm = false
+
 [package.metadata.example.fallback_image]
 hidden = true
 
@@ -2423,6 +3012,209 @@ description = "Demonstrates creating and using custom Ui materials"
 category = "UI (User Interface)"
 wasm = true
 
+[[example]]
+name = "render_primitives"
+path = "examples/math/render_primitives.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.render_primitives]
+name = "Rendering Primitives"
+description = "Shows off rendering for all math primitives as both Meshes and Gizmos"
+category = "Math"
+wasm = true
+
+# Math
+[[example]]
+name = "sampling_primitives"
+path = "examples/math/sampling_primitives.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sampling_primitives]
+name = "Sampling Primitives"
+description = "Demonstrates all the primitives which can be sampled."
+category = "Math"
+wasm = true
+
+[[example]]
+name = "custom_primitives"
+path = "examples/math/custom_primitives.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_primitives]
+name = "Custom Primitives"
+description = "Demonstrates how to add custom primitives and useful traits for them."
+category = "Math"
+wasm = true
+
+[[example]]
+name = "random_sampling"
+path = "examples/math/random_sampling.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.random_sampling]
+name = "Random Sampling"
+description = "Demonstrates how to sample random points from mathematical primitives"
+category = "Math"
+wasm = true
+
+[[example]]
+name = "smooth_follow"
+path = "examples/math/smooth_follow.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.smooth_follow]
+name = "Smooth Follow"
+description = "Demonstrates how to make an entity smoothly follow another using interpolation"
+category = "Math"
+wasm = true
+
+# Gizmos
+[[example]]
+name = "2d_gizmos"
+path = "examples/gizmos/2d_gizmos.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.2d_gizmos]
+name = "2D Gizmos"
+description = "A scene showcasing 2D gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "3d_gizmos"
+path = "examples/gizmos/3d_gizmos.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.3d_gizmos]
+name = "3D Gizmos"
+description = "A scene showcasing 3D gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "axes"
+path = "examples/gizmos/axes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.axes]
+name = "Axes"
+description = "Demonstrates the function of axes gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "light_gizmos"
+path = "examples/gizmos/light_gizmos.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.light_gizmos]
+name = "Light Gizmos"
+description = "A scene showcasing light gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "fps_overlay"
+path = "examples/dev_tools/fps_overlay.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
+
+[[example]]
+name = "2d_top_down_camera"
+path = "examples/camera/2d_top_down_camera.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.2d_top_down_camera]
+name = "2D top-down camera"
+description = "A 2D top-down camera smoothly following player movements"
+category = "Camera"
+wasm = true
+
+[package.metadata.example.fps_overlay]
+name = "FPS overlay"
+description = "Demonstrates FPS overlay"
+category = "Dev tools"
+wasm = true
+
+[[example]]
+name = "visibility_range"
+path = "examples/3d/visibility_range.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.visibility_range]
+name = "Visibility range"
+description = "Demonstrates visibility ranges"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "ssr"
+path = "examples/3d/ssr.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ssr]
+name = "Screen Space Reflections"
+description = "Demonstrates screen space reflections with water ripples"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "color_grading"
+path = "examples/3d/color_grading.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.color_grading]
+name = "Color grading"
+description = "Demonstrates color grading"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "clearcoat"
+path = "examples/3d/clearcoat.rs"
+doc-scrape-examples = true
+required-features = ["pbr_multi_layer_material_textures"]
+
+[package.metadata.example.clearcoat]
+name = "Clearcoat"
+description = "Demonstrates the clearcoat PBR feature"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "depth_of_field"
+path = "examples/3d/depth_of_field.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.depth_of_field]
+name = "Depth of field"
+description = "Demonstrates depth of field"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "volumetric_fog"
+path = "examples/3d/volumetric_fog.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.volumetric_fog]
+name = "Volumetric fog"
+description = "Demonstrates volumetric fog and lighting"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "anisotropy"
+path = "examples/3d/anisotropy.rs"
+doc-scrape-examples = true
+required-features = ["jpeg"]
+
+[package.metadata.example.anisotropy]
+name = "Anisotropy"
+description = "Displays an example model with anisotropy"
+category = "3D Rendering"
+wasm = false
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
@@ -2435,4 +3227,6 @@ lto = "fat"
 panic = "abort"
 
 [package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+all-features = true
 cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]

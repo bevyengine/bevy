@@ -29,7 +29,7 @@ impl<'w> Benchmark<'w> {
 
     #[inline(never)]
     pub fn run(&mut self) {
-        self.1.for_each_mut(&mut self.0, |mut data| {
+        self.1.iter_mut(&mut self.0).for_each(|mut data| {
             data.0 *= 2.0;
         });
     }

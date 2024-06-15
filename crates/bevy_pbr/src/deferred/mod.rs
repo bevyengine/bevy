@@ -1,13 +1,16 @@
-use crate::{MeshPipeline, MeshViewBindGroup, ScreenSpaceAmbientOcclusionSettings};
+use crate::{
+    graph::NodePbr, irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight,
+    MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusionSettings,
+    ScreenSpaceReflectionsUniform, ViewLightProbesUniformOffset,
+    ViewScreenSpaceReflectionsUniformOffset,
+};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
-    clear_color::ClearColorConfig,
-    core_3d,
+    core_3d::graph::{Core3d, Node3d},
     deferred::{
         copy_lighting_id::DeferredLightingIdDepthTexture, DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
     },
-    prelude::{Camera3d, ClearColor},
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     tonemapping::{DebandDither, Tonemapping},
 };
@@ -16,23 +19,17 @@ use bevy_render::{
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
-    render_asset::RenderAssets,
-    render_graph::{NodeRunError, RenderGraphContext, ViewNode, ViewNodeRunner},
-    render_resource::{self, Operations, PipelineCache, RenderPassDescriptor},
+    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
+    render_resource::binding_types::uniform_buffer,
+    render_resource::*,
     renderer::{RenderContext, RenderDevice},
-    texture::Image,
-    view::{ViewTarget, ViewUniformOffset},
-    Render, RenderSet,
-};
-
-use bevy_render::{
-    render_graph::RenderGraphApp, render_resource::*, texture::BevyDefault, view::ExtractedView,
-    RenderApp,
+    texture::BevyDefault,
+    view::{ExtractedView, ViewTarget, ViewUniformOffset},
+    Render, RenderApp, RenderSet,
 };
 
 use crate::{
-    EnvironmentMapLight, MeshPipelineKey, ShadowFilteringMethod, ViewFogUniformOffset,
-    ViewLightsUniformOffset,
+    MeshPipelineKey, ShadowFilteringMethod, ViewFogUniformOffset, ViewLightsUniformOffset,
 };
 
 pub struct DeferredPbrLightingPlugin;
@@ -48,11 +45,11 @@ pub const DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID: u8 = 1;
 pub struct PbrDeferredLightingDepthId {
     depth_id: u32,
 
-    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     _webgl2_padding_0: f32,
-    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     _webgl2_padding_1: f32,
-    #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     _webgl2_padding_2: f32,
 }
 
@@ -61,11 +58,11 @@ impl PbrDeferredLightingDepthId {
         PbrDeferredLightingDepthId {
             depth_id: value as u32,
 
-            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
             _webgl2_padding_0: 0.0,
-            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
             _webgl2_padding_1: 0.0,
-            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
             _webgl2_padding_2: 0.0,
         }
     }
@@ -84,11 +81,11 @@ impl Default for PbrDeferredLightingDepthId {
         PbrDeferredLightingDepthId {
             depth_id: DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID as u32,
 
-            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
             _webgl2_padding_0: 0.0,
-            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
             _webgl2_padding_1: 0.0,
-            #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+            #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
             _webgl2_padding_2: 0.0,
         }
     }
@@ -109,7 +106,7 @@ impl Plugin for DeferredPbrLightingPlugin {
             Shader::from_wgsl
         );
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
@@ -120,21 +117,21 @@ impl Plugin for DeferredPbrLightingPlugin {
                 (prepare_deferred_lighting_pipelines.in_set(RenderSet::Prepare),),
             )
             .add_render_graph_node::<ViewNodeRunner<DeferredOpaquePass3dPbrLightingNode>>(
-                core_3d::graph::NAME,
-                DEFERRED_LIGHTING_PASS,
+                Core3d,
+                NodePbr::DeferredLightingPass,
             )
             .add_render_graph_edges(
-                core_3d::graph::NAME,
-                &[
-                    core_3d::graph::node::START_MAIN_PASS,
-                    DEFERRED_LIGHTING_PASS,
-                    core_3d::graph::node::MAIN_OPAQUE_PASS,
-                ],
+                Core3d,
+                (
+                    Node3d::StartMainPass,
+                    NodePbr::DeferredLightingPass,
+                    Node3d::MainOpaquePass,
+                ),
             );
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
@@ -142,7 +139,6 @@ impl Plugin for DeferredPbrLightingPlugin {
     }
 }
 
-pub const DEFERRED_LIGHTING_PASS: &str = "deferred_opaque_pbr_lighting_pass_3d";
 #[derive(Default)]
 pub struct DeferredOpaquePass3dPbrLightingNode;
 
@@ -151,10 +147,11 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
         &'static ViewUniformOffset,
         &'static ViewLightsUniformOffset,
         &'static ViewFogUniformOffset,
+        &'static ViewLightProbesUniformOffset,
+        &'static ViewScreenSpaceReflectionsUniformOffset,
         &'static MeshViewBindGroup,
         &'static ViewTarget,
         &'static DeferredLightingIdDepthTexture,
-        &'static Camera3d,
         &'static DeferredLightingPipeline,
     );
 
@@ -166,10 +163,11 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             view_uniform_offset,
             view_lights_offset,
             view_fog_offset,
+            view_light_probes_offset,
+            view_ssr_offset,
             mesh_view_bind_group,
             target,
             deferred_lighting_id_depth_texture,
-            camera_3d,
             deferred_lighting_pipeline,
         ): QueryItem<Self::ViewQuery>,
         world: &World,
@@ -199,24 +197,17 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("deferred_lighting_pass"),
-            color_attachments: &[Some(target.get_color_attachment(Operations {
-                load: match camera_3d.clear_color {
-                    ClearColorConfig::Default => {
-                        LoadOp::Clear(world.resource::<ClearColor>().0.into())
-                    }
-                    ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                    ClearColorConfig::None => LoadOp::Load,
-                },
-                store: true,
-            }))],
+            color_attachments: &[Some(target.get_color_attachment())],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &deferred_lighting_id_depth_texture.texture.default_view,
                 depth_ops: Some(Operations {
                     load: LoadOp::Load,
-                    store: false,
+                    store: StoreOp::Discard,
                 }),
                 stencil_ops: None,
             }),
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
 
         render_pass.set_render_pipeline(pipeline);
@@ -227,6 +218,8 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
                 view_uniform_offset.offset,
                 view_lights_offset.offset,
                 view_fog_offset.offset,
+                **view_light_probes_offset,
+                **view_ssr_offset,
             ],
         );
         render_pass.set_bind_group(1, &bind_group_1, &[]);
@@ -256,11 +249,19 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         // Let the shader code know that it's running in a deferred pipeline.
         shader_defs.push("DEFERRED_LIGHTING_PIPELINE".into());
 
-        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("WEBGL2".into());
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());
+            shader_defs.push(ShaderDefVal::UInt(
+                "TONEMAPPING_LUT_TEXTURE_BINDING_INDEX".into(),
+                20,
+            ));
+            shader_defs.push(ShaderDefVal::UInt(
+                "TONEMAPPING_LUT_SAMPLER_BINDING_INDEX".into(),
+                21,
+            ));
 
             let method = key.intersection(MeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
@@ -271,7 +272,7 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             } else if method == MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE {
                 shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_ACES_FITTED {
-                shader_defs.push("TONEMAP_METHOD_ACES_FITTED ".into());
+                shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_AGX {
                 shader_defs.push("TONEMAP_METHOD_AGX".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM {
@@ -296,6 +297,10 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("ENVIRONMENT_MAP".into());
         }
 
+        if key.contains(MeshPipelineKey::IRRADIANCE_VOLUME) {
+            shader_defs.push("IRRADIANCE_VOLUME".into());
+        }
+
         if key.contains(MeshPipelineKey::NORMAL_PREPASS) {
             shader_defs.push("NORMAL_PREPASS".into());
         }
@@ -308,6 +313,18 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("MOTION_VECTOR_PREPASS".into());
         }
 
+        if key.contains(MeshPipelineKey::SCREEN_SPACE_REFLECTIONS) {
+            shader_defs.push("SCREEN_SPACE_REFLECTIONS".into());
+        }
+
+        if key.contains(MeshPipelineKey::HAS_PREVIOUS_SKIN) {
+            shader_defs.push("HAS_PREVIOUS_SKIN".into());
+        }
+
+        if key.contains(MeshPipelineKey::HAS_PREVIOUS_MORPH) {
+            shader_defs.push("HAS_PREVIOUS_MORPH".into());
+        }
+
         // Always true, since we're in the deferred lighting pipeline
         shader_defs.push("DEFERRED_PREPASS".into());
 
@@ -315,13 +332,13 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             key.intersection(MeshPipelineKey::SHADOW_FILTER_METHOD_RESERVED_BITS);
         if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2 {
             shader_defs.push("SHADOW_FILTER_METHOD_HARDWARE_2X2".into());
-        } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13 {
-            shader_defs.push("SHADOW_FILTER_METHOD_CASTANO_13".into());
-        } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14 {
-            shader_defs.push("SHADOW_FILTER_METHOD_JIMENEZ_14".into());
+        } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_GAUSSIAN {
+            shader_defs.push("SHADOW_FILTER_METHOD_GAUSSIAN".into());
+        } else if shadow_filter_method == MeshPipelineKey::SHADOW_FILTER_METHOD_TEMPORAL {
+            shader_defs.push("SHADOW_FILTER_METHOD_TEMPORAL".into());
         }
 
-        #[cfg(all(feature = "webgl", target_arch = "wasm32"))]
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
 
         RenderPipelineDescriptor {
@@ -376,19 +393,13 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
 impl FromWorld for DeferredLightingLayout {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
-        let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("deferred_lighting_layout"),
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX_FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: render_resource::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: Some(PbrDeferredLightingDepthId::min_size()),
-                },
-                count: None,
-            }],
-        });
+        let layout = render_device.create_bind_group_layout(
+            "deferred_lighting_layout",
+            &BindGroupLayoutEntries::single(
+                ShaderStages::VERTEX_FRAGMENT,
+                uniform_buffer::<PbrDeferredLightingDepthId>(false),
+            ),
+        );
         Self {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),
             bind_group_layout_1: layout,
@@ -418,28 +429,32 @@ pub fn prepare_deferred_lighting_pipelines(
             &ExtractedView,
             Option<&Tonemapping>,
             Option<&DebandDither>,
-            Option<&EnvironmentMapLight>,
             Option<&ShadowFilteringMethod>,
-            Option<&ScreenSpaceAmbientOcclusionSettings>,
+            (
+                Has<ScreenSpaceAmbientOcclusionSettings>,
+                Has<ScreenSpaceReflectionsUniform>,
+            ),
             (
                 Has<NormalPrepass>,
                 Has<DepthPrepass>,
                 Has<MotionVectorPrepass>,
             ),
+            Has<RenderViewLightProbes<EnvironmentMapLight>>,
+            Has<RenderViewLightProbes<IrradianceVolume>>,
         ),
         With<DeferredPrepass>,
     >,
-    images: Res<RenderAssets<Image>>,
 ) {
     for (
         entity,
         view,
         tonemapping,
         dither,
-        environment_map,
         shadow_filter_method,
-        ssao,
+        (ssao, ssr),
         (normal_prepass, depth_prepass, motion_vector_prepass),
+        has_environment_maps,
+        has_irradiance_volumes,
     ) in &views
     {
         let mut view_key = MeshPipelineKey::from_hdr(view.hdr);
@@ -482,27 +497,33 @@ pub fn prepare_deferred_lighting_pipelines(
             }
         }
 
-        if ssao.is_some() {
+        if ssao {
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
+        if ssr {
+            view_key |= MeshPipelineKey::SCREEN_SPACE_REFLECTIONS;
+        }
 
-        let environment_map_loaded = match environment_map {
-            Some(environment_map) => environment_map.is_loaded(&images),
-            None => false,
-        };
-        if environment_map_loaded {
+        // We don't need to check to see whether the environment map is loaded
+        // because [`gather_light_probes`] already checked that for us before
+        // adding the [`RenderViewEnvironmentMaps`] component.
+        if has_environment_maps {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
+        }
+
+        if has_irradiance_volumes {
+            view_key |= MeshPipelineKey::IRRADIANCE_VOLUME;
         }
 
         match shadow_filter_method.unwrap_or(&ShadowFilteringMethod::default()) {
             ShadowFilteringMethod::Hardware2x2 => {
                 view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2;
             }
-            ShadowFilteringMethod::Castano13 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_CASTANO_13;
+            ShadowFilteringMethod::Gaussian => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_GAUSSIAN;
             }
-            ShadowFilteringMethod::Jimenez14 => {
-                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_JIMENEZ_14;
+            ShadowFilteringMethod::Temporal => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_TEMPORAL;
             }
         }
 

@@ -5,6 +5,7 @@ use crate::{
         condition::{BoxedCondition, Condition},
         graph_utils::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{InternedSystemSet, IntoSystemSet, SystemSet},
+        Chain,
     },
     system::{BoxedSystem, IntoSystem, System},
 };
@@ -47,9 +48,15 @@ impl IntoSystemConfigs<()> for BoxedSystem<(), ()> {
     }
 }
 
-/// Stores configuration for a single generic node.
+/// Stores configuration for a single generic node (a system or a system set)
+///
+/// The configuration includes the node itself, scheduling metadata
+/// (hierarchy: in which sets is the node contained,
+/// dependencies: before/after which other nodes should this node run)
+/// and the run conditions associated with this node.
 pub struct NodeConfig<T> {
     pub(crate) node: T,
+    /// Hierarchy and dependency metadata for this node
     pub(crate) graph_info: GraphInfo,
     pub(crate) conditions: Vec<BoxedCondition>,
 }
@@ -67,8 +74,8 @@ pub enum NodeConfigs<T> {
         configs: Vec<NodeConfigs<T>>,
         /// Run conditions applied to everything in the tuple.
         collective_conditions: Vec<BoxedCondition>,
-        /// If `true`, adds `before -> after` ordering constraints between the successive elements.
-        chained: bool,
+        /// See [`Chain`] for usage.
+        chained: Chain,
     },
 }
 
@@ -82,7 +89,7 @@ impl SystemConfigs {
         Self::NodeConfig(SystemConfig {
             node: system,
             graph_info: GraphInfo {
-                sets,
+                hierarchy: sets,
                 ..Default::default()
             },
             conditions: Vec::new(),
@@ -95,7 +102,7 @@ impl<T> NodeConfigs<T> {
     pub fn in_set_inner(&mut self, set: InternedSystemSet) {
         match self {
             Self::NodeConfig(config) => {
-                config.graph_info.sets.push(set);
+                config.graph_info.hierarchy.push(set);
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
@@ -132,6 +139,38 @@ impl<T> NodeConfigs<T> {
             Self::Configs { configs, .. } => {
                 for config in configs {
                     config.after_inner(set);
+                }
+            }
+        }
+    }
+
+    fn before_ignore_deferred_inner(&mut self, set: InternedSystemSet) {
+        match self {
+            Self::NodeConfig(config) => {
+                config
+                    .graph_info
+                    .dependencies
+                    .push(Dependency::new(DependencyKind::BeforeNoSync, set));
+            }
+            Self::Configs { configs, .. } => {
+                for config in configs {
+                    config.before_ignore_deferred_inner(set.intern());
+                }
+            }
+        }
+    }
+
+    fn after_ignore_deferred_inner(&mut self, set: InternedSystemSet) {
+        match self {
+            Self::NodeConfig(config) => {
+                config
+                    .graph_info
+                    .dependencies
+                    .push(Dependency::new(DependencyKind::AfterNoSync, set));
+            }
+            Self::Configs { configs, .. } => {
+                for config in configs {
+                    config.after_ignore_deferred_inner(set.intern());
                 }
             }
         }
@@ -198,7 +237,17 @@ impl<T> NodeConfigs<T> {
         match &mut self {
             Self::NodeConfig(_) => { /* no op */ }
             Self::Configs { chained, .. } => {
-                *chained = true;
+                *chained = Chain::Yes;
+            }
+        }
+        self
+    }
+
+    fn chain_ignore_deferred_inner(mut self) -> Self {
+        match &mut self {
+            Self::NodeConfig(_) => { /* no op */ }
+            Self::Configs { chained, .. } => {
+                *chained = Chain::YesIgnoreDeferred;
             }
         }
         self
@@ -206,12 +255,48 @@ impl<T> NodeConfigs<T> {
 }
 
 /// Types that can convert into a [`SystemConfigs`].
+///
+/// This trait is implemented for "systems" (functions whose arguments all implement
+/// [`SystemParam`](crate::system::SystemParam)), or tuples thereof.
+/// It is a common entry point for system configurations.
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_ecs::schedule::IntoSystemConfigs;
+/// # struct AppMock;
+/// # struct Update;
+/// # impl AppMock {
+/// #     pub fn add_systems<M>(
+/// #         &mut self,
+/// #         schedule: Update,
+/// #         systems: impl IntoSystemConfigs<M>,
+/// #    ) -> &mut Self { self }
+/// # }
+/// # let mut app = AppMock;
+///
+/// fn handle_input() {}
+///
+/// fn update_camera() {}
+/// fn update_character() {}
+///
+/// app.add_systems(
+///     Update,
+///     (
+///         handle_input,
+///         (update_camera, update_character).after(handle_input)
+///     )
+/// );
+/// ```
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not describe a valid system configuration",
+    label = "invalid system configuration"
+)]
 pub trait IntoSystemConfigs<Marker>
 where
     Self: Sized,
 {
     /// Convert into a [`SystemConfigs`].
-    #[doc(hidden)]
     fn into_configs(self) -> SystemConfigs;
 
     /// Add these systems to the provided `set`.
@@ -220,14 +305,44 @@ where
         self.into_configs().in_set(set)
     }
 
-    /// Run before all systems in `set`.
+    /// Runs before all systems in `set`. If `self` has any systems that produce [`Commands`](crate::system::Commands)
+    /// or other [`Deferred`](crate::system::Deferred) operations, all systems in `set` will see their effect.
+    ///
+    /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
+    /// this isn't desired, use [`before_ignore_deferred`](Self::before_ignore_deferred) instead.
+    ///
+    /// Note: The given set is not implicitly added to the schedule when this system set is added.
+    /// It is safe, but no dependencies will be created.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().before(set)
     }
 
-    /// Run after all systems in `set`.
+    /// Run after all systems in `set`. If `set` has any systems that produce [`Commands`](crate::system::Commands)
+    /// or other [`Deferred`](crate::system::Deferred) operations, all systems in `self` will see their effect.
+    ///
+    /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
+    /// this isn't desired, use [`after_ignore_deferred`](Self::after_ignore_deferred) instead.
+    ///
+    /// Note: The given set is not implicitly added to the schedule when this system set is added.
+    /// It is safe, but no dependencies will be created.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().after(set)
+    }
+
+    /// Run before all systems in `set`.
+    ///
+    /// Unlike [`before`](Self::before), this will not cause the systems in
+    /// `set` to wait for the deferred effects of `self` to be applied.
+    fn before_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
+        self.into_configs().before_ignore_deferred(set)
+    }
+
+    /// Run after all systems in `set`.
+    ///
+    /// Unlike [`after`](Self::after), this will not wait for the deferred
+    /// effects of systems in `set` to be applied.
+    fn after_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
+        self.into_configs().after_ignore_deferred(set)
     }
 
     /// Add a run condition to each contained system.
@@ -313,8 +428,21 @@ where
     /// Treat this collection as a sequence of systems.
     ///
     /// Ordering constraints will be applied between the successive elements.
+    ///
+    /// If the preceding node on a edge has deferred parameters, a [`apply_deferred`](crate::schedule::apply_deferred)
+    /// will be inserted on the edge. If this behavior is not desired consider using
+    /// [`chain_ignore_deferred`](Self::chain_ignore_deferred) instead.
     fn chain(self) -> SystemConfigs {
         self.into_configs().chain()
+    }
+
+    /// Treat this collection as a sequence of systems.
+    ///
+    /// Ordering constraints will be applied between the successive elements.
+    ///
+    /// Unlike [`chain`](Self::chain) this will **not** add [`apply_deferred`](crate::schedule::apply_deferred) on the edges.
+    fn chain_ignore_deferred(self) -> SystemConfigs {
+        self.into_configs().chain_ignore_deferred()
     }
 }
 
@@ -347,8 +475,25 @@ impl IntoSystemConfigs<()> for SystemConfigs {
         self
     }
 
+    fn before_ignore_deferred<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
+        let set = set.into_system_set();
+        self.before_ignore_deferred_inner(set.intern());
+        self
+    }
+
+    fn after_ignore_deferred<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
+        let set = set.into_system_set();
+        self.after_ignore_deferred_inner(set.intern());
+        self
+    }
+
     fn distributive_run_if<M>(mut self, condition: impl Condition<M> + Clone) -> SystemConfigs {
         self.distributive_run_if_inner(condition);
+        self
+    }
+
+    fn run_if<M>(mut self, condition: impl Condition<M>) -> SystemConfigs {
+        self.run_if_dyn(new_condition(condition));
         self
     }
 
@@ -363,13 +508,12 @@ impl IntoSystemConfigs<()> for SystemConfigs {
         self
     }
 
-    fn run_if<M>(mut self, condition: impl Condition<M>) -> SystemConfigs {
-        self.run_if_dyn(new_condition(condition));
-        self
-    }
-
     fn chain(self) -> Self {
         self.chain_inner()
+    }
+
+    fn chain_ignore_deferred(self) -> Self {
+        self.chain_ignore_deferred_inner()
     }
 }
 
@@ -388,7 +532,7 @@ macro_rules! impl_system_collection {
                 SystemConfigs::Configs {
                     configs: vec![$($sys.into_configs(),)*],
                     collective_conditions: Vec::new(),
-                    chained: false,
+                    chained: Chain::No,
                 }
             }
         }
@@ -422,6 +566,10 @@ impl SystemSetConfig {
 pub type SystemSetConfigs = NodeConfigs<InternedSystemSet>;
 
 /// Types that can convert into a [`SystemSetConfigs`].
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not describe a valid system set configuration",
+    label = "invalid system set configuration"
+)]
 pub trait IntoSystemSetConfigs
 where
     Self: Sized,
@@ -436,14 +584,38 @@ where
         self.into_configs().in_set(set)
     }
 
-    /// Run before all systems in `set`.
+    /// Runs before all systems in `set`. If `self` has any systems that produce [`Commands`](crate::system::Commands)
+    /// or other [`Deferred`](crate::system::Deferred) operations, all systems in `set` will see their effect.
+    ///
+    /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
+    /// this isn't desired, use [`before_ignore_deferred`](Self::before_ignore_deferred) instead.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
         self.into_configs().before(set)
     }
 
-    /// Run after all systems in `set`.
+    /// Runs before all systems in `set`. If `set` has any systems that produce [`Commands`](crate::system::Commands)
+    /// or other [`Deferred`](crate::system::Deferred) operations, all systems in `self` will see their effect.
+    ///
+    /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
+    /// this isn't desired, use [`after_ignore_deferred`](Self::after_ignore_deferred) instead.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
         self.into_configs().after(set)
+    }
+
+    /// Run before all systems in `set`.
+    ///
+    /// Unlike [`before`](Self::before), this will not cause the systems in `set` to wait for the
+    /// deferred effects of `self` to be applied.
+    fn before_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
+        self.into_configs().before_ignore_deferred(set)
+    }
+
+    /// Run after all systems in `set`.
+    ///
+    /// Unlike [`after`](Self::after), this may not see the deferred
+    /// effects of systems in `set` to be applied.
+    fn after_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
+        self.into_configs().after_ignore_deferred(set)
     }
 
     /// Run the systems in this set(s) only if the [`Condition`] is `true`.
@@ -471,6 +643,15 @@ where
     /// Ordering constraints will be applied between the successive elements.
     fn chain(self) -> SystemSetConfigs {
         self.into_configs().chain()
+    }
+
+    /// Treat this collection as a sequence of systems.
+    ///
+    /// Ordering constraints will be applied between the successive elements.
+    ///
+    /// Unlike [`chain`](Self::chain) this will **not** add [`apply_deferred`](crate::schedule::apply_deferred) on the edges.
+    fn chain_ignore_deferred(self) -> SystemConfigs {
+        self.into_configs().chain_ignore_deferred()
     }
 }
 
@@ -500,6 +681,20 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
     fn after<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
         self.after_inner(set.intern());
+
+        self
+    }
+
+    fn before_ignore_deferred<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
+        let set = set.into_system_set();
+        self.before_ignore_deferred_inner(set.intern());
+
+        self
+    }
+
+    fn after_ignore_deferred<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
+        let set = set.into_system_set();
+        self.after_ignore_deferred_inner(set.intern());
 
         self
     }
@@ -550,7 +745,7 @@ macro_rules! impl_system_set_collection {
                 SystemSetConfigs::Configs {
                     configs: vec![$($set.into_configs(),)*],
                     collective_conditions: Vec::new(),
-                    chained: false,
+                    chained: Chain::No,
                 }
             }
         }

@@ -3,16 +3,16 @@ use bevy_asset::{AssetId, Assets};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
-use bevy_sprite::TextureAtlas;
-use bevy_utils::tracing::warn;
+use bevy_sprite::TextureAtlasLayout;
+use bevy_utils::warn_once;
 use glyph_brush_layout::{
     BuiltInLineBreaker, FontId, GlyphPositioner, Layout, SectionGeometry, SectionGlyph,
     SectionText, ToSectionText,
 };
 
 use crate::{
-    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasSets, FontAtlasWarning,
-    GlyphAtlasInfo, TextAlignment, TextSettings, YAxisOrientation,
+    error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasSets, GlyphAtlasInfo, JustifyText,
+    PlacedGlyph, TextSettings, YAxisOrientation,
 };
 
 pub struct GlyphBrush {
@@ -36,7 +36,7 @@ impl GlyphBrush {
         &self,
         sections: &[S],
         bounds: Vec2,
-        text_alignment: TextAlignment,
+        text_alignment: JustifyText,
         linebreak_behavior: BreakLineOn,
     ) -> Result<Vec<SectionGlyph>, TextError> {
         let geom = SectionGeometry {
@@ -60,11 +60,11 @@ impl GlyphBrush {
         sections: &[SectionText],
         font_atlas_sets: &mut FontAtlasSets,
         fonts: &Assets<Font>,
-        texture_atlases: &mut Assets<TextureAtlas>,
+        texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         text_settings: &TextSettings,
-        font_atlas_warning: &mut FontAtlasWarning,
         y_axis_orientation: YAxisOrientation,
+        h_anchor: f32,
     ) -> Result<Vec<PositionedGlyph>, TextError> {
         if glyphs.is_empty() {
             return Ok(Vec::new());
@@ -95,8 +95,10 @@ impl GlyphBrush {
                 mut glyph,
                 font_id: _,
             } = sg;
-            let glyph_id = glyph.id;
-            let glyph_position = glyph.position;
+            let placed_glyph = PlacedGlyph {
+                glyph_id: glyph.id,
+                subpixel_offset: glyph.position.into(),
+            };
             let adjust = GlyphPlacementAdjuster::new(&mut glyph);
             let section_data = sections_data[sg.section_index];
             if let Some(outlined_glyph) = section_data.1.font.outline_glyph(glyph) {
@@ -107,25 +109,25 @@ impl GlyphBrush {
                     .or_insert_with(FontAtlasSet::default);
 
                 let atlas_info = font_atlas_set
-                    .get_glyph_atlas_info(section_data.2, glyph_id, glyph_position)
+                    .get_glyph_atlas_info(section_data.2, &placed_glyph)
                     .map(Ok)
                     .unwrap_or_else(|| {
                         font_atlas_set.add_glyph_to_atlas(texture_atlases, textures, outlined_glyph)
                     })?;
 
                 if !text_settings.allow_dynamic_font_size
-                    && !font_atlas_warning.warned
                     && font_atlas_set.len() > text_settings.soft_max_font_atlases.get()
                 {
-                    warn!("warning[B0005]: Number of font atlases has exceeded the maximum of {}. Performance and memory usage may suffer.", text_settings.soft_max_font_atlases.get());
-                    font_atlas_warning.warned = true;
+                    warn_once!(
+                        "warning[B0005]: Number of font atlases has exceeded the maximum of {}. Performance and memory usage may suffer. See: https://bevyengine.org/learn/errors/#b0005",
+                        text_settings.soft_max_font_atlases.get());
                 }
 
                 let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
                 let glyph_rect = texture_atlas.textures[atlas_info.glyph_index];
-                let size = Vec2::new(glyph_rect.width(), glyph_rect.height());
+                let size = glyph_rect.size().as_vec2();
 
-                let x = bounds.min.x + size.x / 2.0 - text_bounds.min.x;
+                let x = bounds.min.x + size.x / 2.0 + h_anchor;
 
                 let y = match y_axis_orientation {
                     YAxisOrientation::BottomToTop => {
@@ -136,7 +138,9 @@ impl GlyphBrush {
                     }
                 };
 
-                let position = adjust.position(Vec2::new(x, y));
+                // We must offset by 1 to account for glyph texture padding.
+                // See https://github.com/bevyengine/bevy/pull/11662
+                let position = adjust.position(Vec2::new(x, y) - 1.);
 
                 positioned_glyphs.push(PositionedGlyph {
                     position,
@@ -208,13 +212,13 @@ impl GlyphPlacementAdjuster {
 pub(crate) fn compute_text_bounds<T>(
     section_glyphs: &[SectionGlyph],
     get_scaled_font: impl Fn(usize) -> PxScaleFont<T>,
-) -> bevy_math::Rect
+) -> Rect
 where
     T: ab_glyph::Font,
 {
     let mut text_bounds = Rect {
-        min: Vec2::splat(std::f32::MAX),
-        max: Vec2::splat(std::f32::MIN),
+        min: Vec2::splat(f32::MAX),
+        max: Vec2::splat(f32::MIN),
     };
 
     for sg in section_glyphs {

@@ -2,7 +2,7 @@
 
 ## Contributing
 
-For more advice on contributing to the engine, see the [relevant section](../../CONTRIBUTING.md#Contributing-your-own-ideas) of `CONTRIBUTING.md`.
+For more advice on contributing to the engine, see the [relevant section](../../CONTRIBUTING.md#Contributing-code) of `CONTRIBUTING.md`.
 
 ## General guidelines
 
@@ -14,6 +14,7 @@ For more advice on contributing to the engine, see the [relevant section](../../
    4. Use \`variable_name\` code blocks in comments to signify that you're referring to specific types and variables.
    5. Start comments with capital letters. End them with a period if they are sentence-like.
 3. Use comments to organize long and complex stretches of code that can't sensibly be refactored into separate functions.
+4. When using [Bevy error codes](https://bevyengine.org/learn/errors/) include a link to the relevant error on the Bevy website in the returned error message `... See: https://bevyengine.org/learn/errors/#b0003`.
 
 ## Rust API guidelines
 

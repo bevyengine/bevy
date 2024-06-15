@@ -7,7 +7,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  NIGHTLY_TOOLCHAIN: nightly
 
 jobs:
   build-for-iOS:
@@ -120,7 +119,7 @@ jobs:
 
       - name: Save screenshots
         if: ${{ always() }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: screenshots-${{ matrix.device }}-${{ matrix.os_version }}
           path: .github/start-mobile-example/*.png

@@ -4,44 +4,34 @@
 
 use bevy::{
     asset::io::{
-        file::FileAssetReader, AssetReader, AssetReaderError, AssetSource, AssetSourceId,
-        PathStream, Reader,
+        AssetReader, AssetReaderError, AssetSource, AssetSourceId, ErasedAssetReader, PathStream,
+        Reader,
     },
     prelude::*,
-    utils::BoxedFuture,
 };
 use std::path::Path;
 
 /// A custom asset reader implementation that wraps a given asset reader implementation
-struct CustomAssetReader<T: AssetReader>(T);
+struct CustomAssetReader(Box<dyn ErasedAssetReader>);
 
-impl<T: AssetReader> AssetReader for CustomAssetReader<T> {
-    fn read<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
+impl AssetReader for CustomAssetReader {
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
         info!("Reading {:?}", path);
-        self.0.read(path)
+        self.0.read(path).await
     }
-    fn read_meta<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<Reader<'a>>, AssetReaderError>> {
-        self.0.read_meta(path)
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+        self.0.read_meta(path).await
     }
 
-    fn read_directory<'a>(
+    async fn read_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>> {
-        self.0.read_directory(path)
+    ) -> Result<Box<PathStream>, AssetReaderError> {
+        self.0.read_directory(path).await
     }
 
-    fn is_directory<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
-        self.0.is_directory(path)
+    async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
+        self.0.is_directory(path).await
     }
 }
 
@@ -52,8 +42,12 @@ impl Plugin for CustomAssetReaderPlugin {
     fn build(&self, app: &mut App) {
         app.register_asset_source(
             AssetSourceId::Default,
-            AssetSource::build()
-                .with_reader(|| Box::new(CustomAssetReader(FileAssetReader::new("assets")))),
+            AssetSource::build().with_reader(|| {
+                Box::new(CustomAssetReader(
+                    // This is the default reader for the current platform
+                    AssetSource::get_default_reader("assets".to_string())(),
+                ))
+            }),
         );
     }
 }
