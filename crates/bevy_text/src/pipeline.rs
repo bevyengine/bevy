@@ -87,7 +87,11 @@ impl TextPipeline {
 
         let size = compute_text_bounds(&section_glyphs, |index| scaled_fonts[index]).size();
 
-        let h_limit = bounds.x.is_finite().then_some(bounds.x).unwrap_or(size.x);
+        let h_limit = if bounds.x.is_finite() {
+            bounds.x
+        } else {
+            size.x
+        };
 
         let h_anchor = match text_alignment {
             JustifyText::Left => 0.0,
