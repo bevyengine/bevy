@@ -741,7 +741,7 @@ impl Mesh {
     /// Panics if the vertex attribute values of `other` are incompatible with `self`.
     /// For example, [`VertexAttributeValues::Float32`] is incompatible with [`VertexAttributeValues::Float32x3`].
     #[allow(clippy::match_same_arms)]
-    pub fn merge(&mut self, other: Mesh) {
+    pub fn merge(&mut self, other: &Mesh) {
         use VertexAttributeValues::*;
 
         // The indices of `other` should start after the last vertex of `self`.
@@ -1237,6 +1237,7 @@ impl VertexFormatSize for VertexFormat {
             VertexFormat::Unorm8x4 => 4,
             VertexFormat::Snorm8x2 => 2,
             VertexFormat::Snorm8x4 => 4,
+            VertexFormat::Unorm10_10_10_2 => 4,
             VertexFormat::Uint16x2 => 2 * 2,
             VertexFormat::Uint16x4 => 2 * 4,
             VertexFormat::Sint16x2 => 2 * 2,

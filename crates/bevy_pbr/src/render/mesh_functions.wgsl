@@ -55,11 +55,11 @@ fn mesh_normal_local_to_world(vertex_normal: vec3<f32>, instance_index: u32) -> 
 
 // Calculates the sign of the determinant of the 3x3 model matrix based on a
 // mesh flag
-fn sign_determinant_model_3x3m(instance_index: u32) -> f32 {
+fn sign_determinant_model_3x3m(mesh_flags: u32) -> f32 {
     // bool(u32) is false if 0u else true
     // f32(bool) is 1.0 if true else 0.0
     // * 2.0 - 1.0 remaps 0.0 or 1.0 to -1.0 or 1.0 respectively
-    return f32(bool(mesh[instance_index].flags & MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT)) * 2.0 - 1.0;
+    return f32(bool(mesh_flags & MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT)) * 2.0 - 1.0;
 }
 
 fn mesh_tangent_local_to_world(world_from_local: mat4x4<f32>, vertex_tangent: vec4<f32>, instance_index: u32) -> vec4<f32> {
@@ -76,12 +76,12 @@ fn mesh_tangent_local_to_world(world_from_local: mat4x4<f32>, vertex_tangent: ve
                 mat3x3<f32>(
                     world_from_local[0].xyz,
                     world_from_local[1].xyz,
-                    world_from_local[2].xyz
+                    world_from_local[2].xyz,
                 ) * vertex_tangent.xyz
             ),
             // NOTE: Multiplying by the sign of the determinant of the 3x3 model matrix accounts for
             // situations such as negative scaling.
-            vertex_tangent.w * sign_determinant_model_3x3m(instance_index)
+            vertex_tangent.w * sign_determinant_model_3x3m(mesh[instance_index].flags)
         );
     } else {
         return vertex_tangent;

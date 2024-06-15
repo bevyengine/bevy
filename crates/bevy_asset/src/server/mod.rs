@@ -26,6 +26,7 @@ use futures_lite::StreamExt;
 use info::*;
 use loaders::*;
 use parking_lot::RwLock;
+use std::future::Future;
 use std::{any::Any, path::PathBuf};
 use std::{any::TypeId, path::Path, sync::Arc};
 use thiserror::Error;
@@ -712,6 +713,53 @@ impl AssetServer {
         handle
     }
 
+    /// Queues a new asset to be tracked by the [`AssetServer`] and returns a [`Handle`] to it. This can be used to track
+    /// dependencies of assets created at runtime.
+    ///
+    /// After the asset has been fully loaded, it will show up in the relevant [`Assets`] storage.
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
+    pub fn add_async<A: Asset, E: std::error::Error + Send + Sync + 'static>(
+        &self,
+        future: impl Future<Output = Result<A, E>> + Send + 'static,
+    ) -> Handle<A> {
+        let handle = self
+            .data
+            .infos
+            .write()
+            .create_loading_handle_untyped(std::any::TypeId::of::<A>(), std::any::type_name::<A>());
+        let id = handle.id();
+
+        let event_sender = self.data.asset_event_sender.clone();
+
+        IoTaskPool::get()
+            .spawn(async move {
+                match future.await {
+                    Ok(asset) => {
+                        let loaded_asset = LoadedAsset::new_with_dependencies(asset, None).into();
+                        event_sender
+                            .send(InternalAssetEvent::Loaded { id, loaded_asset })
+                            .unwrap();
+                    }
+                    Err(error) => {
+                        let error = AddAsyncError {
+                            error: Arc::new(error),
+                        };
+                        error!("{error}");
+                        event_sender
+                            .send(InternalAssetEvent::Failed {
+                                id,
+                                path: Default::default(),
+                                error: AssetLoadError::AddAsyncError(error),
+                            })
+                            .unwrap();
+                    }
+                }
+            })
+            .detach();
+
+        handle.typed_debug_checked()
+    }
+
     /// Loads all assets from the specified folder recursively. The [`LoadedFolder`] asset (when it loads) will
     /// contain handles to all assets in the folder. You can wait for all assets to load by checking the [`LoadedFolder`]'s
     /// [`RecursiveDependencyLoadState`].
@@ -1358,6 +1406,8 @@ pub enum AssetLoadError {
     CannotLoadIgnoredAsset { path: AssetPath<'static> },
     #[error(transparent)]
     AssetLoaderError(#[from] AssetLoaderError),
+    #[error(transparent)]
+    AddAsyncError(#[from] AddAsyncError),
     #[error("The file at '{}' does not contain the labeled asset '{}'; it contains the following {} assets: {}",
             base_path,
             label,
@@ -1395,6 +1445,22 @@ impl AssetLoaderError {
         &self.path
     }
 }
+
+#[derive(Error, Debug, Clone)]
+#[error("An error occurred while resolving an asset added by `add_async`: {error}")]
+pub struct AddAsyncError {
+    error: Arc<dyn std::error::Error + Send + Sync + 'static>,
+}
+
+impl PartialEq for AddAsyncError {
+    /// Equality comparison is not full (only through `TypeId`)
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.error.type_id() == other.error.type_id()
+    }
+}
+
+impl Eq for AddAsyncError {}
 
 /// An error that occurs when an [`AssetLoader`] is not registered for a given extension.
 #[derive(Error, Debug, Clone, PartialEq, Eq)]

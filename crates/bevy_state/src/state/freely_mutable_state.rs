@@ -17,27 +17,33 @@ use super::{take_next_state, transitions::*};
 pub trait FreelyMutableState: States {
     /// This function registers all the necessary systems to apply state changes and run transition schedules
     fn register_state(schedule: &mut Schedule) {
+        schedule.configure_sets((
+            ApplyStateTransition::<Self>::default()
+                .in_set(StateTransitionSteps::DependentTransitions),
+            ExitSchedules::<Self>::default().in_set(StateTransitionSteps::ExitSchedules),
+            TransitionSchedules::<Self>::default()
+                .in_set(StateTransitionSteps::TransitionSchedules),
+            EnterSchedules::<Self>::default().in_set(StateTransitionSteps::EnterSchedules),
+        ));
+
         schedule
             .add_systems(
-                apply_state_transition::<Self>.in_set(ApplyStateTransition::<Self>::apply()),
-            )
-            .add_systems(
-                last_transition::<Self>
-                    .pipe(run_enter::<Self>)
-                    .in_set(StateTransitionSteps::EnterSchedules),
+                apply_state_transition::<Self>.in_set(ApplyStateTransition::<Self>::default()),
             )
             .add_systems(
                 last_transition::<Self>
                     .pipe(run_exit::<Self>)
-                    .in_set(StateTransitionSteps::ExitSchedules),
+                    .in_set(ExitSchedules::<Self>::default()),
             )
             .add_systems(
                 last_transition::<Self>
                     .pipe(run_transition::<Self>)
-                    .in_set(StateTransitionSteps::TransitionSchedules),
+                    .in_set(TransitionSchedules::<Self>::default()),
             )
-            .configure_sets(
-                ApplyStateTransition::<Self>::apply().in_set(StateTransitionSteps::RootTransitions),
+            .add_systems(
+                last_transition::<Self>
+                    .pipe(run_enter::<Self>)
+                    .in_set(EnterSchedules::<Self>::default()),
             );
     }
 }
