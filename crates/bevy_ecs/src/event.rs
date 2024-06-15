@@ -5,7 +5,7 @@ use crate::batching::BatchingStrategy;
 use crate::change_detection::MutUntyped;
 use crate::{
     change_detection::{DetectChangesMut, Mut},
-    component::{ComponentId, Tick},
+    component::{Component, ComponentId, Tick},
     system::{Local, Res, ResMut, Resource, SystemParam},
     world::World,
 };
@@ -24,16 +24,30 @@ use std::{
     slice::Iter,
 };
 
-/// A type that can be stored in an [`Events<E>`] resource
+/// Something that "happens" and might be read / observed by app logic.
+///
+/// Events can be stored in an [`Events<E>`] resource
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
 ///
+/// Events can also be "triggered" on a [`World`], which will then cause any [`Observer`] of that trigger to run.
+///
+/// This trait can be derived.
+///
+/// Events implement the [`Component`] type (and they automatically do when they are derived). Events are (generally)
+/// not directly inserted as components. More often, the [`ComponentId`] is used to identify the event type within the
+/// context of the ECS.
+///
 /// Events must be thread-safe.
+///
+/// [`World`]: crate::world::World
+/// [`ComponentId`]: crate::component::ComponentId
+/// [`Observer`]: crate::observer::Observer
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not an `Event`",
     label = "invalid `Event`",
     note = "consider annotating `{Self}` with `#[derive(Event)]`"
 )]
-pub trait Event: Send + Sync + 'static {}
+pub trait Event: Component {}
 
 /// An `EventId` uniquely identifies an event stored in a specific [`World`].
 ///
@@ -556,6 +570,11 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 ///
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
+/// # Observers
+///
+/// "Buffered" Events, such as those sent directly in [`Events`] or sent using [`EventWriter`], do _not_ automatically
+/// trigger any [`Observer`]s watching for that event, as each [`Event`] has different requirements regarding _if_ it will
+/// be triggered, and if so, _when_ it will be triggered in the schedule.
 ///
 /// # Concurrency
 ///
@@ -588,6 +607,8 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 /// }
 /// ```
 /// Note that this is considered *non-idiomatic*, and should only be used when `EventWriter` will not work.
+///
+/// [`Observer`]: crate::observer::Observer
 #[derive(SystemParam)]
 pub struct EventWriter<'w, E: Event> {
     events: ResMut<'w, Events<E>>,

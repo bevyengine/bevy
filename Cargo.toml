@@ -2535,6 +2535,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "observers"
+path = "examples/ecs/observers.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.observers]
+name = "Observers"
+description = "Demonstrates observers that react to events (both built-in life-cycle events and custom events)"
+category = "ECS (Entity Component System)"
+wasm = true
+
+[[example]]
 name = "3d_rotation"
 path = "examples/transforms/3d_rotation.rs"
 doc-scrape-examples = true
