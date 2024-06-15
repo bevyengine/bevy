@@ -328,7 +328,10 @@ impl SceneSpawner {
             let mut entity_map = EntityHashMap::default();
 
             match Self::spawn_sync_internal(world, scene_handle.id(), &mut entity_map) {
-                Ok(_) => {}
+                Ok(_) => {
+                    self.spawned_instances
+                        .insert(instance_id, InstanceInfo { entity_map });
+                }
                 Err(SceneSpawnError::NonExistentRealScene { .. }) => {
                     self.scenes_to_spawn.push((scene_handle, instance_id));
                 }
