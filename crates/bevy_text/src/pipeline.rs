@@ -89,8 +89,8 @@ impl TextPipeline {
 
         let h_anchor = match text_alignment {
             JustifyText::Left => 0.0,
-            JustifyText::Center => bounds.x * 0.5,
-            JustifyText::Right => bounds.x * 1.0,
+            JustifyText::Center => size.x * 0.5,
+            JustifyText::Right => size.x * 1.0,
         }
         .floor();
 
