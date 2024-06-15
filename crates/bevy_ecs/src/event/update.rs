@@ -1,8 +1,8 @@
-use crate as bevy_ecs;
-use bevy_ecs::{
+use crate::{
+    self as bevy_ecs,
     change_detection::Mut,
     component::Tick,
-    event::EventRegistry,
+    event::{Event, EventRegistry, Events},
     system::{Local, Res, ResMut},
     world::World,
 };
@@ -59,4 +59,11 @@ pub fn event_update_condition(maybe_signal: Option<Res<EventRegistry>>) -> bool 
         },
         None => true,
     }
+}
+
+/// Triggers events in the [`Events`] collection that have not been triggered yet.
+pub fn trigger_buffered_events<E: Event>(world: &mut World) {
+    world.resource_scope(|world, mut events: Mut<Events<E>>| {
+        events.trigger_events(world);
+    });
 }

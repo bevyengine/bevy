@@ -268,13 +268,67 @@ impl World {
     }
 
     /// Triggers the given `event`, which will run any observers watching for it.
-    pub fn trigger(&mut self, event: impl Event) {
-        TriggerEvent { event, targets: () }.apply(self);
+    pub fn trigger(&mut self, mut event: impl Event) {
+        self.trigger_borrowed(&mut event);
     }
 
     /// Triggers the given `event` for the given `targets`, which will run any observers watching for it.
-    pub fn trigger_targets(&mut self, event: impl Event, targets: impl TriggerTargets) {
-        TriggerEvent { event, targets }.apply(self);
+    pub fn trigger_targets(&mut self, mut event: impl Event, targets: impl TriggerTargets) {
+        self.trigger_targets_borrowed(&mut event, targets);
+    }
+
+    /// Triggers the given borrowed `event`, which will run any observers watching for it.
+    pub fn trigger_borrowed<E: Event>(&mut self, event: &mut E) {
+        let event_type = self.init_component::<E>();
+        // SAFETY: `event_type` is directly looked up for the passed in `event`, and therefore matches it.
+        unsafe { self.trigger_unsafe(event_type, event, ()) };
+    }
+
+    /// Triggers the given borrowed `event` for the given `targets`, which will run any observers watching for it.
+    pub fn trigger_targets_borrowed<E: Event>(
+        &mut self,
+        event: &mut E,
+        targets: impl TriggerTargets,
+    ) {
+        let event_type = self.init_component::<E>();
+        // SAFETY: `event_type` is directly looked up for the passed in `event`, and therefore matches it.
+        unsafe { self.trigger_unsafe(event_type, event, targets) };
+    }
+
+    /// Triggers the given borrowed `event` with the given `event_type` for the given `targets`, which will run any observers watching for it.
+    /// # Safety
+    /// `event_type` _must_ match the type of data passed in with `event_data`, according to the given `world`.
+    #[inline]
+    pub unsafe fn trigger_unsafe<E, Targets: TriggerTargets>(
+        &mut self,
+        event_type: ComponentId,
+        event_data: &mut E,
+        targets: Targets,
+    ) {
+        let mut world = DeferredWorld::from(self);
+        if targets.entities().len() == 0 {
+            // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
+            unsafe {
+                world.trigger_observers_with_data(
+                    event_type,
+                    Entity::PLACEHOLDER,
+                    targets.components(),
+                    event_data,
+                );
+            };
+        } else {
+            for target in targets.entities() {
+                // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
+                unsafe {
+                    world.trigger_observers_with_data(
+                        event_type,
+                        target,
+                        targets.components(),
+                        event_data,
+                    );
+                };
+            }
+        }
     }
 
     /// Register an observer to the cache, called when an observer is created
@@ -388,6 +442,7 @@ mod tests {
     use bevy_ptr::OwningPtr;
 
     use crate as bevy_ecs;
+    use crate::event::{event_update_system, trigger_buffered_events, EventRegistry};
     use crate::observer::{EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState};
     use crate::prelude::*;
 
@@ -654,5 +709,59 @@ mod tests {
         );
         world.flush();
         assert_eq!(1, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn trigger_buffered() {
+        #[derive(Event)]
+        struct E(usize);
+
+        #[derive(Resource)]
+        struct Order(Vec<usize>);
+
+        let mut world = World::new();
+        world.insert_resource(Order(Default::default()));
+        EventRegistry::register_event::<E>(&mut world);
+        world.observe(|trigger: Trigger<E>, mut order: ResMut<Order>| {
+            order.0.push(trigger.event().0);
+        });
+        world.flush();
+
+        let mut update_events = IntoSystem::into_system(event_update_system);
+        update_events.initialize(&mut world);
+
+        let mut trigger_events = IntoSystem::into_system(trigger_buffered_events::<E>);
+        trigger_events.initialize(&mut world);
+
+        fn check(world: &mut World, values: &[usize]) {
+            let actual = std::mem::take(&mut world.resource_mut::<Order>().0);
+            assert_eq!(&actual, values);
+        }
+
+        check(&mut world, &[]);
+
+        world.send_event(E(1));
+        world.send_event(E(2));
+        trigger_events.run((), &mut world);
+        check(&mut world, &[1, 2]);
+
+        world.send_event(E(3));
+        trigger_events.run((), &mut world);
+        check(&mut world, &[3]);
+
+        update_events.run((), &mut world);
+        world.send_event(E(4));
+        world.send_event(E(5));
+        update_events.run((), &mut world);
+        world.send_event(E(6));
+        trigger_events.run((), &mut world);
+        check(&mut world, &[4, 5, 6]);
+
+        trigger_events.run((), &mut world);
+        check(&mut world, &[]);
+
+        update_events.run((), &mut world);
+        trigger_events.run((), &mut world);
+        check(&mut world, &[]);
     }
 }
