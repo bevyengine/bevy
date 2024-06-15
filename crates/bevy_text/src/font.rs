@@ -14,10 +14,14 @@ pub struct Font {
 
 impl Font {
     /// Creates a [Font] from bytes, without any validation of the content
-    pub fn from_bytes(font_data: Vec<u8>) -> Self {
+    pub fn try_from_bytes(
+        font_data: Vec<u8>,
+    ) -> Result<Self, cosmic_text::ttf_parser::FaceParsingError> {
         // TODO: validate font, restore `try_from_bytes`
-        Self {
+        use cosmic_text::ttf_parser;
+        ttf_parser::Face::parse(&font_data, 0)?;
+        Ok(Self {
             data: Arc::new(font_data),
-        }
+        })
     }
 }

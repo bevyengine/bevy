@@ -1,15 +1,18 @@
 use crate::Font;
 use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
-use bevy_utils::{ConditionalSend, ConditionalSendFuture};
 use thiserror::Error;
 
 #[derive(Default)]
+/// FontLoader for usage by the [`AssetServer`]
 pub struct FontLoader;
 
 /// Possible errors that can be produced by [`FontLoader`]
 #[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum FontLoaderError {
+    /// The contents that could not be parsed
+    #[error(transparent)]
+    Content(#[from] cosmic_text::ttf_parser::FaceParsingError),
     /// An [IO](std::io) Error
     #[error(transparent)]
     Io(#[from] std::io::Error),
@@ -27,8 +30,7 @@ impl AssetLoader for FontLoader {
     ) -> Result<Font, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
-        let font = Font::from_bytes(bytes);
-        // load_context.set_default_asset(LoadedAsset::new(font));
+        let font = Font::try_from_bytes(bytes)?;
         Ok(font)
     }
 

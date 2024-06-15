@@ -307,7 +307,7 @@ mod tests {
             app,
             Handle::default(),
             "FiraMono-subset.ttf",
-            |bytes: &[u8], _path: String| { Font::from_bytes(bytes.to_vec()) }
+            |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
         );
 
         let entity = app
