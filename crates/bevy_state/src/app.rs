@@ -4,7 +4,7 @@ use bevy_ecs::{
     schedule::{IntoSystemConfigs, ScheduleLabel},
     world::FromWorld,
 };
-use bevy_utils::tracing::warn;
+use bevy_utils::{tracing::warn, warn_once};
 
 use crate::state::{
     setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
@@ -57,8 +57,16 @@ pub trait AppExtStates {
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self;
 }
 
+/// Separate function to only warn once for all state installation methods.
+fn warn_if_no_states_plugin_installed(app: &SubApp) {
+    if !app.is_plugin_added::<StatesPlugin>() {
+        warn_once!("States were added to the app, but `StatesPlugin` is not installed.");
+    }
+}
+
 impl AppExtStates for SubApp {
     fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
+        warn_if_no_states_plugin_installed(self);
         if !self.world().contains_resource::<State<S>>() {
             setup_state_transitions_in_world(self.world_mut(), Some(Startup.intern()));
             self.init_resource::<State<S>>()
@@ -80,6 +88,7 @@ impl AppExtStates for SubApp {
     }
 
     fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
+        warn_if_no_states_plugin_installed(self);
         if !self.world().contains_resource::<State<S>>() {
             setup_state_transitions_in_world(self.world_mut(), Some(Startup.intern()));
             self.insert_resource::<State<S>>(State::new(state.clone()))
@@ -107,6 +116,7 @@ impl AppExtStates for SubApp {
     }
 
     fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
+        warn_if_no_states_plugin_installed(self);
         if !self
             .world()
             .contains_resource::<Events<StateTransitionEvent<S>>>()
@@ -132,6 +142,7 @@ impl AppExtStates for SubApp {
     }
 
     fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
+        warn_if_no_states_plugin_installed(self);
         if !self
             .world()
             .contains_resource::<Events<StateTransitionEvent<S>>>()
@@ -158,8 +169,6 @@ impl AppExtStates for SubApp {
     }
 
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self {
-        use bevy_utils::tracing::warn;
-
         if !self
             .world()
             .contains_resource::<Events<StateTransitionEvent<S>>>()
