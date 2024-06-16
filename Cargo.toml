@@ -3233,6 +3233,6 @@ all-features = true
 cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
 
 [patch.crates-io]
-# cosmic-text = { git = 'https://github.com/pop-os/cosmic-text.git'}
-cosmic-text = { git = 'https://github.com/totalkrill/cosmic-text.git', branch = "dep_upgrade"}
+cosmic-text = { git = 'https://github.com/pop-os/cosmic-text.git'}
+# cosmic-text = { git = 'https://github.com/totalkrill/cosmic-text.git', branch = "dep_upgrade"}
 # cosmic-text = { path = '../cosmic-text'}
