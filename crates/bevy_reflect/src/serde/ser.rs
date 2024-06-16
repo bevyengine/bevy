@@ -1,3 +1,4 @@
+use crate::serde::serialize_with_registry::ReflectSerializeWithRegistry;
 use crate::{
     Array, Enum, List, Map, Reflect, ReflectRef, ReflectSerialize, Struct, Tuple, TupleStruct,
     TypeInfo, TypeRegistry, VariantInfo, VariantType,
@@ -28,26 +29,44 @@ impl<'a> Serializable<'a> {
     }
 }
 
-fn get_serializable<'a, E: Error>(
-    reflect_value: &'a dyn Reflect,
+/// Attempts to serialize the given value using a custom serialization implementation
+/// from [`ReflectSerialize`] or [`ReflectSerializeWithRegistry`].
+///
+/// If no custom implementation exists, returns an `Err` containing the original serializer.
+fn try_custom_serialize<S: serde::Serializer>(
+    reflect_value: &dyn Reflect,
+    serializer: S,
     type_registry: &TypeRegistry,
-) -> Result<Serializable<'a>, E> {
-    let info = reflect_value.get_represented_type_info().ok_or_else(|| {
-        Error::custom(format_args!(
-            "Type '{}' does not represent any type",
-            reflect_value.reflect_type_path(),
-        ))
-    })?;
+) -> Result<Result<S::Ok, S::Error>, S> {
+    if reflect_value.is_dynamic() {
+        // Type data won't work on dynamic types
+        return Err(serializer);
+    }
 
-    let reflect_serialize = type_registry
-        .get_type_data::<ReflectSerialize>(info.type_id())
-        .ok_or_else(|| {
-            Error::custom(format_args!(
-                "Type '{}' did not register ReflectSerialize",
-                info.type_path(),
-            ))
-        })?;
-    Ok(reflect_serialize.get_serializable(reflect_value))
+    // --- Note --- //
+    // Because we know `reflect_value` is not dynamic, we should be okay accessing
+    // its `TypeId` directly instead of having to fetch the `TypeInfo` first.
+
+    if let Some(reflect_serialize) =
+        type_registry.get_type_data::<ReflectSerialize>(reflect_value.type_id())
+    {
+        return Ok(reflect_serialize
+            .get_serializable(reflect_value)
+            .borrow()
+            .serialize(serializer));
+    }
+
+    if let Some(reflect_serialize_with_registry) =
+        type_registry.get_type_data::<ReflectSerializeWithRegistry>(reflect_value.type_id())
+    {
+        return Ok(reflect_serialize_with_registry.serialize(
+            reflect_value,
+            serializer,
+            type_registry,
+        ));
+    }
+
+    Err(serializer)
 }
 
 /// A general purpose serializer for reflected types.
@@ -180,11 +199,11 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        // Handle both Value case and types that have a custom `Serialize`
-        let serializable = get_serializable::<S::Error>(self.value, self.registry);
-        if let Ok(serializable) = serializable {
-            return serializable.borrow().serialize(serializer);
-        }
+        // Handle both Value case and types that have a custom `Serialize` or `SerializeWithRegistry`
+        let serializer = match try_custom_serialize(self.value, serializer, self.registry) {
+            Ok(result) => return result,
+            Err(serializer) => serializer,
+        };
 
         match self.value.reflect_ref() {
             ReflectRef::Struct(value) => StructSerializer {
@@ -222,7 +241,10 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
                 registry: self.registry,
             }
             .serialize(serializer),
-            ReflectRef::Value(_) => Err(serializable.err().unwrap()),
+            ReflectRef::Value(_) => Err(S::Error::custom(format_args!(
+                "Type '{}' did not register `ReflectSerialize` or `ReflectSerializeWithRegistry`",
+                self.value.reflect_type_path()
+            ))),
         }
     }
 }
@@ -237,9 +259,12 @@ impl<'a> Serialize for ReflectValueSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        get_serializable::<S::Error>(self.value, self.registry)?
-            .borrow()
-            .serialize(serializer)
+        try_custom_serialize(self.value, serializer, self.registry).map_err(|_| {
+            S::Error::custom(format_args!(
+                "Type '{}' did not register `ReflectSerialize` nor `ReflectSerializeWithRegistry`",
+                self.value.reflect_type_path()
+            ))
+        })?
     }
 }
 
