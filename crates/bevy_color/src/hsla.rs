@@ -3,6 +3,7 @@ use crate::{
     StandardColor, Xyza,
 };
 use bevy_math::{Vec3, Vec4};
+#[cfg(feature = "bevy-support")]
 use bevy_reflect::prelude::*;
 
 /// Color in Hue-Saturation-Lightness (HSL) color space with alpha.
@@ -11,11 +12,11 @@ use bevy_reflect::prelude::*;
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy-support", derive(Reflect), reflect(PartialEq, Default))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy-support"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Hsla {
