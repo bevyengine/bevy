@@ -166,8 +166,11 @@ impl TaskPool {
             let task = LocalTask::new();
             let sender = task.0.clone();
             wasm_bindgen_futures::spawn_local(async move {
+                // Catch any panics that occur when polling the future so they can
+                // be propagated back to the task handle.
                 let value = CatchUnwind(AssertUnwindSafe(future)).await;
                 sender.value.set(Some(value));
+                // Wake up any tasks waiting on this future
                 if let Some(waker) = sender.waker.take() {
                     waker.wake();
                 }
