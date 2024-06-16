@@ -1,11 +1,14 @@
-use std::any::Any;
-use std::panic::{AssertUnwindSafe, UnwindSafe};
 use std::sync::Arc;
-use std::task::Poll;
 use std::{cell::RefCell, future::Future, marker::PhantomData, mem, rc::Rc};
 
 #[cfg(target_arch = "wasm32")]
-use std::{cell::Cell, task::Waker};
+use std::{
+    any::Any,
+    cell::Cell,
+    panic::{AssertUnwindSafe, UnwindSafe},
+    task::Poll,
+    task::Waker,
+};
 
 thread_local! {
     static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = const { async_executor::LocalExecutor::new() };
@@ -188,7 +191,7 @@ impl TaskPool {
                 // Loop until all tasks are done
                 while executor.try_tick() {}
 
-                task
+                LocalTask::new(task)
             })
         }
     }
@@ -222,11 +225,14 @@ impl TaskPool {
 
 /// A handle to a task running on this thread. Can be awaited to obtain the output of the task.
 #[cfg(not(target_arch = "wasm32"))]
-pub type LocalTask<T> = async_executor::Task<T>;
+pub type LocalTask<T> = crate::Task<T>;
 
 /// A handle to a task running on this thread. Can be awaited to obtain the output of the task.
 #[cfg(target_arch = "wasm32")]
 pub struct LocalTask<T>(Rc<InnerTask<T>>);
+
+#[cfg(target_arch = "wasm32")]
+type Panic = Box<dyn Any + Send>;
 
 #[cfg(target_arch = "wasm32")]
 struct InnerTask<T> {
@@ -293,11 +299,11 @@ impl<T> Drop for LocalTask<T> {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
 #[pin_project::pin_project]
 struct CatchUnwind<F: UnwindSafe>(#[pin] F);
 
-type Panic = Box<dyn Any + Send>;
-
+#[cfg(target_arch = "wasm32")]
 impl<F: Future + UnwindSafe> Future for CatchUnwind<F> {
     type Output = Result<F::Output, Panic>;
     fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context) -> Poll<Self::Output> {
