@@ -1,6 +1,6 @@
 [package]
 name = "bevy_utils"
-version = "0.14.0-rc.2"
+version = "0.14.0-rc.3"
 edition = "2021"
 description = "A collection of utils for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -16,7 +16,7 @@ ahash = "0.8.7"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 web-time = { version = "1.1" }
 hashbrown = { version = "0.14", features = ["serde"] }
-bevy_utils_proc_macros = { version = "0.14.0-rc.2", path = "macros" }
+bevy_utils_proc_macros = { version = "0.14.0-rc.3", path = "macros" }
 thread_local = "1.0"
 
 [dev-dependencies]

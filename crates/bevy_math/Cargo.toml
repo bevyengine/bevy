@@ -1,6 +1,6 @@
 [package]
 name = "bevy_math"
-version = "0.14.0-rc.2"
+version = "0.14.0-rc.3"
 edition = "2021"
 description = "Provides math functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -20,7 +20,7 @@ rand = { version = "0.8", features = [
 ], default-features = false, optional = true }
 smallvec = { version = "1.11" }
 
-bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-rc.2", features = [
+bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-rc.3", features = [
   "glam",
 ], optional = true }
 
@@ -30,7 +30,7 @@ approx = "0.5"
 rand = "0.8"
 rand_chacha = "0.3"
 # Enable the approx feature when testing.
-bevy_math = { path = ".", version = "0.14.0-rc.2", features = ["approx"] }
+bevy_math = { path = ".", version = "0.14.0-rc.3", features = ["approx"] }
 glam = { version = "0.27", features = ["approx"] }
 
 

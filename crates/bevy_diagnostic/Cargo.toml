@@ -1,6 +1,6 @@
 [package]
 name = "bevy_diagnostic"
-version = "0.14.0-rc.2"
+version = "0.14.0-rc.3"
 edition = "2021"
 description = "Provides diagnostic functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -15,12 +15,12 @@ sysinfo_plugin = ["sysinfo"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.14.0-rc.2" }
-bevy_core = { path = "../bevy_core", version = "0.14.0-rc.2" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-rc.2" }
-bevy_time = { path = "../bevy_time", version = "0.14.0-rc.2" }
-bevy_utils = { path = "../bevy_utils", version = "0.14.0-rc.2" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-rc.2" }
+bevy_app = { path = "../bevy_app", version = "0.14.0-rc.3" }
+bevy_core = { path = "../bevy_core", version = "0.14.0-rc.3" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-rc.3" }
+bevy_time = { path = "../bevy_time", version = "0.14.0-rc.3" }
+bevy_utils = { path = "../bevy_utils", version = "0.14.0-rc.3" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-rc.3" }
 
 const-fnv1a-hash = "1.1.0"
 
