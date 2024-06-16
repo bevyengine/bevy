@@ -69,17 +69,24 @@ struct ExplodeMines {
 #[derive(Event)]
 struct Explode;
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
-    commands.spawn(TextBundle::from_section(
-        "Click on a \"Mine\" to trigger it.\n\
+    commands.spawn(
+        TextBundle::from_section(
+            "Click on a \"Mine\" to trigger it.\n\
             When it explodes it will trigger all overlapping mines.",
-        TextStyle {
-            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-            font_size: 24.,
-            color: Color::WHITE,
-        },
-    ));
+            TextStyle {
+                color: Color::WHITE,
+                ..default()
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.),
+            left: Val::Px(12.),
+            ..default()
+        }),
+    );
 
     let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
 
