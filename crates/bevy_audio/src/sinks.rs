@@ -1,7 +1,9 @@
 use bevy_ecs::component::Component;
 use bevy_math::Vec3;
 use bevy_transform::prelude::Transform;
+use rodio::source::SeekError;
 use rodio::{Sink, SpatialSink};
+use std::time::Duration;
 
 use crate::Volume;
 
@@ -94,6 +96,9 @@ pub trait AudioSinkPlayback {
             self.mute();
         }
     }
+
+    /// Seeks to a specific position in the audio.
+    fn try_seek(&self, pos: Duration) -> Result<(), SeekError>;
 }
 
 /// Used to control audio during playback.
@@ -190,6 +195,10 @@ impl AudioSinkPlayback for AudioSink {
             self.sink.set_volume(volume.to_linear());
         }
     }
+
+    fn try_seek(&self, pos: Duration) -> Result<(), SeekError> {
+        self.sink.try_seek(pos)
+    }
 }
 
 /// Used to control spatial audio during playback.
@@ -285,6 +294,10 @@ impl AudioSinkPlayback for SpatialAudioSink {
         if let Some(volume) = self.managed_volume.take() {
             self.sink.set_volume(volume.to_linear());
         }
+    }
+
+    fn try_seek(&self, pos: Duration) -> Result<(), SeekError> {
+        self.sink.try_seek(pos)
     }
 }
 

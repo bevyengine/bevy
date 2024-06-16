@@ -6,7 +6,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (update_speed, pause, mute, volume))
+        .add_systems(Update, (update_speed, pause, mute, volume, seek))
         .run();
 }
 
@@ -82,5 +82,17 @@ fn volume(
     } else if keyboard_input.just_pressed(KeyCode::Minus) {
         let current_volume = sink.volume();
         sink.set_volume(current_volume - Volume::Linear(0.1));
+    }
+}
+
+fn seek(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    music_controller: Query<&AudioSink, With<MyMusic>>,
+) {
+    if let Ok(sink) = music_controller.single() {
+        if keyboard_input.just_pressed(KeyCode::Digit0) {
+            sink.try_seek(std::time::Duration::from_secs_f64(0.0))
+                .unwrap();
+        }
     }
 }
