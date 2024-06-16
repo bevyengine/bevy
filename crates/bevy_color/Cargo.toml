@@ -21,7 +21,7 @@ wgpu-types = { version = "0.20", default-features = false, optional = true }
 encase = { version = "0.8", default-features = false }
 
 [features]
-default = []
+default = ["bevy_reflect"]
 serialize = ["serde"]
 
 [lints]
