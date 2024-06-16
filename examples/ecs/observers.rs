@@ -4,6 +4,8 @@ use bevy::{
     prelude::*,
     utils::{HashMap, HashSet},
 };
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
@@ -47,13 +49,13 @@ struct Mine {
 }
 
 impl Mine {
-    fn random() -> Self {
+    fn random(rand: &mut ChaCha8Rng) -> Self {
         Mine {
             pos: Vec2::new(
-                (rand::random::<f32>() - 0.5) * 1200.0,
-                (rand::random::<f32>() - 0.5) * 600.0,
+                (rand.gen::<f32>() - 0.5) * 1200.0,
+                (rand.gen::<f32>() - 0.5) * 600.0,
             ),
-            size: 4.0 + rand::random::<f32>() * 16.0,
+            size: 4.0 + rand.gen::<f32>() * 16.0,
         }
     }
 }
@@ -79,8 +81,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
     ));
 
+    let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
+
     commands
-        .spawn(Mine::random())
+        .spawn(Mine::random(&mut rng))
         // Observers can watch for events targeting a specific entity.
         // This will create a new observer that runs whenever the Explode event
         // is triggered for this spawned entity.
@@ -97,7 +101,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // As we spawn entities, we can make this observer watch each of them:
     for _ in 0..1000 {
-        let entity = commands.spawn(Mine::random()).id();
+        let entity = commands.spawn(Mine::random(&mut rng)).id();
         observer.watch_entity(entity);
     }
 
