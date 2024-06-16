@@ -4,7 +4,7 @@ use crate::{
     Luminance, Mix, StandardColor, Xyza,
 };
 use bevy_math::{Vec3, Vec4};
-#[cfg(feature = "bevy-support")]
+#[cfg(feature = "bevy")]
 use bevy_reflect::prelude::*;
 use thiserror::Error;
 
@@ -14,10 +14,10 @@ use thiserror::Error;
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy-support", derive(Reflect), reflect(PartialEq, Default))]
+#[cfg_attr(feature = "bevy", derive(Reflect), reflect(PartialEq, Default))]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    all(feature = "serialize", feature = "bevy-support"),
+    all(feature = "serialize", feature = "bevy"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Srgba {
