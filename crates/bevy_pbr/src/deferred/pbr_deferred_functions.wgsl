@@ -76,10 +76,10 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     let emissive = rgb9e5::rgb9e5_to_vec3_(gbuffer.g);
     if ((pbr.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) != 0u) {
         pbr.material.base_color = vec4(emissive, 1.0);
-        pbr.material.emissive = vec4(vec3(0.0), 1.0);
+        pbr.material.emissive = vec4(vec3(0.0), 0.0);
     } else {
         pbr.material.base_color = vec4(pow(base_rough.rgb, vec3(2.2)), 1.0);
-        pbr.material.emissive = vec4(emissive, 1.0);
+        pbr.material.emissive = vec4(emissive, 0.0);
     }
 #ifdef WEBGL2 // More crunched for webgl so we can also fit depth.
     let props = deferred_types::unpack_unorm3x4_plus_unorm_20_(gbuffer.b);
