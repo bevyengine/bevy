@@ -263,6 +263,13 @@ impl<T> Future for LocalTask<T> {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+impl<T> Drop for LocalTask<T> {
+    fn drop(&mut self) {
+        let _ = self.0.waker.take();
+    }
+}
+
 struct CatchUnwind<F: UnwindSafe>(F);
 
 type Panic = Box<dyn Any + Send>;
