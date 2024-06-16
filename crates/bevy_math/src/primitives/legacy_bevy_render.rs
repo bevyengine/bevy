@@ -38,10 +38,6 @@ use glam::{Affine3A, Mat3A, Vec3, Vec3A};
 #[cfg_attr(feature = "bevy_ecs", derive(Component))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
 #[cfg_attr(
-    all(feature = "serialize", feature = "bevy_reflect"),
-    reflect(Serialize, Deserialize)
-)]
-#[cfg_attr(
     all(feature = "bevy_ecs", feature = "bevy_reflect"),
     reflect(Component)
 )]
@@ -74,8 +70,7 @@ impl Aabb {
     /// # Examples
     ///
     /// ```
-    /// # use bevy_math::{Vec3, Vec3A};
-    /// # use bevy_render::primitives::Aabb;
+    /// # use bevy_math::{Vec3, Vec3A, primitives::legacy_bevy_render::Aabb};
     /// let bb = Aabb::enclosing([Vec3::X, Vec3::Z * 2.0, Vec3::Y * -0.5]).unwrap();
     /// assert_eq!(bb.min(), Vec3A::new(0.0, -0.5, 0.0));
     /// assert_eq!(bb.max(), Vec3A::new(1.0, 0.0, 2.0));

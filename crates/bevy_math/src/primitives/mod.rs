@@ -11,7 +11,7 @@ pub use frustum::Frustum;
 mod half_space;
 pub use half_space::HalfSpace;
 /// Clean me up!
-/// Code adopted from bevy_render.
+/// Code adopted from `bevy_render`.
 pub mod legacy_bevy_render;
 #[cfg(feature = "serialize")]
 mod serde;

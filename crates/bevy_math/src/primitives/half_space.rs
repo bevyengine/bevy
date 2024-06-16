@@ -4,6 +4,8 @@ use bevy_ecs::component::Component;
 use bevy_ecs::prelude::ReflectComponent;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 use crate::{Vec3A, Vec4};
 use glam::Vec4Swizzles;
