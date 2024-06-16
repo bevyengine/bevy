@@ -247,8 +247,28 @@ impl<T> LocalTask<T> {
 
 #[cfg(target_arch = "wasm32")]
 impl<T> LocalTask<T> {
-    /// Does nothing on the single threaded task pool
+    /// Allows the task to continue running independently of the current context.
+    /// This is a no-op.
     pub fn detach(self) {}
+
+    /// Waits for the task to stop running.
+    ///
+    /// In single-threaded contexts, cancellation does not work, so this method is
+    /// identical to just awaiting the task. This method only exists for parity with
+    /// the multi-threaded variant of the task pool.
+    pub async fn cancel(self) -> Option<T> {
+        Some(self.await)
+    }
+
+    /// Returns `true` if the current task is finished.
+    ///
+    /// Unlike poll, it doesn't resolve the final value, it just checks if the task has finished.
+    pub fn is_finished(&self) -> bool {
+        let value = self.0.value.take();
+        let is_finished = value.is_some();
+        self.0.value.set(value);
+        is_finished
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
