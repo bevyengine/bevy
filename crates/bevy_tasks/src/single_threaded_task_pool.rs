@@ -293,17 +293,15 @@ impl<T> Drop for LocalTask<T> {
     }
 }
 
-struct CatchUnwind<F: UnwindSafe>(F);
+#[pin_project::pin_project]
+struct CatchUnwind<F: UnwindSafe>(#[pin] F);
 
 type Panic = Box<dyn Any + Send>;
 
 impl<F: Future + UnwindSafe> Future for CatchUnwind<F> {
     type Output = Result<F::Output, Panic>;
     fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context) -> Poll<Self::Output> {
-        #[allow(unsafe_code)]
-        // SAFETY: pin projection
-        let f = unsafe { std::pin::Pin::new_unchecked(&mut self.get_unchecked_mut().0) };
-        match std::panic::catch_unwind(AssertUnwindSafe(|| f.poll(cx))) {
+        match std::panic::catch_unwind(AssertUnwindSafe(|| self.project().0.poll(cx))) {
             Ok(Poll::Ready(value)) => Poll::Ready(Ok(value)),
             Ok(Poll::Pending) => Poll::Pending,
             Err(panic) => Poll::Ready(Err(panic)),
