@@ -69,7 +69,6 @@ default = [
   "bevy_sprite",
   "bevy_text",
   "bevy_ui",
-  "multi_threaded",
   "png",
   "hdr",
   "vorbis",
