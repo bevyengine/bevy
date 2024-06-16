@@ -3,7 +3,7 @@ use crate::{
     StandardColor,
 };
 use bevy_math::{Vec3, Vec4};
-#[cfg(feature = "bevy")]
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
 /// [CIE 1931](https://en.wikipedia.org/wiki/CIE_1931_color_space) color space, also known as XYZ, with an alpha channel.
@@ -12,10 +12,10 @@ use bevy_reflect::prelude::*;
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Reflect), reflect(PartialEq, Default))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(PartialEq, Default))]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    all(feature = "serialize", feature = "bevy"),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Xyza {

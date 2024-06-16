@@ -22,7 +22,6 @@ encase = { version = "0.8", default-features = false }
 
 [features]
 default = []
-bevy = ["dep:bevy_reflect"]
 serialize = ["serde"]
 
 [lints]
