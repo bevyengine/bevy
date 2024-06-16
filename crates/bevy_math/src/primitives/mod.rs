@@ -12,7 +12,6 @@ mod half_space;
 pub use half_space::HalfSpace;
 /// Clean me up!
 /// Code adopted from bevy_render.
-/// Needs to be public to allow bevy_render registery types from here.
 pub mod legacy_bevy_render;
 #[cfg(feature = "serialize")]
 mod serde;
