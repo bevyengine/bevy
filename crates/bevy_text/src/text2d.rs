@@ -15,10 +15,9 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Commands, Local, Query, Res, ResMut},
 };
-use bevy_math::Vec2;
+use bevy_math::{primitives::legacy_bevy_render::Aabb, Vec2};
 use bevy_reflect::Reflect;
 use bevy_render::{
-    primitives::Aabb,
     texture::Image,
     view::{InheritedVisibility, NoFrustumCulling, ViewVisibility, Visibility},
     Extract,

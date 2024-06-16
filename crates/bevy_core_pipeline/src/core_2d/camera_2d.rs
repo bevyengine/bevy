@@ -1,6 +1,7 @@
 use crate::core_2d::graph::Core2d;
 use crate::tonemapping::{DebandDither, Tonemapping};
 use bevy_ecs::prelude::*;
+use bevy_math::primitives::Frustum;
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{
@@ -8,7 +9,6 @@ use bevy_render::{
         OrthographicProjection,
     },
     extract_component::ExtractComponent,
-    primitives::Frustum,
     view::VisibleEntities,
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};

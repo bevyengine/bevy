@@ -2,11 +2,11 @@ mod conversions;
 pub mod skinning;
 use bevy_transform::components::Transform;
 use bitflags::bitflags;
+use primitives::legacy_bevy_render::Aabb;
 pub use wgpu::PrimitiveTopology;
 
 use crate::{
     prelude::Image,
-    primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages, RenderAssets},
     render_resource::{Buffer, TextureView, VertexBufferLayout},
     renderer::RenderDevice,

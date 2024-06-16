@@ -19,7 +19,7 @@ rand = { version = "0.8", features = [
   "alloc",
 ], default-features = false, optional = true }
 smallvec = { version = "1.11" }
-
+bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev", default-features = false, optional = true }
 bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
   "glam",
 ], optional = true }

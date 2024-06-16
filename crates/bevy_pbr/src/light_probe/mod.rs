@@ -12,11 +12,13 @@ use bevy_ecs::{
     schedule::IntoSystemConfigs,
     system::{Commands, Local, Query, Res, ResMut, Resource},
 };
-use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
+use bevy_math::{
+    primitives::{legacy_bevy_render::Aabb, Frustum},
+    Affine3A, FloatOrd, Mat4, Vec3A, Vec4,
+};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_instances::ExtractInstancesPlugin,
-    primitives::{Aabb, Frustum},
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, Sampler, Shader, ShaderType, TextureView},
     renderer::{RenderDevice, RenderQueue},

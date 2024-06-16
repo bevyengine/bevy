@@ -32,6 +32,7 @@ pub mod prelude {
     };
 }
 
+use bevy_math::primitives::legacy_bevy_render::Aabb;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 pub use bundle::*;
 pub use dynamic_texture_atlas_builder::*;
@@ -49,7 +50,6 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     mesh::Mesh,
-    primitives::Aabb,
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},
     texture::Image,

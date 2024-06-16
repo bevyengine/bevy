@@ -14,6 +14,7 @@ use bevy_core_pipeline::prelude::Camera3dBundle;
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{entity::Entity, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
+use bevy_math::primitives::legacy_bevy_render::Aabb;
 use bevy_math::{Affine2, Mat4, Vec3};
 use bevy_pbr::{
     DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle, SpotLight,
@@ -28,7 +29,6 @@ use bevy_render::{
         Indices, Mesh, MeshVertexAttribute, VertexAttributeValues,
     },
     prelude::SpatialBundle,
-    primitives::Aabb,
     render_asset::RenderAssetUsages,
     render_resource::{Face, PrimitiveTopology},
     texture::{

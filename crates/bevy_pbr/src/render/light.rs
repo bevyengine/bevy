@@ -4,12 +4,13 @@ use bevy_core_pipeline::core_3d::CORE_3D_DEPTH_FORMAT;
 use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
+use bevy_math::primitives::{Frustum, HalfSpace};
 use bevy_math::{Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::mesh::Mesh;
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::GpuMesh,
-    primitives::{CascadesFrusta, CubemapFrusta, Frustum, HalfSpace},
+    primitives::{CascadesFrusta, CubemapFrusta},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,

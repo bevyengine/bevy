@@ -1,13 +1,19 @@
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, Vec3A, Vec4};
+use bevy_math::{
+    primitives::{
+        legacy_bevy_render::{Aabb, Sphere},
+        Frustum,
+    },
+    Mat4, Vec3A, Vec4,
+};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection},
     extract_component::ExtractComponent,
     extract_resource::ExtractResource,
     mesh::Mesh,
-    primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
+    primitives::{CascadesFrusta, CubemapFrusta},
     view::{
         InheritedVisibility, RenderLayers, ViewVisibility, VisibilityRange, VisibleEntities,
         VisibleEntityRanges, WithMesh,
