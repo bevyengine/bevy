@@ -169,6 +169,9 @@ impl TaskPool {
                 // Catch any panics that occur when polling the future so they can
                 // be propagated back to the task handle.
                 let value = CatchUnwind(AssertUnwindSafe(future)).await;
+                // Store the value in the task. If the task handle has been dropped,
+                // then the value will also get dropped at the end of the scope when the
+                // inner task's reference count drops to zero.
                 sender.value.set(Some(value));
                 // Wake up any tasks waiting on this future
                 if let Some(waker) = sender.waker.take() {
