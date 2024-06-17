@@ -5,7 +5,7 @@
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
-use bevy_math::{Mat2, Quat, Vec2, Vec3};
+use bevy_math::{Mat2, Mat3, Quat, Vec2, Vec3};
 
 impl<Config> Gizmos<'_, '_, Config>
 where
@@ -33,9 +33,10 @@ where
         half_size: f32,
         color: impl Into<Color>,
     ) {
-        let local_x = rotation * Vec3::new(half_size, 0.0, 0.0);
-        let local_y = rotation * Vec3::new(0.0, half_size, 0.0);
-        let local_z = rotation * Vec3::new(0.0, 0.0, half_size);
+        let axes = half_size * Mat3::from_quat(rotation);
+        let local_x = axes.col(0);
+        let local_y = axes.col(1);
+        let local_z = axes.col(2);
 
         let color: Color = color.into();
         self.line(position + local_x, position - local_x, color);
@@ -65,9 +66,9 @@ where
         half_size: f32,
         color: impl Into<Color>,
     ) {
-        let rotation = Mat2::from_angle(angle);
-        let local_x = rotation * Vec2::new(half_size, 0.0);
-        let local_y = rotation * Vec2::new(0.0, half_size);
+        let axes = half_size * Mat2::from_angle(angle);
+        let local_x = axes.col(0);
+        let local_y = axes.col(1);
 
         let color: Color = color.into();
         self.line_2d(position + local_x, position - local_x, color);
