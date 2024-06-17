@@ -16,6 +16,7 @@
 //! For more fine-tuned control over logging behavior, set up the [`LogPlugin`] or
 //! `DefaultPlugins` during app initialization.
 
+use std::error::Error;
 #[cfg(feature = "trace")]
 use std::panic;
 
@@ -52,7 +53,12 @@ use bevy_app::{App, Plugin};
 use tracing_log::LogTracer;
 #[cfg(feature = "tracing-chrome")]
 use tracing_subscriber::fmt::{format::DefaultFields, FormattedFields};
-use tracing_subscriber::{filter::FromEnvError, prelude::*, registry::Registry, EnvFilter, Layer};
+use tracing_subscriber::{
+    filter::{FromEnvError, ParseError},
+    prelude::*,
+    registry::Registry,
+    EnvFilter, Layer,
+};
 #[cfg(feature = "tracing-chrome")]
 use {bevy_ecs::system::Resource, bevy_utils::synccell::SyncCell};
 
@@ -166,7 +172,15 @@ impl Plugin for LogPlugin {
 
         let default_filter = { format!("{},{}", self.level, self.filter) };
         let filter_layer = EnvFilter::try_from_default_env()
-            .or_else(|_| {
+            .or_else(|from_env_error| {
+                if let Some(err) = from_env_error
+                    .source()
+                    .unwrap()
+                    .downcast_ref::<ParseError>()
+                {
+                    eprintln!("LogPlugin failed to parse filter from env: {}", err);
+                }
+
                 Ok::<EnvFilter, FromEnvError>(EnvFilter::builder().parse_lossy(&default_filter))
             })
             .unwrap();
