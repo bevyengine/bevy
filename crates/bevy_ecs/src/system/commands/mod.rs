@@ -1,11 +1,13 @@
 mod parallel_scope;
 
-use super::{Deferred, IntoSystem, RegisterSystem, Resource};
+use super::{Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource};
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     component::ComponentId,
     entity::{Entities, Entity},
+    event::Event,
+    observer::{Observer, TriggerEvent, TriggerTargets},
     system::{RunSystemWithInput, SystemId},
     world::command_queue::RawCommandQueue,
     world::{Command, CommandQueue, EntityWorldMut, FromWorld, World},
@@ -116,6 +118,17 @@ const _: () = {
                 world,
             );
         }
+        fn queue(
+            state: &mut Self::State,
+            system_meta: &bevy_ecs::system::SystemMeta,
+            world: bevy_ecs::world::DeferredWorld,
+        ) {
+            <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::queue(
+                &mut state.state,
+                system_meta,
+                world,
+            );
+        }
         unsafe fn get_param<'w, 's>(
             state: &'s mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
@@ -150,7 +163,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// [system parameter]: crate::system::SystemParam
     pub fn new(queue: &'s mut CommandQueue, world: &'w World) -> Self {
-        Self::new_from_entities(queue, world.entities())
+        Self::new_from_entities(queue, &world.entities)
     }
 
     /// Returns a new `Commands` instance from a [`CommandQueue`] and an [`Entities`] reference.
@@ -735,6 +748,26 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn add<C: Command>(&mut self, command: C) {
         self.push(command);
     }
+
+    /// Sends a "global" [`Trigger`] without any targets. This will run any [`Observer`] of the `event` that
+    /// isn't scoped to specific targets.
+    pub fn trigger(&mut self, event: impl Event) {
+        self.add(TriggerEvent { event, targets: () });
+    }
+
+    /// Sends a [`Trigger`] for the given targets. This will run any [`Observer`] of the `event` that
+    /// watches those targets.
+    pub fn trigger_targets(&mut self, event: impl Event, targets: impl TriggerTargets) {
+        self.add(TriggerEvent { event, targets });
+    }
+
+    /// Spawn an [`Observer`] and returns the [`EntityCommands`] associated with the entity that stores the observer.  
+    pub fn observe<E: Event, B: Bundle, M>(
+        &mut self,
+        observer: impl IntoObserverSystem<E, B, M>,
+    ) -> EntityCommands {
+        self.spawn(Observer::new(observer))
+    }
 }
 
 /// A [`Command`] which gets executed for a given [`Entity`].
@@ -1125,6 +1158,15 @@ impl EntityCommands<'_> {
     pub fn commands(&mut self) -> Commands {
         self.commands.reborrow()
     }
+
+    /// Creates an [`Observer`](crate::observer::Observer) listening for a trigger of type `T` that targets this entity.
+    pub fn observe<E: Event, B: Bundle, M>(
+        &mut self,
+        system: impl IntoObserverSystem<E, B, M>,
+    ) -> &mut Self {
+        self.add(observe(system));
+        self
+    }
 }
 
 impl<F> Command for F
@@ -1283,6 +1325,16 @@ fn log_components(entity: Entity, world: &mut World) {
         .map(|component_info| component_info.name())
         .collect();
     info!("Entity {:?}: {:?}", entity, debug_infos);
+}
+
+fn observe<E: Event, B: Bundle, M>(
+    observer: impl IntoObserverSystem<E, B, M>,
+) -> impl EntityCommand {
+    move |entity, world: &mut World| {
+        if let Some(mut entity) = world.get_entity_mut(entity) {
+            entity.observe(observer);
+        }
+    }
 }
 
 #[cfg(test)]

@@ -127,6 +127,11 @@ where
         self.system.apply_deferred(world);
     }
 
+    #[inline]
+    fn queue_deferred(&mut self, world: crate::world::DeferredWorld) {
+        self.system.queue_deferred(world);
+    }
+
     fn initialize(&mut self, world: &mut crate::prelude::World) {
         self.system.initialize(world);
     }
