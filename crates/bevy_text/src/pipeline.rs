@@ -278,7 +278,7 @@ impl TextPipeline {
             min: min_width_content_size,
             max: max_width_content_size,
             font_system: Arc::clone(&self.font_system.0),
-            buffer: Mutex::new(buffer),
+            buffer,
         })
     }
 }
@@ -302,7 +302,7 @@ pub struct TextLayoutInfo {
 pub struct TextMeasureInfo {
     pub min: Vec2,
     pub max: Vec2,
-    buffer: Mutex<cosmic_text::Buffer>,
+    buffer: cosmic_text::Buffer,
     font_system: Arc<Mutex<cosmic_text::FontSystem>>,
 }
 
@@ -318,11 +318,11 @@ impl std::fmt::Debug for TextMeasureInfo {
 }
 
 impl TextMeasureInfo {
-    pub fn compute_size(&self, bounds: Vec2) -> Vec2 {
+    pub fn compute_size(&mut self, bounds: Vec2) -> Vec2 {
         let font_system = &mut self.font_system.try_lock().expect("Failed to acquire lock");
-        let mut buffer = self.buffer.lock().expect("Failed to acquire the lock");
-        buffer.set_size(font_system, Some(bounds.x.ceil()), Some(bounds.y.ceil()));
-        buffer_dimensions(&buffer)
+        self.buffer
+            .set_size(font_system, Some(bounds.x.ceil()), Some(bounds.y.ceil()));
+        buffer_dimensions(&self.buffer)
     }
 }
 

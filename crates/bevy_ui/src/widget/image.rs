@@ -38,7 +38,7 @@ pub struct ImageMeasure {
 
 impl Measure for ImageMeasure {
     fn measure(
-        &self,
+        &mut self,
         width: Option<f32>,
         height: Option<f32>,
         available_width: AvailableSpace,
