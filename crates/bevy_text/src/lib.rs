@@ -8,24 +8,26 @@
 //! A font *face* is part of a font family,
 //! and is distinguished by its style (e.g. italic), its weight (e.g. bold) and its stretch (e.g. condensed).
 //!
-//! In Bevy, [`Font`]s are loaded by the [`FontLoader`] as assets,
+//! In Bevy, [`Font`]s are loaded by the [`FontLoader`] as [assets](bevy_asset::AssetPlugin).
 //!
 //! # `TextPipeline`
 //!
 //! The [`TextPipeline`] resource does all of the heavy lifting for rendering text.
 //!
 //! [`Text`] is first measured by creating a [`TextMeasureInfo`] in [`TextPipeline::create_text_measure`],
-//! which is called by a system.
+//! which is called by the `measure_text_system` system of `bevy_ui`.
 //!
 //! Note that text measurement is only relevant in a UI context.
 //!
-//! With the actual text bounds defined, another system passes it into [`TextPipeline::queue_text`], which:
+//! With the actual text bounds defined, the `bevy_ui::widget::text::text_system` system (in a UI context)
+//! or [`bevy_text::text2d::update_text2d_layout`] system (in a 2d world space context)
+//! passes it into [`TextPipeline::queue_text`], which:
 //!
 //! 1. creates a [`Buffer`](cosmic_text::Buffer) from the [`TextSection`]s, generating new [`FontAtlasSet`]s if necessary.
 //! 2. iterates over each glyph in the [`Buffer`](cosmic_text::Buffer) to create a [`PositionedGlyph`],
 //!    retrieving glyphs from the cache, or rasterizing to a [`FontAtlas`] if necessary.
 //! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`],
-//! which contains all the information that downstream systems need for rendering.
+//!    which contains all the information that downstream systems need for rendering.
 
 #![allow(clippy::type_complexity)]
 
@@ -73,13 +75,15 @@ use bevy_sprite::SpriteSystem;
 #[derive(Default)]
 pub struct TextPlugin;
 
-/// Text is rendered for two different view projections, a [`Text2dBundle`] is rendered with a
-/// `BottomToTop` y axis, while UI is rendered with a `TopToBottom` y axis. This matters for text because
-/// the glyph positioning is different in either layout.
+/// Text is rendered for two different view projections;
+/// 2-dimensional text ([`Text2dBundle`]) is rendered in "world space" with a `BottomToTop` Y-axis,
+/// while UI is rendered with a `TopToBottom` Y-axis.
+/// This matters for text because the glyph positioning is different in either layout.
+/// For `TopToBottom`, 0 is the top of the text, while for `BottomToTop` 0 is the bottom.
 pub enum YAxisOrientation {
-    /// Ui Y-axis orientation
+    /// Top to bottom Y-axis orientation, for UI
     TopToBottom,
-    /// Text2dBundles Y-axis orientation
+    /// Bottom to top Y-axis orientation, for 2d world space
     BottomToTop,
 }
 

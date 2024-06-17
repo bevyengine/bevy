@@ -3,7 +3,7 @@ use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
 use thiserror::Error;
 
 #[derive(Default)]
-/// FontLoader for usage by the [`AssetServer`]
+/// An [`AssetLoader`] for [`Font`]s, for use by the [`AssetServer`]
 pub struct FontLoader;
 
 /// Possible errors that can be produced by [`FontLoader`]

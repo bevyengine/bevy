@@ -117,7 +117,9 @@ impl Text {
 /// Contains the value of the text in a section and how it should be styled.
 #[derive(Debug, Default, Clone, Reflect)]
 pub struct TextSection {
+    /// The content (in `String` form) of the text in the section.
     pub value: String,
+    /// The style of the text in the section, including the font face, font size, and color.
     pub style: TextStyle,
 }
 
@@ -180,10 +182,14 @@ pub enum JustifyText {
 }
 
 #[derive(Clone, Debug, Reflect)]
+/// `TextStyle` determines the style of the text in a section, specifically
+/// the font face, the font size, and the color.
 pub struct TextStyle {
-    /// If this is not specified, then
+    /// The specific font face to use, as a `Handle` to a [`Font`] asset.
+    ///
+    /// If the `font` is not specified, then
     /// * if `default_font` feature is enabled (enabled by default in `bevy` crate),
-    ///      `FiraMono-subset.ttf` compiled into the library is used.
+    ///   `FiraMono-subset.ttf` compiled into the library is used.
     /// * otherwise no text will be rendered.
     pub font: Handle<Font>,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
@@ -194,6 +200,7 @@ pub struct TextStyle {
     /// A new font atlas is generated for every combination of font handle and scaled font size
     /// which can have a strong performance impact.
     pub font_size: f32,
+    /// The color of the text for this section.
     pub color: Color,
 }
 

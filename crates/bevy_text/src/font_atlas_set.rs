@@ -15,6 +15,7 @@ use bevy_utils::HashMap;
 
 use crate::{error::TextError, Font, FontAtlas, GlyphAtlasInfo};
 
+/// A map of font faces to their corresponding [`FontAtlasSet`]s.
 #[derive(Debug, Default, Resource)]
 pub struct FontAtlasSets {
     // PERF: in theory this could be optimized with Assets storage ... consider making some fast "simple" AssetMap
@@ -22,21 +23,23 @@ pub struct FontAtlasSets {
 }
 
 impl FontAtlasSets {
+    /// Get a reference to the [`FontAtlasSet`] with the given font asset id.
     pub fn get(&self, id: impl Into<AssetId<Font>>) -> Option<&FontAtlasSet> {
         let id: AssetId<Font> = id.into();
         self.sets.get(&id)
     }
+    /// Get a mutable reference to the [`FontAtlasSet`] with the given font asset id.
     pub fn get_mut(&mut self, id: impl Into<AssetId<Font>>) -> Option<&mut FontAtlasSet> {
         let id: AssetId<Font> = id.into();
         self.sets.get_mut(&id)
     }
 }
 
+/// A system that cleans up [`FontAtlasSet`]s for removed [`Font`]s
 pub fn remove_dropped_font_atlas_sets(
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut font_events: EventReader<AssetEvent<Font>>,
 ) {
-    // Clean up font atlas sets for removed fonts
     for event in font_events.read() {
         if let AssetEvent::Removed { id } = event {
             font_atlas_sets.sets.remove(id);
@@ -44,6 +47,9 @@ pub fn remove_dropped_font_atlas_sets(
     }
 }
 
+/// Identifies a font size in a [`FontAtlasSet`].
+///
+/// Allows an `f32` font size to be used as a key in a `HashMap`, by its binary representation.
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub struct FontSizeKey(pub u32);
 
@@ -53,6 +59,8 @@ impl From<u32> for FontSizeKey {
     }
 }
 
+/// A map of font sizes to their corresponding [`FontAtlas`]es, for a given font face.
+///
 /// Provides the interface for adding and retrieving rasterized glyphs, and manages the [`FontAtlas`]es.
 ///
 /// A `FontAtlasSet` is an [`Asset`].
@@ -60,8 +68,9 @@ impl From<u32> for FontSizeKey {
 /// There is one `FontAtlasSet` for each font:
 /// - When a [`Font`] is loaded as an asset and then used in [`Text`](crate::Text),
 ///   a `FontAtlasSet` asset is created from a weak handle to the `Font`.
-/// - When a font is loaded as a system font, and then used in [`Text`](crate::Text),
-///   a `FontAtlasSet` asset is created and stored with a strong handle to the `FontAtlasSet`.
+/// - ~When a font is loaded as a system font, and then used in [`Text`](crate::Text),
+///   a `FontAtlasSet` asset is created and stored with a strong handle to the `FontAtlasSet`.~
+///   (*Note that system fonts are not currently supported by the `TextPipeline`.*)
 ///
 /// A `FontAtlasSet` contains one or more [`FontAtlas`]es for each font size.
 ///
@@ -80,10 +89,12 @@ impl Default for FontAtlasSet {
 }
 
 impl FontAtlasSet {
+    /// Returns an iterator over the [`FontAtlas`]es in this set
     pub fn iter(&self) -> impl Iterator<Item = (&FontSizeKey, &Vec<FontAtlas>)> {
         self.font_atlases.iter()
     }
 
+    /// Checks if the given subpixel-offset glyph is contained in any of the [`FontAtlas`]es in this set
     pub fn has_glyph(&self, cache_key: cosmic_text::CacheKey, font_size: &FontSizeKey) -> bool {
         self.font_atlases
             .get(font_size)
@@ -92,6 +103,7 @@ impl FontAtlasSet {
             })
     }
 
+    /// Adds the given subpixel-offset glyph to the [`FontAtlas`]es in this set
     pub fn add_glyph_to_atlas(
         &mut self,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
@@ -148,6 +160,7 @@ impl FontAtlasSet {
         Ok(self.get_glyph_atlas_info(physical_glyph.cache_key).unwrap())
     }
 
+    /// Generates the [`GlyphAtlasInfo`] for the given subpixel-offset glyph.
     pub fn get_glyph_atlas_info(
         &mut self,
         cache_key: cosmic_text::CacheKey,
