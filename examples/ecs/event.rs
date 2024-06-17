@@ -129,7 +129,7 @@ fn main() {
             )
                 .chain(),
         )
-        // These two systems are not gaurenteed to run in order, nor are they gauranteed to run
+        // These two systems are not gauranteed to run in order, nor are they gauranteed to run
         // after the above chain. They may even run in parallel with each other.
         // This means they may have a one frame delay in processing events compared to the above chain
         // In some instances this is fine. In other cases it can be an issue. See the docs for more information
