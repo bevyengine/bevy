@@ -11,8 +11,8 @@ use bevy_utils::HashMap;
 use cosmic_text::{Attrs, Buffer, Metrics, Shaping, Wrap};
 
 use crate::{
-    error::TextError, BreakLineOn, Font, FontAtlasSets, JustifyText, PositionedGlyph, TextSection,
-    YAxisOrientation,
+    error::TextError, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, JustifyText, PositionedGlyph,
+    TextSection, YAxisOrientation,
 };
 
 /// A wrapper around a [`cosmic_text::FontSystem`]
@@ -58,15 +58,16 @@ pub struct TextPipeline {
 impl TextPipeline {
     /// Utilizes [`cosmic_text::Buffer`] to shape and layout text
     ///
-    /// Negative or 0.0 font sizes will not be laid out, and an empty buffer will be returned.
-    pub fn create_buffer(
+    /// Negative or 0.0 font sizes will not be laid out.
+    pub fn update_buffer(
         &mut self,
         fonts: &Assets<Font>,
         sections: &[TextSection],
         linebreak_behavior: BreakLineOn,
         bounds: Vec2,
         scale_factor: f64,
-    ) -> Result<Buffer, TextError> {
+        buffer: &mut CosmicBuffer,
+    ) -> Result<(), TextError> {
         // TODO: Support multiple section font sizes, pending upstream implementation in cosmic_text
         // For now, just use the first section's size or a default
         let font_size = sections
@@ -108,15 +109,7 @@ impl TextPipeline {
             })
             .collect();
 
-        if spans.is_empty() {
-            // return empty buffer if no fonts are larger than 0, making sure that the line height is not zero,
-            // since that results in a panic in cosmic-text
-            let metrics = Metrics::new(0.0, 0.000001);
-            return Ok(Buffer::new_empty(metrics));
-        }
-
-        // TODO: cache buffers (see Iced / glyphon)
-        let mut buffer = Buffer::new_empty(metrics);
+        buffer.set_metrics(font_system, metrics);
         buffer.set_size(font_system, Some(bounds.x.ceil()), None);
 
         buffer.set_wrap(
@@ -130,7 +123,7 @@ impl TextPipeline {
 
         buffer.set_rich_text(font_system, spans, Attrs::new(), Shaping::Advanced);
 
-        Ok(buffer)
+        Ok(())
     }
 
     /// Queues text for rendering
@@ -151,13 +144,20 @@ impl TextPipeline {
         texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         y_axis_orientation: YAxisOrientation,
+        buffer: &mut CosmicBuffer,
     ) -> Result<TextLayoutInfo, TextError> {
         if sections.is_empty() {
             return Ok(TextLayoutInfo::default());
         }
 
-        let buffer =
-            self.create_buffer(fonts, sections, linebreak_behavior, bounds, scale_factor)?;
+        self.update_buffer(
+            fonts,
+            sections,
+            linebreak_behavior,
+            bounds,
+            scale_factor,
+            buffer,
+        )?;
 
         let box_size = buffer_dimensions(&buffer);
         let font_system = &mut acquire_font_system(&mut self.font_system)?;
@@ -243,15 +243,17 @@ impl TextPipeline {
         sections: &[TextSection],
         scale_factor: f64,
         linebreak_behavior: BreakLineOn,
+        buffer: &mut CosmicBuffer,
     ) -> Result<TextMeasureInfo, TextError> {
         const MIN_WIDTH_CONTENT_BOUNDS: Vec2 = Vec2::new(0.0, f32::INFINITY);
 
-        let mut buffer = self.create_buffer(
+        self.update_buffer(
             fonts,
             sections,
             linebreak_behavior,
             MIN_WIDTH_CONTENT_BOUNDS,
             scale_factor,
+            buffer,
         )?;
 
         let min_width_content_size = buffer_dimensions(&buffer);
@@ -266,7 +268,9 @@ impl TextPipeline {
             min: min_width_content_size,
             max: max_width_content_size,
             font_system: Arc::clone(&self.font_system.0),
-            buffer,
+            // TODO: This clone feels wasteful, is there another way to structure TextMeasureInfo
+            // that it doesn't need to own a buffer? - bytemunch
+            buffer: buffer.0.clone(),
         })
     }
 }

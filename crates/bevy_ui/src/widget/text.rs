@@ -15,7 +15,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{camera::Camera, texture::Image};
 use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
-    scale_value, BreakLineOn, Font, FontAtlasSets, Text, TextError, TextLayoutInfo,
+    scale_value, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, Text, TextError, TextLayoutInfo,
     TextMeasureInfo, TextPipeline, YAxisOrientation,
 };
 use bevy_utils::Entry;
@@ -88,12 +88,14 @@ fn create_text_measure(
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
     mut text_flags: Mut<TextFlags>,
+    buffer: &mut CosmicBuffer,
 ) {
     match text_pipeline.create_text_measure(
         fonts,
         &text.sections,
         scale_factor,
         text.linebreak_behavior,
+        buffer,
     ) {
         Ok(measure) => {
             if text.linebreak_behavior == BreakLineOn::NoWrap {
@@ -141,6 +143,7 @@ pub fn measure_text_system(
             &mut ContentSize,
             &mut TextFlags,
             Option<&TargetCamera>,
+            &mut CosmicBuffer,
         ),
         With<Node>,
     >,
@@ -148,7 +151,7 @@ pub fn measure_text_system(
 ) {
     let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
 
-    for (text, content_size, text_flags, camera) in &mut text_query {
+    for (text, content_size, text_flags, camera, mut buffer) in &mut text_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
@@ -176,6 +179,7 @@ pub fn measure_text_system(
                 &mut text_pipeline,
                 content_size,
                 text_flags,
+                buffer.as_mut(),
             );
         }
     }
@@ -196,6 +200,7 @@ fn queue_text(
     node: Ref<Node>,
     mut text_flags: Mut<TextFlags>,
     mut text_layout_info: Mut<TextLayoutInfo>,
+    buffer: &mut CosmicBuffer,
 ) {
     // Skip the text node if it is waiting for a new measure func
     if !text_flags.needs_new_measure_func {
@@ -221,6 +226,7 @@ fn queue_text(
             texture_atlases,
             textures,
             YAxisOrientation::TopToBottom,
+            buffer,
         ) {
             Err(TextError::NoSuchFont) => {
                 // There was an error processing the text layout, try again next frame
@@ -268,11 +274,12 @@ pub fn text_system(
         &mut TextLayoutInfo,
         &mut TextFlags,
         Option<&TargetCamera>,
+        &mut CosmicBuffer,
     )>,
 ) {
     let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
 
-    for (node, text, text_layout_info, text_flags, camera) in &mut text_query {
+    for (node, text, text_layout_info, text_flags, camera, mut buffer) in &mut text_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
@@ -306,6 +313,7 @@ pub fn text_system(
                 node,
                 text_flags,
                 text_layout_info,
+                buffer.as_mut(),
             );
         }
     }

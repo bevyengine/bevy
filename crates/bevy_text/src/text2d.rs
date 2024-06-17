@@ -1,6 +1,6 @@
 use crate::{
-    BreakLineOn, Font, FontAtlasSets, PositionedGlyph, Text, TextError, TextLayoutInfo,
-    TextPipeline, YAxisOrientation,
+    BreakLineOn, CosmicBuffer, Font, FontAtlasSets, PositionedGlyph, Text, TextError,
+    TextLayoutInfo, TextPipeline, YAxisOrientation,
 };
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
@@ -66,6 +66,8 @@ pub struct Text2dBundle {
     /// relative position which is controlled by the `Anchor` component.
     /// This means that for a block of text consisting of only one line that doesn't wrap, the `alignment` field will have no effect.
     pub text: Text,
+    /// Cached buffer for layout with cosmic-text
+    pub buffer: CosmicBuffer,
     /// How the text is positioned relative to its transform.
     ///
     /// `text_anchor` does not affect the internal alignment of the block of text, only
@@ -180,7 +182,13 @@ pub fn update_text2d_layout(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<(Entity, Ref<Text>, Ref<Text2dBounds>, &mut TextLayoutInfo)>,
+    mut text_query: Query<(
+        Entity,
+        Ref<Text>,
+        Ref<Text2dBounds>,
+        &mut TextLayoutInfo,
+        &mut CosmicBuffer,
+    )>,
 ) {
     // We need to consume the entire iterator, hence `last`
     let factor_changed = scale_factor_changed.read().last().is_some();
@@ -193,7 +201,7 @@ pub fn update_text2d_layout(
 
     let inverse_scale_factor = scale_factor.recip();
 
-    for (entity, text, bounds, mut text_layout_info) in &mut text_query {
+    for (entity, text, bounds, mut text_layout_info, mut buffer) in &mut text_query {
         if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
             let text_bounds = Vec2::new(
                 if text.linebreak_behavior == BreakLineOn::NoWrap {
@@ -203,6 +211,7 @@ pub fn update_text2d_layout(
                 },
                 scale_value(bounds.size.y, scale_factor),
             );
+
             match text_pipeline.queue_text(
                 &fonts,
                 &text.sections,
@@ -214,6 +223,7 @@ pub fn update_text2d_layout(
                 &mut texture_atlases,
                 &mut textures,
                 YAxisOrientation::BottomToTop,
+                buffer.as_mut(),
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the
