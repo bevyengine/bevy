@@ -1385,9 +1385,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns a [`QueryLens`] that can be used to get a query with the combined fetch.
     ///
-    /// For example, this can take a `Query<&A>` and a `Queryy<&B>` and return a `Query<&A, &B>`.
-    /// The returned query will only return items with both `A` and `B`. Note that since filter
-    /// are dropped, non-archetypal filters like `Added` and `Changed` will no be respected.
+    /// For example, this can take a `Query<&A>` and a `Query<&B>` and return a `Query<(&A, &B)>`.
+    /// The returned query will only return items with both `A` and `B`. Note that since filters
+    /// are dropped, non-archetypal filters like `Added` and `Changed` will not be respected.
     /// To maintain or change filter terms see `Self::join_filtered`.
     ///
     /// ## Example
@@ -1446,7 +1446,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Equivalent to [`Self::join`] but also includes a [`QueryFilter`] type.
     ///
-    /// Note that the lens with iterate a subset of the original queries tables
+    /// Note that the lens with iterate a subset of the original queries' tables
     /// and archetypes. This means that additional archetypal query terms like
     /// `With` and `Without` will not necessarily be respected and non-archetypal
     /// terms like `Added` and `Changed` will only be respected if they are in
