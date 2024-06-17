@@ -300,9 +300,9 @@ pub struct TextLayoutInfo {
 ///
 /// Generated via [`TextPipeline::create_text_measure`].
 pub struct TextMeasureInfo {
-    /// Minimum size for a text area
+    /// Minimum size for a text area in pixels, to be used when laying out widgets with taffy
     pub min: Vec2,
-    /// Maximum size for a text area
+    /// Maximum size for a text area in pixels, to be used when laying out widgets with taffy
     pub max: Vec2,
     buffer: cosmic_text::Buffer,
     font_system: Arc<Mutex<cosmic_text::FontSystem>>,
