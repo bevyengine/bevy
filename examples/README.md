@@ -347,7 +347,6 @@ Example | Description
 [Reflection](../examples/reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
 [Reflection Types](../examples/reflection/reflection_types.rs) | Illustrates the various reflection types available
 [Type Data](../examples/reflection/type_data.rs) | Demonstrates how to create and use type data
-[Trait Reflection](../examples/reflection/trait_reflection.rs) | Allows reflection with trait objects
 
 ## Scene
 
