@@ -73,13 +73,12 @@ impl TextPipeline {
             .get(0)
             .map(|s| s.style.font_size)
             .unwrap_or_else(|| crate::TextStyle::default().font_size)
-            as f64
-            * scale_factor;
+            as f64;
 
         // TODO: Support line height as an option. Unitless `1.2` is the default used in browsers (1.2x font size).
         let line_height = font_size * 1.2;
         let (font_size, line_height) = (font_size as f32, line_height as f32);
-        let metrics = Metrics::new(font_size, line_height);
+        let metrics = Metrics::new(font_size, line_height).scale(scale_factor as f32);
 
         let font_system = &mut acquire_font_system(&mut self.font_system)?;
 
@@ -103,6 +102,7 @@ impl TextPipeline {
                         font_system,
                         &mut self.map_handle_to_font_id,
                         fonts,
+                        scale_factor,
                     ),
                 )
             })
@@ -334,6 +334,7 @@ fn get_attrs<'a>(
     font_system: &mut cosmic_text::FontSystem,
     map_handle_to_font_id: &mut HashMap<AssetId<Font>, cosmic_text::fontdb::ID>,
     fonts: &Assets<Font>,
+    scale_factor: f64,
 ) -> Attrs<'a> {
     let font_handle = section.style.font.clone();
     let face_id = map_handle_to_font_id
@@ -367,7 +368,7 @@ fn get_attrs<'a>(
         .stretch(face.stretch)
         .style(face.style)
         .weight(face.weight)
-        .metrics(Metrics::relative(section.style.font_size, 1.2))
+        .metrics(Metrics::relative(section.style.font_size, 1.2).scale(scale_factor as f32))
         .color(cosmic_text::Color(section.style.color.to_linear().as_u32()));
     attrs
 }
