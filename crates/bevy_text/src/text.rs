@@ -117,7 +117,7 @@ impl Text {
 /// Contains the value of the text in a section and how it should be styled.
 #[derive(Debug, Default, Clone, Reflect)]
 pub struct TextSection {
-    /// The value of the text in the section.
+    /// The content (in `String` form) of the text in the section.
     pub value: String,
     /// The style of the text in the section, including the font face, font size, and color.
     pub style: TextStyle,

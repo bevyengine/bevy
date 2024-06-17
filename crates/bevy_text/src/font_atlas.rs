@@ -19,6 +19,7 @@ use crate::{GlyphAtlasLocation, TextError};
 /// For the same font face and font size, a glyph will be rasterized differently for different subpixel offsets.
 /// In practice, ranges of subpixel offsets are grouped into subpixel bins to limit the number of rasterized glyphs,
 /// providing a trade-off between visual quality and performance.
+///
 /// A [`CacheKey`](cosmic_text::CacheKey) encodes all of the information of a subpixel-offset glyph.
 pub struct FontAtlas {
     /// Used to update the [`TextureAtlasLayout`].
@@ -32,7 +33,7 @@ pub struct FontAtlas {
 }
 
 impl FontAtlas {
-    /// Create a new [`FontAtlas`] with the given size.
+    /// Create a new [`FontAtlas`] with the given size, adding it to the appropriate asset collections.
     pub fn new(
         textures: &mut Assets<Image>,
         texture_atlases_layout: &mut Assets<TextureAtlasLayout>,
