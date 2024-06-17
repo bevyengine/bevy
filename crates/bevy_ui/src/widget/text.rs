@@ -270,12 +270,12 @@ pub fn text_system(
         &mut TextLayoutInfo,
         &mut TextFlags,
         Option<&TargetCamera>,
-        Option<&mut CosmicBuffer>,
+        &mut CosmicBuffer,
     )>,
 ) {
     let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
 
-    for (node, text, text_layout_info, text_flags, camera, mut buffer_opt) in &mut text_query {
+    for (node, text, text_layout_info, text_flags, camera, mut buffer) in &mut text_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
@@ -293,12 +293,6 @@ pub fn text_system(
         };
         let inverse_scale_factor = scale_factor.recip();
 
-        let mut new_buffer = None;
-
-        if buffer_opt.is_none() {
-            new_buffer = Some(CosmicBuffer::default());
-        }
-
         if last_scale_factors.get(&camera_entity) != Some(&scale_factor)
             || node.is_changed()
             || text_flags.needs_recompute
@@ -315,9 +309,7 @@ pub fn text_system(
                 node,
                 text_flags,
                 text_layout_info,
-                buffer_opt
-                    .as_deref_mut()
-                    .unwrap_or_else(|| new_buffer.as_mut().expect("Couldn't create buffer")),
+                buffer.as_mut(),
             );
         }
     }

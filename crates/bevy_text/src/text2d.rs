@@ -187,7 +187,7 @@ pub fn update_text2d_layout(
         Ref<Text>,
         Ref<Text2dBounds>,
         &mut TextLayoutInfo,
-        Option<&mut CosmicBuffer>,
+        &mut CosmicBuffer,
     )>,
 ) {
     // We need to consume the entire iterator, hence `last`
@@ -201,7 +201,7 @@ pub fn update_text2d_layout(
 
     let inverse_scale_factor = scale_factor.recip();
 
-    for (entity, text, bounds, mut text_layout_info, mut buffer_opt) in &mut text_query {
+    for (entity, text, bounds, mut text_layout_info, mut buffer) in &mut text_query {
         if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
             let text_bounds = Vec2::new(
                 if text.linebreak_behavior == BreakLineOn::NoWrap {
@@ -211,12 +211,6 @@ pub fn update_text2d_layout(
                 },
                 scale_value(bounds.size.y, scale_factor),
             );
-
-            let mut new_buffer = None;
-
-            if buffer_opt.is_none() {
-                new_buffer = Some(CosmicBuffer::default());
-            }
 
             match text_pipeline.queue_text(
                 &fonts,
@@ -229,9 +223,7 @@ pub fn update_text2d_layout(
                 &mut texture_atlases,
                 &mut textures,
                 YAxisOrientation::BottomToTop,
-                buffer_opt
-                    .as_deref_mut()
-                    .unwrap_or_else(|| new_buffer.as_mut().expect("Couldn't create buffer")),
+                buffer.as_mut(),
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the
