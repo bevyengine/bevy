@@ -558,7 +558,7 @@ pub struct Cursor {
     /// ## Platform-specific
     ///
     /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the window.
-    /// To stop the cursor from leaving the window, change [`Cursor::grab_mode`] to [`CursorGrabMode::Locked`] or [`CursorGrabMode::Confined`]
+    ///     To stop the cursor from leaving the window, change [`Cursor::grab_mode`] to [`CursorGrabMode::Locked`] or [`CursorGrabMode::Confined`]
     /// - **`macOS`**: The cursor is hidden only when the window is focused.
     /// - **`iOS`** and **`Android`** do not have cursors
     pub visible: bool,
@@ -643,14 +643,14 @@ impl WindowPosition {
 ///
 /// There are three sizes associated with a window:
 /// - the physical size,
-/// which represents the actual height and width in physical pixels
-/// the window occupies on the monitor,
+///     which represents the actual height and width in physical pixels
+///     the window occupies on the monitor,
 /// - the logical size,
-/// which represents the size that should be used to scale elements
-/// inside the window, measured in logical pixels,
+///     which represents the size that should be used to scale elements
+///     inside the window, measured in logical pixels,
 /// - the requested size,
-/// measured in logical pixels, which is the value submitted
-/// to the API when creating the window, or requesting that it be resized.
+///     measured in logical pixels, which is the value submitted
+///     to the API when creating the window, or requesting that it be resized.
 ///
 /// ## Scale factor
 ///

@@ -96,7 +96,7 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 ///
 /// In comparison to Bevy's standard renderer:
 /// * Much more efficient culling. Meshlets can be culled individually, instead of all or nothing culling for entire meshes at a time.
-/// Additionally, occlusion culling can eliminate meshlets that would cause overdraw.
+///     Additionally, occlusion culling can eliminate meshlets that would cause overdraw.
 /// * Much more efficient batching. All geometry can be rasterized in a single indirect draw.
 /// * Scales better with large amounts of dense geometry and overdraw. Bevy's standard renderer will bottleneck sooner.
 /// * Near-seamless level of detail (LOD).
