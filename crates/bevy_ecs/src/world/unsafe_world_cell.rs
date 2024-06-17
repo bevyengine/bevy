@@ -2,20 +2,22 @@
 
 #![warn(unsafe_op_in_unsafe_fn)]
 
-use super::{command_queue::CommandQueue, Mut, Ref, World, WorldId};
+use super::{Mut, Ref, World, WorldId};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
     change_detection::{MutUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, StorageType, Tick, TickCells},
     entity::{Entities, Entity, EntityLocation},
+    observer::Observers,
     prelude::Component,
     removal_detection::RemovedComponentEvents,
     storage::{Column, ComponentSparseSet, Storages},
     system::{Res, Resource},
+    world::RawCommandQueue,
 };
 use bevy_ptr::Ptr;
-use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr, ptr::addr_of_mut};
+use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
@@ -228,6 +230,13 @@ impl<'w> UnsafeWorldCell<'w> {
         // SAFETY:
         // - we only access world metadata
         &unsafe { self.world_metadata() }.removed_components
+    }
+
+    /// Retrieves this world's [`Observers`] collection.
+    pub(crate) unsafe fn observers(self) -> &'w Observers {
+        // SAFETY:
+        // - we only access world metadata
+        &unsafe { self.world_metadata() }.observers
     }
 
     /// Retrieves this world's [`Bundles`] collection.
@@ -564,11 +573,19 @@ impl<'w> UnsafeWorldCell<'w> {
     /// It is the callers responsibility to ensure that
     /// - the [`UnsafeWorldCell`] has permission to access the queue mutably
     /// - no mutable references to the queue exist at the same time
-    pub(crate) unsafe fn get_command_queue(self) -> &'w mut CommandQueue {
+    pub(crate) unsafe fn get_raw_command_queue(self) -> RawCommandQueue {
         // SAFETY:
         // - caller ensures there are no existing mutable references
         // - caller ensures that we have permission to access the queue
-        unsafe { &mut *addr_of_mut!((*self.0).command_queue) }
+        unsafe { (*self.0).command_queue.clone() }
+    }
+
+    /// # Safety
+    /// It is the callers responsibility to ensure that there are no outstanding
+    /// references to `last_trigger_id`.
+    pub(crate) unsafe fn increment_trigger_id(self) {
+        // SAFETY: Caller ensure there are no outstanding references
+        unsafe { (*self.0).last_trigger_id += 1 }
     }
 }
 

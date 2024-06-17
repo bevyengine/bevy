@@ -108,6 +108,7 @@ mod commands;
 mod exclusive_function_system;
 mod exclusive_system_param;
 mod function_system;
+mod observer_system;
 mod query;
 #[allow(clippy::module_inception)]
 mod system;
@@ -124,6 +125,7 @@ pub use commands::*;
 pub use exclusive_function_system::*;
 pub use exclusive_system_param::*;
 pub use function_system::*;
+pub use observer_system::*;
 pub use query::*;
 pub use system::*;
 pub use system_name::*;
@@ -149,6 +151,10 @@ use crate::world::World;
 // This trait has to be generic because we have potentially overlapping impls, in particular
 // because Rust thinks a type could impl multiple different `FnMut` combinations
 // even though none can currently
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a valid system with input `{In}` and output `{Out}`",
+    label = "invalid system"
+)]
 pub trait IntoSystem<In, Out, Marker>: Sized {
     /// The type of [`System`] that this instance converts into.
     type System: System<In = In, Out = Out>;
@@ -1678,7 +1684,7 @@ mod tests {
                     res.0 += 2;
                 },
             )
-                .distributive_run_if(resource_exists::<A>.or_else(resource_exists::<B>)),
+                .distributive_run_if(resource_exists::<A>.or(resource_exists::<B>)),
         );
         sched.initialize(&mut world).unwrap();
         sched.run(&mut world);

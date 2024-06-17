@@ -1,11 +1,18 @@
 use crate::system::{SystemBuffer, SystemMeta};
 
-use std::{fmt::Debug, mem::MaybeUninit};
+use std::{
+    fmt::Debug,
+    mem::MaybeUninit,
+    panic::{self, AssertUnwindSafe},
+    ptr::{addr_of_mut, NonNull},
+};
 
 use bevy_ptr::{OwningPtr, Unaligned};
 use bevy_utils::tracing::warn;
 
 use crate::world::{Command, World};
+
+use super::DeferredWorld;
 
 struct CommandMeta {
     /// SAFETY: The `value` must point to a value of type `T: Command`,
@@ -13,9 +20,9 @@ struct CommandMeta {
     ///
     /// `world` is optional to allow this one function pointer to perform double-duty as a drop.
     ///
-    /// Returns the size of `T` in bytes.
+    /// Advances `cursor` by the size of `T` in bytes.
     consume_command_and_get_size:
-        unsafe fn(value: OwningPtr<Unaligned>, world: Option<&mut World>) -> usize,
+        unsafe fn(value: OwningPtr<Unaligned>, world: Option<NonNull<World>>, cursor: &mut usize),
 }
 
 /// Densely and efficiently stores a queue of heterogenous types implementing [`Command`].
@@ -32,7 +39,18 @@ pub struct CommandQueue {
     // For each command, one `CommandMeta` is stored, followed by zero or more bytes
     // to store the command itself. To interpret these bytes, a pointer must
     // be passed to the corresponding `CommandMeta.apply_command_and_get_size` fn pointer.
-    bytes: Vec<MaybeUninit<u8>>,
+    pub(crate) bytes: Vec<MaybeUninit<u8>>,
+    pub(crate) cursor: usize,
+    pub(crate) panic_recovery: Vec<MaybeUninit<u8>>,
+}
+
+/// Wraps pointers to a [`CommandQueue`], used internally to avoid stacked borrow rules when
+/// partially applying the world's command queue recursively
+#[derive(Clone)]
+pub(crate) struct RawCommandQueue {
+    pub(crate) bytes: NonNull<Vec<MaybeUninit<u8>>>,
+    pub(crate) cursor: NonNull<usize>,
+    pub(crate) panic_recovery: NonNull<Vec<MaybeUninit<u8>>>,
 }
 
 // CommandQueue needs to implement Debug manually, rather than deriving it, because the derived impl just prints
@@ -61,6 +79,85 @@ impl CommandQueue {
     where
         C: Command,
     {
+        // SAFETY: self is guaranteed to live for the lifetime of this method
+        unsafe {
+            self.get_raw().push(command);
+        }
+    }
+
+    /// Execute the queued [`Command`]s in the world after applying any commands in the world's internal queue.
+    /// This clears the queue.
+    #[inline]
+    pub fn apply(&mut self, world: &mut World) {
+        // flush the previously queued entities
+        world.flush_entities();
+
+        // flush the world's internal queue
+        world.flush_commands();
+
+        // SAFETY: A reference is always a valid pointer
+        unsafe {
+            self.get_raw().apply_or_drop_queued(Some(world.into()));
+        }
+    }
+
+    /// Take all commands from `other` and append them to `self`, leaving `other` empty
+    pub fn append(&mut self, other: &mut CommandQueue) {
+        self.bytes.append(&mut other.bytes);
+    }
+
+    /// Returns false if there are any commands in the queue
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.cursor >= self.bytes.len()
+    }
+
+    /// Returns a [`RawCommandQueue`] instance sharing the underlying command queue.
+    pub(crate) fn get_raw(&mut self) -> RawCommandQueue {
+        // SAFETY: self is always valid memory
+        unsafe {
+            RawCommandQueue {
+                bytes: NonNull::new_unchecked(addr_of_mut!(self.bytes)),
+                cursor: NonNull::new_unchecked(addr_of_mut!(self.cursor)),
+                panic_recovery: NonNull::new_unchecked(addr_of_mut!(self.panic_recovery)),
+            }
+        }
+    }
+}
+
+impl RawCommandQueue {
+    /// Returns a new `RawCommandQueue` instance, this must be manually dropped.
+    pub(crate) fn new() -> Self {
+        // SAFETY: Pointers returned by `Box::into_raw` are guaranteed to be non null
+        unsafe {
+            Self {
+                bytes: NonNull::new_unchecked(Box::into_raw(Box::default())),
+                cursor: NonNull::new_unchecked(Box::into_raw(Box::new(0usize))),
+                panic_recovery: NonNull::new_unchecked(Box::into_raw(Box::default())),
+            }
+        }
+    }
+
+    /// Returns true if the queue is empty.
+    ///
+    /// # Safety
+    ///
+    /// * Caller ensures that `bytes` and `cursor` point to valid memory
+    pub unsafe fn is_empty(&self) -> bool {
+        // SAFETY: Pointers are guaranteed to be valid by requirements on `.clone_unsafe`
+        (unsafe { *self.cursor.as_ref() }) >= (unsafe { self.bytes.as_ref() }).len()
+    }
+
+    /// Push a [`Command`] onto the queue.
+    ///
+    /// # Safety
+    ///
+    /// * Caller ensures that `self` has not outlived the underlying queue
+    #[inline]
+    pub unsafe fn push<C>(&mut self, command: C)
+    where
+        C: Command,
+    {
         // Stores a command alongside its metadata.
         // `repr(C)` prevents the compiler from reordering the fields,
         // while `repr(packed)` prevents the compiler from inserting padding bytes.
@@ -71,28 +168,40 @@ impl CommandQueue {
         }
 
         let meta = CommandMeta {
-            consume_command_and_get_size: |command, world| {
+            consume_command_and_get_size: |command, world, cursor| {
+                *cursor += std::mem::size_of::<C>();
+
                 // SAFETY: According to the invariants of `CommandMeta.consume_command_and_get_size`,
                 // `command` must point to a value of type `C`.
                 let command: C = unsafe { command.read_unaligned() };
                 match world {
                     // Apply command to the provided world...
-                    Some(world) => command.apply(world),
+                    Some(mut world) => {
+                        // SAFETY: Caller ensures pointer is not null
+                        let world = unsafe { world.as_mut() };
+                        command.apply(world);
+                        // The command may have queued up world commands, which we flush here to ensure they are also picked up.
+                        // If the current command queue already the World Command queue, this will still behave appropriately because the global cursor
+                        // is still at the current `stop`, ensuring only the newly queued Commands will be applied.
+                        world.flush();
+                    }
                     // ...or discard it.
                     None => drop(command),
                 }
-                std::mem::size_of::<C>()
             },
         };
 
-        let old_len = self.bytes.len();
+        // SAFETY: There are no outstanding references to self.bytes
+        let bytes = unsafe { self.bytes.as_mut() };
+
+        let old_len = bytes.len();
 
         // Reserve enough bytes for both the metadata and the command itself.
-        self.bytes.reserve(std::mem::size_of::<Packed<C>>());
+        bytes.reserve(std::mem::size_of::<Packed<C>>());
 
         // Pointer to the bytes at the end of the buffer.
         // SAFETY: We know it is within bounds of the allocation, due to the call to `.reserve()`.
-        let ptr = unsafe { self.bytes.as_mut_ptr().add(old_len) };
+        let ptr = unsafe { bytes.as_mut_ptr().add(old_len) };
 
         // Write the metadata into the buffer, followed by the command.
         // We are using a packed struct to write them both as one operation.
@@ -108,121 +217,95 @@ impl CommandQueue {
         // SAFETY: The new length is guaranteed to fit in the vector's capacity,
         // due to the call to `.reserve()` above.
         unsafe {
-            self.bytes
-                .set_len(old_len + std::mem::size_of::<Packed<C>>());
+            bytes.set_len(old_len + std::mem::size_of::<Packed<C>>());
         }
-    }
-
-    /// Execute the queued [`Command`]s in the world after applying any commands in the world's internal queue.
-    /// This clears the queue.
-    #[inline]
-    pub fn apply(&mut self, world: &mut World) {
-        // flush the previously queued entities
-        world.flush_entities();
-
-        self.apply_or_drop_queued(Some(world));
     }
 
     /// If `world` is [`Some`], this will apply the queued [commands](`Command`).
     /// If `world` is [`None`], this will drop the queued [commands](`Command`) (without applying them).
     /// This clears the queue.
+    ///
+    /// # Safety
+    ///
+    /// * Caller ensures that `self` has not outlived the underlying queue
     #[inline]
-    fn apply_or_drop_queued(&mut self, mut world: Option<&mut World>) {
-        // The range of pointers of the filled portion of `self.bytes`.
-        let bytes_range = self.bytes.as_mut_ptr_range();
+    pub(crate) unsafe fn apply_or_drop_queued(&mut self, world: Option<NonNull<World>>) {
+        // SAFETY: If this is the command queue on world, world will not be dropped as we have a mutable reference
+        // If this is not the command queue on world we have exclusive ownership and self will not be mutated
+        let start = *self.cursor.as_ref();
+        let stop = self.bytes.as_ref().len();
+        let mut local_cursor = start;
+        // SAFETY: we are setting the global cursor to the current length to prevent the executing commands from applying
+        // the remaining commands currently in this list. This is safe.
+        *self.cursor.as_mut() = stop;
 
-        // Pointer that will iterate over the entries of the buffer.
-        let cursor = bytes_range.start;
+        while local_cursor < stop {
+            // SAFETY: The cursor is either at the start of the buffer, or just after the previous command.
+            // Since we know that the cursor is in bounds, it must point to the start of a new command.
+            let meta = unsafe {
+                self.bytes
+                    .as_mut()
+                    .as_mut_ptr()
+                    .add(local_cursor)
+                    .cast::<CommandMeta>()
+                    .read_unaligned()
+            };
 
-        let end = bytes_range.end;
-
-        // Reset the buffer, so it can be reused after this function ends.
-        // In the loop below, ownership of each command will be transferred into user code.
-        // SAFETY: `set_len(0)` is always valid.
-        unsafe { self.bytes.set_len(0) };
-
-        // Create a stack for the command queue's we will be applying as commands may queue additional commands.
-        // This is preferred over recursion to avoid stack overflows.
-        let mut resolving_commands = vec![(cursor, end)];
-        // Take ownership of any additional buffers so they are not free'd uintil they are iterated.
-        let mut buffers = Vec::new();
-
-        // Add any commands in the world's internal queue to the top of the stack.
-        if let Some(world) = &mut world {
-            if !world.command_queue.is_empty() {
-                let mut bytes = std::mem::take(&mut world.command_queue.bytes);
-                let bytes_range = bytes.as_mut_ptr_range();
-                resolving_commands.push((bytes_range.start, bytes_range.end));
-                buffers.push(bytes);
-            }
-        }
-
-        while let Some((mut cursor, mut end)) = resolving_commands.pop() {
-            while cursor < end {
-                // SAFETY: The cursor is either at the start of the buffer, or just after the previous command.
-                // Since we know that the cursor is in bounds, it must point to the start of a new command.
-                let meta = unsafe { cursor.cast::<CommandMeta>().read_unaligned() };
-                // Advance to the bytes just after `meta`, which represent a type-erased command.
-                // SAFETY: For most types of `Command`, the pointer immediately following the metadata
-                // is guaranteed to be in bounds. If the command is a zero-sized type (ZST), then the cursor
-                // might be 1 byte past the end of the buffer, which is safe.
-                cursor = unsafe { cursor.add(std::mem::size_of::<CommandMeta>()) };
-                // Construct an owned pointer to the command.
-                // SAFETY: It is safe to transfer ownership out of `self.bytes`, since the call to `set_len(0)` above
-                // guarantees that nothing stored in the buffer will get observed after this function ends.
-                // `cmd` points to a valid address of a stored command, so it must be non-null.
-                let cmd = unsafe {
-                    OwningPtr::<Unaligned>::new(std::ptr::NonNull::new_unchecked(cursor.cast()))
-                };
+            // Advance to the bytes just after `meta`, which represent a type-erased command.
+            local_cursor += std::mem::size_of::<CommandMeta>();
+            // Construct an owned pointer to the command.
+            // SAFETY: It is safe to transfer ownership out of `self.bytes`, since the increment of `cursor` above
+            // guarantees that nothing stored in the buffer will get observed after this function ends.
+            // `cmd` points to a valid address of a stored command, so it must be non-null.
+            let cmd = unsafe {
+                OwningPtr::<Unaligned>::new(std::ptr::NonNull::new_unchecked(
+                    self.bytes.as_mut().as_mut_ptr().add(local_cursor).cast(),
+                ))
+            };
+            let result = panic::catch_unwind(AssertUnwindSafe(|| {
                 // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
                 // since they were stored next to each other by `.push()`.
                 // For ZSTs, the type doesn't matter as long as the pointer is non-null.
-                let size =
-                    unsafe { (meta.consume_command_and_get_size)(cmd, world.as_deref_mut()) };
-                // Advance the cursor past the command. For ZSTs, the cursor will not move.
+                // This also advances the cursor past the command. For ZSTs, the cursor will not move.
                 // At this point, it will either point to the next `CommandMeta`,
                 // or the cursor will be out of bounds and the loop will end.
-                // SAFETY: The address just past the command is either within the buffer,
-                // or 1 byte past the end, so this addition will not overflow the pointer's allocation.
-                cursor = unsafe { cursor.add(size) };
+                unsafe { (meta.consume_command_and_get_size)(cmd, world, &mut local_cursor) };
+            }));
 
-                if let Some(world) = &mut world {
-                    // If the command we just applied generated more commands we must apply those first
-                    if !world.command_queue.is_empty() {
-                        // If our current list of commands isn't complete push it to the `resolving_commands` stack to be applied after
-                        if cursor < end {
-                            resolving_commands.push((cursor, end));
-                        }
-                        let mut bytes = std::mem::take(&mut world.command_queue.bytes);
+            if let Err(payload) = result {
+                // local_cursor now points to the location _after_ the panicked command.
+                // Add the remaining commands that _would have_ been applied to the
+                // panic_recovery queue.
+                //
+                // This uses `current_stop` instead of `stop` to account for any commands
+                // that were queued _during_ this panic.
+                //
+                // This is implemented in such a way that if apply_or_drop_queued() are nested recursively in,
+                // an applied Command, the correct command order will be retained.
+                let panic_recovery = self.panic_recovery.as_mut();
+                let bytes = self.bytes.as_mut();
+                let current_stop = bytes.len();
+                panic_recovery.extend_from_slice(&bytes[local_cursor..current_stop]);
+                bytes.set_len(start);
+                *self.cursor.as_mut() = start;
 
-                        // Start applying the new queue
-                        let bytes_range = bytes.as_mut_ptr_range();
-                        cursor = bytes_range.start;
-                        end = bytes_range.end;
-
-                        // Store our buffer so it is not dropped;
-                        buffers.push(bytes);
-                    }
+                // This was the "top of the apply stack". If we are _not_ at the top of the apply stack,
+                // when we call`resume_unwind" the caller "closer to the top" will catch the unwind and do this check,
+                // until we reach the top.
+                if start == 0 {
+                    bytes.append(panic_recovery);
                 }
-            }
-            // Re-use last buffer to avoid re-allocation
-            if let (Some(world), Some(buffer)) = (&mut world, buffers.pop()) {
-                world.command_queue.bytes = buffer;
-                // SAFETY: `set_len(0)` is always valid.
-                unsafe { world.command_queue.bytes.set_len(0) };
+                panic::resume_unwind(payload);
             }
         }
-    }
 
-    /// Take all commands from `other` and append them to `self`, leaving `other` empty
-    pub fn append(&mut self, other: &mut CommandQueue) {
-        self.bytes.append(&mut other.bytes);
-    }
-
-    /// Returns false if there are any commands in the queue
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.bytes.is_empty()
+        // Reset the buffer: all commands past the original `start` cursor have been applied.
+        // SAFETY: we are setting the length of bytes to the original length, minus the length of the original
+        // list of commands being considered. All bytes remaining in the Vec are still valid, unapplied commands.
+        unsafe {
+            self.bytes.as_mut().set_len(start);
+            *self.cursor.as_mut() = start;
+        };
     }
 }
 
@@ -231,7 +314,8 @@ impl Drop for CommandQueue {
         if !self.bytes.is_empty() {
             warn!("CommandQueue has un-applied commands being dropped.");
         }
-        self.apply_or_drop_queued(None);
+        // SAFETY: A reference is always a valid pointer
+        unsafe { self.get_raw().apply_or_drop_queued(None) };
     }
 }
 
@@ -242,11 +326,18 @@ impl SystemBuffer for CommandQueue {
         let _span_guard = _system_meta.commands_span.enter();
         self.apply(world);
     }
+
+    #[inline]
+    fn queue(&mut self, _system_meta: &SystemMeta, mut world: DeferredWorld) {
+        world.commands().append(self);
+    }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate as bevy_ecs;
+    use crate::system::Resource;
     use std::{
         panic::AssertUnwindSafe,
         sync::{
@@ -367,16 +458,43 @@ mod test {
             queue.apply(&mut world);
         }));
 
-        // even though the first command panicking.
-        // the `bytes`/`metas` vectors were cleared.
-        assert_eq!(queue.bytes.len(), 0);
-
         // Even though the first command panicked, it's still ok to push
         // more commands.
         queue.push(SpawnCommand);
         queue.push(SpawnCommand);
         queue.apply(&mut world);
-        assert_eq!(world.entities().len(), 2);
+        assert_eq!(world.entities().len(), 3);
+    }
+
+    #[test]
+    fn test_command_queue_inner_nested_panic_safe() {
+        std::panic::set_hook(Box::new(|_| {}));
+
+        #[derive(Resource, Default)]
+        struct Order(Vec<usize>);
+
+        let mut world = World::new();
+        world.init_resource::<Order>();
+
+        fn add_index(index: usize) -> impl Command {
+            move |world: &mut World| world.resource_mut::<Order>().0.push(index)
+        }
+        world.commands().add(add_index(1));
+        world.commands().add(|world: &mut World| {
+            world.commands().add(add_index(2));
+            world.commands().add(PanicCommand("I panic!".to_owned()));
+            world.commands().add(add_index(3));
+            world.flush_commands();
+        });
+        world.commands().add(add_index(4));
+
+        let _ = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            world.flush_commands();
+        }));
+
+        world.commands().add(add_index(5));
+        world.flush_commands();
+        assert_eq!(&world.resource::<Order>().0, &[1, 2, 3, 4, 5]);
     }
 
     // NOTE: `CommandQueue` is `Send` because `Command` is send.

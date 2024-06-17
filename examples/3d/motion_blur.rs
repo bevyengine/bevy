@@ -252,10 +252,8 @@ fn spawn_trees(
 }
 
 fn setup_ui(mut commands: Commands) {
-    let style = TextStyle {
-        font_size: 24.0,
-        ..default()
-    };
+    let style = TextStyle::default();
+
     commands.spawn(
         TextBundle::from_sections(vec![
             TextSection::new(String::new(), style.clone()),
