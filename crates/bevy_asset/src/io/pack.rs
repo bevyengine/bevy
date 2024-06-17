@@ -16,7 +16,7 @@ use crate::AssetServer;
 /// literal, or something else depending on the use-case.
 ///
 /// For accessing an `AssetPack`, see `AssetPackPlugin`, `Pack` and `GetPack`
-/// For a usage example, see examples/asset_pack
+/// For a usage example, see the `asset_pack` example.
 
 pub trait AssetPack: Send + Sync + 'static {
     fn init(app: &mut App);
