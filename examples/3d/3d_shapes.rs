@@ -28,7 +28,7 @@ fn main() {
 #[derive(Component)]
 struct Shape;
 
-const SHAPES_X_EXTENT: f32 = 14.0;
+const SHAPES_X_EXTENT: f32 = 7.0;
 const EXTRUSION_X_EXTENT: f32 = 16.0;
 const Z_EXTENT: f32 = 5.0;
 
@@ -73,7 +73,7 @@ fn setup(
                 mesh: shape,
                 material: debug_material.clone(),
                 transform: Transform::from_xyz(
-                    -SHAPES_X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * SHAPES_X_EXTENT,
+                    -SHAPES_X_EXTENT + i as f32 / (num_shapes - 1) as f32 * 2. * SHAPES_X_EXTENT,
                     2.0,
                     Z_EXTENT / 2.,
                 )
