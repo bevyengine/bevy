@@ -144,6 +144,7 @@ pub fn keyboard_input_system(
 
     // Release all cached input to avoid having stuck input when switching between windows in os
     if !focus_events.is_empty() {
+        println!("LOST");
         key_input.release_all();
         focus_events.clear();
     }

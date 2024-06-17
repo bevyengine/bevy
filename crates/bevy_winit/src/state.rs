@@ -708,9 +708,6 @@ impl<T: Event> WinitAppRunnerState<T> {
                 WinitEvent::KeyboardInput(e) => {
                     world.send_event(e);
                 }
-                WinitEvent::KeyboardFocusLost(e) => {
-                    world.send_event(e);
-                }
             }
         }
 
