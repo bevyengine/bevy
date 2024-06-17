@@ -1015,7 +1015,7 @@ pub fn check_dir_light_mesh_visibility(
         }
     }
 
-    // TODO: use resource to avoid unnessary memory alloc
+    // TODO: use resource to avoid unnecessary memory alloc
     let mut defer_queue = std::mem::take(visible_entities_queue.deref_mut());
     commands.add(move |world: &mut World| {
         let mut query = world.query::<&mut ViewVisibility>();
