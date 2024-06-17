@@ -435,7 +435,7 @@ fn calculate_cascade(
     }
 }
 /// Add this component to make a [`Mesh`] not cast shadows.
-#[derive(Component, Reflect, Default)]
+#[derive(Debug, Component, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct NotShadowCaster;
 /// Add this component to make a [`Mesh`] not receive shadows.
@@ -443,7 +443,7 @@ pub struct NotShadowCaster;
 /// **Note:** If you're using diffuse transmission, setting [`NotShadowReceiver`] will
 /// cause both “regular” shadows as well as diffusely transmitted shadows to be disabled,
 /// even when [`TransmittedShadowReceiver`] is being used.
-#[derive(Component, Reflect, Default)]
+#[derive(Debug, Component, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct NotShadowReceiver;
 /// Add this component to make a [`Mesh`] using a PBR material with [`diffuse_transmission`](crate::pbr_material::StandardMaterial::diffuse_transmission)`> 0.0`
@@ -453,7 +453,7 @@ pub struct NotShadowReceiver;
 /// (and potentially even baking a thickness texture!) to match the geometry of the mesh, in order to avoid self-shadow artifacts.
 ///
 /// **Note:** Using [`NotShadowReceiver`] overrides this component.
-#[derive(Component, Reflect, Default)]
+#[derive(Debug, Component, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct TransmittedShadowReceiver;
 
@@ -462,7 +462,7 @@ pub struct TransmittedShadowReceiver;
 ///
 /// The different modes use different approaches to
 /// [Percentage Closer Filtering](https://developer.nvidia.com/gpugems/gpugems/part-ii-lighting-and-shadows/chapter-11-shadow-map-antialiasing).
-#[derive(Component, ExtractComponent, Reflect, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Component, ExtractComponent, Reflect, Clone, Copy, PartialEq, Eq, Default)]
 #[reflect(Component, Default)]
 pub enum ShadowFilteringMethod {
     /// Hardware 2x2.

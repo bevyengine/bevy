@@ -68,7 +68,7 @@ use std::ops::{Deref, DerefMut};
 /// - [`EventReader`]s that read at least once per update will never drop events.
 /// - [`EventReader`]s that read once within two updates might still receive some events
 /// - [`EventReader`]s that read after two updates are guaranteed to drop all events that occurred
-/// before those updates.
+///     before those updates.
 ///
 /// The buffers in [`Events`] will grow indefinitely if [`update`](Events::update) is never called.
 ///
