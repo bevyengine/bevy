@@ -54,10 +54,15 @@ impl PositionedGlyph {
 /// Used in [`PositionedGlyph`] and [`FontAtlasSet`](crate::FontAtlasSet).
 #[derive(Debug, Clone, Reflect)]
 pub struct GlyphAtlasInfo {
+    /// A handle to the [`Image`] data for the texture atlas this glyph was placed in.
+    ///
+    /// A (weak) clone of the handle held by the [`FontAtlas`].
     pub texture: Handle<Image>,
-    /// A handle to the texture atlas this glyph was placed in.
+    /// A handle to the [`TextureAtlasLayout`] map for the texture atlas this glyph was placed in.
+    ///
+    /// A (weak) clone of the handle held by the [`FontAtlas`].
     pub texture_atlas: Handle<TextureAtlasLayout>,
-    /// Location and offset of a glyph.
+    /// Location and offset of a glyph within the texture atlas.
     pub location: GlyphAtlasLocation,
 }
 

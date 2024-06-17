@@ -56,7 +56,7 @@ pub struct TextPipeline {
 }
 
 impl TextPipeline {
-    /// Utilizes [cosmic_text::Buffer] to shape and layout text
+    /// Utilizes [`cosmic_text::Buffer`] to shape and layout text
     ///
     /// Negative or 0.0 font sizes will not be laid out, and an empty buffer will be returned.
     pub fn create_buffer(
@@ -300,7 +300,9 @@ pub struct TextLayoutInfo {
 ///
 /// Generated via [`TextPipeline::create_text_measure`].
 pub struct TextMeasureInfo {
+    /// Minimum size for a text area
     pub min: Vec2,
+    /// Maximum size for a text area
     pub max: Vec2,
     buffer: cosmic_text::Buffer,
     font_system: Arc<Mutex<cosmic_text::FontSystem>>,
@@ -318,6 +320,7 @@ impl std::fmt::Debug for TextMeasureInfo {
 }
 
 impl TextMeasureInfo {
+    /// Computes the size of the text area within the provided bounds.
     pub fn compute_size(&mut self, bounds: Vec2) -> Vec2 {
         let font_system = &mut self.font_system.try_lock().expect("Failed to acquire lock");
         self.buffer
@@ -326,7 +329,7 @@ impl TextMeasureInfo {
     }
 }
 
-/// get attr for from textstyle
+/// Translates [`TextSection`] to [`Attrs`](cosmic_text::attrs::Attrs),
 /// loading fonts into the [`Database`](cosmic_text::fontdb::Database) if required.
 fn get_attrs<'a>(
     section: &'a TextSection,

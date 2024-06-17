@@ -12,19 +12,27 @@ use crate::{GlyphAtlasLocation, TextError};
 
 /// Rasterized glyphs are cached, stored in, and retrieved from, a `FontAtlas`.
 ///
-/// A [`FontAtlasSet`](crate::FontAtlasSet) contains one or more `FontAtlas`es.
+/// A `FontAtlas` contains one or more textures, each of which contains one or more glyphs packed into them.
+///
+/// A [`FontAtlasSet`](crate::FontAtlasSet) contains a `FontAtlas` for each font size in the same font face.
+///
+/// For the same font face and font size, a glyph will be rasterized differently for different subpixel offsets.
+/// In practice, ranges of subpixel offsets are grouped into subpixel bins to limit the number of rasterized glyphs,
+/// providing a trade-off between visual quality and performance.
+/// A [`CacheKey`](cosmic_text::CacheKey) encodes all of the information of a subpixel-offset glyph.
 pub struct FontAtlas {
     /// Used to update the [`TextureAtlasLayout`].
     pub dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder,
-    /// A mapping between subpixel-binned glyphs and their [`GlyphAtlasLocation`].
+    /// A mapping between subpixel-offset glyphs and their [`GlyphAtlasLocation`].
     pub glyph_to_atlas_index: HashMap<cosmic_text::CacheKey, GlyphAtlasLocation>,
     /// The handle to the [`TextureAtlasLayout`] that holds the rasterized glyphs.
     pub texture_atlas: Handle<TextureAtlasLayout>,
-    /// the texture where this font atlas is located
+    /// The texture where this font atlas is located
     pub texture: Handle<Image>,
 }
 
 impl FontAtlas {
+    /// Create a new [`FontAtlas`] with the given size.
     pub fn new(
         textures: &mut Assets<Image>,
         texture_atlases_layout: &mut Assets<TextureAtlasLayout>,
@@ -51,10 +59,12 @@ impl FontAtlas {
         }
     }
 
+    /// Get the [`GlyphAtlasLocation`] for a subpixel-offset glyph.
     pub fn get_glyph_index(&self, cache_key: cosmic_text::CacheKey) -> Option<GlyphAtlasLocation> {
         self.glyph_to_atlas_index.get(&cache_key).copied()
     }
 
+    /// Checks if the given subpixel-offset glyph is contained in this [`FontAtlas`].
     pub fn has_glyph(&self, cache_key: cosmic_text::CacheKey) -> bool {
         self.glyph_to_atlas_index.contains_key(&cache_key)
     }
@@ -67,7 +77,7 @@ impl FontAtlas {
     ///
     /// # Returns
     ///
-    /// Returns `true` if the glyph is successfully added, or `false` otherwise.
+    /// Returns `()` if the glyph is successfully added, or [`TextError::FailedToAddGlyph`] otherwise.
     /// In that case, neither the atlas texture nor the atlas layout are
     /// modified.
     pub fn add_glyph(
