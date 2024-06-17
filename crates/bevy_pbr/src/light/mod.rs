@@ -979,7 +979,7 @@ pub fn check_dir_light_mesh_visibility(
                                 frustum_visible_entities.push(entity);
                             }
                             if visible {
-                                queue0.push(entity)
+                                queue0.push(entity);
                             }
                         } else {
                             queue0.push(entity);
@@ -999,7 +999,7 @@ pub fn check_dir_light_mesh_visibility(
                         .zip(entities.iter_mut())
                         .for_each(|(dst, source)| {
                             dst.append(source);
-                        })
+                        });
                 }
             }
         },
@@ -1015,10 +1015,10 @@ pub fn check_dir_light_mesh_visibility(
     }
 
     let mut defer_queue = std::mem::take(visible_entities_queue.deref_mut());
-    commands.add(move |mut world: &mut World| {
+    commands.add(move |world: &mut World| {
         let mut query = world.query::<&mut ViewVisibility>();
         for entities in defer_queue.iter_mut() {
-            let mut iter = query.iter_many_mut(&mut world, entities.iter());
+            let mut iter = query.iter_many_mut(world, entities.iter());
             while let Some(mut t) = iter.fetch_next() {
                 t.set();
             }
