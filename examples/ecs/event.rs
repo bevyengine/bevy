@@ -35,7 +35,7 @@ impl Default for DamageTimer {
 // This system reads 'DamageTimer', updates it, then sends a 'DealDamage' event
 // if the timer has finished.
 //
-// Events are sent using an 'EventWriter' by calling 'send' or 'send_default'.
+// Events are sent using an 'EventWriter<T>' by calling 'send' or 'send_default'.
 // The 'send_default' method will send the event with the default value if the event
 // has a 'Default' implementation.
 fn deal_damage_over_time(
@@ -70,9 +70,10 @@ fn apply_armor_to_damage(
 
 // This system reads 'DealDamage' events and sends 'DamageReceived' if the amount is non-zero
 //
-// Events are read using an 'EventReader' by calling 'read'. This returns an iterator over all the &T
-// that this system has not read yet. Again, note you can have multiple 'EventReader', 'EventWriter', and
-// 'EventMutator' in a given system, as long as the types (T) are different.
+// Events are read using an 'EventReader<T>' by calling 'read'. This returns an iterator over all the &T
+// that this system has not read yet, and must be 'mut' in order to track which events have been read.
+// Again, note you can have multiple 'EventReader', 'EventWriter', and 'EventMutator' in a given system,
+// as long as the types (T) are different.
 fn apply_damage_to_health(
     mut dmg_events: EventReader<DealDamage>,
     mut rcvd_events: EventWriter<DamageReceived>,
