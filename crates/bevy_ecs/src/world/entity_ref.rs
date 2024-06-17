@@ -2375,8 +2375,8 @@ unsafe fn remove_bundle_from_archetype(
 
             // sort removed components so we can do an efficient "sorted remove". archetype
             // components are already sorted
-            removed_table_components.sort();
-            removed_sparse_set_components.sort();
+            removed_table_components.sort_unstable();
+            removed_sparse_set_components.sort_unstable();
             next_table_components = current_archetype.table_components().collect();
             next_sparse_set_components = current_archetype.sparse_set_components().collect();
             sorted_remove(&mut next_table_components, &removed_table_components);
