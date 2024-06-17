@@ -1,7 +1,7 @@
 //! Tool to run all examples or generate a showcase page for the Bevy website.
 
 use std::{
-    collections::{hash_map::DefaultHasher, HashMap},
+    collections::{hash_map::DefaultHasher, HashMap, HashSet},
     fmt::Display,
     fs::{self, File},
     hash::{Hash, Hasher},
@@ -581,9 +581,9 @@ header_message = \"Examples ({})\"
                                 .skip(1)
                                 .collect::<PathBuf>()
                                 .display(),
-                            match to_show.wgsl_path {
-                                None => "".to_string(),
-                                Some(wgsl) => format!("\nwgsl_code_path = \"{wgsl}\""),
+                            match to_show.shader_paths.len() {
+                                0 => "".to_string(),
+                                _ => format!("\nshader_code_paths = {:?}", to_show.shader_paths),
                             },
                             &to_show.path,
                             match api {
@@ -729,8 +729,17 @@ fn parse_examples() -> Vec<Example> {
             let technical_name = val.get("name").unwrap().as_str().unwrap().to_string();
 
             let source_code = fs::read_to_string(&val["path"].as_str().unwrap()).unwrap();
-            let shader_regex = Regex::new(r"shaders\/\w+\.wgsl").unwrap();
-            let has_wgsl = shader_regex.find(&source_code);
+            let shader_regex =
+                Regex::new(r"(shaders\/\w+\.wgsl)|(shaders\/\w+\.frag)|(shaders\/\w+\.vert)")
+                    .unwrap();
+
+            // Find all instances of references to shader files, collect into set to avoid duplicates, then convert to vec of strings.
+            let shader_paths = Vec::from_iter(
+                shader_regex
+                    .find_iter(&source_code)
+                    .map(|matches| matches.as_str().to_owned())
+                    .collect::<HashSet<String>>(),
+            );
             if metadatas
                 .get(&technical_name)
                 .and_then(|metadata| metadata.get("hidden"))
@@ -744,10 +753,7 @@ fn parse_examples() -> Vec<Example> {
             metadatas.get(&technical_name).map(|metadata| Example {
                 technical_name,
                 path: val["path"].as_str().unwrap().to_string(),
-                wgsl_path: match has_wgsl {
-                    None => None,
-                    Some(path) => Some(path.as_str().to_string()),
-                },
+                shader_paths,
                 name: metadata["name"].as_str().unwrap().to_string(),
                 description: metadata["description"].as_str().unwrap().to_string(),
                 category: metadata["category"].as_str().unwrap().to_string(),
@@ -793,7 +799,7 @@ struct Example {
     /// Path to the example file
     path: String,
     /// Path to the associated wgsl file if it exists
-    wgsl_path: Option<String>,
+    shader_paths: Vec<String>,
     /// List of non default required features
     required_features: Vec<String>,
     // From the example metadata
