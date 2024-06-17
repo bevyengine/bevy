@@ -370,6 +370,7 @@ impl Archetype {
             // SAFETY: We are creating an archetype that includes this component so it must exist
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
+            observers.update_archetype_flags(component_id, &mut flags);
             archetype_components.insert(
                 component_id,
                 ArchetypeComponentInfo {
