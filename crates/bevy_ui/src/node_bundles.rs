@@ -14,9 +14,10 @@ use bevy_color::Color;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
 use bevy_sprite::TextureAtlas;
-use bevy_text::CosmicBuffer;
 #[cfg(feature = "bevy_text")]
-use bevy_text::{BreakLineOn, JustifyText, Text, TextLayoutInfo, TextSection, TextStyle};
+use bevy_text::{
+    BreakLineOn, CosmicBuffer, JustifyText, Text, TextLayoutInfo, TextSection, TextStyle,
+};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node.
