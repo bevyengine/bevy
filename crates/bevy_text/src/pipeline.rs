@@ -68,27 +68,21 @@ impl TextPipeline {
         scale_factor: f64,
         buffer: &mut CosmicBuffer,
     ) -> Result<(), TextError> {
-        // TODO: Support multiple section font sizes, pending upstream implementation in cosmic_text
-        // For now, just use the first section's size or a default
-        let font_size = sections
-            .get(0)
-            .map(|s| s.style.font_size)
-            .unwrap_or_else(|| crate::TextStyle::default().font_size)
-            as f64;
-
-        // TODO: Support line height as an option. Unitless `1.2` is the default used in browsers (1.2x font size).
-        let line_height = font_size * 1.2;
-        let (font_size, line_height) = (font_size as f32, line_height as f32);
-        let metrics = Metrics::new(font_size, line_height).scale(scale_factor as f32);
-
         let font_system = &mut acquire_font_system(&mut self.font_system)?;
 
         // return early if the fonts are not loaded yet
+        let mut font_size = 0.;
         for section in sections {
+            if section.style.font_size > font_size {
+                font_size = section.style.font_size;
+            }
             fonts
                 .get(section.style.font.id())
                 .ok_or(TextError::NoSuchFont)?;
         }
+        let line_height = font_size * 1.2;
+        let (font_size, line_height) = (font_size as f32, line_height as f32);
+        let metrics = Metrics::new(font_size, line_height).scale(scale_factor as f32);
 
         let spans: Vec<(&str, Attrs)> = sections
             .iter()
