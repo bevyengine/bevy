@@ -682,11 +682,11 @@ pub fn check_light_mesh_visibility(
     >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
 ) {
-    fn shrink_entities(visible_entities: &mut VisibleEntities) {
+    fn shrink_entities(visible_entities: &mut Vec<Entity>) {
         // Check that visible entities capacity() is no more than two times greater than len()
-        let capacity = visible_entities.entities.capacity();
+        let capacity = visible_entities.capacity();
         let reserved = capacity
-            .checked_div(visible_entities.entities.len())
+            .checked_div(visible_entities.len())
             .map_or(0, |reserve| {
                 if reserve > 2 {
                     capacity / (reserve / 2)
@@ -695,7 +695,7 @@ pub fn check_light_mesh_visibility(
                 }
             });
 
-        visible_entities.entities.shrink_to(reserved);
+        visible_entities.shrink_to(reserved);
     }
 
     let visible_entity_ranges = visible_entity_ranges.as_deref();
@@ -712,7 +712,7 @@ pub fn check_light_mesh_visibility(
                     cascade_view_entities.resize(view_frusta.len(), Default::default());
                     cascade_view_entities
                         .iter_mut()
-                        .for_each(|x| x.entities.clear());
+                        .for_each(|x| x.clear::<WithMesh>());
                 }
                 None => views_to_remove.push(*view),
             };
@@ -798,7 +798,10 @@ pub fn check_light_mesh_visibility(
         }
 
         for (_, cascade_view_entities) in &mut visible_entities.entities {
-            cascade_view_entities.iter_mut().for_each(shrink_entities);
+            cascade_view_entities
+                .iter_mut()
+                .map(|x| x.get_mut::<WithMesh>())
+                .for_each(shrink_entities);
         }
     }
 
@@ -814,7 +817,7 @@ pub fn check_light_mesh_visibility(
             )) = point_lights.get_mut(light_entity)
             {
                 for visible_entities in cubemap_visible_entities.iter_mut() {
-                    visible_entities.entities.clear();
+                    visible_entities.clear::<WithMesh>();
                 }
 
                 // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
@@ -882,7 +885,7 @@ pub fn check_light_mesh_visibility(
                 }
 
                 for visible_entities in cubemap_visible_entities.iter_mut() {
-                    shrink_entities(visible_entities);
+                    shrink_entities(visible_entities.get_mut::<WithMesh>());
                 }
             }
 
@@ -890,7 +893,7 @@ pub fn check_light_mesh_visibility(
             if let Ok((point_light, transform, frustum, mut visible_entities, maybe_view_mask)) =
                 spot_lights.get_mut(light_entity)
             {
-                visible_entities.entities.clear();
+                visible_entities.clear::<WithMesh>();
 
                 // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
                 if !point_light.shadows_enabled {
@@ -949,7 +952,7 @@ pub fn check_light_mesh_visibility(
                     }
                 }
 
-                shrink_entities(&mut visible_entities);
+                shrink_entities(visible_entities.get_mut::<WithMesh>());
             }
         }
     }
