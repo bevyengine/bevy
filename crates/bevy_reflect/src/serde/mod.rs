@@ -138,7 +138,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "cannot serialize dynamic value without represented type: bevy_reflect::DynamicStruct"
+        expected = "cannot serialize dynamic value without represented type: `bevy_reflect::DynamicStruct`"
     )]
     fn should_not_serialize_unproxied_dynamic() {
         let registry = TypeRegistry::default();

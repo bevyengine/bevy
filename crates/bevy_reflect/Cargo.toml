@@ -10,7 +10,7 @@ keywords = ["bevy"]
 rust-version = "1.76.0"
 
 [features]
-default = ["smallvec"]
+default = ["smallvec", "debug"]
 # When enabled, provides Bevy-related reflection implementations
 bevy = ["smallvec", "smol_str"]
 glam = ["dep:glam"]
@@ -19,6 +19,10 @@ smallvec = ["dep:smallvec"]
 uuid = ["dep:uuid"]
 # When enabled, allows documentation comments to be accessed via reflection
 documentation = ["bevy_reflect_derive/documentation"]
+# When enabled, keeps track of the current serialization/deserialization context for better error messages
+debug_stack = []
+# Enables features useful for debugging reflection
+debug = ["debug_stack"]
 
 [dependencies]
 # bevy
