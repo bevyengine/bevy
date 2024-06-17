@@ -122,7 +122,10 @@ pub trait Curve<T> {
 
     /// Extract an iterator over evenly-spaced samples from this curve. If `samples` is less than 2
     /// or if this curve has unbounded domain, then an error is returned instead.
-    fn samples(&self, samples: usize) -> Result<impl Iterator<Item = T>, ResamplingError> {
+    fn samples(&self, samples: usize) -> Result<impl Iterator<Item = T>, ResamplingError>
+    where
+        Self: Sized,
+    {
         if samples < 2 {
             return Err(ResamplingError::NotEnoughSamples(samples));
         }
