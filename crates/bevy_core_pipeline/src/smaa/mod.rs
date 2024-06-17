@@ -36,6 +36,8 @@ use bevy_asset::load_internal_binary_asset;
 #[cfg(not(feature = "smaa_luts"))]
 use bevy_asset::Assets;
 use bevy_asset::{load_internal_asset, Handle};
+#[cfg(not(feature = "smaa_luts"))]
+use bevy_color::Srgba;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -48,6 +50,10 @@ use bevy_ecs::{
 };
 use bevy_math::{vec4, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+#[cfg(not(feature = "smaa_luts"))]
+use bevy_render::render_resource::TextureFormat::{R8Unorm, Rg8Unorm};
+#[cfg(feature = "smaa_luts")]
+use bevy_render::texture::{CompressedImageFormats, ImageFormat, ImageSampler, ImageType};
 use bevy_render::{
     camera::ExtractedCamera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -69,19 +75,20 @@ use bevy_render::{
         VertexState,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
-    texture::{
-        BevyDefault, CachedTexture, CompressedImageFormats, GpuImage, Image, ImageFormat,
-        ImageSampler, ImageType, TextureCache,
-    },
+    texture::{BevyDefault, CachedTexture, GpuImage, Image, TextureCache},
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
 };
+
 use bevy_utils::prelude::default;
 
 use crate::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
 };
+
+#[cfg(not(feature = "smaa_luts"))]
+mod luts_generator;
 
 /// The handle of the `smaa.wgsl` shader.
 const SMAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(12247928498010601081);
@@ -333,16 +340,43 @@ impl Plugin for SmaaPlugin {
                 SMAA_AREA_LUT_TEXTURE_HANDLE.id(),
                 Image::new(
                     Extent3d {
+                        width: 160,
+                        height: 560,
+                        ..default()
+                    },
+                    TextureDimension::D2,
+                    {
+                        let mut data = luts_generator::area_data();
+                        for color in &mut data {
+                            *color =
+                                (Srgba::gamma_function(*color as f32 / 255.) * 255.).floor() as u8;
+                        }
+                        data
+                    },
+                    Rg8Unorm,
+                    RenderAssetUsages::RENDER_WORLD,
+                ),
+            );
+            app.world_mut().resource_mut::<Assets<_>>().insert(
+                SMAA_SEARCH_LUT_TEXTURE_HANDLE.id(),
+                Image::new(
+                    Extent3d {
                         width: 64,
                         height: 16,
                         ..default()
                     },
                     TextureDimension::D2,
-                    generate_smaa_search_lut_data(),
+                    {
+                        let mut data = luts_generator::search_data();
+                        for color in &mut data {
+                            *color =
+                                (Srgba::gamma_function(*color as f32 / 255.) * 255.).floor() as u8;
+                        }
+                        data
+                    },
                     R8Unorm,
                     RenderAssetUsages::RENDER_WORLD,
-                )
-                .expect("Failed to load SMAA search LUT"),
+                ),
             );
         }
 
@@ -659,95 +693,6 @@ fn prepare_smaa_pipelines(
             neighborhood_blending_pipeline_id,
         });
     }
-}
-
-/// Generates texture, that allows to know how many pixels we must advance in the last step
-/// of SMAA line search algorithm, with single fetch
-/// based on Jorge Jimenez code <https://github.com/iryoku/smaa/blob/master/Scripts/SearchTex.py>
-#[cfg(not(feature = "smaa_luts"))]
-fn generate_smaa_search_lut_data() -> Vec<u8> {
-    // Calculates the bilinear fetch for a certain edge combination
-    // e[0]       e[1]
-    //
-    //          x <-------- Sample position:    (-0.25,-0.125)
-    // e[2]       e[3] <--- Current pixel [3]:  (  0.0, 0.0  )
-    fn bilinear(e: (u8, u8, u8, u8)) -> f32 {
-        use bevy_math::FloatExt;
-        let up = f32::lerp(e.0 as f32, e.1 as f32, 1.0 - 0.25);
-        let down = f32::lerp(e.2 as f32, e.3 as f32, 1.0 - 0.25);
-        f32::lerp(up, down, 1.0 - 0.125)
-    }
-
-    // This map returns which edges are active for a certain bilinear fetch
-    // (it's the reverse lookup of the bilinear function)
-    let mut edges = Vec::new();
-
-    for a in 0..=1 {
-        for b in 0..=1 {
-            for c in 0..=1 {
-                for d in 0..=1 {
-                    let edge_combination = (a, b, c, d);
-                    edges.push((bilinear(edge_combination), edge_combination));
-                }
-            }
-        }
-    }
-
-    let get_edge = |bilinear| {
-        edges
-            .iter()
-            .find_map(|&(key, value)| if key == bilinear { Some(value) } else { None })
-    };
-
-    // Delta distance to add in the last step of searches to the left
-    fn delta_left(left: (u8, u8, u8, u8), top: (u8, u8, u8, u8)) -> u8 {
-        // If there is an edge, continue
-        if top.3 == 1 {
-            // If we previously found and edge, there is another edge
-            // and no crossing edges, continue
-            if top.2 == 1 && left.1 != 1 && left.3 != 1 {
-                252
-            } else {
-                54
-            }
-        } else {
-            0
-        }
-    }
-
-    // Delta distance to add in the last step of searches to the right
-    fn delta_right(left: (u8, u8, u8, u8), top: (u8, u8, u8, u8)) -> u8 {
-        // If there is an edge, and no crossing edges, continue
-        if top.3 == 1 && left.1 != 1 && left.3 != 1 {
-            // If we previously found and edge, there is another edge
-            // and no crossing edges, continue
-            if top.2 == 1 && left.0 != 1 && left.2 != 1 {
-                252
-            } else {
-                54
-            }
-        } else {
-            0
-        }
-    }
-
-    let mut data = vec![0u8; 1024];
-
-    for x in 0..=32 {
-        for y in 0..16 {
-            if let (Some(x_edge), Some(y_edge)) = (
-                get_edge(0.03125 * x as f32),
-                get_edge(0.03125 * (32 - y) as f32),
-            ) {
-                data[x + y * 64] = delta_left(x_edge, y_edge);
-                if x < 31 {
-                    data[x + 33 + y * 64] = delta_right(x_edge, y_edge);
-                }
-            }
-        }
-    }
-
-    data
 }
 
 /// A system, part of the render app, that builds the [`SmaaInfoUniform`] data

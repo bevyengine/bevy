@@ -105,7 +105,6 @@ bevy_core_pipeline = [
   "bevy_internal/bevy_core_pipeline",
   "bevy_asset",
   "bevy_render",
-  "bevy_pbr",
 ]
 
 # Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))
