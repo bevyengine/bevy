@@ -1,3 +1,5 @@
+use std::array;
+use std::f32::consts::FRAC_PI_2;
 use std::marker::PhantomData;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 
@@ -5,11 +7,11 @@ use crate::primitives::Frustum;
 use crate::view::VisibilitySystems;
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::prelude::*;
-use bevy_math::{AspectRatio, Mat4, Rect, Vec2, Vec3A};
+use bevy_math::{AspectRatio, Mat4, Rect, Vec2, Vec3, Vec3A};
 use bevy_reflect::{
     std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
 };
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_transform::TransformSystem;
 use serde::{Deserialize, Serialize};
 
@@ -63,6 +65,43 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Default for CameraPr
 /// [`camera_system<T>`]: crate::camera::camera_system
 #[derive(SystemSet, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct CameraUpdateSystem;
+
+/// The target vector and the X vector for each cubemap face, respectively.
+///
+/// Cubemap faces are [+X, -X, +Y, -Y, +Z, -Z], per
+/// <https://www.w3.org/TR/webgpu/#texture-view-creation> Note: Cubemap
+/// coordinates are left-handed y-up, unlike the rest of Bevy.  See
+/// <https://registry.khronos.org/vulkan/specs/1.2/html/chap16.html#_cube_map_face_selection>
+///
+/// For each cubemap face, we take care to specify the appropriate target/up
+/// axis such that the rendered texture using Bevy's right-handed y-up
+/// coordinate space matches the expected cubemap face in left-handed y-up
+/// cubemap coordinates.
+pub static CUBEMAP_FACES: [(Vec3, Vec3); 6] = [
+    (Vec3::X, Vec3::Y),         // +X
+    (Vec3::NEG_X, Vec3::Y),     // -X
+    (Vec3::Y, Vec3::Z),         // +Y
+    (Vec3::NEG_Y, Vec3::NEG_Z), // -Y
+    (Vec3::NEG_Z, Vec3::Y),     // +Z (left-handed, pointing forward)
+    (Vec3::Z, Vec3::Y),         // -Z (left-handed, pointing backward)
+];
+
+pub struct CubemapFaceProjections {
+    pub rotations: [Transform; 6],
+    pub projection: Mat4,
+}
+
+impl CubemapFaceProjections {
+    pub fn new(near_z: f32) -> Self {
+        CubemapFaceProjections {
+            rotations: array::from_fn(|i| {
+                let (target, up) = CUBEMAP_FACES[i];
+                Transform::IDENTITY.looking_at(target, up)
+            }),
+            projection: Mat4::perspective_infinite_reverse_rh(FRAC_PI_2, 1.0, near_z),
+        }
+    }
+}
 
 /// Trait to control the projection matrix of a camera.
 ///
@@ -223,6 +262,34 @@ impl Default for PerspectiveProjection {
             near: 0.1,
             far: 1000.0,
             aspect_ratio: 1.0,
+        }
+    }
+}
+
+/// A set of 3D perspective projections that render to all six faces of a cube.
+#[derive(Component, Reflect)]
+#[reflect(Component)]
+pub struct OmnidirectionalProjection {
+    /// The distance from the camera in world units of the viewing frustum's near plane.
+    ///
+    /// Objects closer to the camera than this value will not be visible.
+    ///
+    /// Defaults to a value of `0.1`.
+    pub near: f32,
+
+    /// The distance from the camera in world units of the viewing frustum's far plane.
+    ///
+    /// Objects farther from the camera than this value will not be visible.
+    ///
+    /// Defaults to a value of `1000.0`.
+    pub far: f32,
+}
+
+impl Default for OmnidirectionalProjection {
+    fn default() -> Self {
+        OmnidirectionalProjection {
+            near: 0.1,
+            far: 1000.0,
         }
     }
 }

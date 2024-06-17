@@ -28,14 +28,18 @@ use bevy_math::{vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::warn, warn_once};
+use bevy_utils::tracing::warn;
 use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,
 };
+use nonmax::NonMaxU32;
 use std::ops::Range;
-use wgpu::{BlendState, TextureFormat, TextureUsages};
+use wgpu::{
+    BlendState, TextureAspect, TextureFormat, TextureUsages, TextureViewDescriptor,
+    TextureViewDimension,
+};
 
 use super::{ClearColorConfig, Projection};
 
@@ -596,17 +600,34 @@ impl NormalizedRenderTarget {
         windows: &'a ExtractedWindows,
         images: &'a RenderAssets<GpuImage>,
         manual_texture_views: &'a ManualTextureViews,
-    ) -> Option<&'a TextureView> {
+        render_target_layer: Option<NonMaxU32>,
+    ) -> Option<TextureView> {
         match self {
             NormalizedRenderTarget::Window(window_ref) => windows
                 .get(&window_ref.entity())
-                .and_then(|window| window.swap_chain_texture_view.as_ref()),
+                .and_then(|window| window.swap_chain_texture_view.clone()),
             NormalizedRenderTarget::Image(image_handle) => {
-                images.get(image_handle).map(|image| &image.texture_view)
+                images
+                    .get(image_handle)
+                    .map(|image| match render_target_layer {
+                        None => image.texture_view.clone(),
+                        Some(base_array_layer) => {
+                            image.texture.create_view(&TextureViewDescriptor {
+                                label: None,
+                                format: Some(image.texture_format),
+                                dimension: Some(TextureViewDimension::D2),
+                                aspect: TextureAspect::All,
+                                base_mip_level: 0,
+                                mip_level_count: Some(1),
+                                base_array_layer: base_array_layer.into(),
+                                array_layer_count: Some(1),
+                            })
+                        }
+                    })
             }
-            NormalizedRenderTarget::TextureView(id) => {
-                manual_texture_views.get(id).map(|tex| &tex.texture_view)
-            }
+            NormalizedRenderTarget::TextureView(id) => manual_texture_views
+                .get(id)
+                .map(|tex| tex.texture_view.clone()),
         }
     }
 
@@ -823,6 +844,7 @@ pub struct ExtractedCamera {
     pub clear_color: ClearColorConfig,
     pub sorted_camera_index_for_target: usize,
     pub exposure: f32,
+    pub render_target_layer: Option<NonMaxU32>,
     pub hdr: bool,
 }
 
@@ -903,6 +925,7 @@ pub fn extract_cameras(
                     exposure: exposure
                         .map(|e| e.exposure())
                         .unwrap_or_else(|| Exposure::default().exposure()),
+                    render_target_layer: None,
                     hdr: camera.hdr,
                 },
                 ExtractedView {
@@ -935,13 +958,7 @@ pub fn extract_cameras(
             }
 
             if gpu_culling {
-                if *gpu_preprocessing_support == GpuPreprocessingSupport::Culling {
-                    commands.insert(GpuCulling);
-                } else {
-                    warn_once!(
-                        "GPU culling isn't supported on this platform; ignoring `GpuCulling`."
-                    );
-                }
+                gpu_preprocessing_support.maybe_add_gpu_culling(&mut commands);
             }
         }
     }
@@ -956,6 +973,7 @@ pub struct SortedCamera {
     pub order: isize,
     pub target: Option<NormalizedRenderTarget>,
     pub hdr: bool,
+    pub render_target_layer: Option<NonMaxU32>,
 }
 
 pub fn sort_cameras(
@@ -969,6 +987,7 @@ pub fn sort_cameras(
             order: camera.order,
             target: camera.target.clone(),
             hdr: camera.hdr,
+            render_target_layer: camera.render_target_layer,
         });
     }
     // sort by order and ensure within an order, RenderTargets of the same type are packed together
@@ -982,7 +1001,11 @@ pub fn sort_cameras(
     let mut ambiguities = HashSet::new();
     let mut target_counts = HashMap::new();
     for sorted_camera in &mut sorted_cameras.0 {
-        let new_order_target = (sorted_camera.order, sorted_camera.target.clone());
+        let new_order_target = (
+            sorted_camera.order,
+            sorted_camera.target.clone(),
+            sorted_camera.render_target_layer,
+        );
         if let Some(previous_order_target) = previous_order_target {
             if previous_order_target == new_order_target {
                 ambiguities.insert(new_order_target.clone());

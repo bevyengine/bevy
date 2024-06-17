@@ -2,13 +2,14 @@ pub mod visibility;
 pub mod window;
 
 use bevy_asset::{load_internal_asset, Handle};
+use nonmax::NonMaxU32;
 pub use visibility::*;
 pub use window::*;
 
 use crate::{
     camera::{
         CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure, ExtractedCamera,
-        ManualTextureViews, MipBias, TemporalJitter,
+        ManualTextureViews, MipBias, NormalizedRenderTarget, TemporalJitter,
     },
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::Shader,
@@ -106,6 +107,7 @@ impl Plugin for ViewPlugin {
             .register_type::<RenderLayers>()
             .register_type::<Visibility>()
             .register_type::<VisibleEntities>()
+            .register_type::<CubemapVisibleEntities>()
             .register_type::<ColorGrading>()
             .init_resource::<Msaa>()
             // NOTE: windows.is_changed() handles cases where a window was resized
@@ -792,6 +794,27 @@ struct MainTargetTextures {
     main_texture: Arc<AtomicUsize>,
 }
 
+/// A helper structure used by [`prepare_view_targets`].
+///
+/// Each unique view target output texture key gets one output texture.
+#[derive(Clone, PartialEq, Eq, Hash)]
+struct ViewTargetOutputTextureKey {
+    target: NormalizedRenderTarget,
+    render_target_layer: Option<NonMaxU32>,
+}
+
+/// A helper structure used by [`prepare_view_targets`].
+///
+/// Each unique view target output texture key gets one set of main textures.
+/// *Main textures* are used as intermediate targets for rendering, before
+/// postprocessing and tonemapping resolves to the final output.
+#[derive(Clone, PartialEq, Eq, Hash)]
+struct ViewTargetTextureKey {
+    target: Option<NormalizedRenderTarget>,
+    render_target_layer: Option<NonMaxU32>,
+    hdr: bool,
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_view_targets(
     mut commands: Commands,
@@ -817,14 +840,25 @@ pub fn prepare_view_targets(
             continue;
         };
 
-        let Some(out_texture) = output_textures.entry(target.clone()).or_insert_with(|| {
-            target
-                .get_texture_view(&windows, &images, &manual_texture_views)
-                .zip(target.get_texture_format(&windows, &images, &manual_texture_views))
-                .map(|(view, format)| {
-                    OutputColorAttachment::new(view.clone(), format.add_srgb_suffix())
-                })
-        }) else {
+        let Some(out_texture) = output_textures
+            .entry(ViewTargetOutputTextureKey {
+                target: target.clone(),
+                render_target_layer: camera.render_target_layer,
+            })
+            .or_insert_with(|| {
+                target
+                    .get_texture_view(
+                        &windows,
+                        &images,
+                        &manual_texture_views,
+                        camera.render_target_layer,
+                    )
+                    .zip(target.get_texture_format(&windows, &images, &manual_texture_views))
+                    .map(|(view, format)| {
+                        OutputColorAttachment::new(view.clone(), format.add_srgb_suffix())
+                    })
+            })
+        else {
             continue;
         };
 
@@ -847,7 +881,11 @@ pub fn prepare_view_targets(
         };
 
         let (a, b, sampled, main_texture) = textures
-            .entry((camera.target.clone(), view.hdr))
+            .entry(ViewTargetTextureKey {
+                target: camera.target.clone(),
+                render_target_layer: camera.render_target_layer,
+                hdr: view.hdr,
+            })
             .or_insert_with(|| {
                 let descriptor = TextureDescriptor {
                     label: None,

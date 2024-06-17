@@ -2,12 +2,15 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
-use bevy_core_pipeline::core_3d::Camera3d;
+use bevy_core_pipeline::core_3d::{
+    extract_omnidirectional_cameras, Camera3d, ExtractCameraInstancesPlugin,
+    RenderOmnidirectionalCameras,
+};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::With,
+    query::{AnyOf, With},
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
     system::{Commands, Local, Query, Res, ResMut, Resource},
@@ -15,14 +18,13 @@ use bevy_ecs::{
 use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    extract_instances::ExtractInstancesPlugin,
-    primitives::{Aabb, Frustum},
+    primitives::{Aabb, CubemapFrusta, Frustum},
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, Sampler, Shader, ShaderType, TextureView},
     renderer::{RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     texture::{FallbackImage, GpuImage, Image},
-    view::ExtractedView,
+    view::{ExtractedView, RenderLayers},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
@@ -196,6 +198,8 @@ where
     // of assets (e.g. a reflection probe references two cubemap assets while an
     // irradiance volume references a single 3D texture asset), this is generic.
     asset_id: C::AssetId,
+
+    maybe_render_layers: Option<RenderLayers>,
 }
 
 /// A component, part of the render world, that stores the mapping from asset ID
@@ -328,10 +332,16 @@ impl Plugin for LightProbePlugin {
         };
 
         render_app
-            .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
+            .add_plugins(ExtractCameraInstancesPlugin::<EnvironmentMapIds>::new())
             .init_resource::<LightProbesBuffer>()
-            .add_systems(ExtractSchedule, gather_light_probes::<EnvironmentMapLight>)
-            .add_systems(ExtractSchedule, gather_light_probes::<IrradianceVolume>)
+            .add_systems(
+                ExtractSchedule,
+                gather_light_probes::<EnvironmentMapLight>.after(extract_omnidirectional_cameras),
+            )
+            .add_systems(
+                ExtractSchedule,
+                gather_light_probes::<IrradianceVolume>.after(extract_omnidirectional_cameras),
+            )
             .add_systems(
                 Render,
                 upload_light_probes.in_set(RenderSet::PrepareResources),
@@ -343,8 +353,22 @@ impl Plugin for LightProbePlugin {
 /// to views, performing frustum culling and distance sorting in the process.
 fn gather_light_probes<C>(
     image_assets: Res<RenderAssets<GpuImage>>,
-    light_probe_query: Extract<Query<(&GlobalTransform, &C), With<LightProbe>>>,
-    view_query: Extract<Query<(Entity, &GlobalTransform, &Frustum, Option<&C>), With<Camera3d>>>,
+    omnidirectional_cameras: Res<RenderOmnidirectionalCameras>,
+    light_probe_query: Extract<
+        Query<(&GlobalTransform, &C, Option<&RenderLayers>), With<LightProbe>>,
+    >,
+    view_query: Extract<
+        Query<
+            (
+                Entity,
+                &GlobalTransform,
+                AnyOf<(&Frustum, &CubemapFrusta)>,
+                Option<&RenderLayers>,
+                Option<&C>,
+            ),
+            With<Camera3d>,
+        >,
+    >,
     mut reflection_probes: Local<Vec<LightProbeInfo<C>>>,
     mut view_reflection_probes: Local<Vec<LightProbeInfo<C>>>,
     mut commands: Commands,
@@ -360,38 +384,114 @@ fn gather_light_probes<C>(
     );
 
     // Build up the light probes uniform and the key table.
-    for (view_entity, view_transform, view_frustum, view_component) in view_query.iter() {
-        // Cull light probes outside the view frustum.
-        view_reflection_probes.clear();
-        view_reflection_probes.extend(
-            reflection_probes
-                .iter()
-                .filter(|light_probe_info| light_probe_info.frustum_cull(view_frustum))
-                .cloned(),
-        );
-
-        // Sort by distance to camera.
-        view_reflection_probes.sort_by_cached_key(|light_probe_info| {
-            light_probe_info.camera_distance_sort_key(view_transform)
-        });
-
-        // Create the light probes list.
-        let mut render_view_light_probes =
-            C::create_render_view_light_probes(view_component, &image_assets);
-
-        // Gather up the light probes in the list.
-        render_view_light_probes.maybe_gather_light_probes(&view_reflection_probes);
-
-        // Record the per-view light probes.
-        if render_view_light_probes.is_empty() {
-            commands
-                .get_or_spawn(view_entity)
-                .remove::<RenderViewLightProbes<C>>();
-        } else {
-            commands
-                .get_or_spawn(view_entity)
-                .insert(render_view_light_probes);
+    for (
+        view_entity,
+        view_transform,
+        (frustum, cubemap_frusta),
+        maybe_render_layers,
+        view_component,
+    ) in view_query.iter()
+    {
+        if let Some(frustum) = frustum {
+            gather_light_probes_for_camera(
+                view_entity,
+                view_transform,
+                frustum,
+                maybe_render_layers,
+                view_component,
+                &mut commands,
+                &mut reflection_probes,
+                &mut *view_reflection_probes,
+                &image_assets,
+            );
         }
+
+        // Create the light probes for each face sub-camera of an
+        // omnidirectional camera, if necessary.
+
+        let (Some(cubemap_frusta), Some(omnidirectional_camera_entities)) =
+            (cubemap_frusta, omnidirectional_cameras.get(&view_entity))
+        else {
+            continue;
+        };
+
+        for (view_entity, frustum) in omnidirectional_camera_entities
+            .iter()
+            .zip(cubemap_frusta.iter())
+        {
+            gather_light_probes_for_camera(
+                *view_entity,
+                view_transform,
+                frustum,
+                maybe_render_layers,
+                view_component,
+                &mut commands,
+                &mut reflection_probes,
+                &mut *view_reflection_probes,
+                &image_assets,
+            );
+        }
+    }
+}
+
+/// Extracts light probes from the main world for a single camera.
+///
+/// [`gather_light_probes`] calls this both for standard 3D cameras and for the
+/// individual sub-cameras of each omnidirectional 3D camera.
+#[allow(clippy::too_many_arguments)]
+fn gather_light_probes_for_camera<C>(
+    view_entity: Entity,
+    view_transform: &GlobalTransform,
+    view_frustum: &Frustum,
+    maybe_view_render_layers: Option<&RenderLayers>,
+    view_component: Option<&C>,
+    commands: &mut Commands,
+    reflection_probes: &mut [LightProbeInfo<C>],
+    view_reflection_probes: &mut Vec<LightProbeInfo<C>>,
+    image_assets: &RenderAssets<GpuImage>,
+) where
+    C: LightProbeComponent,
+{
+    // Cull light probes outside the view frustum.
+    view_reflection_probes.clear();
+    view_reflection_probes.extend(reflection_probes.iter().filter_map(|light_probe_info| {
+        if !light_probe_info.frustum_cull(view_frustum) {
+            return None;
+        }
+
+        if let (Some(view_render_layers), Some(light_probe_render_layers)) = (
+            maybe_view_render_layers,
+            light_probe_info.maybe_render_layers.as_ref(),
+        ) {
+            if !view_render_layers.intersects(light_probe_render_layers) {
+                return None;
+            }
+        }
+
+        Some((*light_probe_info).clone())
+    }));
+
+    // Sort by distance to camera.
+    view_reflection_probes.sort_by_cached_key(|light_probe_info| {
+        light_probe_info.camera_distance_sort_key(view_transform)
+    });
+
+    // Create the light probes list.
+    let mut render_view_light_probes =
+        C::create_render_view_light_probes(view_component, image_assets);
+
+    // Gather up the light probes in the list.
+    render_view_light_probes.maybe_gather_light_probes(view_reflection_probes);
+
+    // Record the per-view light probes.
+    if render_view_light_probes.is_empty() {
+        commands
+            .get_or_spawn(view_entity)
+            .remove::<RenderViewLightProbes<C>>();
+    } else {
+        commands
+            .get_or_spawn(view_entity)
+            .insert(render_view_light_probes);
     }
 }
 
@@ -504,7 +604,11 @@ where
     /// [`LightProbeInfo`]. This is done for every light probe in the scene
     /// every frame.
     fn new(
-        (light_probe_transform, environment_map): (&GlobalTransform, &C),
+        (light_probe_transform, environment_map, maybe_render_layers): (
+            &GlobalTransform,
+            &C,
+            Option<&RenderLayers>,
+        ),
         image_assets: &RenderAssets<GpuImage>,
     ) -> Option<LightProbeInfo<C>> {
         environment_map.id(image_assets).map(|id| LightProbeInfo {
@@ -512,6 +616,7 @@ where
             light_from_world: light_probe_transform.compute_matrix().inverse(),
             asset_id: id,
             intensity: environment_map.intensity(),
+            maybe_render_layers: maybe_render_layers.cloned(),
         })
     }
 
@@ -624,6 +729,7 @@ where
             world_from_light: self.world_from_light,
             intensity: self.intensity,
             asset_id: self.asset_id.clone(),
+            maybe_render_layers: self.maybe_render_layers.clone(),
         }
     }
 }

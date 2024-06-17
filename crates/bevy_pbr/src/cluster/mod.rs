@@ -5,21 +5,21 @@ use std::num::NonZeroU64;
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityHashMap},
-    query::Without,
+    query::{QueryItem, Without},
     reflect::ReflectComponent,
-    system::{Commands, Query, Res, Resource},
+    system::{lifetimeless::Read, Commands, Query, Res, Resource},
     world::{FromWorld, World},
 };
 use bevy_math::{AspectRatio, UVec2, UVec3, UVec4, Vec3Swizzles as _, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
+    extract_component::ExtractComponent,
     render_resource::{
         BindingResource, BufferBindingType, ShaderSize as _, ShaderType, StorageBuffer,
         UniformBuffer,
     },
     renderer::{RenderDevice, RenderQueue},
-    Extract,
 };
 use bevy_utils::{hashbrown::HashSet, tracing::warn};
 
@@ -169,7 +169,7 @@ pub struct GpuClusterableObjectsStorage {
     data: Vec<GpuClusterableObject>,
 }
 
-#[derive(Component)]
+#[derive(Clone, Copy, Component)]
 pub struct ExtractedClusterConfig {
     /// Special near value for cluster calculations
     pub(crate) near: f32,
@@ -178,12 +178,13 @@ pub struct ExtractedClusterConfig {
     pub(crate) dimensions: UVec3,
 }
 
+#[derive(Clone, Copy)]
 enum ExtractedClusterableObjectElement {
     ClusterHeader(u32, u32),
     ClusterableObjectEntity(Entity),
 }
 
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct ExtractedClusterableObjects {
     data: Vec<ExtractedClusterableObjectElement>,
 }
@@ -508,14 +509,16 @@ pub(crate) fn clusterable_object_order(
         .then_with(|| entity_1.cmp(entity_2)) // stable
 }
 
-/// Extracts clusters from the main world from the render world.
-pub fn extract_clusters(
-    mut commands: Commands,
-    views: Extract<Query<(Entity, &Clusters, &Camera)>>,
-) {
-    for (entity, clusters, camera) in &views {
+impl ExtractComponent for Clusters {
+    type QueryData = (Read<Clusters>, Read<Camera>);
+
+    type QueryFilter = ();
+
+    type Out = (ExtractedClusterableObjects, ExtractedClusterConfig);
+
+    fn extract_component((clusters, camera): QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
         if !camera.is_active {
-            continue;
+            return None;
         }
 
         let num_entities: usize = clusters
@@ -536,14 +539,14 @@ pub fn extract_clusters(
             }
         }
 
-        commands.get_or_spawn(entity).insert((
+        Some((
             ExtractedClusterableObjects { data },
             ExtractedClusterConfig {
                 near: clusters.near,
                 far: clusters.far,
                 dimensions: clusters.dimensions,
             },
-        ));
+        ))
     }
 }
 

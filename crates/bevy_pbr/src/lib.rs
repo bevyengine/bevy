@@ -100,7 +100,10 @@ pub mod graph {
 use crate::{deferred::DeferredPbrLightingPlugin, graph::NodePbr};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
-use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
+use bevy_core_pipeline::core_3d::{
+    graph::{Core3d, Node3d},
+    ExtractCameraComponentPlugin,
+};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     alpha::AlphaMode,
@@ -288,7 +291,6 @@ impl Plugin for PbrPlugin {
             .register_type::<Cascades>()
             .register_type::<CascadesVisibleEntities>()
             .register_type::<ClusterConfig>()
-            .register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()
             .register_type::<DirectionalLightShadowMap>()
             .register_type::<NotShadowCaster>()
@@ -328,6 +330,7 @@ impl Plugin for PbrPlugin {
                 VolumetricFogPlugin,
                 ScreenSpaceReflectionsPlugin,
             ))
+            .add_plugins(ExtractCameraComponentPlugin::<Clusters>::default())
             .configure_sets(
                 PostUpdate,
                 (
@@ -401,7 +404,7 @@ impl Plugin for PbrPlugin {
 
         // Extract the required data from the main world
         render_app
-            .add_systems(ExtractSchedule, (extract_clusters, extract_lights))
+            .add_systems(ExtractSchedule, extract_lights)
             .add_systems(
                 Render,
                 (

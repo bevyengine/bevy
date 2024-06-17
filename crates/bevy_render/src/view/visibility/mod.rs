@@ -3,6 +3,7 @@ mod render_layers;
 
 use std::any::TypeId;
 
+use bevy_math::Vec3A;
 pub use range::*;
 pub use render_layers::*;
 
@@ -12,13 +13,16 @@ use bevy_derive::Deref;
 use bevy_ecs::{prelude::*, query::QueryFilter};
 use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_transform::{components::GlobalTransform, TransformSystem};
+use bevy_transform::{
+    components::{GlobalTransform, Transform},
+    TransformSystem,
+};
 use bevy_utils::{Parallel, TypeIdMap};
 
 use crate::{
-    camera::{Camera, CameraProjection},
+    camera::{Camera, CameraProjection, CubemapFaceProjections, OmnidirectionalProjection},
     mesh::Mesh,
-    primitives::{Aabb, Frustum, Sphere},
+    primitives::{Aabb, CubemapFrusta, Frustum, Sphere},
 };
 
 use super::NoCpuCulling;
@@ -228,6 +232,64 @@ impl VisibleEntities {
     {
         self.get_mut::<QF>().push(entity);
     }
+
+    pub fn shrink(&mut self) {
+        // Check that visible entities capacity() is no more than two times greater than len()
+        let capacity = self.entities.capacity();
+        let reserved = capacity
+            .checked_div(self.entities.len())
+            .map_or(0, |reserve| {
+                if reserve > 2 {
+                    capacity / (reserve / 2)
+                } else {
+                    capacity
+                }
+            });
+
+        self.entities.shrink_to(reserved);
+    }
+}
+
+/// A component that stores which entities are visible from each face of a
+/// cubemap.
+#[derive(Component, Clone, Debug, Default, Reflect)]
+#[reflect(Component)]
+pub struct CubemapVisibleEntities {
+    #[reflect(ignore)]
+    data: [VisibleEntities; 6],
+}
+
+impl CubemapVisibleEntities {
+    /// Returns a reference to the list of visible entities from one face of the
+    /// cubemap.
+    pub fn get(&self, i: usize) -> &VisibleEntities {
+        &self.data[i]
+    }
+
+    /// Returns a mutable reference to the list of visible entities from one
+    /// face of the cubemap.
+    pub fn get_mut(&mut self, i: usize) -> &mut VisibleEntities {
+        &mut self.data[i]
+    }
+
+    /// Iterates over the visible entities of each cubemap face in turn.
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &VisibleEntities> {
+        self.data.iter()
+    }
+
+    /// Iterates over the visible entities of each cubemap face in turn,
+    /// mutably.
+    pub fn iter_mut(&mut self) -> impl DoubleEndedIterator<Item = &mut VisibleEntities> {
+        self.data.iter_mut()
+    }
+
+    /// Clears out all entities from all faces of the cubemap in preparation for
+    /// a new frame.
+    pub fn clear(&mut self) {
+        for visible_entities in &mut self.data {
+            visible_entities.entities.clear();
+        }
+    }
 }
 
 /// A convenient alias for `With<Handle<Mesh>>`, for use with
@@ -267,6 +329,8 @@ impl Plugin for VisibilityPlugin {
                 calculate_bounds.in_set(CalculateBounds),
                 (visibility_propagate_system, reset_view_visibility).in_set(VisibilityPropagate),
                 check_visibility::<WithMesh>.in_set(CheckVisibility),
+                update_omnidirectional_camera_frusta.in_set(UpdateFrusta),
+                check_omnidirectional_camera_visibility.in_set(CheckVisibility),
             ),
         );
     }
@@ -491,6 +555,190 @@ pub fn check_visibility<QF>(
 
         visible_entities.clear::<QF>();
         thread_queues.drain_into(visible_entities.get_mut::<QF>());
+    }
+}
+
+/// A system that checks visibility for every face of an omnidirectional camera.
+///
+/// This has to be done separately from the normal [`check_visibility`] because
+/// omnidirectional cameras have six individual sub-cameras, one for each face,
+/// and each face needs to know the entities visible from that face.
+pub fn check_omnidirectional_camera_visibility(
+    mut visible_entity_query: Query<(
+        Entity,
+        &InheritedVisibility,
+        &mut ViewVisibility,
+        Option<&RenderLayers>,
+        Option<&Aabb>,
+        Option<&GlobalTransform>,
+        Has<VisibilityRange>,
+    )>,
+    mut omnidirectional_camera_query: Query<(
+        &mut CubemapVisibleEntities,
+        &CubemapFrusta,
+        &GlobalTransform,
+        &OmnidirectionalProjection,
+        Option<&RenderLayers>,
+    )>,
+    visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
+) {
+    for (
+        mut cubemap_visible_entities,
+        cubemap_frusta,
+        cubemap_transform,
+        cubemap_projection,
+        maybe_render_layers,
+    ) in omnidirectional_camera_query.iter_mut()
+    {
+        cubemap_visible_entities.clear();
+
+        check_cubemap_mesh_visibility(
+            &mut visible_entity_query,
+            &mut cubemap_visible_entities,
+            cubemap_frusta,
+            cubemap_transform,
+            maybe_render_layers.unwrap_or_default(),
+            cubemap_projection.far,
+            visible_entity_ranges.as_deref(),
+        );
+    }
+}
+
+/// A helper function that determines which entities are visible from one face
+/// of a cubemap.
+///
+/// This is used by [`check_omnidirectional_camera_visibility`] as well as the
+/// point light shadow map logic.
+pub fn check_cubemap_mesh_visibility<QF>(
+    visible_entity_query: &mut Query<
+        (
+            Entity,
+            &InheritedVisibility,
+            &mut ViewVisibility,
+            Option<&RenderLayers>,
+            Option<&Aabb>,
+            Option<&GlobalTransform>,
+            Has<VisibilityRange>,
+        ),
+        QF,
+    >,
+    cubemap_visible_entities: &mut CubemapVisibleEntities,
+    cubemap_frusta: &CubemapFrusta,
+    transform: &GlobalTransform,
+    view_mask: &RenderLayers,
+    range: f32,
+    visible_entity_ranges: Option<&VisibleEntityRanges>,
+) where
+    QF: QueryFilter,
+{
+    let light_sphere = Sphere {
+        center: Vec3A::from(transform.translation()),
+        radius: range,
+    };
+
+    for (
+        entity,
+        inherited_visibility,
+        mut view_visibility,
+        maybe_entity_mask,
+        maybe_aabb,
+        maybe_transform,
+        has_visibility_range,
+    ) in visible_entity_query
+    {
+        if !inherited_visibility.get() {
+            continue;
+        }
+
+        let entity_mask = maybe_entity_mask.unwrap_or_default();
+        if !view_mask.intersects(entity_mask) {
+            continue;
+        }
+
+        // Check visibility ranges.
+        if has_visibility_range
+            && visible_entity_ranges.is_some_and(|visible_entity_ranges| {
+                !visible_entity_ranges.entity_is_in_range_of_any_view(entity)
+            })
+        {
+            continue;
+        }
+
+        // If we have an aabb and transform, do frustum culling
+        if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
+            let model_to_world = transform.affine();
+            // Do a cheap sphere vs obb test to prune out most meshes outside the sphere of the light
+            if !light_sphere.intersects_obb(aabb, &model_to_world) {
+                continue;
+            }
+
+            for (frustum, visible_entities) in cubemap_frusta
+                .iter()
+                .zip(cubemap_visible_entities.iter_mut())
+            {
+                if frustum.intersects_obb(aabb, &model_to_world, true, true) {
+                    view_visibility.set();
+                    visible_entities.push::<WithMesh>(entity);
+                }
+            }
+        } else {
+            view_visibility.set();
+            for visible_entities in cubemap_visible_entities.iter_mut() {
+                visible_entities.push::<WithMesh>(entity);
+            }
+        }
+    }
+
+    for visible_entities in cubemap_visible_entities.iter_mut() {
+        visible_entities.shrink();
+    }
+}
+
+pub fn update_omnidirectional_camera_frusta(
+    mut omnidirectional_camera_query: Query<(
+        &mut CubemapFrusta,
+        &GlobalTransform,
+        &OmnidirectionalProjection,
+    )>,
+) {
+    for (mut cubemap_frusta, transform, projection) in omnidirectional_camera_query.iter_mut() {
+        let face_projections = CubemapFaceProjections::new(projection.near);
+        update_cubemap_frusta(
+            transform,
+            &mut cubemap_frusta,
+            &face_projections,
+            projection.far,
+        );
+    }
+}
+
+pub fn update_cubemap_frusta(
+    transform: &GlobalTransform,
+    cubemap_frusta: &mut CubemapFrusta,
+    cubemap_face_projections: &CubemapFaceProjections,
+    range: f32,
+) {
+    let CubemapFaceProjections {
+        rotations: ref view_rotations,
+        projection: ref clip_from_view,
+    } = *cubemap_face_projections;
+
+    // ignore scale because we don't want to effectively scale light radius and range
+    // by applying those as a view transform to shadow map rendering of objects
+    // and ignore rotation because we want the shadow map projections to align with the axes
+    let view_translation = Transform::from_translation(transform.translation());
+    let view_backward = transform.back();
+
+    for (view_rotation, frustum) in view_rotations.iter().zip(cubemap_frusta.iter_mut()) {
+        let world_from_view = view_translation * *view_rotation;
+        let clip_from_world = *clip_from_view * world_from_view.compute_matrix().inverse();
+
+        *frustum = Frustum::from_clip_from_world_custom_far(
+            &clip_from_world,
+            &transform.translation(),
+            &view_backward,
+            range,
+        );
     }
 }
 
