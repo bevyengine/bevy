@@ -1,7 +1,6 @@
 //! This example shows how to send, mutate, and receive, events. As well as showing
-//! how to you might want to control system ordering so that events are processed
-//! in a specific order. It does this by simulating a damage over time effect that you might
-//! find any a game.
+//! how to you might control system ordering so that events are processed in a specific order.
+//! It does this by simulating a damage over time effect that you might find in a game.
 
 use bevy::prelude::*;
 
