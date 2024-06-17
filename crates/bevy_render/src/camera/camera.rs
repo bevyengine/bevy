@@ -353,7 +353,7 @@ impl Camera {
     /// - The computed coordinates are beyond the near or far plane
     /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
     /// - The world coordinates cannot be mapped to the Normalized Device Coordinates. See [`world_to_ndc`](Camera::world_to_ndc)
-    /// May also panic if `glam_assert` is enabled. See [`world_to_ndc`](Camera::world_to_ndc).
+    ///     May also panic if `glam_assert` is enabled. See [`world_to_ndc`](Camera::world_to_ndc).
     #[doc(alias = "world_to_screen")]
     pub fn world_to_viewport(
         &self,
@@ -386,7 +386,7 @@ impl Camera {
     /// Returns `None` if any of these conditions occur:
     /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
     /// - The near or far plane cannot be computed. This can happen if the `camera_transform`, the `world_position`, or the projection matrix defined by [`CameraProjection`] contain `NAN`.
-    /// Panics if the projection matrix is null and `glam_assert` is enabled.
+    ///     Panics if the projection matrix is null and `glam_assert` is enabled.
     pub fn viewport_to_world(
         &self,
         camera_transform: &GlobalTransform,
@@ -422,7 +422,7 @@ impl Camera {
     /// Returns `None` if any of these conditions occur:
     /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
     /// - The viewport position cannot be mapped to the world. See [`ndc_to_world`](Camera::ndc_to_world)
-    /// May panic. See [`ndc_to_world`](Camera::ndc_to_world).
+    ///     May panic. See [`ndc_to_world`](Camera::ndc_to_world).
     pub fn viewport_to_world_2d(
         &self,
         camera_transform: &GlobalTransform,

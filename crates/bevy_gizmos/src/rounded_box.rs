@@ -222,7 +222,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     /// - The corner radius can be adjusted with the `.corner_radius(...)` method.
     /// - The resolution of the arcs at each corner (i.e. the level of detail) can be adjusted with the
-    /// `.arc_resolution(...)` method.
+    ///     `.arc_resolution(...)` method.
     ///
     /// # Example
     /// ```
@@ -278,7 +278,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     /// - The corner radius can be adjusted with the `.corner_radius(...)` method.
     /// - The resolution of the arcs at each corner (i.e. the level of detail) can be adjusted with the
-    /// `.arc_resolution(...)` method.
+    ///     `.arc_resolution(...)` method.
     ///
     /// # Example
     /// ```
@@ -334,7 +334,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     /// - The edge radius can be adjusted with the `.edge_radius(...)` method.
     /// - The resolution of the arcs at each edge (i.e. the level of detail) can be adjusted with the
-    /// `.arc_resolution(...)` method.
+    ///     `.arc_resolution(...)` method.
     ///
     /// # Example
     /// ```
