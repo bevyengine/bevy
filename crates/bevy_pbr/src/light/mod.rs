@@ -830,6 +830,7 @@ pub fn check_point_light_mesh_visibility(
                         {
                             return;
                         }
+
                         if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
                             let model_to_world = transform.affine();
                             // Do a cheap sphere vs obb test to prune out most meshes outside the sphere of the light
@@ -888,6 +889,7 @@ pub fn check_dir_light_mesh_visibility(
     >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
     mut visible_entities_queue: Local<Parallel<Vec<Entity>>>,
+    mut view_visible_entities_queue: Local<Parallel<Vec<Vec<Entity>>>>,
 ) {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
 
@@ -930,12 +932,11 @@ pub fn check_dir_light_mesh_visibility(
             let view_mask = maybe_view_mask.unwrap_or_default();
 
             for (view, view_frusta) in &frusta.frusta {
-                // TODO : ReUse Memory
-                let mut view_visible_entities: Parallel<Vec<Vec<Entity>>> = Parallel::default();
                 visible_entity_query.par_iter().for_each_init(
                     || {
-                        let mut entities = view_visible_entities.borrow_local_mut();
-                        entities.resize(view_frusta.len(), Vec::default());
+                        let mut entities = view_visible_entities_queue.borrow_local_mut();
+                        let cap = entities.first().map(|v| v.capacity()).unwrap_or_default();
+                        entities.resize(view_frusta.len(), Vec::with_capacity(cap));
                         (visible_entities_queue.borrow_local_mut(), entities)
                     },
                     |(queue0, queue1),
@@ -956,16 +957,16 @@ pub fn check_dir_light_mesh_visibility(
                             return;
                         }
 
-                        if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
-                            // Check visibility ranges.
-                            if has_visibility_range
-                                && visible_entity_ranges.is_some_and(|visible_entity_ranges| {
-                                    !visible_entity_ranges.entity_is_in_range_of_view(entity, *view)
-                                })
-                            {
-                                return;
-                            }
+                        // Check visibility ranges.
+                        if has_visibility_range
+                            && visible_entity_ranges.is_some_and(|visible_entity_ranges| {
+                                !visible_entity_ranges.entity_is_in_range_of_view(entity, *view)
+                            })
+                        {
+                            return;
+                        }
 
+                        if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
                             let mut visible = false;
                             for (frustum, frustum_visible_entities) in
                                 view_frusta.iter().zip(queue1.iter_mut())
@@ -989,7 +990,7 @@ pub fn check_dir_light_mesh_visibility(
                         }
                     },
                 );
-                for entities in view_visible_entities.iter_mut() {
+                for entities in view_visible_entities_queue.iter_mut() {
                     cascades_visible_entities
                         .entities
                         .get_mut(view)
@@ -1014,6 +1015,7 @@ pub fn check_dir_light_mesh_visibility(
         }
     }
 
+    // TODO: use resource to avoid unnessary memory alloc
     let mut defer_queue = std::mem::take(visible_entities_queue.deref_mut());
     commands.add(move |world: &mut World| {
         let mut query = world.query::<&mut ViewVisibility>();
