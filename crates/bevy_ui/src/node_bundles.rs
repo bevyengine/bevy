@@ -14,6 +14,7 @@ use bevy_color::Color;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
 use bevy_sprite::TextureAtlas;
+use bevy_text::CosmicBuffer;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{BreakLineOn, JustifyText, Text, TextLayoutInfo, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
@@ -185,6 +186,8 @@ pub struct TextBundle {
     pub style: Style,
     /// Contains the text of the node
     pub text: Text,
+    /// Cached cosmic buffer for layout
+    pub buffer: CosmicBuffer,
     /// Text layout information
     pub text_layout_info: TextLayoutInfo,
     /// Text system flags
@@ -219,6 +222,7 @@ impl Default for TextBundle {
     fn default() -> Self {
         Self {
             text: Default::default(),
+            buffer: Default::default(),
             text_layout_info: Default::default(),
             text_flags: Default::default(),
             calculated_size: Default::default(),

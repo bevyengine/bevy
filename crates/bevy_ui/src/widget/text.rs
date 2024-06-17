@@ -15,7 +15,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{camera::Camera, texture::Image};
 use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
-    scale_value, BreakLineOn, Font, FontAtlasSets, Text, TextError, TextLayoutInfo,
+    scale_value, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, Text, TextError, TextLayoutInfo,
     TextMeasureInfo, TextPipeline, YAxisOrientation,
 };
 use bevy_utils::Entry;
@@ -196,6 +196,7 @@ fn queue_text(
     node: Ref<Node>,
     mut text_flags: Mut<TextFlags>,
     mut text_layout_info: Mut<TextLayoutInfo>,
+    buffer: &mut CosmicBuffer,
 ) {
     // Skip the text node if it is waiting for a new measure func
     if !text_flags.needs_new_measure_func {
@@ -221,6 +222,7 @@ fn queue_text(
             texture_atlases,
             textures,
             YAxisOrientation::TopToBottom,
+            buffer,
         ) {
             Err(TextError::NoSuchFont) => {
                 // There was an error processing the text layout, try again next frame
@@ -268,11 +270,12 @@ pub fn text_system(
         &mut TextLayoutInfo,
         &mut TextFlags,
         Option<&TargetCamera>,
+        Option<&mut CosmicBuffer>,
     )>,
 ) {
     let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
 
-    for (node, text, text_layout_info, text_flags, camera) in &mut text_query {
+    for (node, text, text_layout_info, text_flags, camera, mut buffer_opt) in &mut text_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
@@ -290,6 +293,12 @@ pub fn text_system(
         };
         let inverse_scale_factor = scale_factor.recip();
 
+        let mut new_buffer = None;
+
+        if buffer_opt.is_none() {
+            new_buffer = Some(CosmicBuffer::default());
+        }
+
         if last_scale_factors.get(&camera_entity) != Some(&scale_factor)
             || node.is_changed()
             || text_flags.needs_recompute
@@ -306,6 +315,9 @@ pub fn text_system(
                 node,
                 text_flags,
                 text_layout_info,
+                buffer_opt
+                    .as_deref_mut()
+                    .unwrap_or_else(|| new_buffer.as_mut().expect("Couldn't create buffer")),
             );
         }
     }

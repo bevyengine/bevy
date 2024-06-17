@@ -11,8 +11,8 @@ use bevy_utils::HashMap;
 use cosmic_text::{Attrs, Buffer, Metrics, Shaping, Wrap};
 
 use crate::{
-    error::TextError, BreakLineOn, Font, FontAtlasSets, JustifyText, PositionedGlyph, TextSection,
-    YAxisOrientation,
+    error::TextError, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, JustifyText, PositionedGlyph,
+    TextSection, YAxisOrientation,
 };
 
 /// A wrapper around a [`cosmic_text::FontSystem`]
@@ -133,6 +133,76 @@ impl TextPipeline {
         Ok(buffer)
     }
 
+    /// Utilizes [cosmic_text::Buffer] to shape and layout text
+    ///
+    /// Negative or 0.0 font sizes will not be laid out.
+    pub fn update_buffer(
+        &mut self,
+        fonts: &Assets<Font>,
+        sections: &[TextSection],
+        linebreak_behavior: BreakLineOn,
+        bounds: Vec2,
+        scale_factor: f64,
+        buffer: &mut CosmicBuffer,
+    ) -> Result<(), TextError> {
+        // TODO: Support multiple section font sizes, pending upstream implementation in cosmic_text
+        // For now, just use the first section's size or a default
+        let font_size = sections
+            .get(0)
+            .map(|s| s.style.font_size)
+            .unwrap_or_else(|| crate::TextStyle::default().font_size)
+            as f64
+            * scale_factor;
+
+        // TODO: Support line height as an option. Unitless `1.2` is the default used in browsers (1.2x font size).
+        let line_height = font_size * 1.2;
+        let (font_size, line_height) = (font_size as f32, line_height as f32);
+        let metrics = Metrics::new(font_size, line_height);
+
+        let font_system = &mut acquire_font_system(&mut self.font_system)?;
+
+        // return early if the fonts are not loaded yet
+        for section in sections {
+            fonts
+                .get(section.style.font.id())
+                .ok_or(TextError::NoSuchFont)?;
+        }
+
+        let spans: Vec<(&str, Attrs)> = sections
+            .iter()
+            .filter(|section| section.style.font_size > 0.0)
+            .enumerate()
+            .map(|(section_index, section)| {
+                (
+                    &section.value[..],
+                    get_attrs(
+                        section,
+                        section_index,
+                        font_system,
+                        &mut self.map_handle_to_font_id,
+                        fonts,
+                    ),
+                )
+            })
+            .collect();
+
+        buffer.set_metrics(font_system, metrics);
+        buffer.set_size(font_system, Some(bounds.x.ceil()), None);
+
+        buffer.set_wrap(
+            font_system,
+            match linebreak_behavior {
+                BreakLineOn::WordBoundary => Wrap::Word,
+                BreakLineOn::AnyCharacter => Wrap::Glyph,
+                BreakLineOn::NoWrap => Wrap::None,
+            },
+        );
+
+        buffer.set_rich_text(font_system, spans, Attrs::new(), Shaping::Advanced);
+
+        Ok(())
+    }
+
     /// Queues text for rendering
     ///
     /// Produces a [`TextLayoutInfo`], containing [`PositionedGlyph`]s
@@ -151,13 +221,20 @@ impl TextPipeline {
         texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         y_axis_orientation: YAxisOrientation,
+        buffer: &mut CosmicBuffer,
     ) -> Result<TextLayoutInfo, TextError> {
         if sections.is_empty() {
             return Ok(TextLayoutInfo::default());
         }
 
-        let buffer =
-            self.create_buffer(fonts, sections, linebreak_behavior, bounds, scale_factor)?;
+        self.update_buffer(
+            fonts,
+            sections,
+            linebreak_behavior,
+            bounds,
+            scale_factor,
+            buffer,
+        )?;
 
         let box_size = buffer_dimensions(&buffer);
         let h_limit = if bounds.x.is_finite() {
