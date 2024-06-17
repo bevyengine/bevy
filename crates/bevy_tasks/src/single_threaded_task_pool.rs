@@ -307,11 +307,7 @@ struct CatchUnwind<F: UnwindSafe>(#[pin] F);
 impl<F: Future + UnwindSafe> Future for CatchUnwind<F> {
     type Output = Result<F::Output, Panic>;
     fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context) -> Poll<Self::Output> {
-        match std::panic::catch_unwind(AssertUnwindSafe(|| self.project().0.poll(cx))) {
-            Ok(Poll::Ready(value)) => Poll::Ready(Ok(value)),
-            Ok(Poll::Pending) => Poll::Pending,
-            Err(panic) => Poll::Ready(Err(panic)),
-        }
+        std::panic::catch_unwind(AssertUnwindSafe(|| self.project().0.poll(cx)))?.map(Ok)
     }
 }
 
