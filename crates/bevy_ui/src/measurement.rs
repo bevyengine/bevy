@@ -21,7 +21,7 @@ impl std::fmt::Debug for ContentSize {
 pub trait Measure: Send + Sync + 'static {
     /// Calculate the size of the node given the constraints.
     fn measure(
-        &self,
+        &mut self,
         width: Option<f32>,
         height: Option<f32>,
         available_width: AvailableSpace,
@@ -44,7 +44,7 @@ pub enum NodeMeasure {
 
 impl Measure for NodeMeasure {
     fn measure(
-        &self,
+        &mut self,
         width: Option<f32>,
         height: Option<f32>,
         available_width: AvailableSpace,
@@ -78,7 +78,7 @@ pub struct FixedMeasure {
 
 impl Measure for FixedMeasure {
     fn measure(
-        &self,
+        &mut self,
         _: Option<f32>,
         _: Option<f32>,
         _: AvailableSpace,

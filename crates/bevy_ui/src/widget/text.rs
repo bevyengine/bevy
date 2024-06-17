@@ -48,7 +48,7 @@ pub struct TextMeasure {
 
 impl Measure for TextMeasure {
     fn measure(
-        &self,
+        &mut self,
         width: Option<f32>,
         height: Option<f32>,
         available_width: AvailableSpace,
