@@ -178,6 +178,7 @@ impl Plugin for LogPlugin {
                     .unwrap()
                     .downcast_ref::<ParseError>()
                 {
+                    // we cannot use the `error!` macro here because the logger is not ready yet.
                     eprintln!("LogPlugin failed to parse filter from env: {}", err);
                 }
 
