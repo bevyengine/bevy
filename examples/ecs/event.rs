@@ -117,6 +117,7 @@ fn main() {
         .add_event::<ArmorBlockedDamage>()
         .add_event::<DamageReceived>()
         .init_resource::<DamageTimer>()
+        // As always we must add our systems to the apps schedule.
         // Here we add our systems to the schedule using 'chain()' so that they run in order
         // This ensures that 'apply_armor_to_damage' runs before 'apply_damage_to_health'
         // It also ensures that 'EventWriters' are used before the associated 'EventReaders'
