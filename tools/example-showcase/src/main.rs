@@ -496,7 +496,7 @@ header_message = \"Examples (WebGL2)\"
                 // and other characters that don't
                 // work well in a URL path.
                 let category_path = root_path.join(
-                    &to_show
+                    to_show
                         .category
                         .replace(['(', ')'], "")
                         .replace(' ', "-")
@@ -522,7 +522,7 @@ weight = {}
                         .unwrap();
                     categories.insert(to_show.category.clone(), 0);
                 }
-                let example_path = category_path.join(&to_show.technical_name.replace('_', "-"));
+                let example_path = category_path.join(to_show.technical_name.replace('_', "-"));
                 let _ = fs::create_dir_all(&example_path);
 
                 let code_path = example_path.join(Path::new(&to_show.path).file_name().unwrap());
@@ -680,7 +680,7 @@ header_message = \"Examples ({})\"
                 let category_path = root_path.join(&to_build.category);
                 let _ = fs::create_dir_all(&category_path);
 
-                let example_path = category_path.join(&to_build.technical_name.replace('_', "-"));
+                let example_path = category_path.join(to_build.technical_name.replace('_', "-"));
                 let _ = fs::create_dir_all(&example_path);
 
                 if website_hacks {
@@ -690,17 +690,17 @@ header_message = \"Examples ({})\"
 
                 let _ = fs::rename(
                     Path::new("examples/wasm/target/wasm_example.js"),
-                    &example_path.join("wasm_example.js"),
+                    example_path.join("wasm_example.js"),
                 );
                 if optimize_size {
                     let _ = fs::rename(
                         Path::new("examples/wasm/target/wasm_example_bg.wasm.optimized"),
-                        &example_path.join("wasm_example_bg.wasm"),
+                        example_path.join("wasm_example_bg.wasm"),
                     );
                 } else {
                     let _ = fs::rename(
                         Path::new("examples/wasm/target/wasm_example_bg.wasm"),
-                        &example_path.join("wasm_example_bg.wasm"),
+                        example_path.join("wasm_example_bg.wasm"),
                     );
                 }
                 pb.inc();

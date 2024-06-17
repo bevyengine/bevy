@@ -180,6 +180,9 @@ meshlet_processor = ["bevy_pbr?/meshlet_processor"]
 # Provides a collection of developer tools
 bevy_dev_tools = ["dep:bevy_dev_tools"]
 
+# Provides a picking functionality
+bevy_picking = ["dep:bevy_picking"]
+
 # Enable support for the ios_simulator by downgrading some rendering capabilities
 ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
 
@@ -214,18 +217,19 @@ bevy_asset = { path = "../bevy_asset", optional = true, version = "0.14.0-dev" }
 bevy_audio = { path = "../bevy_audio", optional = true, version = "0.14.0-dev" }
 bevy_color = { path = "../bevy_color", optional = true, version = "0.14.0-dev" }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", optional = true, version = "0.14.0-dev" }
+bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.14.0-dev" }
+bevy_dynamic_plugin = { path = "../bevy_dynamic_plugin", optional = true, version = "0.14.0-dev" }
+bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.14.0-dev" }
+bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.14.0-dev", default-features = false }
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.14.0-dev" }
 bevy_pbr = { path = "../bevy_pbr", optional = true, version = "0.14.0-dev" }
+bevy_picking = { path = "../bevy_picking", optional = true, version = "0.14.0-dev" }
 bevy_render = { path = "../bevy_render", optional = true, version = "0.14.0-dev" }
-bevy_dynamic_plugin = { path = "../bevy_dynamic_plugin", optional = true, version = "0.14.0-dev" }
 bevy_scene = { path = "../bevy_scene", optional = true, version = "0.14.0-dev" }
 bevy_sprite = { path = "../bevy_sprite", optional = true, version = "0.14.0-dev" }
 bevy_text = { path = "../bevy_text", optional = true, version = "0.14.0-dev" }
 bevy_ui = { path = "../bevy_ui", optional = true, version = "0.14.0-dev" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.14.0-dev" }
-bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.14.0-dev" }
-bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.14.0-dev", default-features = false }
-bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.14.0-dev" }
 
 [lints]
 workspace = true

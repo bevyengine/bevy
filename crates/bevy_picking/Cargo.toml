@@ -1,0 +1,27 @@
+[package]
+name = "bevy_picking"
+version = "0.14.0-dev"
+edition = "2021"
+description = "Provides screen picking functionality for Bevy Engine"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev" }
+bevy_render = { path = "../bevy_render", version = "0.14.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.14.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
+bevy_window = { path = "../bevy_window", version = "0.14.0-dev" }
+
+uuid = { version = "1.1", features = ["v4"] }
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+all-features = true
