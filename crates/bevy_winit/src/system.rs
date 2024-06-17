@@ -6,10 +6,11 @@ use bevy_ecs::{
     removal_detection::RemovedComponents,
     system::{Local, NonSendMut, Query, SystemParamItem},
 };
+use bevy_input::keyboard::KeyboardFocusLost;
 use bevy_utils::tracing::{error, info, warn};
 use bevy_window::{
     ClosingWindow, RawHandleWrapper, Window, WindowClosed, WindowClosing, WindowCreated,
-    WindowMode, WindowResized, WindowWrapper,
+    WindowFocused, WindowMode, WindowResized, WindowWrapper,
 };
 
 use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
@@ -115,6 +116,26 @@ pub fn create_windows<F: QueryFilter + 'static>(
         }
 
         window_created_events.send(WindowCreated { window: entity });
+    }
+}
+
+/// Check whether keyboard focus was lost. This is different from window
+/// focus in that swapping between Bevy windows keeps window focus.
+pub(crate) fn check_keyboard_focus_lost(
+    mut focus_events: EventReader<WindowFocused>,
+    mut keyboard_focus: EventWriter<KeyboardFocusLost>,
+) {
+    let mut focus_lost = false;
+    let mut focus_gained = false;
+    for e in focus_events.read() {
+        if e.focused {
+            focus_gained = true;
+        } else {
+            focus_lost = true;
+        }
+    }
+    if focus_lost & !focus_gained {
+        keyboard_focus.send(KeyboardFocusLost);
     }
 }
 

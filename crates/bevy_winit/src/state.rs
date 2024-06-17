@@ -8,7 +8,6 @@ use bevy_ecs::system::SystemState;
 use bevy_ecs::world::FromWorld;
 use bevy_input::{
     gestures::*,
-    keyboard::KeyboardFocusLost,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
 };
 use bevy_log::{error, trace, warn};
@@ -225,25 +224,21 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             WindowEvent::CloseRequested => self.winit_events.send(WindowCloseRequested { window }),
             WindowEvent::KeyboardInput {
                 ref event,
-                is_synthetic,
+                // On some platforms, winit sends "synthetic" key press events when the window
+                // gains or loses focus. These should not be handled, so we only process key
+                // events if they are not synthetic key presses.
+                is_synthetic: false,
                 ..
             } => {
-                // Winit sends "synthetic" key press events when the window gains focus. These
-                // should not be handled, so we only process key events if they are not synthetic
-                // key presses. "synthetic" key release events should still be handled though, for
-                // properly releasing keys when the window loses focus.
-                if !(is_synthetic && event.state.is_pressed()) {
-                    // Process the keyboard input event, as long as it's not a synthetic key press.
-                    if event.state.is_pressed() {
-                        if let Some(char) = &event.text {
-                            let char = char.clone();
-                            #[allow(deprecated)]
-                            self.winit_events.send(ReceivedCharacter { window, char });
-                        }
+                if event.state.is_pressed() {
+                    if let Some(char) = &event.text {
+                        let char = char.clone();
+                        #[allow(deprecated)]
+                        self.winit_events.send(ReceivedCharacter { window, char });
                     }
-                    self.winit_events
-                        .send(converters::convert_keyboard_input(event, window));
                 }
+                self.winit_events
+                    .send(converters::convert_keyboard_input(event, window));
             }
             WindowEvent::CursorMoved { position, .. } => {
                 let physical_position = DVec2::new(position.x, position.y);
@@ -318,9 +313,6 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             WindowEvent::Focused(focused) => {
                 win.focused = focused;
                 self.winit_events.send(WindowFocused { window, focused });
-                if !focused {
-                    self.winit_events.send(KeyboardFocusLost);
-                }
             }
             WindowEvent::Occluded(occluded) => {
                 self.winit_events.send(WindowOccluded { window, occluded });
