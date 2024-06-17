@@ -52,7 +52,7 @@ use bevy_app::{App, Plugin};
 use tracing_log::LogTracer;
 #[cfg(feature = "tracing-chrome")]
 use tracing_subscriber::fmt::{format::DefaultFields, FormattedFields};
-use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter, Layer};
+use tracing_subscriber::{filter::FromEnvError, prelude::*, registry::Registry, EnvFilter, Layer};
 #[cfg(feature = "tracing-chrome")]
 use {bevy_ecs::system::Resource, bevy_utils::synccell::SyncCell};
 
@@ -166,7 +166,9 @@ impl Plugin for LogPlugin {
 
         let default_filter = { format!("{},{}", self.level, self.filter) };
         let filter_layer = EnvFilter::try_from_default_env()
-            .or_else(|_| EnvFilter::try_new(&default_filter))
+            .or_else(|_| {
+                Ok::<EnvFilter, FromEnvError>(EnvFilter::builder().parse_lossy(&default_filter))
+            })
             .unwrap();
         let subscriber = subscriber.with(filter_layer);
 
