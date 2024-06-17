@@ -22,7 +22,7 @@ impl<'a> Serialize for ArraySerializer<'a> {
     {
         let mut state = serializer.serialize_tuple(self.array.len())?;
         for value in self.array.iter() {
-            state.serialize_element(&TypedReflectSerializer::new(value, self.registry))?;
+            state.serialize_element(&TypedReflectSerializer::new_internal(value, self.registry))?;
         }
         state.end()
     }

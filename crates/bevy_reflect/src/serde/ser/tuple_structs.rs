@@ -1,6 +1,7 @@
+use crate::serde::ser::error_utils::make_custom_error;
 use crate::serde::{SerializationData, TypedReflectSerializer};
 use crate::{TupleStruct, TypeInfo, TypeRegistry};
-use serde::ser::{Error, SerializeTupleStruct};
+use serde::ser::SerializeTupleStruct;
 use serde::Serialize;
 
 /// A serializer for [`TupleStruct`] values.
@@ -27,8 +28,8 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
             .tuple_struct
             .get_represented_type_info()
             .ok_or_else(|| {
-                Error::custom(format_args!(
-                    "cannot get type info for {}",
+                make_custom_error(format_args!(
+                    "cannot get type info for `{}`",
                     self.tuple_struct.reflect_type_path()
                 ))
             })?;
@@ -36,7 +37,7 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
         let tuple_struct_info = match type_info {
             TypeInfo::TupleStruct(tuple_struct_info) => tuple_struct_info,
             info => {
-                return Err(Error::custom(format_args!(
+                return Err(make_custom_error(format_args!(
                     "expected tuple struct type but received {info:?}"
                 )));
             }
@@ -59,7 +60,7 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
             {
                 continue;
             }
-            state.serialize_field(&TypedReflectSerializer::new(value, self.registry))?;
+            state.serialize_field(&TypedReflectSerializer::new_internal(value, self.registry))?;
         }
         state.end()
     }

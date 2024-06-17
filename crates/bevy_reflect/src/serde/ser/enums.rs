@@ -1,6 +1,7 @@
+use crate::serde::ser::error_utils::make_custom_error;
 use crate::serde::TypedReflectSerializer;
 use crate::{Enum, TypeInfo, TypeRegistry, VariantInfo, VariantType};
-use serde::ser::{Error, SerializeStructVariant, SerializeTupleVariant};
+use serde::ser::{SerializeStructVariant, SerializeTupleVariant};
 use serde::Serialize;
 
 /// A serializer for [`Enum`] values.
@@ -24,8 +25,8 @@ impl<'a> Serialize for EnumSerializer<'a> {
         S: serde::Serializer,
     {
         let type_info = self.enum_value.get_represented_type_info().ok_or_else(|| {
-            Error::custom(format_args!(
-                "cannot get type info for {}",
+            make_custom_error(format_args!(
+                "cannot get type info for `{}`",
                 self.enum_value.reflect_type_path()
             ))
         })?;
@@ -33,7 +34,7 @@ impl<'a> Serialize for EnumSerializer<'a> {
         let enum_info = match type_info {
             TypeInfo::Enum(enum_info) => enum_info,
             info => {
-                return Err(Error::custom(format_args!(
+                return Err(make_custom_error(format_args!(
                     "expected enum type but received {info:?}"
                 )));
             }
@@ -44,7 +45,7 @@ impl<'a> Serialize for EnumSerializer<'a> {
         let variant_info = enum_info
             .variant_at(variant_index as usize)
             .ok_or_else(|| {
-                Error::custom(format_args!(
+                make_custom_error(format_args!(
                     "variant at index `{variant_index}` does not exist",
                 ))
             })?;
@@ -66,7 +67,7 @@ impl<'a> Serialize for EnumSerializer<'a> {
                 let struct_info = match variant_info {
                     VariantInfo::Struct(struct_info) => struct_info,
                     info => {
-                        return Err(Error::custom(format_args!(
+                        return Err(make_custom_error(format_args!(
                             "expected struct variant type but received {info:?}",
                         )));
                     }
@@ -82,7 +83,7 @@ impl<'a> Serialize for EnumSerializer<'a> {
                     let field_info = struct_info.field_at(index).unwrap();
                     state.serialize_field(
                         field_info.name(),
-                        &TypedReflectSerializer::new(field.value(), self.registry),
+                        &TypedReflectSerializer::new_internal(field.value(), self.registry),
                     )?;
                 }
                 state.end()
@@ -93,13 +94,14 @@ impl<'a> Serialize for EnumSerializer<'a> {
                 if type_info.type_path_table().module_path() == Some("core::option")
                     && type_info.type_path_table().ident() == Some("Option")
                 {
-                    serializer.serialize_some(&TypedReflectSerializer::new(field, self.registry))
+                    serializer
+                        .serialize_some(&TypedReflectSerializer::new_internal(field, self.registry))
                 } else {
                     serializer.serialize_newtype_variant(
                         enum_name,
                         variant_index,
                         variant_name,
-                        &TypedReflectSerializer::new(field, self.registry),
+                        &TypedReflectSerializer::new_internal(field, self.registry),
                     )
                 }
             }
@@ -111,7 +113,7 @@ impl<'a> Serialize for EnumSerializer<'a> {
                     field_len,
                 )?;
                 for field in self.enum_value.iter_fields() {
-                    state.serialize_field(&TypedReflectSerializer::new(
+                    state.serialize_field(&TypedReflectSerializer::new_internal(
                         field.value(),
                         self.registry,
                     ))?;

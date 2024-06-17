@@ -1,3 +1,4 @@
+use crate::serde::de::error_utils::make_custom_error;
 use crate::serde::de::helpers::{ExpectedValues, Ident};
 use crate::serde::de::registration_utils::try_get_registration;
 use crate::serde::{SerializationData, TypedReflectDeserializer};
@@ -18,8 +19,8 @@ pub(super) trait StructLikeInfo {
 impl StructLikeInfo for StructInfo {
     fn field<E: Error>(&self, name: &str) -> Result<&NamedField, E> {
         Self::field(self, name).ok_or_else(|| {
-            Error::custom(format_args!(
-                "no field named {} on struct {}",
+            make_custom_error(format_args!(
+                "no field named `{}` on struct `{}`",
                 name,
                 self.type_path(),
             ))
@@ -28,8 +29,8 @@ impl StructLikeInfo for StructInfo {
 
     fn field_at<E: Error>(&self, index: usize) -> Result<&NamedField, E> {
         Self::field_at(self, index).ok_or_else(|| {
-            Error::custom(format_args!(
-                "no field at index {} on struct {}",
+            make_custom_error(format_args!(
+                "no field at index `{}` on struct `{}`",
                 index,
                 self.type_path(),
             ))
@@ -48,8 +49,8 @@ impl StructLikeInfo for StructInfo {
 impl StructLikeInfo for StructVariantInfo {
     fn field<E: Error>(&self, name: &str) -> Result<&NamedField, E> {
         Self::field(self, name).ok_or_else(|| {
-            Error::custom(format_args!(
-                "no field named {} on variant {}",
+            make_custom_error(format_args!(
+                "no field named `{}` on variant `{}`",
                 name,
                 self.name(),
             ))
@@ -58,8 +59,8 @@ impl StructLikeInfo for StructVariantInfo {
 
     fn field_at<E: Error>(&self, index: usize) -> Result<&NamedField, E> {
         Self::field_at(self, index).ok_or_else(|| {
-            Error::custom(format_args!(
-                "no field at index {} on variant {}",
+            make_custom_error(format_args!(
+                "no field at index `{}` on variant `{}`",
                 index,
                 self.name(),
             ))
@@ -92,14 +93,17 @@ where
     while let Some(Ident(key)) = map.next_key::<Ident>()? {
         let field = info.field::<V::Error>(&key).map_err(|_| {
             let fields = info.iter_fields().map(NamedField::name);
-            Error::custom(format_args!(
+            make_custom_error(format_args!(
                 "unknown field `{}`, expected one of {:?}",
                 key,
                 ExpectedValues::from_iter(fields)
             ))
         })?;
         let registration = try_get_registration(*field.ty(), registry)?;
-        let value = map.next_value_seed(TypedReflectDeserializer::new(registration, registry))?;
+        let value = map.next_value_seed(TypedReflectDeserializer::new_internal(
+            registration,
+            registry,
+        ))?;
         dynamic_struct.insert_boxed(&key, value);
     }
 
@@ -156,7 +160,7 @@ where
         }
 
         let value = seq
-            .next_element_seed(TypedReflectDeserializer::new(
+            .next_element_seed(TypedReflectDeserializer::new_internal(
                 try_get_registration(*info.field_at(index)?.ty(), registry)?,
                 registry,
             ))?

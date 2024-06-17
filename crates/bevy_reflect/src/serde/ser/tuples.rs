@@ -23,7 +23,7 @@ impl<'a> Serialize for TupleSerializer<'a> {
         let mut state = serializer.serialize_tuple(self.tuple.field_len())?;
 
         for value in self.tuple.iter_fields() {
-            state.serialize_element(&TypedReflectSerializer::new(value, self.registry))?;
+            state.serialize_element(&TypedReflectSerializer::new_internal(value, self.registry))?;
         }
         state.end()
     }

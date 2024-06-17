@@ -1,3 +1,4 @@
+use crate::serde::de::error_utils::make_custom_error;
 use crate::{TypeRegistration, TypeRegistry};
 use core::fmt::Formatter;
 use serde::de::{DeserializeSeed, Error, Visitor};
@@ -42,7 +43,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypeRegistrationDeserializer<'a> {
                 E: Error,
             {
                 self.0.get_with_type_path(type_path).ok_or_else(|| {
-                    Error::custom(format_args!("No registration found for `{type_path}`"))
+                    make_custom_error(format_args!("no registration found for `{type_path}`"))
                 })
             }
         }

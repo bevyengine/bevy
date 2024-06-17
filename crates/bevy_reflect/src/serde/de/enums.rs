@@ -1,3 +1,4 @@
+use crate::serde::de::error_utils::make_custom_error;
 use crate::serde::de::helpers::ExpectedValues;
 use crate::serde::de::registration_utils::try_get_registration;
 use crate::serde::de::struct_utils::{visit_struct, visit_struct_seq};
@@ -67,10 +68,9 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
                     *TupleLikeInfo::field_at(tuple_info, 0)?.ty(),
                     self.registry,
                 )?;
-                let value = variant.newtype_variant_seed(TypedReflectDeserializer::new(
-                    registration,
-                    self.registry,
-                ))?;
+                let value = variant.newtype_variant_seed(
+                    TypedReflectDeserializer::new_internal(registration, self.registry),
+                )?;
                 let mut dynamic_tuple = DynamicTuple::default();
                 dynamic_tuple.insert_boxed(value);
                 dynamic_tuple.into()
@@ -121,7 +121,7 @@ impl<'de> DeserializeSeed<'de> for VariantDeserializer {
                 E: Error,
             {
                 self.0.variant_at(variant_index as usize).ok_or_else(|| {
-                    Error::custom(format_args!(
+                    make_custom_error(format_args!(
                         "no variant found at index `{}` on enum `{}`",
                         variant_index,
                         self.0.type_path()
@@ -135,7 +135,7 @@ impl<'de> DeserializeSeed<'de> for VariantDeserializer {
             {
                 self.0.variant(variant_name).ok_or_else(|| {
                     let names = self.0.iter().map(VariantInfo::name);
-                    Error::custom(format_args!(
+                    make_custom_error(format_args!(
                         "unknown variant `{}`, expected one of {:?}",
                         variant_name,
                         ExpectedValues::from_iter(names)

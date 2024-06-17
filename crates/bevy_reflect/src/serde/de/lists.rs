@@ -35,9 +35,10 @@ impl<'a, 'de> Visitor<'de> for ListVisitor<'a> {
     {
         let mut list = DynamicList::default();
         let registration = try_get_registration(self.list_info.item_ty(), self.registry)?;
-        while let Some(value) =
-            seq.next_element_seed(TypedReflectDeserializer::new(registration, self.registry))?
-        {
+        while let Some(value) = seq.next_element_seed(TypedReflectDeserializer::new_internal(
+            registration,
+            self.registry,
+        ))? {
             list.push_box(value);
         }
         Ok(list)

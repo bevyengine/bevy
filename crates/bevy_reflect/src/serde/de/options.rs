@@ -1,3 +1,4 @@
+use crate::serde::de::error_utils::make_custom_error;
 use crate::serde::de::registration_utils::try_get_registration;
 use crate::serde::TypedReflectDeserializer;
 use crate::{DynamicEnum, DynamicTuple, EnumInfo, TypeRegistry, VariantInfo};
@@ -46,14 +47,14 @@ impl<'a, 'de> Visitor<'de> for OptionVisitor<'a> {
             VariantInfo::Tuple(tuple_info) if tuple_info.field_len() == 1 => {
                 let field = tuple_info.field_at(0).unwrap();
                 let registration = try_get_registration(*field.ty(), self.registry)?;
-                let de = TypedReflectDeserializer::new(registration, self.registry);
+                let de = TypedReflectDeserializer::new_internal(registration, self.registry);
                 let mut value = DynamicTuple::default();
                 value.insert_boxed(de.deserialize(deserializer)?);
                 let mut option = DynamicEnum::default();
                 option.set_variant("Some", value);
                 Ok(option)
             }
-            info => Err(Error::custom(format_args!(
+            info => Err(make_custom_error(format_args!(
                 "invalid variant, expected `Some` but got `{}`",
                 info.name()
             ))),

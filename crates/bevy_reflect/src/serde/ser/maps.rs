@@ -23,8 +23,8 @@ impl<'a> Serialize for MapSerializer<'a> {
         let mut state = serializer.serialize_map(Some(self.map.len()))?;
         for (key, value) in self.map.iter() {
             state.serialize_entry(
-                &TypedReflectSerializer::new(key, self.registry),
-                &TypedReflectSerializer::new(value, self.registry),
+                &TypedReflectSerializer::new_internal(key, self.registry),
+                &TypedReflectSerializer::new_internal(value, self.registry),
             )?;
         }
         state.end()
