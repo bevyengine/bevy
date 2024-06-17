@@ -160,18 +160,6 @@ impl TextPipeline {
             self.create_buffer(fonts, sections, linebreak_behavior, bounds, scale_factor)?;
 
         let box_size = buffer_dimensions(&buffer);
-        let h_limit = if bounds.x.is_finite() {
-            bounds.x
-        } else {
-            box_size.x
-        };
-
-        let h_anchor = match text_alignment {
-            JustifyText::Left => 0.0,
-            JustifyText::Center => h_limit * 0.5,
-            JustifyText::Right => h_limit * 1.0,
-        }
-        .floor();
         let font_system = &mut acquire_font_system(&mut self.font_system)?;
         let swash_cache = &mut self.swash_cache.0;
 
