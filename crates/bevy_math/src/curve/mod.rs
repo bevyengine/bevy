@@ -215,9 +215,10 @@ pub trait Curve<T> {
     /// Create a new curve by mapping the values of this curve via a function `f`; i.e., if the
     /// sample at time `t` for this curve is `x`, the value at time `t` on the new curve will be
     /// `f(x)`.
-    fn map<S>(self, f: impl Fn(T) -> S) -> impl Curve<S>
+    fn map<S, F>(self, f: F) -> MapCurve<T, S, Self, F>
     where
         Self: Sized,
+        F: Fn(T) -> S,
     {
         MapCurve {
             preimage: self,
@@ -263,9 +264,10 @@ pub trait Curve<T> {
     /// let domain = my_curve.domain();
     /// let eased_curve = my_curve.reparametrize(domain, |t| easing_curve.sample(t).y);
     /// ```
-    fn reparametrize(self, domain: Interval, f: impl Fn(f32) -> f32) -> impl Curve<T>
+    fn reparametrize<F>(self, domain: Interval, f: F) -> ReparamCurve<T, Self, F>
     where
         Self: Sized,
+        F: Fn(f32) -> f32,
     {
         ReparamCurve {
             domain,
@@ -279,26 +281,44 @@ pub trait Curve<T> {
     /// `domain` instead of the current one. This operation is only valid for curves with finite
     /// domains; if either this curve's domain or the given `domain` is infinite, an
     /// [`InfiniteIntervalError`] is returned.
-    fn reparametrize_linear(self, domain: Interval) -> Result<impl Curve<T>, InfiniteIntervalError>
+    fn reparametrize_linear(
+        self,
+        domain: Interval,
+    ) -> Result<LinearReparamCurve<T, Self>, InfiniteIntervalError>
     where
         Self: Sized,
     {
-        let f = domain.linear_map_to(self.domain())?;
-        Ok(self.reparametrize(domain, f))
+        if !domain.is_finite() {
+            return Err(InfiniteIntervalError);
+        }
+
+        Ok(LinearReparamCurve {
+            base: self,
+            new_domain: domain,
+            _phantom: PhantomData,
+        })
     }
 
     /// Reparametrize this [`Curve`] by sampling from another curve.
-    fn reparametrize_by_curve(self, other: &impl Curve<f32>) -> impl Curve<T>
+    ///
+    /// TODO: Figure out what the right signature for this is; currently, this is less flexible than
+    /// just using `C`, because `&C` is a curve anyway, but this version probably footguns less.
+    fn reparametrize_by_curve<C>(self, other: &C) -> CurveReparamCurve<T, Self, &C>
     where
         Self: Sized,
+        C: Curve<f32>,
     {
-        self.reparametrize(other.domain(), |t| other.sample(t))
+        CurveReparamCurve {
+            base: self,
+            reparam_curve: other,
+            _phantom: PhantomData,
+        }
     }
 
     /// Create a new [`Curve`] which is the graph of this one; that is, its output includes the
     /// parameter itself in the samples. For example, if this curve outputs `x` at time `t`, then
     /// the produced curve will produce `(t, x)` at time `t`.
-    fn graph(self) -> impl Curve<(f32, T)>
+    fn graph(self) -> GraphCurve<T, Self>
     where
         Self: Sized,
     {
@@ -313,7 +333,7 @@ pub trait Curve<T> {
     /// sample of `other` at time `t`. The domain of the new curve is the intersection of the
     /// domains of its constituents. If the domain intersection would be empty, an
     /// [`InvalidIntervalError`] is returned.
-    fn zip<S, C>(self, other: C) -> Result<impl Curve<(T, S)>, InvalidIntervalError>
+    fn zip<S, C>(self, other: C) -> Result<ProductCurve<T, S, Self, C>, InvalidIntervalError>
     where
         Self: Sized,
         C: Curve<S> + Sized,
@@ -331,7 +351,7 @@ pub trait Curve<T> {
     /// with outputs of the same type. The domain of the other curve is translated so that its start
     /// coincides with where this curve ends. A [`CompositionError`] is returned if this curve's domain
     /// doesn't have a finite right endpoint or if `other`'s domain doesn't have a finite left endpoint.
-    fn compose<C>(self, other: C) -> Result<impl Curve<T>, CompositionError>
+    fn compose<C>(self, other: C) -> Result<ComposeCurve<T, Self, C>, CompositionError>
     where
         Self: Sized,
         C: Curve<T>,
@@ -413,14 +433,11 @@ pub enum CompositionError {
     LeftInfiniteSecond,
 }
 
-/// A [`Curve`] which takes a constant value over its domain.
+/// A curve which takes a constant value over its domain.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct ConstantCurve<T>
-where
-    T: Clone,
-{
+pub struct ConstantCurve<T> {
     domain: Interval,
     value: T,
 }
@@ -440,16 +457,14 @@ where
     }
 }
 
-/// A [`Curve`] defined by a function.
+/// A curve defined by a function.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct FunctionCurve<T, F>
-where
-    F: Fn(f32) -> T,
-{
+pub struct FunctionCurve<T, F> {
     domain: Interval,
     f: F,
+    _phantom: PhantomData<T>,
 }
 
 impl<T, F> Curve<T> for FunctionCurve<T, F>
@@ -467,7 +482,7 @@ where
     }
 }
 
-/// A [`Curve`] that is defined by explicit neighbor interpolation over a set of samples.
+/// A curve that is defined by explicit neighbor interpolation over a set of samples.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -515,7 +530,7 @@ impl<T, I> SampleCurve<T, I> {
     }
 }
 
-/// A [`Curve`] that is defined by neighbor interpolation over a set of samples.
+/// A curve that is defined by neighbor interpolation over a set of samples.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -550,7 +565,7 @@ impl<T> SampleAutoCurve<T> {
     }
 }
 
-/// A [`Curve`] that is defined by interpolation over unevenly spaced samples with explicit
+/// A curve that is defined by interpolation over unevenly spaced samples with explicit
 /// interpolation.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -609,7 +624,7 @@ impl<T, I> UnevenSampleCurve<T, I> {
     }
 }
 
-/// A [`Curve`] that is defined by interpolation over unevenly spaced samples.
+/// A curve that is defined by interpolation over unevenly spaced samples.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -657,16 +672,12 @@ impl<T> UnevenSampleAutoCurve<T> {
     }
 }
 
-/// A [`Curve`] whose samples are defined by mapping samples from another curve through a
+/// A curve whose samples are defined by mapping samples from another curve through a
 /// given function.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct MapCurve<S, T, C, F>
-where
-    C: Curve<S>,
-    F: Fn(S) -> T,
-{
+pub struct MapCurve<S, T, C, F> {
     preimage: C,
     f: F,
     _phantom: PhantomData<(S, T)>,
@@ -686,44 +697,13 @@ where
     fn sample(&self, t: f32) -> T {
         (self.f)(self.preimage.sample(t))
     }
-
-    #[inline]
-    fn map<R>(self, g: impl Fn(T) -> R) -> impl Curve<R>
-    where
-        Self: Sized,
-    {
-        let gf = move |x| g((self.f)(x));
-        MapCurve {
-            preimage: self.preimage,
-            f: gf,
-            _phantom: PhantomData,
-        }
-    }
-
-    #[inline]
-    fn reparametrize(self, domain: Interval, g: impl Fn(f32) -> f32) -> impl Curve<T>
-    where
-        Self: Sized,
-    {
-        MapReparamCurve {
-            reparam_domain: domain,
-            base: self.preimage,
-            forward_map: self.f,
-            reparam_map: g,
-            _phantom: PhantomData,
-        }
-    }
 }
 
-/// A [`Curve`] whose sample space is mapped onto that of some base curve's before sampling.
+/// A curve whose sample space is mapped onto that of some base curve's before sampling.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct ReparamCurve<T, C, F>
-where
-    C: Curve<T>,
-    F: Fn(f32) -> f32,
-{
+pub struct ReparamCurve<T, C, F> {
     domain: Interval,
     base: C,
     f: F,
@@ -744,112 +724,68 @@ where
     fn sample(&self, t: f32) -> T {
         self.base.sample((self.f)(t))
     }
-
-    #[inline]
-    fn reparametrize(self, domain: Interval, g: impl Fn(f32) -> f32) -> impl Curve<T>
-    where
-        Self: Sized,
-    {
-        let fg = move |t| (self.f)(g(t));
-        ReparamCurve {
-            domain,
-            base: self.base,
-            f: fg,
-            _phantom: PhantomData,
-        }
-    }
-
-    #[inline]
-    fn map<S>(self, g: impl Fn(T) -> S) -> impl Curve<S>
-    where
-        Self: Sized,
-    {
-        MapReparamCurve {
-            reparam_domain: self.domain,
-            base: self.base,
-            forward_map: g,
-            reparam_map: self.f,
-            _phantom: PhantomData,
-        }
-    }
 }
 
-/// A [`Curve`] structure that holds both forward and backward remapping information
-/// in order to optimize repeated calls of [`Curve::map`] and [`Curve::reparametrize`].
-///
-/// Briefly, the point is that the curve just absorbs new functions instead of rebasing
-/// itself inside new structs.
+/// A curve that has had its domain altered by a linear remapping.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct MapReparamCurve<S, T, C, F, G>
-where
-    C: Curve<S>,
-    F: Fn(S) -> T,
-    G: Fn(f32) -> f32,
-{
-    reparam_domain: Interval,
+pub struct LinearReparamCurve<T, C> {
     base: C,
-    forward_map: F,
-    reparam_map: G,
-    _phantom: PhantomData<(S, T)>,
+    /// Invariants: This interval must always be bounded.
+    new_domain: Interval,
+    _phantom: PhantomData<T>,
 }
 
-impl<S, T, C, F, G> Curve<T> for MapReparamCurve<S, T, C, F, G>
+impl<T, C> Curve<T> for LinearReparamCurve<T, C>
 where
-    C: Curve<S>,
-    F: Fn(S) -> T,
-    G: Fn(f32) -> f32,
+    C: Curve<T>,
 {
     #[inline]
     fn domain(&self) -> Interval {
-        self.reparam_domain
+        self.new_domain
     }
 
     #[inline]
     fn sample(&self, t: f32) -> T {
-        (self.forward_map)(self.base.sample((self.reparam_map)(t)))
-    }
-
-    #[inline]
-    fn map<R>(self, g: impl Fn(T) -> R) -> impl Curve<R>
-    where
-        Self: Sized,
-    {
-        let gf = move |x| g((self.forward_map)(x));
-        MapReparamCurve {
-            reparam_domain: self.reparam_domain,
-            base: self.base,
-            forward_map: gf,
-            reparam_map: self.reparam_map,
-            _phantom: PhantomData,
-        }
-    }
-
-    #[inline]
-    fn reparametrize(self, domain: Interval, g: impl Fn(f32) -> f32) -> impl Curve<T>
-    where
-        Self: Sized,
-    {
-        let fg = move |t| (self.reparam_map)(g(t));
-        MapReparamCurve {
-            reparam_domain: domain,
-            base: self.base,
-            forward_map: self.forward_map,
-            reparam_map: fg,
-            _phantom: PhantomData,
-        }
+        let f = self.new_domain.linear_map_to(self.base.domain()).unwrap();
+        self.base.sample(f(t))
     }
 }
 
-/// A [`Curve`] that is the graph of another curve over its parameter space.
+/// A curve that has been reparametrized by another curve, using that curve to transform the
+/// sample times before sampling.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct GraphCurve<T, C>
+pub struct CurveReparamCurve<T, C, D> {
+    base: C,
+    reparam_curve: D,
+    _phantom: PhantomData<T>,
+}
+
+impl<T, C, D> Curve<T> for CurveReparamCurve<T, C, D>
 where
     C: Curve<T>,
+    D: Curve<f32>,
 {
+    #[inline]
+    fn domain(&self) -> Interval {
+        self.reparam_curve.domain()
+    }
+
+    #[inline]
+    fn sample(&self, t: f32) -> T {
+        let sample_time = self.reparam_curve.sample(t);
+        self.base.sample(sample_time)
+    }
+}
+
+/// A curve that is the graph of another curve over its parameter space.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+pub struct GraphCurve<T, C> {
     base: C,
     _phantom: PhantomData<T>,
 }
@@ -869,15 +805,11 @@ where
     }
 }
 
-/// A [`Curve`] that combines the data from two constituent curves into a tuple output type.
+/// A curve that combines the data from two constituent curves into a tuple output type.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct ProductCurve<S, T, C, D>
-where
-    C: Curve<S>,
-    D: Curve<T>,
-{
+pub struct ProductCurve<S, T, C, D> {
     domain: Interval,
     first: C,
     second: D,
@@ -900,16 +832,12 @@ where
     }
 }
 
-/// The [`Curve`] that results from composing one curve with another. The second curve is
+/// The curve that results from composing one curve with another. The second curve is
 /// effectively reparametrized so that its start is at the end of the first.
 ///
 /// For this to be well-formed, the first curve's domain must be right-finite and the second's
 /// must be left-finite.
-pub struct ComposeCurve<T, C, D>
-where
-    C: Curve<T>,
-    D: Curve<T>,
-{
+pub struct ComposeCurve<T, C, D> {
     first: C,
     second: D,
     _phantom: PhantomData<T>,
@@ -945,17 +873,21 @@ where
 }
 
 /// Create a [`Curve`] that constantly takes the given `value` over the given `domain`.
-pub fn constant_curve<T: Clone>(domain: Interval, value: T) -> impl Curve<T> {
+pub fn constant_curve<T: Clone>(domain: Interval, value: T) -> ConstantCurve<T> {
     ConstantCurve { domain, value }
 }
 
 /// Convert the given function `f` into a [`Curve`] with the given `domain`, sampled by
 /// evaluating the function.
-pub fn function_curve<T, F>(domain: Interval, f: F) -> impl Curve<T>
+pub fn function_curve<T, F>(domain: Interval, f: F) -> FunctionCurve<T, F>
 where
     F: Fn(f32) -> T,
 {
-    FunctionCurve { domain, f }
+    FunctionCurve {
+        domain,
+        f,
+        _phantom: PhantomData,
+    }
 }
 
 /// Flip a curve that outputs tuples so that the tuples are arranged the other way.
