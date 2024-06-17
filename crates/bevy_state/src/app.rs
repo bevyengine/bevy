@@ -4,6 +4,7 @@ use bevy_ecs::{
     schedule::{IntoSystemConfigs, ScheduleLabel},
     world::FromWorld,
 };
+use bevy_utils::{tracing::warn, warn_once};
 
 use crate::state::{
     setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
@@ -56,8 +57,16 @@ pub trait AppExtStates {
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self;
 }
 
+/// Separate function to only warn once for all state installation methods.
+fn warn_if_no_states_plugin_installed(app: &SubApp) {
+    if !app.is_plugin_added::<StatesPlugin>() {
+        warn_once!("States were added to the app, but `StatesPlugin` is not installed.");
+    }
+}
+
 impl AppExtStates for SubApp {
     fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
+        warn_if_no_states_plugin_installed(self);
         if !self.world().contains_resource::<State<S>>() {
             setup_state_transitions_in_world(self.world_mut(), Some(Startup.intern()));
             self.init_resource::<State<S>>()
@@ -70,12 +79,16 @@ impl AppExtStates for SubApp {
                 exited: None,
                 entered: Some(state),
             });
+        } else {
+            let name = std::any::type_name::<S>();
+            warn!("State {} is already initialized.", name);
         }
 
         self
     }
 
     fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
+        warn_if_no_states_plugin_installed(self);
         if !self.world().contains_resource::<State<S>>() {
             setup_state_transitions_in_world(self.world_mut(), Some(Startup.intern()));
             self.insert_resource::<State<S>>(State::new(state.clone()))
@@ -87,12 +100,23 @@ impl AppExtStates for SubApp {
                 exited: None,
                 entered: Some(state),
             });
+        } else {
+            // Overwrite previous state and initial event
+            self.insert_resource::<State<S>>(State::new(state.clone()));
+            self.world_mut()
+                .resource_mut::<Events<StateTransitionEvent<S>>>()
+                .clear();
+            self.world_mut().send_event(StateTransitionEvent {
+                exited: None,
+                entered: Some(state),
+            });
         }
 
         self
     }
 
     fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
+        warn_if_no_states_plugin_installed(self);
         if !self
             .world()
             .contains_resource::<Events<StateTransitionEvent<S>>>()
@@ -109,12 +133,16 @@ impl AppExtStates for SubApp {
                 exited: None,
                 entered: state,
             });
+        } else {
+            let name = std::any::type_name::<S>();
+            warn!("Computed state {} is already initialized.", name);
         }
 
         self
     }
 
     fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
+        warn_if_no_states_plugin_installed(self);
         if !self
             .world()
             .contains_resource::<Events<StateTransitionEvent<S>>>()
@@ -132,14 +160,15 @@ impl AppExtStates for SubApp {
                 exited: None,
                 entered: state,
             });
+        } else {
+            let name = std::any::type_name::<S>();
+            warn!("Sub state {} is already initialized.", name);
         }
 
         self
     }
 
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self {
-        use bevy_utils::tracing::warn;
-
         if !self
             .world()
             .contains_resource::<Events<StateTransitionEvent<S>>>()
@@ -190,5 +219,64 @@ impl Plugin for StatesPlugin {
     fn build(&self, app: &mut App) {
         let mut schedule = app.world_mut().resource_mut::<MainScheduleOrder>();
         schedule.insert_after(PreUpdate, StateTransition);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        self as bevy_state,
+        state::{State, StateTransition, StateTransitionEvent},
+    };
+    use bevy_app::App;
+    use bevy_ecs::event::Events;
+    use bevy_state_macros::States;
+
+    use super::AppExtStates;
+
+    #[derive(States, Default, PartialEq, Eq, Hash, Debug, Clone)]
+    enum TestState {
+        #[default]
+        A,
+        B,
+        C,
+    }
+
+    #[test]
+    fn insert_state_can_overwrite_init_state() {
+        let mut app = App::new();
+
+        app.init_state::<TestState>();
+        app.insert_state(TestState::B);
+
+        let world = app.world_mut();
+        world.run_schedule(StateTransition);
+
+        assert_eq!(world.resource::<State<TestState>>().0, TestState::B);
+        let events = world.resource::<Events<StateTransitionEvent<TestState>>>();
+        assert_eq!(events.len(), 1);
+        let mut reader = events.get_reader();
+        let last = reader.read(events).last().unwrap();
+        assert_eq!(last.exited, None);
+        assert_eq!(last.entered, Some(TestState::B));
+    }
+
+    #[test]
+    fn insert_state_can_overwrite_insert_state() {
+        let mut app = App::new();
+
+        app.insert_state(TestState::B);
+        app.insert_state(TestState::C);
+
+        let world = app.world_mut();
+        world.run_schedule(StateTransition);
+
+        assert_eq!(world.resource::<State<TestState>>().0, TestState::C);
+        let events = world.resource::<Events<StateTransitionEvent<TestState>>>();
+        assert_eq!(events.len(), 1);
+        let mut reader = events.get_reader();
+        let last = reader.read(events).last().unwrap();
+        assert_eq!(last.exited, None);
+        assert_eq!(last.entered, Some(TestState::C));
     }
 }

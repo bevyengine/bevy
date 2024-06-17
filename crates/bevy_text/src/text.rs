@@ -184,7 +184,7 @@ impl From<JustifyText> for glyph_brush_layout::HorizontalAlign {
 pub struct TextStyle {
     /// If this is not specified, then
     /// * if `default_font` feature is enabled (enabled by default in `bevy` crate),
-    ///  `FiraMono-subset.ttf` compiled into the library is used.
+    ///      `FiraMono-subset.ttf` compiled into the library is used.
     /// * otherwise no text will be rendered.
     pub font: Handle<Font>,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
