@@ -117,9 +117,9 @@ fn create_text_measure(
 ///
 /// * Measures are regenerated if the target camera's scale factor (or primary window if no specific target) or [`UiScale`] is changed.
 /// * Changes that only modify the colors of a `Text` do not require a new `Measure`. This system
-/// is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
-/// color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
-/// method should be called when only changing the `Text`'s colors.
+///     is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
+///     color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
+///     method should be called when only changing the `Text`'s colors.
 pub fn measure_text_system(
     mut last_scale_factors: Local<EntityHashMap<f32>>,
     fonts: Res<Assets<Font>>,

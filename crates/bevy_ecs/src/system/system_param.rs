@@ -11,7 +11,7 @@ use crate::{
         ReadOnlyQueryData,
     },
     system::{Query, SystemMeta},
-    world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 use bevy_ecs_macros::impl_param_set;
 pub use bevy_ecs_macros::Resource;
@@ -158,6 +158,11 @@ pub unsafe trait SystemParam: Sized {
     #[inline]
     #[allow(unused_variables)]
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {}
+
+    /// Queues any deferred mutations to be applied at the next [`apply_deferred`](crate::prelude::apply_deferred).
+    #[inline]
+    #[allow(unused_variables)]
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {}
 
     /// Creates a parameter to be passed into a [`SystemParamFunction`].
     ///
@@ -712,6 +717,27 @@ unsafe impl SystemParam for &'_ World {
     }
 }
 
+/// SAFETY: `DeferredWorld` can read all components and resources but cannot be used to gain any other mutable references.
+unsafe impl<'w> SystemParam for DeferredWorld<'w> {
+    type State = ();
+    type Item<'world, 'state> = DeferredWorld<'world>;
+
+    fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        system_meta.component_access_set.read_all();
+        system_meta.component_access_set.write_all();
+        system_meta.set_has_deferred();
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        _state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        _change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        world.into_deferred()
+    }
+}
+
 /// A system local [`SystemParam`].
 ///
 /// A local may only be accessed by the system itself and is therefore not visible to other systems.
@@ -848,6 +874,8 @@ impl<'w, T: FromWorld + Send + 'static> BuildableSystemParam for Local<'w, T> {
 pub trait SystemBuffer: FromWorld + Send + 'static {
     /// Applies any deferred mutations to the [`World`].
     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World);
+    /// Queues any deferred mutations to be applied at the next [`apply_deferred`](crate::prelude::apply_deferred).
+    fn queue(&mut self, _system_meta: &SystemMeta, _world: DeferredWorld) {}
 }
 
 /// A [`SystemParam`] that stores a buffer which gets applied to the [`World`] during
@@ -1010,6 +1038,10 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         state.get().apply(system_meta, world);
+    }
+
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
+        state.get().queue(system_meta, world);
     }
 
     unsafe fn get_param<'w, 's>(
@@ -1422,6 +1454,11 @@ macro_rules! impl_system_param_tuple {
             #[inline]
             fn apply(($($param,)*): &mut Self::State, _system_meta: &SystemMeta, _world: &mut World) {
                 $($param::apply($param, _system_meta, _world);)*
+            }
+
+            #[inline]
+            fn queue(($($param,)*): &mut Self::State, _system_meta: &SystemMeta, mut _world: DeferredWorld) {
+                $($param::queue($param, _system_meta, _world.reborrow());)*
             }
 
             #[inline]
