@@ -191,15 +191,6 @@ pub struct TextStyle {
     /// * if `default_font` feature is enabled (enabled by default in `bevy` crate),
     ///   `FiraMono-subset.ttf` compiled into the library is used.
     /// * otherwise no text will be rendered.
-    ///
-    /// # A note on fonts
-    ///
-    /// `Font` may differ from the everyday notion of what a "font" is.
-    /// A font *face* (e.g. Fira Sans Semibold Italic) is part of a font *family* (e.g. Fira Sans),
-    /// and is distinguished from other font faces in the same family
-    /// by its style (e.g. italic), its weight (e.g. bold) and its stretch (e.g. condensed).
-    ///
-    /// Bevy currently loads a single font face as a single `Font` asset.
     pub font: Handle<Font>,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     ///

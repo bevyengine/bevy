@@ -6,6 +6,15 @@ use bevy_reflect::TypePath;
 /// An [`Asset`] that contains the data for a loaded font, if loaded as an asset.
 ///
 /// Loaded by [`FontLoader`](crate::FontLoader).
+///
+/// # A note on fonts
+///
+/// `Font` may differ from the everyday notion of what a "font" is.
+/// A font *face* (e.g. Fira Sans Semibold Italic) is part of a font *family* (e.g. Fira Sans),
+/// and is distinguished from other font faces in the same family
+/// by its style (e.g. italic), its weight (e.g. bold) and its stretch (e.g. condensed).
+///
+/// Bevy currently loads a single font face as a single `Font` asset.
 #[derive(Debug, TypePath, Clone, Asset)]
 pub struct Font {
     /// Content of a font file as bytes
