@@ -88,12 +88,14 @@ fn create_text_measure(
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
     mut text_flags: Mut<TextFlags>,
+    buffer: &mut CosmicBuffer,
 ) {
     match text_pipeline.create_text_measure(
         fonts,
         &text.sections,
         scale_factor,
         text.linebreak_behavior,
+        buffer,
     ) {
         Ok(measure) => {
             if text.linebreak_behavior == BreakLineOn::NoWrap {
@@ -141,6 +143,7 @@ pub fn measure_text_system(
             &mut ContentSize,
             &mut TextFlags,
             Option<&TargetCamera>,
+            &mut CosmicBuffer,
         ),
         With<Node>,
     >,
@@ -148,7 +151,7 @@ pub fn measure_text_system(
 ) {
     let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
 
-    for (text, content_size, text_flags, camera) in &mut text_query {
+    for (text, content_size, text_flags, camera, mut buffer) in &mut text_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
@@ -176,6 +179,7 @@ pub fn measure_text_system(
                 &mut text_pipeline,
                 content_size,
                 text_flags,
+                buffer.as_mut(),
             );
         }
     }

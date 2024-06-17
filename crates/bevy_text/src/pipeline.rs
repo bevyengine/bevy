@@ -58,83 +58,6 @@ pub struct TextPipeline {
 impl TextPipeline {
     /// Utilizes [cosmic_text::Buffer] to shape and layout text
     ///
-    /// Negative or 0.0 font sizes will not be laid out, and an empty buffer will be returned.
-    pub fn create_buffer(
-        &mut self,
-        fonts: &Assets<Font>,
-        sections: &[TextSection],
-        linebreak_behavior: BreakLineOn,
-        bounds: Vec2,
-        scale_factor: f64,
-    ) -> Result<Buffer, TextError> {
-        // TODO: Support multiple section font sizes, pending upstream implementation in cosmic_text
-        // For now, just use the first section's size or a default
-        let font_size = sections
-            .get(0)
-            .map(|s| s.style.font_size)
-            .unwrap_or_else(|| crate::TextStyle::default().font_size)
-            as f64
-            * scale_factor;
-
-        // TODO: Support line height as an option. Unitless `1.2` is the default used in browsers (1.2x font size).
-        let line_height = font_size * 1.2;
-        let (font_size, line_height) = (font_size as f32, line_height as f32);
-        let metrics = Metrics::new(font_size, line_height);
-
-        let font_system = &mut acquire_font_system(&mut self.font_system)?;
-
-        // return early if the fonts are not loaded yet
-        for section in sections {
-            fonts
-                .get(section.style.font.id())
-                .ok_or(TextError::NoSuchFont)?;
-        }
-
-        let spans: Vec<(&str, Attrs)> = sections
-            .iter()
-            .filter(|section| section.style.font_size > 0.0)
-            .enumerate()
-            .map(|(section_index, section)| {
-                (
-                    &section.value[..],
-                    get_attrs(
-                        section,
-                        section_index,
-                        font_system,
-                        &mut self.map_handle_to_font_id,
-                        fonts,
-                    ),
-                )
-            })
-            .collect();
-
-        if spans.is_empty() {
-            // return empty buffer if no fonts are larger than 0, making sure that the line height is not zero,
-            // since that results in a panic in cosmic-text
-            let metrics = Metrics::new(0.0, 0.000001);
-            return Ok(Buffer::new_empty(metrics));
-        }
-
-        // TODO: cache buffers (see Iced / glyphon)
-        let mut buffer = Buffer::new_empty(metrics);
-        buffer.set_size(font_system, Some(bounds.x.ceil()), None);
-
-        buffer.set_wrap(
-            font_system,
-            match linebreak_behavior {
-                BreakLineOn::WordBoundary => Wrap::Word,
-                BreakLineOn::AnyCharacter => Wrap::Glyph,
-                BreakLineOn::NoWrap => Wrap::None,
-            },
-        );
-
-        buffer.set_rich_text(font_system, spans, Attrs::new(), Shaping::Advanced);
-
-        Ok(buffer)
-    }
-
-    /// Utilizes [cosmic_text::Buffer] to shape and layout text
-    ///
     /// Negative or 0.0 font sizes will not be laid out.
     pub fn update_buffer(
         &mut self,
@@ -332,15 +255,17 @@ impl TextPipeline {
         sections: &[TextSection],
         scale_factor: f64,
         linebreak_behavior: BreakLineOn,
+        buffer: &mut CosmicBuffer,
     ) -> Result<TextMeasureInfo, TextError> {
         const MIN_WIDTH_CONTENT_BOUNDS: Vec2 = Vec2::new(0.0, f32::INFINITY);
 
-        let mut buffer = self.create_buffer(
+        self.update_buffer(
             fonts,
             sections,
             linebreak_behavior,
             MIN_WIDTH_CONTENT_BOUNDS,
             scale_factor,
+            buffer,
         )?;
 
         let min_width_content_size = buffer_dimensions(&buffer);
@@ -355,7 +280,9 @@ impl TextPipeline {
             min: min_width_content_size,
             max: max_width_content_size,
             font_system: Arc::clone(&self.font_system.0),
-            buffer,
+            // TODO: This clone feels wasteful, is there another way to structure TextMeasureInfo
+            // that it doesn't need to own a buffer? - bytemunch
+            buffer: buffer.0.clone(),
         })
     }
 }
