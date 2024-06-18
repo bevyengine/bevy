@@ -224,11 +224,11 @@ fn find_connected_meshlets(
     }
 
     // For each meshlet pair, count how many edges they share
-    let mut shared_counts = HashMap::new();
+    let mut shared_edge_count = HashMap::new();
 
     for (_, meshlet_ids) in edges_to_meshlets {
         for (meshlet_id1, meshlet_id2) in meshlet_ids.into_iter().tuple_combinations() {
-            let count = shared_counts
+            let count = shared_edge_count
                 .entry((meshlet_id1.min(meshlet_id2), meshlet_id1.max(meshlet_id2)))
                 .or_insert(0);
             *count += 1;
@@ -242,7 +242,7 @@ fn find_connected_meshlets(
         connected_meshlets.insert(meshlet_id, Vec::new());
     }
 
-    for ((meshlet_id1, meshlet_id2), shared_count) in shared_counts {
+    for ((meshlet_id1, meshlet_id2), shared_count) in shared_edge_count {
         // We record id1->id2 and id2->id1 as adjacency is symmetrical
         connected_meshlets
             .get_mut(&meshlet_id1)
