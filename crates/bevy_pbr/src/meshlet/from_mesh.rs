@@ -200,7 +200,7 @@ fn find_connected_meshlets(
     simplification_queue: Range<usize>,
     meshlets: &Meshlets,
 ) -> HashMap<usize, Vec<(usize, usize)>> {
-    // for each edge, gather all meshlets that use it
+    // For each edge, gather all meshlets that use it
     let mut edges_to_meshlets = HashMap::new();
 
     for meshlet_id in simplification_queue.clone() {
@@ -214,7 +214,8 @@ fn find_connected_meshlets(
                 let vec = edges_to_meshlets
                     .entry(edge)
                     .or_insert_with(SmallVec::<[usize; 2]>::new);
-                // meshlets are added in order, so we can just check the last element to deduplicate
+                // Meshlets are added in order, so we can just check the last element to deduplicate,
+                // in the case of two triangles sharing the same edge within a single meshlet
                 if vec.last() != Some(&meshlet_id) {
                     vec.push(meshlet_id);
                 }
@@ -222,7 +223,7 @@ fn find_connected_meshlets(
         }
     }
 
-    // for each meshlet pair, count how many edges they share
+    // For each meshlet pair, count how many edges they share
     let mut shared_counts = HashMap::new();
 
     for (_, meshlet_ids) in edges_to_meshlets {
@@ -234,7 +235,7 @@ fn find_connected_meshlets(
         }
     }
 
-    // for each meshlet, gather all meshlets that share at least one edge along with shared edge count
+    // For each meshlet, gather all meshlets that share at least one edge along with shared edge count
     let mut connected_meshlets = HashMap::new();
 
     for meshlet_id in simplification_queue.clone() {
@@ -242,7 +243,7 @@ fn find_connected_meshlets(
     }
 
     for ((meshlet_id1, meshlet_id2), shared_count) in shared_counts {
-        // note, we record id1->id2 and id2->id1 as adjacency is symmetrical
+        // We record id1->id2 and id2->id1 as adjacency is symmetrical
         connected_meshlets
             .get_mut(&meshlet_id1)
             .unwrap()
@@ -253,7 +254,7 @@ fn find_connected_meshlets(
             .push((meshlet_id1, shared_count));
     }
 
-    // the order of meshlets depends on hash traversal order; to produce deterministic results, sort them
+    // The order of meshlets depends on hash traversal order; to produce deterministic results, sort them
     for (_, connected_meshlets) in connected_meshlets.iter_mut() {
         connected_meshlets.sort();
     }
