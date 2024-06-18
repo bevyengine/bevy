@@ -689,7 +689,6 @@ pub fn check_dir_light_mesh_visibility(
     mut view_visible_entities_queue: Local<Parallel<Vec<Vec<Entity>>>>,
 ) {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
-
     directional_lights.iter_mut().for_each(
         |(
             directional_light,
