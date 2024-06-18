@@ -63,6 +63,7 @@ default = [
   "bevy_winit",
   "bevy_core_pipeline",
   "bevy_pbr",
+  "bevy_picking",
   "bevy_gltf",
   "bevy_render",
   "bevy_sprite",
@@ -122,6 +123,9 @@ bevy_pbr = [
   "bevy_render",
   "bevy_core_pipeline",
 ]
+
+# Provides picking functionality
+bevy_picking = ["bevy_internal/bevy_picking"]
 
 # Provides rendering functionality
 bevy_render = ["bevy_internal/bevy_render", "bevy_color"]
@@ -2535,6 +2539,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "observers"
+path = "examples/ecs/observers.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.observers]
+name = "Observers"
+description = "Demonstrates observers that react to events (both built-in life-cycle events and custom events)"
+category = "ECS (Entity Component System)"
+wasm = true
+
+[[example]]
 name = "3d_rotation"
 path = "examples/transforms/3d_rotation.rs"
 doc-scrape-examples = true
@@ -3116,6 +3131,17 @@ doc-scrape-examples = true
 [package.metadata.example.2d_top_down_camera]
 name = "2D top-down camera"
 description = "A 2D top-down camera smoothly following player movements"
+category = "Camera"
+wasm = true
+
+[[example]]
+name = "first_person_view_model"
+path = "examples/camera/first_person_view_model.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.first_person_view_model]
+name = "First person view model"
+description = "A first-person camera that uses a world model and a view model with different field of views (FOV)"
 category = "Camera"
 wasm = true
 

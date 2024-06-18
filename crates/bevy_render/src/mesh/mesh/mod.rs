@@ -100,25 +100,25 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// ## Common points of confusion
 ///
 /// - UV maps in Bevy start at the top-left, see [`ATTRIBUTE_UV_0`](Mesh::ATTRIBUTE_UV_0),
-/// other APIs can have other conventions, `OpenGL` starts at bottom-left.
+///     other APIs can have other conventions, `OpenGL` starts at bottom-left.
 /// - It is possible and sometimes useful for multiple vertices to have the same
-/// [position attribute](Mesh::ATTRIBUTE_POSITION) value,
-/// it's a common technique in 3D modelling for complex UV mapping or other calculations.
+///     [position attribute](Mesh::ATTRIBUTE_POSITION) value,
+///     it's a common technique in 3D modelling for complex UV mapping or other calculations.
 /// - Bevy performs frustum culling based on the [`Aabb`] of meshes, which is calculated
-/// and added automatically for new meshes only. If a mesh is modified, the entity's [`Aabb`]
-/// needs to be updated manually or deleted so that it is re-calculated.
+///     and added automatically for new meshes only. If a mesh is modified, the entity's [`Aabb`]
+///     needs to be updated manually or deleted so that it is re-calculated.
 ///
 /// ## Use with `StandardMaterial`
 ///
 /// To render correctly with `StandardMaterial`, a mesh needs to have properly defined:
 /// - [`UVs`](Mesh::ATTRIBUTE_UV_0): Bevy needs to know how to map a texture onto the mesh
-/// (also true for `ColorMaterial`).
+///     (also true for `ColorMaterial`).
 /// - [`Normals`](Mesh::ATTRIBUTE_NORMAL): Bevy needs to know how light interacts with your mesh.
-/// [0.0, 0.0, 1.0] is very common for simple flat meshes on the XY plane,
-/// because simple meshes are smooth and they don't require complex light calculations.
+///     [0.0, 0.0, 1.0] is very common for simple flat meshes on the XY plane,
+///     because simple meshes are smooth and they don't require complex light calculations.
 /// - Vertex winding order: by default, `StandardMaterial.cull_mode` is [`Some(Face::Back)`](crate::render_resource::Face),
-/// which means that Bevy would *only* render the "front" of each triangle, which
-/// is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
+///     which means that Bevy would *only* render the "front" of each triangle, which
+///     is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
 #[derive(Asset, Debug, Clone, Reflect)]
 pub struct Mesh {
     #[reflect(ignore)]
