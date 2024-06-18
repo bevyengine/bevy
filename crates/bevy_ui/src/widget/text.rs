@@ -1,5 +1,6 @@
 use crate::{
-    ContentSize, DefaultUiCamera, FixedMeasure, Measure, Node, NodeMeasure, TargetCamera, UiScale,
+    ContentSize, DefaultUiCamera, FixedMeasure, Measure, MeasureArgs, Node, NodeMeasure,
+    TargetCamera, UiScale,
 };
 use bevy_asset::Assets;
 use bevy_ecs::{
@@ -47,14 +48,14 @@ pub struct TextMeasure {
 }
 
 impl Measure for TextMeasure {
-    fn measure(
-        &mut self,
-        width: Option<f32>,
-        height: Option<f32>,
-        available_width: AvailableSpace,
-        _available_height: AvailableSpace,
-        _style: &taffy::Style,
-    ) -> Vec2 {
+    fn measure(&mut self, measure_args: MeasureArgs, _style: &taffy::Style) -> Vec2 {
+        let MeasureArgs {
+            width,
+            height,
+            available_width,
+            font_system,
+            ..
+        } = measure_args;
         let x = width.unwrap_or_else(|| match available_width {
             AvailableSpace::Definite(x) => {
                 // It is possible for the "min content width" to be larger than
@@ -70,7 +71,9 @@ impl Measure for TextMeasure {
         height
             .map_or_else(
                 || match available_width {
-                    AvailableSpace::Definite(_) => self.info.compute_size(Vec2::new(x, f32::MAX)),
+                    AvailableSpace::Definite(_) => {
+                        self.info.compute_size(Vec2::new(x, f32::MAX), font_system)
+                    }
                     AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
                     AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
                 },
