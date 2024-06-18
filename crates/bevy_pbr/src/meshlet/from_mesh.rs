@@ -11,6 +11,7 @@ use meshopt::{
     simplify, simplify_scale, Meshlets, SimplifyOptions, VertexDataAdapter,
 };
 use metis::Graph;
+use smallvec::SmallVec;
 use std::{borrow::Cow, ops::Range};
 
 impl MeshletMesh {
@@ -210,8 +211,10 @@ fn find_connected_meshlets(
                 let v1 = meshlet.vertices[i[(k + 1) % 3] as usize];
                 let edge = (v0.min(v1), v0.max(v1));
 
-                let vec = edges_to_meshlets.entry(edge).or_insert_with(Vec::new);
-                // meshlets are processed in order, so we can just check the last element to deduplicate
+                let vec = edges_to_meshlets
+                    .entry(edge)
+                    .or_insert_with(SmallVec::<[usize; 2]>::new);
+                // meshlets are added in order, so we can just check the last element to deduplicate
                 if vec.last() != Some(&meshlet_id) {
                     vec.push(meshlet_id);
                 }
