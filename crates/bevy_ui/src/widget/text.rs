@@ -115,11 +115,7 @@ fn create_text_measure(
             // Try again next frame
             text_flags.needs_new_measure_func = true;
         }
-        Err(
-            e @ (TextError::FailedToAddGlyph(_)
-            | TextError::FailedToAcquireMutex
-            | TextError::FailedToGetGlyphImage(_)),
-        ) => {
+        Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
             panic!("Fatal error when processing text: {e}.");
         }
     };
@@ -235,11 +231,7 @@ fn queue_text(
                 // There was an error processing the text layout, try again next frame
                 text_flags.needs_recompute = true;
             }
-            Err(
-                e @ (TextError::FailedToAddGlyph(_)
-                | TextError::FailedToAcquireMutex
-                | TextError::FailedToGetGlyphImage(_)),
-            ) => {
+            Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
                 panic!("Fatal error when processing text: {e}.");
             }
             Ok(mut info) => {
