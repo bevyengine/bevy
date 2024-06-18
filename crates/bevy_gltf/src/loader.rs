@@ -1,6 +1,6 @@
 use crate::{
     vertex_attributes::convert_attribute, Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras,
-    GltfMeshExtras, GltfNode, GltfSceneExtras, GltfSkin,
+    GltfMaterialName, GltfMeshExtras, GltfNode, GltfSceneExtras, GltfSkin,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -1366,6 +1366,10 @@ fn load_node(
                         mesh_entity.insert(GltfMaterialExtras {
                             value: extras.get().to_string(),
                         });
+                    }
+
+                    if let Some(name) = material.name() {
+                        mesh_entity.insert(GltfMaterialName(String::from(name)));
                     }
 
                     mesh_entity.insert(Name::new(primitive_name(&mesh, &primitive)));
