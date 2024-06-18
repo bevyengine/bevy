@@ -9,6 +9,7 @@ use bevy::{
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/extended_material.wgsl";
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
