@@ -207,12 +207,12 @@ impl<'a, E: Event> EventMutatorParIter<'a, E> {
         mut self,
         func: FN,
     ) {
-        #[cfg(any(target_arch = "wasm32"))]
+        #[cfg(target_arch = "wasm32")]
         {
             self.into_iter().for_each(|(e, i)| func(e, i));
         }
 
-        #[cfg(all(not(target_arch = "wasm32")))]
+        #[cfg(not(target_arch = "wasm32"))]
         {
             let pool = bevy_tasks::ComputeTaskPool::get();
             let thread_count = pool.thread_num();

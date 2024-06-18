@@ -205,12 +205,12 @@ impl<'a, E: Event> EventParIter<'a, E> {
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     pub fn for_each_with_id<FN: Fn(&'a E, EventId<E>) + Send + Sync + Clone>(self, func: FN) {
-        #[cfg(any(target_arch = "wasm32"))]
+        #[cfg(target_arch = "wasm32")]
         {
             self.into_iter().for_each(|(e, i)| func(e, i));
         }
 
-        #[cfg(all(not(target_arch = "wasm32")))]
+        #[cfg(not(target_arch = "wasm32"))]
         {
             let pool = bevy_tasks::ComputeTaskPool::get();
             let thread_count = pool.thread_num();
