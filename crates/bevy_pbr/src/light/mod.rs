@@ -690,13 +690,8 @@ pub fn check_dir_light_mesh_visibility(
 ) {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
 
-    for (
-        directional_light,
-        frusta,
-        mut visible_entities,
-        maybe_view_mask,
-        light_view_visibility,
-    ) in &mut directional_lights
+    for (directional_light, frusta, mut visible_entities, maybe_view_mask, light_view_visibility) in
+        &mut directional_lights
     {
         let mut views_to_remove = Vec::new();
         for (view, cascade_view_entities) in &mut visible_entities.entities {
@@ -800,10 +795,8 @@ pub fn check_dir_light_mesh_visibility(
                     });
             }
         }
-    }
 
-    for (_, _, mut cascades_visible_entities, _, _) in &mut directional_lights {
-        for (_, cascade_view_entities) in &mut cascades_visible_entities.entities {
+        for (_, cascade_view_entities) in &mut visible_entities.entities {
             cascade_view_entities
                 .iter_mut()
                 .map(|x| x.get_mut::<WithMesh>())
