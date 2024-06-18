@@ -721,6 +721,10 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
     fn chain(self) -> Self {
         self.chain_inner()
     }
+
+    fn chain_ignore_deferred(self) -> Self {
+        self.chain_ignore_deferred_inner()
+    }
 }
 
 impl<S: SystemSet> IntoSystemSetConfigs for S {
