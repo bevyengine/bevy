@@ -728,7 +728,7 @@ fn parse_examples() -> Vec<Example> {
         .flat_map(|val| {
             let technical_name = val.get("name").unwrap().as_str().unwrap().to_string();
 
-            let source_code = fs::read_to_string(&val["path"].as_str().unwrap()).unwrap();
+            let source_code = fs::read_to_string(val["path"].as_str().unwrap()).unwrap();
             let shader_regex =
                 Regex::new(r"(shaders\/\w+\.wgsl)|(shaders\/\w+\.frag)|(shaders\/\w+\.vert)")
                     .unwrap();
