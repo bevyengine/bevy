@@ -705,7 +705,7 @@ pub fn check_dir_light_mesh_visibility(
                         cascade_view_entities.resize(view_frusta.len(), Default::default());
                         cascade_view_entities
                             .iter_mut()
-                            .for_each(|x| x.entities.clear());
+                            .for_each(|x| x.clear::<WithMesh>());
                     }
                     None => views_to_remove.push(*view),
                 };
