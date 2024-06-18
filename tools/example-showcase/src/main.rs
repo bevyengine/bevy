@@ -546,7 +546,8 @@ aliases = [\"/examples{}/{}/{}\"]
 technical_name = \"{}\"
 link = \"/examples{}/{}/{}\"
 image = \"../static/screenshots/{}/{}.png\"
-code_path = \"content/examples{}/{}\"{}
+code_path = \"content/examples{}/{}\"
+shader_code_paths = {:?}
 github_code_path = \"{}\"
 header_message = \"Examples ({})\"
 +++",
@@ -581,10 +582,7 @@ header_message = \"Examples ({})\"
                                 .skip(1)
                                 .collect::<PathBuf>()
                                 .display(),
-                            match to_show.shader_paths.len() {
-                                0 => "".to_string(),
-                                _ => format!("\nshader_code_paths = {:?}", to_show.shader_paths),
-                            },
+                            to_show.shader_paths,
                             &to_show.path,
                             match api {
                                 WebApi::Webgpu => "WebGPU",
