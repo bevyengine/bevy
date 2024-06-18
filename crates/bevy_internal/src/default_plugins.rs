@@ -105,7 +105,7 @@ impl PluginGroup for DefaultPlugins {
 
         #[cfg(feature = "bevy_text")]
         {
-            group = group.add(bevy_text::TextPlugin);
+            group = group.add(bevy_text::TextPlugin::default());
         }
 
         #[cfg(feature = "bevy_ui")]

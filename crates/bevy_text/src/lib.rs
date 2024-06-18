@@ -75,8 +75,19 @@ use bevy_sprite::SpriteSystem;
 ///
 /// When the `bevy_text` feature is enabled with the `bevy` crate, this
 /// plugin is included by default in the `DefaultPlugins`.
-#[derive(Default)]
-pub struct TextPlugin;
+pub struct TextPlugin {
+    /// If [false], some characters (esspecially Unicode emojies) might not load properly due to unsupported font
+    /// Caution: this can be relatively slow
+    pub load_system_fonts: bool,
+}
+
+impl Default for TextPlugin {
+    fn default() -> Self {
+        Self {
+            load_system_fonts: false,
+        }
+    }
+}
 
 /// Text is rendered for two different view projections;
 /// 2-dimensional text ([`Text2dBundle`]) is rendered in "world space" with a `BottomToTop` Y-axis,
@@ -101,7 +112,7 @@ impl Plugin for TextPlugin {
             .register_type::<TextBounds>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSets>()
-            .insert_resource(TextPipeline::default())
+            .insert_resource(TextPipeline::new(self.load_system_fonts))
             .add_systems(
                 PostUpdate,
                 (
