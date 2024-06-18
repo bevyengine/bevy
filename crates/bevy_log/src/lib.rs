@@ -173,14 +173,13 @@ impl Plugin for LogPlugin {
         let default_filter = { format!("{},{}", self.level, self.filter) };
         let filter_layer = EnvFilter::try_from_default_env()
             .or_else(|from_env_error| {
-                if let Some(err) = from_env_error
+                _ = from_env_error
                     .source()
-                    .unwrap()
-                    .downcast_ref::<ParseError>()
-                {
-                    // we cannot use the `error!` macro here because the logger is not ready yet.
-                    eprintln!("LogPlugin failed to parse filter from env: {}", err);
-                }
+                    .and_then(|source| source.downcast_ref::<ParseError>())
+                    .map(|parse_err| {
+                        // we cannot use the `error!` macro here because the logger is not ready yet.
+                        eprintln!("LogPlugin failed to parse filter from env: {}", parse_err);
+                    });
 
                 Ok::<EnvFilter, FromEnvError>(EnvFilter::builder().parse_lossy(&default_filter))
             })
