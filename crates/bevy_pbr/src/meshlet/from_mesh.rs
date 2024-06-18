@@ -256,7 +256,7 @@ fn find_connected_meshlets(
 
 fn group_meshlets(
     simplification_queue: Range<usize>,
-    connected_meshlets_per_meshlet: &Vec<Vec<(usize, usize)>>,
+    connected_meshlets_per_meshlet: &[Vec<(usize, usize)>],
 ) -> Vec<Vec<usize>> {
     let mut xadj = Vec::with_capacity(simplification_queue.len() + 1);
     let mut adjncy = Vec::new();
