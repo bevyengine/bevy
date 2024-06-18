@@ -685,7 +685,7 @@ pub fn check_dir_light_mesh_visibility(
         ),
     >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
-    mut visible_entities_queue: Local<Parallel<Vec<Entity>>>,
+    mut defer_visible_entities_queue: Local<Parallel<Vec<Entity>>>,
     mut view_visible_entities_queue: Local<Parallel<Vec<Vec<Entity>>>>,
 ) {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
@@ -718,7 +718,7 @@ pub fn check_dir_light_mesh_visibility(
 
         // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
         if !directional_light.shadows_enabled || !light_view_visibility.get() {
-            return;
+            continue;
         }
 
         let view_mask = maybe_view_mask.unwrap_or_default();
@@ -728,9 +728,9 @@ pub fn check_dir_light_mesh_visibility(
                 || {
                     let mut entities = view_visible_entities_queue.borrow_local_mut();
                     entities.resize(view_frusta.len(), Vec::default());
-                    (visible_entities_queue.borrow_local_mut(), entities)
+                    (defer_visible_entities_queue.borrow_local_mut(), entities)
                 },
-                |(queue0, queue1),
+                |(defer_visible_entities_local_queue, view_visible_entities_local_queue),
                  (
                     entity,
                     inherited_visibility,
@@ -759,8 +759,9 @@ pub fn check_dir_light_mesh_visibility(
 
                     if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
                         let mut visible = false;
-                        for (frustum, frustum_visible_entities) in
-                            view_frusta.iter().zip(queue1.iter_mut())
+                        for (frustum, frustum_visible_entities) in view_frusta
+                            .iter()
+                            .zip(view_visible_entities_local_queue.iter_mut())
                         {
                             // Disable near-plane culling, as a shadow caster could lie before the near plane.
                             if !frustum.intersects_obb(aabb, &transform.affine(), false, true) {
@@ -771,11 +772,12 @@ pub fn check_dir_light_mesh_visibility(
                             frustum_visible_entities.push(entity);
                         }
                         if visible {
-                            queue0.push(entity);
+                            defer_visible_entities_local_queue.push(entity);
                         }
                     } else {
-                        queue0.push(entity);
-                        for frustum_visible_entities in queue1.iter_mut() {
+                        defer_visible_entities_local_queue.push(entity);
+                        for frustum_visible_entities in view_visible_entities_local_queue.iter_mut()
+                        {
                             frustum_visible_entities.push(entity);
                         }
                     }
@@ -805,7 +807,7 @@ pub fn check_dir_light_mesh_visibility(
     }
 
     // TODO: use resource to avoid unnecessary memory alloc
-    let mut defer_queue = std::mem::take(visible_entities_queue.deref_mut());
+    let mut defer_queue = std::mem::take(defer_visible_entities_queue.deref_mut());
     commands.add(move |world: &mut World| {
         let mut query = world.query::<&mut ViewVisibility>();
         for entities in defer_queue.iter_mut() {
@@ -850,8 +852,8 @@ pub fn check_point_light_mesh_visibility(
         ),
     >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
-    mut cubmap_visible_entity_queue: Local<Parallel<[Vec<Entity>; 6]>>,
-    mut spot_visible_entity_queue: Local<Parallel<Vec<Entity>>>,
+    mut cubemap_visible_entities_queue: Local<Parallel<[Vec<Entity>; 6]>>,
+    mut spot_visible_entities_queue: Local<Parallel<Vec<Entity>>>,
 ) {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
     for visible_lights in &visible_point_lights {
@@ -881,8 +883,8 @@ pub fn check_point_light_mesh_visibility(
                 };
 
                 visible_entity_query.par_iter_mut().for_each_init(
-                    || cubmap_visible_entity_queue.borrow_local_mut(),
-                    |queue,
+                    || cubemap_visible_entities_queue.borrow_local_mut(),
+                    |cubemap_visible_entities_local_queue,
                      (
                         entity,
                         inherited_visibility,
@@ -915,8 +917,9 @@ pub fn check_point_light_mesh_visibility(
                                 return;
                             }
 
-                            for (frustum, visible_entities) in
-                                cubemap_frusta.iter().zip(queue.iter_mut())
+                            for (frustum, visible_entities) in cubemap_frusta
+                                .iter()
+                                .zip(cubemap_visible_entities_local_queue.iter_mut())
                             {
                                 if frustum.intersects_obb(aabb, &model_to_world, true, true) {
                                     view_visibility.set();
@@ -925,14 +928,15 @@ pub fn check_point_light_mesh_visibility(
                             }
                         } else {
                             view_visibility.set();
-                            for visible_entities in queue.iter_mut() {
+                            for visible_entities in cubemap_visible_entities_local_queue.iter_mut()
+                            {
                                 visible_entities.push(entity);
                             }
                         }
                     },
                 );
 
-                for entities in cubmap_visible_entity_queue.iter_mut() {
+                for entities in cubemap_visible_entities_queue.iter_mut() {
                     cubemap_visible_entities
                         .iter_mut()
                         .map(|v| v.get_mut::<WithMesh>())
@@ -963,8 +967,8 @@ pub fn check_point_light_mesh_visibility(
                 };
 
                 visible_entity_query.par_iter_mut().for_each_init(
-                    || spot_visible_entity_queue.borrow_local_mut(),
-                    |queue,
+                    || spot_visible_entities_queue.borrow_local_mut(),
+                    |spot_visible_entities_local_queue,
                      (
                         entity,
                         inherited_visibility,
@@ -1000,16 +1004,16 @@ pub fn check_point_light_mesh_visibility(
 
                             if frustum.intersects_obb(aabb, &model_to_world, true, true) {
                                 view_visibility.set();
-                                queue.push(entity);
+                                spot_visible_entities_local_queue.push(entity);
                             }
                         } else {
                             view_visibility.set();
-                            queue.push(entity);
+                            spot_visible_entities_local_queue.push(entity);
                         }
                     },
                 );
 
-                for entities in spot_visible_entity_queue.iter_mut() {
+                for entities in spot_visible_entities_queue.iter_mut() {
                     visible_entities.get_mut::<WithMesh>().append(entities);
                 }
 
