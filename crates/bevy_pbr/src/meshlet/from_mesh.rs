@@ -74,10 +74,10 @@ impl MeshletMesh {
 
             let next_lod_start = meshlets.len();
 
-            for group_meshlets in groups.values().filter(|group| group.len() > 1) {
+            for group_meshlets in groups.into_iter().filter(|group| group.len() > 1) {
                 // Simplify the group to ~50% triangle count
                 let Some((simplified_group_indices, mut group_error)) = simplify_meshlet_groups(
-                    group_meshlets,
+                    &group_meshlets,
                     &meshlets,
                     &vertices,
                     lod_level,
@@ -101,7 +101,7 @@ impl MeshletMesh {
 
                 // For each meshlet in the group set their parent LOD bounding sphere to that of the simplified group
                 for meshlet_id in group_meshlets {
-                    bounding_spheres[*meshlet_id].parent_lod = group_bounding_sphere;
+                    bounding_spheres[meshlet_id].parent_lod = group_bounding_sphere;
                 }
 
                 // Build new meshlets using the simplified group
@@ -199,7 +199,7 @@ fn compute_meshlets(indices: &[u32], vertices: &VertexDataAdapter) -> Meshlets {
 fn find_connected_meshlets(
     simplification_queue: Range<usize>,
     meshlets: &Meshlets,
-) -> HashMap<usize, Vec<(usize, usize)>> {
+) -> Vec<Vec<(usize, usize)>> {
     // For each edge, gather all meshlets that use it
     let mut edges_to_meshlets = HashMap::new();
 
@@ -236,27 +236,19 @@ fn find_connected_meshlets(
     }
 
     // For each meshlet, gather all meshlets that share at least one edge along with shared edge count
-    let mut connected_meshlets = HashMap::new();
-
-    for meshlet_id in simplification_queue.clone() {
-        connected_meshlets.insert(meshlet_id, Vec::new());
-    }
+    let mut connected_meshlets = vec![Vec::new(); simplification_queue.len()];
 
     for ((meshlet_id1, meshlet_id2), shared_count) in shared_edge_count {
         // We record id1->id2 and id2->id1 as adjacency is symmetrical
-        connected_meshlets
-            .get_mut(&meshlet_id1)
-            .unwrap()
+        connected_meshlets[meshlet_id1 - simplification_queue.start]
             .push((meshlet_id2, shared_count));
-        connected_meshlets
-            .get_mut(&meshlet_id2)
-            .unwrap()
+        connected_meshlets[meshlet_id2 - simplification_queue.start]
             .push((meshlet_id1, shared_count));
     }
 
     // The order of meshlets depends on hash traversal order; to produce deterministic results, sort them
-    for (_, connected_meshlets) in connected_meshlets.iter_mut() {
-        connected_meshlets.sort_unstable();
+    for list in connected_meshlets.iter_mut() {
+        list.sort_unstable();
     }
 
     connected_meshlets
@@ -264,36 +256,34 @@ fn find_connected_meshlets(
 
 fn group_meshlets(
     simplification_queue: Range<usize>,
-    connected_meshlets_per_meshlet: &HashMap<usize, Vec<(usize, usize)>>,
-) -> HashMap<i32, Vec<usize>> {
+    connected_meshlets_per_meshlet: &Vec<Vec<(usize, usize)>>,
+) -> Vec<Vec<usize>> {
     let mut xadj = Vec::with_capacity(simplification_queue.len() + 1);
     let mut adjncy = Vec::new();
     let mut adjwgt = Vec::new();
     for meshlet_id in simplification_queue.clone() {
         xadj.push(adjncy.len() as i32);
         for (connected_meshlet_id, shared_edge_count) in
-            connected_meshlets_per_meshlet[&meshlet_id].iter().copied()
+            connected_meshlets_per_meshlet[meshlet_id - simplification_queue.start].iter()
         {
             adjncy.push((connected_meshlet_id - simplification_queue.start) as i32);
-            adjwgt.push(shared_edge_count as i32);
+            adjwgt.push(*shared_edge_count as i32);
         }
     }
     xadj.push(adjncy.len() as i32);
 
     let mut group_per_meshlet = vec![0; simplification_queue.len()];
-    let partition_count = (simplification_queue.len().div_ceil(4)) as i32;
-    Graph::new(1, partition_count, &xadj, &adjncy)
+    let partition_count = simplification_queue.len().div_ceil(4);
+    Graph::new(1, partition_count as i32, &xadj, &adjncy)
         .unwrap()
         .set_adjwgt(&adjwgt)
         .part_kway(&mut group_per_meshlet)
         .unwrap();
 
-    let mut groups = HashMap::new();
+    let mut groups = vec![Vec::new(); partition_count];
+
     for (i, meshlet_group) in group_per_meshlet.into_iter().enumerate() {
-        groups
-            .entry(meshlet_group)
-            .or_insert(Vec::new())
-            .push(i + simplification_queue.start);
+        groups[meshlet_group as usize].push(i + simplification_queue.start);
     }
     groups
 }
