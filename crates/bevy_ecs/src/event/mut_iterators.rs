@@ -1,8 +1,7 @@
 use crate as bevy_ecs;
-use bevy_ecs::{
-    batching::BatchingStrategy,
-    event::{Event, EventId, EventInstance, Events, ManualEventMutator},
-};
+#[cfg(feature = "multi_threaded")]
+use bevy_ecs::batching::BatchingStrategy;
+use bevy_ecs::event::{Event, EventId, EventInstance, Events, ManualEventMutator};
 use bevy_utils::detailed_trace;
 use std::{iter::Chain, slice::IterMut};
 
@@ -140,6 +139,7 @@ impl<'a, E: Event> ExactSizeIterator for EventMutatorIteratorWithId<'a, E> {
 
 /// A parallel iterator over `Event`s.
 #[derive(Debug)]
+#[cfg(feature = "multi_threaded")]
 pub struct EventMutatorParIter<'a, E: Event> {
     mutator: &'a mut ManualEventMutator<E>,
     slices: [&'a mut [EventInstance<E>]; 2],
@@ -147,6 +147,7 @@ pub struct EventMutatorParIter<'a, E: Event> {
     unread: usize,
 }
 
+#[cfg(feature = "multi_threaded")]
 impl<'a, E: Event> EventMutatorParIter<'a, E> {
     /// Creates a new parallel iterator over `events` that have not yet been seen by `mutator`.
     pub fn new(mutator: &'a mut ManualEventMutator<E>, events: &'a mut Events<E>) -> Self {
@@ -206,12 +207,12 @@ impl<'a, E: Event> EventMutatorParIter<'a, E> {
         mut self,
         func: FN,
     ) {
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        #[cfg(any(target_arch = "wasm32"))]
         {
             self.into_iter().for_each(|(e, i)| func(e, i));
         }
 
-        #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+        #[cfg(all(not(target_arch = "wasm32")))]
         {
             let pool = bevy_tasks::ComputeTaskPool::get();
             let thread_count = pool.thread_num();
@@ -252,6 +253,7 @@ impl<'a, E: Event> EventMutatorParIter<'a, E> {
     }
 }
 
+#[cfg(feature = "multi_threaded")]
 impl<'a, E: Event> IntoIterator for EventMutatorParIter<'a, E> {
     type IntoIter = EventMutatorIteratorWithId<'a, E>;
     type Item = <Self::IntoIter as Iterator>::Item;
