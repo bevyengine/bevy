@@ -42,7 +42,7 @@ fn setup(
         .add_clips(
             [
                 GltfAssetLabel::Animation(2).from_asset("models/animated/Fox.glb"),
-                GltfAssetLabel::Animation(1).from_asset("models/animated/Fox.glb"),
+                // GltfAssetLabel::Animation(1).from_asset("models/animated/Fox.glb"),
                 GltfAssetLabel::Animation(0).from_asset("models/animated/Fox.glb"),
             ]
             .into_iter()
@@ -135,6 +135,9 @@ fn keyboard_animation_control(
     mut current_animation: Local<usize>,
 ) {
     for (mut player, mut transitions) in &mut animation_players {
+        println!("{:?}", transitions.main_animation);
+        println!("{:?}", transitions.transitions);
+
         let Some((&playing_animation_index, _)) = player.playing_animations().next() else {
             continue;
         };
@@ -172,14 +175,19 @@ fn keyboard_animation_control(
             playing_animation.seek_to(elapsed + 0.1);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Enter) {
+        if keyboard_input.just_pressed(KeyCode::Enter)
+            || keyboard_input.just_pressed(KeyCode::KeyA)
+            || keyboard_input.just_pressed(KeyCode::KeyS)
+            || keyboard_input.just_pressed(KeyCode::KeyD)
+            || keyboard_input.just_pressed(KeyCode::KeyF)
+        {
             *current_animation = (*current_animation + 1) % animations.animations.len();
 
             transitions
                 .play(
                     &mut player,
                     animations.animations[*current_animation],
-                    Duration::from_millis(250),
+                    Duration::from_millis(1250),
                 )
                 .repeat();
         }
