@@ -1,9 +1,10 @@
 use crate::{
-    ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo,
-    TypePath, TypePathTable,
+    ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, ReflectKind, StructInfo, TupleInfo,
+    TupleStructInfo, TypePath, TypePathTable,
 };
 use std::any::{Any, TypeId};
 use std::fmt::Debug;
+use thiserror::Error;
 
 /// A static accessor to compile-time type information.
 ///
@@ -79,6 +80,19 @@ pub trait Typed: Reflect + TypePath {
     ///
     /// [info]: TypeInfo
     fn type_info() -> &'static TypeInfo;
+}
+
+/// A [`TypeInfo`]-specific error.
+#[derive(Debug, Error)]
+pub enum TypeInfoError {
+    /// Caused when a type was expected to be of a certain [kind], but was not.
+    ///
+    /// [kind]: ReflectKind
+    #[error("kind mismatch: expected {expected:?}, received {received:?}")]
+    KindMismatch {
+        expected: ReflectKind,
+        received: ReflectKind,
+    },
 }
 
 /// Compile-time type information for various reflected types.
@@ -174,6 +188,50 @@ impl TypeInfo {
             Self::Value(info) => info.docs(),
         }
     }
+
+    /// Returns the [kind] of this `TypeInfo`.
+    ///
+    /// [kind]: ReflectKind
+    pub fn kind(&self) -> ReflectKind {
+        match self {
+            Self::Struct(_) => ReflectKind::Struct,
+            Self::TupleStruct(_) => ReflectKind::TupleStruct,
+            Self::Tuple(_) => ReflectKind::Tuple,
+            Self::List(_) => ReflectKind::List,
+            Self::Array(_) => ReflectKind::Array,
+            Self::Map(_) => ReflectKind::Map,
+            Self::Enum(_) => ReflectKind::Enum,
+            Self::Value(_) => ReflectKind::Value,
+        }
+    }
+}
+
+macro_rules! impl_cast_method {
+    ($name:ident : $kind:ident => $info:ident) => {
+        #[doc = concat!("Attempts a cast to [`", stringify!($info), "`].")]
+        #[doc = concat!("\n\nReturns an error if `self` is not [`TypeInfo::", stringify!($kind), "`].")]
+        pub fn $name(&self) -> Result<&$info, TypeInfoError> {
+            match self {
+                Self::$kind(info) => Ok(info),
+                _ => Err(TypeInfoError::KindMismatch {
+                    expected: ReflectKind::$kind,
+                    received: self.kind(),
+                }),
+            }
+        }
+    };
+}
+
+/// Conversion convenience methods for [`TypeInfo`].
+impl TypeInfo {
+    impl_cast_method!(as_struct: Struct => StructInfo);
+    impl_cast_method!(as_tuple_struct: TupleStruct => TupleStructInfo);
+    impl_cast_method!(as_tuple: Tuple => TupleInfo);
+    impl_cast_method!(as_list: List => ListInfo);
+    impl_cast_method!(as_array: Array => ArrayInfo);
+    impl_cast_method!(as_map: Map => MapInfo);
+    impl_cast_method!(as_enum: Enum => EnumInfo);
+    impl_cast_method!(as_value: Value => ValueInfo);
 }
 
 /// A container for compile-time info related to general value types, including primitives.
@@ -239,5 +297,22 @@ impl ValueInfo {
     #[cfg(feature = "documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_return_error_on_invalid_cast() {
+        let info = <Vec<i32> as Typed>::type_info();
+        assert!(matches!(
+            info.as_struct(),
+            Err(TypeInfoError::KindMismatch {
+                expected: ReflectKind::Struct,
+                received: ReflectKind::List
+            })
+        ));
     }
 }
