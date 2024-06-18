@@ -731,8 +731,7 @@ pub fn check_dir_light_mesh_visibility(
                 visible_entity_query.par_iter().for_each_init(
                     || {
                         let mut entities = view_visible_entities_queue.borrow_local_mut();
-                        let cap = entities.first().map(|v| v.capacity()).unwrap_or_default();
-                        entities.resize(view_frusta.len(), Vec::with_capacity(cap));
+                        entities.resize(view_frusta.len(), Vec::default());
                         (visible_entities_queue.borrow_local_mut(), entities)
                     },
                     |(queue0, queue1),
@@ -786,6 +785,7 @@ pub fn check_dir_light_mesh_visibility(
                         }
                     },
                 );
+                // collect entities from parallel queue
                 for entities in view_visible_entities_queue.iter_mut() {
                     cascades_visible_entities
                         .entities
