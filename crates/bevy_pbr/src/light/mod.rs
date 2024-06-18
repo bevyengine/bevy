@@ -689,118 +689,118 @@ pub fn check_dir_light_mesh_visibility(
     mut view_visible_entities_queue: Local<Parallel<Vec<Vec<Entity>>>>,
 ) {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
-    directional_lights.iter_mut().for_each(
-        |(
-            directional_light,
-            frusta,
-            mut cascades_visible_entities,
-            maybe_view_mask,
-            light_view_visibility,
-        )| {
-            let mut views_to_remove = Vec::new();
-            for (view, cascade_view_entities) in &mut cascades_visible_entities.entities {
-                match frusta.frusta.get(view) {
-                    Some(view_frusta) => {
-                        cascade_view_entities.resize(view_frusta.len(), Default::default());
-                        cascade_view_entities
-                            .iter_mut()
-                            .for_each(|x| x.clear::<WithMesh>());
-                    }
-                    None => views_to_remove.push(*view),
-                };
-            }
-            for (view, frusta) in &frusta.frusta {
-                cascades_visible_entities
-                    .entities
-                    .entry(*view)
-                    .or_insert_with(|| vec![VisibleEntities::default(); frusta.len()]);
-            }
 
-            for v in views_to_remove {
-                cascades_visible_entities.entities.remove(&v);
-            }
-
-            // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
-            if !directional_light.shadows_enabled || !light_view_visibility.get() {
-                return;
-            }
-
-            let view_mask = maybe_view_mask.unwrap_or_default();
-
-            for (view, view_frusta) in &frusta.frusta {
-                visible_entity_query.par_iter().for_each_init(
-                    || {
-                        let mut entities = view_visible_entities_queue.borrow_local_mut();
-                        entities.resize(view_frusta.len(), Vec::default());
-                        (visible_entities_queue.borrow_local_mut(), entities)
-                    },
-                    |(queue0, queue1),
-                     (
-                        entity,
-                        inherited_visibility,
-                        maybe_entity_mask,
-                        maybe_aabb,
-                        maybe_transform,
-                        has_visibility_range,
-                    )| {
-                        if !inherited_visibility.get() {
-                            return;
-                        }
-
-                        let entity_mask = maybe_entity_mask.unwrap_or_default();
-                        if !view_mask.intersects(entity_mask) {
-                            return;
-                        }
-
-                        // Check visibility ranges.
-                        if has_visibility_range
-                            && visible_entity_ranges.is_some_and(|visible_entity_ranges| {
-                                !visible_entity_ranges.entity_is_in_range_of_view(entity, *view)
-                            })
-                        {
-                            return;
-                        }
-
-                        if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
-                            let mut visible = false;
-                            for (frustum, frustum_visible_entities) in
-                                view_frusta.iter().zip(queue1.iter_mut())
-                            {
-                                // Disable near-plane culling, as a shadow caster could lie before the near plane.
-                                if !frustum.intersects_obb(aabb, &transform.affine(), false, true) {
-                                    continue;
-                                }
-                                visible = true;
-
-                                frustum_visible_entities.push(entity);
-                            }
-                            if visible {
-                                queue0.push(entity);
-                            }
-                        } else {
-                            queue0.push(entity);
-                            for frustum_visible_entities in queue1.iter_mut() {
-                                frustum_visible_entities.push(entity);
-                            }
-                        }
-                    },
-                );
-                // collect entities from parallel queue
-                for entities in view_visible_entities_queue.iter_mut() {
-                    cascades_visible_entities
-                        .entities
-                        .get_mut(view)
-                        .unwrap()
+    for (
+        directional_light,
+        frusta,
+        mut visible_entities,
+        maybe_view_mask,
+        light_view_visibility,
+    ) in &mut directional_lights
+    {
+        let mut views_to_remove = Vec::new();
+        for (view, cascade_view_entities) in &mut visible_entities.entities {
+            match frusta.frusta.get(view) {
+                Some(view_frusta) => {
+                    cascade_view_entities.resize(view_frusta.len(), Default::default());
+                    cascade_view_entities
                         .iter_mut()
-                        .map(|v| v.get_mut::<WithMesh>())
-                        .zip(entities.iter_mut())
-                        .for_each(|(dst, source)| {
-                            dst.append(source);
-                        });
+                        .for_each(|x| x.clear::<WithMesh>());
                 }
+                None => views_to_remove.push(*view),
+            };
+        }
+        for (view, frusta) in &frusta.frusta {
+            visible_entities
+                .entities
+                .entry(*view)
+                .or_insert_with(|| vec![VisibleEntities::default(); frusta.len()]);
+        }
+
+        for v in views_to_remove {
+            visible_entities.entities.remove(&v);
+        }
+
+        // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
+        if !directional_light.shadows_enabled || !light_view_visibility.get() {
+            return;
+        }
+
+        let view_mask = maybe_view_mask.unwrap_or_default();
+
+        for (view, view_frusta) in &frusta.frusta {
+            visible_entity_query.par_iter().for_each_init(
+                || {
+                    let mut entities = view_visible_entities_queue.borrow_local_mut();
+                    entities.resize(view_frusta.len(), Vec::default());
+                    (visible_entities_queue.borrow_local_mut(), entities)
+                },
+                |(queue0, queue1),
+                 (
+                    entity,
+                    inherited_visibility,
+                    maybe_entity_mask,
+                    maybe_aabb,
+                    maybe_transform,
+                    has_visibility_range,
+                )| {
+                    if !inherited_visibility.get() {
+                        return;
+                    }
+
+                    let entity_mask = maybe_entity_mask.unwrap_or_default();
+                    if !view_mask.intersects(entity_mask) {
+                        return;
+                    }
+
+                    // Check visibility ranges.
+                    if has_visibility_range
+                        && visible_entity_ranges.is_some_and(|visible_entity_ranges| {
+                            !visible_entity_ranges.entity_is_in_range_of_view(entity, *view)
+                        })
+                    {
+                        return;
+                    }
+
+                    if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
+                        let mut visible = false;
+                        for (frustum, frustum_visible_entities) in
+                            view_frusta.iter().zip(queue1.iter_mut())
+                        {
+                            // Disable near-plane culling, as a shadow caster could lie before the near plane.
+                            if !frustum.intersects_obb(aabb, &transform.affine(), false, true) {
+                                continue;
+                            }
+                            visible = true;
+
+                            frustum_visible_entities.push(entity);
+                        }
+                        if visible {
+                            queue0.push(entity);
+                        }
+                    } else {
+                        queue0.push(entity);
+                        for frustum_visible_entities in queue1.iter_mut() {
+                            frustum_visible_entities.push(entity);
+                        }
+                    }
+                },
+            );
+            // collect entities from parallel queue
+            for entities in view_visible_entities_queue.iter_mut() {
+                visible_entities
+                    .entities
+                    .get_mut(view)
+                    .unwrap()
+                    .iter_mut()
+                    .map(|v| v.get_mut::<WithMesh>())
+                    .zip(entities.iter_mut())
+                    .for_each(|(dst, source)| {
+                        dst.append(source);
+                    });
             }
-        },
-    );
+        }
+    }
 
     for (_, _, mut cascades_visible_entities, _, _) in &mut directional_lights {
         for (_, cascade_view_entities) in &mut cascades_visible_entities.entities {
