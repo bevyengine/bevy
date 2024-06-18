@@ -350,7 +350,6 @@ fn get_attrs<'a>(
     // TODO: validate this is the correct string to extract
     // let family_name = &face.families[0].0;
     let attrs = Attrs::new()
-        // TODO: validate that we can use metadata
         .metadata(section_index)
         // TODO: this reference, becomes owned by the font system, which is not really wanted...
         // .family(Family::Name(family_name))
