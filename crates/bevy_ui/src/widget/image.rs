@@ -1,5 +1,6 @@
 use crate::{
-    measurement::AvailableSpace, ContentSize, Measure, Node, NodeMeasure, UiImage, UiScale,
+    ContentSize, Measure, MeasureArgs, Node, NodeMeasure, UiImage,
+    UiScale,
 };
 use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
@@ -37,14 +38,15 @@ pub struct ImageMeasure {
 }
 
 impl Measure for ImageMeasure {
-    fn measure(
-        &mut self,
-        width: Option<f32>,
-        height: Option<f32>,
-        available_width: AvailableSpace,
-        available_height: AvailableSpace,
-        style: &taffy::Style,
-    ) -> Vec2 {
+    fn measure(&mut self, measure_args: MeasureArgs, style: &taffy::Style) -> Vec2 {
+        let MeasureArgs {
+            width,
+            height,
+            available_width,
+            available_height,
+            ..
+        } = measure_args;
+
         // Convert available width/height into an option
         let parent_width = available_width.into_option();
         let parent_height = available_height.into_option();

@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use bevy_asset::{AssetId, Assets};
 use bevy_ecs::{component::Component, reflect::ReflectComponent, system::Resource};
@@ -16,16 +16,14 @@ use crate::{
 };
 
 /// A wrapper around a [`cosmic_text::FontSystem`]
-struct CosmicFontSystem(Arc<Mutex<cosmic_text::FontSystem>>);
+struct CosmicFontSystem(cosmic_text::FontSystem);
 
 impl Default for CosmicFontSystem {
     fn default() -> Self {
         let locale = sys_locale::get_locale().unwrap_or_else(|| String::from("en-US"));
         let db = cosmic_text::fontdb::Database::new();
         // TODO: consider using `cosmic_text::FontSystem::new()` (load system fonts by default)
-        Self(Arc::new(Mutex::new(
-            cosmic_text::FontSystem::new_with_locale_and_db(locale, db),
-        )))
+        Self(cosmic_text::FontSystem::new_with_locale_and_db(locale, db))
     }
 }
 
@@ -68,7 +66,7 @@ impl TextPipeline {
         scale_factor: f64,
         buffer: &mut CosmicBuffer,
     ) -> Result<(), TextError> {
-        let font_system = &mut acquire_font_system(&mut self.font_system)?;
+        let font_system = &mut self.font_system.0;
 
         // return early if the fonts are not loaded yet
         let mut font_size = 0.;
@@ -154,7 +152,7 @@ impl TextPipeline {
         )?;
 
         let box_size = buffer_dimensions(&buffer);
-        let font_system = &mut acquire_font_system(&mut self.font_system)?;
+        let font_system = &mut self.font_system.0;
         let swash_cache = &mut self.swash_cache.0;
 
         let glyphs = buffer
@@ -253,7 +251,7 @@ impl TextPipeline {
         let min_width_content_size = buffer_dimensions(&buffer);
 
         let max_width_content_size = {
-            let font_system = &mut acquire_font_system(&mut self.font_system)?;
+            let font_system = &mut self.font_system.0;
             buffer.set_size(font_system, None, None);
             buffer_dimensions(&buffer)
         };
@@ -261,11 +259,17 @@ impl TextPipeline {
         Ok(TextMeasureInfo {
             min: min_width_content_size,
             max: max_width_content_size,
-            font_system: Arc::clone(&self.font_system.0),
             // TODO: This clone feels wasteful, is there another way to structure TextMeasureInfo
             // that it doesn't need to own a buffer? - bytemunch
             buffer: buffer.0.clone(),
         })
+    }
+
+    /// Get a mutable reference to the [`cosmic_text::FontSystem`].
+    ///
+    /// Used internally.
+    pub fn font_system_mut(&mut self) -> &mut cosmic_text::FontSystem {
+        &mut self.font_system.0
     }
 }
 
@@ -291,7 +295,6 @@ pub struct TextMeasureInfo {
     /// Maximum size for a text area in pixels, to be used when laying out widgets with taffy
     pub max: Vec2,
     buffer: cosmic_text::Buffer,
-    font_system: Arc<Mutex<cosmic_text::FontSystem>>,
 }
 
 impl std::fmt::Debug for TextMeasureInfo {
@@ -307,8 +310,11 @@ impl std::fmt::Debug for TextMeasureInfo {
 
 impl TextMeasureInfo {
     /// Computes the size of the text area within the provided bounds.
-    pub fn compute_size(&mut self, bounds: Vec2) -> Vec2 {
-        let font_system = &mut self.font_system.try_lock().expect("Failed to acquire lock");
+    pub fn compute_size(
+        &mut self,
+        bounds: Vec2,
+        font_system: &mut cosmic_text::FontSystem,
+    ) -> Vec2 {
         self.buffer
             .set_size(font_system, Some(bounds.x.ceil()), Some(bounds.y.ceil()));
         buffer_dimensions(&self.buffer)
@@ -373,15 +379,4 @@ fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
     let height = buffer.layout_runs().count() as f32 * line_height;
 
     Vec2::new(width.ceil(), height).ceil()
-}
-
-/// Helper method to acquire a font system mutex.
-#[inline(always)]
-fn acquire_font_system(
-    font_system: &mut CosmicFontSystem,
-) -> Result<std::sync::MutexGuard<'_, cosmic_text::FontSystem>, TextError> {
-    font_system
-        .0
-        .try_lock()
-        .map_err(|_| TextError::FailedToAcquireMutex)
 }
