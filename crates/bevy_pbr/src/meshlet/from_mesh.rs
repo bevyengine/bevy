@@ -256,7 +256,7 @@ fn find_connected_meshlets(
 
     // The order of meshlets depends on hash traversal order; to produce deterministic results, sort them
     for (_, connected_meshlets) in connected_meshlets.iter_mut() {
-        connected_meshlets.sort();
+        connected_meshlets.sort_unstable();
     }
 
     connected_meshlets
