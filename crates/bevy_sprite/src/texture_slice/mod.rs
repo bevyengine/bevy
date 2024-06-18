@@ -27,9 +27,9 @@ impl TextureSlice {
     /// # Arguments
     ///
     /// * `stretch_value` - The slice will repeat when the ratio between the *drawing dimensions* of texture and the
-    /// *original texture size* (rect) are above `stretch_value`.
-    /// - `tile_x` - should the slice be tiled horizontally
-    /// - `tile_y` - should the slice be tiled vertically
+    ///     *original texture size* (rect) are above `stretch_value`.
+    /// * `tile_x` - should the slice be tiled horizontally
+    /// * `tile_y` - should the slice be tiled vertically
     #[must_use]
     pub fn tiled(self, stretch_value: f32, (tile_x, tile_y): (bool, bool)) -> Vec<Self> {
         if !tile_x && !tile_y {
