@@ -400,6 +400,10 @@ mod tests {
     #[derive(Component)]
     struct C;
 
+    #[derive(Component)]
+    #[component(storage = "SparseSet")]
+    struct S;
+
     #[derive(Event)]
     struct EventA;
 
@@ -440,6 +444,22 @@ mod tests {
         let mut entity = world.spawn_empty();
         entity.insert(A);
         entity.remove::<A>();
+        entity.flush();
+        assert_eq!(3, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn observer_order_insert_remove_sparse() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+
+        world.observe(|_: Trigger<OnAdd, S>, mut res: ResMut<R>| res.assert_order(0));
+        world.observe(|_: Trigger<OnInsert, S>, mut res: ResMut<R>| res.assert_order(1));
+        world.observe(|_: Trigger<OnRemove, S>, mut res: ResMut<R>| res.assert_order(2));
+
+        let mut entity = world.spawn_empty();
+        entity.insert(S);
+        entity.remove::<S>();
         entity.flush();
         assert_eq!(3, world.resource::<R>().0);
     }
