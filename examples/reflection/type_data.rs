@@ -3,6 +3,8 @@
 use bevy::prelude::*;
 use bevy::reflect::{FromType, TypeRegistry};
 
+// It's recommended to read this example from top to bottom.
+// Comments are provided to explain the code and its purpose as you go along.
 fn main() {
     trait Damageable {
         type Health;
