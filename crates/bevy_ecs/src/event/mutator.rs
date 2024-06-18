@@ -1,11 +1,11 @@
 use crate as bevy_ecs;
+#[cfg(feature = "multi_threaded")]
+use bevy_ecs::event::EventMutatorParIter;
 use bevy_ecs::{
     event::{Event, EventMutatorIterator, EventMutatorIteratorWithId, Events},
     system::{Local, ResMut, SystemParam},
 };
 use std::marker::PhantomData;
-#[cfg(feature = "multi_threaded")]
-use bevy_ecs::event::EventMutatorParIter;
 
 /// Mutably reads events of type `T` keeping track of which events have already been read
 /// by each system allowing multiple systems to read the same events. Ideal for chains of systems
