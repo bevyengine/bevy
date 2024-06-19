@@ -474,6 +474,7 @@
 //! [derive `Reflect`]: derive@crate::Reflect
 
 mod array;
+pub mod diff;
 mod fields;
 mod from_reflect;
 mod list;

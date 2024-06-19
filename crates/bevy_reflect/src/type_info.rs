@@ -26,6 +26,7 @@ use std::fmt::Debug;
 /// ```
 /// # use std::any::Any;
 /// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, ValueInfo, ApplyError};
+/// # use bevy_reflect::diff::DiffResult;
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///
@@ -66,6 +67,7 @@ use std::fmt::Debug;
 /// #   fn reflect_mut(&mut self) -> ReflectMut { todo!() }
 /// #   fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
 /// #   fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
+/// #   fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> { todo!() }
 /// # }
 /// ```
 ///

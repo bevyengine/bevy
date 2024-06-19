@@ -1,3 +1,4 @@
+use crate::diff::{diff_enum, DiffApplyError, DiffApplyResult, DiffResult, EnumDiff};
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
@@ -285,6 +286,40 @@ impl Enum for DynamicEnum {
             variant: self.variant.clone(),
         }
     }
+
+    fn apply_enum_diff(&mut self, diff: EnumDiff) -> DiffApplyResult {
+        if let Some(info) = self.get_represented_type_info() {
+            if info.type_id() != diff.type_info().type_id() {
+                return Err(DiffApplyError::TypeMismatch);
+            }
+        };
+
+        match diff {
+            EnumDiff::Swapped(value_diff) => {
+                self.try_apply(value_diff.as_reflect()).map_err(Into::into)
+            }
+            EnumDiff::Tuple(tuple_diff) => {
+                if let DynamicVariant::Tuple(base) = &mut self.variant {
+                    base.apply_tuple_diff(tuple_diff)
+                } else {
+                    Err(DiffApplyError::VariantMismatch {
+                        expected: VariantType::Tuple,
+                        received: self.variant_type(),
+                    })
+                }
+            }
+            EnumDiff::Struct(struct_diff) => {
+                if let DynamicVariant::Struct(base) = &mut self.variant {
+                    base.apply_struct_diff(struct_diff)
+                } else {
+                    Err(DiffApplyError::VariantMismatch {
+                        expected: VariantType::Tuple,
+                        received: self.variant_type(),
+                    })
+                }
+            }
+        }
+    }
 }
 
 impl Reflect for DynamicEnum {
@@ -406,6 +441,11 @@ impl Reflect for DynamicEnum {
     #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone_dynamic())
+    }
+
+    #[inline]
+    fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+        diff_enum(self, other)
     }
 
     #[inline]

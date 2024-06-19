@@ -1,3 +1,4 @@
+use crate::diff::{diff_tuple, DiffApplyError, DiffApplyResult, DiffResult, TupleDiff};
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::all_tuples;
 
@@ -53,6 +54,9 @@ pub trait Tuple: Reflect {
 
     /// Clones the struct into a [`DynamicTuple`].
     fn clone_dynamic(&self) -> DynamicTuple;
+
+    /// Apply the given [`TupleDiff`] to this value.
+    fn apply_tuple_diff(&mut self, diff: TupleDiff) -> DiffApplyResult;
 }
 
 /// An iterator over the field values of a tuple.
@@ -297,6 +301,26 @@ impl Tuple for DynamicTuple {
                 .collect(),
         }
     }
+
+    fn apply_tuple_diff(&mut self, diff: TupleDiff) -> DiffApplyResult {
+        if self.field_len() != diff.field_len() {
+            return Err(DiffApplyError::TypeMismatch);
+        }
+
+        if let Some(info) = self.get_represented_type_info() {
+            if info.type_id() != diff.type_info().type_id() {
+                return Err(DiffApplyError::TypeMismatch);
+            }
+        }
+
+        for (index, diff) in diff.take_changes().into_iter().enumerate() {
+            self.field_mut(index)
+                .ok_or(DiffApplyError::MissingField)?
+                .apply_diff(diff)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl Reflect for DynamicTuple {
@@ -371,6 +395,11 @@ impl Reflect for DynamicTuple {
 
     fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
         tuple_try_apply(self, value)
+    }
+
+    #[inline]
+    fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+        diff_tuple(self, other)
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
@@ -532,6 +561,26 @@ macro_rules! impl_reflect_tuple {
                         .collect(),
                 }
             }
+
+            fn apply_tuple_diff(&mut self, diff: TupleDiff) -> DiffApplyResult {
+                let Some(info) = self.get_represented_type_info() else {
+                    return Err(DiffApplyError::MissingTypeInfo);
+                };
+
+                if info.type_id() != diff.type_info().type_id() || self.field_len() != diff.field_len() {
+                     return Err(DiffApplyError::TypeMismatch);
+                 }
+
+                let mut _diffs = diff.take_changes();
+                 _diffs.reverse();
+
+                $(
+                    self.$index.apply_diff(
+                        _diffs.pop().ok_or(DiffApplyError::MissingDiff)?
+                    )?;
+                )*
+                Ok(())
+            }
         }
 
         impl<$($name: Reflect + TypePath + GetTypeRegistration),*> Reflect for ($($name,)*) {
@@ -594,6 +643,10 @@ macro_rules! impl_reflect_tuple {
 
             fn clone_value(&self) -> Box<dyn Reflect> {
                 Box::new(self.clone_dynamic())
+            }
+
+            fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+                diff_tuple(self, other)
             }
 
             fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {

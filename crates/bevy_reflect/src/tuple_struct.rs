@@ -1,6 +1,9 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
+use crate::diff::{
+    diff_tuple_struct, DiffApplyError, DiffApplyResult, DiffResult, TupleStructDiff,
+};
 use crate::{
     self as bevy_reflect, ApplyError, DynamicTuple, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, Tuple, TypeInfo, TypePath, TypePathTable, UnnamedField,
@@ -53,6 +56,9 @@ pub trait TupleStruct: Reflect {
 
     /// Clones the struct into a [`DynamicTupleStruct`].
     fn clone_dynamic(&self) -> DynamicTupleStruct;
+
+    /// Apply the given [`TupleStructDiff`] to this value.
+    fn apply_tuple_struct_diff(&mut self, diff: TupleStructDiff) -> DiffApplyResult;
 }
 
 /// A container for compile-time tuple struct info.
@@ -305,6 +311,23 @@ impl TupleStruct for DynamicTupleStruct {
                 .collect(),
         }
     }
+
+    fn apply_tuple_struct_diff(&mut self, diff: TupleStructDiff) -> DiffApplyResult {
+        if let Some(info) = self.get_represented_type_info() {
+            if info.type_id() != diff.type_info().type_id() {
+                return Err(DiffApplyError::TypeMismatch);
+            }
+        };
+
+        for (index, diff) in diff.take_changes().into_iter().enumerate() {
+            self.fields
+                .get_mut(index)
+                .ok_or(DiffApplyError::MissingField)?
+                .apply_diff(diff)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl Reflect for DynamicTupleStruct {
@@ -388,6 +411,11 @@ impl Reflect for DynamicTupleStruct {
     #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone_dynamic())
+    }
+
+    #[inline]
+    fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+        diff_tuple_struct(self, other)
     }
 
     #[inline]
