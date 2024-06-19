@@ -13,9 +13,11 @@ use bevy_utils::{tracing::error, HashMap, HashSet};
 use thiserror::Error;
 use uuid::Uuid;
 
-/// Emitted when [`crate::SceneInstance`] becomes ready to use.
+/// Triggered on a scene's parent entity when [`crate::SceneInstance`] becomes ready to use.
 ///
-/// See also [`SceneSpawner::instance_is_ready`].
+/// See also [`Trigger`], [`SceneSpawner::instance_is_ready`].
+///
+/// [`Trigger`]: bevy_ecs::observer::Trigger
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Event)]
 pub struct SceneInstanceReady {
     /// Instance which has been spawned.
