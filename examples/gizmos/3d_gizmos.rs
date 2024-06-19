@@ -103,6 +103,8 @@ fn draw_example_collection(
         LIME,
     );
 
+    gizmos.cross(Vec3::new(-1., 1., 1.), Quat::IDENTITY, 0.5, FUCHSIA);
+
     my_gizmos.sphere(Vec3::new(1., 0.5, 0.), Quat::IDENTITY, 0.5, RED);
 
     my_gizmos
