@@ -228,10 +228,12 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
         texture: asset_server.load("branding/icon.png"),
         ..default()
     });
+    info!("Setup game");
 }
 
 fn teardown_game(mut commands: Commands, player: Query<Entity, With<Sprite>>) {
     commands.entity(player.single()).despawn();
+    info!("Teardown game");
 }
 
 #[derive(Resource)]
