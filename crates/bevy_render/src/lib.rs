@@ -25,6 +25,10 @@ pub mod gpu_component_array_buffer;
 pub mod mesh;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod pipelined_rendering;
+/// Primitives are being consolidated in [issue 13931],
+/// so this should eventually be removed.
+///
+/// [issue 13931]: https://github.com/bevyengine/bevy/issues/13931
 pub mod primitives;
 pub mod render_asset;
 pub mod render_graph;

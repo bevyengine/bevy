@@ -10,8 +10,10 @@ mod frustum;
 pub use frustum::Frustum;
 mod half_space;
 pub use half_space::HalfSpace;
-/// Clean me up!
-/// Code adopted from `bevy_render`.
+/// Legacy code from `bevy_render`.
+/// Should be cleaned up as a part of [issue 13931].
+///
+/// [issue 13931]: https://github.com/bevyengine/bevy/issues/13931
 pub mod legacy_bevy_render;
 #[cfg(feature = "serialize")]
 mod serde;

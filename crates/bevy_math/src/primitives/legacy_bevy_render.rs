@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use std::borrow::Borrow;
 
 #[cfg(feature = "bevy_ecs")]
@@ -11,7 +13,7 @@ use glam::{Affine3A, Mat3A, Vec3, Vec3A};
 /// An axis-aligned bounding box, defined by:
 /// - a center,
 /// - the distances from the center to each faces along the axis,
-/// the faces are orthogonal to the axis.
+///     the faces are orthogonal to the axis.
 ///
 /// It is typically used as a component on an entity to represent the local space
 /// occupied by this entity, with faces orthogonal to its local axis.
@@ -22,7 +24,7 @@ use glam::{Affine3A, Mat3A, Vec3, Vec3A};
 ///
 /// It will be added automatically by the systems in [`CalculateBounds`] to entities that:
 /// - could be subject to frustum culling, for example with a [`Handle<Mesh>`]
-/// or `Sprite` component,
+///     or `Sprite` component,
 /// - don't have the [`NoFrustumCulling`] component.
 ///
 /// It won't be updated automatically if the space occupied by the entity changes,
@@ -43,14 +45,11 @@ use glam::{Affine3A, Mat3A, Vec3, Vec3A};
 )]
 
 pub struct Aabb {
-    /// Legacy, clean me up!
     pub center: Vec3A,
-    /// Legacy, clean me up!
     pub half_extents: Vec3A,
 }
 
 impl Aabb {
-    /// Legacy, clean me up!
     #[inline]
     pub fn from_min_max(minimum: Vec3, maximum: Vec3) -> Self {
         let minimum = Vec3A::from(minimum);
@@ -100,13 +99,11 @@ impl Aabb {
         .dot(half_extents)
     }
 
-    /// Legacy, clean me up!
     #[inline]
     pub fn min(&self) -> Vec3A {
         self.center - self.half_extents
     }
 
-    /// Legacy, clean me up!
     #[inline]
     pub fn max(&self) -> Vec3A {
         self.center + self.half_extents
@@ -123,17 +120,13 @@ impl From<Sphere> for Aabb {
     }
 }
 
-/// Legacy, clean me up!
 #[derive(Clone, Debug, Default)]
 pub struct Sphere {
-    /// Legacy, clean me up!
     pub center: Vec3A,
-    /// Legacy, clean me up!
     pub radius: f32,
 }
 
 impl Sphere {
-    /// Legacy, clean me up!
     #[inline]
     pub fn intersects_obb(&self, aabb: &Aabb, world_from_local: &Affine3A) -> bool {
         let aabb_center_world = world_from_local.transform_point3a(aabb.center);
