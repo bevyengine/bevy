@@ -1095,11 +1095,20 @@ pub fn prepare_lights(
             }
         }
 
-        let point_light_texture_descriptor = if render_adapter
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+        let supports_cube_array_textures = false;
+
+        #[cfg(any(
+            not(feature = "webgl"),
+            not(target_arch = "wasm32"),
+            feature = "webgpu"
+        ))]
+        let supports_cube_array_textures = render_adapter
             .get_downlevel_capabilities()
             .flags
-            .contains(DownlevelFlags::CUBE_ARRAY_TEXTURES)
-        {
+            .contains(DownlevelFlags::CUBE_ARRAY_TEXTURES);
+
+        let point_light_texture_descriptor = if supports_cube_array_textures {
             &TextureViewDescriptor {
                 label: Some("point_light_shadow_map_array_texture_view"),
                 format: None,

@@ -187,6 +187,19 @@ fn layout_entries(
     render_device: &RenderDevice,
     render_adapter: &RenderAdapter,
 ) -> Vec<BindGroupLayoutEntry> {
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    let supports_cube_array_textures = false;
+
+    #[cfg(any(
+        not(feature = "webgl"),
+        not(target_arch = "wasm32"),
+        feature = "webgpu"
+    ))]
+    let supports_cube_array_textures = render_adapter
+        .get_downlevel_capabilities()
+        .flags
+        .contains(DownlevelFlags::CUBE_ARRAY_TEXTURES);
+
     let mut entries = DynamicBindGroupLayoutEntries::new_with_indices(
         ShaderStages::FRAGMENT,
         (
@@ -200,11 +213,7 @@ fn layout_entries(
             // Point Shadow Texture Cube Array
             (
                 2,
-                if render_adapter
-                    .get_downlevel_capabilities()
-                    .flags
-                    .contains(DownlevelFlags::CUBE_ARRAY_TEXTURES)
-                {
+                if supports_cube_array_textures {
                     texture_cube_array(TextureSampleType::Depth)
                 } else {
                     texture_cube(TextureSampleType::Depth)
