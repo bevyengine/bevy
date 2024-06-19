@@ -61,7 +61,7 @@
 //!
 //! Additionally, using the derive macro on enums requires a third condition to be met:
 //! * All fields and sub-elements must implement [`FromReflect`]—
-//! another important reflection trait discussed in a later section.
+//!     another important reflection trait discussed in a later section.
 //!
 //! # The `Reflect` Subtraits
 //!

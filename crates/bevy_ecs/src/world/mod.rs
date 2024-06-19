@@ -1,20 +1,25 @@
 //! Defines the [`World`] and APIs for accessing it directly.
 
 pub(crate) mod command_queue;
+mod component_constants;
 mod deferred_world;
 mod entity_ref;
 pub mod error;
+mod identifier;
 mod spawn_batch;
 pub mod unsafe_world_cell;
 
-pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
-use crate::entity::EntityHashSet;
-pub use crate::world::command_queue::CommandQueue;
+pub use crate::{
+    change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
+    world::command_queue::CommandQueue,
+};
+pub use component_constants::*;
 pub use deferred_world::DeferredWorld;
 pub use entity_ref::{
     EntityMut, EntityRef, EntityWorldMut, Entry, FilteredEntityMut, FilteredEntityRef,
     OccupiedEntry, VacantEntry,
 };
+pub use identifier::WorldId;
 pub use spawn_batch::*;
 
 use crate::{
@@ -25,8 +30,9 @@ use crate::{
         Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
         Components, Tick,
     },
-    entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
+    entity::{AllocAtWithoutReplacement, Entities, Entity, EntityHashSet, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
+    observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryEntityError, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
@@ -43,10 +49,7 @@ use std::{
     mem::MaybeUninit,
     sync::atomic::{AtomicU32, Ordering},
 };
-mod identifier;
-
-use self::unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
-pub use identifier::WorldId;
+use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
 /// A [`World`] mutation.
 ///
@@ -110,30 +113,36 @@ pub struct World {
     pub(crate) archetypes: Archetypes,
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
+    pub(crate) observers: Observers,
     pub(crate) removed_components: RemovedComponentEvents,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
+    pub(crate) last_trigger_id: u32,
     pub(crate) command_queue: RawCommandQueue,
 }
 
 impl Default for World {
     fn default() -> Self {
-        Self {
+        let mut world = Self {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
             entities: Entities::new(),
             components: Default::default(),
             archetypes: Archetypes::new(),
             storages: Default::default(),
             bundles: Default::default(),
+            observers: Observers::default(),
             removed_components: Default::default(),
             // Default value is `1`, and `last_change_tick`s default to `0`, such that changes
             // are detected on first system runs and for direct world queries.
             change_tick: AtomicU32::new(1),
             last_change_tick: Tick::new(0),
             last_check_tick: Tick::new(0),
+            last_trigger_id: 0,
             command_queue: RawCommandQueue::new(),
-        }
+        };
+        world.bootstrap();
+        world
     }
 }
 
@@ -149,6 +158,14 @@ impl Drop for World {
 }
 
 impl World {
+    /// This performs initialization that _must_ happen for every [`World`] immediately upon creation (such as claiming specific component ids).
+    /// This _must_ be run as part of constructing a [`World`], before it is returned to the caller.
+    #[inline]
+    fn bootstrap(&mut self) {
+        assert_eq!(ON_ADD, self.init_component::<OnAdd>());
+        assert_eq!(ON_INSERT, self.init_component::<OnInsert>());
+        assert_eq!(ON_REMOVE, self.init_component::<OnRemove>());
+    }
     /// Creates a new empty [`World`].
     ///
     /// # Panics
@@ -226,7 +243,7 @@ impl World {
     }
 
     /// Creates a new [`Commands`] instance that writes to the world's command queue
-    /// Use [`World::flush_commands`] to apply all queued commands
+    /// Use [`World::flush`] to apply all queued commands
     #[inline]
     pub fn commands(&mut self) -> Commands {
         // SAFETY: command_queue is stored on world and always valid while the world exists
@@ -493,7 +510,7 @@ impl World {
     /// scheme worked out to share an ID space (which doesn't happen by default).
     #[inline]
     pub fn get_or_spawn(&mut self, entity: Entity) -> Option<EntityWorldMut> {
-        self.flush_entities();
+        self.flush();
         match self.entities.alloc_at_without_replacement(entity) {
             AllocAtWithoutReplacement::Exists(location) => {
                 // SAFETY: `entity` exists and `location` is that entity's location
@@ -886,7 +903,7 @@ impl World {
     /// assert_eq!(position.x, 0.0);
     /// ```
     pub fn spawn_empty(&mut self) -> EntityWorldMut {
-        self.flush_entities();
+        self.flush();
         let entity = self.entities.alloc();
         // SAFETY: entity was just allocated
         unsafe { self.spawn_at_empty_internal(entity) }
@@ -952,7 +969,7 @@ impl World {
     /// assert_eq!(position.x, 2.0);
     /// ```
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut {
-        self.flush_entities();
+        self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
         let entity_location = {
@@ -1083,6 +1100,7 @@ impl World {
     /// ```
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
+        self.flush();
         if let Some(entity) = self.get_entity_mut(entity) {
             entity.despawn();
             true
@@ -1734,7 +1752,7 @@ impl World {
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle,
     {
-        self.flush_entities();
+        self.flush();
 
         let change_tick = self.change_tick();
 
@@ -2020,9 +2038,15 @@ impl World {
         }
     }
 
+    /// Calls both [`World::flush_entities`] and [`World::flush_commands`].
+    #[inline]
+    pub fn flush(&mut self) {
+        self.flush_entities();
+        self.flush_commands();
+    }
+
     /// Applies any commands in the world's internal [`CommandQueue`].
     /// This does not apply commands from any systems, only those stored in the world.
-    #[inline]
     pub fn flush_commands(&mut self) {
         // SAFETY: `self.command_queue` is only de-allocated in `World`'s `Drop`
         if !unsafe { self.command_queue.is_empty() } {
@@ -2071,6 +2095,13 @@ impl World {
     #[inline]
     pub fn last_change_tick(&self) -> Tick {
         self.last_change_tick
+    }
+
+    /// Returns the id of the last ECS event that was fired.
+    /// Used internally to ensure observers don't trigger multiple times for the same event.
+    #[inline]
+    pub(crate) fn last_trigger_id(&self) -> u32 {
+        self.last_trigger_id
     }
 
     /// Sets [`World::last_change_tick()`] to the specified value during a scope.

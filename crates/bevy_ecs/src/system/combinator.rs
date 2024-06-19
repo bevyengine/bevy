@@ -202,6 +202,12 @@ where
         self.b.apply_deferred(world);
     }
 
+    #[inline]
+    fn queue_deferred(&mut self, mut world: crate::world::DeferredWorld) {
+        self.a.queue_deferred(world.reborrow());
+        self.b.queue_deferred(world);
+    }
+
     fn initialize(&mut self, world: &mut World) {
         self.a.initialize(world);
         self.b.initialize(world);
