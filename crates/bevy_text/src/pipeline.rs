@@ -79,7 +79,6 @@ impl TextPipeline {
                 .ok_or(TextError::NoSuchFont)?;
         }
         let line_height = font_size * 1.2;
-        let (font_size, line_height) = (font_size as f32, line_height as f32);
         let metrics = Metrics::new(font_size, line_height).scale(scale_factor as f32);
 
         // Load Bevy fonts into cosmic-text's font system.
@@ -157,7 +156,7 @@ impl TextPipeline {
             buffer,
         )?;
 
-        let box_size = buffer_dimensions(&buffer);
+        let box_size = buffer_dimensions(buffer);
         let font_system = &mut self.font_system.0;
         let swash_cache = &mut self.swash_cache.0;
 
@@ -254,12 +253,12 @@ impl TextPipeline {
             buffer,
         )?;
 
-        let min_width_content_size = buffer_dimensions(&buffer);
+        let min_width_content_size = buffer_dimensions(buffer);
 
         let max_width_content_size = {
             let font_system = &mut self.font_system.0;
             buffer.set_size(font_system, None, None);
-            buffer_dimensions(&buffer)
+            buffer_dimensions(buffer)
         };
 
         Ok(TextMeasureInfo {
@@ -394,7 +393,7 @@ fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
         .layout_runs()
         .map(|run| run.line_w)
         .reduce(|max_w, w| max_w.max(w))
-        .unwrap_or_else(|| 0.0);
+        .unwrap_or(0.0);
     let line_height = buffer.metrics().line_height.ceil();
     let height = buffer.layout_runs().count() as f32 * line_height;
 

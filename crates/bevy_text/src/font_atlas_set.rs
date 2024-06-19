@@ -154,7 +154,7 @@ impl FontAtlasSet {
                 physical_glyph.cache_key,
                 &glyph_texture,
                 offset,
-            )?
+            )?;
         }
 
         Ok(self.get_glyph_atlas_info(physical_glyph.cache_key).unwrap())

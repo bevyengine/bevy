@@ -29,7 +29,7 @@ pub struct MeasureArgs<'a> {
 /// when the size of that node is based on its content.
 pub trait Measure: Send + Sync + 'static {
     /// Calculate the size of the node given the constraints.
-    fn measure<'a>(&mut self, measure_args: MeasureArgs<'a>, style: &taffy::Style) -> Vec2;
+    fn measure(&mut self, measure_args: MeasureArgs<'_>, style: &taffy::Style) -> Vec2;
 }
 
 /// A type to serve as Taffy's node context (which allows the content size of leaf nodes to be computed)
