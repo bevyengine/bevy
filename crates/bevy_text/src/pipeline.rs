@@ -87,11 +87,16 @@ impl TextPipeline {
             load_font_to_fontdb(section, font_system, &mut self.map_handle_to_font_id, fonts);
         }
 
-        // Map text sections to cosmic-text spans
+        // Map text sections to cosmic-text spans, and ignore sections with negative or zero fontsizes,
+        // since they cannot be rendered by cosmic-text.
+        //
+        // The section index is stored in the metadata of the spans, and could be used
+        // to look up the section the span came from and is not used internally
+        // in cosmic-text.
         let spans: Vec<(&str, Attrs)> = sections
             .iter()
-            .filter(|section| section.style.font_size > 0.0)
             .enumerate()
+            .filter(|(_section_index, section)| section.style.font_size > 0.0)
             .map(|(section_index, section)| {
                 (
                     &section.value[..],
