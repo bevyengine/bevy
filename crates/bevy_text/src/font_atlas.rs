@@ -117,6 +117,7 @@ impl std::fmt::Debug for FontAtlas {
         f.debug_struct("FontAtlas")
             .field("glyph_to_atlas_index", &self.glyph_to_atlas_index)
             .field("texture_atlas", &self.texture_atlas)
+            .field("texture", &self.texture)
             .field("dynamic_texture_atlas_builder", &"[...]")
             .finish()
     }

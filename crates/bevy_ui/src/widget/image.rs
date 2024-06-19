@@ -1,7 +1,4 @@
-use crate::{
-    ContentSize, Measure, MeasureArgs, Node, NodeMeasure, UiImage,
-    UiScale,
-};
+use crate::{ContentSize, Measure, MeasureArgs, Node, NodeMeasure, UiImage, UiScale};
 use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_math::{UVec2, Vec2};

@@ -411,6 +411,8 @@ mod tests {
         world.init_resource::<Events<AssetEvent<Image>>>();
         world.init_resource::<Assets<Image>>();
         world.init_resource::<ManualTextureViews>();
+        #[cfg(feature = "bevy_text")]
+        world.init_resource::<bevy_text::TextPipeline>();
 
         // spawn a dummy primary window and camera
         world.spawn((
@@ -1043,6 +1045,8 @@ mod tests {
         world.init_resource::<Events<AssetEvent<Image>>>();
         world.init_resource::<Assets<Image>>();
         world.init_resource::<ManualTextureViews>();
+        #[cfg(feature = "bevy_text")]
+        world.init_resource::<bevy_text::TextPipeline>();
 
         // spawn a dummy primary window and camera
         world.spawn((
