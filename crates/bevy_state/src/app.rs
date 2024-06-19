@@ -225,6 +225,7 @@ impl Plugin for StatesPlugin {
 mod tests {
     use crate::{
         self as bevy_state,
+        app::StatesPlugin,
         state::{State, StateTransition, StateTransitionEvent},
     };
     use bevy_app::App;
@@ -244,6 +245,7 @@ mod tests {
     #[test]
     fn insert_state_can_overwrite_init_state() {
         let mut app = App::new();
+        app.add_plugins(StatesPlugin);
 
         app.init_state::<TestState>();
         app.insert_state(TestState::B);
@@ -263,6 +265,7 @@ mod tests {
     #[test]
     fn insert_state_can_overwrite_insert_state() {
         let mut app = App::new();
+        app.add_plugins(StatesPlugin);
 
         app.insert_state(TestState::B);
         app.insert_state(TestState::C);
