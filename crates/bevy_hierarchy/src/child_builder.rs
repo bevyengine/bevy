@@ -716,7 +716,7 @@ mod tests {
         events_resource.0.extend(events.drain(number..));
     }
 
-    fn assert_triggers(world: &mut World, expected_events: &[(OnParentChange, Entity)]) {
+    fn assert_events(world: &mut World, expected_events: &[(OnParentChange, Entity)]) {
         let events: Vec<_> = world
             .resource_mut::<TriggeredEvents>()
             .0
@@ -745,13 +745,13 @@ mod tests {
 
         assert_parent(world, b, Some(a));
         assert_children(world, a, Some(&[b]));
-        assert_triggers(world, &[(OnParentChange::Added(a), b)]);
+        assert_events(world, &[(OnParentChange::Added(a), b)]);
 
         world.entity_mut(a).add_child(c);
 
         assert_children(world, a, Some(&[b, c]));
         assert_parent(world, c, Some(a));
-        assert_triggers(world, &[(OnParentChange::Added(a), c)]);
+        assert_events(world, &[(OnParentChange::Added(a), c)]);
 
         // Children component should be removed when it's empty.
         world.entity_mut(d).add_child(b).add_child(c);
@@ -778,14 +778,14 @@ mod tests {
 
         assert_parent(world, a, Some(b));
         assert_children(world, b, Some(&[a]));
-        assert_triggers(world, &[(OnParentChange::Added(b), a)]);
+        assert_events(world, &[(OnParentChange::Added(b), a)]);
 
         world.entity_mut(a).set_parent(c);
 
         assert_parent(world, a, Some(c));
         assert_children(world, b, None);
         assert_children(world, c, Some(&[a]));
-        assert_triggers(
+        assert_events(
             world,
             &[(
                 OnParentChange::Moved {
@@ -837,12 +837,12 @@ mod tests {
         assert_parent(world, c, Some(a));
         assert_children(world, a, Some(&[c]));
         omit_events(world, 2); // Omit ChildAdded events.
-        assert_triggers(world, &[(OnParentChange::Removed(a), b)]);
+        assert_events(world, &[(OnParentChange::Removed(a), b)]);
 
         world.entity_mut(c).remove_parent();
         assert_parent(world, c, None);
         assert_children(world, a, None);
-        assert_triggers(world, &[(OnParentChange::Removed(a), c)]);
+        assert_events(world, &[(OnParentChange::Removed(a), c)]);
     }
 
     #[allow(dead_code)]
