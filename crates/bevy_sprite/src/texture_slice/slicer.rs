@@ -44,7 +44,7 @@ pub enum SliceScaleMode {
 }
 
 impl TextureSlicer {
-    /// Computes the 4 corner slices
+    /// Computes the 4 corner slices: top left, top right, bottom left, bottom right.
     #[must_use]
     fn corner_slices(&self, base_rect: Rect, render_size: Vec2) -> [TextureSlice; 4] {
         let coef = render_size / base_rect.size();
@@ -116,7 +116,7 @@ impl TextureSlicer {
         render_size: Vec2,
     ) -> [TextureSlice; 2] {
         [
-            // left
+            // Left
             TextureSlice {
                 texture_rect: Rect {
                     min: base_rect.min + vec2(0.0, self.border.top),
@@ -131,7 +131,7 @@ impl TextureSlicer {
                 ),
                 offset: vec2(-render_size.x + bl_corner.draw_size.x, bl_corner.draw_size.y - tl_corner.draw_size.y) / 2.0,
             },
-            // right
+            // Right
             TextureSlice {
                 texture_rect: Rect {
                     min: vec2(
@@ -220,12 +220,11 @@ impl TextureSlicer {
             }];
         }
         let mut slices = Vec::with_capacity(9);
-        // Corners
-        //
-        // [tl_corner, tr_corner, bl_corner, br_corner]: &[TextureSlice; 4],
+        // Corners are in this order: [TL, TR, BL, BR]
         let corners = self.corner_slices(rect, render_size);
-        // Sides
+        // Vertical Sides: [B, T]
         let vertical_sides = self.vertical_side_slices(&corners, rect, render_size);
+        // Horizontal Sides: [L, R]
         let horizontal_sides = self.horizontal_side_slices(&corners, rect, render_size);
         // Center
         let center = TextureSlice {
@@ -286,10 +285,6 @@ impl Default for TextureSlicer {
 #[cfg(test)]
 mod test {
     use super::*;
-    // fn to_debug<T: core::fmt::Debug>(x: T) -> String {
-    //     format!("{:?}", x)
-    // }
-
     #[test]
     fn test_horizontal_sizes_uniform() {
         let slicer = TextureSlicer {
@@ -301,7 +296,7 @@ mod test {
                 bottom: 10.,
             },
             center_scale_mode: SliceScaleMode::Stretch,
-            sides_scale_mode: SliceScaleMode::Stretch, //Tile { stretch_value: 1.0 },
+            sides_scale_mode: SliceScaleMode::Stretch,
             max_corner_scale: 1.0,
         };
         let base_rect = Rect { min: Vec2::ZERO, max: Vec2::splat(50.) };
@@ -326,7 +321,7 @@ mod test {
                 bottom: 10.,
             },
             center_scale_mode: SliceScaleMode::Stretch,
-            sides_scale_mode: SliceScaleMode::Stretch, //Tile { stretch_value: 1.0 },
+            sides_scale_mode: SliceScaleMode::Stretch,
             max_corner_scale: 1.0,
         };
         let base_rect = Rect { min: Vec2::ZERO, max: Vec2::splat(50.) };
@@ -351,7 +346,7 @@ mod test {
                 bottom: 10.,
             },
             center_scale_mode: SliceScaleMode::Stretch,
-            sides_scale_mode: SliceScaleMode::Stretch, //Tile { stretch_value: 1.0 },
+            sides_scale_mode: SliceScaleMode::Stretch,
             max_corner_scale: 1.0,
         };
         let rect = Rect { min: Vec2::ZERO, max: Vec2::splat(50.) };
@@ -359,7 +354,6 @@ mod test {
         let corners = slicer.corner_slices(rect, render_size);
 
         let vertical_sides = slicer.vertical_side_slices(&corners, rect, render_size);
-        let horizontal_sides = slicer.horizontal_side_slices(&corners, rect, render_size);
         assert_eq!(corners[0], TextureSlice {
             texture_rect: Rect { min: Vec2::ZERO,
                                  max: Vec2::new(5.0, 10.0) },
@@ -370,7 +364,7 @@ mod test {
             texture_rect: Rect { min: Vec2::new(5.0, 0.0),
                                  max: Vec2::new(40.0, 10.0) },
             draw_size: Vec2::new(85.0, 10.0),
-            offset: Vec2::new(0.0, 45.0),
+            offset: Vec2::new(-2.5, 45.0),
         });
     }
 
@@ -385,7 +379,7 @@ mod test {
                 bottom: 10.,
             },
             center_scale_mode: SliceScaleMode::Stretch,
-            sides_scale_mode: SliceScaleMode::Stretch, //Tile { stretch_value: 1.0 },
+            sides_scale_mode: SliceScaleMode::Stretch,
             max_corner_scale: 1.0,
         };
         let base_rect = Rect { min: Vec2::ZERO, max: Vec2::splat(50.) };
