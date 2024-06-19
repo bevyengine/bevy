@@ -82,7 +82,6 @@ fn fragment(
             double_sided,
             is_front,
             Nt,
-            view.mip_bias,
         );
 
 #endif  // STANDARD_MATERIAL_NORMAL_MAP

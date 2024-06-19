@@ -21,7 +21,6 @@ use std::{
     borrow::Cow,
     marker::PhantomData,
     mem::needs_drop,
-    ops::Deref,
 };
 
 /// A data type that can be used to store data for an [entity].
@@ -835,75 +834,6 @@ impl Components {
     /// Gets an iterator over all components registered with this instance.
     pub fn iter(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
         self.components.iter()
-    }
-}
-
-/// A wrapper over a mutable [`Components`] reference that allows for state initialization.
-/// This can be obtained with [`World::component_initializer`].
-pub struct ComponentInitializer<'w> {
-    pub(crate) components: &'w mut Components,
-    pub(crate) storages: &'w mut Storages,
-}
-
-impl<'w> Deref for ComponentInitializer<'w> {
-    type Target = Components;
-
-    fn deref(&self) -> &Components {
-        self.components
-    }
-}
-
-impl<'w> ComponentInitializer<'w> {
-    /// Initializes a component of type `T` with this instance.
-    /// If a component of this type has already been initialized, this will return
-    /// the ID of the pre-existing component.
-    ///
-    /// # See also
-    ///
-    /// * [`Components::component_id()`]
-    /// * [`Components::init_component_with_descriptor()`]
-    #[inline]
-    pub fn init_component<T: Component>(&mut self) -> ComponentId {
-        self.components.init_component::<T>(self.storages)
-    }
-
-    /// Initializes a component described by `descriptor`.
-    ///
-    /// ## Note
-    ///
-    /// If this method is called multiple times with identical descriptors, a distinct `ComponentId`
-    /// will be created for each one.
-    ///
-    /// # See also
-    ///
-    /// * [`Components::component_id()`]
-    /// * [`Components::init_component()`]
-    pub fn init_component_with_descriptor(
-        &mut self,
-        descriptor: ComponentDescriptor,
-    ) -> ComponentId {
-        self.components
-            .init_component_with_descriptor(self.storages, descriptor)
-    }
-
-    /// Initializes a [`Resource`] of type `T` with this instance.
-    /// If a resource of this type has already been initialized, this will return
-    /// the ID of the pre-existing resource.
-    ///
-    /// # See also
-    ///
-    /// * [`Components::resource_id()`]
-    #[inline]
-    pub fn init_resource<T: Resource>(&mut self) -> ComponentId {
-        self.components.init_resource::<T>()
-    }
-
-    /// Initializes a [non-send resource](crate::system::NonSend) of type `T` with this instance.
-    /// If a resource of this type has already been initialized, this will return
-    /// the ID of the pre-existing resource.
-    #[inline]
-    pub fn init_non_send<T: Any>(&mut self) -> ComponentId {
-        self.components.init_non_send::<T>()
     }
 }
 

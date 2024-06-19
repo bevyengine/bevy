@@ -53,8 +53,8 @@ pub mod prelude {
         direction::{Dir2, Dir3, Dir3A},
         primitives::*,
         BVec2, BVec3, BVec4, EulerRot, FloatExt, IRect, IVec2, IVec3, IVec4, Mat2, Mat3, Mat4,
-        Quat, Ray2d, Ray3d, Rect, Rot2, URect, UVec2, UVec3, UVec4, Vec2, Vec2Swizzles, Vec3,
-        Vec3Swizzles, Vec4, Vec4Swizzles,
+        Quat, Ray2d, Ray3d, Rect, Rot2, StableInterpolate, URect, UVec2, UVec3, UVec4, Vec2,
+        Vec2Swizzles, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles,
     };
 }
 

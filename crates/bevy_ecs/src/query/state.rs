@@ -44,9 +44,9 @@ pub(super) union StorageId {
 ///
 /// This data is cached between system runs, and is used to:
 /// - store metadata about which [`Table`] or [`Archetype`] are matched by the query. "Matched" means
-/// that the query will iterate over the data in the matched table/archetype.
+///     that the query will iterate over the data in the matched table/archetype.
 /// - cache the [`State`] needed to compute the [`Fetch`] struct used to retrieve data
-/// from a specific [`Table`] or [`Archetype`]
+///     from a specific [`Table`] or [`Archetype`]
 /// - build iterators that can iterate over the query results
 ///
 /// [`State`]: crate::query::world_query::WorldQuery::State
@@ -178,9 +178,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// `new_archetype` and its variants must be called on all of the World's archetypes before the
     /// state can return valid query results.
     fn new_uninitialized(world: &mut World) -> Self {
-        let initializer = &mut world.component_initializer();
-        let fetch_state = D::init_state(initializer);
-        let filter_state = F::init_state(initializer);
+        let fetch_state = D::init_state(world);
+        let filter_state = F::init_state(world);
 
         let mut component_access = FilteredAccess::default();
         D::update_component_access(&fetch_state, &mut component_access);
@@ -215,9 +214,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Creates a new [`QueryState`] from a given [`QueryBuilder`] and inherits its [`FilteredAccess`].
     pub fn from_builder(builder: &mut QueryBuilder<D, F>) -> Self {
-        let initializer = &mut builder.world_mut().component_initializer();
-        let mut fetch_state = D::init_state(initializer);
-        let filter_state = F::init_state(initializer);
+        let mut fetch_state = D::init_state(builder.world_mut());
+        let filter_state = F::init_state(builder.world_mut());
         D::set_access(&mut fetch_state, builder.access());
 
         let mut state = Self {
@@ -903,9 +901,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// # Safety
     ///
     /// * `world` must have permission to read all of the components returned from this call.
-    /// No mutable references may coexist with any of the returned references.
+    ///     No mutable references may coexist with any of the returned references.
     /// * This must be called on the same `World` that the `Query` was generated from:
-    /// use `QueryState::validate_world` to verify this.
+    ///     use `QueryState::validate_world` to verify this.
     pub(crate) unsafe fn get_many_read_only_manual<'w, const N: usize>(
         &self,
         world: UnsafeWorldCell<'w>,

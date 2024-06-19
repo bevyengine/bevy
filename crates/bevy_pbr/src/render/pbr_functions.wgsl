@@ -181,7 +181,6 @@ fn apply_normal_mapping(
     double_sided: bool,
     is_front: bool,
     in_Nt: vec3<f32>,
-    mip_bias: f32,
 ) -> vec3<f32> {
     // Unpack the TBN vectors.
     var T = TBN[0];

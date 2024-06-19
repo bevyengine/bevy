@@ -21,6 +21,7 @@ pub mod event;
 pub mod identifier;
 pub mod intern;
 pub mod label;
+pub mod observer;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
@@ -46,6 +47,7 @@ pub mod prelude {
         component::Component,
         entity::{Entity, EntityMapper},
         event::{Event, EventReader, EventWriter, Events},
+        observer::{Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
@@ -57,7 +59,9 @@ pub mod prelude {
             ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource, System, SystemBuilder,
             SystemParamFunction,
         },
-        world::{EntityMut, EntityRef, EntityWorldMut, FromWorld, World},
+        world::{
+            EntityMut, EntityRef, EntityWorldMut, FromWorld, OnAdd, OnInsert, OnRemove, World,
+        },
     };
 }
 
