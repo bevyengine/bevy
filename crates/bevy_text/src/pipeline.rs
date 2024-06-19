@@ -8,7 +8,7 @@ use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlasLayout;
 use bevy_utils::HashMap;
 
-use cosmic_text::{Attrs, Buffer, Metrics, Shaping, Wrap};
+use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
     error::TextError, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, JustifyText, PositionedGlyph,
@@ -42,7 +42,7 @@ impl Default for SwashCache {
 #[derive(Default, Resource)]
 pub struct TextPipeline {
     /// Identifies a font [`ID`](cosmic_text::fontdb::ID) by its [`Font`] [`Asset`](bevy_asset::Asset).
-    map_handle_to_font_id: HashMap<AssetId<Font>, cosmic_text::fontdb::ID>,
+    map_handle_to_font_id: HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, String)>,
     /// The font system is used to retrieve fonts and their information, including glyph outlines.
     ///
     /// See [`cosmic_text::FontSystem`] for more information.
@@ -82,6 +82,13 @@ impl TextPipeline {
         let (font_size, line_height) = (font_size as f32, line_height as f32);
         let metrics = Metrics::new(font_size, line_height).scale(scale_factor as f32);
 
+        // Load Bevy fonts into cosmic-text's font system.
+        // This is done as as separate pre-pass to avoid borrow checker issues
+        for section in sections.iter() {
+            load_font_to_fontdb(section, font_system, &mut self.map_handle_to_font_id, fonts);
+        }
+
+        // Map text sections to cosmic-text spans
         let spans: Vec<(&str, Attrs)> = sections
             .iter()
             .filter(|section| section.style.font_size > 0.0)
@@ -93,8 +100,7 @@ impl TextPipeline {
                         section,
                         section_index,
                         font_system,
-                        &mut self.map_handle_to_font_id,
-                        fonts,
+                        &self.map_handle_to_font_id,
                         scale_factor,
                     ),
                 )
@@ -321,18 +327,14 @@ impl TextMeasureInfo {
     }
 }
 
-/// Translates [`TextSection`] to [`Attrs`](cosmic_text::attrs::Attrs),
-/// loading fonts into the [`Database`](cosmic_text::fontdb::Database) if required.
-fn get_attrs<'a>(
-    section: &'a TextSection,
-    section_index: usize,
+fn load_font_to_fontdb(
+    section: &TextSection,
     font_system: &mut cosmic_text::FontSystem,
-    map_handle_to_font_id: &mut HashMap<AssetId<Font>, cosmic_text::fontdb::ID>,
+    map_handle_to_font_id: &mut HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, String)>,
     fonts: &Assets<Font>,
-    scale_factor: f64,
-) -> Attrs<'a> {
+) {
     let font_handle = section.style.font.clone();
-    let face_id = map_handle_to_font_id
+    map_handle_to_font_id
         .entry(font_handle.id())
         .or_insert_with(|| {
             let font = fonts.get(font_handle.id()).expect(
@@ -342,8 +344,13 @@ fn get_attrs<'a>(
             let ids = font_system
                 .db_mut()
                 .load_font_source(cosmic_text::fontdb::Source::Binary(data));
+
             // TODO: it is assumed this is the right font face
-            *ids.last().unwrap()
+            let face_id = *ids.last().unwrap();
+            let face = font_system.db().face(face_id).unwrap();
+            let family_name = face.families[0].0.to_owned();
+
+            (face_id, family_name)
 
             // TODO: below may be required if we need to offset by the baseline (TBC)
             // see https://github.com/pop-os/cosmic-text/issues/123
@@ -352,13 +359,26 @@ fn get_attrs<'a>(
             //     .entry(face_id)
             //     .or_insert_with(|| font.as_swash().metrics(&[]));
         });
+}
+
+/// Translates [`TextSection`] to [`Attrs`](cosmic_text::attrs::Attrs),
+/// loading fonts into the [`Database`](cosmic_text::fontdb::Database) if required.
+fn get_attrs<'a>(
+    section: &TextSection,
+    section_index: usize,
+    font_system: &mut cosmic_text::FontSystem,
+    map_handle_to_font_id: &'a HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, String)>,
+    scale_factor: f64,
+) -> Attrs<'a> {
+    let (face_id, family_name) = map_handle_to_font_id
+        .get(&section.style.font.id())
+        .expect("Already loaded with load_font_to_fontdb");
     let face = font_system.db().face(*face_id).unwrap();
+
     // TODO: validate this is the correct string to extract
-    // let family_name = &face.families[0].0;
     let attrs = Attrs::new()
         .metadata(section_index)
-        // TODO: this reference, becomes owned by the font system, which is not really wanted...
-        // .family(Family::Name(family_name))
+        .family(Family::Name(family_name))
         .stretch(face.stretch)
         .style(face.style)
         .weight(face.weight)
