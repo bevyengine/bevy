@@ -127,18 +127,18 @@ impl TextureSlicer {
                 },
                 draw_size: vec2(
                     bl_corner.draw_size.x,
-                    render_size.y - bl_corner.draw_size.y - tl_corner.draw_size.y,
+                    render_size.y - (bl_corner.draw_size.y + tl_corner.draw_size.y),
                 ),
-                offset: vec2(-render_size.x + bl_corner.draw_size.x, bl_corner.draw_size.y - tl_corner.draw_size.y) / 2.0
+                offset: vec2(-render_size.x + bl_corner.draw_size.x, bl_corner.draw_size.y - tl_corner.draw_size.y) / 2.0,
             },
             // right
             TextureSlice {
                 texture_rect: Rect {
                     min: vec2(
                         base_rect.max.x - self.border.right,
-                        base_rect.min.y + self.border.bottom,
+                        base_rect.min.y + self.border.top,
                     ),
-                    max: vec2(base_rect.max.x, base_rect.max.y - self.border.top),
+                    max: vec2(base_rect.max.x, base_rect.max.y - self.border.bottom),
                 },
                 draw_size: vec2(
                     br_corner.draw_size.x,
@@ -230,8 +230,8 @@ impl TextureSlicer {
         // Center
         let center = TextureSlice {
             texture_rect: Rect {
-                min: rect.min + vec2(self.border.left, self.border.bottom),
-                max: vec2(rect.max.x - self.border.right, rect.max.y - self.border.top),
+                min: rect.min + vec2(self.border.left, self.border.top),
+                max: vec2(rect.max.x - self.border.right, rect.max.y - self.border.bottom),
             },
             draw_size: vec2(
                 render_size.x - (corners[2].draw_size.x + corners[3].draw_size.x),
