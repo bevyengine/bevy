@@ -1,19 +1,16 @@
-use crate::{Children, HierarchyEvent, Parent};
+use crate::{Children, OnParentChange, Parent};
 use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
-    prelude::Events,
     system::{Commands, EntityCommands},
     world::{Command, EntityWorldMut, World},
 };
 use smallvec::{smallvec, SmallVec};
 
-// Do not use `world.send_event_batch` as it prints error message when the Events are not available in the world,
-// even though it's a valid use case to execute commands on a world without events. Loading a GLTF file for example
-fn push_events(world: &mut World, events: impl IntoIterator<Item = HierarchyEvent>) {
-    if let Some(mut moved) = world.get_resource_mut::<Events<HierarchyEvent>>() {
-        moved.extend(events);
-    }
+fn trigger_events(world: &mut World, events: impl IntoIterator<Item = (OnParentChange, Entity)>) {
+    events
+        .into_iter()
+        .for_each(|(event, target)| world.trigger_targets(event, target));
 }
 
 /// Adds `child` to `parent`'s [`Children`], without checking if it is already present there.
@@ -72,18 +69,18 @@ fn update_old_parent(world: &mut World, child: Entity, parent: Entity) {
         if previous_parent == parent {
             return;
         }
+
         remove_from_children(world, previous_parent, child);
 
-        push_events(
-            world,
-            [HierarchyEvent::ChildMoved {
-                child,
-                previous_parent,
-                new_parent: parent,
-            }],
+        world.trigger_targets(
+            OnParentChange::Moved {
+                previous: previous_parent,
+                new: parent,
+            },
+            child,
         );
     } else {
-        push_events(world, [HierarchyEvent::ChildAdded { child, parent }]);
+        world.trigger_targets(OnParentChange::Added(parent), child);
     }
 }
 
@@ -96,7 +93,8 @@ fn update_old_parent(world: &mut World, child: Entity, parent: Entity) {
 ///
 /// Sends [`HierarchyEvent`]'s.
 fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
-    let mut events: SmallVec<[HierarchyEvent; 8]> = SmallVec::with_capacity(children.len());
+    let mut events: SmallVec<[(OnParentChange, Entity); 8]> =
+        SmallVec::with_capacity(children.len());
     for &child in children {
         if let Some(previous) = update_parent(world, child, parent) {
             // Do nothing if the entity already has the correct parent.
@@ -105,37 +103,39 @@ fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
             }
 
             remove_from_children(world, previous, child);
-            events.push(HierarchyEvent::ChildMoved {
+            events.push((
+                OnParentChange::Moved {
+                    previous,
+                    new: parent,
+                },
                 child,
-                previous_parent: previous,
-                new_parent: parent,
-            });
+            ));
         } else {
-            events.push(HierarchyEvent::ChildAdded { child, parent });
+            events.push((OnParentChange::Added(parent), child));
         }
     }
-    push_events(world, events);
+    trigger_events(world, events);
 }
 
 /// Removes entities in `children` from `parent`'s [`Children`], removing the component if it ends up empty.
 /// Also removes [`Parent`] component from `children`.
 fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
-    let mut events: SmallVec<[HierarchyEvent; 8]> = SmallVec::new();
+    let mut events: SmallVec<[(OnParentChange, Entity); 8]> = SmallVec::new();
     if let Some(parent_children) = world.get::<Children>(parent) {
         for &child in children {
             if parent_children.contains(&child) {
-                events.push(HierarchyEvent::ChildRemoved { child, parent });
+                events.push((OnParentChange::Removed(parent), child));
             }
         }
     } else {
         return;
     }
-    for event in &events {
-        if let &HierarchyEvent::ChildRemoved { child, .. } = event {
-            world.entity_mut(child).remove::<Parent>();
+    for (event, child) in &events {
+        if let &OnParentChange::Removed(_) = event {
+            world.entity_mut(*child).remove::<Parent>();
         }
     }
-    push_events(world, events);
+    trigger_events(world, events);
 
     let mut parent = world.entity_mut(parent);
     if let Some(mut parent_children) = parent.get_mut::<Children>() {
@@ -484,13 +484,8 @@ impl<'w> WorldChildBuilder<'w> {
     pub fn spawn(&mut self, bundle: impl Bundle) -> EntityWorldMut<'_> {
         let entity = self.world.spawn((bundle, Parent(self.parent))).id();
         push_child_unchecked(self.world, self.parent, entity);
-        push_events(
-            self.world,
-            [HierarchyEvent::ChildAdded {
-                child: entity,
-                parent: self.parent,
-            }],
-        );
+        self.world
+            .trigger_targets(OnParentChange::Added(self.parent), entity);
         self.world.entity_mut(entity)
     }
 
@@ -499,13 +494,8 @@ impl<'w> WorldChildBuilder<'w> {
     pub fn spawn_empty(&mut self) -> EntityWorldMut<'_> {
         let entity = self.world.spawn(Parent(self.parent)).id();
         push_child_unchecked(self.world, self.parent, entity);
-        push_events(
-            self.world,
-            [HierarchyEvent::ChildAdded {
-                child: entity,
-                parent: self.parent,
-            }],
-        );
+        self.world
+            .trigger_targets(OnParentChange::Added(self.parent), entity);
         self.world.entity_mut(entity)
     }
 
@@ -670,7 +660,7 @@ impl<'w> BuildWorldChildren for EntityWorldMut<'w> {
         if let Some(parent) = self.take::<Parent>().map(|p| p.get()) {
             self.world_scope(|world| {
                 remove_from_children(world, parent, child);
-                push_events(world, [HierarchyEvent::ChildRemoved { child, parent }]);
+                world.trigger_targets(OnParentChange::Removed(parent), child);
             });
         }
         self
@@ -694,15 +684,15 @@ mod tests {
     use super::{BuildChildren, BuildWorldChildren};
     use crate::{
         components::{Children, Parent},
-        HierarchyEvent::{self, ChildAdded, ChildMoved, ChildRemoved},
+        OnParentChange,
     };
     use smallvec::{smallvec, SmallVec};
 
     use bevy_ecs::{
         component::Component,
         entity::Entity,
-        event::Events,
-        system::Commands,
+        observer::Trigger,
+        system::{Commands, ResMut, Resource},
         world::{CommandQueue, World},
     };
 
@@ -716,17 +706,21 @@ mod tests {
         assert_eq!(world.get::<Children>(parent).map(|c| &**c), children);
     }
 
+    #[derive(Resource, Default)]
+    struct TriggeredEvents(Vec<(OnParentChange, Entity)>);
+
     /// Used to omit a number of events that are not relevant to a particular test.
     fn omit_events(world: &mut World, number: usize) {
-        let mut events_resource = world.resource_mut::<Events<HierarchyEvent>>();
-        let mut events: Vec<_> = events_resource.drain().collect();
-        events_resource.extend(events.drain(number..));
+        let mut events_resource = world.resource_mut::<TriggeredEvents>();
+        let mut events: Vec<_> = events_resource.0.drain(0..).collect();
+        events_resource.0.extend(events.drain(number..));
     }
 
-    fn assert_events(world: &mut World, expected_events: &[HierarchyEvent]) {
+    fn assert_triggers(world: &mut World, expected_events: &[(OnParentChange, Entity)]) {
         let events: Vec<_> = world
-            .resource_mut::<Events<HierarchyEvent>>()
-            .drain()
+            .resource_mut::<TriggeredEvents>()
+            .0
+            .drain(0..)
             .collect();
         assert_eq!(events, expected_events);
     }
@@ -734,7 +728,16 @@ mod tests {
     #[test]
     fn add_child() {
         let world = &mut World::new();
-        world.insert_resource(Events::<HierarchyEvent>::default());
+
+        world.init_resource::<TriggeredEvents>();
+
+        world.observe(
+            |trigger: Trigger<OnParentChange>, mut triggered_events: ResMut<TriggeredEvents>| {
+                triggered_events
+                    .0
+                    .push((trigger.event().clone(), trigger.entity()));
+            },
+        );
 
         let [a, b, c, d] = std::array::from_fn(|_| world.spawn_empty().id());
 
@@ -742,25 +745,14 @@ mod tests {
 
         assert_parent(world, b, Some(a));
         assert_children(world, a, Some(&[b]));
-        assert_events(
-            world,
-            &[ChildAdded {
-                child: b,
-                parent: a,
-            }],
-        );
+        assert_triggers(world, &[(OnParentChange::Added(a), b)]);
 
         world.entity_mut(a).add_child(c);
 
         assert_children(world, a, Some(&[b, c]));
         assert_parent(world, c, Some(a));
-        assert_events(
-            world,
-            &[ChildAdded {
-                child: c,
-                parent: a,
-            }],
-        );
+        assert_triggers(world, &[(OnParentChange::Added(a), c)]);
+
         // Children component should be removed when it's empty.
         world.entity_mut(d).add_child(b).add_child(c);
         assert_children(world, a, None);
@@ -769,7 +761,16 @@ mod tests {
     #[test]
     fn set_parent() {
         let world = &mut World::new();
-        world.insert_resource(Events::<HierarchyEvent>::default());
+
+        world.init_resource::<TriggeredEvents>();
+
+        world.observe(
+            |trigger: Trigger<OnParentChange>, mut triggered_events: ResMut<TriggeredEvents>| {
+                triggered_events
+                    .0
+                    .push((trigger.event().clone(), trigger.entity()));
+            },
+        );
 
         let [a, b, c] = std::array::from_fn(|_| world.spawn_empty().id());
 
@@ -777,26 +778,22 @@ mod tests {
 
         assert_parent(world, a, Some(b));
         assert_children(world, b, Some(&[a]));
-        assert_events(
-            world,
-            &[ChildAdded {
-                child: a,
-                parent: b,
-            }],
-        );
+        assert_triggers(world, &[(OnParentChange::Added(b), a)]);
 
         world.entity_mut(a).set_parent(c);
 
         assert_parent(world, a, Some(c));
         assert_children(world, b, None);
         assert_children(world, c, Some(&[a]));
-        assert_events(
+        assert_triggers(
             world,
-            &[ChildMoved {
-                child: a,
-                previous_parent: b,
-                new_parent: c,
-            }],
+            &[(
+                OnParentChange::Moved {
+                    previous: b,
+                    new: c,
+                },
+                a,
+            )],
         );
     }
 
@@ -820,7 +817,16 @@ mod tests {
     #[test]
     fn remove_parent() {
         let world = &mut World::new();
-        world.insert_resource(Events::<HierarchyEvent>::default());
+
+        world.init_resource::<TriggeredEvents>();
+
+        world.observe(
+            |trigger: Trigger<OnParentChange>, mut triggered_events: ResMut<TriggeredEvents>| {
+                triggered_events
+                    .0
+                    .push((trigger.event().clone(), trigger.entity()));
+            },
+        );
 
         let [a, b, c] = std::array::from_fn(|_| world.spawn_empty().id());
 
@@ -831,24 +837,12 @@ mod tests {
         assert_parent(world, c, Some(a));
         assert_children(world, a, Some(&[c]));
         omit_events(world, 2); // Omit ChildAdded events.
-        assert_events(
-            world,
-            &[ChildRemoved {
-                child: b,
-                parent: a,
-            }],
-        );
+        assert_triggers(world, &[(OnParentChange::Removed(a), b)]);
 
         world.entity_mut(c).remove_parent();
         assert_parent(world, c, None);
         assert_children(world, a, None);
-        assert_events(
-            world,
-            &[ChildRemoved {
-                child: c,
-                parent: a,
-            }],
-        );
+        assert_triggers(world, &[(OnParentChange::Removed(a), c)]);
     }
 
     #[allow(dead_code)]
