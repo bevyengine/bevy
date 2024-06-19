@@ -220,7 +220,7 @@ impl Default for TextStyle {
     fn default() -> Self {
         Self {
             font: Default::default(),
-            font_size: 12.0,
+            font_size: 24.0,
             color: Color::WHITE,
         }
     }
