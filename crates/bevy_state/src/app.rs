@@ -7,8 +7,8 @@ use bevy_ecs::{
 use bevy_utils::{tracing::warn, warn_once};
 
 use crate::state::{
-    setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
-    StateSet, StateTransition, StateTransitionEvent, StateTransitionSteps, States, SubStates,
+    setup_state_transitions_in_world, FreelyMutableState, NextState, State, StateSet,
+    StateTransition, StateTransitionEvent, StateTransitionSteps, States, SubStates,
 };
 use crate::state_scoped::clear_state_scoped_entities;
 
@@ -42,11 +42,6 @@ pub trait AppExtStates {
     /// Note that you can also apply state transitions at other points in the schedule
     /// by triggering the [`StateTransition`](struct@StateTransition) schedule manually.
     fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self;
-
-    /// Sets up a type implementing [`ComputedStates`].
-    ///
-    /// This method is idempotent: it has no effect when called again using the same generic type.
-    fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self;
 
     /// Sets up a type implementing [`ComputedStates`].
     ///
@@ -123,31 +118,6 @@ impl AppExtStates for SubApp {
         self
     }
 
-    fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
-        warn_if_no_states_plugin_installed(self);
-        if !self
-            .world()
-            .contains_resource::<Events<StateTransitionEvent<S>>>()
-        {
-            self.add_event::<StateTransitionEvent<S>>();
-            let schedule = self.get_schedule_mut(StateTransition).unwrap();
-            S::register_computed_state_systems(schedule);
-            let state = self
-                .world()
-                .get_resource::<State<S>>()
-                .map(|s| s.get().clone());
-            self.world_mut().send_event(StateTransitionEvent {
-                exited: None,
-                entered: state,
-            });
-        } else {
-            let name = std::any::type_name::<S>();
-            warn!("Computed state {} is already initialized.", name);
-        }
-
-        self
-    }
-
     fn add_state_computation<S: States, SourceStates: StateSet>(
         &mut self,
         f: impl Fn(SourceStates) -> Option<S> + Send + Sync + 'static,
@@ -160,9 +130,7 @@ impl AppExtStates for SubApp {
             self.add_event::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
             // S::register_computed_state_systems(schedule);
-            SourceStates::register_computed_state_systems_in_schedule_from_computation::<S>(
-                schedule, f,
-            );
+            SourceStates::register_computed_state_systems_in_schedule::<S>(schedule, f);
             let state = self
                 .world()
                 .get_resource::<State<S>>()
@@ -230,11 +198,6 @@ impl AppExtStates for App {
 
     fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
         self.main_mut().insert_state::<S>(state);
-        self
-    }
-
-    fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
-        self.main_mut().add_computed_state::<S>();
         self
     }
 

@@ -65,23 +65,20 @@ pub use bevy_state_macros::SubStates;
 ///     InGame { paused: bool }
 /// }
 ///
-/// #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+/// #[derive(Clone, PartialEq, Eq, Hash, Debug, States)]
+/// #[computed]
 /// struct InGame;
 ///
-/// impl ComputedStates for InGame {
-///     /// We set the source state to be the state, or set of states,
-///     /// we want to depend on. Any of the states can be wrapped in an Option.
-///     type SourceStates = Option<AppState>;
-///
-///     /// We then define the compute function, which takes in the AppState
-///     fn compute(sources: Option<AppState>) -> Option<Self> {
-///         match sources {
-///             /// When we are in game, we want to return the InGame state
-///             Some(AppState::InGame { .. }) => Some(InGame),
-///             /// Otherwise, we don't want the `State<InGame>` resource to exist,
-///             /// so we return None.
-///             _ => None
-///         }
+/// /// We define the compute function, which takes in the AppState
+/// /// It takes as argument the state, or set of states we want to depend on.
+/// /// Any of the states can be wrapped in an Option
+/// fn compute(sources: Option<AppState>) -> Option<InGame> {
+///     match sources {
+///         /// When we are in game, we want to return the InGame state
+///         Some(AppState::InGame { .. }) => Some(InGame),
+///         /// Otherwise, we don't want the `State<InGame>` resource to exist,
+///         /// so we return None.
+///         _ => None
 ///     }
 /// }
 ///

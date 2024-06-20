@@ -8,10 +8,9 @@ use bevy_utils::all_tuples;
 use self::sealed::StateSetSealed;
 
 use super::{
-    computed_states::ComputedStates, internal_apply_state_transition, last_transition, run_enter,
-    run_exit, run_transition, sub_states::SubStates, take_next_state, ApplyStateTransition,
-    EnterSchedules, ExitSchedules, NextState, State, StateTransitionEvent, StateTransitionSteps,
-    States, TransitionSchedules,
+    internal_apply_state_transition, last_transition, run_enter, run_exit, run_transition,
+    sub_states::SubStates, take_next_state, ApplyStateTransition, EnterSchedules, ExitSchedules,
+    NextState, State, StateTransitionEvent, StateTransitionSteps, States, TransitionSchedules,
 };
 
 mod sealed {
@@ -37,11 +36,7 @@ pub trait StateSet: sealed::StateSetSealed + Sized {
 
     /// Sets up the systems needed to compute `T` whenever any `State` in this
     /// `StateSet` is changed.
-    fn register_computed_state_systems_in_schedule<T: ComputedStates<SourceStates = Self>>(
-        schedule: &mut Schedule,
-    );
-
-    fn register_computed_state_systems_in_schedule_from_computation<T: States>(
+    fn register_computed_state_systems_in_schedule<T: States>(
         schedule: &mut Schedule,
         f: impl Fn(Self) -> Option<T> + Send + Sync + 'static,
     );
@@ -96,63 +91,7 @@ impl<S: InnerStateSet> StateSetSealed for S {}
 impl<S: InnerStateSet> StateSet for S {
     const SET_DEPENDENCY_DEPTH: usize = S::DEPENDENCY_DEPTH;
 
-    fn register_computed_state_systems_in_schedule<T: ComputedStates<SourceStates = Self>>(
-        schedule: &mut Schedule,
-    ) {
-        let apply_state_transition =
-            |mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
-             event: EventWriter<StateTransitionEvent<T>>,
-             commands: Commands,
-             current_state: Option<ResMut<State<T>>>,
-             state_set: Option<Res<State<S::RawState>>>| {
-                if parent_changed.is_empty() {
-                    return;
-                }
-                parent_changed.clear();
-
-                let new_state =
-                    if let Some(state_set) = S::convert_to_usable_state(state_set.as_deref()) {
-                        T::compute(state_set)
-                    } else {
-                        None
-                    };
-
-                internal_apply_state_transition(event, commands, current_state, new_state);
-            };
-
-        schedule.configure_sets((
-            ApplyStateTransition::<T>::default()
-                .in_set(StateTransitionSteps::DependentTransitions)
-                .after(ApplyStateTransition::<S::RawState>::default()),
-            ExitSchedules::<T>::default()
-                .in_set(StateTransitionSteps::ExitSchedules)
-                .before(ExitSchedules::<S::RawState>::default()),
-            TransitionSchedules::<T>::default().in_set(StateTransitionSteps::TransitionSchedules),
-            EnterSchedules::<T>::default()
-                .in_set(StateTransitionSteps::EnterSchedules)
-                .after(EnterSchedules::<S::RawState>::default()),
-        ));
-
-        schedule
-            .add_systems(apply_state_transition.in_set(ApplyStateTransition::<T>::default()))
-            .add_systems(
-                last_transition::<T>
-                    .pipe(run_exit::<T>)
-                    .in_set(ExitSchedules::<T>::default()),
-            )
-            .add_systems(
-                last_transition::<T>
-                    .pipe(run_transition::<T>)
-                    .in_set(TransitionSchedules::<T>::default()),
-            )
-            .add_systems(
-                last_transition::<T>
-                    .pipe(run_enter::<T>)
-                    .in_set(EnterSchedules::<T>::default()),
-            );
-    }
-
-    fn register_computed_state_systems_in_schedule_from_computation<T: States>(
+    fn register_computed_state_systems_in_schedule<T: States>(
         schedule: &mut Schedule,
         f: impl Fn(Self) -> Option<T> + Send + Sync + 'static,
     ) {
@@ -298,52 +237,7 @@ macro_rules! impl_state_set_sealed_tuples {
 
             const SET_DEPENDENCY_DEPTH : usize = $($param::DEPENDENCY_DEPTH +)* 0;
 
-
-            fn register_computed_state_systems_in_schedule<T: ComputedStates<SourceStates = Self>>(
-                schedule: &mut Schedule,
-            ) {
-                let apply_state_transition =
-                    |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,),
-                     event: EventWriter<StateTransitionEvent<T>>,
-                     commands: Commands,
-                     current_state: Option<ResMut<State<T>>>,
-                     ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
-                        if ($($evt.is_empty())&&*) {
-                            return;
-                        }
-                        $($evt.clear();)*
-
-                        let new_state = if let ($(Some($val)),*,) = ($($param::convert_to_usable_state($val.as_deref())),*,) {
-                            T::compute(($($val),*, ))
-                        } else {
-                            None
-                        };
-
-                        internal_apply_state_transition(event, commands, current_state, new_state);
-                    };
-
-                schedule.configure_sets((
-                    ApplyStateTransition::<T>::default()
-                        .in_set(StateTransitionSteps::DependentTransitions)
-                        $(.after(ApplyStateTransition::<$param::RawState>::default()))*,
-                    ExitSchedules::<T>::default()
-                        .in_set(StateTransitionSteps::ExitSchedules)
-                        $(.before(ExitSchedules::<$param::RawState>::default()))*,
-                    TransitionSchedules::<T>::default()
-                        .in_set(StateTransitionSteps::TransitionSchedules),
-                    EnterSchedules::<T>::default()
-                        .in_set(StateTransitionSteps::EnterSchedules)
-                        $(.after(EnterSchedules::<$param::RawState>::default()))*,
-                ));
-
-                schedule
-                    .add_systems(apply_state_transition.in_set(ApplyStateTransition::<T>::default()))
-                    .add_systems(last_transition::<T>.pipe(run_exit::<T>).in_set(ExitSchedules::<T>::default()))
-                    .add_systems(last_transition::<T>.pipe(run_transition::<T>).in_set(TransitionSchedules::<T>::default()))
-                    .add_systems(last_transition::<T>.pipe(run_enter::<T>).in_set(EnterSchedules::<T>::default()));
-            }
-
-            fn register_computed_state_systems_in_schedule_from_computation<T: States>(
+            fn register_computed_state_systems_in_schedule<T: States>(
                 schedule: &mut Schedule,
                 f: impl Fn(Self) -> Option<T> + Send + Sync + 'static,
             ) {
