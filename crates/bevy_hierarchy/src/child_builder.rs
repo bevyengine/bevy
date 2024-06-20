@@ -7,12 +7,6 @@ use bevy_ecs::{
 };
 use smallvec::{smallvec, SmallVec};
 
-fn trigger_events(world: &mut World, events: impl IntoIterator<Item = (OnParentChange, Entity)>) {
-    events
-        .into_iter()
-        .for_each(|(event, target)| world.trigger_targets(event, target));
-}
-
 /// Adds `child` to `parent`'s [`Children`], without checking if it is already present there.
 ///
 /// This might cause unexpected results when removing duplicate children.
@@ -93,8 +87,6 @@ fn update_old_parent(world: &mut World, child: Entity, parent: Entity) {
 ///
 /// Sends [`HierarchyEvent`]'s.
 fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
-    let mut events: SmallVec<[(OnParentChange, Entity); 8]> =
-        SmallVec::with_capacity(children.len());
     for &child in children {
         if let Some(previous) = update_parent(world, child, parent) {
             // Do nothing if the entity already has the correct parent.
@@ -103,39 +95,32 @@ fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
             }
 
             remove_from_children(world, previous, child);
-            events.push((
+            world.trigger_targets(
                 OnParentChange::Moved {
                     previous,
                     new: parent,
                 },
                 child,
-            ));
+            );
         } else {
-            events.push((OnParentChange::Added(parent), child));
+            world.trigger_targets(OnParentChange::Added(parent), child);
         }
     }
-    trigger_events(world, events);
 }
 
 /// Removes entities in `children` from `parent`'s [`Children`], removing the component if it ends up empty.
 /// Also removes [`Parent`] component from `children`.
 fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
-    let mut events: SmallVec<[(OnParentChange, Entity); 8]> = SmallVec::new();
-    if let Some(parent_children) = world.get::<Children>(parent) {
-        for &child in children {
-            if parent_children.contains(&child) {
-                events.push((OnParentChange::Removed(parent), child));
-            }
-        }
-    } else {
+    let Some(parent_children) = world.get::<Children>(parent).map(|c| c.0.clone()) else {
         return;
-    }
-    for (event, child) in &events {
-        if let &OnParentChange::Removed(_) = event {
+    };
+
+    for child in children {
+        if parent_children.contains(child) {
+            world.trigger_targets(OnParentChange::Removed(parent), *child);
             world.entity_mut(*child).remove::<Parent>();
         }
     }
-    trigger_events(world, events);
 
     let mut parent = world.entity_mut(parent);
     if let Some(mut parent_children) = parent.get_mut::<Children>() {
