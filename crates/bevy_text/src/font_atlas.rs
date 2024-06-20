@@ -85,19 +85,18 @@ impl FontAtlas {
     pub fn add_glyph(
         &mut self,
         textures: &mut Assets<Image>,
-        texture_atlases: &mut Assets<TextureAtlasLayout>,
+        atlas_layouts: &mut Assets<TextureAtlasLayout>,
         cache_key: cosmic_text::CacheKey,
         texture: &Image,
         offset: IVec2,
     ) -> Result<(), TextError> {
-        let texture_atlas = texture_atlases.get_mut(&self.texture_atlas).unwrap();
+        let atlas_layout = atlas_layouts.get_mut(&self.texture_atlas).unwrap();
+        let atlas_texture = textures.get_mut(&self.texture).unwrap();
 
-        if let Some(glyph_index) = self.dynamic_texture_atlas_builder.add_texture(
-            texture_atlas,
-            textures,
-            texture,
-            &self.texture,
-        ) {
+        if let Some(glyph_index) =
+            self.dynamic_texture_atlas_builder
+                .add_texture(atlas_layout, texture, atlas_texture)
+        {
             self.glyph_to_atlas_index.insert(
                 cache_key,
                 GlyphAtlasLocation {

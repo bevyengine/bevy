@@ -1,5 +1,4 @@
 use crate::TextureAtlasLayout;
-use bevy_asset::{Assets, Handle};
 use bevy_math::{URect, UVec2};
 use bevy_render::{
     render_asset::{RenderAsset, RenderAssetUsages},
@@ -44,16 +43,14 @@ impl DynamicTextureAtlasBuilder {
     pub fn add_texture(
         &mut self,
         atlas_layout: &mut TextureAtlasLayout,
-        textures: &mut Assets<Image>,
         texture: &Image,
-        atlas_texture_handle: &Handle<Image>,
+        atlas_texture: &mut Image,
     ) -> Option<usize> {
         let allocation = self.atlas_allocator.allocate(size2(
             (texture.width() + self.padding).try_into().unwrap(),
             (texture.height() + self.padding).try_into().unwrap(),
         ));
         if let Some(allocation) = allocation {
-            let atlas_texture = textures.get_mut(atlas_texture_handle)?;
             assert!(
                 <GpuImage as RenderAsset>::asset_usage(atlas_texture)
                     .contains(RenderAssetUsages::MAIN_WORLD),
