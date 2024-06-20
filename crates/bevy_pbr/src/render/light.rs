@@ -1120,28 +1120,19 @@ pub fn prepare_lights(
             .flags
             .contains(DownlevelFlags::CUBE_ARRAY_TEXTURES);
 
-        let point_light_texture_descriptor = if supports_cube_array_textures {
-            &TextureViewDescriptor {
-                label: Some("point_light_shadow_map_array_texture_view"),
-                format: None,
-                dimension: Some(TextureViewDimension::CubeArray),
-                aspect: TextureAspect::DepthOnly,
-                base_mip_level: 0,
-                mip_level_count: None,
-                base_array_layer: 0,
-                array_layer_count: None,
-            }
-        } else {
-            &TextureViewDescriptor {
-                label: Some("point_light_shadow_map_array_texture_view"),
-                format: None,
-                dimension: Some(TextureViewDimension::Cube),
-                aspect: TextureAspect::DepthOnly,
-                base_mip_level: 0,
-                mip_level_count: None,
-                base_array_layer: 0,
-                array_layer_count: None,
-            }
+        let point_light_texture_descriptor = &TextureViewDescriptor {
+            label: Some("point_light_shadow_map_array_texture_view"),
+            format: None,
+            dimension: if supports_cube_array_textures {
+                Some(TextureViewDimension::CubeArray)
+            } else {
+                Some(TextureViewDimension::Cube)
+            },
+            aspect: TextureAspect::DepthOnly,
+            base_mip_level: 0,
+            mip_level_count: None,
+            base_array_layer: 0,
+            array_layer_count: None,
         };
 
         let point_light_depth_texture_view = point_light_depth_texture
