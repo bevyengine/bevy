@@ -381,7 +381,7 @@ impl<'w> DeferredWorld<'w> {
     /// Gets an [`UnsafeWorldCell`] containing the underlying world.
     ///
     /// # Safety
-    /// - must only be used to to make non-structural ECS changes
+    /// - must only be used to make non-structural ECS changes
     #[inline]
     pub(crate) fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell {
         self.world
