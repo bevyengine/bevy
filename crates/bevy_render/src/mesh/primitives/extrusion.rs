@@ -49,10 +49,10 @@ impl PerimeterSegment {
     /// Returns the amount of vertices each 'layer' of the extrusion should include for this perimeter segment.
     ///
     /// A layer is the set of vertices sharing a common Z value or depth.
-    fn vertices_per_layer(&self) -> usize {
+    fn vertices_per_layer(&self) -> u32 {
         match self {
-            PerimeterSegment::Smooth { indices, .. } => indices.len(),
-            PerimeterSegment::Flat { indices } => 2 * (indices.len() - 1),
+            PerimeterSegment::Smooth { indices, .. } => indices.len() as u32,
+            PerimeterSegment::Flat { indices } => 2 * (indices.len() as u32 - 1),
         }
     }
 
@@ -131,7 +131,7 @@ where
 
 impl ExtrusionBuilder<Circle> {
     /// Sets the number of vertices used for the circle mesh at each end of the extrusion.
-    pub fn resolution(mut self, resolution: usize) -> Self {
+    pub fn resolution(mut self, resolution: u32) -> Self {
         self.base_builder.resolution = resolution;
         self
     }
@@ -139,7 +139,7 @@ impl ExtrusionBuilder<Circle> {
 
 impl ExtrusionBuilder<Ellipse> {
     /// Sets the number of vertices used for the ellipse mesh at each end of the extrusion.
-    pub fn resolution(mut self, resolution: usize) -> Self {
+    pub fn resolution(mut self, resolution: u32) -> Self {
         self.base_builder.resolution = resolution;
         self
     }
@@ -147,7 +147,7 @@ impl ExtrusionBuilder<Ellipse> {
 
 impl ExtrusionBuilder<Annulus> {
     /// Sets the number of vertices used in constructing the concentric circles of the annulus mesh at each end of the extrusion.
-    pub fn resolution(mut self, resolution: usize) -> Self {
+    pub fn resolution(mut self, resolution: u32) -> Self {
         self.base_builder.resolution = resolution;
         self
     }
@@ -155,7 +155,7 @@ impl ExtrusionBuilder<Annulus> {
 
 impl ExtrusionBuilder<Capsule2d> {
     /// Sets the number of vertices used for each hemicircle at the ends of the extrusion.
-    pub fn resolution(mut self, resolution: usize) -> Self {
+    pub fn resolution(mut self, resolution: u32) -> Self {
         self.base_builder.resolution = resolution;
         self
     }
@@ -239,7 +239,7 @@ where
                     .iter()
                     .fold((0, 0), |(verts, indices), perimeter| {
                         (
-                            verts + layers * perimeter.vertices_per_layer(),
+                            verts + layers * perimeter.vertices_per_layer() as usize,
                             indices + self.segments * perimeter.indices_per_segment(),
                         )
                     });
