@@ -7,6 +7,11 @@ use crate::bevy_state_path;
 pub fn derive_states(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
+    let computed = ast
+        .attrs
+        .iter()
+        .any(|a| a.path().is_ident("computed"));
+
     let generics = ast.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
@@ -23,13 +28,21 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
 
     let struct_name = &ast.ident;
 
-    quote! {
-        impl #impl_generics #trait_path for #struct_name #ty_generics #where_clause {}
-
-        impl #impl_generics #state_mutation_trait_path for #struct_name #ty_generics #where_clause {
+    if computed {
+        quote! {
+            impl #impl_generics #trait_path for #struct_name #ty_generics #where_clause {}
         }
+        .into()
+    } else {
+        quote! {
+            impl #impl_generics #trait_path for #struct_name #ty_generics #where_clause {}
+    
+            impl #impl_generics #state_mutation_trait_path for #struct_name #ty_generics #where_clause {
+            }
+        }
+        .into()
     }
-    .into()
+
 }
 
 struct Source {

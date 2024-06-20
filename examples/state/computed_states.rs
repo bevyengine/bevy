@@ -74,18 +74,18 @@ impl ComputedStates for InGame {
 // In addition, it allows us to still maintain a strict type representation - you can't Turbo
 // if you aren't in game, for example - while still having the
 // flexibility to check for the states as if they were completely unrelated.
+//
+// Here, we use a free-function to compute TurboMode instead of using a trait
+// this allows defining TurboMode and the systems that depend upon it in an external crate
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States)]
+#[computed]
 struct TurboMode;
 
-impl ComputedStates for TurboMode {
-    type SourceStates = AppState;
-
-    fn compute(sources: AppState) -> Option<Self> {
-        match sources {
-            AppState::InGame { turbo: true, .. } => Some(Self),
-            _ => None,
-        }
+fn compute_turbo_mode(sources: AppState) -> Option<TurboMode> {
+    match sources {
+        AppState::InGame { turbo: true, .. } => Some(TurboMode),
+        _ => None,
     }
 }
 
@@ -173,7 +173,7 @@ fn main() {
         // After initializing the normal states, we'll use `.add_computed_state::<CS>()` to initialize our `ComputedStates`
         .add_computed_state::<InGame>()
         .add_computed_state::<IsPaused>()
-        .add_computed_state::<TurboMode>()
+        .add_state_computation(compute_turbo_mode)
         .add_computed_state::<Tutorial>()
         // we can then resume adding systems just like we would in any other case,
         // using our states as normal.

@@ -27,7 +27,7 @@ mod sealed {
 ///
 /// It is sealed, and auto implemented for all [`States`] types and
 /// tuples containing them.
-pub trait StateSet: sealed::StateSetSealed {
+pub trait StateSet: sealed::StateSetSealed + Sized {
     /// The total [`DEPENDENCY_DEPTH`](`States::DEPENDENCY_DEPTH`) of all
     /// the states that are part of this [`StateSet`], added together.
     ///
@@ -39,6 +39,11 @@ pub trait StateSet: sealed::StateSetSealed {
     /// `StateSet` is changed.
     fn register_computed_state_systems_in_schedule<T: ComputedStates<SourceStates = Self>>(
         schedule: &mut Schedule,
+    );
+
+    fn register_computed_state_systems_in_schedule_from_computation<T: States>(
+        schedule: &mut Schedule,
+        f: impl Fn(Self) -> Option<T> + Send + Sync + 'static,
     );
 
     /// Sets up the systems needed to compute whether `T` exists whenever any `State` in this
@@ -108,6 +113,63 @@ impl<S: InnerStateSet> StateSet for S {
                 let new_state =
                     if let Some(state_set) = S::convert_to_usable_state(state_set.as_deref()) {
                         T::compute(state_set)
+                    } else {
+                        None
+                    };
+
+                internal_apply_state_transition(event, commands, current_state, new_state);
+            };
+
+        schedule.configure_sets((
+            ApplyStateTransition::<T>::default()
+                .in_set(StateTransitionSteps::DependentTransitions)
+                .after(ApplyStateTransition::<S::RawState>::default()),
+            ExitSchedules::<T>::default()
+                .in_set(StateTransitionSteps::ExitSchedules)
+                .before(ExitSchedules::<S::RawState>::default()),
+            TransitionSchedules::<T>::default().in_set(StateTransitionSteps::TransitionSchedules),
+            EnterSchedules::<T>::default()
+                .in_set(StateTransitionSteps::EnterSchedules)
+                .after(EnterSchedules::<S::RawState>::default()),
+        ));
+
+        schedule
+            .add_systems(apply_state_transition.in_set(ApplyStateTransition::<T>::default()))
+            .add_systems(
+                last_transition::<T>
+                    .pipe(run_exit::<T>)
+                    .in_set(ExitSchedules::<T>::default()),
+            )
+            .add_systems(
+                last_transition::<T>
+                    .pipe(run_transition::<T>)
+                    .in_set(TransitionSchedules::<T>::default()),
+            )
+            .add_systems(
+                last_transition::<T>
+                    .pipe(run_enter::<T>)
+                    .in_set(EnterSchedules::<T>::default()),
+            );
+    }
+
+    fn register_computed_state_systems_in_schedule_from_computation<T: States>(
+        schedule: &mut Schedule,
+        f: impl Fn(Self) -> Option<T> + Send + Sync + 'static,
+    ) {
+        let apply_state_transition =
+            move |mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
+                  event: EventWriter<StateTransitionEvent<T>>,
+                  commands: Commands,
+                  current_state: Option<ResMut<State<T>>>,
+                  state_set: Option<Res<State<S::RawState>>>| {
+                if parent_changed.is_empty() {
+                    return;
+                }
+                parent_changed.clear();
+
+                let new_state =
+                    if let Some(state_set) = S::convert_to_usable_state(state_set.as_deref()) {
+                        f(state_set)
                     } else {
                         None
                     };
@@ -253,6 +315,51 @@ macro_rules! impl_state_set_sealed_tuples {
 
                         let new_state = if let ($(Some($val)),*,) = ($($param::convert_to_usable_state($val.as_deref())),*,) {
                             T::compute(($($val),*, ))
+                        } else {
+                            None
+                        };
+
+                        internal_apply_state_transition(event, commands, current_state, new_state);
+                    };
+
+                schedule.configure_sets((
+                    ApplyStateTransition::<T>::default()
+                        .in_set(StateTransitionSteps::DependentTransitions)
+                        $(.after(ApplyStateTransition::<$param::RawState>::default()))*,
+                    ExitSchedules::<T>::default()
+                        .in_set(StateTransitionSteps::ExitSchedules)
+                        $(.before(ExitSchedules::<$param::RawState>::default()))*,
+                    TransitionSchedules::<T>::default()
+                        .in_set(StateTransitionSteps::TransitionSchedules),
+                    EnterSchedules::<T>::default()
+                        .in_set(StateTransitionSteps::EnterSchedules)
+                        $(.after(EnterSchedules::<$param::RawState>::default()))*,
+                ));
+
+                schedule
+                    .add_systems(apply_state_transition.in_set(ApplyStateTransition::<T>::default()))
+                    .add_systems(last_transition::<T>.pipe(run_exit::<T>).in_set(ExitSchedules::<T>::default()))
+                    .add_systems(last_transition::<T>.pipe(run_transition::<T>).in_set(TransitionSchedules::<T>::default()))
+                    .add_systems(last_transition::<T>.pipe(run_enter::<T>).in_set(EnterSchedules::<T>::default()));
+            }
+
+            fn register_computed_state_systems_in_schedule_from_computation<T: States>(
+                schedule: &mut Schedule,
+                f: impl Fn(Self) -> Option<T> + Send + Sync + 'static,
+            ) {
+                let apply_state_transition =
+                    move |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,),
+                     event: EventWriter<StateTransitionEvent<T>>,
+                     commands: Commands,
+                     current_state: Option<ResMut<State<T>>>,
+                     ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
+                        if ($($evt.is_empty())&&*) {
+                            return;
+                        }
+                        $($evt.clear();)*
+
+                        let new_state = if let ($(Some($val)),*,) = ($($param::convert_to_usable_state($val.as_deref())),*,) {
+                            f(($($val),*, ))
                         } else {
                             None
                         };
