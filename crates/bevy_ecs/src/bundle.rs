@@ -324,7 +324,7 @@ impl BundleInfo {
         id: BundleId,
     ) -> BundleInfo {
         let mut deduped = component_ids.clone();
-        deduped.sort();
+        deduped.sort_unstable();
         deduped.dedup();
 
         if deduped.len() != component_ids.len() {
@@ -492,7 +492,7 @@ impl BundleInfo {
                 } else {
                     new_table_components.extend(current_archetype.table_components());
                     // sort to ignore order while hashing
-                    new_table_components.sort();
+                    new_table_components.sort_unstable();
                     // SAFETY: all component ids in `new_table_components` exist
                     table_id = unsafe {
                         storages
@@ -508,7 +508,7 @@ impl BundleInfo {
                 } else {
                     new_sparse_set_components.extend(current_archetype.sparse_set_components());
                     // sort to ignore order while hashing
-                    new_sparse_set_components.sort();
+                    new_sparse_set_components.sort_unstable();
                     new_sparse_set_components
                 };
             };

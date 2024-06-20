@@ -1150,7 +1150,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// # Panics
     ///
-    /// This method panics if the number of query item is **not** exactly one.
+    /// This method panics if the number of query items is **not** exactly one.
     ///
     /// # Example
     ///

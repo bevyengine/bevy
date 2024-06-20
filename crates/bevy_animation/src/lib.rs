@@ -107,7 +107,7 @@ pub struct VariableCurve {
     ///
     /// - for `Interpolation::Step` and `Interpolation::Linear`, each keyframe is a single value
     /// - for `Interpolation::CubicSpline`, each keyframe is made of three values for `tangent_in`,
-    /// `keyframe_value` and `tangent_out`
+    ///     `keyframe_value` and `tangent_out`
     pub keyframes: Keyframes,
     /// Interpolation method to use between keyframes.
     pub interpolation: Interpolation,

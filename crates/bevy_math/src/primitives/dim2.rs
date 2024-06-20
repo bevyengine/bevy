@@ -1642,7 +1642,7 @@ pub struct RegularPolygon {
     /// The circumcircle on which all vertices lie
     pub circumcircle: Circle,
     /// The number of sides
-    pub sides: usize,
+    pub sides: u32,
 }
 impl Primitive2d for RegularPolygon {}
 
@@ -1664,7 +1664,7 @@ impl RegularPolygon {
     ///
     /// Panics if `circumradius` is negative
     #[inline(always)]
-    pub fn new(circumradius: f32, sides: usize) -> Self {
+    pub fn new(circumradius: f32, sides: u32) -> Self {
         assert!(
             circumradius.is_sign_positive(),
             "polygon has a negative radius"
