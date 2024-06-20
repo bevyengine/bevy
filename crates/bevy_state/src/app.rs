@@ -68,7 +68,6 @@ impl AppExtStates for SubApp {
     fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
         warn_if_no_states_plugin_installed(self);
         if !self.world().contains_resource::<State<S>>() {
-            setup_state_transitions_in_world(self.world_mut(), Some(Startup.intern()));
             self.init_resource::<State<S>>()
                 .init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>();
@@ -90,7 +89,6 @@ impl AppExtStates for SubApp {
     fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
         warn_if_no_states_plugin_installed(self);
         if !self.world().contains_resource::<State<S>>() {
-            setup_state_transitions_in_world(self.world_mut(), Some(Startup.intern()));
             self.insert_resource::<State<S>>(State::new(state.clone()))
                 .init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>();
@@ -121,7 +119,6 @@ impl AppExtStates for SubApp {
             .world()
             .contains_resource::<Events<StateTransitionEvent<S>>>()
         {
-            setup_state_transitions_in_world(self.world_mut(), Some(Startup.intern()));
             self.add_event::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
             S::register_computed_state_systems(schedule);
@@ -147,7 +144,6 @@ impl AppExtStates for SubApp {
             .world()
             .contains_resource::<Events<StateTransitionEvent<S>>>()
         {
-            setup_state_transitions_in_world(self.world_mut(), Some(Startup.intern()));
             self.init_resource::<NextState<S>>();
             self.add_event::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
@@ -219,6 +215,7 @@ impl Plugin for StatesPlugin {
     fn build(&self, app: &mut App) {
         let mut schedule = app.world_mut().resource_mut::<MainScheduleOrder>();
         schedule.insert_after(PreUpdate, StateTransition);
+        setup_state_transitions_in_world(app.world_mut(), Some(Startup.intern()));
     }
 }
 
@@ -226,6 +223,7 @@ impl Plugin for StatesPlugin {
 mod tests {
     use crate::{
         self as bevy_state,
+        app::StatesPlugin,
         state::{State, StateTransition, StateTransitionEvent},
     };
     use bevy_app::App;
@@ -245,6 +243,7 @@ mod tests {
     #[test]
     fn insert_state_can_overwrite_init_state() {
         let mut app = App::new();
+        app.add_plugins(StatesPlugin);
 
         app.init_state::<TestState>();
         app.insert_state(TestState::B);
@@ -264,6 +263,7 @@ mod tests {
     #[test]
     fn insert_state_can_overwrite_insert_state() {
         let mut app = App::new();
+        app.add_plugins(StatesPlugin);
 
         app.insert_state(TestState::B);
         app.insert_state(TestState::C);
