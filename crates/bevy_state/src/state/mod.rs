@@ -1,4 +1,4 @@
-mod computed_states;
+mod computed_state;
 mod freely_mutable_state;
 mod resources;
 mod state_set;
@@ -7,7 +7,7 @@ mod sub_states;
 mod transitions;
 
 pub use bevy_state_macros::*;
-pub use computed_states::*;
+pub use computed_state::*;
 pub use freely_mutable_state::*;
 pub use resources::*;
 pub use state_set::*;
@@ -22,6 +22,7 @@ mod tests {
     use bevy_ecs::schedule::ScheduleLabel;
     use bevy_state_macros::States;
     use bevy_state_macros::SubStates;
+    use computed_state::register_computed_state_systems;
 
     use super::*;
     use crate as bevy_state;
@@ -33,21 +34,22 @@ mod tests {
         B(bool),
     }
 
-    #[derive(PartialEq, Eq, Debug, Hash, Clone)]
+    #[derive(PartialEq, Eq, Debug, Hash, Clone, States)]
+    #[computed]
     enum TestComputedState {
         BisTrue,
         BisFalse,
     }
 
-    impl ComputedStates for TestComputedState {
-        type SourceStates = Option<SimpleState>;
-
-        fn compute(sources: Option<SimpleState>) -> Option<Self> {
-            sources.and_then(|source| match source {
-                SimpleState::A => None,
-                SimpleState::B(value) => Some(if value { Self::BisTrue } else { Self::BisFalse }),
-            })
-        }
+    fn compute_test_computed_state(sources: Option<SimpleState>) -> Option<TestComputedState> {
+        sources.and_then(|source| match source {
+            SimpleState::A => None,
+            SimpleState::B(value) => Some(if value {
+                TestComputedState::BisTrue
+            } else {
+                TestComputedState::BisFalse
+            }),
+        })
     }
 
     #[test]
@@ -58,7 +60,7 @@ mod tests {
         world.init_resource::<State<SimpleState>>();
         let mut schedules = Schedules::new();
         let mut apply_changes = Schedule::new(StateTransition);
-        TestComputedState::register_computed_state_systems(&mut apply_changes);
+        register_computed_state_systems(&mut apply_changes, compute_test_computed_state);
         SimpleState::register_state(&mut apply_changes);
         schedules.insert(apply_changes);
 
@@ -173,7 +175,7 @@ mod tests {
         world.init_resource::<State<SimpleState>>();
         let mut schedules = Schedules::new();
         let mut apply_changes = Schedule::new(StateTransition);
-        TestComputedState::register_computed_state_systems(&mut apply_changes);
+        register_computed_state_systems(&mut apply_changes, compute_test_computed_state);
         SubStateOfComputed::register_sub_state_systems(&mut apply_changes);
         SimpleState::register_state(&mut apply_changes);
         schedules.insert(apply_changes);
@@ -228,30 +230,29 @@ mod tests {
         another_value: u8,
     }
 
-    #[derive(PartialEq, Eq, Debug, Hash, Clone)]
+    #[derive(PartialEq, Eq, Debug, Hash, Clone, States)]
+    #[computed]
     enum ComplexComputedState {
         InAAndStrIsBobOrJane,
         InTrueBAndUsizeAbove8,
     }
 
-    impl ComputedStates for ComplexComputedState {
-        type SourceStates = (Option<SimpleState>, Option<OtherState>);
-
-        fn compute(sources: (Option<SimpleState>, Option<OtherState>)) -> Option<Self> {
-            match sources {
-                (Some(simple), Some(complex)) => {
-                    if simple == SimpleState::A
-                        && (complex.a_flexible_value == "bob" || complex.a_flexible_value == "jane")
-                    {
-                        Some(ComplexComputedState::InAAndStrIsBobOrJane)
-                    } else if simple == SimpleState::B(true) && complex.another_value > 8 {
-                        Some(ComplexComputedState::InTrueBAndUsizeAbove8)
-                    } else {
-                        None
-                    }
+    fn compute_complex_computed_state(
+        sources: (Option<SimpleState>, Option<OtherState>),
+    ) -> Option<ComplexComputedState> {
+        match sources {
+            (Some(simple), Some(complex)) => {
+                if simple == SimpleState::A
+                    && (complex.a_flexible_value == "bob" || complex.a_flexible_value == "jane")
+                {
+                    Some(ComplexComputedState::InAAndStrIsBobOrJane)
+                } else if simple == SimpleState::B(true) && complex.another_value > 8 {
+                    Some(ComplexComputedState::InTrueBAndUsizeAbove8)
+                } else {
+                    None
                 }
-                _ => None,
             }
+            _ => None,
         }
     }
 
@@ -267,7 +268,7 @@ mod tests {
         let mut schedules = Schedules::new();
         let mut apply_changes = Schedule::new(StateTransition);
 
-        ComplexComputedState::register_computed_state_systems(&mut apply_changes);
+        register_computed_state_systems(&mut apply_changes, compute_complex_computed_state);
 
         SimpleState::register_state(&mut apply_changes);
         OtherState::register_state(&mut apply_changes);
@@ -332,25 +333,22 @@ mod tests {
         B2,
     }
 
-    #[derive(PartialEq, Eq, Debug, Hash, Clone)]
+    #[derive(PartialEq, Eq, Debug, Hash, Clone, States)]
+    #[computed]
     enum TestNewcomputedState {
         A1,
         B2,
         B1,
     }
 
-    impl ComputedStates for TestNewcomputedState {
-        type SourceStates = (Option<SimpleState>, Option<SimpleState2>);
-
-        fn compute((s1, s2): (Option<SimpleState>, Option<SimpleState2>)) -> Option<Self> {
-            match (s1, s2) {
-                (Some(SimpleState::A), Some(SimpleState2::A1)) => Some(TestNewcomputedState::A1),
-                (Some(SimpleState::B(true)), Some(SimpleState2::B2)) => {
-                    Some(TestNewcomputedState::B2)
-                }
-                (Some(SimpleState::B(true)), _) => Some(TestNewcomputedState::B1),
-                _ => None,
-            }
+    fn compute_test_new_computed_state(
+        (s1, s2): (Option<SimpleState>, Option<SimpleState2>),
+    ) -> Option<TestNewcomputedState> {
+        match (s1, s2) {
+            (Some(SimpleState::A), Some(SimpleState2::A1)) => Some(TestNewcomputedState::A1),
+            (Some(SimpleState::B(true)), Some(SimpleState2::B2)) => Some(TestNewcomputedState::B2),
+            (Some(SimpleState::B(true)), _) => Some(TestNewcomputedState::B1),
+            _ => None,
         }
     }
 
@@ -376,7 +374,7 @@ mod tests {
             .get_mut(StateTransition)
             .expect("State Transition Schedule Doesn't Exist");
 
-        TestNewcomputedState::register_computed_state_systems(apply_changes);
+        register_computed_state_systems(apply_changes, compute_test_new_computed_state);
 
         SimpleState::register_state(apply_changes);
         SimpleState2::register_state(apply_changes);
@@ -596,7 +594,7 @@ mod tests {
         let mut schedules = Schedules::new();
         let mut apply_changes = Schedule::new(StateTransition);
         SimpleState::register_state(&mut apply_changes);
-        TestComputedState::register_computed_state_systems(&mut apply_changes);
+        register_computed_state_systems(&mut apply_changes, compute_test_computed_state);
         schedules.insert(apply_changes);
         world.insert_resource(schedules);
         setup_state_transitions_in_world(&mut world, None);
@@ -620,31 +618,30 @@ mod tests {
     #[derive(Resource, Default, Debug)]
     struct TransitionTracker(Vec<&'static str>);
 
-    #[derive(PartialEq, Eq, Debug, Hash, Clone)]
+    #[derive(PartialEq, Eq, Debug, Hash, Clone, States)]
+    #[computed]
     enum TransitionTestingComputedState {
         IsA,
         IsBAndEven,
         IsBAndOdd,
     }
 
-    impl ComputedStates for TransitionTestingComputedState {
-        type SourceStates = (Option<SimpleState>, Option<SubState>);
-
-        fn compute(sources: (Option<SimpleState>, Option<SubState>)) -> Option<Self> {
-            match sources {
-                (Some(simple), sub) => {
-                    if simple == SimpleState::A {
-                        Some(Self::IsA)
-                    } else if sub == Some(SubState::One) {
-                        Some(Self::IsBAndOdd)
-                    } else if sub == Some(SubState::Two) {
-                        Some(Self::IsBAndEven)
-                    } else {
-                        None
-                    }
+    fn compute_transition_testing_computed_state(
+        sources: (Option<SimpleState>, Option<SubState>),
+    ) -> Option<TransitionTestingComputedState> {
+        match sources {
+            (Some(simple), sub) => {
+                if simple == SimpleState::A {
+                    Some(TransitionTestingComputedState::IsA)
+                } else if sub == Some(SubState::One) {
+                    Some(TransitionTestingComputedState::IsBAndOdd)
+                } else if sub == Some(SubState::Two) {
+                    Some(TransitionTestingComputedState::IsBAndEven)
+                } else {
+                    None
                 }
-                _ => None,
             }
+            _ => None,
         }
     }
 
@@ -664,7 +661,7 @@ mod tests {
         let apply_changes = schedules.get_mut(StateTransition).unwrap();
         SimpleState::register_state(apply_changes);
         SubState::register_sub_state_systems(apply_changes);
-        TransitionTestingComputedState::register_computed_state_systems(apply_changes);
+        register_computed_state_systems(apply_changes, compute_transition_testing_computed_state);
 
         world.init_resource::<TransitionTracker>();
         fn register_transition(string: &'static str) -> impl Fn(ResMut<TransitionTracker>) {

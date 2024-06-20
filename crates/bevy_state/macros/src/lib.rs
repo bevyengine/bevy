@@ -9,7 +9,7 @@ mod states;
 use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
 
-#[proc_macro_derive(States)]
+#[proc_macro_derive(States, attributes(computed))]
 pub fn derive_states(input: TokenStream) -> TokenStream {
     states::derive_states(input)
 }

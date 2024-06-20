@@ -8,10 +8,9 @@ use bevy_utils::all_tuples;
 use self::sealed::StateSetSealed;
 
 use super::{
-    computed_states::ComputedStates, internal_apply_state_transition, last_transition, run_enter,
-    run_exit, run_transition, sub_states::SubStates, take_next_state, ApplyStateTransition,
-    EnterSchedules, ExitSchedules, NextState, State, StateTransitionEvent, StateTransitionSteps,
-    States, TransitionSchedules,
+    internal_apply_state_transition, last_transition, run_enter, run_exit, run_transition,
+    sub_states::SubStates, take_next_state, ApplyStateTransition, EnterSchedules, ExitSchedules,
+    NextState, State, StateTransitionEvent, StateTransitionSteps, States, TransitionSchedules,
 };
 
 mod sealed {
@@ -27,7 +26,7 @@ mod sealed {
 ///
 /// It is sealed, and auto implemented for all [`States`] types and
 /// tuples containing them.
-pub trait StateSet: sealed::StateSetSealed {
+pub trait StateSet: sealed::StateSetSealed + Sized {
     /// The total [`DEPENDENCY_DEPTH`](`States::DEPENDENCY_DEPTH`) of all
     /// the states that are part of this [`StateSet`], added together.
     ///
@@ -37,8 +36,9 @@ pub trait StateSet: sealed::StateSetSealed {
 
     /// Sets up the systems needed to compute `T` whenever any `State` in this
     /// `StateSet` is changed.
-    fn register_computed_state_systems_in_schedule<T: ComputedStates<SourceStates = Self>>(
+    fn register_computed_state_systems_in_schedule<T: States>(
         schedule: &mut Schedule,
+        f: impl Fn(Self) -> Option<T> + Send + Sync + 'static,
     );
 
     /// Sets up the systems needed to compute whether `T` exists whenever any `State` in this
@@ -91,15 +91,16 @@ impl<S: InnerStateSet> StateSetSealed for S {}
 impl<S: InnerStateSet> StateSet for S {
     const SET_DEPENDENCY_DEPTH: usize = S::DEPENDENCY_DEPTH;
 
-    fn register_computed_state_systems_in_schedule<T: ComputedStates<SourceStates = Self>>(
+    fn register_computed_state_systems_in_schedule<T: States>(
         schedule: &mut Schedule,
+        f: impl Fn(Self) -> Option<T> + Send + Sync + 'static,
     ) {
         let apply_state_transition =
-            |mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
-             event: EventWriter<StateTransitionEvent<T>>,
-             commands: Commands,
-             current_state: Option<ResMut<State<T>>>,
-             state_set: Option<Res<State<S::RawState>>>| {
+            move |mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
+                  event: EventWriter<StateTransitionEvent<T>>,
+                  commands: Commands,
+                  current_state: Option<ResMut<State<T>>>,
+                  state_set: Option<Res<State<S::RawState>>>| {
                 if parent_changed.is_empty() {
                     return;
                 }
@@ -107,7 +108,7 @@ impl<S: InnerStateSet> StateSet for S {
 
                 let new_state =
                     if let Some(state_set) = S::convert_to_usable_state(state_set.as_deref()) {
-                        T::compute(state_set)
+                        f(state_set)
                     } else {
                         None
                     };
@@ -236,12 +237,12 @@ macro_rules! impl_state_set_sealed_tuples {
 
             const SET_DEPENDENCY_DEPTH : usize = $($param::DEPENDENCY_DEPTH +)* 0;
 
-
-            fn register_computed_state_systems_in_schedule<T: ComputedStates<SourceStates = Self>>(
+            fn register_computed_state_systems_in_schedule<T: States>(
                 schedule: &mut Schedule,
+                f: impl Fn(Self) -> Option<T> + Send + Sync + 'static,
             ) {
                 let apply_state_transition =
-                    |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,),
+                    move |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,),
                      event: EventWriter<StateTransitionEvent<T>>,
                      commands: Commands,
                      current_state: Option<ResMut<State<T>>>,
@@ -252,7 +253,7 @@ macro_rules! impl_state_set_sealed_tuples {
                         $($evt.clear();)*
 
                         let new_state = if let ($(Some($val)),*,) = ($($param::convert_to_usable_state($val.as_deref())),*,) {
-                            T::compute(($($val),*, ))
+                            f(($($val),*, ))
                         } else {
                             None
                         };

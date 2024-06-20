@@ -47,22 +47,18 @@ enum TutorialState {
 // a separate "InGame" type and implement `ComputedStates` for it.
 // This allows us to only need to check against one type
 // when otherwise we'd need to check against multiple.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States)]
+#[computed]
 struct InGame;
 
-impl ComputedStates for InGame {
-    // Our computed state depends on `AppState`, so we need to specify it as the SourceStates type.
-    type SourceStates = AppState;
-
-    // The compute function takes in the `SourceStates`
-    fn compute(sources: AppState) -> Option<Self> {
-        // You might notice that InGame has no values - instead, in this case, the `State<InGame>` resource only exists
-        // if the `compute` function would return `Some` - so only when we are in game.
-        match sources {
-            // No matter what the value of `paused` or `turbo` is, we're still in the game rather than a menu
-            AppState::InGame { .. } => Some(Self),
-            _ => None,
-        }
+// Our computed state depends on `AppState`, so we need to take it as argument.
+fn compute_in_game(sources: AppState) -> Option<InGame> {
+    // You might notice that InGame has no values - instead, in this case, the `State<InGame>` resource only exists
+    // if the `compute` function would return `Some` - so only when we are in game.
+    match sources {
+        // No matter what the value of `paused` or `turbo` is, we're still in the game rather than a menu
+        AppState::InGame { .. } => Some(InGame),
+        _ => None,
     }
 }
 
@@ -74,18 +70,14 @@ impl ComputedStates for InGame {
 // In addition, it allows us to still maintain a strict type representation - you can't Turbo
 // if you aren't in game, for example - while still having the
 // flexibility to check for the states as if they were completely unrelated.
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States)]
+#[computed]
 struct TurboMode;
 
-impl ComputedStates for TurboMode {
-    type SourceStates = AppState;
-
-    fn compute(sources: AppState) -> Option<Self> {
-        match sources {
-            AppState::InGame { turbo: true, .. } => Some(Self),
-            _ => None,
-        }
+fn compute_turbo_mode(sources: AppState) -> Option<TurboMode> {
+    match sources {
+        AppState::InGame { turbo: true, .. } => Some(TurboMode),
+        _ => None,
     }
 }
 
@@ -99,23 +91,20 @@ impl ComputedStates for TurboMode {
 // - it doesn't exist - this is when being paused is meaningless, like in the menu.
 // - it is `NotPaused` - in which elements like the movement system are active.
 // - it is `Paused` - in which those game systems are inactive, and a pause screen is shown.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States)]
+#[computed]
 enum IsPaused {
     NotPaused,
     Paused,
 }
 
-impl ComputedStates for IsPaused {
-    type SourceStates = AppState;
-
-    fn compute(sources: AppState) -> Option<Self> {
-        // Here we convert from our [`AppState`] to all potential [`IsPaused`] versions.
-        match sources {
-            AppState::InGame { paused: true, .. } => Some(Self::Paused),
-            AppState::InGame { paused: false, .. } => Some(Self::NotPaused),
-            // If `AppState` is not `InGame`, pausing is meaningless, and so we set it to `None`.
-            _ => None,
-        }
+fn compute_is_paused(sources: AppState) -> Option<IsPaused> {
+    // Here we convert from our [`AppState`] to all potential [`IsPaused`] versions.
+    match sources {
+        AppState::InGame { paused: true, .. } => Some(IsPaused::Paused),
+        AppState::InGame { paused: false, .. } => Some(IsPaused::NotPaused),
+        // If `AppState` is not `InGame`, pausing is meaningless, and so we set it to `None`.
+        _ => None,
     }
 }
 
@@ -124,43 +113,41 @@ impl ComputedStates for IsPaused {
 // Like `IsPaused`, the tutorial has a few fully distinct possible states, so we want to represent them
 // as an Enum. However - in this case they are all dependant on multiple states: the root [`TutorialState`],
 // and both [`InGame`] and [`IsPaused`] - which are in turn derived from [`AppState`].
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States)]
+#[computed]
 enum Tutorial {
     MovementInstructions,
     PauseInstructions,
 }
 
-impl ComputedStates for Tutorial {
-    // We can also use tuples of types that implement [`States`] as our [`SourceStates`].
-    // That includes other [`ComputedStates`] - though circular dependencies are not supported
-    // and will produce a compile error.
-    //
-    // We could define this as relying on [`TutorialState`] and [`AppState`] instead, but
-    // then we would need to duplicate the derivation logic for [`InGame`] and [`IsPaused`].
-    // In this example that is not a significant undertaking, but as a rule it is likely more
-    // effective to rely on the already derived states to avoid the logic drifting apart.
-    //
-    // Notice that you can wrap any of the [`States`] here in [`Option`]s. If you do so,
-    // the the computation will get called even if the state does not exist.
-    type SourceStates = (TutorialState, InGame, Option<IsPaused>);
+// We can also use tuples of types that implement [`States`] as our [`SourceStates`].
+// That includes other [`ComputedStates`] - though circular dependencies are not supported
+// and will produce a compile error.
+//
+// We could define this as relying on [`TutorialState`] and [`AppState`] instead, but
+// then we would need to duplicate the derivation logic for [`InGame`] and [`IsPaused`].
+// In this example that is not a significant undertaking, but as a rule it is likely more
+// effective to rely on the already derived states to avoid the logic drifting apart.
+//
+// Notice that you can wrap any of the [`States`] here in [`Option`]s. If you do so,
+// the the computation will get called even if the state does not exist.
+//
+// Also notice that we aren't using InGame - we're just using it as a source state to
+// prevent the computation from executing if we're not in game. Instead - this
+// ComputedState will just not exist in that situation.
+fn compute_tutorial(
+    (tutorial_state, _in_game, is_paused): (TutorialState, InGame, Option<IsPaused>),
+) -> Option<Tutorial> {
+    // If the tutorial is inactive we don't need to worry about it.
+    if !matches!(tutorial_state, TutorialState::Active) {
+        return None;
+    }
 
-    // Notice that we aren't using InGame - we're just using it as a source state to
-    // prevent the computation from executing if we're not in game. Instead - this
-    // ComputedState will just not exist in that situation.
-    fn compute(
-        (tutorial_state, _in_game, is_paused): (TutorialState, InGame, Option<IsPaused>),
-    ) -> Option<Self> {
-        // If the tutorial is inactive we don't need to worry about it.
-        if !matches!(tutorial_state, TutorialState::Active) {
-            return None;
-        }
-
-        // If we're paused, we're in the PauseInstructions tutorial
-        // Otherwise, we're in the MovementInstructions tutorial
-        match is_paused? {
-            IsPaused::NotPaused => Some(Tutorial::MovementInstructions),
-            IsPaused::Paused => Some(Tutorial::PauseInstructions),
-        }
+    // If we're paused, we're in the PauseInstructions tutorial
+    // Otherwise, we're in the MovementInstructions tutorial
+    match is_paused? {
+        IsPaused::NotPaused => Some(Tutorial::MovementInstructions),
+        IsPaused::Paused => Some(Tutorial::PauseInstructions),
     }
 }
 
@@ -171,10 +158,10 @@ fn main() {
         .init_state::<AppState>()
         .init_state::<TutorialState>()
         // After initializing the normal states, we'll use `.add_computed_state::<CS>()` to initialize our `ComputedStates`
-        .add_computed_state::<InGame>()
-        .add_computed_state::<IsPaused>()
-        .add_computed_state::<TurboMode>()
-        .add_computed_state::<Tutorial>()
+        .add_state_computation(compute_in_game)
+        .add_state_computation(compute_is_paused)
+        .add_state_computation(compute_turbo_mode)
+        .add_state_computation(compute_tutorial)
         // we can then resume adding systems just like we would in any other case,
         // using our states as normal.
         .add_systems(Startup, setup)
