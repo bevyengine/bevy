@@ -202,7 +202,7 @@ impl TextPipeline {
 
                 // offset by half the size because the origin is center
                 let x = glyph_size.x as f32 / 2.0 + left + physical_glyph.x as f32;
-                let y = line_y + physical_glyph.y as f32 - top + glyph_size.y as f32 / 2.0;
+                let y = line_y.round() + physical_glyph.y as f32 - top + glyph_size.y as f32 / 2.0;
                 // TODO: use cosmic text's implementation (per-BufferLine alignment) as it will be editor aware
                 // see https://github.com/pop-os/cosmic-text/issues/130 (currently bugged)
                 let x = x + match text_alignment {
