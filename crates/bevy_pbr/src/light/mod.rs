@@ -638,22 +638,23 @@ pub fn update_spot_light_frusta(
     }
 }
 
-pub fn check_light_mesh_visibility(
-    visible_point_lights: Query<&VisibleClusterableObjects>,
-    mut point_lights: Query<(
-        &PointLight,
-        &GlobalTransform,
-        &CubemapFrusta,
-        &mut CubemapVisibleEntities,
-        Option<&RenderLayers>,
-    )>,
-    mut spot_lights: Query<(
-        &SpotLight,
-        &GlobalTransform,
-        &Frustum,
-        &mut VisibleEntities,
-        Option<&RenderLayers>,
-    )>,
+fn shrink_entities(visible_entities: &mut Vec<Entity>) {
+    // Check that visible entities capacity() is no more than two times greater than len()
+    let capacity = visible_entities.capacity();
+    let reserved = capacity
+        .checked_div(visible_entities.len())
+        .map_or(0, |reserve| {
+            if reserve > 2 {
+                capacity / (reserve / 2)
+            } else {
+                capacity
+            }
+        });
+
+    visible_entities.shrink_to(reserved);
+}
+
+pub fn check_dir_light_mesh_visibility(
     mut directional_lights: Query<
         (
             &DirectionalLight,
@@ -682,22 +683,6 @@ pub fn check_light_mesh_visibility(
     >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
 ) {
-    fn shrink_entities(visible_entities: &mut Vec<Entity>) {
-        // Check that visible entities capacity() is no more than two times greater than len()
-        let capacity = visible_entities.capacity();
-        let reserved = capacity
-            .checked_div(visible_entities.len())
-            .map_or(0, |reserve| {
-                if reserve > 2 {
-                    capacity / (reserve / 2)
-                } else {
-                    capacity
-                }
-            });
-
-        visible_entities.shrink_to(reserved);
-    }
-
     let visible_entity_ranges = visible_entity_ranges.as_deref();
 
     // Directional lights
@@ -804,6 +789,43 @@ pub fn check_light_mesh_visibility(
                 .for_each(shrink_entities);
         }
     }
+}
+
+pub fn check_point_light_mesh_visibility(
+    visible_point_lights: Query<&VisibleClusterableObjects>,
+    mut point_lights: Query<(
+        &PointLight,
+        &GlobalTransform,
+        &CubemapFrusta,
+        &mut CubemapVisibleEntities,
+        Option<&RenderLayers>,
+    )>,
+    mut spot_lights: Query<(
+        &SpotLight,
+        &GlobalTransform,
+        &Frustum,
+        &mut VisibleEntities,
+        Option<&RenderLayers>,
+    )>,
+    mut visible_entity_query: Query<
+        (
+            Entity,
+            &InheritedVisibility,
+            &mut ViewVisibility,
+            Option<&RenderLayers>,
+            Option<&Aabb>,
+            Option<&GlobalTransform>,
+            Has<VisibilityRange>,
+        ),
+        (
+            Without<NotShadowCaster>,
+            Without<DirectionalLight>,
+            With<Handle<Mesh>>,
+        ),
+    >,
+    visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
+) {
+    let visible_entity_ranges = visible_entity_ranges.as_deref();
 
     for visible_lights in &visible_point_lights {
         for light_entity in visible_lights.entities.iter().copied() {
