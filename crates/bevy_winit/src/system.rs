@@ -223,7 +223,10 @@ pub(crate) fn changed_windows(
         }
 
         if window.resolution != cache.window.resolution {
-            let mut physical_size = winit_window.inner_size();
+            let mut physical_size = PhysicalSize::new(
+                window.resolution.physical_width(),
+                window.resolution.physical_height(),
+            );
 
             let cached_physical_size = PhysicalSize::new(
                 cache.window.physical_width(),
