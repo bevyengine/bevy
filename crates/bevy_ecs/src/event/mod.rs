@@ -282,17 +282,17 @@ mod tests {
     fn test_event_cursor_read() {
         let mut events = Events::<TestEvent>::default();
         let mut cursor = events.get_cursor();
-        assert!(cursor.read(&mut events).next().is_none());
+        assert!(cursor.read(&events).next().is_none());
 
         events.send(TestEvent { i: 0 });
-        let sent_event = cursor.read(&mut events).next().unwrap();
+        let sent_event = cursor.read(&events).next().unwrap();
         assert_eq!(sent_event, &TestEvent { i: 0 });
-        assert!(cursor.read(&mut events).next().is_none());
+        assert!(cursor.read(&events).next().is_none());
 
         events.send(TestEvent { i: 2 });
-        let sent_event = cursor.read(&mut events).next().unwrap();
+        let sent_event = cursor.read(&events).next().unwrap();
         assert_eq!(sent_event, &TestEvent { i: 2 });
-        assert!(cursor.read(&mut events).next().is_none());
+        assert!(cursor.read(&events).next().is_none());
 
         events.clear();
         assert!(cursor.read(&events).next().is_none());
@@ -304,7 +304,7 @@ mod tests {
         let mut write_cursor = events.get_cursor();
         let mut read_cursor = events.get_cursor();
         assert!(write_cursor.read_mut(&mut events).next().is_none());
-        assert!(read_cursor.read(&mut events).next().is_none());
+        assert!(read_cursor.read(&events).next().is_none());
 
         events.send(TestEvent { i: 0 });
         let sent_event = write_cursor.read_mut(&mut events).next().unwrap();
@@ -314,7 +314,7 @@ mod tests {
             read_cursor.read(&events).next().unwrap(),
             &TestEvent { i: 1 }
         );
-        assert!(read_cursor.read(&mut events).next().is_none());
+        assert!(read_cursor.read(&events).next().is_none());
 
         events.send(TestEvent { i: 2 });
         let sent_event = write_cursor.read_mut(&mut events).next().unwrap();
@@ -324,7 +324,7 @@ mod tests {
             read_cursor.read(&events).next().unwrap(),
             &TestEvent { i: 3 }
         );
-        assert!(read_cursor.read(&mut events).next().is_none());
+        assert!(read_cursor.read(&events).next().is_none());
 
         events.clear();
         assert!(write_cursor.read(&events).next().is_none());
