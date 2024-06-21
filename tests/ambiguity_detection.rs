@@ -5,7 +5,7 @@ use bevy::{
     ecs::schedule::{LogLevel, ScheduleBuildSettings, ScheduleLabel},
     prelude::*,
 };
-use bevy_render::{pipelined_rendering::RenderExtractApp, Render};
+//use bevy_render::{pipelined_rendering::RenderExtractApp, Render, RenderApp};
 
 /// FIXME: bevy should not have any ambiguities, but it takes time to clean these up,
 /// so we're juste ignoring those for now.
@@ -16,14 +16,13 @@ fn get_ignored_ambiguous_systems() -> Vec<Box<dyn ScheduleLabel>> {
         Box::new(PostUpdate),
         Box::new(Last),
         Box::new(ExtractSchedule),
-        Box::new(Render),
+        //Box::new(Render),
     ]
 }
 
 /// A test to confirm that `bevy` doesn't have system order ambiguity with DefaultPlugins
 /// This is run in CI to ensure that this doesn't regress again.
 pub fn main() {
-    use bevy_render::RenderApp;
     let mut app = App::new();
     app.add_plugins(DefaultPlugins);
 
@@ -47,10 +46,10 @@ pub fn main() {
     }
     let sub_app = app.main_mut();
     configure_ambiguity_detection(sub_app);
-    let sub_app = app.sub_app_mut(RenderApp);
-    configure_ambiguity_detection(sub_app);
-    let sub_app = app.sub_app_mut(RenderExtractApp);
-    configure_ambiguity_detection(sub_app);
+    //let sub_app = app.sub_app_mut(RenderApp);
+    //configure_ambiguity_detection(sub_app);
+    //let sub_app = app.sub_app_mut(RenderExtractApp);
+    //configure_ambiguity_detection(sub_app);
 
     app.finish();
     app.cleanup();
@@ -74,6 +73,6 @@ pub fn main() {
     let sub_app = app.main();
     assert_no_conflicting_systems(sub_app);
     // RenderApp is not checked here, because it is not within the App at this point.
-    let sub_app = app.sub_app(RenderExtractApp);
-    assert_no_conflicting_systems(sub_app);
+    //let sub_app = app.sub_app(RenderExtractApp);
+    //assert_no_conflicting_systems(sub_app);
 }

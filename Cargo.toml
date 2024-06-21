@@ -365,6 +365,7 @@ ron = "0.8.0"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
 bytemuck = "1.7"
+# bevy_render = { path = "crates/bevy_render", version = "0.14.0-rc.3", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
 async-std = "1.12"
@@ -372,7 +373,6 @@ crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 thiserror = "1.0"
 event-listener = "5.3.0"
-bevy_render = { path = "crates/bevy_render", version = "0.14.0-rc.3", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen = { version = "0.2" }
