@@ -487,6 +487,47 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             }
         }
 
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+        {
+            use bevy_window::WindowGlContextLost;
+            use wasm_bindgen::JsCast;
+            use winit::platform::web::WindowExtWebSys;
+
+            fn get_gl_context(
+                window: &winit::window::Window,
+            ) -> Option<web_sys::WebGl2RenderingContext> {
+                if let Some(canvas) = window.canvas() {
+                    let context = canvas.get_context("webgl2").ok()??;
+
+                    Some(context.dyn_into::<web_sys::WebGl2RenderingContext>().ok()?)
+                } else {
+                    None
+                }
+            }
+
+            fn has_gl_context(window: &winit::window::Window) -> bool {
+                get_gl_context(window).map_or(false, |ctx| !ctx.is_context_lost())
+            }
+
+            let (_, windows) = focused_windows_state.get(&self.world());
+
+            if let Some((entity, _)) = windows.iter().next() {
+                let winit_windows = self.world().non_send_resource::<WinitWindows>();
+                let window = winit_windows.get_window(entity).expect("Window must exist");
+
+                if !has_gl_context(&window) {
+                    self.winit_events
+                        .send(WindowGlContextLost { window: entity });
+
+                    // Pauses sub-apps to stop WGPU from crashing when there's no OpenGL context.
+                    // Ensures that the rest of the systems in the main app keep running (i.e. physics).
+                    self.app.pause_sub_apps();
+                } else {
+                    self.app.resume_sub_apps();
+                }
+            }
+        }
+
         // Notifies a lifecycle change
         if self.lifecycle != self.previous_lifecycle {
             self.previous_lifecycle = self.lifecycle;
@@ -717,6 +758,9 @@ impl<T: Event> WinitAppRunnerState<T> {
                     world.send_event(e);
                 }
                 WinitEvent::KeyboardFocusLost(e) => {
+                    world.send_event(e);
+                }
+                WinitEvent::WindowGlContextLost(e) => {
                     world.send_event(e);
                 }
             }

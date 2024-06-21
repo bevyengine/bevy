@@ -77,6 +77,8 @@ pub struct App {
     /// [`WinitPlugin`]: https://docs.rs/bevy/latest/bevy/winit/struct.WinitPlugin.html
     /// [`ScheduleRunnerPlugin`]: https://docs.rs/bevy/latest/bevy/app/struct.ScheduleRunnerPlugin.html
     pub(crate) runner: RunnerFn,
+
+    run_sub_apps: bool,
 }
 
 impl Debug for App {
@@ -125,6 +127,7 @@ impl App {
                 main: SubApp::new(),
                 sub_apps: HashMap::new(),
             },
+            run_sub_apps: true,
             runner: Box::new(run_once),
         }
     }
@@ -135,7 +138,9 @@ impl App {
             panic!("App::update() was called while a plugin was building.");
         }
 
-        self.sub_apps.update();
+        if self.run_sub_apps {
+            self.sub_apps.update();
+        }
     }
 
     /// Runs the [`App`] by calling its [runner](Self::set_runner).
@@ -661,6 +666,16 @@ impl App {
     /// Removes the [`SubApp`] with the given label, if it exists.
     pub fn remove_sub_app(&mut self, label: impl AppLabel) -> Option<SubApp> {
         self.sub_apps.sub_apps.remove(&label.intern())
+    }
+
+    /// Resumes sub apps
+    pub fn resume_sub_apps(&mut self) {
+        self.run_sub_apps = true;
+    }
+
+    /// Pauses sub apps from running.
+    pub fn pause_sub_apps(&mut self) {
+        self.run_sub_apps = false;
     }
 
     /// Inserts a new `schedule` under the provided `label`, overwriting any existing

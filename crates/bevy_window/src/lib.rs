@@ -108,6 +108,7 @@ impl Plugin for WindowPlugin {
             .add_event::<FileDragAndDrop>()
             .add_event::<WindowMoved>()
             .add_event::<WindowThemeChanged>()
+            .add_event::<WindowGlContextLost>()
             .add_event::<AppLifecycle>();
 
         if let Some(primary_window) = &self.primary_window {

@@ -9,11 +9,13 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-trace = []
-wayland = ["winit/wayland", "winit/wayland-csd-adwaita"]
-x11 = ["winit/x11"]
 accesskit_unix = ["accesskit_winit/accesskit_unix", "accesskit_winit/async-io"]
 serialize = ["serde"]
+trace = []
+wayland = ["winit/wayland", "winit/wayland-csd-adwaita"]
+webgl = []
+webgpu = []
+x11 = ["winit/x11"]
 
 [dependencies]
 # bevy

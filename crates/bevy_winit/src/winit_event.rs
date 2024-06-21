@@ -15,8 +15,8 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_window::{
     AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, ReceivedCharacter,
     RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated,
-    WindowDestroyed, WindowFocused, WindowMoved, WindowOccluded, WindowResized,
-    WindowScaleFactorChanged, WindowThemeChanged,
+    WindowDestroyed, WindowFocused, WindowGlContextLost, WindowMoved, WindowOccluded,
+    WindowResized, WindowScaleFactorChanged, WindowThemeChanged,
 };
 
 /// Wraps all `bevy_window` events in a common enum.
@@ -65,6 +65,8 @@ pub enum WinitEvent {
 
     KeyboardInput(KeyboardInput),
     KeyboardFocusLost(KeyboardFocusLost),
+
+    WindowGlContextLost(WindowGlContextLost),
 }
 
 impl From<AppLifecycle> for WinitEvent {
@@ -202,8 +204,14 @@ impl From<KeyboardInput> for WinitEvent {
         Self::KeyboardInput(e)
     }
 }
+
 impl From<KeyboardFocusLost> for WinitEvent {
     fn from(e: KeyboardFocusLost) -> Self {
         Self::KeyboardFocusLost(e)
+    }
+}
+impl From<WindowGlContextLost> for WinitEvent {
+    fn from(e: WindowGlContextLost) -> Self {
+        Self::WindowGlContextLost(e)
     }
 }

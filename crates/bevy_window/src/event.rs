@@ -413,3 +413,16 @@ impl AppLifecycle {
         }
     }
 }
+
+/// A window event that is sent whenever a window's GL context is lost.
+#[derive(Event, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct WindowGlContextLost {
+    /// Window that lose context.
+    pub window: Entity,
+}
