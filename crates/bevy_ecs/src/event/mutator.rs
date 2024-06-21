@@ -48,8 +48,8 @@ pub struct EventMutator<'w, 's, E: Event> {
 }
 
 impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
-    /// Iterates over the events this [`EventReader`] has not seen yet. This updates the
-    /// [`EventReader`]'s event counter, which means subsequent event reads will not include events
+    /// Iterates over the events this [`EventMutator`] has not seen yet. This updates the
+    /// [`EventMutator`]'s event counter, which means subsequent event reads will not include events
     /// that happened before now.
     pub fn read(&mut self) -> EventMutatorIterator<'_, E> {
         self.reader.read(&mut self.events)
@@ -60,7 +60,7 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
         self.reader.read_with_id(&mut self.events)
     }
 
-    /// Returns a parallel iterator over the events this [`EventReader`] has not seen yet.
+    /// Returns a parallel iterator over the events this [`EventMutator`] has not seen yet.
     /// See also [`for_each`](EventParIter::for_each).
     ///
     /// # Example
@@ -82,7 +82,7 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
     /// world.insert_resource(Counter::default());
     ///
     /// let mut schedule = Schedule::default();
-    /// schedule.add_systems(|mut events: EventReader<MyEvent>, counter: Res<Counter>| {
+    /// schedule.add_systems(|mut events: EventMutator<MyEvent>, counter: Res<Counter>| {
     ///     events.par_read().for_each(|MyEvent { value }| {
     ///         counter.0.fetch_add(*value, Ordering::Relaxed);
     ///     });
@@ -101,7 +101,7 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
         self.reader.par_read(&mut self.events)
     }
 
-    /// Determines the number of events available to be read from this [`EventReader`] without consuming any.
+    /// Determines the number of events available to be read from this [`EventMutator`] without consuming any.
     pub fn len(&self) -> usize {
         self.reader.len(&self.events)
     }
@@ -111,7 +111,7 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
     /// # Example
     ///
     /// The following example shows a useful pattern where some behavior is triggered if new events are available.
-    /// [`EventReader::clear()`] is used so the same events don't re-trigger the behavior the next time the system runs.
+    /// [`EventMutator::clear()`] is used so the same events don't re-trigger the behavior the next time the system runs.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -119,7 +119,7 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
     /// #[derive(Event)]
     /// struct CollisionEvent;
     ///
-    /// fn play_collision_sound(mut events: EventReader<CollisionEvent>) {
+    /// fn play_collision_sound(mut events: EventMutator<CollisionEvent>) {
     ///     if !events.is_empty() {
     ///         events.clear();
     ///         // Play a sound
@@ -133,20 +133,20 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
 
     /// Consumes all available events.
     ///
-    /// This means these events will not appear in calls to [`EventReader::read()`] or
-    /// [`EventReader::read_with_id()`] and [`EventReader::is_empty()`] will return `true`.
+    /// This means these events will not appear in calls to [`EventMutator::read()`] or
+    /// [`EventMutator::read_with_id()`] and [`EventMutator::is_empty()`] will return `true`.
     ///
-    /// For usage, see [`EventReader::is_empty()`].
+    /// For usage, see [`EventMutator::is_empty()`].
     pub fn clear(&mut self) {
         self.reader.clear(&self.events);
     }
 }
 
-/// Stores the state for an [`EventReader`].
+/// Stores the state for an [`EventMutator`].
 ///
 /// Access to the [`Events<E>`] resource is required to read any incoming events.
 ///
-/// In almost all cases, you should just use an [`EventReader`],
+/// In almost all cases, you should just use an [`EventMutator`],
 /// which will automatically manage the state for you.
 ///
 /// However, this type can be useful if you need to manually track events,
@@ -156,23 +156,23 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
-/// use bevy_ecs::event::{Event, Events, ManualEventReader};
+/// use bevy_ecs::event::{Event, Events, ManualEventMutator};
 ///
 /// #[derive(Event, Clone, Debug)]
 /// struct MyEvent;
 ///
-/// /// A system that both sends and receives events using a [`Local`] [`ManualEventReader`].
-/// fn send_and_receive_manual_event_reader(
+/// /// A system that both sends and receives events using a [`Local`] [`ManualEventMutator`].
+/// fn send_and_receive_manual_event_mutator(
 ///     // The `Local` `SystemParam` stores state inside the system itself, rather than in the world.
-///     // `ManualEventReader<T>` is the internal state of `EventReader<T>`, which tracks which events have been seen.
-///     mut local_event_reader: Local<ManualEventReader<MyEvent>>,
+///     // `ManualEventMutator<T>` is the internal state of `EventMutator<T>`, which tracks which events have been seen.
+///     mut local_event_reader: Local<ManualEventMutator<MyEvent>>,
 ///     // We can access the `Events` resource mutably, allowing us to both read and write its contents.
 ///     mut events: ResMut<Events<MyEvent>>,
 /// ) {
 ///     // We must collect the events to resend, because we can't mutate events while we're iterating over the events.
 ///     let mut events_to_resend = Vec::new();
 ///
-///     for event in local_event_reader.read(&events) {
+///     for event in local_event_reader.read(&mut events) {
 ///          events_to_resend.push(event.clone());
 ///     }
 ///
@@ -181,7 +181,7 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
 ///     }
 /// }
 ///
-/// # bevy_ecs::system::assert_is_system(send_and_receive_manual_event_reader);
+/// # bevy_ecs::system::assert_is_system(send_and_receive_manual_event_mutator);
 /// ```
 #[derive(Debug)]
 pub struct ManualEventMutator<E: Event> {
@@ -209,12 +209,12 @@ impl<E: Event> Clone for ManualEventMutator<E> {
 
 #[allow(clippy::len_without_is_empty)] // Check fails since the is_empty implementation has a signature other than `(&self) -> bool`
 impl<E: Event> ManualEventMutator<E> {
-    /// See [`EventReader::read`]
+    /// See [`EventMutator::read`]
     pub fn read<'a>(&'a mut self, events: &'a mut Events<E>) -> EventMutatorIterator<'a, E> {
         self.read_with_id(events).without_id()
     }
 
-    /// See [`EventReader::read_with_id`]
+    /// See [`EventMutator::read_with_id`]
     pub fn read_with_id<'a>(
         &'a mut self,
         events: &'a mut Events<E>,
@@ -222,13 +222,13 @@ impl<E: Event> ManualEventMutator<E> {
         EventMutatorIteratorWithId::new(self, events)
     }
 
-    /// See [`EventReader::par_read`]
+    /// See [`EventMutator::par_read`]
     #[cfg(feature = "multi_threaded")]
     pub fn par_read<'a>(&'a mut self, events: &'a mut Events<E>) -> EventMutatorParIter<'a, E> {
         EventMutatorParIter::new(self, events)
     }
 
-    /// See [`EventReader::len`]
+    /// See [`EventMutator::len`]
     pub fn len(&self, events: &Events<E>) -> usize {
         // The number of events in this reader is the difference between the most recent event
         // and the last event seen by it. This will be at most the number of events contained
@@ -247,12 +247,12 @@ impl<E: Event> ManualEventMutator<E> {
             .saturating_sub(self.last_event_count)
     }
 
-    /// See [`EventReader::is_empty()`]
+    /// See [`EventMutator::is_empty()`]
     pub fn is_empty(&self, events: &Events<E>) -> bool {
         self.len(events) == 0
     }
 
-    /// See [`EventReader::clear()`]
+    /// See [`EventMutator::clear()`]
     pub fn clear(&mut self, events: &Events<E>) {
         self.last_event_count = events.event_count;
     }

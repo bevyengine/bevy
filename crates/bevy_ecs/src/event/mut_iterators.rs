@@ -91,7 +91,7 @@ impl<'a, E: Event> Iterator for EventMutatorIteratorWithId<'a, E> {
             .map(|instance| (&mut instance.event, instance.event_id))
         {
             Some(item) => {
-                detailed_trace!("EventReader::iter() -> {}", item.1);
+                detailed_trace!("EventMutator::iter() -> {}", item.1);
                 self.mutator.last_event_count += 1;
                 self.unread -= 1;
                 Some(item)

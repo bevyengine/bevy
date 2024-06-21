@@ -167,12 +167,12 @@ impl<E: Event> Events<E> {
         }
     }
 
-    /// Gets a new [`ManualEventReader`]. This will include all events already in the event buffers.
+    /// Gets a new [`ManualEventMutator`]. This will include all events already in the event buffers.
     pub fn get_mutator(&self) -> ManualEventMutator<E> {
         ManualEventMutator::default()
     }
 
-    /// Gets a new [`ManualEventReader`]. This will ignore all events already in the event buffers.
+    /// Gets a new [`ManualEventMutator`]. This will ignore all events already in the event buffers.
     /// It will read all future events.
     pub fn get_mutator_current(&self) -> ManualEventMutator<E> {
         ManualEventMutator {
