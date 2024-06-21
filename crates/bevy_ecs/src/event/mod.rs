@@ -312,7 +312,7 @@ mod tests {
         *sent_event = TestEvent { i: 1 }; // Mutate whole event
         assert_eq!(
             read_cursor.read(&events).next().unwrap(),
-            &TestEvent { i: 0 }
+            &TestEvent { i: 1 }
         );
         assert!(read_cursor.read(&mut events).next().is_none());
 
