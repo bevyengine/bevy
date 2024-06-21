@@ -76,7 +76,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
 
         window
             .resolution
-            .set_scale_factor(winit_window.scale_factor() as f32);
+            .set_scale_factor_and_apply_to_physical_size(winit_window.scale_factor() as f32);
 
         commands.entity(entity).insert(CachedWindow {
             window: window.clone(),
