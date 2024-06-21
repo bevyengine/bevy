@@ -619,4 +619,56 @@ mod tests {
         assert_eq!(typed, Handle::try_from(untyped.clone()).unwrap());
         assert_eq!(UntypedHandle::from(typed.clone()), untyped);
     }
+
+    /// Reflect::clone_value should increase the strong count of a strong handle
+    #[test]
+    fn strong_handle_reflect_clone() {
+        use crate::{AssetApp, AssetPlugin, Assets, VisitAssetDependencies};
+        use bevy_app::App;
+        use bevy_reflect::FromReflect;
+
+        #[derive(Reflect)]
+        struct MyAsset {
+            value: u32,
+        }
+        impl Asset for MyAsset {}
+        impl VisitAssetDependencies for MyAsset {
+            fn visit_dependencies(&self, _visit: &mut impl FnMut(UntypedAssetId)) {}
+        }
+
+        let mut app = App::new();
+        app.add_plugins(AssetPlugin::default())
+            .init_asset::<MyAsset>();
+        let mut assets = app.world_mut().resource_mut::<Assets<MyAsset>>();
+
+        let handle: Handle<MyAsset> = assets.add(MyAsset { value: 1 });
+        match &handle {
+            Handle::Strong(strong) => {
+                assert_eq!(
+                    Arc::strong_count(strong),
+                    1,
+                    "Inserting the asset should result in a strong count of 1"
+                );
+
+                let reflected: &dyn Reflect = &handle;
+                let cloned_handle: Box<dyn Reflect> = reflected.clone_value();
+
+                assert_eq!(
+                    Arc::strong_count(strong),
+                    2,
+                    "Cloning the handle with reflect should increase the strong count to 2"
+                );
+
+                let from_reflect_handle: Handle<MyAsset> =
+                    FromReflect::from_reflect(&*cloned_handle).unwrap();
+
+                assert_eq!(Arc::strong_count(strong), 3, "Converting the reflected value back to a handle should increase the strong count to 3");
+                assert!(
+                    from_reflect_handle.is_strong(),
+                    "The cloned handle should still be strong"
+                );
+            }
+            _ => panic!("Expected a strong handle"),
+        }
+    }
 }
