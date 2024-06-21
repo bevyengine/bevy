@@ -1,17 +1,17 @@
 use crate as bevy_ecs;
 #[cfg(feature = "multi_threaded")]
 use bevy_ecs::batching::BatchingStrategy;
-use bevy_ecs::event::{Event, EventId, EventInstance, Events, ManualEventMutator};
+use bevy_ecs::event::{Event, EventCursor, EventId, EventInstance, Events};
 use bevy_utils::detailed_trace;
 use std::{iter::Chain, slice::IterMut};
 
-/// An iterator that yields any unread events from an [`EventMutator`] or [`ManualEventMutator`].
+/// An iterator that yields any unread events from an [`EventMutator`] or [`EventCursor`].
 #[derive(Debug)]
-pub struct EventMutatorIterator<'a, E: Event> {
-    iter: EventMutatorIteratorWithId<'a, E>,
+pub struct EventMutIterator<'a, E: Event> {
+    iter: EventMutIteratorWithId<'a, E>,
 }
 
-impl<'a, E: Event> Iterator for EventMutatorIterator<'a, E> {
+impl<'a, E: Event> Iterator for EventMutIterator<'a, E> {
     type Item = &'a mut E;
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|(event, _)| event)
@@ -37,23 +37,23 @@ impl<'a, E: Event> Iterator for EventMutatorIterator<'a, E> {
     }
 }
 
-impl<'a, E: Event> ExactSizeIterator for EventMutatorIterator<'a, E> {
+impl<'a, E: Event> ExactSizeIterator for EventMutIterator<'a, E> {
     fn len(&self) -> usize {
         self.iter.len()
     }
 }
 
-/// An iterator that yields any unread events (and their IDs) from an [`EventMutator`] or [`ManualEventMutator`].
+/// An iterator that yields any unread events (and their IDs) from an [`EventMutator`] or [`EventCursor`].
 #[derive(Debug)]
-pub struct EventMutatorIteratorWithId<'a, E: Event> {
-    mutator: &'a mut ManualEventMutator<E>,
+pub struct EventMutIteratorWithId<'a, E: Event> {
+    mutator: &'a mut EventCursor<E>,
     chain: Chain<IterMut<'a, EventInstance<E>>, IterMut<'a, EventInstance<E>>>,
     unread: usize,
 }
 
-impl<'a, E: Event> EventMutatorIteratorWithId<'a, E> {
+impl<'a, E: Event> EventMutIteratorWithId<'a, E> {
     /// Creates a new iterator that yields any `events` that have not yet been seen by `mutator`.
-    pub fn new(mutator: &'a mut ManualEventMutator<E>, events: &'a mut Events<E>) -> Self {
+    pub fn new(mutator: &'a mut EventCursor<E>, events: &'a mut Events<E>) -> Self {
         let a_index = mutator
             .last_event_count
             .saturating_sub(events.events_a.start_event_count);
@@ -77,12 +77,12 @@ impl<'a, E: Event> EventMutatorIteratorWithId<'a, E> {
     }
 
     /// Iterate over only the events.
-    pub fn without_id(self) -> EventMutatorIterator<'a, E> {
-        EventMutatorIterator { iter: self }
+    pub fn without_id(self) -> EventMutIterator<'a, E> {
+        EventMutIterator { iter: self }
     }
 }
 
-impl<'a, E: Event> Iterator for EventMutatorIteratorWithId<'a, E> {
+impl<'a, E: Event> Iterator for EventMutIteratorWithId<'a, E> {
     type Item = (&'a mut E, EventId<E>);
     fn next(&mut self) -> Option<Self::Item> {
         match self
@@ -131,7 +131,7 @@ impl<'a, E: Event> Iterator for EventMutatorIteratorWithId<'a, E> {
     }
 }
 
-impl<'a, E: Event> ExactSizeIterator for EventMutatorIteratorWithId<'a, E> {
+impl<'a, E: Event> ExactSizeIterator for EventMutIteratorWithId<'a, E> {
     fn len(&self) -> usize {
         self.unread
     }
@@ -140,17 +140,17 @@ impl<'a, E: Event> ExactSizeIterator for EventMutatorIteratorWithId<'a, E> {
 /// A parallel iterator over `Event`s.
 #[derive(Debug)]
 #[cfg(feature = "multi_threaded")]
-pub struct EventMutatorParIter<'a, E: Event> {
-    mutator: &'a mut ManualEventMutator<E>,
+pub struct EventMutParIter<'a, E: Event> {
+    mutator: &'a mut EventCursor<E>,
     slices: [&'a mut [EventInstance<E>]; 2],
     batching_strategy: BatchingStrategy,
     unread: usize,
 }
 
 #[cfg(feature = "multi_threaded")]
-impl<'a, E: Event> EventMutatorParIter<'a, E> {
+impl<'a, E: Event> EventMutParIter<'a, E> {
     /// Creates a new parallel iterator over `events` that have not yet been seen by `mutator`.
-    pub fn new(mutator: &'a mut ManualEventMutator<E>, events: &'a mut Events<E>) -> Self {
+    pub fn new(mutator: &'a mut EventCursor<E>, events: &'a mut Events<E>) -> Self {
         let a_index = mutator
             .last_event_count
             .saturating_sub(events.events_a.start_event_count);
@@ -236,7 +236,7 @@ impl<'a, E: Event> EventMutatorParIter<'a, E> {
                 }
             });
 
-            // At this point we're guaranteed to have seen all events
+            // Events are guaranteed to be read at this point.
             self.mutator.last_event_count += self.unread;
             self.unread = 0;
         }
@@ -254,19 +254,19 @@ impl<'a, E: Event> EventMutatorParIter<'a, E> {
 }
 
 #[cfg(feature = "multi_threaded")]
-impl<'a, E: Event> IntoIterator for EventMutatorParIter<'a, E> {
-    type IntoIter = EventMutatorIteratorWithId<'a, E>;
+impl<'a, E: Event> IntoIterator for EventMutParIter<'a, E> {
+    type IntoIter = EventMutIteratorWithId<'a, E>;
     type Item = <Self::IntoIter as Iterator>::Item;
 
     fn into_iter(self) -> Self::IntoIter {
-        let EventMutatorParIter {
+        let EventMutParIter {
             mutator: reader,
             slices: [a, b],
             ..
         } = self;
         let unread = a.len() + b.len();
         let chain = a.iter_mut().chain(b);
-        EventMutatorIteratorWithId {
+        EventMutIteratorWithId {
             mutator: reader,
             chain,
             unread,

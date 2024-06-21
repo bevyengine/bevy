@@ -1,11 +1,11 @@
 use crate as bevy_ecs;
 #[cfg(feature = "multi_threaded")]
 use bevy_ecs::batching::BatchingStrategy;
-use bevy_ecs::event::{Event, EventId, EventInstance, Events, ManualEventReader};
+use bevy_ecs::event::{Event, EventCursor, EventId, EventInstance, Events};
 use bevy_utils::detailed_trace;
 use std::{iter::Chain, slice::Iter};
 
-/// An iterator that yields any unread events from an [`EventReader`] or [`ManualEventReader`].
+/// An iterator that yields any unread events from an [`EventReader`] or [`EventCursor`].
 #[derive(Debug)]
 pub struct EventIterator<'a, E: Event> {
     iter: EventIteratorWithId<'a, E>,
@@ -43,17 +43,17 @@ impl<'a, E: Event> ExactSizeIterator for EventIterator<'a, E> {
     }
 }
 
-/// An iterator that yields any unread events (and their IDs) from an [`EventReader`] or [`ManualEventReader`].
+/// An iterator that yields any unread events (and their IDs) from an [`EventReader`] or [`EventCursor`].
 #[derive(Debug)]
 pub struct EventIteratorWithId<'a, E: Event> {
-    reader: &'a mut ManualEventReader<E>,
+    reader: &'a mut EventCursor<E>,
     chain: Chain<Iter<'a, EventInstance<E>>, Iter<'a, EventInstance<E>>>,
     unread: usize,
 }
 
 impl<'a, E: Event> EventIteratorWithId<'a, E> {
     /// Creates a new iterator that yields any `events` that have not yet been seen by `reader`.
-    pub fn new(reader: &'a mut ManualEventReader<E>, events: &'a Events<E>) -> Self {
+    pub fn new(reader: &'a mut EventCursor<E>, events: &'a Events<E>) -> Self {
         let a_index = reader
             .last_event_count
             .saturating_sub(events.events_a.start_event_count);
@@ -142,15 +142,16 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
 #[cfg(feature = "multi_threaded")]
 #[derive(Debug)]
 pub struct EventParIter<'a, E: Event> {
-    reader: &'a mut ManualEventReader<E>,
+    reader: &'a mut EventCursor<E>,
     slices: [&'a [EventInstance<E>]; 2],
     batching_strategy: BatchingStrategy,
+    unread: usize,
 }
 
 #[cfg(feature = "multi_threaded")]
 impl<'a, E: Event> EventParIter<'a, E> {
     /// Creates a new parallel iterator over `events` that have not yet been seen by `reader`.
-    pub fn new(reader: &'a mut ManualEventReader<E>, events: &'a Events<E>) -> Self {
+    pub fn new(reader: &'a mut EventCursor<E>, events: &'a Events<E>) -> Self {
         let a_index = reader
             .last_event_count
             .saturating_sub(events.events_a.start_event_count);
@@ -169,6 +170,7 @@ impl<'a, E: Event> EventParIter<'a, E> {
             reader,
             slices: [a, b],
             batching_strategy: BatchingStrategy::default(),
+            unread: unread_count,
         }
     }
 
@@ -204,7 +206,7 @@ impl<'a, E: Event> EventParIter<'a, E> {
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
-    pub fn for_each_with_id<FN: Fn(&'a E, EventId<E>) + Send + Sync + Clone>(self, func: FN) {
+    pub fn for_each_with_id<FN: Fn(&'a E, EventId<E>) + Send + Sync + Clone>(mut self, func: FN) {
         #[cfg(target_arch = "wasm32")]
         {
             self.into_iter().for_each(|(e, i)| func(e, i));
@@ -234,6 +236,10 @@ impl<'a, E: Event> EventParIter<'a, E> {
                     });
                 }
             });
+
+            // Events are guaranteed to be read at this point.
+            self.reader.last_event_count += self.unread;
+            self.unread = 0;
         }
     }
 

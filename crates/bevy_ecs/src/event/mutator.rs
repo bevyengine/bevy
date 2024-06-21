@@ -1,11 +1,10 @@
 use crate as bevy_ecs;
 #[cfg(feature = "multi_threaded")]
-use bevy_ecs::event::EventMutatorParIter;
+use bevy_ecs::event::EventMutParIter;
 use bevy_ecs::{
-    event::{Event, EventMutatorIterator, EventMutatorIteratorWithId, Events},
+    event::{Event, EventCursor, EventMutIterator, EventMutIteratorWithId, Events},
     system::{Local, ResMut, SystemParam},
 };
-use std::marker::PhantomData;
 
 /// Mutably reads events of type `T` keeping track of which events have already been read
 /// by each system allowing multiple systems to read the same events. Ideal for chains of systems
@@ -43,7 +42,7 @@ use std::marker::PhantomData;
 ///
 #[derive(SystemParam, Debug)]
 pub struct EventMutator<'w, 's, E: Event> {
-    pub(super) reader: Local<'s, ManualEventMutator<E>>,
+    pub(super) reader: Local<'s, EventCursor<E>>,
     events: ResMut<'w, Events<E>>,
 }
 
@@ -51,13 +50,13 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
     /// Iterates over the events this [`EventMutator`] has not seen yet. This updates the
     /// [`EventMutator`]'s event counter, which means subsequent event reads will not include events
     /// that happened before now.
-    pub fn read(&mut self) -> EventMutatorIterator<'_, E> {
-        self.reader.read(&mut self.events)
+    pub fn read(&mut self) -> EventMutIterator<'_, E> {
+        self.reader.read_mut(&mut self.events)
     }
 
     /// Like [`read`](Self::read), except also returning the [`EventId`] of the events.
-    pub fn read_with_id(&mut self) -> EventMutatorIteratorWithId<'_, E> {
-        self.reader.read_with_id(&mut self.events)
+    pub fn read_with_id(&mut self) -> EventMutIteratorWithId<'_, E> {
+        self.reader.read_mut_with_id(&mut self.events)
     }
 
     /// Returns a parallel iterator over the events this [`EventMutator`] has not seen yet.
@@ -97,8 +96,8 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
     /// ```
     ///
     #[cfg(feature = "multi_threaded")]
-    pub fn par_read(&mut self) -> EventMutatorParIter<'_, E> {
-        self.reader.par_read(&mut self.events)
+    pub fn par_read(&mut self) -> EventMutParIter<'_, E> {
+        self.reader.par_read_mut(&mut self.events)
     }
 
     /// Determines the number of events available to be read from this [`EventMutator`] without consuming any.
@@ -139,121 +138,5 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
     /// For usage, see [`EventMutator::is_empty()`].
     pub fn clear(&mut self) {
         self.reader.clear(&self.events);
-    }
-}
-
-/// Stores the state for an [`EventMutator`].
-///
-/// Access to the [`Events<E>`] resource is required to read any incoming events.
-///
-/// In almost all cases, you should just use an [`EventMutator`],
-/// which will automatically manage the state for you.
-///
-/// However, this type can be useful if you need to manually track events,
-/// such as when you're attempting to send and receive events of the same type in the same system.
-///
-/// # Example
-///
-/// ```
-/// use bevy_ecs::prelude::*;
-/// use bevy_ecs::event::{Event, Events, ManualEventMutator};
-///
-/// #[derive(Event, Clone, Debug)]
-/// struct MyEvent;
-///
-/// /// A system that both sends and receives events using a [`Local`] [`ManualEventMutator`].
-/// fn send_and_receive_manual_event_mutator(
-///     // The `Local` `SystemParam` stores state inside the system itself, rather than in the world.
-///     // `ManualEventMutator<T>` is the internal state of `EventMutator<T>`, which tracks which events have been seen.
-///     mut local_event_reader: Local<ManualEventMutator<MyEvent>>,
-///     // We can access the `Events` resource mutably, allowing us to both read and write its contents.
-///     mut events: ResMut<Events<MyEvent>>,
-/// ) {
-///     // We must collect the events to resend, because we can't mutate events while we're iterating over the events.
-///     let mut events_to_resend = Vec::new();
-///
-///     for event in local_event_reader.read(&mut events) {
-///          events_to_resend.push(event.clone());
-///     }
-///
-///     for event in events_to_resend {
-///         events.send(MyEvent);
-///     }
-/// }
-///
-/// # bevy_ecs::system::assert_is_system(send_and_receive_manual_event_mutator);
-/// ```
-#[derive(Debug)]
-pub struct ManualEventMutator<E: Event> {
-    pub(super) last_event_count: usize,
-    pub(super) _marker: PhantomData<E>,
-}
-
-impl<E: Event> Default for ManualEventMutator<E> {
-    fn default() -> Self {
-        ManualEventMutator {
-            last_event_count: 0,
-            _marker: Default::default(),
-        }
-    }
-}
-
-impl<E: Event> Clone for ManualEventMutator<E> {
-    fn clone(&self) -> Self {
-        ManualEventMutator {
-            last_event_count: self.last_event_count,
-            _marker: PhantomData,
-        }
-    }
-}
-
-#[allow(clippy::len_without_is_empty)] // Check fails since the is_empty implementation has a signature other than `(&self) -> bool`
-impl<E: Event> ManualEventMutator<E> {
-    /// See [`EventMutator::read`]
-    pub fn read<'a>(&'a mut self, events: &'a mut Events<E>) -> EventMutatorIterator<'a, E> {
-        self.read_with_id(events).without_id()
-    }
-
-    /// See [`EventMutator::read_with_id`]
-    pub fn read_with_id<'a>(
-        &'a mut self,
-        events: &'a mut Events<E>,
-    ) -> EventMutatorIteratorWithId<'a, E> {
-        EventMutatorIteratorWithId::new(self, events)
-    }
-
-    /// See [`EventMutator::par_read`]
-    #[cfg(feature = "multi_threaded")]
-    pub fn par_read<'a>(&'a mut self, events: &'a mut Events<E>) -> EventMutatorParIter<'a, E> {
-        EventMutatorParIter::new(self, events)
-    }
-
-    /// See [`EventMutator::len`]
-    pub fn len(&self, events: &Events<E>) -> usize {
-        // The number of events in this reader is the difference between the most recent event
-        // and the last event seen by it. This will be at most the number of events contained
-        // with the events (any others have already been dropped)
-        // TODO: Warn when there are dropped events, or return e.g. a `Result<usize, (usize, usize)>`
-        events
-            .event_count
-            .saturating_sub(self.last_event_count)
-            .min(events.len())
-    }
-
-    /// Amount of events we missed.
-    pub fn missed_events(&self, events: &Events<E>) -> usize {
-        events
-            .oldest_event_count()
-            .saturating_sub(self.last_event_count)
-    }
-
-    /// See [`EventMutator::is_empty()`]
-    pub fn is_empty(&self, events: &Events<E>) -> bool {
-        self.len(events) == 0
-    }
-
-    /// See [`EventMutator::clear()`]
-    pub fn clear(&mut self, events: &Events<E>) {
-        self.last_event_count = events.event_count;
     }
 }
