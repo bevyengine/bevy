@@ -61,7 +61,7 @@ fn apply_armor_to_damage(
     for event in dmg_events.read() {
         event.amount -= 1;
         if event.amount <= 0 {
-            // Events can be sent with 'send' event if they're zero sized
+            // Zero-sized events can also be sent with 'send'
             armor_events.send(ArmorBlockedDamage);
         }
     }
