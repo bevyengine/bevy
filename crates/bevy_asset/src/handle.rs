@@ -620,7 +620,7 @@ mod tests {
         assert_eq!(UntypedHandle::from(typed.clone()), untyped);
     }
 
-    /// Reflect::clone_value should increase the strong count of a strong handle
+    /// `Reflect::clone_value` should increase the strong count of a strong handle
     #[test]
     fn strong_handle_reflect_clone() {
         use crate::{AssetApp, AssetPlugin, Assets, VisitAssetDependencies};
