@@ -67,7 +67,12 @@ pub mod internal {
 
     use bevy_app::{App, First, Startup, Update};
     use bevy_ecs::system::Resource;
-    use bevy_tasks::{available_parallelism, block_on, poll_once, AsyncComputeTaskPool, Task};
+    #[cfg(not(feature = "multi_threaded"))]
+    use bevy_tasks::FakeTask;
+    use bevy_tasks::{available_parallelism, AsyncComputeTaskPool};
+    #[cfg(feature = "multi_threaded")]
+    use bevy_tasks::{block_on, poll_once, Task};
+
     use bevy_utils::tracing::info;
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
@@ -98,7 +103,10 @@ pub mod internal {
 
     #[derive(Resource, Default)]
     struct SysinfoTasks {
+        #[cfg(feature = "multi_threaded")]
         tasks: Vec<Task<SysinfoRefreshData>>,
+        #[cfg(not(feature = "multi_threaded"))]
+        tasks: Vec<FakeTask<SysinfoRefreshData>>,
     }
 
     fn launch_diagnostic_tasks(
@@ -151,9 +159,12 @@ pub mod internal {
 
     fn read_diagnostic_tasks(mut diagnostics: Diagnostics, mut tasks: ResMut<SysinfoTasks>) {
         tasks.tasks.retain_mut(|task| {
+            #[cfg(feature = "multi_threaded")]
             let Some(data) = block_on(poll_once(task)) else {
                 return true;
             };
+            #[cfg(not(feature = "multi_threaded"))]
+            let data = &task.result;
 
             diagnostics.add_measurement(&SystemInformationDiagnosticsPlugin::CPU_USAGE, || {
                 data.current_cpu_usage
