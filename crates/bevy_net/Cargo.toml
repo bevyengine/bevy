@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
 bevy_internal = { path = "../bevy_internal", version = "0.14.0-dev" }
+async-net = "2.0.0"
 
 serde = "1.0.203"
 bytemuck = "1.16.0"
