@@ -104,7 +104,7 @@ impl std::fmt::Debug for Name {
 ///             // where there is one, or {index}v{generation}
 ///             // for entities which don't have a Name.
 ///             // You can still use the Debug impl it is just quite verbose.
-///             bevy_utils::tracing::error!("Score for {} is invalid", name);
+///             bevy_utils::tracing::error!("Score for {name} is invalid");
 ///         }
 ///     }
 /// }
