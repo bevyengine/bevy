@@ -1,4 +1,4 @@
-//! A test to confirm that `bevy` doesn't have system order ambiguity with [`DefaultPlugins`]
+//! An example to confirm that `bevy` doesn't have system order ambiguity with [`DefaultPlugins`]
 //! This is run in CI to ensure that this doesn't regress again.
 
 use bevy::{
