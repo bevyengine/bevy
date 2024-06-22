@@ -220,7 +220,7 @@ mod tests {
         let d2 = query.get(&world, e2).unwrap();
         // DebugName Display for entities without a Name should be {index}v{generation}
         assert_eq!(d1.to_string(), "0v1");
-        // DebugName Display for entiites with a Name should be the Name
+        // DebugName Display for entities with a Name should be the Name
         assert_eq!(d2.to_string(), "MyName");
     }
 }
