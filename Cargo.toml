@@ -365,7 +365,7 @@ ron = "0.8.0"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
 bytemuck = "1.7"
-# bevy_render = { path = "crates/bevy_render", version = "0.14.0-rc.3", default-features = false }
+bevy_render = { path = "crates/bevy_render", version = "0.14.0-rc.3", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
 async-std = "1.12"
@@ -1606,6 +1606,17 @@ wasm = false
 [package.metadata.example.apply_deferred]
 name = "Apply System Buffers"
 description = "Show how to use `apply_deferred` system"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "ambiguity_detection"
+path = "examples/ecs/ambiguity_detection.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ambiguity_detection]
+name = "System Order Ambiguity Detection"
+description = "Detects systems ordered ambiguously."
 category = "ECS (Entity Component System)"
 wasm = false
 
