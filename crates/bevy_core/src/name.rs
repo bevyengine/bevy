@@ -100,16 +100,17 @@ impl std::fmt::Debug for Name {
 ///     for (name, mut score) in &mut scores {
 ///         score.0 += 1.0;
 ///         if score.0.is_nan() {
-///             // use the Display impl to return either the Name
-///             // where there is one, or {index}v{generation}
-///             // for entities which don't have a Name.
-///             // You can still use the Debug impl it is just quite verbose.
 ///             bevy_utils::tracing::error!("Score for {name} is invalid");
 ///         }
 ///     }
 /// }
 /// # bevy_ecs::system::assert_is_system(increment_score);
 /// ```
+///
+/// # Implementation
+///
+/// The `Display` impl for `DebugName` returns the `Name` where there is one
+/// or {index}v{generation} for entities without one.
 #[derive(QueryData)]
 #[query_data(derive(Debug))]
 pub struct DebugName {
