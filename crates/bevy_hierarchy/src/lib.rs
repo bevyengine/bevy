@@ -58,6 +58,9 @@ pub use components::*;
 mod hierarchy;
 pub use hierarchy::*;
 
+mod indexing;
+pub use indexing::*;
+
 mod child_builder;
 pub use child_builder::*;
 
