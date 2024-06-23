@@ -89,6 +89,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 ///             level: Level::DEBUG,
 ///             filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
 ///             custom_layer: |_| None,
+///             ansi: true,
 ///         }))
 ///         .run();
 /// }
