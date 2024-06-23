@@ -11,21 +11,26 @@ use bevy::{
 #[bevy_main]
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins.set(WindowPlugin {
-        primary_window: Some(Window {
-            resizable: false,
-            mode: WindowMode::BorderlessFullscreen,
-            // on iOS, gestures must be enabled.
-            // This doesn't work on Android
-            recognize_rotation_gesture: true,
-            ..default()
-        }),
-        ..default()
-    }).set(bevy::pbr::PbrPlugin {
-        use_gpu_instance_buffer_builder: false,  // Using the GPU to generate MeshUniforms crashes on Android
-                                                 // https://github.com/bevyengine/bevy/pull/12773
-        ..default()
-    }))
+    app.add_plugins(
+        DefaultPlugins
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    resizable: false,
+                    mode: WindowMode::BorderlessFullscreen,
+                    // on iOS, gestures must be enabled.
+                    // This doesn't work on Android
+                    recognize_rotation_gesture: true,
+                    ..default()
+                }),
+                ..default()
+            })
+            .set(bevy::pbr::PbrPlugin {
+                // Using the GPU to generate MeshUniforms crashes on Android
+                // https://github.com/bevyengine/bevy/pull/12773
+                use_gpu_instance_buffer_builder: false,
+                ..default()
+            }),
+    )
     .add_systems(Startup, (setup_scene, setup_music))
     .add_systems(Update, (touch_camera, button_handler, handle_lifetime));
 
