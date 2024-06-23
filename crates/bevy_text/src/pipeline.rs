@@ -121,6 +121,7 @@ impl TextPipeline {
             match linebreak_behavior {
                 BreakLineOn::WordBoundary => Wrap::Word,
                 BreakLineOn::AnyCharacter => Wrap::Glyph,
+                BreakLineOn::WordOrCharacter => Wrap::WordOrGlyph,
                 BreakLineOn::NoWrap => Wrap::None,
             },
         );
