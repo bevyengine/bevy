@@ -142,7 +142,8 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
                 continue;
             };
 
-            if material.properties.alpha_mode != AlphaMode::Opaque
+            if material.properties.render_method != OpaqueRendererMethod::Forward
+                || material.properties.alpha_mode != AlphaMode::Opaque
                 || material.properties.reads_view_transmission_texture
             {
                 continue;

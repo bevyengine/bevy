@@ -471,8 +471,18 @@ impl AssetSource {
         return "Web does not currently support watching assets.";
         #[cfg(target_os = "android")]
         return "Android does not currently support watching assets.";
-        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
+        #[cfg(all(
+            not(target_arch = "wasm32"),
+            not(target_os = "android"),
+            not(feature = "file_watcher")
+        ))]
         return "Consider enabling the `file_watcher` feature.";
+        #[cfg(all(
+            not(target_arch = "wasm32"),
+            not(target_os = "android"),
+            feature = "file_watcher"
+        ))]
+        return "Consider adding an \"assets\" directory.";
     }
 
     /// Returns a builder function for this platform's default [`AssetWatcher`]. `path` is the relative path to
@@ -493,16 +503,24 @@ impl AssetSource {
                 not(target_arch = "wasm32"),
                 not(target_os = "android")
             ))]
-            return Some(Box::new(
-                super::file::FileWatcher::new(
-                    std::path::PathBuf::from(path.clone()),
-                    sender,
-                    file_debounce_wait_time,
-                )
-                .unwrap_or_else(|e| {
-                    panic!("Failed to create file watcher from path {path:?}, {e:?}")
-                }),
-            ));
+            {
+                let path = std::path::PathBuf::from(path.clone());
+                if path.exists() {
+                    Some(Box::new(
+                        super::file::FileWatcher::new(
+                            path.clone(),
+                            sender,
+                            file_debounce_wait_time,
+                        )
+                        .unwrap_or_else(|e| {
+                            panic!("Failed to create file watcher from path {path:?}, {e:?}")
+                        }),
+                    ))
+                } else {
+                    warn!("Skip creating file watcher because path {path:?} does not exist.");
+                    None
+                }
+            }
             #[cfg(any(
                 not(feature = "file_watcher"),
                 target_arch = "wasm32",
