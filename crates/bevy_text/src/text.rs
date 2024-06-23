@@ -191,6 +191,21 @@ pub enum JustifyText {
     /// Rightmost character is immediately to the left of the render position.
     /// Bounds start from the render position and advance leftwards.
     Right,
+    /// Words are spaced so that leftmost & rightmost characters
+    /// align with their margins.
+    /// Bounds start from the render position and advance equally left & right.
+    Justified,
+}
+
+impl From<JustifyText> for cosmic_text::Align {
+    fn from(justify: JustifyText) -> Self {
+        match justify {
+            JustifyText::Left => cosmic_text::Align::Left,
+            JustifyText::Center => cosmic_text::Align::Center,
+            JustifyText::Right => cosmic_text::Align::Right,
+            JustifyText::Justified => cosmic_text::Align::Justified,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Reflect)]

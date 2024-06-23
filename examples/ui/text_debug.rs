@@ -135,6 +135,22 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             }),
         );
 
+        builder.spawn(
+            TextBundle::from_section(
+                "This text is fully justified and is positioned in the same way.",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 35.0,
+                    color: GREEN_YELLOW.into(),
+                },
+            )
+            .with_text_justify(JustifyText::Justified)
+            .with_style(Style {
+                max_width: Val::Px(300.),
+                ..default()
+            }),
+        );
+
         builder.spawn((
             TextBundle::from_sections([
                 TextSection::new(

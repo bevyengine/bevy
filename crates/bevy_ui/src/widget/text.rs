@@ -16,8 +16,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{camera::Camera, texture::Image};
 use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
-    scale_value, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, Text, TextError, TextLayoutInfo,
-    TextMeasureInfo, TextPipeline, YAxisOrientation,
+    scale_value, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, JustifyText, Text, TextError,
+    TextLayoutInfo, TextMeasureInfo, TextPipeline, YAxisOrientation,
 };
 use bevy_utils::Entry;
 use taffy::style::AvailableSpace;
@@ -83,6 +83,7 @@ impl Measure for TextMeasure {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 #[inline]
 fn create_text_measure(
     fonts: &Assets<Font>,
@@ -92,6 +93,7 @@ fn create_text_measure(
     mut content_size: Mut<ContentSize>,
     mut text_flags: Mut<TextFlags>,
     buffer: &mut CosmicBuffer,
+    text_alignment: JustifyText,
 ) {
     match text_pipeline.create_text_measure(
         fonts,
@@ -99,6 +101,7 @@ fn create_text_measure(
         scale_factor,
         text.linebreak_behavior,
         buffer,
+        text_alignment,
     ) {
         Ok(measure) => {
             if text.linebreak_behavior == BreakLineOn::NoWrap {
@@ -171,6 +174,7 @@ pub fn measure_text_system(
             || text_flags.needs_new_measure_func
             || content_size.is_added()
         {
+            let text_alignment = text.justify;
             create_text_measure(
                 &fonts,
                 scale_factor.into(),
@@ -179,6 +183,7 @@ pub fn measure_text_system(
                 content_size,
                 text_flags,
                 buffer.as_mut(),
+                text_alignment,
             );
         }
     }
