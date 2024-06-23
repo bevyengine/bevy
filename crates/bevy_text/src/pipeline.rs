@@ -215,10 +215,6 @@ impl TextPipeline {
                     YAxisOrientation::BottomToTop => box_size.y - y,
                 };
 
-                // TODO: confirm whether we need to offset by glyph baseline
-                // (this should be testable with a single line of text with
-                // fonts of different sizes and/or baselines)
-
                 let position = Vec2::new(x, y);
 
                 // TODO: recreate the byte index, that keeps track of where a cursor is,
@@ -295,7 +291,6 @@ pub struct TextLayoutInfo {
     pub size: Vec2,
 }
 
-// TODO: is there a way to do this without mutexes?
 /// Size information for a corresponding [`Text`](crate::Text) component.
 ///
 /// Generated via [`TextPipeline::create_text_measure`].
@@ -355,13 +350,6 @@ fn load_font_to_fontdb(
             let family_name = face.families[0].0.to_owned();
 
             (face_id, family_name)
-
-            // TODO: below may be required if we need to offset by the baseline (TBC)
-            // see https://github.com/pop-os/cosmic-text/issues/123
-            // let font = font_system.get_font(face_id).unwrap();
-            // map_font_id_to_metrics
-            //     .entry(face_id)
-            //     .or_insert_with(|| font.as_swash().metrics(&[]));
         });
 }
 
@@ -379,7 +367,6 @@ fn get_attrs<'a>(
         .expect("Already loaded with load_font_to_fontdb");
     let face = font_system.db().face(*face_id).unwrap();
 
-    // TODO: validate this is the correct string to extract
     let attrs = Attrs::new()
         .metadata(section_index)
         .family(Family::Name(family_name))
@@ -393,7 +380,6 @@ fn get_attrs<'a>(
 
 /// Calculate the size of the text area for the given buffer.
 fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
-    // TODO: see https://github.com/pop-os/cosmic-text/issues/42 Request: Allow buffer dimensions to be undefined
     let width = buffer
         .layout_runs()
         .map(|run| run.line_w)
