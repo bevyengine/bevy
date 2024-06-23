@@ -14,7 +14,7 @@ use bevy_input::gamepad::{GamepadEvent, GamepadInfo};
 use bevy_input::prelude::{GamepadAxis, GamepadButton};
 use bevy_input::Axis;
 use bevy_utils::tracing::warn;
-use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter};
+use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter, MappingSource};
 
 pub fn gilrs_event_startup_system(
     #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
@@ -56,9 +56,9 @@ pub fn gilrs_event_system(
                     name: pad.name().into(),
                 };
 
-                if pad.map_name().is_none() {
+                if pad.mapping_source() == MappingSource::Driver {
                     warn!(
-                        "No game controller mapping found for gamepad \"{}\". \
+                        "No game controller mapping found for gamepad \"{}\", using the driver default instead. \
                         This may cause the gamepad to behave unexpectedly. \
                         Please contribute your device's mapping to https://github.com/mdqinc/SDL_GameControllerDB",
                         pad.name()
