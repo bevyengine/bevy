@@ -65,12 +65,12 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
         *self.bubble = should_bubble;
     }
 
-    /// Get a reference to the event bubling flag.
+    /// Get a reference to the event bubbling flag.
     pub fn should_bubble(&self) -> &bool {
         self.bubble
     }
 
-    /// Get a mutable reference to the event bubling flag.
+    /// Get a mutable reference to the event bubbling flag.
     pub fn should_bubble_mut(&mut self) -> &mut bool {
         self.bubble
     }
@@ -506,9 +506,9 @@ mod tests {
     }
 
     #[derive(Component)]
-    struct EventBubling;
+    struct EventBubbling;
 
-    impl Event for EventBubling {
+    impl Event for EventBubbling {
         type Traverse = Parent;
 
         const SHOULD_BUBBLE: bool = true;
@@ -757,64 +757,64 @@ mod tests {
     }
 
     #[test]
-    fn observer_bubling() {
+    fn observer_bubbling() {
         let mut world = World::new();
         world.init_resource::<R>();
 
         let parent = world
             .spawn_empty()
-            .observe(|_: Trigger<EventBubling>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| res.0 += 1)
             .id();
 
         let child = world
             .spawn(Parent(parent))
-            .observe(|_: Trigger<EventBubling>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| res.0 += 1)
             .id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
         // and therefore does not automatically flush.
         world.flush();
-        world.trigger_targets(EventBubling, child);
+        world.trigger_targets(EventBubbling, child);
         world.flush();
         assert_eq!(2, world.resource::<R>().0);
     }
 
     #[test]
-    fn observer_bubling_redundant_dispatch() {
+    fn observer_bubbling_redundant_dispatch() {
         let mut world = World::new();
         world.init_resource::<R>();
 
         let parent = world
             .spawn_empty()
-            .observe(|_: Trigger<EventBubling>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| res.0 += 1)
             .id();
 
         let child = world
             .spawn(Parent(parent))
-            .observe(|_: Trigger<EventBubling>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| res.0 += 1)
             .id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
         // and therefore does not automatically flush.
         world.flush();
-        world.trigger_targets(EventBubling, [child, parent]);
+        world.trigger_targets(EventBubbling, [child, parent]);
         world.flush();
         assert_eq!(3, world.resource::<R>().0);
     }
 
     #[test]
-    fn observer_bubling_stop_propagation() {
+    fn observer_bubbling_stop_propagation() {
         let mut world = World::new();
         world.init_resource::<R>();
 
         let parent = world
             .spawn_empty()
-            .observe(|_: Trigger<EventBubling>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| res.0 += 1)
             .id();
 
         let child = world
             .spawn(Parent(parent))
-            .observe(|mut trigger: Trigger<EventBubling>, mut res: ResMut<R>| {
+            .observe(|mut trigger: Trigger<EventBubbling>, mut res: ResMut<R>| {
                 res.0 += 1;
                 trigger.propagate(false);
             })
@@ -823,31 +823,31 @@ mod tests {
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
         // and therefore does not automatically flush.
         world.flush();
-        world.trigger_targets(EventBubling, child);
+        world.trigger_targets(EventBubbling, child);
         world.flush();
         assert_eq!(1, world.resource::<R>().0);
     }
 
     #[test]
-    fn observer_bubling_join() {
+    fn observer_bubbling_join() {
         let mut world = World::new();
         world.init_resource::<R>();
 
         let parent = world
             .spawn_empty()
-            .observe(|_: Trigger<EventBubling>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| res.0 += 1)
             .id();
 
         let child_a = world
             .spawn(Parent(parent))
-            .observe(|_: Trigger<EventBubling>, mut res: ResMut<R>| {
+            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| {
                 res.0 += 1;
             })
             .id();
 
         let child_b = world
             .spawn(Parent(parent))
-            .observe(|_: Trigger<EventBubling>, mut res: ResMut<R>| {
+            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| {
                 res.0 += 1;
             })
             .id();
@@ -855,42 +855,42 @@ mod tests {
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
         // and therefore does not automatically flush.
         world.flush();
-        world.trigger_targets(EventBubling, [child_a, child_b]);
+        world.trigger_targets(EventBubbling, [child_a, child_b]);
         world.flush();
         assert_eq!(4, world.resource::<R>().0);
     }
 
     #[test]
-    fn observer_bubling_no_next() {
+    fn observer_bubbling_no_next() {
         let mut world = World::new();
         world.init_resource::<R>();
 
         let entity = world
             .spawn_empty()
-            .observe(|_: Trigger<EventBubling>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| res.0 += 1)
             .id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
         // and therefore does not automatically flush.
         world.flush();
-        world.trigger_targets(EventBubling, entity);
+        world.trigger_targets(EventBubbling, entity);
         world.flush();
         assert_eq!(1, world.resource::<R>().0);
     }
 
     #[test]
-    fn observer_bubling_parallel_propagation() {
+    fn observer_bubbling_parallel_propagation() {
         let mut world = World::new();
         world.init_resource::<R>();
 
         let parent_a = world
             .spawn_empty()
-            .observe(|_: Trigger<EventBubling>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| res.0 += 1)
             .id();
 
         let child_a = world
             .spawn(Parent(parent_a))
-            .observe(|mut trigger: Trigger<EventBubling>, mut res: ResMut<R>| {
+            .observe(|mut trigger: Trigger<EventBubbling>, mut res: ResMut<R>| {
                 res.0 += 1;
                 trigger.propagate(false);
             })
@@ -898,18 +898,18 @@ mod tests {
 
         let parent_b = world
             .spawn_empty()
-            .observe(|_: Trigger<EventBubling>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| res.0 += 1)
             .id();
 
         let child_b = world
             .spawn(Parent(parent_b))
-            .observe(|_: Trigger<EventBubling>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| res.0 += 1)
             .id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
         // and therefore does not automatically flush.
         world.flush();
-        world.trigger_targets(EventBubling, [child_a, child_b]);
+        world.trigger_targets(EventBubbling, [child_a, child_b]);
         world.flush();
         assert_eq!(3, world.resource::<R>().0);
     }
