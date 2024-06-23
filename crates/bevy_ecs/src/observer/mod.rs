@@ -803,7 +803,7 @@ mod tests {
     }
 
     #[test]
-    fn observer_bubling_stop_propigation() {
+    fn observer_bubling_stop_propagation() {
         let mut world = World::new();
         world.init_resource::<R>();
 

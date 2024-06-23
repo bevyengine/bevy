@@ -13,7 +13,7 @@ pub trait Traversal: Component {
     fn next(&self) -> Option<Entity>;
 }
 
-/// A traversial component that dosn't traverse anything. Used to provide a defalt traversal
+/// A traversial component that dosn't traverse anything. Used to provide a default traversal
 /// implementation for events.
 ///
 /// It is not possible to actually construct an instance of this component.
