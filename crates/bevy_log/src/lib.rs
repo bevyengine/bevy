@@ -131,6 +131,10 @@ pub struct LogPlugin {
     ///
     /// Please see the `examples/log_layers.rs` for a complete example.
     pub custom_layer: fn(app: &mut App) -> Option<BoxedLayer>,
+
+    /// Corresponds to [`tracing_subscriber::fmt::Layer::set_ansi`].
+		/// Default to `true`, which enables ANSI color codes in the formatted logs.
+    pub ansi: bool,
 }
 
 /// A boxed [`Layer`] that can be used with [`LogPlugin`].
@@ -142,6 +146,7 @@ impl Default for LogPlugin {
             filter: "wgpu=error,naga=warn".to_string(),
             level: Level::INFO,
             custom_layer: |_| None,
+            ansi: true,
         }
     }
 }
@@ -202,7 +207,9 @@ impl Plugin for LogPlugin {
             #[cfg(feature = "tracing-tracy")]
             let tracy_layer = tracing_tracy::TracyLayer::default();
 
-            let fmt_layer = tracing_subscriber::fmt::Layer::default().with_writer(std::io::stderr);
+            let mut fmt_layer =
+                tracing_subscriber::fmt::Layer::default().with_writer(std::io::stderr);
+            fmt_layer.set_ansi(self.ansi);
 
             // bevy_render::renderer logs a `tracy.frame_mark` event every frame
             // at Level::INFO. Formatted logs should omit it.
