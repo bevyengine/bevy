@@ -5,7 +5,7 @@ use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
     event::EventReader,
-    query::{With, Without},
+    query::{Added, With, Without},
     removal_detection::RemovedComponents,
     system::{Query, Res, ResMut, SystemParam},
     world::Ref,
@@ -91,6 +91,8 @@ pub fn ui_layout_system(
         With<Node>,
     >,
     children_query: Query<(Entity, Ref<Children>), With<Node>>,
+    demoted_root_node_query: Query<(Entity, Ref<Parent>), (With<Node>, Added<Parent>)>,
+    mut removed_parents: RemovedComponents<Parent>,
     just_children_query: Query<&Children>,
     mut removed_components: UiLayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(&mut Node, &mut Transform)>,
@@ -158,6 +160,82 @@ pub fn ui_layout_system(
         }
     }
 
+    for new_root_node_entity in removed_parents.read() {
+        // TODO: most of this should be moved into a function on `UiSurface` but the query requirements might feel out of place
+        let Some(&new_root_node_taffy_id) = ui_surface.entity_to_taffy.get(&new_root_node_entity)
+        else {
+            // no taffy entry
+            continue;
+        };
+        let Some(old_parent_taffy_id) = ui_surface.taffy.parent(new_root_node_taffy_id) else {
+            // no parent assigned
+            // TODO: is this ignorable?
+            continue;
+        };
+        let Some(implicit_viewport_node) = ui_surface.taffy.parent(old_parent_taffy_id) else {
+            // no implicit_viewport_node assigned
+            // TODO: is this ignorable?
+            continue;
+        };
+        let Some((_, root_node_data)) =
+            ui_surface
+                .root_node_data
+                .iter()
+                .find(|(_root_node_entity, root_node_data)| {
+                    root_node_data.implicit_viewport_node == implicit_viewport_node
+                })
+        else {
+            // no matching `RootNodeData` with `implicit_viewport_node`
+            // TODO: should this be handled?
+            continue;
+        };
+
+        let Some(camera_entity) = root_node_data.camera_entity else {
+            // no camera assigned
+            // TODO: this should be handled
+            continue;
+        };
+        let Some(camera) = camera_layout_info.get(&camera_entity) else {
+            // no layout info
+            // TODO: this should be handled
+            continue;
+        };
+
+        ui_surface
+            .taffy
+            .remove_child(old_parent_taffy_id, new_root_node_taffy_id)
+            .unwrap();
+        let Some((_, style, content_size, ..)) = style_query.get_mut(new_root_node_entity).ok()
+        else {
+            // no style
+            // TODO: this might be an error state
+            continue;
+        };
+        let layout_context = LayoutContext::new(
+            camera.scale_factor,
+            [camera.size.x as f32, camera.size.y as f32].into(),
+        );
+        let measure = content_size.and_then(|mut c| c.measure.take());
+        ui_surface
+            .taffy
+            .set_style(
+                new_root_node_taffy_id,
+                convert::from_style(&layout_context, &style, measure.is_some()),
+            )
+            .unwrap();
+        ui_surface.create_or_update_root_node_data(&new_root_node_entity, &camera_entity);
+        ui_surface
+            .camera_root_nodes
+            .entry(camera_entity)
+            .or_default()
+            .insert(new_root_node_entity);
+        let Some(measure) = measure else {
+            // no measure
+            continue;
+        };
+        ui_surface.update_node_context(new_root_node_entity, measure);
+    }
+
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_components.removed_content_sizes.read() {
         ui_surface.try_remove_node_context(entity);
@@ -190,6 +268,13 @@ pub fn ui_layout_system(
     }
     scale_factor_events.clear();
 
+    // When a root node is added as a child to another ui node
+    for (entity, parent) in &demoted_root_node_query {
+        if parent.is_added() {
+            ui_surface.demote_ui_node(&entity, &parent.get());
+        }
+    }
+
     // clean up removed nodes
     ui_surface.remove_entities(removed_components.removed_nodes.read());
 
@@ -220,7 +305,7 @@ pub fn ui_layout_system(
     for (camera_id, camera) in &camera_layout_info {
         let inverse_target_scale_factor = camera.scale_factor.recip();
 
-        ui_surface.compute_camera_layout(*camera_id, camera.size);
+        ui_surface.compute_camera_layout(camera_id, camera.size);
         for root in &camera.root_nodes {
             update_uinode_geometry_recursive(
                 *root,
@@ -348,7 +433,7 @@ mod tests {
     use bevy_asset::AssetEvent;
     use bevy_asset::Assets;
     use bevy_core_pipeline::core_2d::Camera2dBundle;
-    use bevy_ecs::entity::Entity;
+    use bevy_ecs::entity::{Entity, EntityHashSet};
     use bevy_ecs::event::Events;
     use bevy_ecs::prelude::{Commands, Component, In, Query, With};
     use bevy_ecs::query::Without;
@@ -357,7 +442,10 @@ mod tests {
     use bevy_ecs::schedule::Schedule;
     use bevy_ecs::system::RunSystemOnce;
     use bevy_ecs::world::World;
-    use bevy_hierarchy::{despawn_with_children_recursive, BuildWorldChildren, Children, Parent};
+    use bevy_hierarchy::{
+        despawn_with_children_recursive, BuildChildren, BuildWorldChildren, Children,
+        DespawnRecursiveExt, Parent,
+    };
     use bevy_math::{vec2, Rect, UVec2, Vec2};
     use bevy_render::camera::ManualTextureViews;
     use bevy_render::camera::OrthographicProjection;
@@ -468,24 +556,54 @@ mod tests {
         }
     }
 
-    #[test]
-    fn ui_surface_tracks_ui_entities() {
-        let (mut world, mut ui_schedule) = setup_ui_test_world();
-
-        ui_schedule.run(&mut world);
+    fn _track_ui_entity_setup(world: &mut World, ui_schedule: &mut Schedule) -> (Entity, Entity) {
+        ui_schedule.run(world);
 
         // no UI entities in world, none in UiSurface
         let ui_surface = world.resource::<UiSurface>();
         assert!(ui_surface.entity_to_taffy.is_empty());
+        assert!(ui_surface.root_node_data.is_empty());
 
         let ui_entity = world.spawn(NodeBundle::default()).id();
 
         // `ui_layout_system` should map `ui_entity` to a ui node in `UiSurface::entity_to_taffy`
-        ui_schedule.run(&mut world);
+        ui_schedule.run(world);
 
         let ui_surface = world.resource::<UiSurface>();
         assert!(ui_surface.entity_to_taffy.contains_key(&ui_entity));
         assert_eq!(ui_surface.entity_to_taffy.len(), 1);
+        assert!(ui_surface.root_node_data.contains_key(&ui_entity));
+        assert_eq!(ui_surface.root_node_data.len(), 1);
+
+        let child_entity = world.spawn(NodeBundle::default()).id();
+        world.commands().entity(ui_entity).add_child(child_entity);
+
+        // `ui_layout_system` should add `child_entity` as a child of `ui_entity`
+        ui_schedule.run(world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.entity_to_taffy.contains_key(&child_entity));
+        assert_eq!(ui_surface.entity_to_taffy.len(), 2);
+        assert!(
+            !ui_surface.root_node_data.contains_key(&child_entity),
+            "child should not have been added as a root node"
+        );
+        assert_eq!(ui_surface.root_node_data.len(), 1);
+        let ui_taffy = ui_surface.entity_to_taffy.get(&ui_entity).unwrap();
+        let child_taffy = ui_surface.entity_to_taffy.get(&child_entity).unwrap();
+        assert_eq!(
+            ui_surface.taffy.parent(*child_taffy),
+            Some(*ui_taffy),
+            "expected to be child of root node"
+        );
+
+        (ui_entity, child_entity)
+    }
+
+    #[test]
+    fn ui_surface_tracks_ui_entities_despawn() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+        let (ui_entity, _child_entity) = _track_ui_entity_setup(&mut world, &mut ui_schedule);
 
         world.despawn(ui_entity);
 
@@ -494,7 +612,123 @@ mod tests {
 
         let ui_surface = world.resource::<UiSurface>();
         assert!(!ui_surface.entity_to_taffy.contains_key(&ui_entity));
+        assert_eq!(ui_surface.entity_to_taffy.len(), 1);
+        assert!(!ui_surface.root_node_data.contains_key(&ui_entity));
+        assert!(ui_surface.root_node_data.is_empty());
+        assert_eq!(ui_surface.taffy.total_node_count(), 1);
+    }
+
+    #[test]
+    fn ui_surface_tracks_ui_entities_despawn_recursive() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+        let (ui_entity, _child_entity) = _track_ui_entity_setup(&mut world, &mut ui_schedule);
+
+        despawn_with_children_recursive(&mut world, ui_entity);
+
+        // `ui_layout_system` should remove `ui_entity` and `child_entity` from `UiSurface::entity_to_taffy`
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(!ui_surface.entity_to_taffy.contains_key(&ui_entity));
         assert!(ui_surface.entity_to_taffy.is_empty());
+        assert!(!ui_surface.root_node_data.contains_key(&ui_entity));
+        assert!(ui_surface.root_node_data.is_empty());
+        assert_eq!(ui_surface.taffy.total_node_count(), 0);
+    }
+
+    #[test]
+    fn ui_surface_tracks_ui_entities_despawn_descendants() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+        let (ui_entity, _child_entity) = _track_ui_entity_setup(&mut world, &mut ui_schedule);
+
+        world.commands().entity(ui_entity).despawn_descendants();
+
+        // `ui_layout_system` should remove `child_entity` from `UiSurface::entity_to_taffy`
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.entity_to_taffy.contains_key(&ui_entity));
+        assert_eq!(ui_surface.entity_to_taffy.len(), 1);
+        assert!(ui_surface.root_node_data.contains_key(&ui_entity));
+        assert_eq!(ui_surface.root_node_data.len(), 1);
+        assert_eq!(ui_surface.taffy.total_node_count(), 2);
+    }
+
+    #[test]
+    /// test to make sure the ui updates when root nodes become children of other nodes during runtime
+    fn ui_demotion_from_root_to_child() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let ui_entity1 = world.spawn(NodeBundle::default()).id();
+        let ui_entity2 = world.spawn(NodeBundle::default()).id();
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.root_node_data.contains_key(&ui_entity1));
+        assert!(ui_surface.root_node_data.contains_key(&ui_entity2));
+        assert_eq!(ui_surface.taffy.total_node_count(), 4);
+
+        world.commands().entity(ui_entity1).add_child(ui_entity2);
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.root_node_data.contains_key(&ui_entity1));
+        assert!(!ui_surface.root_node_data.contains_key(&ui_entity2));
+        assert_eq!(ui_surface.taffy.total_node_count(), 3);
+        let taffy_parent = ui_surface.entity_to_taffy.get(&ui_entity1).unwrap();
+        let taffy_child = ui_surface.entity_to_taffy.get(&ui_entity2).unwrap();
+        assert_eq!(
+            ui_surface.taffy.parent(*taffy_child).unwrap(),
+            *taffy_parent
+        );
+    }
+
+    #[test]
+    fn ui_promotion_from_child_to_root() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let camera_1 = world
+            .query_filtered::<Entity, With<Camera>>()
+            .get_single(&world)
+            .expect("expected camera");
+        let camera_2 = world
+            .spawn((Camera2dBundle::default(), IsDefaultUiCamera))
+            .id();
+        let ui_entity1 = world
+            .spawn((NodeBundle::default(), TargetCamera(camera_1)))
+            .id();
+        let ui_entity2 = world.spawn(NodeBundle::default()).id();
+        world.commands().entity(ui_entity1).add_child(ui_entity2);
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        let ui_entity2_taffy = *ui_surface.entity_to_taffy.get(&ui_entity2).unwrap();
+        let original_ui_entity2_taffy_parent = ui_surface.taffy.parent(ui_entity2_taffy);
+        assert!(ui_surface.root_node_data.contains_key(&ui_entity1));
+        assert!(!ui_surface.root_node_data.contains_key(&ui_entity2));
+        assert_eq!(ui_surface.taffy.total_node_count(), 3);
+
+        world.commands().entity(ui_entity2).remove_parent();
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        let current_ui_entity2_taffy_parent = ui_surface.taffy.parent(ui_entity2_taffy);
+        // parent should be an implicit view node not the old parent
+        assert_ne!(
+            current_ui_entity2_taffy_parent,
+            original_ui_entity2_taffy_parent
+        );
+        assert!(ui_surface.root_node_data.contains_key(&ui_entity1));
+        assert!(ui_surface.root_node_data.contains_key(&ui_entity2));
+        assert_eq!(
+            ui_surface.camera_root_nodes.get(&camera_2),
+            Some(&EntityHashSet::default())
+        );
+        assert_eq!(ui_surface.taffy.total_node_count(), 4);
     }
 
     #[test]
@@ -514,7 +748,7 @@ mod tests {
 
         // no UI entities in world, none in UiSurface
         let ui_surface = world.resource::<UiSurface>();
-        assert!(ui_surface.camera_entity_to_taffy.is_empty());
+        assert!(ui_surface.camera_root_nodes.is_empty());
 
         // respawn camera
         let camera_entity = world.spawn(Camera2dBundle::default()).id();
@@ -527,10 +761,8 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let ui_surface = world.resource::<UiSurface>();
-        assert!(ui_surface
-            .camera_entity_to_taffy
-            .contains_key(&camera_entity));
-        assert_eq!(ui_surface.camera_entity_to_taffy.len(), 1);
+        assert!(ui_surface.camera_root_nodes.contains_key(&camera_entity));
+        assert_eq!(ui_surface.camera_root_nodes.len(), 1);
 
         world.despawn(ui_entity);
         world.despawn(camera_entity);
@@ -539,10 +771,8 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let ui_surface = world.resource::<UiSurface>();
-        assert!(!ui_surface
-            .camera_entity_to_taffy
-            .contains_key(&camera_entity));
-        assert!(ui_surface.camera_entity_to_taffy.is_empty());
+        assert!(!ui_surface.camera_root_nodes.contains_key(&camera_entity));
+        assert!(ui_surface.camera_root_nodes.is_empty());
     }
 
     #[test]
@@ -569,6 +799,7 @@ mod tests {
 
         // `ui_node` is removed, attempting to retrieve a style for `ui_node` panics
         let _ = ui_surface.taffy.style(ui_node);
+        assert_eq!(ui_surface.taffy.total_node_count(), 0);
     }
 
     #[test]
@@ -671,6 +902,7 @@ mod tests {
         // all nodes should have been deleted
         let ui_surface = world.resource::<UiSurface>();
         assert!(ui_surface.entity_to_taffy.is_empty());
+        assert_eq!(ui_surface.taffy.total_node_count(), 0);
     }
 
     /// regression test for >=0.13.1 root node layouts
@@ -1021,64 +1253,103 @@ mod tests {
         }
     }
 
-    #[test]
-    fn no_camera_ui() {
-        let mut world = World::new();
-        world.init_resource::<UiScale>();
-        world.init_resource::<UiSurface>();
-        world.init_resource::<Events<WindowScaleFactorChanged>>();
-        world.init_resource::<Events<WindowResized>>();
-        // Required for the camera system
-        world.init_resource::<Events<WindowCreated>>();
-        world.init_resource::<Events<AssetEvent<Image>>>();
-        world.init_resource::<Assets<Image>>();
-        world.init_resource::<ManualTextureViews>();
+    struct DespawnTestEntityReference {
+        parent_entity: Entity,
+        child1_entity: Entity,
+        child2_entity: Entity,
+    }
+    fn recursive_despawn_setup() -> (World, Schedule, DespawnTestEntityReference) {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
 
-        // spawn a dummy primary window and camera
-        world.spawn((
-            Window {
-                resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
-                ..default()
-            },
-            PrimaryWindow,
-        ));
-
-        let mut ui_schedule = Schedule::default();
-        ui_schedule.add_systems(
-            (
-                // UI is driven by calculated camera target info, so we need to run the camera system first
-                bevy_render::camera::camera_system::<OrthographicProjection>,
-                update_target_camera_system,
-                apply_deferred,
-                ui_layout_system,
-            )
-                .chain(),
-        );
-
-        let ui_root = world
-            .spawn(NodeBundle {
-                style: Style {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    ..default()
-                },
-                ..default()
+        let mut child1_entity = None;
+        let mut child2_entity = None;
+        let parent_entity = world
+            .spawn(NodeBundle::default())
+            .with_children(|children| {
+                child1_entity = Some(
+                    children
+                        .spawn(NodeBundle::default())
+                        .with_children(|children| {
+                            child2_entity = Some(children.spawn(NodeBundle::default()).id());
+                        })
+                        .id(),
+                );
             })
             .id();
-
-        let ui_child = world
-            .spawn(NodeBundle {
-                style: Style {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    ..default()
-                },
-                ..default()
-            })
-            .id();
-
-        world.entity_mut(ui_root).add_child(ui_child);
 
         ui_schedule.run(&mut world);
+
+        let ui_surface = world.get_resource::<UiSurface>().unwrap();
+        // 1 for root node, 1 for implicit viewport node
+        // 2 children
+        assert_eq!(ui_surface.taffy.total_node_count(), 4);
+
+        (
+            world,
+            ui_schedule,
+            DespawnTestEntityReference {
+                parent_entity,
+                child1_entity: child1_entity.expect("expected child 1"),
+                child2_entity: child2_entity.expect("expected child 2"),
+            },
+        )
+    }
+
+    #[test]
+    fn test_recursive_despawn_on_parent() {
+        let (
+            mut world,
+            mut ui_schedule,
+            DespawnTestEntityReference {
+                parent_entity,
+                child1_entity,
+                child2_entity,
+            },
+        ) = recursive_despawn_setup();
+
+        let ui_surface = world.get_resource::<UiSurface>().unwrap();
+
+        let parent_taffy = *ui_surface.entity_to_taffy.get(&parent_entity).unwrap();
+        let child1_taffy = *ui_surface.entity_to_taffy.get(&child1_entity).unwrap();
+        let child2_taffy = *ui_surface.entity_to_taffy.get(&child2_entity).unwrap();
+        assert_eq!(ui_surface.taffy.parent(child2_taffy), Some(child1_taffy));
+        assert_eq!(ui_surface.taffy.parent(child1_taffy), Some(parent_taffy));
+
+        world.commands().entity(parent_entity).despawn_recursive();
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.get_resource::<UiSurface>().unwrap();
+        // all nodes should be removed
+        assert_eq!(ui_surface.taffy.total_node_count(), 0);
+    }
+
+    #[test]
+    fn test_recursive_despawn_on_child() {
+        let (
+            mut world,
+            mut ui_schedule,
+            DespawnTestEntityReference {
+                parent_entity,
+                child1_entity,
+                child2_entity,
+            },
+        ) = recursive_despawn_setup();
+
+        let ui_surface = world.get_resource::<UiSurface>().unwrap();
+
+        let parent_taffy = *ui_surface.entity_to_taffy.get(&parent_entity).unwrap();
+        let child1_taffy = *ui_surface.entity_to_taffy.get(&child1_entity).unwrap();
+        let child2_taffy = *ui_surface.entity_to_taffy.get(&child2_entity).unwrap();
+        assert_eq!(ui_surface.taffy.parent(child2_taffy), Some(child1_taffy));
+        assert_eq!(ui_surface.taffy.parent(child1_taffy), Some(parent_taffy));
+
+        world.commands().entity(child1_entity).despawn_recursive();
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.get_resource::<UiSurface>().unwrap();
+        // only root node and implicit viewport left
+        assert_eq!(ui_surface.taffy.total_node_count(), 2);
     }
 }
