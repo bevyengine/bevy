@@ -57,6 +57,7 @@ impl TextPipeline {
     /// Utilizes [`cosmic_text::Buffer`] to shape and layout text
     ///
     /// Negative or 0.0 font sizes will not be laid out.
+    #[allow(clippy::too_many_arguments)]
     pub fn update_buffer(
         &mut self,
         fonts: &Assets<Font>,
@@ -65,6 +66,7 @@ impl TextPipeline {
         bounds: Vec2,
         scale_factor: f64,
         buffer: &mut CosmicBuffer,
+        alignment: JustifyText,
     ) -> Result<(), TextError> {
         let font_system = &mut self.font_system.0;
 
@@ -125,6 +127,13 @@ impl TextPipeline {
 
         buffer.set_rich_text(font_system, spans, Attrs::new(), Shaping::Advanced);
 
+        // PERF: https://github.com/pop-os/cosmic-text/issues/166:
+        // Setting alignment afterwards appears to invalidate some layouting performed by `set_text` which is presumably not free?
+        for buffer_line in buffer.lines.iter_mut() {
+            buffer_line.set_align(Some(alignment.into()));
+        }
+        buffer.shape_until_scroll(font_system, false);
+
         Ok(())
     }
 
@@ -138,7 +147,6 @@ impl TextPipeline {
         fonts: &Assets<Font>,
         sections: &[TextSection],
         scale_factor: f64,
-        // TODO: Implement text alignment properly
         text_alignment: JustifyText,
         linebreak_behavior: BreakLineOn,
         bounds: Vec2,
@@ -159,6 +167,7 @@ impl TextPipeline {
             bounds,
             scale_factor,
             buffer,
+            text_alignment,
         )?;
 
         let box_size = buffer_dimensions(buffer);
@@ -170,9 +179,9 @@ impl TextPipeline {
             .flat_map(|run| {
                 run.glyphs
                     .iter()
-                    .map(move |layout_glyph| (layout_glyph, run.line_w, run.line_y))
+                    .map(move |layout_glyph| (layout_glyph, run.line_y))
             })
-            .map(|(layout_glyph, line_w, line_y)| {
+            .map(|(layout_glyph, line_y)| {
                 let section_index = layout_glyph.metadata;
 
                 let font_handle = sections[section_index].style.font.clone_weak();
@@ -203,13 +212,6 @@ impl TextPipeline {
                 // offset by half the size because the origin is center
                 let x = glyph_size.x as f32 / 2.0 + left + physical_glyph.x as f32;
                 let y = line_y.round() + physical_glyph.y as f32 - top + glyph_size.y as f32 / 2.0;
-                // TODO: use cosmic text's implementation (per-BufferLine alignment) as it will be editor aware
-                // see https://github.com/pop-os/cosmic-text/issues/130 (currently bugged)
-                let x = x + match text_alignment {
-                    JustifyText::Left => 0.0,
-                    JustifyText::Center => (box_size.x - line_w) / 2.0,
-                    JustifyText::Right => box_size.x - line_w,
-                };
                 let y = match y_axis_orientation {
                     YAxisOrientation::TopToBottom => y,
                     YAxisOrientation::BottomToTop => box_size.y - y,
@@ -242,6 +244,7 @@ impl TextPipeline {
         scale_factor: f64,
         linebreak_behavior: BreakLineOn,
         buffer: &mut CosmicBuffer,
+        text_alignment: JustifyText,
     ) -> Result<TextMeasureInfo, TextError> {
         const MIN_WIDTH_CONTENT_BOUNDS: Vec2 = Vec2::new(0.0, f32::INFINITY);
 
@@ -252,6 +255,7 @@ impl TextPipeline {
             MIN_WIDTH_CONTENT_BOUNDS,
             scale_factor,
             buffer,
+            text_alignment,
         )?;
 
         let min_width_content_size = buffer_dimensions(buffer);
