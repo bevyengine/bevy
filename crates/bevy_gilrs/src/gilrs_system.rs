@@ -13,6 +13,7 @@ use bevy_input::gamepad::{
 use bevy_input::gamepad::{GamepadEvent, GamepadInfo};
 use bevy_input::prelude::{GamepadAxis, GamepadButton};
 use bevy_input::Axis;
+use bevy_utils::tracing::warn;
 use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter};
 
 pub fn gilrs_event_startup_system(
@@ -54,6 +55,15 @@ pub fn gilrs_event_system(
                 let info = GamepadInfo {
                     name: pad.name().into(),
                 };
+
+                if pad.map_name().is_none() {
+                    warn!(
+                        "No game controller mapping found for gamepad \"{}\". \
+                        This may cause the gamepad to behave unexpectedly. \
+                        Please contribute your device's mapping to https://github.com/mdqinc/SDL_GameControllerDB",
+                        pad.name()
+                    );
+                }
 
                 events.send(
                     GamepadConnectionEvent::new(gamepad, GamepadConnection::Connected(info)).into(),
