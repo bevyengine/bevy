@@ -1,154 +1,212 @@
 use std::collections::VecDeque;
+use std::future::Future;
 use std::io::{Error, ErrorKind, IoSlice, Read, Write};
-use std::time::Duration;
-use async_net::TcpStream;
+use std::ops::{Deref, DerefMut};
+use std::sync::Weak;
+use serde::de::StdError;
 use bevy_ecs::prelude::Resource;
-use bevy_internal::tasks::IoTaskPool;
-use bevy_internal::utils::HashMap;
+use bevy_internal::tasks::TaskPool;
+use crate::easy_sockets::AsyncHandler;
+use crate::easy_sockets::tcp_registory::spin_lock::SpinLock;
 
-pub struct TcpBuffer {
-    socket: TcpStream,
-    read_buf: VecDeque<u8>,
-    bytes_read_from_os: usize,
-    write_buf: VecDeque<u8>,
-    bytes_written: usize,
-
-    ttl: Option<u32>,
-    deferred_ttl: Option<u32>
+struct SocketManger<B, S> {
+    handler: AsyncHandler<Weak<SpinLock<(B, Option<S>)>>>
 }
 
-pub struct ReadIter<'a> {
-    io: &'a mut TcpBuffer,
+impl<B, S> SocketManger<B, S>
+where B: Buffer<InnerSocket = S> {
+    fn fill_read_bufs(&mut self, pool: &TaskPool) -> Vec<Result<Option<Result<usize, ErrorAction<<B as Buffer>::Error>>>, usize>> {
+        self.handler.for_each_async_mut(|index, weak| async move {
+            if let Some(lock) = weak.upgrade() {
+                let mut guard = lock.lock_async().await.unwrap();
+                let mut inner = guard.deref_mut();
+                
+                if let Some(socket) = &mut inner.1 {
+                    return Ok(Some(inner.0.fill_read_bufs(socket).await))
+                }
+                return Ok(None)
+            }
+
+            Err(index)
+        }, pool)
+    }
+    
+    fn flush_write_bufs(&mut self, pool: &TaskPool) -> Vec<Result<Option<Result<usize, ErrorAction<<B as Buffer>::Error>>>, usize>> {
+        self.handler.for_each_async_mut(|index, weak| async move {
+            if let Some(lock) = weak.upgrade() {
+                let mut guard = lock.lock_async().await.unwrap();
+                let mut inner = guard.deref_mut();
+
+                if let Some(socket) = &mut inner.1 {
+                    return Ok(Some(inner.0.flush_write_bufs(socket).await))
+                }
+                return Ok(None)
+            }
+
+            Err(index)
+        }, pool)
+    }
+    
+    
 }
 
-pub struct PeekIter<'a> {
-    io: &'a TcpBuffer,
-    index: usize
+enum ErrorAction<E> {
+    /// Drop the socket.
+    Drop,
+    /// Present the error to the end user.
+    Present(E),
+    /// Take no automated action.
+    /// However, you may wish to take
+    /// your own corrective action.
+    None
 }
 
-impl<'a> Iterator for PeekIter<'a> {
-    type Item = u8;
+pub trait Buffer {
+    type InnerSocket;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        let item = self.io.read_buf.get(self.index);
+    type ReadIter: Iterator<Item = u8> + ExactSizeIterator;
 
-        if let Some(byte) = item {
-            self.index += 1;
+    type PeekIter: Iterator<Item = u8>;
 
-            return Some(*byte)
+    type Error: StdError + Send + 'static;
+
+    fn build() -> Self;
+
+    async fn fill_read_bufs(&mut self, socket: &mut Self::InnerSocket) -> Result<usize, ErrorAction<Self::Error>>;
+
+    async fn flush_write_bufs(&mut self, socket: &mut Self::InnerSocket) -> Result<usize, ErrorAction<Self::Error>>;
+}
+
+pub mod spin_lock {
+    use std::future::Future;
+    use std::hint;
+    use std::ops::{Deref, DerefMut};
+    use std::pin::Pin;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::task::{Context, Poll, Waker};
+    use std::thread::panicking;
+
+    pub type SpinLockResult<'a, T> = Result<SpinLockGuard<'a, T>, ()>;
+
+    pub struct SpinLock<T> {
+        is_locked: AtomicBool,
+        is_poisoned: bool,
+        inner: T
+    }
+
+    pub struct SpinLockFuture<'a, T> {
+        lock: &'a SpinLock<T>,
+        waker: Option<Waker>
+    }
+
+    impl<'a, T> Future for SpinLockFuture<'a, T> {
+        type Output = SpinLockResult<'a, T>;
+
+        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+            if let Some(res) = self.lock.try_lock() {
+                return Poll::Ready(res)
+            }
+
+            self.waker = Some(cx.waker().clone());
+            
+            Poll::Pending
+        }
+    }
+
+    #[allow(unsafe_code)]
+    impl<T> SpinLock<T> {
+
+        /// Checks if the value is in use, if not, returns
+        /// Some(Ok) and locks the lock, indicating you now have exclusive read and write access.
+        /// Returns None if the value is in use.
+        /// Returns Err() if the value is poisoned.
+        /// For correctness [`SpinLock::release_lock`]
+        /// must be called after the value is no longer in use.
+        fn inner_try_lock(&self) -> Option<Result<(), ()>> {
+            if self.is_locked.load(Ordering::Acquire) {
+                return None
+            }
+
+            self.is_locked.store(true, Ordering::Release);
+
+            if self.is_poisoned {
+                self.is_locked.store(false, Ordering::Release);
+                return Some(Err(()))
+            }
+
+            Some(Ok(()))
         }
 
-        None
-    }
-}
+        fn release_lock(&self) {
+            self.is_locked.store(false, Ordering::Release)
+        }
 
-impl<'a> Iterator for ReadIter<'a> {
-    type Item = u8;
+        fn poison(&mut self) {
+            self.is_poisoned = true;
+        }
 
-    fn next(&mut self) -> Option<Self::Item> {
-        self.io.read_buf.pop_front()
-    }
-}
+        unsafe fn as_mut(&self) -> &mut Self {
+            ((self as *const Self) as *mut Self).as_mut().unwrap_unchecked()
+        }
 
-impl TcpBuffer {
+        pub fn try_lock<'a>(&'a self) -> Option<SpinLockResult<T>> {
+            if let Some(res) = self.inner_try_lock() {
+                if res.is_ok() {
+                    unsafe {return Some(Ok(SpinLockGuard(self.as_mut())))}
+                }
+                return Some(Err(()))
+            }
 
-    ///For correct funtion stream should be set to blocking mode
-    fn new(mut stream: TcpStream) -> Self {
-        Self {
-            ttl: stream.ttl().ok(),
-            deferred_ttl: None,
-            socket: stream,
-            read_buf: VecDeque::with_capacity(4096),
-            bytes_read_from_os: 0,
-            write_buf: VecDeque::with_capacity(4096),
-            bytes_written: 0,
+            None
+        }
+
+        pub fn lock<'a>(&'a self) -> SpinLockResult<T> {
+            loop {
+                let option = self.try_lock();
+
+                if let Some(res) = option {
+                    return res
+                }
+
+                hint::spin_loop()
+            }
+        }
+
+        pub fn new(inner: T) -> Self {
+            Self {
+                is_locked: AtomicBool::new(false),
+                is_poisoned: false,
+                inner
+            }
+        }
+
+        pub fn lock_async<'a>(&'a self) -> SpinLockFuture<'a, T> {
+            SpinLockFuture { lock: self, waker: None }
         }
     }
 
-    //these functions are called internally once every frame
-    async fn update_read_buffer(&mut self) -> Result<usize, Error> { 
-        todo!() 
-    }
+    pub struct SpinLockGuard<'a, T>(&'a mut SpinLock<T>);
 
-    async fn transfer_write_buffer(&mut self) -> Result<usize, Error> {
-        todo!()
-    }
+    impl<'a, T> Deref for SpinLockGuard<'a, T> {
+        type Target = T;
 
-    async fn execute_deferred_ttl(&mut self) -> Result<(), Error> {
-        todo!()
-    }
-    fn prepare_for_next_tick(&mut self) {
-        //the multiply by 5 then divide by 4 here
-        //is equivilant to multiplying by 1.25, to give some extra wiggle room
-        self.read_buf.shrink_to(((self.bytes_read_from_os * 5 / 4) + self.read_buf.len()).max(4096));
-        self.write_buf.shrink_to((self.bytes_written * 5 / 4) + self.write_buf.len().max(4096));
-
-        self.bytes_written = 0;
-        self.bytes_read_from_os = 0;
-    }
-}
-
-//pub impls
-impl TcpBuffer {
-    pub fn write_bytes<'a, I>(&mut self, iter: I)
-        where I: Iterator<Item = &'a u8> {
-        self.write_buf.reserve_exact(iter.size_hint().0);
-
-        for byte in iter {
-            self.write_buf.push_back(*byte);
-            self.bytes_written += 1;
+        fn deref(&self) -> &Self::Target {
+            &self.0.inner
         }
     }
 
-    pub fn read_iter(&mut self) -> ReadIter {
-        ReadIter { io: self }
-    }
-
-    pub fn peak_iter(&self) -> PeekIter {
-        PeekIter { io: self, index: 0 }
-    }
-
-    pub fn set_ttl(&mut self, ttl: u32) {
-        self.deferred_ttl = Some(ttl);
-    }
-
-    pub fn ttl(&self) -> Option<u32> {
-        self.ttl
-    }
-}
-
-#[derive(PartialEq, Eq, Hash, Clone, Copy)]
-struct TcpStreamKey(u64);
-
-#[derive(Resource, Default)]
-pub struct TcpStreams {
-    streams: HashMap<TcpStreamKey, TcpBuffer>,
-    next_key: u64
-}
-
-impl TcpStreams {
-    pub fn register(&mut self, stream: TcpStream) -> TcpStreamKey {
-        let key = TcpStreamKey(self.next_key);
-        self.next_key += 1;
-
-        assert!(self.streams.insert(key, TcpBuffer::new(stream)).is_none());
-
-        key
-    }
-
-    pub fn deregister(&mut self, key: &TcpStreamKey) -> Option<TcpStream> {
-        if let Some(buffer) = self.streams.remove(key) {
-            return Some(buffer.socket)
+    impl<'a, T> DerefMut for SpinLockGuard<'a, T> {
+        fn deref_mut(&mut self) -> &mut Self::Target {
+            &mut self.0.inner
         }
-
-        None
     }
 
-    pub fn get_mut(&mut self, key: &TcpStreamKey) -> Option<&mut TcpBuffer> {
-        self.streams.get_mut(key)
-    }
-
-    pub fn get(&self, key: &TcpStreamKey) -> Option<&TcpBuffer> {
-        self.streams.get(key)
+    impl<'a, T> Drop for SpinLockGuard<'a, T> {
+        fn drop(&mut self) {
+            if panicking() {
+                self.0.poison()
+            }
+            self.0.release_lock()
+        }
     }
 }
