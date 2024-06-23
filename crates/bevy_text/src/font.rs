@@ -22,7 +22,7 @@ pub struct Font {
 }
 
 impl Font {
-    /// Creates a [Font] from bytes, without any validation of the content
+    /// Creates a [`Font`] from bytes
     pub fn try_from_bytes(
         font_data: Vec<u8>,
     ) -> Result<Self, cosmic_text::ttf_parser::FaceParsingError> {
