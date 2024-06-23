@@ -339,7 +339,8 @@ without UI components as a child of an entity with UI components, results may be
                     |known_dimensions: taffy::Size<Option<f32>>,
                      available_space: taffy::Size<taffy::AvailableSpace>,
                      _node_id: taffy::NodeId,
-                     context: Option<&mut NodeMeasure>|
+                     context: Option<&mut NodeMeasure>,
+                     style: &taffy::Style|
                      -> taffy::Size<f32> {
                         context
                             .map(|ctx| {
@@ -348,6 +349,7 @@ without UI components as a child of an entity with UI components, results may be
                                     known_dimensions.height,
                                     available_space.width,
                                     available_space.height,
+                                    style,
                                 );
                                 taffy::Size {
                                     width: size.x,
