@@ -1,6 +1,9 @@
 mod parallel_scope;
 
-use super::{Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource};
+use super::{
+    BoxedSystem, Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, RegisteredSystem,
+    Resource,
+};
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
@@ -767,6 +770,52 @@ impl<'w, 's> Commands<'w, 's> {
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> EntityCommands {
         self.spawn(Observer::new(observer))
+    }
+
+    /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
+    ///
+    /// It's possible to register the same systems more than once, they'll be stored separately.
+    ///
+    /// This is different from adding systems to a [`Schedule`](crate::schedule::Schedule),
+    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
+    /// This allows for running systems in a pushed-based fashion.
+    /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
+    /// due to its better performance and ability to run non-conflicting systems simultaneously.
+    pub fn register_system<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
+        &mut self,
+        system: S,
+    ) -> SystemId<I, O> {
+        self.register_boxed_system(Box::new(IntoSystem::into_system(system)))
+    }
+
+    /// Similar to [`Self::register_system`], but allows passing in a [`BoxedSystem`].
+    ///
+    ///  This is useful if the [`IntoSystem`] implementor has already been turned into a
+    /// [`System`](crate::system::System) trait object and put in a [`Box`].
+    pub fn register_boxed_system<I: 'static, O: 'static>(
+        &mut self,
+        system: BoxedSystem<I, O>,
+    ) -> SystemId<I, O> {
+        SystemId {
+            entity: self
+                .spawn(RegisteredSystem {
+                    initialized: false,
+                    system,
+                })
+                .id(),
+            marker: std::marker::PhantomData,
+        }
+    }
+
+    /// Removes a registered system if it exists. Unlike [`World`] does not return the system.
+    /// After removing a system, the [`SystemId`] becomes invalid and attempting to use it afterwards will result in errors.
+    ///
+    /// If no system corresponds to the given [`SystemId`], this method does nothing.
+    /// Unlike [`World`] Systems are allowed to remove themselves.
+    pub fn remove_system<I: 'static, O: 'static>(&mut self, id: SystemId<I, O>) {
+        if let Some(mut entity) = self.get_entity(id.entity) {
+            entity.despawn();
+        }
     }
 }
 

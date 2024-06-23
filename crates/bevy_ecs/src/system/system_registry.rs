@@ -7,9 +7,11 @@ use thiserror::Error;
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
-struct RegisteredSystem<I, O> {
-    initialized: bool,
-    system: BoxedSystem<I, O>,
+pub struct RegisteredSystem<I, O> {
+    /// Set to true if system is initialized.
+    pub initialized: bool,
+    /// Boxed system that will store our system.
+    pub system: BoxedSystem<I, O>,
 }
 
 /// A system that has been removed from the registry.
