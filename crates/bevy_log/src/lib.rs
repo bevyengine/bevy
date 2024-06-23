@@ -89,7 +89,6 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 ///             level: Level::DEBUG,
 ///             filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
 ///             custom_layer: |_| None,
-///             ansi: true,
 ///         }))
 ///         .run();
 /// }
@@ -101,6 +100,21 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// It has the same syntax as the field [`LogPlugin::filter`], see [`EnvFilter`].
 /// If you define the `RUST_LOG` environment variable, the [`LogPlugin`] settings
 /// will be ignored.
+///
+/// Also, to disable colour terminal output (ANSI escape codes), you can
+/// set the environment variable `NO_COLOR` to any value. This common
+/// convention is documented at [no-color.org](https://no-color.org/).
+/// For example:
+/// ```no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
+/// # use bevy_log::LogPlugin;
+/// fn main() {
+///     std::env::set_var("NO_COLOR", "1");
+///     App::new()
+///        .add_plugins(DefaultPlugins)
+///        .run();
+/// }
+/// ```
 ///
 /// If you want to setup your own tracing collector, you should disable this
 /// plugin from `DefaultPlugins`:
@@ -138,13 +152,6 @@ pub struct LogPlugin {
     ///
     /// Please see the `examples/log_layers.rs` for a complete example.
     pub custom_layer: fn(app: &mut App) -> Option<BoxedLayer>,
-
-    /// Corresponds to [`tracing_subscriber::fmt::Layer::with_ansi`].
-    /// This is by default `true`.
-    ///
-    /// When `true`, adds ANSI color codes to the formatted logs.
-    /// Setting to `false` is useful when using a terminal that does not support ANSI color codes.
-    pub ansi: bool,
 }
 
 /// A boxed [`Layer`] that can be used with [`LogPlugin`].
@@ -156,7 +163,6 @@ impl Default for LogPlugin {
             filter: "wgpu=error,naga=warn".to_string(),
             level: Level::INFO,
             custom_layer: |_| None,
-            ansi: true,
         }
     }
 }
@@ -227,8 +233,10 @@ impl Plugin for LogPlugin {
             #[cfg(feature = "tracing-tracy")]
             let tracy_layer = tracing_tracy::TracyLayer::default();
 
-            let fmt_layer =
-                tracing_subscriber::fmt::Layer::default().with_writer(std::io::stderr).with_ansi(self.ansi);
+            // note: the implementation of `Default` reads from the env var NO_COLOR
+            // to decide whether to use ANSI color codes, which is common convention
+            // https://no-color.org/
+            let fmt_layer = tracing_subscriber::fmt::Layer::default().with_writer(std::io::stderr);
 
             // bevy_render::renderer logs a `tracy.frame_mark` event every frame
             // at Level::INFO. Formatted logs should omit it.
