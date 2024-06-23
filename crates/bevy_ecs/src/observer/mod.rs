@@ -61,7 +61,7 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     }
 
     /// Enables event bubbling.
-    pub fn propigate(&mut self, should_bubble: bool) {
+    pub fn propagate(&mut self, should_bubble: bool) {
         *self.bubble = should_bubble;
     }
 
@@ -816,7 +816,7 @@ mod tests {
             .spawn(Parent(parent))
             .observe(|mut trigger: Trigger<EventBubling>, mut res: ResMut<R>| {
                 res.0 += 1;
-                trigger.propigate(false);
+                trigger.propagate(false);
             })
             .id();
 
@@ -892,7 +892,7 @@ mod tests {
             .spawn(Parent(parent_a))
             .observe(|mut trigger: Trigger<EventBubling>, mut res: ResMut<R>| {
                 res.0 += 1;
-                trigger.propigate(false);
+                trigger.propagate(false);
             })
             .id();
 
