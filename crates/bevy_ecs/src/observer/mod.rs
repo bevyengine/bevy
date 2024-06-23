@@ -72,9 +72,12 @@ pub struct ObserverDescriptor {
 }
 
 impl ObserverDescriptor {
-    /// Add the given `triggers` to the descriptor.
-    pub fn with_triggers(mut self, triggers: Vec<ComponentId>) -> Self {
-        self.events = triggers;
+    /// Add the given `events` to the descriptor.
+    /// # Safety
+    /// The type of each [`ComponentId`] in `events` _must_ match the actual value
+    /// of the event passed into the observer.
+    pub unsafe fn with_events(mut self, events: Vec<ComponentId>) -> Self {
+        self.events = events;
         self
     }
 
@@ -400,6 +403,10 @@ mod tests {
     #[derive(Component)]
     struct C;
 
+    #[derive(Component)]
+    #[component(storage = "SparseSet")]
+    struct S;
+
     #[derive(Event)]
     struct EventA;
 
@@ -440,6 +447,22 @@ mod tests {
         let mut entity = world.spawn_empty();
         entity.insert(A);
         entity.remove::<A>();
+        entity.flush();
+        assert_eq!(3, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn observer_order_insert_remove_sparse() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+
+        world.observe(|_: Trigger<OnAdd, S>, mut res: ResMut<R>| res.assert_order(0));
+        world.observe(|_: Trigger<OnInsert, S>, mut res: ResMut<R>| res.assert_order(1));
+        world.observe(|_: Trigger<OnRemove, S>, mut res: ResMut<R>| res.assert_order(2));
+
+        let mut entity = world.spawn_empty();
+        entity.insert(S);
+        entity.remove::<S>();
         entity.flush();
         assert_eq!(3, world.resource::<R>().0);
     }
@@ -498,8 +521,11 @@ mod tests {
         world.init_resource::<R>();
         let on_remove = world.init_component::<OnRemove>();
         world.spawn(
-            Observer::new(|_: Trigger<OnAdd, A>, mut res: ResMut<R>| res.0 += 1)
-                .with_event(on_remove),
+            // SAFETY: OnAdd and OnRemove are both unit types, so this is safe
+            unsafe {
+                Observer::new(|_: Trigger<OnAdd, A>, mut res: ResMut<R>| res.0 += 1)
+                    .with_event(on_remove)
+            },
         );
 
         let entity = world.spawn(A).id();
@@ -621,7 +647,8 @@ mod tests {
         let event_a = world.init_component::<EventA>();
 
         world.spawn(ObserverState {
-            descriptor: ObserverDescriptor::default().with_triggers(vec![event_a]),
+            // SAFETY: we registered `event_a` above and it matches the type of TriggerA
+            descriptor: unsafe { ObserverDescriptor::default().with_events(vec![event_a]) },
             runner: |mut world, _trigger, _ptr| {
                 world.resource_mut::<R>().0 += 1;
             },
@@ -629,7 +656,7 @@ mod tests {
         });
 
         world.commands().add(
-            // SAFETY: we registered `trigger` above and it matches the type of TriggerA
+            // SAFETY: we registered `event_a` above and it matches the type of TriggerA
             unsafe { EmitDynamicTrigger::new_with_id(event_a, EventA, ()) },
         );
         world.flush();
