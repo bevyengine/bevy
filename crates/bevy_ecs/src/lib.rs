@@ -29,6 +29,7 @@ pub mod removal_detection;
 pub mod schedule;
 pub mod storage;
 pub mod system;
+pub mod traversal;
 pub mod world;
 
 pub use bevy_ptr as ptr;

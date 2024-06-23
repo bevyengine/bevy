@@ -1,4 +1,4 @@
-use crate::component::Component;
+use crate::{component::Component, traversal::Traversal};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use std::{
@@ -31,7 +31,13 @@ use std::{
     label = "invalid `Event`",
     note = "consider annotating `{Self}` with `#[derive(Event)]`"
 )]
-pub trait Event: Component {}
+pub trait Event: Component {
+    /// A system param that describes a traversal through the ECS.
+    type Traverse: Traversal;
+
+    /// Sets the default bubling state of the entity when used with observers.
+    const SHOULD_BUBBLE: bool;
+}
 
 /// An `EventId` uniquely identifies an event stored in a specific [`World`].
 ///

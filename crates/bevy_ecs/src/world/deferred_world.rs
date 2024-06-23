@@ -10,6 +10,7 @@ use crate::{
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
     system::{Commands, Query, Resource},
+    traversal::{Traversal, TraverseNone},
 };
 
 use super::{
@@ -350,7 +351,14 @@ impl<'w> DeferredWorld<'w> {
         entity: Entity,
         components: impl Iterator<Item = ComponentId>,
     ) {
-        Observers::invoke(self.reborrow(), event, entity, components, &mut ());
+        Observers::invoke::<_, TraverseNone>(
+            self.reborrow(),
+            event,
+            entity,
+            components,
+            &mut (),
+            false,
+        );
     }
 
     /// Triggers all event observers for [`ComponentId`] in target.
@@ -358,14 +366,24 @@ impl<'w> DeferredWorld<'w> {
     /// # Safety
     /// Caller must ensure `E` is accessible as the type represented by `event`
     #[inline]
-    pub(crate) unsafe fn trigger_observers_with_data<E>(
+    pub(crate) unsafe fn trigger_observers_with_data<E, C>(
         &mut self,
         event: ComponentId,
         entity: Entity,
         components: impl Iterator<Item = ComponentId>,
         data: &mut E,
-    ) {
-        Observers::invoke(self.reborrow(), event, entity, components, data);
+        should_bubble: bool,
+    ) where
+        C: Traversal,
+    {
+        Observers::invoke::<_, C>(
+            self.reborrow(),
+            event,
+            entity,
+            components,
+            data,
+            should_bubble,
+        );
     }
 
     /// Sends a "global" [`Trigger`] without any targets.

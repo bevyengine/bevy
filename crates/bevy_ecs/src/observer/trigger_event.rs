@@ -48,7 +48,7 @@ impl<E: Event, Targets: TriggerTargets> Command for EmitDynamicTrigger<E, Target
 }
 
 #[inline]
-fn trigger_event<E, Targets: TriggerTargets>(
+fn trigger_event<E: Event, Targets: TriggerTargets>(
     world: &mut World,
     event_type: ComponentId,
     event_data: &mut E,
@@ -58,22 +58,24 @@ fn trigger_event<E, Targets: TriggerTargets>(
     if targets.entities().len() == 0 {
         // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
         unsafe {
-            world.trigger_observers_with_data(
+            world.trigger_observers_with_data::<_, E::Traverse>(
                 event_type,
                 Entity::PLACEHOLDER,
                 targets.components(),
                 event_data,
+                E::SHOULD_BUBBLE,
             );
         };
     } else {
         for target in targets.entities() {
             // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
             unsafe {
-                world.trigger_observers_with_data(
+                world.trigger_observers_with_data::<_, E::Traverse>(
                     event_type,
                     target,
                     targets.components(),
                     event_data,
+                    E::SHOULD_BUBBLE,
                 );
             };
         }
