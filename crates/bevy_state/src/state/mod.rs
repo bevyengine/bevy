@@ -1,4 +1,4 @@
-mod computed_state;
+mod computed_states;
 mod freely_mutable_state;
 mod resources;
 mod state_set;
@@ -7,7 +7,7 @@ mod sub_states;
 mod transitions;
 
 pub use bevy_state_macros::*;
-pub use computed_state::*;
+pub use computed_states::*;
 pub use freely_mutable_state::*;
 pub use resources::*;
 pub use state_set::*;
@@ -22,7 +22,7 @@ mod tests {
     use bevy_ecs::schedule::ScheduleLabel;
     use bevy_state_macros::States;
     use bevy_state_macros::SubStates;
-    use computed_state::register_computed_state_systems;
+    use computed_states::register_computed_state_systems;
 
     use super::*;
     use crate as bevy_state;
