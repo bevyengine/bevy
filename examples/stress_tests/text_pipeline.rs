@@ -75,6 +75,6 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn update_text_bounds(time: Res<Time>, mut text_bounds_query: Query<&mut Text2dBounds>) {
     let width = (1. + time.elapsed_seconds().sin()) * 600.0;
     for mut text_bounds in text_bounds_query.iter_mut() {
-        text_bounds.size.x = width;
+        text_bounds.width = Some(width);
     }
 }

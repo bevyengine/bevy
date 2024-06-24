@@ -83,9 +83,7 @@ fn setup(mut commands: Commands) {
     commands.spawn(Text2dBundle {
         text,
         text_anchor: bevy::sprite::Anchor::Center,
-        text_2d_bounds: Text2dBounds {
-            size: Vec2::new(1000., f32::INFINITY),
-        },
+        text_2d_bounds: Text2dBounds::new_horizontal(1000.),
         ..Default::default()
     });
 }

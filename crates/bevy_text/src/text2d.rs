@@ -38,8 +38,12 @@ use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 #[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component)]
 pub struct Text2dBounds {
-    /// The maximum width and height of text in logical pixels.
-    pub size: Vec2,
+    /// The maximum width of text in logical pixels.
+    /// If `None`, the width is unbounded.
+    pub width: Option<f32>,
+    /// The maximum height of text in logical pixels.
+    /// If `None`, the height is unbounded.
+    pub height: Option<f32>,
 }
 
 impl Default for Text2dBounds {
@@ -52,8 +56,43 @@ impl Default for Text2dBounds {
 impl Text2dBounds {
     /// Unbounded text will not be truncated or wrapped.
     pub const UNBOUNDED: Self = Self {
-        size: Vec2::splat(f32::INFINITY),
+        width: None,
+        height: None,
     };
+
+    /// Creates a new `Text2dBounds`, bounded with the specified width and height values.
+    #[inline]
+    pub const fn new(width: f32, height: f32) -> Self {
+        Self {
+            width: Some(width),
+            height: Some(height),
+        }
+    }
+
+    /// Creates a new `Text2dBounds`, bounded with the specified width value and unbounded on height.
+    #[inline]
+    pub const fn new_horizontal(width: f32) -> Self {
+        Self {
+            width: Some(width),
+            height: None,
+        }
+    }
+
+    /// Creates a new `Text2dBounds`, bounded with the specified height value and unbounded on width.
+    #[inline]
+    pub const fn new_vertical(height: f32) -> Self {
+        Self {
+            width: None,
+            height: Some(height),
+        }
+    }
+}
+
+impl From<Vec2> for Text2dBounds {
+    #[inline]
+    fn from(v: Vec2) -> Self {
+        Self::new(v.x, v.y)
+    }
 }
 
 /// The bundle of components needed to draw text in a 2D scene via a 2D `Camera2dBundle`.
@@ -203,14 +242,16 @@ pub fn update_text2d_layout(
 
     for (entity, text, bounds, mut text_layout_info, mut buffer) in &mut text_query {
         if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
-            let text_bounds = Vec2::new(
-                if text.linebreak_behavior == BreakLineOn::NoWrap {
-                    f32::INFINITY
+            let text_bounds = Text2dBounds {
+                width: if text.linebreak_behavior == BreakLineOn::NoWrap {
+                    None
                 } else {
-                    scale_value(bounds.size.x, scale_factor)
+                    bounds.width.map(|width| scale_value(width, scale_factor))
                 },
-                scale_value(bounds.size.y, scale_factor),
-            );
+                height: bounds
+                    .height
+                    .map(|height| scale_value(height, scale_factor)),
+            };
 
             match text_pipeline.queue_text(
                 &fonts,
