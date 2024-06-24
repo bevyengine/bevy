@@ -14,7 +14,7 @@ pub const ON_REMOVE: ComponentId = ComponentId::new(2);
 #[derive(Event)]
 pub struct OnAdd;
 
-/// Trigger emitted when a component is inserted on to to an entity.
+/// Trigger emitted when a component is inserted onto an entity.
 #[derive(Event)]
 pub struct OnInsert;
 

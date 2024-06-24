@@ -13,6 +13,7 @@ toml_edit = { version = "0.22.7", default-features = false, features = [
   "parse",
 ] }
 pbr = "1.1"
+regex = "1.10.5"
 
 [lints]
 workspace = true

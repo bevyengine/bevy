@@ -29,7 +29,7 @@ pub(crate) fn rotate_then_translate_3d(rotation: Quat, translation: Vec3) -> imp
 /// Given a circle's radiu and its resolution, this function computes the position
 /// of the `nth` point along the circumference of the circle. The rotation starts at `(0.0, radius)`
 /// and proceeds counter-clockwise.
-pub(crate) fn single_circle_coordinate(radius: f32, resolution: usize, nth_point: usize) -> Vec2 {
+pub(crate) fn single_circle_coordinate(radius: f32, resolution: u32, nth_point: u32) -> Vec2 {
     let angle = nth_point as f32 * TAU / resolution as f32;
     let (x, y) = angle.sin_cos();
     Vec2::new(x, y) * radius
@@ -40,10 +40,10 @@ pub(crate) fn single_circle_coordinate(radius: f32, resolution: usize, nth_point
 /// This function creates an iterator that yields the positions of points approximating a
 /// circle with the given radius, divided into linear segments. The iterator produces `resolution`
 /// number of points.
-pub(crate) fn circle_coordinates(radius: f32, resolution: usize) -> impl Iterator<Item = Vec2> {
+pub(crate) fn circle_coordinates(radius: f32, resolution: u32) -> impl Iterator<Item = Vec2> {
     (0..)
         .map(move |p| single_circle_coordinate(radius, resolution, p))
-        .take(resolution)
+        .take(resolution as usize)
 }
 
 /// Draws a circle in 3D space.
@@ -54,7 +54,7 @@ pub(crate) fn circle_coordinates(radius: f32, resolution: usize) -> impl Iterato
 pub(crate) fn draw_circle_3d<Config, Clear>(
     gizmos: &mut Gizmos<'_, '_, Config, Clear>,
     radius: f32,
-    resolution: usize,
+    resolution: u32,
     rotation: Quat,
     translation: Vec3,
     color: Color,

@@ -23,7 +23,7 @@ pub struct CircleMeshBuilder {
     /// The number of vertices used for the circle mesh.
     /// The default is `32`.
     #[doc(alias = "vertices")]
-    pub resolution: usize,
+    pub resolution: u32,
 }
 
 impl Default for CircleMeshBuilder {
@@ -38,7 +38,7 @@ impl Default for CircleMeshBuilder {
 impl CircleMeshBuilder {
     /// Creates a new [`CircleMeshBuilder`] from a given radius and vertex count.
     #[inline]
-    pub const fn new(radius: f32, resolution: usize) -> Self {
+    pub const fn new(radius: f32, resolution: u32) -> Self {
         Self {
             circle: Circle { radius },
             resolution,
@@ -48,7 +48,7 @@ impl CircleMeshBuilder {
     /// Sets the number of vertices used for the circle mesh.
     #[inline]
     #[doc(alias = "vertices")]
-    pub const fn resolution(mut self, resolution: usize) -> Self {
+    pub const fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
         self
     }
@@ -56,8 +56,9 @@ impl CircleMeshBuilder {
 
 impl MeshBuilder for CircleMeshBuilder {
     fn build(&self) -> Mesh {
-        RegularPolygon::new(self.circle.radius, self.resolution)
+        Ellipse::new(self.circle.radius, self.circle.radius)
             .mesh()
+            .resolution(self.resolution)
             .build()
     }
 }
@@ -67,7 +68,7 @@ impl Extrudable for CircleMeshBuilder {
         vec![PerimeterSegment::Smooth {
             first_normal: Vec2::Y,
             last_normal: Vec2::Y,
-            indices: (0..self.resolution as u32).chain([0]).collect(),
+            indices: (0..self.resolution).chain([0]).collect(),
         }]
     }
 }
@@ -126,7 +127,7 @@ pub struct CircularSectorMeshBuilder {
     /// The number of vertices used for the arc portion of the sector mesh.
     /// The default is `32`.
     #[doc(alias = "vertices")]
-    pub resolution: usize,
+    pub resolution: u32,
     /// The UV mapping mode
     pub uv_mode: CircularMeshUvMode,
 }
@@ -154,7 +155,7 @@ impl CircularSectorMeshBuilder {
     /// Sets the number of vertices used for the sector mesh.
     #[inline]
     #[doc(alias = "vertices")]
-    pub const fn resolution(mut self, resolution: usize) -> Self {
+    pub const fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
         self
     }
@@ -169,10 +170,11 @@ impl CircularSectorMeshBuilder {
 
 impl MeshBuilder for CircularSectorMeshBuilder {
     fn build(&self) -> Mesh {
-        let mut indices = Vec::with_capacity((self.resolution - 1) * 3);
-        let mut positions = Vec::with_capacity(self.resolution + 1);
-        let normals = vec![[0.0, 0.0, 1.0]; self.resolution + 1];
-        let mut uvs = Vec::with_capacity(self.resolution + 1);
+        let resolution = self.resolution as usize;
+        let mut indices = Vec::with_capacity((resolution - 1) * 3);
+        let mut positions = Vec::with_capacity(resolution + 1);
+        let normals = vec![[0.0, 0.0, 1.0]; resolution + 1];
+        let mut uvs = Vec::with_capacity(resolution + 1);
 
         let CircularMeshUvMode::Mask { angle: uv_angle } = self.uv_mode;
 
@@ -197,7 +199,7 @@ impl MeshBuilder for CircularSectorMeshBuilder {
             uvs.push([uv.x, uv.y]);
         }
 
-        for i in 1..(self.resolution as u32) {
+        for i in 1..self.resolution {
             // Index 0 is the center.
             indices.extend_from_slice(&[0, i, i + 1]);
         }
@@ -215,18 +217,17 @@ impl MeshBuilder for CircularSectorMeshBuilder {
 
 impl Extrudable for CircularSectorMeshBuilder {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
-        let resolution = self.resolution as u32;
         let (sin, cos) = self.sector.arc.half_angle.sin_cos();
         let first_normal = Vec2::new(sin, cos);
         let last_normal = Vec2::new(-sin, cos);
         vec![
             PerimeterSegment::Flat {
-                indices: vec![resolution, 0, 1],
+                indices: vec![self.resolution, 0, 1],
             },
             PerimeterSegment::Smooth {
                 first_normal,
                 last_normal,
-                indices: (1..=resolution).collect(),
+                indices: (1..=self.resolution).collect(),
             },
         ]
     }
@@ -263,7 +264,7 @@ pub struct CircularSegmentMeshBuilder {
     /// The number of vertices used for the arc portion of the segment mesh.
     /// The default is `32`.
     #[doc(alias = "vertices")]
-    pub resolution: usize,
+    pub resolution: u32,
     /// The UV mapping mode
     pub uv_mode: CircularMeshUvMode,
 }
@@ -291,7 +292,7 @@ impl CircularSegmentMeshBuilder {
     /// Sets the number of vertices used for the segment mesh.
     #[inline]
     #[doc(alias = "vertices")]
-    pub const fn resolution(mut self, resolution: usize) -> Self {
+    pub const fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
         self
     }
@@ -306,10 +307,11 @@ impl CircularSegmentMeshBuilder {
 
 impl MeshBuilder for CircularSegmentMeshBuilder {
     fn build(&self) -> Mesh {
-        let mut indices = Vec::with_capacity((self.resolution - 1) * 3);
-        let mut positions = Vec::with_capacity(self.resolution + 1);
-        let normals = vec![[0.0, 0.0, 1.0]; self.resolution + 1];
-        let mut uvs = Vec::with_capacity(self.resolution + 1);
+        let resolution = self.resolution as usize;
+        let mut indices = Vec::with_capacity((resolution - 1) * 3);
+        let mut positions = Vec::with_capacity(resolution + 1);
+        let normals = vec![[0.0, 0.0, 1.0]; resolution + 1];
+        let mut uvs = Vec::with_capacity(resolution + 1);
 
         let CircularMeshUvMode::Mask { angle: uv_angle } = self.uv_mode;
 
@@ -343,7 +345,7 @@ impl MeshBuilder for CircularSegmentMeshBuilder {
             uvs.push([uv.x, uv.y]);
         }
 
-        for i in 1..(self.resolution as u32) {
+        for i in 1..self.resolution {
             // Index 0 is the midpoint of the chord.
             indices.extend_from_slice(&[0, i, i + 1]);
         }
@@ -361,18 +363,17 @@ impl MeshBuilder for CircularSegmentMeshBuilder {
 
 impl Extrudable for CircularSegmentMeshBuilder {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
-        let resolution = self.resolution as u32;
         let (sin, cos) = self.segment.arc.half_angle.sin_cos();
         let first_normal = Vec2::new(sin, cos);
         let last_normal = Vec2::new(-sin, cos);
         vec![
             PerimeterSegment::Flat {
-                indices: vec![resolution, 0, 1],
+                indices: vec![self.resolution, 0, 1],
             },
             PerimeterSegment::Smooth {
                 first_normal,
                 last_normal,
-                indices: (1..=resolution).collect(),
+                indices: (1..=self.resolution).collect(),
             },
         ]
     }
@@ -401,7 +402,7 @@ impl From<CircularSegment> for Mesh {
 /// A builder used for creating a [`Mesh`] with a [`RegularPolygon`] shape.
 pub struct RegularPolygonMeshBuilder {
     circumradius: f32,
-    sides: usize,
+    sides: u32,
 }
 impl Meshable for RegularPolygon {
     type Output = RegularPolygonMeshBuilder;
@@ -427,7 +428,7 @@ impl MeshBuilder for RegularPolygonMeshBuilder {
 impl Extrudable for RegularPolygonMeshBuilder {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
         vec![PerimeterSegment::Flat {
-            indices: (0..self.sides as u32).chain([0]).collect(),
+            indices: (0..self.sides).chain([0]).collect(),
         }]
     }
 }
@@ -446,7 +447,7 @@ pub struct EllipseMeshBuilder {
     /// The number of vertices used for the ellipse mesh.
     /// The default is `32`.
     #[doc(alias = "vertices")]
-    pub resolution: usize,
+    pub resolution: u32,
 }
 
 impl Default for EllipseMeshBuilder {
@@ -461,7 +462,7 @@ impl Default for EllipseMeshBuilder {
 impl EllipseMeshBuilder {
     /// Creates a new [`EllipseMeshBuilder`] from a given half width and half height and a vertex count.
     #[inline]
-    pub const fn new(half_width: f32, half_height: f32, resolution: usize) -> Self {
+    pub const fn new(half_width: f32, half_height: f32, resolution: u32) -> Self {
         Self {
             ellipse: Ellipse::new(half_width, half_height),
             resolution,
@@ -471,7 +472,7 @@ impl EllipseMeshBuilder {
     /// Sets the number of vertices used for the ellipse mesh.
     #[inline]
     #[doc(alias = "vertices")]
-    pub const fn resolution(mut self, resolution: usize) -> Self {
+    pub const fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
         self
     }
@@ -479,10 +480,11 @@ impl EllipseMeshBuilder {
 
 impl MeshBuilder for EllipseMeshBuilder {
     fn build(&self) -> Mesh {
-        let mut indices = Vec::with_capacity((self.resolution - 2) * 3);
-        let mut positions = Vec::with_capacity(self.resolution);
-        let normals = vec![[0.0, 0.0, 1.0]; self.resolution];
-        let mut uvs = Vec::with_capacity(self.resolution);
+        let resolution = self.resolution as usize;
+        let mut indices = Vec::with_capacity((resolution - 2) * 3);
+        let mut positions = Vec::with_capacity(resolution);
+        let normals = vec![[0.0, 0.0, 1.0]; resolution];
+        let mut uvs = Vec::with_capacity(resolution);
 
         // Add pi/2 so that there is a vertex at the top (sin is 1.0 and cos is 0.0)
         let start_angle = std::f32::consts::FRAC_PI_2;
@@ -499,7 +501,7 @@ impl MeshBuilder for EllipseMeshBuilder {
             uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
         }
 
-        for i in 1..(self.resolution as u32 - 1) {
+        for i in 1..(self.resolution - 1) {
             indices.extend_from_slice(&[0, i, i + 1]);
         }
 
@@ -519,7 +521,7 @@ impl Extrudable for EllipseMeshBuilder {
         vec![PerimeterSegment::Smooth {
             first_normal: Vec2::Y,
             last_normal: Vec2::Y,
-            indices: (0..self.resolution as u32).chain([0]).collect(),
+            indices: (0..self.resolution).chain([0]).collect(),
         }]
     }
 }
@@ -548,7 +550,7 @@ pub struct AnnulusMeshBuilder {
 
     /// The number of vertices used in constructing each concentric circle of the annulus mesh.
     /// The default is `32`.
-    pub resolution: usize,
+    pub resolution: u32,
 }
 
 impl Default for AnnulusMeshBuilder {
@@ -563,7 +565,7 @@ impl Default for AnnulusMeshBuilder {
 impl AnnulusMeshBuilder {
     /// Create an [`AnnulusMeshBuilder`] with the given inner radius, outer radius, and angular vertex count.
     #[inline]
-    pub fn new(inner_radius: f32, outer_radius: f32, resolution: usize) -> Self {
+    pub fn new(inner_radius: f32, outer_radius: f32, resolution: u32) -> Self {
         Self {
             annulus: Annulus::new(inner_radius, outer_radius),
             resolution,
@@ -572,7 +574,7 @@ impl AnnulusMeshBuilder {
 
     /// Sets the number of vertices used in constructing the concentric circles of the annulus mesh.
     #[inline]
-    pub fn resolution(mut self, resolution: usize) -> Self {
+    pub fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
         self
     }
@@ -583,8 +585,8 @@ impl MeshBuilder for AnnulusMeshBuilder {
         let inner_radius = self.annulus.inner_circle.radius;
         let outer_radius = self.annulus.outer_circle.radius;
 
-        let num_vertices = (self.resolution + 1) * 2;
-        let mut indices = Vec::with_capacity(self.resolution * 6);
+        let num_vertices = (self.resolution as usize + 1) * 2;
+        let mut indices = Vec::with_capacity(self.resolution as usize * 6);
         let mut positions = Vec::with_capacity(num_vertices);
         let mut uvs = Vec::with_capacity(num_vertices);
         let normals = vec![[0.0, 0.0, 1.0]; num_vertices];
@@ -617,7 +619,7 @@ impl MeshBuilder for AnnulusMeshBuilder {
         // we are just making sure that they both have the right orientation,
         // which is the CCW order of
         // `inner_vertex` -> `outer_vertex` -> `next_outer` -> `next_inner`
-        for i in 0..(self.resolution as u32) {
+        for i in 0..self.resolution {
             let inner_vertex = 2 * i;
             let outer_vertex = 2 * i + 1;
             let next_inner = inner_vertex + 2;
@@ -639,7 +641,7 @@ impl MeshBuilder for AnnulusMeshBuilder {
 
 impl Extrudable for AnnulusMeshBuilder {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
-        let vert_count = 2 * self.resolution as u32;
+        let vert_count = 2 * self.resolution;
         vec![
             PerimeterSegment::Smooth {
                 first_normal: Vec2::NEG_Y,
@@ -850,7 +852,7 @@ pub struct Capsule2dMeshBuilder {
     /// The total number of vertices for the capsule mesh will be two times the resolution.
     ///
     /// The default is `16`.
-    pub resolution: usize,
+    pub resolution: u32,
 }
 
 impl Default for Capsule2dMeshBuilder {
@@ -866,7 +868,7 @@ impl Capsule2dMeshBuilder {
     /// Creates a new [`Capsule2dMeshBuilder`] from a given radius, length, and the number of vertices
     /// used for one hemicircle. The total number of vertices for the capsule mesh will be two times the resolution.
     #[inline]
-    pub fn new(radius: f32, length: f32, resolution: usize) -> Self {
+    pub fn new(radius: f32, length: f32, resolution: u32) -> Self {
         Self {
             capsule: Capsule2d::new(radius, length),
             resolution,
@@ -876,7 +878,7 @@ impl Capsule2dMeshBuilder {
     /// Sets the number of vertices used for one hemicircle.
     /// The total number of vertices for the capsule mesh will be two times the resolution.
     #[inline]
-    pub const fn resolution(mut self, resolution: usize) -> Self {
+    pub const fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
         self
     }
@@ -885,14 +887,14 @@ impl Capsule2dMeshBuilder {
 impl MeshBuilder for Capsule2dMeshBuilder {
     fn build(&self) -> Mesh {
         // The resolution is the number of vertices for one semicircle
-        let resolution = self.resolution as u32;
-        let vertex_count = 2 * self.resolution;
+        let resolution = self.resolution;
+        let vertex_count = 2 * resolution;
 
         // Six extra indices for the two triangles between the hemicircles
-        let mut indices = Vec::with_capacity((self.resolution - 2) * 2 * 3 + 6);
-        let mut positions = Vec::with_capacity(vertex_count);
-        let normals = vec![[0.0, 0.0, 1.0]; vertex_count];
-        let mut uvs = Vec::with_capacity(vertex_count);
+        let mut indices = Vec::with_capacity((resolution as usize - 2) * 2 * 3 + 6);
+        let mut positions = Vec::with_capacity(vertex_count as usize);
+        let normals = vec![[0.0, 0.0, 1.0]; vertex_count as usize];
+        let mut uvs = Vec::with_capacity(vertex_count as usize);
 
         let radius = self.capsule.radius;
         let step = std::f32::consts::TAU / vertex_count as f32;
@@ -929,7 +931,7 @@ impl MeshBuilder for Capsule2dMeshBuilder {
         indices.extend_from_slice(&[0, resolution - 1, resolution]);
 
         // Create bottom semicircle
-        for i in resolution..vertex_count as u32 {
+        for i in resolution..vertex_count {
             // Compute vertex position at angle theta
             let theta = start_angle + i as f32 * step;
             let (sin, cos) = theta.sin_cos();
@@ -945,7 +947,7 @@ impl MeshBuilder for Capsule2dMeshBuilder {
         }
 
         // Add indices for bottom right triangle of the part between the hemicircles
-        indices.extend_from_slice(&[resolution, vertex_count as u32 - 1, 0]);
+        indices.extend_from_slice(&[resolution, vertex_count - 1, 0]);
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
@@ -960,7 +962,7 @@ impl MeshBuilder for Capsule2dMeshBuilder {
 
 impl Extrudable for Capsule2dMeshBuilder {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
-        let resolution = self.resolution as u32;
+        let resolution = self.resolution;
         let top_semi_indices = (0..resolution).collect();
         let bottom_semi_indices = (resolution..(2 * resolution)).collect();
         vec![

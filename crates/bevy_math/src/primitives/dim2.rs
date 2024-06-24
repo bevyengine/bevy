@@ -8,7 +8,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-/// A circle primitive
+/// A circle primitive, representing the set of points some distance from the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -741,7 +741,7 @@ mod arc_tests {
     }
 }
 
-/// An ellipse primitive
+/// An ellipse primitive, which is like a circle, but the width and height can be different
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -989,6 +989,8 @@ impl Measured2d for Annulus {
 }
 
 /// A rhombus primitive, also known as a diamond shape.
+/// A four sided polygon, centered on the origin, where opposite sides are parallel but without
+/// requiring right angles.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1163,7 +1165,7 @@ impl Plane2d {
     }
 }
 
-/// An infinite line along a direction in 2D space.
+/// An infinite line going through the origin along a direction in 2D space.
 ///
 /// For a finite line: [`Segment2d`]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -1180,7 +1182,7 @@ pub struct Line2d {
 }
 impl Primitive2d for Line2d {}
 
-/// A segment of a line along a direction in 2D space.
+/// A segment of a line going through the origin along a direction in 2D space.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
@@ -1472,7 +1474,7 @@ impl Measured2d for Triangle2d {
     }
 }
 
-/// A rectangle primitive
+/// A rectangle primitive, which is like a square, except that the width and height can be different
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1626,7 +1628,7 @@ impl BoxedPolygon {
     }
 }
 
-/// A polygon where all vertices lie on a circle, equally far apart.
+/// A polygon centered on the origin where all vertices lie on a circle, equally far apart.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1642,7 +1644,7 @@ pub struct RegularPolygon {
     /// The circumcircle on which all vertices lie
     pub circumcircle: Circle,
     /// The number of sides
-    pub sides: usize,
+    pub sides: u32,
 }
 impl Primitive2d for RegularPolygon {}
 
@@ -1664,7 +1666,7 @@ impl RegularPolygon {
     ///
     /// Panics if `circumradius` is negative
     #[inline(always)]
-    pub fn new(circumradius: f32, sides: usize) -> Self {
+    pub fn new(circumradius: f32, sides: u32) -> Self {
         assert!(
             circumradius.is_sign_positive(),
             "polygon has a negative radius"

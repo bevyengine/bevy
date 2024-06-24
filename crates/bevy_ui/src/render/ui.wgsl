@@ -142,7 +142,7 @@ fn draw(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
 
     // Signed distance from the border's internal edge (the signed distance is negative if the point 
     // is inside the rect but not on the border).
-    // If the border size is set to zero, this is the same as as the external distance.
+    // If the border size is set to zero, this is the same as the external distance.
     let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
 
     // Signed distance from the border (the intersection of the rect with its border).

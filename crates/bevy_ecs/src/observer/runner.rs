@@ -298,7 +298,10 @@ impl<E: Event, B: Bundle> Observer<E, B> {
 
     /// Observe the given `event`. This will cause the [`Observer`] to run whenever an event with the given [`ComponentId`]
     /// is triggered.
-    pub fn with_event(mut self, event: ComponentId) -> Self {
+    /// # Safety
+    /// The type of the `event` [`ComponentId`] _must_ match the actual value
+    /// of the event passed into the observer system.
+    pub unsafe fn with_event(mut self, event: ComponentId) -> Self {
         self.descriptor.events.push(event);
         self
     }

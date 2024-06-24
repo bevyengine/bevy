@@ -258,8 +258,8 @@ Once that's ready, get a sign-off on the broad vision and goals from the appropr
 This is the primary review step: maintainers and SMEs should be broadly patient and supportive even if they're skeptical until a proper design doc is in hand to evaluate.
 
 With a sign-off in hand, post the design doc to [Github Discussions](https://github.com/bevyengine/bevy/discussions) with the [`C-Design-Doc` label](https://github.com/bevyengine/bevy/discussions?discussions_q=is%3Aopen+label%3A%22C-Design+Doc%22) for archival purposes and begin work on implementation.
-Post PRs that you need review on in your group's forum thread, ask for advice, and share the load.
-Controversial PRs are still `S-Controversial`, but with a sign-off-in-priniciple, things should go more smoothly.
+Post PRs that you need reviews on in your group's forum thread, ask for advice, and share the load.
+Controversial PRs are still `S-Controversial`, but with a sign-off-in-principle, things should go more smoothly.
 
 If work peters out and the initiative dies, maintainers can wind down working groups (in consultation with SMEs and the working group itself).
 This is normal and expected: projects fail for all sorts of reasons!

@@ -111,7 +111,7 @@ not run in the audio thread, but in the main game loop thread.
 
 ## Communication with the audio thread
 
-To be able to to anything useful with audio, the thread has to be able to
+To be able to do anything useful with audio, the thread has to be able to
 communicate with the rest of the system, ie. update parameters, send/receive
 audio data, etc., and all of that needs to be done within the constraints of
 real-time programming, of course.

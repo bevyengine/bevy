@@ -10,7 +10,8 @@ use bevy::render::{
 };
 
 // Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
-// filtering entities in queries with With, they're usually not queried directly since they don't contain information within them.
+// filtering entities in queries with `With`, they're usually not queried directly since they don't
+// contain information within them.
 #[derive(Component)]
 struct CustomUV;
 

@@ -27,7 +27,7 @@ struct RoundedBoxConfig {
     rotation: Quat,
     color: Color,
     corner_radius: f32,
-    arc_resolution: usize,
+    arc_resolution: u32,
 }
 
 impl<T: GizmoConfigGroup> RoundedRectBuilder<'_, '_, '_, T> {
@@ -40,7 +40,7 @@ impl<T: GizmoConfigGroup> RoundedRectBuilder<'_, '_, '_, T> {
 
     /// Change the resolution of the arcs at the corners of the rectangle.
     /// The default value is 8
-    pub fn arc_resolution(mut self, arc_resolution: usize) -> Self {
+    pub fn arc_resolution(mut self, arc_resolution: u32) -> Self {
         self.config.arc_resolution = arc_resolution;
         self
     }
@@ -55,7 +55,7 @@ impl<T: GizmoConfigGroup> RoundedCuboidBuilder<'_, '_, '_, T> {
 
     /// Change the resolution of the arcs at the edges of the cuboid.
     /// The default value is 8
-    pub fn arc_resolution(mut self, arc_resolution: usize) -> Self {
+    pub fn arc_resolution(mut self, arc_resolution: u32) -> Self {
         self.config.arc_resolution = arc_resolution;
         self
     }
@@ -376,5 +376,5 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     }
 }
 
-const DEFAULT_ARC_RESOLUTION: usize = 8;
+const DEFAULT_ARC_RESOLUTION: u32 = 8;
 const DEFAULT_CORNER_RADIUS: f32 = 0.1;

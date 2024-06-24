@@ -79,7 +79,7 @@ pub struct BloomSettings {
     /// Somewhat comparable to the Q factor of an equalizer node.
     ///
     /// Valid range:
-    /// * 0.0 - base base intensity and boosted intensity are linearly interpolated
+    /// * 0.0 - base intensity and boosted intensity are linearly interpolated
     /// * 1.0 - all frequencies below maximum are at boosted intensity level
     pub low_frequency_boost_curvature: f32,
 

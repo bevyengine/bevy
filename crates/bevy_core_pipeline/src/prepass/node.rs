@@ -162,7 +162,7 @@ impl ViewNode for PrepassNode {
             pass_span.end(&mut render_pass);
             drop(render_pass);
 
-            // Copy prepass depth to the main depth texture if deferred isn't going to
+            // After rendering to the view depth texture, copy it to the prepass depth texture if deferred isn't going to
             if deferred_prepass.is_none() {
                 if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
                     command_encoder.copy_texture_to_texture(

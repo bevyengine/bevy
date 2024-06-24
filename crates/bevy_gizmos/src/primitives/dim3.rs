@@ -13,7 +13,7 @@ use bevy_math::{Dir3, Quat, Vec3};
 use crate::circles::SphereBuilder;
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 
-const DEFAULT_RESOLUTION: usize = 5;
+const DEFAULT_RESOLUTION: u32 = 5;
 // length used to simulate infinite lines
 const INFINITE_LEN: f32 = 10_000.0;
 
@@ -95,9 +95,9 @@ where
     color: Color,
 
     // Number of axis to hint the plane
-    axis_count: usize,
+    axis_count: u32,
     // Number of segments used to hint the plane
-    segment_count: usize,
+    segment_count: u32,
     // Length of segments used to hint the plane
     segment_length: f32,
 }
@@ -108,7 +108,7 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Set the number of segments used to hint the plane.
-    pub fn segment_count(mut self, count: usize) -> Self {
+    pub fn segment_count(mut self, count: u32) -> Self {
         self.segment_count = count;
         self
     }
@@ -120,7 +120,7 @@ where
     }
 
     /// Set the number of axis used to hint the plane.
-    pub fn axis_count(mut self, count: usize) -> Self {
+    pub fn axis_count(mut self, count: u32) -> Self {
         self.axis_count = count;
         self
     }
@@ -183,7 +183,7 @@ where
                     .filter(|i| i % 2 != 0)
                     .map(|percent| (percent as f32 + 0.5) * self.segment_length * axis_direction)
                     .map(|position| position + self.position)
-                    .take(self.segment_count)
+                    .take(self.segment_count as usize)
                     .for_each(|position| {
                         self.gizmos.primitive_3d(
                             &Segment3d {
@@ -431,7 +431,7 @@ where
     color: Color,
 
     // Number of lines used to approximate the cylinder geometry
-    resolution: usize,
+    resolution: u32,
 }
 
 impl<Config, Clear> Cylinder3dBuilder<'_, '_, '_, Config, Clear>
@@ -440,7 +440,7 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Set the number of lines used to approximate the top an bottom of the cylinder geometry.
-    pub fn resolution(mut self, resolution: usize) -> Self {
+    pub fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
         self
     }
@@ -541,7 +541,7 @@ where
     color: Color,
 
     // Number of lines used to approximate the capsule geometry
-    resolution: usize,
+    resolution: u32,
 }
 
 impl<Config, Clear> Capsule3dBuilder<'_, '_, '_, Config, Clear>
@@ -550,7 +550,7 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Set the number of lines used to approximate the capsule geometry.
-    pub fn resolution(mut self, resolution: usize) -> Self {
+    pub fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
         self
     }
@@ -681,10 +681,10 @@ where
     color: Color,
 
     // Number of lines used to approximate the cone base geometry
-    base_resolution: usize,
+    base_resolution: u32,
 
     // Number of lines used to approximate the cone height geometry
-    height_resolution: usize,
+    height_resolution: u32,
 }
 
 impl<Config, Clear> Cone3dBuilder<'_, '_, '_, Config, Clear>
@@ -693,7 +693,7 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Set the number of lines used to approximate the cone geometry for its base and height.
-    pub fn resolution(mut self, resolution: usize) -> Self {
+    pub fn resolution(mut self, resolution: u32) -> Self {
         self.base_resolution = resolution;
         self.height_resolution = resolution;
         self
@@ -703,7 +703,7 @@ where
     ///
     /// `resolution` should be a multiple of the value passed to [`Self::height_resolution`]
     /// for the height to connect properly with the base.
-    pub fn base_resolution(mut self, resolution: usize) -> Self {
+    pub fn base_resolution(mut self, resolution: u32) -> Self {
         self.base_resolution = resolution;
         self
     }
@@ -712,7 +712,7 @@ where
     ///
     /// `resolution` should be a divisor of the value passed to [`Self::base_resolution`]
     /// for the height to connect properly with the base.
-    pub fn height_resolution(mut self, resolution: usize) -> Self {
+    pub fn height_resolution(mut self, resolution: u32) -> Self {
         self.height_resolution = resolution;
         self
     }
@@ -817,7 +817,7 @@ where
     color: Color,
 
     // Number of lines used to approximate the curved surfaces
-    resolution: usize,
+    resolution: u32,
 }
 
 impl<Config, Clear> ConicalFrustum3dBuilder<'_, '_, '_, Config, Clear>
@@ -826,7 +826,7 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Set the number of lines used to approximate the curved surfaces.
-    pub fn resolution(mut self, resolution: usize) -> Self {
+    pub fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
         self
     }
@@ -937,9 +937,9 @@ where
     color: Color,
 
     // Number of lines in the minor (tube) direction
-    minor_resolution: usize,
+    minor_resolution: u32,
     // Number of lines in the major (ring) direction
-    major_resolution: usize,
+    major_resolution: u32,
 }
 
 impl<Config, Clear> Torus3dBuilder<'_, '_, '_, Config, Clear>
@@ -948,13 +948,13 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Set the number of lines in the minor (tube) direction.
-    pub fn minor_resolution(mut self, minor_resolution: usize) -> Self {
+    pub fn minor_resolution(mut self, minor_resolution: u32) -> Self {
         self.minor_resolution = minor_resolution;
         self
     }
 
     /// Set the number of lines in the major (ring) direction.
-    pub fn major_resolution(mut self, major_resolution: usize) -> Self {
+    pub fn major_resolution(mut self, major_resolution: u32) -> Self {
         self.major_resolution = major_resolution;
         self
     }
