@@ -2,9 +2,10 @@
 mod base;
 mod collections;
 mod event_cursor;
-mod iterators;
 mod mut_iterators;
 mod mutator;
+mod peek_iterators;
+mod read_iterators;
 mod reader;
 mod registry;
 mod update;
@@ -16,12 +17,15 @@ pub use bevy_ecs_macros::Event;
 pub use collections::{Events, SendBatchIds};
 pub use event_cursor::EventCursor;
 #[cfg(feature = "multi_threaded")]
-pub use iterators::EventParIter;
-pub use iterators::{EventIterator, EventIteratorWithId};
-#[cfg(feature = "multi_threaded")]
 pub use mut_iterators::EventMutParIter;
 pub use mut_iterators::{EventMutIterator, EventMutIteratorWithId};
 pub use mutator::EventMutator;
+#[cfg(feature = "multi_threaded")]
+pub use peek_iterators::EventPeekParIter;
+pub use peek_iterators::{EventPeekIterator, EventPeekIteratorWithId};
+#[cfg(feature = "multi_threaded")]
+pub use read_iterators::EventReadParIter;
+pub use read_iterators::{EventReadIterator, EventReadIteratorWithId};
 pub use reader::EventReader;
 pub use registry::{EventRegistry, ShouldUpdateEvents};
 pub use update::{
@@ -43,12 +47,16 @@ mod tests {
     #[derive(Event, Clone, PartialEq, Debug, Default)]
     struct EmptyTestEvent;
 
-    fn get_events<E: Event + Clone>(events: &Events<E>, cursor: &mut EventCursor<E>) -> Vec<E> {
+    fn read_events<E: Event + Clone>(events: &Events<E>, cursor: &mut EventCursor<E>) -> Vec<E> {
         cursor.read(events).cloned().collect::<Vec<E>>()
     }
 
+    fn peek_events<E: Event + Clone>(events: &Events<E>, cursor: &mut EventCursor<E>) -> Vec<E> {
+        cursor.peek(events).cloned().collect::<Vec<E>>()
+    }
+
     #[test]
-    fn test_events() {
+    fn test_events_read() {
         let mut events = Events::<TestEvent>::default();
         let event_0 = TestEvent { i: 0 };
         let event_1 = TestEvent { i: 1 };
@@ -63,12 +71,12 @@ mod tests {
         events.send(event_0);
 
         assert_eq!(
-            get_events(&events, &mut reader_a),
+            read_events(&events, &mut reader_a),
             vec![event_0],
             "reader_a created before event receives event"
         );
         assert_eq!(
-            get_events(&events, &mut reader_a),
+            read_events(&events, &mut reader_a),
             vec![],
             "second iteration of reader_a created before event results in zero events"
         );
@@ -76,12 +84,12 @@ mod tests {
         let mut reader_b: EventCursor<TestEvent> = events.get_cursor();
 
         assert_eq!(
-            get_events(&events, &mut reader_b),
+            read_events(&events, &mut reader_b),
             vec![event_0],
             "reader_b created after event receives event"
         );
         assert_eq!(
-            get_events(&events, &mut reader_b),
+            read_events(&events, &mut reader_b),
             vec![],
             "second iteration of reader_b created after event results in zero events"
         );
@@ -91,18 +99,18 @@ mod tests {
         let mut reader_c = events.get_cursor();
 
         assert_eq!(
-            get_events(&events, &mut reader_c),
+            read_events(&events, &mut reader_c),
             vec![event_0, event_1],
             "reader_c created after two events receives both events"
         );
         assert_eq!(
-            get_events(&events, &mut reader_c),
+            read_events(&events, &mut reader_c),
             vec![],
             "second iteration of reader_c created after two event results in zero events"
         );
 
         assert_eq!(
-            get_events(&events, &mut reader_a),
+            read_events(&events, &mut reader_a),
             vec![event_1],
             "reader_a receives next unread event"
         );
@@ -114,17 +122,17 @@ mod tests {
         events.send(event_2);
 
         assert_eq!(
-            get_events(&events, &mut reader_a),
+            read_events(&events, &mut reader_a),
             vec![event_2],
             "reader_a receives event created after update"
         );
         assert_eq!(
-            get_events(&events, &mut reader_b),
+            read_events(&events, &mut reader_b),
             vec![event_1, event_2],
             "reader_b receives events created before and after update"
         );
         assert_eq!(
-            get_events(&events, &mut reader_d),
+            read_events(&events, &mut reader_d),
             vec![event_0, event_1, event_2],
             "reader_d receives all events created before and after update"
         );
@@ -132,9 +140,111 @@ mod tests {
         events.update();
 
         assert_eq!(
-            get_events(&events, &mut reader_missed),
+            read_events(&events, &mut reader_missed),
             vec![event_2],
             "reader_missed missed events unread after two update() calls"
+        );
+    }
+
+    #[test]
+    fn test_events_peek() {
+        let mut events = Events::<TestEvent>::default();
+        let event_0 = TestEvent { i: 0 };
+        let event_1 = TestEvent { i: 1 };
+        let event_2 = TestEvent { i: 2 };
+
+        // this peeker will miss event_0 and event_1 because it wont peek them over the course of
+        // two updates
+        let mut peeker_missed: EventCursor<TestEvent> = events.get_cursor();
+
+        let mut peeker_a: EventCursor<TestEvent> = events.get_cursor();
+
+        events.send(event_0);
+
+        assert_eq!(
+            peek_events(&events, &mut peeker_a),
+            vec![event_0],
+            "peeker_a created before event receives event"
+        );
+        assert_eq!(
+            peek_events(&events, &mut peeker_a),
+            vec![event_0],
+            "second iteration of peeker_a should still see events"
+        );
+
+        let mut peeker_b: EventCursor<TestEvent> = events.get_cursor();
+
+        assert_eq!(
+            peek_events(&events, &mut peeker_b),
+            vec![event_0],
+            "peeker_b created after event receives event"
+        );
+        assert_eq!(
+            peek_events(&events, &mut peeker_b),
+            vec![event_0],
+            "second iteration of peeker_b should still see events"
+        );
+
+        events.send(event_1);
+
+        let mut peeker_c = events.get_cursor();
+
+        assert_eq!(
+            peek_events(&events, &mut peeker_c),
+            vec![event_0, event_1],
+            "peeker_c created after two events receives both events"
+        );
+        assert_eq!(
+            peek_events(&events, &mut peeker_c),
+            vec![event_0, event_1],
+            "second iteration of peeker_c should still see events"
+        );
+
+        assert_eq!(
+            peek_events(&events, &mut peeker_a),
+            vec![event_0, event_1],
+            "peeker_a should still see both events"
+        );
+
+        assert_eq!(
+            peek_events(&events, &mut peeker_a),
+            vec![event_0, event_1],
+            "peeker_b should still see both events"
+        );
+
+        events.update();
+
+        let mut peeker_d = events.get_cursor();
+
+        events.send(event_2);
+
+        assert_eq!(
+            peek_events(&events, &mut peeker_a),
+            vec![event_0, event_1, event_2],
+            "peeker_a receives all events"
+        );
+        assert_eq!(
+            peek_events(&events, &mut peeker_b),
+            vec![event_0, event_1, event_2],
+            "peeker_b receives all events"
+        );
+        assert_eq!(
+            peek_events(&events, &mut peeker_c),
+            vec![event_0, event_1, event_2],
+            "peeker_c receives all events"
+        );
+        assert_eq!(
+            peek_events(&events, &mut peeker_d),
+            vec![event_0, event_1, event_2],
+            "peeker_d receives all events"
+        );
+
+        events.update();
+
+        assert_eq!(
+            peek_events(&events, &mut peeker_missed),
+            vec![event_2],
+            "peeker_missed should not receive first two events after two updates"
         );
     }
 
@@ -163,6 +273,64 @@ mod tests {
     }
 
     #[test]
+    fn test_events_clear_and_peek() {
+        let mut events = Events::<TestEvent>::default();
+        let peeker = events.get_cursor();
+
+        assert!(peeker.peek(&events).next().is_none());
+
+        events.send(TestEvent { i: 0 });
+        assert_eq!(*peeker.peek(&events).next().unwrap(), TestEvent { i: 0 });
+        assert_eq!(
+            *peeker.peek(&events).next().unwrap(),
+            TestEvent { i: 0 },
+            "peeker should be able to peek at same event multiple times"
+        );
+
+        events.send(TestEvent { i: 1 });
+        events.clear();
+        assert!(peeker.peek(&events).next().is_none());
+
+        events.send(TestEvent { i: 2 });
+        events.update();
+        events.send(TestEvent { i: 3 });
+
+        assert!(peeker
+            .peek(&events)
+            .eq([TestEvent { i: 2 }, TestEvent { i: 3 }].iter()));
+    }
+
+    #[test]
+    fn test_events_drain_and_peek() {
+        let mut events = Events::<TestEvent>::default();
+        let peeker = events.get_cursor();
+
+        assert!(peeker.peek(&events).next().is_none());
+
+        events.send(TestEvent { i: 0 });
+        assert_eq!(*peeker.peek(&events).next().unwrap(), TestEvent { i: 0 });
+        assert_eq!(
+            *peeker.peek(&events).next().unwrap(),
+            TestEvent { i: 0 },
+            "peeker should be able to peek at same event multiple times"
+        );
+
+        events.send(TestEvent { i: 1 });
+        events
+            .drain()
+            .eq(vec![TestEvent { i: 0 }, TestEvent { i: 1 }].into_iter());
+        assert!(peeker.peek(&events).next().is_none());
+
+        events.send(TestEvent { i: 2 });
+        events.update();
+        events.send(TestEvent { i: 3 });
+
+        assert!(peeker
+            .peek(&events)
+            .eq([TestEvent { i: 2 }, TestEvent { i: 3 }].iter()));
+    }
+
+    #[test]
     fn test_events_clear_and_read() {
         events_clear_and_read_impl(Events::clear);
     }
@@ -182,7 +350,7 @@ mod tests {
         events.send_default();
 
         let mut reader = events.get_cursor();
-        assert_eq!(get_events(&events, &mut reader), vec![EmptyTestEvent]);
+        assert_eq!(read_events(&events, &mut reader), vec![EmptyTestEvent]);
     }
 
     #[test]
@@ -305,13 +473,33 @@ mod tests {
         assert_eq!(sent_event, &TestEvent { i: 0 });
         assert!(cursor.read(&events).next().is_none());
 
-        events.send(TestEvent { i: 2 });
+        events.send(TestEvent { i: 1 });
         let sent_event = cursor.read(&events).next().unwrap();
-        assert_eq!(sent_event, &TestEvent { i: 2 });
+        assert_eq!(sent_event, &TestEvent { i: 1 });
         assert!(cursor.read(&events).next().is_none());
 
         events.clear();
         assert!(cursor.read(&events).next().is_none());
+    }
+
+    #[test]
+    fn test_event_cursor_peek() {
+        let mut events = Events::<TestEvent>::default();
+        let cursor = events.get_cursor();
+        assert!(cursor.peek(&events).next().is_none());
+
+        events.send(TestEvent { i: 0 });
+        let sent_event = cursor.peek(&events).next().unwrap();
+        assert_eq!(sent_event, &TestEvent { i: 0 });
+
+        events.send(TestEvent { i: 1 });
+        let mut peek_iter = cursor.peek(&events);
+        assert_eq!(peek_iter.next().unwrap(), &TestEvent { i: 0 });
+        assert_eq!(peek_iter.next().unwrap(), &TestEvent { i: 1 });
+        assert_eq!(peek_iter.next(), None);
+
+        events.clear();
+        assert!(cursor.peek(&events).next().is_none());
     }
 
     #[test]
@@ -461,6 +649,48 @@ mod tests {
 
     #[cfg(feature = "multi_threaded")]
     #[test]
+    fn test_event_cursor_par_peek() {
+        use crate::prelude::*;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        #[derive(Resource)]
+        struct Counter(AtomicUsize);
+
+        let mut world = World::new();
+        world.init_resource::<Events<TestEvent>>();
+        for _ in 0..100 {
+            world.send_event(TestEvent { i: 1 });
+        }
+
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems(
+            |cursor: Local<EventCursor<TestEvent>>,
+             events: Res<Events<TestEvent>>,
+             counter: ResMut<Counter>| {
+                cursor.par_peek(&events).for_each(|event| {
+                    counter.0.fetch_add(event.i, Ordering::Relaxed);
+                });
+            },
+        );
+
+        world.insert_resource(Counter(AtomicUsize::new(0)));
+        schedule.run(&mut world);
+        let counter = world.remove_resource::<Counter>().unwrap();
+        assert_eq!(counter.0.into_inner(), 100);
+
+        world.insert_resource(Counter(AtomicUsize::new(0)));
+        schedule.run(&mut world);
+        let counter = world.remove_resource::<Counter>().unwrap();
+        assert_eq!(
+            counter.0.into_inner(),
+            100,
+            "par_peek should not have consumed events but did"
+        );
+    }
+
+    #[cfg(feature = "multi_threaded")]
+    #[test]
     fn test_event_cursor_par_read_mut() {
         use crate::prelude::*;
         use std::sync::atomic::{AtomicUsize, Ordering};
@@ -508,7 +738,7 @@ mod tests {
     }
 
     #[test]
-    fn test_event_reader_iter_last() {
+    fn test_event_reader_read_iter_last() {
         use bevy_ecs::prelude::*;
 
         let mut world = World::new();
@@ -535,6 +765,40 @@ mod tests {
 
         let last = reader.run((), &mut world);
         assert!(last.is_none(), "EventReader should be empty");
+    }
+
+    #[test]
+    fn test_event_reader_peek_iter_last() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        world.init_resource::<Events<TestEvent>>();
+
+        let mut peeker =
+            IntoSystem::into_system(|events: EventReader<TestEvent>| -> Option<TestEvent> {
+                events.peek().last().copied()
+            });
+        peeker.initialize(&mut world);
+
+        let last = peeker.run((), &mut world);
+        assert!(last.is_none(), "EventReader should be empty");
+
+        world.send_event(TestEvent { i: 0 });
+        let last = peeker.run((), &mut world);
+        assert_eq!(last, Some(TestEvent { i: 0 }));
+
+        world.send_event(TestEvent { i: 1 });
+        world.send_event(TestEvent { i: 2 });
+        world.send_event(TestEvent { i: 3 });
+        let last = peeker.run((), &mut world);
+        assert_eq!(last, Some(TestEvent { i: 3 }));
+
+        let last = peeker.run((), &mut world);
+        assert_eq!(
+            last,
+            Some(TestEvent { i: 3 }),
+            "EventReader should not be empty"
+        );
     }
 
     #[test]
@@ -569,7 +833,7 @@ mod tests {
 
     #[allow(clippy::iter_nth_zero)]
     #[test]
-    fn test_event_reader_iter_nth() {
+    fn test_event_reader_read_iter_nth() {
         use bevy_ecs::prelude::*;
 
         let mut world = World::new();
@@ -590,6 +854,33 @@ mod tests {
             assert_eq!(iter.nth(1), None);
 
             assert!(events.is_empty());
+        });
+        schedule.run(&mut world);
+    }
+
+    #[allow(clippy::iter_nth_zero)]
+    #[test]
+    fn test_event_reader_peek_iter_nth() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        world.init_resource::<Events<TestEvent>>();
+
+        world.send_event(TestEvent { i: 0 });
+        world.send_event(TestEvent { i: 1 });
+        world.send_event(TestEvent { i: 2 });
+        world.send_event(TestEvent { i: 3 });
+        world.send_event(TestEvent { i: 4 });
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(|events: EventReader<TestEvent>| {
+            let mut iter = events.peek();
+
+            assert_eq!(iter.next(), Some(&TestEvent { i: 0 }));
+            assert_eq!(iter.nth(2), Some(&TestEvent { i: 3 }));
+            assert_eq!(iter.nth(1), None);
+
+            assert!(!events.is_empty());
         });
         schedule.run(&mut world);
     }

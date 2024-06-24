@@ -7,11 +7,11 @@ use std::{iter::Chain, slice::Iter};
 
 /// An iterator that yields any unread events from an [`EventReader`] or [`EventCursor`].
 #[derive(Debug)]
-pub struct EventIterator<'a, E: Event> {
-    iter: EventIteratorWithId<'a, E>,
+pub struct EventReadIterator<'a, E: Event> {
+    iter: EventReadIteratorWithId<'a, E>,
 }
 
-impl<'a, E: Event> Iterator for EventIterator<'a, E> {
+impl<'a, E: Event> Iterator for EventReadIterator<'a, E> {
     type Item = &'a E;
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|(event, _)| event)
@@ -37,7 +37,7 @@ impl<'a, E: Event> Iterator for EventIterator<'a, E> {
     }
 }
 
-impl<'a, E: Event> ExactSizeIterator for EventIterator<'a, E> {
+impl<'a, E: Event> ExactSizeIterator for EventReadIterator<'a, E> {
     fn len(&self) -> usize {
         self.iter.len()
     }
@@ -45,13 +45,13 @@ impl<'a, E: Event> ExactSizeIterator for EventIterator<'a, E> {
 
 /// An iterator that yields any unread events (and their IDs) from an [`EventReader`] or [`EventCursor`].
 #[derive(Debug)]
-pub struct EventIteratorWithId<'a, E: Event> {
+pub struct EventReadIteratorWithId<'a, E: Event> {
     reader: &'a mut EventCursor<E>,
     chain: Chain<Iter<'a, EventInstance<E>>, Iter<'a, EventInstance<E>>>,
     unread: usize,
 }
 
-impl<'a, E: Event> EventIteratorWithId<'a, E> {
+impl<'a, E: Event> EventReadIteratorWithId<'a, E> {
     /// Creates a new iterator that yields any `events` that have not yet been seen by `reader`.
     pub fn new(reader: &'a mut EventCursor<E>, events: &'a Events<E>) -> Self {
         let a_index = reader
@@ -78,12 +78,12 @@ impl<'a, E: Event> EventIteratorWithId<'a, E> {
     }
 
     /// Iterate over only the events.
-    pub fn without_id(self) -> EventIterator<'a, E> {
-        EventIterator { iter: self }
+    pub fn without_id(self) -> EventReadIterator<'a, E> {
+        EventReadIterator { iter: self }
     }
 }
 
-impl<'a, E: Event> Iterator for EventIteratorWithId<'a, E> {
+impl<'a, E: Event> Iterator for EventReadIteratorWithId<'a, E> {
     type Item = (&'a E, EventId<E>);
     fn next(&mut self) -> Option<Self::Item> {
         match self
@@ -132,7 +132,7 @@ impl<'a, E: Event> Iterator for EventIteratorWithId<'a, E> {
     }
 }
 
-impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
+impl<'a, E: Event> ExactSizeIterator for EventReadIteratorWithId<'a, E> {
     fn len(&self) -> usize {
         self.unread
     }
@@ -141,7 +141,7 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
 /// A parallel iterator over `Event`s.
 #[cfg(feature = "multi_threaded")]
 #[derive(Debug)]
-pub struct EventParIter<'a, E: Event> {
+pub struct EventReadParIter<'a, E: Event> {
     reader: &'a mut EventCursor<E>,
     slices: [&'a [EventInstance<E>]; 2],
     batching_strategy: BatchingStrategy,
@@ -149,7 +149,7 @@ pub struct EventParIter<'a, E: Event> {
 }
 
 #[cfg(feature = "multi_threaded")]
-impl<'a, E: Event> EventParIter<'a, E> {
+impl<'a, E: Event> EventReadParIter<'a, E> {
     /// Creates a new parallel iterator over `events` that have not yet been seen by `reader`.
     pub fn new(reader: &'a mut EventCursor<E>, events: &'a Events<E>) -> Self {
         let a_index = reader
@@ -255,19 +255,19 @@ impl<'a, E: Event> EventParIter<'a, E> {
 }
 
 #[cfg(feature = "multi_threaded")]
-impl<'a, E: Event> IntoIterator for EventParIter<'a, E> {
-    type IntoIter = EventIteratorWithId<'a, E>;
+impl<'a, E: Event> IntoIterator for EventReadParIter<'a, E> {
+    type IntoIter = EventReadIteratorWithId<'a, E>;
     type Item = <Self::IntoIter as Iterator>::Item;
 
     fn into_iter(self) -> Self::IntoIter {
-        let EventParIter {
+        let EventReadParIter {
             reader,
             slices: [a, b],
             ..
         } = self;
         let unread = a.len() + b.len();
         let chain = a.iter().chain(b);
-        EventIteratorWithId {
+        EventReadIteratorWithId {
             reader,
             chain,
             unread,

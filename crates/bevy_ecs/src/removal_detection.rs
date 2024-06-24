@@ -4,7 +4,7 @@ use crate::{
     self as bevy_ecs,
     component::{Component, ComponentId, ComponentIdFor, Tick},
     entity::Entity,
-    event::{Event, EventCursor, EventId, EventIterator, EventIteratorWithId, Events},
+    event::{Event, EventCursor, EventId, EventReadIterator, EventReadIteratorWithId, Events},
     prelude::Local,
     storage::SparseSet,
     system::{ReadOnlySystemParam, SystemMeta, SystemParam},
@@ -149,7 +149,7 @@ pub struct RemovedComponents<'w, 's, T: Component> {
 ///
 /// See [`RemovedComponents`].
 pub type RemovedIter<'a> = iter::Map<
-    iter::Flatten<option::IntoIter<iter::Cloned<EventIterator<'a, RemovedComponentEntity>>>>,
+    iter::Flatten<option::IntoIter<iter::Cloned<EventReadIterator<'a, RemovedComponentEntity>>>>,
     fn(RemovedComponentEntity) -> Entity,
 >;
 
@@ -157,7 +157,7 @@ pub type RemovedIter<'a> = iter::Map<
 ///
 /// See [`RemovedComponents`].
 pub type RemovedIterWithId<'a> = iter::Map<
-    iter::Flatten<option::IntoIter<EventIteratorWithId<'a, RemovedComponentEntity>>>,
+    iter::Flatten<option::IntoIter<EventReadIteratorWithId<'a, RemovedComponentEntity>>>,
     fn(
         (&RemovedComponentEntity, EventId<RemovedComponentEntity>),
     ) -> (Entity, EventId<RemovedComponentEntity>),
