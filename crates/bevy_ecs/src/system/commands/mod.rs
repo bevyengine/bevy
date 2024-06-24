@@ -1321,7 +1321,6 @@ fn insert_resource<R: Resource>(resource: R) -> impl Command {
 fn log_components(entity: Entity, world: &mut World) {
     let debug_infos: Vec<_> = world
         .inspect_entity(entity)
-        .into_iter()
         .map(|component_info| component_info.name())
         .collect();
     info!("Entity {:?}: {:?}", entity, debug_infos);
