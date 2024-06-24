@@ -60,8 +60,8 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
         self.reader.read(&self.events)
     }
 
-    /// Iterates over the events this [`EventReader`] has read
-    /// (see [`EventReader::read()`],[`EventReader::read_with_id()`], [`EventReader::par_read`]).
+    /// Iterates over all the events this [`EventReader`] currently has, including those that have
+    /// been read (see [`EventReader::read()`],[`EventReader::read_with_id()`], [`EventReader::par_read`]).
     /// Unlike [`read`](Self::read), this does not update the [`EventReader`]'s event counter and
     /// thus does not mark the event as read.
     pub fn peek(&self) -> EventPeekIterator<'_, E> {

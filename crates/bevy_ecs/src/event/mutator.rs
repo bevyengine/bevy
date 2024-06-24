@@ -1,8 +1,11 @@
 use crate as bevy_ecs;
 #[cfg(feature = "multi_threaded")]
-use bevy_ecs::event::EventMutParIter;
+use bevy_ecs::event::{EventMutParIter, EventPeekParIter};
 use bevy_ecs::{
-    event::{Event, EventCursor, EventMutIterator, EventMutIteratorWithId, Events},
+    event::{
+        Event, EventCursor, EventMutIterator, EventMutIteratorWithId, EventPeekIterator,
+        EventPeekIteratorWithId, Events,
+    },
     system::{Local, ResMut, SystemParam},
 };
 
@@ -54,9 +57,22 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
         self.reader.read_mut(&mut self.events)
     }
 
+    /// Iterates over all the events this [`EventMutator`] currently has, including those that have
+    /// been read (see [`EventMutator::read()`],[`EventMutator::read_with_id()`], [`EventMutator::par_read`]).
+    /// Unlike [`read`](Self::read), this does not update the [`EventMutator`]'s event counter and
+    /// thus does not mark the event as read.
+    pub fn peek(&self) -> EventPeekIterator<'_, E> {
+        self.reader.peek(&self.events)
+    }
+
     /// Like [`read`](Self::read), except also returning the [`EventId`] of the events.
     pub fn read_with_id(&mut self) -> EventMutIteratorWithId<'_, E> {
         self.reader.read_mut_with_id(&mut self.events)
+    }
+
+    /// Like [`peek`](Self::peek), except also returning the [`EventId`] of the events.
+    pub fn peek_with_id(&self) -> EventPeekIteratorWithId<'_, E> {
+        self.reader.peek_with_id(&self.events)
     }
 
     /// Returns a parallel iterator over the events this [`EventMutator`] has not seen yet.
@@ -98,6 +114,50 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
     #[cfg(feature = "multi_threaded")]
     pub fn par_read(&mut self) -> EventMutParIter<'_, E> {
         self.reader.par_read_mut(&mut self.events)
+    }
+
+    /// Returns a parallel iterator over the events this [`EventReader`] has not read yet.
+    /// Unlike [`par_read`](Self::par_read) this does not update the [`EventReader`]'s
+    /// event counter and thus does not mark the event as read.
+    ///
+    /// For more information on this see ['peek'](Self::read) and [`for_each`](EventRefParIter::for_each).
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use std::sync::atomic::{AtomicUsize, Ordering};
+    ///
+    /// #[derive(Event)]
+    /// struct MyEvent {
+    ///     value: usize,
+    /// }
+    ///
+    /// #[derive(Resource, Default)]
+    /// struct Counter(AtomicUsize);
+    ///
+    /// // setup
+    /// let mut world = World::new();
+    /// world.init_resource::<Events<MyEvent>>();
+    /// world.insert_resource(Counter::default());
+    ///
+    /// let mut schedule = Schedule::default();
+    /// schedule.add_systems(|mut events: EventReader<MyEvent>, counter: Res<Counter>| {
+    ///     events.par_peek().for_each(|MyEvent { value }| {
+    ///         counter.0.fetch_add(*value, Ordering::Relaxed);
+    ///     });
+    /// });
+    /// for _ in 0..100 {
+    ///     world.send_event(MyEvent { value: 1 });
+    /// }
+    /// schedule.run(&mut world);
+    /// let Counter(counter) = world.remove_resource::<Counter>().unwrap();
+    /// // all events were processed
+    /// assert_eq!(counter.into_inner(), 100);
+    /// ```
+    ///
+    #[cfg(feature = "multi_threaded")]
+    pub fn par_peek(&self) -> EventPeekParIter<'_, E> {
+        self.reader.par_peek(&self.events)
     }
 
     /// Determines the number of events available to be read from this [`EventMutator`] without consuming any.
