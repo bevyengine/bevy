@@ -786,7 +786,7 @@ mod tests {
     }
 
     #[test]
-    fn test_event_mutator_iter_last() {
+    fn test_event_mutator_read_iter_last() {
         use bevy_ecs::prelude::*;
 
         let mut world = World::new();
@@ -813,6 +813,40 @@ mod tests {
 
         let last = mutator.run((), &mut world);
         assert!(last.is_none(), "EventMutator should be empty");
+    }
+
+    #[test]
+    fn test_event_mutator_peek_iter_last() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        world.init_resource::<Events<TestEvent>>();
+
+        let mut peeker =
+            IntoSystem::into_system(|events: EventMutator<TestEvent>| -> Option<TestEvent> {
+                events.peek().last().copied()
+            });
+        peeker.initialize(&mut world);
+
+        let last = peeker.run((), &mut world);
+        assert!(last.is_none(), "EventMutator should be empty");
+
+        world.send_event(TestEvent { i: 0 });
+        let last = peeker.run((), &mut world);
+        assert_eq!(last, Some(TestEvent { i: 0 }));
+
+        world.send_event(TestEvent { i: 1 });
+        world.send_event(TestEvent { i: 2 });
+        world.send_event(TestEvent { i: 3 });
+        let last = peeker.run((), &mut world);
+        assert_eq!(last, Some(TestEvent { i: 3 }));
+
+        let last = peeker.run((), &mut world);
+        assert_eq!(
+            last,
+            Some(TestEvent { i: 3 }),
+            "EventMutator should not be empty"
+        );
     }
 
     #[allow(clippy::iter_nth_zero)]
@@ -871,7 +905,7 @@ mod tests {
 
     #[allow(clippy::iter_nth_zero)]
     #[test]
-    fn test_event_mutator_iter_nth() {
+    fn test_event_mutator_read_iter_nth() {
         use bevy_ecs::prelude::*;
 
         let mut world = World::new();
@@ -892,6 +926,33 @@ mod tests {
             assert_eq!(iter.nth(1), None);
 
             assert!(events.is_empty());
+        });
+        schedule.run(&mut world);
+    }
+
+    #[allow(clippy::iter_nth_zero)]
+    #[test]
+    fn test_event_mutator_peek_iter_nth() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        world.init_resource::<Events<TestEvent>>();
+
+        world.send_event(TestEvent { i: 0 });
+        world.send_event(TestEvent { i: 1 });
+        world.send_event(TestEvent { i: 2 });
+        world.send_event(TestEvent { i: 3 });
+        world.send_event(TestEvent { i: 4 });
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(|events: EventMutator<TestEvent>| {
+            let mut iter = events.peek();
+
+            assert_eq!(iter.next(), Some(&TestEvent { i: 0 }));
+            assert_eq!(iter.nth(2), Some(&TestEvent { i: 3 }));
+            assert_eq!(iter.nth(1), None);
+
+            assert!(!events.is_empty());
         });
         schedule.run(&mut world);
     }
