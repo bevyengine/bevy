@@ -17,8 +17,8 @@ use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
 /// Player movement speed factor.
 const PLAYER_SPEED: f32 = 100.;
 
-/// Camera lerp factor.
-const CAM_LERP_FACTOR: f32 = 2.;
+/// How quickly should the camera snap to the desired location.
+const CAMERA_DECAY_RATE: f32 = 2.;
 
 #[derive(Component)]
 struct Player;
@@ -103,14 +103,11 @@ fn update_camera(
     let Vec3 { x, y, .. } = player.translation;
     let direction = Vec3::new(x, y, camera.translation.z);
 
-    // Applies a smooth effect to camera movement using interpolation between
-    // the camera position and the player position on the x and y axes.
-    // Here we use the in-game time, to get the elapsed time (in seconds)
-    // since the previous update. This avoids jittery movement when tracking
-    // the player.
-    camera.translation = camera
+    // Applies a smooth effect to camera movement using stable interpolation
+    // between the camera position and the player position on the x and y axes.
+    camera
         .translation
-        .lerp(direction, time.delta_seconds() * CAM_LERP_FACTOR);
+        .smooth_nudge(&direction, CAMERA_DECAY_RATE, time.delta_seconds());
 }
 
 /// Update the player position with keyboard inputs.
