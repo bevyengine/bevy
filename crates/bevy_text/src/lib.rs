@@ -31,6 +31,7 @@
 
 #![allow(clippy::type_complexity)]
 
+mod bounds;
 mod error;
 mod font;
 mod font_atlas;
@@ -42,6 +43,8 @@ mod text;
 mod text2d;
 
 pub use cosmic_text;
+
+pub use bounds::*;
 pub use error::*;
 pub use font::*;
 pub use font_atlas::*;

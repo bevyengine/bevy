@@ -1,5 +1,5 @@
 use crate::{
-    BreakLineOn, CosmicBuffer, Font, FontAtlasSets, PositionedGlyph, Text, TextError,
+    BreakLineOn, CosmicBuffer, Font, FontAtlasSets, PositionedGlyph, Text, TextBounds, TextError,
     TextLayoutInfo, TextPipeline, YAxisOrientation,
 };
 use bevy_asset::Assets;
@@ -7,16 +7,13 @@ use bevy_color::LinearRgba;
 use bevy_ecs::{
     bundle::Bundle,
     change_detection::{DetectChanges, Ref},
-    component::Component,
     entity::Entity,
     event::EventReader,
     prelude::With,
     query::{Changed, Without},
-    reflect::ReflectComponent,
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_math::Vec2;
-use bevy_reflect::Reflect;
 use bevy_render::{
     primitives::Aabb,
     texture::Image,
@@ -27,73 +24,6 @@ use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, SpriteSource, Textu
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
-
-/// The maximum width and height of text. The text will wrap according to the specified size.
-/// Characters out of the bounds after wrapping will be truncated. Text is aligned according to the
-/// specified [`JustifyText`](crate::text::JustifyText).
-///
-/// Note: only characters that are completely out of the bounds will be truncated, so this is not a
-/// reliable limit if it is necessary to contain the text strictly in the bounds. Currently this
-/// component is mainly useful for text wrapping only.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
-#[reflect(Component)]
-pub struct TextBounds {
-    /// The maximum width of text in logical pixels.
-    /// If `None`, the width is unbounded.
-    pub width: Option<f32>,
-    /// The maximum height of text in logical pixels.
-    /// If `None`, the height is unbounded.
-    pub height: Option<f32>,
-}
-
-impl Default for TextBounds {
-    #[inline]
-    fn default() -> Self {
-        Self::UNBOUNDED
-    }
-}
-
-impl TextBounds {
-    /// Unbounded text will not be truncated or wrapped.
-    pub const UNBOUNDED: Self = Self {
-        width: None,
-        height: None,
-    };
-
-    /// Creates a new `Text2dBounds`, bounded with the specified width and height values.
-    #[inline]
-    pub const fn new(width: f32, height: f32) -> Self {
-        Self {
-            width: Some(width),
-            height: Some(height),
-        }
-    }
-
-    /// Creates a new `Text2dBounds`, bounded with the specified width value and unbounded on height.
-    #[inline]
-    pub const fn new_horizontal(width: f32) -> Self {
-        Self {
-            width: Some(width),
-            height: None,
-        }
-    }
-
-    /// Creates a new `Text2dBounds`, bounded with the specified height value and unbounded on width.
-    #[inline]
-    pub const fn new_vertical(height: f32) -> Self {
-        Self {
-            width: None,
-            height: Some(height),
-        }
-    }
-}
-
-impl From<Vec2> for TextBounds {
-    #[inline]
-    fn from(v: Vec2) -> Self {
-        Self::new(v.x, v.y)
-    }
-}
 
 /// The bundle of components needed to draw text in a 2D scene via a 2D `Camera2dBundle`.
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
