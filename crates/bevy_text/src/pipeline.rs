@@ -12,7 +12,7 @@ use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
     error::TextError, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, JustifyText, PositionedGlyph,
-    Text2dBounds, TextSection, YAxisOrientation,
+    TextBounds, TextSection, YAxisOrientation,
 };
 
 /// A wrapper around a [`cosmic_text::FontSystem`]
@@ -63,7 +63,7 @@ impl TextPipeline {
         fonts: &Assets<Font>,
         sections: &[TextSection],
         linebreak_behavior: BreakLineOn,
-        bounds: Text2dBounds,
+        bounds: TextBounds,
         scale_factor: f64,
         buffer: &mut CosmicBuffer,
         alignment: JustifyText,
@@ -149,7 +149,7 @@ impl TextPipeline {
         scale_factor: f64,
         text_alignment: JustifyText,
         linebreak_behavior: BreakLineOn,
-        bounds: Text2dBounds,
+        bounds: TextBounds,
         font_atlas_sets: &mut FontAtlasSets,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
@@ -246,7 +246,7 @@ impl TextPipeline {
         buffer: &mut CosmicBuffer,
         text_alignment: JustifyText,
     ) -> Result<TextMeasureInfo, TextError> {
-        const MIN_WIDTH_CONTENT_BOUNDS: Text2dBounds = Text2dBounds::new_horizontal(0.0);
+        const MIN_WIDTH_CONTENT_BOUNDS: TextBounds = TextBounds::new_horizontal(0.0);
 
         self.update_buffer(
             fonts,
@@ -321,7 +321,7 @@ impl TextMeasureInfo {
     /// Computes the size of the text area within the provided bounds.
     pub fn compute_size(
         &mut self,
-        bounds: Text2dBounds,
+        bounds: TextBounds,
         font_system: &mut cosmic_text::FontSystem,
     ) -> Vec2 {
         self.buffer

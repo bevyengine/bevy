@@ -9,7 +9,7 @@ use bevy::{
     color::palettes::basic::RED,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    text::{BreakLineOn, Text2dBounds},
+    text::{BreakLineOn, TextBounds},
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
@@ -83,7 +83,7 @@ fn setup(mut commands: Commands) {
     commands.spawn(Text2dBundle {
         text,
         text_anchor: bevy::sprite::Anchor::Center,
-        text_2d_bounds: Text2dBounds::new_horizontal(1000.),
+        text_2d_bounds: TextBounds::new_horizontal(1000.),
         ..Default::default()
     });
 }

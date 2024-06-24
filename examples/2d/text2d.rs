@@ -9,7 +9,7 @@ use bevy::{
     color::palettes::css::*,
     prelude::*,
     sprite::Anchor,
-    text::{BreakLineOn, Text2dBounds},
+    text::{BreakLineOn, TextBounds},
 };
 
 fn main() {
@@ -98,7 +98,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     linebreak_behavior: BreakLineOn::WordBoundary,
                 },
                 // Wrap text in the rectangle
-                text_2d_bounds: Text2dBounds::from(box_size),
+                text_2d_bounds: TextBounds::from(box_size),
                 // ensure the text is drawn on top of the box
                 transform: Transform::from_translation(Vec3::Z),
                 ..default()
@@ -128,7 +128,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     linebreak_behavior: BreakLineOn::AnyCharacter,
                 },
                 // Wrap text in the rectangle
-                text_2d_bounds: Text2dBounds::from(other_box_size),
+                text_2d_bounds: TextBounds::from(other_box_size),
                 // ensure the text is drawn on top of the box
                 transform: Transform::from_translation(Vec3::Z),
                 ..default()

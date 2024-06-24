@@ -16,7 +16,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{camera::Camera, texture::Image};
 use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
-    scale_value, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, JustifyText, Text, Text2dBounds,
+    scale_value, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, JustifyText, Text, TextBounds,
     TextError, TextLayoutInfo, TextMeasureInfo, TextPipeline, YAxisOrientation,
 };
 use bevy_utils::Entry;
@@ -73,7 +73,7 @@ impl Measure for TextMeasure {
                 || match available_width {
                     AvailableSpace::Definite(_) => self
                         .info
-                        .compute_size(Text2dBounds::new_horizontal(x), font_system),
+                        .compute_size(TextBounds::new_horizontal(x), font_system),
                     AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
                     AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
                 },
@@ -210,10 +210,10 @@ fn queue_text(
     if !text_flags.needs_new_measure_func {
         let physical_node_size = if text.linebreak_behavior == BreakLineOn::NoWrap {
             // With `NoWrap` set, no constraints are placed on the width of the text.
-            Text2dBounds::UNBOUNDED
+            TextBounds::UNBOUNDED
         } else {
             // `scale_factor` is already multiplied by `UiScale`
-            Text2dBounds::new(
+            TextBounds::new(
                 node.unrounded_size.x * scale_factor,
                 node.unrounded_size.y * scale_factor,
             )

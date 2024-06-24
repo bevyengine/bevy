@@ -37,7 +37,7 @@ use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 /// component is mainly useful for text wrapping only.
 #[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component)]
-pub struct Text2dBounds {
+pub struct TextBounds {
     /// The maximum width of text in logical pixels.
     /// If `None`, the width is unbounded.
     pub width: Option<f32>,
@@ -46,14 +46,14 @@ pub struct Text2dBounds {
     pub height: Option<f32>,
 }
 
-impl Default for Text2dBounds {
+impl Default for TextBounds {
     #[inline]
     fn default() -> Self {
         Self::UNBOUNDED
     }
 }
 
-impl Text2dBounds {
+impl TextBounds {
     /// Unbounded text will not be truncated or wrapped.
     pub const UNBOUNDED: Self = Self {
         width: None,
@@ -88,7 +88,7 @@ impl Text2dBounds {
     }
 }
 
-impl From<Vec2> for Text2dBounds {
+impl From<Vec2> for TextBounds {
     #[inline]
     fn from(v: Vec2) -> Self {
         Self::new(v.x, v.y)
@@ -113,7 +113,7 @@ pub struct Text2dBundle {
     /// its position.
     pub text_anchor: Anchor,
     /// The maximum width and height of the text.
-    pub text_2d_bounds: Text2dBounds,
+    pub text_2d_bounds: TextBounds,
     /// The transform of the text.
     pub transform: Transform,
     /// The global transform of the text.
@@ -224,7 +224,7 @@ pub fn update_text2d_layout(
     mut text_query: Query<(
         Entity,
         Ref<Text>,
-        Ref<Text2dBounds>,
+        Ref<TextBounds>,
         &mut TextLayoutInfo,
         &mut CosmicBuffer,
     )>,
@@ -242,7 +242,7 @@ pub fn update_text2d_layout(
 
     for (entity, text, bounds, mut text_layout_info, mut buffer) in &mut text_query {
         if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
-            let text_bounds = Text2dBounds {
+            let text_bounds = TextBounds {
                 width: if text.linebreak_behavior == BreakLineOn::NoWrap {
                     None
                 } else {

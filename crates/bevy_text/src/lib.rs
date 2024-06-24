@@ -95,7 +95,7 @@ impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Font>()
             .register_type::<Text>()
-            .register_type::<Text2dBounds>()
+            .register_type::<TextBounds>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSets>()
             .insert_resource(TextPipeline::default())
