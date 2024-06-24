@@ -8,13 +8,20 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
 bevy_internal = { path = "../bevy_internal", version = "0.14.0-dev" }
 async-net = "2.0.0"
 static_init = "1.0.3"
+cfg-if = "1.0.0"
 
-
-wtransport = "0.1.13"
-wasm-bindgen = "0.2.92"
-web-sys = { version = "0.3.69", features = ["WebTransport"] }
 
 serde = "1.0.203"
-bytemuck = "1.16.0"
+
+
+quinn = { version = "0.11.2", optional = true }
+
+[features]
+
+Udp = []
+Tcp = []
+QUIC = ["quinn"]
+
+
 [lints]
 workspace = true
