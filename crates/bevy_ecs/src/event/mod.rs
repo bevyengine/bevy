@@ -318,7 +318,7 @@ mod tests {
         events.send(TestEvent { i: 1 });
         events
             .drain()
-            .eq(vec![TestEvent { i: 0 }, TestEvent { i: 1 }].into_iter());
+            .eq(vec![TestEvent { i: 0 }, TestEvent { i: 1 }]);
         assert!(peeker.peek(&events).next().is_none());
 
         events.send(TestEvent { i: 2 });
