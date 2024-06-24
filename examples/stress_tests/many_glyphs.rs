@@ -52,6 +52,7 @@ fn setup(mut commands: Commands) {
                 font_size: 4.,
                 ..default()
             },
+            ..default()
         }],
         justify: JustifyText::Left,
         linebreak_behavior: BreakLineOn::AnyCharacter,

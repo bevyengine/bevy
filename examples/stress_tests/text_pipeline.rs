@@ -49,6 +49,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                         font_size: (4 + i % 10) as f32,
                         color: BLUE.into(),
                     },
+                    ..default()
                 },
                 TextSection {
                     value: "pipeline".repeat(i),
@@ -57,6 +58,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                         font_size: (4 + i % 11) as f32,
                         color: YELLOW.into(),
                     },
+                    ..default()
                 },
             ]
         })

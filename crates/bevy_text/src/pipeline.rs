@@ -56,6 +56,12 @@ impl TextPipeline {
         y_axis_orientation: YAxisOrientation,
     ) -> Result<TextLayoutInfo, TextError> {
         let mut scaled_fonts = Vec::with_capacity(sections.len());
+        let glyph_offsets: Vec<_> = sections
+            .iter()
+            .flat_map(|section| {
+                std::iter::repeat(section.offset).take(section.value.chars().count())
+            })
+            .collect();
         let sections = sections
             .iter()
             .map(|section| {
@@ -77,9 +83,17 @@ impl TextPipeline {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let section_glyphs =
-            self.brush
-                .compute_glyphs(&sections, bounds, text_alignment, linebreak_behavior)?;
+        let section_glyphs: Vec<_> = self
+            .brush
+            .compute_glyphs(&sections, bounds, text_alignment, linebreak_behavior)?
+            .into_iter()
+            .zip(glyph_offsets)
+            .map(|(mut g, offset)| {
+                g.glyph.position.x += offset.x;
+                g.glyph.position.y += offset.y;
+                g
+            })
+            .collect();
 
         if section_glyphs.is_empty() {
             return Ok(TextLayoutInfo::default());
