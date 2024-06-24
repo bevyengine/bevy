@@ -1123,10 +1123,10 @@ fn initialize_dynamic_bundle(
 
 #[cfg(test)]
 mod tests {
-    use crate::component::ComponentId;
-    use crate::world::DeferredWorld;
     use crate as bevy_ecs;
+    use crate::component::ComponentId;
     use crate::prelude::*;
+    use crate::world::DeferredWorld;
 
     #[derive(Component)]
     struct A;
