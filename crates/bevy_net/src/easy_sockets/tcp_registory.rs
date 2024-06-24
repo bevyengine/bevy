@@ -15,14 +15,19 @@ struct SocketManger<B, S> {
 
 impl<B, S> SocketManger<B, S>
 where B: Buffer<InnerSocket = S> {
-    fn fill_read_bufs(&mut self, pool: &TaskPool) -> Vec<Result<Option<Result<usize, ErrorAction<<B as Buffer>::Error>>>, usize>> {
+    fn update_buffers(&mut self, pool: &TaskPool) -> Vec<Result<Option<(Result<usize, ErrorAction<<B as Buffer>::Error>>, Result<usize, ErrorAction<<B as Buffer>::Error>>)>, usize>> {
         self.handler.for_each_async_mut(|index, weak| async move {
             if let Some(lock) = weak.upgrade() {
                 let mut guard = lock.lock_async().await.unwrap();
                 let mut inner = guard.deref_mut();
                 
                 if let Some(socket) = &mut inner.1 {
-                    return Ok(Some(inner.0.fill_read_bufs(socket).await))
+                    return Ok(
+                        Some(
+                            (inner.0.flush_write_bufs(socket).await,
+                             inner.0.fill_read_bufs(socket).await)
+                        )
+                    )
                 }
                 return Ok(None)
             }
@@ -30,24 +35,6 @@ where B: Buffer<InnerSocket = S> {
             Err(index)
         }, pool)
     }
-    
-    fn flush_write_bufs(&mut self, pool: &TaskPool) -> Vec<Result<Option<Result<usize, ErrorAction<<B as Buffer>::Error>>>, usize>> {
-        self.handler.for_each_async_mut(|index, weak| async move {
-            if let Some(lock) = weak.upgrade() {
-                let mut guard = lock.lock_async().await.unwrap();
-                let mut inner = guard.deref_mut();
-
-                if let Some(socket) = &mut inner.1 {
-                    return Ok(Some(inner.0.flush_write_bufs(socket).await))
-                }
-                return Ok(None)
-            }
-
-            Err(index)
-        }, pool)
-    }
-    
-    
 }
 
 enum ErrorAction<E> {
@@ -61,12 +48,24 @@ enum ErrorAction<E> {
     None
 }
 
+mod buffered_net_types {
+    use std::collections::VecDeque;
+    use std::net::ToSocketAddrs;
+    use std::sync::Arc;
+    use wtransport::Connection;
+    use crate::easy_sockets::tcp_registory::spin_lock::SpinLock;
+
+    struct WebTransport {
+        inner: Connection,
+        read_buffer: VecDeque<u8>,
+        write_buffer: VecDeque<u8>
+    }
+    
+    
+}
+
 pub trait Buffer {
     type InnerSocket;
-
-    type ReadIter: Iterator<Item = u8> + ExactSizeIterator;
-
-    type PeekIter: Iterator<Item = u8>;
 
     type Error: StdError + Send + 'static;
 
@@ -102,11 +101,11 @@ pub mod spin_lock {
     impl<'a, T> Future for SpinLockFuture<'a, T> {
         type Output = SpinLockResult<'a, T>;
 
-        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
             if let Some(res) = self.lock.try_lock() {
                 return Poll::Ready(res)
             }
-
+            
             self.waker = Some(cx.waker().clone());
             
             Poll::Pending
