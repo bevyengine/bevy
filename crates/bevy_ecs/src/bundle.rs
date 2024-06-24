@@ -1123,11 +1123,29 @@ fn initialize_dynamic_bundle(
 
 #[cfg(test)]
 mod tests {
+    use crate::component::ComponentId;
+    use crate::world::DeferredWorld;
     use crate as bevy_ecs;
     use crate::prelude::*;
 
     #[derive(Component)]
     struct A;
+
+    #[derive(Component)]
+    #[component(on_add = a_on_add, on_insert = a_on_insert, on_remove = a_on_remove)]
+    struct AMacroHooks;
+
+    fn a_on_add(mut world: DeferredWorld, _: Entity, _: ComponentId) {
+        world.resource_mut::<R>().assert_order(0);
+    }
+
+    fn a_on_insert<T1, T2>(mut world: DeferredWorld, _: T1, _: T2) {
+        world.resource_mut::<R>().assert_order(1);
+    }
+
+    fn a_on_remove<T1, T2>(mut world: DeferredWorld, _: T1, _: T2) {
+        world.resource_mut::<R>().assert_order(2);
+    }
 
     #[derive(Component)]
     struct B;
@@ -1163,6 +1181,17 @@ mod tests {
 
         let entity = world.spawn(A).id();
         world.despawn(entity);
+        assert_eq!(3, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn component_hook_order_spawn_despawn_with_macro_hooks() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+
+        let entity = world.spawn(AMacroHooks).id();
+        world.despawn(entity);
+
         assert_eq!(3, world.resource::<R>().0);
     }
 
