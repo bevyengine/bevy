@@ -97,10 +97,7 @@ fn setup_ui(mut commands: Commands) {
         TextBundle::from_sections([
             TextSection::new(
                 "Press A or B to trigger a one-shot system\n",
-                TextStyle {
-                    font_size: 25.0,
-                    ..default()
-                },
+                TextStyle::default(),
             ),
             TextSection::new("Last Triggered: ", TextStyle::default()),
             TextSection::new(
