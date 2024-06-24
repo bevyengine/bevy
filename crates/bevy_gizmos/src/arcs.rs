@@ -79,7 +79,7 @@ where
     arc_angle: f32,
     radius: f32,
     color: Color,
-    resolution: Option<usize>,
+    resolution: Option<u32>,
 }
 
 impl<Config, Clear> Arc2dBuilder<'_, '_, '_, Config, Clear>
@@ -88,7 +88,7 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Set the number of lines used to approximate the geometry of this arc.
-    pub fn resolution(mut self, resolution: usize) -> Self {
+    pub fn resolution(mut self, resolution: u32) -> Self {
         self.resolution.replace(resolution);
         self
     }
@@ -123,7 +123,7 @@ fn arc_2d_inner(
     direction_angle: f32,
     arc_angle: f32,
     radius: f32,
-    resolution: usize,
+    resolution: u32,
 ) -> impl Iterator<Item = Vec2> {
     (0..resolution + 1).map(move |i| {
         let start = direction_angle - arc_angle / 2.;
@@ -368,7 +368,7 @@ where
     angle: f32,
     radius: f32,
     color: Color,
-    resolution: Option<usize>,
+    resolution: Option<u32>,
 }
 
 impl<Config, Clear> Arc3dBuilder<'_, '_, '_, Config, Clear>
@@ -377,7 +377,7 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Set the number of lines for this arc.
-    pub fn resolution(mut self, resolution: usize) -> Self {
+    pub fn resolution(mut self, resolution: u32) -> Self {
         self.resolution.replace(resolution);
         self
     }
@@ -415,7 +415,7 @@ fn arc_3d_inner(
     rotation: Quat,
     angle: f32,
     radius: f32,
-    resolution: usize,
+    resolution: u32,
 ) -> impl Iterator<Item = Vec3> {
     // drawing arcs bigger than TAU degrees or smaller than -TAU degrees makes no sense since
     // we won't see the overlap and we would just decrease the level of details since the resolution
@@ -429,6 +429,6 @@ fn arc_3d_inner(
 }
 
 // helper function for getting a default value for the resolution parameter
-fn resolution_from_angle(angle: f32) -> usize {
-    ((angle.abs() / TAU) * DEFAULT_CIRCLE_RESOLUTION as f32).ceil() as usize
+fn resolution_from_angle(angle: f32) -> u32 {
+    ((angle.abs() / TAU) * DEFAULT_CIRCLE_RESOLUTION as f32).ceil() as u32
 }

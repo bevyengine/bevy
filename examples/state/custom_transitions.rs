@@ -26,14 +26,17 @@ enum AppState {
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        // We insert the custom transitions plugin for `AppState`.
+        .add_plugins((
+            DefaultPlugins,
+            IdentityTransitionsPlugin::<AppState>::default(),
+        ))
         .init_state::<AppState>()
         .add_systems(Startup, setup)
         .add_systems(OnEnter(AppState::Menu), setup_menu)
         .add_systems(Update, menu.run_if(in_state(AppState::Menu)))
         .add_systems(OnExit(AppState::Menu), cleanup_menu)
         // We will restart the game progress every time we re-enter into it.
-        .add_plugins(IdentityTransitionsPlugin::<AppState>::default())
         .add_systems(OnReenter(AppState::InGame), setup_game)
         .add_systems(OnReexit(AppState::InGame), teardown_game)
         // Doing it this way allows us to restart the game without any additional in-between states.
@@ -225,10 +228,12 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
         texture: asset_server.load("branding/icon.png"),
         ..default()
     });
+    info!("Setup game");
 }
 
 fn teardown_game(mut commands: Commands, player: Query<Entity, With<Sprite>>) {
     commands.entity(player.single()).despawn();
+    info!("Teardown game");
 }
 
 #[derive(Resource)]
