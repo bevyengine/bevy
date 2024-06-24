@@ -22,14 +22,14 @@ use super::{StateSet, States};
 /// }
 ///
 ///
-/// #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+/// #[derive(States, Clone, PartialEq, Eq, Hash, Debug)]
 /// #[computed]
 /// struct InGame;
 ///
 /// /// We give as parameter the state, or a tuple of states, that we want to depend on.
 /// /// You can also wrap each state in an Option, if you want the state computation to
 /// /// execute even if the source state doesn't currently exist in the world.
-/// fn compute_in_game(sources: AppState) {
+/// fn compute_in_game(sources: AppState) -> Option<InGame> {
 ///     match sources {
 ///         /// When we are in game, we want to return the InGame state
 ///         AppState::InGame { .. } => Some(InGame),
@@ -49,10 +49,11 @@ use super::{StateSet, States};
 /// # impl App {
 /// #   fn new() -> Self { App }
 /// #   fn init_state<S>(&mut self) -> &mut Self {self}
-/// #   fn add_state_computation<S>(&mut self) -> &mut Self {self}
+/// #   fn add_state_computation(&mut self, a: fn()) -> &mut Self {self}
 /// # }
 /// # struct AppState;
 /// # struct InGame;
+/// # fn compute_in_game() {}
 ///
 /// App::new()
 ///     .init_state::<AppState>()
