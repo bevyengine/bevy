@@ -34,7 +34,7 @@ impl TextBounds {
         height: None,
     };
 
-    /// Creates a new `Text2dBounds`, bounded with the specified width and height values.
+    /// Creates a new `TextBounds`, bounded with the specified width and height values.
     #[inline]
     pub const fn new(width: f32, height: f32) -> Self {
         Self {
@@ -43,7 +43,7 @@ impl TextBounds {
         }
     }
 
-    /// Creates a new `Text2dBounds`, bounded with the specified width value and unbounded on height.
+    /// Creates a new `TextBounds`, bounded with the specified width value and unbounded on height.
     #[inline]
     pub const fn new_horizontal(width: f32) -> Self {
         Self {
@@ -52,7 +52,7 @@ impl TextBounds {
         }
     }
 
-    /// Creates a new `Text2dBounds`, bounded with the specified height value and unbounded on width.
+    /// Creates a new `TextBounds`, bounded with the specified height value and unbounded on width.
     #[inline]
     pub const fn new_vertical(height: f32) -> Self {
         Self {
