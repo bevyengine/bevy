@@ -321,14 +321,17 @@ fn setup_sticks(
                             TextSection {
                                 value: format!("{:.3}", 0.),
                                 style: style.clone(),
+                                ..default()
                             },
                             TextSection {
                                 value: ", ".to_string(),
                                 style: style.clone(),
+                                ..default()
                             },
                             TextSection {
                                 value: format!("{:.3}", 0.),
                                 style,
+                                ..default()
                             },
                         ]),
                         text_anchor: Anchor::BottomCenter,
@@ -424,10 +427,12 @@ fn setup_connected(mut commands: Commands) {
                 TextSection {
                     value: "Connected Gamepads:\n".to_string(),
                     style: text_style.clone(),
+                    ..default()
                 },
                 TextSection {
                     value: "None".to_string(),
                     style: text_style,
+                    ..default()
                 },
             ]),
             style: Style {

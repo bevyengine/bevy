@@ -189,6 +189,7 @@ fn setup_ui(mut commands: Commands) {
                                 color: Color::BLACK,
                                 ..Default::default()
                             },
+                            ..Default::default()
                         }],
                         justify: JustifyText::Right,
                         ..Default::default()
