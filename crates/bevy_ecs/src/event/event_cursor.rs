@@ -1,9 +1,10 @@
 use crate as bevy_ecs;
 use bevy_ecs::event::{
-    Event, EventIterator, EventIteratorWithId, EventMutIterator, EventMutIteratorWithId, Events,
+    Event, EventMutIterator, EventMutIteratorWithId, EventPeekIterator, EventPeekIteratorWithId,
+    EventReadIterator, EventReadIteratorWithId, Events,
 };
 #[cfg(feature = "multi_threaded")]
-use bevy_ecs::event::{EventMutParIter, EventParIter};
+use bevy_ecs::event::{EventMutParIter, EventPeekParIter, EventReadParIter};
 use std::marker::PhantomData;
 
 // Deprecated in favor of `EventCursor`, there is no nice way to deprecate this
@@ -85,8 +86,13 @@ impl<E: Event> Clone for EventCursor<E> {
 #[allow(clippy::len_without_is_empty)] // Check fails since the is_empty implementation has a signature other than `(&self) -> bool`
 impl<E: Event> EventCursor<E> {
     /// See [`EventReader::read`]
-    pub fn read<'a>(&'a mut self, events: &'a Events<E>) -> EventIterator<'a, E> {
+    pub fn read<'a>(&'a mut self, events: &'a Events<E>) -> EventReadIterator<'a, E> {
         self.read_with_id(events).without_id()
+    }
+
+    /// See [`EventReader::peek`]
+    pub fn peek<'a>(&'a self, events: &'a Events<E>) -> EventPeekIterator<'a, E> {
+        self.peek_with_id(events).without_id()
     }
 
     /// See [`EventMutator::read`]
@@ -95,8 +101,13 @@ impl<E: Event> EventCursor<E> {
     }
 
     /// See [`EventReader::read_with_id`]
-    pub fn read_with_id<'a>(&'a mut self, events: &'a Events<E>) -> EventIteratorWithId<'a, E> {
-        EventIteratorWithId::new(self, events)
+    pub fn read_with_id<'a>(&'a mut self, events: &'a Events<E>) -> EventReadIteratorWithId<'a, E> {
+        EventReadIteratorWithId::new(self, events)
+    }
+
+    /// See [`EventReader::peek_with_id`]
+    pub fn peek_with_id<'a>(&'a self, events: &'a Events<E>) -> EventPeekIteratorWithId<'a, E> {
+        EventPeekIteratorWithId::new(self, events)
     }
 
     /// See [`EventMutator::read_with_id`]
@@ -109,14 +120,20 @@ impl<E: Event> EventCursor<E> {
 
     /// See [`EventReader::par_read`]
     #[cfg(feature = "multi_threaded")]
-    pub fn par_read<'a>(&'a mut self, events: &'a Events<E>) -> EventParIter<'a, E> {
-        EventParIter::new(self, events)
+    pub fn par_read<'a>(&'a mut self, events: &'a Events<E>) -> EventReadParIter<'a, E> {
+        EventReadParIter::new(self, events)
     }
 
     /// See [`EventMutator::par_read`]
     #[cfg(feature = "multi_threaded")]
     pub fn par_read_mut<'a>(&'a mut self, events: &'a mut Events<E>) -> EventMutParIter<'a, E> {
         EventMutParIter::new(self, events)
+    }
+
+    /// See [`EventReader::par_peek`]
+    #[cfg(feature = "multi_threaded")]
+    pub fn par_peek<'a>(&'a self, events: &'a Events<E>) -> EventPeekParIter<'a, E> {
+        EventPeekParIter::new(self, events)
     }
 
     /// See [`EventReader::len`]
