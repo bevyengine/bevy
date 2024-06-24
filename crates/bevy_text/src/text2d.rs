@@ -1,5 +1,5 @@
 use crate::{
-    BreakLineOn, CosmicBuffer, Font, FontAtlasSets, PositionedGlyph, Text, TextError,
+    BreakLineOn, CosmicBuffer, Font, FontAtlasSets, PositionedGlyph, Text, TextBounds, TextError,
     TextLayoutInfo, TextPipeline, YAxisOrientation,
 };
 use bevy_asset::Assets;
@@ -7,16 +7,13 @@ use bevy_color::LinearRgba;
 use bevy_ecs::{
     bundle::Bundle,
     change_detection::{DetectChanges, Ref},
-    component::Component,
     entity::Entity,
     event::EventReader,
     prelude::With,
     query::{Changed, Without},
-    reflect::ReflectComponent,
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_math::Vec2;
-use bevy_reflect::Reflect;
 use bevy_render::{
     primitives::Aabb,
     texture::Image,
@@ -27,34 +24,6 @@ use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, SpriteSource, Textu
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
-
-/// The maximum width and height of text. The text will wrap according to the specified size.
-/// Characters out of the bounds after wrapping will be truncated. Text is aligned according to the
-/// specified [`JustifyText`](crate::text::JustifyText).
-///
-/// Note: only characters that are completely out of the bounds will be truncated, so this is not a
-/// reliable limit if it is necessary to contain the text strictly in the bounds. Currently this
-/// component is mainly useful for text wrapping only.
-#[derive(Component, Copy, Clone, Debug, Reflect)]
-#[reflect(Component)]
-pub struct Text2dBounds {
-    /// The maximum width and height of text in logical pixels.
-    pub size: Vec2,
-}
-
-impl Default for Text2dBounds {
-    #[inline]
-    fn default() -> Self {
-        Self::UNBOUNDED
-    }
-}
-
-impl Text2dBounds {
-    /// Unbounded text will not be truncated or wrapped.
-    pub const UNBOUNDED: Self = Self {
-        size: Vec2::splat(f32::INFINITY),
-    };
-}
 
 /// The bundle of components needed to draw text in a 2D scene via a 2D `Camera2dBundle`.
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
@@ -74,7 +43,7 @@ pub struct Text2dBundle {
     /// its position.
     pub text_anchor: Anchor,
     /// The maximum width and height of the text.
-    pub text_2d_bounds: Text2dBounds,
+    pub text_2d_bounds: TextBounds,
     /// The transform of the text.
     pub transform: Transform,
     /// The global transform of the text.
@@ -185,7 +154,7 @@ pub fn update_text2d_layout(
     mut text_query: Query<(
         Entity,
         Ref<Text>,
-        Ref<Text2dBounds>,
+        Ref<TextBounds>,
         &mut TextLayoutInfo,
         &mut CosmicBuffer,
     )>,
@@ -203,14 +172,16 @@ pub fn update_text2d_layout(
 
     for (entity, text, bounds, mut text_layout_info, mut buffer) in &mut text_query {
         if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
-            let text_bounds = Vec2::new(
-                if text.linebreak_behavior == BreakLineOn::NoWrap {
-                    f32::INFINITY
+            let text_bounds = TextBounds {
+                width: if text.linebreak_behavior == BreakLineOn::NoWrap {
+                    None
                 } else {
-                    scale_value(bounds.size.x, scale_factor)
+                    bounds.width.map(|width| scale_value(width, scale_factor))
                 },
-                scale_value(bounds.size.y, scale_factor),
-            );
+                height: bounds
+                    .height
+                    .map(|height| scale_value(height, scale_factor)),
+            };
 
             match text_pipeline.queue_text(
                 &fonts,

@@ -31,6 +31,7 @@
 
 #![allow(clippy::type_complexity)]
 
+mod bounds;
 mod error;
 mod font;
 mod font_atlas;
@@ -42,6 +43,8 @@ mod text;
 mod text2d;
 
 pub use cosmic_text;
+
+pub use bounds::*;
 pub use error::*;
 pub use font::*;
 pub use font_atlas::*;
@@ -95,7 +98,7 @@ impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Font>()
             .register_type::<Text>()
-            .register_type::<Text2dBounds>()
+            .register_type::<TextBounds>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSets>()
             .insert_resource(TextPipeline::default())

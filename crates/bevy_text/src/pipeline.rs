@@ -12,7 +12,7 @@ use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
     error::TextError, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, JustifyText, PositionedGlyph,
-    TextSection, YAxisOrientation,
+    TextBounds, TextSection, YAxisOrientation,
 };
 
 /// A wrapper around a [`cosmic_text::FontSystem`]
@@ -63,7 +63,7 @@ impl TextPipeline {
         fonts: &Assets<Font>,
         sections: &[TextSection],
         linebreak_behavior: BreakLineOn,
-        bounds: Vec2,
+        bounds: TextBounds,
         scale_factor: f64,
         buffer: &mut CosmicBuffer,
         alignment: JustifyText,
@@ -114,7 +114,7 @@ impl TextPipeline {
             .collect();
 
         buffer.set_metrics(font_system, metrics);
-        buffer.set_size(font_system, Some(bounds.x.ceil()), None);
+        buffer.set_size(font_system, bounds.width, bounds.height);
 
         buffer.set_wrap(
             font_system,
@@ -149,7 +149,7 @@ impl TextPipeline {
         scale_factor: f64,
         text_alignment: JustifyText,
         linebreak_behavior: BreakLineOn,
-        bounds: Vec2,
+        bounds: TextBounds,
         font_atlas_sets: &mut FontAtlasSets,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
@@ -246,7 +246,7 @@ impl TextPipeline {
         buffer: &mut CosmicBuffer,
         text_alignment: JustifyText,
     ) -> Result<TextMeasureInfo, TextError> {
-        const MIN_WIDTH_CONTENT_BOUNDS: Vec2 = Vec2::new(0.0, f32::INFINITY);
+        const MIN_WIDTH_CONTENT_BOUNDS: TextBounds = TextBounds::new_horizontal(0.0);
 
         self.update_buffer(
             fonts,
@@ -321,11 +321,11 @@ impl TextMeasureInfo {
     /// Computes the size of the text area within the provided bounds.
     pub fn compute_size(
         &mut self,
-        bounds: Vec2,
+        bounds: TextBounds,
         font_system: &mut cosmic_text::FontSystem,
     ) -> Vec2 {
         self.buffer
-            .set_size(font_system, Some(bounds.x.ceil()), Some(bounds.y.ceil()));
+            .set_size(font_system, bounds.width, bounds.height);
         buffer_dimensions(&self.buffer)
     }
 }
