@@ -151,6 +151,9 @@ fn storage_path(bevy_ecs_path: &Path, ty: StorageTy) -> TokenStream2 {
     quote! { #bevy_ecs_path::component::StorageType::#storage_type }
 }
 
-fn hook_register_function_call(hook: TokenStream2, function: Option<ExprPath>) -> Option<TokenStream2> {
+fn hook_register_function_call(
+    hook: TokenStream2,
+    function: Option<ExprPath>,
+) -> Option<TokenStream2> {
     function.map(|meta| quote! { hooks. #hook (#meta); })
 }
