@@ -1726,7 +1726,8 @@ impl<T: Into<Color>> From<T> for BorderColor {
 }
 
 impl BorderColor {
-    pub const DEFAULT: Self = BorderColor(Color::WHITE);
+    /// Border color is transparent by default.
+    pub const DEFAULT: Self = BorderColor(Color::NONE);
 }
 
 impl Default for BorderColor {
