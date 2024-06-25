@@ -282,12 +282,18 @@ where
             #[cfg(feature = "meshlet")]
             render_app.add_systems(
                 Render,
-                (
-                    prepare_material_meshlet_meshes_main_opaque_pass::<M>,
-                    queue_material_meshlet_meshes::<M>,
-                )
-                    .chain()
-                    .in_set(RenderSet::Queue)
+                queue_material_meshlet_meshes::<M>
+                    .in_set(RenderSet::QueueMeshes)
+                    .run_if(resource_exists::<MeshletGpuScene>),
+            );
+
+            #[cfg(feature = "meshlet")]
+            render_app.add_systems(
+                Render,
+                prepare_material_meshlet_meshes_main_opaque_pass::<M>
+                    .in_set(RenderSet::QueueMeshes)
+                    .after(prepare_assets::<PreparedMaterial<M>>)
+                    .before(queue_material_meshlet_meshes::<M>)
                     .run_if(resource_exists::<MeshletGpuScene>),
             );
         }
