@@ -434,7 +434,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
     pub fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
-        self.component_access.filter_sets.iter().any(|set| {
+        self.component_access.filter_sets.is_empty() || self.component_access.filter_sets.iter().any(|set| {
             set.with
                 .ones()
                 .all(|index| set_contains_id(ComponentId::get_sparse_set_index(index)))
