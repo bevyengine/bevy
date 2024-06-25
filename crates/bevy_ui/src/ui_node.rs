@@ -1693,7 +1693,8 @@ pub enum GridPlacementError {
 pub struct BackgroundColor(pub Color);
 
 impl BackgroundColor {
-    pub const DEFAULT: Self = Self(Color::WHITE);
+    /// Background color is transparent by default.
+    pub const DEFAULT: Self = Self(Color::NONE);
 }
 
 impl Default for BackgroundColor {
