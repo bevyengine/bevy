@@ -1,4 +1,4 @@
-use crate::{AudioSource, Decodable};
+use crate::{AudioSource, Decodable, AudioTarget};
 use bevy_asset::{Asset, Handle};
 use bevy_derive::Deref;
 use bevy_ecs::prelude::*;
