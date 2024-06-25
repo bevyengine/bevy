@@ -450,7 +450,7 @@ impl SubApps {
         std::iter::once(&mut self.main).chain(self.sub_apps.values_mut())
     }
 
-    /// Extract data from the main world into the sub-app with the given label and perform an update if it exists.
+    /// Extract data from the main world into the [`SubApp`] with the given label and perform an update if it exists.
     pub fn update_subapp_by_label(&mut self, label: impl AppLabel) {
         if let Some(sub_app) = self.sub_apps.get_mut(&label.intern()) {
             sub_app.extract(&mut self.main.world);
