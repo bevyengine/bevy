@@ -80,9 +80,9 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             culling_second_pipeline,
             downsample_depth_first_pipeline,
             downsample_depth_second_pipeline,
-            visibility_buffer_raster_pipeline,
-            visibility_buffer_raster_depth_only_pipeline,
-            visibility_buffer_raster_depth_only_clamp_ortho,
+            visibility_buffer_hardware_raster_pipeline,
+            visibility_buffer_hardware_raster_depth_only_pipeline,
+            visibility_buffer_hardware_raster_depth_only_clamp_ortho,
             copy_material_depth_pipeline,
         )) = MeshletPipelines::get(world)
         else {
@@ -128,11 +128,11 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             true,
             render_context,
             meshlet_view_resources,
-            &meshlet_view_resources.visibility_buffer_draw_indirect_args_first,
+            &meshlet_view_resources.visibility_buffer_hardware_raster_indirect_args_first,
             view_depth.get_attachment(StoreOp::Store),
             meshlet_view_bind_groups,
             view_offset,
-            visibility_buffer_raster_pipeline,
+            visibility_buffer_hardware_raster_pipeline,
             Some(camera),
         );
         downsample_depth(
@@ -155,11 +155,11 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             false,
             render_context,
             meshlet_view_resources,
-            &meshlet_view_resources.visibility_buffer_draw_indirect_args_second,
+            &meshlet_view_resources.visibility_buffer_hardware_raster_indirect_args_second,
             view_depth.get_attachment(StoreOp::Store),
             meshlet_view_bind_groups,
             view_offset,
-            visibility_buffer_raster_pipeline,
+            visibility_buffer_hardware_raster_pipeline,
             Some(camera),
         );
         copy_material_depth_pass(
@@ -192,8 +192,10 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             };
 
             let shadow_visibility_buffer_pipeline = match light_type {
-                LightEntity::Directional { .. } => visibility_buffer_raster_depth_only_clamp_ortho,
-                _ => visibility_buffer_raster_depth_only_pipeline,
+                LightEntity::Directional { .. } => {
+                    visibility_buffer_hardware_raster_depth_only_clamp_ortho
+                }
+                _ => visibility_buffer_hardware_raster_depth_only_pipeline,
             };
 
             render_context.command_encoder().push_debug_group(&format!(
@@ -218,7 +220,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 true,
                 render_context,
                 meshlet_view_resources,
-                &meshlet_view_resources.visibility_buffer_draw_indirect_args_first,
+                &meshlet_view_resources.visibility_buffer_hardware_raster_indirect_args_first,
                 shadow_view.depth_attachment.get_attachment(StoreOp::Store),
                 meshlet_view_bind_groups,
                 view_offset,
@@ -245,7 +247,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 false,
                 render_context,
                 meshlet_view_resources,
-                &meshlet_view_resources.visibility_buffer_draw_indirect_args_second,
+                &meshlet_view_resources.visibility_buffer_hardware_raster_indirect_args_second,
                 shadow_view.depth_attachment.get_attachment(StoreOp::Store),
                 meshlet_view_bind_groups,
                 view_offset,
@@ -316,11 +318,11 @@ fn raster_pass(
     first_pass: bool,
     render_context: &mut RenderContext,
     meshlet_view_resources: &MeshletViewResources,
-    visibility_buffer_draw_indirect_args: &Buffer,
+    visibility_buffer_hardware_raster_indirect_args: &Buffer,
     depth_stencil_attachment: RenderPassDepthStencilAttachment,
     meshlet_view_bind_groups: &MeshletViewBindGroups,
     view_offset: &ViewUniformOffset,
-    visibility_buffer_raster_pipeline: &RenderPipeline,
+    visibility_buffer_hardware_raster_pipeline: &RenderPipeline,
     camera: Option<&ExtractedCamera>,
 ) {
     let mut color_attachments_filled = [None, None];
@@ -372,13 +374,13 @@ fn raster_pass(
         draw_pass.set_camera_viewport(viewport);
     }
 
-    draw_pass.set_render_pipeline(visibility_buffer_raster_pipeline);
+    draw_pass.set_render_pipeline(visibility_buffer_hardware_raster_pipeline);
     draw_pass.set_bind_group(
         0,
         &meshlet_view_bind_groups.visibility_buffer_raster,
         &[view_offset.offset],
     );
-    draw_pass.draw_indirect(visibility_buffer_draw_indirect_args, 0);
+    draw_pass.draw_indirect(visibility_buffer_hardware_raster_indirect_args, 0);
 }
 
 fn downsample_depth(

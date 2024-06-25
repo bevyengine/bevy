@@ -67,8 +67,8 @@ var<push_constant> cluster_count: u32;
 @group(0) @binding(4) var<storage, read> meshlet_view_instance_visibility: array<u32>; // 1 bit per entity instance, packed as a bitmask
 @group(0) @binding(5) var<storage, read_write> meshlet_second_pass_candidates: array<atomic<u32>>; // 1 bit per cluster , packed as a bitmask
 @group(0) @binding(6) var<storage, read> meshlets: array<Meshlet>; // Per meshlet
-@group(0) @binding(7) var<storage, read_write> draw_indirect_args: DrawIndirectArgs; // Single object shared between all workgroups/meshlets/triangles
-@group(0) @binding(8) var<storage, read_write> draw_triangle_buffer: array<u32>; // Single object shared between all workgroups/meshlets/triangles
+@group(0) @binding(7) var<storage, read_write> meshlet_hardware_raster_indirect_args: DrawIndirectArgs; // Single object shared between all workgroups/clusters/triangles
+@group(0) @binding(8) var<storage, read_write> meshlet_hardware_raster_triangles: array<u32>; // Single object shared between all workgroups/clusters/triangles
 @group(0) @binding(9) var depth_pyramid: texture_2d<f32>; // From the end of the last frame for the first culling pass, and from the first raster pass for the second culling pass
 @group(0) @binding(10) var<uniform> view: View;
 @group(0) @binding(11) var<uniform> previous_view: PreviousViewUniforms;
@@ -95,7 +95,7 @@ fn cluster_is_second_pass_candidate(cluster_id: u32) -> bool {
 @group(0) @binding(5) var<storage, read> meshlet_cluster_instance_ids: array<u32>; // Per cluster
 @group(0) @binding(6) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
 @group(0) @binding(7) var<storage, read> meshlet_instance_material_ids: array<u32>; // Per entity instance
-@group(0) @binding(8) var<storage, read> draw_triangle_buffer: array<u32>; // Single object shared between all workgroups/meshlets/triangles
+@group(0) @binding(8) var<storage, read> meshlet_hardware_raster_triangles: array<u32>; // Single object shared between all workgroups/clusters/triangles
 @group(0) @binding(9) var<uniform> view: View;
 
 fn get_meshlet_index(index_id: u32) -> u32 {

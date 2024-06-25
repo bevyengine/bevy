@@ -10,8 +10,8 @@
     should_cull_instance,
     cluster_is_second_pass_candidate,
     meshlets,
-    draw_indirect_args,
-    draw_triangle_buffer,
+    meshlet_hardware_raster_indirect_args,
+    meshlet_hardware_raster_triangles,
 }
 #import bevy_render::maths::affine3_to_square
 
@@ -122,10 +122,10 @@ fn cull_clusters(
     // Append a list of this cluster's triangles to draw if not culled
     if cluster_visible {
         let meshlet_triangle_count = meshlets[meshlet_id].triangle_count;
-        let buffer_start = atomicAdd(&draw_indirect_args.vertex_count, meshlet_triangle_count * 3u) / 3u;
+        let buffer_start = atomicAdd(&meshlet_hardware_raster_indirect_args.vertex_count, meshlet_triangle_count * 3u) / 3u;
         let cluster_id_packed = cluster_id << 6u;
         for (var triangle_id = 0u; triangle_id < meshlet_triangle_count; triangle_id++) {
-            draw_triangle_buffer[buffer_start + triangle_id] = cluster_id_packed | triangle_id;
+            meshlet_hardware_raster_triangles[buffer_start + triangle_id] = cluster_id_packed | triangle_id;
         }
     }
 }

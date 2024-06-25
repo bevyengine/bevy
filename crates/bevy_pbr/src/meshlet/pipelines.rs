@@ -14,7 +14,7 @@ pub const MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE: Handle<Shader> =
 pub const MESHLET_CULLING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(5325134235233421);
 pub const MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(6325134235233421);
-pub const MESHLET_VISIBILITY_BUFFER_RASTER_SHADER_HANDLE: Handle<Shader> =
+pub const MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(7325134235233421);
 pub const MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(8325134235233421);
@@ -26,9 +26,9 @@ pub struct MeshletPipelines {
     cull_second: CachedComputePipelineId,
     downsample_depth_first: CachedComputePipelineId,
     downsample_depth_second: CachedComputePipelineId,
-    visibility_buffer_raster: CachedRenderPipelineId,
-    visibility_buffer_raster_depth_only: CachedRenderPipelineId,
-    visibility_buffer_raster_depth_only_clamp_ortho: CachedRenderPipelineId,
+    visibility_buffer_hardware_raster: CachedRenderPipelineId,
+    visibility_buffer_hardware_raster_depth_only: CachedRenderPipelineId,
+    visibility_buffer_hardware_raster_depth_only_clamp_ortho: CachedRenderPipelineId,
     copy_material_depth: CachedRenderPipelineId,
 }
 
@@ -110,13 +110,13 @@ impl FromWorld for MeshletPipelines {
                 },
             ),
 
-            visibility_buffer_raster: pipeline_cache.queue_render_pipeline(
+            visibility_buffer_hardware_raster: pipeline_cache.queue_render_pipeline(
                 RenderPipelineDescriptor {
-                    label: Some("meshlet_visibility_buffer_raster_pipeline".into()),
+                    label: Some("meshlet_visibility_buffer_hardware_raster_pipeline".into()),
                     layout: vec![visibility_buffer_layout.clone()],
                     push_constant_ranges: vec![],
                     vertex: VertexState {
-                        shader: MESHLET_VISIBILITY_BUFFER_RASTER_SHADER_HANDLE,
+                        shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
                         shader_defs: vec![
                             "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
                             "MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into(),
@@ -142,7 +142,7 @@ impl FromWorld for MeshletPipelines {
                     }),
                     multisample: MultisampleState::default(),
                     fragment: Some(FragmentState {
-                        shader: MESHLET_VISIBILITY_BUFFER_RASTER_SHADER_HANDLE,
+                        shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
                         shader_defs: vec![
                             "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
                             "MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into(),
@@ -164,13 +164,15 @@ impl FromWorld for MeshletPipelines {
                 },
             ),
 
-            visibility_buffer_raster_depth_only: pipeline_cache.queue_render_pipeline(
+            visibility_buffer_hardware_raster_depth_only: pipeline_cache.queue_render_pipeline(
                 RenderPipelineDescriptor {
-                    label: Some("meshlet_visibility_buffer_raster_depth_only_pipeline".into()),
+                    label: Some(
+                        "meshlet_visibility_buffer_hardware_raster_depth_only_pipeline".into(),
+                    ),
                     layout: vec![visibility_buffer_layout.clone()],
                     push_constant_ranges: vec![],
                     vertex: VertexState {
-                        shader: MESHLET_VISIBILITY_BUFFER_RASTER_SHADER_HANDLE,
+                        shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
                         shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into()],
                         entry_point: "vertex".into(),
                         buffers: vec![],
@@ -196,15 +198,16 @@ impl FromWorld for MeshletPipelines {
                 },
             ),
 
-            visibility_buffer_raster_depth_only_clamp_ortho: pipeline_cache.queue_render_pipeline(
-                RenderPipelineDescriptor {
+            visibility_buffer_hardware_raster_depth_only_clamp_ortho: pipeline_cache
+                .queue_render_pipeline(RenderPipelineDescriptor {
                     label: Some(
-                        "meshlet_visibility_buffer_raster_depth_only_clamp_ortho_pipeline".into(),
+                        "meshlet_visibility_buffer_hardware_raster_depth_only_clamp_ortho_pipeline"
+                            .into(),
                     ),
                     layout: vec![visibility_buffer_layout],
                     push_constant_ranges: vec![],
                     vertex: VertexState {
-                        shader: MESHLET_VISIBILITY_BUFFER_RASTER_SHADER_HANDLE,
+                        shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
                         shader_defs: vec![
                             "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
                             "DEPTH_CLAMP_ORTHO".into(),
@@ -230,7 +233,7 @@ impl FromWorld for MeshletPipelines {
                     }),
                     multisample: MultisampleState::default(),
                     fragment: Some(FragmentState {
-                        shader: MESHLET_VISIBILITY_BUFFER_RASTER_SHADER_HANDLE,
+                        shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
                         shader_defs: vec![
                             "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
                             "DEPTH_CLAMP_ORTHO".into(),
@@ -238,8 +241,7 @@ impl FromWorld for MeshletPipelines {
                         entry_point: "fragment".into(),
                         targets: vec![],
                     }),
-                },
-            ),
+                }),
 
             copy_material_depth: pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
                 label: Some("meshlet_copy_material_depth_pipeline".into()),
@@ -288,10 +290,12 @@ impl MeshletPipelines {
             pipeline_cache.get_compute_pipeline(pipeline.cull_second)?,
             pipeline_cache.get_compute_pipeline(pipeline.downsample_depth_first)?,
             pipeline_cache.get_compute_pipeline(pipeline.downsample_depth_second)?,
-            pipeline_cache.get_render_pipeline(pipeline.visibility_buffer_raster)?,
-            pipeline_cache.get_render_pipeline(pipeline.visibility_buffer_raster_depth_only)?,
+            pipeline_cache.get_render_pipeline(pipeline.visibility_buffer_hardware_raster)?,
             pipeline_cache
-                .get_render_pipeline(pipeline.visibility_buffer_raster_depth_only_clamp_ortho)?,
+                .get_render_pipeline(pipeline.visibility_buffer_hardware_raster_depth_only)?,
+            pipeline_cache.get_render_pipeline(
+                pipeline.visibility_buffer_hardware_raster_depth_only_clamp_ortho,
+            )?,
             pipeline_cache.get_render_pipeline(pipeline.copy_material_depth)?,
         ))
     }
