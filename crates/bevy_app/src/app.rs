@@ -663,7 +663,7 @@ impl App {
         self.sub_apps.sub_apps.remove(&label.intern())
     }
 
-    /// Extract data from main world into app's world and perform an update.
+    /// Extract data from the main world into the [`SubApp`] with the given label and perform an update if it exists.
     pub fn update_sub_app_by_label(&mut self, label: impl AppLabel) {
         self.sub_apps.update_subapp_by_label(label);
     }
