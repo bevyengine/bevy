@@ -4,7 +4,7 @@ use crate::{
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
-    event::{event_update_system, ManualEventReader},
+    event::{event_update_system, EventCursor},
     intern::Interned,
     prelude::*,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
@@ -818,7 +818,7 @@ impl App {
     /// This should be called after every [`update()`](App::update) otherwise you risk
     /// dropping possible [`AppExit`] events.
     pub fn should_exit(&self) -> Option<AppExit> {
-        let mut reader = ManualEventReader::default();
+        let mut reader = EventCursor::default();
 
         let events = self.world().get_resource::<Events<AppExit>>()?;
         let mut events = reader.read(events);

@@ -1,29 +1,29 @@
 use crate as bevy_ecs;
 #[cfg(feature = "multi_threaded")]
-use bevy_ecs::event::EventPeekParIter;
-#[cfg(feature = "multi_threaded")]
-use bevy_ecs::event::EventReadParIter;
+use bevy_ecs::event::{EventMutParIter, EventPeekParIter};
 use bevy_ecs::{
     event::{
-        Event, EventCursor, EventPeekIterator, EventPeekIteratorWithId, EventReadIterator,
-        EventReadIteratorWithId, Events,
+        Event, EventCursor, EventMutIterator, EventMutIteratorWithId, EventPeekIterator,
+        EventPeekIteratorWithId, Events,
     },
-    system::{Local, Res, SystemParam},
+    system::{Local, ResMut, SystemParam},
 };
 
-/// Reads events of type `T`, keeping track of which events have already been read
-/// by each system allowing multiple systems to read the same events.
+/// Mutably reads events of type `T` keeping track of which events have already been read
+/// by each system allowing multiple systems to read the same events. Ideal for chains of systems
+/// that all want to modify the same events.
 ///
 /// # Usage
 ///
-/// `EventReader`s are usually declared as a [`SystemParam`].
+/// `EventMutators`s are usually declared as a [`SystemParam`].
 /// ```
 /// # use bevy_ecs::prelude::*;
 ///
 /// #[derive(Event, Debug)]
-/// pub struct MyEvent; // Custom event type.
-/// fn my_system(mut reader: EventReader<MyEvent>) {
+/// pub struct MyEvent(pub u32); // Custom event type.
+/// fn my_system(mut reader: EventMutator<MyEvent>) {
 ///     for event in reader.read() {
+///         event.0 += 1;
 ///         println!("received event: {:?}", event);
 ///     }
 /// }
@@ -31,8 +31,8 @@ use bevy_ecs::{
 ///
 /// # Concurrency
 ///
-/// Multiple systems with `EventReader<T>` of the same event type can run concurrently. Systems with
-/// `EventReader<T>` can not be executed in parallel with those with `EventWriter<T>`.
+/// Multiple systems with `EventMutator<T>` of the same event type can not run concurrently.
+/// They also can not be executed in parallel with [`EventReader`] and [`EventWriter`].
 ///
 /// # Clearing, Reading, and Peeking
 ///
@@ -40,37 +40,34 @@ use bevy_ecs::{
 /// frame's events. Events should be read each frame otherwise they may be lost. For manual control over this
 /// behavior, see [`Events`].
 ///
-/// Most of the time systems will want to use [`EventReader::read()`]. This function creates an iterator over
+/// Most of the time systems will want to use [`EventMutator::read()`]. This function creates an iterator over
 /// all events that haven't been read yet by this system, marking the event as read in the process.
 ///
-/// Occasionally, it may be useful to iterate over all events that haven't been read yet without marking
-/// them as read. This can be accomplished with [`EventReader::peek()`].
-///
 #[derive(SystemParam, Debug)]
-pub struct EventReader<'w, 's, E: Event> {
+pub struct EventMutator<'w, 's, E: Event> {
     pub(super) reader: Local<'s, EventCursor<E>>,
-    events: Res<'w, Events<E>>,
+    events: ResMut<'w, Events<E>>,
 }
 
-impl<'w, 's, E: Event> EventReader<'w, 's, E> {
-    /// Iterates over the events this [`EventReader`] has not seen yet. This updates the
-    /// [`EventReader`]'s event counter, which means subsequent event reads will not include events
+impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
+    /// Iterates over the events this [`EventMutator`] has not seen yet. This updates the
+    /// [`EventMutator`]'s event counter, which means subsequent event reads will not include events
     /// that happened before now.
-    pub fn read(&mut self) -> EventReadIterator<'_, E> {
-        self.reader.read(&self.events)
+    pub fn read(&mut self) -> EventMutIterator<'_, E> {
+        self.reader.read_mut(&mut self.events)
     }
 
-    /// Iterates over all the events this [`EventReader`] currently has, including those that have
-    /// been read (see [`EventReader::read()`],[`EventReader::read_with_id()`], [`EventReader::par_read`]).
-    /// Unlike [`read`](Self::read), this does not update the [`EventReader`]'s event counter and
+    /// Iterates over all the events this [`EventMutator`] currently has, including those that have
+    /// been read (see [`EventMutator::read()`],[`EventMutator::read_with_id()`], [`EventMutator::par_read`]).
+    /// Unlike [`read`](Self::read), this does not update the [`EventMutator`]'s event counter and
     /// thus does not mark the event as read.
     pub fn peek(&self) -> EventPeekIterator<'_, E> {
         self.reader.peek(&self.events)
     }
 
     /// Like [`read`](Self::read), except also returning the [`EventId`] of the events.
-    pub fn read_with_id(&mut self) -> EventReadIteratorWithId<'_, E> {
-        self.reader.read_with_id(&self.events)
+    pub fn read_with_id(&mut self) -> EventMutIteratorWithId<'_, E> {
+        self.reader.read_mut_with_id(&mut self.events)
     }
 
     /// Like [`peek`](Self::peek), except also returning the [`EventId`] of the events.
@@ -78,7 +75,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
         self.reader.peek_with_id(&self.events)
     }
 
-    /// Returns a parallel iterator over the events this [`EventReader`] has not seen yet.
+    /// Returns a parallel iterator over the events this [`EventMutator`] has not seen yet.
     /// See also [`for_each`](EventParIter::for_each).
     ///
     /// # Example
@@ -100,23 +97,23 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// world.insert_resource(Counter::default());
     ///
     /// let mut schedule = Schedule::default();
-    /// schedule.add_systems(|mut events: EventReader<MyEvent>, counter: Res<Counter>| {
+    /// schedule.add_systems(|mut events: EventMutator<MyEvent>, counter: Res<Counter>| {
     ///     events.par_read().for_each(|MyEvent { value }| {
     ///         counter.0.fetch_add(*value, Ordering::Relaxed);
     ///     });
     /// });
-    /// for _ in 0..100 {
-    ///     world.send_event(MyEvent { value: 1 });
+    /// for value in 0..100 {
+    ///     world.send_event(MyEvent { value });
     /// }
     /// schedule.run(&mut world);
     /// let Counter(counter) = world.remove_resource::<Counter>().unwrap();
     /// // all events were processed
-    /// assert_eq!(counter.into_inner(), 100);
+    /// assert_eq!(counter.into_inner(), 4950);
     /// ```
     ///
     #[cfg(feature = "multi_threaded")]
-    pub fn par_read(&mut self) -> EventReadParIter<'_, E> {
-        self.reader.par_read(&self.events)
+    pub fn par_read(&mut self) -> EventMutParIter<'_, E> {
+        self.reader.par_read_mut(&mut self.events)
     }
 
     /// Returns a parallel iterator over the events this [`EventReader`] has not read yet.
@@ -163,7 +160,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
         self.reader.par_peek(&self.events)
     }
 
-    /// Determines the number of events available to be read from this [`EventReader`] without consuming any.
+    /// Determines the number of events available to be read from this [`EventMutator`] without consuming any.
     pub fn len(&self) -> usize {
         self.reader.len(&self.events)
     }
@@ -173,7 +170,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// # Example
     ///
     /// The following example shows a useful pattern where some behavior is triggered if new events are available.
-    /// [`EventReader::clear()`] is used so the same events don't re-trigger the behavior the next time the system runs.
+    /// [`EventMutator::clear()`] is used so the same events don't re-trigger the behavior the next time the system runs.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -181,7 +178,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// #[derive(Event)]
     /// struct CollisionEvent;
     ///
-    /// fn play_collision_sound(mut events: EventReader<CollisionEvent>) {
+    /// fn play_collision_sound(mut events: EventMutator<CollisionEvent>) {
     ///     if !events.is_empty() {
     ///         events.clear();
     ///         // Play a sound
@@ -195,10 +192,10 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 
     /// Consumes all available events.
     ///
-    /// This means these events will not appear in calls to [`EventReader::read()`] or
-    /// [`EventReader::read_with_id()`] and [`EventReader::is_empty()`] will return `true`.
+    /// This means these events will not appear in calls to [`EventMutator::read()`] or
+    /// [`EventMutator::read_with_id()`] and [`EventMutator::is_empty()`] will return `true`.
     ///
-    /// For usage, see [`EventReader::is_empty()`].
+    /// For usage, see [`EventMutator::is_empty()`].
     pub fn clear(&mut self) {
         self.reader.clear(&self.events);
     }

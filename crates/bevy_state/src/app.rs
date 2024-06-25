@@ -256,7 +256,7 @@ mod tests {
         assert_eq!(world.resource::<State<TestState>>().0, TestState::B);
         let events = world.resource::<Events<StateTransitionEvent<TestState>>>();
         assert_eq!(events.len(), 1);
-        let mut reader = events.get_reader();
+        let mut reader = events.get_cursor();
         let last = reader.read(events).last().unwrap();
         assert_eq!(last.exited, None);
         assert_eq!(last.entered, Some(TestState::B));
@@ -276,7 +276,7 @@ mod tests {
         assert_eq!(world.resource::<State<TestState>>().0, TestState::C);
         let events = world.resource::<Events<StateTransitionEvent<TestState>>>();
         assert_eq!(events.len(), 1);
-        let mut reader = events.get_reader();
+        let mut reader = events.get_cursor();
         let last = reader.read(events).last().unwrap();
         assert_eq!(last.exited, None);
         assert_eq!(last.entered, Some(TestState::C));

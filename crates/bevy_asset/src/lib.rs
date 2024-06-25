@@ -454,7 +454,7 @@ mod tests {
     use bevy_core::TaskPoolPlugin;
     use bevy_ecs::prelude::*;
     use bevy_ecs::{
-        event::ManualEventReader,
+        event::EventCursor,
         schedule::{LogLevel, ScheduleBuildSettings},
     };
     use bevy_log::LogPlugin;
@@ -1301,7 +1301,7 @@ mod tests {
         gate_opener.open(b_path);
         gate_opener.open(c_path);
 
-        let mut reader = ManualEventReader::default();
+        let mut reader = EventCursor::default();
         run_app_until(&mut app, |world| {
             let events = world.resource::<Events<AssetEvent<LoadedFolder>>>();
             let asset_server = world.resource::<AssetServer>();
