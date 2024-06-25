@@ -817,6 +817,18 @@ impl WindowResolution {
         self.scale_factor = scale_factor;
     }
 
+    /// Set the window's scale factor, and apply it to the currently known physical size.
+    /// This may get overridden by the backend. This is mostly useful on window creation,
+    /// so that the window is created with the expected size instead of waiting for a resize
+    /// event after its creation.
+    #[inline]
+    #[doc(hidden)]
+    pub fn set_scale_factor_and_apply_to_physical_size(&mut self, scale_factor: f32) {
+        self.scale_factor = scale_factor;
+        self.physical_width = (self.physical_width as f32 * scale_factor) as u32;
+        self.physical_height = (self.physical_height as f32 * scale_factor) as u32;
+    }
+
     /// Set the window's scale factor, this will be used over what the backend decides.
     ///
     /// This can change the logical and physical sizes if the resulting physical
