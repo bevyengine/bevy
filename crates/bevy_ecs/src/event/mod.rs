@@ -602,6 +602,9 @@ mod tests {
 
             assert!(events.is_empty());
         });
+
         schedule.run(&mut world);
+        let counter = world.remove_resource::<Counter>().unwrap();
+        assert_eq!(counter.0.into_inner(), 0);
     }
 }
