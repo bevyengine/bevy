@@ -565,6 +565,14 @@ mod tests {
     }
 
     #[test]
+    #[should_panic = "&mut bevy_ecs::system::tests::A conflicts with a previous access in this query."]
+    fn any_of_with_conflicting() {
+        fn sys(_: Query<AnyOf<(&mut A, &mut A)>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
     fn any_of_has_filter_with_when_both_have_it() {
         fn sys(_: Query<(AnyOf<(&A, &A)>, &mut B)>, _: Query<&mut B, Without<A>>) {}
         let mut world = World::default();

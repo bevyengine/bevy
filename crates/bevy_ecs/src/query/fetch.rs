@@ -1872,10 +1872,12 @@ macro_rules! impl_anytuple_fetch {
                         $name::update_component_access($name, &mut intermediate);
                         _new_access.append_or(&intermediate);
                         _new_access.extend_access(&intermediate);
+                        _access.extend_access(&intermediate); // add accesses for remaining items to check against
                     } else {
                         $name::update_component_access($name, &mut _new_access);
                         _new_access.required = _access.required.clone();
                         _not_first = true;
+                        _access.extend_access(&_new_access); // add accesses for remaining items to check against
                     }
                 )*
 
