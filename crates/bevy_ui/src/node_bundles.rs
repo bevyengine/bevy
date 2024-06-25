@@ -23,7 +23,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 /// Contains the [`Node`] component and other components required to make a container.
 ///
 /// See [`node_bundles`](crate::node_bundles) for more specialized bundles like [`TextBundle`].
-#[derive(Bundle, Clone, Debug)]
+#[derive(Bundle, Clone, Debug, Default)]
 pub struct NodeBundle {
     /// Describes the logical size of the node
     pub node: Node,
@@ -56,26 +56,6 @@ pub struct NodeBundle {
     pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
-}
-
-impl Default for NodeBundle {
-    fn default() -> Self {
-        NodeBundle {
-            // Transparent background
-            background_color: Color::NONE.into(),
-            border_color: Color::NONE.into(),
-            border_radius: BorderRadius::default(),
-            node: Default::default(),
-            style: Default::default(),
-            focus_policy: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            inherited_visibility: Default::default(),
-            view_visibility: Default::default(),
-            z_index: Default::default(),
-        }
-    }
 }
 
 /// A UI node that is an image
@@ -176,7 +156,7 @@ pub struct AtlasImageBundle {
 ///
 /// The positioning of this node is controlled by the UI layout system. If you need manual control,
 /// use [`Text2dBundle`](bevy_text::Text2dBundle).
-#[derive(Bundle, Debug)]
+#[derive(Bundle, Debug, Default)]
 pub struct TextBundle {
     /// Describes the logical size of the node
     pub node: Node,
@@ -212,29 +192,6 @@ pub struct TextBundle {
     pub z_index: ZIndex,
     /// The background color that will fill the containing node
     pub background_color: BackgroundColor,
-}
-
-#[cfg(feature = "bevy_text")]
-impl Default for TextBundle {
-    fn default() -> Self {
-        Self {
-            text: Default::default(),
-            text_layout_info: Default::default(),
-            text_flags: Default::default(),
-            calculated_size: Default::default(),
-            node: Default::default(),
-            style: Default::default(),
-            focus_policy: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            inherited_visibility: Default::default(),
-            view_visibility: Default::default(),
-            z_index: Default::default(),
-            // Transparent background
-            background_color: BackgroundColor(Color::NONE),
-        }
-    }
 }
 
 #[cfg(feature = "bevy_text")]
@@ -348,8 +305,8 @@ impl Default for ButtonBundle {
             style: Default::default(),
             interaction: Default::default(),
             focus_policy: FocusPolicy::Block,
-            border_color: BorderColor(Color::NONE),
-            border_radius: BorderRadius::default(),
+            border_color: Default::default(),
+            border_radius: Default::default(),
             image: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
