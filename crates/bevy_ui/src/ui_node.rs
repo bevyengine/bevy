@@ -1831,7 +1831,7 @@ pub struct UiImage {
     pub color: Color,
     /// Handle to the texture.
     ///
-    /// This defaults to a fully transparent 1x1 texture.
+    /// This defaults to a [`TRANSPARENT_IMAGE_HANDLE`], which points to a fully transparent 1x1 texture.
     pub texture: Handle<Image>,
     /// Whether the image should be flipped along its x-axis
     pub flip_x: bool,
@@ -1846,7 +1846,7 @@ impl Default for UiImage {
     ///
     /// This will be invisible by default.
     /// To set this to a visible image, you need to set the `texture` field to a valid image handle,
-    /// or use [`Handle<Image>`]'s default 1x1 solid white texture.
+    /// or use [`Handle<Image>`]'s default 1x1 solid white texture (as is done in [`UiImage::solid_color`]).
     fn default() -> Self {
         UiImage {
             // This should be white because the tint is multiplied with the image,
