@@ -363,7 +363,7 @@ mod ui {
                                 align_items: AlignItems::Center,
                                 ..default()
                             },
-                            image: UiImage::default().with_color(NORMAL_BUTTON),
+                            background_color: NORMAL_BUTTON.into(),
                             ..default()
                         },
                         MenuButton::Play,
@@ -391,10 +391,11 @@ mod ui {
                                 align_items: AlignItems::Center,
                                 ..default()
                             },
-                            image: UiImage::default().with_color(match tutorial_state.get() {
+                            background_color: match tutorial_state.get() {
                                 TutorialState::Active => ACTIVE_BUTTON,
                                 TutorialState::Inactive => NORMAL_BUTTON,
-                            }),
+                            }
+                            .into(),
                             ..default()
                         },
                         MenuButton::Tutorial,
