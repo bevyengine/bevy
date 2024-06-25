@@ -39,7 +39,6 @@ redundant_else = "warn"
 match_same_arms = "warn"
 semicolon_if_nothing_returned = "warn"
 or_fun_call = "warn"
-redundant_closure = "warn"
 redundant_closure_for_method_calls = "warn"
 unwrap_or_else_default = "warn"
 
