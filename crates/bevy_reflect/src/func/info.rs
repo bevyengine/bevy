@@ -57,6 +57,11 @@ impl FunctionInfo {
         &self.args
     }
 
+    /// The number of arguments the function takes.
+    pub fn arg_count(&self) -> usize {
+        self.args.len()
+    }
+
     /// The return information of the function.
     pub fn return_info(&self) -> &ReturnInfo {
         &self.return_info

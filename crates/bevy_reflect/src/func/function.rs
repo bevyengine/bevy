@@ -121,6 +121,11 @@ impl<'env> Function<'env> {
     pub fn call_once(mut self, args: ArgList) -> FunctionResult {
         (self.func.deref_mut())(args, &self.info)
     }
+
+    /// Returns the function info.
+    pub fn info(&self) -> &FunctionInfo {
+        &self.info
+    }
 }
 
 /// Outputs the function signature.
