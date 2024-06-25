@@ -1862,17 +1862,28 @@ macro_rules! impl_anytuple_fetch {
             }
 
             fn update_component_access(state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {
+                let mut _new_access = _access.clone();
+
                 // update the access (add the read/writes)
                 <($(Option<$name>,)*)>::update_component_access(state, _access);
 
                 // update the filters (Or<(With<$name>,)>)
                 let ($($name,)*) = state;
+                let mut _not_first = false;
                 $(
-                    // we use an intermediate access because we only want to update the filters, not the access
-                    let mut intermediate = FilteredAccess::default();
-                    $name::update_component_access($name, &mut intermediate);
-                    _access.append_or(&intermediate);
+                    if _not_first {
+                        // we use an intermediate access because we only want to update the filters, not the access
+                        let mut intermediate = FilteredAccess::default();
+                        $name::update_component_access($name, &mut intermediate);
+                        _new_access.append_or(&intermediate);
+                    } else {
+                        $name::update_component_access($name, &mut _new_access);
+                        _new_access.required = _access.required.clone();
+                        _not_first = true;
+                    }
                 )*
+
+                _access.filter_sets = _new_access.filter_sets;
             }
             #[allow(unused_variables)]
             fn init_state(world: &mut World) -> Self::State {

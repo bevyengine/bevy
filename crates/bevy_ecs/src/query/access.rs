@@ -409,11 +409,6 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// where each element (`AccessFilters`) represents a conjunction,
     /// we can simply append to the array.
     pub fn append_or(&mut self, other: &FilteredAccess<T>) {
-        // there is an edge case if the only existing filter is the default one:
-        // we do not want to include it in the final disjunctive clause
-        if self.filter_sets.len() == 1 {
-            self.filter_sets.clear();
-        }
         self.filter_sets.append(&mut other.filter_sets.clone());
     }
 
