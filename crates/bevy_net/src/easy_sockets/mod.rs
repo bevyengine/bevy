@@ -1,9 +1,14 @@
+use std::borrow::Cow;
+use std::collections::VecDeque;
 use std::future::Future;
 use bevy_ecs::system::Resource;
 use bevy_internal::tasks::futures_lite::{AsyncRead, AsyncWrite};
 use bevy_internal::tasks::TaskPool;
 use std::error::Error as StdError;
-use socket_manager::ErrorAction;
+use std::slice::from_raw_parts;
+use std::sync::{Arc, Weak};
+use bevy_internal::prelude::{Deref, DerefMut};
+use crate::easy_sockets::spin_lock::SpinLock;
 
 mod socket_manager;
 
@@ -59,7 +64,6 @@ pub mod spin_lock {
 
     #[allow(unsafe_code)]
     impl<T> SpinLock<T> {
-
         /// Checks if the value is in use, if not, returns
         /// Some(Ok) and locks the lock, indicating you now have exclusive read and write access.
         /// Returns None if the value is in use.
@@ -155,15 +159,40 @@ pub mod spin_lock {
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum ErrorAction {
+    /// Drop the socket.
+    Drop,
+    /// Take no automated action.
+    /// However, you may wish to take
+    /// your own corrective action.
+    None
+}
+
+impl ErrorAction {
+    pub fn is_drop(&self) -> bool {
+        *self == ErrorAction::Drop
+    }
+
+    pub fn is_none(&self) -> bool {
+        *self == ErrorAction::None
+    }
+}
+
 pub trait Buffer {
     type InnerSocket;
-
-    type Error: StdError + Send + 'static;
-
+    
     fn build() -> Self;
 
-    async fn fill_read_bufs(&mut self, socket: &mut Self::InnerSocket) -> Result<usize, ErrorAction<Self::Error>>;
+    async fn fill_read_bufs(&mut self, socket: &mut Self::InnerSocket) -> Result<usize, ErrorAction>;
 
-    async fn flush_write_bufs(&mut self, socket: &mut Self::InnerSocket) -> Result<usize, ErrorAction<Self::Error>>;
+    async fn flush_write_bufs(&mut self, socket: &mut Self::InnerSocket) -> Result<usize, ErrorAction>;
+    
+    async fn update_properties(&mut self, socket: &mut Self::InnerSocket) -> Option<ErrorAction>;
 }
+
+pub trait ToByteQueue {
+    fn to_byte_queue(self) -> VecDeque<u8>;
+}
+
 
