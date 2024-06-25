@@ -24,7 +24,7 @@ pub(crate) fn get_base_path() -> PathBuf {
         env::current_exe()
             .map(|path| {
                 path.parent()
-                    .map(|exe_parent_path| exe_parent_path.to_owned())
+                    .map(ToOwned::to_owned)
                     .unwrap()
             })
             .unwrap()

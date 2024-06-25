@@ -105,7 +105,7 @@ pub fn ui_layout_system(
     let camera_with_default = |target_camera: Option<&TargetCamera>| {
         target_camera
             .map(TargetCamera::entity)
-            .or(default_ui_camera.get())
+            .or_else(|| default_ui_camera.get())
     };
 
     let resized_windows: HashSet<Entity> = resize_events.read().map(|event| event.window).collect();
@@ -293,7 +293,7 @@ pub fn resolve_outlines_system(
 ) {
     let viewport_size = primary_window
         .get_single()
-        .map(|window| window.size())
+        .map(Window::size)
         .unwrap_or(Vec2::ZERO)
         / ui_scale.0;
 

@@ -55,7 +55,7 @@ impl<'a> Access<'a> {
         offset: Option<usize>,
     ) -> Result<&'r dyn Reflect, AccessError<'a>> {
         self.element_inner(base)
-            .and_then(|opt| opt.ok_or(AccessErrorKind::MissingField(base.reflect_kind())))
+            .and_then(|opt| opt.ok_or_else(|| AccessErrorKind::MissingField(base.reflect_kind())))
             .map_err(|err| err.with_access(self.clone(), offset))
     }
 

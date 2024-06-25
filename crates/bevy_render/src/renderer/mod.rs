@@ -344,7 +344,7 @@ pub async fn initialize_renderer(
     let (device, queue) = adapter
         .request_device(
             &wgpu::DeviceDescriptor {
-                label: options.device_label.as_ref().map(|a| a.as_ref()),
+                label: options.device_label.as_ref().map(AsRef::as_ref),
                 required_features: features,
                 required_limits: limits,
             },

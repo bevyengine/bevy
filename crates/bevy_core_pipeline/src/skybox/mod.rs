@@ -98,7 +98,7 @@ impl ExtractComponent for Skybox {
 
     fn extract_component((skybox, exposure): QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
         let exposure = exposure
-            .map(|e| e.exposure())
+            .map(Exposure::exposure)
             .unwrap_or_else(|| Exposure::default().exposure());
 
         Some((

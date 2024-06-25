@@ -69,7 +69,7 @@ pub trait Array: Reflect {
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
             represented_type: self.get_represented_type_info(),
-            values: self.iter().map(|value| value.clone_value()).collect(),
+            values: self.iter().map(Reflect::clone_value).collect(),
         }
     }
 }

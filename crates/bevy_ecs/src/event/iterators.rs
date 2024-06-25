@@ -4,7 +4,7 @@ use bevy_ecs::{
     event::{Event, EventId, EventInstance, Events, ManualEventReader},
 };
 use bevy_utils::detailed_trace;
-use std::{iter::Chain, slice::Iter};
+use std::{iter::Chain, slice::{ChunksExact, Iter}};
 
 /// An iterator that yields any unread events from an [`EventReader`] or [`ManualEventReader`].
 #[derive(Debug)]
@@ -221,7 +221,7 @@ impl<'a, E: Event> EventParIter<'a, E> {
                 .batching_strategy
                 .calc_batch_size(|| self.len(), thread_count);
             let chunks = self.slices.map(|s| s.chunks_exact(batch_size));
-            let remainders = chunks.each_ref().map(|c| c.remainder());
+            let remainders = chunks.each_ref().map(ChunksExact::remainder);
 
             pool.scope(|scope| {
                 for batch in chunks.into_iter().flatten().chain(remainders) {

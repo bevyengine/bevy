@@ -18,7 +18,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                 .data
                 .ident
                 .as_ref()
-                .map(|i| i.to_string())
+                .map(ToString::to_string)
                 .unwrap_or_else(|| field.declaration_index.to_string())
         })
         .collect::<Vec<String>>();

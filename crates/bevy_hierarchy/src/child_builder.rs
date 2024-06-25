@@ -708,7 +708,7 @@ mod tests {
 
     /// Assert the (non)existence and state of the child's [`Parent`] component.
     fn assert_parent(world: &World, child: Entity, parent: Option<Entity>) {
-        assert_eq!(world.get::<Parent>(child).map(|p| p.get()), parent);
+        assert_eq!(world.get::<Parent>(child).map(Parent::get), parent);
     }
 
     /// Assert the (non)existence and state of the parent's [`Children`] component.

@@ -4,7 +4,7 @@ use super::{Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource};
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
-    component::ComponentId,
+    component::{ComponentId, ComponentInfo},
     entity::{Entities, Entity},
     event::Event,
     observer::{Observer, TriggerEvent, TriggerTargets},
@@ -1321,7 +1321,7 @@ fn insert_resource<R: Resource>(resource: R) -> impl Command {
 fn log_components(entity: Entity, world: &mut World) {
     let debug_infos: Vec<_> = world
         .inspect_entity(entity)
-        .map(|component_info| component_info.name())
+        .map(ComponentInfo::name)
         .collect();
     info!("Entity {:?}: {:?}", entity, debug_infos);
 }

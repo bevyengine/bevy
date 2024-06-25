@@ -61,7 +61,7 @@ impl ComputedTextureSlices {
     fn redepend_anchor_from_sprite_to_slice(sprite: &Sprite, slice: &TextureSlice) -> Vec2 {
         let sprite_size = sprite
             .custom_size
-            .unwrap_or(sprite.rect.unwrap_or_default().size());
+            .unwrap_or_else(|| sprite.rect.unwrap_or_default().size());
         if sprite_size == Vec2::ZERO {
             sprite.anchor.as_vec()
         } else {

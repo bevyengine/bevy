@@ -899,7 +899,7 @@ pub fn prepare_view_targets(
                 (a, b, sampled, main_texture)
             });
 
-        let converted_clear_color = clear_color.map(|color| color.into());
+        let converted_clear_color = clear_color.map(Into::into);
 
         let main_textures = MainTargetTextures {
             a: ColorAttachment::new(a.clone(), sampled.clone(), converted_clear_color),

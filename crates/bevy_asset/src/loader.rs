@@ -93,7 +93,7 @@ where
                 .expect("AssetLoader settings should match the loader type");
             let asset = <L as AssetLoader>::load(self, reader, settings, &mut load_context)
                 .await
-                .map_err(|error| error.into())?;
+                .map_err(Into::into)?;
             Ok(load_context.finish(asset, Some(meta)).into())
         })
     }
@@ -540,7 +540,7 @@ impl<'a> LoadContext<'a> {
             .meta
             .as_ref()
             .and_then(|m| m.processed_info().as_ref());
-        let hash = info.map(|i| i.full_hash).unwrap_or(Default::default());
+        let hash = info.map(|i| i.full_hash).unwrap_or_default();
         self.loader_dependencies.insert(path, hash);
         Ok(loaded_asset)
     }

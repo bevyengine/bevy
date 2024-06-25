@@ -1262,7 +1262,7 @@ impl World {
             .map(|removed| removed.iter_current_update_events().cloned())
             .into_iter()
             .flatten()
-            .map(|e| e.into())
+            .map(Into::into)
     }
 
     /// Initializes a new resource and returns the [`ComponentId`] created for it.
@@ -1397,7 +1397,7 @@ impl World {
         self.components
             .get_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.resources.get(component_id))
-            .map(|info| info.is_present())
+            .map(ResourceData::is_present)
             .unwrap_or(false)
     }
 
@@ -1407,7 +1407,7 @@ impl World {
         self.components
             .get_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.non_send_resources.get(component_id))
-            .map(|info| info.is_present())
+            .map(ResourceData::is_present)
             .unwrap_or(false)
     }
 
@@ -1494,7 +1494,7 @@ impl World {
         self.storages
             .resources
             .get(component_id)
-            .and_then(|resource| resource.get_ticks())
+            .and_then(ResourceData::get_ticks)
     }
 
     /// Gets a reference to the resource of the given type
@@ -1868,7 +1868,7 @@ impl World {
             .storages
             .resources
             .get_mut(component_id)
-            .and_then(|info| info.remove())
+            .and_then(ResourceData::remove)
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
         // Read the value onto the stack to avoid potential mut aliasing.
         // SAFETY: `ptr` was obtained from the TypeId of `R`.
@@ -3153,7 +3153,7 @@ mod tests {
         fn to_type_ids(component_infos: Vec<&ComponentInfo>) -> HashSet<Option<TypeId>> {
             component_infos
                 .into_iter()
-                .map(|component_info| component_info.type_id())
+                .map(ComponentInfo::type_id)
                 .collect()
         }
 
@@ -3295,7 +3295,7 @@ mod tests {
         assert_eq!(world.entity(b2).get(), Some(&B(4)));
 
         let mut entities = world.iter_entities_mut().collect::<Vec<_>>();
-        entities.sort_by_key(|e| e.get::<A>().map(|a| a.0).or(e.get::<B>().map(|b| b.0)));
+        entities.sort_by_key(|e| e.get::<A>().map(|a| a.0).or_else(|| e.get::<B>().map(|b| b.0)));
         let (a, b) = entities.split_at_mut(2);
         std::mem::swap(
             &mut a[1].get_mut::<A>().unwrap().0,

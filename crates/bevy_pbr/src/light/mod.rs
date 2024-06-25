@@ -697,7 +697,7 @@ pub fn check_dir_light_mesh_visibility(
                     cascade_view_entities.resize(view_frusta.len(), Default::default());
                     cascade_view_entities
                         .iter_mut()
-                        .for_each(|x| x.clear::<WithMesh>());
+                        .for_each(VisibleEntities::clear::<WithMesh>);
                 }
                 None => views_to_remove.push(*view),
             };
@@ -785,7 +785,7 @@ pub fn check_dir_light_mesh_visibility(
         for (_, cascade_view_entities) in &mut visible_entities.entities {
             cascade_view_entities
                 .iter_mut()
-                .map(|x| x.get_mut::<WithMesh>())
+                .map(VisibleEntities::get_mut::<WithMesh>)
                 .for_each(shrink_entities);
         }
     }

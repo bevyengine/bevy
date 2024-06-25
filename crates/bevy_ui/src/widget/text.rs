@@ -139,7 +139,7 @@ pub fn measure_text_system(
     let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
 
     for (text, content_size, text_flags, camera) in &mut text_query {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or_else(|| default_ui_camera.get())
         else {
             continue;
         };
@@ -255,7 +255,7 @@ pub fn text_system(
     let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
 
     for (node, text, text_layout_info, text_flags, camera) in &mut text_query {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or_else(|| default_ui_camera.get())
         else {
             continue;
         };
