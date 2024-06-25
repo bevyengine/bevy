@@ -74,8 +74,12 @@ pub struct ImageBundle {
     pub style: Style,
     /// The calculated size based on the given image
     pub calculated_size: ContentSize,
-    /// The image of the node
+    /// The image of the node.
+    ///
+    /// To tint the image, change the `color` field of this component.
     pub image: UiImage,
+    /// The color of the background that will fill the containing node.
+    pub background_color: BackgroundColor,
     /// The size of the image in pixels
     ///
     /// This component is set automatically
