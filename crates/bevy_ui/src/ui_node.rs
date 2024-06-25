@@ -1821,15 +1821,17 @@ impl Outline {
 }
 
 /// The 2D texture displayed for this UI node
+///
+/// # Warning
+///
+/// The default `color` which controls the tint of the image is fully transparent:
+/// adding a texture with this default tint won't show up!
+/// To fix this, the `color` should be set to [`Color::WHITE`],
+/// or `UiImage::new` should be used.
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
 pub struct UiImage {
     /// The tint color used to draw the image.
-    ///
-    /// # Warning
-    ///
-    /// This defaults to transparent white,
-    /// so if you set a texture with the default tint it won't show up!
     pub color: Color,
     /// Handle to the texture
     pub texture: Handle<Image>,
@@ -1841,6 +1843,10 @@ pub struct UiImage {
 
 impl Default for UiImage {
     /// A solid square, with a transparent white color.
+    ///
+    /// # Warning
+    ///
+    /// This will be invisible by default.
     fn default() -> Self {
         UiImage {
             // This needs to be transparent by default, to avoid covering the background color
