@@ -85,7 +85,7 @@ pub trait AudioSinkPlayback {
 /// that source is unchanged, that translates to the audio restarting.
 #[derive(Component)]
 pub struct AudioSink {
-    pub(crate) sink: Sink,
+    pub sink: Sink,
 }
 
 impl AudioSinkPlayback for AudioSink {
@@ -138,7 +138,7 @@ impl AudioSinkPlayback for AudioSink {
 /// that source is unchanged, that translates to the audio restarting.
 #[derive(Component)]
 pub struct SpatialAudioSink {
-    pub(crate) sink: SpatialSink,
+    pub sink: SpatialSink,
 }
 
 impl AudioSinkPlayback for SpatialAudioSink {
