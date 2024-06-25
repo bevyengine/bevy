@@ -1,12 +1,12 @@
 use crate::{UiRect, Val};
 use bevy_asset::Handle;
-use bevy_color::{Color, LinearRgba};
+use bevy_color::Color;
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
-    texture::Image,
+    texture::{Image, TRANSPARENT_IMAGE_HANDLE},
 };
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::warn_once;
@@ -1821,19 +1821,17 @@ impl Outline {
 }
 
 /// The 2D texture displayed for this UI node
-///
-/// # Warning
-///
-/// The default `color` which controls the tint of the image is fully transparent:
-/// adding a texture with this default tint won't show up!
-/// To fix this, the `color` should be set to [`Color::WHITE`],
-/// or `UiImage::new` should be used.
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
 pub struct UiImage {
     /// The tint color used to draw the image.
+    ///
+    /// This is multiplied by the color of each pixel in the image.
+    /// The field value defaults to solid white, which will pass the image through unmodified.
     pub color: Color,
-    /// Handle to the texture
+    /// Handle to the texture.
+    ///
+    /// This defaults to a fully transparent 1x1 texture.
     pub texture: Handle<Image>,
     /// Whether the image should be flipped along its x-axis
     pub flip_x: bool,
@@ -1842,18 +1840,20 @@ pub struct UiImage {
 }
 
 impl Default for UiImage {
-    /// A solid square, with a transparent white color.
+    /// A transparent 1x1 image with a solid white tint.
     ///
     /// # Warning
     ///
     /// This will be invisible by default.
+    /// To set this to a visible image, you need to set the `texture` field to a valid image handle,
+    /// or use [`Handle<Image>`]'s default 1x1 solid white texture.
     fn default() -> Self {
         UiImage {
-            // This needs to be transparent by default, to avoid covering the background color
             // This should be white because the tint is multiplied with the image,
             // so if you set an actual image with default tint you'd want its original colors
-            color: Color::from(LinearRgba::new(1.0, 1.0, 1.0, 0.0)),
-            texture: Handle::default(),
+            color: Color::WHITE,
+            // This texture needs to be transparent by default, to avoid covering the background color
+            texture: TRANSPARENT_IMAGE_HANDLE,
             flip_x: false,
             flip_y: false,
         }
