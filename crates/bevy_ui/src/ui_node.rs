@@ -1,6 +1,6 @@
 use crate::{UiRect, Val};
 use bevy_asset::Handle;
-use bevy_color::Color;
+use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
@@ -1819,7 +1819,7 @@ impl Outline {
 }
 
 /// The 2D texture displayed for this UI node
-#[derive(Component, Clone, Debug, Reflect, Default)]
+#[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
 pub struct UiImage {
     /// The tint color used to draw the image
@@ -1830,6 +1830,19 @@ pub struct UiImage {
     pub flip_x: bool,
     /// Whether the image should be flipped along its y-axis
     pub flip_y: bool,
+}
+
+impl Default for UiImage {
+    /// A solid square, with [`LinearRgba::NONE`] as its color.
+    fn default() -> Self {
+        UiImage {
+            // This needs to be transparent by default, to avoid covering the background color
+            color: Color::from(LinearRgba::NONE),
+            texture: Handle::default(),
+            flip_x: false,
+            flip_y: false,
+        }
+    }
 }
 
 impl UiImage {
