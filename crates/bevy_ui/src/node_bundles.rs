@@ -282,6 +282,8 @@ pub struct ButtonBundle {
     pub border_radius: BorderRadius,
     /// The image of the node
     pub image: UiImage,
+    /// The background color that will fill the containing node
+    pub background_color: BackgroundColor,
     /// The transform of the node
     ///
     /// This component is automatically managed by the UI layout system.
@@ -312,6 +314,7 @@ impl Default for ButtonBundle {
             border_color: Default::default(),
             border_radius: Default::default(),
             image: Default::default(),
+            background_color: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),
