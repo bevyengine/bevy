@@ -17,7 +17,7 @@ fn main() {
 #[derive(Default, Reflect, GizmoConfigGroup)]
 struct MyRoundGizmos {}
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
     // text
     commands.spawn(
@@ -27,11 +27,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Press '1' / '2' to toggle the visibility of straight / round gizmos\n\
         Press 'U' / 'I' to cycle through line styles\n\
         Press 'J' / 'K' to cycle through line joins",
-            TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 20.,
-                color: Color::WHITE,
-            },
+            TextStyle::default(),
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
@@ -72,13 +68,15 @@ fn draw_example_collection(
 
     gizmos.rect_2d(Vec2::ZERO, 0., Vec2::splat(650.), BLACK);
 
+    gizmos.cross_2d(Vec2::new(-160., 120.), 0., 12., FUCHSIA);
+
     my_gizmos
         .rounded_rect_2d(Vec2::ZERO, 0., Vec2::splat(630.), BLACK)
         .corner_radius((time.elapsed_seconds() / 3.).cos() * 100.);
 
     // Circles have 32 line-segments by default.
     // You may want to increase this for larger circles.
-    my_gizmos.circle_2d(Vec2::ZERO, 300., NAVY).segments(64);
+    my_gizmos.circle_2d(Vec2::ZERO, 300., NAVY).resolution(64);
 
     my_gizmos.ellipse_2d(
         Vec2::ZERO,
@@ -87,7 +85,7 @@ fn draw_example_collection(
         YELLOW_GREEN,
     );
 
-    // Arcs default amount of segments is linearly interpolated between
+    // Arcs default resolution is linearly interpolated between
     // 1 and 32, using the arc length as scalar.
     my_gizmos.arc_2d(Vec2::ZERO, sin / 10., PI / 2., 310., ORANGE_RED);
 

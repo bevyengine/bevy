@@ -31,7 +31,7 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
-use bevy_color::Color;
+use bevy_color::{Color, ColorToComponents};
 use bevy_core_pipeline::{
     core_3d::{
         graph::{Core3d, Node3d},
@@ -45,11 +45,13 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{Has, QueryItem, With},
+    reflect::ReflectComponent,
     schedule::IntoSystemConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
 use bevy_math::Vec3;
+use bevy_reflect::Reflect;
 use bevy_render::{
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
@@ -73,6 +75,7 @@ use bevy_utils::prelude::default;
 use crate::{
     graph::NodePbr, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
     ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
+    ViewScreenSpaceReflectionsUniformOffset,
 };
 
 /// The volumetric fog shader.
@@ -85,12 +88,14 @@ pub struct VolumetricFogPlugin;
 /// (`shadows_enabled: true`) to make volumetric fog interact with it.
 ///
 /// This allows the light to generate light shafts/god rays.
-#[derive(Clone, Copy, Component, Default, Debug)]
+#[derive(Clone, Copy, Component, Default, Debug, Reflect)]
+#[reflect(Component)]
 pub struct VolumetricLight;
 
 /// When placed on a [`Camera3d`], enables volumetric fog and volumetric
 /// lighting, also known as light shafts or god rays.
-#[derive(Clone, Copy, Component, Debug)]
+#[derive(Clone, Copy, Component, Debug, Reflect)]
+#[reflect(Component)]
 pub struct VolumetricFogSettings {
     /// The color of the fog.
     ///
@@ -102,18 +107,19 @@ pub struct VolumetricFogSettings {
 
     /// Color of the ambient light.
     ///
-    /// This is separate from Bevy's [`crate::light::AmbientLight`] because an
-    /// [`EnvironmentMapLight`] is still considered an ambient light for the
-    /// purposes of volumetric fog. If you're using a
-    /// [`crate::EnvironmentMapLight`], for best results, this should be a good
-    /// approximation of the average color of the environment map.
+    /// This is separate from Bevy's [`AmbientLight`](crate::light::AmbientLight) because an
+    /// [`EnvironmentMapLight`](crate::environment_map::EnvironmentMapLight) is
+    /// still considered an ambient light for the purposes of volumetric fog. If you're using a
+    /// [`EnvironmentMapLight`](crate::environment_map::EnvironmentMapLight), for best results,
+    /// this should be a good approximation of the average color of the environment map.
     ///
     /// Defaults to white.
     pub ambient_color: Color,
 
     /// The brightness of the ambient light.
     ///
-    /// If there's no ambient light, set this to 0.
+    /// If there's no [`EnvironmentMapLight`](crate::environment_map::EnvironmentMapLight),
+    /// set this to 0.
     ///
     /// Defaults to 0.1.
     pub ambient_intensity: f32,
@@ -244,6 +250,8 @@ impl Plugin for VolumetricFogPlugin {
             "volumetric_fog.wgsl",
             Shader::from_wgsl
         );
+        app.register_type::<VolumetricFogSettings>()
+            .register_type::<VolumetricLight>();
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -397,6 +405,7 @@ impl ViewNode for VolumetricFogNode {
         Read<ViewLightProbesUniformOffset>,
         Read<ViewVolumetricFogUniformOffset>,
         Read<MeshViewBindGroup>,
+        Read<ViewScreenSpaceReflectionsUniformOffset>,
     );
 
     fn run<'w>(
@@ -413,6 +422,7 @@ impl ViewNode for VolumetricFogNode {
             view_light_probes_offset,
             view_volumetric_lighting_uniform_buffer_offset,
             view_bind_group,
+            view_ssr_offset,
         ): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
@@ -474,6 +484,7 @@ impl ViewNode for VolumetricFogNode {
                 view_lights_offset.offset,
                 view_fog_offset.offset,
                 **view_light_probes_offset,
+                **view_ssr_offset,
             ],
         );
         render_pass.set_bind_group(
@@ -606,18 +617,9 @@ pub fn prepare_volumetric_fog_uniforms(
 
     for (entity, volumetric_fog_settings) in view_targets.iter() {
         let offset = writer.write(&VolumetricFogUniform {
-            fog_color: Vec3::from_slice(
-                &volumetric_fog_settings.fog_color.linear().to_f32_array()[0..3],
-            ),
-            light_tint: Vec3::from_slice(
-                &volumetric_fog_settings.light_tint.linear().to_f32_array()[0..3],
-            ),
-            ambient_color: Vec3::from_slice(
-                &volumetric_fog_settings
-                    .ambient_color
-                    .linear()
-                    .to_f32_array()[0..3],
-            ),
+            fog_color: volumetric_fog_settings.fog_color.to_linear().to_vec3(),
+            light_tint: volumetric_fog_settings.light_tint.to_linear().to_vec3(),
+            ambient_color: volumetric_fog_settings.ambient_color.to_linear().to_vec3(),
             ambient_intensity: volumetric_fog_settings.ambient_intensity,
             step_count: volumetric_fog_settings.step_count,
             max_depth: volumetric_fog_settings.max_depth,

@@ -15,7 +15,7 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_math::{Affine3A, Mat4};
+use bevy_math::Affine3A;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     prelude::{Camera, Mesh},
@@ -184,7 +184,8 @@ where
         render_app.add_systems(
             Render,
             prepare_material_meshlet_meshes_prepass::<M>
-                .in_set(RenderSet::Queue)
+                .in_set(RenderSet::QueueMeshes)
+                .after(prepare_assets::<PreparedMaterial<M>>)
                 .before(queue_material_meshlet_meshes::<M>)
                 .run_if(resource_exists::<MeshletGpuScene>),
         );
@@ -193,12 +194,6 @@ where
 
 #[derive(Resource)]
 struct AnyPrepassPluginLoaded;
-
-#[derive(Component, ShaderType, Clone)]
-pub struct PreviousViewData {
-    pub inverse_view: Mat4,
-    pub view_proj: Mat4,
-}
 
 #[cfg(not(feature = "meshlet"))]
 type PreviousViewFilter = (With<Camera3d>, With<MotionVectorPrepass>);
@@ -210,10 +205,10 @@ pub fn update_previous_view_data(
     query: Query<(Entity, &Camera, &GlobalTransform), PreviousViewFilter>,
 ) {
     for (entity, camera, camera_transform) in &query {
-        let inverse_view = camera_transform.compute_matrix().inverse();
+        let view_from_world = camera_transform.compute_matrix().inverse();
         commands.entity(entity).try_insert(PreviousViewData {
-            inverse_view,
-            view_proj: camera.projection_matrix() * inverse_view,
+            view_from_world,
+            clip_from_world: camera.clip_from_view() * view_from_world,
         });
     }
 }
@@ -443,6 +438,14 @@ where
             shader_defs.push("MOTION_VECTOR_PREPASS".into());
         }
 
+        if key.mesh_key.contains(MeshPipelineKey::HAS_PREVIOUS_SKIN) {
+            shader_defs.push("HAS_PREVIOUS_SKIN".into());
+        }
+
+        if key.mesh_key.contains(MeshPipelineKey::HAS_PREVIOUS_MORPH) {
+            shader_defs.push("HAS_PREVIOUS_MORPH".into());
+        }
+
         if key.mesh_key.intersects(
             MeshPipelineKey::NORMAL_PREPASS
                 | MeshPipelineKey::MOTION_VECTOR_PREPASS
@@ -464,39 +467,12 @@ where
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
         // Setup prepass fragment targets - normals in slot 0 (or None if not needed), motion vectors in slot 1
-        let mut targets = vec![
+        let mut targets = prepass_target_descriptors(
+            key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS),
             key.mesh_key
-                .contains(MeshPipelineKey::NORMAL_PREPASS)
-                .then_some(ColorTargetState {
-                    format: NORMAL_PREPASS_FORMAT,
-                    // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                }),
-            key.mesh_key
-                .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS)
-                .then_some(ColorTargetState {
-                    format: MOTION_VECTOR_PREPASS_FORMAT,
-                    // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                }),
-            key.mesh_key
-                .contains(MeshPipelineKey::DEFERRED_PREPASS)
-                .then_some(ColorTargetState {
-                    format: DEFERRED_PREPASS_FORMAT,
-                    // BlendState::REPLACE is not needed here, and None will be potentially much faster in some cases.
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                }),
-            key.mesh_key
-                .contains(MeshPipelineKey::DEFERRED_PREPASS)
-                .then_some(ColorTargetState {
-                    format: DEFERRED_LIGHTING_PASS_ID_FORMAT,
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                }),
-        ];
+                .contains(MeshPipelineKey::MOTION_VECTOR_PREPASS),
+            key.mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS),
+        );
 
         if targets.iter().all(Option::is_none) {
             // if no targets are required then clear the list, so that no fragment shader is required
@@ -615,16 +591,6 @@ pub fn extract_camera_previous_view_data(
     }
 }
 
-#[derive(Resource, Default)]
-pub struct PreviousViewUniforms {
-    pub uniforms: DynamicUniformBuffer<PreviousViewData>,
-}
-
-#[derive(Component)]
-pub struct PreviousViewUniformOffset {
-    pub offset: u32,
-}
-
 pub fn prepare_previous_view_uniforms(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -643,19 +609,19 @@ pub fn prepare_previous_view_uniforms(
     };
 
     for (entity, camera, maybe_previous_view_uniforms) in views_iter {
-        let view_projection = match maybe_previous_view_uniforms {
+        let prev_view_data = match maybe_previous_view_uniforms {
             Some(previous_view) => previous_view.clone(),
             None => {
-                let inverse_view = camera.transform.compute_matrix().inverse();
+                let view_from_world = camera.world_from_view.compute_matrix().inverse();
                 PreviousViewData {
-                    inverse_view,
-                    view_proj: camera.projection * inverse_view,
+                    view_from_world,
+                    clip_from_world: camera.clip_from_view * view_from_world,
                 }
             }
         };
 
         commands.entity(entity).insert(PreviousViewUniformOffset {
-            offset: writer.write(&view_projection),
+            offset: writer.write(&prev_view_data),
         });
     }
 }
@@ -700,10 +666,17 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_prepass_material_meshes<M: Material>(
-    opaque_draw_functions: Res<DrawFunctions<Opaque3dPrepass>>,
-    alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask3dPrepass>>,
-    opaque_deferred_draw_functions: Res<DrawFunctions<Opaque3dDeferred>>,
-    alpha_mask_deferred_draw_functions: Res<DrawFunctions<AlphaMask3dDeferred>>,
+    (
+        opaque_draw_functions,
+        alpha_mask_draw_functions,
+        opaque_deferred_draw_functions,
+        alpha_mask_deferred_draw_functions,
+    ): (
+        Res<DrawFunctions<Opaque3dPrepass>>,
+        Res<DrawFunctions<AlphaMask3dPrepass>>,
+        Res<DrawFunctions<Opaque3dDeferred>>,
+        Res<DrawFunctions<AlphaMask3dDeferred>>,
+    ),
     prepass_pipeline: Res<PrepassPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
@@ -713,25 +686,20 @@ pub fn queue_prepass_material_meshes<M: Material>(
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     render_lightmaps: Res<RenderLightmaps>,
+    mut opaque_prepass_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dPrepass>>,
+    mut alpha_mask_prepass_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
+    mut opaque_deferred_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dDeferred>>,
+    mut alpha_mask_deferred_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
     mut views: Query<
         (
-            &ExtractedView,
+            Entity,
             &VisibleEntities,
-            Option<&mut BinnedRenderPhase<Opaque3dPrepass>>,
-            Option<&mut BinnedRenderPhase<AlphaMask3dPrepass>>,
-            Option<&mut BinnedRenderPhase<Opaque3dDeferred>>,
-            Option<&mut BinnedRenderPhase<AlphaMask3dDeferred>>,
             Option<&DepthPrepass>,
             Option<&NormalPrepass>,
             Option<&MotionVectorPrepass>,
             Option<&DeferredPrepass>,
         ),
-        Or<(
-            With<BinnedRenderPhase<Opaque3dPrepass>>,
-            With<BinnedRenderPhase<AlphaMask3dPrepass>>,
-            With<BinnedRenderPhase<Opaque3dDeferred>>,
-            With<BinnedRenderPhase<AlphaMask3dDeferred>>,
-        )>,
+        With<ExtractedView>,
     >,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -753,18 +721,35 @@ pub fn queue_prepass_material_meshes<M: Material>(
         .get_id::<DrawPrepass<M>>()
         .unwrap();
     for (
-        _view,
+        view,
         visible_entities,
-        mut opaque_phase,
-        mut alpha_mask_phase,
-        mut opaque_deferred_phase,
-        mut alpha_mask_deferred_phase,
         depth_prepass,
         normal_prepass,
         motion_vector_prepass,
         deferred_prepass,
     ) in &mut views
     {
+        let (
+            mut opaque_phase,
+            mut alpha_mask_phase,
+            mut opaque_deferred_phase,
+            mut alpha_mask_deferred_phase,
+        ) = (
+            opaque_prepass_render_phases.get_mut(&view),
+            alpha_mask_prepass_render_phases.get_mut(&view),
+            opaque_deferred_render_phases.get_mut(&view),
+            alpha_mask_deferred_render_phases.get_mut(&view),
+        );
+
+        // Skip if there's no place to put the mesh.
+        if opaque_phase.is_none()
+            && alpha_mask_phase.is_none()
+            && opaque_deferred_phase.is_none()
+            && alpha_mask_deferred_phase.is_none()
+        {
+            continue;
+        }
+
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
         if depth_prepass.is_some() {
             view_key |= MeshPipelineKey::DEPTH_PREPASS;
@@ -832,6 +817,22 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 .contains_key(visible_entity)
             {
                 mesh_key |= MeshPipelineKey::LIGHTMAPPED;
+            }
+
+            // If the previous frame has skins or morph targets, note that.
+            if motion_vector_prepass.is_some() {
+                if mesh_instance
+                    .flags
+                    .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_SKIN)
+                {
+                    mesh_key |= MeshPipelineKey::HAS_PREVIOUS_SKIN;
+                }
+                if mesh_instance
+                    .flags
+                    .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_MORPH)
+                {
+                    mesh_key |= MeshPipelineKey::HAS_PREVIOUS_MORPH;
+                }
             }
 
             let pipeline_id = pipelines.specialize(

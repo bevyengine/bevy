@@ -42,6 +42,19 @@ pub trait Mix: Sized {
     }
 }
 
+/// Trait for returning a grayscale color of a provided lightness.
+pub trait Gray: Mix + Sized {
+    /// A pure black color.
+    const BLACK: Self;
+    /// A pure white color.
+    const WHITE: Self;
+
+    /// Returns a grey color with the provided lightness from (0.0 - 1.0). 0 is black, 1 is white.
+    fn gray(lightness: f32) -> Self {
+        Self::BLACK.mix(&Self::WHITE, lightness)
+    }
+}
+
 /// Methods for manipulating alpha values.
 pub trait Alpha: Sized {
     /// Return a new version of this color with the given alpha value.
@@ -102,6 +115,18 @@ pub trait ColorToComponents {
     fn from_vec3(color: Vec3) -> Self;
 }
 
+/// Trait with methods for converting colors to packed non-color types
+pub trait ColorToPacked {
+    /// Convert to [u8; 4] where that makes sense (Srgba is most relevant)
+    fn to_u8_array(self) -> [u8; 4];
+    /// Convert to [u8; 3] where that makes sense (Srgba is most relevant)
+    fn to_u8_array_no_alpha(self) -> [u8; 3];
+    /// Convert from [u8; 4] where that makes sense (Srgba is most relevant)
+    fn from_u8_array(color: [u8; 4]) -> Self;
+    /// Convert to [u8; 3] where that makes sense (Srgba is most relevant)
+    fn from_u8_array_no_alpha(color: [u8; 3]) -> Self;
+}
+
 /// Utility function for interpolating hue values. This ensures that the interpolation
 /// takes the shortest path around the color wheel, and that the result is always between
 /// 0 and 360.
@@ -112,6 +137,8 @@ pub(crate) fn lerp_hue(a: f32, b: f32, t: f32) -> f32 {
 
 #[cfg(test)]
 mod tests {
+    use std::fmt::Debug;
+
     use super::*;
     use crate::{testing::assert_approx_eq, Hsla};
 
@@ -144,5 +171,26 @@ mod tests {
         assert_approx_eq!(lerp_hue(350., 10., 0.25), 355., 0.001);
         assert_approx_eq!(lerp_hue(350., 10., 0.5), 0., 0.001);
         assert_approx_eq!(lerp_hue(350., 10., 0.75), 5., 0.001);
+    }
+
+    fn verify_gray<Col>()
+    where
+        Col: Gray + Debug + PartialEq,
+    {
+        assert_eq!(Col::gray(0.), Col::BLACK);
+        assert_eq!(Col::gray(1.), Col::WHITE);
+    }
+
+    #[test]
+    fn test_gray() {
+        verify_gray::<crate::Hsla>();
+        verify_gray::<crate::Hsva>();
+        verify_gray::<crate::Hwba>();
+        verify_gray::<crate::Laba>();
+        verify_gray::<crate::Lcha>();
+        verify_gray::<crate::LinearRgba>();
+        verify_gray::<crate::Oklaba>();
+        verify_gray::<crate::Oklcha>();
+        verify_gray::<crate::Xyza>();
     }
 }
