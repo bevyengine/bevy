@@ -125,7 +125,6 @@ fn setup_scene(
                     bottom: Val::Px(50.0),
                     ..default()
                 },
-                image: UiImage::default().with_color(Color::NONE),
                 ..default()
             },
             BackgroundColor(Color::WHITE),
