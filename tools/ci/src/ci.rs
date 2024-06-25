@@ -1,3 +1,6 @@
+use std::io::stdout;
+use std::process::ExitCode;
+
 use crate::commands;
 use crate::prepare::{Flag, Prepare, PreparedCommand};
 use argh::FromArgs;
@@ -18,42 +21,56 @@ impl CI {
     ///
     /// When run locally, results may differ from actual CI runs triggered by `.github/workflows/ci.yml`.
     /// This is usually related to differing toolchains and configuration.
-    pub fn run(self) {
+    pub fn run(self) -> ExitCode {
         let sh = xshell::Shell::new().unwrap();
 
         let prepared_commands = self.prepare(&sh);
 
         let mut failures = vec![];
+        let mut json_output = vec![];
 
-        for command in prepared_commands {
-            // If the CI test is to be executed in a subdirectory, we move there before running the command.
-            // This will automatically move back to the original directory once dropped.
-            let _subdir_hook = command.subdir.map(|path| sh.push_dir(path));
+        for mut command in prepared_commands {
+            match command.run(&sh) {
+                Ok(None) => {}
+                Ok(Some(json)) => json_output.push(json),
+                Err(json) => {
+                    if let Some(json) = json {
+                        json_output.push(json);
+                    }
 
-            // Execute each command, checking if it returned an error.
-            if command.command.envs(command.env_vars).run().is_err() {
-                let name = command.name;
-                let message = command.failure_message;
+                    let name = command.name;
+                    let message = command.failure_message;
 
-                if self.keep_going {
-                    // We use bullet points here because there can be more than one error.
-                    failures.push(format!("- {name}: {message}"));
-                } else {
-                    failures.push(format!("{name}: {message}"));
-                    break;
+                    if self.keep_going {
+                        // We use bullet points here because there can be more than one error.
+                        failures.push(format!("- {name}: {message}"));
+                    } else {
+                        failures.push(format!("{name}: {message}"));
+                        break;
+                    }
                 }
             }
+        }
+
+        // Write JSON output to stdout.
+        if !json_output.is_empty() {
+            serde_json::to_writer(stdout(), &json_output).unwrap();
         }
 
         // Log errors at the very end.
         if !failures.is_empty() {
             let failures = failures.join("\n");
 
-            panic!(
+            // Write error messages to stderr.
+            eprintln!(
                 "One or more CI commands failed:\n\
                 {failures}"
             );
+
+            return ExitCode::FAILURE;
         }
+
+        ExitCode::SUCCESS
     }
 
     fn prepare<'a>(&self, sh: &'a xshell::Shell) -> Vec<PreparedCommand<'a>> {

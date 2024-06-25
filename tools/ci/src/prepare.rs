@@ -1,4 +1,9 @@
+use std::io::{stderr, stdout, Write};
+
 use bitflags::bitflags;
+use xshell::Shell;
+
+use crate::json::JsonCommandOutput;
 
 /// Trait for preparing a subcommand to be run.
 pub trait Prepare {
@@ -53,6 +58,9 @@ pub struct PreparedCommand<'a> {
 
     /// Environment variables that need to be set before the test runs
     pub env_vars: Vec<(&'static str, &'static str)>,
+
+    /// The command outputs cargo formatted json
+    pub emit_json: bool,
 }
 
 impl<'a> PreparedCommand<'a> {
@@ -73,6 +81,7 @@ impl<'a> PreparedCommand<'a> {
             failure_message,
             subdir: None,
             env_vars: vec![],
+            emit_json: false,
         }
     }
 
@@ -86,5 +95,44 @@ impl<'a> PreparedCommand<'a> {
     pub fn with_env_var(mut self, key: &'static str, value: &'static str) -> Self {
         self.env_vars.push((key, value));
         self
+    }
+
+    /// A builder that controls whetever this command outputs json
+    pub fn with_json(mut self, emit_json: bool) -> Self {
+        self.emit_json = emit_json;
+        self
+    }
+
+    /// Runs this command
+    ///
+    /// If the command otputs json will return a [`JsonCommandOutput`]
+    pub fn run(
+        &mut self,
+        shell: &Shell,
+    ) -> Result<Option<JsonCommandOutput>, Option<JsonCommandOutput>> {
+        // If the CI test is to be executed in a subdirectory, we move there before running the command.
+        // This will automatically move back to the original directory once dropped.
+        let _subdir_hook = self.subdir.map(|path| shell.push_dir(path));
+
+        // For json outputting commands we want to read stdout even when things fail.
+        self.command.set_ignore_status(true);
+
+        let output = self.command.output().map_err(|_| None)?;
+
+        let json = if self.emit_json {
+            JsonCommandOutput::from_cargo_output(output.stdout, self.name.to_string())
+        } else {
+            stdout().write_all(&output.stdout).unwrap();
+            None
+        };
+
+        stderr().write_all(&output.stderr).unwrap();
+
+        if output.status.success() {
+            Ok(json)
+        } else {
+            eprintln!("{}", self.failure_message);
+            Err(json)
+        }
     }
 }

@@ -2,11 +2,14 @@
 
 mod ci;
 mod commands;
+mod json;
 mod prepare;
+
+use std::process::ExitCode;
 
 pub use self::ci::*;
 pub use self::prepare::*;
 
-fn main() {
-    argh::from_env::<CI>().run();
+fn main() -> ExitCode {
+    argh::from_env::<CI>().run()
 }
