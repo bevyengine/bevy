@@ -1833,11 +1833,13 @@ pub struct UiImage {
 }
 
 impl Default for UiImage {
-    /// A solid square, with [`LinearRgba::NONE`] as its color.
+    /// A solid square, with a transparent white color.
     fn default() -> Self {
         UiImage {
             // This needs to be transparent by default, to avoid covering the background color
-            color: Color::from(LinearRgba::NONE),
+            // This should be white because the tint is multiplied with the image,
+            // so if you set an actual image with default tint you'd want its original colors
+            color: Color::from(LinearRgba::new(1.0, 1.0, 1.0, 0.0)),
             texture: Handle::default(),
             flip_x: false,
             flip_y: false,
