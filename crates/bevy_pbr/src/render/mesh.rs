@@ -218,8 +218,6 @@ impl Plugin for MeshRenderPlugin {
                     );
             };
 
-            let indirect_parameters_buffer = IndirectParametersBuffer::new();
-
             let render_device = render_app.world().resource::<RenderDevice>();
             if let Some(per_object_buffer_batch_size) =
                 GpuArrayBuffer::<MeshUniform>::batch_size(render_device)
@@ -231,7 +229,6 @@ impl Plugin for MeshRenderPlugin {
             }
 
             render_app
-                .insert_resource(indirect_parameters_buffer)
                 .init_resource::<MeshPipelineViewLayouts>()
                 .init_resource::<MeshPipeline>();
         }
