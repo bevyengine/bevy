@@ -48,6 +48,10 @@ impl FunctionInfo {
     /// Note that this may return `None` even if the function has a name.
     /// This is because the name needs to be manually set using [`Self::with_name`]
     /// since the name can't be inferred from the function type alone.
+    ///
+    /// For [`Functions`] created using [`IntoFunction`], the name will always be `None`.
+    ///
+    /// [`Functions`]: crate::func::Function
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
     }
