@@ -40,7 +40,7 @@ match_same_arms = "warn"
 semicolon_if_nothing_returned = "warn"
 or_fun_call = "warn"
 redundant_closure_for_method_calls = "warn"
-unwrap_or_else_default = "warn"
+unwrap_or_default = "warn"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
