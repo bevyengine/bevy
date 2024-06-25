@@ -122,7 +122,7 @@ use std::{
 ///     // ...
 /// }
 ///
-/// // You can also emit writing some types using generics.
+/// // You can also omit writing some types using generics.
 /// fn on_insert<T1, T2>(world: DeferredWorld, _: T1, _: T2) {
 ///     // ...
 /// }
