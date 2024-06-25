@@ -267,7 +267,7 @@ fn add_button_for_value(
             },
             border_color: BorderColor(Color::WHITE),
             border_radius: BorderRadius::MAX,
-            image: UiImage::default().with_color(Color::BLACK),
+            background_color: Color::BLACK.into(),
             ..default()
         })
         .insert(ColorGradingOptionWidget {
