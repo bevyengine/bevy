@@ -93,6 +93,42 @@ use std::{
 /// [`Table`]: crate::storage::Table
 /// [`SparseSet`]: crate::storage::SparseSet
 ///
+/// # Adding component's hooks
+///
+/// See [`ComponentHooks`] for a detailed explanation of component's hooks.
+///
+/// Alternatively to the example shown in [`ComponentHooks`]' documentation, hooks can be configured using following attributes:
+/// - `#[component(on_add = on_add_function)]`
+/// - `#[component(on_insert = on_insert_function)]`
+/// - `#[component(on_remove = on_remove_function)]`
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::world::DeferredWorld;
+/// # use bevy_ecs::entity::Entity;
+/// # use bevy_ecs::component::ComponentId;
+/// #
+/// #[derive(Component)]
+/// #[component(on_add = on_add)]
+/// #[component(on_insert = on_insert)]
+/// // Another possible way of configuring hooks:
+/// // #[component(on_add = on_add, on_insert = on_insert)]
+/// //
+/// // We don't have a remove hook, so we can leave it out:
+/// // #[component(on_remove = on_remove)]
+/// struct ComponentA;
+///
+/// fn on_add(world: DeferredWorld, entity: Entity, id: ComponentId) {
+///     // ...
+/// }
+///
+/// // You can also emit writing some types using generics.
+/// fn on_insert<T1, T2>(world: DeferredWorld, _: T1, _: T2) {
+///     // ...
+/// }
+///
+/// ```
+///
 /// # Implementing the trait for foreign types
 ///
 /// As a consequence of the [orphan rule], it is not possible to separate into two different crates the implementation of `Component` from the definition of a type.

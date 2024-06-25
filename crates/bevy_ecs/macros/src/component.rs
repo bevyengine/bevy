@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
-use syn::{parse_macro_input, parse_quote, DeriveInput, Ident, LitStr, Meta, Path, Result};
+use syn::{parse_macro_input, parse_quote, DeriveInput, ExprPath, Ident, LitStr, Path, Result};
 
 pub fn derive_event(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
@@ -54,9 +54,9 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     let storage = storage_path(&bevy_ecs_path, attrs.storage);
 
-    let on_add = hook_function(quote! {on_add}, attrs.on_add);
-    let on_insert = hook_function(quote! {on_insert}, attrs.on_insert);
-    let on_remove = hook_function(quote! {on_remove}, attrs.on_remove);
+    let on_add = hook_register_function_call(quote! {on_add}, attrs.on_add);
+    let on_insert = hook_register_function_call(quote! {on_insert}, attrs.on_insert);
+    let on_remove = hook_register_function_call(quote! {on_remove}, attrs.on_remove);
 
     ast.generics
         .make_where_clause()
@@ -88,9 +88,9 @@ pub const ON_REMOVE: &str = "on_remove";
 
 struct Attrs {
     storage: StorageTy,
-    on_add: Option<Meta>,
-    on_insert: Option<Meta>,
-    on_remove: Option<Meta>,
+    on_add: Option<ExprPath>,
+    on_insert: Option<ExprPath>,
+    on_remove: Option<ExprPath>,
 }
 
 #[derive(Clone, Copy)]
@@ -125,13 +125,13 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                 };
                 Ok(())
             } else if nested.path.is_ident(ON_ADD) {
-                attrs.on_add = Some(nested.value()?.parse::<Meta>()?);
+                attrs.on_add = Some(nested.value()?.parse::<ExprPath>()?);
                 Ok(())
             } else if nested.path.is_ident(ON_INSERT) {
-                attrs.on_insert = Some(nested.value()?.parse::<Meta>()?);
+                attrs.on_insert = Some(nested.value()?.parse::<ExprPath>()?);
                 Ok(())
             } else if nested.path.is_ident(ON_REMOVE) {
-                attrs.on_remove = Some(nested.value()?.parse::<Meta>()?);
+                attrs.on_remove = Some(nested.value()?.parse::<ExprPath>()?);
                 Ok(())
             } else {
                 Err(nested.error("Unsupported attribute"))
@@ -151,6 +151,6 @@ fn storage_path(bevy_ecs_path: &Path, ty: StorageTy) -> TokenStream2 {
     quote! { #bevy_ecs_path::component::StorageType::#storage_type }
 }
 
-fn hook_function(hook: TokenStream2, function: Option<Meta>) -> Option<TokenStream2> {
+fn hook_register_function_call(hook: TokenStream2, function: Option<ExprPath>) -> Option<TokenStream2> {
     function.map(|meta| quote! { hooks. #hook (#meta); })
 }
