@@ -477,7 +477,7 @@ fn handle_mouse_clicks(
     let Some(mouse_position) = windows
         .iter()
         .next()
-        .and_then(|window| window.cursor_position())
+        .and_then(Window::cursor_position)
     else {
         return;
     };
