@@ -1,8 +1,7 @@
 use crate as bevy_ecs;
-use bevy_ecs::{
-    batching::BatchingStrategy,
-    event::{Event, EventId, EventInstance, Events, ManualEventReader},
-};
+#[cfg(feature = "multi_threaded")]
+use bevy_ecs::batching::BatchingStrategy;
+use bevy_ecs::event::{Event, EventId, EventInstance, Events, ManualEventReader};
 use bevy_utils::detailed_trace;
 use std::{iter::Chain, slice::Iter};
 
@@ -141,6 +140,7 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
 
 /// A parallel iterator over `Event`s.
 #[derive(Debug)]
+#[cfg(feature = "multi_threaded")]
 pub struct EventParIter<'a, E: Event> {
     reader: &'a mut ManualEventReader<E>,
     slices: [&'a [EventInstance<E>]; 2],
@@ -148,6 +148,7 @@ pub struct EventParIter<'a, E: Event> {
     unread: usize,
 }
 
+#[cfg(feature = "multi_threaded")]
 impl<'a, E: Event> EventParIter<'a, E> {
     /// Creates a new parallel iterator over `events` that have not yet been seen by `reader`.
     pub fn new(reader: &'a mut ManualEventReader<E>, events: &'a Events<E>) -> Self {
@@ -206,12 +207,12 @@ impl<'a, E: Event> EventParIter<'a, E> {
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     pub fn for_each_with_id<FN: Fn(&'a E, EventId<E>) + Send + Sync + Clone>(mut self, func: FN) {
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        #[cfg(target_arch = "wasm32")]
         {
             self.into_iter().for_each(|(e, i)| func(e, i));
         }
 
-        #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+        #[cfg(not(target_arch = "wasm32"))]
         {
             let pool = bevy_tasks::ComputeTaskPool::get();
             let thread_count = pool.thread_num();
@@ -253,6 +254,7 @@ impl<'a, E: Event> EventParIter<'a, E> {
     }
 }
 
+#[cfg(feature = "multi_threaded")]
 impl<'a, E: Event> IntoIterator for EventParIter<'a, E> {
     type IntoIter = EventIteratorWithId<'a, E>;
     type Item = <Self::IntoIter as Iterator>::Item;

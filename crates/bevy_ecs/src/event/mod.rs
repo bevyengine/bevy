@@ -11,7 +11,9 @@ pub(crate) use base::EventInstance;
 pub use base::{Event, EventId};
 pub use bevy_ecs_macros::Event;
 pub use collections::{Events, SendBatchIds};
-pub use iterators::{EventIterator, EventIteratorWithId, EventParIter};
+#[cfg(feature = "multi_threaded")]
+pub use iterators::EventParIter;
+pub use iterators::{EventIterator, EventIteratorWithId};
 pub use reader::{EventReader, ManualEventReader};
 pub use registry::{EventRegistry, ShouldUpdateEvents};
 pub use update::{
