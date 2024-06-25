@@ -1309,9 +1309,13 @@ impl GetFullBatchData for MeshPipeline {
             return None;
         };
 
-        mesh_instances
-            .get(&entity)
-            .map(|entity| entity.current_uniform_index)
+        Some(
+            mesh_instances
+                .get(&entity)
+                .map(|entity| entity.current_uniform_index)
+                // When not found, return the maximum value. This entity likely doesn't have a mesh but should still be drawn
+                .unwrap_or(NonMaxU32::MAX),
+        )
     }
 
     fn get_batch_indirect_parameters_index(
