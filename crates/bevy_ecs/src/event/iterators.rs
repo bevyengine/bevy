@@ -141,7 +141,6 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
 /// A parallel iterator over `Event`s.
 #[cfg(feature = "multi_threaded")]
 #[derive(Debug)]
-#[cfg(feature = "multi_threaded")]
 pub struct EventParIter<'a, E: Event> {
     reader: &'a mut EventCursor<E>,
     slices: [&'a [EventInstance<E>]; 2],
