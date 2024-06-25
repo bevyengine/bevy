@@ -1865,18 +1865,11 @@ macro_rules! impl_anytuple_fetch {
                 let ($($name,)*) = state;
 
                 let mut _new_access = _access.clone();
-                let mut _not_first = false;
                 $(
-                    if _not_first {
-                        let mut intermediate = _access.clone();
-                        $name::update_component_access($name, &mut intermediate);
-                        _new_access.append_or(&intermediate);
-                        _new_access.extend_access(&intermediate);
-                    } else {
-                        $name::update_component_access($name, &mut _new_access);
-                        _new_access.required = _access.required.clone();
-                        _not_first = true;
-                    }
+                    let mut intermediate = _access.clone();
+                    $name::update_component_access($name, &mut intermediate);
+                    _new_access.append_or(&intermediate);
+                    _new_access.extend_access(&intermediate);
                 )*
 
                 *_access = _new_access;

@@ -339,7 +339,7 @@ impl<T: SparseSetIndex> Default for FilteredAccess<T> {
         Self {
             access: Access::default(),
             required: FixedBitSet::default(),
-            filter_sets: vec![AccessFilters::default()],
+            filter_sets: vec![],
         }
     }
 }
@@ -388,6 +388,9 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// Suppose we begin with `Or<(With<A>, With<B>)>`, which is represented by an array of two `AccessFilter` instances.
     /// Adding `AND With<C>` via this method transforms it into the equivalent of  `Or<((With<A>, With<C>), (With<B>, With<C>))>`.
     pub fn and_with(&mut self, index: T) {
+        if self.filter_sets.is_empty() {
+            self.filter_sets.push(AccessFilters::default());
+        }
         for filter in &mut self.filter_sets {
             filter.with.grow_and_insert(index.sparse_set_index());
         }
@@ -398,6 +401,9 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// Suppose we begin with `Or<(With<A>, With<B>)>`, which is represented by an array of two `AccessFilter` instances.
     /// Adding `AND Without<C>` via this method transforms it into the equivalent of  `Or<((With<A>, Without<C>), (With<B>, Without<C>))>`.
     pub fn and_without(&mut self, index: T) {
+        if self.filter_sets.is_empty() {
+            self.filter_sets.push(AccessFilters::default());
+        }
         for filter in &mut self.filter_sets {
             filter.without.grow_and_insert(index.sparse_set_index());
         }
@@ -409,7 +415,12 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// where each element (`AccessFilters`) represents a conjunction,
     /// we can simply append to the array.
     pub fn append_or(&mut self, other: &FilteredAccess<T>) {
-        self.filter_sets.append(&mut other.filter_sets.clone());
+        let mut other_filter_sets = if other.filter_sets.is_empty() {
+            vec![AccessFilters::default()]
+        } else {
+            other.filter_sets.clone()
+        };
+        self.filter_sets.append(&mut other_filter_sets);
     }
 
     /// Adds all of the accesses from `other` to `self`.
@@ -456,6 +467,14 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     pub fn extend(&mut self, other: &FilteredAccess<T>) {
         self.access.extend(&other.access);
         self.required.union_with(&other.required);
+
+        if other.filter_sets.is_empty() {
+            return;
+        }
+        if self.filter_sets.is_empty() {
+            self.filter_sets = other.filter_sets.clone();
+            return
+        }
 
         // We can avoid allocating a new array of bitsets if `other` contains just a single set of filters:
         // in this case we can short-circuit by performing an in-place union for each bitset.
@@ -579,7 +598,7 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     ///    mutually exclusive. The fine grained phase iterates over all filters in
     ///    the `self` set and compares it to all the filters in the `other` set,
     ///    making sure they are all mutually compatible.
-    pub fn is_compatible(&self, other: &FilteredAccessSet<T>) -> bool {
+     pub fn is_compatible(&self, other: &FilteredAccessSet<T>) -> bool {
         if self.combined_access.is_compatible(other.combined_access()) {
             return true;
         }
