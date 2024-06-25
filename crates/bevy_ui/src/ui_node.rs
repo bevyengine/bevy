@@ -1822,7 +1822,12 @@ impl Outline {
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
 pub struct UiImage {
-    /// The tint color used to draw the image
+    /// The tint color used to draw the image.
+    ///
+    /// # Warning
+    ///
+    /// This defaults to transparent white,
+    /// so if you set a texture with the default tint it won't show up!
     pub color: Color,
     /// Handle to the texture
     pub texture: Handle<Image>,
@@ -1848,10 +1853,24 @@ impl Default for UiImage {
 }
 
 impl UiImage {
+    /// Create a new [`UiImage`] with the given texture.
     pub fn new(texture: Handle<Image>) -> Self {
         Self {
             texture,
+            color: Color::WHITE,
             ..Default::default()
+        }
+    }
+
+    /// Create a solid color [`UiImage`]`.
+    ///
+    /// This is primarily useful for debugging / mocking the extents of your image.
+    pub fn solid_color(color: Color) -> Self {
+        Self {
+            texture: Handle::default(),
+            color,
+            flip_x: false,
+            flip_y: false,
         }
     }
 
