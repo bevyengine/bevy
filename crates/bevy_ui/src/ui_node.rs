@@ -1870,7 +1870,7 @@ impl UiImage {
         }
     }
 
-    /// Create a solid color [`UiImage`]`.
+    /// Create a solid color [`UiImage`].
     ///
     /// This is primarily useful for debugging / mocking the extents of your image.
     pub fn solid_color(color: Color) -> Self {
