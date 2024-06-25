@@ -1816,6 +1816,52 @@ impl Capsule2d {
     }
 }
 
+/// A squircle primitive.
+///
+/// A squircle or superellipse is a an intermediate shape between a rectangle and an ellipse and is frequently used in design and optics.
+/// It is characterised by the equation `(x/a)^p + (y/b)^p = 1` where p is the *norm* of the superellipse and `a` and `b` are the half sizes of the X and Y axis respectively.
+///
+/// This shape, the [`superellipse`](https://en.wikipedia.org/wiki/Superellipse), is not to be confused with the very similar [`Fernández-Guasti squircle`](https://en.wikipedia.org/wiki/Squircle#Fernández-Guasti_squircle).
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+#[doc(alias = "Superellipse")]
+pub struct Squircle {
+    /// Half of the width and height of the squircle
+    pub half_size: Vec2,
+    /// The p-norm or *squareness* of the squircle. This value should be greater than or equal to `2` with `2` representing an ellipse and $`p \arrowright \infty`$ representing a rectangle.
+    pub p: f32,
+}
+impl Primitive2d for Squircle {}
+
+impl Default for Squircle {
+    fn default() -> Self {
+        Self {
+            half_size: Vec2::ONE,
+            p: 4.,
+        }
+    }
+}
+
+impl Squircle {
+    /// Create a new [`Squircle`] from a `half_size`, and a `p`-norm.
+    pub const fn new(half_size: Vec2, p: f32) -> Self {
+        Self { half_size, p }
+    }
+
+    /// Creates a new [`Squircle`] from a full `size` and a `p`-norm.
+    pub fn from_size(size: Vec2, p: f32) -> Self {
+        Self {
+            half_size: size / 2.,
+            p,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     // Reference values were computed by hand and/or with external tools
