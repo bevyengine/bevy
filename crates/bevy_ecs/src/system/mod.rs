@@ -557,6 +557,13 @@ mod tests {
     }
 
     #[test]
+    fn any_of_with_mut() {
+        fn sys(_: Query<AnyOf<(&mut A, &B)>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
     #[should_panic = "error[B0001]"]
     fn any_of_has_no_filter_with() {
         fn sys(_: Query<(AnyOf<(&A, ())>, &mut B)>, _: Query<&mut B, Without<A>>) {}
