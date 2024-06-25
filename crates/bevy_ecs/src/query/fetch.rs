@@ -1862,8 +1862,11 @@ macro_rules! impl_anytuple_fetch {
             }
 
             fn update_component_access(state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {
-                let ($($name,)*) = state;
+                // update the access (add the read/writes)
+                <($(Option<$name>,)*)>::update_component_access(state, _access);
 
+                // update the filters (Or<(With<$name>,)>)
+                let ($($name,)*) = state;
                 let mut _new_access = _access.clone();
                 let mut _not_first = false;
                 $(
@@ -1871,14 +1874,12 @@ macro_rules! impl_anytuple_fetch {
                         let mut intermediate = _access.clone();
                         $name::update_component_access($name, &mut intermediate);
                         _new_access.append_or(&intermediate);
-                        _new_access.extend_access(&intermediate);
                     } else {
                         $name::update_component_access($name, &mut _new_access);
                         _new_access.required = _access.required.clone();
                         _not_first = true;
                     }
                 )*
-
                 *_access = _new_access;
             }
             #[allow(unused_variables)]
