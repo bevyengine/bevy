@@ -16,7 +16,7 @@ pub const MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(6325134235233421);
 pub const MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(7325134235233421);
-pub const MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE: Handle<Shader> =
+pub const MESHLET_RESOLVE_RENDER_TARGETS_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(8325134235233421);
 
 #[derive(Resource)]
@@ -29,7 +29,7 @@ pub struct MeshletPipelines {
     visibility_buffer_hardware_raster: CachedRenderPipelineId,
     visibility_buffer_hardware_raster_depth_only: CachedRenderPipelineId,
     visibility_buffer_hardware_raster_depth_only_clamp_ortho: CachedRenderPipelineId,
-    copy_material_depth: CachedRenderPipelineId,
+    resolve_material_depth: CachedRenderPipelineId,
 }
 
 impl FromWorld for MeshletPipelines {
@@ -40,7 +40,7 @@ impl FromWorld for MeshletPipelines {
         let cull_layout = gpu_scene.culling_bind_group_layout();
         let downsample_depth_layout = gpu_scene.downsample_depth_bind_group_layout();
         let visibility_buffer_layout = gpu_scene.visibility_buffer_raster_bind_group_layout();
-        let copy_material_depth_layout = gpu_scene.copy_material_depth_bind_group_layout();
+        let resolve_material_depth_layout = gpu_scene.resolve_material_depth_bind_group_layout();
         let pipeline_cache = world.resource_mut::<PipelineCache>();
 
         Self {
@@ -148,18 +148,11 @@ impl FromWorld for MeshletPipelines {
                             "MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into(),
                         ],
                         entry_point: "fragment".into(),
-                        targets: vec![
-                            Some(ColorTargetState {
-                                format: TextureFormat::R32Uint,
-                                blend: None,
-                                write_mask: ColorWrites::ALL,
-                            }),
-                            Some(ColorTargetState {
-                                format: TextureFormat::R16Uint,
-                                blend: None,
-                                write_mask: ColorWrites::ALL,
-                            }),
-                        ],
+                        targets: vec![Some(ColorTargetState {
+                            format: TextureFormat::R32Uint,
+                            blend: None,
+                            write_mask: ColorWrites::ALL,
+                        })],
                     }),
                 },
             ),
@@ -243,27 +236,29 @@ impl FromWorld for MeshletPipelines {
                     }),
                 }),
 
-            copy_material_depth: pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
-                label: Some("meshlet_copy_material_depth_pipeline".into()),
-                layout: vec![copy_material_depth_layout],
-                push_constant_ranges: vec![],
-                vertex: fullscreen_shader_vertex_state(),
-                primitive: PrimitiveState::default(),
-                depth_stencil: Some(DepthStencilState {
-                    format: TextureFormat::Depth16Unorm,
-                    depth_write_enabled: true,
-                    depth_compare: CompareFunction::Always,
-                    stencil: StencilState::default(),
-                    bias: DepthBiasState::default(),
-                }),
-                multisample: MultisampleState::default(),
-                fragment: Some(FragmentState {
-                    shader: MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE,
-                    shader_defs: vec![],
-                    entry_point: "copy_material_depth".into(),
-                    targets: vec![],
-                }),
-            }),
+            resolve_material_depth: pipeline_cache.queue_render_pipeline(
+                RenderPipelineDescriptor {
+                    label: Some("meshlet_resolve_material_depth_pipeline".into()),
+                    layout: vec![resolve_material_depth_layout],
+                    push_constant_ranges: vec![],
+                    vertex: fullscreen_shader_vertex_state(),
+                    primitive: PrimitiveState::default(),
+                    depth_stencil: Some(DepthStencilState {
+                        format: TextureFormat::Depth16Unorm,
+                        depth_write_enabled: true,
+                        depth_compare: CompareFunction::Always,
+                        stencil: StencilState::default(),
+                        bias: DepthBiasState::default(),
+                    }),
+                    multisample: MultisampleState::default(),
+                    fragment: Some(FragmentState {
+                        shader: MESHLET_RESOLVE_RENDER_TARGETS_SHADER_HANDLE,
+                        shader_defs: vec![],
+                        entry_point: "resolve_material_depth".into(),
+                        targets: vec![],
+                    }),
+                },
+            ),
         }
     }
 }
@@ -296,7 +291,7 @@ impl MeshletPipelines {
             pipeline_cache.get_render_pipeline(
                 pipeline.visibility_buffer_hardware_raster_depth_only_clamp_ortho,
             )?,
-            pipeline_cache.get_render_pipeline(pipeline.copy_material_depth)?,
+            pipeline_cache.get_render_pipeline(pipeline.resolve_material_depth)?,
         ))
     }
 }

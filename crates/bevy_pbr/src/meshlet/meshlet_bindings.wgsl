@@ -94,9 +94,8 @@ fn cluster_is_second_pass_candidate(cluster_id: u32) -> bool {
 @group(0) @binding(4) var<storage, read> meshlet_vertex_data: array<PackedMeshletVertex>; // Many per meshlet
 @group(0) @binding(5) var<storage, read> meshlet_cluster_instance_ids: array<u32>; // Per cluster
 @group(0) @binding(6) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
-@group(0) @binding(7) var<storage, read> meshlet_instance_material_ids: array<u32>; // Per entity instance
-@group(0) @binding(8) var<storage, read> meshlet_hardware_raster_triangles: array<u32>; // Single object shared between all workgroups/clusters/triangles
-@group(0) @binding(9) var<uniform> view: View;
+@group(0) @binding(7) var<storage, read> meshlet_hardware_raster_triangles: array<u32>; // Single object shared between all workgroups/clusters/triangles
+@group(0) @binding(8) var<uniform> view: View;
 
 fn get_meshlet_index(index_id: u32) -> u32 {
     let packed_index = meshlet_indices[index_id / 4u];

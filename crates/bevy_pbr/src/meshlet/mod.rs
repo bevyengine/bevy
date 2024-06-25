@@ -48,8 +48,8 @@ use self::{
         MeshletViewMaterialsPrepass,
     },
     pipelines::{
-        MeshletPipelines, MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE, MESHLET_CULLING_SHADER_HANDLE,
-        MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE, MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE,
+        MeshletPipelines, MESHLET_CULLING_SHADER_HANDLE, MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+        MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE, MESHLET_RESOLVE_RENDER_TARGETS_SHADER_HANDLE,
         MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
     },
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
@@ -162,8 +162,8 @@ impl Plugin for MeshletPlugin {
         );
         load_internal_asset!(
             app,
-            MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE,
-            "copy_material_depth.wgsl",
+            MESHLET_RESOLVE_RENDER_TARGETS_SHADER_HANDLE,
+            "resolve_render_targets.wgsl",
             Shader::from_wgsl
         );
 

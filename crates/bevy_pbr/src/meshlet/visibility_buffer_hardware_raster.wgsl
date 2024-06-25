@@ -6,7 +6,6 @@
         meshlet_vertex_data,
         meshlet_cluster_instance_ids,
         meshlet_instance_uniforms,
-        meshlet_instance_material_ids,
         meshlet_hardware_raster_triangles,
         view,
         get_meshlet_index,
@@ -22,19 +21,11 @@ struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
     @location(0) @interpolate(flat) visibility: u32,
-    @location(1) @interpolate(flat) material_depth: u32,
 #endif
 #ifdef DEPTH_CLAMP_ORTHO
     @location(0) unclamped_clip_depth: f32,
 #endif
 }
-
-#ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
-struct FragmentOutput {
-    @location(0) visibility: vec4<u32>,
-    @location(1) material_depth: vec4<u32>,
-}
-#endif
 
 @vertex
 fn vertex(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
@@ -62,7 +53,6 @@ fn vertex(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
         clip_position,
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
         packed_ids,
-        meshlet_instance_material_ids[instance_id],
 #endif
 #ifdef DEPTH_CLAMP_ORTHO
         unclamped_clip_depth,
@@ -72,11 +62,8 @@ fn vertex(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
 
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
 @fragment
-fn fragment(vertex_output: VertexOutput) -> FragmentOutput {
-    return FragmentOutput(
-        vec4(vertex_output.visibility, 0u, 0u, 0u),
-        vec4(vertex_output.material_depth, 0u, 0u, 0u),
-    );
+fn fragment(vertex_output: VertexOutput) -> @location(0) vec4<u32> {
+    return vec4(vertex_output.visibility, 0u, 0u, 0u);
 }
 #endif
 

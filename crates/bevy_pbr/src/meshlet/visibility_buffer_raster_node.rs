@@ -83,7 +83,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             visibility_buffer_hardware_raster_pipeline,
             visibility_buffer_hardware_raster_depth_only_pipeline,
             visibility_buffer_hardware_raster_depth_only_clamp_ortho,
-            copy_material_depth_pipeline,
+            resolve_material_depth_pipeline,
         )) = MeshletPipelines::get(world)
         else {
             return Ok(());
@@ -162,11 +162,11 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             visibility_buffer_hardware_raster_pipeline,
             Some(camera),
         );
-        copy_material_depth_pass(
+        resolve_material_depth(
             render_context,
             meshlet_view_resources,
             meshlet_view_bind_groups,
-            copy_material_depth_pipeline,
+            resolve_material_depth_pipeline,
             camera,
         );
         downsample_depth(
@@ -325,34 +325,21 @@ fn raster_pass(
     visibility_buffer_hardware_raster_pipeline: &RenderPipeline,
     camera: Option<&ExtractedCamera>,
 ) {
-    let mut color_attachments_filled = [None, None];
-    if let (Some(visibility_buffer), Some(material_depth_color)) = (
-        meshlet_view_resources.visibility_buffer.as_ref(),
-        meshlet_view_resources.material_depth_color.as_ref(),
-    ) {
+    let mut color_attachments_filled = [None];
+    if let Some(visibility_buffer) = meshlet_view_resources.visibility_buffer.as_ref() {
         let load = if first_pass {
             LoadOp::Clear(LinearRgba::BLACK.into())
         } else {
             LoadOp::Load
         };
-        color_attachments_filled = [
-            Some(RenderPassColorAttachment {
-                view: &visibility_buffer.default_view,
-                resolve_target: None,
-                ops: Operations {
-                    load,
-                    store: StoreOp::Store,
-                },
-            }),
-            Some(RenderPassColorAttachment {
-                view: &material_depth_color.default_view,
-                resolve_target: None,
-                ops: Operations {
-                    load,
-                    store: StoreOp::Store,
-                },
-            }),
-        ];
+        color_attachments_filled = [Some(RenderPassColorAttachment {
+            view: &visibility_buffer.default_view,
+            resolve_target: None,
+            ops: Operations {
+                load,
+                store: StoreOp::Store,
+            },
+        })];
     }
 
     let mut draw_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
@@ -413,19 +400,19 @@ fn downsample_depth(
     }
 }
 
-fn copy_material_depth_pass(
+fn resolve_material_depth(
     render_context: &mut RenderContext,
     meshlet_view_resources: &MeshletViewResources,
     meshlet_view_bind_groups: &MeshletViewBindGroups,
-    copy_material_depth_pipeline: &RenderPipeline,
+    resolve_material_depth_pipeline: &RenderPipeline,
     camera: &ExtractedCamera,
 ) {
-    if let (Some(material_depth), Some(copy_material_depth_bind_group)) = (
+    if let (Some(material_depth), Some(resolve_material_depth_bind_group)) = (
         meshlet_view_resources.material_depth.as_ref(),
-        meshlet_view_bind_groups.copy_material_depth.as_ref(),
+        meshlet_view_bind_groups.resolve_material_depth.as_ref(),
     ) {
-        let mut copy_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("copy_material_depth"),
+        let mut resolve_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
+            label: Some("resolve_material_depth"),
             color_attachments: &[],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &material_depth.default_view,
@@ -439,11 +426,11 @@ fn copy_material_depth_pass(
             occlusion_query_set: None,
         });
         if let Some(viewport) = &camera.viewport {
-            copy_pass.set_camera_viewport(viewport);
+            resolve_pass.set_camera_viewport(viewport);
         }
 
-        copy_pass.set_render_pipeline(copy_material_depth_pipeline);
-        copy_pass.set_bind_group(0, copy_material_depth_bind_group, &[]);
-        copy_pass.draw(0..3, 0..1);
+        resolve_pass.set_render_pipeline(resolve_material_depth_pipeline);
+        resolve_pass.set_bind_group(0, resolve_material_depth_bind_group, &[]);
+        resolve_pass.draw(0..3, 0..1);
     }
 }

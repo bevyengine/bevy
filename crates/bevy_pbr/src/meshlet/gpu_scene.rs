@@ -421,21 +421,6 @@ pub fn prepare_meshlet_per_frame_resources(
             .previous_depth_pyramids
             .insert(view_entity, depth_pyramid_all_mips.clone());
 
-        let material_depth_color = TextureDescriptor {
-            label: Some("meshlet_material_depth_color"),
-            size: Extent3d {
-                width: view.viewport.z,
-                height: view.viewport.w,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: TextureDimension::D2,
-            format: TextureFormat::R16Uint,
-            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-            view_formats: &[],
-        };
-
         let material_depth = TextureDescriptor {
             label: Some("meshlet_material_depth"),
             size: Extent3d {
@@ -466,8 +451,6 @@ pub fn prepare_meshlet_per_frame_resources(
             depth_pyramid_mips,
             depth_pyramid_mip_count,
             previous_depth_pyramid,
-            material_depth_color: not_shadow_view
-                .then(|| texture_cache.get(&render_device, material_depth_color)),
             material_depth: not_shadow_view
                 .then(|| texture_cache.get(&render_device, material_depth)),
             view_size: view.viewport.zw(),
@@ -607,7 +590,6 @@ pub fn prepare_meshlet_view_bind_groups(
             gpu_scene.vertex_data.binding(),
             cluster_instance_ids.as_entire_binding(),
             gpu_scene.instance_uniforms.binding().unwrap(),
-            gpu_scene.instance_material_ids.binding().unwrap(),
             view_resources
                 .visibility_buffer_hardware_raster_triangles
                 .as_entire_binding(),
@@ -619,20 +601,20 @@ pub fn prepare_meshlet_view_bind_groups(
             &entries,
         );
 
-        let copy_material_depth =
+        let resolve_material_depth =
             view_resources
-                .material_depth_color
+                .visibility_buffer
                 .as_ref()
-                .map(|material_depth_color| {
+                .map(|visibility_buffer| {
+                    let entries = BindGroupEntries::sequential((
+                        &visibility_buffer.default_view,
+                        cluster_instance_ids.as_entire_binding(),
+                        gpu_scene.instance_material_ids.binding().unwrap(),
+                    ));
                     render_device.create_bind_group(
-                        "meshlet_copy_material_depth_bind_group",
-                        &gpu_scene.copy_material_depth_bind_group_layout,
-                        &[BindGroupEntry {
-                            binding: 0,
-                            resource: BindingResource::TextureView(
-                                &material_depth_color.default_view,
-                            ),
-                        }],
+                        "meshlet_resolve_material_depth_bind_group",
+                        &gpu_scene.resolve_material_depth_bind_group_layout,
+                        &entries,
                     )
                 });
 
@@ -664,7 +646,7 @@ pub fn prepare_meshlet_view_bind_groups(
             culling_second,
             downsample_depth,
             visibility_buffer_raster,
-            copy_material_depth,
+            resolve_material_depth,
             material_draw,
         });
     }
@@ -704,7 +686,7 @@ pub struct MeshletGpuScene {
     culling_bind_group_layout: BindGroupLayout,
     visibility_buffer_raster_bind_group_layout: BindGroupLayout,
     downsample_depth_bind_group_layout: BindGroupLayout,
-    copy_material_depth_bind_group_layout: BindGroupLayout,
+    resolve_material_depth_bind_group_layout: BindGroupLayout,
     material_draw_bind_group_layout: BindGroupLayout,
     depth_pyramid_sampler: Sampler,
     depth_pyramid_dummy_texture: TextureView,
@@ -831,16 +813,19 @@ impl FromWorld for MeshletGpuScene {
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
                         uniform_buffer::<ViewUniform>(true),
                     ),
                 ),
             ),
-            copy_material_depth_bind_group_layout: render_device.create_bind_group_layout(
-                "meshlet_copy_material_depth_bind_group_layout",
-                &BindGroupLayoutEntries::single(
+            resolve_material_depth_bind_group_layout: render_device.create_bind_group_layout(
+                "meshlet_resolve_material_depth_bind_group_layout",
+                &BindGroupLayoutEntries::sequential(
                     ShaderStages::FRAGMENT,
-                    texture_2d(TextureSampleType::Uint),
+                    (
+                        texture_2d(TextureSampleType::Uint),
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
+                    ),
                 ),
             ),
             material_draw_bind_group_layout: render_device.create_bind_group_layout(
@@ -1011,8 +996,8 @@ impl MeshletGpuScene {
         self.visibility_buffer_raster_bind_group_layout.clone()
     }
 
-    pub fn copy_material_depth_bind_group_layout(&self) -> BindGroupLayout {
-        self.copy_material_depth_bind_group_layout.clone()
+    pub fn resolve_material_depth_bind_group_layout(&self) -> BindGroupLayout {
+        self.resolve_material_depth_bind_group_layout.clone()
     }
 
     pub fn material_draw_bind_group_layout(&self) -> BindGroupLayout {
@@ -1033,7 +1018,6 @@ pub struct MeshletViewResources {
     depth_pyramid_mips: [TextureView; 12],
     pub depth_pyramid_mip_count: u32,
     previous_depth_pyramid: TextureView,
-    pub material_depth_color: Option<CachedTexture>,
     pub material_depth: Option<CachedTexture>,
     pub view_size: UVec2,
 }
@@ -1046,6 +1030,6 @@ pub struct MeshletViewBindGroups {
     pub culling_second: BindGroup,
     pub downsample_depth: BindGroup,
     pub visibility_buffer_raster: BindGroup,
-    pub copy_material_depth: Option<BindGroup>,
+    pub resolve_material_depth: Option<BindGroup>,
     pub material_draw: Option<BindGroup>,
 }
