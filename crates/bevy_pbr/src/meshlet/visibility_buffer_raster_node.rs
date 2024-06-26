@@ -3,6 +3,7 @@ use super::{
     pipelines::MeshletPipelines,
 };
 use crate::{LightEntity, ShadowView, ViewLightEntities};
+use bevy_color::LinearRgba;
 use bevy_core_pipeline::prepass::PreviousViewUniformOffset;
 use bevy_ecs::{
     query::QueryState,
@@ -127,6 +128,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             true,
             render_context,
             &meshlet_view_resources.visibility_buffer_hardware_raster_indirect_args_first,
+            &meshlet_view_resources.dummy_render_target.default_view,
             meshlet_view_bind_groups,
             view_offset,
             visibility_buffer_hardware_raster_pipeline,
@@ -152,6 +154,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             false,
             render_context,
             &meshlet_view_resources.visibility_buffer_hardware_raster_indirect_args_second,
+            &meshlet_view_resources.dummy_render_target.default_view,
             meshlet_view_bind_groups,
             view_offset,
             visibility_buffer_hardware_raster_pipeline,
@@ -215,6 +218,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 true,
                 render_context,
                 &meshlet_view_resources.visibility_buffer_hardware_raster_indirect_args_first,
+                &meshlet_view_resources.dummy_render_target.default_view,
                 meshlet_view_bind_groups,
                 view_offset,
                 shadow_visibility_buffer_pipeline,
@@ -240,6 +244,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 false,
                 render_context,
                 &meshlet_view_resources.visibility_buffer_hardware_raster_indirect_args_second,
+                &meshlet_view_resources.dummy_render_target.default_view,
                 meshlet_view_bind_groups,
                 view_offset,
                 shadow_visibility_buffer_pipeline,
@@ -309,6 +314,7 @@ fn raster_pass(
     first_pass: bool,
     render_context: &mut RenderContext,
     visibility_buffer_hardware_raster_indirect_args: &Buffer,
+    dummy_render_target: &TextureView,
     meshlet_view_bind_groups: &MeshletViewBindGroups,
     view_offset: &ViewUniformOffset,
     visibility_buffer_hardware_raster_pipeline: &RenderPipeline,
@@ -320,7 +326,14 @@ fn raster_pass(
         } else {
             "raster_second"
         }),
-        color_attachments: &[],
+        color_attachments: &[Some(RenderPassColorAttachment {
+            view: dummy_render_target,
+            resolve_target: None,
+            ops: Operations {
+                load: LoadOp::Clear(LinearRgba::BLACK.into()),
+                store: StoreOp::Discard,
+            },
+        })],
         depth_stencil_attachment: None,
         timestamp_writes: None,
         occlusion_query_set: None,

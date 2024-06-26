@@ -338,6 +338,24 @@ pub fn prepare_meshlet_per_frame_resources(
             }
         };
 
+        let dummy_render_target = texture_cache.get(
+            &render_device,
+            TextureDescriptor {
+                label: Some("meshlet_dummy_render_target"),
+                size: Extent3d {
+                    width: view.viewport.z,
+                    height: view.viewport.w,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::R8Uint,
+                usage: TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            },
+        );
+
         let type_size = if not_shadow_view {
             size_of::<u64>()
         } else {
@@ -440,6 +458,7 @@ pub fn prepare_meshlet_per_frame_resources(
             scene_meshlet_count: gpu_scene.scene_meshlet_count,
             second_pass_candidates_buffer,
             instance_visibility,
+            dummy_render_target,
             visibility_buffer,
             visibility_buffer_hardware_raster_indirect_args_first,
             visibility_buffer_hardware_raster_indirect_args_second,
@@ -1003,6 +1022,7 @@ pub struct MeshletViewResources {
     pub scene_meshlet_count: u32,
     pub second_pass_candidates_buffer: Buffer,
     instance_visibility: Buffer,
+    pub dummy_render_target: CachedTexture,
     pub visibility_buffer: Buffer,
     pub visibility_buffer_hardware_raster_indirect_args_first: Buffer,
     pub visibility_buffer_hardware_raster_indirect_args_second: Buffer,

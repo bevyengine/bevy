@@ -141,7 +141,11 @@ impl FromWorld for MeshletPipelines {
                             "MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into(),
                         ],
                         entry_point: "fragment".into(),
-                        targets: vec![],
+                        targets: vec![Some(ColorTargetState {
+                            format: TextureFormat::R8Uint,
+                            blend: None,
+                            write_mask: ColorWrites::empty(),
+                        })],
                     }),
                 },
             ),
@@ -174,7 +178,11 @@ impl FromWorld for MeshletPipelines {
                         shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
                         shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into()],
                         entry_point: "fragment".into(),
-                        targets: vec![],
+                        targets: vec![Some(ColorTargetState {
+                            format: TextureFormat::R8Uint,
+                            blend: None,
+                            write_mask: ColorWrites::empty(),
+                        })],
                     }),
                 },
             ),
@@ -214,7 +222,11 @@ impl FromWorld for MeshletPipelines {
                             "DEPTH_CLAMP_ORTHO".into(),
                         ],
                         entry_point: "fragment".into(),
-                        targets: vec![],
+                        targets: vec![Some(ColorTargetState {
+                            format: TextureFormat::R8Uint,
+                            blend: None,
+                            write_mask: ColorWrites::empty(),
+                        })],
                     }),
                 }),
 

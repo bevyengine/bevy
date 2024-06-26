@@ -67,7 +67,7 @@ fn fragment(vertex_output: VertexOutput) {
 
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
     let depth = bitcast<u32>(vertex_output.position.z);
-    let visibility = (u64(depth) << 32lu) | u64(vertex_output.packed_ids);
+    let visibility = (u64(depth) << 32u) | u64(vertex_output.packed_ids);
     atomicMax(&meshlet_visibility_buffer[frag_coord_1d], visibility);
 #else ifdef DEPTH_CLAMP_ORTHO
     let depth = bitcast<u32>(vertex_output.unclamped_clip_depth);
