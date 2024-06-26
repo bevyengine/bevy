@@ -18,7 +18,6 @@ use crate::{CalculatedClip, ExtractedUiNode, Node, NodeType, UiImage};
 #[derive(Debug, Clone, Component)]
 pub struct ComputedTextureSlices {
     slices: Vec<TextureSlice>,
-    image_size: Vec2,
 }
 
 impl ComputedTextureSlices {
@@ -56,7 +55,6 @@ impl ComputedTextureSlices {
             let mut rect = slice.texture_rect;
             rect.min *= scale;
             rect.max *= scale;
-            let atlas_size = Some(self.image_size * scale);
             ExtractedUiNode {
                 stack_index: node.stack_index,
                 color: image.color.into(),
@@ -65,7 +63,7 @@ impl ComputedTextureSlices {
                 flip_x,
                 flip_y,
                 image: image.texture.id(),
-                atlas_size,
+                atlas_scaling: Some(scale),
                 clip: clip.map(|clip| clip.clip),
                 camera_entity,
                 border: [0.; 4],
@@ -99,13 +97,10 @@ fn compute_texture_slices(
     atlas: Option<&TextureAtlas>,
     atlas_layouts: &Assets<TextureAtlasLayout>,
 ) -> Option<ComputedTextureSlices> {
-    let (image_size, texture_rect) = match atlas {
+    let texture_rect = match atlas {
         Some(a) => {
             let layout = atlas_layouts.get(&a.layout)?;
-            (
-                layout.size.as_vec2(),
-                layout.textures.get(a.index)?.as_rect(),
-            )
+            layout.textures.get(a.index)?.as_rect()
         }
         None => {
             let image = images.get(&image_handle.texture)?;
@@ -113,11 +108,10 @@ fn compute_texture_slices(
                 image.texture_descriptor.size.width as f32,
                 image.texture_descriptor.size.height as f32,
             );
-            let rect = Rect {
+            Rect {
                 min: Vec2::ZERO,
                 max: size,
-            };
-            (size, rect)
+            }
         }
     };
     let slices = match scale_mode {
@@ -135,7 +129,7 @@ fn compute_texture_slices(
             slice.tiled(*stretch_value, (*tile_x, *tile_y))
         }
     };
-    Some(ComputedTextureSlices { slices, image_size })
+    Some(ComputedTextureSlices { slices })
 }
 
 /// System reacting to added or modified [`Image`] handles, and recompute sprite slices
