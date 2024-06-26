@@ -826,7 +826,9 @@ impl<'w, 's> Commands<'w, 's> {
 pub trait EntityCommand<Marker = ()>: Send + 'static {
     /// Executes this command for the given [`Entity`].
     fn apply(self, id: Entity, world: &mut World);
+
     /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
+    #[must_use = "commands do nothing unless applied to a `World`"]
     fn with_entity(self, id: Entity) -> WithEntity<Marker, Self>
     where
         Self: Sized,
