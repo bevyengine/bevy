@@ -1,7 +1,7 @@
-use crate::func::function::Function;
+use crate::func::function::DynamicFunction;
 use bevy_utils::all_tuples;
 
-/// A trait for types that can be converted into a [`Function`].
+/// A trait for types that can be converted into a [`DynamicFunction`].
 ///
 /// # Blanket Implementation
 ///
@@ -82,8 +82,8 @@ use bevy_utils::all_tuples;
 /// [`Reflect`]: crate::Reflect
 /// [deriving `Reflect`]: derive@crate::Reflect
 pub trait IntoFunction<'env, T> {
-    /// Converts [`Self`] into a [`Function`].
-    fn into_function(self) -> Function<'env>;
+    /// Converts [`Self`] into a [`DynamicFunction`].
+    fn into_function(self) -> DynamicFunction<'env>;
 }
 
 // https://veykril.github.io/tlborm/decl-macros/building-blocks/counting.html#bit-twiddling
@@ -103,7 +103,7 @@ macro_rules! impl_into_function {
             F: FnMut($($Arg),*) -> R + 'env,
             F: for<'a> FnMut($($Arg::Item<'a>),*) -> R + 'env,
         {
-            fn into_function(mut self) -> $crate::func::Function<'env> {
+            fn into_function(mut self) -> $crate::func::DynamicFunction<'env> {
                 const COUNT: usize = count_tts!($($Arg)*);
 
                 let info = $crate::func::FunctionInfo::new()
@@ -119,7 +119,7 @@ macro_rules! impl_into_function {
                     })
                     .with_return_info($crate::func::ReturnInfo::new::<R>());
 
-                $crate::func::Function::new(move |args, _info| {
+                $crate::func::DynamicFunction::new(move |args, _info| {
                     if args.len() != COUNT {
                         return Err($crate::func::error::FuncError::ArgCount {
                             expected: COUNT,
@@ -151,7 +151,7 @@ macro_rules! impl_into_function {
             F: for<'a> FnMut(&'a Receiver, $($Arg),*) -> &'a R + 'env,
             F: for<'a> FnMut(&'a Receiver, $($Arg::Item<'a>),*) -> &'a R + 'env,
         {
-            fn into_function(mut self) -> $crate::func::Function<'env> {
+            fn into_function(mut self) -> $crate::func::DynamicFunction<'env> {
                 const COUNT: usize = count_tts!(Receiver $($Arg)*);
 
                 let info = $crate::func::FunctionInfo::new()
@@ -168,7 +168,7 @@ macro_rules! impl_into_function {
                     })
                     .with_return_info($crate::func::ReturnInfo::new::<&R>());
 
-                $crate::func::Function::new(move |args, _info| {
+                $crate::func::DynamicFunction::new(move |args, _info| {
                     if args.len() != COUNT {
                         return Err($crate::func::error::FuncError::ArgCount {
                             expected: COUNT,
@@ -202,7 +202,7 @@ macro_rules! impl_into_function {
             F: for<'a> FnMut(&'a mut Receiver, $($Arg),*) -> &'a mut R + 'env,
             F: for<'a> FnMut(&'a mut Receiver, $($Arg::Item<'a>),*) -> &'a mut R + 'env,
         {
-            fn into_function(mut self) -> $crate::func::Function<'env> {
+            fn into_function(mut self) -> $crate::func::DynamicFunction<'env> {
                 const COUNT: usize = count_tts!(Receiver $($Arg)*);
 
                 let info = $crate::func::FunctionInfo::new()
@@ -219,7 +219,7 @@ macro_rules! impl_into_function {
                     })
                     .with_return_info($crate::func::ReturnInfo::new::<&mut R>());
 
-                $crate::func::Function::new(move |args, _info| {
+                $crate::func::DynamicFunction::new(move |args, _info| {
                     if args.len() != COUNT {
                         return Err($crate::func::error::FuncError::ArgCount {
                             expected: COUNT,
@@ -253,7 +253,7 @@ macro_rules! impl_into_function {
             F: for<'a> FnMut(&'a mut Receiver, $($Arg),*) -> &'a R + 'env,
             F: for<'a> FnMut(&'a mut Receiver, $($Arg::Item<'a>),*) -> &'a R + 'env,
         {
-            fn into_function(mut self) -> $crate::func::Function<'env> {
+            fn into_function(mut self) -> $crate::func::DynamicFunction<'env> {
                 const COUNT: usize = count_tts!(Receiver $($Arg)*);
 
                 let info = $crate::func::FunctionInfo::new()
@@ -270,7 +270,7 @@ macro_rules! impl_into_function {
                     })
                     .with_return_info($crate::func::ReturnInfo::new::<&mut R>());
 
-                $crate::func::Function::new(move |args, _info| {
+                $crate::func::DynamicFunction::new(move |args, _info| {
                     if args.len() != COUNT {
                         return Err($crate::func::error::FuncError::ArgCount {
                             expected: COUNT,

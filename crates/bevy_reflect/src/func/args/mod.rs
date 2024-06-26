@@ -1,6 +1,6 @@
-//! Argument types and utilities for working with dynamic [`Functions`].
+//! Argument types and utilities for working with [`DynamicFunctions`].
 //!
-//! [`Functions`]: crate::func::Function
+//! [`DynamicFunctions`]: crate::func::DynamicFunction
 
 pub use arg::*;
 pub use error::*;

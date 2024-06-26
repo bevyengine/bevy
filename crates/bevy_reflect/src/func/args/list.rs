@@ -1,7 +1,7 @@
 use crate::func::args::Arg;
 use crate::Reflect;
 
-/// A list of arguments that can be passed to a dynamic [`Function`].
+/// A list of arguments that can be passed to a [`DynamicFunction`].
 ///
 /// # Example
 ///
@@ -23,7 +23,7 @@ use crate::Reflect;
 ///   .push(Arg::Ref(&3.14));
 /// ```
 ///
-/// [`Function`]: crate::func::Function
+/// [`DynamicFunction`]: crate::func::DynamicFunction
 #[derive(Default, Debug)]
 pub struct ArgList<'a>(Vec<Arg<'a>>);
 

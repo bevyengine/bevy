@@ -7,7 +7,7 @@ use alloc::borrow::Cow;
 use core::fmt::{Debug, Formatter};
 use std::ops::DerefMut;
 
-/// The result of calling a dynamic [`Function`].
+/// The result of calling a dynamic [`DynamicFunction`].
 ///
 /// Returns `Ok(value)` if the function was called successfully,
 /// where `value` is the [`Return`] value of the function.
@@ -24,25 +24,25 @@ pub type FunctionResult<'a> = Result<Return<'a>, FuncError>;
 ///
 /// ```
 /// # use bevy_reflect::func::args::ArgList;
-/// # use bevy_reflect::func::{Function, IntoFunction};
+/// # use bevy_reflect::func::{DynamicFunction, IntoFunction};
 /// fn add(a: i32, b: i32) -> i32 {
 ///   a + b
 /// }
 ///
-/// let mut func: Function = add.into_function();
+/// let mut func: DynamicFunction = add.into_function();
 /// let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
 /// let result = func.call(args).unwrap().unwrap_owned();
 /// assert_eq!(result.downcast_ref::<i32>(), Some(&100));
 /// ```
 ///
 /// [`IntoFunction`]: crate::func::IntoFunction
-pub struct Function<'env> {
+pub struct DynamicFunction<'env> {
     info: FunctionInfo,
     func: Box<dyn for<'a> FnMut(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'env>,
 }
 
-impl<'env> Function<'env> {
-    /// Create a new dynamic [`Function`].
+impl<'env> DynamicFunction<'env> {
+    /// Create a new dynamic [`DynamicFunction`].
     ///
     /// The given function can be used to call out to a regular function, closure, or method.
     ///
@@ -130,13 +130,13 @@ impl<'env> Function<'env> {
 
 /// Outputs the function signature.
 ///
-/// This takes the format: `Function(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) -> {return_type})`.
+/// This takes the format: `DynamicFunction(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) -> {return_type})`.
 ///
 /// Names for arguments and the function itself are optional and will default to `_` if not provided.
-impl<'env> Debug for Function<'env> {
+impl<'env> Debug for DynamicFunction<'env> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let name = self.info.name().unwrap_or("_");
-        write!(f, "Function(fn {name}(")?;
+        write!(f, "DynamicFunction(fn {name}(")?;
 
         for (index, arg) in self.info.args().iter().enumerate() {
             let name = arg.name().unwrap_or("_");

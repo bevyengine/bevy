@@ -1,12 +1,12 @@
 //! Reflection-based dynamic functions.
 //!
 //! This module provides a way to pass around and call functions dynamically
-//! using the [`Function`] type.
+//! using the [`DynamicFunction`] type.
 //!
-//! Many simple functions and closures can be automatically converted to [`Function`]
+//! Many simple functions and closures can be automatically converted to [`DynamicFunction`]
 //! using the [`IntoFunction`] trait.
 //!
-//! Once the [`Function`] is created, it can be called with a set of arguments provided
+//! Once the [`DynamicFunction`] is created, it can be called with a set of arguments provided
 //! via an [`ArgList`].
 //!
 //! This returns a [`FunctionResult`] containing the [`Return`] value,
@@ -18,12 +18,12 @@
 //! ```
 //! # use bevy_reflect::Reflect;
 //! # use bevy_reflect::func::args::ArgList;
-//! # use bevy_reflect::func::{Function, FunctionResult, IntoFunction, Return};
+//! # use bevy_reflect::func::{DynamicFunction, FunctionResult, IntoFunction, Return};
 //! fn add(a: i32, b: i32) -> i32 {
 //!   a + b
 //! }
 //!
-//! let mut func: Function = add.into_function();
+//! let mut func: DynamicFunction = add.into_function();
 //! let args: ArgList = ArgList::default()
 //!   // Pushing a known type with owned ownership
 //!   .push_owned(25_i32)

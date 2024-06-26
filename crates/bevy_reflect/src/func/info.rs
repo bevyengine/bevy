@@ -2,9 +2,9 @@ use crate::func::args::{ArgInfo, GetOwnership, Ownership};
 use crate::TypePath;
 use alloc::borrow::Cow;
 
-/// Type information for a [`Function`].
+/// Type information for a [`DynamicFunction`].
 ///
-/// [`Function`]: crate::func::Function
+/// [`DynamicFunction`]: crate::func::DynamicFunction
 #[derive(Debug, Clone)]
 pub struct FunctionInfo {
     name: Option<Cow<'static, str>>,
@@ -49,9 +49,9 @@ impl FunctionInfo {
     /// This is because the name needs to be manually set using [`Self::with_name`]
     /// since the name can't be inferred from the function type alone.
     ///
-    /// For [`Functions`] created using [`IntoFunction`], the name will always be `None`.
+    /// For [`DynamicFunctions`] created using [`IntoFunction`], the name will always be `None`.
     ///
-    /// [`Functions`]: crate::func::Function
+    /// [`DynamicFunctions`]: crate::func::DynamicFunction
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
     }
@@ -78,9 +78,9 @@ impl Default for FunctionInfo {
     }
 }
 
-/// Information about the return type of a [`Function`].
+/// Information about the return type of a [`DynamicFunction`].
 ///
-/// [`Function`]: crate::func::Function
+/// [`DynamicFunction`]: crate::func::DynamicFunction
 #[derive(Debug, Clone)]
 pub struct ReturnInfo {
     type_path: &'static str,

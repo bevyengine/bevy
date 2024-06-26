@@ -1,9 +1,9 @@
 use crate::func::args::{ArgError, ArgInfo, Ownership};
 use crate::Reflect;
 
-/// Represents an argument that can be passed to a dynamic [`Function`].
+/// Represents an argument that can be passed to a [`DynamicFunction`].
 ///
-/// [`Function`]: crate::func::Function
+/// [`DynamicFunction`]: crate::func::DynamicFunction
 #[derive(Debug)]
 pub enum Arg<'a> {
     Owned(Box<dyn Reflect>),

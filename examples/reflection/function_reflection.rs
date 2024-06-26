@@ -1,10 +1,12 @@
 //! This example demonstrates how functions can be called dynamically using reflection.
 
 use bevy::reflect::func::args::ArgInfo;
-use bevy::reflect::func::{ArgList, Function, FunctionInfo, IntoFunction, Return, ReturnInfo};
+use bevy::reflect::func::{
+    ArgList, DynamicFunction, FunctionInfo, IntoFunction, Return, ReturnInfo,
+};
 use bevy::reflect::Reflect;
 
-// Note that the `dbg!` invocations are used purely for reference purposes
+// Note that the `dbg!` invocations are used purely for demonstration purposes
 // and are not strictly necessary for the example to work.
 fn main() {
     // There are times when it may be helpful to store a function away for later.
@@ -27,12 +29,12 @@ fn main() {
     // However, you'll notice that we have to know the types of the arguments and return value at compile time.
     // This means there's not really a way to store or call these functions dynamically at runtime.
     // Luckily, Bevy's reflection crate comes with a set of tools for doing just that!
-    // We do this by first converting our function into the reflection-based `Function` type
+    // We do this by first converting our function into the reflection-based `DynamicFunction` type
     // using the `IntoFunction` trait.
-    let mut function: Function = dbg!(add.into_function());
+    let mut function: DynamicFunction = dbg!(add.into_function());
 
-    // This time, you'll notice that `Function` doesn't take any information about the function's arguments or return value.
-    // This is because `Function` checks the types of the arguments and return value at runtime.
+    // This time, you'll notice that `DynamicFunction` doesn't take any information about the function's arguments or return value.
+    // This is because `DynamicFunction` checks the types of the arguments and return value at runtime.
     // Now we can generate a list of arguments:
     let args: ArgList = dbg!(ArgList::new().push_owned(2_i32).push_owned(2_i32));
 
@@ -52,9 +54,9 @@ fn main() {
     let increment = |amount: i32| {
         count += amount;
     };
-    let increment_function: Function = dbg!(increment.into_function());
+    let increment_function: DynamicFunction = dbg!(increment.into_function());
     let args = dbg!(ArgList::new().push_owned(5_i32));
-    // Functions containing closures that capture their environment like this one
+    // `DynamicFunction`s containing closures that capture their environment like this one
     // may need to be dropped before those captured variables may be used again.
     // This can be done manually with `drop` or by using the `Function::call_once` method.
     dbg!(increment_function.call_once(args).unwrap());
@@ -71,7 +73,7 @@ fn main() {
     // Functions with non-reflectable arguments or return values may not be able to be converted.
     // Generic functions are also not supported.
     // Additionally, the lifetime of the return value is tied to the lifetime of the first argument.
-    // However, this means that many methods are also supported:
+    // However, this means that many methods (i.e. functions with a `self` parameter) are also supported:
     #[derive(Reflect, Default)]
     struct Data {
         value: String,
@@ -102,7 +104,7 @@ fn main() {
     let result: &dyn Reflect = result.unwrap_ref();
     assert_eq!(result.downcast_ref::<String>().unwrap(), "Hello, world!");
 
-    // Lastly, for more complex use cases, you can always create a custom `Function` manually.
+    // Lastly, for more complex use cases, you can always create a custom `DynamicFunction` manually.
     // This is useful for functions that can't be converted via the `IntoFunction` trait.
     // For example, this function doesn't implement `IntoFunction` due to the fact that
     // the lifetime of the return value is not tied to the lifetime of the first argument.
@@ -114,7 +116,7 @@ fn main() {
         container.as_ref().unwrap()
     }
 
-    let mut get_or_insert_function = dbg!(Function::new(
+    let mut get_or_insert_function = dbg!(DynamicFunction::new(
         |mut args, info| {
             let container_info = &info.args()[1];
             let value_info = &info.args()[0];
