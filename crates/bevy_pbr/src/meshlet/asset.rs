@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::{io::Cursor, sync::Arc};
 
 /// The current version of the [`MeshletMesh`] asset format.
-pub const MESHLET_MESH_ASSET_VERSION: u64 = 0;
+pub const MESHLET_MESH_ASSET_VERSION: u64 = 1;
 
 /// A mesh that has been pre-processed into multiple small clusters of triangles called meshlets.
 ///
@@ -51,6 +51,8 @@ pub struct Meshlet {
     pub start_vertex_id: u32,
     /// The offset within the parent mesh's [`MeshletMesh::indices`] buffer where the indices for this meshlet begin.
     pub start_index_id: u32,
+    /// The amount of vertices in this meshlet.
+    pub vertex_count: u32,
     /// The amount of triangles in this meshlet.
     pub triangle_count: u32,
 }

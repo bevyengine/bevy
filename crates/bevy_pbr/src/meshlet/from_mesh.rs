@@ -141,6 +141,7 @@ impl MeshletMesh {
             .map(|m| Meshlet {
                 start_vertex_id: m.vertex_offset,
                 start_index_id: m.triangle_offset,
+                vertex_count: m.vertex_count,
                 triangle_count: m.triangle_count,
             })
             .collect();
