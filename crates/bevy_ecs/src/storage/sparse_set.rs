@@ -3,7 +3,7 @@ use crate::{
     entity::Entity,
     storage::{Column, TableRow},
 };
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_ptr::{OwningPtr, Ptr};
 use nonmax::NonMaxUsize;
 use std::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
 
@@ -169,7 +169,7 @@ impl ComponentSparseSet {
         entity: Entity,
         value: OwningPtr<'_>,
         change_tick: Tick,
-        caller: String,
+        caller: core::panic::Location<'static>,
     ) {
         if let Some(&dense_index) = self.sparse.get(entity.index()) {
             #[cfg(debug_assertions)]
@@ -227,7 +227,11 @@ impl ComponentSparseSet {
     pub fn get_with_ticks(
         &self,
         entity: Entity,
-    ) -> Option<(Ptr<'_>, TickCells<'_>, &UnsafeCell<String>)> {
+    ) -> Option<(
+        Ptr<'_>,
+        TickCells<'_>,
+        &UnsafeCell<core::panic::Location<'static>>,
+    )> {
         let dense_index = *self.sparse.get(entity.index())?;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index.as_usize()]);

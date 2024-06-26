@@ -139,11 +139,7 @@ fn main() {
                 // - Component ids have been taken from the same world
                 // - Each array is created to the layout specified in the world
                 unsafe {
-                    entity.insert_by_ids(
-                        &to_insert_ids,
-                        to_insert_ptr.into_iter(),
-                        "dynamic".into(),
-                    );
+                    entity.insert_by_ids(&to_insert_ids, to_insert_ptr.into_iter());
                 }
 
                 println!("Entity spawned with id: {:?}", entity.id());

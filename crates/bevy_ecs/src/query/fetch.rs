@@ -12,7 +12,7 @@ use crate::{
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::all_tuples;
-use std::{cell::UnsafeCell, marker::PhantomData, ops::Deref};
+use std::{cell::UnsafeCell, marker::PhantomData};
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
 ///
@@ -1026,7 +1026,7 @@ pub struct RefFetch<'w, T> {
         ThinSlicePtr<'w, UnsafeCell<T>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
-        ThinSlicePtr<'w, UnsafeCell<String>>,
+        ThinSlicePtr<'w, UnsafeCell<core::panic::Location<'static>>>,
     )>,
     // T::STORAGE_TYPE = StorageType::SparseSet
     sparse_set: Option<&'w ComponentSparseSet>,
@@ -1215,7 +1215,7 @@ pub struct WriteFetch<'w, T> {
         ThinSlicePtr<'w, UnsafeCell<T>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
-        ThinSlicePtr<'w, UnsafeCell<String>>,
+        ThinSlicePtr<'w, UnsafeCell<core::panic::Location<'static>>>,
     )>,
     // T::STORAGE_TYPE = StorageType::SparseSet
     sparse_set: Option<&'w ComponentSparseSet>,
@@ -1326,7 +1326,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 // SAFETY: The caller ensures `table_row` is in range.
                 let added = unsafe { added_ticks.get(table_row.as_usize()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let changed = unsafe { changed_ticks.get(table_row.as_usize()) }; // SAFETY: The caller ensures `table_row` is in range.
+                let changed = unsafe { changed_ticks.get(table_row.as_usize()) };
+                // SAFETY: The caller ensures `table_row` is in range.
                 let caller = unsafe { callers.get(table_row.as_usize()) };
 
                 Mut {

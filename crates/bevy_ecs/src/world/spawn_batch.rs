@@ -16,7 +16,7 @@ where
 {
     inner: I,
     spawner: BundleSpawner<'w>,
-    caller: String,
+    caller: core::panic::Location<'static>,
 }
 
 impl<'w, I> SpawnBatchIter<'w, I>
@@ -43,7 +43,7 @@ where
         Self {
             inner: iter,
             spawner,
-            caller: core::panic::Location::caller().to_string(),
+            caller: *core::panic::Location::caller(),
         }
     }
 }
@@ -72,7 +72,7 @@ where
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
         // SAFETY: bundle matches spawner type
-        unsafe { Some(self.spawner.spawn(bundle, self.caller.clone())) }
+        unsafe { Some(self.spawner.spawn(bundle, self.caller)) }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

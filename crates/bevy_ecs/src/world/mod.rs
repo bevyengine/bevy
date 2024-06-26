@@ -960,11 +960,7 @@ impl World {
             let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
             // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
             unsafe {
-                bundle_spawner.spawn_non_existent(
-                    entity,
-                    bundle,
-                    core::panic::Location::caller().to_string(),
-                )
+                bundle_spawner.spawn_non_existent(entity, bundle, *core::panic::Location::caller())
             }
         };
 
@@ -1779,14 +1775,7 @@ impl World {
                             if location.archetype_id == archetype =>
                         {
                             // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe {
-                                inserter.insert(
-                                    entity,
-                                    location,
-                                    bundle,
-                                    core::panic::Location::caller().to_string(),
-                                )
-                            };
+                            unsafe { inserter.insert(entity, location, bundle) };
                         }
                         _ => {
                             // SAFETY: we initialized this bundle_id in `init_info`
@@ -1799,14 +1788,7 @@ impl World {
                                 )
                             };
                             // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe {
-                                inserter.insert(
-                                    entity,
-                                    location,
-                                    bundle,
-                                    core::panic::Location::caller().to_string(),
-                                )
-                            };
+                            unsafe { inserter.insert(entity, location, bundle) };
                             spawn_or_insert =
                                 SpawnOrInsert::Insert(inserter, location.archetype_id);
                         }
@@ -1819,7 +1801,7 @@ impl World {
                             spawner.spawn_non_existent(
                                 entity,
                                 bundle,
-                                core::panic::Location::caller().to_string(),
+                                *core::panic::Location::caller(),
                             )
                         };
                     } else {
@@ -1831,7 +1813,7 @@ impl World {
                             spawner.spawn_non_existent(
                                 entity,
                                 bundle,
-                                core::panic::Location::caller().to_string(),
+                                *core::panic::Location::caller(),
                             )
                         };
                         spawn_or_insert = SpawnOrInsert::Spawn(spawner);
@@ -2526,6 +2508,9 @@ impl World {
                     // - We iterate one resource at a time, and we let go of each `PtrMut` before getting the next one
                     value: unsafe { ptr.assert_unique() },
                     ticks,
+                    // SAFETY:
+                    // - We have exclusive access to the world, so no other code can be aliasing the `Ptr`
+                    // - We iterate one resource at a time, and we let go of each `PtrMut` before getting the next one
                     caller: unsafe { caller.deref_mut() },
                 };
 

@@ -387,7 +387,7 @@ impl BundleInfo {
         table_row: TableRow,
         change_tick: Tick,
         bundle: T,
-        caller: String,
+        caller: core::panic::Location<'static>,
     ) {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
@@ -404,15 +404,10 @@ impl BundleInfo {
                     let status = unsafe { bundle_component_status.get_status(bundle_component) };
                     match status {
                         ComponentStatus::Added => {
-                            column.initialize(
-                                table_row,
-                                component_ptr,
-                                change_tick,
-                                caller.clone(),
-                            );
+                            column.initialize(table_row, component_ptr, change_tick, caller);
                         }
                         ComponentStatus::Mutated => {
-                            column.replace(table_row, component_ptr, change_tick, caller.clone());
+                            column.replace(table_row, component_ptr, change_tick, caller);
                         }
                     }
                 }
@@ -421,7 +416,7 @@ impl BundleInfo {
                         // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
                         // a sparse set exists for the component.
                         unsafe { sparse_sets.get_mut(component_id).debug_checked_unwrap() };
-                    sparse_set.insert(entity, component_ptr, change_tick, caller.clone());
+                    sparse_set.insert(entity, component_ptr, change_tick, caller);
                 }
             }
             bundle_component += 1;
@@ -642,17 +637,18 @@ impl<'w> BundleInserter<'w> {
     /// `entity` must currently exist in the source archetype for this inserter. `location`
     /// must be `entity`'s location in the archetype. `T` must match this [`BundleInfo`]'s type
     #[inline]
+    #[track_caller]
     pub(crate) unsafe fn insert<T: DynamicBundle>(
         &mut self,
         entity: Entity,
         location: EntityLocation,
         bundle: T,
-        caller: String,
     ) -> EntityLocation {
         let bundle_info = self.bundle_info.as_ref();
         let add_bundle = self.add_bundle.as_ref();
         let table = self.table.as_mut();
         let archetype = self.archetype.as_mut();
+        let caller = *core::panic::Location::caller();
 
         let (new_archetype, new_location) = match &mut self.result {
             InsertBundleResult::SameArchetype => {
@@ -891,7 +887,7 @@ impl<'w> BundleSpawner<'w> {
         &mut self,
         entity: Entity,
         bundle: T,
-        caller: String,
+        caller: core::panic::Location<'static>,
     ) -> EntityLocation {
         let table = self.table.as_mut();
         let archetype = self.archetype.as_mut();
@@ -939,7 +935,11 @@ impl<'w> BundleSpawner<'w> {
     /// # Safety
     /// `T` must match this [`BundleInfo`]'s type
     #[inline]
-    pub unsafe fn spawn<T: Bundle>(&mut self, bundle: T, caller: String) -> Entity {
+    pub unsafe fn spawn<T: Bundle>(
+        &mut self,
+        bundle: T,
+        caller: core::panic::Location<'static>,
+    ) -> Entity {
         let entity = self.entities().alloc();
         // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
         unsafe {

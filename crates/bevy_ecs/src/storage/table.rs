@@ -152,7 +152,7 @@ pub struct Column {
     data: BlobVec,
     added_ticks: Vec<UnsafeCell<Tick>>,
     changed_ticks: Vec<UnsafeCell<Tick>>,
-    callers: Vec<UnsafeCell<String>>,
+    callers: Vec<UnsafeCell<core::panic::Location<'static>>>,
 }
 
 impl Column {
@@ -186,7 +186,7 @@ impl Column {
         row: TableRow,
         data: OwningPtr<'_>,
         tick: Tick,
-        caller: String,
+        caller: core::panic::Location<'static>,
     ) {
         debug_assert!(row.as_usize() < self.len());
         self.data.initialize_unchecked(row.as_usize(), data);
@@ -209,7 +209,7 @@ impl Column {
         row: TableRow,
         data: OwningPtr<'_>,
         change_tick: Tick,
-        caller: String,
+        caller: core::panic::Location<'static>,
     ) {
         debug_assert!(row.as_usize() < self.len());
         self.data.replace_unchecked(row.as_usize(), data);
@@ -266,7 +266,11 @@ impl Column {
     pub(crate) unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         row: TableRow,
-    ) -> (OwningPtr<'_>, ComponentTicks, String) {
+    ) -> (
+        OwningPtr<'_>,
+        ComponentTicks,
+        core::panic::Location<'static>,
+    ) {
         let data = self.data.swap_remove_and_forget_unchecked(row.as_usize());
         let added = self.added_ticks.swap_remove(row.as_usize()).into_inner();
         let changed = self.changed_ticks.swap_remove(row.as_usize()).into_inner();
@@ -311,7 +315,7 @@ impl Column {
         &mut self,
         ptr: OwningPtr<'_>,
         ticks: ComponentTicks,
-        caller: String,
+        caller: core::panic::Location<'static>,
     ) {
         self.data.push(ptr);
         self.added_ticks.push(UnsafeCell::new(ticks.added));
@@ -369,8 +373,13 @@ impl Column {
         &self.changed_ticks
     }
 
+    /// Fetches the slice to the [`Column`]'s caller locations.
+    ///
+    /// Note: The values stored within are [`UnsafeCell`].
+    /// Users of this API must ensure that accesses to each individual element
+    /// adhere to the safety invariants of [`UnsafeCell`].
     #[inline]
-    pub fn get_callers_slice(&self) -> &[UnsafeCell<String>] {
+    pub fn get_callers_slice(&self) -> &[UnsafeCell<core::panic::Location<'static>>] {
         &self.callers
     }
 
@@ -378,7 +387,14 @@ impl Column {
     ///
     /// Returns `None` if `row` is out of bounds.
     #[inline]
-    pub fn get(&self, row: TableRow) -> Option<(Ptr<'_>, TickCells<'_>, &UnsafeCell<String>)> {
+    pub fn get(
+        &self,
+        row: TableRow,
+    ) -> Option<(
+        Ptr<'_>,
+        TickCells<'_>,
+        &UnsafeCell<core::panic::Location<'static>>,
+    )> {
         (row.as_usize() < self.data.len())
             // SAFETY: The row is length checked before fetching the pointer. This is being
             // accessed through a read-only reference to the column.
@@ -507,7 +523,10 @@ impl Column {
     /// # Safety
     /// `row` must be within the range `[0, self.len())`.
     #[inline]
-    pub unsafe fn get_caller_unchecked(&self, row: TableRow) -> &UnsafeCell<String> {
+    pub unsafe fn get_caller_unchecked(
+        &self,
+        row: TableRow,
+    ) -> &UnsafeCell<core::panic::Location<'static>> {
         debug_assert!(row.as_usize() < self.callers.len());
         self.callers.get_unchecked(row.as_usize())
     }
@@ -785,7 +804,9 @@ impl Table {
             column.data.set_len(self.entities.len());
             column.added_ticks.push(UnsafeCell::new(Tick::new(0)));
             column.changed_ticks.push(UnsafeCell::new(Tick::new(0)));
-            column.callers.push(UnsafeCell::new(String::new()));
+            column
+                .callers
+                .push(UnsafeCell::new(*core::panic::Location::caller()));
         }
         TableRow::from_usize(index)
     }
@@ -993,7 +1014,7 @@ mod tests {
                         row,
                         value_ptr,
                         Tick::new(0),
-                        "".into(),
+                        *core::panic::Location::caller(),
                     );
                 });
             };

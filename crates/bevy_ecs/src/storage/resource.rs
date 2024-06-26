@@ -17,7 +17,7 @@ pub struct ResourceData<const SEND: bool> {
     type_name: String,
     id: ArchetypeComponentId,
     origin_thread_id: Option<ThreadId>,
-    caller: UnsafeCell<String>,
+    caller: UnsafeCell<core::panic::Location<'static>>,
 }
 
 impl<const SEND: bool> Drop for ResourceData<SEND> {
@@ -110,7 +110,13 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// If `SEND` is false, this will panic if a value is present and is not accessed from the
     /// original thread it was inserted in.
     #[inline]
-    pub(crate) fn get_with_ticks(&self) -> Option<(Ptr<'_>, TickCells<'_>, &UnsafeCell<String>)> {
+    pub(crate) fn get_with_ticks(
+        &self,
+    ) -> Option<(
+        Ptr<'_>,
+        TickCells<'_>,
+        &UnsafeCell<core::panic::Location<'static>>,
+    )> {
         self.is_present().then(|| {
             self.validate_access();
             (
@@ -211,7 +217,13 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// original thread it was inserted from.
     #[inline]
     #[must_use = "The returned pointer to the removed component should be used or dropped"]
-    pub(crate) fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks, String)> {
+    pub(crate) fn remove(
+        &mut self,
+    ) -> Option<(
+        OwningPtr<'_>,
+        ComponentTicks,
+        core::panic::Location<'static>,
+    )> {
         if !self.is_present() {
             return None;
         }
@@ -222,7 +234,7 @@ impl<const SEND: bool> ResourceData<SEND> {
         let res = unsafe { self.data.swap_remove_and_forget_unchecked(Self::ROW) };
 
         // SAFETY: This function is being called through an exclusive mutable reference to Self
-        let caller = unsafe { std::mem::take(self.caller.deref_mut()) };
+        let caller = unsafe { *self.caller.deref_mut() };
 
         // SAFETY: This function is being called through an exclusive mutable reference to Self, which
         // makes it sound to read these ticks.
@@ -342,7 +354,7 @@ impl<const SEND: bool> Resources<SEND> {
                 type_name: String::from(component_info.name()),
                 id: f(),
                 origin_thread_id: None,
-                caller: UnsafeCell::new("init".into())
+                caller: UnsafeCell::new(*core::panic::Location::caller())
             }
         })
     }

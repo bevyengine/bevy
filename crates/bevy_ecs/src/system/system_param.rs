@@ -1044,7 +1044,7 @@ pub struct NonSend<'w, T: 'static> {
     ticks: ComponentTicks,
     last_run: Tick,
     this_run: Tick,
-    caller: &'w str,
+    caller: &'w core::panic::Location<'static>,
 }
 
 // SAFETY: Only reads a single World non-send resource
@@ -1071,8 +1071,8 @@ impl<'w, T: 'static> NonSend<'w, T> {
     }
 
     /// The location that last caused this to change.
-    pub fn changed_by(&self) -> &str {
-        self.caller
+    pub fn changed_by(&self) -> core::panic::Location<'static> {
+        *self.caller
     }
 }
 

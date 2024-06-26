@@ -41,7 +41,7 @@ fn change_component(time: Res<Time>, mut query: Query<(Entity, &mut MyComponent)
 fn change_detection(query: Query<(Entity, Ref<MyComponent>), Changed<MyComponent>>) {
     for (entity, component) in &query {
         info!(
-            "{:?} changed: {:?} by: {:?}",
+            "{:?} changed: {:?} by: {}",
             entity,
             component,
             component.changed_by()
