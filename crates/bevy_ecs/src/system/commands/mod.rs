@@ -827,6 +827,11 @@ pub trait EntityCommand<Marker = ()>: Send + 'static {
     fn apply(self, entity: Entity, world: &mut World);
 
     /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
+    ///
+    /// This method is called when adding an [`EntityCommand`] to a command queue via [`Commands`].
+    /// You can override the provided implementation if you can return a `Command` with a smaller memory
+    /// footprint than `(Entity, Self)`.
+    /// In most cases the provided implementation is sufficient.
     fn with_entity(self, entity: Entity) -> impl Command
     where
         Self: Sized,
