@@ -442,12 +442,13 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         //
         // For example, `Query<&mut C, Or<(With<A>, Without<B>)>>` is compatible `Query<&mut C, (With<B>, Without<A>)>`,
         // but `Query<&mut C, Or<(Without<A>, Without<B>)>>` isn't compatible with `Query<&mut C, Or<(With<A>, With<B>)>>`.
-        self.filter_sets.iter().all(|filter| {
-            other
-                .filter_sets
-                .iter()
-                .all(|other_filter| filter.is_ruled_out_by(other_filter))
-        })
+        !self.filter_sets.is_empty()
+            && self.filter_sets.iter().all(|filter| {
+                other
+                    .filter_sets
+                    .iter()
+                    .all(|other_filter| filter.is_ruled_out_by(other_filter))
+            })
     }
 
     /// Returns a vector of elements that this and `other` cannot access at the same time.
@@ -474,7 +475,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         }
         if self.filter_sets.is_empty() {
             self.filter_sets = other.filter_sets.clone();
-            return
+            return;
         }
 
         // We can avoid allocating a new array of bitsets if `other` contains just a single set of filters:
@@ -599,7 +600,7 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     ///    mutually exclusive. The fine grained phase iterates over all filters in
     ///    the `self` set and compares it to all the filters in the `other` set,
     ///    making sure they are all mutually compatible.
-     pub fn is_compatible(&self, other: &FilteredAccessSet<T>) -> bool {
+    pub fn is_compatible(&self, other: &FilteredAccessSet<T>) -> bool {
         if self.combined_access.is_compatible(other.combined_access()) {
             return true;
         }
