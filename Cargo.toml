@@ -77,6 +77,7 @@ default = [
   "bevy_gizmos",
   "android_shared_stdcxx",
   "tonemapping_luts",
+  "smaa_luts",
   "default_font",
   "webgl2",
   "sysinfo_plugin",
@@ -285,6 +286,9 @@ detailed_trace = ["bevy_internal/detailed_trace"]
 
 # Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method on your `Camera2dBundle` or `Camera3dBundle`.
 tonemapping_luts = ["bevy_internal/tonemapping_luts", "ktx2", "zstd"]
+
+# Include SMAA Look Up Tables KTX2 Files
+smaa_luts = ["bevy_internal/smaa_luts"]
 
 # Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)
 accesskit_unix = ["bevy_internal/accesskit_unix"]
@@ -3131,6 +3135,17 @@ doc-scrape-examples = true
 [package.metadata.example.2d_top_down_camera]
 name = "2D top-down camera"
 description = "A 2D top-down camera smoothly following player movements"
+category = "Camera"
+wasm = true
+
+[[example]]
+name = "first_person_view_model"
+path = "examples/camera/first_person_view_model.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.first_person_view_model]
+name = "First person view model"
+description = "A first-person camera that uses a world model and a view model with different field of views (FOV)"
 category = "Camera"
 wasm = true
 

@@ -4,6 +4,8 @@ use bevy::{
     prelude::*,
     utils::{HashMap, HashSet},
 };
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
@@ -47,13 +49,13 @@ struct Mine {
 }
 
 impl Mine {
-    fn random() -> Self {
+    fn random(rand: &mut ChaCha8Rng) -> Self {
         Mine {
             pos: Vec2::new(
-                (rand::random::<f32>() - 0.5) * 1200.0,
-                (rand::random::<f32>() - 0.5) * 600.0,
+                (rand.gen::<f32>() - 0.5) * 1200.0,
+                (rand.gen::<f32>() - 0.5) * 600.0,
             ),
-            size: 4.0 + rand::random::<f32>() * 16.0,
+            size: 4.0 + rand.gen::<f32>() * 16.0,
         }
     }
 }
@@ -67,20 +69,29 @@ struct ExplodeMines {
 #[derive(Event)]
 struct Explode;
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
-    commands.spawn(TextBundle::from_section(
-        "Click on a \"Mine\" to trigger it.\n\
+    commands.spawn(
+        TextBundle::from_section(
+            "Click on a \"Mine\" to trigger it.\n\
             When it explodes it will trigger all overlapping mines.",
-        TextStyle {
-            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-            font_size: 24.,
-            color: Color::WHITE,
-        },
-    ));
+            TextStyle {
+                color: Color::WHITE,
+                ..default()
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.),
+            left: Val::Px(12.),
+            ..default()
+        }),
+    );
+
+    let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
 
     commands
-        .spawn(Mine::random())
+        .spawn(Mine::random(&mut rng))
         // Observers can watch for events targeting a specific entity.
         // This will create a new observer that runs whenever the Explode event
         // is triggered for this spawned entity.
@@ -97,7 +108,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // As we spawn entities, we can make this observer watch each of them:
     for _ in 0..1000 {
-        let entity = commands.spawn(Mine::random()).id();
+        let entity = commands.spawn(Mine::random(&mut rng)).id();
         observer.watch_entity(entity);
     }
 
@@ -140,7 +151,7 @@ fn explode_mine(trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Co
     let Some(mut entity) = commands.get_entity(id) else {
         return;
     };
-    println!("Boom! {:?} exploded.", id.index());
+    info!("Boom! {:?} exploded.", id.index());
     entity.despawn();
     let mine = query.get(id).unwrap();
     // Trigger another explosion cascade.

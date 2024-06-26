@@ -38,10 +38,12 @@ impl Plugin for BatchingPlugin {
             return;
         };
 
-        render_app.add_systems(
-            Render,
-            write_indirect_parameters_buffer.in_set(RenderSet::PrepareResourcesFlush),
-        );
+        render_app
+            .insert_resource(IndirectParametersBuffer::new())
+            .add_systems(
+                Render,
+                write_indirect_parameters_buffer.in_set(RenderSet::PrepareResourcesFlush),
+            );
     }
 
     fn finish(&self, app: &mut App) {
@@ -163,14 +165,14 @@ pub struct PreprocessWorkItem {
 /// that, we make the following two observations:
 ///
 /// 1. `instance_count` is in the same place in both structures. So we can
-/// access it regardless of the structure we're looking at.
+///     access it regardless of the structure we're looking at.
 ///
 /// 2. The second structure is one word larger than the first. Thus we need to
-/// pad out the first structure by one word in order to place both structures in
-/// an array. If we pad out `ArrayIndirectParameters` by copying the
-/// `first_instance` field into the padding, then the resulting union structure
-/// will always have a read-only copy of `first_instance` in the final word. We
-/// take advantage of this in the shader to reduce branching.
+///     pad out the first structure by one word in order to place both structures in
+///     an array. If we pad out `ArrayIndirectParameters` by copying the
+///     `first_instance` field into the padding, then the resulting union structure
+///     will always have a read-only copy of `first_instance` in the final word. We
+///     take advantage of this in the shader to reduce branching.
 #[derive(Clone, Copy, Pod, Zeroable, ShaderType)]
 #[repr(C)]
 pub struct IndirectParameters {
