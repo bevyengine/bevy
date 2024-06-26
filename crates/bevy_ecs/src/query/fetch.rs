@@ -1871,10 +1871,8 @@ macro_rules! impl_anytuple_fetch {
                     // we use an intermediate empty access because we only want to update the filters, not the access
                     let mut intermediate = FilteredAccess::default();
                     $name::update_component_access($name, &mut intermediate);
-                    _new_access.append_or(&intermediate);
+                    _access.append_or(&intermediate);
                 )*
-
-                _access.filter_sets = _new_access.filter_sets;
             }
             #[allow(unused_variables)]
             fn init_state(world: &mut World) -> Self::State {
