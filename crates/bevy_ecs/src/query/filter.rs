@@ -443,7 +443,7 @@ macro_rules! impl_or_query_filter {
             fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
                 let ($($filter,)*) = state;
 
-                let mut _new_access = access.clone();
+                let mut _new_access = FilteredAccess::default();
                 $(
                     let mut intermediate = access.clone();
                     $filter::update_component_access($filter, &mut intermediate);
