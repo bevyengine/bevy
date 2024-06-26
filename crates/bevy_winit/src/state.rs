@@ -503,10 +503,14 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         // If the cycle takes more than the wait timeout, it will be re-executed immediately.
         let begin_frame_time = Instant::now();
 
-        if !self.ran_update_since_last_redraw && should_update {
+        if should_update {
             // Not redrawing, but the timeout elapsed.
-            self.run_app_update();
-            self.ran_update_since_last_redraw = true;
+            if !self.ran_update_since_last_redraw {
+                self.run_app_update();
+                self.ran_update_since_last_redraw = true;
+            } else {
+                self.redraw_requested = true;
+            }
 
             // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
             let (config, windows) = focused_windows_state.get(self.world());
