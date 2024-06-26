@@ -290,8 +290,8 @@ fn simplify_meshlet_groups(
 
     // Allow more deformation for high LOD levels (1% at LOD 1, 10% at LOD 20+)
     let t = (lod_level - 1) as f32 / 19.0;
-    let target_error_rel = 0.1 * t + 0.01 * (1.0 - t);
-    let target_error = target_error_rel * mesh_scale;
+    let target_error_relative = 0.1 * t + 0.01 * (1.0 - t);
+    let target_error = target_error_relative * mesh_scale;
 
     // Simplify the group to ~50% triangle count
     // TODO: Use simplify_with_locks()
