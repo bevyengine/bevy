@@ -742,6 +742,7 @@ impl PipelineCache {
                 let compilation_options = PipelineCompilationOptions {
                     constants: &std::collections::HashMap::new(),
                     zero_initialize_workgroup_memory: false,
+                    vertex_pulling_transform: false,
                 };
 
                 let descriptor = RawRenderPipelineDescriptor {
@@ -767,6 +768,7 @@ impl PipelineCache {
                             // TODO: Should this be the same as the vertex compilation options?
                             compilation_options,
                         }),
+                    cache: None,
                 };
 
                 Ok(Pipeline::RenderPipeline(
@@ -822,7 +824,9 @@ impl PipelineCache {
                     compilation_options: PipelineCompilationOptions {
                         constants: &std::collections::HashMap::new(),
                         zero_initialize_workgroup_memory: false,
+                        vertex_pulling_transform: false,
                     },
+                    cache: None,
                 };
 
                 Ok(Pipeline::ComputePipeline(
@@ -1041,6 +1045,10 @@ fn get_capabilities(
     capabilities.set(
         Capabilities::SHADER_INT64,
         features.contains(Features::SHADER_INT64),
+    );
+    capabilities.set(
+        Capabilities::SHADER_INT64_ATOMIC_MIN_MAX,
+        features.contains(Features::SHADER_INT64_ATOMIC_MIN_MAX),
     );
     capabilities.set(
         Capabilities::MULTISAMPLED_SHADING,

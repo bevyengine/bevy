@@ -84,6 +84,7 @@ use bevy_render::{
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_utils::tracing::error;
 
 const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1325134235233421);
 const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
@@ -105,9 +106,9 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 /// * Requires preprocessing meshes. See [`MeshletMesh`] for details.
 /// * Limitations on the kinds of materials you can use. See [`MeshletMesh`] for details.
 ///
-/// This plugin is not compatible with [`Msaa`], and adding this plugin will disable it.
+/// This plugin requires a fairly recent GPU that supports [WgpuFeatures::SHADER_INT64_ATOMIC_MIN_MAX].
 ///
-/// This plugin does not work on WASM.
+/// This plugin is not compatible with [`Msaa`], and adding this plugin will disable it.
 ///
 /// Mixing forward+prepass and deferred rendering for opaque materials is not currently supported when using this plugin.
 /// You must use one or the other by setting [`crate::DefaultOpaqueRendererMethod`].
@@ -181,15 +182,16 @@ impl Plugin for MeshletPlugin {
             return;
         };
 
-        // TODO: SHADER_INT64_ATOMIC_MIN_MAX
-        let required_features = WgpuFeatures::SHADER_INT64 | WgpuFeatures::PUSH_CONSTANTS;
-        if !render_app
-            .world()
-            .resource::<RenderDevice>()
-            .features()
-            .contains(required_features)
-        {
-            panic!("MeshletPlugin can't be used. GPU lacks support for the needed features.");
+        let required_features = WgpuFeatures::SHADER_INT64_ATOMIC_MIN_MAX
+            | WgpuFeatures::SHADER_INT64
+            | WgpuFeatures::PUSH_CONSTANTS;
+        let features = render_app.world().resource::<RenderDevice>().features();
+        if !features.contains(required_features) {
+            error!(
+                "MeshletPlugin can't be used. GPU lacks support for required features: {:?}.",
+                required_features.difference(features)
+            );
+            std::process::exit(1);
         }
 
         render_app
