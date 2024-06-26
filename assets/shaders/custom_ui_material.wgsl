@@ -10,8 +10,8 @@
 @fragment
 fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     if in.uv.x < slider {
-        let output_rgb = textureSample(material_color_texture, material_color_sampler, in.uv).rgb * color.rgb;
-        return vec4(output_rgb, 1.0);
+        let output_color = textureSample(material_color_texture, material_color_sampler, in.uv) * color;
+        return output_color;
     } else {
         return vec4(0.0);
     }
