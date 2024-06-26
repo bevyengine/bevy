@@ -121,7 +121,7 @@ macro_rules! impl_into_function {
 
                 $crate::func::DynamicFunction::new(move |args, _info| {
                     if args.len() != COUNT {
-                        return Err($crate::func::error::FuncError::ArgCount {
+                        return Err($crate::func::error::FunctionError::ArgCount {
                             expected: COUNT,
                             received: args.len(),
                         });
@@ -170,7 +170,7 @@ macro_rules! impl_into_function {
 
                 $crate::func::DynamicFunction::new(move |args, _info| {
                     if args.len() != COUNT {
-                        return Err($crate::func::error::FuncError::ArgCount {
+                        return Err($crate::func::error::FunctionError::ArgCount {
                             expected: COUNT,
                             received: args.len(),
                         });
@@ -221,7 +221,7 @@ macro_rules! impl_into_function {
 
                 $crate::func::DynamicFunction::new(move |args, _info| {
                     if args.len() != COUNT {
-                        return Err($crate::func::error::FuncError::ArgCount {
+                        return Err($crate::func::error::FunctionError::ArgCount {
                             expected: COUNT,
                             received: args.len(),
                         });
@@ -272,7 +272,7 @@ macro_rules! impl_into_function {
 
                 $crate::func::DynamicFunction::new(move |args, _info| {
                     if args.len() != COUNT {
-                        return Err($crate::func::error::FuncError::ArgCount {
+                        return Err($crate::func::error::FunctionError::ArgCount {
                             expected: COUNT,
                             received: args.len(),
                         });

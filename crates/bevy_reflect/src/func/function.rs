@@ -1,5 +1,5 @@
 use crate::func::args::{ArgInfo, ArgList};
-use crate::func::error::FuncError;
+use crate::func::error::FunctionError;
 use crate::func::info::FunctionInfo;
 use crate::func::return_type::Return;
 use crate::func::ReturnInfo;
@@ -11,7 +11,7 @@ use std::ops::DerefMut;
 ///
 /// Returns `Ok(value)` if the function was called successfully,
 /// where `value` is the [`Return`] value of the function.
-pub type FunctionResult<'a> = Result<Return<'a>, FuncError>;
+pub type FunctionResult<'a> = Result<Return<'a>, FunctionError>;
 
 /// A dynamic representation of a Rust function.
 ///

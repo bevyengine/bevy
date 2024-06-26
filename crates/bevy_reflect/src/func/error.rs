@@ -5,7 +5,7 @@ use thiserror::Error;
 ///
 /// [`DynamicFunction`]: crate::func::DynamicFunction
 #[derive(Debug, Error, PartialEq)]
-pub enum FuncError {
+pub enum FunctionError {
     /// An error occurred while converting an argument.
     #[error(transparent)]
     Arg(#[from] ArgError),
