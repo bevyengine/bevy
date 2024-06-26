@@ -501,7 +501,7 @@ mod test {
 
     use super::*;
 
-    use bevy_hierarchy::BuildWorldChildren;
+    use bevy_hierarchy::BuildChildren;
 
     fn visibility_bundle(visibility: Visibility) -> VisibilityBundle {
         VisibilityBundle {

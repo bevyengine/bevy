@@ -161,7 +161,7 @@ mod tests {
         world::World,
     };
 
-    use crate::{query_extension::HierarchyQueryExt, BuildWorldChildren, Children, Parent};
+    use crate::{query_extension::HierarchyQueryExt, BuildChildren, Children, Parent};
 
     #[derive(Component, PartialEq, Debug)]
     struct A(usize);
