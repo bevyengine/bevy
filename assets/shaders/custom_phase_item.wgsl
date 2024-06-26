@@ -11,9 +11,8 @@ struct Vertex {
     @location(1) color: vec3<f32>,
 };
 
-// Information passed from the vertex shader to the fragment shader. (The name
-// comes from OpenGL.)
-struct Varyings {
+// Information passed from the vertex shader to the fragment shader.
+struct VertexOutput {
     // The clip-space position of the vertex.
     @builtin(position) clip_position: vec4<f32>,
     // The color of the vertex.
@@ -22,16 +21,16 @@ struct Varyings {
 
 // The vertex shader entry point.
 @vertex
-fn vertex(vertex: Vertex) -> Varyings {
+fn vertex(vertex: Vertex) -> VertexOutput {
     // Use an orthographic projection.
-    var varyings: Varyings;
-    varyings.clip_position = vec4(vertex.position.xyz, 1.0);
-    varyings.color = vertex.color;
-    return varyings;
+    var vertex_output: VertexOutput;
+    vertex_output.clip_position = vec4(vertex.position.xyz, 1.0);
+    vertex_output.color = vertex.color;
+    return vertex_output;
 }
 
 // The fragment shader entry point.
 @fragment
-fn fragment(varyings: Varyings) -> @location(0) vec4<f32> {
-    return vec4(varyings.color, 1.0);
+fn fragment(vertex_output: VertexOutput) -> @location(0) vec4<f32> {
+    return vec4(vertex_output.color, 1.0);
 }

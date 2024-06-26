@@ -10,7 +10,7 @@
 use std::mem;
 
 use bevy::{
-    core_pipeline::core_3d::{Opaque3d, Opaque3dBinKey},
+    core_pipeline::core_3d::{Opaque3d, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::{
         query::ROQueryItem,
         system::{
@@ -69,9 +69,93 @@ struct CustomPhasePipeline {
 /// phase item.
 struct SetCustomPhaseItemPipeline;
 
+impl<P> RenderCommand<P> for SetCustomPhaseItemPipeline
+where
+    P: CachedRenderPipelinePhaseItem,
+{
+    type Param = SRes<PipelineCache>;
+
+    type ViewQuery = ();
+
+    type ItemQuery = Read<CustomPhaseRenderPipeline>;
+
+    fn render<'w>(
+        _: &P,
+        _: ROQueryItem<'w, Self::ViewQuery>,
+        maybe_custom_phase_render_pipeline_id: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        // Borrow check workaround.
+        let pipeline_cache = pipeline_cache.into_inner();
+
+        // The render pipeline needs to be in the pipeline cache for this to
+        // succeed.
+        let Some(custom_phase_render_pipeline_id) = maybe_custom_phase_render_pipeline_id else {
+            return RenderCommandResult::Failure;
+        };
+        let Some(custom_phase_render_pipeline) =
+            pipeline_cache.get_render_pipeline(custom_phase_render_pipeline_id.pipeline_id)
+        else {
+            return RenderCommandResult::Failure;
+        };
+
+        pass.set_render_pipeline(custom_phase_render_pipeline);
+        RenderCommandResult::Success
+    }
+}
+
 /// A [`RenderCommand`] that binds the vertex and index buffers and issues the
 /// draw command for our custom phase item.
 struct DrawCustomPhaseItem;
+
+impl<P> RenderCommand<P> for DrawCustomPhaseItem
+where
+    P: PhaseItem,
+{
+    type Param = SRes<CustomPhaseItemBuffers>;
+
+    type ViewQuery = ();
+
+    type ItemQuery = ();
+
+    fn render<'w>(
+        _: &P,
+        _: ROQueryItem<'w, Self::ViewQuery>,
+        _: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        custom_phase_item_buffers: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        // Borrow check workaround.
+        let custom_phase_item_buffers = custom_phase_item_buffers.into_inner();
+
+        // Tell the GPU where the vertices are.
+        pass.set_vertex_buffer(
+            0,
+            custom_phase_item_buffers
+                .vertices
+                .buffer()
+                .unwrap()
+                .slice(..),
+        );
+
+        // Tell the GPU where the indices are.
+        pass.set_index_buffer(
+            custom_phase_item_buffers
+                .indices
+                .buffer()
+                .unwrap()
+                .slice(..),
+            0,
+            IndexFormat::Uint32,
+        );
+
+        // Draw one triangle (3 vertices).
+        pass.draw_indexed(0..3, 0, 0..1);
+
+        RenderCommandResult::Success
+    }
+}
 
 /// The GPU vertex and index buffers for our custom phase item.
 ///
@@ -104,6 +188,18 @@ struct Vertex {
     color: Vec3,
     /// Padding.
     pad1: u32,
+}
+
+impl Vertex {
+    /// Creates a new vertex structure.
+    const fn new(position: Vec3, color: Vec3) -> Vertex {
+        Vertex {
+            position,
+            color,
+            pad0: 0,
+            pad1: 0,
+        }
+    }
 }
 
 /// The custom draw commands that Bevy executes for each entity we enqueue into
@@ -272,7 +368,7 @@ impl SpecializedRenderPipeline for CustomPhasePipeline {
             // Note that if your view has no depth buffer this will need to be
             // changed.
             depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32Float,
+                format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled: false,
                 depth_compare: CompareFunction::Always,
                 stencil: default(),
@@ -284,90 +380,6 @@ impl SpecializedRenderPipeline for CustomPhasePipeline {
                 alpha_to_coverage_enabled: false,
             },
         }
-    }
-}
-
-impl<P> RenderCommand<P> for SetCustomPhaseItemPipeline
-where
-    P: CachedRenderPipelinePhaseItem,
-{
-    type Param = SRes<PipelineCache>;
-
-    type ViewQuery = ();
-
-    type ItemQuery = Read<CustomPhaseRenderPipeline>;
-
-    fn render<'w>(
-        _: &P,
-        _: ROQueryItem<'w, Self::ViewQuery>,
-        maybe_custom_phase_render_pipeline_id: Option<ROQueryItem<'w, Self::ItemQuery>>,
-        pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        // Borrow check workaround.
-        let pipeline_cache = pipeline_cache.into_inner();
-
-        // The render pipeline needs to be in the pipeline cache for this to
-        // succeed.
-        let Some(custom_phase_render_pipeline_id) = maybe_custom_phase_render_pipeline_id else {
-            return RenderCommandResult::Failure;
-        };
-        let Some(custom_phase_render_pipeline) =
-            pipeline_cache.get_render_pipeline(custom_phase_render_pipeline_id.pipeline_id)
-        else {
-            return RenderCommandResult::Failure;
-        };
-
-        pass.set_render_pipeline(custom_phase_render_pipeline);
-        RenderCommandResult::Success
-    }
-}
-
-impl<P> RenderCommand<P> for DrawCustomPhaseItem
-where
-    P: PhaseItem,
-{
-    type Param = SRes<CustomPhaseItemBuffers>;
-
-    type ViewQuery = ();
-
-    type ItemQuery = ();
-
-    fn render<'w>(
-        _: &P,
-        _: ROQueryItem<'w, Self::ViewQuery>,
-        _: Option<ROQueryItem<'w, Self::ItemQuery>>,
-        custom_phase_item_buffers: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        // Borrow check workaround.
-        let custom_phase_item_buffers = custom_phase_item_buffers.into_inner();
-
-        // Tell the GPU where the vertices are.
-        pass.set_vertex_buffer(
-            0,
-            custom_phase_item_buffers
-                .vertices
-                .buffer()
-                .unwrap()
-                .slice(..),
-        );
-
-        // Tell the GPU where the indices are.
-        pass.set_index_buffer(
-            custom_phase_item_buffers
-                .indices
-                .buffer()
-                .unwrap()
-                .slice(..),
-            0,
-            IndexFormat::Uint32,
-        );
-
-        // Draw one triangle (3 vertices).
-        pass.draw_indexed(0..3, 0, 0..1);
-
-        RenderCommandResult::Success
     }
 }
 
@@ -394,18 +406,6 @@ impl FromWorld for CustomPhaseItemBuffers {
         CustomPhaseItemBuffers {
             vertices: vbo,
             indices: ibo,
-        }
-    }
-}
-
-impl Vertex {
-    /// Creates a new vertex structure.
-    const fn new(position: Vec3, color: Vec3) -> Vertex {
-        Vertex {
-            position,
-            color,
-            pad0: 0,
-            pad1: 0,
         }
     }
 }
