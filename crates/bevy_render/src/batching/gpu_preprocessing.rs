@@ -38,10 +38,12 @@ impl Plugin for BatchingPlugin {
             return;
         };
 
-        render_app.add_systems(
-            Render,
-            write_indirect_parameters_buffer.in_set(RenderSet::PrepareResourcesFlush),
-        );
+        render_app
+            .insert_resource(IndirectParametersBuffer::new())
+            .add_systems(
+                Render,
+                write_indirect_parameters_buffer.in_set(RenderSet::PrepareResourcesFlush),
+            );
     }
 
     fn finish(&self, app: &mut App) {
