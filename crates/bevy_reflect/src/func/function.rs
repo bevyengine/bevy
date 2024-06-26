@@ -22,6 +22,8 @@ pub type FunctionResult<'a> = Result<Return<'a>, FunctionError>;
 ///
 /// # Example
 ///
+/// Most of the time, a [`DynamicFunction`] can be created using the [`IntoFunction`] trait:
+///
 /// ```
 /// # use bevy_reflect::func::args::ArgList;
 /// # use bevy_reflect::func::{DynamicFunction, IntoFunction};
@@ -29,10 +31,64 @@ pub type FunctionResult<'a> = Result<Return<'a>, FunctionError>;
 ///   a + b
 /// }
 ///
+/// // Convert the function into a dynamic function using `IntoFunction::into_function`
 /// let mut func: DynamicFunction = add.into_function();
+///
+/// // Dynamically call the function:
 /// let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
 /// let result = func.call(args).unwrap().unwrap_owned();
+///
+/// // Check the result:
 /// assert_eq!(result.downcast_ref::<i32>(), Some(&100));
+/// ```
+///
+/// However, in some cases, these functions may need to be created manually:
+///
+/// ```
+/// # use bevy_reflect::func::{ArgList, DynamicFunction, FunctionInfo, IntoFunction, Return, ReturnInfo};
+/// # use bevy_reflect::func::args::ArgInfo;
+/// fn append(value: String, list: &mut Vec<String>) -> &mut String {
+///   list.push(value);
+///   list.last_mut().unwrap()
+/// }
+///
+/// // Due to the return value being a reference that is not tied to the first argument,
+/// // this will fail to compile:
+/// // let mut func: DynamicFunction = append.into_function();
+///
+/// // Instead, we need to define the function manually.
+/// // We start by defining the shape of the function:
+/// let info = FunctionInfo::new()
+///   .with_name("append")
+///   .with_args(vec![
+///     ArgInfo::new::<String>(0).with_name("value"),
+///     ArgInfo::new::<&mut Vec<String>>(1).with_name("list"),
+///   ])
+///   .with_return_info(
+///     ReturnInfo::new::<&mut String>()
+///   );
+///
+/// // Then we define the dynamic function, which will be used to call our `append` function:
+/// let mut func = DynamicFunction::new(|mut args, info| {
+///   // Arguments are popped from the list in reverse order:
+///   let arg1 = args.pop().unwrap().take_mut::<Vec<String>>(&info.args()[1]).unwrap();
+///   let arg0 = args.pop().unwrap().take_owned::<String>(&info.args()[0]).unwrap();
+///
+///   // Then we can call our function and return the result:
+///   Ok(Return::Mut(append(arg0, arg1)))
+/// }, info);
+///
+/// let mut list = Vec::<String>::new();
+///
+/// // Dynamically call the function:
+/// let args = ArgList::default().push_owned("Hello, World".to_string()).push_mut(&mut list);
+/// let result = func.call(args).unwrap().unwrap_mut();
+///
+/// // Mutate the return value:
+/// result.downcast_mut::<String>().unwrap().push_str("!!!");
+///
+/// // Check the result:
+/// assert_eq!(list, vec!["Hello, World!!!"]);
 /// ```
 ///
 /// [`IntoFunction`]: crate::func::IntoFunction
