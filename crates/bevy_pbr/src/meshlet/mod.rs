@@ -117,6 +117,15 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 /// ![A render of the Stanford dragon as a `MeshletMesh`](https://raw.githubusercontent.com/bevyengine/bevy/main/crates/bevy_pbr/src/meshlet/meshlet_preview.png)
 pub struct MeshletPlugin;
 
+impl MeshletPlugin {
+    /// [WgpuFeatures] required for this plugin to function.
+    pub fn required_wgpu_features() -> WgpuFeatures {
+        WgpuFeatures::SHADER_INT64_ATOMIC_MIN_MAX
+            | WgpuFeatures::SHADER_INT64
+            | WgpuFeatures::PUSH_CONSTANTS
+    }
+}
+
 impl Plugin for MeshletPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(
@@ -182,14 +191,11 @@ impl Plugin for MeshletPlugin {
             return;
         };
 
-        let required_features = WgpuFeatures::SHADER_INT64_ATOMIC_MIN_MAX
-            | WgpuFeatures::SHADER_INT64
-            | WgpuFeatures::PUSH_CONSTANTS;
         let features = render_app.world().resource::<RenderDevice>().features();
-        if !features.contains(required_features) {
+        if !features.contains(Self::required_wgpu_features()) {
             error!(
                 "MeshletPlugin can't be used. GPU lacks support for required features: {:?}.",
-                required_features.difference(features)
+                Self::required_wgpu_features().difference(features)
             );
             std::process::exit(1);
         }
