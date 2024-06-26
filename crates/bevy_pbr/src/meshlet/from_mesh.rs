@@ -6,9 +6,8 @@ use bevy_render::{
 use bevy_utils::HashMap;
 use itertools::Itertools;
 use meshopt::{
-    build_meshlets, compute_cluster_bounds, compute_meshlet_bounds,
-    ffi::{meshopt_Bounds, meshopt_optimizeMeshlet},
-    simplify, simplify_scale, Meshlets, SimplifyOptions, VertexDataAdapter,
+    build_meshlets, compute_cluster_bounds, compute_meshlet_bounds, ffi::meshopt_Bounds, simplify,
+    simplify_scale, Meshlets, SimplifyOptions, VertexDataAdapter,
 };
 use metis::Graph;
 use smallvec::SmallVec;
@@ -178,22 +177,7 @@ fn validate_input_mesh(mesh: &Mesh) -> Result<Cow<'_, [u32]>, MeshToMeshletMeshC
 }
 
 fn compute_meshlets(indices: &[u32], vertices: &VertexDataAdapter) -> Meshlets {
-    let mut meshlets = build_meshlets(indices, vertices, 64, 64, 0.0);
-
-    for meshlet in &mut meshlets.meshlets {
-        #[allow(unsafe_code)]
-        #[allow(clippy::undocumented_unsafe_blocks)]
-        unsafe {
-            meshopt_optimizeMeshlet(
-                &mut meshlets.vertices[meshlet.vertex_offset as usize],
-                &mut meshlets.triangles[meshlet.triangle_offset as usize],
-                meshlet.triangle_count as usize,
-                meshlet.vertex_count as usize,
-            );
-        }
-    }
-
-    meshlets
+    build_meshlets(indices, vertices, 64, 64, 0.0)
 }
 
 fn find_connected_meshlets(
@@ -306,7 +290,8 @@ fn simplify_meshlet_groups(
 
     // Allow more deformation for high LOD levels (1% at LOD 1, 10% at LOD 20+)
     let t = (lod_level - 1) as f32 / 19.0;
-    let target_error = 0.1 * t + 0.01 * (1.0 - t);
+    let target_error_rel = 0.1 * t + 0.01 * (1.0 - t);
+    let target_error = target_error_rel * mesh_scale;
 
     // Simplify the group to ~50% triangle count
     // TODO: Use simplify_with_locks()
@@ -316,7 +301,7 @@ fn simplify_meshlet_groups(
         vertices,
         group_indices.len() / 2,
         target_error,
-        SimplifyOptions::LockBorder,
+        SimplifyOptions::LockBorder | SimplifyOptions::Sparse | SimplifyOptions::ErrorAbsolute,
         Some(&mut error),
     );
 
@@ -325,8 +310,8 @@ fn simplify_meshlet_groups(
         return None;
     }
 
-    // Convert error to object-space and convert from diameter to radius
-    error *= mesh_scale * 0.5;
+    // Convert error from diameter to radius
+    error *= 0.5;
 
     Some((simplified_group_indices, error))
 }
