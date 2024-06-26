@@ -102,8 +102,7 @@ where
             )
             .init_resource::<PrepassViewBindGroup>()
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
-            .allow_ambiguous_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
-            .init_resource::<PreviousViewUniforms>();
+            .allow_ambiguous_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>();
     }
 
     fn finish(&self, app: &mut App) {
