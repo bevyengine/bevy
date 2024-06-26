@@ -416,7 +416,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// we can simply append to the array.
     pub fn append_or(&mut self, other: &FilteredAccess<T>) {
         let mut other_filter_sets = if other.filter_sets.is_empty() {
-            // we want to explicit append with an empty filter set
+            // we want to explicit append with an empty filter set, for example in Or<((), With<A>)>
             vec![AccessFilters::default()]
         } else {
             other.filter_sets.clone()
