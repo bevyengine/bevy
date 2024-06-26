@@ -474,7 +474,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
             return;
         }
         if self.filter_sets.is_empty() {
-            self.filter_sets = other.filter_sets.clone();
+            self.filter_sets.clone_from(&other.filter_sets);
             return;
         }
 
