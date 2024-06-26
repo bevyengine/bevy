@@ -95,7 +95,12 @@ fn cluster_is_second_pass_candidate(cluster_id: u32) -> bool {
 @group(0) @binding(5) var<storage, read> meshlet_cluster_instance_ids: array<u32>; // Per cluster
 @group(0) @binding(6) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
 @group(0) @binding(7) var<storage, read> meshlet_hardware_raster_triangles: array<u32>; // Single object shared between all workgroups/clusters/triangles
-@group(0) @binding(8) var<uniform> view: View;
+#ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
+@group(0) @binding(8) var<storage, read_write> meshlet_visibility_buffer: array<atomic<u64>>; // Per pixel
+#else
+@group(0) @binding(8) var<storage, read_write> meshlet_visibility_buffer: array<atomic<u32>>; // Per pixel
+#endif
+@group(0) @binding(9) var<uniform> view: View;
 
 fn get_meshlet_index(index_id: u32) -> u32 {
     let packed_index = meshlet_indices[index_id / 4u];
@@ -105,7 +110,7 @@ fn get_meshlet_index(index_id: u32) -> u32 {
 #endif
 
 #ifdef MESHLET_MESH_MATERIAL_PASS
-@group(1) @binding(0) var meshlet_visibility_buffer: texture_2d<u32>; // Generated from the meshlet raster passes
+@group(1) @binding(0) var<storage, read> meshlet_visibility_buffer: array<u32>; // 2 per pixel
 @group(1) @binding(1) var<storage, read> meshlet_cluster_meshlet_ids: array<u32>; // Per cluster
 @group(1) @binding(2) var<storage, read> meshlets: array<Meshlet>; // Per meshlet
 @group(1) @binding(3) var<storage, read> meshlet_indices: array<u32>; // Many per meshlet

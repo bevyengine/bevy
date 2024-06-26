@@ -1,8 +1,6 @@
 use super::gpu_scene::MeshletGpuScene;
 use bevy_asset::Handle;
-use bevy_core_pipeline::{
-    core_3d::CORE_3D_DEPTH_FORMAT, fullscreen_vertex_shader::fullscreen_shader_vertex_state,
-};
+use bevy_core_pipeline::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_ecs::{
     system::Resource,
     world::{FromWorld, World},
@@ -39,7 +37,8 @@ impl FromWorld for MeshletPipelines {
             gpu_scene.fill_cluster_buffers_bind_group_layout();
         let cull_layout = gpu_scene.culling_bind_group_layout();
         let downsample_depth_layout = gpu_scene.downsample_depth_bind_group_layout();
-        let visibility_buffer_layout = gpu_scene.visibility_buffer_raster_bind_group_layout();
+        let visibility_buffer_raster_layout =
+            gpu_scene.visibility_buffer_raster_bind_group_layout();
         let resolve_material_depth_layout = gpu_scene.resolve_material_depth_bind_group_layout();
         let pipeline_cache = world.resource_mut::<PipelineCache>();
 
@@ -113,7 +112,7 @@ impl FromWorld for MeshletPipelines {
             visibility_buffer_hardware_raster: pipeline_cache.queue_render_pipeline(
                 RenderPipelineDescriptor {
                     label: Some("meshlet_visibility_buffer_hardware_raster_pipeline".into()),
-                    layout: vec![visibility_buffer_layout.clone()],
+                    layout: vec![visibility_buffer_raster_layout.clone()],
                     push_constant_ranges: vec![],
                     vertex: VertexState {
                         shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
@@ -133,13 +132,7 @@ impl FromWorld for MeshletPipelines {
                         polygon_mode: PolygonMode::Fill,
                         conservative: false,
                     },
-                    depth_stencil: Some(DepthStencilState {
-                        format: CORE_3D_DEPTH_FORMAT,
-                        depth_write_enabled: true,
-                        depth_compare: CompareFunction::GreaterEqual,
-                        stencil: StencilState::default(),
-                        bias: DepthBiasState::default(),
-                    }),
+                    depth_stencil: None,
                     multisample: MultisampleState::default(),
                     fragment: Some(FragmentState {
                         shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
@@ -148,11 +141,7 @@ impl FromWorld for MeshletPipelines {
                             "MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into(),
                         ],
                         entry_point: "fragment".into(),
-                        targets: vec![Some(ColorTargetState {
-                            format: TextureFormat::R32Uint,
-                            blend: None,
-                            write_mask: ColorWrites::ALL,
-                        })],
+                        targets: vec![],
                     }),
                 },
             ),
@@ -162,7 +151,7 @@ impl FromWorld for MeshletPipelines {
                     label: Some(
                         "meshlet_visibility_buffer_hardware_raster_depth_only_pipeline".into(),
                     ),
-                    layout: vec![visibility_buffer_layout.clone()],
+                    layout: vec![visibility_buffer_raster_layout.clone()],
                     push_constant_ranges: vec![],
                     vertex: VertexState {
                         shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
@@ -179,15 +168,14 @@ impl FromWorld for MeshletPipelines {
                         polygon_mode: PolygonMode::Fill,
                         conservative: false,
                     },
-                    depth_stencil: Some(DepthStencilState {
-                        format: CORE_3D_DEPTH_FORMAT,
-                        depth_write_enabled: true,
-                        depth_compare: CompareFunction::GreaterEqual,
-                        stencil: StencilState::default(),
-                        bias: DepthBiasState::default(),
-                    }),
+                    depth_stencil: None,
                     multisample: MultisampleState::default(),
-                    fragment: None,
+                    fragment: Some(FragmentState {
+                        shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
+                        shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into()],
+                        entry_point: "fragment".into(),
+                        targets: vec![],
+                    }),
                 },
             ),
 
@@ -197,7 +185,7 @@ impl FromWorld for MeshletPipelines {
                         "meshlet_visibility_buffer_hardware_raster_depth_only_clamp_ortho_pipeline"
                             .into(),
                     ),
-                    layout: vec![visibility_buffer_layout],
+                    layout: vec![visibility_buffer_raster_layout],
                     push_constant_ranges: vec![],
                     vertex: VertexState {
                         shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
@@ -217,13 +205,7 @@ impl FromWorld for MeshletPipelines {
                         polygon_mode: PolygonMode::Fill,
                         conservative: false,
                     },
-                    depth_stencil: Some(DepthStencilState {
-                        format: CORE_3D_DEPTH_FORMAT,
-                        depth_write_enabled: true,
-                        depth_compare: CompareFunction::GreaterEqual,
-                        stencil: StencilState::default(),
-                        bias: DepthBiasState::default(),
-                    }),
+                    depth_stencil: None,
                     multisample: MultisampleState::default(),
                     fragment: Some(FragmentState {
                         shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
@@ -240,7 +222,10 @@ impl FromWorld for MeshletPipelines {
                 RenderPipelineDescriptor {
                     label: Some("meshlet_resolve_material_depth_pipeline".into()),
                     layout: vec![resolve_material_depth_layout],
-                    push_constant_ranges: vec![],
+                    push_constant_ranges: vec![PushConstantRange {
+                        stages: ShaderStages::FRAGMENT,
+                        range: 0..4,
+                    }],
                     vertex: fullscreen_shader_vertex_state(),
                     primitive: PrimitiveState::default(),
                     depth_stencil: Some(DepthStencilState {

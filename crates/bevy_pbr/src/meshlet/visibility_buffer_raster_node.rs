@@ -3,7 +3,6 @@ use super::{
     pipelines::MeshletPipelines,
 };
 use crate::{LightEntity, ShadowView, ViewLightEntities};
-use bevy_color::LinearRgba;
 use bevy_core_pipeline::prepass::PreviousViewUniformOffset;
 use bevy_ecs::{
     query::QueryState,
@@ -127,9 +126,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
         raster_pass(
             true,
             render_context,
-            meshlet_view_resources,
             &meshlet_view_resources.visibility_buffer_hardware_raster_indirect_args_first,
-            view_depth.get_attachment(StoreOp::Store),
             meshlet_view_bind_groups,
             view_offset,
             visibility_buffer_hardware_raster_pipeline,
@@ -154,9 +151,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
         raster_pass(
             false,
             render_context,
-            meshlet_view_resources,
             &meshlet_view_resources.visibility_buffer_hardware_raster_indirect_args_second,
-            view_depth.get_attachment(StoreOp::Store),
             meshlet_view_bind_groups,
             view_offset,
             visibility_buffer_hardware_raster_pipeline,
@@ -219,9 +214,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             raster_pass(
                 true,
                 render_context,
-                meshlet_view_resources,
                 &meshlet_view_resources.visibility_buffer_hardware_raster_indirect_args_first,
-                shadow_view.depth_attachment.get_attachment(StoreOp::Store),
                 meshlet_view_bind_groups,
                 view_offset,
                 shadow_visibility_buffer_pipeline,
@@ -246,9 +239,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             raster_pass(
                 false,
                 render_context,
-                meshlet_view_resources,
                 &meshlet_view_resources.visibility_buffer_hardware_raster_indirect_args_second,
-                shadow_view.depth_attachment.get_attachment(StoreOp::Store),
                 meshlet_view_bind_groups,
                 view_offset,
                 shadow_visibility_buffer_pipeline,
@@ -317,43 +308,20 @@ fn cull_pass(
 fn raster_pass(
     first_pass: bool,
     render_context: &mut RenderContext,
-    meshlet_view_resources: &MeshletViewResources,
     visibility_buffer_hardware_raster_indirect_args: &Buffer,
-    depth_stencil_attachment: RenderPassDepthStencilAttachment,
     meshlet_view_bind_groups: &MeshletViewBindGroups,
     view_offset: &ViewUniformOffset,
     visibility_buffer_hardware_raster_pipeline: &RenderPipeline,
     camera: Option<&ExtractedCamera>,
 ) {
-    let mut color_attachments_filled = [None];
-    if let Some(visibility_buffer) = meshlet_view_resources.visibility_buffer.as_ref() {
-        let load = if first_pass {
-            LoadOp::Clear(LinearRgba::BLACK.into())
-        } else {
-            LoadOp::Load
-        };
-        color_attachments_filled = [Some(RenderPassColorAttachment {
-            view: &visibility_buffer.default_view,
-            resolve_target: None,
-            ops: Operations {
-                load,
-                store: StoreOp::Store,
-            },
-        })];
-    }
-
     let mut draw_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
         label: Some(if first_pass {
             "raster_first"
         } else {
             "raster_second"
         }),
-        color_attachments: if color_attachments_filled[0].is_none() {
-            &[]
-        } else {
-            &color_attachments_filled
-        },
-        depth_stencil_attachment: Some(depth_stencil_attachment),
+        color_attachments: &[],
+        depth_stencil_attachment: None,
         timestamp_writes: None,
         occlusion_query_set: None,
     });
@@ -430,6 +398,11 @@ fn resolve_material_depth(
         }
 
         resolve_pass.set_render_pipeline(resolve_material_depth_pipeline);
+        resolve_pass.set_push_constants(
+            ShaderStages::FRAGMENT,
+            0,
+            &meshlet_view_resources.view_size.x.to_le_bytes(),
+        );
         resolve_pass.set_bind_group(0, resolve_material_depth_bind_group, &[]);
         resolve_pass.draw(0..3, 0..1);
     }

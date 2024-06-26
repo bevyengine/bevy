@@ -181,13 +181,15 @@ impl Plugin for MeshletPlugin {
             return;
         };
 
+        // TODO: SHADER_INT64_ATOMIC_MIN_MAX
+        let required_features = WgpuFeatures::SHADER_INT64 | WgpuFeatures::PUSH_CONSTANTS;
         if !render_app
             .world()
             .resource::<RenderDevice>()
             .features()
-            .contains(WgpuFeatures::PUSH_CONSTANTS)
+            .contains(required_features)
         {
-            panic!("MeshletPlugin can't be used. GPU lacks support: WgpuFeatures::PUSH_CONSTANTS is not supported.");
+            panic!("MeshletPlugin can't be used. GPU lacks support for the needed features.");
         }
 
         render_app

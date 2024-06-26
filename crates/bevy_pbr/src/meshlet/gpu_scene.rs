@@ -294,6 +294,8 @@ pub fn prepare_meshlet_per_frame_resources(
     let needed_buffer_size =
         gpu_scene.scene_meshlet_count.div_ceil(u32::BITS) as u64 * size_of::<u32>() as u64;
     for (view_entity, view, render_layers, (_, shadow_view)) in &views {
+        let not_shadow_view = shadow_view.is_none();
+
         let instance_visibility = gpu_scene
             .view_instance_visibility
             .entry(view_entity)
@@ -336,20 +338,18 @@ pub fn prepare_meshlet_per_frame_resources(
             }
         };
 
-        let visibility_buffer = TextureDescriptor {
+        let type_size = if not_shadow_view {
+            size_of::<u64>()
+        } else {
+            size_of::<u32>()
+        } as u64;
+        // TODO: Cache
+        let visibility_buffer = render_device.create_buffer(&BufferDescriptor {
             label: Some("meshlet_visibility_buffer"),
-            size: Extent3d {
-                width: view.viewport.z,
-                height: view.viewport.w,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: TextureDimension::D2,
-            format: TextureFormat::R32Uint,
-            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-            view_formats: &[],
-        };
+            size: type_size * (view.viewport.z * view.viewport.w) as u64,
+            usage: BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        });
 
         let visibility_buffer_hardware_raster_indirect_args_first = render_device
             .create_buffer_with_data(&BufferInitDescriptor {
@@ -436,13 +436,11 @@ pub fn prepare_meshlet_per_frame_resources(
             view_formats: &[],
         };
 
-        let not_shadow_view = shadow_view.is_none();
         commands.entity(view_entity).insert(MeshletViewResources {
             scene_meshlet_count: gpu_scene.scene_meshlet_count,
             second_pass_candidates_buffer,
             instance_visibility,
-            visibility_buffer: not_shadow_view
-                .then(|| texture_cache.get(&render_device, visibility_buffer)),
+            visibility_buffer,
             visibility_buffer_hardware_raster_indirect_args_first,
             visibility_buffer_hardware_raster_indirect_args_second,
             visibility_buffer_hardware_raster_triangles:
@@ -593,6 +591,7 @@ pub fn prepare_meshlet_view_bind_groups(
             view_resources
                 .visibility_buffer_hardware_raster_triangles
                 .as_entire_binding(),
+            view_resources.visibility_buffer.as_entire_binding(),
             view_uniforms.clone(),
         ));
         let visibility_buffer_raster = render_device.create_bind_group(
@@ -601,43 +600,36 @@ pub fn prepare_meshlet_view_bind_groups(
             &entries,
         );
 
-        let resolve_material_depth =
-            view_resources
-                .visibility_buffer
-                .as_ref()
-                .map(|visibility_buffer| {
-                    let entries = BindGroupEntries::sequential((
-                        &visibility_buffer.default_view,
-                        cluster_instance_ids.as_entire_binding(),
-                        gpu_scene.instance_material_ids.binding().unwrap(),
-                    ));
-                    render_device.create_bind_group(
-                        "meshlet_resolve_material_depth_bind_group",
-                        &gpu_scene.resolve_material_depth_bind_group_layout,
-                        &entries,
-                    )
-                });
+        let resolve_material_depth = view_resources.material_depth.as_ref().map(|_| {
+            let entries = BindGroupEntries::sequential((
+                view_resources.visibility_buffer.as_entire_binding(),
+                cluster_instance_ids.as_entire_binding(),
+                gpu_scene.instance_material_ids.binding().unwrap(),
+            ));
+            render_device.create_bind_group(
+                "meshlet_resolve_material_depth_bind_group",
+                &gpu_scene.resolve_material_depth_bind_group_layout,
+                &entries,
+            )
+        });
 
-        let material_draw = view_resources
-            .visibility_buffer
-            .as_ref()
-            .map(|visibility_buffer| {
-                let entries = BindGroupEntries::sequential((
-                    &visibility_buffer.default_view,
-                    cluster_meshlet_ids.as_entire_binding(),
-                    gpu_scene.meshlets.binding(),
-                    gpu_scene.indices.binding(),
-                    gpu_scene.vertex_ids.binding(),
-                    gpu_scene.vertex_data.binding(),
-                    cluster_instance_ids.as_entire_binding(),
-                    gpu_scene.instance_uniforms.binding().unwrap(),
-                ));
-                render_device.create_bind_group(
-                    "meshlet_mesh_material_draw_bind_group",
-                    &gpu_scene.material_draw_bind_group_layout,
-                    &entries,
-                )
-            });
+        let material_draw = view_resources.material_depth.as_ref().map(|_| {
+            let entries = BindGroupEntries::sequential((
+                view_resources.visibility_buffer.as_entire_binding(),
+                cluster_meshlet_ids.as_entire_binding(),
+                gpu_scene.meshlets.binding(),
+                gpu_scene.indices.binding(),
+                gpu_scene.vertex_ids.binding(),
+                gpu_scene.vertex_data.binding(),
+                cluster_instance_ids.as_entire_binding(),
+                gpu_scene.instance_uniforms.binding().unwrap(),
+            ));
+            render_device.create_bind_group(
+                "meshlet_mesh_material_draw_bind_group",
+                &gpu_scene.material_draw_bind_group_layout,
+                &entries,
+            )
+        });
 
         commands.entity(view_entity).insert(MeshletViewBindGroups {
             first_node: Arc::clone(&first_node),
@@ -803,7 +795,7 @@ impl FromWorld for MeshletGpuScene {
             visibility_buffer_raster_bind_group_layout: render_device.create_bind_group_layout(
                 "meshlet_visibility_buffer_raster_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(
-                    ShaderStages::VERTEX,
+                    ShaderStages::VERTEX_FRAGMENT,
                     (
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
@@ -813,6 +805,7 @@ impl FromWorld for MeshletGpuScene {
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
+                        storage_buffer_sized(false, None),
                         uniform_buffer::<ViewUniform>(true),
                     ),
                 ),
@@ -822,7 +815,7 @@ impl FromWorld for MeshletGpuScene {
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::FRAGMENT,
                     (
-                        texture_2d(TextureSampleType::Uint),
+                        storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                     ),
@@ -833,7 +826,7 @@ impl FromWorld for MeshletGpuScene {
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::FRAGMENT,
                     (
-                        texture_2d(TextureSampleType::Uint),
+                        storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
@@ -1010,7 +1003,7 @@ pub struct MeshletViewResources {
     pub scene_meshlet_count: u32,
     pub second_pass_candidates_buffer: Buffer,
     instance_visibility: Buffer,
-    pub visibility_buffer: Option<CachedTexture>,
+    pub visibility_buffer: Buffer,
     pub visibility_buffer_hardware_raster_indirect_args_first: Buffer,
     pub visibility_buffer_hardware_raster_indirect_args_second: Buffer,
     visibility_buffer_hardware_raster_triangles: Buffer,

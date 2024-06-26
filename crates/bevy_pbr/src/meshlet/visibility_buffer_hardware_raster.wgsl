@@ -7,6 +7,7 @@
         meshlet_cluster_instance_ids,
         meshlet_instance_uniforms,
         meshlet_hardware_raster_triangles,
+        meshlet_visibility_buffer,
         view,
         get_meshlet_index,
         unpack_meshlet_vertex,
@@ -18,9 +19,9 @@
 /// Vertex/fragment shader for rasterizing large clusters into a visibility buffer.
 
 struct VertexOutput {
-    @builtin(position) clip_position: vec4<f32>,
+    @builtin(position) position: vec4<f32>,
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
-    @location(0) @interpolate(flat) visibility: u32,
+    @location(0) @interpolate(flat) packed_ids: u32,
 #endif
 #ifdef DEPTH_CLAMP_ORTHO
     @location(0) unclamped_clip_depth: f32,
@@ -60,16 +61,19 @@ fn vertex(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     );
 }
 
-#ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
 @fragment
-fn fragment(vertex_output: VertexOutput) -> @location(0) vec4<u32> {
-    return vec4(vertex_output.visibility, 0u, 0u, 0u);
-}
-#endif
+fn fragment(vertex_output: VertexOutput) {
+    let frag_coord_1d = u32(vertex_output.position.x) * u32(view.viewport.z) + u32(vertex_output.position.y);
 
-#ifdef DEPTH_CLAMP_ORTHO
-@fragment
-fn fragment(vertex_output: VertexOutput) -> @builtin(frag_depth) f32 {
-    return vertex_output.unclamped_clip_depth;
-}
+#ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
+    let depth = bitcast<u32>(vertex_output.position.z);
+    let visibility = (u64(depth) << 32lu) | u64(vertex_output.packed_ids);
+    atomicMax(&meshlet_visibility_buffer[frag_coord_1d], visibility);
+#else ifdef DEPTH_CLAMP_ORTHO
+    let depth = bitcast<u32>(vertex_output.unclamped_clip_depth);
+    atomicMax(&meshlet_visibility_buffer[frag_coord_1d], depth);
+#else
+    let depth = bitcast<u32>(vertex_output.position.z);
+    atomicMax(&meshlet_visibility_buffer[frag_coord_1d], depth);
 #endif
+}
