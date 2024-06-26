@@ -8,8 +8,8 @@ struct ShowPrepassSettings {
     show_depth: u32,
     show_normals: u32,
     show_motion_vectors: u32,
-    padding_1: u32,
-    padding_2: u32,
+    show_deferred_data: u32,
+    prepass_view: u32,
 }
 @group(2) @binding(0) var<uniform> settings: ShowPrepassSettings;
 
@@ -32,6 +32,12 @@ fn fragment(
     } else if settings.show_motion_vectors == 1u {
         let motion_vector = bevy_pbr::prepass_utils::prepass_motion_vector(mesh.position, sample_index);
         return vec4(motion_vector / globals.delta_time, 0.0, 1.0);
+    } else if settings.show_deferred_data == 1u {
+        let pbr_input = bevy_pbr::pbr_deferred_functions::prepass_pbr_input(mesh.position);
+        let material = pbr_input.material;
+        //return material.base_color;
+        return vec4(pbr_input.occlusion, 1.0);
+        // return vec4(material.metallic, material.perceptual_roughness, material.reflectance, 1.0);
     }
 
     return vec4(0.0);
