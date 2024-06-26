@@ -832,6 +832,7 @@ pub trait EntityCommand<Marker = ()>: Send + 'static {
     /// You can override the provided implementation if you can return a `Command` with a smaller memory
     /// footprint than `(Entity, Self)`.
     /// In most cases the provided implementation is sufficient.
+    #[must_use = "commands do nothing unless applied to a `World`"]
     fn with_entity(self, entity: Entity) -> impl Command
     where
         Self: Sized,
