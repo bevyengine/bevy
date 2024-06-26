@@ -246,7 +246,7 @@ fn spawn_button(
                 border,
                 ..default()
             },
-            image: UiImage::default().with_color(background_color),
+            background_color: background_color.into(),
             border_color,
             ..default()
         },

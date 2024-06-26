@@ -184,7 +184,8 @@ where
         render_app.add_systems(
             Render,
             prepare_material_meshlet_meshes_prepass::<M>
-                .in_set(RenderSet::Queue)
+                .in_set(RenderSet::QueueMeshes)
+                .after(prepare_assets::<PreparedMaterial<M>>)
                 .before(queue_material_meshlet_meshes::<M>)
                 .run_if(resource_exists::<MeshletGpuScene>),
         );
