@@ -13,30 +13,27 @@ use bevy::{
     core_pipeline::core_3d::{Opaque3d, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::{
         query::ROQueryItem,
-        system::{
-            lifetimeless::{Read, SRes},
-            SystemParamItem,
-        },
+        system::{lifetimeless::SRes, SystemParamItem},
     },
-    math::vec3,
+    math::{vec3, Vec3A},
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
+        primitives::Aabb,
         render_phase::{
-            AddRenderCommand, BinnedRenderPhaseType, CachedRenderPipelinePhaseItem, DrawFunctions,
-            PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass,
-            ViewBinnedRenderPhases,
+            AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, PhaseItem, RenderCommand,
+            RenderCommandResult, SetItemPipeline, TrackedRenderPass, ViewBinnedRenderPhases,
         },
         render_resource::{
-            BufferUsages, CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction,
-            DepthStencilState, FragmentState, IndexFormat, MultisampleState, PipelineCache,
-            PrimitiveState, RawBufferVec, RenderPipelineDescriptor, SpecializedRenderPipeline,
+            BufferUsages, ColorTargetState, ColorWrites, CompareFunction, DepthStencilState,
+            FragmentState, IndexFormat, MultisampleState, PipelineCache, PrimitiveState,
+            RawBufferVec, RenderPipelineDescriptor, SpecializedRenderPipeline,
             SpecializedRenderPipelines, TextureFormat, VertexAttribute, VertexBufferLayout,
             VertexFormat, VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
         texture::BevyDefault as _,
-        view::ExtractedView,
+        view::{self, ExtractedView, VisibilitySystems, VisibleEntities},
         Render, RenderApp, RenderSet,
     },
 };
@@ -50,59 +47,12 @@ use bytemuck::{Pod, Zeroable};
 #[derive(Clone, Component, ExtractComponent)]
 struct CustomRenderedEntity;
 
-/// A specialized render pipeline for our custom phase.
-#[derive(Component)]
-struct CustomPhaseRenderPipeline {
-    pipeline_id: CachedRenderPipelineId,
-}
-
 /// Holds a reference to our shader.
 ///
 /// This is loaded at app creation time.
 #[derive(Resource)]
 struct CustomPhasePipeline {
     shader: Handle<Shader>,
-}
-
-/// A [`RenderCommand`] that sets the
-/// [`bevy_render::render_resource::RenderPipeline`] corresponding to our custom
-/// phase item.
-struct SetCustomPhaseItemPipeline;
-
-impl<P> RenderCommand<P> for SetCustomPhaseItemPipeline
-where
-    P: CachedRenderPipelinePhaseItem,
-{
-    type Param = SRes<PipelineCache>;
-
-    type ViewQuery = ();
-
-    type ItemQuery = Read<CustomPhaseRenderPipeline>;
-
-    fn render<'w>(
-        _: &P,
-        _: ROQueryItem<'w, Self::ViewQuery>,
-        maybe_custom_phase_render_pipeline_id: Option<ROQueryItem<'w, Self::ItemQuery>>,
-        pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        // Borrow check workaround.
-        let pipeline_cache = pipeline_cache.into_inner();
-
-        // The render pipeline needs to be in the pipeline cache for this to
-        // succeed.
-        let Some(custom_phase_render_pipeline_id) = maybe_custom_phase_render_pipeline_id else {
-            return RenderCommandResult::Failure;
-        };
-        let Some(custom_phase_render_pipeline) =
-            pipeline_cache.get_render_pipeline(custom_phase_render_pipeline_id.pipeline_id)
-        else {
-            return RenderCommandResult::Failure;
-        };
-
-        pass.set_render_pipeline(custom_phase_render_pipeline);
-        RenderCommandResult::Success
-    }
 }
 
 /// A [`RenderCommand`] that binds the vertex and index buffers and issues the
@@ -204,7 +154,11 @@ impl Vertex {
 
 /// The custom draw commands that Bevy executes for each entity we enqueue into
 /// the render phase.
-type DrawCustomPhaseItemCommands = (SetCustomPhaseItemPipeline, DrawCustomPhaseItem);
+type DrawCustomPhaseItemCommands = (SetItemPipeline, DrawCustomPhaseItem);
+
+/// A query filter that tells [`view::check_visibility`] about our custom
+/// rendered entity.
+type WithCustomRenderedEntity = With<CustomRenderedEntity>;
 
 /// A single triangle's worth of vertices, for demonstration purposes.
 static VERTICES: [Vertex; 3] = [
@@ -218,7 +172,14 @@ fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
         .add_plugins(ExtractComponentPlugin::<CustomRenderedEntity>::default())
-        .add_systems(Startup, setup);
+        .add_systems(Startup, setup)
+        // Make sure to tell Bevy to check our entity for visibility. Bevy won't
+        // do this by default, for efficiency reasons.
+        .add_systems(
+            PostUpdate,
+            view::check_visibility::<WithCustomRenderedEntity>
+                .in_set(VisibilitySystems::CheckVisibility),
+        );
 
     // We make sure to add these to the render app, not the main app.
     app.get_sub_app_mut(RenderApp)
@@ -239,7 +200,18 @@ fn main() {
 fn setup(mut commands: Commands) {
     // Spawn a single entity that has custom rendering. It'll be extracted into
     // the render world via [`ExtractComponent`].
-    commands.spawn(CustomRenderedEntity);
+    commands
+        .spawn(SpatialBundle {
+            visibility: Visibility::Visible,
+            transform: Transform::IDENTITY,
+            ..default()
+        })
+        // This `Aabb` is necessary for the visibility checks to work.
+        .insert(Aabb {
+            center: Vec3A::ZERO,
+            half_extents: Vec3A::splat(0.5),
+        })
+        .insert(CustomRenderedEntity);
 
     // Spawn the camera.
     commands.spawn(Camera3dBundle {
@@ -258,17 +230,14 @@ fn prepare_custom_phase_item_buffers(mut commands: Commands) {
 
 /// A render-world system that enqueues the entity with custom rendering into
 /// the opaque render phases of each view.
-#[allow(clippy::too_many_arguments)]
 fn queue_custom_phase_item(
-    mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     custom_phase_pipeline: Res<CustomPhasePipeline>,
     msaa: Res<Msaa>,
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
     mut specialized_render_pipelines: ResMut<SpecializedRenderPipelines<CustomPhasePipeline>>,
-    views: Query<Entity, With<ExtractedView>>,
-    custom_rendered_entities: Query<Entity, With<CustomRenderedEntity>>,
+    views: Query<(Entity, &VisibleEntities), With<ExtractedView>>,
 ) {
     let draw_custom_phase_item = opaque_draw_functions
         .read()
@@ -277,13 +246,17 @@ fn queue_custom_phase_item(
     // Render phases are per-view, so we need to iterate over all views so that
     // the entity appears in them. (In this example, we have only one view, but
     // it's good practice to loop over all views anyway.)
-    for view_entity in views.iter() {
+    for (view_entity, view_visible_entities) in views.iter() {
         let Some(opaque_phase) = opaque_render_phases.get_mut(&view_entity) else {
             continue;
         };
 
-        // Find all the custom rendered entities.
-        for entity in custom_rendered_entities.iter() {
+        // Find all the custom rendered entities that are visible from this
+        // view.
+        for &entity in view_visible_entities
+            .get::<WithCustomRenderedEntity>()
+            .iter()
+        {
             // Ordinarily, the [`SpecializedRenderPipeline::Key`] would contain
             // some per-view settings, such as whether the view is HDR, but for
             // simplicity's sake we simply hard-code the view's characteristics,
@@ -293,10 +266,6 @@ fn queue_custom_phase_item(
                 &custom_phase_pipeline,
                 *msaa,
             );
-
-            commands
-                .entity(entity)
-                .insert(CustomPhaseRenderPipeline { pipeline_id });
 
             // Add the custom render item. We use the
             // [`BinnedRenderPhaseType::NonMesh`] type to skip the special
