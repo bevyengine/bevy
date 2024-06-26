@@ -50,6 +50,7 @@ impl MeshletMesh {
                 },
             })
             .collect::<Vec<_>>();
+        let worst_case_meshlets = meshlets.len() as u64;
         let worst_case_meshlet_triangles = meshlets
             .meshlets
             .iter()
@@ -147,6 +148,7 @@ impl MeshletMesh {
             .collect();
 
         Ok(Self {
+            worst_case_meshlets,
             worst_case_meshlet_triangles,
             vertex_data: vertex_buffer.into(),
             vertex_ids: meshlets.vertices.into(),

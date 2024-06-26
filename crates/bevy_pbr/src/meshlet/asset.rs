@@ -29,6 +29,8 @@ pub const MESHLET_MESH_ASSET_VERSION: u64 = 1;
 /// See also [`super::MaterialMeshletMeshBundle`] and [`super::MeshletPlugin`].
 #[derive(Asset, TypePath, Serialize, Deserialize, Clone)]
 pub struct MeshletMesh {
+    /// The total amount of LOD 0 meshlets in the mesh.
+    pub worst_case_meshlets: u64,
     /// The total amount of triangles summed across all LOD 0 meshlets in the mesh.
     pub worst_case_meshlet_triangles: u64,
     /// Raw vertex data bytes for the overall mesh.
