@@ -663,6 +663,11 @@ impl App {
         self.sub_apps.sub_apps.remove(&label.intern())
     }
 
+    /// Extract data from the main world into the [`SubApp`] with the given label and perform an update if it exists.
+    pub fn update_sub_app_by_label(&mut self, label: impl AppLabel) {
+        self.sub_apps.update_subapp_by_label(label);
+    }
+
     /// Inserts a new `schedule` under the provided `label`, overwriting any existing
     /// schedule with the same label.
     pub fn add_schedule(&mut self, schedule: Schedule) -> &mut Self {

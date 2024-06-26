@@ -35,6 +35,7 @@ The default feature set enables most of the expected features of a game engine, 
 |ktx2|KTX2 compressed texture support|
 |multi_threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |png|PNG image format support|
+|smaa_luts|Include SMAA Look Up Tables KTX2 Files|
 |sysinfo_plugin|Enables system information diagnostic plugin|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method on your `Camera2dBundle` or `Camera3dBundle`.|
 |vorbis|OGG/VORBIS audio format support|

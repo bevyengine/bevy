@@ -156,7 +156,7 @@ pub fn keyboard_input_system(
 ///
 /// This enum is primarily used to store raw keycodes when Winit doesn't map a given native
 /// physical key identifier to a meaningful [`KeyCode`] variant. In the presence of identifiers we
-/// haven't mapped for you yet, this lets you use use [`KeyCode`] to:
+/// haven't mapped for you yet, this lets you use [`KeyCode`] to:
 ///
 /// - Correctly match key press and release events.
 /// - On non-web platforms, support assigning keybinds to virtually any key through a UI.

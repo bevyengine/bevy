@@ -192,9 +192,6 @@ pub fn ui_layout_system(
     }
     scale_factor_events.clear();
 
-    // clean up removed nodes
-    ui_surface.remove_entities(removed_components.removed_nodes.read());
-
     // clean up removed cameras
     ui_surface.remove_camera_entities(removed_components.removed_cameras.read());
 
@@ -221,6 +218,8 @@ pub fn ui_layout_system(
 
     #[cfg(feature = "bevy_text")]
     let font_system = text_pipeline.font_system_mut();
+    // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
+    ui_surface.remove_entities(removed_components.removed_nodes.read());
 
     for (camera_id, camera) in &camera_layout_info {
         let inverse_target_scale_factor = camera.scale_factor.recip();
