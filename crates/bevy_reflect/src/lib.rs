@@ -1,3 +1,11 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! Reflection in Rust.
 //!
 //! [Reflection] is a powerful tool provided within many programming languages
@@ -90,8 +98,8 @@
 //! Since most data is passed around as `dyn Reflect`,
 //! the `Reflect` trait has methods for going to and from these subtraits.
 //!
-//! [`Reflect::reflect_ref`], [`Reflect::reflect_mut`], and [`Reflect::reflect_owned`] all return
-//! an enum that respectively contains immutable, mutable, and owned access to the type as a subtrait object.
+//! [`Reflect::reflect_kind`], [`Reflect::reflect_ref`], [`Reflect::reflect_mut`], and [`Reflect::reflect_owned`] all return
+//! an enum that respectively contains zero-sized, immutable, mutable, and owned access to the type as a subtrait object.
 //!
 //! For example, we can get out a `dyn Tuple` from our reflected tuple type using one of these methods.
 //!
@@ -164,7 +172,7 @@
 //! ## Patching
 //!
 //! These dynamic types come in handy when needing to apply multiple changes to another type.
-//! This is known as "patching" and is done using the [`Reflect::apply`] method.
+//! This is known as "patching" and is done using the [`Reflect::apply`] and [`Reflect::try_apply`] methods.
 //!
 //! ```
 //! # use bevy_reflect::{DynamicEnum, Reflect};
@@ -326,7 +334,7 @@
 //! The way it works is by moving the serialization logic into common serializers and deserializers:
 //! * [`ReflectSerializer`]
 //! * [`TypedReflectSerializer`]
-//! * [`UntypedReflectDeserializer`]
+//! * [`ReflectDeserializer`]
 //! * [`TypedReflectDeserializer`]
 //!
 //! All of these structs require a reference to the [registry] so that [type information] can be retrieved,
@@ -339,7 +347,7 @@
 //! and the value is the serialized data.
 //! The `TypedReflectSerializer` will simply output the serialized data.
 //!
-//! The `UntypedReflectDeserializer` can be used to deserialize this map and return a `Box<dyn Reflect>`,
+//! The `ReflectDeserializer` can be used to deserialize this map and return a `Box<dyn Reflect>`,
 //! where the underlying type will be a dynamic type representing some concrete type (except for value types).
 //!
 //! Again, it's important to remember that dynamic types may need to be converted to their concrete counterparts
@@ -349,7 +357,7 @@
 //! ```
 //! # use serde::de::DeserializeSeed;
 //! # use bevy_reflect::{
-//! #     serde::{ReflectSerializer, UntypedReflectDeserializer},
+//! #     serde::{ReflectSerializer, ReflectDeserializer},
 //! #     Reflect, FromReflect, TypeRegistry
 //! # };
 //! #[derive(Reflect, PartialEq, Debug)]
@@ -370,7 +378,7 @@
 //! let serialized_value: String = ron::to_string(&reflect_serializer).unwrap();
 //!
 //! // Deserialize
-//! let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+//! let reflect_deserializer = ReflectDeserializer::new(&registry);
 //! let deserialized_value: Box<dyn Reflect> = reflect_deserializer.deserialize(
 //!   &mut ron::Deserializer::from_str(&serialized_value).unwrap()
 //! ).unwrap();
@@ -452,7 +460,7 @@
 //! [`serde`]: ::serde
 //! [`ReflectSerializer`]: serde::ReflectSerializer
 //! [`TypedReflectSerializer`]: serde::TypedReflectSerializer
-//! [`UntypedReflectDeserializer`]: serde::UntypedReflectDeserializer
+//! [`ReflectDeserializer`]: serde::ReflectDeserializer
 //! [`TypedReflectDeserializer`]: serde::TypedReflectDeserializer
 //! [registry]: TypeRegistry
 //! [type information]: TypeInfo
@@ -478,22 +486,23 @@ mod tuple_struct;
 mod type_info;
 mod type_path;
 mod type_registry;
-mod type_uuid;
-mod type_uuid_impl;
+
 mod impls {
     #[cfg(feature = "glam")]
     mod glam;
-    #[cfg(feature = "bevy_math")]
-    mod rect;
+    #[cfg(feature = "petgraph")]
+    mod petgraph;
     #[cfg(feature = "smallvec")]
     mod smallvec;
     #[cfg(feature = "smol_str")]
     mod smol_str;
 
     mod std;
+    #[cfg(feature = "uuid")]
     mod uuid;
 }
 
+pub mod attributes;
 mod enums;
 pub mod serde;
 pub mod std_traits;
@@ -523,41 +532,127 @@ pub use tuple_struct::*;
 pub use type_info::*;
 pub use type_path::*;
 pub use type_registry::*;
-pub use type_uuid::*;
 
 pub use bevy_reflect_derive::*;
 pub use erased_serde;
 
 extern crate alloc;
 
+/// Exports used by the reflection macros.
+///
+/// These are not meant to be used directly and are subject to breaking changes.
 #[doc(hidden)]
 pub mod __macro_exports {
-    pub use bevy_utils::uuid::generate_composite_uuid;
+    use crate::{
+        DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
+        DynamicTupleStruct, GetTypeRegistration, TypeRegistry,
+    };
+
+    /// A wrapper trait around [`GetTypeRegistration`].
+    ///
+    /// This trait is used by the derive macro to recursively register all type dependencies.
+    /// It's used instead of `GetTypeRegistration` directly to avoid making dynamic types also
+    /// implement `GetTypeRegistration` in order to be used as active fields.
+    ///
+    /// This trait has a blanket implementation for all types that implement `GetTypeRegistration`
+    /// and manual implementations for all dynamic types (which simply do nothing).
+    pub trait RegisterForReflection {
+        #[allow(unused_variables)]
+        fn __register(registry: &mut TypeRegistry) {}
+    }
+
+    impl<T: GetTypeRegistration> RegisterForReflection for T {
+        fn __register(registry: &mut TypeRegistry) {
+            registry.register::<T>();
+        }
+    }
+
+    impl RegisterForReflection for DynamicEnum {}
+
+    impl RegisterForReflection for DynamicTupleStruct {}
+
+    impl RegisterForReflection for DynamicStruct {}
+
+    impl RegisterForReflection for DynamicMap {}
+
+    impl RegisterForReflection for DynamicList {}
+
+    impl RegisterForReflection for DynamicArray {}
+
+    impl RegisterForReflection for DynamicTuple {}
 }
 
 #[cfg(test)]
 #[allow(clippy::disallowed_types, clippy::approx_constant)]
 mod tests {
-    #[cfg(feature = "glam")]
-    use ::glam::{quat, vec3, Quat, Vec3};
     use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
     use bevy_utils::HashMap;
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
+    use static_assertions::{assert_impl_all, assert_not_impl_all};
     use std::{
         any::TypeId,
         borrow::Cow,
         fmt::{Debug, Formatter},
+        hash::Hash,
         marker::PhantomData,
     };
 
     use super::prelude::*;
     use super::*;
     use crate as bevy_reflect;
-    use crate::serde::{ReflectSerializer, UntypedReflectDeserializer};
+    use crate::serde::{ReflectDeserializer, ReflectSerializer};
     use crate::utility::GenericTypePathCell;
+
+    #[test]
+    fn try_apply_should_detect_kinds() {
+        #[derive(Reflect, Debug)]
+        struct Struct {
+            a: u32,
+            b: f32,
+        }
+
+        #[derive(Reflect, Debug)]
+        enum Enum {
+            A,
+            B(u32),
+        }
+
+        let mut struct_target = Struct {
+            a: 0xDEADBEEF,
+            b: 3.14,
+        };
+
+        let mut enum_target = Enum::A;
+
+        let array_src = [8, 0, 8];
+
+        let result = struct_target.try_apply(&enum_target);
+        assert!(
+            matches!(
+                result,
+                Err(ApplyError::MismatchedKinds {
+                    from_kind: ReflectKind::Enum,
+                    to_kind: ReflectKind::Struct
+                })
+            ),
+            "result was {result:?}"
+        );
+
+        let result = enum_target.try_apply(&array_src);
+        assert!(
+            matches!(
+                result,
+                Err(ApplyError::MismatchedKinds {
+                    from_kind: ReflectKind::Array,
+                    to_kind: ReflectKind::Enum
+                })
+            ),
+            "result was {result:?}"
+        );
+    }
 
     #[test]
     fn reflect_struct() {
@@ -662,7 +757,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "the given key does not support hashing")]
+    #[should_panic(
+        expected = "the given key of type `bevy_reflect::tests::Foo` does not support hashing"
+    )]
     fn reflect_map_no_hash() {
         #[derive(Reflect)]
         struct Foo {
@@ -670,9 +767,48 @@ mod tests {
         }
 
         let foo = Foo { a: 1 };
+        assert!(foo.reflect_hash().is_none());
 
         let mut map = DynamicMap::default();
         map.insert(foo, 10u32);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "the dynamic type `bevy_reflect::DynamicStruct` (representing `bevy_reflect::tests::Foo`) does not support hashing"
+    )]
+    fn reflect_map_no_hash_dynamic_representing() {
+        #[derive(Reflect, Hash)]
+        #[reflect(Hash)]
+        struct Foo {
+            a: u32,
+        }
+
+        let foo = Foo { a: 1 };
+        assert!(foo.reflect_hash().is_some());
+        let dynamic = foo.clone_dynamic();
+
+        let mut map = DynamicMap::default();
+        map.insert(dynamic, 11u32);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "the dynamic type `bevy_reflect::DynamicStruct` does not support hashing"
+    )]
+    fn reflect_map_no_hash_dynamic() {
+        #[derive(Reflect, Hash)]
+        #[reflect(Hash)]
+        struct Foo {
+            a: u32,
+        }
+
+        let mut dynamic = DynamicStruct::default();
+        dynamic.insert("a", 4u32);
+        assert!(dynamic.reflect_hash().is_none());
+
+        let mut map = DynamicMap::default();
+        map.insert(dynamic, 11u32);
     }
 
     #[test]
@@ -999,6 +1135,124 @@ mod tests {
     }
 
     #[test]
+    fn should_auto_register_fields() {
+        #[derive(Reflect)]
+        struct Foo {
+            bar: Bar,
+        }
+
+        #[derive(Reflect)]
+        enum Bar {
+            Variant(Baz),
+        }
+
+        #[derive(Reflect)]
+        struct Baz(usize);
+
+        // === Basic === //
+        let mut registry = TypeRegistry::empty();
+        registry.register::<Foo>();
+
+        assert!(
+            registry.contains(TypeId::of::<Bar>()),
+            "registry should contain auto-registered `Bar` from `Foo`"
+        );
+
+        // === Option === //
+        let mut registry = TypeRegistry::empty();
+        registry.register::<Option<Foo>>();
+
+        assert!(
+            registry.contains(TypeId::of::<Bar>()),
+            "registry should contain auto-registered `Bar` from `Option<Foo>`"
+        );
+
+        // === Tuple === //
+        let mut registry = TypeRegistry::empty();
+        registry.register::<(Foo, Foo)>();
+
+        assert!(
+            registry.contains(TypeId::of::<Bar>()),
+            "registry should contain auto-registered `Bar` from `(Foo, Foo)`"
+        );
+
+        // === Array === //
+        let mut registry = TypeRegistry::empty();
+        registry.register::<[Foo; 3]>();
+
+        assert!(
+            registry.contains(TypeId::of::<Bar>()),
+            "registry should contain auto-registered `Bar` from `[Foo; 3]`"
+        );
+
+        // === Vec === //
+        let mut registry = TypeRegistry::empty();
+        registry.register::<Vec<Foo>>();
+
+        assert!(
+            registry.contains(TypeId::of::<Bar>()),
+            "registry should contain auto-registered `Bar` from `Vec<Foo>`"
+        );
+
+        // === HashMap === //
+        let mut registry = TypeRegistry::empty();
+        registry.register::<HashMap<i32, Foo>>();
+
+        assert!(
+            registry.contains(TypeId::of::<Bar>()),
+            "registry should contain auto-registered `Bar` from `HashMap<i32, Foo>`"
+        );
+    }
+
+    #[test]
+    fn should_allow_dynamic_fields() {
+        #[derive(Reflect)]
+        #[reflect(from_reflect = false)]
+        struct MyStruct(
+            DynamicEnum,
+            DynamicTupleStruct,
+            DynamicStruct,
+            DynamicMap,
+            DynamicList,
+            DynamicArray,
+            DynamicTuple,
+            i32,
+        );
+
+        assert_impl_all!(MyStruct: Reflect, GetTypeRegistration);
+
+        let mut registry = TypeRegistry::empty();
+        registry.register::<MyStruct>();
+
+        assert_eq!(2, registry.iter().count());
+        assert!(registry.contains(TypeId::of::<MyStruct>()));
+        assert!(registry.contains(TypeId::of::<i32>()));
+    }
+
+    #[test]
+    fn should_not_auto_register_existing_types() {
+        #[derive(Reflect)]
+        struct Foo {
+            bar: Bar,
+        }
+
+        #[derive(Reflect, Default)]
+        struct Bar(usize);
+
+        let mut registry = TypeRegistry::empty();
+        registry.register::<Bar>();
+        registry.register_type_data::<Bar, ReflectDefault>();
+        registry.register::<Foo>();
+
+        assert!(
+            registry
+                .get_type_data::<ReflectDefault>(TypeId::of::<Bar>())
+                .is_some(),
+            "registry should contain existing registration for `Bar`"
+        );
+    }
+
+    #[test]
     fn reflect_serialize() {
         #[derive(Reflect)]
         struct Foo {
@@ -1051,7 +1305,7 @@ mod tests {
         let serialized = to_string_pretty(&serializer, PrettyConfig::default()).unwrap();
 
         let mut deserializer = Deserializer::from_str(&serialized).unwrap();
-        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
         let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
         let dynamic_struct = value.take::<DynamicStruct>().unwrap();
 
@@ -1383,7 +1637,6 @@ mod tests {
         // List (SmallVec)
         #[cfg(feature = "smallvec")]
         {
-            use bevy_utils::smallvec;
             type MySmallVec = smallvec::SmallVec<[String; 2]>;
 
             let info = MySmallVec::type_info();
@@ -1565,7 +1818,7 @@ mod tests {
 
             let info = <SomeStruct as Typed>::type_info();
             assert_eq!(
-                Some(" Some struct.\n\n # Example\n\n ```ignore\n let some_struct = SomeStruct;\n ```"),
+                Some(" Some struct.\n\n # Example\n\n ```ignore (This is only used for a unit test, no need to doc test)\n let some_struct = SomeStruct;\n ```"),
                 info.docs()
             );
 
@@ -1869,12 +2122,145 @@ bevy_reflect::tests::Test {
     }
 
     #[test]
+    fn should_allow_custom_where() {
+        #[derive(Reflect)]
+        #[reflect(where T: Default)]
+        struct Foo<T>(String, #[reflect(ignore)] PhantomData<T>);
+
+        #[derive(Default, TypePath)]
+        struct Bar;
+
+        #[derive(TypePath)]
+        struct Baz;
+
+        assert_impl_all!(Foo<Bar>: Reflect);
+        assert_not_impl_all!(Foo<Baz>: Reflect);
+    }
+
+    #[test]
+    fn should_allow_empty_custom_where() {
+        #[derive(Reflect)]
+        #[reflect(where)]
+        struct Foo<T>(String, #[reflect(ignore)] PhantomData<T>);
+
+        #[derive(TypePath)]
+        struct Bar;
+
+        assert_impl_all!(Foo<Bar>: Reflect);
+    }
+
+    #[test]
+    fn should_allow_multiple_custom_where() {
+        #[derive(Reflect)]
+        #[reflect(where T: Default)]
+        #[reflect(where U: std::ops::Add<T>)]
+        struct Foo<T, U>(T, U);
+
+        #[derive(Reflect)]
+        struct Baz {
+            a: Foo<i32, i32>,
+            b: Foo<u32, u32>,
+        }
+
+        assert_impl_all!(Foo<i32, i32>: Reflect);
+        assert_not_impl_all!(Foo<i32, usize>: Reflect);
+    }
+
+    #[test]
+    fn should_allow_custom_where_with_assoc_type() {
+        trait Trait {
+            type Assoc;
+        }
+
+        // We don't need `T` to be `Reflect` since we only care about `T::Assoc`
+        #[derive(Reflect)]
+        #[reflect(where T::Assoc: core::fmt::Display)]
+        struct Foo<T: Trait>(T::Assoc);
+
+        #[derive(TypePath)]
+        struct Bar;
+
+        impl Trait for Bar {
+            type Assoc = usize;
+        }
+
+        #[derive(TypePath)]
+        struct Baz;
+
+        impl Trait for Baz {
+            type Assoc = (f32, f32);
+        }
+
+        assert_impl_all!(Foo<Bar>: Reflect);
+        assert_not_impl_all!(Foo<Baz>: Reflect);
+    }
+
+    #[test]
     fn recursive_typed_storage_does_not_hang() {
         #[derive(Reflect)]
         struct Recurse<T>(T);
 
         let _ = <Recurse<Recurse<()>> as Typed>::type_info();
         let _ = <Recurse<Recurse<()>> as TypePath>::type_path();
+
+        #[derive(Reflect)]
+        #[reflect(no_field_bounds)]
+        struct SelfRecurse {
+            recurse: Vec<SelfRecurse>,
+        }
+
+        let _ = <SelfRecurse as Typed>::type_info();
+        let _ = <SelfRecurse as TypePath>::type_path();
+
+        #[derive(Reflect)]
+        #[reflect(no_field_bounds)]
+        enum RecurseA {
+            Recurse(RecurseB),
+        }
+
+        #[derive(Reflect)]
+        // `#[reflect(no_field_bounds)]` not needed since already added to `RecurseA`
+        struct RecurseB {
+            vector: Vec<RecurseA>,
+        }
+
+        let _ = <RecurseA as Typed>::type_info();
+        let _ = <RecurseA as TypePath>::type_path();
+        let _ = <RecurseB as Typed>::type_info();
+        let _ = <RecurseB as TypePath>::type_path();
+    }
+
+    #[test]
+    fn recursive_registration_does_not_hang() {
+        #[derive(Reflect)]
+        struct Recurse<T>(T);
+
+        let mut registry = TypeRegistry::empty();
+
+        registry.register::<Recurse<Recurse<()>>>();
+
+        #[derive(Reflect)]
+        #[reflect(no_field_bounds)]
+        struct SelfRecurse {
+            recurse: Vec<SelfRecurse>,
+        }
+
+        registry.register::<SelfRecurse>();
+
+        #[derive(Reflect)]
+        #[reflect(no_field_bounds)]
+        enum RecurseA {
+            Recurse(RecurseB),
+        }
+
+        #[derive(Reflect)]
+        struct RecurseB {
+            vector: Vec<RecurseA>,
+        }
+
+        registry.register::<RecurseA>();
+        assert!(registry.contains(TypeId::of::<RecurseA>()));
+        assert!(registry.contains(TypeId::of::<RecurseB>()));
     }
 
     #[test]
@@ -1995,9 +2381,46 @@ bevy_reflect::tests::Test {
         );
     }
 
+    #[test]
+    fn assert_impl_reflect_macro_on_all() {
+        struct Struct {
+            foo: (),
+        }
+        struct TupleStruct(());
+        enum Enum {
+            Foo { foo: () },
+            Bar(()),
+        }
+
+        impl_reflect!(
+            #[type_path = "my_crate::foo"]
+            struct Struct {
+                foo: (),
+            }
+        );
+
+        impl_reflect!(
+            #[type_path = "my_crate::foo"]
+            struct TupleStruct(());
+        );
+
+        impl_reflect!(
+            #[type_path = "my_crate::foo"]
+            enum Enum {
+                Foo { foo: () },
+                Bar(()),
+            }
+        );
+
+        assert_impl_all!(Struct: Reflect);
+        assert_impl_all!(TupleStruct: Reflect);
+        assert_impl_all!(Enum: Reflect);
+    }
+
     #[cfg(feature = "glam")]
     mod glam {
         use super::*;
+        use ::glam::{quat, vec3, Quat, Vec3};
 
         #[test]
         fn quat_serialization() {
@@ -2042,7 +2465,7 @@ bevy_reflect::tests::Test {
             registry.register::<Quat>();
             registry.register::<f32>();
 
-            let de = UntypedReflectDeserializer::new(&registry);
+            let de = ReflectDeserializer::new(&registry);
 
             let mut deserializer =
                 Deserializer::from_str(data).expect("Failed to acquire deserializer");
@@ -2099,7 +2522,7 @@ bevy_reflect::tests::Test {
             registry.add_registration(Vec3::get_type_registration());
             registry.add_registration(f32::get_type_registration());
 
-            let de = UntypedReflectDeserializer::new(&registry);
+            let de = ReflectDeserializer::new(&registry);
 
             let mut deserializer =
                 Deserializer::from_str(data).expect("Failed to acquire deserializer");

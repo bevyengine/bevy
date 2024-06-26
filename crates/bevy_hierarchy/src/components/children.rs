@@ -6,8 +6,8 @@ use bevy_ecs::{
     prelude::FromWorld,
     world::World,
 };
-use bevy_utils::smallvec::SmallVec;
 use core::slice;
+use smallvec::SmallVec;
 use std::ops::Deref;
 
 /// Contains references to the child entities of this entity.
@@ -29,9 +29,9 @@ use std::ops::Deref;
 pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
 
 impl MapEntities for Children {
-    fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
+    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
         for entity in &mut self.0 {
-            *entity = entity_mapper.get_or_reserve(*entity);
+            *entity = entity_mapper.map_entity(*entity);
         }
     }
 }

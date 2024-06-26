@@ -20,7 +20,7 @@ fn main() {
 }
 
 // This "print message plugin" prints a `message` every `wait_duration`
-pub struct PrintMessagePlugin {
+struct PrintMessagePlugin {
     // Put your plugin configuration here
     wait_duration: Duration,
     message: String,

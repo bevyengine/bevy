@@ -6,10 +6,7 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 0.0,
-        })
+        .insert_resource(AmbientLight::NONE)
         .add_systems(Startup, setup)
         .add_systems(Update, add_lightmaps_to_meshes)
         .run();
@@ -17,7 +14,8 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/CornellBox/CornellBox.glb#Scene0"),
+        scene: asset_server
+            .load(GltfAssetLabel::Scene(0).from_asset("models/CornellBox/CornellBox.glb")),
         ..default()
     });
 
@@ -38,11 +36,6 @@ fn add_lightmaps_to_meshes(
 ) {
     let exposure = 250.0;
     for (entity, name, material) in meshes.iter() {
-        if &**name == "Light" {
-            materials.get_mut(material).unwrap().emissive = Color::WHITE * exposure;
-            continue;
-        }
-
         if &**name == "large_box" {
             materials.get_mut(material).unwrap().lightmap_exposure = exposure;
             commands.entity(entity).insert(Lightmap {

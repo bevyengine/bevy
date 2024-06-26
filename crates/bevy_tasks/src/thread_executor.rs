@@ -106,7 +106,7 @@ impl<'task, 'ticker> ThreadExecutorTicker<'task, 'ticker> {
     }
 
     /// Synchronously try to tick a task on the executor.
-    /// Returns false if if does not find a task to tick.
+    /// Returns false if does not find a task to tick.
     pub fn try_tick(&self) -> bool {
         self.executor.executor.try_tick()
     }

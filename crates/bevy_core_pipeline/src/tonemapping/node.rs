@@ -8,10 +8,10 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         BindGroup, BindGroupEntries, BufferId, LoadOp, Operations, PipelineCache,
-        RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor, StoreOp, TextureViewId,
+        RenderPassColorAttachment, RenderPassDescriptor, StoreOp, TextureViewId,
     },
     renderer::RenderContext,
-    texture::Image,
+    texture::{FallbackImage, GpuImage},
     view::{ViewTarget, ViewUniformOffset, ViewUniforms},
 };
 
@@ -19,12 +19,12 @@ use super::{get_lut_bindings, Tonemapping};
 
 #[derive(Default)]
 pub struct TonemappingNode {
-    cached_bind_group: Mutex<Option<(BufferId, TextureViewId, BindGroup)>>,
+    cached_bind_group: Mutex<Option<(BufferId, TextureViewId, TextureViewId, BindGroup)>>,
     last_tonemapping: Mutex<Option<Tonemapping>>,
 }
 
 impl ViewNode for TonemappingNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ViewUniformOffset,
         &'static ViewTarget,
         &'static ViewTonemappingPipeline,
@@ -36,16 +36,21 @@ impl ViewNode for TonemappingNode {
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
         (view_uniform_offset, target, view_tonemapping_pipeline, tonemapping): QueryItem<
-            Self::ViewData,
+            Self::ViewQuery,
         >,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
         let tonemapping_pipeline = world.resource::<TonemappingPipeline>();
-        let gpu_images = world.get_resource::<RenderAssets<Image>>().unwrap();
+        let gpu_images = world.get_resource::<RenderAssets<GpuImage>>().unwrap();
+        let fallback_image = world.resource::<FallbackImage>();
         let view_uniforms_resource = world.resource::<ViewUniforms>();
         let view_uniforms = &view_uniforms_resource.uniforms;
         let view_uniforms_id = view_uniforms.buffer().unwrap().id();
+
+        if *tonemapping == Tonemapping::None {
+            return Ok(());
+        }
 
         if !target.is_hdr() {
             return Ok(());
@@ -72,21 +77,19 @@ impl ViewNode for TonemappingNode {
 
         let mut cached_bind_group = self.cached_bind_group.lock().unwrap();
         let bind_group = match &mut *cached_bind_group {
-            Some((buffer_id, texture_id, bind_group))
+            Some((buffer_id, texture_id, lut_id, bind_group))
                 if view_uniforms_id == *buffer_id
                     && source.id() == *texture_id
+                    && *lut_id != fallback_image.d3.texture_view.id()
                     && !tonemapping_changed =>
             {
                 bind_group
             }
             cached_bind_group => {
-                let sampler = render_context
-                    .render_device()
-                    .create_sampler(&SamplerDescriptor::default());
-
                 let tonemapping_luts = world.resource::<TonemappingLuts>();
 
-                let lut_bindings = get_lut_bindings(gpu_images, tonemapping_luts, tonemapping);
+                let lut_bindings =
+                    get_lut_bindings(gpu_images, tonemapping_luts, tonemapping, fallback_image);
 
                 let bind_group = render_context.render_device().create_bind_group(
                     None,
@@ -94,14 +97,18 @@ impl ViewNode for TonemappingNode {
                     &BindGroupEntries::sequential((
                         view_uniforms,
                         source,
-                        &sampler,
+                        &tonemapping_pipeline.sampler,
                         lut_bindings.0,
                         lut_bindings.1,
                     )),
                 );
 
-                let (_, _, bind_group) =
-                    cached_bind_group.insert((view_uniforms_id, source.id(), bind_group));
+                let (_, _, _, bind_group) = cached_bind_group.insert((
+                    view_uniforms_id,
+                    source.id(),
+                    lut_bindings.0.id(),
+                    bind_group,
+                ));
                 bind_group
             }
         };

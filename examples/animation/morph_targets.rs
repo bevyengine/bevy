@@ -36,19 +36,22 @@ struct MorphData {
 
 fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
     commands.insert_resource(MorphData {
-        the_wave: asset_server.load("models/animated/MorphStressTest.gltf#Animation2"),
-        mesh: asset_server.load("models/animated/MorphStressTest.gltf#Mesh0/Primitive0"),
+        the_wave: asset_server
+            .load(GltfAssetLabel::Animation(2).from_asset("models/animated/MorphStressTest.gltf")),
+        mesh: asset_server.load(
+            GltfAssetLabel::Primitive {
+                mesh: 0,
+                primitive: 0,
+            }
+            .from_asset("models/animated/MorphStressTest.gltf"),
+        ),
     });
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/animated/MorphStressTest.gltf#Scene0"),
+        scene: asset_server
+            .load(GltfAssetLabel::Scene(0).from_asset("models/animated/MorphStressTest.gltf")),
         ..default()
     });
     commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            color: Color::WHITE,
-            illuminance: 1000.0,
-            ..default()
-        },
         transform: Transform::from_rotation(Quat::from_rotation_z(PI / 2.0)),
         ..default()
     });
@@ -61,18 +64,24 @@ fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
 /// Plays an [`AnimationClip`] from the loaded [`Gltf`] on the [`AnimationPlayer`] created by the spawned scene.
 fn setup_animations(
     mut has_setup: Local<bool>,
-    mut players: Query<(&Name, &mut AnimationPlayer)>,
+    mut commands: Commands,
+    mut players: Query<(Entity, &Name, &mut AnimationPlayer)>,
     morph_data: Res<MorphData>,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
     if *has_setup {
         return;
     }
-    for (name, mut player) in &mut players {
+    for (entity, name, mut player) in &mut players {
         // The name of the entity in the GLTF scene containing the AnimationPlayer for our morph targets is "Main"
         if name.as_str() != "Main" {
             continue;
         }
-        player.play(morph_data.the_wave.clone()).repeat();
+
+        let (graph, animation) = AnimationGraph::from_clip(morph_data.the_wave.clone());
+        commands.entity(entity).insert(graphs.add(graph));
+
+        player.play(animation).repeat();
         *has_setup = true;
     }
 }

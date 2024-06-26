@@ -3,9 +3,9 @@
 //! In windowed *Bevy* applications, executing code below a call to `App::run()` is
 //! not recommended because:
 //! - `App::run()` will never return on iOS and Web.
-//! - It is not possible to recreate a window afer the event loop has been terminated.
+//! - It is not possible to recreate a window after the event loop has been terminated.
 
-use bevy::{prelude::*, window::WindowPlugin};
+use bevy::prelude::*;
 
 fn main() {
     println!("Running Bevy App");

@@ -11,7 +11,7 @@ use crate::{
 };
 
 use bevy_utils::all_tuples;
-use std::{any::TypeId, borrow::Cow, marker::PhantomData};
+use std::{borrow::Cow, marker::PhantomData};
 
 /// A function system that runs with exclusive [`World`] access.
 ///
@@ -66,11 +66,6 @@ where
     }
 
     #[inline]
-    fn type_id(&self) -> TypeId {
-        TypeId::of::<F>()
-    }
-
-    #[inline]
     fn component_access(&self) -> &Access<ComponentId> {
         self.system_meta.component_access_set.combined_access()
     }
@@ -105,28 +100,34 @@ where
     }
 
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
-        #[cfg(feature = "trace")]
-        let _span_guard = self.system_meta.system_span.enter();
+        world.last_change_tick_scope(self.system_meta.last_run, |world| {
+            #[cfg(feature = "trace")]
+            let _span_guard = self.system_meta.system_span.enter();
 
-        let saved_last_tick = world.last_change_tick;
-        world.last_change_tick = self.system_meta.last_run;
+            let params = F::Param::get_param(
+                self.param_state.as_mut().expect(PARAM_MESSAGE),
+                &self.system_meta,
+            );
+            let out = self.func.run(world, input, params);
 
-        let params = F::Param::get_param(
-            self.param_state.as_mut().expect(PARAM_MESSAGE),
-            &self.system_meta,
-        );
-        let out = self.func.run(world, input, params);
+            world.flush();
+            let change_tick = world.change_tick.get_mut();
+            self.system_meta.last_run.set(*change_tick);
+            *change_tick = change_tick.wrapping_add(1);
 
-        let change_tick = world.change_tick.get_mut();
-        self.system_meta.last_run.set(*change_tick);
-        *change_tick = change_tick.wrapping_add(1);
-        world.last_change_tick = saved_last_tick;
-
-        out
+            out
+        })
     }
 
     #[inline]
     fn apply_deferred(&mut self, _world: &mut World) {
+        // "pure" exclusive systems do not have any buffers to apply.
+        // Systems made by piping a normal system with an exclusive system
+        // might have buffers to apply, but this is handled by `PipeSystem`.
+    }
+
+    #[inline]
+    fn queue_deferred(&mut self, _world: crate::world::DeferredWorld) {
         // "pure" exclusive systems do not have any buffers to apply.
         // Systems made by piping a normal system with an exclusive system
         // might have buffers to apply, but this is handled by `PipeSystem`.
@@ -150,7 +151,7 @@ where
     }
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
-        let set = crate::schedule::SystemTypeSet::<F>::new();
+        let set = crate::schedule::SystemTypeSet::<Self>::new();
         vec![set.intern()]
     }
 
@@ -167,6 +168,10 @@ where
 ///
 /// This trait can be useful for making your own systems which accept other systems,
 /// sometimes called higher order systems.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an exclusive system",
+    label = "invalid system"
+)]
 pub trait ExclusiveSystemParamFunction<Marker>: Send + Sync + 'static {
     /// The input type to this system. See [`System::In`].
     type In;
@@ -174,7 +179,7 @@ pub trait ExclusiveSystemParamFunction<Marker>: Send + Sync + 'static {
     /// The return type of this system. See [`System::Out`].
     type Out;
 
-    /// The [`ExclusiveSystemParam`]/s defined by this system's `fn` parameters.
+    /// The [`ExclusiveSystemParam`]'s defined by this system's `fn` parameters.
     type Param: ExclusiveSystemParam;
 
     /// Executes this system once. See [`System::run`].
@@ -250,3 +255,44 @@ macro_rules! impl_exclusive_system_function {
 // Note that we rely on the highest impl to be <= the highest order of the tuple impls
 // of `SystemParam` created.
 all_tuples!(impl_exclusive_system_function, 0, 16, F);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn into_system_type_id_consistency() {
+        fn test<T, In, Out, Marker>(function: T)
+        where
+            T: IntoSystem<In, Out, Marker> + Copy,
+        {
+            fn reference_system(_world: &mut World) {}
+
+            use std::any::TypeId;
+
+            let system = IntoSystem::into_system(function);
+
+            assert_eq!(
+                system.type_id(),
+                function.system_type_id(),
+                "System::type_id should be consistent with IntoSystem::system_type_id"
+            );
+
+            assert_eq!(
+                system.type_id(),
+                TypeId::of::<T::System>(),
+                "System::type_id should be consistent with TypeId::of::<T::System>()"
+            );
+
+            assert_ne!(
+                system.type_id(),
+                IntoSystem::into_system(reference_system).type_id(),
+                "Different systems should have different TypeIds"
+            );
+        }
+
+        fn exclusive_function_system(_world: &mut World) {}
+
+        test(exclusive_function_system);
+    }
+}

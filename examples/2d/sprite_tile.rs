@@ -26,15 +26,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         current: 128.0,
         speed: 50.0,
     });
-    commands.spawn(SpriteBundle {
-        texture: asset_server.load("branding/icon.png"),
-        scale_mode: ImageScaleMode::Tiled {
+    commands.spawn((
+        SpriteBundle {
+            texture: asset_server.load("branding/icon.png"),
+            ..default()
+        },
+        ImageScaleMode::Tiled {
             tile_x: true,
             tile_y: true,
             stretch_value: 0.5, // The image will tile every 128px
         },
-        ..default()
-    });
+    ));
 }
 
 fn animate(mut sprites: Query<&mut Sprite>, mut state: ResMut<AnimationState>, time: Res<Time>) {

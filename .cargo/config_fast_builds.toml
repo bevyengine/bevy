@@ -1,0 +1,151 @@
+# Copy this file to `config.toml` to speed up your builds.
+#
+# # Faster linker
+#
+# One of the slowest aspects of compiling large Rust programs is the linking time. This file configures an
+# alternate linker that may improve build times. When choosing a new linker, you have two options:
+#
+# ## LLD
+#
+# LLD is a linker from the LLVM project that supports Linux, Windows, MacOS, and WASM. It has the greatest
+# platform support and the easiest installation process. It is enabled by default in this file for Linux
+# and Windows. On MacOS, the default linker yields higher performance than LLD and is used instead.
+#
+# To install, please scroll to the corresponding table for your target (eg. `[target.x86_64-pc-windows-msvc]`
+# for Windows) and follow the steps under `LLD linker`.
+#
+# For more information, please see LLD's website at <https://lld.llvm.org>.
+#
+# ## Mold
+#
+# Mold is a newer linker written by one of the authors of LLD. It boasts even greater performance, specifically
+# through its high parallelism, though it only supports Linux.
+#
+# Mold is  disabled by default in this file. If you wish to enable it, follow the installation instructions for
+# your corresponding target, disable LLD by commenting out its `-Clink-arg=...` line, and enable Mold by
+# *uncommenting* its `-Clink-arg=...` line.
+#
+# There is a fork of Mold named Sold that supports MacOS, but it is unmaintained and is about the same speed as
+# the default ld64 linker. For this reason, it is not included in this file.
+#
+# For more information, please see Mold's repository at <https://github.com/rui314/mold>.
+#
+# # Nightly configuration
+#
+# Be warned that the following features require nightly Rust, which is expiremental and may contain bugs. If you
+# are having issues, skip this section and use stable Rust instead.
+#
+# There are a few unstable features that can improve performance. To use them, first install nightly Rust
+# through Rustup:
+#
+# ```
+# rustup toolchain install nightly
+# ```
+#
+# Finally, uncomment the lines under the `Nightly` heading for your corresponding target table (eg.
+# `[target.x86_64-unknown-linux-gnu]` for Linux) to enable the following features:
+#
+# ## `share-generics`
+#
+# Usually rustc builds each crate separately, then combines them all together at the end. `share-generics` forces
+# crates to share monomorphized generic code, so they do not duplicate work.
+#
+# In other words, instead of crate 1 generating `Foo<String>` and crate 2 generating `Foo<String>` separately,
+# only one crate generates `Foo<String>` and the other adds on to the pre-exiting work.
+#
+# Note that you may have some issues with this flag on Windows. If compiling fails due to the 65k symbol limit,
+# you may have to disable this setting. For more information and possible solutions to this error, see
+# <https://github.com/bevyengine/bevy/issues/1110>.
+#
+# ## `threads`
+#
+# This option enables rustc's parallel frontend, which improves performance when parsing, type checking, borrow
+# checking, and more. We currently set `threads=0`, which defaults to the amount of cores in your CPU.
+#
+# For more information, see the blog post at <https://blog.rust-lang.org/2023/11/09/parallel-rustc.html>.
+
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = [
+  # LLD linker
+  #
+  # You may need to install it:
+  #
+  # - Ubuntu: `sudo apt-get install lld clang`
+  # - Fedora: `sudo dnf install lld clang`
+  # - Arch: `sudo pacman -S lld clang`
+  "-Clink-arg=-fuse-ld=lld",
+
+  # Mold linker
+  #
+  # You may need to install it:
+  #
+  # - Ubuntu: `sudo apt-get install mold clang`
+  # - Fedora: `sudo dnf install mold clang`
+  # - Arch: `sudo pacman -S mold clang`
+  # "-Clink-arg=-fuse-ld=/usr/bin/mold",
+
+  # Nightly
+  # "-Zshare-generics=y",
+  # "-Zthreads=0",
+]
+
+[target.x86_64-apple-darwin]
+rustflags = [
+  # LLD linker
+  #
+  # The default ld64 linker is faster, you should continue using it instead.
+  #
+  # You may need to install it:
+  #
+  # Brew: `brew install llvm`
+  # Manually: <https://lld.llvm.org/MachO/index.html>
+  # "-Clink-arg=-fuse-ld=/usr/local/opt/llvm/bin/ld64.lld",
+
+  # Nightly
+  # "-Zshare-generics=y",
+  # "-Zthreads=0",
+]
+
+[target.aarch64-apple-darwin]
+rustflags = [
+  # LLD linker
+  #
+  # The default ld64 linker is faster, you should continue using it instead.
+  #
+  # You may need to install it:
+  #
+  # Brew: `brew install llvm`
+  # Manually: <https://lld.llvm.org/MachO/index.html>
+  # "-Clink-arg=-fuse-ld=/opt/homebrew/opt/llvm/bin/ld64.lld",
+
+  # Nightly
+  # "-Zshare-generics=y",
+  # "-Zthreads=0",
+]
+
+[target.x86_64-pc-windows-msvc]
+# LLD linker
+#
+# You may need to install it:
+#
+# ```
+# cargo install -f cargo-binutils
+# rustup component add llvm-tools
+# ```
+linker = "rust-lld.exe"
+rustflags = [
+  # Nightly
+  # "-Zshare-generics=y",
+  # "-Zthreads=0",
+]
+
+# Optional: Uncommenting the following improves compile times, but reduces the amount of debug info to 'line number tables only'
+# In most cases the gains are negligible, but if you are on macos and have slow compile times you should see significant gains.
+# [profile.dev]
+# debug = 1
+
+# This is enables you to run the CI tool using `cargo ci`.
+# This is not enabled by default, you need to copy this file to `config.toml`.
+[alias]
+ci = "run --package ci --"

@@ -11,6 +11,9 @@ use bevy::{
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/fallback_image_test.wgsl";
+
 fn main() {
     App::new()
         .add_plugins((
@@ -27,7 +30,7 @@ fn setup(
     mut materials: ResMut<Assets<FallbackTestMaterial>>,
 ) {
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
+        mesh: meshes.add(Cuboid::default()),
         material: materials.add(FallbackTestMaterial {
             image_1d: None,
             image_2d: None,
@@ -73,6 +76,6 @@ struct FallbackTestMaterial {
 
 impl Material for FallbackTestMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/fallback_image_test.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 }

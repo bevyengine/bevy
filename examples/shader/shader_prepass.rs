@@ -10,6 +10,10 @@ use bevy::{
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
 };
 
+/// This example uses a shader source file from the assets subdirectory
+const PREPASS_SHADER_ASSET_PATH: &str = "shaders/show_prepass.wgsl";
+const MATERIAL_SHADER_ASSET_PATH: &str = "shaders/custom_material.wgsl";
+
 fn main() {
     App::new()
         .add_plugins((
@@ -61,8 +65,8 @@ fn setup(
 
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0)),
-        material: std_materials.add(Color::rgb(0.3, 0.5, 0.3)),
+        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
+        material: std_materials.add(Color::srgb(0.3, 0.5, 0.3)),
         ..default()
     });
 
@@ -71,7 +75,7 @@ fn setup(
     // For a real application, this isn't ideal.
     commands.spawn((
         MaterialMeshBundle {
-            mesh: meshes.add(shape::Quad::new(Vec2::new(20.0, 20.0))),
+            mesh: meshes.add(Rectangle::new(20.0, 20.0)),
             material: depth_materials.add(PrepassOutputMaterial {
                 settings: ShowPrepassSettings::default(),
             }),
@@ -85,9 +89,9 @@ fn setup(
     // Opaque cube
     commands.spawn((
         MaterialMeshBundle {
-            mesh: meshes.add(shape::Cube { size: 1.0 }),
+            mesh: meshes.add(Cuboid::default()),
             material: materials.add(CustomMaterial {
-                color: Color::WHITE,
+                color: LinearRgba::WHITE,
                 color_texture: Some(asset_server.load("branding/icon.png")),
                 alpha_mode: AlphaMode::Opaque,
             }),
@@ -99,7 +103,7 @@ fn setup(
 
     // Cube with alpha mask
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
+        mesh: meshes.add(Cuboid::default()),
         material: std_materials.add(StandardMaterial {
             alpha_mode: AlphaMode::Mask(1.0),
             base_color_texture: Some(asset_server.load("branding/icon.png")),
@@ -112,9 +116,9 @@ fn setup(
     // Cube with alpha blending.
     // Transparent materials are ignored by the prepass
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
+        mesh: meshes.add(Cuboid::default()),
         material: materials.add(CustomMaterial {
-            color: Color::WHITE,
+            color: LinearRgba::WHITE,
             color_texture: Some(asset_server.load("branding/icon.png")),
             alpha_mode: AlphaMode::Blend,
         }),
@@ -125,7 +129,6 @@ fn setup(
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 300_000.0,
             shadows_enabled: true,
             ..default()
         },
@@ -133,10 +136,7 @@ fn setup(
         ..default()
     });
 
-    let style = TextStyle {
-        font_size: 18.0,
-        ..default()
-    };
+    let style = TextStyle::default();
 
     commands.spawn(
         TextBundle::from_sections(vec![
@@ -148,8 +148,8 @@ fn setup(
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
@@ -157,9 +157,9 @@ fn setup(
 
 // This is the struct that will be passed to your shader
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
-pub struct CustomMaterial {
+struct CustomMaterial {
     #[uniform(0)]
-    color: Color,
+    color: LinearRgba,
     #[texture(1)]
     #[sampler(2)]
     color_texture: Option<Handle<Image>>,
@@ -170,7 +170,7 @@ pub struct CustomMaterial {
 /// function will also be used by the prepass
 impl Material for CustomMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/custom_material.wgsl".into()
+        MATERIAL_SHADER_ASSET_PATH.into()
     }
 
     fn alpha_mode(&self) -> AlphaMode {
@@ -205,14 +205,14 @@ struct ShowPrepassSettings {
 
 // This shader simply loads the prepass texture and outputs it directly
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
-pub struct PrepassOutputMaterial {
+struct PrepassOutputMaterial {
     #[uniform(0)]
     settings: ShowPrepassSettings,
 }
 
 impl Material for PrepassOutputMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/show_prepass.wgsl".into()
+        PREPASS_SHADER_ASSET_PATH.into()
     }
 
     // This needs to be transparent in order to show the scene behind the mesh

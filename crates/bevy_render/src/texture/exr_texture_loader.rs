@@ -1,12 +1,11 @@
 use crate::{
-    render_asset::RenderAssetPersistencePolicy,
+    render_asset::RenderAssetUsages,
     texture::{Image, TextureFormatPixelInfo},
 };
 use bevy_asset::{
     io::{AsyncReadExt, Reader},
     AssetLoader, LoadContext,
 };
-use bevy_utils::BoxedFuture;
 use image::ImageDecoder;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -18,7 +17,7 @@ pub struct ExrTextureLoader;
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct ExrTextureLoaderSettings {
-    pub cpu_persistent_access: RenderAssetPersistencePolicy,
+    pub asset_usage: RenderAssetUsages,
 }
 
 /// Possible errors that can be produced by [`ExrTextureLoader`]
@@ -36,45 +35,43 @@ impl AssetLoader for ExrTextureLoader {
     type Settings = ExrTextureLoaderSettings;
     type Error = ExrTextureLoaderError;
 
-    fn load<'a>(
+    async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
+        reader: &'a mut Reader<'_>,
         settings: &'a Self::Settings,
-        _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Image, Self::Error>> {
-        Box::pin(async move {
-            let format = TextureFormat::Rgba32Float;
-            debug_assert_eq!(
-                format.pixel_size(),
-                4 * 4,
-                "Format should have 32bit x 4 size"
-            );
+        _load_context: &'a mut LoadContext<'_>,
+    ) -> Result<Image, Self::Error> {
+        let format = TextureFormat::Rgba32Float;
+        debug_assert_eq!(
+            format.pixel_size(),
+            4 * 4,
+            "Format should have 32bit x 4 size"
+        );
 
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
-            let decoder = image::codecs::openexr::OpenExrDecoder::with_alpha_preference(
-                std::io::Cursor::new(bytes),
-                Some(true),
-            )?;
-            let (width, height) = decoder.dimensions();
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        let decoder = image::codecs::openexr::OpenExrDecoder::with_alpha_preference(
+            std::io::Cursor::new(bytes),
+            Some(true),
+        )?;
+        let (width, height) = decoder.dimensions();
 
-            let total_bytes = decoder.total_bytes() as usize;
+        let total_bytes = decoder.total_bytes() as usize;
 
-            let mut buf = vec![0u8; total_bytes];
-            decoder.read_image(buf.as_mut_slice())?;
+        let mut buf = vec![0u8; total_bytes];
+        decoder.read_image(buf.as_mut_slice())?;
 
-            Ok(Image::new(
-                Extent3d {
-                    width,
-                    height,
-                    depth_or_array_layers: 1,
-                },
-                TextureDimension::D2,
-                buf,
-                format,
-                settings.cpu_persistent_access,
-            ))
-        })
+        Ok(Image::new(
+            Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            buf,
+            format,
+            settings.asset_usage,
+        ))
     }
 
     fn extensions(&self) -> &[&str] {

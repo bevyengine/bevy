@@ -1,3 +1,5 @@
+//! Tool to run all examples or generate a showcase page for the Bevy website.
+
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     fmt::Display,
@@ -12,7 +14,7 @@ use std::{
 
 use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
 use pbr::ProgressBar;
-use toml_edit::Document;
+use toml_edit::DocumentMut;
 use xshell::{cmd, Shell};
 
 #[derive(Parser, Debug)]
@@ -23,6 +25,7 @@ struct Args {
 
     #[command(subcommand)]
     action: Action,
+
     #[arg(long)]
     /// Pagination control - page number. To use with --per-page
     page: Option<usize>,
@@ -59,6 +62,10 @@ enum Action {
         #[arg(long)]
         /// Report execution details in files
         report_details: bool,
+
+        #[arg(long)]
+        /// Show the logs during execution
+        show_logs: bool,
 
         #[arg(long)]
         /// File containing the list of examples to run, incompatible with pagination
@@ -135,6 +142,7 @@ fn main() {
             in_ci,
             ignore_stress_tests,
             report_details,
+            show_logs,
             example_list,
             only_default_features,
         } => {
@@ -166,7 +174,7 @@ fn main() {
                 (true, true) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(
-                        b"(exit_after: None, frame_time: Some(0.05), screenshot_frames: [100])",
+                        b"(setup: (fixed_frame_time: Some(0.05)), events: [(100, Screenshot)])",
                     )
                     .unwrap();
                     extra_parameters.push("--features");
@@ -176,7 +184,7 @@ fn main() {
                 (false, true) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(
-                        b"(exit_after: Some(250), frame_time: Some(0.05), screenshot_frames: [100])",
+                        b"(setup: (fixed_frame_time: Some(0.05)), events: [(100, Screenshot), (250, AppExit)])",
                     )
                     .unwrap();
                     extra_parameters.push("--features");
@@ -184,7 +192,7 @@ fn main() {
                 }
                 (false, false) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
-                    file.write_all(b"(exit_after: Some(250))").unwrap();
+                    file.write_all(b"(events: [(250, AppExit)])").unwrap();
                     extra_parameters.push("--features");
                     extra_parameters.push("bevy_ci_testing");
                 }
@@ -228,6 +236,15 @@ fn main() {
                 .run()
                 .unwrap();
 
+                // Don't try to get an audio output stream in CI as there isn't one
+                // On macOS m1 runner in GitHub Actions, getting one timeouts after 15 minutes
+                cmd!(
+                    sh,
+                    "git apply --ignore-whitespace tools/example-showcase/disable-audio.patch"
+                )
+                .run()
+                .unwrap();
+
                 // Sort the examples so that they are not run by category
                 examples_to_run.sort_by_key(|example| {
                     let mut hasher = DefaultHasher::new();
@@ -252,6 +269,12 @@ fn main() {
 
             let mut pb = ProgressBar::new(work_to_do().count() as u64);
 
+            let reports_path = "example-showcase-reports";
+            if report_details {
+                std::fs::create_dir(reports_path)
+                    .expect("Failed to create example-showcase-reports directory");
+            }
+
             for to_run in work_to_do() {
                 let sh = Shell::new().unwrap();
                 let example = &to_run.technical_name;
@@ -265,6 +288,13 @@ fn main() {
                     .map(|s| s.to_string())
                     .chain(required_features.iter().cloned())
                     .collect::<Vec<_>>();
+
+                for command in &to_run.setup {
+                    let exe = &command[0];
+                    let args = &command[1..];
+                    cmd!(sh, "{exe} {args...}").run().unwrap();
+                }
+
                 let _ = cmd!(
                     sh,
                     "cargo build --profile {profile} --example {example} {local_extra_parameters...}"
@@ -288,7 +318,7 @@ fn main() {
                 }
 
                 let before = Instant::now();
-                if report_details {
+                if report_details || show_logs {
                     cmd = cmd.ignore_status();
                 }
                 let result = cmd.output();
@@ -319,17 +349,22 @@ fn main() {
                     failed_examples.push((to_run, duration));
                 }
 
-                if report_details {
+                if report_details || show_logs {
                     let result = result.unwrap();
                     let stdout = String::from_utf8_lossy(&result.stdout);
                     let stderr = String::from_utf8_lossy(&result.stderr);
-                    println!("{}", stdout);
-                    println!("{}", stderr);
-                    let mut file = File::create(format!("{}.log", example)).unwrap();
-                    file.write_all(b"==== stdout ====\n").unwrap();
-                    file.write_all(stdout.as_bytes()).unwrap();
-                    file.write_all(b"\n==== stderr ====\n").unwrap();
-                    file.write_all(stderr.as_bytes()).unwrap();
+                    if show_logs {
+                        println!("{}", stdout);
+                        println!("{}", stderr);
+                    }
+                    if report_details {
+                        let mut file =
+                            File::create(format!("{reports_path}/{}.log", example)).unwrap();
+                        file.write_all(b"==== stdout ====\n").unwrap();
+                        file.write_all(stdout.as_bytes()).unwrap();
+                        file.write_all(b"\n==== stderr ====\n").unwrap();
+                        file.write_all(stderr.as_bytes()).unwrap();
+                    }
                 }
 
                 thread::sleep(Duration::from_secs(1));
@@ -339,7 +374,7 @@ fn main() {
 
             if report_details {
                 let _ = fs::write(
-                    "successes",
+                    format!("{reports_path}/successes"),
                     successful_examples
                         .iter()
                         .map(|(example, duration)| {
@@ -354,7 +389,7 @@ fn main() {
                         .join("\n"),
                 );
                 let _ = fs::write(
-                    "failures",
+                    format!("{reports_path}/failures"),
                     failed_examples
                         .iter()
                         .map(|(example, duration)| {
@@ -370,7 +405,7 @@ fn main() {
                 );
                 if screenshot {
                     let _ = fs::write(
-                        "no_screenshots",
+                        format!("{reports_path}/no_screenshots"),
                         no_screenshot_examples
                             .iter()
                             .map(|(example, duration)| {
@@ -453,7 +488,19 @@ header_message = \"Examples (WebGL2)\"
                 if !to_show.wasm {
                     continue;
                 }
-                let category_path = root_path.join(&to_show.category);
+
+                // This beautifys the path
+                // to make it a good looking URL
+                // rather than having weird whitespace
+                // and other characters that don't
+                // work well in a URL path.
+                let category_path = root_path.join(
+                    &to_show
+                        .category
+                        .replace(['(', ')'], "")
+                        .replace(' ', "-")
+                        .to_lowercase(),
+                );
 
                 if !categories.contains_key(&to_show.category) {
                     let _ = fs::create_dir_all(&category_path);
@@ -489,6 +536,10 @@ title = \"{}\"
 template = \"example{}.html\"
 weight = {}
 description = \"{}\"
+# This creates redirection pages
+# for the old URLs which used
+# uppercase letters and whitespace.
+aliases = [\"/examples{}/{}/{}\"]
 
 [extra]
 technical_name = \"{}\"
@@ -505,6 +556,12 @@ header_message = \"Examples ({})\"
                             },
                             categories.get(&to_show.category).unwrap(),
                             to_show.description.replace('"', "'"),
+                            match api {
+                                WebApi::Webgpu => "-webgpu",
+                                WebApi::Webgl2 => "",
+                            },
+                            to_show.category,
+                            &to_show.technical_name.replace('_', "-"),
                             &to_show.technical_name.replace('_', "-"),
                             match api {
                                 WebApi::Webgpu => "-webgpu",
@@ -650,7 +707,7 @@ header_message = \"Examples ({})\"
 
 fn parse_examples() -> Vec<Example> {
     let manifest_file = fs::read_to_string("Cargo.toml").unwrap();
-    let manifest = manifest_file.parse::<Document>().unwrap();
+    let manifest = manifest_file.parse::<DocumentMut>().unwrap();
     let metadatas = manifest
         .get("package")
         .unwrap()
@@ -693,18 +750,49 @@ fn parse_examples() -> Vec<Example> {
                             .collect()
                     })
                     .unwrap_or_default(),
+                setup: metadata
+                    .get("setup")
+                    .map(|setup| {
+                        setup
+                            .as_array()
+                            .unwrap()
+                            .into_iter()
+                            .map(|v| {
+                                v.as_array()
+                                    .unwrap()
+                                    .into_iter()
+                                    .map(|v| v.as_str().unwrap().to_string())
+                                    .collect()
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default(),
             })
         })
         .collect()
 }
 
+/// Data for this struct comes from both the entry for an example in the Cargo.toml file, and its associated metadata.
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 struct Example {
+    // From the example entry
+    /// Name of the example, used to start it from the cargo CLI with `--example`
     technical_name: String,
+    /// Path to the example file
     path: String,
-    name: String,
-    description: String,
-    category: String,
-    wasm: bool,
+    /// List of non default required features
     required_features: Vec<String>,
+
+    // From the example metadata
+    /// Pretty name, used for display
+    name: String,
+    /// Description of the example, for discoverability
+    description: String,
+    /// Pretty category name, matching the folder containing the example
+    category: String,
+    /// Does this example work in wasm?
+    // TODO: be able to differentiate between WebGL2, WebGPU, both, or neither (for examples that could run on wasm without a renderer)
+    wasm: bool,
+    /// List of commands to run before the example. Can be used for example to specify data to download
+    setup: Vec<Vec<String>>,
 }

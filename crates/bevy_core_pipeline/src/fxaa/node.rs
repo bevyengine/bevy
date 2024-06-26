@@ -6,13 +6,12 @@ use bevy_ecs::query::QueryItem;
 use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
-        BindGroup, BindGroupEntries, FilterMode, Operations, PipelineCache,
-        RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor, TextureViewId,
+        BindGroup, BindGroupEntries, Operations, PipelineCache, RenderPassColorAttachment,
+        RenderPassDescriptor, TextureViewId,
     },
     renderer::RenderContext,
     view::ViewTarget,
 };
-use bevy_utils::default;
 
 #[derive(Default)]
 pub struct FxaaNode {
@@ -20,7 +19,7 @@ pub struct FxaaNode {
 }
 
 impl ViewNode for FxaaNode {
-    type ViewData = (
+    type ViewQuery = (
         &'static ViewTarget,
         &'static CameraFxaaPipeline,
         &'static Fxaa,
@@ -30,7 +29,7 @@ impl ViewNode for FxaaNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (target, pipeline, fxaa): QueryItem<Self::ViewData>,
+        (target, pipeline, fxaa): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
@@ -40,9 +39,9 @@ impl ViewNode for FxaaNode {
             return Ok(());
         };
 
-        let pipeline = pipeline_cache
-            .get_render_pipeline(pipeline.pipeline_id)
-            .unwrap();
+        let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline.pipeline_id) else {
+            return Ok(());
+        };
 
         let post_process = target.post_process_write();
         let source = post_process.source;
@@ -51,19 +50,10 @@ impl ViewNode for FxaaNode {
         let bind_group = match &mut *cached_bind_group {
             Some((id, bind_group)) if source.id() == *id => bind_group,
             cached_bind_group => {
-                let sampler = render_context
-                    .render_device()
-                    .create_sampler(&SamplerDescriptor {
-                        mipmap_filter: FilterMode::Linear,
-                        mag_filter: FilterMode::Linear,
-                        min_filter: FilterMode::Linear,
-                        ..default()
-                    });
-
                 let bind_group = render_context.render_device().create_bind_group(
                     None,
                     &fxaa_pipeline.texture_bind_group,
-                    &BindGroupEntries::sequential((source, &sampler)),
+                    &BindGroupEntries::sequential((source, &fxaa_pipeline.sampler)),
                 );
 
                 let (_, bind_group) = cached_bind_group.insert((source.id(), bind_group));

@@ -2,19 +2,19 @@
 
 use bevy::{
     core_pipeline::tonemapping::Tonemapping,
-    math::vec2,
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     reflect::TypePath,
     render::{
-        render_asset::RenderAssetPersistencePolicy,
-        render_resource::{AsBindGroup, Extent3d, ShaderRef, TextureDimension, TextureFormat},
-        texture::{ImageSampler, ImageSamplerDescriptor},
-        view::ColorGrading,
+        render_resource::{AsBindGroup, ShaderRef},
+        view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
     },
     utils::HashMap,
 };
 use std::f32::consts::PI;
+
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/tonemapping_test_patterns.wgsl";
 
 fn main() {
     App::new()
@@ -40,7 +40,8 @@ fn main() {
         .add_systems(
             Update,
             (
-                update_image_viewer,
+                drag_drop_image,
+                resize_image,
                 toggle_scene,
                 toggle_tonemapping_method,
                 update_color_grading_settings,
@@ -66,7 +67,7 @@ fn setup(
             ..default()
         },
         FogSettings {
-            color: Color::rgba_u8(43, 44, 47, 255),
+            color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
                 start: 1.0,
                 end: 8.0,
@@ -76,113 +77,37 @@ fn setup(
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            intensity: 150.0,
+            intensity: 2000.0,
         },
     ));
 
     // ui
     commands.spawn(
-        TextBundle::from_section(
-            "",
-            TextStyle {
-                font_size: 18.0,
-                ..default()
-            },
-        )
-        .with_style(Style {
+        TextBundle::from_section("", TextStyle::default()).with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
 }
 
-fn setup_basic_scene(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut images: ResMut<Assets<Image>>,
-    asset_server: Res<AssetServer>,
-) {
-    // plane
-    commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(shape::Plane::from_size(50.0)),
-            material: materials.add(Color::rgb(0.1, 0.2, 0.1)),
+fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
+    // Main scene
+    commands
+        .spawn(SceneBundle {
+            scene: asset_server.load(
+                GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
+            ),
             ..default()
-        },
-        SceneNumber(1),
-    ));
-
-    // cubes
-    let cube_material = materials.add(StandardMaterial {
-        base_color_texture: Some(images.add(uv_debug_texture())),
-        ..default()
-    });
-
-    let cube_mesh = meshes.add(shape::Cube { size: 0.25 });
-    for i in 0..5 {
-        commands.spawn((
-            PbrBundle {
-                mesh: cube_mesh.clone(),
-                material: cube_material.clone(),
-                transform: Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
-                ..default()
-            },
-            SceneNumber(1),
-        ));
-    }
-
-    // spheres
-    let sphere_mesh = meshes.add(shape::UVSphere {
-        radius: 0.125,
-        ..default()
-    });
-    for i in 0..6 {
-        let j = i % 3;
-        let s_val = if i < 3 { 0.0 } else { 0.2 };
-        let material = if j == 0 {
-            materials.add(StandardMaterial {
-                base_color: Color::rgb(s_val, s_val, 1.0),
-                perceptual_roughness: 0.089,
-                metallic: 0.0,
-                ..default()
-            })
-        } else if j == 1 {
-            materials.add(StandardMaterial {
-                base_color: Color::rgb(s_val, 1.0, s_val),
-                perceptual_roughness: 0.089,
-                metallic: 0.0,
-                ..default()
-            })
-        } else {
-            materials.add(StandardMaterial {
-                base_color: Color::rgb(1.0, s_val, s_val),
-                perceptual_roughness: 0.089,
-                metallic: 0.0,
-                ..default()
-            })
-        };
-        commands.spawn((
-            PbrBundle {
-                mesh: sphere_mesh.clone(),
-                material,
-                transform: Transform::from_xyz(
-                    j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } - 0.4,
-                    0.125,
-                    -j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } + 0.4,
-                ),
-                ..default()
-            },
-            SceneNumber(1),
-        ));
-    }
+        })
+        .insert(SceneNumber(1));
 
     // Flight Helmet
     commands.spawn((
         SceneBundle {
-            scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
+            scene: asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
             transform: Transform::from_xyz(0.5, 0.0, -0.5)
                 .with_rotation(Quat::from_rotation_y(-0.15 * PI)),
             ..default()
@@ -194,8 +119,8 @@ fn setup_basic_scene(
     commands.spawn((
         DirectionalLightBundle {
             directional_light: DirectionalLight {
+                illuminance: 15_000.,
                 shadows_enabled: true,
-                illuminance: 3000.0,
                 ..default()
             },
             transform: Transform::from_rotation(Quat::from_euler(
@@ -223,14 +148,11 @@ fn setup_color_gradient_scene(
     camera_transform: Res<CameraTransform>,
 ) {
     let mut transform = camera_transform.0;
-    transform.translation += transform.forward();
+    transform.translation += *transform.forward();
 
     commands.spawn((
         MaterialMeshBundle {
-            mesh: meshes.add(shape::Quad {
-                size: vec2(1.0, 1.0) * 0.7,
-                flip: false,
-            }),
+            mesh: meshes.add(Rectangle::new(0.7, 0.7)),
             material: materials.add(ColorGradientMaterial {}),
             transform,
             visibility: Visibility::Hidden,
@@ -247,15 +169,12 @@ fn setup_image_viewer_scene(
     camera_transform: Res<CameraTransform>,
 ) {
     let mut transform = camera_transform.0;
-    transform.translation += transform.forward();
+    transform.translation += *transform.forward();
 
     // exr/hdr viewer (exr requires enabling bevy feature)
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(shape::Quad {
-                size: vec2(1.0, 1.0),
-                flip: false,
-            }),
+            mesh: meshes.add(Rectangle::default()),
             material: materials.add(StandardMaterial {
                 base_color_texture: None,
                 unlit: true,
@@ -292,58 +211,68 @@ fn setup_image_viewer_scene(
 
 // ----------------------------------------------------------------------------
 
-#[allow(clippy::too_many_arguments)]
-fn update_image_viewer(
-    image_mesh: Query<(&Handle<StandardMaterial>, &Handle<Mesh>), With<HDRViewer>>,
+fn drag_drop_image(
+    image_mat: Query<&Handle<StandardMaterial>, With<HDRViewer>>,
     text: Query<Entity, (With<Text>, With<SceneNumber>)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    images: Res<Assets<Image>>,
     mut drop_events: EventReader<FileDragAndDrop>,
-    mut drop_hovered: Local<bool>,
     asset_server: Res<AssetServer>,
-    mut image_events: EventReader<AssetEvent<Image>>,
     mut commands: Commands,
 ) {
-    let mut new_image: Option<Handle<Image>> = None;
+    let Some(new_image) = drop_events.read().find_map(|e| match e {
+        FileDragAndDrop::DroppedFile { path_buf, .. } => {
+            Some(asset_server.load(path_buf.to_string_lossy().to_string()))
+        }
+        _ => None,
+    }) else {
+        return;
+    };
 
-    for event in drop_events.read() {
-        match event {
-            FileDragAndDrop::DroppedFile { path_buf, .. } => {
-                new_image = Some(asset_server.load(&path_buf.to_string_lossy().to_string()));
-                *drop_hovered = false;
+    for mat_h in &image_mat {
+        if let Some(mat) = materials.get_mut(mat_h) {
+            mat.base_color_texture = Some(new_image.clone());
+
+            // Despawn the image viewer instructions
+            if let Ok(text_entity) = text.get_single() {
+                commands.entity(text_entity).despawn();
             }
-            FileDragAndDrop::HoveredFile { .. } => *drop_hovered = true,
-            FileDragAndDrop::HoveredFileCanceled { .. } => *drop_hovered = false,
         }
     }
+}
 
-    for (mat_h, mesh_h) in &image_mesh {
-        if let Some(mat) = materials.get_mut(mat_h) {
-            if let Some(ref new_image) = new_image {
-                mat.base_color_texture = Some(new_image.clone());
+fn resize_image(
+    image_mesh: Query<(&Handle<StandardMaterial>, &Handle<Mesh>), With<HDRViewer>>,
+    materials: Res<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    images: Res<Assets<Image>>,
+    mut image_events: EventReader<AssetEvent<Image>>,
+) {
+    for event in image_events.read() {
+        let (AssetEvent::Added { id } | AssetEvent::Modified { id }) = event else {
+            continue;
+        };
 
-                if let Ok(text_entity) = text.get_single() {
-                    commands.entity(text_entity).despawn();
-                }
-            }
+        for (mat_h, mesh_h) in &image_mesh {
+            let Some(mat) = materials.get(mat_h) else {
+                continue;
+            };
 
-            for event in image_events.read() {
-                let image_changed_id = *match event {
-                    AssetEvent::Added { id } | AssetEvent::Modified { id } => id,
-                    _ => continue,
-                };
-                if let Some(base_color_texture) = mat.base_color_texture.clone() {
-                    if image_changed_id == base_color_texture.id() {
-                        if let Some(image_changed) = images.get(image_changed_id) {
-                            let size = image_changed.size_f32().normalize_or_zero() * 1.4;
-                            // Resize Mesh
-                            let quad = Mesh::from(shape::Quad::new(size));
-                            meshes.insert(mesh_h, quad);
-                        }
-                    }
-                }
-            }
+            let Some(ref base_color_texture) = mat.base_color_texture else {
+                continue;
+            };
+
+            if *id != base_color_texture.id() {
+                continue;
+            };
+
+            let Some(image_changed) = images.get(*id) else {
+                continue;
+            };
+
+            let size = image_changed.size_f32().normalize_or_zero() * 1.4;
+            // Resize Mesh
+            let quad = Mesh::from(Rectangle::from_size(size));
+            meshes.insert(mesh_h, quad);
         }
     }
 }
@@ -402,10 +331,12 @@ fn toggle_tonemapping_method(
         *method = Tonemapping::BlenderFilmic;
     }
 
-    *color_grading = *per_method_settings
+    *color_grading = (*per_method_settings
         .settings
         .get::<Tonemapping>(&method)
-        .unwrap();
+        .as_ref()
+        .unwrap())
+    .clone();
 }
 
 #[derive(Resource)]
@@ -447,16 +378,20 @@ fn update_color_grading_settings(
     if keys.pressed(KeyCode::ArrowLeft) || keys.pressed(KeyCode::ArrowRight) {
         match selected_parameter.value {
             0 => {
-                color_grading.exposure += dt;
+                color_grading.global.exposure += dt;
             }
             1 => {
-                color_grading.gamma += dt;
+                color_grading
+                    .all_sections_mut()
+                    .for_each(|section| section.gamma += dt);
             }
             2 => {
-                color_grading.pre_saturation += dt;
+                color_grading
+                    .all_sections_mut()
+                    .for_each(|section| section.saturation += dt);
             }
             3 => {
-                color_grading.post_saturation += dt;
+                color_grading.global.post_saturation += dt;
             }
             _ => {}
         }
@@ -576,24 +511,24 @@ fn update_ui(
     if selected_parameter.value == 0 {
         text.push_str("> ");
     }
-    text.push_str(&format!("Exposure: {}\n", color_grading.exposure));
+    text.push_str(&format!("Exposure: {}\n", color_grading.global.exposure));
     if selected_parameter.value == 1 {
         text.push_str("> ");
     }
-    text.push_str(&format!("Gamma: {}\n", color_grading.gamma));
+    text.push_str(&format!("Gamma: {}\n", color_grading.shadows.gamma));
     if selected_parameter.value == 2 {
         text.push_str("> ");
     }
     text.push_str(&format!(
         "PreSaturation: {}\n",
-        color_grading.pre_saturation
+        color_grading.shadows.saturation
     ));
     if selected_parameter.value == 3 {
         text.push_str("> ");
     }
     text.push_str(&format!(
         "PostSaturation: {}\n",
-        color_grading.post_saturation
+        color_grading.global.post_saturation
     ));
     text.push_str("(Space) Reset all to default\n");
 
@@ -613,19 +548,30 @@ impl PerMethodSettings {
     fn basic_scene_recommendation(method: Tonemapping) -> ColorGrading {
         match method {
             Tonemapping::Reinhard | Tonemapping::ReinhardLuminance => ColorGrading {
-                exposure: 0.5,
+                global: ColorGradingGlobal {
+                    exposure: 0.5,
+                    ..default()
+                },
                 ..default()
             },
             Tonemapping::AcesFitted => ColorGrading {
-                exposure: 0.35,
+                global: ColorGradingGlobal {
+                    exposure: 0.35,
+                    ..default()
+                },
                 ..default()
             },
-            Tonemapping::AgX => ColorGrading {
-                exposure: -0.2,
-                gamma: 1.0,
-                pre_saturation: 1.1,
-                post_saturation: 1.1,
-            },
+            Tonemapping::AgX => ColorGrading::with_identical_sections(
+                ColorGradingGlobal {
+                    exposure: -0.2,
+                    post_saturation: 1.1,
+                    ..default()
+                },
+                ColorGradingSection {
+                    saturation: 1.1,
+                    ..default()
+                },
+            ),
             _ => ColorGrading::default(),
         }
     }
@@ -655,45 +601,14 @@ impl Default for PerMethodSettings {
     }
 }
 
-/// Creates a colorful test pattern
-fn uv_debug_texture() -> Image {
-    const TEXTURE_SIZE: usize = 8;
-
-    let mut palette: [u8; 32] = [
-        255, 102, 159, 255, 255, 159, 102, 255, 236, 255, 102, 255, 121, 255, 102, 255, 102, 255,
-        198, 255, 102, 198, 255, 255, 121, 102, 255, 255, 236, 102, 255, 255,
-    ];
-
-    let mut texture_data = [0; TEXTURE_SIZE * TEXTURE_SIZE * 4];
-    for y in 0..TEXTURE_SIZE {
-        let offset = TEXTURE_SIZE * y * 4;
-        texture_data[offset..(offset + TEXTURE_SIZE * 4)].copy_from_slice(&palette);
-        palette.rotate_right(4);
-    }
-
-    let mut img = Image::new_fill(
-        Extent3d {
-            width: TEXTURE_SIZE as u32,
-            height: TEXTURE_SIZE as u32,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        &texture_data,
-        TextureFormat::Rgba8UnormSrgb,
-        RenderAssetPersistencePolicy::Unload,
-    );
-    img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor::default());
-    img
-}
-
 impl Material for ColorGradientMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/tonemapping_test_patterns.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
-pub struct ColorGradientMaterial {}
+struct ColorGradientMaterial {}
 
 #[derive(Resource)]
 struct CameraTransform(Transform);

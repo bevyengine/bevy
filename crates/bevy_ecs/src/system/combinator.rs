@@ -83,6 +83,11 @@ use super::{ReadOnlySystem, System};
 /// # assert!(world.resource::<RanFlag>().0);
 /// # world.resource_mut::<RanFlag>().0 = false;
 /// ```
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not combine systems `{A}` and `{B}`",
+    label = "invalid system combination",
+    note = "the inputs and outputs of `{A}` and `{B}` are not compatible with this combiner"
+)]
 pub trait Combine<A: System, B: System> {
     /// The [input](System::In) type for a [`CombinatorSystem`].
     type In;
@@ -142,10 +147,6 @@ where
         self.name.clone()
     }
 
-    fn type_id(&self) -> std::any::TypeId {
-        std::any::TypeId::of::<Self>()
-    }
-
     fn component_access(&self) -> &Access<ComponentId> {
         &self.component_access
     }
@@ -175,8 +176,9 @@ where
             // in parallel, so their world accesses will not conflict with each other.
             // Additionally, `update_archetype_component_access` has been called,
             // which forwards to the implementations for `self.a` and `self.b`.
-            |input| self.a.run_unsafe(input, world),
-            |input| self.b.run_unsafe(input, world),
+            |input| unsafe { self.a.run_unsafe(input, world) },
+            // SAFETY: See the comment above.
+            |input| unsafe { self.b.run_unsafe(input, world) },
         )
     }
 
@@ -198,6 +200,12 @@ where
     fn apply_deferred(&mut self, world: &mut World) {
         self.a.apply_deferred(world);
         self.b.apply_deferred(world);
+    }
+
+    #[inline]
+    fn queue_deferred(&mut self, mut world: crate::world::DeferredWorld) {
+        self.a.queue_deferred(world.reborrow());
+        self.b.queue_deferred(world);
     }
 
     fn initialize(&mut self, world: &mut World) {

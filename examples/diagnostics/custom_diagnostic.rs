@@ -22,8 +22,7 @@ fn main() {
 }
 
 // All diagnostics should have a unique DiagnosticPath.
-pub const SYSTEM_ITERATION_COUNT: DiagnosticPath =
-    DiagnosticPath::const_new("system_iteration_count");
+const SYSTEM_ITERATION_COUNT: DiagnosticPath = DiagnosticPath::const_new("system_iteration_count");
 
 fn my_system(mut diagnostics: Diagnostics) {
     // Add a measurement of 10.0 for our diagnostic each time this system runs.

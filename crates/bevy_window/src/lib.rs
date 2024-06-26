@@ -1,10 +1,17 @@
-#![warn(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! `bevy_window` provides a platform-agnostic interface for windowing in Bevy.
 //!
 //! This crate contains types for window management and events,
 //! used by windowing implementors such as `bevy_winit`.
 //! The [`WindowPlugin`] sets up some global window-related parameters and
 //! is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
+
+use std::sync::{Arc, Mutex};
 
 use bevy_a11y::Focus;
 
@@ -23,6 +30,7 @@ pub use window::*;
 
 #[allow(missing_docs)]
 pub mod prelude {
+    #[allow(deprecated)]
     #[doc(hidden)]
     pub use crate::{
         CursorEntered, CursorIcon, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection,
@@ -32,7 +40,6 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use std::path::PathBuf;
 
 impl Default for WindowPlugin {
     fn default() -> Self {
@@ -81,8 +88,10 @@ pub struct WindowPlugin {
 impl Plugin for WindowPlugin {
     fn build(&self, app: &mut App) {
         // User convenience events
+        #[allow(deprecated)]
         app.add_event::<WindowResized>()
             .add_event::<WindowCreated>()
+            .add_event::<WindowClosing>()
             .add_event::<WindowClosed>()
             .add_event::<WindowCloseRequested>()
             .add_event::<WindowDestroyed>()
@@ -99,15 +108,18 @@ impl Plugin for WindowPlugin {
             .add_event::<FileDragAndDrop>()
             .add_event::<WindowMoved>()
             .add_event::<WindowThemeChanged>()
-            .add_event::<ApplicationLifetime>();
+            .add_event::<AppLifecycle>();
 
         if let Some(primary_window) = &self.primary_window {
             let initial_focus = app
-                .world
+                .world_mut()
                 .spawn(primary_window.clone())
-                .insert(PrimaryWindow)
+                .insert((
+                    PrimaryWindow,
+                    RawHandleWrapperHolder(Arc::new(Mutex::new(None))),
+                ))
                 .id();
-            if let Some(mut focus) = app.world.get_resource_mut::<Focus>() {
+            if let Some(mut focus) = app.world_mut().get_resource_mut::<Focus>() {
                 **focus = Some(initial_focus);
             }
         }
@@ -128,10 +140,12 @@ impl Plugin for WindowPlugin {
         }
 
         // Register event types
+        #[allow(deprecated)]
         app.register_type::<WindowResized>()
             .register_type::<RequestRedraw>()
             .register_type::<WindowCreated>()
             .register_type::<WindowCloseRequested>()
+            .register_type::<WindowClosing>()
             .register_type::<WindowClosed>()
             .register_type::<CursorMoved>()
             .register_type::<CursorEntered>()
@@ -144,28 +158,11 @@ impl Plugin for WindowPlugin {
             .register_type::<FileDragAndDrop>()
             .register_type::<WindowMoved>()
             .register_type::<WindowThemeChanged>()
-            .register_type::<ApplicationLifetime>();
+            .register_type::<AppLifecycle>();
 
         // Register window descriptor and related types
         app.register_type::<Window>()
-            .register_type::<PrimaryWindow>()
-            .register_type::<Cursor>()
-            .register_type::<CursorIcon>()
-            .register_type::<CursorGrabMode>()
-            .register_type::<CompositeAlphaMode>()
-            .register_type::<WindowResolution>()
-            .register_type::<WindowPosition>()
-            .register_type::<WindowMode>()
-            .register_type::<WindowLevel>()
-            .register_type::<PresentMode>()
-            .register_type::<InternalWindowState>()
-            .register_type::<MonitorSelection>()
-            .register_type::<WindowResizeConstraints>()
-            .register_type::<WindowTheme>()
-            .register_type::<EnabledButtons>();
-
-        // Register `PathBuf` as it's used by `FileDragAndDrop`
-        app.register_type::<PathBuf>();
+            .register_type::<PrimaryWindow>();
     }
 }
 

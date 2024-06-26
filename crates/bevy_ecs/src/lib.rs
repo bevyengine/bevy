@@ -1,16 +1,27 @@
-#![warn(missing_docs)]
+// FIXME(11590): remove this once the lint is fixed
+#![allow(unsafe_op_in_unsafe_fn)]
 #![doc = include_str!("../README.md")]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![allow(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_ecs cannot safely compile for a 16-bit platform.");
 
 pub mod archetype;
+pub mod batching;
 pub mod bundle;
 pub mod change_detection;
 pub mod component;
 pub mod entity;
 pub mod event;
 pub mod identifier;
+pub mod intern;
+pub mod label;
+pub mod observer;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
@@ -19,8 +30,6 @@ pub mod schedule;
 pub mod storage;
 pub mod system;
 pub mod world;
-
-use std::any::TypeId;
 
 pub use bevy_ptr as ptr;
 
@@ -36,51 +45,24 @@ pub mod prelude {
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         component::Component,
-        entity::Entity,
+        entity::{Entity, EntityMapper},
         event::{Event, EventReader, EventWriter, Events},
+        observer::{Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
-            apply_deferred, apply_state_transition, common_conditions::*, Condition,
-            IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfigs, NextState, OnEnter, OnExit,
-            OnTransition, Schedule, Schedules, State, StateTransitionEvent, States, SystemSet,
+            apply_deferred, common_conditions::*, Condition, IntoSystemConfigs, IntoSystemSet,
+            IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
         },
         system::{
             Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
-            ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource, System, SystemParamFunction,
+            ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource, System, SystemBuilder,
+            SystemParamFunction,
         },
-        world::{EntityMut, EntityRef, EntityWorldMut, FromWorld, World},
+        world::{
+            EntityMut, EntityRef, EntityWorldMut, FromWorld, OnAdd, OnInsert, OnRemove, World,
+        },
     };
-}
-
-pub use bevy_utils::all_tuples;
-
-/// A specialized hashmap type with Key of [`TypeId`]
-type TypeIdMap<V> =
-    std::collections::HashMap<TypeId, V, std::hash::BuildHasherDefault<NoOpTypeIdHasher>>;
-
-#[doc(hidden)]
-#[derive(Default)]
-struct NoOpTypeIdHasher(u64);
-
-// TypeId already contains a high-quality hash, so skip re-hashing that hash.
-impl std::hash::Hasher for NoOpTypeIdHasher {
-    fn finish(&self) -> u64 {
-        self.0
-    }
-
-    fn write(&mut self, bytes: &[u8]) {
-        // This will never be called: TypeId always just calls write_u64 once!
-        // This is a known trick and unlikely to change, but isn't officially guaranteed.
-        // Don't break applications (slower fallback, just check in test):
-        self.0 = bytes.iter().fold(self.0, |hash, b| {
-            hash.rotate_left(8).wrapping_add(*b as u64)
-        });
-    }
-
-    fn write_u64(&mut self, i: u64) {
-        self.0 = i;
-    }
 }
 
 #[cfg(test)]
@@ -114,6 +96,7 @@ mod tests {
     #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
     struct C;
 
+    #[allow(dead_code)]
     #[derive(Default)]
     struct NonSendA(usize, PhantomData<*mut ()>);
 
@@ -132,6 +115,8 @@ mod tests {
         }
     }
 
+    // TODO: The compiler says the Debug and Clone are removed during dead code analysis. Investigate.
+    #[allow(dead_code)]
     #[derive(Component, Clone, Debug)]
     #[component(storage = "SparseSet")]
     struct DropCkSparse(DropCk);
@@ -1096,7 +1081,7 @@ mod tests {
     fn reserve_and_spawn() {
         let mut world = World::default();
         let e = world.entities().reserve_entity();
-        world.flush();
+        world.flush_entities();
         let mut e_mut = world.entity_mut(e);
         e_mut.insert(A(0));
         assert_eq!(e_mut.get::<A>().unwrap(), &A(0));
@@ -1579,7 +1564,7 @@ mod tests {
         let e1 = world_a.spawn(A(1)).id();
         let e2 = world_a.spawn(A(2)).id();
         let e3 = world_a.entities().reserve_entity();
-        world_a.flush();
+        world_a.flush_entities();
 
         let world_a_max_entities = world_a.entities().len();
         world_b.entities.reserve_entities(world_a_max_entities);
@@ -1754,26 +1739,12 @@ mod tests {
         );
     }
 
-    #[test]
-    fn fast_typeid_hash() {
-        struct Hasher;
-
-        impl std::hash::Hasher for Hasher {
-            fn finish(&self) -> u64 {
-                0
-            }
-            fn write(&mut self, _: &[u8]) {
-                panic!("Hashing of std::any::TypeId changed");
-            }
-            fn write_u64(&mut self, _: u64) {}
-        }
-
-        std::hash::Hash::hash(&TypeId::of::<()>(), &mut Hasher);
-    }
-
+    // These fields are never read so we get a dead code lint here.
+    #[allow(dead_code)]
     #[derive(Component)]
     struct ComponentA(u32);
 
+    #[allow(dead_code)]
     #[derive(Component)]
     struct ComponentB(u32);
 

@@ -4,6 +4,9 @@ use bevy::prelude::*;
 use bevy::reflect::TypePath;
 use bevy::render::render_resource::*;
 
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/circle_shader.wgsl";
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -17,7 +20,7 @@ fn update(time: Res<Time>, mut ui_materials: ResMut<Assets<CustomUiMaterial>>) {
     for (_, material) in ui_materials.iter_mut() {
         // rainbow color effect
         let new_color = Color::hsl((time.elapsed_seconds() * 60.0) % 360.0, 1., 0.5);
-        material.color = new_color.rgba_to_vec4();
+        material.color = LinearRgba::from(new_color).to_f32_array().into();
     }
 }
 
@@ -45,7 +48,7 @@ fn setup(mut commands: Commands, mut ui_materials: ResMut<Assets<CustomUiMateria
                     ..default()
                 },
                 material: ui_materials.add(CustomUiMaterial {
-                    color: Color::WHITE.rgba_to_vec4(),
+                    color: LinearRgba::WHITE.to_f32_array().into(),
                 }),
                 ..default()
             });
@@ -60,6 +63,6 @@ struct CustomUiMaterial {
 
 impl UiMaterial for CustomUiMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/circle_shader.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 }

@@ -17,7 +17,7 @@ use bevy_ecs::{
 /// Then it will run:
 /// * [`First`]
 /// * [`PreUpdate`]
-/// * [`StateTransition`]
+/// * [`StateTransition`](bevy_state::transition::StateTransition)
 /// * [`RunFixedMainLoop`]
 ///     * This will run [`FixedMain`] zero to many times, based on how much time has elapsed.
 /// * [`Update`]
@@ -27,13 +27,14 @@ use bevy_ecs::{
 /// # Rendering
 ///
 /// Note rendering is not executed in the main schedule by default.
-/// Instead, rendering is performed in a separate [`SubApp`](crate::app::SubApp)
+/// Instead, rendering is performed in a separate [`SubApp`]
 /// which exchanges data with the main app in between the main schedule runs.
 ///
 /// See [`RenderPlugin`] and [`PipelinedRenderingPlugin`] for more details.
 ///
 /// [`RenderPlugin`]: https://docs.rs/bevy/latest/bevy/render/struct.RenderPlugin.html
 /// [`PipelinedRenderingPlugin`]: https://docs.rs/bevy/latest/bevy/render/pipelined_rendering/struct.PipelinedRenderingPlugin.html
+/// [`SubApp`]: crate::SubApp
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Main;
 
@@ -71,12 +72,6 @@ pub struct First;
 /// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PreUpdate;
-
-/// Runs [state transitions](bevy_ecs::schedule::States).
-///
-/// See the [`Main`] schedule for some details about how schedules are run.
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct StateTransition;
 
 /// Runs the [`FixedMain`] schedule in a loop according until all relevant elapsed time has been "consumed".
 ///
@@ -178,7 +173,6 @@ impl Default for MainScheduleOrder {
             labels: vec![
                 First.intern(),
                 PreUpdate.intern(),
-                StateTransition.intern(),
                 RunFixedMainLoop.intern(),
                 Update.intern(),
                 SpawnScene.intern(),
@@ -256,6 +250,12 @@ impl Plugin for MainSchedulePlugin {
             .init_resource::<FixedMainScheduleOrder>()
             .add_systems(Main, Main::run_main)
             .add_systems(FixedMain, FixedMain::run_fixed_main);
+
+        #[cfg(feature = "bevy_debug_stepping")]
+        {
+            use bevy_ecs::schedule::{IntoSystemConfigs, Stepping};
+            app.add_systems(Main, Stepping::begin_frame.before(Main::run_main));
+        }
     }
 }
 

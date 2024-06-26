@@ -39,6 +39,10 @@ use crate::{schedule::InternedSystemSet, world::unsafe_world_cell::UnsafeWorldCe
 /// # system.initialize(&mut world);
 /// # assert!(system.run((), &mut world));
 /// ```
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not adapt a system of type `{S}`",
+    label = "invalid system adapter"
+)]
 pub trait Adapt<S: System>: Send + Sync + 'static {
     /// The [input](System::In) type for an [`AdapterSystem`].
     type In;
@@ -81,10 +85,6 @@ where
         self.name.clone()
     }
 
-    fn type_id(&self) -> std::any::TypeId {
-        std::any::TypeId::of::<Self>()
-    }
-
     fn component_access(&self) -> &crate::query::Access<crate::component::ComponentId> {
         self.system.component_access()
     }
@@ -111,8 +111,9 @@ where
     #[inline]
     unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
         // SAFETY: `system.run_unsafe` has the same invariants as `self.run_unsafe`.
-        self.func
-            .adapt(input, |input| self.system.run_unsafe(input, world))
+        self.func.adapt(input, |input| unsafe {
+            self.system.run_unsafe(input, world)
+        })
     }
 
     #[inline]
@@ -124,6 +125,11 @@ where
     #[inline]
     fn apply_deferred(&mut self, world: &mut crate::prelude::World) {
         self.system.apply_deferred(world);
+    }
+
+    #[inline]
+    fn queue_deferred(&mut self, world: crate::world::DeferredWorld) {
+        self.system.queue_deferred(world);
     }
 
     fn initialize(&mut self, world: &mut crate::prelude::World) {

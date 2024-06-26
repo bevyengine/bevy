@@ -8,14 +8,51 @@ use std::{
     fmt::Debug,
 };
 
+use thiserror::Error;
+
 use crate::utility::NonGenericTypeInfoCell;
 
-/// An immutable enumeration of "kinds" of reflected type.
+macro_rules! impl_reflect_enum {
+    ($name:ident$(<$lifetime:lifetime>)?) => {
+        impl $name$(<$lifetime>)? {
+            /// Returns the "kind" of this reflected type without any information.
+            pub fn kind(&self) -> ReflectKind {
+                match self {
+                    Self::Struct(_) => ReflectKind::Struct,
+                    Self::TupleStruct(_) => ReflectKind::TupleStruct,
+                    Self::Tuple(_) => ReflectKind::Tuple,
+                    Self::List(_) => ReflectKind::List,
+                    Self::Array(_) => ReflectKind::Array,
+                    Self::Map(_) => ReflectKind::Map,
+                    Self::Enum(_) => ReflectKind::Enum,
+                    Self::Value(_) => ReflectKind::Value,
+                }
+            }
+        }
+
+        impl From<$name$(<$lifetime>)?> for ReflectKind {
+            fn from(value: $name) -> Self {
+                match value {
+                    $name::Struct(_) => Self::Struct,
+                    $name::TupleStruct(_) => Self::TupleStruct,
+                    $name::Tuple(_) => Self::Tuple,
+                    $name::List(_) => Self::List,
+                    $name::Array(_) => Self::Array,
+                    $name::Map(_) => Self::Map,
+                    $name::Enum(_) => Self::Enum,
+                    $name::Value(_) => Self::Value,
+                }
+            }
+        }
+    };
+}
+
+/// An immutable enumeration of "kinds" of a reflected type.
 ///
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
-/// A `ReflectRef` is obtained via [`Reflect::reflect_ref`].
+/// A [`ReflectRef`] is obtained via [`Reflect::reflect_ref`].
 pub enum ReflectRef<'a> {
     Struct(&'a dyn Struct),
     TupleStruct(&'a dyn TupleStruct),
@@ -26,13 +63,14 @@ pub enum ReflectRef<'a> {
     Enum(&'a dyn Enum),
     Value(&'a dyn Reflect),
 }
+impl_reflect_enum!(ReflectRef<'_>);
 
-/// A mutable enumeration of "kinds" of reflected type.
+/// A mutable enumeration of "kinds" of a reflected type.
 ///
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
-/// A `ReflectMut` is obtained via [`Reflect::reflect_mut`].
+/// A [`ReflectMut`] is obtained via [`Reflect::reflect_mut`].
 pub enum ReflectMut<'a> {
     Struct(&'a mut dyn Struct),
     TupleStruct(&'a mut dyn TupleStruct),
@@ -43,13 +81,14 @@ pub enum ReflectMut<'a> {
     Enum(&'a mut dyn Enum),
     Value(&'a mut dyn Reflect),
 }
+impl_reflect_enum!(ReflectMut<'_>);
 
-/// An owned enumeration of "kinds" of reflected type.
+/// An owned enumeration of "kinds" of a reflected type.
 ///
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
-/// A `ReflectOwned` is obtained via [`Reflect::reflect_owned`].
+/// A [`ReflectOwned`] is obtained via [`Reflect::reflect_owned`].
 pub enum ReflectOwned {
     Struct(Box<dyn Struct>),
     TupleStruct(Box<dyn TupleStruct>),
@@ -59,6 +98,74 @@ pub enum ReflectOwned {
     Map(Box<dyn Map>),
     Enum(Box<dyn Enum>),
     Value(Box<dyn Reflect>),
+}
+impl_reflect_enum!(ReflectOwned);
+
+/// A enumeration of all error outcomes that might happen when running [`try_apply`](Reflect::try_apply).
+#[derive(Error, Debug)]
+pub enum ApplyError {
+    #[error("attempted to apply `{from_kind}` to `{to_kind}`")]
+    /// Attempted to apply the wrong [kind](ReflectKind) to a type, e.g. a struct to a enum.
+    MismatchedKinds {
+        from_kind: ReflectKind,
+        to_kind: ReflectKind,
+    },
+
+    #[error("enum variant `{variant_name}` doesn't have a field named `{field_name}`")]
+    /// Enum variant that we tried to apply to was missing a field.
+    MissingEnumField {
+        variant_name: Box<str>,
+        field_name: Box<str>,
+    },
+
+    #[error("`{from_type}` is not `{to_type}`")]
+    /// Tried to apply incompatible types.
+    MismatchedTypes {
+        from_type: Box<str>,
+        to_type: Box<str>,
+    },
+
+    #[error("attempted to apply type with {from_size} size to a type with {to_size} size")]
+    /// Attempted to apply to types with mismatched sizez, e.g. a [u8; 4] to [u8; 3].
+    DifferentSize { from_size: usize, to_size: usize },
+
+    #[error("variant with name `{variant_name}` does not exist on enum `{enum_name}`")]
+    /// The enum we tried to apply to didn't contain a variant with the give name.
+    UnknownVariant {
+        enum_name: Box<str>,
+        variant_name: Box<str>,
+    },
+}
+
+/// A zero-sized enumuration of the "kinds" of a reflected type.
+///
+/// A [`ReflectKind`] is obtained via [`Reflect::reflect_kind`],
+/// or via [`ReflectRef::kind`],[`ReflectMut::kind`] or [`ReflectOwned::kind`].
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum ReflectKind {
+    Struct,
+    TupleStruct,
+    Tuple,
+    List,
+    Array,
+    Map,
+    Enum,
+    Value,
+}
+
+impl std::fmt::Display for ReflectKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReflectKind::Struct => f.pad("struct"),
+            ReflectKind::TupleStruct => f.pad("tuple struct"),
+            ReflectKind::Tuple => f.pad("tuple"),
+            ReflectKind::List => f.pad("list"),
+            ReflectKind::Array => f.pad("array"),
+            ReflectKind::Map => f.pad("map"),
+            ReflectKind::Enum => f.pad("enum"),
+            ReflectKind::Value => f.pad("value"),
+        }
+    }
 }
 
 /// The core trait of [`bevy_reflect`], used for accessing and modifying data dynamically.
@@ -72,6 +179,10 @@ pub enum ReflectOwned {
 /// [`bevy_reflect`]: crate
 /// [derive macro]: bevy_reflect_derive::Reflect
 /// [crate-level documentation]: crate
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not be reflected",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+)]
 pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// Returns the [`TypeInfo`] of the type _represented_ by this value.
     ///
@@ -148,7 +259,20 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// - If `T` is any complex type and the corresponding fields or elements of
     ///   `self` and `value` are not of the same type.
     /// - If `T` is a value type and `self` cannot be downcast to `T`
-    fn apply(&mut self, value: &dyn Reflect);
+    fn apply(&mut self, value: &dyn Reflect) {
+        Reflect::try_apply(self, value).unwrap();
+    }
+
+    /// Tries to [`apply`](Reflect::apply) a reflected value to this value.
+    ///
+    /// Functions the same as the [`apply`](Reflect::apply) function but returns an error instead of
+    /// panicking.
+    ///
+    /// # Handling Errors
+    ///
+    /// This function may leave `self` in a partially mutated state if a error was encountered on the way.
+    /// consider maintaining a cloned instance of this data you can switch to if a error is encountered.
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError>;
 
     /// Performs a type-checked assignment of a reflected value to this value.
     ///
@@ -156,7 +280,14 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// containing the trait object.
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>>;
 
-    /// Returns an enumeration of "kinds" of type.
+    /// Returns a zero-sized enumeration of "kinds" of type.
+    ///
+    /// See [`ReflectKind`].
+    fn reflect_kind(&self) -> ReflectKind {
+        self.reflect_ref().kind()
+    }
+
+    /// Returns an immutable enumeration of "kinds" of type.
     ///
     /// See [`ReflectRef`].
     fn reflect_ref(&self) -> ReflectRef;

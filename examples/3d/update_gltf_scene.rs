@@ -1,11 +1,11 @@
 //! Update a scene from a glTF file, either by spawning the scene as a child of another entity,
 //! or by accessing the entities of the scene.
 
-use bevy::prelude::*;
+use bevy::{pbr::DirectionalLightShadowMap, prelude::*};
 
 fn main() {
     App::new()
-        .insert_resource(bevy_internal::pbr::DirectionalLightShadowMap { size: 4096 })
+        .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, move_scene_entities)
@@ -19,7 +19,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(DirectionalLightBundle {
         transform: Transform::from_xyz(4.0, 25.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
         directional_light: DirectionalLight {
-            illuminance: 2000.0,
             shadows_enabled: true,
             ..default()
         },
@@ -41,14 +40,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn the scene as a child of this entity at the given transform
     commands.spawn(SceneBundle {
         transform: Transform::from_xyz(-1.0, 0.0, 0.0),
-        scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
+        scene: asset_server
+            .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
         ..default()
     });
 
     // Spawn a second scene, and add a tag component to be able to target it later
     commands.spawn((
         SceneBundle {
-            scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
+            scene: asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
             ..default()
         },
         MovedScene,
