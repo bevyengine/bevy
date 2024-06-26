@@ -731,13 +731,17 @@ fn parse_examples() -> Vec<Example> {
                 Regex::new(r"(shaders\/\w+\.wgsl)|(shaders\/\w+\.frag)|(shaders\/\w+\.vert)")
                     .unwrap();
 
-            // Find all instances of references to shader files, collect into set to avoid duplicates, then convert to vec of strings.
-            let shader_paths = Vec::from_iter(
-                shader_regex
-                    .find_iter(&source_code)
-                    .map(|matches| matches.as_str().to_owned())
-                    .collect::<HashSet<String>>(),
-            );
+            // Find all instances of references to shader files, and keep them in an ordered and deduped vec.
+            let mut shader_paths = vec![];
+            for path in shader_regex
+                .find_iter(&source_code)
+                .map(|matches| matches.as_str().to_owned())
+            {
+                if !shader_paths.contains(&path) {
+                    shader_paths.push(path);
+                }
+            }
+
             if metadatas
                 .get(&technical_name)
                 .and_then(|metadata| metadata.get("hidden"))
