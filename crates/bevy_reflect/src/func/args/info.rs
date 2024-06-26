@@ -6,7 +6,7 @@ use crate::TypePath;
 /// Type information for an [`Arg`] used in a [`Function`](super::function::Function)
 ///
 /// [`Arg`]: crate::func::args::Arg
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct ArgInfo {
     index: usize,
     name: Option<Cow<'static, str>>,

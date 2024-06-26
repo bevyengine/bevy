@@ -5,7 +5,7 @@ use alloc::borrow::Cow;
 /// Type information for a [`Function`].
 ///
 /// [`Function`]: crate::func::Function
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FunctionInfo {
     name: Option<Cow<'static, str>>,
     args: Vec<ArgInfo>,
@@ -81,7 +81,7 @@ impl Default for FunctionInfo {
 /// Information about the return type of a [`Function`].
 ///
 /// [`Function`]: crate::func::Function
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ReturnInfo {
     type_path: &'static str,
     ownership: Ownership,
