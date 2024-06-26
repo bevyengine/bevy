@@ -114,21 +114,18 @@ fn setup_scene(
 
     // Test ui
     commands
-        .spawn((
-            ButtonBundle {
-                style: Style {
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    position_type: PositionType::Absolute,
-                    left: Val::Px(50.0),
-                    right: Val::Px(50.0),
-                    bottom: Val::Px(50.0),
-                    ..default()
-                },
+        .spawn(ButtonBundle {
+            style: Style {
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                position_type: PositionType::Absolute,
+                left: Val::Px(50.0),
+                right: Val::Px(50.0),
+                bottom: Val::Px(50.0),
                 ..default()
             },
-            BackgroundColor(Color::WHITE),
-        ))
+            ..default()
+        })
         .with_children(|b| {
             b.spawn(
                 TextBundle::from_section(
