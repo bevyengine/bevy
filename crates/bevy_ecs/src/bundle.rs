@@ -387,6 +387,7 @@ impl BundleInfo {
         table_row: TableRow,
         change_tick: Tick,
         bundle: T,
+        caller: String,
     ) {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
@@ -403,10 +404,15 @@ impl BundleInfo {
                     let status = unsafe { bundle_component_status.get_status(bundle_component) };
                     match status {
                         ComponentStatus::Added => {
-                            column.initialize(table_row, component_ptr, change_tick);
+                            column.initialize(
+                                table_row,
+                                component_ptr,
+                                change_tick,
+                                caller.clone(),
+                            );
                         }
                         ComponentStatus::Mutated => {
-                            column.replace(table_row, component_ptr, change_tick);
+                            column.replace(table_row, component_ptr, change_tick, caller.clone());
                         }
                     }
                 }
@@ -415,7 +421,7 @@ impl BundleInfo {
                         // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
                         // a sparse set exists for the component.
                         unsafe { sparse_sets.get_mut(component_id).debug_checked_unwrap() };
-                    sparse_set.insert(entity, component_ptr, change_tick);
+                    sparse_set.insert(entity, component_ptr, change_tick, caller.clone());
                 }
             }
             bundle_component += 1;
@@ -641,6 +647,7 @@ impl<'w> BundleInserter<'w> {
         entity: Entity,
         location: EntityLocation,
         bundle: T,
+        caller: String,
     ) -> EntityLocation {
         let bundle_info = self.bundle_info.as_ref();
         let add_bundle = self.add_bundle.as_ref();
@@ -663,6 +670,7 @@ impl<'w> BundleInserter<'w> {
                     location.table_row,
                     self.change_tick,
                     bundle,
+                    caller,
                 );
 
                 (archetype, location)
@@ -701,6 +709,7 @@ impl<'w> BundleInserter<'w> {
                     result.table_row,
                     self.change_tick,
                     bundle,
+                    caller,
                 );
 
                 (new_archetype, new_location)
@@ -780,6 +789,7 @@ impl<'w> BundleInserter<'w> {
                     move_result.new_row,
                     self.change_tick,
                     bundle,
+                    caller,
                 );
 
                 (new_archetype, new_location)
@@ -881,6 +891,7 @@ impl<'w> BundleSpawner<'w> {
         &mut self,
         entity: Entity,
         bundle: T,
+        caller: String,
     ) -> EntityLocation {
         let table = self.table.as_mut();
         let archetype = self.archetype.as_mut();
@@ -903,6 +914,7 @@ impl<'w> BundleSpawner<'w> {
                 table_row,
                 self.change_tick,
                 bundle,
+                caller,
             );
             entities.set(entity.index(), location);
             location
@@ -927,11 +939,11 @@ impl<'w> BundleSpawner<'w> {
     /// # Safety
     /// `T` must match this [`BundleInfo`]'s type
     #[inline]
-    pub unsafe fn spawn<T: Bundle>(&mut self, bundle: T) -> Entity {
+    pub unsafe fn spawn<T: Bundle>(&mut self, bundle: T, caller: String) -> Entity {
         let entity = self.entities().alloc();
         // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
         unsafe {
-            self.spawn_non_existent(entity, bundle);
+            self.spawn_non_existent(entity, bundle, caller);
         }
         entity
     }

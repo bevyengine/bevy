@@ -523,15 +523,16 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        let (ptr, ticks) = world
-            .get_resource_with_ticks(component_id)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Resource requested by {} does not exist: {}",
-                    system_meta.name,
-                    std::any::type_name::<T>()
-                )
-            });
+        let (ptr, ticks, caller) =
+            world
+                .get_resource_with_ticks(component_id)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "Resource requested by {} does not exist: {}",
+                        system_meta.name,
+                        std::any::type_name::<T>()
+                    )
+                });
         Res {
             value: ptr.deref(),
             ticks: Ticks {
@@ -540,6 +541,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
                 last_run: system_meta.last_run,
                 this_run: change_tick,
             },
+            caller: caller.deref(),
         }
     }
 }
@@ -565,7 +567,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
     ) -> Self::Item<'w, 's> {
         world
             .get_resource_with_ticks(component_id)
-            .map(|(ptr, ticks)| Res {
+            .map(|(ptr, ticks, caller)| Res {
                 value: ptr.deref(),
                 ticks: Ticks {
                     added: ticks.added.deref(),
@@ -573,6 +575,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
                     last_run: system_meta.last_run,
                     this_run: change_tick,
                 },
+                caller: caller.deref(),
             })
     }
 }
@@ -635,6 +638,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
                 last_run: system_meta.last_run,
                 this_run: change_tick,
             },
+            caller: value.caller,
         }
     }
 }
@@ -665,6 +669,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
                     last_run: system_meta.last_run,
                     this_run: change_tick,
                 },
+                caller: value.caller,
             })
     }
 }
@@ -1039,6 +1044,7 @@ pub struct NonSend<'w, T: 'static> {
     ticks: ComponentTicks,
     last_run: Tick,
     this_run: Tick,
+    caller: &'w str,
 }
 
 // SAFETY: Only reads a single World non-send resource
@@ -1063,6 +1069,11 @@ impl<'w, T: 'static> NonSend<'w, T> {
     pub fn is_changed(&self) -> bool {
         self.ticks.is_changed(self.last_run, self.this_run)
     }
+
+    /// The location that last caused this to change.
+    pub fn changed_by(&self) -> &str {
+        self.caller
+    }
 }
 
 impl<'w, T> Deref for NonSend<'w, T> {
@@ -1082,6 +1093,7 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
             },
             this_run: nsm.ticks.this_run,
             last_run: nsm.ticks.last_run,
+            caller: nsm.caller,
         }
     }
 }
@@ -1126,21 +1138,23 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        let (ptr, ticks) = world
-            .get_non_send_with_ticks(component_id)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Non-send resource requested by {} does not exist: {}",
-                    system_meta.name,
-                    std::any::type_name::<T>()
-                )
-            });
+        let (ptr, ticks, caller) =
+            world
+                .get_non_send_with_ticks(component_id)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "Non-send resource requested by {} does not exist: {}",
+                        system_meta.name,
+                        std::any::type_name::<T>()
+                    )
+                });
 
         NonSend {
             value: ptr.deref(),
             ticks: ticks.read(),
             last_run: system_meta.last_run,
             this_run: change_tick,
+            caller: caller.deref(),
         }
     }
 }
@@ -1166,11 +1180,12 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
     ) -> Self::Item<'w, 's> {
         world
             .get_non_send_with_ticks(component_id)
-            .map(|(ptr, ticks)| NonSend {
+            .map(|(ptr, ticks, caller)| NonSend {
                 value: ptr.deref(),
                 ticks: ticks.read(),
                 last_run: system_meta.last_run,
                 this_run: change_tick,
+                caller: caller.deref(),
             })
     }
 }
@@ -1218,18 +1233,20 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        let (ptr, ticks) = world
-            .get_non_send_with_ticks(component_id)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Non-send resource requested by {} does not exist: {}",
-                    system_meta.name,
-                    std::any::type_name::<T>()
-                )
-            });
+        let (ptr, ticks, caller) =
+            world
+                .get_non_send_with_ticks(component_id)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "Non-send resource requested by {} does not exist: {}",
+                        system_meta.name,
+                        std::any::type_name::<T>()
+                    )
+                });
         NonSendMut {
             value: ptr.assert_unique().deref_mut(),
             ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
+            caller: caller.deref_mut(),
         }
     }
 }
@@ -1252,9 +1269,10 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
     ) -> Self::Item<'w, 's> {
         world
             .get_non_send_with_ticks(component_id)
-            .map(|(ptr, ticks)| NonSendMut {
+            .map(|(ptr, ticks, caller)| NonSendMut {
                 value: ptr.assert_unique().deref_mut(),
                 ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
+                caller: caller.deref_mut(),
             })
     }
 }

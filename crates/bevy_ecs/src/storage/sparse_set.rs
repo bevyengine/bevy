@@ -3,7 +3,7 @@ use crate::{
     entity::Entity,
     storage::{Column, TableRow},
 };
-use bevy_ptr::{OwningPtr, Ptr};
+use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use nonmax::NonMaxUsize;
 use std::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
 
@@ -169,14 +169,16 @@ impl ComponentSparseSet {
         entity: Entity,
         value: OwningPtr<'_>,
         change_tick: Tick,
+        caller: String,
     ) {
         if let Some(&dense_index) = self.sparse.get(entity.index()) {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index.as_usize()]);
-            self.dense.replace(dense_index, value, change_tick);
+            self.dense.replace(dense_index, value, change_tick, caller);
         } else {
             let dense_index = self.dense.len();
-            self.dense.push(value, ComponentTicks::new(change_tick));
+            self.dense
+                .push(value, ComponentTicks::new(change_tick), caller);
             self.sparse
                 .insert(entity.index(), TableRow::from_usize(dense_index));
             #[cfg(debug_assertions)]
@@ -222,7 +224,10 @@ impl ComponentSparseSet {
     ///
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
-    pub fn get_with_ticks(&self, entity: Entity) -> Option<(Ptr<'_>, TickCells<'_>)> {
+    pub fn get_with_ticks(
+        &self,
+        entity: Entity,
+    ) -> Option<(Ptr<'_>, TickCells<'_>, &UnsafeCell<String>)> {
         let dense_index = *self.sparse.get(entity.index())?;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index.as_usize()]);
@@ -234,6 +239,7 @@ impl ComponentSparseSet {
                     added: self.dense.get_added_tick_unchecked(dense_index),
                     changed: self.dense.get_changed_tick_unchecked(dense_index),
                 },
+                self.dense.get_caller_unchecked(dense_index),
             ))
         }
     }
@@ -284,7 +290,7 @@ impl ComponentSparseSet {
             self.entities.swap_remove(dense_index.as_usize());
             let is_last = dense_index.as_usize() == self.dense.len() - 1;
             // SAFETY: dense_index was just removed from `sparse`, which ensures that it is valid
-            let (value, _) = unsafe { self.dense.swap_remove_and_forget_unchecked(dense_index) };
+            let (value, _, _) = unsafe { self.dense.swap_remove_and_forget_unchecked(dense_index) };
             if !is_last {
                 let swapped_entity = self.entities[dense_index.as_usize()];
                 #[cfg(not(debug_assertions))]

@@ -207,6 +207,7 @@ impl<R: Resource + FromReflect> FromType<R> for ReflectResource {
                     world.get_resource_mut::<R>().map(|res| Mut {
                         value: res.value as &mut dyn Reflect,
                         ticks: res.ticks,
+                        caller: res.caller,
                     })
                 }
             },

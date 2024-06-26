@@ -765,12 +765,15 @@ impl<'w> EntityWorldMut<'w> {
     /// Adds a [`Bundle`] of components to the entity.
     ///
     /// This will overwrite any previous value(s) of the same component type.
+    #[track_caller]
     pub fn insert<T: Bundle>(&mut self, bundle: T) -> &mut Self {
+        let caller = core::panic::Location::caller().to_string();
         let change_tick = self.world.change_tick();
         let mut bundle_inserter =
             BundleInserter::new::<T>(self.world, self.location.archetype_id, change_tick);
-        // SAFETY: location matches current entity. `T` matches `bundle_info`
-        self.location = unsafe { bundle_inserter.insert(self.entity, self.location, bundle) };
+        self.location =
+            // SAFETY: location matches current entity. `T` matches `bundle_info`
+            unsafe { bundle_inserter.insert(self.entity, self.location, bundle, caller) };
         self
     }
 
@@ -788,6 +791,7 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         component_id: ComponentId,
         component: OwningPtr<'_>,
+        caller: String,
     ) -> &mut Self {
         let change_tick = self.world.change_tick();
         let bundle_id = self
@@ -809,6 +813,7 @@ impl<'w> EntityWorldMut<'w> {
             self.location,
             Some(component).into_iter(),
             Some(storage_type).iter().cloned(),
+            caller,
         );
         self
     }
@@ -829,6 +834,7 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         component_ids: &[ComponentId],
         iter_components: I,
+        caller: String,
     ) -> &mut Self {
         let change_tick = self.world.change_tick();
         let bundle_id = self
@@ -850,6 +856,7 @@ impl<'w> EntityWorldMut<'w> {
             self.location,
             iter_components,
             (*storage_types).iter().cloned(),
+            caller,
         );
         *self.world.bundles.get_storages_unchecked(bundle_id) = std::mem::take(&mut storage_types);
         self
@@ -2258,6 +2265,7 @@ unsafe fn insert_dynamic_bundle<
     location: EntityLocation,
     components: I,
     storage_types: S,
+    caller: String,
 ) -> EntityLocation {
     struct DynamicInsertBundle<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> {
         components: I,
@@ -2276,7 +2284,7 @@ unsafe fn insert_dynamic_bundle<
     };
 
     // SAFETY: location matches current entity.
-    unsafe { bundle_inserter.insert(entity, location, bundle) }
+    unsafe { bundle_inserter.insert(entity, location, bundle, caller) }
 }
 
 /// Removes a bundle from the given archetype and returns the resulting archetype (or None if the
@@ -2767,7 +2775,7 @@ mod tests {
         let mut entity = world.spawn_empty();
         OwningPtr::make(TestComponent(42), |ptr| {
             // SAFETY: `ptr` matches the component id
-            unsafe { entity.insert_by_id(test_component_id, ptr) };
+            unsafe { entity.insert_by_id(test_component_id, ptr, "".into()) };
         });
 
         let components: Vec<_> = world.query::<&TestComponent>().iter(&world).collect();
@@ -2779,7 +2787,7 @@ mod tests {
         let mut entity = world.spawn_empty();
         OwningPtr::make(TestComponent(84), |ptr| {
             // SAFETY: `ptr` matches the component id
-            unsafe { entity.insert_by_ids(&[test_component_id], vec![ptr].into_iter()) };
+            unsafe { entity.insert_by_ids(&[test_component_id], vec![ptr].into_iter(), "".into()) };
         });
 
         let components: Vec<_> = world.query::<&TestComponent>().iter(&world).collect();
@@ -2801,7 +2809,9 @@ mod tests {
         OwningPtr::make(test_component_value, |ptr1| {
             OwningPtr::make(test_component_2_value, |ptr2| {
                 // SAFETY: `ptr1` and `ptr2` match the component ids
-                unsafe { entity.insert_by_ids(&component_ids, vec![ptr1, ptr2].into_iter()) };
+                unsafe {
+                    entity.insert_by_ids(&component_ids, vec![ptr1, ptr2].into_iter(), "".into())
+                };
             });
         });
 

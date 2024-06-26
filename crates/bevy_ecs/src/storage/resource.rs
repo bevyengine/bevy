@@ -17,6 +17,7 @@ pub struct ResourceData<const SEND: bool> {
     type_name: String,
     id: ArchetypeComponentId,
     origin_thread_id: Option<ThreadId>,
+    caller: UnsafeCell<String>,
 }
 
 impl<const SEND: bool> Drop for ResourceData<SEND> {
@@ -109,7 +110,7 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// If `SEND` is false, this will panic if a value is present and is not accessed from the
     /// original thread it was inserted in.
     #[inline]
-    pub(crate) fn get_with_ticks(&self) -> Option<(Ptr<'_>, TickCells<'_>)> {
+    pub(crate) fn get_with_ticks(&self) -> Option<(Ptr<'_>, TickCells<'_>, &UnsafeCell<String>)> {
         self.is_present().then(|| {
             self.validate_access();
             (
@@ -119,6 +120,7 @@ impl<const SEND: bool> ResourceData<SEND> {
                     added: &self.added_ticks,
                     changed: &self.changed_ticks,
                 },
+                &self.caller,
             )
         })
     }
@@ -129,12 +131,14 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// If `SEND` is false, this will panic if a value is present and is not accessed from the
     /// original thread it was inserted in.
     pub(crate) fn get_mut(&mut self, last_run: Tick, this_run: Tick) -> Option<MutUntyped<'_>> {
-        let (ptr, ticks) = self.get_with_ticks()?;
+        let (ptr, ticks, caller) = self.get_with_ticks()?;
         Some(MutUntyped {
             // SAFETY: We have exclusive access to the underlying storage.
             value: unsafe { ptr.assert_unique() },
             // SAFETY: We have exclusive access to the underlying storage.
             ticks: unsafe { TicksMut::from_tick_cells(ticks, last_run, this_run) },
+            // SAFETY: We have exclusive access to the underlying storage.
+            caller: unsafe { caller.deref_mut() },
         })
     }
 
@@ -207,7 +211,7 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// original thread it was inserted from.
     #[inline]
     #[must_use = "The returned pointer to the removed component should be used or dropped"]
-    pub(crate) fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks)> {
+    pub(crate) fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks, String)> {
         if !self.is_present() {
             return None;
         }
@@ -216,6 +220,10 @@ impl<const SEND: bool> ResourceData<SEND> {
         }
         // SAFETY: We've already validated that the row is present.
         let res = unsafe { self.data.swap_remove_and_forget_unchecked(Self::ROW) };
+
+        // SAFETY: This function is being called through an exclusive mutable reference to Self
+        let caller = unsafe { std::mem::take(self.caller.deref_mut()) };
+
         // SAFETY: This function is being called through an exclusive mutable reference to Self, which
         // makes it sound to read these ticks.
         unsafe {
@@ -225,6 +233,7 @@ impl<const SEND: bool> ResourceData<SEND> {
                     added: self.added_ticks.read(),
                     changed: self.changed_ticks.read(),
                 },
+                caller,
             ))
         }
     }
@@ -333,6 +342,7 @@ impl<const SEND: bool> Resources<SEND> {
                 type_name: String::from(component_info.name()),
                 id: f(),
                 origin_thread_id: None,
+                caller: UnsafeCell::new("init".into())
             }
         })
     }

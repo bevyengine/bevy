@@ -908,6 +908,7 @@ impl EntityCommands<'_> {
     /// }
     /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
     /// ```
+    #[track_caller]
     pub fn insert(&mut self, bundle: impl Bundle) -> &mut Self {
         self.add(insert(bundle))
     }
@@ -1199,6 +1200,7 @@ fn despawn(entity: Entity, world: &mut World) {
 }
 
 /// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity.
+#[track_caller]
 fn insert<T: Bundle>(bundle: T) -> impl EntityCommand {
     move |entity: Entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
@@ -1210,6 +1212,7 @@ fn insert<T: Bundle>(bundle: T) -> impl EntityCommand {
 }
 
 /// An [`EntityCommand`] that attempts to add the components in a [`Bundle`] to an entity.
+#[track_caller]
 fn try_insert(bundle: impl Bundle) -> impl EntityCommand {
     move |entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
