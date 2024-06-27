@@ -158,6 +158,7 @@ pub fn mouse_button_input_system(
 }
 
 /// Tracks how much the mouse has moved every frame
+/// This resource is reset to zero every frame
 ///
 /// This resource sums the total [`MouseMotion`] events received this frame.
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Reflect, Default)]
@@ -173,6 +174,7 @@ pub struct AccumulatedMouseMotion {
 }
 
 /// Tracks how much the mouse has scrolled every frame
+/// This resource is reset to zero every frame
 ///
 /// This resource sums the total [`MouseMotion`] events received this frame.
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Reflect)]
@@ -198,20 +200,25 @@ impl Default for AccumulatedMouseScroll {
     }
 }
 
-/// Updates the `AccumulatedMouseMotion` and `AccumulatedMouseScroll` resources
-/// using the `MouseMotion` and `MouseWheel` events.
-pub fn accumulate_mouse_input_system(
+/// Updates the [`AccumulatedMouseMotion`] resource using the [`MouseMotion`] event.
+/// The value of [`AccumulatedMouseMotion`] is reset to zero every frame
+pub fn accumulate_mouse_motion_system(
     mut mouse_motion_event: EventReader<MouseMotion>,
-    mut mouse_scroll_event: EventReader<MouseWheel>,
     mut accumulated_mouse_motion: ResMut<AccumulatedMouseMotion>,
-    mut accumulated_mouse_scroll: ResMut<AccumulatedMouseScroll>,
 ) {
     let mut delta = Vec2::ZERO;
     for event in mouse_motion_event.read() {
         delta += event.delta;
     }
     accumulated_mouse_motion.delta = delta;
+}
 
+/// Updates the [`AccumulatedMouseScroll`] resource using the [`MouseWheel`] event.
+/// The value of [`AccumulatedMouseScroll`] is reset to zero every frame
+pub fn accumulate_mouse_scroll_system(
+    mut mouse_scroll_event: EventReader<MouseWheel>,
+    mut accumulated_mouse_scroll: ResMut<AccumulatedMouseScroll>,
+) {
     let mut delta = Vec2::ZERO;
     let mut unit = MouseScrollUnit::Line;
     for event in mouse_scroll_event.read() {

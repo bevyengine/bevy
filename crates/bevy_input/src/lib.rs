@@ -44,8 +44,9 @@ use bevy_reflect::Reflect;
 use gestures::*;
 use keyboard::{keyboard_input_system, KeyCode, KeyboardFocusLost, KeyboardInput};
 use mouse::{
-    accumulate_mouse_input_system, mouse_button_input_system, AccumulatedMouseMotion,
-    AccumulatedMouseScroll, MouseButton, MouseButtonInput, MouseMotion, MouseWheel,
+    accumulate_mouse_motion_system, accumulate_mouse_scroll_system, mouse_button_input_system,
+    AccumulatedMouseMotion, AccumulatedMouseScroll, MouseButton, MouseButtonInput, MouseMotion,
+    MouseWheel,
 };
 use touch::{touch_screen_input_system, TouchInput, Touches};
 
@@ -82,7 +83,12 @@ impl Plugin for InputPlugin {
             .init_resource::<ButtonInput<MouseButton>>()
             .add_systems(
                 PreUpdate,
-                (mouse_button_input_system, accumulate_mouse_input_system).in_set(InputSystem),
+                (
+                    mouse_button_input_system,
+                    accumulate_mouse_motion_system,
+                    accumulate_mouse_scroll_system,
+                )
+                    .in_set(InputSystem),
             )
             .add_event::<PinchGesture>()
             .add_event::<RotationGesture>()
