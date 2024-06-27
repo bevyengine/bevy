@@ -523,9 +523,9 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
 
         // Prepare batchables.
 
-        for key in &phase.batchable_keys {
+        for key in &phase.batchable_mesh_keys {
             let mut batch: Option<BinnedRenderPhaseBatch> = None;
-            for &entity in &phase.batchable_values[key] {
+            for &entity in &phase.batchable_mesh_values[key] {
                 let Some(input_index) = GFBD::get_binned_index(&system_param_item, entity) else {
                     continue;
                 };
@@ -583,8 +583,8 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
         }
 
         // Prepare unbatchables.
-        for key in &phase.unbatchable_keys {
-            let unbatchables = phase.unbatchable_values.get_mut(key).unwrap();
+        for key in &phase.unbatchable_mesh_keys {
+            let unbatchables = phase.unbatchable_mesh_values.get_mut(key).unwrap();
             for &entity in &unbatchables.entities {
                 let Some(input_index) = GFBD::get_binned_index(&system_param_item, entity) else {
                     continue;

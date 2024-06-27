@@ -3219,6 +3219,17 @@ description = "Displays an example model with anisotropy"
 category = "3D Rendering"
 wasm = false
 
+[[example]]
+name = "custom_phase_item"
+path = "examples/shader/custom_phase_item.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_phase_item]
+name = "Custom phase item"
+description = "Demonstrates how to enqueue custom draw commands in a render phase"
+category = "Shaders"
+wasm = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
