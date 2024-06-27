@@ -2,9 +2,6 @@
 //!
 //! Also draws the bounding boxes and circles of the primitives.
 
-/// This example uses a png from the assets subdirectory
-const ICON_PATH: &str = "branding/icon.png";
-
 use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
@@ -14,6 +11,9 @@ use bevy::{
     render::mesh::{CircularMeshUvMode, CircularSectorMeshBuilder, CircularSegmentMeshBuilder},
     sprite::MaterialMesh2dBundle,
 };
+
+/// This example uses a png from the assets subdirectory
+const ICON_PATH: &str = "branding/icon.png";
 
 fn main() {
     App::new()

@@ -7,14 +7,14 @@
 //! Only one padded and one unpadded texture atlas are rendered to the screen.
 //! An upscaled sprite from each of the four atlases are rendered to the screen.
 
+use bevy::{asset::LoadedFolder, prelude::*, render::texture::ImageSampler};
+
 /// This example loads a folder from the assets subdirectory
 const RPG_DIRECTORY_PATH: &str = "textures/rpg";
 /// This example loads a font from the assets subdirectory
 const FONT_PATH: &str = "fonts/FiraSans-Bold.ttf";
 /// This example uses a png from the assets subdirectory
 const RPG_VENDOR_PATH: &str = "textures/rpg/chars/vendor/generic-rpg-vendor.png";
-
-use bevy::{asset::LoadedFolder, prelude::*, render::texture::ImageSampler};
 
 fn main() {
     App::new()

@@ -1,8 +1,5 @@
 //! Renders a 2D scene containing a single, moving sprite.
 
-/// This example uses a png from the assets subdirectory
-const ICON_PATH: &str = "branding/icon.png";
-
 use bevy::prelude::*;
 
 fn main() {
@@ -12,6 +9,9 @@ fn main() {
         .add_systems(Update, sprite_movement)
         .run();
 }
+
+/// This example uses a png from the assets subdirectory
+const ICON_PATH: &str = "branding/icon.png";
 
 #[derive(Component)]
 enum Direction {

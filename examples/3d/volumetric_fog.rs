@@ -1,16 +1,16 @@
 //! Demonstrates volumetric fog and lighting (light shafts or god rays).
 
-/// This example uses a 3d model file from the assets subdirectory
-const VOLUMETRIC_FOG_PATH: &str = "models/VolumetricFogExample/VolumetricFogExample.glb";
-/// This example uses a compressed texture file from the assets subdirectory
-const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
-
 use bevy::{
     core_pipeline::{bloom::BloomSettings, tonemapping::Tonemapping, Skybox},
     math::vec3,
     pbr::{VolumetricFogSettings, VolumetricLight},
     prelude::*,
 };
+
+/// This example uses a 3d model file from the assets subdirectory
+const VOLUMETRIC_FOG_PATH: &str = "models/VolumetricFogExample/VolumetricFogExample.glb";
+/// This example uses a compressed texture file from the assets subdirectory
+const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
 
 const DIRECTIONAL_LIGHT_MOVEMENT_SPEED: f32 = 0.02;
 

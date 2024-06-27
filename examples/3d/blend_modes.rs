@@ -10,11 +10,11 @@
 //! | `Spacebar`         | Toggle Unlit                        |
 //! | `C`                | Randomize Colors                    |
 
-/// This example uses a font from the assets subdirectory
-const FONT_PATH: &str = "fonts/FiraMono-Medium.ttf";
-
 use bevy::{color::palettes::css::ORANGE, prelude::*};
 use rand::random;
+
+/// This example uses a font from the assets subdirectory
+const FONT_PATH: &str = "fonts/FiraMono-Medium.ttf";
 
 fn main() {
     let mut app = App::new();

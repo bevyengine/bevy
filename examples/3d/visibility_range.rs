@@ -1,12 +1,5 @@
 //! Demonstrates visibility ranges, also known as HLODs.
 
-/// This example uses two 3d model files from the assets subdirectory
-const FLIGHT_HELMET_PATH: &str = "models/FlightHelmet/FlightHelmet.gltf";
-const FLIGHT_HELMET_LOW_POLY_PATH: &str = "models/FlightHelmet/FlightHelmetLowPoly.gltf";
-/// This example uses two compressed texture files from the assets subdirectory
-const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
-const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
-
 use std::f32::consts::PI;
 
 use bevy::{
@@ -16,6 +9,13 @@ use bevy::{
     prelude::*,
     render::view::VisibilityRange,
 };
+
+/// This example uses two 3d model files from the assets subdirectory
+const FLIGHT_HELMET_PATH: &str = "models/FlightHelmet/FlightHelmet.gltf";
+const FLIGHT_HELMET_LOW_POLY_PATH: &str = "models/FlightHelmetLowPoly/FlightHelmetLowPoly.gltf";
+/// This example uses two compressed texture files from the assets subdirectory
+const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
+const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
 
 // Where the camera is focused.
 const CAMERA_FOCAL_POINT: Vec3 = vec3(0.0, 0.3, 0.0);

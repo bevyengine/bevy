@@ -1,10 +1,10 @@
 //! Demonstrates how to use transparency in 2D.
 //! Shows 3 bevy logos on top of each other, each with a different amount of transparency.
 
+use bevy::prelude::*;
+
 /// This example uses a png from the assets subdirectory
 const ICON_PATH: &str = "branding/icon.png";
-
-use bevy::prelude::*;
 
 fn main() {
     App::new()

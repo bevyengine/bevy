@@ -7,13 +7,13 @@
 //! | `Spacebar`         | Toggle Atmospheric Fog                 |
 //! | `S`                | Toggle Directional Light Fog Influence |
 
-/// This example uses a 3d model file from the assets subdirectory
-const MOUNTAINS_PATH: &str = "models/terrain/Mountains.gltf";
-
 use bevy::{
     pbr::{CascadeShadowConfigBuilder, NotShadowCaster},
     prelude::*,
 };
+
+/// This example uses a 3d model file from the assets subdirectory
+const MOUNTAINS_PATH: &str = "models/terrain/Mountains.gltf";
 
 fn main() {
     App::new()

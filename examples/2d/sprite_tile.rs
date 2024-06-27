@@ -1,9 +1,9 @@
 //! Displays a single [`Sprite`] tiled in a grid, with a scaling animation
 
+use bevy::prelude::*;
+
 /// This example uses a png from the assets subdirectory
 const ICON_PATH: &str = "branding/icon.png";
-
-use bevy::prelude::*;
 
 fn main() {
     App::new()

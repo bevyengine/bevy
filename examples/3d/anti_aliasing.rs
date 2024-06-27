@@ -1,13 +1,13 @@
 //! This example compares MSAA (Multi-Sample Anti-aliasing), FXAA (Fast Approximate Anti-aliasing), and TAA (Temporal Anti-aliasing).
 
+use std::f32::consts::PI;
+use std::fmt::Write;
+
 /// This example uses a 3d model file from the assets subdirectory
 const FLIGHT_HELMET_PATH: &str = "models/FlightHelmet/FlightHelmet.gltf";
 /// This example uses two compressed texture files from the assets subdirectory
 const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
 const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
-
-use std::f32::consts::PI;
-use std::fmt::Write;
 
 use bevy::{
     core_pipeline::{

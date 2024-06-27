@@ -1,9 +1,9 @@
 //! Displays a single [`Sprite`], created from an image.
 
+use bevy::prelude::*;
+
 /// This example uses a png from the assets subdirectory
 const BEVY_BIRD_ASSET_PATH: &str = "branding/bevy_bird_dark.png";
-
-use bevy::prelude::*;
 
 fn main() {
     App::new()

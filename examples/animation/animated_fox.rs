@@ -1,8 +1,5 @@
 //! Plays animations from a skinned glTF.
 
-/// This example uses a 3d model from the assets subdirectory
-const FOX_PATH: &str = "models/animated/Fox.glb";
-
 use std::f32::consts::PI;
 use std::time::Duration;
 
@@ -11,6 +8,9 @@ use bevy::{
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
 };
+
+/// This example uses a 3d model from the assets subdirectory
+const FOX_PATH: &str = "models/animated/Fox.glb";
 
 fn main() {
     App::new()

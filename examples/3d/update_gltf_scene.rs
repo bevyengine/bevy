@@ -1,13 +1,13 @@
 //! Update a scene from a glTF file, either by spawning the scene as a child of another entity,
 //! or by accessing the entities of the scene.
 
+use bevy::{pbr::DirectionalLightShadowMap, prelude::*};
+
 /// This example uses two compressed texture files from the assets subdirectory
 const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
 const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
 /// This example uses a 3d model file from the assets subdirectory
 const FLIGHT_HELMET_PATH: &str = "models/FlightHelmet/FlightHelmet.gltf";
-
-use bevy::{pbr::DirectionalLightShadowMap, prelude::*};
 
 fn main() {
     App::new()

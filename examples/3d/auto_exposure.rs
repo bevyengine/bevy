@@ -11,11 +11,6 @@
 //! | `M`                | Toggle Metering Mask                   |
 //! | `V`                | Visualize Metering Mask                |
 
-/// This example uses a png from the assets subdirectory
-const BASIC_METERING_MASK_PATH: &str = "textures/basic_metering_mask.png";
-/// This example uses a compressed texture file from the assets subdirectory
-const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
-
 use bevy::{
     core_pipeline::{
         auto_exposure::{AutoExposureCompensationCurve, AutoExposurePlugin, AutoExposureSettings},
@@ -24,6 +19,11 @@ use bevy::{
     math::{cubic_splines::LinearSpline, primitives::Plane3d, vec2},
     prelude::*,
 };
+
+/// This example uses a png from the assets subdirectory
+const BASIC_METERING_MASK_PATH: &str = "textures/basic_metering_mask.png";
+/// This example uses a compressed texture file from the assets subdirectory
+const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
 
 fn main() {
     App::new()

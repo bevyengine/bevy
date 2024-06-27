@@ -1,15 +1,5 @@
 //! This example compares Forward, Forward + Prepass, and Deferred rendering.
 
-/// This example uses two compressed texture files from the assets subdirectory
-const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
-const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
-/// This example uses a 3d model file from the assets subdirectory
-const FLIGHT_HELMET_PATH: &str = "models/FlightHelmet/FlightHelmet.gltf";
-/// This example uses three pngs from the asset subdirectory
-const CUBE_NORMAL_PATH: &str = "textures/parallax_example/cube_normal.png";
-const CUBE_COLOR_PATH: &str = "textures/parallax_example/cube_color.png";
-const CUBE_DEPTH_PATH: &str = "textures/parallax_example/cube_depth.png";
-
 use std::f32::consts::*;
 
 use bevy::{
@@ -24,6 +14,16 @@ use bevy::{
     prelude::*,
     render::texture::ImageLoaderSettings,
 };
+
+/// This example uses two compressed texture files from the assets subdirectory
+const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
+const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
+/// This example uses a 3d model file from the assets subdirectory
+const FLIGHT_HELMET_PATH: &str = "models/FlightHelmet/FlightHelmet.gltf";
+/// This example uses three pngs from the asset subdirectory
+const CUBE_NORMAL_PATH: &str = "textures/parallax_example/cube_normal.png";
+const CUBE_COLOR_PATH: &str = "textures/parallax_example/cube_color.png";
+const CUBE_DEPTH_PATH: &str = "textures/parallax_example/cube_depth.png";
 
 fn main() {
     App::new()

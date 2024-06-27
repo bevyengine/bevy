@@ -1,14 +1,14 @@
 //! A simple 3D scene with a spinning cube with a normal map and depth map to demonstrate parallax mapping.
 //! Press left mouse button to cycle through different views.
 
+use std::fmt;
+
+use bevy::{prelude::*, render::texture::ImageLoaderSettings};
+
 /// This example uses three pngs from the assets subdirectory
 const CUBE_NORMAL_PATH: &str = "textures/parallax_example/cube_normal.png";
 const CUBE_COLOR_PATH: &str = "textures/parallax_example/cube_color.png";
 const CUBE_DEPTH_PATH: &str = "textures/parallax_example/cube_depth.png";
-
-use std::fmt;
-
-use bevy::{prelude::*, render::texture::ImageLoaderSettings};
 
 fn main() {
     App::new()

@@ -1,10 +1,10 @@
 //! Renders an animated sprite by loading all animation frames from a single image (a sprite sheet)
 //! into a texture atlas, and changing the displayed image periodically.
 
+use bevy::prelude::*;
+
 /// This example uses a png from the assets subdirectory
 const IDLE_RUN_PATH: &str = "textures/rpg/chars/gabe/gabe-idle-run.png";
-
-use bevy::prelude::*;
 
 fn main() {
     App::new()

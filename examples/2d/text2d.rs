@@ -5,15 +5,15 @@
 //! For an example on how to render text as part of a user interface, independent from the world
 //! viewport, you may want to look at `games/contributors.rs` or `ui/text.rs`.
 
-/// This example uses a font from the assets subdirectory
-const FONT_PATH: &str = "fonts/FiraSans-Bold.ttf";
-
 use bevy::{
     color::palettes::css::*,
     prelude::*,
     sprite::Anchor,
     text::{BreakLineOn, Text2dBounds},
 };
+
+/// This example uses a font from the assets subdirectory
+const FONT_PATH: &str = "fonts/FiraSans-Bold.ttf";
 
 fn main() {
     App::new()

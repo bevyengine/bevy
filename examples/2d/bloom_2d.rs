@@ -1,8 +1,5 @@
 //! Illustrates bloom post-processing in 2d.
 
-/// This example uses an asset from the assets subdirectory
-const BEVY_BIRD_ASSET_PATH: &str = "branding/bevy_bird_dark.png";
-
 use bevy::{
     core_pipeline::{
         bloom::{BloomCompositeMode, BloomSettings},
@@ -11,6 +8,9 @@ use bevy::{
     prelude::*,
     sprite::MaterialMesh2dBundle,
 };
+
+/// This example uses an asset from the assets subdirectory
+const BEVY_BIRD_ASSET_PATH: &str = "branding/bevy_bird_dark.png";
 
 fn main() {
     App::new()

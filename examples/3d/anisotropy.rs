@@ -1,14 +1,14 @@
 //! Demonstrates anisotropy with the glTF sample barn lamp model.
 
+use bevy::{
+    color::palettes::css::WHITE, core_pipeline::Skybox, math::vec3, prelude::*, time::Stopwatch,
+};
+
 /// This example uses a 3d model file from the assets subdirectory
 const ANISOTROPY_BARN_LAMP_PATH: &str = "models/AnisotropyBarnLamp/AnisotropyBarnLamp.gltf#Scene0";
 /// This example uses two compressed texture files from the assets subdirectory
 const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
 const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
-
-use bevy::{
-    color::palettes::css::WHITE, core_pipeline::Skybox, math::vec3, prelude::*, time::Stopwatch,
-};
 
 /// The initial position of the camera.
 const CAMERA_INITIAL_POSITION: Vec3 = vec3(-0.4, 0.0, 0.0);

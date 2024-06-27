@@ -18,10 +18,6 @@
 //! | `D`                | Toggle Depth Prepass                                 |
 //! | `T`                | Toggle TAA                                           |
 
-/// This example uses two compressed texture files from the assets subdirectory
-const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
-const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
-
 use std::f32::consts::PI;
 
 use bevy::{
@@ -37,6 +33,10 @@ use bevy::{
         view::{ColorGrading, ColorGradingGlobal},
     },
 };
+
+/// This example uses two compressed texture files from the assets subdirectory
+const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
+const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
 
 #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
 use bevy::core_pipeline::experimental::taa::{

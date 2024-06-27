@@ -1,5 +1,10 @@
 //! Demonstrates color grading with an interactive adjustment UI.
 
+use std::{
+    f32::consts::PI,
+    fmt::{self, Formatter},
+};
+
 /// This example uses a font file from the assets subdirectory
 const FONT_PATH: &str = "fonts/FiraMono-Medium.ttf";
 /// This example uses two compressed texture files from the assets subdirectory
@@ -8,11 +13,6 @@ const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx
 /// This example uses two 3d model files from the assets subdirectory
 const TONEMAPPING_TEST_PATH: &str = "models/TonemappingTest/TonemappingTest.gltf";
 const FLIGHT_HELMET_PATH: &str = "models/FlightHelmet/FlightHelmet.gltf";
-
-use std::{
-    f32::consts::PI,
-    fmt::{self, Formatter},
-};
 
 use bevy::{
     ecs::system::EntityCommands,

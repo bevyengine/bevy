@@ -1,9 +1,6 @@
 //! Illustrates different lights of various types and colors, some static, some moving over
 //! a simple scene.
 
-/// This example uses a png from the assets subdirectory
-const BEVY_LOGO_LIGHT_PATH: &str = "branding/bevy_logo_light.png";
-
 use std::f32::consts::PI;
 
 use bevy::{
@@ -12,6 +9,9 @@ use bevy::{
     prelude::*,
     render::camera::{Exposure, PhysicalCameraParameters},
 };
+
+/// This example uses a png from the assets subdirectory
+const BEVY_LOGO_LIGHT_PATH: &str = "branding/bevy_logo_light.png";
 
 fn main() {
     App::new()

@@ -1,9 +1,5 @@
 //! Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D
 
-/// This example uses two pngs from the assets subdirectory
-const PIXEL_DARK_PATH: &str = "pixel/bevy_pixel_dark.png";
-const PIXEL_LIGHT_PATH: &str = "pixel/bevy_pixel_light.png";
-
 use bevy::{
     prelude::*,
     render::{
@@ -16,6 +12,10 @@ use bevy::{
     sprite::MaterialMesh2dBundle,
     window::WindowResized,
 };
+
+/// This example uses two pngs from the assets subdirectory
+const PIXEL_DARK_PATH: &str = "pixel/bevy_pixel_dark.png";
+const PIXEL_LIGHT_PATH: &str = "pixel/bevy_pixel_light.png";
 
 /// In-game resolution width.
 const RES_WIDTH: u32 = 160;

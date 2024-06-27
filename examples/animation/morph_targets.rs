@@ -7,11 +7,11 @@
 //! - How to read morph target names in `name_morphs`.
 //! - How to play morph target animations in `setup_animations`.
 
-/// This example uses a 3d model from the assets subdirectory
-const MORPH_STRESS_TEST_PATH: &str = "models/animated/MorphStressTest.gltf";
-
 use bevy::prelude::*;
 use std::f32::consts::PI;
+
+/// This example uses a 3d model from the assets subdirectory
+const MORPH_STRESS_TEST_PATH: &str = "models/animated/MorphStressTest.gltf";
 
 fn main() {
     App::new()

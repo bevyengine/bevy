@@ -1,11 +1,10 @@
 //! This example shows various ways to configure texture materials in 3D.
-
-/// This example uses a png from the assets subdirectory
-const BEVY_BIRD_ASSET_PATH: &str = "branding/bevy_logo_dark_big.png";
-
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
+
+/// This example uses a png from the assets subdirectory
+const BEVY_BIRD_ASSET_PATH: &str = "branding/bevy_logo_dark_big.png";
 
 fn main() {
     App::new()

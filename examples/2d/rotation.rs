@@ -1,11 +1,11 @@
 //! Demonstrates rotating entities in 2D using quaternions.
 
+use bevy::prelude::*;
+
 /// This example uses three pngs from the assets subdirectory
 const SHIP_C_PATH: &str = "textures/simplespace/ship_C.png";
 const ENEMY_A_PATH: &str = "textures/simplespace/enemy_A.png";
 const ENEMY_B_PATH: &str = "textures/simplespace/enemy_B.png";
-
-use bevy::prelude::*;
 
 const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
 

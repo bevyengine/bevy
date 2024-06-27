@@ -1,16 +1,16 @@
 //! Loads and renders a glTF file as a scene.
 
-/// This example uses two compressed texture files from the assets subdirectory
-const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
-const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
-/// This example uses a 3d model file from the assets subdirectory
-const FLIGHT_HELMET_PATH: &str = "models/FlightHelmet/FlightHelmet.gltf";
-
 use bevy::{
     pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
     prelude::*,
 };
 use std::f32::consts::*;
+
+/// This example uses two compressed texture files from the assets subdirectory
+const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
+const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
+/// This example uses a 3d model file from the assets subdirectory
+const FLIGHT_HELMET_PATH: &str = "models/FlightHelmet/FlightHelmet.gltf";
 
 fn main() {
     App::new()

@@ -6,14 +6,6 @@
 //!
 //! Reflection probes don't work on WebGL 2 or WebGPU.
 
-/// This example uses a 3d model file from the assets subdirectory
-const CUBES_PATH: &str = "models/cubes/Cubes.glb";
-/// This example uses two compressed texture files from the assets subdirectory
-const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
-const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
-const CUBES_SPECULAR_PATH: &str =
-    "environment_maps/cubes_reflection_probe_specular_rgb9e5_zstd.ktx2";
-
 use bevy::core_pipeline::Skybox;
 use bevy::prelude::*;
 
@@ -21,6 +13,14 @@ use std::{
     f32::consts::PI,
     fmt::{Display, Formatter, Result as FmtResult},
 };
+
+/// This example uses a 3d model file from the assets subdirectory
+const CUBES_PATH: &str = "models/cubes/Cubes.glb";
+/// This example uses two compressed texture files from the assets subdirectory
+const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
+const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
+const CUBES_SPECULAR_PATH: &str =
+    "environment_maps/cubes_reflection_probe_specular_rgb9e5_zstd.ktx2";
 
 static STOP_ROTATION_HELP_TEXT: &str = "Press Enter to stop rotation";
 static START_ROTATION_HELP_TEXT: &str = "Press Enter to start rotation";

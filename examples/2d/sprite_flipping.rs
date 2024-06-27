@@ -1,9 +1,9 @@
 //! Displays a single [`Sprite`], created from an image, but flipped on one axis.
 
+use bevy::prelude::*;
+
 /// This example uses png from the assets subdirectory
 const BEVY_BIRD_ASSET_PATH: &str = "branding/bevy_bird_dark.png";
-
-use bevy::prelude::*;
 
 fn main() {
     App::new()

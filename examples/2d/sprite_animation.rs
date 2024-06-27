@@ -2,12 +2,13 @@
 //!
 //! See `sprite_sheet.rs` for an example where the sprite animation loops indefinitely.
 
-/// This example uses a png from the assets subdirectory
-const IDLE_RUN_PATH: &str = "textures/rpg/chars/gabe/gabe-idle-run.png";
 use std::time::Duration;
 
 use bevy::input::common_conditions::input_just_pressed;
 use bevy::prelude::*;
+
+/// This example uses a png from the assets subdirectory
+const IDLE_RUN_PATH: &str = "textures/rpg/chars/gabe/gabe-idle-run.png";
 
 fn main() {
     App::new()

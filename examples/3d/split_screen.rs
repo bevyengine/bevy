@@ -1,13 +1,13 @@
 //! Renders two cameras to the same window to accomplish "split screen".
 
-/// This example uses a 3d model file from the assets subdirectory
-const FOX_PATH: &str = "models/animated/Fox.glb";
-
 use std::f32::consts::PI;
 
 use bevy::{
     pbr::CascadeShadowConfigBuilder, prelude::*, render::camera::Viewport, window::WindowResized,
 };
+
+/// This example uses a 3d model file from the assets subdirectory
+const FOX_PATH: &str = "models/animated/Fox.glb";
 
 fn main() {
     App::new()

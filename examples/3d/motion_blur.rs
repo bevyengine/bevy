@@ -1,13 +1,13 @@
 //! Demonstrates how to enable per-object motion blur. This rendering feature can be configured per
 //! camera using the [`MotionBlur`] component.z
 
-/// This example uses a png from the assets subdirectory
-const ICON_PATH: &str = "branding/icon.png";
-
 use bevy::{
     core_pipeline::motion_blur::{MotionBlur, MotionBlurBundle},
     prelude::*,
 };
+
+/// This example uses a png from the assets subdirectory
+const ICON_PATH: &str = "branding/icon.png";
 
 fn main() {
     let mut app = App::new();

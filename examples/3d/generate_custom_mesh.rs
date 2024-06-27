@@ -2,15 +2,15 @@
 //! assign a custom UV mapping for a custom texture,
 //! and how to change the UV mapping at run-time.
 
-/// This example uses a png from the assets subdirectory
-const ARRAY_TEXTURE_PATH: &str = "textures/array_texture.png";
-
 use bevy::prelude::*;
 use bevy::render::{
     mesh::{Indices, VertexAttributeValues},
     render_asset::RenderAssetUsages,
     render_resource::PrimitiveTopology,
 };
+
+/// This example uses a png from the assets subdirectory
+const ARRAY_TEXTURE_PATH: &str = "textures/array_texture.png";
 
 // Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
 // filtering entities in queries with `With`, they're usually not queried directly since they don't

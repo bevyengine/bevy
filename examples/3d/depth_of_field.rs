@@ -9,11 +9,6 @@
 //!
 //! [a blog post on depth of field in Unity]: https://catlikecoding.com/unity/tutorials/advanced-rendering/depth-of-field/
 
-/// This example uses a 3d model file from the assets subdirectory
-const DEPTH_OF_FIELD_EXAMPLE_PATH: &str = "models/DepthOfFieldExample/DepthOfFieldExample.glb";
-/// This example uses an HDR file from the assets subdirectory
-const CIRCUIT_BOARD_LIGHTMAP_PATH: &str = "models/DepthOfFieldExample/CircuitBoardLightmap.hdr";
-
 use bevy::{
     core_pipeline::{
         bloom::BloomSettings,
@@ -24,6 +19,11 @@ use bevy::{
     prelude::*,
     render::camera::PhysicalCameraParameters,
 };
+
+/// This example uses a 3d model file from the assets subdirectory
+const DEPTH_OF_FIELD_EXAMPLE_PATH: &str = "models/DepthOfFieldExample/DepthOfFieldExample.glb";
+/// This example uses an HDR file from the assets subdirectory
+const CIRCUIT_BOARD_LIGHTMAP_PATH: &str = "models/DepthOfFieldExample/CircuitBoardLightmap.hdr";
 
 /// The increments in which the user can adjust the focal distance, in meters
 /// per frame.
