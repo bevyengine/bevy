@@ -8,6 +8,9 @@ use bevy::prelude::*;
 #[cfg(target_os = "macos")]
 use bevy::window::CompositeAlphaMode;
 
+/// This example uses a png from the assets subdirectory
+const ICON_PATH: &str = "branding/icon.png";
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -31,7 +34,7 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     commands.spawn(SpriteBundle {
-        texture: asset_server.load("branding/icon.png"),
+        texture: asset_server.load(ICON_PATH),
         ..default()
     });
 }

@@ -2,6 +2,10 @@
 use bevy::{prelude::*, tasks::IoTaskPool, utils::Duration};
 use std::{fs::File, io::Write};
 
+/// This example uses two RON files from the asset subdirectory
+const SCENE_FILE_PATH: &str = "scenes/load_scene_example.scn.ron";
+const NEW_SCENE_FILE_PATH: &str = "scenes/load_scene_example-new.scn.ron";
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -57,12 +61,6 @@ impl FromWorld for ComponentB {
 struct ResourceA {
     pub score: u32,
 }
-
-// The initial scene file will be loaded below and not change when the scene is saved
-const SCENE_FILE_PATH: &str = "scenes/load_scene_example.scn.ron";
-
-// The new, updated scene data will be saved here so that you can see the changes
-const NEW_SCENE_FILE_PATH: &str = "scenes/load_scene_example-new.scn.ron";
 
 fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     // "Spawning" a scene bundle creates a new entity and spawns new instances

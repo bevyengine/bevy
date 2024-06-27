@@ -6,6 +6,9 @@ use bevy::{
     sprite::MaterialMesh2dBundle,
 };
 
+/// This example uses an audio file from the assets subdirectory
+const MUSIC_PATH: &str = "sounds/Windless Slopes.ogg";
+
 /// Spatial audio uses the distance to attenuate the sound volume. In 2D with the default camera,
 /// 1 pixel is 1 unit of distance, so we use a scale so that 100 pixels is 1 unit of distance for
 /// audio.
@@ -42,7 +45,7 @@ fn setup(
         },
         Emitter::default(),
         AudioBundle {
-            source: asset_server.load("sounds/Windless Slopes.ogg"),
+            source: asset_server.load(MUSIC_PATH),
             settings: PlaybackSettings::LOOP.with_spatial(true),
         },
     ));

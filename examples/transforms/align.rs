@@ -6,6 +6,9 @@ use bevy::prelude::*;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
+/// This example uses a 3d model file from the assets subdirectory
+const SPEEDER_PATH: &str = "models/ship/craft_speederD.gltf";
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -87,8 +90,7 @@ fn setup(
     // Finally, our ship that is going to rotate
     commands.spawn((
         SceneBundle {
-            scene: asset_server
-                .load(GltfAssetLabel::Scene(0).from_asset("models/ship/craft_speederD.gltf")),
+            scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(SPEEDER_PATH)),
             ..default()
         },
         Ship {

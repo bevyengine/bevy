@@ -5,6 +5,9 @@ use bevy::{color::palettes::basic::YELLOW, prelude::*, text::FontAtlasSets};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
+/// This example uses a font file from the assets subdirectory
+const FONT_PATH: &str = "fonts/FiraSans-Bold.ttf";
+
 fn main() {
     App::new()
         .init_resource::<State>()
@@ -82,7 +85,7 @@ fn text_update_system(
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResMut<State>) {
-    let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let font_handle = asset_server.load(FONT_PATH);
     state.handle = font_handle.clone();
     commands.spawn(Camera2dBundle::default());
     commands

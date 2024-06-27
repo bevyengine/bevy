@@ -20,6 +20,9 @@ use bevy::{dev_tools::states::*, prelude::*};
 
 use ui::*;
 
+/// This example uses a png from the assets subdirectory
+const ICON_PATH: &str = "branding/icon.png";
+
 // To begin, we want to define our state objects.
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 enum AppState {
@@ -425,7 +428,7 @@ mod ui {
         commands.spawn((
             StateScoped(InGame),
             SpriteBundle {
-                texture: asset_server.load("branding/icon.png"),
+                texture: asset_server.load(ICON_PATH),
                 ..default()
             },
         ));

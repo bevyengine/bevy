@@ -8,6 +8,9 @@ use bevy::{
     time::common_conditions::on_real_timer,
 };
 
+/// This example uses a png from the assets subdirectory
+const ICON_PATH: &str = "branding/icon.png";
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -49,7 +52,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
 
     let virtual_color = GOLD.into();
     let sprite_scale = Vec2::splat(0.5).extend(1.);
-    let texture_handle = asset_server.load("branding/icon.png");
+    let texture_handle = asset_server.load(ICON_PATH);
 
     // the sprite moving based on real time
     commands.spawn((

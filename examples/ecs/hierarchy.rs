@@ -5,6 +5,9 @@ use std::f32::consts::*;
 use bevy::color::palettes::css::*;
 use bevy::prelude::*;
 
+/// This example uses a png from the assets subdirectory
+const ICON_PATH: &str = "branding/icon.png";
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -15,7 +18,7 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
-    let texture = asset_server.load("branding/icon.png");
+    let texture = asset_server.load(ICON_PATH);
 
     // Spawn a root entity with no parent
     let parent = commands

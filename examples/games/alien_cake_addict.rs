@@ -6,6 +6,11 @@ use bevy::prelude::*;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
+/// This example uses three 3d model files from the asset subdirectory
+const TILE_PATH: &str = "models/AlienCake/tile.glb";
+const ALIEN_PATH: &str = "models/AlienCake/alien.glb";
+const CAKE_BIRTHDAY_PATH: &str = "models/AlienCake/cakeBirthday.glb";
+
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
 enum GameState {
     #[default]
@@ -133,8 +138,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     });
 
     // spawn the game board
-    let cell_scene =
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/AlienCake/tile.glb"));
+    let cell_scene = asset_server.load(GltfAssetLabel::Scene(0).from_asset(TILE_PATH));
     game.board = (0..BOARD_SIZE_J)
         .map(|j| {
             (0..BOARD_SIZE_I)
@@ -164,16 +168,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                     rotation: Quat::from_rotation_y(-PI / 2.),
                     ..default()
                 },
-                scene: asset_server
-                    .load(GltfAssetLabel::Scene(0).from_asset("models/AlienCake/alien.glb")),
+                scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(ALIEN_PATH)),
                 ..default()
             })
             .id(),
     );
 
     // load the scene for the cake
-    game.bonus.handle =
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/AlienCake/cakeBirthday.glb"));
+    game.bonus.handle = asset_server.load(GltfAssetLabel::Scene(0).from_asset(CAKE_BIRTHDAY_PATH));
 
     // scoreboard
     commands.spawn(

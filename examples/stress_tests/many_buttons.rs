@@ -9,6 +9,9 @@ use bevy::{
     winit::{UpdateMode, WinitSettings},
 };
 
+/// This example uses a png from the assets subdirectory
+const ICON_PATH: &str = "branding/icon.png";
+
 const FONT_SIZE: f32 = 7.0;
 
 #[derive(FromArgs, Resource)]
@@ -113,7 +116,7 @@ fn button_system(
 fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
     warn!(include_str!("warning_string.txt"));
     let image = if 0 < args.image_freq {
-        Some(asset_server.load("branding/icon.png"))
+        Some(asset_server.load(ICON_PATH))
     } else {
         None
     };
@@ -170,7 +173,7 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
 fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
     warn!(include_str!("warning_string.txt"));
     let image = if 0 < args.image_freq {
-        Some(asset_server.load("branding/icon.png"))
+        Some(asset_server.load(ICON_PATH))
     } else {
         None
     };

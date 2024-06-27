@@ -17,6 +17,11 @@ use bevy::{
 #[cfg(target_os = "macos")]
 use bevy::window::CompositeAlphaMode;
 
+/// This example uses a font from the assets subdirectory
+const FONT_PATH: &str = "fonts/FiraSans-Bold.ttf";
+/// This example uses a png from the assets subdirectory
+const ICON_PATH: &str = "branding/icon.png";
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -107,7 +112,7 @@ fn setup(
     commands.spawn(Camera2dBundle::default());
 
     // Spawn the text instructions
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let font = asset_server.load(FONT_PATH);
     let text_style = TextStyle {
         font: font.clone(),
         font_size: 30.0,
@@ -137,7 +142,7 @@ fn setup(
     commands
         .spawn((
             SpriteBundle {
-                texture: asset_server.load("branding/icon.png"),
+                texture: asset_server.load(ICON_PATH),
                 ..default()
             },
             BevyLogo,

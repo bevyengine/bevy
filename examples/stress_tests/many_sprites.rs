@@ -17,6 +17,9 @@ use bevy::{
 
 use rand::Rng;
 
+/// This example uses a png from the assets subdirectory
+const ICON_PATH: &str = "branding/icon.png";
+
 const CAMERA_SPEED: f32 = 1000.0;
 
 const COLORS: [Color; 3] = [Color::Srgba(BLUE), Color::Srgba(WHITE), Color::Srgba(RED)];
@@ -66,7 +69,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
     let half_x = (map_size.x / 2.0) as i32;
     let half_y = (map_size.y / 2.0) as i32;
 
-    let sprite_handle = assets.load("branding/icon.png");
+    let sprite_handle = assets.load(ICON_PATH);
 
     // Spawns the camera
 

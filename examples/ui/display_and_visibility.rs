@@ -6,6 +6,9 @@ use bevy::{
     prelude::*,
 };
 
+/// This example uses a font file from the assets subdirectory
+const FONT_PATH: &str = "fonts/FiraSans-Bold.ttf";
+
 const PALETTE: [&str; 4] = ["27496D", "466B7A", "669DB3", "ADCBE3"];
 const HIDDEN_COLOR: Color = Color::srgb(1.0, 0.7, 0.7);
 
@@ -77,7 +80,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let palette: [Color; 4] = PALETTE.map(|hex| Srgba::hex(hex).unwrap().into());
 
     let text_style = TextStyle {
-        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+        font: asset_server.load(FONT_PATH),
         ..default()
     };
 
@@ -151,7 +154,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default() })
             .with_children(|builder| {
                 let text_style = TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font: asset_server.load(FONT_PATH),
                     ..default()
                 };
 

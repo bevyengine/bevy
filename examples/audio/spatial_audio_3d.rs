@@ -4,6 +4,9 @@ use bevy::{
     prelude::*,
 };
 
+/// This example uses an audio file from the assets subdirectory
+const MUSIC_PATH: &str = "sounds/Windless Slopes.ogg";
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -32,7 +35,7 @@ fn setup(
         },
         Emitter::default(),
         AudioBundle {
-            source: asset_server.load("sounds/Windless Slopes.ogg"),
+            source: asset_server.load(MUSIC_PATH),
             settings: PlaybackSettings::LOOP.with_spatial(true),
         },
     ));

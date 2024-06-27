@@ -10,6 +10,9 @@ use bevy::{
 
 mod stepping;
 
+/// This example uses an audio file from the assets subdirectory
+const COLLISION_SOUND_PATH: &str = "sounds/breakout_collision.ogg";
+
 // These constants are defined in `Transform` units.
 // Using the default 2D camera they correspond 1:1 with screen pixels.
 const PADDLE_SIZE: Vec2 = Vec2::new(120.0, 20.0);
@@ -194,7 +197,7 @@ fn setup(
     commands.spawn(Camera2dBundle::default());
 
     // Sound
-    let ball_collision_sound = asset_server.load("sounds/breakout_collision.ogg");
+    let ball_collision_sound = asset_server.load(COLLISION_SOUND_PATH);
     commands.insert_resource(CollisionSound(ball_collision_sound));
 
     // Paddle

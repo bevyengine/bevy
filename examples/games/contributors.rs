@@ -9,6 +9,11 @@ use std::{
     process::Stdio,
 };
 
+/// This example uses a png from the assets subdirectory
+const ICON_PATH: &str = "branding/icon.png";
+/// This example uses a font from the assets subdirectory
+const FONT_PATH: &str = "fonts/FiraSans-Bold.ttf";
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -76,7 +81,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
             .collect()
     });
 
-    let texture_handle = asset_server.load("branding/icon.png");
+    let texture_handle = asset_server.load(ICON_PATH);
 
     let mut contributor_selection = ContributorSelection {
         order: Vec::with_capacity(contribs.len()),
@@ -132,7 +137,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
     let text_style = TextStyle {
-        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+        font: asset_server.load(FONT_PATH),
         font_size: 60.0,
         ..default()
     };

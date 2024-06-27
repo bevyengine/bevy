@@ -3,6 +3,10 @@
 
 use bevy::prelude::*;
 
+/// This example uses two audio files from the assets subdirectory
+const ACOUSTIC_GUITAR_PATH: &str = "sounds/Mysterious acoustic guitar.ogg";
+const ORCHESTRA_MUSIC_PATH: &str = "sounds/Epic orchestra music.ogg";
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -53,8 +57,8 @@ fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
     )));
 
     // Create the track list
-    let track_1 = asset_server.load::<AudioSource>("sounds/Mysterious acoustic guitar.ogg");
-    let track_2 = asset_server.load::<AudioSource>("sounds/Epic orchestra music.ogg");
+    let track_1 = asset_server.load::<AudioSource>(ACOUSTIC_GUITAR_PATH);
+    let track_2 = asset_server.load::<AudioSource>(ORCHESTRA_MUSIC_PATH);
     let track_list = vec![track_1, track_2];
     commands.insert_resource(SoundtrackPlayer::new(track_list));
 }

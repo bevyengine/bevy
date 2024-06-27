@@ -4,6 +4,12 @@
 
 use bevy::prelude::*;
 
+/// This example uses 4 pngs from the assets subdirectory
+const ICON_PATH: &str = "branding/icon.png";
+const RIGHT_PATH: &str = "textures/Game Icons/right.png";
+const WRENCH_PATH: &str = "textures/Game Icons/wrench.png";
+const EXIT_RIGHT_PATH: &str = "textures/Game Icons/exitRight.png";
+
 const TEXT_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
 
 // Enum that will be used as a global state for the game
@@ -71,7 +77,7 @@ mod splash {
     struct SplashTimer(Timer);
 
     fn splash_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        let icon = asset_server.load("branding/icon.png");
+        let icon = asset_server.load(ICON_PATH);
         // Display the logo
         commands
             .spawn((
@@ -462,7 +468,7 @@ mod menu {
                                 MenuButtonAction::Play,
                             ))
                             .with_children(|parent| {
-                                let icon = asset_server.load("textures/Game Icons/right.png");
+                                let icon = asset_server.load(RIGHT_PATH);
                                 parent.spawn(ImageBundle {
                                     style: button_icon_style.clone(),
                                     image: UiImage::new(icon),
@@ -483,7 +489,7 @@ mod menu {
                                 MenuButtonAction::Settings,
                             ))
                             .with_children(|parent| {
-                                let icon = asset_server.load("textures/Game Icons/wrench.png");
+                                let icon = asset_server.load(WRENCH_PATH);
                                 parent.spawn(ImageBundle {
                                     style: button_icon_style.clone(),
                                     image: UiImage::new(icon),
@@ -504,7 +510,7 @@ mod menu {
                                 MenuButtonAction::Quit,
                             ))
                             .with_children(|parent| {
-                                let icon = asset_server.load("textures/Game Icons/exitRight.png");
+                                let icon = asset_server.load(EXIT_RIGHT_PATH);
                                 parent.spawn(ImageBundle {
                                     style: button_icon_style,
                                     image: UiImage::new(icon),

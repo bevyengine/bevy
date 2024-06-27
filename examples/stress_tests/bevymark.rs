@@ -21,6 +21,9 @@ use bevy::{
 use rand::{seq::SliceRandom, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
+/// This example uses a png from the assets subdirectory
+const ICON_PATH: &str = "branding/icon.png";
+
 const BIRDS_PER_SECOND: u32 = 10000;
 const GRAVITY: f32 = -9.8 * 100.0;
 const MAX_VELOCITY: f32 = 750.;
@@ -209,7 +212,7 @@ fn setup(
 
     let mut textures = Vec::with_capacity(args.material_texture_count.max(1));
     if matches!(args.mode, Mode::Sprite) || args.material_texture_count > 0 {
-        textures.push(asset_server.load("branding/icon.png"));
+        textures.push(asset_server.load(ICON_PATH));
     }
     init_textures(&mut textures, args, images);
 

@@ -9,6 +9,10 @@ use bevy::{
     prelude::*,
 };
 
+/// This example uses two font files from the assets subdirectory
+const FONT_PATH_MEDIUM: &str = "fonts/FiraMono-Medium.ttf";
+const FONT_PATH_BOLD: &str = "fonts/FiraSans-Bold.ttf";
+
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin))
@@ -36,7 +40,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             "hello\nbevy!",
             TextStyle {
                 // This font is loaded and will be used instead of the default font.
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load(FONT_PATH_BOLD),
                 font_size: 100.0,
                 ..default()
             },
@@ -60,7 +64,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 "FPS: ",
                 TextStyle {
                     // This font is loaded and will be used instead of the default font.
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font: asset_server.load(FONT_PATH_BOLD),
                     font_size: 60.0,
                     ..default()
                 },
@@ -75,7 +79,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             } else {
                 // "default_font" feature is unavailable, load a font to use instead.
                 TextStyle {
-                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                    font: asset_server.load(FONT_PATH_MEDIUM),
                     font_size: 60.0,
                     color: GOLD.into(),
                 }

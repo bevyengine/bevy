@@ -11,6 +11,9 @@ use bevy::{dev_tools::states::*, prelude::*};
 
 use ui::*;
 
+/// This example uses a png from the assets subdirectory
+const ICON_PATH: &str = "branding/icon.png";
+
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 enum AppState {
     #[default]
@@ -200,7 +203,7 @@ mod ui {
 
     pub fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn(SpriteBundle {
-            texture: asset_server.load("branding/icon.png"),
+            texture: asset_server.load(ICON_PATH),
             ..default()
         });
     }

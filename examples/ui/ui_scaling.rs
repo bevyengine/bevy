@@ -2,6 +2,9 @@
 
 use bevy::{color::palettes::css::*, prelude::*, text::TextSettings, utils::Duration};
 
+/// This example uses a png from the assets subdirectory
+const ICON_PATH: &str = "branding/icon.png";
+
 const SCALE_TIME: u64 = 400;
 
 fn main() {
@@ -77,7 +80,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     height: Val::Px(30.0),
                     ..default()
                 },
-                image: asset_server.load("branding/icon.png").into(),
+                image: asset_server.load(ICON_PATH).into(),
                 ..default()
             });
         });

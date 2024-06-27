@@ -11,6 +11,10 @@ use bevy::{
     winit::{UpdateMode, WinitSettings},
 };
 
+/// This example uses two fonts from the assets subdirectory
+const FONT_PATH_MEDIUM: &str = "fonts/FiraMono-Medium.ttf";
+const FONT_PATH_BOLD: &str = "fonts/FiraMono-Bold.ttf";
+
 fn main() {
     App::new()
         .add_plugins((
@@ -45,7 +49,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextSection {
                     value: "text".repeat(i),
                     style: TextStyle {
-                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                        font: asset_server.load(FONT_PATH_MEDIUM),
                         font_size: (4 + i % 10) as f32,
                         color: BLUE.into(),
                     },
@@ -53,7 +57,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextSection {
                     value: "pipeline".repeat(i),
                     style: TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font: asset_server.load(FONT_PATH_BOLD),
                         font_size: (4 + i % 11) as f32,
                         color: YELLOW.into(),
                     },

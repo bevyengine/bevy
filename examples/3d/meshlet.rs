@@ -18,7 +18,7 @@ use std::{f32::consts::PI, path::Path, process::ExitCode};
 /// This example uses two compressed texture files from the assets subdirectory
 const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
 const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
-/// This example uses a meshlet_mesh file from the assets subdirectory
+/// This example uses a `meshlet_mesh` file from the assets subdirectory
 const BUNNY_MESHLET_PATH: &str = "models/bunny.meshlet_mesh";
 
 const ASSET_URL: &str = "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/bd869887bc5c9c6e74e353f657d342bef84bacd8/bunny.meshlet_mesh";

@@ -2,6 +2,9 @@
 
 use bevy::prelude::*;
 
+/// This example uses a png from the assets subdirectory
+const ICON_PATH: &str = "branding/icon.png";
+
 fn main() {
     // Information regarding removed `Component`s is discarded at the end of each frame, so you need
     // to react to the removal before the frame is over.
@@ -29,7 +32,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     commands.spawn((
         SpriteBundle {
-            texture: asset_server.load("branding/icon.png"),
+            texture: asset_server.load(ICON_PATH),
             ..default()
         },
         // Add the `Component`.

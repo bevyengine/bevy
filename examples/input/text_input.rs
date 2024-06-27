@@ -14,6 +14,9 @@ use bevy::{
     prelude::*,
 };
 
+/// This example uses a font from the assets subdirectory
+const FONT_PATH: &str = "fonts/FiraMono-Medium.ttf";
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -33,7 +36,7 @@ fn main() {
 fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
-    let font = asset_server.load("fonts/FiraMono-Medium.ttf");
+    let font = asset_server.load(FONT_PATH);
 
     commands.spawn(
         TextBundle::from_sections([
@@ -96,7 +99,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         text: Text::from_section(
             "".to_string(),
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                font: asset_server.load(FONT_PATH),
                 font_size: 100.0,
                 ..default()
             },

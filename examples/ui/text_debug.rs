@@ -7,6 +7,9 @@ use bevy::{
     window::PresentMode,
 };
 
+/// This example uses a font file from the assets subdirectory
+const FONT_PATH: &str = "fonts/FiraSans-Bold.ttf";
+
 fn main() {
     App::new()
         .add_plugins((
@@ -28,7 +31,7 @@ fn main() {
 struct TextChanges;
 
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let font = asset_server.load(FONT_PATH);
     commands.spawn(Camera2dBundle::default());
     let root_uinode = commands
         .spawn(NodeBundle {

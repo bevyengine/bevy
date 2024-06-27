@@ -2,17 +2,9 @@
 use bevy::{ecs::system::SystemId, prelude::*};
 use pipelines_ready::*;
 
-// The way we'll go about doing this in this example is to
-// keep track of all assets that we want to have loaded before
-// we transition to the desired scene.
-//
-// In order to ensure that visual assets are fully rendered
-// before transitioning to the scene, we need to get the
-// current status of cached pipelines.
-//
-// While loading and pipelines compilation is happening, we
-// will show a loading screen. Once loading is complete, we
-// will transition to the scene we just loaded.
+/// This example uses two 3d model files from the assets subdirectory
+const FOX_PATH: &str = "models/animated/Fox.glb";
+const FLIGHT_HELMET_PATH: &str = "models/FlightHelmet/FlightHelmet.gltf";
 
 fn main() {
     App::new()
@@ -150,7 +142,7 @@ fn load_level_1(
     ));
 
     // Save the asset into the `loading_assets` vector.
-    let fox = asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb"));
+    let fox = asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH));
     loading_data.loading_assets.push(fox.clone().into());
     // Spawn the fox.
     commands.spawn((
@@ -192,8 +184,7 @@ fn load_level_2(
     ));
 
     // Spawn the helmet.
-    let helmet_scene = asset_server
-        .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
+    let helmet_scene = asset_server.load(GltfAssetLabel::Scene(0).from_asset(FLIGHT_HELMET_PATH));
     loading_data
         .loading_assets
         .push(helmet_scene.clone().into());

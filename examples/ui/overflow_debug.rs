@@ -2,6 +2,11 @@
 use bevy::{input::common_conditions::input_just_pressed, prelude::*};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
+/// This example uses a png from the assets subdirectory
+const BEVY_LOGO_PATH: &str = "branding/bevy_logo_dark_big.png";
+/// This example uses a font file from the assets subdirectory
+const FONT_PATH: &str = "fonts/FiraSans-Bold.ttf";
+
 const CONTAINER_SIZE: f32 = 150.0;
 const HALF_CONTAINER_SIZE: f32 = CONTAINER_SIZE / 2.0;
 const LOOP_LENGTH: f32 = 4.0;
@@ -143,7 +148,7 @@ fn spawn_image(
 ) {
     spawn_container(parent, update_transform, |parent| {
         parent.spawn(ImageBundle {
-            image: UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png")),
+            image: UiImage::new(asset_server.load(BEVY_LOGO_PATH)),
             style: Style {
                 height: Val::Px(100.),
                 position_type: PositionType::Absolute,
@@ -165,7 +170,7 @@ fn spawn_text(
         parent.spawn(TextBundle::from_section(
             "Bevy",
             TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: asset_server.load(FONT_PATH),
                 font_size: 120.0,
                 ..default()
             },
