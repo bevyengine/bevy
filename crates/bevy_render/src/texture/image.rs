@@ -531,6 +531,38 @@ impl Image {
         image
     }
 
+    /// A transparent white 1x1x1 image.
+    ///
+    /// Contrast to [`Image::default`], which is opaque.
+    pub fn transparent() -> Image {
+        // We rely on the default texture format being RGBA8UnormSrgb
+        // when constructing a transparent color from bytes.
+        // If this changes, this function will need to be updated.
+        let format = TextureFormat::bevy_default();
+        debug_assert!(format.pixel_size() == 4);
+        let data = vec![255, 255, 255, 0];
+        Image {
+            data,
+            texture_descriptor: wgpu::TextureDescriptor {
+                size: Extent3d {
+                    width: 1,
+                    height: 1,
+                    depth_or_array_layers: 1,
+                },
+                format,
+                dimension: TextureDimension::D2,
+                label: None,
+                mip_level_count: 1,
+                sample_count: 1,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            },
+            sampler: ImageSampler::Default,
+            texture_view_descriptor: None,
+            asset_usage: RenderAssetUsages::default(),
+        }
+    }
+
     /// Creates a new image from raw binary data and the corresponding metadata, by filling
     /// the image data with the `pixel` data repeated multiple times.
     ///
