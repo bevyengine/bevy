@@ -771,6 +771,7 @@ pub fn extract_default_ui_camera_view(
                         physical_size.y,
                     ),
                     color_grading: Default::default(),
+                    invert_culling: false,
                 })
                 .id();
             commands
