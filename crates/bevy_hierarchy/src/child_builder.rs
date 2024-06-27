@@ -279,10 +279,16 @@ pub struct ChildBuilder<'a> {
     push_children: PushChildren,
 }
 
-/// Trait for building children entities and adding them to a parent entity. See
-/// [`BuildChildren::with_children`].
+/// Trait for building children entities and adding them to a parent entity. This is used in
+/// implementations of [`BuildChildren`] as a bound on the [`Builder`](BuildChildren::Builder)
+/// associated type. The closure passed to [`BuildChildren::with_children`] accepts an
+/// implementation of `ChildBuild` so that children can be spawned via [`ChildBuild::spawn`].
 pub trait ChildBuild {
-    /// Spawn output type.
+    /// Spawn output type. Both [`spawn`](Self::spawn) and [`spawn_empty`](Self::spawn_empty) return
+    /// an implementation of this type so that children can be operated on via method-chaining.
+    /// Implementations of `ChildBuild` reborrow `self` when spawning entities (see
+    /// [`Commands::spawn_empty`] and [`World::get_entity_mut`]). Lifetime `'a` corresponds this
+    /// reborrowed self, and `Self` outlives it.
     type SpawnOutput<'a>: BuildChildren
     where
         Self: 'a;
