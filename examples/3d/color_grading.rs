@@ -267,7 +267,7 @@ fn add_button_for_value(
             },
             border_color: BorderColor(Color::WHITE),
             border_radius: BorderRadius::MAX,
-            image: UiImage::default().with_color(Color::BLACK),
+            background_color: Color::BLACK.into(),
             ..default()
         })
         .insert(ColorGradingOptionWidget {
@@ -567,7 +567,11 @@ fn handle_button_presses(
 
 /// Updates the state of the UI based on the current state.
 fn update_ui_state(
-    mut buttons: Query<(&mut UiImage, &mut BorderColor, &ColorGradingOptionWidget)>,
+    mut buttons: Query<(
+        &mut BackgroundColor,
+        &mut BorderColor,
+        &ColorGradingOptionWidget,
+    )>,
     mut button_text: Query<(&mut Text, &ColorGradingOptionWidget), Without<HelpText>>,
     mut help_text: Query<&mut Text, With<HelpText>>,
     cameras: Query<Ref<ColorGrading>>,
@@ -579,12 +583,12 @@ fn update_ui_state(
     }
 
     // The currently-selected option is drawn with inverted colors.
-    for (mut image, mut border_color, widget) in buttons.iter_mut() {
+    for (mut background, mut border_color, widget) in buttons.iter_mut() {
         if *currently_selected_option == widget.option {
-            image.color = Color::WHITE;
+            *background = Color::WHITE.into();
             *border_color = Color::BLACK.into();
         } else {
-            image.color = Color::BLACK;
+            *background = Color::BLACK.into();
             *border_color = Color::WHITE.into();
         }
     }

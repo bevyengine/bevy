@@ -102,8 +102,7 @@ where
             )
             .init_resource::<PrepassViewBindGroup>()
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
-            .allow_ambiguous_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
-            .init_resource::<PreviousViewUniforms>();
+            .allow_ambiguous_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>();
     }
 
     fn finish(&self, app: &mut App) {
@@ -184,7 +183,8 @@ where
         render_app.add_systems(
             Render,
             prepare_material_meshlet_meshes_prepass::<M>
-                .in_set(RenderSet::Queue)
+                .in_set(RenderSet::QueueMeshes)
+                .after(prepare_assets::<PreparedMaterial<M>>)
                 .before(queue_material_meshlet_meshes::<M>)
                 .run_if(resource_exists::<MeshletGpuScene>),
         );
