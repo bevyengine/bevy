@@ -915,6 +915,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
                     unsafe { self.archetypes.get(id.archetype_id).debug_checked_unwrap() };
                 // SAFETY: Matched table IDs are guaranteed to still exist.
                 let table = unsafe { self.tables.get(archetype.table_id()).debug_checked_unwrap() };
+
+                // When an archetype and its table have equal entity counts, dense iteration can be safely used.
                 if table.entity_count() == archetype.len() {
                     accum =
                     // SAFETY:
