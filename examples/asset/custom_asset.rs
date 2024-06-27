@@ -1,5 +1,9 @@
 //! Implements loader for a custom asset type.
 
+/// This example loads two custom files from the assets subdirectory
+const ASSET_CUSTOM_PATH: &str = "data/asset.custom";
+const ASSET_NO_EXTENSION_PATH: &str = "data/asset_no_extension";
+
 use bevy::{
     asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext},
     prelude::*,
@@ -109,13 +113,13 @@ struct State {
 
 fn setup(mut state: ResMut<State>, asset_server: Res<AssetServer>) {
     // Recommended way to load an asset
-    state.handle = asset_server.load("data/asset.custom");
+    state.handle = asset_server.load(ASSET_CUSTOM_PATH);
 
     // File extensions are optional, but are recommended for project management and last-resort inference
-    state.other_handle = asset_server.load("data/asset_no_extension");
+    state.other_handle = asset_server.load(ASSET_NO_EXTENSION_PATH);
 
     // Will use BlobAssetLoader instead of CustomAssetLoader thanks to type inference
-    state.blob = asset_server.load("data/asset.custom");
+    state.blob = asset_server.load(ASSET_CUSTOM_PATH);
 }
 
 fn print_on_load(

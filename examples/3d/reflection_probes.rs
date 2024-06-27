@@ -6,9 +6,9 @@
 //!
 //! Reflection probes don't work on WebGL 2 or WebGPU.
 
-/// This example uses a 3d model file from the assets directory
+/// This example uses a 3d model file from the assets subdirectory
 const CUBES_PATH: &str = "models/cubes/Cubes.glb";
-/// This example uses two compressed texture files from the assets directory
+/// This example uses two compressed texture files from the assets subdirectory
 const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
 const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
 const CUBES_SPECULAR_PATH: &str =
@@ -328,7 +328,7 @@ fn rotate_camera(
     }
 }
 
-// Loads the cubemaps from the assets directory.
+// Loads the cubemaps from the assets subdirectory.
 impl FromWorld for Cubemaps {
     fn from_world(world: &mut World) -> Self {
         // Just use the specular map for the skybox since it's not too blurry.

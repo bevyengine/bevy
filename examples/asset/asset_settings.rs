@@ -1,5 +1,12 @@
 //! This example demonstrates the usage of '.meta' files and [`AssetServer::load_with_settings`] to override the default settings for loading an asset
 
+/// This example loads the files directory from this example's directory
+const FILES_FOLDER_PATH: &str = "examples/asset/files";
+/// This example loads three pngs from the assets subdirectory
+const BEVY_DARK_PATH: &str = "bevy_pixel_dark.png";
+const BEVY_DARK_META_PATH: &str = "bevy_pixel_dark_with_meta.png";
+const BEVY_DARK_SETTINGS_PATH: &str = "bevy_pixel_dark_with_settings.png";
+
 use bevy::{
     prelude::*,
     render::texture::{ImageLoaderSettings, ImageSampler},
@@ -10,7 +17,7 @@ fn main() {
         .add_plugins(
             // This just tells the asset server to look in the right examples folder
             DefaultPlugins.set(AssetPlugin {
-                file_path: "examples/asset/files".to_string(),
+                file_path: FILES_FOLDER_PATH.to_string(),
                 ..Default::default()
             }),
         )
@@ -24,7 +31,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Useful note: The default sampler specified by the ImagePlugin is *not* the same as the default implementation of sampler. This is why
     // everything uses linear by default but if you look at the default of sampler, it uses nearest.
     commands.spawn(SpriteBundle {
-        texture: asset_server.load("bevy_pixel_dark.png"),
+        texture: asset_server.load(BEVY_DARK_PATH),
         sprite: Sprite {
             custom_size: Some(Vec2 { x: 160.0, y: 120.0 }),
             ..Default::default()
@@ -43,7 +50,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // and follow to the default implementation of each fields type.
     // https://docs.rs/bevy/latest/bevy/render/texture/struct.ImageLoaderSettings.html#
     commands.spawn(SpriteBundle {
-        texture: asset_server.load("bevy_pixel_dark_with_meta.png"),
+        texture: asset_server.load(BEVY_DARK_META_PATH),
         sprite: Sprite {
             custom_size: Some(Vec2 { x: 160.0, y: 120.0 }),
             ..Default::default()
@@ -64,7 +71,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // same one as without a .meta file.
     commands.spawn(SpriteBundle {
         texture: asset_server.load_with_settings(
-            "bevy_pixel_dark_with_settings.png",
+            BEVY_DARK_SETTINGS_PATH,
             |settings: &mut ImageLoaderSettings| {
                 settings.sampler = ImageSampler::nearest();
             },

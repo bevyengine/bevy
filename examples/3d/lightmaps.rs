@@ -1,8 +1,8 @@
 //! Rendering a scene with baked lightmaps.
 
-/// This example uses a 3d model file from the assets directory
+/// This example uses a 3d model file from the assets subdirectory
 const CORNELL_BOX_PATH: &str = "models/CornellBox/CornellBox.glb";
-/// This example uses a compressed texture file from the assets directory
+/// This example uses a compressed texture file from the assets subdirectory
 const CORNELL_BOX_TEXTURE_LARGE_PATH: &str = "lightmaps/CornellBox-Large.zstd.ktx2";
 const CORNELL_BOX_TEXTURE_SMALL_PATH: &str = "lightmaps/CornellBox-Small.zstd.ktx2";
 const CORNELL_BOX_TEXTURE_BOX_PATH: &str = "lightmaps/CornellBox-Box.zstd.ktx2";

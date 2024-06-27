@@ -1,5 +1,8 @@
 //! Plays animations from a skinned glTF.
 
+/// This example uses a 3d model from the assets subdirectory
+const FOX_PATH: &str = "models/animated/Fox.glb";
+
 use std::f32::consts::PI;
 use std::time::Duration;
 
@@ -41,9 +44,9 @@ fn setup(
     let animations = graph
         .add_clips(
             [
-                GltfAssetLabel::Animation(2).from_asset("models/animated/Fox.glb"),
-                GltfAssetLabel::Animation(1).from_asset("models/animated/Fox.glb"),
-                GltfAssetLabel::Animation(0).from_asset("models/animated/Fox.glb"),
+                GltfAssetLabel::Animation(2).from_asset(FOX_PATH),
+                GltfAssetLabel::Animation(1).from_asset(FOX_PATH),
+                GltfAssetLabel::Animation(0).from_asset(FOX_PATH),
             ]
             .into_iter()
             .map(|path| asset_server.load(path)),
@@ -91,7 +94,7 @@ fn setup(
 
     // Fox
     commands.spawn(SceneBundle {
-        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
+        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH)),
         ..default()
     });
 

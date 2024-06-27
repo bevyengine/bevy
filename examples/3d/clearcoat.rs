@@ -17,12 +17,12 @@
 //!
 //! [3]: https://threejs.org/examples/webgl_materials_physical_clearcoat.html
 
-/// This example uses two pngs from the assets directory
+/// This example uses two pngs from the assets subdirectory
 const BLUE_NOISE_PATH: &str = "textures/BlueNoise-Normal.png";
 const SCRATCHED_GOLD_PATH: &str = "textures/ScratchedGold-Normal.png";
-/// This example uses a 3d model file from the assets directory
+/// This example uses a 3d model file from the assets subdirectory
 const GOLF_BALL_PATH: &str = "models/GolfBall/GolfBall.glb";
-/// This example uses two compressed texture files from the assets directory
+/// This example uses two compressed texture files from the assets subdirectory
 const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
 const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
 

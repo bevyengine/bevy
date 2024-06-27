@@ -1,5 +1,12 @@
 //! This example illustrates various ways to load assets.
 
+/// This example uses three 3d model files from the assets subdirectory
+const CUBE_PATH: &str = "models/cube/cube.gltf";
+const SPHERE_PATH: &str = "models/sphere/sphere.gltf";
+const TORUS_MODEL_PATH: &str = "models/torus/torus.gltf";
+/// This example loads a folder from the assets subdirectory
+const TORUS_FOLDER_PATH: &str = "models/torus";
+
 use bevy::{asset::LoadedFolder, prelude::*};
 
 fn main() {
@@ -28,14 +35,14 @@ fn setup(
             mesh: 0,
             primitive: 0,
         }
-        .from_asset("models/cube/cube.gltf"),
+        .from_asset(CUBE_PATH),
     );
     let sphere_handle = asset_server.load(
         GltfAssetLabel::Primitive {
             mesh: 0,
             primitive: 0,
         }
-        .from_asset("models/sphere/sphere.gltf"),
+        .from_asset(SPHERE_PATH),
     );
 
     // All assets end up in their Assets<T> collection once they are done loading:
@@ -55,7 +62,7 @@ fn setup(
     // to load.
     // If you want to keep the assets in the folder alive, make sure you store the returned handle
     // somewhere.
-    let _loaded_folder: Handle<LoadedFolder> = asset_server.load_folder("models/torus");
+    let _loaded_folder: Handle<LoadedFolder> = asset_server.load_folder(TORUS_FOLDER_PATH);
 
     // If you want a handle to a specific asset in a loaded folder, the easiest way to get one is to call load.
     // It will _not_ be loaded a second time.
@@ -66,7 +73,7 @@ fn setup(
             mesh: 0,
             primitive: 0,
         }
-        .from_asset("models/torus/torus.gltf"),
+        .from_asset(TORUS_MODEL_PATH),
     );
 
     // You can also add assets directly to their Assets<T> storage:

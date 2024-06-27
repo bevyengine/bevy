@@ -3,6 +3,9 @@
 //! The animation graph is shown on screen. You can change the weights of the
 //! playing animations by clicking and dragging left or right within the nodes.
 
+/// This example uses an animation graph from the assets subdirectory
+const ANIMATION_GRAPH_PATH: &str = "animation_graphs/Fox.animgraph.ron";
+
 #[cfg(not(target_arch = "wasm32"))]
 use std::{fs::File, path::Path};
 
@@ -23,9 +26,6 @@ use bevy::asset::io::file::FileAssetReader;
 use bevy::tasks::IoTaskPool;
 #[cfg(not(target_arch = "wasm32"))]
 use ron::ser::PrettyConfig;
-
-/// Where to find the serialized animation graph.
-static ANIMATION_GRAPH_PATH: &str = "animation_graphs/Fox.animgraph.ron";
 
 /// The indices of the nodes containing animation clips in the graph.
 static CLIP_NODE_INDICES: [u32; 3] = [2, 3, 4];

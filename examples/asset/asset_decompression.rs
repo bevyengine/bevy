@@ -1,5 +1,8 @@
 //! Implements loader for a Gzip compressed asset.
 
+/// This example uses a compressed png from the assets subdirectory
+const COMPRESSED_IMAGE_PATH: &str = "data/compressed_image.png.gz";
+
 use bevy::{
     asset::{
         io::{Reader, VecReader},
@@ -108,7 +111,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands.spawn((
         Compressed::<Image> {
-            compressed: asset_server.load("data/compressed_image.png.gz"),
+            compressed: asset_server.load(COMPRESSED_IMAGE_PATH),
             ..default()
         },
         Sprite::default(),

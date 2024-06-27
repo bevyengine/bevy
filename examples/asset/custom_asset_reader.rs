@@ -2,6 +2,9 @@
 //! An [`AssetReader`] is what the asset server uses to read the raw bytes of assets.
 //! It does not know anything about the asset formats, only how to talk to the underlying storage.
 
+/// This example uses a png from the assets subdirectory
+const ICON_PATH: &str = "branding/icon.png";
+
 use bevy::{
     asset::io::{
         AssetReader, AssetReaderError, AssetSource, AssetSourceId, ErasedAssetReader, PathStream,
@@ -62,7 +65,7 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     commands.spawn(SpriteBundle {
-        texture: asset_server.load("branding/icon.png"),
+        texture: asset_server.load(ICON_PATH),
         ..default()
     });
 }

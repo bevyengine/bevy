@@ -7,6 +7,9 @@
 //! - How to read morph target names in `name_morphs`.
 //! - How to play morph target animations in `setup_animations`.
 
+/// This example uses a 3d model from the assets subdirectory
+const MORPH_STRESS_TEST_PATH: &str = "models/animated/MorphStressTest.gltf";
+
 use bevy::prelude::*;
 use std::f32::consts::PI;
 
@@ -37,18 +40,17 @@ struct MorphData {
 fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
     commands.insert_resource(MorphData {
         the_wave: asset_server
-            .load(GltfAssetLabel::Animation(2).from_asset("models/animated/MorphStressTest.gltf")),
+            .load(GltfAssetLabel::Animation(2).from_asset(MORPH_STRESS_TEST_PATH)),
         mesh: asset_server.load(
             GltfAssetLabel::Primitive {
                 mesh: 0,
                 primitive: 0,
             }
-            .from_asset("models/animated/MorphStressTest.gltf"),
+            .from_asset(MORPH_STRESS_TEST_PATH),
         ),
     });
     commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/animated/MorphStressTest.gltf")),
+        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(MORPH_STRESS_TEST_PATH)),
         ..default()
     });
     commands.spawn(DirectionalLightBundle {

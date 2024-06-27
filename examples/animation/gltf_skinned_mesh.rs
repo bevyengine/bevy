@@ -1,6 +1,9 @@
 //! Skinned mesh example with mesh and joints data loaded from a glTF file.
 //! Example taken from <https://github.com/KhronosGroup/glTF-Tutorials/blob/master/gltfTutorial/gltfTutorial_019_SimpleSkin.md>
 
+/// This example uses a 3d model file from the assets subdirectory
+const SIMPLE_SKIN_PATH: &str = "models/SimpleSkin/SimpleSkin.gltf";
+
 use std::f32::consts::*;
 
 use bevy::{prelude::*, render::mesh::skinning::SkinnedMesh};
@@ -27,8 +30,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Spawn the first scene in `models/SimpleSkin/SimpleSkin.gltf`
     commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/SimpleSkin/SimpleSkin.gltf")),
+        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(SIMPLE_SKIN_PATH)),
         ..default()
     });
 }

@@ -2,7 +2,7 @@
 //! assign a custom UV mapping for a custom texture,
 //! and how to change the UV mapping at run-time.
 
-/// This example uses a png from the assets directory
+/// This example uses a png from the assets subdirectory
 const ARRAY_TEXTURE_PATH: &str = "textures/array_texture.png";
 
 use bevy::prelude::*;
