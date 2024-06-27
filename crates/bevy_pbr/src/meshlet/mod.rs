@@ -4,8 +4,8 @@ mod asset;
 #[cfg(feature = "meshlet_processor")]
 mod from_mesh;
 mod gpu_scene;
-mod material_draw_nodes;
-mod material_draw_prepare;
+mod material_pipeline_prepare;
+mod material_shade_nodes;
 mod persistent_buffer;
 mod persistent_buffer_impls;
 mod pipelines;
@@ -25,7 +25,7 @@ pub mod graph {
 
 pub(crate) use self::{
     gpu_scene::{queue_material_meshlet_meshes, MeshletGpuScene},
-    material_draw_prepare::{
+    material_pipeline_prepare::{
         prepare_material_meshlet_meshes_main_opaque_pass, prepare_material_meshlet_meshes_prepass,
     },
 };
@@ -40,12 +40,12 @@ use self::{
         prepare_meshlet_per_frame_resources, prepare_meshlet_view_bind_groups,
     },
     graph::NodeMeshlet,
-    material_draw_nodes::{
-        MeshletDeferredGBufferPrepassNode, MeshletMainOpaquePass3dNode, MeshletPrepassNode,
-    },
-    material_draw_prepare::{
+    material_pipeline_prepare::{
         MeshletViewMaterialsDeferredGBufferPrepass, MeshletViewMaterialsMainOpaquePass,
         MeshletViewMaterialsPrepass,
+    },
+    material_shade_nodes::{
+        MeshletDeferredGBufferPrepassNode, MeshletMainOpaquePass3dNode, MeshletPrepassNode,
     },
     pipelines::{
         MeshletPipelines, MESHLET_CULLING_SHADER_HANDLE, MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,

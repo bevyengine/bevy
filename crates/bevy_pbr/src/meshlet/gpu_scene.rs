@@ -632,7 +632,7 @@ pub fn prepare_meshlet_view_bind_groups(
             )
         });
 
-        let material_draw = view_resources.material_depth.as_ref().map(|_| {
+        let material_shade = view_resources.material_depth.as_ref().map(|_| {
             let entries = BindGroupEntries::sequential((
                 view_resources.visibility_buffer.as_entire_binding(),
                 cluster_meshlet_ids.as_entire_binding(),
@@ -644,8 +644,8 @@ pub fn prepare_meshlet_view_bind_groups(
                 gpu_scene.instance_uniforms.binding().unwrap(),
             ));
             render_device.create_bind_group(
-                "meshlet_mesh_material_draw_bind_group",
-                &gpu_scene.material_draw_bind_group_layout,
+                "meshlet_mesh_material_shade_bind_group",
+                &gpu_scene.material_shade_bind_group_layout,
                 &entries,
             )
         });
@@ -658,7 +658,7 @@ pub fn prepare_meshlet_view_bind_groups(
             downsample_depth,
             visibility_buffer_raster,
             resolve_material_depth,
-            material_draw,
+            material_shade,
         });
     }
 }
@@ -698,7 +698,7 @@ pub struct MeshletGpuScene {
     visibility_buffer_raster_bind_group_layout: BindGroupLayout,
     downsample_depth_bind_group_layout: BindGroupLayout,
     resolve_material_depth_bind_group_layout: BindGroupLayout,
-    material_draw_bind_group_layout: BindGroupLayout,
+    material_shade_bind_group_layout: BindGroupLayout,
     depth_pyramid_sampler: Sampler,
     depth_pyramid_dummy_texture: TextureView,
 }
@@ -840,8 +840,8 @@ impl FromWorld for MeshletGpuScene {
                     ),
                 ),
             ),
-            material_draw_bind_group_layout: render_device.create_bind_group_layout(
-                "meshlet_mesh_material_draw_bind_group_layout",
+            material_shade_bind_group_layout: render_device.create_bind_group_layout(
+                "meshlet_mesh_material_shade_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::FRAGMENT,
                     (
@@ -1012,8 +1012,8 @@ impl MeshletGpuScene {
         self.resolve_material_depth_bind_group_layout.clone()
     }
 
-    pub fn material_draw_bind_group_layout(&self) -> BindGroupLayout {
-        self.material_draw_bind_group_layout.clone()
+    pub fn material_shade_bind_group_layout(&self) -> BindGroupLayout {
+        self.material_shade_bind_group_layout.clone()
     }
 }
 
@@ -1044,5 +1044,5 @@ pub struct MeshletViewBindGroups {
     pub downsample_depth: BindGroup,
     pub visibility_buffer_raster: BindGroup,
     pub resolve_material_depth: Option<BindGroup>,
-    pub material_draw: Option<BindGroup>,
+    pub material_shade: Option<BindGroup>,
 }

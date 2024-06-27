@@ -167,7 +167,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
                 label: material_pipeline_descriptor.label,
                 layout: vec![
                     mesh_pipeline.get_view_layout(view_key.into()).clone(),
-                    gpu_scene.material_draw_bind_group_layout(),
+                    gpu_scene.material_shade_bind_group_layout(),
                     material_pipeline.material_layout.clone(),
                 ],
                 push_constant_ranges: vec![],
@@ -319,7 +319,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
                 label: material_pipeline_descriptor.label,
                 layout: vec![
                     view_layout,
-                    gpu_scene.material_draw_bind_group_layout(),
+                    gpu_scene.material_shade_bind_group_layout(),
                     prepass_pipeline.material_layout.clone(),
                 ],
                 push_constant_ranges: vec![],

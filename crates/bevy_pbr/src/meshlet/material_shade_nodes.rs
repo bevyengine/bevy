@@ -1,6 +1,6 @@
 use super::{
     gpu_scene::{MeshletViewBindGroups, MeshletViewResources},
-    material_draw_prepare::{
+    material_pipeline_prepare::{
         MeshletViewMaterialsDeferredGBufferPrepass, MeshletViewMaterialsMainOpaquePass,
         MeshletViewMaterialsPrepass,
     },
@@ -73,12 +73,12 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             Some(meshlet_gpu_scene),
             Some(pipeline_cache),
             Some(meshlet_material_depth),
-            Some(meshlet_material_draw_bind_group),
+            Some(meshlet_material_shade_bind_group),
         ) = (
             world.get_resource::<MeshletGpuScene>(),
             world.get_resource::<PipelineCache>(),
             meshlet_view_resources.material_depth.as_ref(),
-            meshlet_view_bind_groups.material_draw.as_ref(),
+            meshlet_view_bind_groups.material_shade.as_ref(),
         )
         else {
             return Ok(());
@@ -113,7 +113,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
                 **view_ssr_offset,
             ],
         );
-        render_pass.set_bind_group(1, meshlet_material_draw_bind_group, &[]);
+        render_pass.set_bind_group(1, meshlet_material_shade_bind_group, &[]);
 
         // 1 fullscreen triangle draw per material
         for (material_id, material_pipeline_id, material_bind_group) in
@@ -175,13 +175,13 @@ impl ViewNode for MeshletPrepassNode {
             Some(meshlet_gpu_scene),
             Some(pipeline_cache),
             Some(meshlet_material_depth),
-            Some(meshlet_material_draw_bind_group),
+            Some(meshlet_material_shade_bind_group),
         ) = (
             world.get_resource::<PrepassViewBindGroup>(),
             world.get_resource::<MeshletGpuScene>(),
             world.get_resource::<PipelineCache>(),
             meshlet_view_resources.material_depth.as_ref(),
-            meshlet_view_bind_groups.material_draw.as_ref(),
+            meshlet_view_bind_groups.material_shade.as_ref(),
         )
         else {
             return Ok(());
@@ -236,7 +236,7 @@ impl ViewNode for MeshletPrepassNode {
             );
         }
 
-        render_pass.set_bind_group(1, meshlet_material_draw_bind_group, &[]);
+        render_pass.set_bind_group(1, meshlet_material_shade_bind_group, &[]);
 
         // 1 fullscreen triangle draw per material
         for (material_id, material_pipeline_id, material_bind_group) in
@@ -298,13 +298,13 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
             Some(meshlet_gpu_scene),
             Some(pipeline_cache),
             Some(meshlet_material_depth),
-            Some(meshlet_material_draw_bind_group),
+            Some(meshlet_material_shade_bind_group),
         ) = (
             world.get_resource::<PrepassViewBindGroup>(),
             world.get_resource::<MeshletGpuScene>(),
             world.get_resource::<PipelineCache>(),
             meshlet_view_resources.material_depth.as_ref(),
-            meshlet_view_bind_groups.material_draw.as_ref(),
+            meshlet_view_bind_groups.material_shade.as_ref(),
         )
         else {
             return Ok(());
@@ -364,7 +364,7 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
             );
         }
 
-        render_pass.set_bind_group(1, meshlet_material_draw_bind_group, &[]);
+        render_pass.set_bind_group(1, meshlet_material_shade_bind_group, &[]);
 
         // 1 fullscreen triangle draw per material
         for (material_id, material_pipeline_id, material_bind_group) in
