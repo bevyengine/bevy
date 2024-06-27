@@ -1,5 +1,11 @@
 //! Loads and renders a glTF file as a scene.
 
+/// This example uses two compressed texture files from the assets directory
+const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
+const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
+/// This example uses a 3d model file from the assets directory
+const FLIGHT_HELMET_PATH: &str = "models/FlightHelmet/FlightHelmet.gltf";
+
 use bevy::{
     pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
     prelude::*,
@@ -23,8 +29,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         EnvironmentMapLight {
-            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            diffuse_map: asset_server.load(PISA_DIFFUSE_PATH),
+            specular_map: asset_server.load(PISA_SPECULAR_PATH),
             intensity: 250.0,
         },
     ));
@@ -47,8 +53,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     });
     commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(FLIGHT_HELMET_PATH)),
         ..default()
     });
 }

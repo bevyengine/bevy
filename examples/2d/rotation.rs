@@ -1,5 +1,10 @@
 //! Demonstrates rotating entities in 2D using quaternions.
 
+/// This example uses three pngs from the assets subdirectory
+const SHIP_C_PATH: &str = "textures/simplespace/ship_C.png";
+const ENEMY_A_PATH: &str = "textures/simplespace/enemy_A.png";
+const ENEMY_B_PATH: &str = "textures/simplespace/enemy_B.png";
+
 use bevy::prelude::*;
 
 const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
@@ -50,9 +55,9 @@ struct RotateToPlayer {
 ///
 /// The origin is at the center of the screen.
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let ship_handle = asset_server.load("textures/simplespace/ship_C.png");
-    let enemy_a_handle = asset_server.load("textures/simplespace/enemy_A.png");
-    let enemy_b_handle = asset_server.load("textures/simplespace/enemy_B.png");
+    let ship_handle = asset_server.load(SHIP_C_PATH);
+    let enemy_a_handle = asset_server.load(ENEMY_A_PATH);
+    let enemy_b_handle = asset_server.load(ENEMY_B_PATH);
 
     // 2D orthographic camera
     commands.spawn(Camera2dBundle::default());

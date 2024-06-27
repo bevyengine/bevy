@@ -2,6 +2,9 @@
 //! assign a custom UV mapping for a custom texture,
 //! and how to change the UV mapping at run-time.
 
+/// This example uses a png from the assets directory
+const ARRAY_TEXTURE_PATH: &str = "textures/array_texture.png";
+
 use bevy::prelude::*;
 use bevy::render::{
     mesh::{Indices, VertexAttributeValues},
@@ -30,7 +33,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     // Import the custom texture.
-    let custom_texture_handle: Handle<Image> = asset_server.load("textures/array_texture.png");
+    let custom_texture_handle: Handle<Image> = asset_server.load(ARRAY_TEXTURE_PATH);
     // Create and save a handle to the mesh.
     let cube_mesh_handle: Handle<Mesh> = meshes.add(create_cube_mesh());
 

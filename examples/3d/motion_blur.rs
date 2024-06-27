@@ -1,6 +1,9 @@
 //! Demonstrates how to enable per-object motion blur. This rendering feature can be configured per
 //! camera using the [`MotionBlur`] component.z
 
+/// This example uses a png from the assets subdirectory
+const ICON_PATH: &str = "branding/icon.png";
+
 use bevy::{
     core_pipeline::motion_blur::{MotionBlur, MotionBlurBundle},
     prelude::*,
@@ -117,7 +120,7 @@ fn spawn_cars(
     const N_CARS: usize = 20;
     let box_mesh = meshes.add(Cuboid::new(0.3, 0.15, 0.55));
     let cylinder = meshes.add(Cylinder::default());
-    let logo = asset_server.load("branding/icon.png");
+    let logo = asset_server.load(ICON_PATH);
     let wheel_matl = materials.add(StandardMaterial {
         base_color: Color::WHITE,
         base_color_texture: Some(logo.clone()),

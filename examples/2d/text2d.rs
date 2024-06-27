@@ -5,6 +5,9 @@
 //! For an example on how to render text as part of a user interface, independent from the world
 //! viewport, you may want to look at `games/contributors.rs` or `ui/text.rs`.
 
+/// This example uses a font from the assets subdirectory
+const FONT_PATH: &str = "fonts/FiraSans-Bold.ttf";
+
 use bevy::{
     color::palettes::css::*,
     prelude::*,
@@ -33,7 +36,7 @@ struct AnimateRotation;
 struct AnimateScale;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let font = asset_server.load(FONT_PATH);
     let text_style = TextStyle {
         font: font.clone(),
         font_size: 60.0,

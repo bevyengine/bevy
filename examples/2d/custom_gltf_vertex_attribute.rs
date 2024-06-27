@@ -13,6 +13,8 @@ use bevy::{
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/custom_gltf_2d.wgsl";
+/// This example uses a GLTF file from the assets subdirectory
+const BARYCENTRIC_PATH: &str = "models/barycentric/barycentric.gltf";
 
 /// This vertex attribute supplies barycentric coordinates for each triangle.
 /// Each component of the vector corresponds to one corner of a triangle. It's
@@ -50,7 +52,7 @@ fn setup(
             mesh: 0,
             primitive: 0,
         }
-        .from_asset("models/barycentric/barycentric.gltf"),
+        .from_asset(BARYCENTRIC_PATH),
     );
     commands.spawn(MaterialMesh2dBundle {
         mesh: Mesh2dHandle(mesh),

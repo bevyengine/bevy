@@ -1,5 +1,9 @@
 //! This example shows how to configure Physically Based Rendering (PBR) parameters.
 
+/// This example uses two compressed texture files from the assets subdirectory
+const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
+const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
+
 use bevy::{asset::LoadState, prelude::*};
 
 fn main() {
@@ -127,8 +131,8 @@ fn setup(
             ..default()
         },
         EnvironmentMapLight {
-            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            diffuse_map: asset_server.load(PISA_DIFFUSE_PATH),
+            specular_map: asset_server.load(PISA_SPECULAR_PATH),
             intensity: 900.0,
         },
     ));

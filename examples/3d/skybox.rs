@@ -16,6 +16,8 @@ use bevy::{
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
+/// This example uses a png and three compressed
+/// texture files from the assets subfolder
 const CUBEMAPS: &[(&str, CompressedImageFormats)] = &[
     (
         "textures/Ryfjallet_cubemap.png",

@@ -7,6 +7,9 @@
 //! | `Spacebar`         | Toggle Atmospheric Fog                 |
 //! | `S`                | Toggle Directional Light Fog Influence |
 
+/// This example uses a 3d model file from the assets directory
+const MOUNTAINS_PATH: &str = "models/terrain/Mountains.gltf";
+
 use bevy::{
     pbr::{CascadeShadowConfigBuilder, NotShadowCaster},
     prelude::*,
@@ -72,8 +75,7 @@ fn setup_terrain_scene(
 
     // Terrain
     commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/terrain/Mountains.gltf")),
+        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(MOUNTAINS_PATH)),
         ..default()
     });
 

@@ -1,5 +1,8 @@
 //! Renders two cameras to the same window to accomplish "split screen".
 
+/// This example uses a 3d model file from the assets subdirectory
+const FOX_PATH: &str = "models/animated/Fox.glb";
+
 use std::f32::consts::PI;
 
 use bevy::{
@@ -29,7 +32,7 @@ fn setup(
     });
 
     commands.spawn(SceneBundle {
-        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
+        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH)),
         ..default()
     });
 

@@ -1,5 +1,9 @@
 //! Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D
 
+/// This example uses two pngs from the assets subdirectory
+const PIXEL_DARK_PATH: &str = "pixel/bevy_pixel_dark.png";
+const PIXEL_LIGHT_PATH: &str = "pixel/bevy_pixel_light.png";
+
 use bevy::{
     prelude::*,
     render::{
@@ -55,7 +59,7 @@ fn setup_sprite(mut commands: Commands, asset_server: Res<AssetServer>) {
     // the sample sprite that will be rendered to the pixel-perfect canvas
     commands.spawn((
         SpriteBundle {
-            texture: asset_server.load("pixel/bevy_pixel_dark.png"),
+            texture: asset_server.load(PIXEL_DARK_PATH),
             transform: Transform::from_xyz(-40., 20., 2.),
             ..default()
         },
@@ -66,7 +70,7 @@ fn setup_sprite(mut commands: Commands, asset_server: Res<AssetServer>) {
     // the sample sprite that will be rendered to the high-res "outer world"
     commands.spawn((
         SpriteBundle {
-            texture: asset_server.load("pixel/bevy_pixel_light.png"),
+            texture: asset_server.load(PIXEL_LIGHT_PATH),
             transform: Transform::from_xyz(-40., -20., 2.),
             ..default()
         },

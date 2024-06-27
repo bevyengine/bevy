@@ -10,6 +10,9 @@
 //! | `Spacebar`         | Toggle Unlit                        |
 //! | `C`                | Randomize Colors                    |
 
+/// This example uses a font from the assets subdirectory
+const FONT_PATH: &str = "fonts/FiraMono-Medium.ttf";
+
 use bevy::{color::palettes::css::ORANGE, prelude::*};
 use rand::random;
 
@@ -181,7 +184,7 @@ fn setup(
     // Controls Text
 
     // We need the full version of this font so we can use box drawing characters.
-    let font = asset_server.load("fonts/FiraMono-Medium.ttf");
+    let font = asset_server.load(FONT_PATH);
 
     let text_style = TextStyle {
         font: font.clone(),

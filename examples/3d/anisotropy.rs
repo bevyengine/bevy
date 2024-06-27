@@ -1,5 +1,11 @@
 //! Demonstrates anisotropy with the glTF sample barn lamp model.
 
+/// This example uses a 3d model file from the assets directory
+const ANISOTROPY_BARN_LAMP_PATH: &str = "models/AnisotropyBarnLamp/AnisotropyBarnLamp.gltf#Scene0";
+/// This example uses two compressed texture files from the assets directory
+const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
+const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
+
 use bevy::{
     color::palettes::css::WHITE, core_pipeline::Skybox, math::vec3, prelude::*, time::Stopwatch,
 };
@@ -73,7 +79,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
     spawn_directional_light(&mut commands);
 
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/AnisotropyBarnLamp/AnisotropyBarnLamp.gltf#Scene0"),
+        scene: asset_server.load(ANISOTROPY_BARN_LAMP_PATH),
         transform: Transform::from_xyz(0.0, 0.07, -0.13),
         ..default()
     });
@@ -239,11 +245,11 @@ fn add_skybox_and_environment_map(
         .entity(entity)
         .insert(Skybox {
             brightness: 5000.0,
-            image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            image: asset_server.load(PISA_SPECULAR_PATH),
         })
         .insert(EnvironmentMapLight {
-            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            diffuse_map: asset_server.load(PISA_DIFFUSE_PATH),
+            specular_map: asset_server.load(PISA_SPECULAR_PATH),
             intensity: 2500.0,
         });
 }

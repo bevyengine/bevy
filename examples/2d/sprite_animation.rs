@@ -2,6 +2,8 @@
 //!
 //! See `sprite_sheet.rs` for an example where the sprite animation loops indefinitely.
 
+/// This example uses a png from the assets subdirectory
+const IDLE_RUN_PATH: &str = "textures/rpg/chars/gabe/gabe-idle-run.png";
 use std::time::Duration;
 
 use bevy::input::common_conditions::input_just_pressed;
@@ -94,7 +96,7 @@ fn setup(
     commands.spawn(Camera2dBundle::default());
 
     // load the sprite sheet using the `AssetServer`
-    let texture = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
+    let texture = asset_server.load(IDLE_RUN_PATH);
 
     // the sprite sheet has 7 sprites arranged in a row, and they are all 24px x 24px
     let layout = TextureAtlasLayout::from_grid(UVec2::splat(24), 7, 1, None, None);

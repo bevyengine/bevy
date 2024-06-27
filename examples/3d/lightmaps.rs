@@ -1,5 +1,12 @@
 //! Rendering a scene with baked lightmaps.
 
+/// This example uses a 3d model file from the assets directory
+const CORNELL_BOX_PATH: &str = "models/CornellBox/CornellBox.glb";
+/// This example uses a compressed texture file from the assets directory
+const CORNELL_BOX_TEXTURE_LARGE_PATH: &str = "lightmaps/CornellBox-Large.zstd.ktx2";
+const CORNELL_BOX_TEXTURE_SMALL_PATH: &str = "lightmaps/CornellBox-Small.zstd.ktx2";
+const CORNELL_BOX_TEXTURE_BOX_PATH: &str = "lightmaps/CornellBox-Box.zstd.ktx2";
+
 use bevy::pbr::Lightmap;
 use bevy::prelude::*;
 
@@ -14,8 +21,7 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/CornellBox/CornellBox.glb")),
+        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(CORNELL_BOX_PATH)),
         ..default()
     });
 
@@ -39,7 +45,7 @@ fn add_lightmaps_to_meshes(
         if &**name == "large_box" {
             materials.get_mut(material).unwrap().lightmap_exposure = exposure;
             commands.entity(entity).insert(Lightmap {
-                image: asset_server.load("lightmaps/CornellBox-Large.zstd.ktx2"),
+                image: asset_server.load(CORNELL_BOX_TEXTURE_LARGE_PATH),
                 ..default()
             });
             continue;
@@ -48,7 +54,7 @@ fn add_lightmaps_to_meshes(
         if &**name == "small_box" {
             materials.get_mut(material).unwrap().lightmap_exposure = exposure;
             commands.entity(entity).insert(Lightmap {
-                image: asset_server.load("lightmaps/CornellBox-Small.zstd.ktx2"),
+                image: asset_server.load(CORNELL_BOX_TEXTURE_SMALL_PATH),
                 ..default()
             });
             continue;
@@ -57,7 +63,7 @@ fn add_lightmaps_to_meshes(
         if name.starts_with("cornell_box") {
             materials.get_mut(material).unwrap().lightmap_exposure = exposure;
             commands.entity(entity).insert(Lightmap {
-                image: asset_server.load("lightmaps/CornellBox-Box.zstd.ktx2"),
+                image: asset_server.load(CORNELL_BOX_TEXTURE_BOX_PATH),
                 ..default()
             });
             continue;

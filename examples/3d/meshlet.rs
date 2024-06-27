@@ -2,6 +2,11 @@
 
 // Note: This example showcases the meshlet API, but is not the type of scene that would benefit from using meshlets.
 
+/// This example uses two compressed texture files from the assets subdirectory
+const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
+const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
+/// This example uses a meshlet_mesh file from the assets subdirectory
+const BUNNY_MESHLET_PATH: &str = "models/bunny.meshlet_mesh";
 #[path = "../helpers/camera_controller.rs"]
 mod camera_controller;
 
@@ -52,8 +57,8 @@ fn setup(
             ..default()
         },
         EnvironmentMapLight {
-            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            diffuse_map: asset_server.load(PISA_DIFFUSE_PATH),
+            specular_map: asset_server.load(PISA_SPECULAR_PATH),
             intensity: 150.0,
         },
         CameraController::default(),
@@ -84,7 +89,7 @@ fn setup(
     // that has been converted to a [`bevy_pbr::meshlet::MeshletMesh`]
     // using [`bevy_pbr::meshlet::MeshletMesh::from_mesh`], which is
     // a function only available when the `meshlet_processor` cargo feature is enabled.
-    let meshlet_mesh_handle = asset_server.load("models/bunny.meshlet_mesh");
+    let meshlet_mesh_handle = asset_server.load(BUNNY_MESHLET_PATH);
     let debug_material = debug_materials.add(MeshletDebugMaterial::default());
 
     for x in -2..=2 {

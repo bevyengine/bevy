@@ -1,5 +1,8 @@
 //! Renders a 2D scene containing a single, moving sprite.
 
+/// This example uses a png from the assets subdirectory
+const ICON_PATH: &str = "branding/icon.png";
+
 use bevy::prelude::*;
 
 fn main() {
@@ -20,7 +23,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     commands.spawn((
         SpriteBundle {
-            texture: asset_server.load("branding/icon.png"),
+            texture: asset_server.load(ICON_PATH),
             transform: Transform::from_xyz(100., 0., 0.),
             ..default()
         },

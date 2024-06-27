@@ -1,6 +1,10 @@
 //! Demonstrates UV mappings of the [`CircularSector`] and [`CircularSegment`] primitives.
 //!
 //! Also draws the bounding boxes and circles of the primitives.
+
+/// This example uses a png from the assets subdirectory
+const ICON_PATH: &str = "branding/icon.png";
+
 use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
@@ -34,7 +38,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    let material = materials.add(asset_server.load("branding/icon.png"));
+    let material = materials.add(asset_server.load(ICON_PATH));
 
     commands.spawn(Camera2dBundle {
         camera: Camera {

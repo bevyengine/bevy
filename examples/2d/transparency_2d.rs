@@ -1,6 +1,9 @@
 //! Demonstrates how to use transparency in 2D.
 //! Shows 3 bevy logos on top of each other, each with a different amount of transparency.
 
+/// This example uses a png from the assets subdirectory
+const ICON_PATH: &str = "branding/icon.png";
+
 use bevy::prelude::*;
 
 fn main() {
@@ -13,7 +16,7 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
-    let sprite_handle = asset_server.load("branding/icon.png");
+    let sprite_handle = asset_server.load(ICON_PATH);
 
     commands.spawn(SpriteBundle {
         texture: sprite_handle.clone(),

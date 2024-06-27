@@ -18,6 +18,10 @@
 //! | `D`                | Toggle Depth Prepass                                 |
 //! | `T`                | Toggle TAA                                           |
 
+/// This example uses two compressed texture files from the assets subdirectory
+const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
+const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
+
 use std::f32::consts::PI;
 
 use bevy::{
@@ -358,8 +362,8 @@ fn setup(
         TemporalAntiAliasBundle::default(),
         EnvironmentMapLight {
             intensity: 25.0,
-            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            diffuse_map: asset_server.load(PISA_DIFFUSE_PATH),
+            specular_map: asset_server.load(PISA_SPECULAR_PATH),
         },
         BloomSettings::default(),
     ));

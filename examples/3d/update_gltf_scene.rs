@@ -1,6 +1,12 @@
 //! Update a scene from a glTF file, either by spawning the scene as a child of another entity,
 //! or by accessing the entities of the scene.
 
+/// This example uses two compressed texture files from the assets subdirectory
+const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
+const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
+/// This example uses a 3d model file from the assets subdirectory
+const FLIGHT_HELMET_PATH: &str = "models/FlightHelmet/FlightHelmet.gltf";
+
 use bevy::{pbr::DirectionalLightShadowMap, prelude::*};
 
 fn main() {
@@ -31,8 +37,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         EnvironmentMapLight {
-            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            diffuse_map: asset_server.load(PISA_DIFFUSE_PATH),
+            specular_map: asset_server.load(PISA_SPECULAR_PATH),
             intensity: 150.0,
         },
     ));
@@ -40,16 +46,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn the scene as a child of this entity at the given transform
     commands.spawn(SceneBundle {
         transform: Transform::from_xyz(-1.0, 0.0, 0.0),
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(FLIGHT_HELMET_PATH)),
         ..default()
     });
 
     // Spawn a second scene, and add a tag component to be able to target it later
     commands.spawn((
         SceneBundle {
-            scene: asset_server
-                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+            scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(FLIGHT_HELMET_PATH)),
             ..default()
         },
         MovedScene,

@@ -6,6 +6,14 @@
 //!
 //! Reflection probes don't work on WebGL 2 or WebGPU.
 
+/// This example uses a 3d model file from the assets directory
+const CUBES_PATH: &str = "models/cubes/Cubes.glb";
+/// This example uses two compressed texture files from the assets directory
+const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
+const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
+const CUBES_SPECULAR_PATH: &str =
+    "environment_maps/cubes_reflection_probe_specular_rgb9e5_zstd.ktx2";
+
 use bevy::core_pipeline::Skybox;
 use bevy::prelude::*;
 
@@ -98,7 +106,7 @@ fn setup(
 // Spawns the cubes, light, and camera.
 fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn(SceneBundle {
-        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cubes/Cubes.glb")),
+        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(CUBES_PATH)),
         ..SceneBundle::default()
     });
 }
@@ -326,12 +334,11 @@ impl FromWorld for Cubemaps {
         // Just use the specular map for the skybox since it's not too blurry.
         // In reality you wouldn't do this--you'd use a real skybox texture--but
         // reusing the textures like this saves space in the Bevy repository.
-        let specular_map = world.load_asset("environment_maps/pisa_specular_rgb9e5_zstd.ktx2");
+        let specular_map = world.load_asset(PISA_SPECULAR_PATH);
 
         Cubemaps {
-            diffuse: world.load_asset("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            specular_reflection_probe: world
-                .load_asset("environment_maps/cubes_reflection_probe_specular_rgb9e5_zstd.ktx2"),
+            diffuse: world.load_asset(PISA_DIFFUSE_PATH),
+            specular_reflection_probe: world.load_asset(CUBES_SPECULAR_PATH),
             specular_environment_map: specular_map.clone(),
             skybox: specular_map,
         }

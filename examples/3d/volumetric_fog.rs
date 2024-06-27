@@ -1,5 +1,10 @@
 //! Demonstrates volumetric fog and lighting (light shafts or god rays).
 
+/// This example uses a 3d model file from the assets directory
+const VOLUMETRIC_FOG_PATH: &str = "models/VolumetricFogExample/VolumetricFogExample.glb";
+/// This example uses a compressed texture file from the assets directory
+const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
+
 use bevy::{
     core_pipeline::{bloom::BloomSettings, tonemapping::Tonemapping, Skybox},
     math::vec3,
@@ -29,10 +34,7 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn the glTF scene.
     commands.spawn(SceneBundle {
-        scene: asset_server.load(
-            GltfAssetLabel::Scene(0)
-                .from_asset("models/VolumetricFogExample/VolumetricFogExample.glb"),
-        ),
+        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(VOLUMETRIC_FOG_PATH)),
         ..default()
     });
 
@@ -50,7 +52,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .insert(Tonemapping::TonyMcMapface)
         .insert(BloomSettings::default())
         .insert(Skybox {
-            image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            image: asset_server.load(PISA_SPECULAR_PATH),
             brightness: 1000.0,
         })
         .insert(VolumetricFogSettings {

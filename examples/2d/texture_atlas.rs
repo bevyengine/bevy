@@ -7,6 +7,13 @@
 //! Only one padded and one unpadded texture atlas are rendered to the screen.
 //! An upscaled sprite from each of the four atlases are rendered to the screen.
 
+/// This example loads a folder from the assets subdirectory
+const RPG_DIRECTORY_PATH: &str = "textures/rpg";
+/// This example loads a font from the assets subdirectory
+const FONT_PATH: &str = "fonts/FiraSans-Bold.ttf";
+/// This example uses a png from the assets subdirectory
+const RPG_VENDOR_PATH: &str = "textures/rpg/chars/vendor/generic-rpg-vendor.png";
+
 use bevy::{asset::LoadedFolder, prelude::*, render::texture::ImageSampler};
 
 fn main() {
@@ -31,7 +38,9 @@ struct RpgSpriteFolder(Handle<LoadedFolder>);
 
 fn load_textures(mut commands: Commands, asset_server: Res<AssetServer>) {
     // load multiple, individual sprites from a folder
-    commands.insert_resource(RpgSpriteFolder(asset_server.load_folder("textures/rpg")));
+    commands.insert_resource(RpgSpriteFolder(
+        asset_server.load_folder(RPG_DIRECTORY_PATH),
+    ));
 }
 
 fn check_textures(
@@ -118,7 +127,7 @@ fn setup(
         ..default()
     });
 
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let font = asset_server.load(FONT_PATH);
 
     // padding label text style
     let text_style: TextStyle = TextStyle {
@@ -141,9 +150,7 @@ fn setup(
     create_label(&mut commands, (250.0, 330.0, 0.0), "Padding", text_style);
 
     // get handle to a sprite to render
-    let vendor_handle: Handle<Image> = asset_server
-        .get_handle("textures/rpg/chars/vendor/generic-rpg-vendor.png")
-        .unwrap();
+    let vendor_handle: Handle<Image> = asset_server.get_handle(RPG_VENDOR_PATH).unwrap();
 
     // get index of the sprite in the texture atlas, this is used to render the sprite
     // the index is the same for all the texture atlases, since they are created from the same folder

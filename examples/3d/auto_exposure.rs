@@ -11,6 +11,11 @@
 //! | `M`                | Toggle Metering Mask                   |
 //! | `V`                | Visualize Metering Mask                |
 
+/// This example uses a png from the assets subdirectory
+const BASIC_METERING_MASK_PATH: &str = "textures/basic_metering_mask.png";
+/// This example uses a compressed texture file from the assets subdirectory
+const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
+
 use bevy::{
     core_pipeline::{
         auto_exposure::{AutoExposureCompensationCurve, AutoExposurePlugin, AutoExposureSettings},
@@ -36,7 +41,7 @@ fn setup(
     mut compensation_curves: ResMut<Assets<AutoExposureCompensationCurve>>,
     asset_server: Res<AssetServer>,
 ) {
-    let metering_mask = asset_server.load("textures/basic_metering_mask.png");
+    let metering_mask = asset_server.load(BASIC_METERING_MASK_PATH);
 
     commands.spawn((
         Camera3dBundle {
@@ -52,7 +57,7 @@ fn setup(
             ..default()
         },
         Skybox {
-            image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            image: asset_server.load(PISA_SPECULAR_PATH),
             brightness: bevy::pbr::light_consts::lux::DIRECT_SUNLIGHT,
         },
     ));

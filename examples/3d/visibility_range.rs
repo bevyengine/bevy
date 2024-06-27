@@ -1,5 +1,12 @@
 //! Demonstrates visibility ranges, also known as HLODs.
 
+/// This example uses two 3d model files from the assets subdirectory
+const FLIGHT_HELMET_PATH: &str = "models/FlightHelmet/FlightHelmet.gltf";
+const FLIGHT_HELMET_LOW_POLY_PATH: &str = "models/FlightHelmet/FlightHelmetLowPoly.gltf";
+/// This example uses two compressed texture files from the assets subdirectory
+const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
+const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
+
 use std::f32::consts::PI;
 
 use bevy::{
@@ -104,18 +111,15 @@ fn setup(
 
     commands
         .spawn(SceneBundle {
-            scene: asset_server
-                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+            scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(FLIGHT_HELMET_PATH)),
             ..default()
         })
         .insert(MainModel::HighPoly);
 
     commands
         .spawn(SceneBundle {
-            scene: asset_server.load(
-                GltfAssetLabel::Scene(0)
-                    .from_asset("models/FlightHelmetLowPoly/FlightHelmetLowPoly.gltf"),
-            ),
+            scene: asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset(FLIGHT_HELMET_LOW_POLY_PATH)),
             ..default()
         })
         .insert(MainModel::LowPoly);
@@ -149,8 +153,8 @@ fn setup(
             ..default()
         })
         .insert(EnvironmentMapLight {
-            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            diffuse_map: asset_server.load(PISA_DIFFUSE_PATH),
+            specular_map: asset_server.load(PISA_SPECULAR_PATH),
             intensity: 150.0,
         });
 

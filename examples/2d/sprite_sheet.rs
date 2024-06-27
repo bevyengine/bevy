@@ -1,6 +1,9 @@
 //! Renders an animated sprite by loading all animation frames from a single image (a sprite sheet)
 //! into a texture atlas, and changing the displayed image periodically.
 
+/// This example uses a png from the assets subdirectory
+const IDLE_RUN_PATH: &str = "textures/rpg/chars/gabe/gabe-idle-run.png";
+
 use bevy::prelude::*;
 
 fn main() {
@@ -41,7 +44,7 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    let texture = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
+    let texture = asset_server.load(IDLE_RUN_PATH);
     let layout = TextureAtlasLayout::from_grid(UVec2::splat(24), 7, 1, None, None);
     let texture_atlas_layout = texture_atlas_layouts.add(layout);
     // Use only the subset of sprites in the sheet that make up the run animation

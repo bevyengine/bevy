@@ -9,6 +9,11 @@
 //!
 //! [a blog post on depth of field in Unity]: https://catlikecoding.com/unity/tutorials/advanced-rendering/depth-of-field/
 
+/// This example uses a 3d model file from the assets subdirectory
+const DEPTH_OF_FIELD_EXAMPLE_PATH: &str = "models/DepthOfFieldExample/DepthOfFieldExample.glb";
+/// This example uses an HDR file from the assets subdirectory
+const CIRCUIT_BOARD_LIGHTMAP_PATH: &str = "models/DepthOfFieldExample/CircuitBoardLightmap.hdr";
+
 use bevy::{
     core_pipeline::{
         bloom::BloomSettings,
@@ -88,10 +93,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
 
     // Spawn the scene.
     commands.spawn(SceneBundle {
-        scene: asset_server.load(
-            GltfAssetLabel::Scene(0)
-                .from_asset("models/DepthOfFieldExample/DepthOfFieldExample.glb"),
-        ),
+        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(DEPTH_OF_FIELD_EXAMPLE_PATH)),
         ..default()
     });
 
@@ -207,7 +209,7 @@ fn tweak_scene(
         if &**name == "CircuitBoard" {
             materials.get_mut(material).unwrap().lightmap_exposure = 10000.0;
             commands.entity(entity).insert(Lightmap {
-                image: asset_server.load("models/DepthOfFieldExample/CircuitBoardLightmap.hdr"),
+                image: asset_server.load(CIRCUIT_BOARD_LIGHTMAP_PATH),
                 ..default()
             });
         }

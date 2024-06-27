@@ -23,6 +23,14 @@ use bevy::{
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/water_material.wgsl";
+/// This example uses two pngs from the assets subdirectory
+const ICON_PATH: &str = "branding/icon.png";
+const WATER_NORMALS_PATH: &str = "textures/water_normals.png";
+/// This example uses a 3d model from the assets subdirectory
+const FLIGHT_HELMET_PATH: &str = "models/FlightHelmet/FlightHelmet.gltf";
+/// This example uses a compressed texture file from the assets subdirectory
+const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
+const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
 
 // The speed of camera movement.
 const CAMERA_KEYBOARD_ZOOM_SPEED: f32 = 0.1;
@@ -154,7 +162,7 @@ fn spawn_cube(
             mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
             material: standard_materials.add(StandardMaterial {
                 base_color: Color::from(WHITE),
-                base_color_texture: Some(asset_server.load("branding/icon.png")),
+                base_color_texture: Some(asset_server.load(ICON_PATH)),
                 ..default()
             }),
             transform: Transform::from_xyz(0.0, 0.5, 0.0),
@@ -167,8 +175,7 @@ fn spawn_cube(
 fn spawn_flight_helmet(commands: &mut Commands, asset_server: &AssetServer) {
     commands
         .spawn(SceneBundle {
-            scene: asset_server
-                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+            scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(FLIGHT_HELMET_PATH)),
             transform: Transform::from_scale(Vec3::splat(2.5)),
             ..default()
         })
@@ -193,7 +200,7 @@ fn spawn_water(
             },
             extension: Water {
                 normals: asset_server.load_with_settings::<Image, ImageLoaderSettings>(
-                    "textures/water_normals.png",
+                    WATER_NORMALS_PATH,
                     |settings| {
                         settings.is_srgb = false;
                         settings.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
@@ -239,12 +246,12 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
             ..default()
         })
         .insert(EnvironmentMapLight {
-            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            diffuse_map: asset_server.load(PISA_DIFFUSE_PATH),
+            specular_map: asset_server.load(PISA_SPECULAR_PATH),
             intensity: 5000.0,
         })
         .insert(Skybox {
-            image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            image: asset_server.load(PISA_SPECULAR_PATH),
             brightness: 5000.0,
         })
         .insert(ScreenSpaceReflectionsBundle::default())

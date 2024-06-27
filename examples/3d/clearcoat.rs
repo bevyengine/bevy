@@ -17,6 +17,15 @@
 //!
 //! [3]: https://threejs.org/examples/webgl_materials_physical_clearcoat.html
 
+/// This example uses two pngs from the assets directory
+const BLUE_NOISE_PATH: &str = "textures/BlueNoise-Normal.png";
+const SCRATCHED_GOLD_PATH: &str = "textures/ScratchedGold-Normal.png";
+/// This example uses a 3d model file from the assets directory
+const GOLF_BALL_PATH: &str = "models/GolfBall/GolfBall.glb";
+/// This example uses two compressed texture files from the assets directory
+const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
+const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
+
 use std::f32::consts::PI;
 
 use bevy::{
@@ -102,10 +111,12 @@ fn spawn_car_paint_sphere(
             material: materials.add(StandardMaterial {
                 clearcoat: 1.0,
                 clearcoat_perceptual_roughness: 0.1,
-                normal_map_texture: Some(asset_server.load_with_settings(
-                    "textures/BlueNoise-Normal.png",
-                    |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
-                )),
+                normal_map_texture: Some(
+                    asset_server.load_with_settings(
+                        BLUE_NOISE_PATH,
+                        |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
+                    ),
+                ),
                 metallic: 0.9,
                 perceptual_roughness: 0.5,
                 base_color: BLUE.into(),
@@ -149,8 +160,7 @@ fn spawn_coated_glass_bubble_sphere(
 fn spawn_golf_ball(commands: &mut Commands, asset_server: &AssetServer) {
     commands
         .spawn(SceneBundle {
-            scene: asset_server
-                .load(GltfAssetLabel::Scene(0).from_asset("models/GolfBall/GolfBall.glb")),
+            scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(GOLF_BALL_PATH)),
             transform: Transform::from_xyz(1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
             ..default()
         })
@@ -172,7 +182,7 @@ fn spawn_scratched_gold_ball(
                 clearcoat: 1.0,
                 clearcoat_perceptual_roughness: 0.3,
                 clearcoat_normal_texture: Some(asset_server.load_with_settings(
-                    "textures/ScratchedGold-Normal.png",
+                    SCRATCHED_GOLD_PATH,
                     |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
                 )),
                 metallic: 0.9,
@@ -223,11 +233,11 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         })
         .insert(Skybox {
             brightness: 5000.0,
-            image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            image: asset_server.load(PISA_SPECULAR_PATH),
         })
         .insert(EnvironmentMapLight {
-            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            diffuse_map: asset_server.load(PISA_DIFFUSE_PATH),
+            specular_map: asset_server.load(PISA_SPECULAR_PATH),
             intensity: 2000.0,
         });
 }

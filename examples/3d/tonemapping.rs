@@ -15,6 +15,12 @@ use std::f32::consts::PI;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/tonemapping_test_patterns.wgsl";
+/// This example uses two compressed texture files from the assets subdirectory
+const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
+const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
+/// This example uses two 3d model files from the assets subdirectory
+const TONEMAPPING_TEST_PATH: &str = "models/TonemappingTest/TonemappingTest.gltf";
+const FLIGHT_HELMET_PATH: &str = "models/FlightHelmet/FlightHelmet.gltf";
 
 fn main() {
     App::new()
@@ -75,8 +81,8 @@ fn setup(
             ..default()
         },
         EnvironmentMapLight {
-            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            diffuse_map: asset_server.load(PISA_DIFFUSE_PATH),
+            specular_map: asset_server.load(PISA_SPECULAR_PATH),
             intensity: 2000.0,
         },
     ));
@@ -96,9 +102,7 @@ fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Main scene
     commands
         .spawn(SceneBundle {
-            scene: asset_server.load(
-                GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
-            ),
+            scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(TONEMAPPING_TEST_PATH)),
             ..default()
         })
         .insert(SceneNumber(1));
@@ -106,8 +110,7 @@ fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Flight Helmet
     commands.spawn((
         SceneBundle {
-            scene: asset_server
-                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+            scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(FLIGHT_HELMET_PATH)),
             transform: Transform::from_xyz(0.5, 0.0, -0.5)
                 .with_rotation(Quat::from_rotation_y(-0.15 * PI)),
             ..default()

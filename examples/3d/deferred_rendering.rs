@@ -1,5 +1,15 @@
 //! This example compares Forward, Forward + Prepass, and Deferred rendering.
 
+/// This example uses two compressed texture files from the assets subdirectory
+const PISA_DIFFUSE_PATH: &str = "environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2";
+const PISA_SPECULAR_PATH: &str = "environment_maps/pisa_specular_rgb9e5_zstd.ktx2";
+/// This example uses a 3d model file from the assets subdirectory
+const FLIGHT_HELMET_PATH: &str = "models/FlightHelmet/FlightHelmet.gltf";
+/// This example uses three pngs from the asset subdirectory
+const CUBE_NORMAL_PATH: &str = "textures/parallax_example/cube_normal.png";
+const CUBE_COLOR_PATH: &str = "textures/parallax_example/cube_color.png";
+const CUBE_DEPTH_PATH: &str = "textures/parallax_example/cube_depth.png";
+
 use std::f32::consts::*;
 
 use bevy::{
@@ -53,8 +63,8 @@ fn setup(
             ..default()
         },
         EnvironmentMapLight {
-            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            diffuse_map: asset_server.load(PISA_DIFFUSE_PATH),
+            specular_map: asset_server.load(PISA_SPECULAR_PATH),
             intensity: 2000.0,
         },
         DepthPrepass,
@@ -80,8 +90,7 @@ fn setup(
     });
 
     // FlightHelmet
-    let helmet_scene = asset_server
-        .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
+    let helmet_scene = asset_server.load(GltfAssetLabel::Scene(0).from_asset(FLIGHT_HELMET_PATH));
 
     commands.spawn(SceneBundle {
         scene: helmet_scene.clone(),
@@ -240,7 +249,7 @@ fn setup_parallax(
     // open the depth map, and do Filters → Generic → Normal Map
     // You should enable the "flip X" checkbox.
     let normal_handle = asset_server.load_with_settings(
-        "textures/parallax_example/cube_normal.png",
+        CUBE_NORMAL_PATH,
         // The normal map texture is in linear color space. Lighting won't look correct
         // if `is_srgb` is `true`, which is the default.
         |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
@@ -254,11 +263,11 @@ fn setup_parallax(
 
     let parallax_material = materials.add(StandardMaterial {
         perceptual_roughness: 0.4,
-        base_color_texture: Some(asset_server.load("textures/parallax_example/cube_color.png")),
+        base_color_texture: Some(asset_server.load(CUBE_COLOR_PATH)),
         normal_map_texture: Some(normal_handle),
         // The depth map is a greyscale texture where black is the highest level and
         // white the lowest.
-        depth_map: Some(asset_server.load("textures/parallax_example/cube_depth.png")),
+        depth_map: Some(asset_server.load(CUBE_DEPTH_PATH)),
         parallax_depth_scale: 0.09,
         parallax_mapping_method: ParallaxMappingMethod::Relief { max_steps: 4 },
         max_parallax_layer_count: 5.0f32.exp2(),
