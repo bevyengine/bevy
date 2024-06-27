@@ -64,7 +64,7 @@ pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
 
 use std::ops::Range;
 
-use bevy_asset::AssetId;
+use bevy_asset::{AssetId, UntypedAssetId};
 use bevy_color::LinearRgba;
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
@@ -76,7 +76,6 @@ use bevy_math::FloatOrd;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
-    mesh::Mesh,
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
@@ -221,7 +220,7 @@ pub struct Opaque3d {
     pub extra_index: PhaseItemExtraIndex,
 }
 
-/// Data that must be identical in order to batch meshes together.
+/// Data that must be identical in order to batch phase items together.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Opaque3dBinKey {
     /// The identifier of the render pipeline.
@@ -230,8 +229,11 @@ pub struct Opaque3dBinKey {
     /// The function used to draw.
     pub draw_function: DrawFunctionId,
 
-    /// The mesh.
-    pub asset_id: AssetId<Mesh>,
+    /// The asset that this phase item is associated with.
+    ///
+    /// Normally, this is the ID of the mesh, but for non-mesh items it might be
+    /// the ID of another type of asset.
+    pub asset_id: UntypedAssetId,
 
     /// The ID of a bind group specific to the material.
     ///
