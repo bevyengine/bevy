@@ -24,6 +24,7 @@ impl<'w> Benchmark<'w> {
             v.push(world.spawn(TableData(0.)).id());
         }
 
+        // by shuffling ,randomize the archetype iteration order to significantly deviate from the table order. This maximizes the loss of cache locality during archetype-based iteration.
         v.shuffle(&mut deterministic_rand());
         for e in v.into_iter() {
             world.entity_mut(e).despawn();
