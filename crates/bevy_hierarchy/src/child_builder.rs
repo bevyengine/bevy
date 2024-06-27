@@ -261,7 +261,7 @@ impl Command for RemoveParent {
 /// ```
 /// # use bevy_ecs::bundle::Bundle;
 /// # use bevy_ecs::system::Commands;
-/// # use bevy_hierarchy::BuildChildren;
+/// # use bevy_hierarchy::{ChildBuild, BuildChildren};
 /// # #[derive(Bundle)]
 /// # struct MyBundle {}
 /// # #[derive(Bundle)]
