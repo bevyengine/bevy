@@ -95,7 +95,7 @@ struct ClusterLightIndexLists {
     data: array<u32>,
 };
 struct ClusterOffsetsAndCounts {
-    data: array<vec4<u32>>,
+    data: array<array<vec4<u32>, 2>>,
 };
 #else
 struct ClusterableObjects {

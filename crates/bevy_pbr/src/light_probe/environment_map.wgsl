@@ -6,6 +6,7 @@
 #import bevy_pbr::lighting::{
     F_Schlick_vec, LayerLightingInput, LightingInput, LAYER_BASE, LAYER_CLEARCOAT
 }
+#import bevy_pbr::clustered_forward::ClusterableObjectIndexRanges
 
 struct EnvironmentMapLight {
     diffuse: vec3<f32>,
@@ -25,6 +26,7 @@ struct EnvironmentMapRadiances {
 
 fn compute_radiances(
     input: ptr<function, LightingInput>,
+    clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>,
     layer: u32,
     world_position: vec3<f32>,
     found_diffuse_indirect: bool,
@@ -37,7 +39,11 @@ fn compute_radiances(
     var radiances: EnvironmentMapRadiances;
 
     // Search for a reflection probe that contains the fragment.
-    var query_result = query_light_probe(world_position, /*is_irradiance_volume=*/ false);
+    var query_result = query_light_probe(
+        world_position,
+        /*is_irradiance_volume=*/ false,
+        clusterable_object_index_ranges,
+    );
 
     // If we didn't find a reflection probe, use the view environment map if applicable.
     if (query_result.texture_index < 0) {
@@ -77,6 +83,7 @@ fn compute_radiances(
 
 fn compute_radiances(
     input: ptr<function, LightingInput>,
+    clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>,
     layer: u32,
     world_position: vec3<f32>,
     found_diffuse_indirect: bool,
@@ -127,6 +134,7 @@ fn compute_radiances(
 fn environment_map_light_clearcoat(
     out: ptr<function, EnvironmentMapLight>,
     input: ptr<function, LightingInput>,
+    clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>,
     found_diffuse_indirect: bool,
 ) {
     // Unpack.
@@ -141,7 +149,12 @@ fn environment_map_light_clearcoat(
     let inv_Fc = 1.0 - Fc;
 
     let clearcoat_radiances = compute_radiances(
-        input, LAYER_CLEARCOAT, world_position, found_diffuse_indirect);
+        input,
+        clusterable_object_index_ranges,
+        LAYER_CLEARCOAT,
+        world_position,
+        found_diffuse_indirect,
+    );
 
     // Composite the clearcoat layer on top of the existing one.
     // These formulas are from Filament:
@@ -154,6 +167,7 @@ fn environment_map_light_clearcoat(
 
 fn environment_map_light(
     input: ptr<function, LightingInput>,
+    clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>,
     found_diffuse_indirect: bool,
 ) -> EnvironmentMapLight {
     // Unpack.
@@ -166,7 +180,14 @@ fn environment_map_light(
 
     var out: EnvironmentMapLight;
 
-    let radiances = compute_radiances(input, LAYER_BASE, world_position, found_diffuse_indirect);
+    let radiances = compute_radiances(
+        input,
+        clusterable_object_index_ranges,
+        LAYER_BASE,
+        world_position,
+        found_diffuse_indirect,
+    );
+
     if (all(radiances.irradiance == vec3(0.0)) && all(radiances.radiance == vec3(0.0))) {
         out.diffuse = vec3(0.0);
         out.specular = vec3(0.0);
@@ -200,7 +221,12 @@ fn environment_map_light(
     out.specular = FssEss * radiances.radiance;
 
 #ifdef STANDARD_MATERIAL_CLEARCOAT
-    environment_map_light_clearcoat(&out, input, found_diffuse_indirect);
+    environment_map_light_clearcoat(
+        &out,
+        input,
+        clusterable_object_index_ranges,
+        found_diffuse_indirect,
+    );
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
     return out;
