@@ -144,8 +144,8 @@ impl ViewNode for DeferredGBufferPrepassNode {
             }
 
             // Opaque draws
-            if !opaque_deferred_phase.batchable_keys.is_empty()
-                || !opaque_deferred_phase.unbatchable_keys.is_empty()
+            if !opaque_deferred_phase.batchable_mesh_keys.is_empty()
+                || !opaque_deferred_phase.unbatchable_mesh_keys.is_empty()
             {
                 #[cfg(feature = "trace")]
                 let _opaque_prepass_span = info_span!("opaque_deferred_prepass").entered();
