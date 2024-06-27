@@ -1,7 +1,6 @@
 use criterion::*;
 
 mod heavy_compute;
-mod iter_dense_foreach;
 mod iter_frag;
 mod iter_frag_foreach;
 mod iter_frag_foreach_sparse;
@@ -12,6 +11,7 @@ mod iter_frag_wide;
 mod iter_frag_wide_sparse;
 mod iter_simple;
 mod iter_simple_foreach;
+mod iter_simple_foreach_hybrid;
 mod iter_simple_foreach_sparse_set;
 mod iter_simple_foreach_wide;
 mod iter_simple_foreach_wide_sparse_set;
@@ -72,7 +72,7 @@ fn iter_simple(c: &mut Criterion) {
         let mut bench = iter_simple_foreach_wide_sparse_set::Benchmark::new();
         b.iter(move || bench.run());
     });
-    group.bench_function("foreach_dense_archetype", |b| {
+    group.bench_function("foreach_hybrid", |b| {
         let mut bench = iter_dense_foreach::Benchmark::new();
         b.iter(move || bench.run());
     });
