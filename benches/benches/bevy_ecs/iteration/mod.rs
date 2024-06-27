@@ -73,7 +73,7 @@ fn iter_simple(c: &mut Criterion) {
         b.iter(move || bench.run());
     });
     group.bench_function("foreach_hybrid", |b| {
-        let mut bench = iter_dense_foreach::Benchmark::new();
+        let mut bench = iter_simple_foreach_hybrid::Benchmark::new();
         b.iter(move || bench.run());
     });
     group.finish();
