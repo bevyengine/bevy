@@ -6,6 +6,18 @@ use pipelines_ready::*;
 const FOX_PATH: &str = "models/animated/Fox.glb";
 const FLIGHT_HELMET_PATH: &str = "models/FlightHelmet/FlightHelmet.gltf";
 
+// The way we'll go about doing this in this example is to
+// keep track of all assets that we want to have loaded before
+// we transition to the desired scene.
+//
+// In order to ensure that visual assets are fully rendered
+// before transitioning to the scene, we need to get the
+// current status of cached pipelines.
+//
+// While loading and pipelines compilation is happening, we
+// will show a loading screen. Once loading is complete, we
+// will transition to the scene we just loaded.
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)

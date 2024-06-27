@@ -3,6 +3,8 @@ use bevy::{prelude::*, tasks::IoTaskPool, utils::Duration};
 use std::{fs::File, io::Write};
 
 /// This example uses two RON files from the asset subdirectory
+/// RON (Rusty Object Notation) is similar to JSON in that it serializes data in a
+///  simple, visual manner, but differently from JSON, it does it using Rust-like syntax
 const SCENE_FILE_PATH: &str = "scenes/load_scene_example.scn.ron";
 const NEW_SCENE_FILE_PATH: &str = "scenes/load_scene_example-new.scn.ron";
 
