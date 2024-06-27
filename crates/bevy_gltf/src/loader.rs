@@ -1086,7 +1086,9 @@ fn load_material(
             clearcoat_normal_texture: clearcoat.clearcoat_normal_texture,
             anisotropy_strength: anisotropy.anisotropy_strength.unwrap_or_default() as f32,
             anisotropy_rotation: anisotropy.anisotropy_rotation.unwrap_or_default() as f32,
+            #[cfg(feature = "pbr_anisotropy_texture")]
             anisotropy_channel: anisotropy.anisotropy_channel,
+            #[cfg(feature = "pbr_anisotropy_texture")]
             anisotropy_texture: anisotropy.anisotropy_texture,
             ..Default::default()
         }
@@ -1898,11 +1900,14 @@ impl ClearcoatExtension {
 struct AnisotropyExtension {
     anisotropy_strength: Option<f64>,
     anisotropy_rotation: Option<f64>,
+    #[cfg(feature = "pbr_anisotropy_texture")]
     anisotropy_channel: UvChannel,
+    #[cfg(feature = "pbr_anisotropy_texture")]
     anisotropy_texture: Option<Handle<Image>>,
 }
 
 impl AnisotropyExtension {
+    #[allow(unused_variables)]
     fn parse(
         load_context: &mut LoadContext,
         document: &Document,
@@ -1913,6 +1918,7 @@ impl AnisotropyExtension {
             .get("KHR_materials_anisotropy")?
             .as_object()?;
 
+        #[cfg(feature = "pbr_anisotropy_texture")]
         let (anisotropy_channel, anisotropy_texture) = extension
             .get("anisotropyTexture")
             .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
@@ -1927,7 +1933,9 @@ impl AnisotropyExtension {
         Some(AnisotropyExtension {
             anisotropy_strength: extension.get("anisotropyStrength").and_then(Value::as_f64),
             anisotropy_rotation: extension.get("anisotropyRotation").and_then(Value::as_f64),
+            #[cfg(feature = "pbr_anisotropy_texture")]
             anisotropy_channel: anisotropy_channel.unwrap_or_default(),
+            #[cfg(feature = "pbr_anisotropy_texture")]
             anisotropy_texture,
         })
     }
