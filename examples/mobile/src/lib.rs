@@ -14,7 +14,7 @@ fn main() {
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
         primary_window: Some(Window {
             resizable: false,
-            mode: WindowMode::BorderlessFullscreen,
+            mode: WindowMode::BorderlessFullscreen(MonitorSelection::Primary),
             // on iOS, gestures must be enabled.
             // This doesn't work on Android
             recognize_rotation_gesture: true,
