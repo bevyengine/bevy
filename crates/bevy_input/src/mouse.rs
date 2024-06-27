@@ -176,7 +176,7 @@ pub struct AccumulatedMouseMotion {
 /// Tracks how much the mouse has scrolled every frame
 /// This resource is reset to zero every frame
 ///
-/// This resource sums the total [`MouseMotion`] events received this frame.
+/// This resource sums the total [`MouseWheel`] events received this frame.
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
