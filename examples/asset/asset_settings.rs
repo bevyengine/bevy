@@ -1,16 +1,16 @@
 //! This example demonstrates the usage of '.meta' files and [`AssetServer::load_with_settings`] to override the default settings for loading an asset
 
+use bevy::{
+    prelude::*,
+    render::texture::{ImageLoaderSettings, ImageSampler},
+};
+
 /// This example loads the files directory from this example's directory
 const FILES_FOLDER_PATH: &str = "examples/asset/files";
 /// This example loads three pngs from the assets subdirectory
 const BEVY_DARK_PATH: &str = "bevy_pixel_dark.png";
 const BEVY_DARK_META_PATH: &str = "bevy_pixel_dark_with_meta.png";
 const BEVY_DARK_SETTINGS_PATH: &str = "bevy_pixel_dark_with_settings.png";
-
-use bevy::{
-    prelude::*,
-    render::texture::{ImageLoaderSettings, ImageSampler},
-};
 
 fn main() {
     App::new()

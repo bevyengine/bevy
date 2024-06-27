@@ -2,9 +2,6 @@
 //! An [`AssetReader`] is what the asset server uses to read the raw bytes of assets.
 //! It does not know anything about the asset formats, only how to talk to the underlying storage.
 
-/// This example uses a png from the assets subdirectory
-const ICON_PATH: &str = "branding/icon.png";
-
 use bevy::{
     asset::io::{
         AssetReader, AssetReaderError, AssetSource, AssetSourceId, ErasedAssetReader, PathStream,
@@ -13,6 +10,9 @@ use bevy::{
     prelude::*,
 };
 use std::path::Path;
+
+/// This example uses a png from the assets subdirectory
+const ICON_PATH: &str = "branding/icon.png";
 
 /// A custom asset reader implementation that wraps a given asset reader implementation
 struct CustomAssetReader(Box<dyn ErasedAssetReader>);

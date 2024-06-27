@@ -1,8 +1,5 @@
 //! Implements loader for a Gzip compressed asset.
 
-/// This example uses a compressed png from the assets subdirectory
-const COMPRESSED_IMAGE_PATH: &str = "data/compressed_image.png.gz";
-
 use bevy::{
     asset::{
         io::{Reader, VecReader},
@@ -15,6 +12,9 @@ use flate2::read::GzDecoder;
 use std::io::prelude::*;
 use std::marker::PhantomData;
 use thiserror::Error;
+
+/// This example uses a compressed png from the assets subdirectory
+const COMPRESSED_IMAGE_PATH: &str = "data/compressed_image.png.gz";
 
 #[derive(Asset, TypePath)]
 struct GzAsset {

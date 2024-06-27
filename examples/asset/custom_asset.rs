@@ -1,9 +1,4 @@
 //! Implements loader for a custom asset type.
-
-/// This example loads two custom files from the assets subdirectory
-const ASSET_CUSTOM_PATH: &str = "data/asset.custom";
-const ASSET_NO_EXTENSION_PATH: &str = "data/asset_no_extension";
-
 use bevy::{
     asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext},
     prelude::*,
@@ -11,6 +6,10 @@ use bevy::{
 };
 use serde::Deserialize;
 use thiserror::Error;
+
+/// This example loads two custom files from the assets subdirectory
+const ASSET_CUSTOM_PATH: &str = "data/asset.custom";
+const ASSET_NO_EXTENSION_PATH: &str = "data/asset_no_extension";
 
 #[derive(Asset, TypePath, Debug, Deserialize)]
 struct CustomAsset {

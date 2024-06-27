@@ -1,13 +1,13 @@
 //! This example illustrates various ways to load assets.
 
+use bevy::{asset::LoadedFolder, prelude::*};
+
 /// This example uses three 3d model files from the assets subdirectory
 const CUBE_PATH: &str = "models/cube/cube.gltf";
 const SPHERE_PATH: &str = "models/sphere/sphere.gltf";
 const TORUS_MODEL_PATH: &str = "models/torus/torus.gltf";
 /// This example loads a folder from the assets subdirectory
 const TORUS_FOLDER_PATH: &str = "models/torus";
-
-use bevy::{asset::LoadedFolder, prelude::*};
 
 fn main() {
     App::new()
