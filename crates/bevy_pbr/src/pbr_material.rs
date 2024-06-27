@@ -1211,7 +1211,7 @@ impl From<&StandardMaterial> for StandardMaterialKey {
             StandardMaterialKey::NORMAL_MAP_UV,
             material.normal_map_channel != UvChannel::Uv0,
         );
-        
+
         #[cfg(feature = "pbr_anisotropy_texture")]
         {
             key.set(

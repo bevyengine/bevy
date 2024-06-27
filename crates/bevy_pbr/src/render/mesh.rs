@@ -1645,7 +1645,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if cfg!(feature = "pbr_anisotropy_texture") {
             shader_defs.push("PBR_ANISOTROPY_TEXTURE_SUPPORTED".into());
         }
-        
+
         let mut bind_group_layout = vec![self.get_view_layout(key.into()).clone()];
 
         if key.msaa_samples() > 1 {
