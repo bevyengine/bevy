@@ -2,6 +2,7 @@
 
 use crate::{ButtonInput, ButtonState};
 use bevy_ecs::entity::Entity;
+use bevy_ecs::system::Resource;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     event::{Event, EventReader},
@@ -154,4 +155,71 @@ pub fn mouse_button_input_system(
             ButtonState::Released => mouse_button_input.release(event.button),
         }
     }
+}
+
+/// Tracks how much the mouse has moved every frame
+///
+/// This event tracks the `MouseMotion` event for calculations.
+#[derive(Resource, Debug, Clone, Copy, PartialEq, Reflect, Default)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct AccumulatedMouseMotion {
+    /// The change in mouse position.
+    pub delta: Vec2,
+}
+
+/// Tracks how much the mouse has scrolled every frame
+///
+/// This event tracks the `MouseWheel` event for calculations.
+#[derive(Resource, Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct AccumulatedMouseScroll {
+    /// The mouse scroll unit.
+    pub unit: MouseScrollUnit,
+    /// The change in scroll position.
+    pub delta: Vec2,
+}
+
+impl Default for AccumulatedMouseScroll {
+    fn default() -> Self {
+        Self {
+            unit: MouseScrollUnit::Line,
+            delta: Vec2::ZERO,
+        }
+    }
+}
+
+/// Updates the `AccumulatedMouseMotion` and `AccumulatedMouseScroll` resources
+/// using the `MouseMotion` and `MouseWheel` events.
+pub fn accumulate_mouse_input_system(
+    mut mouse_motion_event: EventReader<MouseMotion>,
+    mut mouse_scroll_event: EventReader<MouseWheel>,
+    mut accumulated_mouse_motion: ResMut<AccumulatedMouseMotion>,
+    mut accumulated_mouse_scroll: ResMut<AccumulatedMouseScroll>,
+) {
+    let mut delta = Vec2::ZERO;
+    for event in mouse_motion_event.read() {
+        delta += event.delta;
+    }
+    accumulated_mouse_motion.delta = delta;
+
+    let mut delta = Vec2::ZERO;
+    let mut unit = MouseScrollUnit::Line;
+    for event in mouse_scroll_event.read() {
+        if event.unit != unit {
+            unit = event.unit;
+        }
+        delta += Vec2::new(event.x, event.y);
+    }
+    accumulated_mouse_scroll.delta = delta;
+    accumulated_mouse_scroll.unit = unit;
 }

@@ -43,7 +43,10 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use gestures::*;
 use keyboard::{keyboard_input_system, KeyCode, KeyboardFocusLost, KeyboardInput};
-use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
+use mouse::{
+    accumulate_mouse_input_system, mouse_button_input_system, AccumulatedMouseMotion,
+    AccumulatedMouseScroll, MouseButton, MouseButtonInput, MouseMotion, MouseWheel,
+};
 use touch::{touch_screen_input_system, TouchInput, Touches};
 
 use gamepad::{
@@ -77,7 +80,10 @@ impl Plugin for InputPlugin {
             .add_event::<MouseMotion>()
             .add_event::<MouseWheel>()
             .init_resource::<ButtonInput<MouseButton>>()
-            .add_systems(PreUpdate, mouse_button_input_system.in_set(InputSystem))
+            .add_systems(
+                PreUpdate,
+                (mouse_button_input_system, accumulate_mouse_input_system).in_set(InputSystem),
+            )
             .add_event::<PinchGesture>()
             .add_event::<RotationGesture>()
             .add_event::<DoubleTapGesture>()
@@ -94,6 +100,8 @@ impl Plugin for InputPlugin {
             .init_resource::<ButtonInput<GamepadButton>>()
             .init_resource::<Axis<GamepadAxis>>()
             .init_resource::<Axis<GamepadButton>>()
+            .init_resource::<AccumulatedMouseMotion>()
+            .init_resource::<AccumulatedMouseScroll>()
             .add_systems(
                 PreUpdate,
                 (
