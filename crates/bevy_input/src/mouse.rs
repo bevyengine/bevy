@@ -186,6 +186,8 @@ pub struct AccumulatedMouseMotion {
 )]
 pub struct AccumulatedMouseScroll {
     /// The mouse scroll unit.
+    /// If this value changes while scrolling, then the
+    /// result of the accumulation could be incorrect
     pub unit: MouseScrollUnit,
     /// The change in scroll position.
     pub delta: Vec2,
