@@ -1,12 +1,13 @@
 #[cfg(debug_assertions)]
 use bevy_utils::warn_once;
 use ddsfile::{Caps2, D3DFormat, Dds, DxgiFormat};
+use image::buffer::ConvertBuffer;
 use std::io::Cursor;
 use wgpu::{
     Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
 };
 
-use super::{CompressedImageFormats, Image, TextureError};
+use super::{CompressedImageFormats, Image, TextureError, TranscodeFormat};
 
 pub fn dds_buffer_to_image(
     #[cfg(debug_assertions)] name: String,
@@ -15,8 +16,21 @@ pub fn dds_buffer_to_image(
     is_srgb: bool,
 ) -> Result<Image, TextureError> {
     let mut cursor = Cursor::new(buffer);
-    let dds = Dds::read(&mut cursor).expect("Failed to parse DDS file");
-    let texture_format = dds_format_to_texture_format(&dds, is_srgb)?;
+    let dds = Dds::read(&mut cursor)
+        .map_err(|err| TextureError::InvalidData(format!("Failed to parse dds file: {err}")))?;
+
+    let (texture_format, transcode_format) = match dds_format_to_texture_format(&dds, is_srgb) {
+        Ok(format) => (format, None),
+        Err(TextureError::FormatRequiresTranscodingError(TranscodeFormat::Rgb8)) => {
+            let format = if is_srgb {
+                TextureFormat::Bgra8UnormSrgb
+            } else {
+                TextureFormat::Bgra8Unorm
+            };
+            (format, Some(TranscodeFormat::Rgb8))
+        }
+        Err(error) => return Err(error),
+    };
     if !supported_compressed_formats.supports(texture_format) {
         return Err(TextureError::UnsupportedTextureFormat(format!(
             "Format not supported by this GPU: {texture_format:?}",
@@ -78,7 +92,33 @@ pub fn dds_buffer_to_image(
             ..Default::default()
         });
     }
-    image.data = dds.data;
+    image.data = if let Some(transcode_format) = transcode_format {
+        match transcode_format {
+            TranscodeFormat::Rgb8 => {
+                let image: image::RgbaImage = image::RgbImage::from_vec(
+                    dds.get_width() * depth_or_array_layers,
+                    dds.get_height() * depth_or_array_layers,
+                    dds.data,
+                )
+                .ok_or_else(|| {
+                    TextureError::TranscodeError(format!(
+                        "failed to transcode from {:?} to {texture_format:?}",
+                        TranscodeFormat::Rgb8
+                    ))
+                })?
+                .convert();
+                image.into_vec()
+            }
+            _ => {
+                return Err(TextureError::TranscodeError(format!(
+                    "unsupported transcode from {transcode_format:?} to {texture_format:?}"
+                )))
+            }
+        }
+    } else {
+        dds.data
+    };
+
     Ok(image)
 }
 
@@ -103,6 +143,9 @@ pub fn dds_format_to_texture_format(
                     TextureFormat::Bgra8Unorm
                 }
             }
+            D3DFormat::R8G8B8 => {
+                return Err(TextureError::FormatRequiresTranscodingError(TranscodeFormat::Rgb8));
+            },
             D3DFormat::G16R16 => TextureFormat::Rg16Uint,
             D3DFormat::A2B10G10R10 => TextureFormat::Rgb10a2Unorm,
             D3DFormat::A8L8 => TextureFormat::Rg8Uint,
@@ -144,7 +187,6 @@ pub fn dds_format_to_texture_format(
             // FIXME: Map to argb format and user has to know to ignore the alpha channel?
             | D3DFormat::X8B8G8R8
             | D3DFormat::A2R10G10B10
-            | D3DFormat::R8G8B8
             | D3DFormat::X1R5G5B5
             | D3DFormat::A4R4G4B4
             | D3DFormat::X4R4G4B4
