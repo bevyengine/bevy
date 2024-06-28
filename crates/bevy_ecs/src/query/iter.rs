@@ -1621,6 +1621,69 @@ where
         }
     }
 
+    /// Sorts all query items into a new iterator with a key extraction function over the query lens.
+    ///
+    /// This sort is unstable (i.e., may reorder equal elements).
+    ///
+    /// This uses [`slice::sort_unstable_by_key`] internally.
+    ///
+    /// Defining the lens works like [`transmute_lens`](crate::system::Query::transmute_lens).
+    /// This includes the allowed parameter type changes listed under [allowed transmutes].
+    /// However, the lens uses the filter of the original query when present.
+    ///
+    /// The sort is not cached across system runs.
+    ///
+    /// [allowed transmutes]: crate::system::Query#allowed-transmutes
+    ///
+    /// Unlike the sort methods on [`QueryIter`], this does NOT panic if `next`/`fetch_next` has been
+    /// called on [`QueryManyIter`] before.
+    pub fn sort_unstable_by_key<L: ReadOnlyQueryData + 'w, K>(
+        self,
+        mut f: impl FnMut(&L::Item<'w>) -> K,
+    ) -> QuerySortedManyIter<
+        'w,
+        's,
+        D,
+        F,
+        impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
+    >
+    where
+        K: Ord,
+    {
+        let world = self.world;
+
+        let query_lens_state = self
+            .query_state
+            .transmute_filtered::<(L, Entity), F>(world.components());
+
+        // SAFETY:
+        // `self.world` has permission to access the required components.
+        // The original query iter has not been iterated on, so no items are aliased from it.
+        let query_lens = unsafe {
+            query_lens_state.iter_many_unchecked_manual(
+                self.entity_iter,
+                world,
+                world.last_change_tick(),
+                world.change_tick(),
+            )
+        };
+        let mut keyed_query: Vec<_> = query_lens.collect();
+        keyed_query.sort_unstable_by_key(|(lens, _)| f(lens));
+        let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity);
+        // SAFETY:
+        // `self.world` has permission to access the required components.
+        // Each lens query item is dropped before the respective actual query item is accessed.
+        unsafe {
+            QuerySortedManyIter::new(
+                world,
+                self.query_state,
+                entity_iter,
+                world.last_change_tick(),
+                world.change_tick(),
+            )
+        }
+    }
+
     /// Sort all query items into a new iterator with a key extraction function over the query lens.
     ///
     /// This sort is stable (i.e., does not reorder equal elements).
@@ -1716,7 +1779,7 @@ where
 ///
 /// This struct is created by the [`QueryManyIter::sort`], [`QueryManyIter::sort_unstable`],
 /// [`QueryManyIter::sort_by`], [`QueryManyIter::sort_unstable_by`], [`QueryManyIter::sort_by_key`],
-/// and [`QueryManyIter::sort_by_cached_key`] methods.
+/// [`QueryManyIter::sort_unstable_by_key`], and [`QueryManyIter::sort_by_cached_key`] methods.
 pub struct QuerySortedManyIter<'w, 's, D: QueryData, F: QueryFilter, I>
 where
     I: Iterator<Item = Entity>,
@@ -2589,6 +2652,11 @@ mod tests {
             .sort_by_key::<Entity, _>(|&e| e)
             .collect::<Vec<_>>();
 
+        let sort_unstable_by_key = query
+            .iter_many(&world, entity_list)
+            .sort_unstable_by_key::<Entity, _>(|&e| e)
+            .collect::<Vec<_>>();
+
         let sort_by_cached_key = query
             .iter_many(&world, entity_list)
             .sort_by_cached_key::<Entity, _>(|&e| e)
@@ -2609,6 +2677,9 @@ mod tests {
         let mut sort_by_key_v2 = query.iter_many(&world, entity_list).collect::<Vec<_>>();
         sort_by_key_v2.sort_by_key(|&e| e);
 
+        let mut sort_unstable_by_key_v2 = query.iter_many(&world, entity_list).collect::<Vec<_>>();
+        sort_unstable_by_key_v2.sort_unstable_by_key(|&e| e);
+
         let mut sort_by_cached_key_v2 = query.iter_many(&world, entity_list).collect::<Vec<_>>();
         sort_by_cached_key_v2.sort_by_cached_key(|&e| e);
 
@@ -2617,6 +2688,7 @@ mod tests {
         assert_eq!(sort_by, sort_by_v2);
         assert_eq!(sort_unstable_by, sort_unstable_by_v2);
         assert_eq!(sort_by_key, sort_by_key_v2);
+        assert_eq!(sort_unstable_by_key, sort_unstable_by_key_v2);
         assert_eq!(sort_by_cached_key, sort_by_cached_key_v2);
     }
 
