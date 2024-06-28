@@ -102,10 +102,9 @@ pub fn ui_layout_system(
         root_nodes: Vec<Entity>,
     }
 
+    let default_camera = default_ui_camera.get();
     let camera_with_default = |target_camera: Option<&TargetCamera>| {
-        target_camera
-            .map(TargetCamera::entity)
-            .or(default_ui_camera.get())
+        target_camera.map(TargetCamera::entity).or(default_camera)
     };
 
     let resized_windows: HashSet<Entity> = resize_events.read().map(|event| event.window).collect();
@@ -128,7 +127,7 @@ pub fn ui_layout_system(
 
     // Precalculate the layout info for each camera, so we have fast access to it for each node
     let mut camera_layout_info: HashMap<Entity, CameraLayoutInfo> = HashMap::new();
-    for (entity, target_camera) in &root_node_query {
+    root_node_query.iter().for_each(|(entity,target_camera)|{
         match camera_with_default(target_camera) {
             Some(camera_entity) => {
                 let Ok((_, camera)) = cameras.get(camera_entity) else {
@@ -136,7 +135,7 @@ pub fn ui_layout_system(
                         "TargetCamera (of root UI node {entity:?}) is pointing to a camera {:?} which doesn't exist",
                         camera_entity
                     );
-                    continue;
+                    return;
                 };
                 let layout_info = camera_layout_info
                     .entry(camera_entity)
@@ -153,10 +152,11 @@ pub fn ui_layout_system(
                         entity
                     );
                 }
-                continue;
+                return;
             }
         }
-    }
+
+    });
 
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_components.removed_content_sizes.read() {
@@ -164,30 +164,32 @@ pub fn ui_layout_system(
     }
 
     // Sync Style and ContentSize to Taffy for all nodes
-    for (entity, style, content_size, target_camera) in style_query.iter_mut() {
-        if let Some(camera) =
-            camera_with_default(target_camera).and_then(|c| camera_layout_info.get(&c))
-        {
-            if camera.resized
-                || !scale_factor_events.is_empty()
-                || ui_scale.is_changed()
-                || style.is_changed()
-                || content_size
-                    .as_ref()
-                    .map(|c| c.measure.is_some())
-                    .unwrap_or(false)
+    style_query
+        .iter_mut()
+        .for_each(|(entity, style, content_size, target_camera)| {
+            if let Some(camera) =
+                camera_with_default(target_camera).and_then(|c| camera_layout_info.get(&c))
             {
-                let layout_context = LayoutContext::new(
-                    camera.scale_factor,
-                    [camera.size.x as f32, camera.size.y as f32].into(),
-                );
-                let measure = content_size.and_then(|mut c| c.measure.take());
-                ui_surface.upsert_node(&layout_context, entity, &style, measure);
+                if camera.resized
+                    || !scale_factor_events.is_empty()
+                    || ui_scale.is_changed()
+                    || style.is_changed()
+                    || content_size
+                        .as_ref()
+                        .map(|c| c.measure.is_some())
+                        .unwrap_or(false)
+                {
+                    let layout_context = LayoutContext::new(
+                        camera.scale_factor,
+                        [camera.size.x as f32, camera.size.y as f32].into(),
+                    );
+                    let measure = content_size.and_then(|mut c| c.measure.take());
+                    ui_surface.upsert_node(&layout_context, entity, &style, measure);
+                }
+            } else {
+                ui_surface.upsert_node(&LayoutContext::DEFAULT, entity, &Style::default(), None);
             }
-        } else {
-            ui_surface.upsert_node(&LayoutContext::DEFAULT, entity, &Style::default(), None);
-        }
-    }
+        });
     scale_factor_events.clear();
 
     // clean up removed cameras
@@ -208,11 +210,11 @@ pub fn ui_layout_system(
     for entity in removed_components.removed_children.read() {
         ui_surface.try_remove_children(entity);
     }
-    for (entity, children) in &children_query {
+    children_query.iter().for_each(|(entity, children)| {
         if children.is_changed() {
             ui_surface.update_children(entity, &children);
         }
-    }
+    });
 
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
     ui_surface.remove_entities(removed_components.removed_nodes.read());
@@ -254,11 +256,11 @@ pub fn ui_layout_system(
 
             absolute_location += layout_location;
 
-            let rounded_size = round_layout_coords(absolute_location + layout_size)
-                - round_layout_coords(absolute_location);
+            let rounded_size = approx_round_layout_coords(absolute_location + layout_size)
+                - approx_round_layout_coords(absolute_location);
 
             let rounded_location =
-                round_layout_coords(layout_location) + 0.5 * (rounded_size - parent_size);
+                approx_round_layout_coords(layout_location) + 0.5 * (rounded_size - parent_size);
 
             // only trigger change detection when the new values are different
             if node.calculated_size != rounded_size || node.unrounded_size != layout_size {
@@ -315,29 +317,22 @@ pub fn resolve_outlines_system(
 
 #[inline]
 /// Round `value` to the nearest whole integer, with ties (values with a fractional part equal to 0.5) rounded towards positive infinity.
-fn round_ties_up(value: f32) -> f32 {
-    if value.fract() != -0.5 {
-        // The `round` function rounds ties away from zero. For positive numbers "away from zero" is towards positive infinity.
-        // So for all positive values, and negative values with a fractional part not equal to 0.5, `round` returns the correct result.
-        value.round()
-    } else {
-        // In the remaining cases, where `value` is negative and its fractional part is equal to 0.5, we use `ceil` to round it up towards positive infinity.
-        value.ceil()
-    }
+fn approx_round_ties_up(value: f32) -> f32 {
+    (value + 0.5).floor()
 }
 
 #[inline]
-/// Rounds layout coordinates by rounding ties upwards.
+/// Rounds layout coordinates by approx rounding ties upwards.
 ///
 /// Rounding ties up avoids gaining a pixel when rounding bounds that span from negative to positive.
 ///
 /// Example: The width between bounds of -50.5 and 49.5 before rounding is 100, using:
 /// - `f32::round`: width becomes 101 (rounds to -51 and 50).
 /// - `round_ties_up`: width is 100 (rounds to -50 and 50).
-fn round_layout_coords(value: Vec2) -> Vec2 {
+fn approx_round_layout_coords(value: Vec2) -> Vec2 {
     Vec2 {
-        x: round_ties_up(value.x),
-        y: round_ties_up(value.y),
+        x: approx_round_ties_up(value.x),
+        y: approx_round_ties_up(value.y),
     }
 }
 
@@ -374,7 +369,7 @@ mod tests {
     use bevy_window::WindowResolution;
     use bevy_window::WindowScaleFactorChanged;
 
-    use crate::layout::round_layout_coords;
+    use crate::layout::approx_round_layout_coords;
     use crate::layout::ui_surface::UiSurface;
     use crate::prelude::*;
     use crate::ui_layout_system;
@@ -383,7 +378,10 @@ mod tests {
 
     #[test]
     fn round_layout_coords_must_round_ties_up() {
-        assert_eq!(round_layout_coords(vec2(-50.5, 49.5)), vec2(-50., 50.));
+        assert_eq!(
+            approx_round_layout_coords(vec2(-50.5, 49.5)),
+            vec2(-50., 50.)
+        );
     }
 
     // these window dimensions are easy to convert to and from percentage values
