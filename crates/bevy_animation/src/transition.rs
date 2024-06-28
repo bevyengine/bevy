@@ -29,8 +29,8 @@ use crate::{graph::AnimationNodeIndex, ActiveAnimation, AnimationPlayer};
 /// transitions will usually be incorrect as a result.
 #[derive(Component, Default, Reflect)]
 pub struct AnimationTransitions {
-    main_animation: Option<AnimationNodeIndex>,
-    transitions: Vec<AnimationTransition>,
+    pub main_animation: Option<AnimationNodeIndex>,
+    pub transitions: Vec<AnimationTransition>,
 }
 
 // This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
