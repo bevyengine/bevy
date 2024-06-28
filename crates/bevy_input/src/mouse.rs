@@ -174,8 +174,9 @@ pub struct AccumulatedMouseMotion {
     pub delta: Vec2,
 }
 
-/// Tracks how much the mouse has scrolled every frame
-/// This resource is reset to zero every frame
+/// Tracks how much the mouse has scrolled every frame.
+///
+/// This resource is reset to zero every frame.
 ///
 /// This resource sums the total [`MouseWheel`] events received this frame.
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Reflect)]
