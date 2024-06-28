@@ -79,7 +79,6 @@ where F: Fn(&'a mut SocketEnrey<B, S>) -> Fut, Fut: Future {
     }
 }
 
-
 impl<B, S> SocketManger<B, S>
 where B: Buffer<InnerSocket = S> {
     fn future_iter<'a, F, Fut>(&'a mut self, func: F) -> FutureSpawner<'a, B, S, F, Fut>
@@ -87,30 +86,105 @@ where B: Buffer<InnerSocket = S> {
         FutureSpawner { inner: self.sockets.iter_mut(), function: func }
     }
 
-    fn update_futures<'a, F1, F2, F3, F4>(&mut self) {
-        let iter = self.future_iter(|entrey| async {
-            if let Some(lock) = entrey.buffer.upgrade() {
-                if let Some(socket) = &mut entrey.socket {
-                    let mut guard = lock.lock_async().await.unwrap();
-                    
-                    return Ok(Some(BufferUpdateResult {
-                        write_result: guard.flush_write_bufs(socket).await,
-                        read_result: guard.fill_read_bufs(socket).await,
-                        properties_result: guard.update_properties(socket).await
-                    }))
+    async fn update(&mut self) -> Vec<UpdateResults> {
+        let pool = IoTaskPool::get();
+
+        pool.scope(|scope| {
+            for fut in self.future_iter(|entrey| async {
+                if let Some(lock) = entrey.buffer.upgrade() {
+                    if let Some(socket) = &mut entrey.socket {
+                        let mut guard = lock.lock_async().await.unwrap();
+
+                        return Ok(Some(BufferUpdateResult {
+                            write_result: guard.flush_write_bufs(socket).await,
+                            read_result: guard.fill_read_bufs(socket).await,
+                            properties_result: guard.update_properties(socket).await
+                        }))
+                    }
+
+                    return Ok(None)
                 }
-                
-                return Ok(None)
+
+                Err(())
+            }).enumerate().map(|(index, future)| {
+                async move {
+                    UpdateResults { results: future.await, index }
+                }
+            }) {
+                scope.spawn(fut)
             }
-            
-            Err(())
-        }).enumerate().map(|(index, future)| {
-            async move {
-                UpdateResults { results: future.await, index }
-            }
-        });
+        })
+    }
+
+    async fn update_and_handle(&mut self) {
+        let results = self.update().await;
+
+        let mut to_be_removed = Vec::with_capacity(self.sockets.len());
         
-        iter
+        for res in results {
+            let index = res.index;
+            
+            match res.results {
+                Ok(optional) => {
+                    if let Some(results) = optional {
+                        let mut error_occured = false;
+                        let mut should_drop = false;
+                        
+                        let current_entrey = &mut self.sockets[index];
+                        
+                        match results.write_result {
+                            Ok(n) => {
+                                //todo add write and read rates as diagnostic data
+                            }
+                            Err(action) => {
+                                error_occured = true;
+                                if action.is_drop() {
+                                    should_drop = true;
+                                }
+                            }
+                        }
+
+                        match results.read_result {
+                            Ok(n) => {
+
+                            }
+                            Err(action) => {
+                                error_occured = true;
+                                if action.is_drop() {
+                                    should_drop = true;
+                                }
+                            }
+                        }
+                        
+                        if let Err(action) = results.properties_result {
+                            error_occured = true;
+                            if action.is_drop() {
+                                should_drop = true;
+                            }
+                        }
+                        
+                        if should_drop {
+                            current_entrey.socket = None;
+                        }
+                        
+                        if error_occured {
+                            current_entrey.data.error_count += 1;
+                        } else {
+                            current_entrey.data.error_count = 0;
+                        }
+                    }
+                }
+                Err(_) => {
+                    to_be_removed.push(index);
+                }
+            }
+        }
+        
+        to_be_removed.sort_unstable();
+        
+        for index in to_be_removed.into_iter().rev() {
+            self.sockets.remove(index);
+        }
     }
 }
 
