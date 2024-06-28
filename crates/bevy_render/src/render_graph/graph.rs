@@ -26,7 +26,7 @@ pub type InternedRenderSubGraph = Interned<dyn RenderSubGraph>;
 /// It is a retained and stateless (nodes themselves may have their own internal state) structure,
 /// which can not be modified while it is executed by the graph runner.
 ///
-/// The [`RenderGraphRunner`](crate::renderer::graph_runner::RenderGraphRunner) is responsible for executing the entire graph each frame.
+/// The render graph runner is responsible for executing the entire graph each frame.
 /// It will execute each node in the graph in the correct order, based on the edges between the nodes.
 ///
 /// It consists of three main components: [`Nodes`](Node), [`Edges`](Edge)

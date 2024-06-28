@@ -812,8 +812,8 @@ impl World {
         unsafe { self.get_entities_dynamic_mut_unchecked(entities.iter().copied()) }
     }
 
-    /// Gets mutable access to multiple entities, contained in a [`HashSet`].
-    /// The uniqueness of items in a [`HashSet`] allows us to avoid checking for duplicates.
+    /// Gets mutable access to multiple entities, contained in a [`EntityHashSet`].
+    /// The uniqueness of items in a [`EntityHashSet`] allows us to avoid checking for duplicates.
     ///
     /// # Errors
     ///
@@ -2037,7 +2037,7 @@ impl World {
         }
     }
 
-    /// Calls both [`World::flush_entities`] and [`World::flush_commands`].
+    /// Flushes queued entities and calls [`World::flush_commands`].
     #[inline]
     pub fn flush(&mut self) {
         self.flush_entities();
