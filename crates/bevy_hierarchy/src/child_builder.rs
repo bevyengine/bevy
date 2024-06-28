@@ -287,7 +287,7 @@ pub trait ChildBuild {
     /// Spawn output type. Both [`spawn`](Self::spawn) and [`spawn_empty`](Self::spawn_empty) return
     /// an implementation of this type so that children can be operated on via method-chaining.
     /// Implementations of `ChildBuild` reborrow `self` when spawning entities (see
-    /// [`Commands::spawn_empty`] and [`World::get_entity_mut`]). Lifetime `'a` corresponds this
+    /// [`Commands::spawn_empty`] and [`World::get_entity_mut`]). Lifetime `'a` corresponds to this
     /// reborrowed self, and `Self` outlives it.
     type SpawnOutput<'a>: BuildChildren
     where
