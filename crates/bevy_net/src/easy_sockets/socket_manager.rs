@@ -1,211 +1,150 @@
+use std::future::Future;
+use std::iter::{Enumerate, Map};
 use std::net::SocketAddr;
-use std::ops::DerefMut;
-use std::sync::{Arc, Weak};
-use bevy_internal::log::warn;
-use bevy_internal::tasks::TaskPool;
-use crate::easy_sockets::{AsyncHandler, Buffer, ErrorAction};
-use crate::easy_sockets::spin_lock::SpinLock;
+use std::ops::{Deref, DerefMut};
+use std::slice::IterMut;
+use std::sync::{Arc, Mutex, RwLock, Weak};
+use bevy_internal::tasks::{IoTaskPool, TaskPool};
+use crate::easy_sockets::{Buffer, ErrorAction};
+use crate::easy_sockets::spin_lock::{SpinLock, SpinLockGuard};
 
-struct SocketManger<B, S> {
-    handler: AsyncHandler<SocketData<B, S>>
+/// A wrapper type around Arc<SpinLock<T>>.
+/// It's used to ensure the arc 
+/// isn't cloned which could cause 
+/// incorrectness.
+pub struct OwnedBuffer<T>(Arc<SpinLock<T>>);
+
+impl<T> OwnedBuffer<T> {
+    fn new_with_weak(inner: T) -> (Weak<SpinLock<T>>, Self) {
+        let new = Self(Arc::new(SpinLock::new(inner)));
+        let weak = Arc::downgrade(&new.0);
+
+        (weak, new)
+    }
+}
+
+impl<T> Deref for OwnedBuffer<T> {
+    type Target = SpinLock<T>;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.deref()
+    }
 }
 
 struct BufferUpdateResult {
     write_result: Result<usize, ErrorAction>,
     read_result: Result<usize, ErrorAction>,
-    properties_result: Option<ErrorAction>,
+    properties_result: Result<(), ErrorAction>
+}
+
+struct UpdateResults {
+    results: Result<Option<BufferUpdateResult>, ()>,
     index: usize
 }
 
-#[cfg(feature = "MetaData")]
-struct ByteMetaData {
-    /// Consecutive recoverable errors
-    /// returned by the buffer during any operations.
-    recoverable_errors: u32,
-
-    #[cfg(feature = "Extra-MetaData")]
-    /// Consecutive recoverable errors
-    /// returned the buffer during read updates.
-    recoverable_errors_read: u32,
-    #[cfg(feature = "Extra-MetaData")]
-    /// Consecutive recoverable errors
-    /// returned the buffer during write updates.
-    recoverable_errors_write: u32,
-    #[cfg(feature = "Extra-MetaData")]
-    /// Consecutive recoverable errors
-    /// returned the buffer during updates to
-    /// miscellaneous properties of the socket.
-    recoverable_errors_properties: u32,
-
-    /// Number of bytes written this tick.
-    written_this_tick: u32,
-    /// Number of bytes read this tick.
-    read_this_tick: u32,
-
-    #[cfg(feature = "Extra-MetaData")]
-    /// Total number of bytes written to
-    /// the port in its lifetime.
-    total_written: u64,
-    #[cfg(feature = "Extra-MetaData")]
-    /// Total number of bytes read from
-    /// the port in its lifetime.
-    total_read: u64,
-}
-
-#[cfg(feature = "MetaData")]
-impl ByteMetaData {
-    fn update(&mut self, result: BufferUpdateResult) {
-
-        let mut recoverible_error_occured = false;
-
-        if let Ok(n) = result.write_result {
-            self.written_this_tick = n as u32;
-        } else {
-            self.written_this_tick = 0;
-
-            let err = result.write_result.unwrap_err();
-
-            if err.is_none() {
-                recoverible_error_occured = true;
-                #[cfg(feature = "Extra-MetaData")]
-                { self.recoverable_errors_write += 1; }
-            } else {
-                #[cfg(feature = "Extra-MetaData")]
-                { self.recoverable_errors_write = 0; }
-            }
-        }
-
-        if let Ok(n) = result.read_result {
-            self.read_this_tick = n as u32;
-        } else {
-            self.read_this_tick = 0;
-
-            let err = result.read_result.unwrap_err();
-
-            if err.is_none() {
-                recoverible_error_occured = true;
-                #[cfg(feature = "Extra-MetaData")]
-                { self.recoverable_errors_read += 1; }
-            } else {
-                #[cfg(feature = "Extra-MetaData")]
-                { self.recoverable_errors_read = 0; }
-            }
-        }
-
-        #[cfg(feature = "Extra-MetaData")]
-        if let Some(err) = result.properties_result {
-            if err.is_none() {
-                recoverible_error_occured = true;
-                #[cfg(feature = "Extra-MetaData")]
-                { self.recoverable_errors_properties += 1; }
-            } else {
-                #[cfg(feature = "Extra-MetaData")]
-                { self.recoverable_errors_properties = 0; }
-            }
-        }
-
-        #[cfg(feature = "Extra-MetaData")]
-        {
-            self.total_written += self.written_this_tick as u64;
-            self.total_read += self.read_this_tick as u64;
-        }
-
-
-        if recoverible_error_occured {
-            self.recoverable_errors += 1;
-        } else {
-            self.recoverable_errors += 0;
-        }
-    }
-
-    fn warn_logging(&self, addr: SocketAddr) {
-        todo!()
-    }
-    
-    fn debug_logging(&self, addr: SocketAddr) {
-        todo!()
-    }
-}
-
-struct SocketData<B, S> {
+struct SocketEnrey<B, S> {
     buffer: Weak<SpinLock<B>>,
     socket: Option<S>,
-    #[cfg(feature = "MetaData")]
-    meta_data: ByteMetaData
+    data: DiagnosticData
 }
+
+#[derive(Default)]
+struct DiagnosticData {
+    /// Number of consecutive ticks this
+    /// buffer has had some kind of 
+    /// none fatal error occur
+    error_count: u32,
+}
+
+struct SocketManger<B, S> {
+    sockets: Vec<SocketEnrey<B, S>>,
+}
+
+struct FutureSpawner<'a, B, S, F, Fut>
+where F: Fn(&'a mut SocketEnrey<B, S>) -> Fut, Fut: Future {
+    inner: IterMut<'a, SocketEnrey<B, S>>,
+    function: F
+}
+
+impl<'a, B, S, F, Fut> Iterator for FutureSpawner<'a, B, S, F, Fut>
+where F: Fn(&'a mut SocketEnrey<B, S>) -> Fut, Fut: Future {
+    type Item = Fut;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(entrey) = self.inner.next() {
+            let func = &self.function;
+            return Some(func(entrey))
+        }
+        None
+    }
+}
+
 
 impl<B, S> SocketManger<B, S>
 where B: Buffer<InnerSocket = S> {
-    fn update_buffers(&mut self, pool: &TaskPool) -> Vec<Result<BufferUpdateResult, usize>> {
-        self.handler.for_each_async_mut(|index, data | async move {
-            if let Some(lock) = data.buffer.upgrade() {
-                let mut guard = lock.lock_async().await.unwrap();
-                let mut buffer = guard.deref_mut();
-                
-                if let Some(socket) = &mut data.socket {
+    fn future_iter<'a, F, Fut>(&'a mut self, func: F) -> FutureSpawner<'a, B, S, F, Fut>
+    where F: Fn(&'a mut SocketEnrey<B, S>) -> Fut, Fut: Future {
+        FutureSpawner { inner: self.sockets.iter_mut(), function: func }
+    }
+
+    fn update_futures<'a, F1, F2, F3, F4>(&mut self) {
+        let iter = self.future_iter(|entrey| async {
+            if let Some(lock) = entrey.buffer.upgrade() {
+                if let Some(socket) = &mut entrey.socket {
+                    let mut guard = lock.lock_async().await.unwrap();
                     
-                    return Ok(
-                        BufferUpdateResult {
-                            write_result: buffer.flush_write_bufs(socket).await,
-                            read_result: buffer.fill_read_bufs(socket).await,
-                            properties_result: buffer.update_properties(socket).await,
-                            index
-                        }
-                    )
+                    return Ok(Some(BufferUpdateResult {
+                        write_result: guard.flush_write_bufs(socket).await,
+                        read_result: guard.fill_read_bufs(socket).await,
+                        properties_result: guard.update_properties(socket).await
+                    }))
                 }
-                return Err(index)
+                
+                return Ok(None)
             }
-
-            Err(index)
-        }, pool)
-    }
-    
-    fn update_and_handle(&mut self, pool: &TaskPool) {
-        let results = self.update_buffers(pool);
-
-        let mut to_be_removed = Vec::with_capacity(self.handler.0.len());
-        
-        for res in &results {
             
-            match res {
-                Ok(UpdateResults) => {
-                    if let Some(prop_error) = UpdateResults.properties_result {
-                        if prop_error.is_drop() {
-                            self.handler.0[UpdateResults.index].socket = None;
-                        }
-                    }
-
-                    if let Err(a) = UpdateResults.read_result {
-                        if a.is_drop() {
-                            self.handler.0[UpdateResults.index].socket = None;
-                        }
-                    }
-
-                    if let Err(a) = UpdateResults.write_result {
-                        if a.is_drop() {
-                            self.handler.0[UpdateResults.index].socket = None;
-                        }
-                    }
-                }
-                Err(index) => {
-                    to_be_removed.push(*index);
-                }
+            Err(())
+        }).enumerate().map(|(index, future)| {
+            async move {
+                UpdateResults { results: future.await, index }
             }
-        }
-
-        #[cfg(feature = "MetaData")]
-        for res in results {
-            if let Ok(res) = res {
-                let metadata = &mut self.handler.0[res.index].meta_data;
-                metadata.update(res);
-
-            }
-        }
+        });
         
-        to_be_removed.sort_unstable();
-        
-        for index in to_be_removed.iter().rev() {
-            self.handler.0.remove(*index);
-        }
+        iter
     }
+}
+
+
+//todo rewrite this
+#[macro_export]
+macro_rules! manager {
+
+
+    ($name:ident, $buffer:ty, $socket:ty) => {
+        use crate::easy_sockets::socket_manager::{SocketManager, OwnedBuffer};
+        use bevy_internal::tasks::IoTaskPool;
+
+        static manager: $name = $name {inner: SocketManager::new()};
+            
+        pub struct $name {
+            inner: SocketManager<$buffer, $socket>,
+        }
+            
+        impl $name {
+            pub fn register(&self, socket: $socket) -> Result<OwnedBuffer<$buffer>, $buffer::ConstructionError> {
+                self.inner.register_socket(socket)
+            }
+            pub fn get() -> &'static Self {
+                &manager
+            }
+        }
+
+        pub struct
+            
+        pub fn start_update_system() {
+            IoTaskPool::try_get().expect("The io task pool was not initalised. \
+            Maybe you forgot to add the SocketManager plugin?");
+            $name.get().inner.update_and_handle()
+        }
+    };
 }

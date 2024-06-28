@@ -11,20 +11,8 @@ use bevy_internal::prelude::{Deref, DerefMut};
 use crate::easy_sockets::spin_lock::SpinLock;
 
 mod socket_manager;
-
-pub struct AsyncHandler<T>(pub Vec<T>);
-
-impl<T> AsyncHandler<T> {
-    pub fn for_each_async_mut<'a, F, U, Fut>(&'a mut self, function: F, io: &TaskPool) -> Vec<U>
-        where F: Fn(usize, &'a mut T) -> Fut,
-              Fut: Future<Output = U>, U: Send + 'static {
-        io.scope(|s| {
-            for (index, value) in self.0.iter_mut().enumerate() {
-                s.spawn(function(index, value))
-            }
-        })
-    }
-}
+mod plugin;
+pub mod net_types;
 
 pub mod spin_lock {
     use std::future::Future;
@@ -179,16 +167,18 @@ impl ErrorAction {
     }
 }
 
-pub trait Buffer {
+pub trait Buffer: Sized {
     type InnerSocket;
     
-    fn build() -> Self;
+    type ConstructionError;
+    
+    fn build(socket: &Self::InnerSocket) -> Result<Self, Self::ConstructionError>;
 
     async fn fill_read_bufs(&mut self, socket: &mut Self::InnerSocket) -> Result<usize, ErrorAction>;
 
     async fn flush_write_bufs(&mut self, socket: &mut Self::InnerSocket) -> Result<usize, ErrorAction>;
     
-    async fn update_properties(&mut self, socket: &mut Self::InnerSocket) -> Option<ErrorAction>;
+    async fn update_properties(&mut self, socket: &mut Self::InnerSocket) -> Result<(), ErrorAction>;
 }
 
 pub trait ToByteQueue {
