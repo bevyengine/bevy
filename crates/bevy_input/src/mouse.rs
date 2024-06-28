@@ -158,8 +158,9 @@ pub fn mouse_button_input_system(
     }
 }
 
-/// Tracks how much the mouse has moved every frame
-/// This resource is reset to zero every frame
+/// Tracks how much the mouse has moved every frame.
+///
+/// This resource is reset to zero every frame.
 ///
 /// This resource sums the total [`MouseMotion`] events received this frame.
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Reflect, Default)]
