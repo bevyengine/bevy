@@ -138,7 +138,9 @@ impl Plugin for InputPlugin {
             .register_type::<TouchInput>()
             .register_type::<GamepadEvent>()
             .register_type::<GamepadButtonInput>()
-            .register_type::<GamepadSettings>();
+            .register_type::<GamepadSettings>()
+            .register_type::<AccumulatedMouseMotion>()
+            .register_type::<AccumulatedMouseScroll>();
     }
 }
 

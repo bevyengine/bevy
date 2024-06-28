@@ -2,6 +2,7 @@
 
 use crate::{ButtonInput, ButtonState};
 use bevy_ecs::entity::Entity;
+use bevy_ecs::reflect::ReflectResource;
 use bevy_ecs::system::Resource;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -9,7 +10,7 @@ use bevy_ecs::{
     system::ResMut,
 };
 use bevy_math::Vec2;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -162,7 +163,7 @@ pub fn mouse_button_input_system(
 ///
 /// This resource sums the total [`MouseMotion`] events received this frame.
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Reflect, Default)]
-#[reflect(Debug, PartialEq)]
+#[reflect(Debug, Default, Resource, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -178,7 +179,7 @@ pub struct AccumulatedMouseMotion {
 ///
 /// This resource sums the total [`MouseWheel`] events received this frame.
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[reflect(Debug, Default, Resource, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
