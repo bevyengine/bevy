@@ -168,7 +168,7 @@ impl<T> EvenCore<T> {
         T: Clone,
         I: Fn(&T, &T, f32) -> T,
     {
-        match even_betweenness(self.domain, self.samples.len(), t) {
+        match even_interp(self.domain, self.samples.len(), t) {
             InterpolationDatum::Exact(idx)
             | InterpolationDatum::LeftTail(idx)
             | InterpolationDatum::RightTail(idx) => self.samples[idx].clone(),
@@ -184,17 +184,17 @@ impl<T> EvenCore<T> {
     /// variants give additional context about where the value is relative to the family of samples.
     ///
     /// [`Between`]: `InterpolationDatum::Between`
-    pub fn sample_betweenness(&self, t: f32) -> InterpolationDatum<&T> {
-        even_betweenness(self.domain, self.samples.len(), t).map(|idx| &self.samples[idx])
+    pub fn sample_interp(&self, t: f32) -> InterpolationDatum<&T> {
+        even_interp(self.domain, self.samples.len(), t).map(|idx| &self.samples[idx])
     }
 
-    /// Like [`sample_betweenness`], but the returned values include the sample times. This can be
+    /// Like [`sample_interp`], but the returned values include the sample times. This can be
     /// useful when sampling is not scale-invariant.
     ///
-    /// [`sample_betweenness`]: EvenCore::sample_betweenness
-    pub fn sample_betweenness_timed(&self, t: f32) -> InterpolationDatum<(f32, &T)> {
+    /// [`sample_interp`]: EvenCore::sample_interp
+    pub fn sample_interp_timed(&self, t: f32) -> InterpolationDatum<(f32, &T)> {
         let segment_len = self.domain.length() / (self.samples.len() - 1) as f32;
-        even_betweenness(self.domain, self.samples.len(), t).map(|idx| {
+        even_interp(self.domain, self.samples.len(), t).map(|idx| {
             (
                 self.domain.start() + segment_len * idx as f32,
                 &self.samples[idx],
@@ -211,7 +211,7 @@ impl<T> EvenCore<T> {
 /// `samples` must be at least 2.
 ///
 /// This function will never panic, but it may return invalid indices if its assumptions are violated.
-pub fn even_betweenness(domain: Interval, samples: usize, t: f32) -> InterpolationDatum<usize> {
+pub fn even_interp(domain: Interval, samples: usize, t: f32) -> InterpolationDatum<usize> {
     let subdivs = samples - 1;
     let step = domain.length() / subdivs as f32;
     let t_shifted = t - domain.start();
@@ -323,7 +323,7 @@ impl<T> UnevenCore<T> {
         T: Clone,
         I: Fn(&T, &T, f32) -> T,
     {
-        match uneven_betweenness(&self.times, t) {
+        match uneven_interp(&self.times, t) {
             InterpolationDatum::Exact(idx)
             | InterpolationDatum::LeftTail(idx)
             | InterpolationDatum::RightTail(idx) => self.samples[idx].clone(),
@@ -339,16 +339,16 @@ impl<T> UnevenCore<T> {
     /// variants give additional context about where the value is relative to the family of samples.
     ///
     /// [`Between`]: `InterpolationDatum::Between`
-    pub fn sample_betweenness(&self, t: f32) -> InterpolationDatum<&T> {
-        uneven_betweenness(&self.times, t).map(|idx| &self.samples[idx])
+    pub fn sample_interp(&self, t: f32) -> InterpolationDatum<&T> {
+        uneven_interp(&self.times, t).map(|idx| &self.samples[idx])
     }
 
-    /// Like [`sample_betweenness`], but the returned values include the sample times. This can be
+    /// Like [`sample_interp`], but the returned values include the sample times. This can be
     /// useful when sampling is not scale-invariant.
     ///
-    /// [`sample_betweenness`]: UnevenCore::sample_betweenness
-    pub fn sample_betweenness_timed(&self, t: f32) -> InterpolationDatum<(f32, &T)> {
-        uneven_betweenness(&self.times, t).map(|idx| (self.times[idx], &self.samples[idx]))
+    /// [`sample_interp`]: UnevenCore::sample_interp
+    pub fn sample_interp_timed(&self, t: f32) -> InterpolationDatum<(f32, &T)> {
+        uneven_interp(&self.times, t).map(|idx| (self.times[idx], &self.samples[idx]))
     }
 
     /// This core, but with the sample times moved by the map `f`.
@@ -484,17 +484,16 @@ impl<T> ChunkedUnevenCore<T> {
     ///
     /// [`Between`]: `InterpolationDatum::Between`
     #[inline]
-    pub fn sample_betweenness(&self, t: f32) -> InterpolationDatum<&[T]> {
-        uneven_betweenness(&self.times, t).map(|idx| self.time_index_to_slice(idx))
+    pub fn sample_interp(&self, t: f32) -> InterpolationDatum<&[T]> {
+        uneven_interp(&self.times, t).map(|idx| self.time_index_to_slice(idx))
     }
 
-    /// Like [`sample_betweenness`], but the returned values include the sample times. This can be
+    /// Like [`sample_interp`], but the returned values include the sample times. This can be
     /// useful when sampling is not scale-invariant.
     ///
-    /// [`sample_betweenness`]: ChunkedUnevenCore::sample_betweenness
-    pub fn sample_betweenness_timed(&self, t: f32) -> InterpolationDatum<(f32, &[T])> {
-        uneven_betweenness(&self.times, t)
-            .map(|idx| (self.times[idx], self.time_index_to_slice(idx)))
+    /// [`sample_interp`]: ChunkedUnevenCore::sample_interp
+    pub fn sample_interp_timed(&self, t: f32) -> InterpolationDatum<(f32, &[T])> {
+        uneven_interp(&self.times, t).map(|idx| (self.times[idx], self.time_index_to_slice(idx)))
     }
 
     /// Given an index in [times], returns the slice of [values] that correspond to the sample at
@@ -520,7 +519,7 @@ fn filter_sort_dedup_times(times: Vec<f32>) -> Vec<f32> {
     times
 }
 
-/// Given a list of `times` and a target value, get the betweenness relationship for the
+/// Given a list of `times` and a target value, get the interpolation relationship for the
 /// target value in terms of the indices of the starting list. In a sense, this encapsulates the
 /// heart of uneven/keyframe sampling.
 ///
@@ -529,7 +528,7 @@ fn filter_sort_dedup_times(times: Vec<f32>) -> Vec<f32> {
 ///
 /// # Panics
 /// This function will panic if `times` contains NAN.
-pub fn uneven_betweenness(times: &[f32], t: f32) -> InterpolationDatum<usize> {
+pub fn uneven_interp(times: &[f32], t: f32) -> InterpolationDatum<usize> {
     match times.binary_search_by(|pt| pt.partial_cmp(&t).unwrap()) {
         Ok(index) => InterpolationDatum::Exact(index),
         Err(index) => {
