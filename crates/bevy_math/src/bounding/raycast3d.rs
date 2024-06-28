@@ -19,7 +19,7 @@ pub struct RayCast3d {
 }
 
 impl RayCast3d {
-    /// Construct a [`RayCast3d`] from an origin, [`Dir3`], and max distance.
+    /// Construct a [`RayCast3d`] from an origin, [`Dir3A`], and max distance.
     pub fn new(origin: impl Into<Vec3A>, direction: impl Into<Dir3A>, max: f32) -> Self {
         let direction = direction.into();
         Self {
@@ -108,7 +108,7 @@ pub struct AabbCast3d {
 }
 
 impl AabbCast3d {
-    /// Construct an [`AabbCast3d`] from an [`Aabb3d`], origin, [`Dir3`], and max distance.
+    /// Construct an [`AabbCast3d`] from an [`Aabb3d`], origin, [`Dir3A`], and max distance.
     pub fn new(
         aabb: Aabb3d,
         origin: impl Into<Vec3A>,
@@ -151,7 +151,7 @@ pub struct BoundingSphereCast {
 }
 
 impl BoundingSphereCast {
-    /// Construct a [`BoundingSphereCast`] from a [`BoundingSphere`], origin, [`Dir3`], and max distance.
+    /// Construct a [`BoundingSphereCast`] from a [`BoundingSphere`], origin, [`Dir3A`], and max distance.
     pub fn new(
         sphere: BoundingSphere,
         origin: impl Into<Vec3A>,

@@ -192,9 +192,8 @@ impl<'m> SceneEntityMapper<'m> {
     }
 
     /// Reserves the allocated references to dead entities within the world. This frees the temporary base
-    /// [`Entity`] while reserving extra generations via [`crate::entity::Entities::reserve_generations`]. Because this
-    /// renders the [`SceneEntityMapper`] unable to safely allocate any more references, this method takes ownership of
-    /// `self` in order to render it unusable.
+    /// [`Entity`] while reserving extra generations. Because this makes the [`SceneEntityMapper`] unable to
+    /// safely allocate any more references, this method takes ownership of `self` in order to render it unusable.
     pub fn finish(self, world: &mut World) {
         // SAFETY: Entities data is kept in a valid state via `EntityMap::world_scope`
         let entities = unsafe { world.entities_mut() };

@@ -60,7 +60,7 @@ pub struct WinitPlugin<T: Event = WakeUp> {
     /// Allows the window (and the event loop) to be created on any thread
     /// instead of only the main thread.
     ///
-    /// See [`EventLoopBuilder::build`] for more information on this.
+    /// See [`EventLoopBuilder::build`](winit::event_loop::EventLoopBuilder::build) for more information on this.
     ///
     /// # Supported platforms
     ///
@@ -142,7 +142,7 @@ impl<T: Event> Plugin for WinitPlugin<T> {
 #[derive(Debug, Default, Clone, Copy, Event)]
 pub struct WakeUp;
 
-/// The [`winit::event_loop::EventLoopProxy`] with the specific [`winit::event::Event::UserEvent`] used in the [`winit_runner`].
+/// A re-export of [`winit::event_loop::EventLoopProxy`].
 ///
 /// The `EventLoopProxy` can be used to request a redraw from outside bevy.
 ///

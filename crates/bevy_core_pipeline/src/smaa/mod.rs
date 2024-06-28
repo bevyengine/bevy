@@ -15,7 +15,7 @@
 //! pinch, you can simply use the default settings (via the [`Default`] trait)
 //! for a high-quality, high-performance appearance. When using SMAA, you will
 //! likely want to turn the default MSAA off by inserting the
-//! [`bevy_render::Msaa::Off`] resource into the [`App`].
+//! [`bevy_render::view::Msaa::Off`] resource into the [`App`].
 //!
 //! Those who have used SMAA in other engines should be aware that Bevy doesn't
 //! yet support the following more advanced features of SMAA:

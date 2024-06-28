@@ -11,6 +11,8 @@ use std::marker::PhantomData;
 ///
 /// Unlike [`EventWriter<T>`], systems with `EventReader<T>` param can be executed concurrently
 /// (but not concurrently with `EventWriter<T>` systems for the same event type).
+///
+/// [`EventWriter<T>`]: super::EventWriter
 #[derive(SystemParam, Debug)]
 pub struct EventReader<'w, 's, E: Event> {
     pub(super) reader: Local<'s, ManualEventReader<E>>,
@@ -25,7 +27,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
         self.reader.read(&self.events)
     }
 
-    /// Like [`read`](Self::read), except also returning the [`EventId`] of the events.
+    /// Like [`read`](Self::read), except also returning the [`EventId`](super::EventId) of the events.
     pub fn read_with_id(&mut self) -> EventIteratorWithId<'_, E> {
         self.reader.read_with_id(&self.events)
     }

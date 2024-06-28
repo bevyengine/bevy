@@ -28,7 +28,7 @@ use bevy_window::{PrimaryWindow, Window, WindowClosed};
 #[derive(Default, Deref, DerefMut)]
 pub struct AccessKitAdapters(pub EntityHashMap<Adapter>);
 
-/// Maps window entities to their respective [`WinitActionRequests`]s.
+/// Maps window entities to their respective [`ActionRequest`]s.
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct WinitActionRequestHandlers(pub EntityHashMap<Arc<Mutex<WinitActionRequestHandler>>>);
 
