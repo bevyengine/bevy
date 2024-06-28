@@ -192,7 +192,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         );
         let table = self.tables.get(archetype.table_id()).debug_checked_unwrap();
 
-        assert!(
+        debug_assert!(
             archetype.len() == table.entity_count(),
             "archetype and it's table must have the same length. "
         );
