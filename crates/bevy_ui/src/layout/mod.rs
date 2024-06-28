@@ -152,7 +152,6 @@ pub fn ui_layout_system(
                         entity
                     );
                 }
-                return;
             }
         }
 
