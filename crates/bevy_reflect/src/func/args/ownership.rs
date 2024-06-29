@@ -31,9 +31,16 @@ impl Display for Ownership {
     }
 }
 
+/// Implements the [`GetOwnership`] trait for the given type.
+///
+/// This will implement it for `$ty`, `&$ty`, and `&mut $ty`.
+///
+/// See [`impl_function_traits`] for details on syntax.
+///
+/// [`impl_function_traits`]: crate::func::macros::impl_function_traits
 macro_rules! impl_get_ownership {
     (
-        $name: ty
+        $ty: ty
         $(;
             <
                 $($T: ident $(: $T1: tt $(+ $T2: tt)*)?),*
@@ -52,7 +59,7 @@ macro_rules! impl_get_ownership {
         impl <
             $($($T $(: $T1 $(+ $T2)*)?),*)?
             $(, $(const $N : $size),*)?
-        > $crate::func::args::GetOwnership for $name
+        > $crate::func::args::GetOwnership for $ty
         $(
             where
                 $($U $(: $U1 $(+ $U2)*)?),*
@@ -66,7 +73,7 @@ macro_rules! impl_get_ownership {
         impl <
             $($($T $(: $T1 $(+ $T2)*)?),*)?
             $(, $(const $N : $size),*)?
-        > $crate::func::args::GetOwnership for &'_ $name
+        > $crate::func::args::GetOwnership for &'_ $ty
         $(
             where
                 $($U $(: $U1 $(+ $U2)*)?),*
@@ -80,7 +87,7 @@ macro_rules! impl_get_ownership {
         impl <
             $($($T $(: $T1 $(+ $T2)*)?),*)?
             $(, $(const $N : $size),*)?
-        > $crate::func::args::GetOwnership for &'_ mut $name
+        > $crate::func::args::GetOwnership for &'_ mut $ty
         $(
             where
                 $($U $(: $U1 $(+ $U2)*)?),*

@@ -20,9 +20,16 @@ pub trait FromArg {
     fn from_arg<'a>(arg: Arg<'a>, info: &ArgInfo) -> Result<Self::Item<'a>, ArgError>;
 }
 
+/// Implements the [`FromArg`] trait for the given type.
+///
+/// This will implement it for `$ty`, `&$ty`, and `&mut $ty`.
+///
+/// See [`impl_function_traits`] for details on syntax.
+///
+/// [`impl_function_traits`]: crate::func::macros::impl_function_traits
 macro_rules! impl_from_arg {
     (
-        $name: ty
+        $ty: ty
         $(;
             <
                 $($T: ident $(: $T1: tt $(+ $T2: tt)*)?),*
@@ -41,13 +48,13 @@ macro_rules! impl_from_arg {
         impl <
             $($($T $(: $T1 $(+ $T2)*)?),*)?
             $(, $(const $N : $size),*)?
-        > $crate::func::args::FromArg for $name
+        > $crate::func::args::FromArg for $ty
         $(
             where
                 $($U $(: $U1 $(+ $U2)*)?),*
         )?
         {
-            type Item<'from_arg> = $name;
+            type Item<'from_arg> = $ty;
             fn from_arg<'from_arg>(
                 arg: $crate::func::args::Arg<'from_arg>,
                 info: &$crate::func::args::ArgInfo,
@@ -59,13 +66,13 @@ macro_rules! impl_from_arg {
         impl <
             $($($T $(: $T1 $(+ $T2)*)?),*)?
             $(, $(const $N : $size),*)?
-        > $crate::func::args::FromArg for &'static $name
+        > $crate::func::args::FromArg for &'static $ty
         $(
             where
                 $($U $(: $U1 $(+ $U2)*)?),*
         )?
         {
-            type Item<'from_arg> = &'from_arg $name;
+            type Item<'from_arg> = &'from_arg $ty;
             fn from_arg<'from_arg>(
                 arg: $crate::func::args::Arg<'from_arg>,
                 info: &$crate::func::args::ArgInfo,
@@ -77,13 +84,13 @@ macro_rules! impl_from_arg {
         impl <
             $($($T $(: $T1 $(+ $T2)*)?),*)?
             $(, $(const $N : $size),*)?
-        > $crate::func::args::FromArg for &'static mut $name
+        > $crate::func::args::FromArg for &'static mut $ty
         $(
             where
                 $($U $(: $U1 $(+ $U2)*)?),*
         )?
         {
-            type Item<'from_arg> = &'from_arg mut $name;
+            type Item<'from_arg> = &'from_arg mut $ty;
             fn from_arg<'from_arg>(
                 arg: $crate::func::args::Arg<'from_arg>,
                 info: &$crate::func::args::ArgInfo,

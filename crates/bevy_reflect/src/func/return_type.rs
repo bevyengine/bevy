@@ -77,9 +77,16 @@ impl IntoReturn for () {
     }
 }
 
+/// Implements the [`IntoReturn`] trait for the given type.
+///
+/// This will implement it for `ty`, `&ty`, and `&mut ty`.
+///
+/// See [`impl_function_traits`] for details on syntax.
+///
+/// [`impl_function_traits`]: crate::func::macros::impl_function_traits
 macro_rules! impl_into_return {
     (
-        $name: ty
+        $ty: ty
         $(;
             <
                 $($T: ident $(: $T1: tt $(+ $T2: tt)*)?),*
@@ -98,7 +105,7 @@ macro_rules! impl_into_return {
         impl <
             $($($T $(: $T1 $(+ $T2)*)?),*)?
             $(, $(const $N : $size),*)?
-        > $crate::func::IntoReturn for $name
+        > $crate::func::IntoReturn for $ty
         $(
             where
                 $($U $(: $U1 $(+ $U2)*)?),*
@@ -112,7 +119,7 @@ macro_rules! impl_into_return {
         impl <
             $($($T $(: $T1 $(+ $T2)*)?),*)?
             $(, $(const $N : $size),*)?
-        > $crate::func::IntoReturn for &'static $name
+        > $crate::func::IntoReturn for &'static $ty
         $(
             where
                 $($U $(: $U1 $(+ $U2)*)?),*
@@ -126,7 +133,7 @@ macro_rules! impl_into_return {
         impl <
             $($($T $(: $T1 $(+ $T2)*)?),*)?
             $(, $(const $N : $size),*)?
-        > $crate::func::IntoReturn for &'static mut $name
+        > $crate::func::IntoReturn for &'static mut $ty
         $(
             where
                 $($U $(: $U1 $(+ $U2)*)?),*

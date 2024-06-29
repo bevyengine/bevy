@@ -1,6 +1,32 @@
+/// Helper macro to implement the necessary traits for function reflection.
+///
+/// This macro calls the following macros:
+/// - [`impl_get_ownership`](crate::func::args::impl_get_ownership)
+/// - [`impl_from_arg`](crate::func::args::impl_from_arg)
+/// - [`impl_into_return`](crate::func::impl_into_return)
+///
+/// # Syntax
+///
+/// For non-generic types, the macro simply expects the type:
+///
+/// ```ignore
+/// impl_function_traits!(foo::bar::Baz);
+/// ```
+///
+/// For generic types, however, the generic type parameters must also be given in angle brackets (`<` and `>`):
+///
+/// ```ignore
+/// impl_function_traits!(foo::bar::Baz<T, U>; <T: Clone, U>);
+/// ```
+///
+/// For generic const parameters, they must be given in square brackets (`[` and `]`):
+///
+/// ```ignore
+/// impl_function_traits!(foo::bar::Baz<T, N>; <T> [const N: usize]);
+/// ```
 macro_rules! impl_function_traits {
     (
-        $name: ty
+        $ty: ty
         $(;
             <
                 $($T: ident $(: $T1: tt $(+ $T2: tt)*)?),*
@@ -17,7 +43,7 @@ macro_rules! impl_function_traits {
         )?
     ) => {
         $crate::func::args::impl_get_ownership!(
-            $name
+            $ty
             $(;
                 <
                     $($T $(: $T1 $(+ $T2)*)?),*
@@ -34,7 +60,7 @@ macro_rules! impl_function_traits {
             )?
         );
         $crate::func::args::impl_from_arg!(
-            $name
+            $ty
             $(;
                 <
                     $($T $(: $T1 $(+ $T2)*)?),*
@@ -51,7 +77,7 @@ macro_rules! impl_function_traits {
             )?
         );
         $crate::func::impl_into_return!(
-            $name
+            $ty
             $(;
                 <
                     $($T $(: $T1 $(+ $T2)*)?),*

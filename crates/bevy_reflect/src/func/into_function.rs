@@ -89,13 +89,26 @@ pub trait IntoFunction<'env, T> {
     fn into_function(self) -> DynamicFunction<'env>;
 }
 
-// https://veykril.github.io/tlborm/decl-macros/building-blocks/counting.html#bit-twiddling
+/// Helper macro that returns the number of tokens it receives.
+///
+/// This is used to get the argument count.
+///
+/// See [here] for details.
+///
+/// [here]: https://veykril.github.io/tlborm/decl-macros/building-blocks/counting.html#bit-twiddling
 macro_rules! count_tts {
     () => { 0 };
     ($odd:tt $($a:tt $b:tt)*) => { (count_tts!($($a)*) << 1) | 1 };
     ($($a:tt $even:tt)*) => { count_tts!($($a)*) << 1 };
 }
 
+/// Helper macro for implementing [`IntoFunction`] on Rust functions.
+///
+/// This currently implements it for the following signatures (where `argX` may be any of `T`, `&T`, or `&mut T`):
+/// - `fn(arg0, arg1, ..., argN) -> R`
+/// - `fn(&Receiver, arg0, arg1, ..., argN) -> &R`
+/// - `fn(&mut Receiver, arg0, arg1, ..., argN) -> &mut R`
+/// - `fn(&mut Receiver, arg0, arg1, ..., argN) -> &R`
 macro_rules! impl_into_function {
     ($(($Arg:ident, $arg:ident)),*) => {
         // === Owned Return === //
@@ -130,7 +143,7 @@ macro_rules! impl_into_function {
                         });
                     }
 
-                    let [$($arg,)*] = args.take().try_into().ok().expect("invalid number of arguments");
+                    let [$($arg,)*] = args.take().try_into().expect("invalid number of arguments");
 
                     #[allow(unused_mut)]
                     let mut _index = 0;
@@ -179,7 +192,7 @@ macro_rules! impl_into_function {
                         });
                     }
 
-                    let [receiver, $($arg,)*] = args.take().try_into().ok().expect("invalid number of arguments");
+                    let [receiver, $($arg,)*] = args.take().try_into().expect("invalid number of arguments");
 
                     let receiver = receiver.take_ref::<Receiver>(_info.args().get(0).expect("argument index out of bounds"))?;
 
@@ -230,7 +243,7 @@ macro_rules! impl_into_function {
                         });
                     }
 
-                    let [receiver, $($arg,)*] = args.take().try_into().ok().expect("invalid number of arguments");
+                    let [receiver, $($arg,)*] = args.take().try_into().expect("invalid number of arguments");
 
                     let receiver = receiver.take_mut::<Receiver>(_info.args().get(0).expect("argument index out of bounds"))?;
 
@@ -281,7 +294,7 @@ macro_rules! impl_into_function {
                         });
                     }
 
-                    let [receiver, $($arg,)*] = args.take().try_into().ok().expect("invalid number of arguments");
+                    let [receiver, $($arg,)*] = args.take().try_into().expect("invalid number of arguments");
 
                     let receiver = receiver.take_mut::<Receiver>(_info.args().get(0).expect("argument index out of bounds"))?;
 
