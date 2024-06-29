@@ -158,7 +158,7 @@ impl Dir2 {
 
         direction
             .map(|dir| (Self(dir), length))
-            .ok_or_else(|| InvalidDirectionError::from_length(length))
+            .ok_or(InvalidDirectionError::from_length(length))
     }
 
     /// Create a direction from its `x` and `y` components.

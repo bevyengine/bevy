@@ -3295,7 +3295,7 @@ mod tests {
         assert_eq!(world.entity(b2).get(), Some(&B(4)));
 
         let mut entities = world.iter_entities_mut().collect::<Vec<_>>();
-        entities.sort_by_key(|e| e.get::<A>().map(|a| a.0).or_else(|| e.get::<B>().map(|b| b.0)));
+        entities.sort_by_key(|e| e.get::<A>().map(|a| a.0).or(e.get::<B>().map(|b| b.0)));
         let (a, b) = entities.split_at_mut(2);
         std::mem::swap(
             &mut a[1].get_mut::<A>().unwrap().0,

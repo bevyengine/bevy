@@ -219,7 +219,7 @@ fn outline_roots(
         // We skip ui in other windows that are not the primary one
         if let Some(camera_entity) = maybe_target_camera
             .map(|target| target.0)
-            .or_else(|| cam.default_ui_camera.get())
+            .or(cam.default_ui_camera.get())
         {
             let Ok(camera) = cam.cameras.get(camera_entity) else {
                 // The camera wasn't found. Either the Camera don't exist or the Camera is the debug Camera, that we want to skip and warn
