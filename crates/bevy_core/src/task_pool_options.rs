@@ -13,11 +13,11 @@ pub struct TaskPoolThreadAssignmentPolicy {
     /// Target using this percentage of total cores, clamped by `min_threads` and `max_threads`. It is
     /// permitted to use 1.0 to try to use all remaining threads
     pub percent: f32,
-    /// Callback that is invoked once for every created thread as it starts
-    #[cfg(not(target_arch = "wasm32"))]
+    /// Callback that is invoked once for every created thread as it starts. 
+    /// This configuration will be ignored under wasm platform.
     pub on_thread_spawn: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
     /// Callback that is invoked once for every created thread as it terminates
-    #[cfg(not(target_arch = "wasm32"))]
+    /// This configuration will be ignored under wasm platform.
     pub on_thread_destroy: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
 }
 
@@ -78,9 +78,7 @@ impl Default for TaskPoolOptions {
                 min_threads: 1,
                 max_threads: 4,
                 percent: 0.25,
-                #[cfg(not(target_arch = "wasm32"))]
                 on_thread_spawn: None,
-                #[cfg(not(target_arch = "wasm32"))]
                 on_thread_destroy: None,
             },
 
@@ -89,9 +87,7 @@ impl Default for TaskPoolOptions {
                 min_threads: 1,
                 max_threads: 4,
                 percent: 0.25,
-                #[cfg(not(target_arch = "wasm32"))]
                 on_thread_spawn: None,
-                #[cfg(not(target_arch = "wasm32"))]
                 on_thread_destroy: None,
             },
 
@@ -100,9 +96,7 @@ impl Default for TaskPoolOptions {
                 min_threads: 1,
                 max_threads: usize::MAX,
                 percent: 1.0, // This 1.0 here means "whatever is left over"
-                #[cfg(not(target_arch = "wasm32"))]
                 on_thread_spawn: None,
-                #[cfg(not(target_arch = "wasm32"))]
                 on_thread_destroy: None,
             },
         }
