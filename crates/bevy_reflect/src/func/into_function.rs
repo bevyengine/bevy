@@ -123,6 +123,7 @@ macro_rules! impl_into_function {
                 const COUNT: usize = count_tts!($($Arg)*);
 
                 let info = $crate::func::FunctionInfo::new()
+                    .with_name(std::any::type_name::<F>())
                     .with_args({
                         #[allow(unused_mut)]
                         let mut _index = 0;
@@ -171,6 +172,7 @@ macro_rules! impl_into_function {
                 const COUNT: usize = count_tts!(Receiver $($Arg)*);
 
                 let info = $crate::func::FunctionInfo::new()
+                    .with_name(std::any::type_name::<F>())
                     .with_args({
                         #[allow(unused_mut)]
                         let mut _index = 1;
@@ -222,6 +224,7 @@ macro_rules! impl_into_function {
                 const COUNT: usize = count_tts!(Receiver $($Arg)*);
 
                 let info = $crate::func::FunctionInfo::new()
+                    .with_name(std::any::type_name::<F>())
                     .with_args({
                         #[allow(unused_mut)]
                         let mut _index = 1;
@@ -273,6 +276,7 @@ macro_rules! impl_into_function {
                 const COUNT: usize = count_tts!(Receiver $($Arg)*);
 
                 let info = $crate::func::FunctionInfo::new()
+                    .with_name(std::any::type_name::<F>())
                     .with_args({
                         #[allow(unused_mut)]
                         let mut _index = 1;

@@ -158,6 +158,36 @@ mod tests {
     }
 
     #[test]
+    fn should_default_with_function_type_name() {
+        fn foo() {}
+
+        let func = foo.into_function();
+        assert_eq!(
+            func.info().name(),
+            Some("bevy_reflect::func::tests::should_default_with_function_type_name::foo")
+        );
+    }
+
+    #[test]
+    fn should_default_with_closure_type_name() {
+        let bar = |_: i32| {};
+
+        let func = bar.into_function();
+        assert_eq!(
+            func.info().name(),
+            Some("bevy_reflect::func::tests::should_default_with_closure_type_name::{{closure}}")
+        );
+    }
+
+    #[test]
+    fn should_overwrite_function_name() {
+        fn foo() {}
+
+        let func = foo.into_function().with_name("my_function");
+        assert_eq!(func.info().name(), Some("my_function"));
+    }
+
+    #[test]
     fn should_error_on_missing_args() {
         fn foo(_: i32) {}
 

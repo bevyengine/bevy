@@ -26,7 +26,7 @@ impl FunctionInfo {
 
     /// Set the name of the function.
     ///
-    /// Reflected functions are not required to have a name and by default are not given one,
+    /// Reflected functions are not required to have a name,
     /// so this method must be called manually to set the name.
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
         self.name = Some(name.into());
@@ -52,11 +52,8 @@ impl FunctionInfo {
 
     /// The name of the function, if it was given one.
     ///
-    /// Note that this may return `None` even if the function has a name.
-    /// This is because the name needs to be manually set using [`Self::with_name`]
-    /// since the name can't be inferred from the function type alone.
-    ///
-    /// For [`DynamicFunctions`] created using [`IntoFunction`], the name will always be `None`.
+    /// For [`DynamicFunctions`] created using [`IntoFunction`],
+    /// the name will always be the full path to the function as returned by [`std::any::type_name`].
     ///
     /// [`DynamicFunctions`]: crate::func::DynamicFunction
     pub fn name(&self) -> Option<&str> {

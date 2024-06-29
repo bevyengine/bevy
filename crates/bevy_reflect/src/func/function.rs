@@ -115,6 +115,12 @@ impl<'env> DynamicFunction<'env> {
     }
 
     /// Set the name of the function.
+    ///
+    /// For [`DynamicFunctions`] created using [`IntoFunction`],
+    /// the default name will always be the full path to the function as returned by [`std::any::type_name`].
+    ///
+    /// [`DynamicFunctions`]: DynamicFunction
+    /// [`IntoFunction`]: crate::func::IntoFunction
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
         self.info = self.info.with_name(name);
         self
