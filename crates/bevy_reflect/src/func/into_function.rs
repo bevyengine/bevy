@@ -84,7 +84,7 @@ use bevy_utils::all_tuples;
 /// [`IntoReturn`]: crate::func::IntoReturn
 /// [`Reflect`]: crate::Reflect
 /// [deriving `Reflect`]: derive@crate::Reflect
-pub trait IntoFunction<'env, T> {
+pub trait IntoFunction<'env, Marker> {
     /// Converts [`Self`] into a [`DynamicFunction`].
     fn into_function(self) -> DynamicFunction<'env>;
 }
