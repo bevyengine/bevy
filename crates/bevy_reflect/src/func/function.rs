@@ -36,10 +36,10 @@ pub type FunctionResult<'a> = Result<Return<'a>, FunctionError>;
 ///
 /// // Dynamically call the function:
 /// let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
-/// let result = func.call(args).unwrap().unwrap_owned();
+/// let value = func.call(args).unwrap().unwrap_owned();
 ///
 /// // Check the result:
-/// assert_eq!(result.downcast_ref::<i32>(), Some(&100));
+/// assert_eq!(value.downcast_ref::<i32>(), Some(&100));
 /// ```
 ///
 /// However, in some cases, these functions may need to be created manually:
@@ -82,10 +82,10 @@ pub type FunctionResult<'a> = Result<Return<'a>, FunctionError>;
 ///
 /// // Dynamically call the function:
 /// let args = ArgList::default().push_owned("Hello, World".to_string()).push_mut(&mut list);
-/// let result = func.call(args).unwrap().unwrap_mut();
+/// let value = func.call(args).unwrap().unwrap_mut();
 ///
 /// // Mutate the return value:
-/// result.downcast_mut::<String>().unwrap().push_str("!!!");
+/// value.downcast_mut::<String>().unwrap().push_str("!!!");
 ///
 /// // Check the result:
 /// assert_eq!(list, vec!["Hello, World!!!"]);

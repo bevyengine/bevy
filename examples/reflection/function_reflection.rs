@@ -1,4 +1,10 @@
 //! This example demonstrates how functions can be called dynamically using reflection.
+//!
+//! Function reflection is useful for calling regular Rust functions in a dynamic context,
+//! where the types of arguments, return values, and even the function itself aren't known at compile time.
+//!
+//! This can be used for things like adding scripting support to your application,
+//! processing deserialized reflection data, or even just storing type-erased versions of your functions.
 
 use bevy::reflect::func::args::ArgInfo;
 use bevy::reflect::func::{
@@ -42,12 +48,12 @@ fn main() {
     // This returns a `Result` indicating whether the function was called successfully.
     // For now, we'll just unwrap it to get our `Return` value,
     // which is an enum containing the function's return value.
-    let result: Return = dbg!(function.call(args).unwrap());
+    let return_value: Return = dbg!(function.call(args).unwrap());
 
     // The `Return` value can be pattern matched or unwrapped to get the underlying reflection data.
-    // For the sake of brevity, we'll just unwrap it here.
-    let result: Box<dyn Reflect> = result.unwrap_owned();
-    assert_eq!(result.take::<i32>().unwrap(), 4);
+    // For the sake of brevity, we'll just unwrap it here and downcast it to the expected type of `i32`.
+    let value: Box<dyn Reflect> = return_value.unwrap_owned();
+    assert_eq!(value.take::<i32>().unwrap(), 4);
 
     // The same can also be done for closures.
     let mut count = 0;
@@ -66,8 +72,8 @@ fn main() {
     let add_closure = |left: i32, right: i32| -> i32 { left + right };
     let mut count_function = dbg!(add_closure.into_function());
     let args = dbg!(ArgList::new().push_owned(2_i32).push_owned(2_i32));
-    let result = dbg!(count_function.call(args).unwrap()).unwrap_owned();
-    assert_eq!(result.take::<i32>().unwrap(), 4);
+    let value = dbg!(count_function.call(args).unwrap()).unwrap_owned();
+    assert_eq!(value.take::<i32>().unwrap(), 4);
 
     // As stated before, this works for many kinds of simple functions.
     // Functions with non-reflectable arguments or return values may not be able to be converted.
@@ -100,9 +106,9 @@ fn main() {
 
     let mut get_value = dbg!(Data::get_value.into_function());
     let args = dbg!(ArgList::new().push_ref(&data));
-    let result = dbg!(get_value.call(args).unwrap());
-    let result: &dyn Reflect = result.unwrap_ref();
-    assert_eq!(result.downcast_ref::<String>().unwrap(), "Hello, world!");
+    let return_value = dbg!(get_value.call(args).unwrap());
+    let value: &dyn Reflect = return_value.unwrap_ref();
+    assert_eq!(value.downcast_ref::<String>().unwrap(), "Hello, world!");
 
     // Lastly, for more complex use cases, you can always create a custom `DynamicFunction` manually.
     // This is useful for functions that can't be converted via the `IntoFunction` trait.
@@ -149,10 +155,10 @@ fn main() {
     let mut container: Option<i32> = None;
 
     let args = dbg!(ArgList::new().push_owned(5_i32).push_mut(&mut container));
-    let result = dbg!(get_or_insert_function.call(args).unwrap()).unwrap_ref();
-    assert_eq!(result.downcast_ref::<i32>(), Some(&5));
+    let value = dbg!(get_or_insert_function.call(args).unwrap()).unwrap_ref();
+    assert_eq!(value.downcast_ref::<i32>(), Some(&5));
 
     let args = dbg!(ArgList::new().push_owned(500_i32).push_mut(&mut container));
-    let result = dbg!(get_or_insert_function.call(args).unwrap()).unwrap_ref();
-    assert_eq!(result.downcast_ref::<i32>(), Some(&5));
+    let value = dbg!(get_or_insert_function.call(args).unwrap()).unwrap_ref();
+    assert_eq!(value.downcast_ref::<i32>(), Some(&5));
 }

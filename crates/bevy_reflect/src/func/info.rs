@@ -14,6 +14,8 @@ pub struct FunctionInfo {
 
 impl FunctionInfo {
     /// Create a new [`FunctionInfo`].
+    ///
+    /// To set the name of the function, use [`Self::with_name`].
     pub fn new() -> Self {
         Self {
             name: None,
@@ -23,6 +25,9 @@ impl FunctionInfo {
     }
 
     /// Set the name of the function.
+    ///
+    /// Reflected functions are not required to have a name and by default are not given one,
+    /// so this method must be called manually to set the name.
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
         self.name = Some(name.into());
         self
@@ -30,8 +35,10 @@ impl FunctionInfo {
 
     /// Set the arguments of the function.
     ///
-    /// It is very important that the arguments match the intended function signature,
-    /// as this is used to validate arguments passed to the function.
+    /// Arguments passed to the function will be validated against the info provided here.
+    /// Mismatched arguments may result in the function call returning an [error].
+    ///
+    /// [error]: crate::func::FunctionError
     pub fn with_args(mut self, args: Vec<ArgInfo>) -> Self {
         self.args = args;
         self

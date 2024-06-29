@@ -12,6 +12,8 @@ use bevy_utils::all_tuples;
 ///
 /// Firstly, the function signature may only have up to 15 arguments
 /// (or 16 if the first argument is a mutable/immutable reference).
+/// This limitation is unfortunately due to the [lack of variadic generics] in Rust.
+///
 /// Each argument must implement [`FromArg`], [`GetOwnership`], and [`TypePath`].
 ///
 ///
@@ -75,6 +77,7 @@ use bevy_utils::all_tuples;
 /// static_return.into_function();
 /// ```
 ///
+/// [lack of variadic generics]: https://poignardazur.github.io/2024/05/25/report-on-rustnl-variadics/
 /// [`FromArg`]: crate::func::args::FromArg
 /// [`GetOwnership`]: crate::func::args::GetOwnership
 /// [`TypePath`]: crate::TypePath

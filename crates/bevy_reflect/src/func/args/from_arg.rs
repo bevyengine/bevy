@@ -1,6 +1,13 @@
 use crate::func::args::{Arg, ArgError, ArgInfo};
 
 /// A trait for types that can be created from an [`Arg`].
+///
+/// This trait is used instead of a blanket [`From`] implementation due to coherence issues:
+/// we can't implement `From<T>` for both `T` and `&T`/`&mut T`.
+///
+/// This trait is automatically implemented when using the `Reflect` [derive macro].
+///
+/// [derive macro]: derive@crate::Reflect
 pub trait FromArg {
     /// The type of the item created from the argument.
     ///

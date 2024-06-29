@@ -4,7 +4,9 @@ use thiserror::Error;
 
 use crate::func::args::{ArgId, Ownership};
 
-/// An error that occurs when converting an argument.
+/// An error that occurs when converting an [argument].
+///
+/// [argument]: crate::func::Arg
 #[derive(Debug, Error, PartialEq)]
 pub enum ArgError {
     /// The argument is not the expected type.

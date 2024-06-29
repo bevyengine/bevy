@@ -9,14 +9,22 @@ use crate::TypePath;
 /// [`DynamicFunction`]: super::function::DynamicFunction
 #[derive(Debug, Clone)]
 pub struct ArgInfo {
+    /// The index of the argument within its function.
     index: usize,
+    /// The name of the argument (if provided).
     name: Option<Cow<'static, str>>,
+    /// The ownership of the argument.
     ownership: Ownership,
+    /// The [type path] of the argument.
+    ///
+    /// [type path]: TypePath::type_path
     type_path: &'static str,
 }
 
 impl ArgInfo {
     /// Create a new [`ArgInfo`] with the given argument index and type `T`.
+    ///
+    /// To set the name of the argument, use [`Self::with_name`].
     pub fn new<T: TypePath + GetOwnership>(index: usize) -> Self {
         Self {
             index,
@@ -27,6 +35,9 @@ impl ArgInfo {
     }
 
     /// Set the name of the argument.
+    ///
+    /// Reflected arguments are not required to have a name and by default are not given one,
+    /// so this method must be called manually to set the name.
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
         self.name = Some(name.into());
         self

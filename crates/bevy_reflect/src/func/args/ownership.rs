@@ -1,6 +1,10 @@
 use core::fmt::{Display, Formatter};
 
 /// A trait for getting the ownership of a type.
+///
+/// This trait is automatically implemented when using the `Reflect` [derive macro].
+///
+/// [derive macro]: derive@crate::Reflect
 pub trait GetOwnership {
     /// Returns the ownership of [`Self`].
     fn ownership() -> Ownership;
