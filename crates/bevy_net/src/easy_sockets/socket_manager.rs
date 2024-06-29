@@ -7,6 +7,9 @@ use std::pin::Pin;
 use std::slice::IterMut;
 use std::sync::{Arc, Mutex, RwLock, Weak};
 use std::task::{Context, Poll, Waker};
+use futures::future::join_all;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 use bevy_internal::reflect::List;
 use bevy_internal::render::render_resource::encase::private::RuntimeSizedArray;
 use bevy_internal::tasks::{IoTaskPool, Task, TaskPool};
@@ -150,47 +153,47 @@ struct SocketManger<B, S> {
 
 impl<B, S> SocketManger<B, S>
 where B: Buffer<InnerSocket = S> {
-    fn update(&mut self) {
-        let pool = IoTaskPool::get();
+    async fn update(&mut self) {
+        let mut tasks = Vec::with_capacity(self.sockets.len());
 
-        pool.scope(|s| {
-            for socket in self.sockets.iter_mut() {
-                s.spawn(socket.update())
-            }
-        });
+        while let Some(entry) = self.sockets.pop() {
+            tasks.push(IoTaskPool::get().spawn(async move {
+                let mut entrey = entry;
+                entrey.update();
+                if entrey.drop_flag {
+                    None
+                } else {
+                    Some(entrey)
+                }
+            }))
+        }
 
-        let mut i = self.sockets.len() - 1;
-        let mut last_iteration = false;
-        
-        loop {
-            if self.sockets[i].drop_flag {
-                self.sockets.remove(i);
-            } else {
-                i -= 1;
-            }
-            
-            if last_iteration {
-                return;
-            }
-            
-            if i == 1 {
-                last_iteration = true;
+        for task in tasks {
+            if let Some(entrey) = task.await {
+                self.sockets.push(entrey)
             }
         }
     }
     
-    fn register(&mut self, socket: S) -> Result<OwnedBuffer<B>, B::ConstructionError> {
-        let (weak, arc) = OwnedBuffer::new_with_weak(B::build(&socket)?);
-        let entry = SocketEntry {
-            buffer: weak,
-            socket: Some(socket),
-            data: Default::default(),
-            drop_flag: false,
-        };
-        
-        self.sockets.push(entry);
-        
-        Ok(arc)
+    fn register(&mut self, socket: S) -> Result<OwnedBuffer<B>, (S, B::ConstructionError)> {
+        match B::build(&socket) {
+            Ok(buffer) => {
+                let (weak, arc) = OwnedBuffer::new_with_weak(buffer);
+                let entry = SocketEntry {
+                    buffer: weak,
+                    socket: Some(socket),
+                    data: Default::default(),
+                    drop_flag: false,
+                };
+
+                self.sockets.push(entry);
+
+                Ok(arc)
+            }
+            Err(error) => {
+                return Err((socket, error))
+            }
+        }
     }
 }
 
