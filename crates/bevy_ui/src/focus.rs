@@ -239,7 +239,7 @@ pub fn ui_focus_system(
             let camera_entity = node
                 .target_camera
                 .map(TargetCamera::entity)
-                .or_else(|| default_ui_camera.get())?;
+                .or(default_ui_camera.get())?;
 
             let node_rect = node.node.logical_rect(node.global_transform);
 

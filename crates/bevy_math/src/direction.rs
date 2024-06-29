@@ -398,7 +398,7 @@ impl Dir3 {
 
         direction
             .map(|dir| (Self(dir), length))
-            .ok_or_else(|| InvalidDirectionError::from_length(length))
+            .ok_or(InvalidDirectionError::from_length(length))
     }
 
     /// Create a direction from its `x`, `y`, and `z` components.
@@ -604,7 +604,7 @@ impl Dir3A {
 
         direction
             .map(|dir| (Self(dir), length))
-            .ok_or_else(|| InvalidDirectionError::from_length(length))
+            .ok_or(InvalidDirectionError::from_length(length))
     }
 
     /// Create a direction from its `x`, `y`, and `z` components.

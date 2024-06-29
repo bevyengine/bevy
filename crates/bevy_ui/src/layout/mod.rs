@@ -105,7 +105,7 @@ pub fn ui_layout_system(
     let camera_with_default = |target_camera: Option<&TargetCamera>| {
         target_camera
             .map(TargetCamera::entity)
-            .or_else(|| default_ui_camera.get())
+            .or(default_ui_camera.get())
     };
 
     let resized_windows: HashSet<Entity> = resize_events.read().map(|event| event.window).collect();

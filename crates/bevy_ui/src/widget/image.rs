@@ -60,10 +60,10 @@ impl Measure for ImageMeasure {
 
         // Determine width and height from styles and known_sizes (if a size is available
         // from any of these sources)
-        let width = width.or_else(|| s_width
+        let width = width.or(s_width
             .or(s_min_width)
             .maybe_clamp(s_min_width, s_max_width));
-        let height = height.or_else(|| s_height
+        let height = height.or(s_height
             .or(s_min_height)
             .maybe_clamp(s_min_height, s_max_height));
 

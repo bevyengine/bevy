@@ -218,7 +218,7 @@ pub fn extract_uinode_background_colors(
         parent,
     ) in &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or_else(|| default_ui_camera.get())
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
         };
@@ -328,7 +328,7 @@ pub fn extract_uinode_images(
         style,
     ) in &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or_else(|| default_ui_camera.get())
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
         };
@@ -527,7 +527,7 @@ pub fn extract_uinode_borders(
         border_radius,
     ) in &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or_else(|| default_ui_camera.get())
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
         };
@@ -624,7 +624,7 @@ pub fn extract_uinode_outlines(
 ) {
     let image = AssetId::<Image>::default();
     for (node, global_transform, view_visibility, maybe_clip, camera, outline) in &uinode_query {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or_else(|| default_ui_camera.get())
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
         };
@@ -808,7 +808,7 @@ pub fn extract_uinode_text(
     for (uinode, global_transform, view_visibility, clip, camera, text, text_layout_info) in
         &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or_else(|| default_ui_camera.get())
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
         };
