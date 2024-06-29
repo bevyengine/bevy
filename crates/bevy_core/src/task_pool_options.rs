@@ -13,7 +13,7 @@ pub struct TaskPoolThreadAssignmentPolicy {
     /// Target using this percentage of total cores, clamped by `min_threads` and `max_threads`. It is
     /// permitted to use 1.0 to try to use all remaining threads
     pub percent: f32,
-    /// Callback that is invoked once for every created thread as it starts. 
+    /// Callback that is invoked once for every created thread as it starts.
     /// This configuration will be ignored under wasm platform.
     pub on_thread_spawn: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
     /// Callback that is invoked once for every created thread as it terminates
@@ -131,22 +131,21 @@ impl TaskPoolOptions {
             remaining_threads = remaining_threads.saturating_sub(io_threads);
 
             IoTaskPool::get_or_init(|| {
-                #[cfg(target_arch = "wasm32")]
-                {
-                    TaskPoolBuilder::default()
-                        .num_threads(io_threads)
-                        .thread_name("IO Task Pool".to_string())
-                        .build()
-                }
+                let mut builder = TaskPoolBuilder::default()
+                    .num_threads(io_threads)
+                    .thread_name("IO Task Pool".to_string());
+
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    TaskPoolBuilder::default()
-                        .on_thread_spawn_raw(self.io.on_thread_spawn.clone())
-                        .on_thread_destroy_raw(self.io.on_thread_destroy.clone())
-                        .num_threads(io_threads)
-                        .thread_name("IO Task Pool".to_string())
-                        .build()
+                    if let Some(f) = self.io.on_thread_spawn.clone() {
+                        builder = builder.on_thread_spawn(move || f());
+                    }
+                    if let Some(f) = self.io.on_thread_destroy.clone() {
+                        builder = builder.on_thread_destroy(move || f());
+                    }
                 }
+
+                builder.build()
             });
         }
 
@@ -160,22 +159,21 @@ impl TaskPoolOptions {
             remaining_threads = remaining_threads.saturating_sub(async_compute_threads);
 
             AsyncComputeTaskPool::get_or_init(|| {
-                #[cfg(target_arch = "wasm32")]
-                {
-                    TaskPoolBuilder::default()
-                        .num_threads(async_compute_threads)
-                        .thread_name("Async Compute Task Pool".to_string())
-                        .build()
-                }
+                let mut builder = TaskPoolBuilder::default()
+                    .num_threads(async_compute_threads)
+                    .thread_name("Async Compute Task Pool".to_string());
+
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    TaskPoolBuilder::default()
-                        .on_thread_spawn_raw(self.async_compute.on_thread_spawn.clone())
-                        .on_thread_destroy_raw(self.async_compute.on_thread_destroy.clone())
-                        .num_threads(async_compute_threads)
-                        .thread_name("Async Compute Task Pool".to_string())
-                        .build()
+                    if let Some(f) = self.async_compute.on_thread_spawn.clone() {
+                        builder = builder.on_thread_spawn(move || f());
+                    }
+                    if let Some(f) = self.async_compute.on_thread_destroy.clone() {
+                        builder = builder.on_thread_destroy(move || f());
+                    }
                 }
+
+                builder.build()
             });
         }
 
@@ -189,22 +187,21 @@ impl TaskPoolOptions {
             trace!("Compute Threads: {}", compute_threads);
 
             ComputeTaskPool::get_or_init(|| {
-                #[cfg(target_arch = "wasm32")]
-                {
-                    TaskPoolBuilder::default()
-                        .num_threads(compute_threads)
-                        .thread_name("Compute Task Pool".to_string())
-                        .build()
-                }
+                let mut builder = TaskPoolBuilder::default()
+                    .num_threads(compute_threads)
+                    .thread_name("Compute Task Pool".to_string());
+
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    TaskPoolBuilder::default()
-                        .on_thread_spawn_raw(self.compute.on_thread_spawn.clone())
-                        .on_thread_destroy_raw(self.compute.on_thread_destroy.clone())
-                        .num_threads(compute_threads)
-                        .thread_name("Compute Task Pool".to_string())
-                        .build()
+                    if let Some(f) = self.compute.on_thread_spawn.clone() {
+                        builder = builder.on_thread_spawn(move || f());
+                    }
+                    if let Some(f) = self.compute.on_thread_destroy.clone() {
+                        builder = builder.on_thread_destroy(move || f());
+                    }
                 }
+
+                builder.build()
             });
         }
     }
