@@ -83,6 +83,8 @@ impl ArgInfo {
 }
 
 /// A representation of an argument.
+///
+/// This is primarily used for error reporting and debugging.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ArgId {
     /// The index of the argument within its function.

@@ -166,7 +166,7 @@ mod tests {
         let result = func.call(args);
         assert_eq!(
             result.unwrap_err(),
-            FunctionError::ArgCount {
+            FunctionError::InvalidArgCount {
                 expected: 1,
                 received: 0
             }
@@ -182,7 +182,7 @@ mod tests {
         let result = func.call(args);
         assert_eq!(
             result.unwrap_err(),
-            FunctionError::ArgCount {
+            FunctionError::InvalidArgCount {
                 expected: 0,
                 received: 1
             }
@@ -198,7 +198,7 @@ mod tests {
         let result = func.call(args);
         assert_eq!(
             result.unwrap_err(),
-            FunctionError::Arg(ArgError::UnexpectedType {
+            FunctionError::ArgError(ArgError::UnexpectedType {
                 id: ArgId::Index(0),
                 expected: Cow::Borrowed(i32::type_path()),
                 received: Cow::Borrowed(u32::type_path())
@@ -215,7 +215,7 @@ mod tests {
         let result = func.call(args);
         assert_eq!(
             result.unwrap_err(),
-            FunctionError::Arg(ArgError::InvalidOwnership {
+            FunctionError::ArgError(ArgError::InvalidOwnership {
                 id: ArgId::Index(0),
                 expected: Ownership::Ref,
                 received: Ownership::Owned

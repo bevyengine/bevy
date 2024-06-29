@@ -8,8 +8,8 @@ use thiserror::Error;
 pub enum FunctionError {
     /// An error occurred while converting an argument.
     #[error(transparent)]
-    Arg(#[from] ArgError),
+    ArgError(#[from] ArgError),
     /// The number of arguments provided does not match the expected number.
     #[error("expected {expected} arguments but received {received}")]
-    ArgCount { expected: usize, received: usize },
+    InvalidArgCount { expected: usize, received: usize },
 }
