@@ -68,13 +68,6 @@ fn main() {
     dbg!(increment_function.call_once(args).unwrap());
     assert_eq!(count, 5);
 
-    // All closures must be `'static`— that is, they take full ownership of any captured variables.
-    let add_closure = |left: i32, right: i32| -> i32 { left + right };
-    let mut count_function = dbg!(add_closure.into_function());
-    let args = dbg!(ArgList::new().push_owned(2_i32).push_owned(2_i32));
-    let value = dbg!(count_function.call(args).unwrap()).unwrap_owned();
-    assert_eq!(value.take::<i32>().unwrap(), 4);
-
     // As stated before, this works for many kinds of simple functions.
     // Functions with non-reflectable arguments or return values may not be able to be converted.
     // Generic functions are also not supported.
