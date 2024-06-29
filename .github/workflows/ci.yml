@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - main
+      - release-*
 
 env:
   CARGO_TERM_COLOR: always
@@ -218,7 +219,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check for typos
-        uses: crate-ci/typos@v1.20.9
+        uses: crate-ci/typos@v1.22.9
       - name: Typos info
         if: failure()
         run: |

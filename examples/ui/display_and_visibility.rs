@@ -54,7 +54,7 @@ impl TargetUpdate for Target<Display> {
         style.display = match style.display {
             Display::Flex => Display::None,
             Display::None => Display::Flex,
-            Display::Grid => unreachable!(),
+            Display::Block | Display::Grid => unreachable!(),
         };
         format!("{}::{:?} ", Self::NAME, style.display)
     }
@@ -78,7 +78,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-        font_size: 24.0,
         ..default()
     };
 
@@ -153,7 +152,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             .with_children(|builder| {
                 let text_style = TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 20.0,
                     ..default()
                 };
 
@@ -417,7 +415,7 @@ where
                     padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
                     ..Default::default()
                 },
-                image: UiImage::default().with_color(Color::BLACK.with_alpha(0.5)),
+                background_color: Color::BLACK.with_alpha(0.5).into(),
                 ..Default::default()
             },
             Target::<T>::new(target),

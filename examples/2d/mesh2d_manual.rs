@@ -13,7 +13,10 @@ use bevy::{
     render::{
         mesh::{GpuMesh, Indices, MeshVertexAttribute},
         render_asset::{RenderAssetUsages, RenderAssets},
-        render_phase::{AddRenderCommand, DrawFunctions, SetItemPipeline, SortedRenderPhase},
+        render_phase::{
+            AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline,
+            ViewSortedRenderPhases,
+        },
         render_resource::{
             BlendState, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
             MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,
@@ -243,7 +246,7 @@ struct VertexOutput {
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
     // Project the world position of the mesh into screen position
-    let model = mesh2d_functions::get_model_matrix(vertex.instance_index);
+    let model = mesh2d_functions::get_world_from_local(vertex.instance_index);
     out.clip_position = mesh2d_functions::mesh2d_position_local_to_clip(model, vec4<f32>(vertex.position, 1.0));
     // Unpack the `u32` from the vertex buffer into the `vec4<f32>` used by the fragment shader
     out.color = vec4<f32>((vec4<u32>(vertex.color) >> vec4<u32>(0u, 8u, 16u, 24u)) & vec4<u32>(255u)) / 255.0;
@@ -322,7 +325,7 @@ pub fn extract_colored_mesh2d(
         }
 
         let transforms = Mesh2dTransforms {
-            transform: (&transform.affine()).into(),
+            world_from_local: (&transform.affine()).into(),
             flags: MeshFlags::empty().bits(),
         };
 
@@ -351,17 +354,18 @@ pub fn queue_colored_mesh2d(
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<GpuMesh>>,
     render_mesh_instances: Res<RenderColoredMesh2dInstances>,
-    mut views: Query<(
-        &VisibleEntities,
-        &mut SortedRenderPhase<Transparent2d>,
-        &ExtractedView,
-    )>,
+    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
+    mut views: Query<(Entity, &VisibleEntities, &ExtractedView)>,
 ) {
     if render_mesh_instances.is_empty() {
         return;
     }
     // Iterate each view (a camera is a view)
-    for (visible_entities, mut transparent_phase, view) in &mut views {
+    for (view_entity, visible_entities, view) in &mut views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+            continue;
+        };
+
         let draw_colored_mesh2d = transparent_draw_functions.read().id::<DrawColoredMesh2d>();
 
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
@@ -382,7 +386,7 @@ pub fn queue_colored_mesh2d(
                 let pipeline_id =
                     pipelines.specialize(&pipeline_cache, &colored_mesh2d_pipeline, mesh2d_key);
 
-                let mesh_z = mesh2d_transforms.transform.translation.z;
+                let mesh_z = mesh2d_transforms.world_from_local.translation.z;
                 transparent_phase.add(Transparent2d {
                     entity: *visible_entity,
                     draw_function: draw_colored_mesh2d,
@@ -392,7 +396,7 @@ pub fn queue_colored_mesh2d(
                     sort_key: FloatOrd(mesh_z),
                     // This material is not batched
                     batch_range: 0..1,
-                    dynamic_offset: None,
+                    extra_index: PhaseItemExtraIndex::NONE,
                 });
             }
         }

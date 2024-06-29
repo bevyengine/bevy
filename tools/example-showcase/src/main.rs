@@ -14,6 +14,7 @@ use std::{
 
 use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
 use pbr::ProgressBar;
+use regex::Regex;
 use toml_edit::DocumentMut;
 use xshell::{cmd, Shell};
 
@@ -25,6 +26,7 @@ struct Args {
 
     #[command(subcommand)]
     action: Action,
+
     #[arg(long)]
     /// Pagination control - page number. To use with --per-page
     page: Option<usize>,
@@ -61,6 +63,10 @@ enum Action {
         #[arg(long)]
         /// Report execution details in files
         report_details: bool,
+
+        #[arg(long)]
+        /// Show the logs during execution
+        show_logs: bool,
 
         #[arg(long)]
         /// File containing the list of examples to run, incompatible with pagination
@@ -137,6 +143,7 @@ fn main() {
             in_ci,
             ignore_stress_tests,
             report_details,
+            show_logs,
             example_list,
             only_default_features,
         } => {
@@ -168,7 +175,7 @@ fn main() {
                 (true, true) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(
-                        b"(exit_after: None, frame_time: Some(0.05), screenshot_frames: [100])",
+                        b"(setup: (fixed_frame_time: Some(0.05)), events: [(100, Screenshot)])",
                     )
                     .unwrap();
                     extra_parameters.push("--features");
@@ -178,7 +185,7 @@ fn main() {
                 (false, true) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(
-                        b"(exit_after: Some(250), frame_time: Some(0.05), screenshot_frames: [100])",
+                        b"(setup: (fixed_frame_time: Some(0.05)), events: [(100, Screenshot), (250, AppExit)])",
                     )
                     .unwrap();
                     extra_parameters.push("--features");
@@ -186,7 +193,7 @@ fn main() {
                 }
                 (false, false) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
-                    file.write_all(b"(exit_after: Some(250))").unwrap();
+                    file.write_all(b"(events: [(250, AppExit)])").unwrap();
                     extra_parameters.push("--features");
                     extra_parameters.push("bevy_ci_testing");
                 }
@@ -263,6 +270,12 @@ fn main() {
 
             let mut pb = ProgressBar::new(work_to_do().count() as u64);
 
+            let reports_path = "example-showcase-reports";
+            if report_details {
+                std::fs::create_dir(reports_path)
+                    .expect("Failed to create example-showcase-reports directory");
+            }
+
             for to_run in work_to_do() {
                 let sh = Shell::new().unwrap();
                 let example = &to_run.technical_name;
@@ -276,6 +289,13 @@ fn main() {
                     .map(|s| s.to_string())
                     .chain(required_features.iter().cloned())
                     .collect::<Vec<_>>();
+
+                for command in &to_run.setup {
+                    let exe = &command[0];
+                    let args = &command[1..];
+                    cmd!(sh, "{exe} {args...}").run().unwrap();
+                }
+
                 let _ = cmd!(
                     sh,
                     "cargo build --profile {profile} --example {example} {local_extra_parameters...}"
@@ -299,7 +319,7 @@ fn main() {
                 }
 
                 let before = Instant::now();
-                if report_details {
+                if report_details || show_logs {
                     cmd = cmd.ignore_status();
                 }
                 let result = cmd.output();
@@ -330,17 +350,22 @@ fn main() {
                     failed_examples.push((to_run, duration));
                 }
 
-                if report_details {
+                if report_details || show_logs {
                     let result = result.unwrap();
                     let stdout = String::from_utf8_lossy(&result.stdout);
                     let stderr = String::from_utf8_lossy(&result.stderr);
-                    println!("{}", stdout);
-                    println!("{}", stderr);
-                    let mut file = File::create(format!("{}.log", example)).unwrap();
-                    file.write_all(b"==== stdout ====\n").unwrap();
-                    file.write_all(stdout.as_bytes()).unwrap();
-                    file.write_all(b"\n==== stderr ====\n").unwrap();
-                    file.write_all(stderr.as_bytes()).unwrap();
+                    if show_logs {
+                        println!("{}", stdout);
+                        println!("{}", stderr);
+                    }
+                    if report_details {
+                        let mut file =
+                            File::create(format!("{reports_path}/{}.log", example)).unwrap();
+                        file.write_all(b"==== stdout ====\n").unwrap();
+                        file.write_all(stdout.as_bytes()).unwrap();
+                        file.write_all(b"\n==== stderr ====\n").unwrap();
+                        file.write_all(stderr.as_bytes()).unwrap();
+                    }
                 }
 
                 thread::sleep(Duration::from_secs(1));
@@ -350,7 +375,7 @@ fn main() {
 
             if report_details {
                 let _ = fs::write(
-                    "successes",
+                    format!("{reports_path}/successes"),
                     successful_examples
                         .iter()
                         .map(|(example, duration)| {
@@ -365,7 +390,7 @@ fn main() {
                         .join("\n"),
                 );
                 let _ = fs::write(
-                    "failures",
+                    format!("{reports_path}/failures"),
                     failed_examples
                         .iter()
                         .map(|(example, duration)| {
@@ -381,7 +406,7 @@ fn main() {
                 );
                 if screenshot {
                     let _ = fs::write(
-                        "no_screenshots",
+                        format!("{reports_path}/no_screenshots"),
                         no_screenshot_examples
                             .iter()
                             .map(|(example, duration)| {
@@ -471,7 +496,7 @@ header_message = \"Examples (WebGL2)\"
                 // and other characters that don't
                 // work well in a URL path.
                 let category_path = root_path.join(
-                    &to_show
+                    to_show
                         .category
                         .replace(['(', ')'], "")
                         .replace(' ', "-")
@@ -497,7 +522,7 @@ weight = {}
                         .unwrap();
                     categories.insert(to_show.category.clone(), 0);
                 }
-                let example_path = category_path.join(&to_show.technical_name.replace('_', "-"));
+                let example_path = category_path.join(to_show.technical_name.replace('_', "-"));
                 let _ = fs::create_dir_all(&example_path);
 
                 let code_path = example_path.join(Path::new(&to_show.path).file_name().unwrap());
@@ -522,6 +547,7 @@ technical_name = \"{}\"
 link = \"/examples{}/{}/{}\"
 image = \"../static/screenshots/{}/{}.png\"
 code_path = \"content/examples{}/{}\"
+shader_code_paths = {:?}
 github_code_path = \"{}\"
 header_message = \"Examples ({})\"
 +++",
@@ -556,6 +582,7 @@ header_message = \"Examples ({})\"
                                 .skip(1)
                                 .collect::<PathBuf>()
                                 .display(),
+                            to_show.shader_paths,
                             &to_show.path,
                             match api {
                                 WebApi::Webgpu => "WebGPU",
@@ -651,7 +678,7 @@ header_message = \"Examples ({})\"
                 let category_path = root_path.join(&to_build.category);
                 let _ = fs::create_dir_all(&category_path);
 
-                let example_path = category_path.join(&to_build.technical_name.replace('_', "-"));
+                let example_path = category_path.join(to_build.technical_name.replace('_', "-"));
                 let _ = fs::create_dir_all(&example_path);
 
                 if website_hacks {
@@ -661,17 +688,17 @@ header_message = \"Examples ({})\"
 
                 let _ = fs::rename(
                     Path::new("examples/wasm/target/wasm_example.js"),
-                    &example_path.join("wasm_example.js"),
+                    example_path.join("wasm_example.js"),
                 );
                 if optimize_size {
                     let _ = fs::rename(
                         Path::new("examples/wasm/target/wasm_example_bg.wasm.optimized"),
-                        &example_path.join("wasm_example_bg.wasm"),
+                        example_path.join("wasm_example_bg.wasm"),
                     );
                 } else {
                     let _ = fs::rename(
                         Path::new("examples/wasm/target/wasm_example_bg.wasm"),
-                        &example_path.join("wasm_example_bg.wasm"),
+                        example_path.join("wasm_example_bg.wasm"),
                     );
                 }
                 pb.inc();
@@ -699,6 +726,22 @@ fn parse_examples() -> Vec<Example> {
         .flat_map(|val| {
             let technical_name = val.get("name").unwrap().as_str().unwrap().to_string();
 
+            let source_code = fs::read_to_string(val["path"].as_str().unwrap()).unwrap();
+            let shader_regex =
+                Regex::new(r"(shaders\/\w+\.wgsl)|(shaders\/\w+\.frag)|(shaders\/\w+\.vert)")
+                    .unwrap();
+
+            // Find all instances of references to shader files, and keep them in an ordered and deduped vec.
+            let mut shader_paths = vec![];
+            for path in shader_regex
+                .find_iter(&source_code)
+                .map(|matches| matches.as_str().to_owned())
+            {
+                if !shader_paths.contains(&path) {
+                    shader_paths.push(path);
+                }
+            }
+
             if metadatas
                 .get(&technical_name)
                 .and_then(|metadata| metadata.get("hidden"))
@@ -712,6 +755,7 @@ fn parse_examples() -> Vec<Example> {
             metadatas.get(&technical_name).map(|metadata| Example {
                 technical_name,
                 path: val["path"].as_str().unwrap().to_string(),
+                shader_paths,
                 name: metadata["name"].as_str().unwrap().to_string(),
                 description: metadata["description"].as_str().unwrap().to_string(),
                 category: metadata["category"].as_str().unwrap().to_string(),
@@ -726,18 +770,50 @@ fn parse_examples() -> Vec<Example> {
                             .collect()
                     })
                     .unwrap_or_default(),
+                setup: metadata
+                    .get("setup")
+                    .map(|setup| {
+                        setup
+                            .as_array()
+                            .unwrap()
+                            .into_iter()
+                            .map(|v| {
+                                v.as_array()
+                                    .unwrap()
+                                    .into_iter()
+                                    .map(|v| v.as_str().unwrap().to_string())
+                                    .collect()
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default(),
             })
         })
         .collect()
 }
 
+/// Data for this struct comes from both the entry for an example in the Cargo.toml file, and its associated metadata.
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 struct Example {
+    // From the example entry
+    /// Name of the example, used to start it from the cargo CLI with `--example`
     technical_name: String,
+    /// Path to the example file
     path: String,
-    name: String,
-    description: String,
-    category: String,
-    wasm: bool,
+    /// Path to the associated wgsl file if it exists
+    shader_paths: Vec<String>,
+    /// List of non default required features
     required_features: Vec<String>,
+    // From the example metadata
+    /// Pretty name, used for display
+    name: String,
+    /// Description of the example, for discoverability
+    description: String,
+    /// Pretty category name, matching the folder containing the example
+    category: String,
+    /// Does this example work in wasm?
+    // TODO: be able to differentiate between WebGL2, WebGPU, both, or neither (for examples that could run on wasm without a renderer)
+    wasm: bool,
+    /// List of commands to run before the example. Can be used for example to specify data to download
+    setup: Vec<Vec<String>>,
 }

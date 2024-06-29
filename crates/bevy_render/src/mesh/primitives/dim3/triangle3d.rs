@@ -2,19 +2,22 @@ use bevy_math::{primitives::Triangle3d, Vec3};
 use wgpu::PrimitiveTopology;
 
 use crate::{
-    mesh::{Indices, Mesh, Meshable},
+    mesh::{Indices, Mesh, MeshBuilder, Meshable},
     render_asset::RenderAssetUsages,
 };
 
-impl Meshable for Triangle3d {
-    type Output = Mesh;
+/// A builder used for creating a [`Mesh`] with a [`Triangle3d`] shape.
+pub struct Triangle3dMeshBuilder {
+    triangle: Triangle3d,
+}
 
-    fn mesh(&self) -> Self::Output {
-        let positions: Vec<_> = self.vertices.into();
-        let uvs: Vec<_> = uv_coords(self).into();
+impl MeshBuilder for Triangle3dMeshBuilder {
+    fn build(&self) -> Mesh {
+        let positions: Vec<_> = self.triangle.vertices.into();
+        let uvs: Vec<_> = uv_coords(&self.triangle).into();
 
         // Every vertex has the normal of the face of the triangle (or zero if the triangle is degenerate).
-        let normal: Vec3 = self.normal().map_or(Vec3::ZERO, |n| n.into());
+        let normal: Vec3 = normal_vec(&self.triangle);
         let normals = vec![normal; 3];
 
         let indices = Indices::U32(vec![0, 1, 2]);
@@ -28,6 +31,20 @@ impl Meshable for Triangle3d {
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     }
+}
+
+impl Meshable for Triangle3d {
+    type Output = Triangle3dMeshBuilder;
+
+    fn mesh(&self) -> Self::Output {
+        Triangle3dMeshBuilder { triangle: *self }
+    }
+}
+
+/// The normal of a [`Triangle3d`] with zeroing so that a [`Vec3`] is always obtained for meshing.
+#[inline]
+pub(crate) fn normal_vec(triangle: &Triangle3d) -> Vec3 {
+    triangle.normal().map_or(Vec3::ZERO, |n| n.into())
 }
 
 /// Unskewed uv-coordinates for a [`Triangle3d`].
@@ -80,7 +97,7 @@ pub(crate) fn uv_coords(triangle: &Triangle3d) -> [[f32; 2]; 3] {
 
 impl From<Triangle3d> for Mesh {
     fn from(triangle: Triangle3d) -> Self {
-        triangle.mesh()
+        triangle.mesh().build()
     }
 }
 

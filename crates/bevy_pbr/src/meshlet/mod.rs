@@ -49,8 +49,8 @@ use self::{
     },
     pipelines::{
         MeshletPipelines, MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE, MESHLET_CULLING_SHADER_HANDLE,
-        MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE, MESHLET_VISIBILITY_BUFFER_RASTER_SHADER_HANDLE,
-        MESHLET_WRITE_INDEX_BUFFER_SHADER_HANDLE,
+        MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE, MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE,
+        MESHLET_VISIBILITY_BUFFER_RASTER_SHADER_HANDLE,
     },
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
@@ -75,6 +75,8 @@ use bevy_ecs::{
 use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{Shader, TextureUsages},
+    renderer::RenderDevice,
+    settings::WgpuFeatures,
     view::{
         check_visibility, prepare_view_targets, InheritedVisibility, Msaa, ViewVisibility,
         Visibility, VisibilitySystems,
@@ -93,22 +95,25 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 /// Once meshes are pre-processed into a [`MeshletMesh`], this plugin can render these kinds of scenes very efficiently.
 ///
 /// In comparison to Bevy's standard renderer:
-/// * Minimal rendering work is done on the CPU. All rendering is GPU-driven.
 /// * Much more efficient culling. Meshlets can be culled individually, instead of all or nothing culling for entire meshes at a time.
-/// Additionally, occlusion culling can eliminate meshlets that would cause overdraw.
+///     Additionally, occlusion culling can eliminate meshlets that would cause overdraw.
 /// * Much more efficient batching. All geometry can be rasterized in a single indirect draw.
 /// * Scales better with large amounts of dense geometry and overdraw. Bevy's standard renderer will bottleneck sooner.
 /// * Near-seamless level of detail (LOD).
 /// * Much greater base overhead. Rendering will be slower than Bevy's standard renderer with small amounts of geometry and overdraw.
 /// * Much greater memory usage.
 /// * Requires preprocessing meshes. See [`MeshletMesh`] for details.
-/// * More limitations on the kinds of materials you can use. See [`MeshletMesh`] for details.
+/// * Limitations on the kinds of materials you can use. See [`MeshletMesh`] for details.
 ///
 /// This plugin is not compatible with [`Msaa`], and adding this plugin will disable it.
 ///
-/// This plugin does not work on the WebGL2 backend.
+/// This plugin does not work on WASM.
 ///
-/// ![A render of the Stanford dragon as a `MeshletMesh`](https://raw.githubusercontent.com/bevyengine/bevy/meshlet/crates/bevy_pbr/src/meshlet/meshlet_preview.png)
+/// Mixing forward+prepass and deferred rendering for opaque materials is not currently supported when using this plugin.
+/// You must use one or the other by setting [`crate::DefaultOpaqueRendererMethod`].
+/// Do not override [`crate::Material::opaque_render_method`] for any material when using this plugin.
+///
+/// ![A render of the Stanford dragon as a `MeshletMesh`](https://raw.githubusercontent.com/bevyengine/bevy/main/crates/bevy_pbr/src/meshlet/meshlet_preview.png)
 pub struct MeshletPlugin;
 
 impl Plugin for MeshletPlugin {
@@ -127,14 +132,14 @@ impl Plugin for MeshletPlugin {
         );
         load_internal_asset!(
             app,
-            MESHLET_CULLING_SHADER_HANDLE,
-            "cull_meshlets.wgsl",
+            MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE,
+            "fill_cluster_buffers.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
-            MESHLET_WRITE_INDEX_BUFFER_SHADER_HANDLE,
-            "write_index_buffer.wgsl",
+            MESHLET_CULLING_SHADER_HANDLE,
+            "cull_clusters.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
@@ -176,6 +181,15 @@ impl Plugin for MeshletPlugin {
             return;
         };
 
+        if !render_app
+            .world()
+            .resource::<RenderDevice>()
+            .features()
+            .contains(WgpuFeatures::PUSH_CONSTANTS)
+        {
+            panic!("MeshletPlugin can't be used. GPU lacks support: WgpuFeatures::PUSH_CONSTANTS is not supported.");
+        }
+
         render_app
             .add_render_graph_node::<MeshletVisibilityBufferRasterPassNode>(
                 Core3d,
@@ -196,18 +210,18 @@ impl Plugin for MeshletPlugin {
             .add_render_graph_edges(
                 Core3d,
                 (
-                    // TODO: Meshlet VisibilityBufferRaster should be after main pass when not using depth prepass
+                    // Non-meshlet shading passes _must_ come before meshlet shading passes
                     NodePbr::ShadowPass,
-                    Node3d::Prepass,
-                    Node3d::DeferredPrepass,
                     NodeMeshlet::VisibilityBufferRasterPass,
                     NodeMeshlet::Prepass,
+                    Node3d::Prepass,
                     NodeMeshlet::DeferredPrepass,
+                    Node3d::DeferredPrepass,
                     Node3d::CopyDeferredLightingId,
                     Node3d::EndPrepasses,
                     Node3d::StartMainPass,
-                    Node3d::MainOpaquePass,
                     NodeMeshlet::MainOpaquePass,
+                    Node3d::MainOpaquePass,
                     Node3d::EndMainPass,
                 ),
             )

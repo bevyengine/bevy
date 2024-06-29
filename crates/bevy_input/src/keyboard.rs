@@ -105,6 +105,20 @@ pub struct KeyboardInput {
     pub window: Entity,
 }
 
+/// Gets generated from `bevy_winit::winit_runner`
+///
+/// Used for clearing all cached states to avoid having 'stuck' key presses
+/// when, for example, switching between windows with 'Alt-Tab' or using any other
+/// OS specific key combination that leads to Bevy window losing focus and not receiving any
+/// input events
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct KeyboardFocusLost;
+
 /// Updates the [`ButtonInput<KeyCode>`] resource with the latest [`KeyboardInput`] events.
 ///
 /// ## Differences
@@ -114,6 +128,7 @@ pub struct KeyboardInput {
 pub fn keyboard_input_system(
     mut key_input: ResMut<ButtonInput<KeyCode>>,
     mut keyboard_input_events: EventReader<KeyboardInput>,
+    mut focus_events: EventReader<KeyboardFocusLost>,
 ) {
     // Avoid clearing if it's not empty to ensure change detection is not triggered.
     key_input.bypass_change_detection().clear();
@@ -126,6 +141,12 @@ pub fn keyboard_input_system(
             ButtonState::Released => key_input.release(*key_code),
         }
     }
+
+    // Release all cached input to avoid having stuck input when switching between windows in os
+    if !focus_events.is_empty() {
+        key_input.release_all();
+        focus_events.clear();
+    }
 }
 
 /// Contains the platform-native physical key identifier
@@ -135,7 +156,7 @@ pub fn keyboard_input_system(
 ///
 /// This enum is primarily used to store raw keycodes when Winit doesn't map a given native
 /// physical key identifier to a meaningful [`KeyCode`] variant. In the presence of identifiers we
-/// haven't mapped for you yet, this lets you use use [`KeyCode`] to:
+/// haven't mapped for you yet, this lets you use [`KeyCode`] to:
 ///
 /// - Correctly match key press and release events.
 /// - On non-web platforms, support assigning keybinds to virtually any key through a UI.

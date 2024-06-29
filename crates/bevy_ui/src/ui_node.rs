@@ -6,7 +6,7 @@ use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
-    texture::Image,
+    texture::{Image, TRANSPARENT_IMAGE_HANDLE},
 };
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::warn_once;
@@ -770,10 +770,12 @@ impl Default for Direction {
     reflect(Serialize, Deserialize)
 )]
 pub enum Display {
-    /// Use Flexbox layout model to determine the position of this [`Node`].
+    /// Use Flexbox layout model to determine the position of this [`Node`]'s children.
     Flex,
-    /// Use CSS Grid layout model to determine the position of this [`Node`].
+    /// Use CSS Grid layout model to determine the position of this [`Node`]'s children.
     Grid,
+    /// Use CSS Block layout model to determine the position of this [`Node`]'s children.
+    Block,
     /// Use no layout, don't render this node and its children.
     ///
     /// If you want to hide a node and its children,
@@ -896,8 +898,10 @@ impl Default for Overflow {
 pub enum OverflowAxis {
     /// Show overflowing items.
     Visible,
-    /// Hide overflowing items.
+    /// Hide overflowing items by clipping.
     Clip,
+    /// Hide overflowing items by influencing layout and then clipping.
+    Hidden,
 }
 
 impl OverflowAxis {
@@ -1689,7 +1693,8 @@ pub enum GridPlacementError {
 pub struct BackgroundColor(pub Color);
 
 impl BackgroundColor {
-    pub const DEFAULT: Self = Self(Color::WHITE);
+    /// Background color is transparent by default.
+    pub const DEFAULT: Self = Self(Color::NONE);
 }
 
 impl Default for BackgroundColor {
@@ -1721,7 +1726,8 @@ impl<T: Into<Color>> From<T> for BorderColor {
 }
 
 impl BorderColor {
-    pub const DEFAULT: Self = BorderColor(Color::WHITE);
+    /// Border color is transparent by default.
+    pub const DEFAULT: Self = BorderColor(Color::NONE);
 }
 
 impl Default for BorderColor {
@@ -1730,7 +1736,7 @@ impl Default for BorderColor {
     }
 }
 
-#[derive(Component, Copy, Clone, Default, Debug, Reflect)]
+#[derive(Component, Copy, Clone, Default, Debug, PartialEq, Reflect)]
 #[reflect(Component, Default)]
 #[cfg_attr(
     feature = "serialize",
@@ -1815,12 +1821,17 @@ impl Outline {
 }
 
 /// The 2D texture displayed for this UI node
-#[derive(Component, Clone, Debug, Reflect, Default)]
+#[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
 pub struct UiImage {
-    /// The tint color used to draw the image
+    /// The tint color used to draw the image.
+    ///
+    /// This is multiplied by the color of each pixel in the image.
+    /// The field value defaults to solid white, which will pass the image through unmodified.
     pub color: Color,
-    /// Handle to the texture
+    /// Handle to the texture.
+    ///
+    /// This defaults to a [`TRANSPARENT_IMAGE_HANDLE`], which points to a fully transparent 1x1 texture.
     pub texture: Handle<Image>,
     /// Whether the image should be flipped along its x-axis
     pub flip_x: bool,
@@ -1828,11 +1839,46 @@ pub struct UiImage {
     pub flip_y: bool,
 }
 
+impl Default for UiImage {
+    /// A transparent 1x1 image with a solid white tint.
+    ///
+    /// # Warning
+    ///
+    /// This will be invisible by default.
+    /// To set this to a visible image, you need to set the `texture` field to a valid image handle,
+    /// or use [`Handle<Image>`]'s default 1x1 solid white texture (as is done in [`UiImage::solid_color`]).
+    fn default() -> Self {
+        UiImage {
+            // This should be white because the tint is multiplied with the image,
+            // so if you set an actual image with default tint you'd want its original colors
+            color: Color::WHITE,
+            // This texture needs to be transparent by default, to avoid covering the background color
+            texture: TRANSPARENT_IMAGE_HANDLE,
+            flip_x: false,
+            flip_y: false,
+        }
+    }
+}
+
 impl UiImage {
+    /// Create a new [`UiImage`] with the given texture.
     pub fn new(texture: Handle<Image>) -> Self {
         Self {
             texture,
+            color: Color::WHITE,
             ..Default::default()
+        }
+    }
+
+    /// Create a solid color [`UiImage`].
+    ///
+    /// This is primarily useful for debugging / mocking the extents of your image.
+    pub fn solid_color(color: Color) -> Self {
+        Self {
+            texture: Handle::default(),
+            color,
+            flip_x: false,
+            flip_y: false,
         }
     }
 

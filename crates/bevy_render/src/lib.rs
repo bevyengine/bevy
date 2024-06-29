@@ -43,22 +43,25 @@ pub mod prelude {
             Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
             Projection,
         },
-        mesh::{morph::MorphWeights, primitives::Meshable, Mesh},
+        mesh::{morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
-        texture::{Image, ImagePlugin},
+        texture::{image_texture_conversion::IntoDynamicImageError, Image, ImagePlugin},
         view::{InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibilityBundle},
         ExtractSchedule,
     };
 }
 
+use batching::gpu_preprocessing::BatchingPlugin;
 use bevy_ecs::schedule::ScheduleBuildSettings;
 use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
 use bevy_hierarchy::ValidParentCheckPlugin;
-use bevy_window::{PrimaryWindow, RawHandleWrapper};
+use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
+use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
+use render_asset::RenderAssetBytesPerFrame;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
 use crate::mesh::GpuMesh;
@@ -93,7 +96,7 @@ use std::{
 pub struct RenderPlugin {
     pub render_creation: RenderCreation,
     /// If `true`, disables asynchronous pipeline compilation.
-    /// This has no effect on macOS, Wasm, iOS, or without the `multi-threaded` feature.
+    /// This has no effect on macOS, Wasm, iOS, or without the `multi_threaded` feature.
     pub synchronous_pipeline_compilation: bool,
 }
 
@@ -233,6 +236,8 @@ pub struct RenderApp;
 pub const INSTANCE_INDEX_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(10313207077636615845);
 pub const MATHS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10665356303104593376);
+pub const COLOR_OPERATIONS_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(1844674407370955161);
 
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
@@ -263,10 +268,9 @@ impl Plugin for RenderPlugin {
                     ));
 
                     let mut system_state: SystemState<
-                        Query<&RawHandleWrapper, With<PrimaryWindow>>,
+                        Query<&RawHandleWrapperHolder, With<PrimaryWindow>>,
                     > = SystemState::new(app.world_mut());
                     let primary_window = system_state.get(app.world()).get_single().ok().cloned();
-
                     let settings = render_creation.clone();
                     let async_renderer = async move {
                         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -277,11 +281,20 @@ impl Plugin for RenderPlugin {
                         });
 
                         // SAFETY: Plugins should be set up on the main thread.
-                        let surface = primary_window.map(|wrapper| unsafe {
-                            let handle = wrapper.get_handle();
-                            instance
-                                .create_surface(handle)
-                                .expect("Failed to create wgpu surface")
+                        let surface = primary_window.and_then(|wrapper| unsafe {
+                            let maybe_handle = wrapper.0.lock().expect(
+                                "Couldn't get the window handle in time for renderer initialization",
+                            );
+                            if let Some(wrapper) = maybe_handle.as_ref() {
+                                let handle = wrapper.get_handle();
+                                Some(
+                                    instance
+                                        .create_surface(handle)
+                                        .expect("Failed to create wgpu surface"),
+                                )
+                            } else {
+                                None
+                            }
                         });
 
                         let request_adapter_options = wgpu::RequestAdapterOptions {
@@ -332,7 +345,11 @@ impl Plugin for RenderPlugin {
             MeshPlugin,
             GlobalsPlugin,
             MorphPlugin,
+            BatchingPlugin,
         ));
+
+        app.init_resource::<RenderAssetBytesPerFrame>()
+            .add_plugins(ExtractResourcePlugin::<RenderAssetBytesPerFrame>::default());
 
         app.register_type::<alpha::AlphaMode>()
             // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy
@@ -352,6 +369,12 @@ impl Plugin for RenderPlugin {
 
     fn finish(&self, app: &mut App) {
         load_internal_asset!(app, MATHS_SHADER_HANDLE, "maths.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            COLOR_OPERATIONS_SHADER_HANDLE,
+            "color_operations.wgsl",
+            Shader::from_wgsl
+        );
         if let Some(future_renderer_resources) =
             app.world_mut().remove_resource::<FutureRendererResources>()
         {
@@ -375,7 +398,14 @@ impl Plugin for RenderPlugin {
                 .insert_resource(device)
                 .insert_resource(queue)
                 .insert_resource(render_adapter)
-                .insert_resource(adapter_info);
+                .insert_resource(adapter_info)
+                .add_systems(
+                    Render,
+                    (|mut bpf: ResMut<RenderAssetBytesPerFrame>| {
+                        bpf.reset();
+                    })
+                    .in_set(RenderSet::Cleanup),
+                );
         }
     }
 }

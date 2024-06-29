@@ -44,6 +44,8 @@ pub use bevy_log as log;
 pub use bevy_math as math;
 #[cfg(feature = "bevy_pbr")]
 pub use bevy_pbr as pbr;
+#[cfg(feature = "bevy_picking")]
+pub use bevy_picking as picking;
 pub use bevy_ptr as ptr;
 pub use bevy_reflect as reflect;
 #[cfg(feature = "bevy_render")]
@@ -52,6 +54,8 @@ pub use bevy_render as render;
 pub use bevy_scene as scene;
 #[cfg(feature = "bevy_sprite")]
 pub use bevy_sprite as sprite;
+#[cfg(feature = "bevy_state")]
+pub use bevy_state as state;
 pub use bevy_tasks as tasks;
 #[cfg(feature = "bevy_text")]
 pub use bevy_text as text;

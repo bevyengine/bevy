@@ -31,8 +31,7 @@ pub mod prelude {
         app::{App, AppExit},
         main_schedule::{
             First, FixedFirst, FixedLast, FixedPostUpdate, FixedPreUpdate, FixedUpdate, Last, Main,
-            PostStartup, PostUpdate, PreStartup, PreUpdate, SpawnScene, Startup, StateTransition,
-            Update,
+            PostStartup, PostUpdate, PreStartup, PreUpdate, SpawnScene, Startup, Update,
         },
         sub_app::SubApp,
         DynamicPlugin, Plugin, PluginGroup,
