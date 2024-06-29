@@ -100,22 +100,25 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// ## Common points of confusion
 ///
 /// - UV maps in Bevy start at the top-left, see [`ATTRIBUTE_UV_0`](Mesh::ATTRIBUTE_UV_0),
-/// other APIs can have other conventions, `OpenGL` starts at bottom-left.
+///     other APIs can have other conventions, `OpenGL` starts at bottom-left.
 /// - It is possible and sometimes useful for multiple vertices to have the same
-/// [position attribute](Mesh::ATTRIBUTE_POSITION) value,
-/// it's a common technique in 3D modelling for complex UV mapping or other calculations.
+///     [position attribute](Mesh::ATTRIBUTE_POSITION) value,
+///     it's a common technique in 3D modelling for complex UV mapping or other calculations.
+/// - Bevy performs frustum culling based on the [`Aabb`] of meshes, which is calculated
+///     and added automatically for new meshes only. If a mesh is modified, the entity's [`Aabb`]
+///     needs to be updated manually or deleted so that it is re-calculated.
 ///
 /// ## Use with `StandardMaterial`
 ///
 /// To render correctly with `StandardMaterial`, a mesh needs to have properly defined:
 /// - [`UVs`](Mesh::ATTRIBUTE_UV_0): Bevy needs to know how to map a texture onto the mesh
-/// (also true for `ColorMaterial`).
+///     (also true for `ColorMaterial`).
 /// - [`Normals`](Mesh::ATTRIBUTE_NORMAL): Bevy needs to know how light interacts with your mesh.
-/// [0.0, 0.0, 1.0] is very common for simple flat meshes on the XY plane,
-/// because simple meshes are smooth and they don't require complex light calculations.
+///     [0.0, 0.0, 1.0] is very common for simple flat meshes on the XY plane,
+///     because simple meshes are smooth and they don't require complex light calculations.
 /// - Vertex winding order: by default, `StandardMaterial.cull_mode` is [`Some(Face::Back)`](crate::render_resource::Face),
-/// which means that Bevy would *only* render the "front" of each triangle, which
-/// is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
+///     which means that Bevy would *only* render the "front" of each triangle, which
+///     is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
 #[derive(Asset, Debug, Clone, Reflect)]
 pub struct Mesh {
     #[reflect(ignore)]
@@ -225,6 +228,8 @@ impl Mesh {
     /// Sets the data for a vertex attribute (position, normal, etc.). The name will
     /// often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
     ///
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
+    ///
     /// # Panics
     /// Panics when the format of the values does not match the attribute's format.
     #[inline]
@@ -250,6 +255,8 @@ impl Mesh {
     /// The name will often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
     ///
     /// (Alternatively, you can use [`Mesh::insert_attribute`] to mutate an existing mesh in-place)
+    ///
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     ///
     /// # Panics
     /// Panics when the format of the values does not match the attribute's format.
@@ -727,12 +734,14 @@ impl Mesh {
     ///
     /// Note that attributes of `other` that don't exist on `self` will be ignored.
     ///
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
+    ///
     /// # Panics
     ///
     /// Panics if the vertex attribute values of `other` are incompatible with `self`.
     /// For example, [`VertexAttributeValues::Float32`] is incompatible with [`VertexAttributeValues::Float32x3`].
     #[allow(clippy::match_same_arms)]
-    pub fn merge(&mut self, other: Mesh) {
+    pub fn merge(&mut self, other: &Mesh) {
         use VertexAttributeValues::*;
 
         // The indices of `other` should start after the last vertex of `self`.
@@ -803,12 +812,16 @@ impl Mesh {
     }
 
     /// Transforms the vertex positions, normals, and tangents of the mesh by the given [`Transform`].
+    ///
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn transformed_by(mut self, transform: Transform) -> Self {
         self.transform_by(transform);
         self
     }
 
     /// Transforms the vertex positions, normals, and tangents of the mesh in place by the given [`Transform`].
+    ///
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn transform_by(&mut self, transform: Transform) {
         // Needed when transforming normals and tangents
         let scale_recip = 1. / transform.scale;
@@ -857,12 +870,16 @@ impl Mesh {
     }
 
     /// Translates the vertex positions of the mesh by the given [`Vec3`].
+    ///
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn translated_by(mut self, translation: Vec3) -> Self {
         self.translate_by(translation);
         self
     }
 
     /// Translates the vertex positions of the mesh in place by the given [`Vec3`].
+    ///
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn translate_by(&mut self, translation: Vec3) {
         if translation == Vec3::ZERO {
             return;
@@ -879,12 +896,16 @@ impl Mesh {
     }
 
     /// Rotates the vertex positions, normals, and tangents of the mesh by the given [`Quat`].
+    ///
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn rotated_by(mut self, rotation: Quat) -> Self {
         self.rotate_by(rotation);
         self
     }
 
     /// Rotates the vertex positions, normals, and tangents of the mesh in place by the given [`Quat`].
+    ///
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn rotate_by(&mut self, rotation: Quat) {
         if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
             self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
@@ -920,12 +941,16 @@ impl Mesh {
     }
 
     /// Scales the vertex positions, normals, and tangents of the mesh by the given [`Vec3`].
+    ///
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn scaled_by(mut self, scale: Vec3) -> Self {
         self.scale_by(scale);
         self
     }
 
     /// Scales the vertex positions, normals, and tangents of the mesh in place by the given [`Vec3`].
+    ///
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn scale_by(&mut self, scale: Vec3) {
         // Needed when transforming normals and tangents
         let scale_recip = 1. / scale;
@@ -1317,6 +1342,7 @@ impl VertexFormatSize for VertexFormat {
             VertexFormat::Unorm8x4 => 4,
             VertexFormat::Snorm8x2 => 2,
             VertexFormat::Snorm8x4 => 4,
+            VertexFormat::Unorm10_10_10_2 => 4,
             VertexFormat::Uint16x2 => 2 * 2,
             VertexFormat::Uint16x4 => 2 * 4,
             VertexFormat::Sint16x2 => 2 * 2,

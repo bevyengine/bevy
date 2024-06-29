@@ -8,7 +8,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-/// A sphere primitive
+/// A sphere primitive, representing the set of all points some distance from the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -216,7 +216,7 @@ impl InfinitePlane3d {
     }
 }
 
-/// An infinite line along a direction in 3D space.
+/// An infinite line going through the origin along a direction in 3D space.
 ///
 /// For a finite line: [`Segment3d`]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -232,7 +232,7 @@ pub struct Line3d {
 }
 impl Primitive3d for Line3d {}
 
-/// A segment of a line along a direction in 3D space.
+/// A segment of a line going through the origin along a direction in 3D space.
 #[doc(alias = "LineSegment3d")]
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -353,7 +353,8 @@ impl BoxedPolyline3d {
     }
 }
 
-/// A cuboid primitive, more commonly known as a box.
+/// A cuboid primitive, which is like a cube, except that the x, y, and z dimensions are not
+/// required to be the same.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -445,7 +446,7 @@ impl Measured3d for Cuboid {
     }
 }
 
-/// A cylinder primitive
+/// A cylinder primitive centered on the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -522,7 +523,7 @@ impl Measured3d for Cylinder {
     }
 }
 
-/// A 3D capsule primitive.
+/// A 3D capsule primitive centered on the origin
 /// A three-dimensional capsule is defined as a surface at a distance (radius) from a line
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -591,7 +592,9 @@ impl Measured3d for Capsule3d {
     }
 }
 
-/// A cone primitive.
+/// A cone primitive centered on the midpoint between the tip of the cone and the center of its base.
+///
+/// The cone is oriented with its tip pointing towards the Y axis.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -721,6 +724,7 @@ pub enum TorusKind {
 }
 
 /// A torus primitive, often representing a ring or donut shape
+/// The set of points some distance from a circle centered at the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(

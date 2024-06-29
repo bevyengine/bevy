@@ -150,6 +150,11 @@ use std::{
 ///
 /// [`SyncCell`]: bevy_utils::synccell::SyncCell
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a `Component`",
+    label = "invalid `Component`",
+    note = "consider annotating `{Self}` with `#[derive(Component)]`"
+)]
 pub trait Component: Send + Sync + 'static {
     /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
@@ -408,7 +413,7 @@ impl ComponentInfo {
     }
 }
 
-/// A value which uniquely identifies the type of a [`Component`] of [`Resource`] within a
+/// A value which uniquely identifies the type of a [`Component`] or [`Resource`] within a
 /// [`World`].
 ///
 /// Each time a new `Component` type is registered within a `World` using
@@ -836,8 +841,12 @@ impl Components {
 /// This is used to power change detection.
 ///
 /// *Note* that a system that hasn't been run yet has a `Tick` of 0.
-#[derive(Copy, Clone, Default, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[derive(Copy, Clone, Default, Debug, Eq, Hash, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Hash, PartialEq)
+)]
 pub struct Tick {
     tick: u32,
 }

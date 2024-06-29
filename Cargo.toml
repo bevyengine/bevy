@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.77.0"
+rust-version = "1.78.0"
 
 [workspace]
 exclude = [
@@ -63,6 +63,7 @@ default = [
   "bevy_winit",
   "bevy_core_pipeline",
   "bevy_pbr",
+  "bevy_picking",
   "bevy_gltf",
   "bevy_render",
   "bevy_sprite",
@@ -76,6 +77,7 @@ default = [
   "bevy_gizmos",
   "android_shared_stdcxx",
   "tonemapping_luts",
+  "smaa_luts",
   "default_font",
   "webgl2",
   "sysinfo_plugin",
@@ -122,6 +124,9 @@ bevy_pbr = [
   "bevy_render",
   "bevy_core_pipeline",
 ]
+
+# Provides picking functionality
+bevy_picking = ["bevy_internal/bevy_picking"]
 
 # Provides rendering functionality
 bevy_render = ["bevy_internal/bevy_render", "bevy_color"]
@@ -282,6 +287,9 @@ detailed_trace = ["bevy_internal/detailed_trace"]
 # Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method on your `Camera2dBundle` or `Camera3dBundle`.
 tonemapping_luts = ["bevy_internal/tonemapping_luts", "ktx2", "zstd"]
 
+# Include SMAA Look Up Tables KTX2 Files
+smaa_luts = ["bevy_internal/smaa_luts"]
+
 # Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)
 accesskit_unix = ["bevy_internal/accesskit_unix"]
 
@@ -354,10 +362,15 @@ serde = { version = "1", features = ["derive"] }
 bytemuck = "1.7"
 # Needed to poll Task examples
 futures-lite = "2.0.1"
+async-std = "1.12"
 crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 thiserror = "1.0"
 event-listener = "5.3.0"
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen = { version = "0.2" }
+web-sys = { version = "0.3", features = ["Window"] }
 
 [[example]]
 name = "hello_world"
@@ -795,6 +808,17 @@ doc-scrape-examples = true
 [package.metadata.example.load_gltf]
 name = "Load glTF"
 description = "Loads and renders a glTF file as a scene"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "load_gltf_extras"
+path = "examples/3d/load_gltf_extras.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.load_gltf_extras]
+name = "Load glTF extras"
+description = "Loads and renders a glTF file as a scene, including the gltf extras"
 category = "3D Rendering"
 wasm = true
 
@@ -1756,13 +1780,14 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "state"
-path = "examples/state/state.rs"
+name = "states"
+path = "examples/state/states.rs"
 doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
 
-[package.metadata.example.state]
-name = "State"
-description = "Illustrates how to use States to control transitioning from a Menu state to an InGame state"
+[package.metadata.example.states]
+name = "States"
+description = "Illustrates how to use States to control transitioning from a Menu state to an InGame state."
 category = "State"
 wasm = false
 
@@ -1770,6 +1795,7 @@ wasm = false
 name = "sub_states"
 path = "examples/state/sub_states.rs"
 doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.sub_states]
 name = "Sub States"
@@ -1781,10 +1807,23 @@ wasm = false
 name = "computed_states"
 path = "examples/state/computed_states.rs"
 doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.computed_states]
 name = "Computed States"
-description = "Advanced state patterns using Computed States"
+description = "Advanced state patterns using Computed States."
+category = "State"
+wasm = false
+
+[[example]]
+name = "custom_transitions"
+path = "examples/state/custom_transitions.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
+
+[package.metadata.example.custom_transitions]
+name = "Custom State Transition Behavior"
+description = "Creating and working with custom state transition schedules."
 category = "State"
 wasm = false
 
@@ -2504,6 +2543,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "observers"
+path = "examples/ecs/observers.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.observers]
+name = "Observers"
+description = "Demonstrates observers that react to events (both built-in life-cycle events and custom events)"
+category = "ECS (Entity Component System)"
+wasm = true
+
+[[example]]
 name = "3d_rotation"
 path = "examples/transforms/3d_rotation.rs"
 doc-scrape-examples = true
@@ -2837,6 +2887,17 @@ category = "Window"
 wasm = true
 
 [[example]]
+name = "custom_user_event"
+path = "examples/window/custom_user_event.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_user_event]
+name = "Custom User Event"
+description = "Handles custom user events within the event loop"
+category = "Window"
+wasm = true
+
+[[example]]
 name = "low_power"
 path = "examples/window/low_power.rs"
 doc-scrape-examples = true
@@ -2983,6 +3044,17 @@ category = "Math"
 wasm = true
 
 [[example]]
+name = "custom_primitives"
+path = "examples/math/custom_primitives.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_primitives]
+name = "Custom Primitives"
+description = "Demonstrates how to add custom primitives and useful traits for them."
+category = "Math"
+wasm = true
+
+[[example]]
 name = "random_sampling"
 path = "examples/math/random_sampling.rs"
 doc-scrape-examples = true
@@ -2990,6 +3062,17 @@ doc-scrape-examples = true
 [package.metadata.example.random_sampling]
 name = "Random Sampling"
 description = "Demonstrates how to sample random points from mathematical primitives"
+category = "Math"
+wasm = true
+
+[[example]]
+name = "smooth_follow"
+path = "examples/math/smooth_follow.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.smooth_follow]
+name = "Smooth Follow"
+description = "Demonstrates how to make an entity smoothly follow another using interpolation"
 category = "Math"
 wasm = true
 
@@ -3043,6 +3126,28 @@ name = "fps_overlay"
 path = "examples/dev_tools/fps_overlay.rs"
 doc-scrape-examples = true
 required-features = ["bevy_dev_tools"]
+
+[[example]]
+name = "2d_top_down_camera"
+path = "examples/camera/2d_top_down_camera.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.2d_top_down_camera]
+name = "2D top-down camera"
+description = "A 2D top-down camera smoothly following player movements"
+category = "Camera"
+wasm = true
+
+[[example]]
+name = "first_person_view_model"
+path = "examples/camera/first_person_view_model.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.first_person_view_model]
+name = "First person view model"
+description = "A first-person camera that uses a world model and a view model with different field of views (FOV)"
+category = "Camera"
+wasm = true
 
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"
@@ -3115,6 +3220,29 @@ doc-scrape-examples = true
 name = "Volumetric fog"
 description = "Demonstrates volumetric fog and lighting"
 category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "anisotropy"
+path = "examples/3d/anisotropy.rs"
+doc-scrape-examples = true
+required-features = ["jpeg"]
+
+[package.metadata.example.anisotropy]
+name = "Anisotropy"
+description = "Displays an example model with anisotropy"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "custom_phase_item"
+path = "examples/shader/custom_phase_item.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_phase_item]
+name = "Custom phase item"
+description = "Demonstrates how to enqueue custom draw commands in a render phase"
+category = "Shaders"
 wasm = true
 
 [profile.wasm-release]

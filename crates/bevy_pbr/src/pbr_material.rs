@@ -1,6 +1,6 @@
 use bevy_asset::Asset;
 use bevy_color::{Alpha, ColorToComponents};
-use bevy_math::{Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
+use bevy_math::{vec2, Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     mesh::MeshVertexBufferLayoutRef, render_asset::RenderAssets, render_resource::*,
@@ -215,8 +215,8 @@ pub struct StandardMaterial {
     ///
     /// **Important:** The [`StandardMaterial::diffuse_transmission`] property must be set to a value higher than 0.0,
     /// or this texture won't have any effect.
-    #[texture(17)]
-    #[sampler(18)]
+    #[texture(19)]
+    #[sampler(20)]
     #[cfg(feature = "pbr_transmission_textures")]
     pub diffuse_transmission_texture: Option<Handle<Image>>,
 
@@ -235,13 +235,13 @@ pub struct StandardMaterial {
     /// with distortion and blur effects.
     ///
     /// - [`Camera3d::screen_space_specular_transmission_steps`](bevy_core_pipeline::core_3d::Camera3d::screen_space_specular_transmission_steps) can be used to enable transmissive objects
-    /// to be seen through other transmissive objects, at the cost of additional draw calls and texture copies; (Use with caution!)
+    ///     to be seen through other transmissive objects, at the cost of additional draw calls and texture copies; (Use with caution!)
     ///     - If a simplified approximation of specular transmission using only environment map lighting is sufficient, consider setting
-    /// [`Camera3d::screen_space_specular_transmission_steps`](bevy_core_pipeline::core_3d::Camera3d::screen_space_specular_transmission_steps) to `0`.
+    ///         [`Camera3d::screen_space_specular_transmission_steps`](bevy_core_pipeline::core_3d::Camera3d::screen_space_specular_transmission_steps) to `0`.
     /// - If purely diffuse light transmission is needed, (i.e. “translucency”) consider using [`StandardMaterial::diffuse_transmission`] instead,
-    /// for a much less expensive effect.
+    ///     for a much less expensive effect.
     /// - Specular transmission is rendered before alpha blending, so any material with [`AlphaMode::Blend`], [`AlphaMode::Premultiplied`], [`AlphaMode::Add`] or [`AlphaMode::Multiply`]
-    ///   won't be visible through specular transmissive materials.
+    ///     won't be visible through specular transmissive materials.
     #[doc(alias = "refraction")]
     pub specular_transmission: f32,
 
@@ -256,8 +256,8 @@ pub struct StandardMaterial {
     ///
     /// **Important:** The [`StandardMaterial::specular_transmission`] property must be set to a value higher than 0.0,
     /// or this texture won't have any effect.
-    #[texture(13)]
-    #[sampler(14)]
+    #[texture(15)]
+    #[sampler(16)]
     #[cfg(feature = "pbr_transmission_textures")]
     pub specular_transmission_texture: Option<Handle<Image>>,
 
@@ -285,8 +285,8 @@ pub struct StandardMaterial {
     ///
     /// **Important:** The [`StandardMaterial::thickness`] property must be set to a value higher than 0.0,
     /// or this texture won't have any effect.
-    #[texture(15)]
-    #[sampler(16)]
+    #[texture(17)]
+    #[sampler(18)]
     #[cfg(feature = "pbr_transmission_textures")]
     pub thickness_texture: Option<Handle<Image>>,
 
@@ -420,8 +420,8 @@ pub struct StandardMaterial {
     /// main [`StandardMaterial::clearcoat`] factor.
     ///
     /// As this is a non-color map, it must not be loaded as sRGB.
-    #[texture(19)]
-    #[sampler(20)]
+    #[texture(21)]
+    #[sampler(22)]
     #[cfg(feature = "pbr_multi_layer_material_textures")]
     pub clearcoat_texture: Option<Handle<Image>>,
 
@@ -445,8 +445,8 @@ pub struct StandardMaterial {
     /// [`StandardMaterial::clearcoat_perceptual_roughness`] factor.
     ///
     /// As this is a non-color map, it must not be loaded as sRGB.
-    #[texture(21)]
-    #[sampler(22)]
+    #[texture(23)]
+    #[sampler(24)]
     #[cfg(feature = "pbr_multi_layer_material_textures")]
     pub clearcoat_roughness_texture: Option<Handle<Image>>,
 
@@ -467,10 +467,78 @@ pub struct StandardMaterial {
     /// in both [`StandardMaterial::normal_map_texture`] and this field.
     ///
     /// As this is a non-color map, it must not be loaded as sRGB.
-    #[texture(23)]
-    #[sampler(24)]
+    #[texture(25)]
+    #[sampler(26)]
     #[cfg(feature = "pbr_multi_layer_material_textures")]
     pub clearcoat_normal_texture: Option<Handle<Image>>,
+
+    /// Increases the roughness along a specific direction, so that the specular
+    /// highlight will be stretched instead of being a circular lobe.
+    ///
+    /// This value ranges from 0 (perfectly circular) to 1 (maximally
+    /// stretched). The default direction (corresponding to a
+    /// [`StandardMaterial::anisotropy_rotation`] of 0) aligns with the
+    /// *tangent* of the mesh; thus mesh tangents must be specified in order for
+    /// this parameter to have any meaning. The direction can be changed using
+    /// the [`StandardMaterial::anisotropy_rotation`] parameter.
+    ///
+    /// This is typically used for modeling surfaces such as brushed metal and
+    /// hair, in which one direction of the surface but not the other is smooth.
+    ///
+    /// See the [`KHR_materials_anisotropy` specification] for more details.
+    ///
+    /// [`KHR_materials_anisotropy` specification]:
+    /// https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_anisotropy/README.md
+    pub anisotropy_strength: f32,
+
+    /// The direction of increased roughness, in radians relative to the mesh
+    /// tangent.
+    ///
+    /// This parameter causes the roughness to vary according to the
+    /// [`StandardMaterial::anisotropy_strength`]. The rotation is applied in
+    /// tangent-bitangent space; thus, mesh tangents must be present for this
+    /// parameter to have any meaning.
+    ///
+    /// This parameter has no effect if
+    /// [`StandardMaterial::anisotropy_strength`] is zero. Its value can
+    /// optionally be adjusted across the mesh with the
+    /// [`StandardMaterial::anisotropy_texture`].
+    ///
+    /// See the [`KHR_materials_anisotropy` specification] for more details.
+    ///
+    /// [`KHR_materials_anisotropy` specification]:
+    /// https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_anisotropy/README.md
+    pub anisotropy_rotation: f32,
+
+    /// The UV channel to use for the [`StandardMaterial::anisotropy_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    pub anisotropy_channel: UvChannel,
+
+    /// An image texture that allows the
+    /// [`StandardMaterial::anisotropy_strength`] and
+    /// [`StandardMaterial::anisotropy_rotation`] to vary across the mesh.
+    ///
+    /// The [`KHR_materials_anisotropy` specification] defines the format that
+    /// this texture must take. To summarize: The direction vector is encoded in
+    /// the red and green channels, while the strength is encoded in the blue
+    /// channels. For the direction vector, the red and green channels map the
+    /// color range [0, 1] to the vector range [-1, 1]. The direction vector
+    /// encoded in this texture modifies the default rotation direction in
+    /// tangent-bitangent space, before the
+    /// [`StandardMaterial::anisotropy_rotation`] parameter is applied. The
+    /// value in the blue channel is multiplied by the
+    /// [`StandardMaterial::anisotropy_strength`] value to produce the final
+    /// anisotropy strength.
+    ///
+    /// As the texel values don't represent colors, this texture must be in
+    /// linear color space, not sRGB.
+    ///
+    /// [`KHR_materials_anisotropy` specification]:
+    /// https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_anisotropy/README.md
+    #[texture(13)]
+    #[sampler(14)]
+    pub anisotropy_texture: Option<Handle<Image>>,
 
     /// Support two-sided lighting by automatically flipping the normals for "back" faces
     /// within the PBR lighting shader.
@@ -679,6 +747,11 @@ impl StandardMaterial {
         self.flip(horizontal, vertical);
         self
     }
+
+    /// Creates a new material from a given color
+    pub fn from_color(color: impl Into<Color>) -> Self {
+        Self::from(color.into())
+    }
 }
 
 impl Default for StandardMaterial {
@@ -739,6 +812,10 @@ impl Default for StandardMaterial {
             clearcoat_normal_channel: UvChannel::Uv0,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_normal_texture: None,
+            anisotropy_strength: 0.0,
+            anisotropy_rotation: 0.0,
+            anisotropy_channel: UvChannel::Uv0,
+            anisotropy_texture: None,
             flip_normal_map_y: false,
             double_sided: false,
             cull_mode: Some(Face::Back),
@@ -804,6 +881,7 @@ bitflags::bitflags! {
         const CLEARCOAT_TEXTURE          = 1 << 14;
         const CLEARCOAT_ROUGHNESS_TEXTURE = 1 << 15;
         const CLEARCOAT_NORMAL_TEXTURE   = 1 << 16;
+        const ANISOTROPY_TEXTURE         = 1 << 17;
         const ALPHA_MODE_RESERVED_BITS   = Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS; // ← Bitmask reserving bits for the `AlphaMode`
         const ALPHA_MODE_OPAQUE          = 0 << Self::ALPHA_MODE_SHIFT_BITS;                          // ← Values are just sequential values bitshifted into
         const ALPHA_MODE_MASK            = 1 << Self::ALPHA_MODE_SHIFT_BITS;                          //   the bitmask, and can range from 0 to 7.
@@ -855,6 +933,8 @@ pub struct StandardMaterialUniform {
     pub attenuation_distance: f32,
     pub clearcoat: f32,
     pub clearcoat_perceptual_roughness: f32,
+    pub anisotropy_strength: f32,
+    pub anisotropy_rotation: Vec2,
     /// The [`StandardMaterialFlags`] accessible in the `wgsl` shader.
     pub flags: u32,
     /// When the alpha mode mask flag is set, any base color alpha above this cutoff means fully opaque,
@@ -919,6 +999,10 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             }
         }
 
+        if self.anisotropy_texture.is_some() {
+            flags |= StandardMaterialFlags::ANISOTROPY_TEXTURE;
+        }
+
         #[cfg(feature = "pbr_multi_layer_material_textures")]
         {
             if self.clearcoat_texture.is_some() {
@@ -975,6 +1059,12 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         let mut emissive = self.emissive.to_vec4();
         emissive[3] = self.emissive_exposure_weight;
 
+        // Doing this up front saves having to do this repeatedly in the fragment shader.
+        let anisotropy_rotation = vec2(
+            self.anisotropy_rotation.cos(),
+            self.anisotropy_rotation.sin(),
+        );
+
         StandardMaterialUniform {
             base_color: LinearRgba::from(self.base_color).to_vec4(),
             emissive,
@@ -983,6 +1073,8 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             reflectance: self.reflectance,
             clearcoat: self.clearcoat,
             clearcoat_perceptual_roughness: self.clearcoat_perceptual_roughness,
+            anisotropy_strength: self.anisotropy_strength,
+            anisotropy_rotation,
             diffuse_transmission: self.diffuse_transmission,
             specular_transmission: self.specular_transmission,
             thickness: self.thickness,
@@ -1007,26 +1099,28 @@ bitflags! {
     /// The pipeline key for `StandardMaterial`, packed into 64 bits.
     #[derive(Clone, Copy, PartialEq, Eq, Hash)]
     pub struct StandardMaterialKey: u64 {
-        const CULL_FRONT            = 0x01;
-        const CULL_BACK             = 0x02;
-        const NORMAL_MAP            = 0x04;
-        const RELIEF_MAPPING        = 0x08;
-        const DIFFUSE_TRANSMISSION  = 0x10;
-        const SPECULAR_TRANSMISSION = 0x20;
-        const CLEARCOAT             = 0x40;
-        const CLEARCOAT_NORMAL_MAP  = 0x80;
-        const BASE_COLOR_UV            = 0x00100;
-        const EMISSIVE_UV              = 0x00200;
-        const METALLIC_ROUGHNESS_UV    = 0x00400;
-        const OCCLUSION_UV             = 0x00800;
-        const SPECULAR_TRANSMISSION_UV = 0x01000;
-        const THICKNESS_UV             = 0x02000;
-        const DIFFUSE_TRANSMISSION_UV  = 0x04000;
-        const NORMAL_MAP_UV            = 0x08000;
-        const CLEARCOAT_UV             = 0x10000;
-        const CLEARCOAT_ROUGHNESS_UV   = 0x20000;
-        const CLEARCOAT_NORMAL_UV      = 0x40000;
-        const DEPTH_BIAS            = 0xffffffff_00000000;
+        const CULL_FRONT               = 0x000001;
+        const CULL_BACK                = 0x000002;
+        const NORMAL_MAP               = 0x000004;
+        const RELIEF_MAPPING           = 0x000008;
+        const DIFFUSE_TRANSMISSION     = 0x000010;
+        const SPECULAR_TRANSMISSION    = 0x000020;
+        const CLEARCOAT                = 0x000040;
+        const CLEARCOAT_NORMAL_MAP     = 0x000080;
+        const ANISOTROPY               = 0x000100;
+        const BASE_COLOR_UV            = 0x000200;
+        const EMISSIVE_UV              = 0x000400;
+        const METALLIC_ROUGHNESS_UV    = 0x000800;
+        const OCCLUSION_UV             = 0x001000;
+        const SPECULAR_TRANSMISSION_UV = 0x002000;
+        const THICKNESS_UV             = 0x004000;
+        const DIFFUSE_TRANSMISSION_UV  = 0x008000;
+        const NORMAL_MAP_UV            = 0x010000;
+        const ANISOTROPY_UV            = 0x020000;
+        const CLEARCOAT_UV             = 0x040000;
+        const CLEARCOAT_ROUGHNESS_UV   = 0x080000;
+        const CLEARCOAT_NORMAL_UV      = 0x100000;
+        const DEPTH_BIAS               = 0xffffffff_00000000;
     }
 }
 
@@ -1072,6 +1166,11 @@ impl From<&StandardMaterial> for StandardMaterialKey {
         );
 
         key.set(
+            StandardMaterialKey::ANISOTROPY,
+            material.anisotropy_strength > 0.0,
+        );
+
+        key.set(
             StandardMaterialKey::BASE_COLOR_UV,
             material.base_color_channel != UvChannel::Uv0,
         );
@@ -1103,10 +1202,16 @@ impl From<&StandardMaterial> for StandardMaterialKey {
                 material.diffuse_transmission_channel != UvChannel::Uv0,
             );
         }
+
         key.set(
             StandardMaterialKey::NORMAL_MAP_UV,
             material.normal_map_channel != UvChannel::Uv0,
         );
+        key.set(
+            StandardMaterialKey::ANISOTROPY_UV,
+            material.anisotropy_channel != UvChannel::Uv0,
+        );
+
         #[cfg(feature = "pbr_multi_layer_material_textures")]
         {
             key.set(
@@ -1227,6 +1332,10 @@ impl Material for StandardMaterial {
                     "STANDARD_MATERIAL_CLEARCOAT_NORMAL_MAP",
                 ),
                 (
+                    StandardMaterialKey::ANISOTROPY,
+                    "STANDARD_MATERIAL_ANISOTROPY",
+                ),
+                (
                     StandardMaterialKey::BASE_COLOR_UV,
                     "STANDARD_MATERIAL_BASE_COLOR_UV_B",
                 ),
@@ -1269,6 +1378,10 @@ impl Material for StandardMaterial {
                 (
                     StandardMaterialKey::CLEARCOAT_NORMAL_UV,
                     "STANDARD_MATERIAL_CLEARCOAT_NORMAL_UV_B",
+                ),
+                (
+                    StandardMaterialKey::ANISOTROPY_UV,
+                    "STANDARD_MATERIAL_ANISOTROPY_UV",
                 ),
             ] {
                 if key.bind_group_data.intersects(flags) {

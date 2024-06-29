@@ -316,7 +316,7 @@ impl<T: SparseSetIndex> Access<T> {
 /// otherwise would allow for queries to be considered disjoint when they shouldn't:
 /// - `Query<(&mut T, Option<&U>)>` read/write `T`, read `U`, with `U`
 /// - `Query<&mut T, Without<U>>` read/write `T`, without `U`
-/// from this we could reasonably conclude that the queries are disjoint but they aren't.
+///     from this we could reasonably conclude that the queries are disjoint but they aren't.
 ///
 /// In order to solve this the actual access that `Query<(&mut T, Option<&U>)>` has
 /// is read/write `T`, read `U`. It must still have a read `U` access otherwise the following
@@ -645,6 +645,16 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
             .extend(&filtered_access_set.combined_access);
         self.filtered_accesses
             .extend(filtered_access_set.filtered_accesses);
+    }
+
+    /// Marks the set as reading all possible indices of type T.
+    pub fn read_all(&mut self) {
+        self.combined_access.read_all();
+    }
+
+    /// Marks the set as writing all T.
+    pub fn write_all(&mut self) {
+        self.combined_access.write_all();
     }
 
     /// Removes all accesses stored in this set.

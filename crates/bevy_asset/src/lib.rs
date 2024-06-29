@@ -227,6 +227,11 @@ impl Plugin for AssetPlugin {
     }
 }
 
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an `Asset`",
+    label = "invalid `Asset`",
+    note = "consider annotating `{Self}` with `#[derive(Asset)]`"
+)]
 pub trait Asset: VisitAssetDependencies + TypePath + Send + Sync + 'static {}
 
 pub trait VisitAssetDependencies {
@@ -301,8 +306,8 @@ pub trait AssetApp {
     /// * Initializing the [`AssetEvent`] resource for the [`Asset`]
     /// * Adding other relevant systems and resources for the [`Asset`]
     /// * Ignoring schedule ambiguities in [`Assets`] resource. Any time a system takes
-    /// mutable access to this resource this causes a conflict, but they rarely actually
-    /// modify the same underlying asset.
+    ///     mutable access to this resource this causes a conflict, but they rarely actually
+    ///     modify the same underlying asset.
     fn init_asset<A: Asset>(&mut self) -> &mut Self;
     /// Registers the asset type `T` using `[App::register]`,
     /// and adds [`ReflectAsset`] type data to `T` and [`ReflectHandle`] type data to [`Handle<T>`] in the type registry.
@@ -1506,6 +1511,7 @@ mod tests {
         Empty,
     }
 
+    #[allow(dead_code)]
     #[derive(Asset, TypePath)]
     pub struct StructTestAsset {
         #[dependency]
@@ -1514,6 +1520,7 @@ mod tests {
         embedded: TestAsset,
     }
 
+    #[allow(dead_code)]
     #[derive(Asset, TypePath)]
     pub struct TupleTestAsset(#[dependency] Handle<TestAsset>);
 }

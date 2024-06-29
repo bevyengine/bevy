@@ -5,7 +5,7 @@
 //!
 //! In this case, we're transitioning from a `Menu` state to an `InGame` state.
 
-use bevy::prelude::*;
+use bevy::{dev_tools::states::*, prelude::*};
 
 fn main() {
     App::new()
@@ -25,7 +25,7 @@ fn main() {
             Update,
             (movement, change_color).run_if(in_state(AppState::InGame)),
         )
-        .add_systems(Update, log_transitions)
+        .add_systems(Update, log_transitions::<AppState>)
         .run();
 }
 
@@ -74,7 +74,7 @@ fn setup_menu(mut commands: Commands) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    image: UiImage::default().with_color(NORMAL_BUTTON),
+                    background_color: NORMAL_BUTTON.into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -161,16 +161,5 @@ fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
         };
 
         sprite.color = new_color.into();
-    }
-}
-
-/// print when an `AppState` transition happens
-/// also serves as an example of how to use `StateTransitionEvent`
-fn log_transitions(mut transitions: EventReader<StateTransitionEvent<AppState>>) {
-    for transition in transitions.read() {
-        info!(
-            "transition: {:?} => {:?}",
-            transition.before, transition.after
-        );
     }
 }
