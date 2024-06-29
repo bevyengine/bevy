@@ -2,7 +2,7 @@ use crate::func::args::{ArgInfo, ArgList};
 use crate::func::error::FunctionError;
 use crate::func::info::FunctionInfo;
 use crate::func::return_type::Return;
-use crate::func::ReturnInfo;
+use crate::func::{IntoFunction, ReturnInfo};
 use alloc::borrow::Cow;
 use core::fmt::{Debug, Formatter};
 use std::ops::DerefMut;
@@ -90,8 +90,6 @@ pub type FunctionResult<'a> = Result<Return<'a>, FunctionError>;
 /// // Check the result:
 /// assert_eq!(list, vec!["Hello, World!!!"]);
 /// ```
-///
-/// [`IntoFunction`]: crate::func::IntoFunction
 pub struct DynamicFunction<'env> {
     info: FunctionInfo,
     func: Box<dyn for<'a> FnMut(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'env>,
@@ -120,7 +118,6 @@ impl<'env> DynamicFunction<'env> {
     /// the default name will always be the full path to the function as returned by [`std::any::type_name`].
     ///
     /// [`DynamicFunctions`]: DynamicFunction
-    /// [`IntoFunction`]: crate::func::IntoFunction
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
         self.info = self.info.with_name(name);
         self
@@ -212,5 +209,12 @@ impl<'env> Debug for DynamicFunction<'env> {
 
         let ret = self.info.return_info().type_path();
         write!(f, ") -> {ret})")
+    }
+}
+
+impl<'env> IntoFunction<'env, ()> for DynamicFunction<'env> {
+    #[inline]
+    fn into_function(self) -> DynamicFunction<'env> {
+        self
     }
 }

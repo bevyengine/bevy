@@ -252,4 +252,14 @@ mod tests {
             })
         );
     }
+
+    #[test]
+    fn should_convert_dynamic_function_with_into_function() {
+        fn make_function<'a, F: IntoFunction<'a, M>, M>(f: F) -> DynamicFunction<'a> {
+            f.into_function()
+        }
+
+        let function: DynamicFunction = make_function(|| {});
+        let _: DynamicFunction = make_function(function);
+    }
 }
