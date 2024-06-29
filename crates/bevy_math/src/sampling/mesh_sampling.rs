@@ -1,12 +1,16 @@
-//! Functionality related to random sampling from meshes.
+//! Functionality related to random sampling from triangle meshes.
 
 use crate::{primitives::Measured2d, primitives::Triangle3d, ShapeSample, Vec3};
 use rand::Rng;
 use rand_distr::{Distribution, WeightedAliasIndex};
 use thiserror::Error;
 
-/// A wrapper that caches data to allow fast sampling from the surface of a mesh. Generally used via
-/// [`Distribution::sample`] or [`Distribution::sample_iter`].
+/// A [distribution] that caches data to allow fast sampling from a collection of triangles.
+/// Generally used through [`sample`] or [`sample_iter`].
+///
+/// [distribution]: Distribution
+/// [`sample`]: Distribution::sample
+/// [`sample_iter`]: Distribution::sample_iter
 ///
 /// Example
 /// ```
@@ -15,71 +19,50 @@ use thiserror::Error;
 /// # use rand::{SeedableRng, rngs::StdRng, distributions::Distribution};
 /// let faces: Vec<Triangle3d> = Tetrahedron::default().faces().into();
 /// let sampler = UniformMeshSampler::try_new(faces).unwrap();
-/// let rng = StdRng::from_entropy();
+/// let rng = StdRng::seed_from_u64(8765309);
 /// // 50 random points on the tetrahedron:
 /// let samples: Vec<Vec3> = sampler.sample_iter(rng).take(50).collect();
 /// ```
 pub struct UniformMeshSampler {
-    triangle_mesh: Vec<Triangle3d>,
+    triangles: Vec<Triangle3d>,
     face_distribution: WeightedAliasIndex<f32>,
 }
 
 impl Distribution<Vec3> for UniformMeshSampler {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
         let face_index = self.face_distribution.sample(rng);
-        self.triangle_mesh[face_index].sample_interior(rng)
+        self.triangles[face_index].sample_interior(rng)
     }
 }
 
 /// An error that indicates that a [`UniformMeshSampler`] could not be constructed
 /// because its input data had a total area of zero.
 #[derive(Debug, Error)]
-#[error("Failed to form distribution: provided mesh has zero area")]
+#[error("Failed to form distribution: provided triangles have zero area")]
 pub struct ZeroAreaMeshError;
 
 impl TryFrom<Vec<Triangle3d>> for UniformMeshSampler {
     type Error = ZeroAreaMeshError;
 
-    fn try_from(triangle_mesh: Vec<Triangle3d>) -> Result<Self, Self::Error> {
-        let areas = triangle_mesh.iter().map(|t| t.area()).collect();
+    fn try_from(triangles: Vec<Triangle3d>) -> Result<Self, Self::Error> {
+        let areas = triangles.iter().map(|t| t.area()).collect();
         let Ok(face_distribution) = WeightedAliasIndex::new(areas) else {
             return Err(ZeroAreaMeshError);
         };
 
         Ok(Self {
-            triangle_mesh,
+            triangles,
             face_distribution,
         })
     }
 }
 
-/// An error that indicates that we were unable to form a [`UniformMeshSampler`] from the given data,
-/// either because its conversion to a [`TriangleMesh`] failed or because the resulting [`TriangleMesh`]
-/// had zero area.
-#[derive(Debug, Error)]
-pub enum MeshSamplerConstructionError<TriangleMeshingError> {
-    /// A [`TriangleMesh`] was successfully constructed, but it had zero area, so we were unable to create
-    /// a distribution for it.
-    DistributionFormation(ZeroAreaMeshError),
-
-    /// A [`TriangleMesh`] could not be constructed.
-    TriangleMeshing {
-        /// The underlying reason for the failure in construction of the [`TriangleMesh`]
-        #[from]
-        error: TriangleMeshingError,
-    },
-}
-
 impl UniformMeshSampler {
-    /// Construct a new [`UniformMeshSampler`] from anything that can be fallibly converted into a [`TriangleMesh`].
+    /// Construct a new [`UniformMeshSampler`] from a list of triangles.
     ///
-    /// Returns an error if the intermediate [`TriangleMesh`] conversion fails or if it has zero surface area.
-    pub fn try_new<T: TryInto<Vec<Triangle3d>>>(
-        meshable: T,
-    ) -> Result<Self, MeshSamplerConstructionError<T::Error>> {
-        let tri_mesh: Vec<Triangle3d> = meshable.try_into()?;
-        tri_mesh
-            .try_into()
-            .map_err(MeshSamplerConstructionError::DistributionFormation)
+    /// Returns an error if the collection of triangles would have zero surface area.
+    pub fn try_new<T: Into<Vec<Triangle3d>>>(triangles: T) -> Result<Self, ZeroAreaMeshError> {
+        let triangles: Vec<Triangle3d> = triangles.into();
+        triangles.try_into()
     }
 }
