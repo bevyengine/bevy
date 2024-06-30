@@ -95,10 +95,13 @@ impl RenderLayers {
         let (buffer_index, bit) = Self::layer_info(layer);
         if buffer_index < self.0.len() {
             self.0[buffer_index] &= !bit;
+            // Drop trailing zero memory blocks.
+            // NOTE: This is not just an optimization, it is necessary for the derived PartialEq impl to be correct.
+            if buffer_index == self.0.len() - 1 {
+                self = self.shrink();
+            }
         }
-        // Drop trailing zero memory blocks.
-        // NOTE: This is not just an optimization, it is necessary for the derived PartialEq impl to be correct.
-        self.shrink()
+        self
     }
 
     /// Get an iterator of the layers.
