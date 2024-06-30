@@ -1,7 +1,4 @@
-use bevy_asset::{
-    io::{AsyncReadExt, Reader},
-    Asset, AssetLoader, LoadContext,
-};
+use bevy_asset::{io::Reader, Asset, AssetLoader, LoadContext};
 use bevy_reflect::TypePath;
 use std::{io::Cursor, sync::Arc};
 

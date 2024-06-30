@@ -2,7 +2,7 @@ use crate::{
     render_asset::RenderAssetUsages,
     texture::{Image, TextureFormatPixelInfo},
 };
-use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
+use bevy_asset::{io::Reader, AssetLoader, LoadContext};
 use image::DynamicImage;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;

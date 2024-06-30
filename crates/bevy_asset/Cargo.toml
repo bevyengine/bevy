@@ -28,6 +28,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
 bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 
+stackfuture = "0.3"
 async-broadcast = "0.5"
 async-fs = "2.0"
 async-lock = "3.0"

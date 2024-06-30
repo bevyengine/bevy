@@ -18,7 +18,7 @@ pub mod wasm;
 
 mod source;
 
-pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
+pub use futures_lite::AsyncWriteExt;
 pub use source::*;
 
 use bevy_utils::{BoxedFuture, ConditionalSendFuture};
@@ -72,7 +72,25 @@ impl From<std::io::Error> for AssetReaderError {
     }
 }
 
-pub trait Reader: AsyncRead + AsyncSeek + Unpin + Send + Sync {}
+pub const STACK_FUTURE_SIZE: usize = 10 * std::mem::size_of::<&()>();
+
+pub use stackfuture::StackFuture;
+
+pub trait Reader: AsyncRead + AsyncSeek + Unpin + Send + Sync {
+    /// Reads the entire contents of this reader and appends them to a vec.
+    ///
+    /// # Note for implementors
+    /// You should override the provided implementation if you can fill up the buffer more
+    /// efficiently than the default implementation, which calls `poll_read` repeatedly to
+    /// fill up the buffer 32 bytes at a time.
+    fn read_to_end<'a>(
+        &'a mut self,
+        buf: &'a mut Vec<u8>,
+    ) -> StackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
+        let future = futures_lite::AsyncReadExt::read_to_end(self, buf);
+        StackFuture::from(future)
+    }
+}
 
 impl<T: AsyncRead + AsyncSeek + Unpin + Send + Sync> Reader for T {}
 

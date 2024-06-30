@@ -3,7 +3,6 @@ use crate::define_atomic_id;
 use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::TypePath;
 use bevy_utils::tracing::error;
-use futures_lite::AsyncReadExt;
 use std::{borrow::Cow, marker::Copy};
 use thiserror::Error;
 

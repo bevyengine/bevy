@@ -1,4 +1,4 @@
-use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
+use bevy_asset::{io::Reader, AssetLoader, LoadContext};
 use bevy_ecs::prelude::{FromWorld, World};
 use thiserror::Error;
 
