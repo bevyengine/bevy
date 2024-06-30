@@ -50,8 +50,7 @@ impl FromIterator<Layer> for RenderLayers {
 impl Default for RenderLayers {
     /// By default, this structure includes layer `0`, which represents the first layer.
     fn default() -> Self {
-        let (_, bit) = Self::layer_info(0);
-        RenderLayers(SmallVec::from_const([bit]))
+        Self::layer(0)
     }
 }
 
