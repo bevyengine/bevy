@@ -70,7 +70,7 @@ impl RenderLayers {
 
     /// Create a new `RenderLayers` that belongs to no layers.
     pub const fn none() -> Self {
-        RenderLayers(SmallVec::from_const([0]))
+        RenderLayers(SmallVec::from_const([0; INLINE_BLOCKS]))
     }
 
     /// Create a `RenderLayers` from a list of layers.
