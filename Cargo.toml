@@ -1404,6 +1404,17 @@ category = "Assets"
 wasm = true
 
 [[example]]
+name = "asset_pack"
+path = "examples/asset/asset_pack.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.asset_pack]
+name = "Asset Bundle"
+description = "Load an asset from an AssetPack"
+category = "Assets"
+wasm = true
+
+[[example]]
 name = "extra_asset_source"
 path = "examples/asset/extra_source.rs"
 doc-scrape-examples = true

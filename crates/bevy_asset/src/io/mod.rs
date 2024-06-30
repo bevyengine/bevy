@@ -12,6 +12,7 @@ pub mod embedded;
 pub mod file;
 pub mod gated;
 pub mod memory;
+pub mod pack;
 pub mod processor_gated;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
