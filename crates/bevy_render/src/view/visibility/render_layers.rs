@@ -49,8 +49,7 @@ impl Default for RenderLayers {
     ///
     /// This is distinct from [`RenderLayers::none`], which doesn't belong to any layers.
     fn default() -> Self {
-        let (_, bit) = Self::layer_info(0);
-        RenderLayers(SmallVec::from_const([bit]))
+        const { RenderLayers::layer(0) }
     }
 }
 
