@@ -255,11 +255,11 @@ pub fn ui_layout_system(
 
             absolute_location += layout_location;
 
-            let rounded_size = approx_round_layout_coords(absolute_location + layout_size)
-                - approx_round_layout_coords(absolute_location);
+            let rounded_size = round_layout_coords(absolute_location + layout_size)
+                - round_layout_coords(absolute_location);
 
             let rounded_location =
-                approx_round_layout_coords(layout_location) + 0.5 * (rounded_size - parent_size);
+                round_layout_coords(layout_location) + 0.5 * (rounded_size - parent_size);
 
             // only trigger change detection when the new values are different
             if node.calculated_size != rounded_size || node.unrounded_size != layout_size {
@@ -321,17 +321,17 @@ fn approx_round_ties_up(value: f32) -> f32 {
 }
 
 #[inline]
-/// Rounds layout coordinates by approx rounding ties upwards.
+/// Rounds layout coordinates by rounding ties upwards.
 ///
 /// Rounding ties up avoids gaining a pixel when rounding bounds that span from negative to positive.
 ///
 /// Example: The width between bounds of -50.5 and 49.5 before rounding is 100, using:
 /// - `f32::round`: width becomes 101 (rounds to -51 and 50).
 /// - `round_ties_up`: width is 100 (rounds to -50 and 50).
-fn approx_round_layout_coords(value: Vec2) -> Vec2 {
+fn round_layout_coords(value: Vec2) -> Vec2 {
     Vec2 {
-        x: approx_round_ties_up(value.x),
-        y: approx_round_ties_up(value.y),
+        x: round_ties_up(value.x),
+        y: round_ties_up(value.y),
     }
 }
 
@@ -368,7 +368,7 @@ mod tests {
     use bevy_window::WindowResolution;
     use bevy_window::WindowScaleFactorChanged;
 
-    use crate::layout::approx_round_layout_coords;
+    use crate::layout::round_layout_coords;
     use crate::layout::ui_surface::UiSurface;
     use crate::prelude::*;
     use crate::ui_layout_system;
@@ -377,10 +377,7 @@ mod tests {
 
     #[test]
     fn round_layout_coords_must_round_ties_up() {
-        assert_eq!(
-            approx_round_layout_coords(vec2(-50.5, 49.5)),
-            vec2(-50., 50.)
-        );
+        assert_eq!(round_layout_coords(vec2(-50.5, 49.5)), vec2(-50., 50.));
     }
 
     // these window dimensions are easy to convert to and from percentage values
