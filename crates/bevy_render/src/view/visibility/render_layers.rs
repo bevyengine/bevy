@@ -22,7 +22,10 @@ pub type Layer = usize;
 /// Entities without this component belong to layer `0`.
 #[derive(Component, Clone, Reflect, PartialEq, Eq, PartialOrd, Ord)]
 #[reflect(Component, Default, PartialEq)]
-pub struct RenderLayers(SmallVec<[u64; 1]>);
+pub struct RenderLayers(SmallVec<[u64; INLINE_BLOCKS]>);
+
+/// The number of memory blocks stored inline
+const INLINE_BLOCKS: usize = 1;
 
 impl Default for &RenderLayers {
     fn default() -> Self {
@@ -57,10 +60,12 @@ impl RenderLayers {
     pub const fn layer(n: Layer) -> Self {
         let (buffer_index, bit) = Self::layer_info(n);
         assert!(
-            buffer_index < 1,
+            buffer_index < INLINE_BLOCKS,
             "layer is out of bounds for const construction"
         );
-        RenderLayers(SmallVec::from_const([bit]))
+        let mut buffer = [0; INLINE_BLOCKS];
+        buffer[buffer_index] = bit;
+        RenderLayers(SmallVec::from_const(buffer))
     }
 
     /// Create a new `RenderLayers` that belongs to no layers.
@@ -181,11 +186,11 @@ impl RenderLayers {
     /// Deallocates any trailing-zero memory blocks from this instance
     fn shrink(mut self) -> Self {
         let mut any_dropped = false;
-        while self.0.len() > 1 && self.0.last() == Some(&0) {
+        while self.0.len() > INLINE_BLOCKS && self.0.last() == Some(&0) {
             self.0.pop();
             any_dropped = true;
         }
-        if any_dropped && self.0.len() <= 1 {
+        if any_dropped && self.0.len() <= INLINE_BLOCKS {
             self.0.shrink_to_fit();
         }
         self
