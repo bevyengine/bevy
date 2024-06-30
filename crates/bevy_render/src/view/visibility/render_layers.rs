@@ -159,7 +159,16 @@ impl RenderLayers {
     ///
     /// This corresponds to the `self & other` operation.
     pub fn intersection(&self, other: &Self) -> Self {
-        let mask = std::iter::zip(&self.0, &other.0).map(|(a, b)| a & b);
+        let mut a = self.0.iter();
+        let mut b = other.0.iter();
+        let mask = std::iter::from_fn(|| {
+            let a = a.next().copied();
+            let b = b.next().copied();
+            if a.is_none() && b.is_none() {
+                return None;
+            }
+            Some(a.unwrap_or_default() & b.unwrap_or_default())
+        });
         Self(mask.collect())
     }
 
@@ -167,7 +176,16 @@ impl RenderLayers {
     ///
     /// This corresponds to the `self | other` operation.
     pub fn union(&self, other: &Self) -> Self {
-        let mask = std::iter::zip(&self.0, &other.0).map(|(a, b)| a | b);
+        let mut a = self.0.iter();
+        let mut b = other.0.iter();
+        let mask = std::iter::from_fn(|| {
+            let a = a.next().copied();
+            let b = b.next().copied();
+            if a.is_none() && b.is_none() {
+                return None;
+            }
+            Some(a.unwrap_or_default() | b.unwrap_or_default())
+        });
         Self(mask.collect())
     }
 
@@ -175,7 +193,16 @@ impl RenderLayers {
     ///
     /// This corresponds to the "exclusive or" (XOR) operation: `self ^ other`.
     pub fn symmetric_difference(&self, other: &Self) -> Self {
-        let mask = std::iter::zip(&self.0, &other.0).map(|(a, b)| a ^ b);
+        let mut a = self.0.iter();
+        let mut b = other.0.iter();
+        let mask = std::iter::from_fn(|| {
+            let a = a.next().copied();
+            let b = b.next().copied();
+            if a.is_none() && b.is_none() {
+                return None;
+            }
+            Some(a.unwrap_or_default() ^ b.unwrap_or_default())
+        });
         Self(mask.collect())
     }
 }
