@@ -24,7 +24,7 @@ use bevy_render::{
 };
 use prepass::{SkyboxPrepassPipeline, SKYBOX_PREPASS_SHADER_HANDLE};
 
-use crate::core_3d::CORE_3D_DEPTH_FORMAT;
+use crate::{core_3d::CORE_3D_DEPTH_FORMAT, prepass::PreviousViewUniforms};
 
 const SKYBOX_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(55594763423201);
 
@@ -53,6 +53,7 @@ impl Plugin for SkyboxPlugin {
         render_app
             .init_resource::<SpecializedRenderPipelines<SkyboxPipeline>>()
             .init_resource::<SpecializedRenderPipelines<SkyboxPrepassPipeline>>()
+            .init_resource::<PreviousViewUniforms>()
             .add_systems(
                 Render,
                 (
