@@ -161,57 +161,27 @@ impl RenderLayers {
     ///
     /// This corresponds to the `self & other` operation.
     pub fn intersection(&self, other: &Self) -> Self {
-        let mut a = self.0.iter();
-        let mut b = other.0.iter();
-        let mask = std::iter::from_fn(|| {
-            let a = a.next().copied();
-            let b = b.next().copied();
-            if a.is_none() && b.is_none() {
-                return None;
-            }
-            Some(a.unwrap_or_default() & b.unwrap_or_default())
-        });
-        Self(mask.collect()).shrink()
+        self.combine_blocks(other, |a, b| a & b).shrink()
     }
 
     /// Returns all [layers](Layer) included in either instance of [`RenderLayers`].
     ///
     /// This corresponds to the `self | other` operation.
     pub fn union(&self, other: &Self) -> Self {
-        let mut a = self.0.iter();
-        let mut b = other.0.iter();
-        let mask = std::iter::from_fn(|| {
-            let a = a.next().copied();
-            let b = b.next().copied();
-            if a.is_none() && b.is_none() {
-                return None;
-            }
-            Some(a.unwrap_or_default() | b.unwrap_or_default())
-        });
-        Self(mask.collect()) // doesn't need to be shrunk, if the inputs are nonzero then the result will be too
+        self.combine_blocks(other, |a, b| a | b) // doesn't need to be shrunk, if the inputs are nonzero then the result will be too
     }
 
     /// Returns all [layers](Layer) included in exactly one of the instances of [`RenderLayers`].
     ///
     /// This corresponds to the "exclusive or" (XOR) operation: `self ^ other`.
     pub fn symmetric_difference(&self, other: &Self) -> Self {
-        let mut a = self.0.iter();
-        let mut b = other.0.iter();
-        let mask = std::iter::from_fn(|| {
-            let a = a.next().copied();
-            let b = b.next().copied();
-            if a.is_none() && b.is_none() {
-                return None;
-            }
-            Some(a.unwrap_or_default() ^ b.unwrap_or_default())
-        });
-        Self(mask.collect()).shrink()
+        self.combine_blocks(other, |a, b| a ^ b).shrink()
     }
 
     /// Deallocates any trailing-zero memo blocks from this instance
     fn shrink(mut self) -> Self {
         let mut should_shrink = false;
-        while self.0.last() == Some(&0) {
+        while self.0.spilled() && self.0.last() == Some(&0) {
             self.0.pop();
             should_shrink = true;
         }
@@ -219,6 +189,26 @@ impl RenderLayers {
             self.0.shrink_to_fit();
         }
         self
+    }
+
+    /// Creates a new instance of [`RenderLayers`] by applying a function to the memory blocks
+    /// of self and another instance.
+    ///
+    /// If the function `f` might return `0` for non-zero inputs, you should call [`Self::shrink`]
+    /// on the output to ensure that there are no trailing zero memory blocks that would break
+    /// this type's equality comparison.
+    fn combine_blocks(&self, other: &Self, mut f: impl FnMut(u64, u64) -> u64) -> Self {
+        let mut a = self.0.iter();
+        let mut b = other.0.iter();
+        let mask = std::iter::from_fn(|| {
+            let a = a.next().copied();
+            let b = b.next().copied();
+            if a.is_none() && b.is_none() {
+                return None;
+            }
+            Some(f(a.unwrap_or_default(), b.unwrap_or_default()))
+        });
+        Self(mask.collect())
     }
 }
 
@@ -330,23 +320,22 @@ mod rendering_mask_tests {
         assert_eq!(tricky_layers, out, "tricky layers roundtrip");
     }
 
+    const MANY: RenderLayers = RenderLayers(SmallVec::from_const([u64::MAX]));
+
     #[test]
     fn render_layer_ops() {
         let a = RenderLayers::from_layers(&[2, 4, 6]);
         let b = RenderLayers::from_layers(&[1, 2, 3, 4, 5]);
 
-        assert_eq!(a | b, RenderLayers::from_layers(&[1, 2, 3, 4, 5, 6]));
-        assert_eq!(a & b, RenderLayers::from_layers(&[2, 4]));
+        assert_eq!(
+            a.clone() | b.clone(),
+            RenderLayers::from_layers(&[1, 2, 3, 4, 5, 6])
+        );
+        assert_eq!(a.clone() & b.clone(), RenderLayers::from_layers(&[2, 4]));
         assert_eq!(a ^ b, RenderLayers::from_layers(&[1, 3, 5, 6]));
 
-        assert_eq!(a.and(RenderLayers::all()), a);
-        assert_eq!(
-            RenderLayers::none() | RenderLayers::all(),
-            RenderLayers::all()
-        );
-        assert_eq!(
-            RenderLayers::none() ^ RenderLayers::all(),
-            RenderLayers::all()
-        );
+        assert_eq!(RenderLayers::none() & MANY, RenderLayers::none());
+        assert_eq!(RenderLayers::none() | MANY, MANY);
+        assert_eq!(RenderLayers::none() ^ MANY, MANY);
     }
 }
