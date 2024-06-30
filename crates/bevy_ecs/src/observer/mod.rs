@@ -8,7 +8,6 @@ pub use runner::*;
 pub use trigger_event::*;
 
 use crate::observer::entity_observer::ObservedBy;
-use crate::traversal::Traversal;
 use crate::{archetype::ArchetypeFlags, system::IntoObserverSystem, world::*};
 use crate::{component::ComponentId, prelude::*, world::DeferredWorld};
 use bevy_ptr::Ptr;
@@ -19,17 +18,21 @@ use std::marker::PhantomData;
 /// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well.
 pub struct Trigger<'w, E, B: Bundle = ()> {
     event: &'w mut E,
-    bubble: &'w mut bool,
+    propagation: &'w mut Propagation,
     trigger: ObserverTrigger,
     _marker: PhantomData<B>,
 }
 
 impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     /// Creates a new trigger for the given event and observer information.
-    pub fn new(event: &'w mut E, bubble: &'w mut bool, trigger: ObserverTrigger) -> Self {
+    pub fn new(
+        event: &'w mut E,
+        propagation: &'w mut Propagation,
+        trigger: ObserverTrigger,
+    ) -> Self {
         Self {
             event,
-            bubble,
+            propagation,
             trigger,
             _marker: PhantomData,
         }
@@ -60,19 +63,32 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
         self.trigger.entity
     }
 
-    /// Enables event bubbling.
-    pub fn propagate(&mut self, should_bubble: bool) {
-        *self.bubble = should_bubble;
+    /// Enables or disables event propagation, allowing the same event to trigger observers on a chain of different entities.
+    ///
+    /// The path an event will propagate along is specified by it's associated [`Traversal`] component. By default, events
+    /// use `TraverseNone` which ends the path immediately and prevents propagation.
+    ///
+    /// To enable propagation, you must:
+    /// + Set [`Event::Traverse`] to the component you want to propagate along.
+    /// + Either call `propagate(true)` in the first observer or set [`Event::AUTO_PROPAGATE`] to `true`.
+    ///
+    /// You can prevent an event from propagating further using `propagate(false)`.
+    pub fn propagate(&mut self, should_propagate: bool) {
+        *self.propagation = if should_propagate {
+            Propagation::Continue
+        } else {
+            Propagation::Halt
+        };
     }
 
-    /// Get a reference to the event bubbling flag.
-    pub fn should_bubble(&self) -> &bool {
-        self.bubble
+    /// Returns a reference to the flag that controls event propagation. See [`propagate`] for more information.
+    pub fn get_propagation(&self) -> &Propagation {
+        self.propagation
     }
 
-    /// Get a mutable reference to the event bubbling flag.
-    pub fn should_bubble_mut(&mut self) -> &mut bool {
-        self.bubble
+    /// Returns a mutable reference to the flag that controls event propagation. See [`propagate`] for more information.
+    pub fn get_propagation_mut(&mut self) -> &mut Propagation {
+        self.propagation
     }
 }
 
@@ -132,6 +148,15 @@ pub struct ObserverTrigger {
     pub entity: Entity,
 }
 
+/// Determines if the event should propagate to other entities.
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
+pub enum Propagation {
+    /// Allows propagation to continue.
+    Continue,
+    /// Halts propagation.
+    Halt,
+}
+
 // Map between an observer entity and its runner
 type ObserverMap = EntityHashMap<Entity, ObserverRunner>;
 
@@ -186,16 +211,14 @@ impl Observers {
     }
 
     /// This will run the observers of the given `event_type`, targeting the given `entity` and `components`.
-    pub(crate) fn invoke<T, C>(
+    pub(crate) fn invoke<T>(
         mut world: DeferredWorld,
         event_type: ComponentId,
         entity: Entity,
         components: impl Iterator<Item = ComponentId>,
         data: &mut T,
-        should_bubble: bool,
-    ) where
-        C: Traversal,
-    {
+        propagation: &mut Propagation,
+    ) {
         // SAFETY: You cannot get a mutable reference to `observers` from `DeferredWorld`
         let (mut world, observers) = unsafe {
             let world = world.as_unsafe_world_cell();
@@ -209,8 +232,7 @@ impl Observers {
             (world.into_deferred(), observers)
         };
 
-        // Trigger observers listening for any kind of this trigger
-        for (&observer, runner) in observers.map.iter() {
+        let mut trigger_observer = |(&observer, runner): (&Entity, &ObserverRunner)| {
             (runner)(
                 world.reborrow(),
                 ObserverTrigger {
@@ -219,82 +241,30 @@ impl Observers {
                     entity,
                 },
                 data.into(),
-                &mut false,
+                propagation,
             );
-        }
+        };
+        // Trigger observers listening for any kind of this trigger
+        observers.map.iter().for_each(&mut trigger_observer);
 
         // Trigger entity observers listening for this kind of trigger
         if entity != Entity::PLACEHOLDER {
-            let mut entity = entity;
-            loop {
-                let mut bubble = should_bubble;
-                if let Some(map) = observers.entity_observers.get(&entity) {
-                    for (&observer, runner) in map.iter() {
-                        (runner)(
-                            world.reborrow(),
-                            ObserverTrigger {
-                                observer,
-                                event_type,
-                                entity,
-                            },
-                            data.into(),
-                            &mut bubble,
-                        );
-                    }
-                    if !bubble {
-                        break;
-                    }
-                }
-                if let Some(next) = world.get_mut::<C>(entity).and_then(|t| t.next()) {
-                    entity = next;
-                } else {
-                    break;
-                };
+            if let Some(map) = observers.entity_observers.get(&entity) {
+                map.iter().for_each(&mut trigger_observer);
             }
         }
 
         // Trigger observers listening to this trigger targeting a specific component
         components.for_each(|id| {
             if let Some(component_observers) = observers.component_observers.get(&id) {
-                for (&observer, runner) in component_observers.map.iter() {
-                    (runner)(
-                        world.reborrow(),
-                        ObserverTrigger {
-                            observer,
-                            event_type,
-                            entity,
-                        },
-                        data.into(),
-                        &mut false,
-                    );
-                }
+                component_observers
+                    .map
+                    .iter()
+                    .for_each(&mut trigger_observer);
 
                 if entity != Entity::PLACEHOLDER {
-                    let mut entity = entity;
-                    loop {
-                        let mut bubble = should_bubble;
-                        if let Some(map) = component_observers.entity_map.get(&entity) {
-                            for (&observer, runner) in map.iter() {
-                                (runner)(
-                                    world.reborrow(),
-                                    ObserverTrigger {
-                                        observer,
-                                        event_type,
-                                        entity,
-                                    },
-                                    data.into(),
-                                    &mut bubble,
-                                );
-                            }
-                            if !bubble {
-                                break;
-                            }
-                        }
-                        if let Some(next) = world.get_mut::<C>(entity).and_then(|t| t.next()) {
-                            entity = next;
-                        } else {
-                            break;
-                        };
+                    if let Some(map) = component_observers.entity_map.get(&entity) {
+                        map.iter().for_each(&mut trigger_observer);
                     }
                 }
             }
@@ -506,12 +476,12 @@ mod tests {
     }
 
     #[derive(Component)]
-    struct EventBubbling;
+    struct EventPropagating;
 
-    impl Event for EventBubbling {
+    impl Event for EventPropagating {
         type Traverse = Parent;
 
-        const SHOULD_BUBBLE: bool = true;
+        const AUTO_PROPAGATE: bool = true;
     }
 
     #[test]
@@ -742,7 +712,7 @@ mod tests {
         world.spawn(ObserverState {
             // SAFETY: we registered `event_a` above and it matches the type of TriggerA
             descriptor: unsafe { ObserverDescriptor::default().with_events(vec![event_a]) },
-            runner: |mut world, _trigger, _ptr, _bubble| {
+            runner: |mut world, _trigger, _ptr, _propagation| {
                 world.resource_mut::<R>().0 += 1;
             },
             ..Default::default()
@@ -757,97 +727,99 @@ mod tests {
     }
 
     #[test]
-    fn observer_bubbling() {
+    fn observer_propagating() {
         let mut world = World::new();
         world.init_resource::<R>();
 
         let parent = world
             .spawn_empty()
-            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
             .id();
 
         let child = world
             .spawn(Parent(parent))
-            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
             .id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
         // and therefore does not automatically flush.
         world.flush();
-        world.trigger_targets(EventBubbling, child);
+        world.trigger_targets(EventPropagating, child);
         world.flush();
         assert_eq!(2, world.resource::<R>().0);
     }
 
     #[test]
-    fn observer_bubbling_redundant_dispatch() {
+    fn observer_propagating_redundant_dispatch() {
         let mut world = World::new();
         world.init_resource::<R>();
 
         let parent = world
             .spawn_empty()
-            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
             .id();
 
         let child = world
             .spawn(Parent(parent))
-            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
             .id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
         // and therefore does not automatically flush.
         world.flush();
-        world.trigger_targets(EventBubbling, [child, parent]);
+        world.trigger_targets(EventPropagating, [child, parent]);
         world.flush();
         assert_eq!(3, world.resource::<R>().0);
     }
 
     #[test]
-    fn observer_bubbling_stop_propagation() {
+    fn observer_propagating_halt() {
         let mut world = World::new();
         world.init_resource::<R>();
 
         let parent = world
             .spawn_empty()
-            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
             .id();
 
         let child = world
             .spawn(Parent(parent))
-            .observe(|mut trigger: Trigger<EventBubbling>, mut res: ResMut<R>| {
-                res.0 += 1;
-                trigger.propagate(false);
-            })
+            .observe(
+                |mut trigger: Trigger<EventPropagating>, mut res: ResMut<R>| {
+                    res.0 += 1;
+                    trigger.propagate(false);
+                },
+            )
             .id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
         // and therefore does not automatically flush.
         world.flush();
-        world.trigger_targets(EventBubbling, child);
+        world.trigger_targets(EventPropagating, child);
         world.flush();
         assert_eq!(1, world.resource::<R>().0);
     }
 
     #[test]
-    fn observer_bubbling_join() {
+    fn observer_propagating_join() {
         let mut world = World::new();
         world.init_resource::<R>();
 
         let parent = world
             .spawn_empty()
-            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
             .id();
 
         let child_a = world
             .spawn(Parent(parent))
-            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| {
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| {
                 res.0 += 1;
             })
             .id();
 
         let child_b = world
             .spawn(Parent(parent))
-            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| {
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| {
                 res.0 += 1;
             })
             .id();
@@ -855,62 +827,108 @@ mod tests {
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
         // and therefore does not automatically flush.
         world.flush();
-        world.trigger_targets(EventBubbling, [child_a, child_b]);
+        world.trigger_targets(EventPropagating, [child_a, child_b]);
         world.flush();
         assert_eq!(4, world.resource::<R>().0);
     }
 
     #[test]
-    fn observer_bubbling_no_next() {
+    fn observer_propagating_no_next() {
         let mut world = World::new();
         world.init_resource::<R>();
 
         let entity = world
             .spawn_empty()
-            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
             .id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
         // and therefore does not automatically flush.
         world.flush();
-        world.trigger_targets(EventBubbling, entity);
+        world.trigger_targets(EventPropagating, entity);
         world.flush();
         assert_eq!(1, world.resource::<R>().0);
     }
 
     #[test]
-    fn observer_bubbling_parallel_propagation() {
+    fn observer_propagating_parallel_propagation() {
         let mut world = World::new();
         world.init_resource::<R>();
 
         let parent_a = world
             .spawn_empty()
-            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
             .id();
 
         let child_a = world
             .spawn(Parent(parent_a))
-            .observe(|mut trigger: Trigger<EventBubbling>, mut res: ResMut<R>| {
-                res.0 += 1;
-                trigger.propagate(false);
-            })
+            .observe(
+                |mut trigger: Trigger<EventPropagating>, mut res: ResMut<R>| {
+                    res.0 += 1;
+                    trigger.propagate(false);
+                },
+            )
             .id();
 
         let parent_b = world
             .spawn_empty()
-            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
             .id();
 
         let child_b = world
             .spawn(Parent(parent_b))
-            .observe(|_: Trigger<EventBubbling>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
             .id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
         // and therefore does not automatically flush.
         world.flush();
-        world.trigger_targets(EventBubbling, [child_a, child_b]);
+        world.trigger_targets(EventPropagating, [child_a, child_b]);
         world.flush();
         assert_eq!(3, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn observer_propagating_world() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+
+        world.observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1);
+
+        let grandparent = world.spawn_empty().id();
+        let parent = world.spawn(Parent(grandparent)).id();
+        let child = world.spawn(Parent(parent)).id();
+
+        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
+        // and therefore does not automatically flush.
+        world.flush();
+        world.trigger_targets(EventPropagating, child);
+        world.flush();
+        assert_eq!(3, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn observer_propagating_world_skipping() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+
+        world.observe(
+            |trigger: Trigger<EventPropagating>, query: Query<&A>, mut res: ResMut<R>| {
+                if query.get(trigger.entity()).is_ok() {
+                    res.0 += 1
+                }
+            },
+        );
+
+        let grandparent = world.spawn(A).id();
+        let parent = world.spawn(Parent(grandparent)).id();
+        let child = world.spawn((A, Parent(parent))).id();
+
+        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
+        // and therefore does not automatically flush.
+        world.flush();
+        world.trigger_targets(EventPropagating, child);
+        world.flush();
+        assert_eq!(2, world.resource::<R>().0);
     }
 }

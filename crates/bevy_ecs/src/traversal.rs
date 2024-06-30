@@ -1,25 +1,31 @@
-//! A trait for components that let you traverse the ECS
+//! A trait for components that let you traverse the ECS.
 
 use crate::{
     component::{Component, StorageType},
     entity::Entity,
 };
 
-/// A component that holds a pointer to another entity.
+/// A component that can point to another entity, and which can be used to define a path through the ECS.
 ///
-/// The implementor is responsible for ensuring that `Traversal::next` cannot produce infinite loops.
+/// Traversals are used to [specify the direction] of [event propagation] in [observers]. By default,
+/// events use the [`TraverseNone`] placeholder component, which cannot actually be created or added to
+/// an entity and so never causes traversal.
+///
+/// The implementer is responsible for ensuring that `Traversal::next` cannot produce infinite loops.
+///
+/// [specify the direction]: crate::event::Event::Traverse
+/// [event propagation]: crate::observer::Trigger::propagate
+/// [observers]: crate::observer::Observer
 pub trait Traversal: Component {
     /// Returns the next entity to visit.
     fn next(&self) -> Option<Entity>;
 }
 
-/// A traversial component that dosn't traverse anything. Used to provide a default traversal
+/// A traversal component that doesn't traverse anything. Used to provide a default traversal
 /// implementation for events.
 ///
 /// It is not possible to actually construct an instance of this component.
-pub struct TraverseNone {
-    _private: (),
-}
+pub enum TraverseNone {}
 
 impl Traversal for TraverseNone {
     #[inline(always)]

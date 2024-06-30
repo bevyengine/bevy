@@ -32,11 +32,17 @@ use std::{
     note = "consider annotating `{Self}` with `#[derive(Event)]`"
 )]
 pub trait Event: Component {
-    /// A system param that describes a traversal through the ECS.
+    /// The component that describes which Entity to propigate this event to next, when [propagation] is enabled.
+    ///
+    /// [propagation]: crate::observers::Trigger::enable_propagation
     type Traverse: Traversal;
 
-    /// Sets the default bubling state of the entity when used with observers.
-    const SHOULD_BUBBLE: bool;
+    /// When true, this event will always attempt to propigate when [triggered], without requiring a call
+    /// to [`Trigger::enable_propagation`].
+    ///
+    /// [triggered]: crate::commands::Commands::trigger_targets
+    /// [`Trigger::enable_propagation`]: crate::observers::Trigger::enable_propagation
+    const AUTO_PROPAGATE: bool = false;
 }
 
 /// An `EventId` uniquely identifies an event stored in a specific [`World`].

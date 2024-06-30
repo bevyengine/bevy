@@ -6,11 +6,11 @@ use crate::{
     component::ComponentId,
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
-    observer::{Observers, TriggerTargets},
+    observer::{Observers, Propagation, TriggerTargets},
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
     system::{Commands, Query, Resource},
-    traversal::{Traversal, TraverseNone},
+    traversal::Traversal,
 };
 
 use super::{
@@ -351,13 +351,13 @@ impl<'w> DeferredWorld<'w> {
         entity: Entity,
         components: impl Iterator<Item = ComponentId>,
     ) {
-        Observers::invoke::<_, TraverseNone>(
+        Observers::invoke::<_>(
             self.reborrow(),
             event,
             entity,
             components,
             &mut (),
-            false,
+            &mut Propagation::Halt,
         );
     }
 
@@ -369,21 +369,31 @@ impl<'w> DeferredWorld<'w> {
     pub(crate) unsafe fn trigger_observers_with_data<E, C>(
         &mut self,
         event: ComponentId,
-        entity: Entity,
-        components: impl Iterator<Item = ComponentId>,
+        mut entity: Entity,
+        components: &[ComponentId],
         data: &mut E,
-        should_bubble: bool,
+        mut propagation: Propagation,
     ) where
         C: Traversal,
     {
-        Observers::invoke::<_, C>(
-            self.reborrow(),
-            event,
-            entity,
-            components,
-            data,
-            should_bubble,
-        );
+        loop {
+            Observers::invoke::<_>(
+                self.reborrow(),
+                event,
+                entity,
+                components.iter().cloned(),
+                data,
+                &mut propagation,
+            );
+            if propagation == Propagation::Halt {
+                break;
+            }
+            if let Some(next) = self.get::<C>(entity).and_then(|t| t.next()) {
+                entity = next;
+            } else {
+                break;
+            }
+        }
     }
 
     /// Sends a "global" [`Trigger`] without any targets.

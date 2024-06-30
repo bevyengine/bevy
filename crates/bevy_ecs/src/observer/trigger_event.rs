@@ -2,6 +2,7 @@ use crate::{
     component::ComponentId,
     entity::Entity,
     event::Event,
+    observer::Propagation,
     world::{Command, DeferredWorld, World},
 };
 
@@ -55,7 +56,7 @@ fn trigger_event<E: Event, Targets: TriggerTargets>(
     targets: Targets,
 ) {
     let mut world = DeferredWorld::from(world);
-    if targets.entities().len() == 0 {
+    if targets.entities().is_empty() {
         // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
         unsafe {
             world.trigger_observers_with_data::<_, E::Traverse>(
@@ -63,7 +64,7 @@ fn trigger_event<E: Event, Targets: TriggerTargets>(
                 Entity::PLACEHOLDER,
                 targets.components(),
                 event_data,
-                E::SHOULD_BUBBLE,
+                Propagation::Halt,
             );
         };
     } else {
@@ -72,10 +73,16 @@ fn trigger_event<E: Event, Targets: TriggerTargets>(
             unsafe {
                 world.trigger_observers_with_data::<_, E::Traverse>(
                     event_type,
-                    target,
+                    *target,
                     targets.components(),
                     event_data,
-                    E::SHOULD_BUBBLE,
+                    const {
+                        if E::AUTO_PROPAGATE {
+                            Propagation::Continue
+                        } else {
+                            Propagation::Halt
+                        }
+                    },
                 );
             };
         }
@@ -90,78 +97,78 @@ fn trigger_event<E: Event, Targets: TriggerTargets>(
 /// [`Observer`]: crate::observer::Observer
 pub trait TriggerTargets: Send + Sync + 'static {
     /// The components the trigger should target.
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId>;
+    fn components(&self) -> &[ComponentId];
 
     /// The entities the trigger should target.
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity>;
+    fn entities(&self) -> &[Entity];
 }
 
 impl TriggerTargets for () {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> {
-        [].into_iter()
+    fn components(&self) -> &[ComponentId] {
+        &[]
     }
 
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> {
-        [].into_iter()
+    fn entities(&self) -> &[Entity] {
+        &[]
     }
 }
 
 impl TriggerTargets for Entity {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> {
-        [].into_iter()
+    fn components(&self) -> &[ComponentId] {
+        &[]
     }
 
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> {
-        std::iter::once(*self)
+    fn entities(&self) -> &[Entity] {
+        std::slice::from_ref(self)
     }
 }
 
 impl TriggerTargets for Vec<Entity> {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> {
-        [].into_iter()
+    fn components(&self) -> &[ComponentId] {
+        &[]
     }
 
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> {
-        self.iter().copied()
+    fn entities(&self) -> &[Entity] {
+        self.as_slice()
     }
 }
 
 impl<const N: usize> TriggerTargets for [Entity; N] {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> {
-        [].into_iter()
+    fn components(&self) -> &[ComponentId] {
+        &[]
     }
 
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> {
-        self.iter().copied()
+    fn entities(&self) -> &[Entity] {
+        self.as_slice()
     }
 }
 
 impl TriggerTargets for ComponentId {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> {
-        std::iter::once(*self)
+    fn components(&self) -> &[ComponentId] {
+        std::slice::from_ref(self)
     }
 
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> {
-        [].into_iter()
+    fn entities(&self) -> &[Entity] {
+        &[]
     }
 }
 
 impl TriggerTargets for Vec<ComponentId> {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> {
-        self.iter().copied()
+    fn components(&self) -> &[ComponentId] {
+        self.as_slice()
     }
 
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> {
-        [].into_iter()
+    fn entities(&self) -> &[Entity] {
+        &[]
     }
 }
 
 impl<const N: usize> TriggerTargets for [ComponentId; N] {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> {
-        self.iter().copied()
+    fn components(&self) -> &[ComponentId] {
+        self.as_slice()
     }
 
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> {
-        [].into_iter()
+    fn entities(&self) -> &[Entity] {
+        &[]
     }
 }
