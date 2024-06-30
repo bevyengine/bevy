@@ -293,7 +293,6 @@ mod tests {
 
         EventRegistry::deregister_events::<TestEvent>(&mut world);
 
-
         let has_events = world.get_resource::<Events<TestEvent>>().is_some();
 
         assert!(!has_events, "Should not have the events resource");
