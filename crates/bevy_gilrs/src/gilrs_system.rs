@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_ecs::event::EventWriter;
 #[cfg(target_arch = "wasm32")]
-use bevy_ecs::system::NonSendMut;
+use bevy_ecs::system::NonSendResMut;
 use bevy_ecs::system::{Res, ResMut};
 use bevy_input::gamepad::{
     GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadConnection, GamepadConnectionEvent,
@@ -16,7 +16,7 @@ use bevy_input::Axis;
 use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter};
 
 pub fn gilrs_event_startup_system(
-    #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
+    #[cfg(target_arch = "wasm32")] mut gilrs: NonSendResMut<Gilrs>,
     #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
     mut events: EventWriter<GamepadEvent>,
 ) {
@@ -36,7 +36,7 @@ pub fn gilrs_event_startup_system(
 }
 
 pub fn gilrs_event_system(
-    #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
+    #[cfg(target_arch = "wasm32")] mut gilrs: NonSendResMut<Gilrs>,
     #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
     mut events: EventWriter<GamepadEvent>,
     mut gamepad_buttons: ResMut<Axis<GamepadButton>>,

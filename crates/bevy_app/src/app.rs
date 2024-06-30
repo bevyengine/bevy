@@ -400,7 +400,7 @@ impl App {
         self
     }
 
-    /// Inserts the [`!Send`](Send) resource into the app, overwriting any existing resource
+    /// Inserts the [`NonSendRes`] resource into the app, overwriting any existing resource
     /// of the same type.
     ///
     /// There is also an [`init_non_send_resource`](Self::init_non_send_resource) for
@@ -424,7 +424,7 @@ impl App {
         self
     }
 
-    /// Inserts the [`!Send`](Send) resource into the app if there is no existing instance of `R`.
+    /// Inserts the [`NonSendRes`] resource into the app if there is no existing instance of `R`.
     ///
     /// `R` must implement [`FromWorld`].
     /// If `R` implements [`Default`], [`FromWorld`] will be automatically implemented and

@@ -146,7 +146,7 @@ pub struct WakeUp;
 ///
 /// The `EventLoopProxy` can be used to request a redraw from outside bevy.
 ///
-/// Use `NonSend<EventLoopProxy>` to receive this resource.
+/// Use `NonSendRes<EventLoopProxy>` to receive this resource.
 pub type EventLoopProxy<T> = winit::event_loop::EventLoopProxy<T>;
 
 trait AppSendEvent {
@@ -173,8 +173,8 @@ pub type CreateWindowParams<'w, 's, F = ()> = (
         F,
     >,
     EventWriter<'w, WindowCreated>,
-    NonSendMut<'w, WinitWindows>,
-    NonSendMut<'w, AccessKitAdapters>,
+    NonSendResMut<'w, WinitWindows>,
+    NonSendResMut<'w, AccessKitAdapters>,
     ResMut<'w, WinitActionRequestHandlers>,
     Res<'w, AccessibilityRequested>,
 );

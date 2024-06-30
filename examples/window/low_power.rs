@@ -57,7 +57,7 @@ enum ExampleMode {
 fn update_winit(
     mode: Res<ExampleMode>,
     mut winit_config: ResMut<WinitSettings>,
-    event_loop_proxy: NonSend<EventLoopProxy<WakeUp>>,
+    event_loop_proxy: NonSendRes<EventLoopProxy<WakeUp>>,
 ) {
     use ExampleMode::*;
     *winit_config = match *mode {

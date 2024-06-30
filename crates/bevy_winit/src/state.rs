@@ -1,6 +1,6 @@
 use approx::relative_eq;
 use bevy_app::{App, AppExit, PluginsState};
-use bevy_ecs::change_detection::{DetectChanges, NonSendMut, Res};
+use bevy_ecs::change_detection::{DetectChanges, Res};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::event::{EventWriter, ManualEventReader};
 use bevy_ecs::prelude::*;
@@ -77,9 +77,9 @@ struct WinitAppRunnerState<T: Event> {
         EventWriter<'static, WindowResized>,
         EventWriter<'static, WindowBackendScaleFactorChanged>,
         EventWriter<'static, WindowScaleFactorChanged>,
-        NonSend<'static, WinitWindows>,
+        NonSendRes<'static, WinitWindows>,
         Query<'static, 'static, (&'static mut Window, &'static mut CachedWindow)>,
-        NonSendMut<'static, AccessKitAdapters>,
+        NonSendResMut<'static, AccessKitAdapters>,
     )>,
 }
 
@@ -91,9 +91,9 @@ impl<T: Event> WinitAppRunnerState<T> {
             EventWriter<WindowResized>,
             EventWriter<WindowBackendScaleFactorChanged>,
             EventWriter<WindowScaleFactorChanged>,
-            NonSend<WinitWindows>,
+            NonSendRes<WinitWindows>,
             Query<(&mut Window, &mut CachedWindow)>,
-            NonSendMut<AccessKitAdapters>,
+            NonSendResMut<AccessKitAdapters>,
         )> = SystemState::new(app.world_mut());
 
         Self {

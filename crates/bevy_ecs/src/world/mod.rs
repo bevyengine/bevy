@@ -1308,7 +1308,7 @@ impl World {
         });
     }
 
-    /// Initializes a new non-send resource and returns the [`ComponentId`] created for it.
+    /// Initializes a new [`NonSendRes`] resource and returns the [`ComponentId`] created for it.
     ///
     /// If the resource already exists, nothing happens.
     ///
@@ -1339,11 +1339,11 @@ impl World {
         component_id
     }
 
-    /// Inserts a new non-send resource with the given `value`.
+    /// Inserts a new [`NonSendRes`] resource with the given `value`.
     ///
-    /// `NonSend` resources cannot be sent across threads,
+    /// `NonSendRes` resources cannot be sent across threads,
     /// and do not need the `Send + Sync` bounds.
-    /// Systems with `NonSend` resources are always scheduled on the main thread.
+    /// Systems with `NonSendRes` resources are always scheduled on the main thread.
     ///
     /// # Panics
     /// If a value is already present, this function will panic if called
@@ -1368,11 +1368,11 @@ impl World {
         unsafe { Some(ptr.read::<R>()) }
     }
 
-    /// Removes a `!Send` resource from the world and returns it, if present.
+    /// Removes a [`NonSendRes`] resource from the world and returns it, if present.
     ///
-    /// `NonSend` resources cannot be sent across threads,
+    /// `NonSendRes` resources cannot be sent across threads,
     /// and do not need the `Send + Sync` bounds.
-    /// Systems with `NonSend` resources are always scheduled on the main thread.
+    /// Systems with `NonSendRes` resources are always scheduled on the main thread.
     ///
     /// Returns `None` if a value was not previously present.
     ///
@@ -1401,14 +1401,21 @@ impl World {
             .unwrap_or(false)
     }
 
-    /// Returns `true` if a resource of type `R` exists. Otherwise returns `false`.
+    /// Returns `true` if a [`NonSendRes`] resource of type `R` exists. Otherwise returns `false`.
     #[inline]
-    pub fn contains_non_send<R: 'static>(&self) -> bool {
+    pub fn contains_non_send_resource<R: 'static>(&self) -> bool {
         self.components
             .get_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.non_send_resources.get(component_id))
             .map(|info| info.is_present())
             .unwrap_or(false)
+    }
+
+    /// See [`World::contains_non_send_resource`].
+    #[inline]
+    #[deprecated = "Use `contains_non_send_resource` instead"]
+    pub fn contains_non_send<R: 'static>(&self) -> bool {
+        self.contains_non_send_resource::<R>()
     }
 
     /// Returns `true` if a resource of type `R` exists and was added since the world's
@@ -1963,7 +1970,7 @@ impl World {
         }
     }
 
-    /// Inserts a new `!Send` resource with the given `value`. Will replace the value if it already
+    /// Inserts a new [`NonSendRes`] resource with the given `value`. Will replace the value if it already
     /// existed.
     ///
     /// **You should prefer to use the typed API [`World::insert_non_send_resource`] where possible and only
@@ -2527,7 +2534,7 @@ impl World {
             })
     }
 
-    /// Gets a `!Send` resource to the resource with the id [`ComponentId`] if it exists.
+    /// Gets a [`NonSendRes`] resource to the resource with the id [`ComponentId`] if it exists.
     /// The returned pointer must not be used to modify the resource, and must not be
     /// dereferenced after the immutable borrow of the [`World`] ends.
     ///
@@ -2547,7 +2554,7 @@ impl World {
         }
     }
 
-    /// Gets a `!Send` resource to the resource with the id [`ComponentId`] if it exists.
+    /// Gets a [`NonSendRes`] resource to the resource with the id [`ComponentId`] if it exists.
     /// The returned pointer may be used to modify the resource, as long as the mutable borrow
     /// of the [`World`] is still valid.
     ///

@@ -38,6 +38,6 @@ pub struct Storages {
     pub tables: Tables,
     /// Backing storage for resources.
     pub resources: Resources<true>,
-    /// Backing storage for `!Send` resources.
+    /// Backing storage for [`NonSendRes`] resources.
     pub non_send_resources: Resources<false>,
 }

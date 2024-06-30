@@ -44,7 +44,7 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// The only row in the underlying `BlobVec`.
     const ROW: usize = 0;
 
-    /// Validates the access to `!Send` resources is only done on the thread they were created from.
+    /// Validates the access to [`NonSendRes`] resources is only done on the thread they were created from.
     ///
     /// # Panics
     /// If `SEND` is false, this will panic if called from a different thread than the one it was inserted from.
