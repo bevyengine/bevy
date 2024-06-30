@@ -92,7 +92,9 @@ impl RenderLayers {
         if buffer_index < self.0.len() {
             self.0[buffer_index] &= !bit;
         }
-        self
+        // Drop trailing zero memory blocks.
+        // NOTE: This is not just an optimization, it is necessary for the derived PartialEq impl to be correct.
+        self.shrink()
     }
 
     /// Get an iterator of the layers.
