@@ -169,7 +169,7 @@ impl RenderLayers {
             }
             Some(a.unwrap_or_default() & b.unwrap_or_default())
         });
-        Self(mask.collect())
+        Self(mask.collect()).shrink()
     }
 
     /// Returns all [layers](Layer) included in either instance of [`RenderLayers`].
@@ -186,7 +186,7 @@ impl RenderLayers {
             }
             Some(a.unwrap_or_default() | b.unwrap_or_default())
         });
-        Self(mask.collect())
+        Self(mask.collect()) // doesn't need to be shrunk, if the inputs are nonzero then the result will be too
     }
 
     /// Returns all [layers](Layer) included in exactly one of the instances of [`RenderLayers`].
@@ -203,7 +203,20 @@ impl RenderLayers {
             }
             Some(a.unwrap_or_default() ^ b.unwrap_or_default())
         });
-        Self(mask.collect())
+        Self(mask.collect()).shrink()
+    }
+
+    /// Deallocates any trailing-zero memo blocks from this instance
+    fn shrink(mut self) -> Self {
+        let mut should_shrink = false;
+        while self.0.last() == Some(&0) {
+            self.0.pop();
+            should_shrink = true;
+        }
+        if should_shrink {
+            self.0.shrink_to_fit();
+        }
+        self
     }
 }
 
