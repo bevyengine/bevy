@@ -159,24 +159,24 @@ impl RenderLayers {
     ///
     /// This corresponds to the `self & other` operation.
     pub fn intersection(&self, other: &Self) -> Self {
-        let mask = SmallVec::from_iter(std::iter::zip(&self.0, &other.0).map(|(a, b)| a & b));
-        Self(mask)
+        let mask = std::iter::zip(&self.0, &other.0).map(|(a, b)| a & b);
+        Self(mask.collect())
     }
 
     /// Returns all [layers](Layer) included in either instance of [`RenderLayers`].
     ///
     /// This corresponds to the `self | other` operation.
     pub fn union(&self, other: &Self) -> Self {
-        let mask = SmallVec::from_iter(std::iter::zip(&self.0, &other.0).map(|(a, b)| a | b));
-        Self(mask)
+        let mask = std::iter::zip(&self.0, &other.0).map(|(a, b)| a | b);
+        Self(mask.collect())
     }
 
     /// Returns all [layers](Layer) included in exactly one of the instances of [`RenderLayers`].
     ///
     /// This corresponds to the "exclusive or" (XOR) operation: `self ^ other`.
     pub fn symmetric_difference(&self, other: &Self) -> Self {
-        let mask = SmallVec::from_iter(std::iter::zip(&self.0, &other.0).map(|(a, b)| a ^ b));
-        Self(mask)
+        let mask = std::iter::zip(&self.0, &other.0).map(|(a, b)| a ^ b);
+        Self(mask.collect())
     }
 }
 
