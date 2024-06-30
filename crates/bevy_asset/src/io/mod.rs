@@ -86,7 +86,7 @@ pub use stackfuture::StackFuture;
 ///
 /// This is essentially a trait alias for types implementing  [`AsyncRead`] and [`AsyncSeek`].
 /// The only reason a blanket implementation is not provided for applicable types is to allow
-/// implementors to override the provided implementaiton of [`Reader::read_to_end`].
+/// implementors to override the provided implementation of [`Reader::read_to_end`].
 pub trait Reader: AsyncRead + AsyncSeek + Unpin + Send + Sync {
     /// Reads the entire contents of this reader and appends them to a vec.
     ///
