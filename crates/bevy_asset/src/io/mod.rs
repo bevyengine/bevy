@@ -72,6 +72,11 @@ impl From<std::io::Error> for AssetReaderError {
     }
 }
 
+/// The maximum size of a future returned from [`Reader::read_to_end`].
+/// This is large enough to fit ten references.
+// Ideally this would be even smaller (ReadToEndFuture only needs space for two references based on its definition),
+// but compiler optimizations can apparently inflate the stack size of futures due to inlining, which makes
+// a higher maximum necessary.
 pub const STACK_FUTURE_SIZE: usize = 10 * std::mem::size_of::<&()>();
 
 pub use stackfuture::StackFuture;
