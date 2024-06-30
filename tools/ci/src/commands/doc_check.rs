@@ -5,7 +5,7 @@ use xshell::cmd;
 /// Checks that all docs compile.
 #[derive(FromArgs, Default)]
 #[argh(subcommand, name = "doc-check")]
-pub(crate) struct DocCheckCommand {}
+pub struct DocCheckCommand {}
 
 impl Prepare for DocCheckCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, _flags: Flag) -> Vec<PreparedCommand<'a>> {

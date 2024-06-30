@@ -5,7 +5,7 @@ use xshell::cmd;
 /// Checks that the examples compile.
 #[derive(FromArgs, Default)]
 #[argh(subcommand, name = "example-check")]
-pub(crate) struct ExampleCheckCommand {}
+pub struct ExampleCheckCommand {}
 
 impl Prepare for ExampleCheckCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, _flags: Flag) -> Vec<PreparedCommand<'a>> {

@@ -1,18 +1,20 @@
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    system::{Query, SystemParam, SystemParamItem},
+    system::{ResMut, SystemParam, SystemParamItem},
 };
 use bytemuck::Pod;
 use nonmax::NonMaxU32;
 
 use crate::{
     render_phase::{
-        BinnedPhaseItem, BinnedRenderPhase, CachedRenderPipelinePhaseItem, DrawFunctionId,
-        SortedPhaseItem, SortedRenderPhase,
+        BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, SortedPhaseItem,
+        SortedRenderPhase, ViewBinnedRenderPhases,
     },
     render_resource::{CachedRenderPipelineId, GpuArrayBufferable},
 };
+
+use self::gpu_preprocessing::IndirectParametersBuffer;
 
 pub mod gpu_preprocessing;
 pub mod no_gpu_preprocessing;
@@ -52,7 +54,7 @@ impl<T: PartialEq> BatchMeta<T> {
         BatchMeta {
             pipeline_id: item.cached_pipeline(),
             draw_function_id: item.draw_function(),
-            dynamic_offset: item.dynamic_offset(),
+            dynamic_offset: item.extra_index().as_dynamic_offset(),
             user_data,
         }
     }
@@ -133,14 +135,27 @@ pub trait GetFullBatchData: GetBatchData {
         param: &SystemParamItem<Self::Param>,
         query_item: Entity,
     ) -> Option<NonMaxU32>;
+
+    /// Pushes [`gpu_preprocessing::IndirectParameters`] necessary to draw this
+    /// batch onto the given [`IndirectParametersBuffer`], and returns its
+    /// index.
+    ///
+    /// This is only used if GPU culling is enabled (which requires GPU
+    /// preprocessing).
+    fn get_batch_indirect_parameters_index(
+        param: &SystemParamItem<Self::Param>,
+        indirect_parameters_buffer: &mut IndirectParametersBuffer,
+        entity: Entity,
+        instance_index: u32,
+    ) -> Option<NonMaxU32>;
 }
 
 /// Sorts a render phase that uses bins.
-pub fn sort_binned_render_phase<BPI>(mut views: Query<&mut BinnedRenderPhase<BPI>>)
+pub fn sort_binned_render_phase<BPI>(mut phases: ResMut<ViewBinnedRenderPhases<BPI>>)
 where
     BPI: BinnedPhaseItem,
 {
-    for mut phase in &mut views {
+    for phase in phases.values_mut() {
         phase.batchable_keys.sort_unstable();
         phase.unbatchable_keys.sort_unstable();
     }

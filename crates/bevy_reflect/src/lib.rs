@@ -172,7 +172,7 @@
 //! ## Patching
 //!
 //! These dynamic types come in handy when needing to apply multiple changes to another type.
-//! This is known as "patching" and is done using the [`Reflect::apply`] method.
+//! This is known as "patching" and is done using the [`Reflect::apply`] and [`Reflect::try_apply`] methods.
 //!
 //! ```
 //! # use bevy_reflect::{DynamicEnum, Reflect};
@@ -490,15 +490,6 @@ mod type_registry;
 mod impls {
     #[cfg(feature = "glam")]
     mod glam;
-
-    #[cfg(feature = "bevy_math")]
-    mod math {
-        mod direction;
-        mod primitives2d;
-        mod primitives3d;
-        mod rect;
-        mod rotation2d;
-    }
     #[cfg(feature = "petgraph")]
     mod petgraph;
     #[cfg(feature = "smallvec")]
@@ -511,6 +502,7 @@ mod impls {
     mod uuid;
 }
 
+pub mod attributes;
 mod enums;
 pub mod serde;
 pub mod std_traits;
@@ -604,6 +596,7 @@ mod tests {
         any::TypeId,
         borrow::Cow,
         fmt::{Debug, Formatter},
+        hash::Hash,
         marker::PhantomData,
     };
 
@@ -612,6 +605,54 @@ mod tests {
     use crate as bevy_reflect;
     use crate::serde::{ReflectDeserializer, ReflectSerializer};
     use crate::utility::GenericTypePathCell;
+
+    #[test]
+    fn try_apply_should_detect_kinds() {
+        #[derive(Reflect, Debug)]
+        struct Struct {
+            a: u32,
+            b: f32,
+        }
+
+        #[derive(Reflect, Debug)]
+        enum Enum {
+            A,
+            B(u32),
+        }
+
+        let mut struct_target = Struct {
+            a: 0xDEADBEEF,
+            b: 3.14,
+        };
+
+        let mut enum_target = Enum::A;
+
+        let array_src = [8, 0, 8];
+
+        let result = struct_target.try_apply(&enum_target);
+        assert!(
+            matches!(
+                result,
+                Err(ApplyError::MismatchedKinds {
+                    from_kind: ReflectKind::Enum,
+                    to_kind: ReflectKind::Struct
+                })
+            ),
+            "result was {result:?}"
+        );
+
+        let result = enum_target.try_apply(&array_src);
+        assert!(
+            matches!(
+                result,
+                Err(ApplyError::MismatchedKinds {
+                    from_kind: ReflectKind::Array,
+                    to_kind: ReflectKind::Enum
+                })
+            ),
+            "result was {result:?}"
+        );
+    }
 
     #[test]
     fn reflect_struct() {
@@ -716,7 +757,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "the given key does not support hashing")]
+    #[should_panic(
+        expected = "the given key of type `bevy_reflect::tests::Foo` does not support hashing"
+    )]
     fn reflect_map_no_hash() {
         #[derive(Reflect)]
         struct Foo {
@@ -724,9 +767,48 @@ mod tests {
         }
 
         let foo = Foo { a: 1 };
+        assert!(foo.reflect_hash().is_none());
 
         let mut map = DynamicMap::default();
         map.insert(foo, 10u32);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "the dynamic type `bevy_reflect::DynamicStruct` (representing `bevy_reflect::tests::Foo`) does not support hashing"
+    )]
+    fn reflect_map_no_hash_dynamic_representing() {
+        #[derive(Reflect, Hash)]
+        #[reflect(Hash)]
+        struct Foo {
+            a: u32,
+        }
+
+        let foo = Foo { a: 1 };
+        assert!(foo.reflect_hash().is_some());
+        let dynamic = foo.clone_dynamic();
+
+        let mut map = DynamicMap::default();
+        map.insert(dynamic, 11u32);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "the dynamic type `bevy_reflect::DynamicStruct` does not support hashing"
+    )]
+    fn reflect_map_no_hash_dynamic() {
+        #[derive(Reflect, Hash)]
+        #[reflect(Hash)]
+        struct Foo {
+            a: u32,
+        }
+
+        let mut dynamic = DynamicStruct::default();
+        dynamic.insert("a", 4u32);
+        assert!(dynamic.reflect_hash().is_none());
+
+        let mut map = DynamicMap::default();
+        map.insert(dynamic, 11u32);
     }
 
     #[test]

@@ -1,5 +1,6 @@
 use thiserror::Error;
 
+use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
@@ -17,8 +18,6 @@ use bevy_utils::tracing::warn;
 use bevy_utils::{HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use ui_surface::UiSurface;
-
-use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
 
 mod convert;
 pub mod debug;
@@ -60,7 +59,7 @@ pub enum LayoutError {
     #[error("Invalid hierarchy")]
     InvalidHierarchy,
     #[error("Taffy error: {0}")]
-    TaffyError(#[from] taffy::error::TaffyError),
+    TaffyError(#[from] taffy::TaffyError),
 }
 
 #[derive(SystemParam)]
@@ -82,8 +81,15 @@ pub fn ui_layout_system(
     mut resize_events: EventReader<bevy_window::WindowResized>,
     mut ui_surface: ResMut<UiSurface>,
     root_node_query: Query<(Entity, Option<&TargetCamera>), (With<Node>, Without<Parent>)>,
-    style_query: Query<(Entity, Ref<Style>, Option<&TargetCamera>), With<Node>>,
-    mut measure_query: Query<(Entity, &mut ContentSize)>,
+    mut style_query: Query<
+        (
+            Entity,
+            Ref<Style>,
+            Option<&mut ContentSize>,
+            Option<&TargetCamera>,
+        ),
+        With<Node>,
+    >,
     children_query: Query<(Entity, Ref<Children>), With<Node>>,
     just_children_query: Query<&Children>,
     mut removed_components: UiLayoutSystemRemovedComponentParam,
@@ -152,8 +158,13 @@ pub fn ui_layout_system(
         }
     }
 
-    // Resize all nodes
-    for (entity, style, target_camera) in style_query.iter() {
+    // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
+    for entity in removed_components.removed_content_sizes.read() {
+        ui_surface.try_remove_node_context(entity);
+    }
+
+    // Sync Style and ContentSize to Taffy for all nodes
+    for (entity, style, content_size, target_camera) in style_query.iter_mut() {
         if let Some(camera) =
             camera_with_default(target_camera).and_then(|c| camera_layout_info.get(&c))
         {
@@ -161,28 +172,23 @@ pub fn ui_layout_system(
                 || !scale_factor_events.is_empty()
                 || ui_scale.is_changed()
                 || style.is_changed()
+                || content_size
+                    .as_ref()
+                    .map(|c| c.measure.is_some())
+                    .unwrap_or(false)
             {
                 let layout_context = LayoutContext::new(
                     camera.scale_factor,
                     [camera.size.x as f32, camera.size.y as f32].into(),
                 );
-                ui_surface.upsert_node(entity, &style, &layout_context);
+                let measure = content_size.and_then(|mut c| c.measure.take());
+                ui_surface.upsert_node(&layout_context, entity, &style, measure);
             }
         } else {
-            ui_surface.upsert_node(entity, &Style::default(), &LayoutContext::default());
+            ui_surface.upsert_node(&LayoutContext::DEFAULT, entity, &Style::default(), None);
         }
     }
     scale_factor_events.clear();
-
-    // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
-    for entity in removed_components.removed_content_sizes.read() {
-        ui_surface.try_remove_measure(entity);
-    }
-    for (entity, mut content_size) in &mut measure_query {
-        if let Some(measure_func) = content_size.measure_func.take() {
-            ui_surface.try_update_measure(entity, measure_func);
-        }
-    }
 
     // clean up removed nodes
     ui_surface.remove_entities(removed_components.removed_nodes.read());
@@ -337,7 +343,7 @@ fn round_layout_coords(value: Vec2) -> Vec2 {
 
 #[cfg(test)]
 mod tests {
-    use taffy::tree::LayoutTree;
+    use taffy::TraversePartialTree;
 
     use bevy_asset::AssetEvent;
     use bevy_asset::Assets;
@@ -578,7 +584,7 @@ mod tests {
         let ui_parent_node = ui_surface.entity_to_taffy[&ui_parent_entity];
 
         // `ui_parent_node` shouldn't have any children yet
-        assert_eq!(ui_surface.taffy.child_count(ui_parent_node).unwrap(), 0);
+        assert_eq!(ui_surface.taffy.child_count(ui_parent_node), 0);
 
         let mut ui_child_entities = (0..10)
             .map(|_| {
@@ -597,7 +603,7 @@ mod tests {
             1 + ui_child_entities.len()
         );
         assert_eq!(
-            ui_surface.taffy.child_count(ui_parent_node).unwrap(),
+            ui_surface.taffy.child_count(ui_parent_node),
             ui_child_entities.len()
         );
 
@@ -628,7 +634,7 @@ mod tests {
             1 + ui_child_entities.len()
         );
         assert_eq!(
-            ui_surface.taffy.child_count(ui_parent_node).unwrap(),
+            ui_surface.taffy.child_count(ui_parent_node),
             ui_child_entities.len()
         );
 
@@ -941,8 +947,8 @@ mod tests {
         let ui_surface = world.resource::<UiSurface>();
         let ui_node = ui_surface.entity_to_taffy[&ui_entity];
 
-        // a node with a content size needs to be measured
-        assert!(ui_surface.taffy.needs_measure(ui_node));
+        // a node with a content size should have taffy context
+        assert!(ui_surface.taffy.get_node_context(ui_node).is_some());
         let layout = ui_surface.get_layout(ui_entity).unwrap();
         assert_eq!(layout.size.width, content_size.x);
         assert_eq!(layout.size.height, content_size.y);
@@ -952,8 +958,8 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let ui_surface = world.resource::<UiSurface>();
-        // a node without a content size does not need to be measured
-        assert!(!ui_surface.taffy.needs_measure(ui_node));
+        // a node without a content size should not have taffy context
+        assert!(ui_surface.taffy.get_node_context(ui_node).is_none());
 
         // Without a content size, the node has no width or height constraints so the length of both dimensions is 0.
         let layout = ui_surface.get_layout(ui_entity).unwrap();

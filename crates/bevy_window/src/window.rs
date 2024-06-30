@@ -281,6 +281,33 @@ pub struct Window {
     /// [`wgpu::SurfaceConfiguration::desired_maximum_frame_latency`]:
     /// https://docs.rs/wgpu/latest/wgpu/type.SurfaceConfiguration.html#structfield.desired_maximum_frame_latency
     pub desired_maximum_frame_latency: Option<NonZeroU32>,
+    /// Sets whether this window recognizes [`PinchGesture`]
+    ///
+    /// ## Platform-specific
+    ///
+    /// - Only used on iOS.
+    /// - On macOS, they are recognized by default and can't be disabled.
+    pub recognize_pinch_gesture: bool,
+    /// Sets whether this window recognizes [`RotationGesture`]
+    ///
+    /// ## Platform-specific
+    ///
+    /// - Only used on iOS.
+    /// - On macOS, they are recognized by default and can't be disabled.
+    pub recognize_rotation_gesture: bool,
+    /// Sets whether this window recognizes [`DoubleTapGesture`]
+    ///
+    /// ## Platform-specific
+    ///
+    /// - Only used on iOS.
+    /// - On macOS, they are recognized by default and can't be disabled.
+    pub recognize_doubletap_gesture: bool,
+    /// Sets whether this window recognizes [`PanGesture`], with a number of fingers between the first value and the last.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - Only used on iOS.
+    pub recognize_pan_gesture: Option<(u8, u8)>,
 }
 
 impl Default for Window {
@@ -311,6 +338,10 @@ impl Default for Window {
             visible: true,
             skip_taskbar: false,
             desired_maximum_frame_latency: None,
+            recognize_pinch_gesture: false,
+            recognize_rotation_gesture: false,
+            recognize_doubletap_gesture: false,
+            recognize_pan_gesture: None,
         }
     }
 }
@@ -687,10 +718,10 @@ impl Default for WindowResolution {
 
 impl WindowResolution {
     /// Creates a new [`WindowResolution`].
-    pub fn new(logical_width: f32, logical_height: f32) -> Self {
+    pub fn new(physical_width: f32, physical_height: f32) -> Self {
         Self {
-            physical_width: logical_width as u32,
-            physical_height: logical_height as u32,
+            physical_width: physical_width as u32,
+            physical_height: physical_height as u32,
             ..Default::default()
         }
     }
@@ -783,9 +814,7 @@ impl WindowResolution {
     /// Set the window's scale factor, this may get overridden by the backend.
     #[inline]
     pub fn set_scale_factor(&mut self, scale_factor: f32) {
-        let (width, height) = (self.width(), self.height());
         self.scale_factor = scale_factor;
-        self.set(width, height);
     }
 
     /// Set the window's scale factor, this will be used over what the backend decides.
@@ -794,9 +823,7 @@ impl WindowResolution {
     /// size is not within the limits.
     #[inline]
     pub fn set_scale_factor_override(&mut self, scale_factor_override: Option<f32>) {
-        let (width, height) = (self.width(), self.height());
         self.scale_factor_override = scale_factor_override;
-        self.set(width, height);
     }
 }
 
@@ -1170,6 +1197,11 @@ impl Default for EnabledButtons {
         }
     }
 }
+
+/// Marker component for a [`Window`] that has been requested to close and
+/// is in the process of closing (on the next frame).
+#[derive(Component)]
+pub struct ClosingWindow;
 
 #[cfg(test)]
 mod tests {

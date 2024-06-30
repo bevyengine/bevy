@@ -1,14 +1,15 @@
+mod range;
 mod render_layers;
 
 use std::any::TypeId;
 
-use bevy_derive::Deref;
-use bevy_ecs::query::QueryFilter;
+pub use range::*;
 pub use render_layers::*;
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::prelude::*;
+use bevy_derive::Deref;
+use bevy_ecs::{prelude::*, query::QueryFilter};
 use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystem};
@@ -19,6 +20,8 @@ use crate::{
     mesh::Mesh,
     primitives::{Aabb, Frustum, Sphere},
 };
+
+use super::NoCpuCulling;
 
 /// User indication of whether an entity is visible. Propagates down the entity hierarchy.
 ///
@@ -393,10 +396,12 @@ fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
 pub fn check_visibility<QF>(
     mut thread_queues: Local<Parallel<Vec<Entity>>>,
     mut view_query: Query<(
+        Entity,
         &mut VisibleEntities,
         &Frustum,
         Option<&RenderLayers>,
         &Camera,
+        Has<NoCpuCulling>,
     )>,
     mut visible_aabb_query: Query<
         (
@@ -407,18 +412,24 @@ pub fn check_visibility<QF>(
             Option<&Aabb>,
             &GlobalTransform,
             Has<NoFrustumCulling>,
+            Has<VisibilityRange>,
         ),
         QF,
     >,
+    visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
 ) where
     QF: QueryFilter + 'static,
 {
-    for (mut visible_entities, frustum, maybe_view_mask, camera) in &mut view_query {
+    let visible_entity_ranges = visible_entity_ranges.as_deref();
+
+    for (view, mut visible_entities, frustum, maybe_view_mask, camera, no_cpu_culling) in
+        &mut view_query
+    {
         if !camera.is_active {
             continue;
         }
 
-        let view_mask = maybe_view_mask.copied().unwrap_or_default();
+        let view_mask = maybe_view_mask.unwrap_or_default();
 
         visible_aabb_query.par_iter_mut().for_each_init(
             || thread_queues.borrow_local_mut(),
@@ -431,6 +442,7 @@ pub fn check_visibility<QF>(
                     maybe_model_aabb,
                     transform,
                     no_frustum_culling,
+                    has_visibility_range,
                 ) = query_item;
 
                 // Skip computing visibility for entities that are configured to be hidden.
@@ -439,17 +451,26 @@ pub fn check_visibility<QF>(
                     return;
                 }
 
-                let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
-                if !view_mask.intersects(&entity_mask) {
+                let entity_mask = maybe_entity_mask.unwrap_or_default();
+                if !view_mask.intersects(entity_mask) {
+                    return;
+                }
+
+                // If outside of the visibility range, cull.
+                if has_visibility_range
+                    && visible_entity_ranges.is_some_and(|visible_entity_ranges| {
+                        !visible_entity_ranges.entity_is_in_range_of_view(entity, view)
+                    })
+                {
                     return;
                 }
 
                 // If we have an aabb, do frustum culling
-                if !no_frustum_culling {
+                if !no_frustum_culling && !no_cpu_culling {
                     if let Some(model_aabb) = maybe_model_aabb {
-                        let model = transform.affine();
+                        let world_from_local = transform.affine();
                         let model_sphere = Sphere {
-                            center: model.transform_point3a(model_aabb.center),
+                            center: world_from_local.transform_point3a(model_aabb.center),
                             radius: transform.radius_vec3a(model_aabb.half_extents),
                         };
                         // Do quick sphere-based frustum culling
@@ -457,7 +478,7 @@ pub fn check_visibility<QF>(
                             return;
                         }
                         // Do aabb-based frustum culling
-                        if !frustum.intersects_obb(model_aabb, &model, true, false) {
+                        if !frustum.intersects_obb(model_aabb, &world_from_local, true, false) {
                             return;
                         }
                     }

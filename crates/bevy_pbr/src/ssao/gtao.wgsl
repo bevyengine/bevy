@@ -5,13 +5,12 @@
 // Source code heavily based on XeGTAO v1.30 from Intel
 // https://github.com/GameTechDev/XeGTAO/blob/0d177ce06bfa642f64d8af4de1197ad1bcb862d4/Source/Rendering/Shaders/XeGTAO.hlsli
 
-#import bevy_pbr::{
-    gtao_utils::fast_acos,
-    utils::{PI, HALF_PI},
-}
+#import bevy_pbr::gtao_utils::fast_acos
+
 #import bevy_render::{
     view::View,
     globals::Globals,
+    maths::{PI, HALF_PI},
 }
 
 @group(0) @binding(0) var preprocessed_depth: texture_2d<f32>;
@@ -66,17 +65,17 @@ fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<i32>) -> f32 
 fn load_normal_view_space(uv: vec2<f32>) -> vec3<f32> {
     var world_normal = textureSampleLevel(normals, point_clamp_sampler, uv, 0.0).xyz;
     world_normal = (world_normal * 2.0) - 1.0;
-    let inverse_view = mat3x3<f32>(
-        view.inverse_view[0].xyz,
-        view.inverse_view[1].xyz,
-        view.inverse_view[2].xyz,
+    let view_from_world = mat3x3<f32>(
+        view.view_from_world[0].xyz,
+        view.view_from_world[1].xyz,
+        view.view_from_world[2].xyz,
     );
-    return inverse_view * world_normal;
+    return view_from_world * world_normal;
 }
 
 fn reconstruct_view_space_position(depth: f32, uv: vec2<f32>) -> vec3<f32> {
     let clip_xy = vec2<f32>(uv.x * 2.0 - 1.0, 1.0 - 2.0 * uv.y);
-    let t = view.inverse_projection * vec4<f32>(clip_xy, depth, 1.0);
+    let t = view.view_from_clip * vec4<f32>(clip_xy, depth, 1.0);
     let view_xyz = t.xyz / t.w;
     return view_xyz;
 }
@@ -108,7 +107,7 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let view_vec = normalize(-pixel_position);
 
     let noise = load_noise(pixel_coordinates);
-    let sample_scale = (-0.5 * effect_radius * view.projection[0][0]) / pixel_position.z;
+    let sample_scale = (-0.5 * effect_radius * view.clip_from_view[0][0]) / pixel_position.z;
 
     var visibility = 0.0;
     for (var slice_t = 0.0; slice_t < slice_count; slice_t += 1.0) {

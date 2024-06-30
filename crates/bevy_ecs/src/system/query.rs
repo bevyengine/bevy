@@ -1368,12 +1368,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn transmute_lens_filtered<NewD: QueryData, NewF: QueryFilter>(
         &mut self,
     ) -> QueryLens<'_, NewD, NewF> {
-        // SAFETY:
-        // - We have exclusive access to the query
-        // - `self` has correctly captured its access
-        // - Access is checked to be a subset of the query's access when the state is created.
-        let world = unsafe { self.world.world() };
-        let state = self.state.transmute_filtered::<NewD, NewF>(world);
+        let components = self.world.components();
+        let state = self.state.transmute_filtered::<NewD, NewF>(components);
         QueryLens {
             world: self.world,
             state,
@@ -1389,9 +1385,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns a [`QueryLens`] that can be used to get a query with the combined fetch.
     ///
-    /// For example, this can take a `Query<&A>` and a `Queryy<&B>` and return a `Query<&A, &B>`.
-    /// The returned query will only return items with both `A` and `B`. Note that since filter
-    /// are dropped, non-archetypal filters like `Added` and `Changed` will no be respected.
+    /// For example, this can take a `Query<&A>` and a `Query<&B>` and return a `Query<(&A, &B)>`.
+    /// The returned query will only return items with both `A` and `B`. Note that since filters
+    /// are dropped, non-archetypal filters like `Added` and `Changed` will not be respected.
     /// To maintain or change filter terms see `Self::join_filtered`.
     ///
     /// ## Example
@@ -1450,7 +1446,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Equivalent to [`Self::join`] but also includes a [`QueryFilter`] type.
     ///
-    /// Note that the lens with iterate a subset of the original queries tables
+    /// Note that the lens with iterate a subset of the original queries' tables
     /// and archetypes. This means that additional archetypal query terms like
     /// `With` and `Without` will not necessarily be respected and non-archetypal
     /// terms like `Added` and `Changed` will only be respected if they are in
@@ -1464,14 +1460,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         &mut self,
         other: &mut Query<OtherD, OtherF>,
     ) -> QueryLens<'_, NewD, NewF> {
-        // SAFETY:
-        // - The queries have correctly captured their access.
-        // - We have exclusive access to both queries.
-        // - Access for QueryLens is checked when state is created.
-        let world = unsafe { self.world.world() };
+        let components = self.world.components();
         let state = self
             .state
-            .join_filtered::<OtherD, OtherF, NewD, NewF>(world, other.state);
+            .join_filtered::<OtherD, OtherF, NewD, NewF>(components, other.state);
         QueryLens {
             world: self.world,
             state,

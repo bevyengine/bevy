@@ -5,7 +5,7 @@ use argh::FromArgs;
 /// Alias for running the `format` and `clippy` subcommands.
 #[derive(FromArgs, Default)]
 #[argh(subcommand, name = "lints")]
-pub(crate) struct LintsCommand {}
+pub struct LintsCommand {}
 
 impl Prepare for LintsCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {

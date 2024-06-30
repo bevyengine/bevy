@@ -5,7 +5,7 @@ use xshell::cmd;
 /// Runs all tests (except for doc tests).
 #[derive(FromArgs, Default)]
 #[argh(subcommand, name = "test")]
-pub(crate) struct TestCommand {}
+pub struct TestCommand {}
 
 impl Prepare for TestCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {

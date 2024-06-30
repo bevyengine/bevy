@@ -38,18 +38,18 @@ pub enum ExecutorKind {
     ///
     /// Useful if you're dealing with a single-threaded environment, saving your threads for
     /// other things, or just trying minimize overhead.
-    #[cfg_attr(any(target_arch = "wasm32", not(feature = "multi-threaded")), default)]
+    #[cfg_attr(any(target_arch = "wasm32", not(feature = "multi_threaded")), default)]
     SingleThreaded,
     /// Like [`SingleThreaded`](ExecutorKind::SingleThreaded) but calls [`apply_deferred`](crate::system::System::apply_deferred)
     /// immediately after running each system.
     Simple,
     /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
-    #[cfg_attr(all(not(target_arch = "wasm32"), feature = "multi-threaded"), default)]
+    #[cfg_attr(all(not(target_arch = "wasm32"), feature = "multi_threaded"), default)]
     MultiThreaded,
 }
 
 /// Holds systems and conditions of a [`Schedule`](super::Schedule) sorted in topological order
-/// (along with dependency information for multi-threaded execution).
+/// (along with dependency information for `multi_threaded` execution).
 ///
 /// Since the arrays are sorted in the same order, elements are referenced by their index.
 /// [`FixedBitSet`] is used as a smaller, more efficient substitute of `HashSet<usize>`.
@@ -62,16 +62,22 @@ pub struct SystemSchedule {
     /// Indexed by system node id.
     pub(super) system_conditions: Vec<Vec<BoxedCondition>>,
     /// Indexed by system node id.
+    /// Number of systems that the system immediately depends on.
     pub(super) system_dependencies: Vec<usize>,
     /// Indexed by system node id.
+    /// List of systems that immediately depend on the system.
     pub(super) system_dependents: Vec<Vec<usize>>,
     /// Indexed by system node id.
+    /// List of sets containing the system that have conditions
     pub(super) sets_with_conditions_of_systems: Vec<FixedBitSet>,
     /// List of system set node ids.
     pub(super) set_ids: Vec<NodeId>,
     /// Indexed by system set node id.
     pub(super) set_conditions: Vec<Vec<BoxedCondition>>,
     /// Indexed by system set node id.
+    /// List of systems that are in sets that have conditions.
+    ///
+    /// If a set doesn't run because of its conditions, this is used to skip all systems in it.
     pub(super) systems_in_sets_with_conditions: Vec<FixedBitSet>,
 }
 

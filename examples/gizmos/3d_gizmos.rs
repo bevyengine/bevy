@@ -61,10 +61,7 @@ fn setup(
             Press 'A' to show all AABB boxes\n\
             Press 'U' or 'I' to cycle through line styles for straight or round gizmos\n\
             Press 'J' or 'K' to cycle through line joins for straight or round gizmos",
-            TextStyle {
-                font_size: 20.,
-                ..default()
-            },
+            TextStyle::default(),
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
@@ -108,6 +105,16 @@ fn draw_example_collection(
 
     my_gizmos.sphere(Vec3::new(1., 0.5, 0.), Quat::IDENTITY, 0.5, RED);
 
+    my_gizmos
+        .rounded_cuboid(
+            Vec3::new(-2.0, 0.75, -0.75),
+            Quat::IDENTITY,
+            Vec3::splat(0.9),
+            TURQUOISE,
+        )
+        .edge_radius(0.1)
+        .arc_resolution(4);
+
     for y in [0., 0.5, 1.] {
         gizmos.ray(
             Vec3::new(1., y, 0.),
@@ -124,17 +131,17 @@ fn draw_example_collection(
             Quat::from_rotation_arc(Vec3::Y, Vec3::ONE.normalize()),
             ORANGE,
         )
-        .segments(10);
+        .resolution(10);
 
     // Circles have 32 line-segments by default.
     my_gizmos.circle(Vec3::ZERO, Dir3::Y, 3., BLACK);
     // You may want to increase this for larger circles or spheres.
     my_gizmos
         .circle(Vec3::ZERO, Dir3::Y, 3.1, NAVY)
-        .segments(64);
+        .resolution(64);
     my_gizmos
         .sphere(Vec3::ZERO, Quat::IDENTITY, 3.2, BLACK)
-        .circle_segments(64);
+        .resolution(64);
 
     gizmos.arrow(Vec3::ZERO, Vec3::ONE * 1.5, YELLOW);
 
