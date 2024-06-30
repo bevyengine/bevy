@@ -180,12 +180,12 @@ impl RenderLayers {
 
     /// Deallocates any trailing-zero memory blocks from this instance
     fn shrink(mut self) -> Self {
-        let mut should_shrink = false;
-        while self.0.spilled() && self.0.last() == Some(&0) {
+        let mut any_dropped = false;
+        while self.0.len() > 1 && self.0.last() == Some(&0) {
             self.0.pop();
-            should_shrink = true;
+            any_dropped = true;
         }
-        if should_shrink {
+        if any_dropped && self.0.len() <= 1 {
             self.0.shrink_to_fit();
         }
         self
