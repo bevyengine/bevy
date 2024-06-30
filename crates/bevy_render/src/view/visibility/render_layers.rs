@@ -49,7 +49,7 @@ impl Default for RenderLayers {
     ///
     /// This is distinct from [`RenderLayers::none`], which doesn't belong to any layers.
     fn default() -> Self {
-        const { RenderLayers::layer(0) }
+        const { Self::layer(0) }
     }
 }
 
