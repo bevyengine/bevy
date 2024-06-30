@@ -46,7 +46,7 @@ impl AssetLoader for AudioLoader {
 
     async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader<'_>,
+        reader: &'a mut dyn Reader,
         _settings: &'a Self::Settings,
         _load_context: &'a mut LoadContext<'_>,
     ) -> Result<AudioSource, Self::Error> {

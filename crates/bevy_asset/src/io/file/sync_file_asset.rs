@@ -87,13 +87,10 @@ impl Stream for DirReader {
 }
 
 impl AssetReader for FileAssetReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let full_path = self.root_path.join(path);
         match File::open(&full_path) {
-            Ok(file) => {
-                let reader: Box<Reader> = Box::new(FileReader(file));
-                Ok(reader)
-            }
+            Ok(file) => Ok(FileReader(file)),
             Err(e) => {
                 if e.kind() == std::io::ErrorKind::NotFound {
                     Err(AssetReaderError::NotFound(full_path))
@@ -104,14 +101,11 @@ impl AssetReader for FileAssetReader {
         }
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let meta_path = get_meta_path(path);
         let full_path = self.root_path.join(meta_path);
         match File::open(&full_path) {
-            Ok(file) => {
-                let reader: Box<Reader> = Box::new(FileReader(file));
-                Ok(reader)
-            }
+            Ok(file) => Ok(FileReader(file)),
             Err(e) => {
                 if e.kind() == std::io::ErrorKind::NotFound {
                     Err(AssetReaderError::NotFound(full_path))

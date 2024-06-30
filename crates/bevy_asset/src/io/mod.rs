@@ -72,11 +72,24 @@ impl From<std::io::Error> for AssetReaderError {
     }
 }
 
-pub trait AsyncReadAndSeek: AsyncRead + AsyncSeek {}
+pub trait Reader: AsyncRead + AsyncSeek + Unpin + Send + Sync {}
 
-impl<T: AsyncRead + AsyncSeek> AsyncReadAndSeek for T {}
+impl<T: AsyncRead + AsyncSeek + Unpin + Send + Sync> Reader for T {}
 
-pub type Reader<'a> = dyn AsyncReadAndSeek + Unpin + Send + Sync + 'a;
+/// A future that returns a type implementing [`Reader`].
+pub trait ReaderFuture<'a>:
+    ConditionalSendFuture<Output = Result<Self::Reader, AssetReaderError>>
+{
+    type Reader: Reader + 'a;
+}
+
+impl<'a, F, R> ReaderFuture<'a> for F
+where
+    F: ConditionalSendFuture<Output = Result<R, AssetReaderError>>,
+    R: Reader + 'a,
+{
+    type Reader = R;
+}
 
 /// Performs read operations on an asset storage. [`AssetReader`] exposes a "virtual filesystem"
 /// API, where asset bytes and asset metadata bytes are both stored and accessible for a given
@@ -85,15 +98,29 @@ pub type Reader<'a> = dyn AsyncReadAndSeek + Unpin + Send + Sync + 'a;
 /// Also see [`AssetWriter`].
 pub trait AssetReader: Send + Sync + 'static {
     /// Returns a future to load the full file data at the provided path.
-    fn read<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> impl ConditionalSendFuture<Output = Result<Box<Reader<'a>>, AssetReaderError>>;
+    ///
+    /// # Note for implementors
+    /// The preferred style for implementing this method is an `async fn` returning an opaque type.
+    ///
+    /// ```no_run
+    /// # use bevy_asset::{prelude::*, io::{AssetReader, PathStream, Reader}};
+    /// # struct MyReader;
+    /// impl AssetReader for MyReader {
+    ///     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    ///         // ...
+    ///         # unimplemented!()
+    ///     }
+    ///     # async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    ///     #     unimplemented!()
+    ///     # }
+    ///     # async fn read_directory<'a>(&'a self, path: &'a Path) -> Result<Box<PathStream>, AssetReaderError> { unimplmented!() }
+    ///     # async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> { unimplmented!() }
+    ///     # async fn read_directory<'a>(&'a self, path: &'a Path) -> Result<Vec<u8>, AssetReaderError> { unimplmented!() }
+    /// }
+    /// ```
+    fn read<'a>(&'a self, path: &'a Path) -> impl ReaderFuture<'a>;
     /// Returns a future to load the full file data at the provided path.
-    fn read_meta<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> impl ConditionalSendFuture<Output = Result<Box<Reader<'a>>, AssetReaderError>>;
+    fn read_meta<'a>(&'a self, path: &'a Path) -> impl ReaderFuture<'a>;
     /// Returns an iterator of directory entry names at the provided path.
     fn read_directory<'a>(
         &'a self,
@@ -123,13 +150,15 @@ pub trait AssetReader: Send + Sync + 'static {
 /// as [`AssetReader`] isn't currently object safe.
 pub trait ErasedAssetReader: Send + Sync + 'static {
     /// Returns a future to load the full file data at the provided path.
-    fn read<'a>(&'a self, path: &'a Path)
-        -> BoxedFuture<Result<Box<Reader<'a>>, AssetReaderError>>;
+    fn read<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<Result<Box<dyn Reader + 'a>, AssetReaderError>>;
     /// Returns a future to load the full file data at the provided path.
     fn read_meta<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Box<Reader<'a>>, AssetReaderError>>;
+    ) -> BoxedFuture<Result<Box<dyn Reader + 'a>, AssetReaderError>>;
     /// Returns an iterator of directory entry names at the provided path.
     fn read_directory<'a>(
         &'a self,
@@ -149,14 +178,20 @@ impl<T: AssetReader> ErasedAssetReader for T {
     fn read<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Box<Reader<'a>>, AssetReaderError>> {
-        Box::pin(Self::read(self, path))
+    ) -> BoxedFuture<Result<Box<dyn Reader + 'a>, AssetReaderError>> {
+        Box::pin(async {
+            let reader = Self::read(self, path).await?;
+            Ok(Box::new(reader) as Box<dyn Reader>)
+        })
     }
     fn read_meta<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Box<Reader<'a>>, AssetReaderError>> {
-        Box::pin(Self::read_meta(self, path))
+    ) -> BoxedFuture<Result<Box<dyn Reader + 'a>, AssetReaderError>> {
+        Box::pin(async {
+            let reader = Self::read_meta(self, path).await?;
+            Ok(Box::new(reader) as Box<dyn Reader>)
+        })
     }
     fn read_directory<'a>(
         &'a self,

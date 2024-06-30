@@ -10,39 +10,27 @@ use std::path::Path;
 use super::{FileAssetReader, FileAssetWriter};
 
 impl AssetReader for FileAssetReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let full_path = self.root_path.join(path);
-        match File::open(&full_path).await {
-            Ok(file) => {
-                let reader: Box<Reader> = Box::new(file);
-                Ok(reader)
+        File::open(&full_path).await.map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                AssetReaderError::NotFound(full_path)
+            } else {
+                e.into()
             }
-            Err(e) => {
-                if e.kind() == std::io::ErrorKind::NotFound {
-                    Err(AssetReaderError::NotFound(full_path))
-                } else {
-                    Err(e.into())
-                }
-            }
-        }
+        })
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let meta_path = get_meta_path(path);
         let full_path = self.root_path.join(meta_path);
-        match File::open(&full_path).await {
-            Ok(file) => {
-                let reader: Box<Reader> = Box::new(file);
-                Ok(reader)
+        File::open(&full_path).await.map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                AssetReaderError::NotFound(full_path)
+            } else {
+                e.into()
             }
-            Err(e) => {
-                if e.kind() == std::io::ErrorKind::NotFound {
-                    Err(AssetReaderError::NotFound(full_path))
-                } else {
-                    Err(e.into())
-                }
-            }
-        }
+        })
     }
 
     async fn read_directory<'a>(

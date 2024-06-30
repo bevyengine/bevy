@@ -1064,7 +1064,7 @@ impl AssetServer {
         (
             Box<dyn AssetMetaDyn>,
             Arc<dyn ErasedAssetLoader>,
-            Box<Reader<'a>>,
+            Box<dyn Reader + 'a>,
         ),
         AssetLoadError,
     > {
@@ -1168,7 +1168,7 @@ impl AssetServer {
         asset_path: &AssetPath<'_>,
         meta: Box<dyn AssetMetaDyn>,
         loader: &dyn ErasedAssetLoader,
-        reader: &mut Reader<'_>,
+        reader: &mut dyn Reader,
         load_dependencies: bool,
         populate_hashes: bool,
     ) -> Result<ErasedLoadedAsset, AssetLoadError> {

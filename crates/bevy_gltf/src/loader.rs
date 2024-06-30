@@ -173,7 +173,7 @@ impl AssetLoader for GltfLoader {
     type Error = GltfError;
     async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader<'_>,
+        reader: &'a mut dyn Reader,
         settings: &'a GltfLoaderSettings,
         load_context: &'a mut LoadContext<'_>,
     ) -> Result<Gltf, Self::Error> {

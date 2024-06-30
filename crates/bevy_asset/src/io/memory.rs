@@ -278,28 +278,22 @@ impl AsyncSeek for DataReader {
 }
 
 impl AssetReader for MemoryAssetReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         self.root
             .get_asset(path)
-            .map(|data| {
-                let reader: Box<Reader> = Box::new(DataReader {
-                    data,
-                    bytes_read: 0,
-                });
-                reader
+            .map(|data| DataReader {
+                data,
+                bytes_read: 0,
             })
             .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         self.root
             .get_metadata(path)
-            .map(|data| {
-                let reader: Box<Reader> = Box::new(DataReader {
-                    data,
-                    bytes_read: 0,
-                });
-                reader
+            .map(|data| DataReader {
+                data,
+                bytes_read: 0,
             })
             .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
     }

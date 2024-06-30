@@ -12,12 +12,12 @@ use std::sync::Arc;
 
 // Utility type for handling the sources of reader references
 enum ReaderRef<'a, 'b> {
-    Borrowed(&'a mut Reader<'b>),
-    Boxed(Box<Reader<'b>>),
+    Borrowed(&'a mut (dyn Reader + 'b)),
+    Boxed(Box<dyn Reader + 'b>),
 }
 
 impl<'a, 'b> ReaderRef<'a, 'b> {
-    pub fn as_mut(&mut self) -> &mut Reader {
+    pub fn as_mut(&mut self) -> &mut dyn Reader {
         match self {
             ReaderRef::Borrowed(r) => r,
             ReaderRef::Boxed(b) => &mut *b,
@@ -168,13 +168,13 @@ impl<'ctx, 'builder> UntypedNestedLoader<'ctx, 'builder> {
 /// - `reader`: the lifetime of the [`Reader`] reference used to read the asset data
 pub struct DirectNestedLoader<'ctx, 'builder, 'reader> {
     base: NestedLoader<'ctx, 'builder>,
-    reader: Option<&'builder mut Reader<'reader>>,
+    reader: Option<&'builder mut (dyn Reader + 'reader)>,
 }
 
 impl<'ctx: 'reader, 'builder, 'reader> DirectNestedLoader<'ctx, 'builder, 'reader> {
     /// Specify the reader to use to read the asset data.
     #[must_use]
-    pub fn with_reader(mut self, reader: &'builder mut Reader<'reader>) -> Self {
+    pub fn with_reader(mut self, reader: &'builder mut (dyn Reader + 'reader)) -> Self {
         self.reader = Some(reader);
         self
     }

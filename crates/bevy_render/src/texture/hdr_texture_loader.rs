@@ -32,7 +32,7 @@ impl AssetLoader for HdrTextureLoader {
     type Error = HdrTextureLoaderError;
     async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader<'_>,
+        reader: &'a mut dyn Reader,
         settings: &'a Self::Settings,
         _load_context: &'a mut LoadContext<'_>,
     ) -> Result<Image, Self::Error> {
