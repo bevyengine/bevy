@@ -6,7 +6,7 @@ use crate::{
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{AnimationTarget, AnimationTargetId};
 use bevy_asset::{
-    io::Reader, AssetLoadError, AssetLoader, AsyncReadExt, Handle, LoadContext, ReadAssetBytesError,
+    io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
 };
 use bevy_color::{Color, LinearRgba};
 use bevy_core::Name;
