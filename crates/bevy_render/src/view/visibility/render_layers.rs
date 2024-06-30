@@ -346,11 +346,11 @@ mod rendering_mask_tests {
 
     #[test]
     fn render_layer_shrink() {
-        // Since it has layers greater than 64, the instance should spill onto the heap
+        // Since it has layers greater than 64, the instance should take up two memory blocks
         let layers = RenderLayers::from_layers(&[1, 77]);
-        assert!(layers.0.spilled());
-        // When excluding that layer, it should move back onto the stack.
+        assert!(layers.0.len() == 2);
+        // When excluding that layer, it should drop the extra memory block
         let layers = layers.without(77);
-        assert!(!layers.0.spilled());
+        assert!(layers.0.len() == 1);
     }
 }
