@@ -76,6 +76,12 @@ pub const STACK_FUTURE_SIZE: usize = 10 * std::mem::size_of::<&()>();
 
 pub use stackfuture::StackFuture;
 
+/// A type returned from [`AssetReader::read`], which is used to read the contents of a file
+/// (or virtual file) corresponding to an asset.
+///
+/// This is essentially a trait alias for types implementing  [`AsyncRead`] and [`AsyncSeek`].
+/// The only reason a blanket implementation is not provided for applicable types is to allow
+/// implementors to override the provided implementaiton of [`Reader::read_to_end`].
 pub trait Reader: AsyncRead + AsyncSeek + Unpin + Send + Sync {
     /// Reads the entire contents of this reader and appends them to a vec.
     ///
