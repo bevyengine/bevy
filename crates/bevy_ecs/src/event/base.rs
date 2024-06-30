@@ -32,12 +32,12 @@ use std::{
     note = "consider annotating `{Self}` with `#[derive(Event)]`"
 )]
 pub trait Event: Component {
-    /// The component that describes which Entity to propigate this event to next, when [propagation] is enabled.
+    /// The component that describes which Entity to propagate this event to next, when [propagation] is enabled.
     ///
     /// [propagation]: crate::observers::Trigger::enable_propagation
     type Traverse: Traversal;
 
-    /// When true, this event will always attempt to propigate when [triggered], without requiring a call
+    /// When true, this event will always attempt to propagate when [triggered], without requiring a call
     /// to [`Trigger::enable_propagation`].
     ///
     /// [triggered]: crate::commands::Commands::trigger_targets
