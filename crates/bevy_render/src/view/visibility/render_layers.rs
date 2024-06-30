@@ -46,6 +46,8 @@ impl FromIterator<Layer> for RenderLayers {
 
 impl Default for RenderLayers {
     /// By default, this structure includes layer `0`, which represents the first layer.
+    ///
+    /// This is distinct from [`RenderLayers::none`], which doesn't belong to any layers.
     fn default() -> Self {
         let (_, bit) = Self::layer_info(0);
         RenderLayers(SmallVec::from_const([bit]))
@@ -64,6 +66,8 @@ impl RenderLayers {
     }
 
     /// Create a new `RenderLayers` that belongs to no layers.
+    ///
+    /// This is distinct from [`RenderLayers::default`], which belongs to the first layer.
     pub const fn none() -> Self {
         RenderLayers(SmallVec::from_const([0]))
     }
