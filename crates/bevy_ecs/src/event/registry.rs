@@ -77,4 +77,15 @@ impl EventRegistry {
             }
         }
     }
+
+    /// Removes an event from the registry and world
+    pub fn deregister_events<T: Event>(world: &mut World) {
+        let component_id = world.init_resource::<Events<T>>();
+        world.remove_resource::<Events<T>>();
+        let mut registry = world.get_resource_or_insert_with(Self::default);
+        let Some(index) = registry.event_updates.iter().enumerate().find_map(|(i, e)| if e.component_id == component_id { Some(i) } else { None }) else {
+            return;
+        };
+        registry.event_updates.remove(index);
+    }
 }
