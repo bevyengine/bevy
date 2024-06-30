@@ -1,5 +1,4 @@
 use crate::commands::{ClippyCommand, FormatCommand};
-use crate::{Flag, Prepare, PreparedCommand};
 use argh::FromArgs;
 
 /// Alias for running the `format` and `clippy` subcommands.
@@ -7,11 +6,15 @@ use argh::FromArgs;
 #[argh(subcommand, name = "lints")]
 pub struct LintsCommand {}
 
-impl Prepare for LintsCommand {
-    fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {
-        let mut commands = vec![];
-        commands.append(&mut FormatCommand::default().prepare(sh, flags));
-        commands.append(&mut ClippyCommand::default().prepare(sh, flags));
-        commands
+impl LintsCommand {
+    /// Runs this command.
+    pub fn run(self, no_fail_fast: bool) -> Result<(), ()> {
+        let format_result = FormatCommand::run_with_intermediate();
+
+        if !no_fail_fast && format_result.is_err() {
+            return format_result;
+        }
+
+        ClippyCommand::run_with_intermediate()
     }
 }
