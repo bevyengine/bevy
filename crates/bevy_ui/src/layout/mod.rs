@@ -316,8 +316,15 @@ pub fn resolve_outlines_system(
 
 #[inline]
 /// Round `value` to the nearest whole integer, with ties (values with a fractional part equal to 0.5) rounded towards positive infinity.
-fn approx_round_ties_up(value: f32) -> f32 {
-    (value + 0.5).floor()
+fn round_ties_up(value: f32) -> f32 {
+    if value.fract() != -0.5 {
+        // The `round` function rounds ties away from zero. For positive numbers "away from zero" is towards positive infinity.
+        // So for all positive values, and negative values with a fractional part not equal to 0.5, `round` returns the correct result.
+        value.round()
+    } else {
+        // In the remaining cases, where `value` is negative and its fractional part is equal to 0.5, we use `ceil` to round it up towards positive infinity.
+        value.ceil()
+    }
 }
 
 #[inline]
