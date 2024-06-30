@@ -3,16 +3,12 @@ use std::collections::VecDeque;
 use std::future::Future;
 use bevy_ecs::system::Resource;
 use bevy_internal::tasks::futures_lite::{AsyncRead, AsyncWrite};
-use bevy_internal::tasks::TaskPool;
 use std::error::Error as StdError;
-use std::slice::from_raw_parts;
-use std::sync::{Arc, Weak};
-use bevy_internal::prelude::{Deref, DerefMut};
-use crate::easy_sockets::spin_lock::SpinLock;
-
 mod socket_manager;
 mod plugin;
 pub mod net_types;
+
+pub type UpdateResult = std::result::Result<(), ErrorAction>;
 
 pub mod spin_lock {
     use std::future::Future;
@@ -22,6 +18,8 @@ pub mod spin_lock {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::task::{Context, Poll, Waker};
     use std::thread::panicking;
+    
+    //todo: review for safety
 
     pub type SpinLockResult<'a, T> = Result<SpinLockGuard<'a, T>, ()>;
 
@@ -147,13 +145,14 @@ pub mod spin_lock {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Default)]
 pub enum ErrorAction {
     /// Drop the socket.
     Drop,
     /// Take no automated action.
     /// However, you may wish to take
     /// your own corrective action.
+    #[default]
     None
 }
 
@@ -171,14 +170,16 @@ pub trait Buffer: Sized {
     type InnerSocket;
     
     type ConstructionError;
+
+    type DiagnosticData: Default;
     
     fn build(socket: &Self::InnerSocket) -> Result<Self, Self::ConstructionError>;
 
-    async fn fill_read_bufs(&mut self, socket: &mut Self::InnerSocket) -> Result<usize, ErrorAction>;
+    async fn fill_read_bufs(&mut self, socket: &mut Self::InnerSocket, data: &mut Self::DiagnosticData) -> UpdateResult;
 
-    async fn flush_write_bufs(&mut self, socket: &mut Self::InnerSocket) -> Result<usize, ErrorAction>;
+    async fn flush_write_bufs(&mut self, socket: &mut Self::InnerSocket, data: &mut Self::DiagnosticData) -> UpdateResult;
     
-    async fn update_properties(&mut self, socket: &mut Self::InnerSocket) -> Result<(), ErrorAction>;
+    async fn additional_updates(&mut self, socket: &mut Self::InnerSocket, data: &mut Self::DiagnosticData) -> UpdateResult;
 }
 
 pub trait ToByteQueue {

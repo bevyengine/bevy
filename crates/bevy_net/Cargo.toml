@@ -8,11 +8,7 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
 bevy_internal = { path = "../bevy_internal", version = "0.14.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
 bevy_core = {path = "../bevy_core", version = "0.14.0-dev" }
-static_init = "1.0.3"
-cfg-if = "1.0.0"
-futures = "0.3.30"
-
-serde = "1.0.203"
+array-init = "2.1.0"
 
 
 quinn = { version = "0.11.2", optional = true }
