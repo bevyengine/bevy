@@ -9,6 +9,8 @@ use std::path::Path;
 
 use super::{FileAssetReader, FileAssetWriter};
 
+impl Reader for File {}
+
 impl AssetReader for FileAssetReader {
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let full_path = self.root_path.join(path);

@@ -11,16 +11,16 @@ use std::any::TypeId;
 use std::sync::Arc;
 
 // Utility type for handling the sources of reader references
-enum ReaderRef<'a, 'b> {
-    Borrowed(&'a mut (dyn Reader + 'b)),
-    Boxed(Box<dyn Reader + 'b>),
+enum ReaderRef<'a> {
+    Borrowed(&'a mut dyn Reader),
+    Boxed(Box<dyn Reader + 'a>),
 }
 
-impl<'a, 'b> ReaderRef<'a, 'b> {
+impl ReaderRef<'_> {
     pub fn as_mut(&mut self) -> &mut dyn Reader {
         match self {
-            ReaderRef::Borrowed(r) => r,
-            ReaderRef::Boxed(b) => &mut *b,
+            ReaderRef::Borrowed(r) => &mut **r,
+            ReaderRef::Boxed(b) => &mut **b,
         }
     }
 }

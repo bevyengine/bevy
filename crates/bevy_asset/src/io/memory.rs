@@ -277,6 +277,24 @@ impl AsyncSeek for DataReader {
     }
 }
 
+impl Reader for DataReader {
+    fn read_to_end<'a>(
+        &'a mut self,
+        buf: &'a mut Vec<u8>,
+    ) -> stackfuture::StackFuture<'a, std::io::Result<usize>, { super::STACK_FUTURE_SIZE }> {
+        stackfuture::StackFuture::from(async {
+            if self.bytes_read >= self.data.value().len() {
+                Ok(0)
+            } else {
+                buf.extend_from_slice(&self.data.value()[self.bytes_read..]);
+                let n = self.data.value().len() - self.bytes_read;
+                self.bytes_read = self.data.value().len();
+                Ok(n)
+            }
+        })
+    }
+}
+
 impl AssetReader for MemoryAssetReader {
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         self.root

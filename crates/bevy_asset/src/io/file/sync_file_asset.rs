@@ -42,6 +42,16 @@ impl AsyncSeek for FileReader {
     }
 }
 
+impl Reader for FileReader {
+    fn read_to_end<'a>(
+        &'a mut self,
+        buf: &'a mut Vec<u8>,
+    ) -> stackfuture::StackFuture<'a, std::io::Result<usize>, { crate::io::STACK_FUTURE_SIZE }>
+    {
+        stackfuture::StackFuture::from(async { self.0.read_to_end(buf) })
+    }
+}
+
 struct FileWriter(File);
 
 impl AsyncWrite for FileWriter {

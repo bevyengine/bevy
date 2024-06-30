@@ -92,8 +92,6 @@ pub trait Reader: AsyncRead + AsyncSeek + Unpin + Send + Sync {
     }
 }
 
-impl<T: AsyncRead + AsyncSeek + Unpin + Send + Sync> Reader for T {}
-
 /// A future that returns a type implementing [`Reader`].
 pub trait ReaderFuture<'a>:
     ConditionalSendFuture<Output = Result<Self::Reader, AssetReaderError>>
@@ -551,6 +549,24 @@ impl AsyncSeek for VecReader {
     }
 }
 
+impl Reader for VecReader {
+    fn read_to_end<'a>(
+        &'a mut self,
+        buf: &'a mut Vec<u8>,
+    ) -> StackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
+        StackFuture::from(async {
+            if self.bytes_read >= self.bytes.len() {
+                Ok(0)
+            } else {
+                buf.copy_from_slice(&self.bytes[self.bytes_read..]);
+                let n = self.bytes.len() - self.bytes_read;
+                self.bytes_read = self.bytes.len();
+                Ok(n)
+            }
+        })
+    }
+}
+
 /// An [`AsyncRead`] implementation capable of reading a [`&[u8]`].
 pub struct SliceReader<'a> {
     bytes: &'a [u8],
@@ -615,6 +631,24 @@ impl<'a> AsyncSeek for SliceReader<'a> {
                 "seek position is out of range",
             )))
         }
+    }
+}
+
+impl Reader for SliceReader<'_> {
+    fn read_to_end<'a>(
+        &'a mut self,
+        buf: &'a mut Vec<u8>,
+    ) -> StackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
+        StackFuture::from(async {
+            if self.bytes_read >= self.bytes.len() {
+                Ok(0)
+            } else {
+                buf.copy_from_slice(&self.bytes[self.bytes_read..]);
+                let n = self.bytes.len() - self.bytes_read;
+                self.bytes_read = self.bytes.len();
+                Ok(n)
+            }
+        })
     }
 }
 

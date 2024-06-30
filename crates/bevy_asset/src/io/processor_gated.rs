@@ -151,3 +151,12 @@ impl<'a> AsyncSeek for TransactionLockedReader<'a> {
         Pin::new(&mut self.reader).poll_seek(cx, pos)
     }
 }
+
+impl Reader for TransactionLockedReader<'_> {
+    fn read_to_end<'a>(
+        &'a mut self,
+        buf: &'a mut Vec<u8>,
+    ) -> stackfuture::StackFuture<'a, std::io::Result<usize>, { super::STACK_FUTURE_SIZE }> {
+        self.reader.read_to_end(buf)
+    }
+}
