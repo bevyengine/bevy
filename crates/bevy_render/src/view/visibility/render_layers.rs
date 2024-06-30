@@ -178,7 +178,7 @@ impl RenderLayers {
         self.combine_blocks(other, |a, b| a ^ b).shrink()
     }
 
-    /// Deallocates any trailing-zero memo blocks from this instance
+    /// Deallocates any trailing-zero memory blocks from this instance
     fn shrink(mut self) -> Self {
         let mut should_shrink = false;
         while self.0.spilled() && self.0.last() == Some(&0) {
