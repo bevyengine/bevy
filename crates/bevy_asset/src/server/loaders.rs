@@ -310,7 +310,7 @@ impl<T: AssetLoader> AssetLoader for InstrumentedAssetLoader<T> {
 
     fn load<'a>(
         &'a self,
-        reader: &'a mut crate::io::Reader,
+        reader: &'a mut dyn crate::io::Reader,
         settings: &'a Self::Settings,
         load_context: &'a mut crate::LoadContext,
     ) -> impl ConditionalSendFuture<Output = Result<Self::Asset, Self::Error>> {
