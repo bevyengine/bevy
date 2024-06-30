@@ -582,7 +582,7 @@ pub fn prepare_meshlet_view_bind_groups(
             "meshlet_downsample_depth_bind_group",
             &gpu_scene.downsample_depth_bind_group_layout,
             &BindGroupEntries::sequential((
-                view_depth_texture,
+                view_resources.visibility_buffer.as_entire_binding(),
                 &view_resources.depth_pyramid_mips[0],
                 &view_resources.depth_pyramid_mips[1],
                 &view_resources.depth_pyramid_mips[2],
@@ -791,7 +791,7 @@ impl FromWorld for MeshletGpuScene {
                         texture_storage_2d(TextureFormat::R32Float, StorageTextureAccess::WriteOnly)
                     };
                     (
-                        texture_depth_2d(),
+                        storage_buffer_read_only_sized(false, None),
                         write_only_r32float(),
                         write_only_r32float(),
                         write_only_r32float(),

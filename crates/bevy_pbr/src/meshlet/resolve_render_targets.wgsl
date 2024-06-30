@@ -8,7 +8,7 @@ var<push_constant> view_width: u32;
 /// This pass writes out the material depth texture.
 @fragment
 fn resolve_material_depth(in: FullscreenVertexOutput) -> @builtin(frag_depth) f32 {
-    let frag_coord_1d = u32(in.position.x) * view_width + u32(in.position.y);
+    let frag_coord_1d = u32(in.position.y) * view_width + u32(in.position.x);
     let visibility = meshlet_visibility_buffer[frag_coord_1d];
 
     let depth = visibility >> 32u;

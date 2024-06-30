@@ -366,7 +366,10 @@ fn downsample_depth(
     downsample_pass.set_pipeline(downsample_depth_first_pipeline);
     downsample_pass.set_push_constants(
         0,
-        &meshlet_view_resources.depth_pyramid_mip_count.to_le_bytes(),
+        bytemuck::cast_slice(&[
+            meshlet_view_resources.depth_pyramid_mip_count,
+            meshlet_view_resources.view_size.x,
+        ]),
     );
     downsample_pass.set_bind_group(0, &meshlet_view_bind_groups.downsample_depth, &[]);
     downsample_pass.dispatch_workgroups(
