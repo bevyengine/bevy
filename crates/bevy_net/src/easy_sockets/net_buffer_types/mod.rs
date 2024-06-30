@@ -1,63 +1,94 @@
-use std::sync::{Arc, Weak};
-use crate::easy_sockets::spin_lock::SpinLock;
-
-struct DeferredSetting<T> {
-    current: T,
-    change: Option<T>
-}
-
-impl<T: Clone> DeferredSetting<T> {
-    fn new(current_value: T) -> Self {
-        Self {
-            current: current_value,
-            change: None
-        }
-    }
-    
-    /// Tries to apply the deferred setting.
-    /// If no issue or error was encountered while trying 
-    /// to apply the setting None is returned.
-    /// In this case the internal current value is updated to reflect the change made.
-    /// Otherwise no change was made and Some containing the error value is returned,
-    /// the intnal state of the structure does not change.
-    fn try_apply<F, E>(&mut self, fun: F) -> Result<(), E>
-    where F: FnOnce(T) -> Result<(), (T, E)> {
-        if let Some(new) = self.change.take() {
-            let changed = new.clone();
-            match fun(new) {
-                Ok(_) => {
-                    self.current = changed;
-                    return Ok(())
-                }
-                Err((value, error)) => {
-                    self.change = Some(value);
-                    return Err(error)
-                }
-            }
-        }
-        Ok(())
-    }
-    
-    fn current(&self) -> &T {
-        &self.current
-    }
-    
-    fn set_deferred_change(&mut self, new_value: T) {
-        self.change = Some(new_value);
-    }
-}
-
 #[cfg(feature = "Tcp")]
-pub mod TcpStream {
+pub mod tcp_stream {
+    use std::collections::vec_deque::Iter;
     use std::collections::VecDeque;
     use std::fmt::{Display, Formatter};
     use std::io;
     use std::io::{ErrorKind, IoSlice};
-    use async_net::TcpStream;
+    use std::sync::Mutex;
+    use static_init::dynamic;
     use bevy_internal::reflect::List;
-    use bevy_internal::tasks::futures_lite::{AsyncReadExt, AsyncWriteExt};
+    use bevy_internal::tasks::futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
     use crate::easy_sockets::{Buffer, ErrorAction, UpdateResult};
-    use crate::easy_sockets::net_types::DeferredSetting;
+    use crate::easy_sockets::plugin::PLUGIN_INIT;
+    use crate::easy_sockets::socket_manager::{OwnedBuffer, SocketManger};
+    use crate::easy_sockets::spin_lock::SpinLockGuard;
+
+    pub struct PeakIter<'a> {
+        guard: SpinLockGuard<'a, TcpStreamBuffer>,
+        outer_iter: Iter<'a, VecDeque<u8>>,
+        inner_iter: Option<Iter<'a, u8>>
+    }
+    
+    #[test]
+    fn test() {
+        
+    }
+    
+    impl<'a> PeakIter<'a> {
+        fn new(stream: &'a TcpStream) -> Self {
+            let guard = stream.0.lock().unwrap();
+            let iter = guard.incoming.iter();
+            
+            Self {
+                guard: guard,
+                outer_iter: iter,
+                inner_iter: None,
+            }
+        }
+    }
+    
+    impl<'a> Iterator for PeakIter<'a> {
+        type Item = u8;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if let Some(inner_iter) = &mut self.inner_iter {
+                if let Some(byte) = inner_iter.next() {
+                    return Some(*byte)
+                }
+            }
+            
+            
+            if let Some(new_vec) = self.outer_iter.next() {
+                self.inner_iter = Some(new_vec.iter());
+
+                //should always be some
+                if let Some(byte) = self.inner_iter.as_mut().unwrap().next() {
+                    return Some(*byte)
+                }
+            }
+            
+            None
+        }
+    }
+    
+    pub struct TcpStream(OwnedBuffer<TcpStreamBuffer>);
+    
+    impl TcpStream {
+        pub fn peak_iter<'a>(&'a self) -> PeakIter<'a> {
+            PeakIter::new(self)
+        } 
+    }
+    
+    struct TcpStreamManager(Mutex<SocketManger<TcpStreamBuffer, async_net::TcpStream>>);
+    
+    impl TcpStreamManager {
+        pub fn register(&self, stream: async_net::TcpStream) -> Option<OwnedBuffer<TcpStreamBuffer>> {
+            if PLUGIN_INIT.is_init() {
+                let mut inner = self.0.lock().unwrap();
+
+                return Some(inner.register(stream).unwrap())
+            }
+            None
+        }
+        
+        pub fn get() -> &'static Self {
+            &MANAGER
+        }
+    }
+
+    #[dynamic]
+    static MANAGER: TcpStreamManager = TcpStreamManager(Mutex::new(SocketManger::new()));
 
     #[derive(Default)]
     struct TcpStreamDiagnostics {
@@ -65,7 +96,7 @@ pub mod TcpStream {
         read: usize,
     }
 
-    pub struct TcpStreamBuffer {
+    struct TcpStreamBuffer {
         terminal_error: Option<TcpStreamTerminalError>,
         bytes_read_last: usize,
 
@@ -97,7 +128,7 @@ pub mod TcpStream {
     impl std::error::Error for TcpStreamTerminalError {}
 
     impl Buffer for TcpStreamBuffer {
-        type InnerSocket = TcpStream;
+        type InnerSocket = async_net::TcpStream;
         type ConstructionError = ();
         type DiagnosticData = TcpStreamDiagnostics;
 
@@ -132,7 +163,7 @@ pub mod TcpStream {
         }
 
         async fn flush_write_bufs(&mut self, socket: &mut Self::InnerSocket, data: &mut Self::DiagnosticData) -> UpdateResult {
-            
+
             data.written = 0;
 
             loop {
@@ -144,7 +175,7 @@ pub mod TcpStream {
                         if n == 0 {
                             return Ok(())
                         }
-                        
+
                         data.written += n;
 
                         let mut remaining = n;

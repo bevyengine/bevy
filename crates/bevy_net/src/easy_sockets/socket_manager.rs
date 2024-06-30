@@ -1,19 +1,45 @@
-use std::collections::VecDeque;
 use std::future::{Future, IntoFuture};
-use std::iter::{Enumerate, Map};
-use std::net::SocketAddr;
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
-use std::slice::IterMut;
 use std::sync::{Arc, Mutex, RwLock, Weak};
-use std::task::{Context, Poll, Waker};
-use array_init::array_init;
+use std::task::{Context, Poll};
+use std::time::{Duration, Instant};
 use bevy_internal::reflect::List;
-use bevy_internal::render::render_resource::encase::private::RuntimeSizedArray;
 use bevy_internal::tasks::{IoTaskPool, Task, TaskPool};
-use bevy_internal::tasks::futures_lite::FutureExt;
 use crate::easy_sockets::{Buffer, ErrorAction, UpdateResult};
 use crate::easy_sockets::spin_lock::{SpinLock, SpinLockGuard};
+
+struct Time<F> 
+where F: Future {
+    inner: F,
+    woken_time: Duration
+}
+
+impl<F> Time<F>
+where F: Future {
+    fn new(inner: F) -> Self {
+        Self { inner: inner, woken_time: Duration::ZERO }
+    }
+}
+
+impl<F> Future for Time<F> 
+where F: Future {
+    type Output = (Duration, F::Output);
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let start = Instant::now();
+        match self.inner.poll(cx) {
+            Poll::Ready(item) => {
+                let end = Instant::now() - start;
+                Poll::Ready((end + self.woken_time, item))
+            }
+            Poll::Pending => {
+                self.woken_time += Instant::now() - start;
+                Poll::Pending
+            }
+        }
+    }
+}
 
 /// A wrapper type around Arc<SpinLock<T>>.
 /// It's used to ensure the arc 
@@ -49,14 +75,16 @@ struct UpdateResults {
     index: usize
 }
 
-struct SocketEntry<B, S, D> {
+struct SocketEntry<B, S>
+where B: Buffer<InnerSocket = S> {
     buffer: Weak<SpinLock<B>>,
     socket: Option<S>,
-    data: D,
+    data: B::DiagnosticData,
+    active_duration: Duration,
     drop_flag: bool
 }
 
-impl<B, S> SocketEntry<B, S, B::DiagnosticData>
+impl<B, S> SocketEntry<B, S>
 where B: Buffer<InnerSocket = S> {
 
     /// Returns Ok if the Buffer is still in scope and
@@ -112,17 +140,57 @@ where B: Buffer<InnerSocket = S> {
     }
 }
 
-struct SocketManger<B, S, D> {
-    sockets: Vec<SocketEntry<B, S, D>>,
+pub struct SocketManger<B, S>
+where B: Buffer<InnerSocket = S> {
+    sockets: Vec<SocketEntry<B, S>>,
 }
 
-impl<B, S> SocketManger<B, S, B::DiagnosticData>
+struct Update<'a, B, S>
+where B: Buffer<InnerSocket = S>{
+    manager: &'a mut SocketManger<B, S>,
+    tasks: Vec<Task<Option<SocketEntry<B, S>>>>
+}
+
+impl<'a, B, S> Future for Update<'a, B, S>
 where B: Buffer<InnerSocket = S> {
+    type Output = ();
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        if let Some(fut) = self.tasks.last_mut() {
+            match fut.poll(cx) {
+                Poll::Ready(optional) => {
+                    if let Some(entry) = optional {
+                        self.manager.sockets.push(entry)
+                    }
+                    self.tasks.pop();
+                    
+                    return Poll::Pending
+                }
+                Poll::Pending => {
+                    return Poll::Pending
+                }
+            }
+        }
+        return Poll::Ready(())
+    }
+}
+
+impl<B, S> SocketManger<B, S>
+where B: Buffer<InnerSocket = S> {
+    pub fn new() -> Self {
+        Self {
+            sockets: vec![],
+        }
+    }
+    
     async fn update(&mut self) {
         let mut tasks = Vec::with_capacity(self.sockets.len());
 
+        
+        let pool = IoTaskPool::get().deref();
+        
         while let Some(entry) = self.sockets.pop() {
-            tasks.push(IoTaskPool::get().spawn(async {
+            tasks.push(pool.spawn(async {
                 let mut entrey = entry;
                 entrey.update();
                 if entrey.drop_flag {
@@ -133,14 +201,10 @@ where B: Buffer<InnerSocket = S> {
             }))
         }
 
-        for task in tasks {
-            if let Some(entry) = task.await {
-                self.sockets.push(entry)
-            }
-        }
+        todo!()
     }
     
-    fn register(&mut self, socket: S) -> Result<OwnedBuffer<B>, (S, B::ConstructionError)> {
+    pub fn register(&mut self, socket: S) -> Result<OwnedBuffer<B>, (S, B::ConstructionError)> {
         match B::build(&socket) {
             Ok(buffer) => {
                 let (weak, arc) = OwnedBuffer::new_with_weak(buffer);
@@ -148,6 +212,7 @@ where B: Buffer<InnerSocket = S> {
                     buffer: weak,
                     socket: Some(socket),
                     data: Default::default(),
+                    active_duration: Duration::ZERO,
                     drop_flag: false,
                 };
 

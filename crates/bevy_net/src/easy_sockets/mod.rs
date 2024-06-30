@@ -6,9 +6,9 @@ use bevy_internal::tasks::futures_lite::{AsyncRead, AsyncWrite};
 use std::error::Error as StdError;
 mod socket_manager;
 mod plugin;
-pub mod net_types;
+pub mod net_buffer_types;
 
-pub type UpdateResult = std::result::Result<(), ErrorAction>;
+pub type UpdateResult = Result<(), ErrorAction>;
 
 pub mod spin_lock {
     use std::future::Future;
@@ -180,10 +180,6 @@ pub trait Buffer: Sized {
     async fn flush_write_bufs(&mut self, socket: &mut Self::InnerSocket, data: &mut Self::DiagnosticData) -> UpdateResult;
     
     async fn additional_updates(&mut self, socket: &mut Self::InnerSocket, data: &mut Self::DiagnosticData) -> UpdateResult;
-}
-
-pub trait ToByteQueue {
-    fn to_byte_queue(self) -> VecDeque<u8>;
 }
 
 
