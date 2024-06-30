@@ -338,4 +338,14 @@ mod rendering_mask_tests {
         assert_eq!(RenderLayers::none() | MANY, MANY);
         assert_eq!(RenderLayers::none() ^ MANY, MANY);
     }
+
+    #[test]
+    fn render_layer_shrink() {
+        // Since it has layers greater than 64, the instance should spill onto the heap
+        let layers = RenderLayers::from_layers(&[1, 77]);
+        assert!(layers.0.spilled());
+        // When excluding that layer, it should move back onto the stack.
+        let layers = layers.without(77);
+        assert!(!layers.0.spilled());
+    }
 }
