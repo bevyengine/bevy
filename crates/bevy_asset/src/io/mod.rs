@@ -112,19 +112,18 @@ impl Reader for Box<dyn Reader + '_> {
     }
 }
 
-/// A future that returns a type implementing [`Reader`].
-pub trait ReaderFuture<'a>:
-    ConditionalSendFuture<Output = Result<Self::Reader, AssetReaderError>>
+/// A future that returns a value or an [`AssetReaderError`]
+pub trait AssetReaderFuture:
+    ConditionalSendFuture<Output = Result<Self::Value, AssetReaderError>>
 {
-    type Reader: Reader + 'a;
+    type Value;
 }
 
-impl<'a, F, R> ReaderFuture<'a> for F
+impl<F, T> AssetReaderFuture for F
 where
-    F: ConditionalSendFuture<Output = Result<R, AssetReaderError>>,
-    R: Reader + 'a,
+    F: ConditionalSendFuture<Output = Result<T, AssetReaderError>>,
 {
-    type Reader = R;
+    type Value = T;
 }
 
 /// Performs read operations on an asset storage. [`AssetReader`] exposes a "virtual filesystem"
@@ -154,9 +153,9 @@ pub trait AssetReader: Send + Sync + 'static {
     ///     # async fn read_meta_bytes<'a>(&'a self, path: &'a Path) -> Result<Vec<u8>, AssetReaderError> { unimplemented!() }
     /// }
     /// ```
-    fn read<'a>(&'a self, path: &'a Path) -> impl ReaderFuture<'a>;
+    fn read<'a>(&'a self, path: &'a Path) -> impl AssetReaderFuture<Value: Reader + 'a>;
     /// Returns a future to load the full file data at the provided path.
-    fn read_meta<'a>(&'a self, path: &'a Path) -> impl ReaderFuture<'a>;
+    fn read_meta<'a>(&'a self, path: &'a Path) -> impl AssetReaderFuture<Value: Reader + 'a>;
     /// Returns an iterator of directory entry names at the provided path.
     fn read_directory<'a>(
         &'a self,
