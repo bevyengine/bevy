@@ -19,7 +19,7 @@ impl AssetReader for CustomAssetReader {
         info!("Reading {:?}", path);
         self.0.read(path).await
     }
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Reader + 'a, AssetReaderError> {
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         self.0.read_meta(path).await
     }
 

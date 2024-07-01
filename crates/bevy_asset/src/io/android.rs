@@ -29,7 +29,7 @@ impl AssetReader for AndroidAssetReader {
         Ok(reader)
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Reader + 'a, AssetReaderError> {
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let meta_path = get_meta_path(path);
         let asset_manager = bevy_winit::ANDROID_APP
             .get()
