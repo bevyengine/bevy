@@ -43,7 +43,7 @@ pub enum ShouldUpdateEvents {
 impl EventRegistry {
     /// Registers an event type to be updated in a given [`World`]
     ///
-    /// If no instance of the EventRegistry exists in the world, this will add one - otherwise it will use
+    /// If no instance of the [`EventRegistry`] exists in the world, this will add one - otherwise it will use
     /// the existing instance.
     ///
     /// In contrast, [`EventRegistry::register_event_with_instance<T: Event>`] will register the events
