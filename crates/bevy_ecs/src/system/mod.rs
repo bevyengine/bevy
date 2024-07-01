@@ -564,6 +564,13 @@ mod tests {
     }
 
     #[test]
+    fn any_of_with_and_without_common() {
+        fn sys(_: Query<(&mut D, &C, AnyOf<(&A, &B)>)>, _: Query<&mut D, Without<C>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
     #[should_panic = "&bevy_ecs::system::tests::A conflicts with a previous access in this query."]
     fn any_of_with_mut_and_ref() {
         fn sys(_: Query<AnyOf<(&mut A, &A)>>) {}
