@@ -3,7 +3,7 @@
 use bevy::{
     asset::{
         io::{Reader, VecReader},
-        AssetLoader, AsyncReadExt, ErasedLoadedAsset, LoadContext, LoadDirectError,
+        AssetLoader, ErasedLoadedAsset, LoadContext, LoadDirectError,
     },
     prelude::*,
     reflect::TypePath,
