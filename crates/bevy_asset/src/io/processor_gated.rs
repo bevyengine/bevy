@@ -132,7 +132,7 @@ impl<'a> TransactionLockedReader<'a> {
     }
 }
 
-impl<'a> AsyncRead for TransactionLockedReader<'a> {
+impl AsyncRead for TransactionLockedReader<'_> {
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
@@ -142,7 +142,7 @@ impl<'a> AsyncRead for TransactionLockedReader<'a> {
     }
 }
 
-impl<'a> AsyncSeek for TransactionLockedReader<'a> {
+impl AsyncSeek for TransactionLockedReader<'_> {
     fn poll_seek(
         mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
