@@ -1,7 +1,7 @@
 //! Tool to run all examples or generate a showcase page for the Bevy website.
 
 use std::{
-    collections::{hash_map::DefaultHasher, HashMap, HashSet},
+    collections::{hash_map::DefaultHasher, HashMap},
     fmt::Display,
     fs::{self, File},
     hash::{Hash, Hasher},
@@ -15,7 +15,7 @@ use std::{
 use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
 use pbr::ProgressBar;
 use regex::Regex;
-use toml_edit::DocumentMut;
+use toml_edit::{DocumentMut, Item};
 use xshell::{cmd, Shell};
 
 #[derive(Parser, Debug)]
@@ -159,7 +159,7 @@ fn main() {
                 .as_ref()
                 .map(|path| {
                     let file = fs::read_to_string(path).unwrap();
-                    file.lines().map(|l| l.to_string()).collect::<Vec<_>>()
+                    file.lines().map(ToString::to_string).collect::<Vec<_>>()
                 })
                 .unwrap_or_default();
 
@@ -286,7 +286,7 @@ fn main() {
                 };
                 let local_extra_parameters = extra_parameters
                     .iter()
-                    .map(|s| s.to_string())
+                    .map(ToString::to_string)
                     .chain(required_features.iter().cloned())
                     .collect::<Vec<_>>();
 
@@ -302,7 +302,7 @@ fn main() {
                 ).run();
                 let local_extra_parameters = extra_parameters
                     .iter()
-                    .map(|s| s.to_string())
+                    .map(ToString::to_string)
                     .chain(required_features.iter().cloned())
                     .collect::<Vec<_>>();
                 let mut cmd = cmd!(
@@ -731,17 +731,21 @@ fn parse_examples() -> Vec<Example> {
                 Regex::new(r"(shaders\/\w+\.wgsl)|(shaders\/\w+\.frag)|(shaders\/\w+\.vert)")
                     .unwrap();
 
-            // Find all instances of references to shader files, collect into set to avoid duplicates, then convert to vec of strings.
-            let shader_paths = Vec::from_iter(
-                shader_regex
-                    .find_iter(&source_code)
-                    .map(|matches| matches.as_str().to_owned())
-                    .collect::<HashSet<String>>(),
-            );
+            // Find all instances of references to shader files, and keep them in an ordered and deduped vec.
+            let mut shader_paths = vec![];
+            for path in shader_regex
+                .find_iter(&source_code)
+                .map(|matches| matches.as_str().to_owned())
+            {
+                if !shader_paths.contains(&path) {
+                    shader_paths.push(path);
+                }
+            }
+
             if metadatas
                 .get(&technical_name)
                 .and_then(|metadata| metadata.get("hidden"))
-                .and_then(|hidden| hidden.as_bool())
+                .and_then(Item::as_bool)
                 .and_then(|hidden| hidden.then_some(()))
                 .is_some()
             {

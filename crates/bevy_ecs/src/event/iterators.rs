@@ -1,8 +1,7 @@
 use crate as bevy_ecs;
-use bevy_ecs::{
-    batching::BatchingStrategy,
-    event::{Event, EventId, EventInstance, Events, ManualEventReader},
-};
+#[cfg(feature = "multi_threaded")]
+use bevy_ecs::batching::BatchingStrategy;
+use bevy_ecs::event::{Event, EventId, EventInstance, Events, ManualEventReader};
 use bevy_utils::detailed_trace;
 use std::{iter::Chain, slice::Iter};
 
@@ -141,12 +140,15 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
 
 /// A parallel iterator over `Event`s.
 #[derive(Debug)]
+#[cfg(feature = "multi_threaded")]
 pub struct EventParIter<'a, E: Event> {
     reader: &'a mut ManualEventReader<E>,
     slices: [&'a [EventInstance<E>]; 2],
     batching_strategy: BatchingStrategy,
+    unread: usize,
 }
 
+#[cfg(feature = "multi_threaded")]
 impl<'a, E: Event> EventParIter<'a, E> {
     /// Creates a new parallel iterator over `events` that have not yet been seen by `reader`.
     pub fn new(reader: &'a mut ManualEventReader<E>, events: &'a Events<E>) -> Self {
@@ -168,6 +170,7 @@ impl<'a, E: Event> EventParIter<'a, E> {
             reader,
             slices: [a, b],
             batching_strategy: BatchingStrategy::default(),
+            unread: unread_count,
         }
     }
 
@@ -203,13 +206,13 @@ impl<'a, E: Event> EventParIter<'a, E> {
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
-    pub fn for_each_with_id<FN: Fn(&'a E, EventId<E>) + Send + Sync + Clone>(self, func: FN) {
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+    pub fn for_each_with_id<FN: Fn(&'a E, EventId<E>) + Send + Sync + Clone>(mut self, func: FN) {
+        #[cfg(target_arch = "wasm32")]
         {
             self.into_iter().for_each(|(e, i)| func(e, i));
         }
 
-        #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+        #[cfg(not(target_arch = "wasm32"))]
         {
             let pool = bevy_tasks::ComputeTaskPool::get();
             let thread_count = pool.thread_num();
@@ -221,7 +224,7 @@ impl<'a, E: Event> EventParIter<'a, E> {
                 .batching_strategy
                 .calc_batch_size(|| self.len(), thread_count);
             let chunks = self.slices.map(|s| s.chunks_exact(batch_size));
-            let remainders = chunks.each_ref().map(|c| c.remainder());
+            let remainders = chunks.each_ref().map(std::slice::ChunksExact::remainder);
 
             pool.scope(|scope| {
                 for batch in chunks.into_iter().flatten().chain(remainders) {
@@ -233,6 +236,10 @@ impl<'a, E: Event> EventParIter<'a, E> {
                     });
                 }
             });
+
+            // Events are guaranteed to be read at this point.
+            self.reader.last_event_count += self.unread;
+            self.unread = 0;
         }
     }
 
@@ -247,6 +254,7 @@ impl<'a, E: Event> EventParIter<'a, E> {
     }
 }
 
+#[cfg(feature = "multi_threaded")]
 impl<'a, E: Event> IntoIterator for EventParIter<'a, E> {
     type IntoIter = EventIteratorWithId<'a, E>;
     type Item = <Self::IntoIter as Iterator>::Item;

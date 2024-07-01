@@ -180,7 +180,7 @@ mod ui {
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        image: UiImage::default().with_color(NORMAL_BUTTON),
+                        background_color: NORMAL_BUTTON.into(),
                         ..default()
                     })
                     .with_children(|parent| {

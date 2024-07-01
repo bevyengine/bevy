@@ -1,6 +1,8 @@
 use crate as bevy_ecs;
+#[cfg(feature = "multi_threaded")]
+use bevy_ecs::event::EventParIter;
 use bevy_ecs::{
-    event::{Event, EventIterator, EventIteratorWithId, EventParIter, Events},
+    event::{Event, EventIterator, EventIteratorWithId, Events},
     system::{Local, Res, SystemParam},
 };
 use std::marker::PhantomData;
@@ -66,6 +68,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// assert_eq!(counter.into_inner(), 4950);
     /// ```
     ///
+    #[cfg(feature = "multi_threaded")]
     pub fn par_read(&mut self) -> EventParIter<'_, E> {
         self.reader.par_read(&self.events)
     }
@@ -189,6 +192,7 @@ impl<E: Event> ManualEventReader<E> {
     }
 
     /// See [`EventReader::par_read`]
+    #[cfg(feature = "multi_threaded")]
     pub fn par_read<'a>(&'a mut self, events: &'a Events<E>) -> EventParIter<'a, E> {
         EventParIter::new(self, events)
     }

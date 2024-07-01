@@ -901,7 +901,7 @@ pub fn extract_cameras(
                     // this will be set in sort_cameras
                     sorted_camera_index_for_target: 0,
                     exposure: exposure
-                        .map(|e| e.exposure())
+                        .map(Exposure::exposure)
                         .unwrap_or_else(|| Exposure::default().exposure()),
                     hdr: camera.hdr,
                 },

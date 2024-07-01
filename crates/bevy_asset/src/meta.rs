@@ -196,7 +196,7 @@ impl AssetLoader for () {
     type Error = std::io::Error;
     async fn load<'a>(
         &'a self,
-        _reader: &'a mut crate::io::Reader<'_>,
+        _reader: &'a mut dyn crate::io::Reader,
         _settings: &'a Self::Settings,
         _load_context: &'a mut crate::LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {

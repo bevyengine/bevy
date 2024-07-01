@@ -730,6 +730,77 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         }
     }
 
+    /// Sorts all query items into a new iterator with a key extraction function over the query lens.
+    ///
+    /// This sort is unstable (i.e., may reorder equal elements).
+    ///
+    /// This uses [`slice::sort_unstable_by_key`] internally.
+    ///
+    /// Defining the lens works like [`transmute_lens`](crate::system::Query::transmute_lens).
+    /// This includes the allowed parameter type changes listed under [allowed transmutes].
+    /// However, the lens uses the filter of the original query when present.
+    ///
+    /// The sort is not cached across system runs.
+    ///
+    /// [allowed transmutes]: crate::system::Query#allowed-transmutes
+    ///
+    /// # Panics
+    ///
+    /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
+    pub fn sort_unstable_by_key<L: ReadOnlyQueryData + 'w, K>(
+        self,
+        mut f: impl FnMut(&L::Item<'w>) -> K,
+    ) -> QuerySortedIter<
+        'w,
+        's,
+        D,
+        F,
+        impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
+    >
+    where
+        K: Ord,
+    {
+        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
+        // will be set to a non-zero value. The correctness of this method relies on this.
+        // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
+        // non-empty `QueryIter` has not yet been called. When empty, this sort method will not panic.
+        if !self.cursor.archetype_entities.is_empty() || !self.cursor.table_entities.is_empty() {
+            panic!("it is not valid to call sort() after next()")
+        }
+
+        let world = self.world;
+
+        let query_lens_state = self
+            .query_state
+            .transmute_filtered::<(L, Entity), F>(world.components());
+
+        // SAFETY:
+        // `self.world` has permission to access the required components.
+        // The original query iter has not been iterated on, so no items are aliased from it.
+        let query_lens = unsafe {
+            query_lens_state.iter_unchecked_manual(
+                world,
+                world.last_change_tick(),
+                world.change_tick(),
+            )
+        };
+        let mut keyed_query: Vec<_> = query_lens.collect();
+        keyed_query.sort_unstable_by_key(|(lens, _)| f(lens));
+        let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity);
+        // SAFETY:
+        // `self.world` has permission to access the required components.
+        // Each lens query item is dropped before the respective actual query item is accessed.
+        unsafe {
+            QuerySortedIter::new(
+                world,
+                self.query_state,
+                entity_iter,
+                world.last_change_tick(),
+                world.change_tick(),
+            )
+        }
+    }
+
     /// Sort all query items into a new iterator with a key extraction function over the query lens.
     ///
     /// This sort is stable (i.e., does not reorder equal elements).
@@ -1668,17 +1739,22 @@ mod tests {
 
         let sort_by = query
             .iter(&world)
-            .sort_by::<Entity>(|e1, e2| e1.cmp(e2))
+            .sort_by::<Entity>(Ord::cmp)
             .collect::<Vec<_>>();
 
         let sort_unstable_by = query
             .iter(&world)
-            .sort_unstable_by::<Entity>(|e1, e2| e1.cmp(e2))
+            .sort_unstable_by::<Entity>(Ord::cmp)
             .collect::<Vec<_>>();
 
         let sort_by_key = query
             .iter(&world)
             .sort_by_key::<Entity, _>(|&e| e)
+            .collect::<Vec<_>>();
+
+        let sort_unstable_by_key = query
+            .iter(&world)
+            .sort_unstable_by_key::<Entity, _>(|&e| e)
             .collect::<Vec<_>>();
 
         let sort_by_cached_key = query
@@ -1693,13 +1769,16 @@ mod tests {
         sort_unstable_v2.sort_unstable();
 
         let mut sort_by_v2 = query.iter(&world).collect::<Vec<_>>();
-        sort_by_v2.sort_by(|e1, e2| e1.cmp(e2));
+        sort_by_v2.sort_by(Ord::cmp);
 
         let mut sort_unstable_by_v2 = query.iter(&world).collect::<Vec<_>>();
-        sort_unstable_by_v2.sort_unstable_by(|e1, e2| e1.cmp(e2));
+        sort_unstable_by_v2.sort_unstable_by(Ord::cmp);
 
         let mut sort_by_key_v2 = query.iter(&world).collect::<Vec<_>>();
         sort_by_key_v2.sort_by_key(|&e| e);
+
+        let mut sort_unstable_by_key_v2 = query.iter(&world).collect::<Vec<_>>();
+        sort_unstable_by_key_v2.sort_unstable_by_key(|&e| e);
 
         let mut sort_by_cached_key_v2 = query.iter(&world).collect::<Vec<_>>();
         sort_by_cached_key_v2.sort_by_cached_key(|&e| e);
@@ -1709,6 +1788,7 @@ mod tests {
         assert_eq!(sort_by, sort_by_v2);
         assert_eq!(sort_unstable_by, sort_unstable_by_v2);
         assert_eq!(sort_by_key, sort_by_key_v2);
+        assert_eq!(sort_unstable_by_key, sort_unstable_by_key_v2);
         assert_eq!(sort_by_cached_key, sort_by_cached_key_v2);
     }
 

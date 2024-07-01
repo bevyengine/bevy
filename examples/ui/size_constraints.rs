@@ -245,11 +245,12 @@ fn spawn_button(
                     margin: UiRect::horizontal(Val::Px(2.)),
                     ..Default::default()
                 },
-                image: UiImage::default().with_color(if active {
+                background_color: if active {
                     ACTIVE_BORDER_COLOR
                 } else {
                     INACTIVE_BORDER_COLOR
-                }),
+                }
+                .into(),
                 ..Default::default()
             },
             constraint,

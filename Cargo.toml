@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.78.0"
+rust-version = "1.79.0"
 
 [workspace]
 exclude = [
@@ -38,6 +38,8 @@ undocumented_unsafe_blocks = "warn"
 redundant_else = "warn"
 match_same_arms = "warn"
 semicolon_if_nothing_returned = "warn"
+redundant_closure_for_method_calls = "warn"
+unwrap_or_default = "warn"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
@@ -77,6 +79,7 @@ default = [
   "bevy_gizmos",
   "android_shared_stdcxx",
   "tonemapping_luts",
+  "smaa_luts",
   "default_font",
   "webgl2",
   "sysinfo_plugin",
@@ -285,6 +288,9 @@ detailed_trace = ["bevy_internal/detailed_trace"]
 
 # Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method on your `Camera2dBundle` or `Camera3dBundle`.
 tonemapping_luts = ["bevy_internal/tonemapping_luts", "ktx2", "zstd"]
+
+# Include SMAA Look Up Tables KTX2 Files
+smaa_luts = ["bevy_internal/smaa_luts"]
 
 # Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)
 accesskit_unix = ["bevy_internal/accesskit_unix"]
@@ -2149,6 +2155,17 @@ category = "Reflection"
 wasm = false
 
 [[example]]
+name = "function_reflection"
+path = "examples/reflection/function_reflection.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.function_reflection]
+name = "Function Reflection"
+description = "Demonstrates how functions can be called dynamically using reflection"
+category = "Reflection"
+wasm = false
+
+[[example]]
 name = "generic_reflection"
 path = "examples/reflection/generic_reflection.rs"
 doc-scrape-examples = true
@@ -3229,6 +3246,17 @@ name = "Anisotropy"
 description = "Displays an example model with anisotropy"
 category = "3D Rendering"
 wasm = false
+
+[[example]]
+name = "custom_phase_item"
+path = "examples/shader/custom_phase_item.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_phase_item]
+name = "Custom phase item"
+description = "Demonstrates how to enqueue custom draw commands in a render phase"
+category = "Shaders"
+wasm = true
 
 [profile.wasm-release]
 inherits = "release"

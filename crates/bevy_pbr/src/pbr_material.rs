@@ -1018,7 +1018,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
 
         let has_normal_map = self.normal_map_texture.is_some();
         if has_normal_map {
-            let normal_map_id = self.normal_map_texture.as_ref().map(|h| h.id()).unwrap();
+            let normal_map_id = self.normal_map_texture.as_ref().map(Handle::id).unwrap();
             if let Some(texture) = images.get(normal_map_id) {
                 match texture.texture_format {
                     // All 2-component unorm formats

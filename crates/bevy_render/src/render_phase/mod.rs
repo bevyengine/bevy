@@ -94,24 +94,33 @@ where
     ///
     /// These are accumulated in `queue_material_meshes` and then sorted in
     /// `batch_and_prepare_binned_render_phase`.
-    pub batchable_keys: Vec<BPI::BinKey>,
+    pub batchable_mesh_keys: Vec<BPI::BinKey>,
 
     /// The batchable bins themselves.
     ///
     /// Each bin corresponds to a single batch set. For unbatchable entities,
     /// prefer `unbatchable_values` instead.
-    pub(crate) batchable_values: HashMap<BPI::BinKey, Vec<Entity>>,
+    pub(crate) batchable_mesh_values: HashMap<BPI::BinKey, Vec<Entity>>,
 
     /// A list of `BinKey`s for unbatchable items.
     ///
     /// These are accumulated in `queue_material_meshes` and then sorted in
     /// `batch_and_prepare_binned_render_phase`.
-    pub unbatchable_keys: Vec<BPI::BinKey>,
+    pub unbatchable_mesh_keys: Vec<BPI::BinKey>,
 
     /// The unbatchable bins.
     ///
     /// Each entity here is rendered in a separate drawcall.
-    pub(crate) unbatchable_values: HashMap<BPI::BinKey, UnbatchableBinnedEntities>,
+    pub(crate) unbatchable_mesh_values: HashMap<BPI::BinKey, UnbatchableBinnedEntities>,
+
+    /// Items in the bin that aren't meshes at all.
+    ///
+    /// Bevy itself doesn't place anything in this list, but plugins or your app
+    /// can in order to execute custom drawing commands. Draw functions for each
+    /// entity are simply called in order at rendering time.
+    ///
+    /// See the `custom_phase_item` example for an example of how to use this.
+    pub non_mesh_items: Vec<(BPI::BinKey, Entity)>,
 
     /// Information on each batch set.
     ///
@@ -199,6 +208,30 @@ pub(crate) struct UnbatchableBinnedEntityIndices {
     pub(crate) extra_index: PhaseItemExtraIndex,
 }
 
+/// Identifies the list within [`BinnedRenderPhase`] that a phase item is to be
+/// placed in.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum BinnedRenderPhaseType {
+    /// The item is a mesh that's eligible for indirect rendering and can be
+    /// batched with other meshes of the same type.
+    BatchableMesh,
+
+    /// The item is a mesh that's eligible for indirect rendering, but can't be
+    /// batched with other meshes of the same type.
+    ///
+    /// At the moment, this is used for skinned meshes.
+    UnbatchableMesh,
+
+    /// The item isn't a mesh at all.
+    ///
+    /// Bevy will simply invoke the drawing commands for such items one after
+    /// another, with no further processing.
+    ///
+    /// The engine itself doesn't enqueue any items of this type, but it's
+    /// available for use in your application and/or plugins.
+    NonMesh,
+}
+
 impl<T> From<GpuArrayBufferIndex<T>> for UnbatchableBinnedEntityIndices
 where
     T: Clone + ShaderSize + WriteInto,
@@ -240,27 +273,37 @@ where
 {
     /// Bins a new entity.
     ///
-    /// `batchable` specifies whether the entity can be batched with other
-    /// entities of the same type.
-    pub fn add(&mut self, key: BPI::BinKey, entity: Entity, batchable: bool) {
-        if batchable {
-            match self.batchable_values.entry(key.clone()) {
-                Entry::Occupied(mut entry) => entry.get_mut().push(entity),
-                Entry::Vacant(entry) => {
-                    self.batchable_keys.push(key);
-                    entry.insert(vec![entity]);
+    /// The `phase_type` parameter specifies whether the entity is a
+    /// preprocessable mesh and whether it can be binned with meshes of the same
+    /// type.
+    pub fn add(&mut self, key: BPI::BinKey, entity: Entity, phase_type: BinnedRenderPhaseType) {
+        match phase_type {
+            BinnedRenderPhaseType::BatchableMesh => {
+                match self.batchable_mesh_values.entry(key.clone()) {
+                    Entry::Occupied(mut entry) => entry.get_mut().push(entity),
+                    Entry::Vacant(entry) => {
+                        self.batchable_mesh_keys.push(key);
+                        entry.insert(vec![entity]);
+                    }
                 }
             }
-        } else {
-            match self.unbatchable_values.entry(key.clone()) {
-                Entry::Occupied(mut entry) => entry.get_mut().entities.push(entity),
-                Entry::Vacant(entry) => {
-                    self.unbatchable_keys.push(key);
-                    entry.insert(UnbatchableBinnedEntities {
-                        entities: vec![entity],
-                        buffer_indices: default(),
-                    });
+
+            BinnedRenderPhaseType::UnbatchableMesh => {
+                match self.unbatchable_mesh_values.entry(key.clone()) {
+                    Entry::Occupied(mut entry) => entry.get_mut().entities.push(entity),
+                    Entry::Vacant(entry) => {
+                        self.unbatchable_mesh_keys.push(key);
+                        entry.insert(UnbatchableBinnedEntities {
+                            entities: vec![entity],
+                            buffer_indices: default(),
+                        });
+                    }
                 }
+            }
+
+            BinnedRenderPhaseType::NonMesh => {
+                // We don't process these items further.
+                self.non_mesh_items.push((key, entity));
             }
         }
     }
@@ -272,13 +315,32 @@ where
         world: &'w World,
         view: Entity,
     ) {
+        {
+            let draw_functions = world.resource::<DrawFunctions<BPI>>();
+            let mut draw_functions = draw_functions.write();
+            draw_functions.prepare(world);
+            // Make sure to drop the reader-writer lock here to avoid recursive
+            // locks.
+        }
+
+        self.render_batchable_meshes(render_pass, world, view);
+        self.render_unbatchable_meshes(render_pass, world, view);
+        self.render_non_meshes(render_pass, world, view);
+    }
+
+    /// Renders all batchable meshes queued in this phase.
+    fn render_batchable_meshes<'w>(
+        &self,
+        render_pass: &mut TrackedRenderPass<'w>,
+        world: &'w World,
+        view: Entity,
+    ) {
         let draw_functions = world.resource::<DrawFunctions<BPI>>();
         let mut draw_functions = draw_functions.write();
-        draw_functions.prepare(world);
 
-        // Encode draws for batchables.
-        debug_assert_eq!(self.batchable_keys.len(), self.batch_sets.len());
-        for (key, batch_set) in self.batchable_keys.iter().zip(self.batch_sets.iter()) {
+        debug_assert_eq!(self.batchable_mesh_keys.len(), self.batch_sets.len());
+
+        for (key, batch_set) in self.batchable_mesh_keys.iter().zip(self.batch_sets.iter()) {
             for batch in batch_set {
                 let binned_phase_item = BPI::new(
                     key.clone(),
@@ -296,11 +358,20 @@ where
                 draw_function.draw(world, render_pass, view, &binned_phase_item);
             }
         }
+    }
 
-        // Encode draws for unbatchables.
+    /// Renders all unbatchable meshes queued in this phase.
+    fn render_unbatchable_meshes<'w>(
+        &self,
+        render_pass: &mut TrackedRenderPass<'w>,
+        world: &'w World,
+        view: Entity,
+    ) {
+        let draw_functions = world.resource::<DrawFunctions<BPI>>();
+        let mut draw_functions = draw_functions.write();
 
-        for key in &self.unbatchable_keys {
-            let unbatchable_entities = &self.unbatchable_values[key];
+        for key in &self.unbatchable_mesh_keys {
+            let unbatchable_entities = &self.unbatchable_mesh_values[key];
             for (entity_index, &entity) in unbatchable_entities.entities.iter().enumerate() {
                 let unbatchable_dynamic_offset = match &unbatchable_entities.buffer_indices {
                     UnbatchableBinnedEntityIndexSet::NoEntities => {
@@ -346,15 +417,44 @@ where
         }
     }
 
+    /// Renders all objects of type [`BinnedRenderPhaseType::NonMesh`].
+    ///
+    /// These will have been added by plugins or the application.
+    fn render_non_meshes<'w>(
+        &self,
+        render_pass: &mut TrackedRenderPass<'w>,
+        world: &'w World,
+        view: Entity,
+    ) {
+        let draw_functions = world.resource::<DrawFunctions<BPI>>();
+        let mut draw_functions = draw_functions.write();
+
+        for &(ref key, entity) in &self.non_mesh_items {
+            // Come up with a fake batch range and extra index. The draw
+            // function is expected to manage any sort of batching logic itself.
+            let binned_phase_item = BPI::new(key.clone(), entity, 0..1, PhaseItemExtraIndex(0));
+
+            let Some(draw_function) = draw_functions.get_mut(binned_phase_item.draw_function())
+            else {
+                continue;
+            };
+
+            draw_function.draw(world, render_pass, view, &binned_phase_item);
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
-        self.batchable_keys.is_empty() && self.unbatchable_keys.is_empty()
+        self.batchable_mesh_keys.is_empty()
+            && self.unbatchable_mesh_keys.is_empty()
+            && self.non_mesh_items.is_empty()
     }
 
     pub fn clear(&mut self) {
-        self.batchable_keys.clear();
-        self.batchable_values.clear();
-        self.unbatchable_keys.clear();
-        self.unbatchable_values.clear();
+        self.batchable_mesh_keys.clear();
+        self.batchable_mesh_values.clear();
+        self.unbatchable_mesh_keys.clear();
+        self.unbatchable_mesh_values.clear();
+        self.non_mesh_items.clear();
         self.batch_sets.clear();
     }
 }
@@ -365,10 +465,11 @@ where
 {
     fn default() -> Self {
         Self {
-            batchable_keys: vec![],
-            batchable_values: HashMap::default(),
-            unbatchable_keys: vec![],
-            unbatchable_values: HashMap::default(),
+            batchable_mesh_keys: vec![],
+            batchable_mesh_values: HashMap::default(),
+            unbatchable_mesh_keys: vec![],
+            unbatchable_mesh_values: HashMap::default(),
+            non_mesh_items: vec![],
             batch_sets: vec![],
         }
     }
@@ -659,7 +760,7 @@ where
     /// An [`Iterator`] through the associated [`Entity`] for each [`PhaseItem`] in order.
     #[inline]
     pub fn iter_entities(&'_ self) -> impl Iterator<Item = Entity> + '_ {
-        self.items.iter().map(|item| item.entity())
+        self.items.iter().map(PhaseItem::entity)
     }
 
     /// Renders all of its [`PhaseItem`]s using their corresponding draw functions.
@@ -944,7 +1045,7 @@ pub trait SortedPhaseItem: PhaseItem {
     /// It's advised to always profile for performance changes when changing this implementation.
     #[inline]
     fn sort(items: &mut [Self]) {
-        items.sort_unstable_by_key(|item| item.sort_key());
+        items.sort_unstable_by_key(Self::sort_key);
     }
 }
 
@@ -993,5 +1094,17 @@ where
 {
     for phase in render_phases.values_mut() {
         phase.sort();
+    }
+}
+
+impl BinnedRenderPhaseType {
+    /// Creates the appropriate [`BinnedRenderPhaseType`] for a mesh, given its
+    /// batchability.
+    pub fn mesh(batchable: bool) -> BinnedRenderPhaseType {
+        if batchable {
+            BinnedRenderPhaseType::BatchableMesh
+        } else {
+            BinnedRenderPhaseType::UnbatchableMesh
+        }
     }
 }
