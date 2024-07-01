@@ -130,6 +130,7 @@ pub trait AssetReader: Send + Sync + 'static {
     /// The preferred style for implementing this method is an `async fn` returning an opaque type.
     ///
     /// ```no_run
+    /// # use std::path::Path;
     /// # use bevy_asset::{prelude::*, io::{AssetReader, PathStream, Reader, AssetReaderError}};
     /// # struct MyReader;
     /// impl AssetReader for MyReader {
