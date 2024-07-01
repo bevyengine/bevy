@@ -14,6 +14,7 @@ use std::{
 
 use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
 use pbr::ProgressBar;
+use regex::Regex;
 use toml_edit::DocumentMut;
 use xshell::{cmd, Shell};
 
@@ -495,7 +496,7 @@ header_message = \"Examples (WebGL2)\"
                 // and other characters that don't
                 // work well in a URL path.
                 let category_path = root_path.join(
-                    &to_show
+                    to_show
                         .category
                         .replace(['(', ')'], "")
                         .replace(' ', "-")
@@ -521,7 +522,7 @@ weight = {}
                         .unwrap();
                     categories.insert(to_show.category.clone(), 0);
                 }
-                let example_path = category_path.join(&to_show.technical_name.replace('_', "-"));
+                let example_path = category_path.join(to_show.technical_name.replace('_', "-"));
                 let _ = fs::create_dir_all(&example_path);
 
                 let code_path = example_path.join(Path::new(&to_show.path).file_name().unwrap());
@@ -546,6 +547,7 @@ technical_name = \"{}\"
 link = \"/examples{}/{}/{}\"
 image = \"../static/screenshots/{}/{}.png\"
 code_path = \"content/examples{}/{}\"
+shader_code_paths = {:?}
 github_code_path = \"{}\"
 header_message = \"Examples ({})\"
 +++",
@@ -580,6 +582,7 @@ header_message = \"Examples ({})\"
                                 .skip(1)
                                 .collect::<PathBuf>()
                                 .display(),
+                            to_show.shader_paths,
                             &to_show.path,
                             match api {
                                 WebApi::Webgpu => "WebGPU",
@@ -675,7 +678,7 @@ header_message = \"Examples ({})\"
                 let category_path = root_path.join(&to_build.category);
                 let _ = fs::create_dir_all(&category_path);
 
-                let example_path = category_path.join(&to_build.technical_name.replace('_', "-"));
+                let example_path = category_path.join(to_build.technical_name.replace('_', "-"));
                 let _ = fs::create_dir_all(&example_path);
 
                 if website_hacks {
@@ -685,17 +688,17 @@ header_message = \"Examples ({})\"
 
                 let _ = fs::rename(
                     Path::new("examples/wasm/target/wasm_example.js"),
-                    &example_path.join("wasm_example.js"),
+                    example_path.join("wasm_example.js"),
                 );
                 if optimize_size {
                     let _ = fs::rename(
                         Path::new("examples/wasm/target/wasm_example_bg.wasm.optimized"),
-                        &example_path.join("wasm_example_bg.wasm"),
+                        example_path.join("wasm_example_bg.wasm"),
                     );
                 } else {
                     let _ = fs::rename(
                         Path::new("examples/wasm/target/wasm_example_bg.wasm"),
-                        &example_path.join("wasm_example_bg.wasm"),
+                        example_path.join("wasm_example_bg.wasm"),
                     );
                 }
                 pb.inc();
@@ -723,6 +726,22 @@ fn parse_examples() -> Vec<Example> {
         .flat_map(|val| {
             let technical_name = val.get("name").unwrap().as_str().unwrap().to_string();
 
+            let source_code = fs::read_to_string(val["path"].as_str().unwrap()).unwrap();
+            let shader_regex =
+                Regex::new(r"(shaders\/\w+\.wgsl)|(shaders\/\w+\.frag)|(shaders\/\w+\.vert)")
+                    .unwrap();
+
+            // Find all instances of references to shader files, and keep them in an ordered and deduped vec.
+            let mut shader_paths = vec![];
+            for path in shader_regex
+                .find_iter(&source_code)
+                .map(|matches| matches.as_str().to_owned())
+            {
+                if !shader_paths.contains(&path) {
+                    shader_paths.push(path);
+                }
+            }
+
             if metadatas
                 .get(&technical_name)
                 .and_then(|metadata| metadata.get("hidden"))
@@ -736,6 +755,7 @@ fn parse_examples() -> Vec<Example> {
             metadatas.get(&technical_name).map(|metadata| Example {
                 technical_name,
                 path: val["path"].as_str().unwrap().to_string(),
+                shader_paths,
                 name: metadata["name"].as_str().unwrap().to_string(),
                 description: metadata["description"].as_str().unwrap().to_string(),
                 category: metadata["category"].as_str().unwrap().to_string(),
@@ -780,9 +800,10 @@ struct Example {
     technical_name: String,
     /// Path to the example file
     path: String,
+    /// Path to the associated wgsl file if it exists
+    shader_paths: Vec<String>,
     /// List of non default required features
     required_features: Vec<String>,
-
     // From the example metadata
     /// Pretty name, used for display
     name: String,

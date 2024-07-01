@@ -141,7 +141,7 @@ impl ComputedStates for Tutorial {
     // effective to rely on the already derived states to avoid the logic drifting apart.
     //
     // Notice that you can wrap any of the [`States`] here in [`Option`]s. If you do so,
-    // the the computation will get called even if the state does not exist.
+    // the computation will get called even if the state does not exist.
     type SourceStates = (TutorialState, InGame, Option<IsPaused>);
 
     // Notice that we aren't using InGame - we're just using it as a source state to
@@ -363,7 +363,7 @@ mod ui {
                                 align_items: AlignItems::Center,
                                 ..default()
                             },
-                            image: UiImage::default().with_color(NORMAL_BUTTON),
+                            background_color: NORMAL_BUTTON.into(),
                             ..default()
                         },
                         MenuButton::Play,
@@ -391,10 +391,11 @@ mod ui {
                                 align_items: AlignItems::Center,
                                 ..default()
                             },
-                            image: UiImage::default().with_color(match tutorial_state.get() {
+                            background_color: match tutorial_state.get() {
                                 TutorialState::Active => ACTIVE_BUTTON,
                                 TutorialState::Inactive => NORMAL_BUTTON,
-                            }),
+                            }
+                            .into(),
                             ..default()
                         },
                         MenuButton::Tutorial,

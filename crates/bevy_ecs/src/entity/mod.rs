@@ -392,13 +392,7 @@ impl<'de> Deserialize<'de> for Entity {
 
 impl fmt::Display for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}v{}|{}",
-            self.index(),
-            self.generation(),
-            self.to_bits()
-        )
+        write!(f, "{}v{}", self.index(), self.generation())
     }
 }
 
@@ -1162,9 +1156,7 @@ mod tests {
     fn entity_display() {
         let entity = Entity::from_raw(42);
         let string = format!("{}", entity);
-        let bits = entity.to_bits().to_string();
         assert!(string.contains("42"));
         assert!(string.contains("v1"));
-        assert!(string.contains(&bits));
     }
 }

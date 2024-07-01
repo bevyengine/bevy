@@ -107,7 +107,7 @@ pub struct VariableCurve {
     ///
     /// - for `Interpolation::Step` and `Interpolation::Linear`, each keyframe is a single value
     /// - for `Interpolation::CubicSpline`, each keyframe is made of three values for `tangent_in`,
-    /// `keyframe_value` and `tangent_out`
+    ///     `keyframe_value` and `tangent_out`
     pub keyframes: Keyframes,
     /// Interpolation method to use between keyframes.
     pub interpolation: Interpolation,
@@ -957,13 +957,10 @@ impl AnimationTargetContext<'_> {
                 };
 
                 let rot_start = keyframes[step_start];
-                let mut rot_end = keyframes[step_start + 1];
-                // Choose the smallest angle for the rotation
-                if rot_end.dot(rot_start) < 0.0 {
-                    rot_end = -rot_end;
-                }
+                let rot_end = keyframes[step_start + 1];
+
                 // Rotations are using a spherical linear interpolation
-                let rot = rot_start.normalize().slerp(rot_end.normalize(), lerp);
+                let rot = rot_start.slerp(rot_end, lerp);
                 transform.rotation = transform.rotation.slerp(rot, weight);
             }
 
