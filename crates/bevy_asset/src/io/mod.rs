@@ -578,7 +578,7 @@ impl Reader for VecReader {
             if self.bytes_read >= self.bytes.len() {
                 Ok(0)
             } else {
-                buf.copy_from_slice(&self.bytes[self.bytes_read..]);
+                buf.extend_from_slice(&self.bytes[self.bytes_read..]);
                 let n = self.bytes.len() - self.bytes_read;
                 self.bytes_read = self.bytes.len();
                 Ok(n)
@@ -663,7 +663,7 @@ impl Reader for SliceReader<'_> {
             if self.bytes_read >= self.bytes.len() {
                 Ok(0)
             } else {
-                buf.copy_from_slice(&self.bytes[self.bytes_read..]);
+                buf.extend_from_slice(&self.bytes[self.bytes_read..]);
                 let n = self.bytes.len() - self.bytes_read;
                 self.bytes_read = self.bytes.len();
                 Ok(n)
