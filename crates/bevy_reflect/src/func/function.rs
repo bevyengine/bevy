@@ -92,7 +92,7 @@ use crate::func::{FunctionResult, IntoFunction, ReturnInfo};
 /// [module-level documentation]: crate::func
 pub struct DynamicFunction {
     info: FunctionInfo,
-    func: Arc<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + 'static>,
+    func: Arc<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'static>,
 }
 
 impl DynamicFunction {
@@ -102,7 +102,7 @@ impl DynamicFunction {
     ///
     /// It's important that the function signature matches the provided [`FunctionInfo`].
     /// This info may be used by consumers of the function for validation and debugging.
-    pub fn new<F: for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + 'static>(
+    pub fn new<F: for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'static>(
         func: F,
         info: FunctionInfo,
     ) -> Self {
