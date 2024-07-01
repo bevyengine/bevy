@@ -52,7 +52,7 @@ impl UniformMeshSampler {
         triangles: T,
     ) -> Result<Self, ZeroAreaMeshError> {
         let triangles: Vec<Triangle3d> = triangles.into_iter().collect();
-        let areas = triangles.iter().map(|t| t.area()).collect();
+        let areas = triangles.iter().map(Measured2d::area).collect();
 
         let Ok(face_distribution) = WeightedAliasIndex::new(areas) else {
             return Err(ZeroAreaMeshError);
