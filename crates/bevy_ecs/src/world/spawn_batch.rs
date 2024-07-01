@@ -16,6 +16,7 @@ where
 {
     inner: I,
     spawner: BundleSpawner<'w>,
+    caller: core::panic::Location<'static>,
 }
 
 impl<'w, I> SpawnBatchIter<'w, I>
@@ -24,6 +25,7 @@ where
     I::Item: Bundle,
 {
     #[inline]
+    #[track_caller]
     pub(crate) fn new(world: &'w mut World, iter: I) -> Self {
         // Ensure all entity allocations are accounted for so `self.entities` can realloc if
         // necessary
@@ -41,6 +43,7 @@ where
         Self {
             inner: iter,
             spawner,
+            caller: *core::panic::Location::caller(),
         }
     }
 }
@@ -69,7 +72,7 @@ where
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
         // SAFETY: bundle matches spawner type
-        unsafe { Some(self.spawner.spawn(bundle)) }
+        unsafe { Some(self.spawner.spawn(bundle, self.caller)) }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

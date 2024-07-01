@@ -63,6 +63,9 @@ pub trait DetectChanges {
     /// [`SystemChangeTick`](crate::system::SystemChangeTick)
     /// [`SystemParam`](crate::system::SystemParam).
     fn last_changed(&self) -> Tick;
+
+    /// The location that last caused this to change.
+    fn changed_by(&self) -> core::panic::Location<'static>;
 }
 
 /// Types that implement reliable change detection.
@@ -167,6 +170,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// # assert!(!score_changed.run((), &mut world));
     /// ```
     #[inline]
+    #[track_caller]
     fn set_if_neq(&mut self, value: Self::Inner) -> bool
     where
         Self::Inner: Sized + PartialEq,
@@ -280,6 +284,11 @@ macro_rules! change_detection_impl {
             fn last_changed(&self) -> Tick {
                 *self.ticks.changed
             }
+
+            #[inline]
+            fn changed_by(&self) -> core::panic::Location<'static> {
+                *self.caller
+            }
         }
 
         impl<$($generics),*: ?Sized $(+ $traits)?> Deref for $name<$($generics),*> {
@@ -306,13 +315,17 @@ macro_rules! change_detection_mut_impl {
             type Inner = $target;
 
             #[inline]
+            #[track_caller]
             fn set_changed(&mut self) {
                 *self.ticks.changed = self.ticks.this_run;
+                *self.caller = *core::panic::Location::caller();
             }
 
             #[inline]
+            #[track_caller]
             fn set_last_changed(&mut self, last_changed: Tick) {
                 *self.ticks.changed = last_changed;
+                *self.caller = *core::panic::Location::caller();
             }
 
             #[inline]
@@ -323,8 +336,10 @@ macro_rules! change_detection_mut_impl {
 
         impl<$($generics),* : ?Sized $(+ $traits)?> DerefMut for $name<$($generics),*> {
             #[inline]
+            #[track_caller]
             fn deref_mut(&mut self) -> &mut Self::Target {
                 self.set_changed();
+                *self.caller = *core::panic::Location::caller();
                 self.value
             }
         }
@@ -361,7 +376,8 @@ macro_rules! impl_methods {
                         changed: self.ticks.changed,
                         last_run: self.ticks.last_run,
                         this_run: self.ticks.this_run,
-                    }
+                    },
+                    caller: self.caller,
                 }
             }
 
@@ -391,6 +407,7 @@ macro_rules! impl_methods {
                 Mut {
                     value: f(self.value),
                     ticks: self.ticks,
+                    caller: self.caller,
                 }
             }
 
@@ -501,6 +518,7 @@ impl<'w> From<TicksMut<'w>> for Ticks<'w> {
 pub struct Res<'w, T: ?Sized + Resource> {
     pub(crate) value: &'w T,
     pub(crate) ticks: Ticks<'w>,
+    pub(crate) caller: &'w core::panic::Location<'static>,
 }
 
 impl<'w, T: Resource> Res<'w, T> {
@@ -513,6 +531,7 @@ impl<'w, T: Resource> Res<'w, T> {
         Self {
             value: this.value,
             ticks: this.ticks.clone(),
+            caller: this.caller,
         }
     }
 
@@ -529,6 +548,7 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
         Self {
             value: res.value,
             ticks: res.ticks.into(),
+            caller: res.caller,
         }
     }
 }
@@ -561,6 +581,7 @@ impl_debug!(Res<'w, T>, Resource);
 pub struct ResMut<'w, T: ?Sized + Resource> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
+    pub(crate) caller: &'w mut core::panic::Location<'static>,
 }
 
 impl<'w, 'a, T: Resource> IntoIterator for &'a ResMut<'w, T>
@@ -600,6 +621,7 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
         Mut {
             value: other.value,
             ticks: other.ticks,
+            caller: other.caller,
         }
     }
 }
@@ -619,6 +641,7 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
 pub struct NonSendMut<'w, T: ?Sized + 'static> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
+    pub(crate) caller: &'w mut core::panic::Location<'static>,
 }
 
 change_detection_impl!(NonSendMut<'w, T>, T,);
@@ -633,6 +656,7 @@ impl<'w, T: 'static> From<NonSendMut<'w, T>> for Mut<'w, T> {
         Mut {
             value: other.value,
             ticks: other.ticks,
+            caller: other.caller,
         }
     }
 }
@@ -664,6 +688,7 @@ impl<'w, T: 'static> From<NonSendMut<'w, T>> for Mut<'w, T> {
 pub struct Ref<'w, T: ?Sized> {
     pub(crate) value: &'w T,
     pub(crate) ticks: Ticks<'w>,
+    pub(crate) caller: &'w core::panic::Location<'static>,
 }
 
 impl<'w, T: ?Sized> Ref<'w, T> {
@@ -680,6 +705,7 @@ impl<'w, T: ?Sized> Ref<'w, T> {
         Ref {
             value: f(self.value),
             ticks: self.ticks,
+            caller: self.caller,
         }
     }
 
@@ -700,6 +726,7 @@ impl<'w, T: ?Sized> Ref<'w, T> {
         changed: &'w Tick,
         last_run: Tick,
         this_run: Tick,
+        caller: &'w core::panic::Location<'static>,
     ) -> Ref<'w, T> {
         Ref {
             value,
@@ -709,6 +736,7 @@ impl<'w, T: ?Sized> Ref<'w, T> {
                 last_run,
                 this_run,
             },
+            caller,
         }
     }
 }
@@ -790,6 +818,7 @@ impl_debug!(Ref<'w, T>,);
 pub struct Mut<'w, T: ?Sized> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
+    pub(crate) caller: &'w mut core::panic::Location<'static>,
 }
 
 impl<'w, T: ?Sized> Mut<'w, T> {
@@ -814,6 +843,7 @@ impl<'w, T: ?Sized> Mut<'w, T> {
         last_changed: &'w mut Tick,
         last_run: Tick,
         this_run: Tick,
+        caller: &'w mut core::panic::Location<'static>,
     ) -> Self {
         Self {
             value,
@@ -823,6 +853,7 @@ impl<'w, T: ?Sized> Mut<'w, T> {
                 last_run,
                 this_run,
             },
+            caller,
         }
     }
 }
@@ -832,6 +863,7 @@ impl<'w, T: ?Sized> From<Mut<'w, T>> for Ref<'w, T> {
         Self {
             value: mut_ref.value,
             ticks: mut_ref.ticks.into(),
+            caller: mut_ref.caller,
         }
     }
 }
@@ -877,6 +909,7 @@ impl_debug!(Mut<'w, T>,);
 pub struct MutUntyped<'w> {
     pub(crate) value: PtrMut<'w>,
     pub(crate) ticks: TicksMut<'w>,
+    pub(crate) caller: &'w mut core::panic::Location<'static>,
 }
 
 impl<'w> MutUntyped<'w> {
@@ -901,6 +934,7 @@ impl<'w> MutUntyped<'w> {
                 last_run: self.ticks.last_run,
                 this_run: self.ticks.this_run,
             },
+            caller: self.caller,
         }
     }
 
@@ -951,6 +985,7 @@ impl<'w> MutUntyped<'w> {
         Mut {
             value: f(self.value),
             ticks: self.ticks,
+            caller: self.caller,
         }
     }
 
@@ -963,6 +998,7 @@ impl<'w> MutUntyped<'w> {
             // SAFETY: `value` is `Aligned` and caller ensures the pointee type is `T`.
             value: unsafe { self.value.deref_mut() },
             ticks: self.ticks,
+            caller: self.caller,
         }
     }
 }
@@ -986,19 +1022,28 @@ impl<'w> DetectChanges for MutUntyped<'w> {
     fn last_changed(&self) -> Tick {
         *self.ticks.changed
     }
+
+    #[inline]
+    fn changed_by(&self) -> core::panic::Location<'static> {
+        *self.caller
+    }
 }
 
 impl<'w> DetectChangesMut for MutUntyped<'w> {
     type Inner = PtrMut<'w>;
 
     #[inline]
+    #[track_caller]
     fn set_changed(&mut self) {
         *self.ticks.changed = self.ticks.this_run;
+        *self.caller = *core::panic::Location::caller();
     }
 
     #[inline]
+    #[track_caller]
     fn set_last_changed(&mut self, last_changed: Tick) {
         *self.ticks.changed = last_changed;
+        *self.caller = *core::panic::Location::caller();
     }
 
     #[inline]
@@ -1020,6 +1065,7 @@ impl<'w, T> From<Mut<'w, T>> for MutUntyped<'w> {
         MutUntyped {
             value: value.value.into(),
             ticks: value.ticks,
+            caller: value.caller,
         }
     }
 }
@@ -1160,9 +1206,11 @@ mod tests {
             this_run: Tick::new(4),
         };
         let mut res = R {};
+        let mut caller = *core::panic::Location::caller();
         let res_mut = ResMut {
             value: &mut res,
             ticks,
+            caller: &mut caller,
         };
 
         let into_mut: Mut<R> = res_mut.into();
@@ -1179,6 +1227,7 @@ mod tests {
             changed: Tick::new(3),
         };
         let mut res = R {};
+        let mut caller = *core::panic::Location::caller();
 
         let val = Mut::new(
             &mut res,
@@ -1186,6 +1235,7 @@ mod tests {
             &mut component_ticks.changed,
             Tick::new(2), // last_run
             Tick::new(4), // this_run
+            &mut caller,
         );
 
         assert!(!val.is_added());
@@ -1205,9 +1255,11 @@ mod tests {
             this_run: Tick::new(4),
         };
         let mut res = R {};
+        let mut caller = *core::panic::Location::caller();
         let non_send_mut = NonSendMut {
             value: &mut res,
             ticks,
+            caller: &mut caller,
         };
 
         let into_mut: Mut<R> = non_send_mut.into();
@@ -1236,9 +1288,11 @@ mod tests {
         };
 
         let mut outer = Outer(0);
+        let mut caller = *core::panic::Location::caller();
         let ptr = Mut {
             value: &mut outer,
             ticks,
+            caller: &mut caller,
         };
         assert!(!ptr.is_changed());
 
@@ -1321,9 +1375,11 @@ mod tests {
         };
 
         let mut value: i32 = 5;
+        let mut caller = *core::panic::Location::caller();
         let value = MutUntyped {
             value: PtrMut::from(&mut value),
             ticks,
+            caller: &mut caller,
         };
 
         let reflect_from_ptr = <ReflectFromPtr as FromType<i32>>::from_type();
@@ -1354,9 +1410,11 @@ mod tests {
             this_run: Tick::new(4),
         };
         let mut c = C {};
+        let mut caller = *core::panic::Location::caller();
         let mut_typed = Mut {
             value: &mut c,
             ticks,
+            caller: &mut caller,
         };
 
         let into_mut: MutUntyped = mut_typed.into();

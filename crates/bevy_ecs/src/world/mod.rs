@@ -41,7 +41,7 @@ use crate::{
     world::command_queue::RawCommandQueue,
     world::error::TryRunScheduleError,
 };
-use bevy_ptr::{OwningPtr, Ptr};
+use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use bevy_utils::tracing::warn;
 use std::{
     any::TypeId,
@@ -967,6 +967,7 @@ impl World {
     /// let position = world.entity(entity).get::<Position>().unwrap();
     /// assert_eq!(position.x, 2.0);
     /// ```
+    #[track_caller]
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut {
         self.flush();
         let change_tick = self.change_tick();
@@ -974,7 +975,9 @@ impl World {
         let entity_location = {
             let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
             // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
-            unsafe { bundle_spawner.spawn_non_existent(entity, bundle) }
+            unsafe {
+                bundle_spawner.spawn_non_existent(entity, bundle, *core::panic::Location::caller())
+            }
         };
 
         // SAFETY: entity and location are valid, as they were just created above
@@ -1363,7 +1366,7 @@ impl World {
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        let (ptr, _) = self.storages.resources.get_mut(component_id)?.remove()?;
+        let (ptr, _, _) = self.storages.resources.get_mut(component_id)?.remove()?;
         // SAFETY: `component_id` was gotten via looking up the `R` type
         unsafe { Some(ptr.read::<R>()) }
     }
@@ -1382,7 +1385,7 @@ impl World {
     #[inline]
     pub fn remove_non_send_resource<R: 'static>(&mut self) -> Option<R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        let (ptr, _) = self
+        let (ptr, _, _) = self
             .storages
             .non_send_resources
             .get_mut(component_id)?
@@ -1745,6 +1748,7 @@ impl World {
     ///
     /// assert_eq!(world.get::<B>(e0), Some(&B(0.0)));
     /// ```
+    #[track_caller]
     pub fn insert_or_spawn_batch<I, B>(&mut self, iter: I) -> Result<(), Vec<Entity>>
     where
         I: IntoIterator,
@@ -1810,13 +1814,25 @@ impl World {
                 AllocAtWithoutReplacement::DidNotExist => {
                     if let SpawnOrInsert::Spawn(ref mut spawner) = spawn_or_insert {
                         // SAFETY: `entity` is allocated (but non existent), bundle matches inserter
-                        unsafe { spawner.spawn_non_existent(entity, bundle) };
+                        unsafe {
+                            spawner.spawn_non_existent(
+                                entity,
+                                bundle,
+                                *core::panic::Location::caller(),
+                            )
+                        };
                     } else {
                         // SAFETY: we initialized this bundle_id in `init_info`
                         let mut spawner =
                             unsafe { BundleSpawner::new_with_id(self, bundle_id, change_tick) };
                         // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                        unsafe { spawner.spawn_non_existent(entity, bundle) };
+                        unsafe {
+                            spawner.spawn_non_existent(
+                                entity,
+                                bundle,
+                                *core::panic::Location::caller(),
+                            )
+                        };
                         spawn_or_insert = SpawnOrInsert::Spawn(spawner);
                     }
                 }
@@ -1864,7 +1880,7 @@ impl World {
             .components
             .get_resource_id(TypeId::of::<R>())
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
-        let (ptr, mut ticks) = self
+        let (ptr, mut ticks, mut caller) = self
             .storages
             .resources
             .get_mut(component_id)
@@ -1881,6 +1897,7 @@ impl World {
                 last_run: last_change_tick,
                 this_run: change_tick,
             },
+            caller: &mut caller,
         };
         let result = f(self, value_mut);
         assert!(!self.contains_resource::<R>(),
@@ -2502,7 +2519,7 @@ impl World {
                         .get_info(component_id)
                         .debug_checked_unwrap()
                 };
-                let (ptr, ticks) = data.get_with_ticks()?;
+                let (ptr, ticks, caller) = data.get_with_ticks()?;
 
                 // SAFETY:
                 // - We have exclusive access to the world, so no other code can be aliasing the `TickCells`
@@ -2521,6 +2538,10 @@ impl World {
                     // - We iterate one resource at a time, and we let go of each `PtrMut` before getting the next one
                     value: unsafe { ptr.assert_unique() },
                     ticks,
+                    // SAFETY:
+                    // - We have exclusive access to the world, so no other code can be aliasing the `Ptr`
+                    // - We iterate one resource at a time, and we let go of each `PtrMut` before getting the next one
+                    caller: unsafe { caller.deref_mut() },
                 };
 
                 Some((component_info, mut_untyped))

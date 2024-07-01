@@ -296,6 +296,7 @@ impl<C: Component + Reflect> FromType<C> for ReflectComponent {
                 entity.into_mut::<C>().map(|c| Mut {
                     value: c.value as &mut dyn Reflect,
                     ticks: c.ticks,
+                    caller: c.caller,
                 })
             },
             reflect_unchecked_mut: |entity| {
@@ -305,6 +306,7 @@ impl<C: Component + Reflect> FromType<C> for ReflectComponent {
                     entity.get_mut::<C>().map(|c| Mut {
                         value: c.value as &mut dyn Reflect,
                         ticks: c.ticks,
+                        caller: c.caller,
                     })
                 }
             },

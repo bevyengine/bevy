@@ -768,12 +768,14 @@ impl<'w> EntityWorldMut<'w> {
     /// Adds a [`Bundle`] of components to the entity.
     ///
     /// This will overwrite any previous value(s) of the same component type.
+    #[track_caller]
     pub fn insert<T: Bundle>(&mut self, bundle: T) -> &mut Self {
         let change_tick = self.world.change_tick();
         let mut bundle_inserter =
             BundleInserter::new::<T>(self.world, self.location.archetype_id, change_tick);
-        // SAFETY: location matches current entity. `T` matches `bundle_info`
-        self.location = unsafe { bundle_inserter.insert(self.entity, self.location, bundle) };
+        self.location =
+            // SAFETY: location matches current entity. `T` matches `bundle_info`
+            unsafe { bundle_inserter.insert(self.entity, self.location, bundle) };
         self
     }
 
@@ -787,6 +789,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - [`ComponentId`] must be from the same world as [`EntityWorldMut`]
     /// - [`OwningPtr`] must be a valid reference to the type represented by [`ComponentId`]
+    #[track_caller]
     pub unsafe fn insert_by_id(
         &mut self,
         component_id: ComponentId,
@@ -828,6 +831,7 @@ impl<'w> EntityWorldMut<'w> {
     /// # Safety
     /// - Each [`ComponentId`] must be from the same world as [`EntityWorldMut`]
     /// - Each [`OwningPtr`] must be a valid reference to the type represented by [`ComponentId`]
+    #[track_caller]
     pub unsafe fn insert_by_ids<'a, I: Iterator<Item = OwningPtr<'a>>>(
         &mut self,
         component_ids: &[ComponentId],
@@ -2284,6 +2288,7 @@ pub enum TryFromFilteredError {
 /// - [`OwningPtr`] and [`StorageType`] iterators must correspond to the
 ///     [`BundleInfo`] used to construct [`BundleInserter`]
 /// - [`Entity`] must correspond to [`EntityLocation`]
+#[track_caller]
 unsafe fn insert_dynamic_bundle<
     'a,
     I: Iterator<Item = OwningPtr<'a>>,
