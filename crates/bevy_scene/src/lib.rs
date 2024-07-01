@@ -56,7 +56,6 @@ impl Plugin for ScenePlugin {
         app.init_asset::<DynamicScene>()
             .init_asset::<Scene>()
             .init_asset_loader::<SceneLoader>()
-            .add_event::<SceneInstanceReady>()
             .init_resource::<SceneSpawner>()
             .add_systems(SpawnScene, (scene_spawner, scene_spawner_system).chain());
 
