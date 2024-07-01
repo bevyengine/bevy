@@ -89,6 +89,7 @@ multi_threaded = [
   "bevy_ecs/multi_threaded",
   "bevy_render?/multi_threaded",
   "bevy_tasks/multi_threaded",
+  "bevy_diagnostic/multi_threaded",
 ]
 async-io = ["bevy_tasks/async-io"]
 

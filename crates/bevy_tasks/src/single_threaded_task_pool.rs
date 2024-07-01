@@ -150,28 +150,51 @@ impl TaskPool {
     /// end-user.
     ///
     /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn spawn<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask<T>
+    where
+        T: 'static,
+    {
+        LOCAL_EXECUTOR.with(|executor| {
+            let task = executor.spawn(future);
+            // Loop until all tasks are done
+            while executor.try_tick() {}
+
+            FakeTask {
+                // task should be ready
+                result: crate::block_on(task),
+            }
+        })
+    }
+
+    /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be
+    /// cancelled and "detached" allowing it to continue running without having to be polled by the
+    /// end-user.
+    ///
+    /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
+    #[cfg(target_arch = "wasm32")]
     pub fn spawn<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask
     where
         T: 'static,
     {
-        #[cfg(target_arch = "wasm32")]
         wasm_bindgen_futures::spawn_local(async move {
             future.await;
         });
-
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            LOCAL_EXECUTOR.with(|executor| {
-                let _task = executor.spawn(future);
-                // Loop until all tasks are done
-                while executor.try_tick() {}
-            });
-        }
 
         FakeTask
     }
 
     /// Spawns a static future on the JS event loop. This is exactly the same as [`TaskPool::spawn`].
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask<T>
+    where
+        T: 'static,
+    {
+        self.spawn(future)
+    }
+
+    /// Spawns a static future on the JS event loop. This is exactly the same as [`TaskPool::spawn`].
+    #[cfg(target_arch = "wasm32")]
     pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask
     where
         T: 'static,
@@ -202,8 +225,26 @@ impl TaskPool {
 ///
 /// This does nothing and is therefore safe, and recommended, to ignore.
 #[derive(Debug)]
+#[cfg(not(target_arch = "wasm32"))]
+pub struct FakeTask<T> {
+    /// In case of not wasm arch contains result of future execution
+    pub result: T,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl<T> FakeTask<T> {
+    /// No op on the single threaded task pool
+    pub fn detach(self) {}
+}
+
+/// An empty task used in single-threaded contexts.
+///
+/// This does nothing and is therefore safe, and recommended, to ignore.
+#[derive(Debug)]
+#[cfg(target_arch = "wasm32")]
 pub struct FakeTask;
 
+#[cfg(target_arch = "wasm32")]
 impl FakeTask {
     /// No op on the single threaded task pool
     pub fn detach(self) {}
