@@ -1,4 +1,5 @@
 use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
+use crate::func::macros::impl_function_traits;
 use crate::{
     self as bevy_reflect, ApplyError, NamedField, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, TypeInfo, TypePath, TypePathTable,
@@ -499,6 +500,7 @@ impl Reflect for DynamicStruct {
 }
 
 impl_type_path!((in bevy_reflect) DynamicStruct);
+impl_function_traits!(DynamicStruct);
 
 impl Debug for DynamicStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
