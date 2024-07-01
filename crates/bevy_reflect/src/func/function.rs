@@ -60,8 +60,7 @@ use crate::func::{FunctionResult, IntoFunction, ReturnInfo};
 ///
 /// // Instead, we need to define the function manually.
 /// // We start by defining the shape of the function:
-/// let info = FunctionInfo::new()
-///   .with_name("append")
+/// let info = FunctionInfo::new("append")
 ///   .with_arg::<String>("value")
 ///   .with_arg::<&mut Vec<String>>("list")
 ///   .with_return::<&mut String>();
@@ -162,16 +161,29 @@ impl DynamicFunction {
     pub fn info(&self) -> &FunctionInfo {
         &self.info
     }
+
+    /// The [name] of the function.
+    ///
+    /// For [`DynamicFunctions`] created using [`IntoFunction`],
+    /// the name will always be the full path to the function as returned by [`std::any::type_name`].
+    /// This can be overridden using [`with_name`].
+    ///
+    /// [name]: FunctionInfo::name
+    /// [`DynamicFunctions`]: DynamicFunction
+    /// [`with_name`]: Self::with_name
+    pub fn name(&self) -> &Cow<'static, str> {
+        self.info.name()
+    }
 }
 
 /// Outputs the function signature.
 ///
 /// This takes the format: `DynamicFunction(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) -> {return_type})`.
 ///
-/// Names for arguments and the function itself are optional and will default to `_` if not provided.
+/// Names for arguments are optional and will default to `_` if not provided.
 impl Debug for DynamicFunction {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        let name = self.info.name().unwrap_or("_");
+        let name = self.name();
         write!(f, "DynamicFunction(fn {name}(")?;
 
         for (index, arg) in self.info.args().iter().enumerate() {
@@ -215,7 +227,7 @@ mod tests {
         fn foo() {}
 
         let func = foo.into_function().with_name("my_function");
-        assert_eq!(func.info().name(), Some("my_function"));
+        assert_eq!(func.info().name(), "my_function");
     }
 
     #[test]
@@ -241,8 +253,7 @@ mod tests {
                 let index = args.pop::<usize>()?;
                 Ok(Return::Ref(get(index, list)))
             },
-            FunctionInfo::new()
-                .with_name("get")
+            FunctionInfo::new("get")
                 .with_arg::<usize>("index")
                 .with_arg::<&Vec<String>>("list")
                 .with_return::<&String>(),
