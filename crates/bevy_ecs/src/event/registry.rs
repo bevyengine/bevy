@@ -41,13 +41,39 @@ pub enum ShouldUpdateEvents {
 }
 
 impl EventRegistry {
-    /// Registers an event type to be updated.
+    /// Registers an event type to be updated in a given [`World`]
+    ///
+    /// If no instance of the EventRegistry exists in the world, this will add one - otherwise it will use
+    /// the existing instance.
+    ///
+    /// In contrast, [`EventRegistry::register_event_with_instance<T: Event>`] will register the events
+    /// to be updated by that specific instance rather.
     pub fn register_event<T: Event>(world: &mut World) {
         // By initializing the resource here, we can be sure that it is present,
         // and receive the correct, up-to-date `ComponentId` even if it was previously removed.
         let component_id = world.init_resource::<Events<T>>();
         let mut registry = world.get_resource_or_insert_with(Self::default);
         registry.event_updates.push(RegisteredEvent {
+            component_id,
+            previously_updated: false,
+            update: |ptr| {
+                // SAFETY: The resource was initialized with the type Events<T>.
+                unsafe { ptr.with_type::<Events<T>>() }
+                    .bypass_change_detection()
+                    .update();
+            },
+        });
+    }
+
+    /// Registers an event type from a give [`World`] to be updated bt th
+    ///
+    /// In contrast, [`EventRegistry::register_event<T: Event>`] will register the events
+    /// to be updated by the instance tied to the world.
+    pub fn register_event_with_instance<T: Event>(&mut self, world: &mut World) {
+        // By initializing the resource here, we can be sure that it is present,
+        // and receive the correct, up-to-date `ComponentId` even if it was previously removed.
+        let component_id = world.init_resource::<Events<T>>();
+        self.event_updates.push(RegisteredEvent {
             component_id,
             previously_updated: false,
             update: |ptr| {
@@ -78,25 +104,24 @@ impl EventRegistry {
         }
     }
 
-    /// Removes an event from the registry and world
+    /// Removes an event from the world and it's associated EventRegistry
     pub fn deregister_events<T: Event>(world: &mut World) {
         let component_id = world.init_resource::<Events<T>>();
-        world.remove_resource::<Events<T>>();
         let mut registry = world.get_resource_or_insert_with(Self::default);
-        let Some(index) = registry
+        registry
             .event_updates
-            .iter()
-            .enumerate()
-            .find_map(|(i, e)| {
-                if e.component_id == component_id {
-                    Some(i)
-                } else {
-                    None
-                }
-            })
-        else {
-            return;
-        };
-        registry.event_updates.remove(index);
+            .retain(|e| e.component_id != component_id);
+        world.remove_resource::<Events<T>>();
+    }
+
+    /// Removes an event from this registry and world
+    ///
+    /// In contrast, [`EventRegistry::deregister_events<T>`] will remove the events from the world's
+    /// main event registry
+    pub fn deregister_events_with_instance<T: Event>(&mut self, world: &mut World) {
+        let component_id = world.init_resource::<Events<T>>();
+        self.event_updates
+            .retain(|e| e.component_id != component_id);
+        world.remove_resource::<Events<T>>();
     }
 }
