@@ -5,6 +5,7 @@ use std::ops::{Deref, DerefMut};
 
 use crate as bevy_ecs;
 use crate::{system::Resource, world::World};
+use bevy_reflect::func::FunctionRegistryArc;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{Reflect, ReflectFromReflect, TypeRegistry, TypeRegistryArc};
 
@@ -37,6 +38,27 @@ impl Deref for AppTypeRegistry {
 }
 
 impl DerefMut for AppTypeRegistry {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+/// A [`Resource`] storing [`FunctionRegistry`] for
+/// function registrations relevant to a whole app.
+#[derive(Resource, Clone, Default)]
+pub struct AppFunctionRegistry(pub FunctionRegistryArc);
+
+impl Deref for AppFunctionRegistry {
+    type Target = FunctionRegistryArc;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for AppFunctionRegistry {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0

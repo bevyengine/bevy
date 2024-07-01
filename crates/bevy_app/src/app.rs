@@ -95,7 +95,9 @@ impl Default for App {
         app.sub_apps.main.update_schedule = Some(Main.intern());
 
         #[cfg(feature = "bevy_reflect")]
-        app.init_resource::<AppTypeRegistry>();
+        app.init_resource::<AppTypeRegistry>()
+            .init_resource::<AppFunctionRegistry>();
+
         app.add_plugins(MainSchedulePlugin);
         app.add_systems(
             First,
@@ -596,6 +598,20 @@ impl App {
         &mut self,
     ) -> &mut Self {
         self.main_mut().register_type_data::<T, D>();
+        self
+    }
+
+    /// Registers the given function in the [`FunctionRegistry`](bevy_reflect::func::FunctionRegistry) resource.
+    ///
+    /// Functions are mapped according to their [name](bevy_reflect::func::DynamicFunction::name).
+    ///
+    /// See [`bevy_reflect::func::FunctionRegistry::register`] for more information.
+    #[cfg(feature = "bevy_reflect")]
+    pub fn register_function<F, Marker>(&mut self, function: F) -> &mut Self
+    where
+        F: bevy_reflect::func::IntoFunction<'static, Marker> + 'static,
+    {
+        self.main_mut().register_function(function);
         self
     }
 
