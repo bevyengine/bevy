@@ -40,6 +40,7 @@ pub use error::*;
 pub use function::*;
 pub use info::*;
 pub use into_function::*;
+pub use registry::*;
 pub use return_type::*;
 
 pub use args::{Arg, ArgError, ArgList};
@@ -50,6 +51,7 @@ mod function;
 mod info;
 mod into_function;
 pub(crate) mod macros;
+mod registry;
 mod return_type;
 
 #[cfg(test)]
