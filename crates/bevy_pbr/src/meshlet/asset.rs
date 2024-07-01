@@ -6,6 +6,7 @@ use bevy_asset::{
 use bevy_math::Vec3;
 use bevy_reflect::TypePath;
 use bytemuck::{Pod, Zeroable};
+use futures_lite::AsyncReadExt;
 use lz4_flex::frame::{FrameDecoder, FrameEncoder};
 use serde::{Deserialize, Serialize};
 use std::{io::Cursor, sync::Arc};
