@@ -37,6 +37,9 @@ pub use bevy_ptr as ptr;
 /// Most commonly used re-exported types.
 pub mod prelude {
     #[doc(hidden)]
+    #[cfg(feature = "reflect_functions")]
+    pub use crate::reflect::AppFunctionRegistry;
+    #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
     pub use crate::reflect::{
         AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
