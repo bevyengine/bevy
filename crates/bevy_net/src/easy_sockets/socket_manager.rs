@@ -1,45 +1,11 @@
 use std::future::{Future, IntoFuture};
 use std::ops::{Deref, DerefMut};
-use std::pin::Pin;
 use std::sync::{Arc, Mutex, RwLock, Weak};
-use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
-use bevy_internal::reflect::List;
-use bevy_internal::tasks::{IoTaskPool, Task, TaskPool};
+use futures::future::join_all;
+use bevy_tasks::{IoTaskPool, TaskPool};
 use crate::easy_sockets::{Buffer, ErrorAction, UpdateResult};
 use crate::easy_sockets::spin_lock::{SpinLock, SpinLockGuard};
-
-struct Time<F> 
-where F: Future {
-    inner: F,
-    woken_time: Duration
-}
-
-impl<F> Time<F>
-where F: Future {
-    fn new(inner: F) -> Self {
-        Self { inner: inner, woken_time: Duration::ZERO }
-    }
-}
-
-impl<F> Future for Time<F> 
-where F: Future {
-    type Output = (Duration, F::Output);
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let start = Instant::now();
-        match self.inner.poll(cx) {
-            Poll::Ready(item) => {
-                let end = Instant::now() - start;
-                Poll::Ready((end + self.woken_time, item))
-            }
-            Poll::Pending => {
-                self.woken_time += Instant::now() - start;
-                Poll::Pending
-            }
-        }
-    }
-}
 
 /// A wrapper type around Arc<SpinLock<T>>.
 /// It's used to ensure the arc 
@@ -145,36 +111,6 @@ where B: Buffer<InnerSocket = S> {
     sockets: Vec<SocketEntry<B, S>>,
 }
 
-struct Update<'a, B, S>
-where B: Buffer<InnerSocket = S>{
-    manager: &'a mut SocketManger<B, S>,
-    tasks: Vec<Task<Option<SocketEntry<B, S>>>>
-}
-
-impl<'a, B, S> Future for Update<'a, B, S>
-where B: Buffer<InnerSocket = S> {
-    type Output = ();
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        if let Some(fut) = self.tasks.last_mut() {
-            match fut.poll(cx) {
-                Poll::Ready(optional) => {
-                    if let Some(entry) = optional {
-                        self.manager.sockets.push(entry)
-                    }
-                    self.tasks.pop();
-                    
-                    return Poll::Pending
-                }
-                Poll::Pending => {
-                    return Poll::Pending
-                }
-            }
-        }
-        return Poll::Ready(())
-    }
-}
-
 impl<B, S> SocketManger<B, S>
 where B: Buffer<InnerSocket = S> {
     pub fn new() -> Self {
@@ -184,24 +120,43 @@ where B: Buffer<InnerSocket = S> {
     }
     
     async fn update(&mut self) {
-        let mut tasks = Vec::with_capacity(self.sockets.len());
 
-        
-        let pool = IoTaskPool::get().deref();
-        
-        while let Some(entry) = self.sockets.pop() {
-            tasks.push(pool.spawn(async {
-                let mut entrey = entry;
-                entrey.update();
-                if entrey.drop_flag {
-                    None
-                } else {
-                    Some(entrey)
+        #[cfg(not(feature = "multithreaded"))]
+        {
+            join_all(self.sockets.iter_mut().map(|entrey| async move {
+                entrey.update().await;
+                entrey
+            })).await;
+
+            let mut i = self.sockets.len() + 1;
+
+            while i != 0 {
+                if self.sockets[i - 1].drop_flag {
+                    self.sockets.remove(i - 1);
                 }
-            }))
+                i -= 1;
+            }
         }
 
-        todo!()
+        #[cfg(feature = "multithreaded")]
+        {
+            let mut tasks = Vec::with_capacity(self.sockets.len());
+            
+            while let Some(mut entrey) = self.sockets.pop() {
+                tasks.push(async move {
+                    entrey.update();
+                    entrey
+                })
+            }
+            
+            for task in tasks {
+                let upated = task.await;
+                
+                if !upated.drop_flag {
+                    self.sockets.push(upated)
+                }
+            }
+        }
     }
     
     pub fn register(&mut self, socket: S) -> Result<OwnedBuffer<B>, (S, B::ConstructionError)> {
@@ -225,39 +180,4 @@ where B: Buffer<InnerSocket = S> {
             }
         }
     }
-}
-
-
-//todo rewrite this
-#[macro_export]
-macro_rules! manager {
-
-
-    ($name:ident, $buffer:ty, $socket:ty) => {
-        use crate::easy_sockets::socket_manager::{SocketManager, OwnedBuffer};
-        use bevy_internal::tasks::IoTaskPool;
-
-        static manager: $name = $name {inner: SocketManager::new()};
-            
-        pub struct $name {
-            inner: SocketManager<$buffer, $socket>,
-        }
-            
-        impl $name {
-            pub fn register(&self, socket: $socket) -> Result<OwnedBuffer<$buffer>, $buffer::ConstructionError> {
-                self.inner.register_socket(socket)
-            }
-            pub fn get() -> &'static Self {
-                &manager
-            }
-        }
-
-        pub struct
-            
-        pub fn start_update_system() {
-            IoTaskPool::try_get().expect("The io task pool was not initalised. \
-            Maybe you forgot to add the SocketManager plugin?");
-            $name.get().inner.update_and_handle()
-        }
-    };
 }

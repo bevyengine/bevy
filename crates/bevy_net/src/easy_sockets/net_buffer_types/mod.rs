@@ -7,8 +7,7 @@ pub mod tcp_stream {
     use std::io::{ErrorKind, IoSlice};
     use std::sync::Mutex;
     use static_init::dynamic;
-    use bevy_internal::reflect::List;
-    use bevy_internal::tasks::futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
+    use bevy_tasks::futures_lite::{AsyncReadExt, AsyncWriteExt};
     use crate::easy_sockets::{Buffer, ErrorAction, UpdateResult};
     use crate::easy_sockets::plugin::PLUGIN_INIT;
     use crate::easy_sockets::socket_manager::{OwnedBuffer, SocketManger};
@@ -18,11 +17,6 @@ pub mod tcp_stream {
         guard: SpinLockGuard<'a, TcpStreamBuffer>,
         outer_iter: Iter<'a, VecDeque<u8>>,
         inner_iter: Option<Iter<'a, u8>>
-    }
-    
-    #[test]
-    fn test() {
-        
     }
     
     impl<'a> PeakIter<'a> {
@@ -65,6 +59,8 @@ pub mod tcp_stream {
     pub struct TcpStream(OwnedBuffer<TcpStreamBuffer>);
     
     impl TcpStream {
+        
+        
         pub fn peak_iter<'a>(&'a self) -> PeakIter<'a> {
             PeakIter::new(self)
         } 
@@ -212,6 +208,114 @@ pub mod tcp_stream {
         async fn additional_updates(&mut self, socket: &mut Self::InnerSocket, data: &mut Self::DiagnosticData) -> UpdateResult {
             //todo: implement
             Ok(())
+        }
+    }
+}
+
+#[cfg(feature = "Udp")]
+pub mod udp {
+
+}
+
+#[cfg(feature = "quinn")]
+pub mod quic {
+    use std::fmt::{Debug, Formatter};
+    use std::future::Future;
+    use std::io::{ErrorKind, IoSliceMut};
+    use std::net::{IpAddr, Ipv6Addr, SocketAddr, UdpSocket};
+    use std::pin::{Pin, pin};
+    use std::sync::Arc;
+    use std::task::{Context, Poll, Waker};
+    use std::time::Instant;
+    use quinn::{AsyncTimer, AsyncUdpSocket, Runtime, UdpPoller};
+    use quinn::udp::{RecvMeta, Transmit, UdpSocketState, UdpSockRef};
+    use bevy_tasks::{AsyncComputeTaskPool, IoTaskPool};
+
+    #[derive(Debug)]
+    struct BevyQuinnRuntime {}
+
+    #[test]
+    fn test() {}
+
+    impl Runtime for BevyQuinnRuntime {
+        fn new_timer(&self, i: Instant) -> Pin<Box<dyn AsyncTimer>> {
+            let timer = Timer { expiry: i };
+            Pin::new(Box::new(timer))
+        }
+
+        fn spawn(&self, future: Pin<Box<dyn Future<Output=()> + Send>>) {
+            IoTaskPool::get().spawn(future).detach();
+        }
+
+        fn wrap_udp_socket(&self, t: UdpSocket) -> std::io::Result<Arc<dyn AsyncUdpSocket>> {
+            #[cfg(target_os = "windows")]
+            {
+                let ref_ = UdpSockRef::from(t);
+
+
+            }
+
+            todo!()
+        }
+    }
+
+    struct QuinnUdpSocket<'a> {
+        state: QuinnUdpSocket,
+        socket_ref: UdpSockRef<'a>,
+        local_addr: SocketAddr
+    }
+
+    impl Debug for QuinnUdpSocket {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            self.state.fmt(f)
+        }
+    }
+
+    impl<'a> AsyncUdpSocket for QuinnUdpSocket<'a> {
+        fn create_io_poller(self: Arc<Self>) -> Pin<Box<dyn UdpPoller>> {
+            todo!()
+        }
+
+        fn try_send(&self, transmit: &Transmit) -> std::io::Result<()> {
+            self.state.send(self.socket_ref.clone(), transmit)
+        }
+
+        fn poll_recv(&self, cx: &mut Context, bufs: &mut [IoSliceMut<'_>], meta: &mut [RecvMeta]) -> Poll<std::io::Result<usize>> {
+            let result = self.state.recv(self.socket_ref.clone(), bufs, meta);
+            
+            
+            todo!()
+        }
+
+        fn local_addr(&self) -> std::io::Result<SocketAddr> {
+            Ok(self.local_addr)
+        }
+    }
+    
+    #[derive(Debug)]
+    struct Timer {
+        expiry: Instant,
+    }
+    
+    impl AsyncTimer for Timer {
+        fn reset(mut self: Pin<&mut Self>, i: Instant) {
+            self.expiry = i;
+        }
+
+        fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<()> {
+            let now = Instant::now();
+            
+            if now >= self.expiry {
+                return Poll::Ready(())
+            }
+
+            let waker = cx.waker().clone();
+            
+            IoTaskPool::get().spawn(async move {
+                waker.wake()
+            }).detach();
+
+            Poll::Pending
         }
     }
 }

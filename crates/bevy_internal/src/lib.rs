@@ -67,3 +67,5 @@ pub use bevy_utils as utils;
 pub use bevy_window as window;
 #[cfg(feature = "bevy_winit")]
 pub use bevy_winit as winit;
+#[cfg(feature = "net")]
+pub use bevy_net as net;

@@ -342,6 +342,9 @@ ios_simulator = ["bevy_internal/ios_simulator"]
 # Enable built in global state machines
 bevy_state = ["bevy_internal/bevy_state"]
 
+#todo you added this
+networking = ["bevy_internal/net"]
+
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.14.0-dev", default-features = false }
 
@@ -3229,6 +3232,17 @@ name = "Anisotropy"
 description = "Displays an example model with anisotropy"
 category = "3D Rendering"
 wasm = false
+
+#todo don't forget you added this
+[[example]]
+name = "back and forth"
+path = "examples/networking/back_and_forth.rs"
+required-features = []
+
+[package.metadata.example.back_and_forth]
+name = "Back and forth"
+desciption = "idk some bluh bluh"
+category = "Networking"
 
 [profile.wasm-release]
 inherits = "release"

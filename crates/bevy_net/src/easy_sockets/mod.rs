@@ -1,12 +1,18 @@
+use std::array::from_fn;
 use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::future::Future;
 use bevy_ecs::system::Resource;
-use bevy_internal::tasks::futures_lite::{AsyncRead, AsyncWrite};
+use bevy_tasks::futures_lite::{AsyncRead, AsyncWrite};
 use std::error::Error as StdError;
+use std::mem;
+
 mod socket_manager;
 mod plugin;
-pub mod net_buffer_types;
+mod net_buffer_types;
+
+pub use net_buffer_types::*;
+pub use plugin::*;
 
 pub type UpdateResult = Result<(), ErrorAction>;
 
@@ -15,39 +21,51 @@ pub mod spin_lock {
     use std::hint;
     use std::ops::{Deref, DerefMut};
     use std::pin::Pin;
+    use std::sync::{Arc, Weak};
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::task::{Context, Poll, Waker};
-    use std::thread::panicking;
-    
-    //todo: review for safety
+    use std::thread::{panicking, yield_now};
+    use bevy_tasks::{AsyncComputeTaskPool, IoTaskPool};
 
     pub type SpinLockResult<'a, T> = Result<SpinLockGuard<'a, T>, ()>;
 
+    //todo: write this in a clearer way
+    /// A spin lock designed to
+    /// synchronised access between 2 threads
+    /// with as little overhead as possible.
+    /// The order of access between more than 2 threads is non-deterministic
+    /// and could result in one of them becoming starved.
     pub struct SpinLock<T> {
+        //todo: create a single threaded feature were rc
+        // is used instead of arc?
+        waiting: Weak<SpinLock<Option<Waker>>>,
         is_locked: AtomicBool,
         is_poisoned: bool,
-        inner: T
+        inner: T,
     }
 
     pub struct SpinLockFuture<'a, T> {
-        lock: &'a SpinLock<T>,
-        waker: Option<Waker>
+        lock: &'a SpinLock<T>
     }
 
     impl<'a, T> Future for SpinLockFuture<'a, T> {
         type Output = SpinLockResult<'a, T>;
 
         fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-            if let Some(res) = self.lock.try_lock() {
-                return Poll::Ready(res)
+            if let Some(result) = self.lock.try_lock() {
+                return Poll::Ready(result)
             }
             
-            self.waker = Some(cx.waker().clone());
-            
+            let waker = cx.waker().clone();
+
+            IoTaskPool::get().spawn(async move {
+                waker.wake()
+            }).detach();
             Poll::Pending
         }
     }
 
+    //todo: review for safety
     #[allow(unsafe_code)]
     impl<T> SpinLock<T> {
         /// Checks if the value is in use, if not, returns
@@ -102,12 +120,13 @@ pub mod spin_lock {
                     return res
                 }
 
-                hint::spin_loop()
+                yield_now()
             }
         }
 
         pub fn new(inner: T) -> Self {
             Self {
+                waiting: Default::default(),
                 is_locked: AtomicBool::new(false),
                 is_poisoned: false,
                 inner
@@ -115,7 +134,7 @@ pub mod spin_lock {
         }
 
         pub fn lock_async<'a>(&'a self) -> SpinLockFuture<'a, T> {
-            SpinLockFuture { lock: self, waker: None }
+            SpinLockFuture { lock: self }
         }
     }
 
@@ -140,6 +159,17 @@ pub mod spin_lock {
             if panicking() {
                 self.0.poison()
             }
+            if let Some(awaiting) = self.0.waiting.upgrade() {
+                match awaiting.lock() {
+                    Ok(mut gaurd) => {
+                        if let Some(waker) = gaurd.take() {
+                            waker.wake()
+                        }
+                    }
+                    Err(_) => {}
+                }
+            }
+
             self.0.release_lock()
         }
     }

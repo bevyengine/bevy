@@ -1,7 +1,6 @@
 use std::sync::atomic::{AtomicBool, Ordering};
-use bevy_internal::app::App;
-use bevy_internal::core::TaskPoolPlugin;
-use bevy_internal::prelude::Plugin;
+use bevy_app::{App, Plugin};
+use bevy_core::TaskPoolPlugin;
 
 pub(crate) static PLUGIN_INIT: InitChecker = InitChecker::new();
 
@@ -21,11 +20,16 @@ impl InitChecker {
     }
 }
 
-pub struct SocketManagerPlugin {}
+#[derive(Default)]
+pub struct SocketManagerPlugin;
 
 impl Plugin for SocketManagerPlugin {
     fn build(&self, app: &mut App) {
-        PLUGIN_INIT.set_init();
-        todo!()
+        if app.is_plugin_added::<TaskPoolPlugin>() {
+            PLUGIN_INIT.set_init();
+        } else {
+            app.add_plugins(TaskPoolPlugin::default());
+            PLUGIN_INIT.set_init();
+        }
     }
 }

@@ -5,21 +5,22 @@ edition = "2021"
 
 [dependencies]
 bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
-bevy_internal = { path = "../bevy_internal", version = "0.14.0-dev" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
-bevy_core = {path = "../bevy_core", version = "0.14.0-dev" }
+bevy_core = { path = "../bevy_core", version = "0.14.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
 static_init = "1.0.3"
-
+futures = "0.3.30"
 
 quinn = { version = "0.11.2", optional = true }
-async-net = { version = "2.0.0" , optional = true }
 
 [features]
+default = []
 
-Udp = ["async-net"]
-Tcp = ["async-net"]
+Udp = []
+Tcp = []
 QUIC = ["quinn"]
-
+multithreaded = []
 
 [lints]
 workspace = true
