@@ -5,10 +5,11 @@ use crate::{
 use bevy_asset::Handle;
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{bundle::Bundle, component::Component, reflect::ReflectComponent};
+use bevy_math::primitives::Frustum;
 use bevy_reflect::Reflect;
 use bevy_render::{
     mesh::Mesh,
-    primitives::{CascadesFrusta, CubemapFrusta, Frustum},
+    primitives::{CascadesFrusta, CubemapFrusta},
     view::{InheritedVisibility, ViewVisibility, Visibility, VisibleEntities},
 };
 use bevy_transform::components::{GlobalTransform, Transform};

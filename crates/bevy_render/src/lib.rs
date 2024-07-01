@@ -25,6 +25,10 @@ pub mod gpu_component_array_buffer;
 pub mod mesh;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod pipelined_rendering;
+/// Primitives are being consolidated in [issue 13931],
+/// so this should eventually be removed.
+///
+/// [issue 13931]: https://github.com/bevyengine/bevy/issues/13931
 pub mod primitives;
 pub mod render_asset;
 pub mod render_graph;
@@ -354,10 +358,10 @@ impl Plugin for RenderPlugin {
         app.register_type::<alpha::AlphaMode>()
             // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy
             .register_type::<bevy_color::Color>()
-            .register_type::<primitives::Aabb>()
+            .register_type::<bevy_math::primitives::legacy_bevy_render::Aabb>()
             .register_type::<primitives::CascadesFrusta>()
             .register_type::<primitives::CubemapFrusta>()
-            .register_type::<primitives::Frustum>();
+            .register_type::<bevy_math::primitives::Frustum>();
     }
 
     fn ready(&self, app: &App) -> bool {

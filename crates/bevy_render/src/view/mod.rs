@@ -12,7 +12,6 @@ use crate::{
     },
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::Shader,
-    primitives::Frustum,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
@@ -26,7 +25,9 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_color::LinearRgba;
 use bevy_ecs::prelude::*;
-use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
+use bevy_math::{
+    mat3, primitives::Frustum, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles,
+};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;

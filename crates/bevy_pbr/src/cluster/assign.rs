@@ -4,10 +4,15 @@ use bevy_ecs::{
     entity::Entity,
     system::{Commands, Local, Query, Res, ResMut},
 };
-use bevy_math::{Mat4, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles as _, Vec4, Vec4Swizzles as _};
+use bevy_math::{
+    primitives::{
+        legacy_bevy_render::{Aabb, Sphere},
+        Frustum, HalfSpace,
+    },
+    Mat4, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles as _, Vec4, Vec4Swizzles as _,
+};
 use bevy_render::{
     camera::Camera,
-    primitives::{Aabb, Frustum, HalfSpace, Sphere},
     render_resource::BufferBindingType,
     renderer::RenderDevice,
     view::{RenderLayers, ViewVisibility},

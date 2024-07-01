@@ -12,8 +12,8 @@ use bevy_ecs::{
     schedule::IntoSystemConfigs,
     system::{Query, Res},
 };
+use bevy_math::primitives::legacy_bevy_render::Aabb;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::primitives::Aabb;
 use bevy_transform::{
     components::{GlobalTransform, Transform},
     TransformSystem,

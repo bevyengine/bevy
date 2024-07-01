@@ -7,11 +7,8 @@
 //!
 //! If you want to hot reload asset changes, enable the `file_watcher` cargo feature.
 
-use bevy::{
-    math::Vec3A,
-    prelude::*,
-    render::primitives::{Aabb, Sphere},
-};
+use bevy::math::primitives::legacy_bevy_render::Sphere;
+use bevy::{math::Vec3A, prelude::*};
 
 #[path = "../../helpers/camera_controller.rs"]
 mod camera_controller;
@@ -22,6 +19,7 @@ mod morph_viewer_plugin;
 mod scene_viewer_plugin;
 
 use camera_controller::{CameraController, CameraControllerPlugin};
+use legacy_bevy_render::Aabb;
 use morph_viewer_plugin::MorphViewerPlugin;
 use scene_viewer_plugin::{SceneHandle, SceneViewerPlugin};
 

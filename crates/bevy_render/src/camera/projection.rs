@@ -1,10 +1,10 @@
 use std::marker::PhantomData;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 
-use crate::primitives::Frustum;
 use crate::view::VisibilitySystems;
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::prelude::*;
+use bevy_math::primitives::Frustum;
 use bevy_math::{AspectRatio, Mat4, Rect, Vec2, Vec3A};
 use bevy_reflect::{
     std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,

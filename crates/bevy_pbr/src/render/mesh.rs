@@ -13,7 +13,7 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
+use bevy_math::{primitives::legacy_bevy_render::Aabb, Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_render::{
     batching::{
         gpu_preprocessing::{
@@ -23,7 +23,6 @@ use bevy_render::{
     },
     camera::Camera,
     mesh::*,
-    primitives::Aabb,
     render_asset::RenderAssets,
     render_phase::{
         BinnedRenderPhasePlugin, PhaseItem, RenderCommand, RenderCommandResult,

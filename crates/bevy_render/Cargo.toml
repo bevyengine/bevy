@@ -49,7 +49,10 @@ bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.14.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
 bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.14.0-dev" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.14.0-dev", features = [
+  "bevy_ecs",
+  "bevy_reflect",
+] }
 bevy_mikktspace = { path = "../bevy_mikktspace", version = "0.14.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
   "bevy",

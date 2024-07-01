@@ -3,11 +3,11 @@ use crate::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::prelude::*;
+use bevy_math::primitives::Frustum;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{
     camera::{Camera, CameraMainTextureUsages, CameraRenderGraph, Exposure, Projection},
     extract_component::ExtractComponent,
-    primitives::Frustum,
     render_resource::{LoadOp, TextureUsages},
     view::{ColorGrading, VisibleEntities},
 };

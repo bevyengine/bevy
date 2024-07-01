@@ -3,6 +3,10 @@ mod render_layers;
 
 use std::any::TypeId;
 
+use bevy_math::primitives::{
+    legacy_bevy_render::{Aabb, Sphere},
+    Frustum,
+};
 pub use range::*;
 pub use render_layers::*;
 
@@ -18,7 +22,6 @@ use bevy_utils::{Parallel, TypeIdMap};
 use crate::{
     camera::{Camera, CameraProjection},
     mesh::Mesh,
-    primitives::{Aabb, Frustum, Sphere},
 };
 
 use super::NoCpuCulling;
