@@ -1378,6 +1378,52 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         }
     }
 
+    /// Returns a [`QueryLens`] that will iterate over the same tables, archtetypes, and entities as the original
+    /// query, but which also includes the [`Entity`] in the response data.
+    ///
+    /// For example, a `Query<&Transform>` can be turned into a `QueryLens<(Entity, &Transform)>`.
+    ///
+    /// This method is just a convenience wrapper around [`Query::transmute_lens_filtered`], but it will not panic
+    /// because adding/removing [`Entity`] from a query is always permitted.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::system::QueryLens;
+    /// #
+    /// # #[derive(Component, Clone, Copy)]
+    /// # struct Transform;
+    /// #
+    /// #[derive(Component)]
+    /// struct Player {
+    ///     teleport_destination: Option<Transform>,
+    /// }
+    /// #
+    /// # let mut world = World::default();
+    /// # world.spawn((Transform, Player { teleport_destination: None }));
+    /// # world.spawn((Transform, Player { teleport_destination: Some(Transform) }));
+    ///
+    /// fn system(
+    ///     mut transforms: Query<&mut Transform>,
+    ///     mut players: Query<&Player>,
+    /// ) {
+    ///     for (player_entity, player_info) in players.with_entity().iter() {
+    ///         if let Some(teleport_destination) = player_info.teleport_destination {
+    ///             *transforms.get_mut(player_entity).unwrap() = teleport_destination;
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// # let mut schedule = Schedule::default();
+    /// # schedule.add_systems(system);
+    /// # schedule.run(&mut world);
+    /// ```
+    #[track_caller]
+    pub fn with_entity(&mut self) -> QueryLens<'_, (Entity, D), F> {
+        self.transmute_lens_filtered()
+    }
+
     /// Gets a [`QueryLens`] with the same accesses as the existing query
     pub fn as_query_lens(&mut self) -> QueryLens<'_, D> {
         self.transmute_lens()
