@@ -1,6 +1,6 @@
 use crate::derive_data::{EnumVariantFields, ReflectEnum, StructField};
 use crate::enum_utility::{EnumVariantOutputData, TryApplyVariantBuilder, VariantBuilder};
-use crate::impls::{impl_type_path, impl_typed};
+use crate::impls::{impl_function_traits, impl_type_path, impl_typed};
 use bevy_macro_utils::fq_std::{FQAny, FQBox, FQOption, FQResult};
 use proc_macro2::{Ident, Span};
 use quote::quote;
@@ -65,6 +65,8 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
     let type_path_impl = impl_type_path(reflect_enum.meta());
 
+    let function_impls = impl_function_traits(reflect_enum.meta(), &where_clause_options);
+
     let get_type_registration_impl = reflect_enum.get_type_registration(&where_clause_options);
 
     let (impl_generics, ty_generics, where_clause) =
@@ -78,6 +80,8 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
         #typed_impl
 
         #type_path_impl
+
+        #function_impls
 
         impl #impl_generics #bevy_reflect_path::Enum for #enum_path #ty_generics #where_reflect_clause {
             fn field(&self, #ref_name: &str) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {

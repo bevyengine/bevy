@@ -2153,6 +2153,17 @@ category = "Reflection"
 wasm = false
 
 [[example]]
+name = "function_reflection"
+path = "examples/reflection/function_reflection.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.function_reflection]
+name = "Function Reflection"
+description = "Demonstrates how functions can be called dynamically using reflection"
+category = "Reflection"
+wasm = false
+
+[[example]]
 name = "generic_reflection"
 path = "examples/reflection/generic_reflection.rs"
 doc-scrape-examples = true
