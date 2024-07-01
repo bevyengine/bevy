@@ -652,9 +652,7 @@ impl<'a> ReflectEnum<'a> {
 
     /// Get an iterator of fields which are exposed to the reflection API
     pub fn active_fields(&self) -> impl Iterator<Item = &StructField<'a>> {
-        self.variants
-            .iter()
-            .flat_map(EnumVariant::active_fields)
+        self.variants.iter().flat_map(EnumVariant::active_fields)
     }
 
     pub fn where_clause_options(&self) -> WhereClauseOptions {

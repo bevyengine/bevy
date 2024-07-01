@@ -790,7 +790,7 @@ pub fn check_dir_light_mesh_visibility(
                     .get_mut(view)
                     .unwrap()
                     .iter_mut()
-                    .map(|v| v.get_mut::<WithMesh>())
+                    .map(VisibleEntities::get_mut::<WithMesh>)
                     .zip(entities.iter_mut())
                     .for_each(|(dst, source)| {
                         dst.append(source);
@@ -940,7 +940,7 @@ pub fn check_point_light_mesh_visibility(
                 for entities in cubemap_visible_entities_queue.iter_mut() {
                     cubemap_visible_entities
                         .iter_mut()
-                        .map(|v| v.get_mut::<WithMesh>())
+                        .map(VisibleEntities::get_mut::<WithMesh>)
                         .zip(entities.iter_mut())
                         .for_each(|(dst, source)| dst.append(source));
                 }

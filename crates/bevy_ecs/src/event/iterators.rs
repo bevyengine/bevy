@@ -3,7 +3,10 @@ use crate as bevy_ecs;
 use bevy_ecs::batching::BatchingStrategy;
 use bevy_ecs::event::{Event, EventId, EventInstance, Events, ManualEventReader};
 use bevy_utils::detailed_trace;
-use std::{iter::Chain, slice::{ChunksExact, Iter}};
+use std::{
+    iter::Chain,
+    slice::{ChunksExact, Iter},
+};
 
 /// An iterator that yields any unread events from an [`EventReader`] or [`ManualEventReader`].
 #[derive(Debug)]

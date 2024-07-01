@@ -22,11 +22,7 @@ pub(crate) fn get_base_path() -> PathBuf {
         PathBuf::from(manifest_dir)
     } else {
         env::current_exe()
-            .map(|path| {
-                path.parent()
-                    .map(ToOwned::to_owned)
-                    .unwrap()
-            })
+            .map(|path| path.parent().map(ToOwned::to_owned).unwrap())
             .unwrap()
     }
 }

@@ -949,7 +949,8 @@ impl AssetServer {
     /// Consider using [`Assets::get_strong_handle`] in the case the `Handle`
     /// comes from [`Assets::add`].
     pub fn get_id_handle<A: Asset>(&self, id: AssetId<A>) -> Option<Handle<A>> {
-        self.get_id_handle_untyped(id.untyped()).map(UntypedHandle::typed)
+        self.get_id_handle_untyped(id.untyped())
+            .map(UntypedHandle::typed)
     }
 
     /// Get an `UntypedHandle` from an `UntypedAssetId`.

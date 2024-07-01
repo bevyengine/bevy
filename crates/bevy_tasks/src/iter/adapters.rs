@@ -199,9 +199,12 @@ where
     P: ParallelIterator<B> + Clone,
 {
     fn next_batch(&mut self) -> Option<B> {
-        self.curr.as_mut().and_then(ParallelIterator::next_batch).or_else(|| {
-            self.curr = Some(self.iter.clone());
-            self.next_batch()
-        })
+        self.curr
+            .as_mut()
+            .and_then(ParallelIterator::next_batch)
+            .or_else(|| {
+                self.curr = Some(self.iter.clone());
+                self.next_batch()
+            })
     }
 }
