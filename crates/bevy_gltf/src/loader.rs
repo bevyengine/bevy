@@ -6,7 +6,7 @@ use crate::{
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{AnimationTarget, AnimationTargetId};
 use bevy_asset::{
-    io::Reader, AssetLoadError, AssetLoader, AsyncReadExt, Handle, LoadContext, ReadAssetBytesError,
+    io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
 };
 use bevy_color::{Color, LinearRgba};
 use bevy_core::Name;
@@ -176,7 +176,7 @@ impl AssetLoader for GltfLoader {
     type Error = GltfError;
     async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader<'_>,
+        reader: &'a mut dyn Reader,
         settings: &'a GltfLoaderSettings,
         load_context: &'a mut LoadContext<'_>,
     ) -> Result<Gltf, Self::Error> {
