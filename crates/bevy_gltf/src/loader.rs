@@ -815,7 +815,7 @@ async fn load_image<'a, 'b>(
     #[cfg(all(debug_assertions, feature = "dds"))]
     let name = gltf_texture
         .name()
-        .map_or("Unknown GLTF Texture".to_string(), |s| s.to_string());
+        .map_or("Unknown GLTF Texture".to_string(), ToString::to_string);
     match gltf_texture.source().source() {
         gltf::image::Source::View { view, mime_type } => {
             let start = view.offset();
