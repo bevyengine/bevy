@@ -1,7 +1,7 @@
 use bevy_asset::{
     io::{Reader, Writer},
     saver::{AssetSaver, SavedAsset},
-    Asset, AssetLoader, AsyncReadExt, AsyncWriteExt, LoadContext,
+    Asset, AssetLoader, AsyncWriteExt, LoadContext,
 };
 use bevy_math::Vec3;
 use bevy_reflect::TypePath;
