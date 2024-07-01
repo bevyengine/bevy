@@ -1183,9 +1183,7 @@ where
     }
 }
 
-/// An error that occurred while trying to extract a collection of triangles from a [Mesh].
-///
-/// [Mesh]: `Mesh`
+/// An error that occurred while trying to extract a collection of triangles from a [`Mesh`].
 #[derive(Debug, Error)]
 pub enum MeshTrianglesError {
     #[error("Source mesh does not have primitive topology TriangleList or TriangleStrip")]
