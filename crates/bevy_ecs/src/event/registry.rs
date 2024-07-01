@@ -104,7 +104,7 @@ impl EventRegistry {
         }
     }
 
-    /// Removes an event from the world and it's associated EventRegistry
+    /// Removes an event from the world and it's associated [`EventRegistry`].
     pub fn deregister_events<T: Event>(world: &mut World) {
         let component_id = world.init_resource::<Events<T>>();
         let mut registry = world.get_resource_or_insert_with(Self::default);
