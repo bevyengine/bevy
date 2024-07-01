@@ -5,7 +5,6 @@ use crate::{
     change_detection::{Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Tick},
     entity::Entities,
-    prelude::QueryBuilder,
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QueryState,
         ReadOnlyQueryData,
@@ -181,19 +180,6 @@ pub unsafe trait SystemParam: Sized {
     ) -> Self::Item<'world, 'state>;
 }
 
-/// A parameter that can be built with [`SystemBuilder`](crate::system::builder::SystemBuilder)
-pub trait BuildableSystemParam: SystemParam {
-    /// A mutable reference to this type will be passed to the builder function
-    type Builder<'b>;
-
-    /// Constructs [`SystemParam::State`] for `Self` using a given builder function
-    fn build(
-        world: &mut World,
-        meta: &mut SystemMeta,
-        func: impl FnOnce(&mut Self::Builder<'_>),
-    ) -> Self::State;
-}
-
 /// A [`SystemParam`] that only reads a given [`World`].
 ///
 /// # Safety
@@ -217,17 +203,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let state = QueryState::new_with_access(world, &mut system_meta.archetype_component_access);
-        assert_component_access_compatibility(
-            &system_meta.name,
-            std::any::type_name::<D>(),
-            std::any::type_name::<F>(),
-            &system_meta.component_access_set,
-            &state.component_access,
-            world,
-        );
-        system_meta
-            .component_access_set
-            .add(state.component_access.clone());
+        init_query_param(world, system_meta, &state);
         state
     }
 
@@ -253,33 +229,22 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     }
 }
 
-impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static> BuildableSystemParam
-    for Query<'w, 's, D, F>
-{
-    type Builder<'b> = QueryBuilder<'b, D, F>;
-
-    #[inline]
-    fn build(
-        world: &mut World,
-        system_meta: &mut SystemMeta,
-        build: impl FnOnce(&mut Self::Builder<'_>),
-    ) -> Self::State {
-        let mut builder = QueryBuilder::new(world);
-        build(&mut builder);
-        let state = builder.build();
-        assert_component_access_compatibility(
-            &system_meta.name,
-            std::any::type_name::<D>(),
-            std::any::type_name::<F>(),
-            &system_meta.component_access_set,
-            &state.component_access,
-            world,
-        );
-        system_meta
-            .component_access_set
-            .add(state.component_access.clone());
-        state
-    }
+pub(crate) fn init_query_param<D: QueryData + 'static, F: QueryFilter + 'static>(
+    world: &mut World,
+    system_meta: &mut SystemMeta,
+    state: &QueryState<D, F>,
+) {
+    assert_component_access_compatibility(
+        &system_meta.name,
+        std::any::type_name::<D>(),
+        std::any::type_name::<F>(),
+        &system_meta.component_access_set,
+        &state.component_access,
+        world,
+    );
+    system_meta
+        .component_access_set
+        .add(state.component_access.clone());
 }
 
 fn assert_component_access_compatibility(
@@ -851,20 +816,6 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
     }
 }
 
-impl<'w, T: FromWorld + Send + 'static> BuildableSystemParam for Local<'w, T> {
-    type Builder<'b> = T;
-
-    fn build(
-        world: &mut World,
-        _meta: &mut SystemMeta,
-        func: impl FnOnce(&mut Self::Builder<'_>),
-    ) -> Self::State {
-        let mut value = T::from_world(world);
-        func(&mut value);
-        SyncCell::new(value)
-    }
-}
-
 /// Types that can be used with [`Deferred<T>`] in systems.
 /// This allows storing system-local data which is used to defer [`World`] mutations.
 ///
@@ -1424,6 +1375,136 @@ unsafe impl SystemParam for SystemChangeTick {
             last_run: system_meta.last_run,
             this_run: change_tick,
         }
+    }
+}
+
+// SAFETY: `init_state` does no access.  The interesting safety checks are on the `SystemParamBuilder`.
+unsafe impl<T: SystemParam> SystemParam for Vec<T> {
+    type State = Vec<T::State>;
+
+    type Item<'world, 'state> = Vec<T::Item<'world, 'state>>;
+
+    fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
+        Vec::new()
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        state
+            .iter_mut()
+            // SAFETY:
+            // - We initialized the state for each parameter in the builder, so the caller ensures we have access to any world data needed by each param.
+            // - The caller ensures this was the world used to initialize our state, and we used that world to initialize parameter states
+            .map(|state| unsafe { T::get_param(state, system_meta, world, change_tick) })
+            .collect()
+    }
+
+    unsafe fn new_archetype(
+        state: &mut Self::State,
+        archetype: &Archetype,
+        system_meta: &mut SystemMeta,
+    ) {
+        for state in state {
+            // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
+            unsafe { T::new_archetype(state, archetype, system_meta) };
+        }
+    }
+
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+        for state in state {
+            T::apply(state, system_meta, world);
+        }
+    }
+
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+        for state in state {
+            T::queue(state, system_meta, world.reborrow());
+        }
+    }
+}
+
+// SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
+// with any prior access, a panic will occur.
+unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
+    type State = Vec<T::State>;
+
+    type Item<'world, 'state> = ParamSet<'world, 'state, Vec<T>>;
+
+    fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
+        Vec::new()
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        ParamSet {
+            param_states: state,
+            system_meta: system_meta.clone(),
+            world,
+            change_tick,
+        }
+    }
+
+    unsafe fn new_archetype(
+        state: &mut Self::State,
+        archetype: &Archetype,
+        system_meta: &mut SystemMeta,
+    ) {
+        for state in state {
+            // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
+            unsafe { T::new_archetype(state, archetype, system_meta) }
+        }
+    }
+
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+        for state in state {
+            T::apply(state, system_meta, world);
+        }
+    }
+
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+        for state in state {
+            T::queue(state, system_meta, world.reborrow());
+        }
+    }
+}
+
+impl<T: SystemParam> ParamSet<'_, '_, Vec<T>> {
+    /// Accesses the parameter at the given index.
+    /// No other parameters may be accessed while this one is active.
+    pub fn get_mut(&mut self, index: usize) -> T::Item<'_, '_> {
+        // SAFETY:
+        // - We initialized the state for each parameter in the builder, so the caller ensures we have access to any world data needed by any param.
+        //   We have mutable access to the ParamSet, so no other params in the set are active.
+        // - The caller of `get_param` ensured that this was the world used to initialize our state, and we used that world to initialize parameter states
+        unsafe {
+            T::get_param(
+                &mut self.param_states[index],
+                &self.system_meta,
+                self.world,
+                self.change_tick,
+            )
+        }
+    }
+
+    /// Calls a closure for each parameter in the set.
+    pub fn for_each(&mut self, mut f: impl FnMut(T::Item<'_, '_>)) {
+        self.param_states.iter_mut().for_each(|state| {
+            f(
+                // SAFETY:
+                // - We initialized the state for each parameter in the builder, so the caller ensures we have access to any world data needed by any param.
+                //   We have mutable access to the ParamSet, so no other params in the set are active.
+                // - The caller of `get_param` ensured that this was the world used to initialize our state, and we used that world to initialize parameter states
+                unsafe { T::get_param(state, &self.system_meta, self.world, self.change_tick) },
+            );
+        });
     }
 }
 
