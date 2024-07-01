@@ -1085,12 +1085,7 @@ impl Mesh {
     /// * The Mesh's position data has the wrong format (not `Float32x3`).
     ///
     /// [primitive topology]: PrimitiveTopology
-    pub fn triangles<'a, 'b>(
-        &'a self,
-    ) -> Result<impl Iterator<Item = Triangle3d> + 'b, MeshTrianglesError>
-    where
-        'a: 'b,
-    {
+    pub fn triangles(&self) -> Result<impl Iterator<Item = Triangle3d> + '_, MeshTrianglesError> {
         let Some(position_data) = self.attribute(Mesh::ATTRIBUTE_POSITION) else {
             return Err(MeshTrianglesError::MissingPositions);
         };
