@@ -108,7 +108,7 @@ fn did_despawn_enemy() {
 
     // Get `EnemyDied` event reader
     let enemy_died_events = app.world().resource::<Events<EnemyDied>>();
-    let mut enemy_died_reader = enemy_died_events.get_reader();
+    let mut enemy_died_reader = enemy_died_events.get_cursor();
     let enemy_died = enemy_died_reader.read(enemy_died_events).next().unwrap();
 
     // Check the event has been sent
