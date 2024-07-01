@@ -91,7 +91,9 @@ pub type FunctionResult<'a> = Result<Return<'a>, FunctionError>;
 /// ```
 pub struct DynamicFunction<'env> {
     info: FunctionInfo,
-    func: Box<dyn for<'a> FnMut(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'env>,
+    func: Box<
+        dyn for<'a> FnMut(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + Send + Sync + 'env,
+    >,
 }
 
 impl<'env> DynamicFunction<'env> {
@@ -101,7 +103,9 @@ impl<'env> DynamicFunction<'env> {
     ///
     /// It's important that the function signature matches the provided [`FunctionInfo`].
     /// This info is used to validate the arguments and return value.
-    pub fn new<F: for<'a> FnMut(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'env>(
+    pub fn new<
+        F: for<'a> FnMut(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + Send + Sync + 'env,
+    >(
         func: F,
         info: FunctionInfo,
     ) -> Self {

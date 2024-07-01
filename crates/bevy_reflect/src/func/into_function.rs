@@ -118,6 +118,7 @@ macro_rules! impl_into_function {
             R: $crate::func::IntoReturn + $crate::func::args::GetOwnership + $crate::TypePath,
             F: FnMut($($Arg),*) -> R + 'env,
             F: for<'a> FnMut($($Arg::Item<'a>),*) -> R + 'env,
+            F: Send + Sync,
         {
             fn into_function(mut self) -> $crate::func::DynamicFunction<'env> {
                 const COUNT: usize = count_tts!($($Arg)*);
@@ -166,6 +167,7 @@ macro_rules! impl_into_function {
             $($Arg: $crate::func::args::FromArg + $crate::func::args::GetOwnership + $crate::TypePath,)*
             F: for<'a> FnMut(&'a Receiver, $($Arg),*) -> &'a R + 'env,
             F: for<'a> FnMut(&'a Receiver, $($Arg::Item<'a>),*) -> &'a R + 'env,
+            F: Send + Sync,
         {
             fn into_function(mut self) -> $crate::func::DynamicFunction<'env> {
                 const COUNT: usize = count_tts!(Receiver $($Arg)*);
@@ -217,6 +219,7 @@ macro_rules! impl_into_function {
             $($Arg: $crate::func::args::FromArg + $crate::func::args::GetOwnership + $crate::TypePath,)*
             F: for<'a> FnMut(&'a mut Receiver, $($Arg),*) -> &'a mut R + 'env,
             F: for<'a> FnMut(&'a mut Receiver, $($Arg::Item<'a>),*) -> &'a mut R + 'env,
+            F: Send + Sync,
         {
             fn into_function(mut self) -> $crate::func::DynamicFunction<'env> {
                 const COUNT: usize = count_tts!(Receiver $($Arg)*);
@@ -268,6 +271,7 @@ macro_rules! impl_into_function {
             $($Arg: $crate::func::args::FromArg + $crate::func::args::GetOwnership + $crate::TypePath,)*
             F: for<'a> FnMut(&'a mut Receiver, $($Arg),*) -> &'a R + 'env,
             F: for<'a> FnMut(&'a mut Receiver, $($Arg::Item<'a>),*) -> &'a R + 'env,
+            F: Send + Sync,
         {
             fn into_function(mut self) -> $crate::func::DynamicFunction<'env> {
                 const COUNT: usize = count_tts!(Receiver $($Arg)*);
