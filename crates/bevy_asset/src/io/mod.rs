@@ -103,6 +103,15 @@ pub trait Reader: AsyncRead + AsyncSeek + Unpin + Send + Sync {
     }
 }
 
+impl Reader for Box<dyn Reader + '_> {
+    fn read_to_end<'a>(
+        &'a mut self,
+        buf: &'a mut Vec<u8>,
+    ) -> StackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
+        (**self).read_to_end(buf)
+    }
+}
+
 /// A future that returns a type implementing [`Reader`].
 pub trait ReaderFuture<'a>:
     ConditionalSendFuture<Output = Result<Self::Reader, AssetReaderError>>
