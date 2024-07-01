@@ -382,7 +382,7 @@ mod tests {
 
         async fn load<'a>(
             &'a self,
-            _: &'a mut crate::io::Reader<'_>,
+            _: &'a mut dyn crate::io::Reader<'_>,
             _: &'a Self::Settings,
             _: &'a mut crate::LoadContext<'_>,
         ) -> Result<Self::Asset, Self::Error> {
