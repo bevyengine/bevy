@@ -437,11 +437,11 @@ fn upload_light_probes(
             reflection_probes: [RenderLightProbe::default(); MAX_VIEW_LIGHT_PROBES],
             irradiance_volumes: [RenderLightProbe::default(); MAX_VIEW_LIGHT_PROBES],
             reflection_probe_count: render_view_environment_maps
-                .map(|maps| maps.len())
+                .map(RenderViewLightProbes::len)
                 .unwrap_or_default()
                 .min(MAX_VIEW_LIGHT_PROBES) as i32,
             irradiance_volume_count: render_view_irradiance_volumes
-                .map(|maps| maps.len())
+                .map(RenderViewLightProbes::len)
                 .unwrap_or_default()
                 .min(MAX_VIEW_LIGHT_PROBES) as i32,
             view_cubemap_index: render_view_environment_maps

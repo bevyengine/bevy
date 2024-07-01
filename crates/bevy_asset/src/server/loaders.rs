@@ -212,7 +212,7 @@ impl AssetLoaders {
         }
 
         // Try extracting the extension from the path
-        if let Some(full_extension) = asset_path.and_then(|path| path.get_full_extension()) {
+        if let Some(full_extension) = asset_path.and_then(AssetPath::get_full_extension) {
             if let Some(&index) = try_extension(full_extension.as_str()) {
                 return self.get_by_index(index);
             }

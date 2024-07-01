@@ -156,7 +156,7 @@ mod tests {
 
     #[test]
     fn test_events_clear_and_read() {
-        events_clear_and_read_impl(|events| events.clear());
+        events_clear_and_read_impl(Events::clear);
     }
 
     #[test]

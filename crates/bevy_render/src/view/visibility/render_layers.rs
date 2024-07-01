@@ -43,7 +43,7 @@ impl std::fmt::Debug for RenderLayers {
 
 impl FromIterator<Layer> for RenderLayers {
     fn from_iter<T: IntoIterator<Item = Layer>>(i: T) -> Self {
-        i.into_iter().fold(Self::none(), |mask, g| mask.with(g))
+        i.into_iter().fold(Self::none(), RenderLayers::with)
     }
 }
 

@@ -483,7 +483,7 @@ pub fn tuple_struct_debug(
     let mut debug = f.debug_tuple(
         dyn_tuple_struct
             .get_represented_type_info()
-            .map(|s| s.type_path())
+            .map(TypeInfo::type_path)
             .unwrap_or("_"),
     );
     for field in dyn_tuple_struct.iter_fields() {

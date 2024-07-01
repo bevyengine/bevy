@@ -31,7 +31,7 @@ fn calc_name(texts: &Query<&Text>, children: &Children) -> Option<Box<str>> {
             name = Some(values.join(" "));
         }
     }
-    name.map(|v| v.into_boxed_str())
+    name.map(String::into_boxed_str)
 }
 
 fn calc_bounds(

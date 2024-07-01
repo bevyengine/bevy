@@ -713,7 +713,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 warn!(
                     "The glTF skin {:?} has {} joints, but the maximum supported is {}",
                     skin.name()
-                        .map(|name| name.to_string())
+                        .map(ToString::to_string)
                         .unwrap_or_else(|| skin.index().to_string()),
                     joint_entities.len(),
                     MAX_JOINTS
@@ -790,7 +790,7 @@ fn node_transform(node: &Node) -> Transform {
 fn node_name(node: &Node) -> Name {
     let name = node
         .name()
-        .map(|s| s.to_string())
+        .map(ToString::to_string)
         .unwrap_or_else(|| format!("GltfNode{}", node.index()));
     Name::new(name)
 }
@@ -828,7 +828,7 @@ async fn load_image<'a, 'b>(
     #[cfg(all(debug_assertions, feature = "dds"))]
     let name = gltf_texture
         .name()
-        .map_or("Unknown GLTF Texture".to_string(), |s| s.to_string());
+        .map_or("Unknown GLTF Texture".to_string(), ToString::to_string);
     match gltf_texture.source().source() {
         gltf::image::Source::View { view, mime_type } => {
             let start = view.offset();
@@ -1778,17 +1778,17 @@ impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
     type Item = MorphAttributes;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let position = self.0 .0.as_mut().and_then(|p| p.next());
-        let normal = self.0 .1.as_mut().and_then(|n| n.next());
-        let tangent = self.0 .2.as_mut().and_then(|t| t.next());
+        let position = self.0 .0.as_mut().and_then(Iterator::next);
+        let normal = self.0 .1.as_mut().and_then(Iterator::next);
+        let tangent = self.0 .2.as_mut().and_then(Iterator::next);
         if position.is_none() && normal.is_none() && tangent.is_none() {
             return None;
         }
 
         Some(MorphAttributes {
-            position: position.map(|p| p.into()).unwrap_or(Vec3::ZERO),
-            normal: normal.map(|n| n.into()).unwrap_or(Vec3::ZERO),
-            tangent: tangent.map(|t| t.into()).unwrap_or(Vec3::ZERO),
+            position: position.map(Into::into).unwrap_or(Vec3::ZERO),
+            normal: normal.map(Into::into).unwrap_or(Vec3::ZERO),
+            tangent: tangent.map(Into::into).unwrap_or(Vec3::ZERO),
         })
     }
 }

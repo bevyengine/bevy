@@ -1739,12 +1739,12 @@ mod tests {
 
         let sort_by = query
             .iter(&world)
-            .sort_by::<Entity>(|e1, e2| e1.cmp(e2))
+            .sort_by::<Entity>(Ord::cmp)
             .collect::<Vec<_>>();
 
         let sort_unstable_by = query
             .iter(&world)
-            .sort_unstable_by::<Entity>(|e1, e2| e1.cmp(e2))
+            .sort_unstable_by::<Entity>(Ord::cmp)
             .collect::<Vec<_>>();
 
         let sort_by_key = query
@@ -1769,10 +1769,10 @@ mod tests {
         sort_unstable_v2.sort_unstable();
 
         let mut sort_by_v2 = query.iter(&world).collect::<Vec<_>>();
-        sort_by_v2.sort_by(|e1, e2| e1.cmp(e2));
+        sort_by_v2.sort_by(Ord::cmp);
 
         let mut sort_unstable_by_v2 = query.iter(&world).collect::<Vec<_>>();
-        sort_unstable_by_v2.sort_unstable_by(|e1, e2| e1.cmp(e2));
+        sort_unstable_by_v2.sort_unstable_by(Ord::cmp);
 
         let mut sort_by_key_v2 = query.iter(&world).collect::<Vec<_>>();
         sort_by_key_v2.sort_by_key(|&e| e);
