@@ -15,6 +15,13 @@ use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::slice::Iter;
 
+#[cfg(feature = "debug_stack")]
+thread_local! {
+    static TYPE_INFO_STACK: std::cell::RefCell<crate::type_info_stack::TypeInfoStack> = const { std::cell::RefCell::new(
+        crate::type_info_stack::TypeInfoStack::new()
+    ) };
+}
+
 pub trait DeserializeValue {
     fn deserialize(
         deserializer: &mut dyn Deserializer,
@@ -67,9 +74,10 @@ impl Container for StructInfo {
     ) -> Result<&'a TypeRegistration, E> {
         let field = self.field_at(index).ok_or_else(|| {
             Error::custom(format_args!(
-                "no field at index {} on struct {}",
+                "no field at index `{}` on struct `{}`{}",
                 index,
                 self.type_path(),
+                get_stack_string(),
             ))
         })?;
         get_registration(field.type_id(), field.type_path(), registry)
@@ -102,9 +110,10 @@ impl Container for StructVariantInfo {
     ) -> Result<&'a TypeRegistration, E> {
         let field = self.field_at(index).ok_or_else(|| {
             Error::custom(format_args!(
-                "no field at index {} on variant {}",
+                "no field at index `{}` on variant `{}`{}",
                 index,
                 self.name(),
+                get_stack_string(),
             ))
         })?;
         get_registration(field.type_id(), field.type_path(), registry)
@@ -125,9 +134,10 @@ impl Container for TupleInfo {
     ) -> Result<&'a TypeRegistration, E> {
         let field = self.field_at(index).ok_or_else(|| {
             Error::custom(format_args!(
-                "no field at index {} on tuple {}",
+                "no field at index `{}` on tuple `{}`{}",
                 index,
                 self.type_path(),
+                get_stack_string(),
             ))
         })?;
         get_registration(field.type_id(), field.type_path(), registry)
@@ -148,9 +158,10 @@ impl Container for TupleStructInfo {
     ) -> Result<&'a TypeRegistration, E> {
         let field = self.field_at(index).ok_or_else(|| {
             Error::custom(format_args!(
-                "no field at index {} on tuple struct {}",
+                "no field at index `{}` on tuple struct `{}`{}",
                 index,
                 self.type_path(),
+                get_stack_string(),
             ))
         })?;
         get_registration(field.type_id(), field.type_path(), registry)
@@ -171,9 +182,10 @@ impl Container for TupleVariantInfo {
     ) -> Result<&'a TypeRegistration, E> {
         let field = self.field_at(index).ok_or_else(|| {
             Error::custom(format_args!(
-                "no field at index {} on tuple variant {}",
+                "no field at index `{}` on tuple variant `{}`{}",
                 index,
                 self.name(),
+                get_stack_string(),
             ))
         })?;
         get_registration(field.type_id(), field.type_path(), registry)
@@ -279,7 +291,11 @@ impl<'a, 'de> DeserializeSeed<'de> for TypeRegistrationDeserializer<'a> {
                 E: Error,
             {
                 self.0.get_with_type_path(type_path).ok_or_else(|| {
-                    Error::custom(format_args!("No registration found for `{type_path}`"))
+                    let stack_str = get_stack_string();
+
+                    Error::custom(format_args!(
+                        "no registration found for `{type_path}`{stack_str}"
+                    ))
                 })
             }
         }
@@ -404,10 +420,10 @@ impl<'a, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a> {
                     .next_key_seed(TypeRegistrationDeserializer::new(self.registry))?
                     .ok_or_else(|| Error::invalid_length(0, &"a single entry"))?;
 
-                let value = map.next_value_seed(TypedReflectDeserializer {
+                let value = map.next_value_seed(TypedReflectDeserializer::new_internal(
                     registration,
-                    registry: self.registry,
-                })?;
+                    self.registry,
+                ))?;
 
                 if map.next_key::<IgnoredAny>()?.is_some() {
                     return Err(Error::invalid_length(2, &"a single entry"));
@@ -506,6 +522,17 @@ pub struct TypedReflectDeserializer<'a> {
 
 impl<'a> TypedReflectDeserializer<'a> {
     pub fn new(registration: &'a TypeRegistration, registry: &'a TypeRegistry) -> Self {
+        #[cfg(feature = "debug_stack")]
+        TYPE_INFO_STACK.set(crate::type_info_stack::TypeInfoStack::new());
+
+        Self {
+            registration,
+            registry,
+        }
+    }
+
+    /// An internal constructor for creating a deserializer without resetting the type info stack.
+    fn new_internal(registration: &'a TypeRegistration, registry: &'a TypeRegistry) -> Self {
         Self {
             registration,
             registry,
@@ -520,110 +547,124 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
     where
         D: serde::Deserializer<'de>,
     {
-        let type_path = self.registration.type_info().type_path();
+        let deserialize_internal = || -> Result<Self::Value, D::Error> {
+            let type_path = self.registration.type_info().type_path();
 
-        // Handle both Value case and types that have a custom `ReflectDeserialize`
-        if let Some(deserialize_reflect) = self.registration.data::<ReflectDeserialize>() {
-            let value = deserialize_reflect.deserialize(deserializer)?;
-            return Ok(value);
-        }
+            // Handle both Value case and types that have a custom `ReflectDeserialize`
+            if let Some(deserialize_reflect) = self.registration.data::<ReflectDeserialize>() {
+                let value = deserialize_reflect.deserialize(deserializer)?;
+                return Ok(value);
+            }
 
-        match self.registration.type_info() {
-            TypeInfo::Struct(struct_info) => {
-                let mut dynamic_struct = deserializer.deserialize_struct(
-                    struct_info.type_path_table().ident().unwrap(),
-                    struct_info.field_names(),
-                    StructVisitor {
-                        struct_info,
-                        registration: self.registration,
-                        registry: self.registry,
-                    },
-                )?;
-                dynamic_struct.set_represented_type(Some(self.registration.type_info()));
-                Ok(Box::new(dynamic_struct))
-            }
-            TypeInfo::TupleStruct(tuple_struct_info) => {
-                let mut dynamic_tuple_struct = deserializer.deserialize_tuple_struct(
-                    tuple_struct_info.type_path_table().ident().unwrap(),
-                    tuple_struct_info.field_len(),
-                    TupleStructVisitor {
-                        tuple_struct_info,
-                        registry: self.registry,
-                        registration: self.registration,
-                    },
-                )?;
-                dynamic_tuple_struct.set_represented_type(Some(self.registration.type_info()));
-                Ok(Box::new(dynamic_tuple_struct))
-            }
-            TypeInfo::List(list_info) => {
-                let mut dynamic_list = deserializer.deserialize_seq(ListVisitor {
-                    list_info,
-                    registry: self.registry,
-                })?;
-                dynamic_list.set_represented_type(Some(self.registration.type_info()));
-                Ok(Box::new(dynamic_list))
-            }
-            TypeInfo::Array(array_info) => {
-                let mut dynamic_array = deserializer.deserialize_tuple(
-                    array_info.capacity(),
-                    ArrayVisitor {
-                        array_info,
-                        registry: self.registry,
-                    },
-                )?;
-                dynamic_array.set_represented_type(Some(self.registration.type_info()));
-                Ok(Box::new(dynamic_array))
-            }
-            TypeInfo::Map(map_info) => {
-                let mut dynamic_map = deserializer.deserialize_map(MapVisitor {
-                    map_info,
-                    registry: self.registry,
-                })?;
-                dynamic_map.set_represented_type(Some(self.registration.type_info()));
-                Ok(Box::new(dynamic_map))
-            }
-            TypeInfo::Tuple(tuple_info) => {
-                let mut dynamic_tuple = deserializer.deserialize_tuple(
-                    tuple_info.field_len(),
-                    TupleVisitor {
-                        tuple_info,
-                        registration: self.registration,
-                        registry: self.registry,
-                    },
-                )?;
-                dynamic_tuple.set_represented_type(Some(self.registration.type_info()));
-                Ok(Box::new(dynamic_tuple))
-            }
-            TypeInfo::Enum(enum_info) => {
-                let mut dynamic_enum = if enum_info.type_path_table().module_path()
-                    == Some("core::option")
-                    && enum_info.type_path_table().ident() == Some("Option")
-                {
-                    deserializer.deserialize_option(OptionVisitor {
-                        enum_info,
-                        registry: self.registry,
-                    })?
-                } else {
-                    deserializer.deserialize_enum(
-                        enum_info.type_path_table().ident().unwrap(),
-                        enum_info.variant_names(),
-                        EnumVisitor {
-                            enum_info,
+            match self.registration.type_info() {
+                TypeInfo::Struct(struct_info) => {
+                    let mut dynamic_struct = deserializer.deserialize_struct(
+                        struct_info.type_path_table().ident().unwrap(),
+                        struct_info.field_names(),
+                        StructVisitor {
+                            struct_info,
                             registration: self.registration,
                             registry: self.registry,
                         },
-                    )?
-                };
-                dynamic_enum.set_represented_type(Some(self.registration.type_info()));
-                Ok(Box::new(dynamic_enum))
+                    )?;
+                    dynamic_struct.set_represented_type(Some(self.registration.type_info()));
+                    Ok(Box::new(dynamic_struct))
+                }
+                TypeInfo::TupleStruct(tuple_struct_info) => {
+                    let mut dynamic_tuple_struct = deserializer.deserialize_tuple_struct(
+                        tuple_struct_info.type_path_table().ident().unwrap(),
+                        tuple_struct_info.field_len(),
+                        TupleStructVisitor {
+                            tuple_struct_info,
+                            registry: self.registry,
+                            registration: self.registration,
+                        },
+                    )?;
+                    dynamic_tuple_struct.set_represented_type(Some(self.registration.type_info()));
+                    Ok(Box::new(dynamic_tuple_struct))
+                }
+                TypeInfo::List(list_info) => {
+                    let mut dynamic_list = deserializer.deserialize_seq(ListVisitor {
+                        list_info,
+                        registry: self.registry,
+                    })?;
+                    dynamic_list.set_represented_type(Some(self.registration.type_info()));
+                    Ok(Box::new(dynamic_list))
+                }
+                TypeInfo::Array(array_info) => {
+                    let mut dynamic_array = deserializer.deserialize_tuple(
+                        array_info.capacity(),
+                        ArrayVisitor {
+                            array_info,
+                            registry: self.registry,
+                        },
+                    )?;
+                    dynamic_array.set_represented_type(Some(self.registration.type_info()));
+                    Ok(Box::new(dynamic_array))
+                }
+                TypeInfo::Map(map_info) => {
+                    let mut dynamic_map = deserializer.deserialize_map(MapVisitor {
+                        map_info,
+                        registry: self.registry,
+                    })?;
+                    dynamic_map.set_represented_type(Some(self.registration.type_info()));
+                    Ok(Box::new(dynamic_map))
+                }
+                TypeInfo::Tuple(tuple_info) => {
+                    let mut dynamic_tuple = deserializer.deserialize_tuple(
+                        tuple_info.field_len(),
+                        TupleVisitor {
+                            tuple_info,
+                            registration: self.registration,
+                            registry: self.registry,
+                        },
+                    )?;
+                    dynamic_tuple.set_represented_type(Some(self.registration.type_info()));
+                    Ok(Box::new(dynamic_tuple))
+                }
+                TypeInfo::Enum(enum_info) => {
+                    let mut dynamic_enum = if enum_info.type_path_table().module_path()
+                        == Some("core::option")
+                        && enum_info.type_path_table().ident() == Some("Option")
+                    {
+                        deserializer.deserialize_option(OptionVisitor {
+                            enum_info,
+                            registry: self.registry,
+                        })?
+                    } else {
+                        deserializer.deserialize_enum(
+                            enum_info.type_path_table().ident().unwrap(),
+                            enum_info.variant_names(),
+                            EnumVisitor {
+                                enum_info,
+                                registration: self.registration,
+                                registry: self.registry,
+                            },
+                        )?
+                    };
+                    dynamic_enum.set_represented_type(Some(self.registration.type_info()));
+                    Ok(Box::new(dynamic_enum))
+                }
+                TypeInfo::Value(_) => {
+                    let stack_str = get_stack_string();
+
+                    // This case should already be handled
+                    Err(Error::custom(format_args!(
+                        "type `{type_path}` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data`{stack_str}",
+                    )))
+                }
             }
-            TypeInfo::Value(_) => {
-                // This case should already be handled
-                Err(Error::custom(format_args!(
-                    "Type `{type_path}` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data`",
-                )))
-            }
-        }
+        };
+
+        #[cfg(feature = "debug_stack")]
+        TYPE_INFO_STACK.with_borrow_mut(|stack| stack.push_info(self.registration.type_info()));
+
+        let output = deserialize_internal();
+
+        #[cfg(feature = "debug_stack")]
+        TYPE_INFO_STACK.with_borrow_mut(|stack| stack.pop());
+
+        output
     }
 }
 
@@ -725,10 +766,10 @@ impl<'a, 'de> Visitor<'de> for ArrayVisitor<'a> {
             self.array_info.item_type_path_table().path(),
             self.registry,
         )?;
-        while let Some(value) = seq.next_element_seed(TypedReflectDeserializer {
+        while let Some(value) = seq.next_element_seed(TypedReflectDeserializer::new_internal(
             registration,
-            registry: self.registry,
-        })? {
+            self.registry,
+        ))? {
             vec.push(value);
         }
 
@@ -765,10 +806,10 @@ impl<'a, 'de> Visitor<'de> for ListVisitor<'a> {
             self.list_info.item_type_path_table().path(),
             self.registry,
         )?;
-        while let Some(value) = seq.next_element_seed(TypedReflectDeserializer {
+        while let Some(value) = seq.next_element_seed(TypedReflectDeserializer::new_internal(
             registration,
-            registry: self.registry,
-        })? {
+            self.registry,
+        ))? {
             list.push_box(value);
         }
         Ok(list)
@@ -802,14 +843,14 @@ impl<'a, 'de> Visitor<'de> for MapVisitor<'a> {
             self.map_info.value_type_path_table().path(),
             self.registry,
         )?;
-        while let Some(key) = map.next_key_seed(TypedReflectDeserializer {
-            registration: key_registration,
-            registry: self.registry,
-        })? {
-            let value = map.next_value_seed(TypedReflectDeserializer {
-                registration: value_registration,
-                registry: self.registry,
-            })?;
+        while let Some(key) = map.next_key_seed(TypedReflectDeserializer::new_internal(
+            key_registration,
+            self.registry,
+        ))? {
+            let value = map.next_value_seed(TypedReflectDeserializer::new_internal(
+                value_registration,
+                self.registry,
+            ))?;
             dynamic_map.insert_boxed(key, value);
         }
 
@@ -853,10 +894,9 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
                 .into(),
             VariantInfo::Tuple(tuple_info) if tuple_info.field_len() == 1 => {
                 let registration = tuple_info.get_field_registration(0, self.registry)?;
-                let value = variant.newtype_variant_seed(TypedReflectDeserializer {
-                    registration,
-                    registry: self.registry,
-                })?;
+                let value = variant.newtype_variant_seed(
+                    TypedReflectDeserializer::new_internal(registration, self.registry),
+                )?;
                 let mut dynamic_tuple = DynamicTuple::default();
                 dynamic_tuple.insert_boxed(value);
                 dynamic_tuple.into()
@@ -908,9 +948,10 @@ impl<'de> DeserializeSeed<'de> for VariantDeserializer {
             {
                 self.0.variant_at(variant_index as usize).ok_or_else(|| {
                     Error::custom(format_args!(
-                        "no variant found at index `{}` on enum `{}`",
+                        "no variant found at index `{}` on enum `{}`{}",
                         variant_index,
-                        self.0.type_path()
+                        self.0.type_path(),
+                        get_stack_string(),
                     ))
                 })
             }
@@ -921,10 +962,12 @@ impl<'de> DeserializeSeed<'de> for VariantDeserializer {
             {
                 self.0.variant(variant_name).ok_or_else(|| {
                     let names = self.0.iter().map(|variant| variant.name());
+
                     Error::custom(format_args!(
-                        "unknown variant `{}`, expected one of {:?}",
+                        "unknown variant `{}`, expected one of {:?}{}",
                         variant_name,
-                        ExpectedValues(names.collect())
+                        ExpectedValues(names.collect()),
+                        get_stack_string(),
                     ))
                 })
             }
@@ -1015,10 +1058,7 @@ impl<'a, 'de> Visitor<'de> for OptionVisitor<'a> {
                 let field = tuple_info.field_at(0).unwrap();
                 let registration =
                     get_registration(field.type_id(), field.type_path(), self.registry)?;
-                let de = TypedReflectDeserializer {
-                    registration,
-                    registry: self.registry,
-                };
+                let de = TypedReflectDeserializer::new_internal(registration, self.registry);
                 let mut value = DynamicTuple::default();
                 value.insert_boxed(de.deserialize(deserializer)?);
                 let mut option = DynamicEnum::default();
@@ -1026,8 +1066,9 @@ impl<'a, 'de> Visitor<'de> for OptionVisitor<'a> {
                 Ok(option)
             }
             info => Err(Error::custom(format_args!(
-                "invalid variant, expected `Some` but got `{}`",
-                info.name()
+                "invalid variant, expected `Some` but got `{}`{}",
+                info.name(),
+                get_stack_string(),
             ))),
         }
     }
@@ -1048,16 +1089,17 @@ where
         let field = info.get_field(&key).ok_or_else(|| {
             let fields = info.iter_fields().map(|field| field.name());
             Error::custom(format_args!(
-                "unknown field `{}`, expected one of {:?}",
+                "unknown field `{}`, expected one of {:?}{}",
                 key,
-                ExpectedValues(fields.collect())
+                ExpectedValues(fields.collect()),
+                get_stack_string(),
             ))
         })?;
         let registration = get_registration(field.type_id(), field.type_path(), registry)?;
-        let value = map.next_value_seed(TypedReflectDeserializer {
+        let value = map.next_value_seed(TypedReflectDeserializer::new_internal(
             registration,
             registry,
-        })?;
+        ))?;
         dynamic_struct.insert_boxed(&key, value);
     }
 
@@ -1101,10 +1143,10 @@ where
         }
 
         let value = seq
-            .next_element_seed(TypedReflectDeserializer {
-                registration: info.get_field_registration(index, registry)?,
+            .next_element_seed(TypedReflectDeserializer::new_internal(
+                info.get_field_registration(index, registry)?,
                 registry,
-            })?
+            ))?
             .ok_or_else(|| Error::invalid_length(index, &len.to_string().as_str()))?;
         tuple.insert_boxed(value);
     }
@@ -1147,10 +1189,10 @@ where
         }
 
         let value = seq
-            .next_element_seed(TypedReflectDeserializer {
-                registration: info.get_field_registration(index, registry)?,
+            .next_element_seed(TypedReflectDeserializer::new_internal(
+                info.get_field_registration(index, registry)?,
                 registry,
-            })?
+            ))?
             .ok_or_else(|| Error::invalid_length(index, &len.to_string().as_str()))?;
         dynamic_struct.insert_boxed(name, value);
     }
@@ -1164,9 +1206,20 @@ fn get_registration<'a, E: Error>(
     registry: &'a TypeRegistry,
 ) -> Result<&'a TypeRegistration, E> {
     let registration = registry.get(type_id).ok_or_else(|| {
-        Error::custom(format_args!("no registration found for type `{type_path}`"))
+        let stack_str = get_stack_string();
+
+        Error::custom(format_args!(
+            "no registration found for type `{type_path}`{stack_str}"
+        ))
     })?;
     Ok(registration)
+}
+
+fn get_stack_string() -> String {
+    #[cfg(feature = "debug_stack")]
+    return TYPE_INFO_STACK.with_borrow(|stack| format!(" (stack: {:?})", stack));
+    #[cfg(not(feature = "debug_stack"))]
+    return String::new();
 }
 
 #[cfg(test)]
@@ -1645,6 +1698,54 @@ mod tests {
         let error = reflect_deserializer
             .deserialize(&mut deserializer)
             .unwrap_err();
-        assert_eq!(error, ron::Error::Message("Type `core::ops::RangeInclusive<f32>` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data`".to_string()));
+        assert_eq!(
+            error,
+            ron::Error::Message(
+                "type `core::ops::RangeInclusive<f32>` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data` (stack: `core::ops::RangeInclusive<f32>`)".to_string()
+            )
+        );
+    }
+
+    #[cfg(feature = "debug_stack")]
+    mod debug_stack {
+        use super::*;
+
+        #[test]
+        fn should_report_context_in_errors() {
+            #[derive(Reflect)]
+            struct Foo {
+                bar: Bar,
+            }
+
+            #[derive(Reflect)]
+            struct Bar {
+                some_other_field: Option<u32>,
+                baz: Baz,
+            }
+
+            #[derive(Reflect)]
+            struct Baz {
+                value: Vec<RangeInclusive<f32>>,
+            }
+
+            let mut registry = TypeRegistry::new();
+            registry.register::<Foo>();
+            registry.register::<Bar>();
+            registry.register::<Baz>();
+            registry.register::<RangeInclusive<f32>>();
+
+            let input = r#"{"bevy_reflect::serde::de::tests::debug_stack::Foo":(bar:(some_other_field:Some(123),baz:(value:[(start:0.0,end:1.0)])))}"#;
+            let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
+            let reflect_deserializer = ReflectDeserializer::new(&registry);
+            let error = reflect_deserializer
+                .deserialize(&mut deserializer)
+                .unwrap_err();
+            assert_eq!(
+                error,
+                ron::Error::Message(
+                    "type `core::ops::RangeInclusive<f32>` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data` (stack: `bevy_reflect::serde::de::tests::debug_stack::Foo` -> `bevy_reflect::serde::de::tests::debug_stack::Bar` -> `bevy_reflect::serde::de::tests::debug_stack::Baz` -> `alloc::vec::Vec<core::ops::RangeInclusive<f32>>` -> `core::ops::RangeInclusive<f32>`)".to_string()
+                )
+            );
+        }
     }
 }

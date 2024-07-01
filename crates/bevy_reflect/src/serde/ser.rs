@@ -13,6 +13,13 @@ use serde::{
 
 use super::SerializationData;
 
+#[cfg(feature = "debug_stack")]
+thread_local! {
+    static TYPE_INFO_STACK: std::cell::RefCell<crate::type_info_stack::TypeInfoStack> = const { std::cell::RefCell::new(
+        crate::type_info_stack::TypeInfoStack::new()
+    ) };
+}
+
 pub enum Serializable<'a> {
     Owned(Box<dyn erased_serde::Serialize + 'a>),
     Borrowed(&'a dyn erased_serde::Serialize),
@@ -34,26 +41,36 @@ fn get_serializable<'a, E: Error>(
 ) -> Result<Serializable<'a>, E> {
     let info = reflect_value.get_represented_type_info().ok_or_else(|| {
         Error::custom(format_args!(
-            "Type '{}' does not represent any type",
+            "type `{}` does not represent any type{}",
             reflect_value.reflect_type_path(),
+            get_stack_string(),
         ))
     })?;
 
     let registration = type_registry.get(info.type_id()).ok_or_else(|| {
         Error::custom(format_args!(
-            "Type `{}` is not registered in the type registry",
+            "type `{}` is not registered in the type registry{}",
             info.type_path(),
+            get_stack_string(),
         ))
     })?;
 
     let reflect_serialize = registration.data::<ReflectSerialize>().ok_or_else(|| {
         Error::custom(format_args!(
-            "Type `{}` did not register the `ReflectSerialize` type data. For certain types, this may need to be registered manually using `register_type_data`",
+            "type `{}` did not register the `ReflectSerialize` type data. For certain types, this may need to be registered manually using `register_type_data`{}",
             info.type_path(),
+            get_stack_string(),
         ))
     })?;
 
     Ok(reflect_serialize.get_serializable(reflect_value))
+}
+
+fn get_stack_string() -> String {
+    #[cfg(feature = "debug_stack")]
+    return TYPE_INFO_STACK.with_borrow(|stack| format!(" (stack: {:?})", stack));
+    #[cfg(not(feature = "debug_stack"))]
+    return String::new();
 }
 
 /// A general purpose serializer for reflected types.
@@ -115,13 +132,15 @@ impl<'a> Serialize for ReflectSerializer<'a> {
                 .ok_or_else(|| {
                     if self.value.is_dynamic() {
                         Error::custom(format_args!(
-                            "cannot serialize dynamic value without represented type: {}",
-                            self.value.reflect_type_path()
+                            "cannot serialize dynamic value without represented type: `{}`{}",
+                            self.value.reflect_type_path(),
+                            get_stack_string(),
                         ))
                     } else {
                         Error::custom(format_args!(
-                            "cannot get type info for {}",
-                            self.value.reflect_type_path()
+                            "cannot get type info for `{}`{}",
+                            self.value.reflect_type_path(),
+                            get_stack_string(),
                         ))
                     }
                 })?
@@ -177,6 +196,14 @@ pub struct TypedReflectSerializer<'a> {
 
 impl<'a> TypedReflectSerializer<'a> {
     pub fn new(value: &'a dyn Reflect, registry: &'a TypeRegistry) -> Self {
+        #[cfg(feature = "debug_stack")]
+        TYPE_INFO_STACK.set(crate::type_info_stack::TypeInfoStack::new());
+
+        TypedReflectSerializer { value, registry }
+    }
+
+    /// An internal constructor for creating a serializer without resetting the type info stack.
+    fn new_internal(value: &'a dyn Reflect, registry: &'a TypeRegistry) -> Self {
         TypedReflectSerializer { value, registry }
     }
 }
@@ -186,13 +213,29 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
     where
         S: serde::Serializer,
     {
+        #[cfg(feature = "debug_stack")]
+        {
+            let info = self.value.get_represented_type_info().ok_or_else(|| {
+                Error::custom(format_args!(
+                    "type `{}` does not represent any type{}",
+                    self.value.reflect_type_path(),
+                    get_stack_string(),
+                ))
+            })?;
+
+            TYPE_INFO_STACK.with_borrow_mut(|stack| stack.push_info(info));
+        }
+
         // Handle both Value case and types that have a custom `Serialize`
         let serializable = get_serializable::<S::Error>(self.value, self.registry);
         if let Ok(serializable) = serializable {
+            #[cfg(feature = "debug_stack")]
+            TYPE_INFO_STACK.with_borrow_mut(|stack| stack.pop());
+
             return serializable.borrow().serialize(serializer);
         }
 
-        match self.value.reflect_ref() {
+        let output = match self.value.reflect_ref() {
             ReflectRef::Struct(value) => StructSerializer {
                 struct_value: value,
                 registry: self.registry,
@@ -229,7 +272,12 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
             }
             .serialize(serializer),
             ReflectRef::Value(_) => Err(serializable.err().unwrap()),
-        }
+        };
+
+        #[cfg(feature = "debug_stack")]
+        TYPE_INFO_STACK.with_borrow_mut(|stack| stack.pop());
+
+        output
     }
 }
 
@@ -264,16 +312,18 @@ impl<'a> Serialize for StructSerializer<'a> {
             .get_represented_type_info()
             .ok_or_else(|| {
                 Error::custom(format_args!(
-                    "cannot get type info for {}",
-                    self.struct_value.reflect_type_path()
+                    "cannot get type info for `{}`{}",
+                    self.struct_value.reflect_type_path(),
+                    get_stack_string(),
                 ))
             })?;
 
         let struct_info = match type_info {
             TypeInfo::Struct(struct_info) => struct_info,
             info => {
+                let stack_str = get_stack_string();
                 return Err(Error::custom(format_args!(
-                    "expected struct type but received {info:?}"
+                    "expected struct type but received `{info:?}`{stack_str}"
                 )));
             }
         };
@@ -296,7 +346,10 @@ impl<'a> Serialize for StructSerializer<'a> {
                 continue;
             }
             let key = struct_info.field_at(index).unwrap().name();
-            state.serialize_field(key, &TypedReflectSerializer::new(value, self.registry))?;
+            state.serialize_field(
+                key,
+                &TypedReflectSerializer::new_internal(value, self.registry),
+            )?;
         }
         state.end()
     }
@@ -317,16 +370,18 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
             .get_represented_type_info()
             .ok_or_else(|| {
                 Error::custom(format_args!(
-                    "cannot get type info for {}",
-                    self.tuple_struct.reflect_type_path()
+                    "cannot get type info for `{}`{}",
+                    self.tuple_struct.reflect_type_path(),
+                    get_stack_string(),
                 ))
             })?;
 
         let tuple_struct_info = match type_info {
             TypeInfo::TupleStruct(tuple_struct_info) => tuple_struct_info,
             info => {
+                let stack_str = get_stack_string();
                 return Err(Error::custom(format_args!(
-                    "expected tuple struct type but received {info:?}"
+                    "expected tuple struct type but received `{info:?}`{stack_str}"
                 )));
             }
         };
@@ -348,7 +403,7 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
             {
                 continue;
             }
-            state.serialize_field(&TypedReflectSerializer::new(value, self.registry))?;
+            state.serialize_field(&TypedReflectSerializer::new_internal(value, self.registry))?;
         }
         state.end()
     }
@@ -366,16 +421,18 @@ impl<'a> Serialize for EnumSerializer<'a> {
     {
         let type_info = self.enum_value.get_represented_type_info().ok_or_else(|| {
             Error::custom(format_args!(
-                "cannot get type info for {}",
-                self.enum_value.reflect_type_path()
+                "cannot get type info for `{}`{}",
+                self.enum_value.reflect_type_path(),
+                get_stack_string(),
             ))
         })?;
 
         let enum_info = match type_info {
             TypeInfo::Enum(enum_info) => enum_info,
             info => {
+                let stack_str = get_stack_string();
                 return Err(Error::custom(format_args!(
-                    "expected enum type but received {info:?}"
+                    "expected enum type but received `{info:?}`{stack_str}"
                 )));
             }
         };
@@ -385,8 +442,9 @@ impl<'a> Serialize for EnumSerializer<'a> {
         let variant_info = enum_info
             .variant_at(variant_index as usize)
             .ok_or_else(|| {
+                let stack_str = get_stack_string();
                 Error::custom(format_args!(
-                    "variant at index `{variant_index}` does not exist",
+                    "variant at index `{variant_index}` does not exist{stack_str}",
                 ))
             })?;
         let variant_name = variant_info.name();
@@ -407,8 +465,9 @@ impl<'a> Serialize for EnumSerializer<'a> {
                 let struct_info = match variant_info {
                     VariantInfo::Struct(struct_info) => struct_info,
                     info => {
+                        let stack_str = get_stack_string();
                         return Err(Error::custom(format_args!(
-                            "expected struct variant type but received {info:?}",
+                            "expected struct variant type but received `{info:?}`{stack_str}",
                         )));
                     }
                 };
@@ -423,7 +482,7 @@ impl<'a> Serialize for EnumSerializer<'a> {
                     let field_info = struct_info.field_at(index).unwrap();
                     state.serialize_field(
                         field_info.name(),
-                        &TypedReflectSerializer::new(field.value(), self.registry),
+                        &TypedReflectSerializer::new_internal(field.value(), self.registry),
                     )?;
                 }
                 state.end()
@@ -434,13 +493,14 @@ impl<'a> Serialize for EnumSerializer<'a> {
                 if type_info.type_path_table().module_path() == Some("core::option")
                     && type_info.type_path_table().ident() == Some("Option")
                 {
-                    serializer.serialize_some(&TypedReflectSerializer::new(field, self.registry))
+                    serializer
+                        .serialize_some(&TypedReflectSerializer::new_internal(field, self.registry))
                 } else {
                     serializer.serialize_newtype_variant(
                         enum_name,
                         variant_index,
                         variant_name,
-                        &TypedReflectSerializer::new(field, self.registry),
+                        &TypedReflectSerializer::new_internal(field, self.registry),
                     )
                 }
             }
@@ -452,7 +512,7 @@ impl<'a> Serialize for EnumSerializer<'a> {
                     field_len,
                 )?;
                 for field in self.enum_value.iter_fields() {
-                    state.serialize_field(&TypedReflectSerializer::new(
+                    state.serialize_field(&TypedReflectSerializer::new_internal(
                         field.value(),
                         self.registry,
                     ))?;
@@ -476,7 +536,7 @@ impl<'a> Serialize for TupleSerializer<'a> {
         let mut state = serializer.serialize_tuple(self.tuple.field_len())?;
 
         for value in self.tuple.iter_fields() {
-            state.serialize_element(&TypedReflectSerializer::new(value, self.registry))?;
+            state.serialize_element(&TypedReflectSerializer::new_internal(value, self.registry))?;
         }
         state.end()
     }
@@ -495,8 +555,8 @@ impl<'a> Serialize for MapSerializer<'a> {
         let mut state = serializer.serialize_map(Some(self.map.len()))?;
         for (key, value) in self.map.iter() {
             state.serialize_entry(
-                &TypedReflectSerializer::new(key, self.registry),
-                &TypedReflectSerializer::new(value, self.registry),
+                &TypedReflectSerializer::new_internal(key, self.registry),
+                &TypedReflectSerializer::new_internal(value, self.registry),
             )?;
         }
         state.end()
@@ -515,7 +575,7 @@ impl<'a> Serialize for ListSerializer<'a> {
     {
         let mut state = serializer.serialize_seq(Some(self.list.len()))?;
         for value in self.list.iter() {
-            state.serialize_element(&TypedReflectSerializer::new(value, self.registry))?;
+            state.serialize_element(&TypedReflectSerializer::new_internal(value, self.registry))?;
         }
         state.end()
     }
@@ -533,7 +593,7 @@ impl<'a> Serialize for ArraySerializer<'a> {
     {
         let mut state = serializer.serialize_tuple(self.array.len())?;
         for value in self.array.iter() {
-            state.serialize_element(&TypedReflectSerializer::new(value, self.registry))?;
+            state.serialize_element(&TypedReflectSerializer::new_internal(value, self.registry))?;
         }
         state.end()
     }
@@ -950,8 +1010,7 @@ mod tests {
         assert_eq!(
             error,
             ron::Error::Message(
-                "Type `core::ops::RangeInclusive<f32>` is not registered in the type registry"
-                    .to_string()
+                "type `core::ops::RangeInclusive<f32>` is not registered in the type registry (stack: `core::ops::RangeInclusive<f32>`)".to_string()
             )
         );
     }
@@ -967,8 +1026,52 @@ mod tests {
         assert_eq!(
             error,
             ron::Error::Message(
-                "Type `core::ops::RangeInclusive<f32>` did not register the `ReflectSerialize` type data. For certain types, this may need to be registered manually using `register_type_data`".to_string()
+                "type `core::ops::RangeInclusive<f32>` did not register the `ReflectSerialize` type data. For certain types, this may need to be registered manually using `register_type_data` (stack: `core::ops::RangeInclusive<f32>`)".to_string()
             )
         );
+    }
+
+    #[cfg(feature = "debug_stack")]
+    mod debug_stack {
+        use super::*;
+
+        #[test]
+        fn should_report_context_in_errors() {
+            #[derive(Reflect)]
+            struct Foo {
+                bar: Bar,
+            }
+
+            #[derive(Reflect)]
+            struct Bar {
+                some_other_field: Option<u32>,
+                baz: Baz,
+            }
+
+            #[derive(Reflect)]
+            struct Baz {
+                value: Vec<RangeInclusive<f32>>,
+            }
+
+            let value = Foo {
+                bar: Bar {
+                    some_other_field: Some(123),
+                    baz: Baz {
+                        value: vec![0.0..=1.0],
+                    },
+                },
+            };
+
+            let registry = TypeRegistry::new();
+            let serializer = ReflectSerializer::new(&value, &registry);
+
+            let error = ron::ser::to_string(&serializer).unwrap_err();
+            assert_eq!(
+                error,
+                ron::Error::Message(
+                    "type `core::ops::RangeInclusive<f32>` is not registered in the type registry (stack: `bevy_reflect::serde::ser::tests::debug_stack::Foo` -> `bevy_reflect::serde::ser::tests::debug_stack::Bar` -> `bevy_reflect::serde::ser::tests::debug_stack::Baz` -> `alloc::vec::Vec<core::ops::RangeInclusive<f32>>` -> `core::ops::RangeInclusive<f32>`)".to_string()
+                )
+            );
+        }
     }
 }
