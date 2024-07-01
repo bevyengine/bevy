@@ -1,5 +1,5 @@
 use bevy_asset::{
-    io::{AsyncReadAndSeek, Reader, Writer},
+    io::{Reader, Writer},
     saver::{AssetSaver, SavedAsset},
     Asset, AssetLoader, AsyncReadExt, AsyncWriteExt, LoadContext,
 };
@@ -144,9 +144,7 @@ pub enum MeshletMeshSaveOrLoadError {
     Io(#[from] std::io::Error),
 }
 
-async fn read_u64(
-    reader: &mut (dyn AsyncReadAndSeek + Sync + Send + Unpin),
-) -> Result<u64, bincode::Error> {
+async fn read_u64(reader: &mut dyn Reader) -> Result<u64, bincode::Error> {
     let mut bytes = [0u8; 8];
     reader.read_exact(&mut bytes).await?;
     Ok(u64::from_le_bytes(bytes))
