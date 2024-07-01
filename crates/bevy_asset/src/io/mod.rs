@@ -145,13 +145,12 @@ pub trait AssetReader: Send + Sync + 'static {
     /// impl AssetReader for MyReader {
     ///     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
     ///         // ...
-    ///         # unimplemented!()
+    ///         # let val: Box<dyn Reader> = unimplemented!(); Ok(val)
     ///     }
     ///     # async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
-    ///     #     unimplemented!()
-    ///     # }
-    ///     # async fn read_directory<'a>(&'a self, path: &'a Path) -> Result<Box<PathStream>, AssetReaderError> { unimplmented!() }
-    ///     # async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> { unimplmented!() }
+    ///     #     let val: Box<dyn Reader> = unimplemented!(); Ok(val) }
+    ///     # async fn read_directory<'a>(&'a self, path: &'a Path) -> Result<Box<PathStream>, AssetReaderError> { unimplemented!() }
+    ///     # async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> { unimplemented!() }
     ///     # async fn read_directory<'a>(&'a self, path: &'a Path) -> Result<Vec<u8>, AssetReaderError> { unimplmented!() }
     /// }
     /// ```
