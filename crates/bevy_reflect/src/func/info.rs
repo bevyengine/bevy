@@ -7,29 +7,24 @@ use alloc::borrow::Cow;
 /// [`DynamicFunction`]: crate::func::DynamicFunction
 #[derive(Debug, Clone)]
 pub struct FunctionInfo {
-    name: Option<Cow<'static, str>>,
+    name: Cow<'static, str>,
     args: Vec<ArgInfo>,
     return_info: ReturnInfo,
 }
 
 impl FunctionInfo {
-    /// Create a new [`FunctionInfo`].
-    ///
-    /// To set the name of the function, use [`Self::with_name`].
-    pub fn new() -> Self {
+    /// Create a new [`FunctionInfo`] for a function with the given name.
+    pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
         Self {
-            name: None,
+            name: name.into(),
             args: Vec::new(),
             return_info: ReturnInfo::new::<()>(),
         }
     }
 
     /// Set the name of the function.
-    ///
-    /// Reflected functions are not required to have a name,
-    /// so this method must be called manually to set the name.
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
-        self.name = Some(name.into());
+        self.name = name.into();
         self
     }
 
@@ -50,14 +45,9 @@ impl FunctionInfo {
         self
     }
 
-    /// The name of the function, if it was given one.
-    ///
-    /// For [`DynamicFunctions`] created using [`IntoFunction`],
-    /// the name will always be the full path to the function as returned by [`std::any::type_name`].
-    ///
-    /// [`DynamicFunctions`]: crate::func::DynamicFunction
-    pub fn name(&self) -> Option<&str> {
-        self.name.as_deref()
+    /// The name of the function.
+    pub fn name(&self) -> &Cow<'static, str> {
+        &self.name
     }
 
     /// The arguments of the function.
@@ -73,12 +63,6 @@ impl FunctionInfo {
     /// The return information of the function.
     pub fn return_info(&self) -> &ReturnInfo {
         &self.return_info
-    }
-}
-
-impl Default for FunctionInfo {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

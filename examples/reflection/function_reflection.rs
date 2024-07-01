@@ -131,8 +131,11 @@ fn main() {
 
             Ok(Return::Ref(get_or_insert(value, container)))
         },
-        FunctionInfo::new()
-            // We can optionally provide a name for the function
+        // All functions require a name.
+        // We can either give it a custom name or use the function's name as
+        // derived from `std::any::type_name_of_val`.
+        FunctionInfo::new(std::any::type_name_of_val(&get_or_insert))
+            // We can always change the name if needed.
             .with_name("get_or_insert")
             // Since our function takes arguments, we MUST provide that argument information.
             // The arguments should be provided in the order they are defined in the function.
