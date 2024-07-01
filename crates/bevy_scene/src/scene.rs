@@ -1,18 +1,18 @@
 use crate::{DynamicScene, InstanceInfo, SceneSpawnError};
 use bevy_asset::Asset;
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
     world::World,
 };
 use bevy_reflect::TypePath;
-use bevy_utils::EntityHashMap;
 
 /// To spawn a scene, you can use either:
 /// * [`SceneSpawner::spawn`](crate::SceneSpawner::spawn)
 /// * adding the [`SceneBundle`](crate::SceneBundle) to an entity
 /// * adding the [`Handle<Scene>`](bevy_asset::Handle) to an entity (the scene will only be
-/// visible if the entity already has [`Transform`](bevy_transform::components::Transform) and
-/// [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
+///     visible if the entity already has [`Transform`](bevy_transform::components::Transform) and
+///     [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
 #[derive(Asset, TypePath, Debug)]
 pub struct Scene {
     /// The world of the scene, containing its entities and resources.
@@ -89,7 +89,7 @@ impl Scene {
                     type_path: registration.type_info().type_path().to_string(),
                 }
             })?;
-            reflect_resource.copy(&self.world, world);
+            reflect_resource.copy(&self.world, world, &type_registry);
         }
 
         for archetype in self.world.archetypes().iter() {

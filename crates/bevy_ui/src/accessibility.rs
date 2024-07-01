@@ -78,7 +78,7 @@ fn button_changed(
             }
             commands
                 .entity(entity)
-                .insert(AccessibilityNode::from(node));
+                .try_insert(AccessibilityNode::from(node));
         }
     }
 }
@@ -107,7 +107,7 @@ fn image_changed(
             }
             commands
                 .entity(entity)
-                .insert(AccessibilityNode::from(node));
+                .try_insert(AccessibilityNode::from(node));
         }
     }
 }
@@ -137,7 +137,7 @@ fn label_changed(
             }
             commands
                 .entity(entity)
-                .insert(AccessibilityNode::from(node));
+                .try_insert(AccessibilityNode::from(node));
         }
     }
 }

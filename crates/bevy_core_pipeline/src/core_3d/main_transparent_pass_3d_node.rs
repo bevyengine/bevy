@@ -2,8 +2,9 @@ use crate::core_3d::Transparent3d;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::RenderPhase,
+    render_phase::ViewSortedRenderPhases,
     render_resource::{RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget},
@@ -11,14 +12,14 @@ use bevy_render::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
-/// A [`bevy_render::render_graph::Node`] that runs the [`Transparent3d`] [`RenderPhase`].
+/// A [`bevy_render::render_graph::Node`] that runs the [`Transparent3d`]
+/// [`SortedRenderPhase`].
 #[derive(Default)]
 pub struct MainTransparentPass3dNode;
 
 impl ViewNode for MainTransparentPass3dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static RenderPhase<Transparent3d>,
         &'static ViewTarget,
         &'static ViewDepthTexture,
     );
@@ -26,16 +27,28 @@ impl ViewNode for MainTransparentPass3dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, transparent_phase, target, depth): QueryItem<Self::ViewQuery>,
+        (camera, target, depth): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
+
+        let Some(transparent_phases) =
+            world.get_resource::<ViewSortedRenderPhases<Transparent3d>>()
+        else {
+            return Ok(());
+        };
+
+        let Some(transparent_phase) = transparent_phases.get(&view_entity) else {
+            return Ok(());
+        };
 
         if !transparent_phase.items.is_empty() {
             // Run the transparent pass, sorted back-to-front
             // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]
             let _main_transparent_pass_3d_span = info_span!("main_transparent_pass_3d").entered();
+
+            let diagnostics = render_context.diagnostic_recorder();
 
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_transparent_pass_3d"),
@@ -51,11 +64,15 @@ impl ViewNode for MainTransparentPass3dNode {
                 occlusion_query_set: None,
             });
 
+            let pass_span = diagnostics.pass_span(&mut render_pass, "main_transparent_pass_3d");
+
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
             }
 
             transparent_phase.render(&mut render_pass, world, view_entity);
+
+            pass_span.end(&mut render_pass);
         }
 
         // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't

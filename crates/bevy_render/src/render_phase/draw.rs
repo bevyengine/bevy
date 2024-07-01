@@ -1,5 +1,5 @@
 use crate::render_phase::{PhaseItem, TrackedRenderPass};
-use bevy_app::App;
+use bevy_app::{App, SubApp};
 use bevy_ecs::{
     entity::Entity,
     query::{QueryState, ROQueryItem, ReadOnlyQueryData},
@@ -39,7 +39,7 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
 
 // TODO: make this generic?
 /// An identifier for a [`Draw`] function stored in [`DrawFunctions`].
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct DrawFunctionId(u32);
 
 /// Stores all [`Draw`] functions for the [`PhaseItem`] type.
@@ -190,6 +190,11 @@ pub trait RenderCommand<P: PhaseItem> {
     ///
     /// The item is the entity that will be rendered for the corresponding view.
     /// All components have to be accessed read only.
+    ///
+    /// For efficiency reasons, Bevy doesn't always extract entities to the
+    /// render world; for instance, entities that simply consist of meshes are
+    /// often not extracted. If the entity doesn't exist in the render world,
+    /// the supplied query data will be `None`.
     type ItemQuery: ReadOnlyQueryData;
 
     /// Renders a [`PhaseItem`] by recording commands (e.g. setting pipelines, binding bind groups,
@@ -197,13 +202,14 @@ pub trait RenderCommand<P: PhaseItem> {
     fn render<'w>(
         item: &P,
         view: ROQueryItem<'w, Self::ViewQuery>,
-        entity: ROQueryItem<'w, Self::ItemQuery>,
+        entity: Option<ROQueryItem<'w, Self::ItemQuery>>,
         param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult;
 }
 
 /// The result of a [`RenderCommand`].
+#[derive(Debug)]
 pub enum RenderCommandResult {
     Success,
     Failure,
@@ -220,13 +226,22 @@ macro_rules! render_command_tuple_impl {
             fn render<'w>(
                 _item: &P,
                 ($($view,)*): ROQueryItem<'w, Self::ViewQuery>,
-                ($($entity,)*): ROQueryItem<'w, Self::ItemQuery>,
+                maybe_entities: Option<ROQueryItem<'w, Self::ItemQuery>>,
                 ($($name,)*): SystemParamItem<'w, '_, Self::Param>,
                 _pass: &mut TrackedRenderPass<'w>,
             ) -> RenderCommandResult {
-                $(if let RenderCommandResult::Failure = $name::render(_item, $view, $entity, $name, _pass) {
-                    return RenderCommandResult::Failure;
-                })*
+                match maybe_entities {
+                    None => {
+                        $(if let RenderCommandResult::Failure = $name::render(_item, $view, None, $name, _pass) {
+                            return RenderCommandResult::Failure;
+                        })*
+                    }
+                    Some(($($entity,)*)) => {
+                        $(if let RenderCommandResult::Failure = $name::render(_item, $view, Some($entity), $name, _pass) {
+                            return RenderCommandResult::Failure;
+                        })*
+                    }
+                }
                 RenderCommandResult::Success
             }
         }
@@ -278,7 +293,7 @@ where
     ) {
         let param = self.state.get_manual(world);
         let view = self.view.get_manual(world, view).unwrap();
-        let entity = self.entity.get_manual(world, item.entity()).unwrap();
+        let entity = self.entity.get_manual(world, item.entity()).ok();
         // TODO: handle/log `RenderCommand` failure
         C::render(item, view, entity, param, pass);
     }
@@ -287,7 +302,7 @@ where
 /// Registers a [`RenderCommand`] as a [`Draw`] function.
 /// They are stored inside the [`DrawFunctions`] resource of the app.
 pub trait AddRenderCommand {
-    /// Adds the [`RenderCommand`] for the specified [`RenderPhase`](super::RenderPhase) to the app.
+    /// Adds the [`RenderCommand`] for the specified render phase to the app.
     fn add_render_command<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static>(
         &mut self,
     ) -> &mut Self
@@ -295,16 +310,16 @@ pub trait AddRenderCommand {
         C::Param: ReadOnlySystemParam;
 }
 
-impl AddRenderCommand for App {
+impl AddRenderCommand for SubApp {
     fn add_render_command<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static>(
         &mut self,
     ) -> &mut Self
     where
         C::Param: ReadOnlySystemParam,
     {
-        let draw_function = RenderCommandState::<P, C>::new(&mut self.world);
+        let draw_function = RenderCommandState::<P, C>::new(self.world_mut());
         let draw_functions = self
-            .world
+            .world()
             .get_resource::<DrawFunctions<P>>()
             .unwrap_or_else(|| {
                 panic!(
@@ -314,6 +329,18 @@ impl AddRenderCommand for App {
                 );
             });
         draw_functions.write().add_with::<C, _>(draw_function);
+        self
+    }
+}
+
+impl AddRenderCommand for App {
+    fn add_render_command<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static>(
+        &mut self,
+    ) -> &mut Self
+    where
+        C::Param: ReadOnlySystemParam,
+    {
+        SubApp::add_render_command::<P, C>(self.main_mut());
         self
     }
 }

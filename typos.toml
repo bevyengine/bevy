@@ -1,0 +1,37 @@
+[files]
+extend-exclude = [
+  "*.pbxproj",    # metadata file
+  "CHANGELOG.md", # To keep consistency between the commit history/PRs.
+  "*.patch",      # Automatically generated files that should not be manually modified.
+]
+
+# Corrections take the form of a key/value pair. The key is the incorrect word
+# and the value is the correct word. If the key and value are the same, the
+# word is treated as always correct. If the value is an empty string, the word
+# is treated as always incorrect.
+
+# Match Whole Word - Case Sensitive
+[default.extend-identifiers]
+iy = "iy"       # Variable name used in bevy_gizmos. Probably stands for "y-axis index", as it's being used in loops.
+ser = "ser"     # ron::ser - Serializer
+SME = "SME"     # Subject Matter Expert
+Sur = "Sur"     # macOS Big Sur - South
+Masia = "Masia" # The surname of one of the authors of SMAA
+Ba = "Ba"       # Bitangent for Anisotropy
+ba = "ba"       # Part of an accessor in WGSL - color.ba
+
+# Match Inside a Word - Case Insensitive
+[default.extend-words]
+LOD = "LOD" # Level of detail
+TOI = "TOI" # Time of impact
+
+[default]
+extend-ignore-identifiers-re = [
+  "NDK",        # NDK - Native  Development Kit
+  "inventario", # Inventory in Portuguese
+  "PNG",        # PNG - Portable Network Graphics file format
+  # Used in bevy_mikktspace
+  "iFO",
+  "vOt",
+  "fLenOt",
+]

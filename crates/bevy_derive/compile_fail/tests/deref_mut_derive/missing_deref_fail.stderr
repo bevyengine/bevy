@@ -1,0 +1,43 @@
+error[E0277]: the trait bound `TupleStruct: Deref` is not satisfied
+   --> tests/deref_mut_derive/missing_deref_fail.rs:10:8
+    |
+10  | struct TupleStruct(usize, #[deref] String);
+    |        ^^^^^^^^^^^ the trait `Deref` is not implemented for `TupleStruct`
+    |
+note: required by a bound in `DerefMut`
+   --> $RUSTUP_HOME/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/src/rust/library/core/src/ops/deref.rs:264:21
+    |
+264 | pub trait DerefMut: Deref {
+    |                     ^^^^^ required by this bound in `DerefMut`
+
+error[E0277]: the trait bound `TupleStruct: Deref` is not satisfied
+ --> tests/deref_mut_derive/missing_deref_fail.rs:7:10
+  |
+7 | #[derive(DerefMut)]
+  |          ^^^^^^^^ the trait `Deref` is not implemented for `TupleStruct`
+  |
+  = note: this error originates in the derive macro `DerefMut` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `Struct: Deref` is not satisfied
+   --> tests/deref_mut_derive/missing_deref_fail.rs:15:8
+    |
+15  | struct Struct {
+    |        ^^^^^^ the trait `Deref` is not implemented for `Struct`
+    |
+note: required by a bound in `DerefMut`
+   --> $RUSTUP_HOME/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/src/rust/library/core/src/ops/deref.rs:264:21
+    |
+264 | pub trait DerefMut: Deref {
+    |                     ^^^^^ required by this bound in `DerefMut`
+
+error[E0277]: the trait bound `Struct: Deref` is not satisfied
+  --> tests/deref_mut_derive/missing_deref_fail.rs:13:10
+   |
+13 | #[derive(DerefMut)]
+   |          ^^^^^^^^ the trait `Deref` is not implemented for `Struct`
+   |
+   = note: this error originates in the derive macro `DerefMut` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: aborting due to 4 previous errors
+
+For more information about this error, try `rustc --explain E0277`.

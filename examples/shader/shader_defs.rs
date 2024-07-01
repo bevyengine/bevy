@@ -5,12 +5,15 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        mesh::MeshVertexBufferLayout,
+        mesh::MeshVertexBufferLayoutRef,
         render_resource::{
             AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
         },
     },
 };
+
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/shader_defs.wgsl";
 
 fn main() {
     App::new()
@@ -27,10 +30,10 @@ fn setup(
 ) {
     // blue cube
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
+        mesh: meshes.add(Cuboid::default()),
         transform: Transform::from_xyz(-1.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {
-            color: Color::BLUE,
+            color: LinearRgba::BLUE,
             is_red: false,
         }),
         ..default()
@@ -38,10 +41,10 @@ fn setup(
 
     // red cube (with green color overridden by the IS_RED "shader def")
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(shape::Cube { size: 1.0 }),
+        mesh: meshes.add(Cuboid::default()),
         transform: Transform::from_xyz(1.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {
-            color: Color::GREEN,
+            color: LinearRgba::GREEN,
             is_red: true,
         }),
         ..default()
@@ -56,13 +59,13 @@ fn setup(
 
 impl Material for CustomMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/shader_defs.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 
     fn specialize(
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        _layout: &MeshVertexBufferLayout,
+        _layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         if key.bind_group_data.is_red {
@@ -78,7 +81,7 @@ impl Material for CustomMaterial {
 #[bind_group_data(CustomMaterialKey)]
 struct CustomMaterial {
     #[uniform(0)]
-    color: Color,
+    color: LinearRgba,
     is_red: bool,
 }
 

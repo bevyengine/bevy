@@ -3,23 +3,20 @@
 
 use std::fmt;
 
-use bevy::{prelude::*, render::render_resource::TextureFormat, window::close_on_esc};
+use bevy::{prelude::*, render::texture::ImageLoaderSettings};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(Normal(None))
         .add_systems(Startup, setup)
         .add_systems(
             Update,
             (
                 spin,
-                update_normal,
                 move_camera,
                 update_parallax_depth_scale,
                 update_parallax_layers,
                 switch_method,
-                close_on_esc,
             ),
         )
         .run();
@@ -201,14 +198,17 @@ fn setup(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut normal: ResMut<Normal>,
     asset_server: Res<AssetServer>,
 ) {
     // The normal map. Note that to generate it in the GIMP image editor, you should
     // open the depth map, and do Filters → Generic → Normal Map
     // You should enable the "flip X" checkbox.
-    let normal_handle = asset_server.load("textures/parallax_example/cube_normal.png");
-    normal.0 = Some(normal_handle);
+    let normal_handle = asset_server.load_with_settings(
+        "textures/parallax_example/cube_normal.png",
+        // The normal map texture is in linear color space. Lighting won't look correct
+        // if `is_srgb` is `true`, which is the default.
+        |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
+    );
 
     // Camera
     commands.spawn((
@@ -222,9 +222,8 @@ fn setup(
     // light
     commands
         .spawn(PointLightBundle {
-            transform: Transform::from_xyz(1.8, 0.7, -1.1),
+            transform: Transform::from_xyz(2.0, 1.0, -1.1),
             point_light: PointLight {
-                intensity: 50_000.0,
                 shadows_enabled: true,
                 ..default()
             },
@@ -232,28 +231,19 @@ fn setup(
         })
         .with_children(|commands| {
             // represent the light source as a sphere
-            let mesh = meshes.add(
-                Mesh::try_from(shape::Icosphere {
-                    radius: 0.05,
-                    subdivisions: 3,
-                })
-                .unwrap(),
-            );
+            let mesh = meshes.add(Sphere::new(0.05).mesh().ico(3).unwrap());
             commands.spawn(PbrBundle { mesh, ..default() });
         });
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane {
-            size: 10.0,
-            subdivisions: 0,
-        }),
+        mesh: meshes.add(Plane3d::default().mesh().size(10.0, 10.0)),
         material: materials.add(StandardMaterial {
             // standard material derived from dark green, but
             // with roughness and reflectance set.
             perceptual_roughness: 0.45,
             reflectance: 0.18,
-            ..Color::rgb_u8(0, 80, 0).into()
+            ..Color::srgb_u8(0, 80, 0).into()
         }),
         transform: Transform::from_xyz(0.0, -1.0, 0.0),
         ..default()
@@ -265,7 +255,7 @@ fn setup(
     let parallax_material = materials.add(StandardMaterial {
         perceptual_roughness: 0.4,
         base_color_texture: Some(asset_server.load("textures/parallax_example/cube_color.png")),
-        normal_map_texture: normal.0.clone(),
+        normal_map_texture: Some(normal_handle),
         // The depth map is a greyscale texture where black is the highest level and
         // white the lowest.
         depth_map: Some(asset_server.load("textures/parallax_example/cube_depth.png")),
@@ -279,7 +269,7 @@ fn setup(
             mesh: meshes.add(
                 // NOTE: for normal maps and depth maps to work, the mesh
                 // needs tangents generated.
-                Mesh::from(shape::Cube { size: 1.0 })
+                Mesh::from(Cuboid::default())
                     .with_generated_tangents()
                     .unwrap(),
             ),
@@ -290,7 +280,7 @@ fn setup(
     ));
 
     let background_cube = meshes.add(
-        Mesh::from(shape::Cube { size: 40.0 })
+        Mesh::from(Cuboid::new(40.0, 40.0, 40.0))
             .with_generated_tangents()
             .unwrap(),
     );
@@ -311,10 +301,7 @@ fn setup(
     commands.spawn(background_cube_bundle(Vec3::new(0., 0., 45.)));
     commands.spawn(background_cube_bundle(Vec3::new(0., 0., -45.)));
 
-    let style = TextStyle {
-        font_size: 20.0,
-        ..default()
-    };
+    let style = TextStyle::default();
 
     // example instructions
     commands.spawn(
@@ -345,39 +332,4 @@ fn setup(
             ..default()
         }),
     );
-}
-
-/// Store handle of the normal to later modify its format in [`update_normal`].
-#[derive(Resource)]
-struct Normal(Option<Handle<Image>>);
-
-/// Work around the default bevy image loader.
-///
-/// The bevy image loader used by `AssetServer` always loads images in
-/// `Srgb` mode, which is usually what it should do,
-/// but is incompatible with normal maps.
-///
-/// Normal maps require a texture in linear color space,
-/// so we overwrite the format of the normal map we loaded through `AssetServer`
-/// in this system.
-///
-/// Note that this method of conversion is a last resort workaround. You should
-/// get your normal maps from a 3d model file, like gltf.
-///
-/// In this system, we wait until the image is loaded, immediately
-/// change its format and never run the logic afterward.
-fn update_normal(
-    mut already_ran: Local<bool>,
-    mut images: ResMut<Assets<Image>>,
-    normal: Res<Normal>,
-) {
-    if *already_ran {
-        return;
-    }
-    if let Some(normal) = normal.0.as_ref() {
-        if let Some(image) = images.get_mut(normal) {
-            image.texture_descriptor.format = TextureFormat::Rgba8Unorm;
-            *already_ran = true;
-        }
-    }
 }

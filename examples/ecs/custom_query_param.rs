@@ -1,4 +1,4 @@
-//! This example illustrates the usage of the [`WorldQuery`] derive macro, which allows
+//! This example illustrates the usage of the [`QueryData`] derive macro, which allows
 //! defining custom query and filter types.
 //!
 //! While regular tuple queries work great in most of simple scenarios, using custom queries
@@ -10,7 +10,7 @@
 //! - Named structs enable the composition pattern, that makes query types easier to re-use.
 //! - You can bypass the limit of 15 components that exists for query tuples.
 //!
-//! For more details on the `WorldQuery` derive macro, see the trait documentation.
+//! For more details on the [`QueryData`] derive macro, see the trait documentation.
 
 use bevy::{
     ecs::query::{QueryData, QueryFilter},
@@ -77,11 +77,11 @@ fn print_components_read_only(
     println!();
 }
 
-// If you are going to mutate the data in a query, you must mark it with the `mutable` attribute.
-// The `WorldQuery` derive macro will still create a read-only version, which will be have `ReadOnly`
-// suffix.
-// Note: if you want to use derive macros with read-only query variants, you need to pass them with
-// using the `derive` attribute.
+/// If you are going to mutate the data in a query, you must mark it with the `mutable` attribute.
+/// The [`QueryData`] derive macro will still create a read-only version, which will be have `ReadOnly`
+/// suffix.
+/// Note: if you want to use derive macros with read-only query variants, you need to pass them with
+/// using the `derive` attribute.
 #[derive(QueryData)]
 #[query_data(mutable, derive(Debug))]
 struct CustomQuery<T: Component + Debug, P: Component + Debug> {

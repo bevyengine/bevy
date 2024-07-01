@@ -3,10 +3,10 @@ use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
     prelude::Events,
-    system::{Command, Commands, EntityCommands},
-    world::{EntityWorldMut, World},
+    system::{Commands, EntityCommands},
+    world::{Command, EntityWorldMut, World},
 };
-use bevy_utils::smallvec::{smallvec, SmallVec};
+use smallvec::{smallvec, SmallVec};
 
 // Do not use `world.send_event_batch` as it prints error message when the Events are not available in the world,
 // even though it's a valid use case to execute commands on a world without events. Loading a GLTF file for example
@@ -481,7 +481,7 @@ pub struct WorldChildBuilder<'w> {
 impl<'w> WorldChildBuilder<'w> {
     /// Spawns an entity with the given bundle and inserts it into the parent entity's [`Children`].
     /// Also adds [`Parent`] component to the created entity.
-    pub fn spawn(&mut self, bundle: impl Bundle + Send + Sync + 'static) -> EntityWorldMut<'_> {
+    pub fn spawn(&mut self, bundle: impl Bundle) -> EntityWorldMut<'_> {
         let entity = self.world.spawn((bundle, Parent(self.parent))).id();
         push_child_unchecked(self.world, self.parent, entity);
         push_events(
@@ -696,14 +696,14 @@ mod tests {
         components::{Children, Parent},
         HierarchyEvent::{self, ChildAdded, ChildMoved, ChildRemoved},
     };
-    use bevy_utils::smallvec::{smallvec, SmallVec};
+    use smallvec::{smallvec, SmallVec};
 
     use bevy_ecs::{
         component::Component,
         entity::Entity,
         event::Events,
-        system::{CommandQueue, Commands},
-        world::World,
+        system::Commands,
+        world::{CommandQueue, World},
     };
 
     /// Assert the (non)existence and state of the child's [`Parent`] component.
@@ -851,6 +851,7 @@ mod tests {
         );
     }
 
+    #[allow(dead_code)]
     #[derive(Component)]
     struct C(u32);
 

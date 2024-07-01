@@ -18,6 +18,7 @@ fn main() {
                     ..default()
                 }
                 .into(),
+                ..default()
             }),
         )
         .run();

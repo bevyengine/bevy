@@ -83,6 +83,11 @@ impl RemovedComponentEvents {
         }
     }
 
+    /// Returns an iterator over components and their entity events.
+    pub fn iter(&self) -> impl Iterator<Item = (&ComponentId, &Events<RemovedComponentEntity>)> {
+        self.event_sets.iter()
+    }
+
     /// Gets the event storage for a given component.
     pub fn get(
         &self,
@@ -99,7 +104,8 @@ impl RemovedComponentEvents {
     }
 }
 
-/// A [`SystemParam`] that grants access to the entities that had their `T` [`Component`] removed.
+/// A [`SystemParam`] that yields entities that had their `T` [`Component`]
+/// removed or have been despawned with it.
 ///
 /// This acts effectively the same as an [`EventReader`](crate::event::EventReader).
 ///
@@ -110,11 +116,11 @@ impl RemovedComponentEvents {
 ///
 /// If you are using `bevy_ecs` as a standalone crate,
 /// note that the `RemovedComponents` list will not be automatically cleared for you,
-/// and will need to be manually flushed using [`World::clear_trackers`](World::clear_trackers)
+/// and will need to be manually flushed using [`World::clear_trackers`](World::clear_trackers).
 ///
-/// For users of `bevy` and `bevy_app`, this is automatically done in `bevy_app::App::update`.
-/// For the main world, [`World::clear_trackers`](World::clear_trackers) is run after the main schedule is run and after
-/// `SubApp`'s have run.
+/// For users of `bevy` and `bevy_app`, [`World::clear_trackers`](World::clear_trackers) is
+/// automatically called by `bevy_app::App::update` and `bevy_app::SubApp::update`.
+/// For the main world, this is delayed until after all `SubApp`s have run.
 ///
 /// # Examples
 ///

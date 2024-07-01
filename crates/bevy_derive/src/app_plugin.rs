@@ -2,6 +2,10 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
+#[deprecated(
+    since = "0.14.0",
+    note = "The current dynamic plugin system is unsound and will be removed in 0.15."
+)]
 pub fn derive_dynamic_plugin(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let struct_name = &ast.ident;

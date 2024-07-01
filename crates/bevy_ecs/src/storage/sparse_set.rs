@@ -4,6 +4,7 @@ use crate::{
     storage::{Column, TableRow},
 };
 use bevy_ptr::{OwningPtr, Ptr};
+use nonmax::NonMaxUsize;
 use std::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
 
 type EntityIndex = u32;
@@ -335,7 +336,7 @@ impl ComponentSparseSet {
 pub struct SparseSet<I, V: 'static> {
     dense: Vec<V>,
     indices: Vec<I>,
-    sparse: SparseArray<I, usize>,
+    sparse: SparseArray<I, NonMaxUsize>,
 }
 
 /// A space-optimized version of [`SparseSet`] that cannot be changed
@@ -344,7 +345,7 @@ pub struct SparseSet<I, V: 'static> {
 pub(crate) struct ImmutableSparseSet<I, V: 'static> {
     dense: Box<[V]>,
     indices: Box<[I]>,
-    sparse: ImmutableSparseArray<I, usize>,
+    sparse: ImmutableSparseArray<I, NonMaxUsize>,
 }
 
 macro_rules! impl_sparse_set {
@@ -368,7 +369,7 @@ macro_rules! impl_sparse_set {
             pub fn get(&self, index: I) -> Option<&V> {
                 self.sparse.get(index).map(|dense_index| {
                     // SAFETY: if the sparse index points to something in the dense vec, it exists
-                    unsafe { self.dense.get_unchecked(*dense_index) }
+                    unsafe { self.dense.get_unchecked(dense_index.get()) }
                 })
             }
 
@@ -379,7 +380,7 @@ macro_rules! impl_sparse_set {
                 let dense = &mut self.dense;
                 self.sparse.get(index).map(move |dense_index| {
                     // SAFETY: if the sparse index points to something in the dense vec, it exists
-                    unsafe { dense.get_unchecked_mut(*dense_index) }
+                    unsafe { dense.get_unchecked_mut(dense_index.get()) }
                 })
             }
 
@@ -454,10 +455,11 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         if let Some(dense_index) = self.sparse.get(index.clone()).cloned() {
             // SAFETY: dense indices stored in self.sparse always exist
             unsafe {
-                *self.dense.get_unchecked_mut(dense_index) = value;
+                *self.dense.get_unchecked_mut(dense_index.get()) = value;
             }
         } else {
-            self.sparse.insert(index.clone(), self.dense.len());
+            self.sparse
+                .insert(index.clone(), NonMaxUsize::new(self.dense.len()).unwrap());
             self.indices.push(index);
             self.dense.push(value);
         }
@@ -468,11 +470,12 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     pub fn get_or_insert_with(&mut self, index: I, func: impl FnOnce() -> V) -> &mut V {
         if let Some(dense_index) = self.sparse.get(index.clone()).cloned() {
             // SAFETY: dense indices stored in self.sparse always exist
-            unsafe { self.dense.get_unchecked_mut(dense_index) }
+            unsafe { self.dense.get_unchecked_mut(dense_index.get()) }
         } else {
             let value = func();
             let dense_index = self.dense.len();
-            self.sparse.insert(index.clone(), dense_index);
+            self.sparse
+                .insert(index.clone(), NonMaxUsize::new(dense_index).unwrap());
             self.indices.push(index);
             self.dense.push(value);
             // SAFETY: dense index was just populated above
@@ -491,11 +494,12 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     /// Returns `None` if `index` does not have a value in the sparse set.
     pub fn remove(&mut self, index: I) -> Option<V> {
         self.sparse.remove(index).map(|dense_index| {
-            let is_last = dense_index == self.dense.len() - 1;
-            let value = self.dense.swap_remove(dense_index);
-            self.indices.swap_remove(dense_index);
+            let index = dense_index.get();
+            let is_last = index == self.dense.len() - 1;
+            let value = self.dense.swap_remove(index);
+            self.indices.swap_remove(index);
             if !is_last {
-                let swapped_index = self.indices[dense_index].clone();
+                let swapped_index = self.indices[index].clone();
                 *self.sparse.get_mut(swapped_index).unwrap() = dense_index;
             }
             value

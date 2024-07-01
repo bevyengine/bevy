@@ -1,12 +1,17 @@
-use crate::{render_resource::*, renderer::RenderDevice, Extract};
+use crate::{
+    render_resource::*,
+    renderer::{RenderAdapter, RenderDevice},
+    Extract,
+};
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_ecs::{event::EventReader, system::Resource};
 use bevy_tasks::Task;
+use bevy_utils::hashbrown::hash_map::EntryRef;
 use bevy_utils::{
     default,
     tracing::{debug, error},
-    Entry, HashMap, HashSet,
+    HashMap, HashSet,
 };
 use naga::valid::Capabilities;
 use std::{
@@ -21,7 +26,7 @@ use thiserror::Error;
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
 use wgpu::{
-    Features, PipelineLayoutDescriptor, PushConstantRange, ShaderModuleDescriptor,
+    DownlevelFlags, Features, PipelineCompilationOptions,
     VertexBufferLayout as RawVertexBufferLayout,
 };
 
@@ -51,7 +56,7 @@ pub enum Pipeline {
 type CachedPipelineId = usize;
 
 /// Index of a cached render pipeline in a [`PipelineCache`].
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct CachedRenderPipelineId(CachedPipelineId);
 
 impl CachedRenderPipelineId {
@@ -124,7 +129,7 @@ impl CachedPipelineState {
 #[derive(Default)]
 struct ShaderData {
     pipelines: HashSet<CachedPipelineId>,
-    processed_shaders: HashMap<Vec<ShaderDefVal>, ErasedShaderModule>,
+    processed_shaders: HashMap<Box<[ShaderDefVal]>, ErasedShaderModule>,
     resolved_imports: HashMap<ShaderImport, AssetId<Shader>>,
     dependents: HashSet<AssetId<Shader>>,
 }
@@ -167,45 +172,18 @@ impl ShaderDefVal {
 }
 
 impl ShaderCache {
-    fn new(render_device: &RenderDevice) -> Self {
-        const CAPABILITIES: &[(Features, Capabilities)] = &[
-            (Features::PUSH_CONSTANTS, Capabilities::PUSH_CONSTANT),
-            (Features::SHADER_F64, Capabilities::FLOAT64),
-            (
-                Features::SHADER_PRIMITIVE_INDEX,
-                Capabilities::PRIMITIVE_INDEX,
-            ),
-            (
-                Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
-                Capabilities::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
-            ),
-            (
-                Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
-                Capabilities::SAMPLER_NON_UNIFORM_INDEXING,
-            ),
-            (
-                Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
-                Capabilities::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
-            ),
-        ];
-        let features = render_device.features();
-        let mut capabilities = Capabilities::empty();
-        for (feature, capability) in CAPABILITIES {
-            if features.contains(*feature) {
-                capabilities |= *capability;
-            }
-        }
-
-        // TODO: Check if this is supported, though I'm not sure if bevy works without this feature?
-        // We can't compile for native at least without it.
-        capabilities |= Capabilities::CUBE_ARRAY_TEXTURES;
+    fn new(render_device: &RenderDevice, render_adapter: &RenderAdapter) -> Self {
+        let (capabilities, subgroup_stages) = get_capabilities(
+            render_device.features(),
+            render_adapter.get_downlevel_capabilities().flags,
+        );
 
         #[cfg(debug_assertions)]
         let composer = naga_oil::compose::Composer::default();
         #[cfg(not(debug_assertions))]
         let composer = naga_oil::compose::Composer::non_validating();
 
-        let composer = composer.with_capabilities(capabilities);
+        let composer = composer.with_capabilities(capabilities, subgroup_stages);
 
         Self {
             composer,
@@ -272,14 +250,19 @@ impl ShaderCache {
         data.pipelines.insert(pipeline);
 
         // PERF: this shader_defs clone isn't great. use raw_entry_mut when it stabilizes
-        let module = match data.processed_shaders.entry(shader_defs.to_vec()) {
-            Entry::Occupied(entry) => entry.into_mut(),
-            Entry::Vacant(entry) => {
+        let module = match data.processed_shaders.entry_ref(shader_defs) {
+            EntryRef::Occupied(entry) => entry.into_mut(),
+            EntryRef::Vacant(entry) => {
                 let mut shader_defs = shader_defs.to_vec();
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                 {
                     shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
+                    shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
                     shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
+                }
+
+                if cfg!(feature = "ios_simulator") {
+                    shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
                 }
 
                 shader_defs.push(ShaderDefVal::UInt(
@@ -480,22 +463,36 @@ pub struct PipelineCache {
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
     new_pipelines: Mutex<Vec<CachedPipeline>>,
+    /// If `true`, disables asynchronous pipeline compilation.
+    /// This has no effect on MacOS, wasm, or without the `multi_threaded` feature.
+    synchronous_pipeline_compilation: bool,
 }
 
 impl PipelineCache {
+    /// Returns an iterator over the pipelines in the pipeline cache.
     pub fn pipelines(&self) -> impl Iterator<Item = &CachedPipeline> {
         self.pipelines.iter()
     }
 
+    /// Returns a iterator of the IDs of all currently waiting pipelines.
+    pub fn waiting_pipelines(&self) -> impl Iterator<Item = CachedPipelineId> + '_ {
+        self.waiting_pipelines.iter().copied()
+    }
+
     /// Create a new pipeline cache associated with the given render device.
-    pub fn new(device: RenderDevice) -> Self {
+    pub fn new(
+        device: RenderDevice,
+        render_adapter: RenderAdapter,
+        synchronous_pipeline_compilation: bool,
+    ) -> Self {
         Self {
-            shader_cache: Arc::new(Mutex::new(ShaderCache::new(&device))),
+            shader_cache: Arc::new(Mutex::new(ShaderCache::new(&device, &render_adapter))),
             device,
             layout_cache: default(),
             waiting_pipelines: default(),
             new_pipelines: default(),
             pipelines: default(),
+            synchronous_pipeline_compilation,
         }
     }
 
@@ -679,88 +676,105 @@ impl PipelineCache {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
-        create_pipeline_task(async move {
-            let mut shader_cache = shader_cache.lock().unwrap();
-            let mut layout_cache = layout_cache.lock().unwrap();
+        create_pipeline_task(
+            async move {
+                let mut shader_cache = shader_cache.lock().unwrap();
+                let mut layout_cache = layout_cache.lock().unwrap();
 
-            let vertex_module = match shader_cache.get(
-                &device,
-                id,
-                descriptor.vertex.shader.id(),
-                &descriptor.vertex.shader_defs,
-            ) {
-                Ok(module) => module,
-                Err(err) => return Err(err),
-            };
-
-            let fragment_module = match &descriptor.fragment {
-                Some(fragment) => {
-                    match shader_cache.get(&device, id, fragment.shader.id(), &fragment.shader_defs)
-                    {
-                        Ok(module) => Some(module),
-                        Err(err) => return Err(err),
-                    }
-                }
-                None => None,
-            };
-
-            let layout =
-                if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
-                    None
-                } else {
-                    Some(layout_cache.get(
-                        &device,
-                        &descriptor.layout,
-                        descriptor.push_constant_ranges.to_vec(),
-                    ))
+                let vertex_module = match shader_cache.get(
+                    &device,
+                    id,
+                    descriptor.vertex.shader.id(),
+                    &descriptor.vertex.shader_defs,
+                ) {
+                    Ok(module) => module,
+                    Err(err) => return Err(err),
                 };
 
-            drop((shader_cache, layout_cache));
+                let fragment_module = match &descriptor.fragment {
+                    Some(fragment) => {
+                        match shader_cache.get(
+                            &device,
+                            id,
+                            fragment.shader.id(),
+                            &fragment.shader_defs,
+                        ) {
+                            Ok(module) => Some(module),
+                            Err(err) => return Err(err),
+                        }
+                    }
+                    None => None,
+                };
 
-            let vertex_buffer_layouts = descriptor
-                .vertex
-                .buffers
-                .iter()
-                .map(|layout| RawVertexBufferLayout {
-                    array_stride: layout.array_stride,
-                    attributes: &layout.attributes,
-                    step_mode: layout.step_mode,
-                })
-                .collect::<Vec<_>>();
+                let layout =
+                    if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
+                        None
+                    } else {
+                        Some(layout_cache.get(
+                            &device,
+                            &descriptor.layout,
+                            descriptor.push_constant_ranges.to_vec(),
+                        ))
+                    };
 
-            let fragment_data = descriptor.fragment.as_ref().map(|fragment| {
-                (
-                    fragment_module.unwrap(),
-                    fragment.entry_point.deref(),
-                    fragment.targets.as_slice(),
-                )
-            });
+                drop((shader_cache, layout_cache));
 
-            let descriptor = RawRenderPipelineDescriptor {
-                multiview: None,
-                depth_stencil: descriptor.depth_stencil.clone(),
-                label: descriptor.label.as_deref(),
-                layout: layout.as_deref(),
-                multisample: descriptor.multisample,
-                primitive: descriptor.primitive,
-                vertex: RawVertexState {
-                    buffers: &vertex_buffer_layouts,
-                    entry_point: descriptor.vertex.entry_point.deref(),
-                    module: &vertex_module,
-                },
-                fragment: fragment_data
-                    .as_ref()
-                    .map(|(module, entry_point, targets)| RawFragmentState {
-                        entry_point,
-                        module,
-                        targets,
-                    }),
-            };
+                let vertex_buffer_layouts = descriptor
+                    .vertex
+                    .buffers
+                    .iter()
+                    .map(|layout| RawVertexBufferLayout {
+                        array_stride: layout.array_stride,
+                        attributes: &layout.attributes,
+                        step_mode: layout.step_mode,
+                    })
+                    .collect::<Vec<_>>();
 
-            Ok(Pipeline::RenderPipeline(
-                device.create_render_pipeline(&descriptor),
-            ))
-        })
+                let fragment_data = descriptor.fragment.as_ref().map(|fragment| {
+                    (
+                        fragment_module.unwrap(),
+                        fragment.entry_point.deref(),
+                        fragment.targets.as_slice(),
+                    )
+                });
+
+                // TODO: Expose this somehow
+                let compilation_options = PipelineCompilationOptions {
+                    constants: &std::collections::HashMap::new(),
+                    zero_initialize_workgroup_memory: false,
+                };
+
+                let descriptor = RawRenderPipelineDescriptor {
+                    multiview: None,
+                    depth_stencil: descriptor.depth_stencil.clone(),
+                    label: descriptor.label.as_deref(),
+                    layout: layout.as_deref(),
+                    multisample: descriptor.multisample,
+                    primitive: descriptor.primitive,
+                    vertex: RawVertexState {
+                        buffers: &vertex_buffer_layouts,
+                        entry_point: descriptor.vertex.entry_point.deref(),
+                        module: &vertex_module,
+                        // TODO: Should this be the same as the fragment compilation options?
+                        compilation_options: compilation_options.clone(),
+                    },
+                    fragment: fragment_data
+                        .as_ref()
+                        .map(|(module, entry_point, targets)| RawFragmentState {
+                            entry_point,
+                            module,
+                            targets,
+                            // TODO: Should this be the same as the vertex compilation options?
+                            compilation_options,
+                        }),
+                };
+
+                Ok(Pipeline::RenderPipeline(
+                    device.create_render_pipeline(&descriptor),
+                ))
+            },
+            self.synchronous_pipeline_compilation,
+        )
     }
 
     fn start_create_compute_pipeline(
@@ -771,44 +785,52 @@ impl PipelineCache {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
-        create_pipeline_task(async move {
-            let mut shader_cache = shader_cache.lock().unwrap();
-            let mut layout_cache = layout_cache.lock().unwrap();
+        create_pipeline_task(
+            async move {
+                let mut shader_cache = shader_cache.lock().unwrap();
+                let mut layout_cache = layout_cache.lock().unwrap();
 
-            let compute_module = match shader_cache.get(
-                &device,
-                id,
-                descriptor.shader.id(),
-                &descriptor.shader_defs,
-            ) {
-                Ok(module) => module,
-                Err(err) => return Err(err),
-            };
-
-            let layout =
-                if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
-                    None
-                } else {
-                    Some(layout_cache.get(
-                        &device,
-                        &descriptor.layout,
-                        descriptor.push_constant_ranges.to_vec(),
-                    ))
+                let compute_module = match shader_cache.get(
+                    &device,
+                    id,
+                    descriptor.shader.id(),
+                    &descriptor.shader_defs,
+                ) {
+                    Ok(module) => module,
+                    Err(err) => return Err(err),
                 };
 
-            drop((shader_cache, layout_cache));
+                let layout =
+                    if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
+                        None
+                    } else {
+                        Some(layout_cache.get(
+                            &device,
+                            &descriptor.layout,
+                            descriptor.push_constant_ranges.to_vec(),
+                        ))
+                    };
 
-            let descriptor = RawComputePipelineDescriptor {
-                label: descriptor.label.as_deref(),
-                layout: layout.as_deref(),
-                module: &compute_module,
-                entry_point: &descriptor.entry_point,
-            };
+                drop((shader_cache, layout_cache));
 
-            Ok(Pipeline::ComputePipeline(
-                device.create_compute_pipeline(&descriptor),
-            ))
-        })
+                let descriptor = RawComputePipelineDescriptor {
+                    label: descriptor.label.as_deref(),
+                    layout: layout.as_deref(),
+                    module: &compute_module,
+                    entry_point: &descriptor.entry_point,
+                    // TODO: Expose this somehow
+                    compilation_options: PipelineCompilationOptions {
+                        constants: &std::collections::HashMap::new(),
+                        zero_initialize_workgroup_memory: false,
+                    },
+                };
+
+                Ok(Pipeline::ComputePipeline(
+                    device.create_compute_pipeline(&descriptor),
+                ))
+            },
+            self.synchronous_pipeline_compilation,
+        )
     }
 
     /// Process the pipeline queue and create all pending pipelines if possible.
@@ -867,7 +889,9 @@ impl PipelineCache {
             CachedPipelineState::Err(err) => match err {
                 // Retry
                 PipelineCacheError::ShaderNotLoaded(_)
-                | PipelineCacheError::ShaderImportNotYetAvailable => {}
+                | PipelineCacheError::ShaderImportNotYetAvailable => {
+                    cached_pipeline.state = CachedPipelineState::Queued;
+                }
 
                 // Shader could not be processed ... retrying won't help
                 PipelineCacheError::ProcessShaderError(err) => {
@@ -917,21 +941,34 @@ impl PipelineCache {
     }
 }
 
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    not(target_os = "macos"),
+    feature = "multi_threaded"
+))]
 fn create_pipeline_task(
     task: impl Future<Output = Result<Pipeline, PipelineCacheError>> + Send + 'static,
+    sync: bool,
 ) -> CachedPipelineState {
-    #[cfg(all(
-        not(target_arch = "wasm32"),
-        not(target_os = "macos"),
-        feature = "multi-threaded"
-    ))]
-    return CachedPipelineState::Creating(bevy_tasks::AsyncComputeTaskPool::get().spawn(task));
+    if !sync {
+        return CachedPipelineState::Creating(bevy_tasks::AsyncComputeTaskPool::get().spawn(task));
+    }
 
-    #[cfg(any(
-        target_arch = "wasm32",
-        target_os = "macos",
-        not(feature = "multi-threaded")
-    ))]
+    match futures_lite::future::block_on(task) {
+        Ok(pipeline) => CachedPipelineState::Ok(pipeline),
+        Err(err) => CachedPipelineState::Err(err),
+    }
+}
+
+#[cfg(any(
+    target_arch = "wasm32",
+    target_os = "macos",
+    not(feature = "multi_threaded")
+))]
+fn create_pipeline_task(
+    task: impl Future<Output = Result<Pipeline, PipelineCacheError>> + Send + 'static,
+    _sync: bool,
+) -> CachedPipelineState {
     match futures_lite::future::block_on(task) {
         Ok(pipeline) => CachedPipelineState::Ok(pipeline),
         Err(err) => CachedPipelineState::Err(err),
@@ -942,7 +979,7 @@ fn create_pipeline_task(
 #[derive(Error, Debug)]
 pub enum PipelineCacheError {
     #[error(
-        "Pipeline could not be compiled because the following shader is not loaded yet: {0:?}"
+        "Pipeline could not be compiled because the following shader could not be loaded: {0:?}"
     )]
     ShaderNotLoaded(AssetId<Shader>),
     #[error(transparent)]
@@ -951,4 +988,90 @@ pub enum PipelineCacheError {
     ShaderImportNotYetAvailable,
     #[error("Could not create shader module: {0}")]
     CreateShaderModule(String),
+}
+
+// TODO: This needs to be kept up to date with the capabilities in the `create_validator` function in wgpu-core
+// https://github.com/gfx-rs/wgpu/blob/trunk/wgpu-core/src/device/mod.rs#L449
+// We use a modified version of the `create_validator` function because `naga_oil`'s composer stores the capabilities
+// and subgroup shader stages instead of a `Validator`.
+// We also can't use that function because `wgpu-core` isn't included in WebGPU builds.
+/// Get the device capabilities and subgroup support for use in `naga_oil`.
+fn get_capabilities(
+    features: Features,
+    downlevel: DownlevelFlags,
+) -> (Capabilities, naga::valid::ShaderStages) {
+    let mut capabilities = Capabilities::empty();
+    capabilities.set(
+        Capabilities::PUSH_CONSTANT,
+        features.contains(Features::PUSH_CONSTANTS),
+    );
+    capabilities.set(
+        Capabilities::FLOAT64,
+        features.contains(Features::SHADER_F64),
+    );
+    capabilities.set(
+        Capabilities::PRIMITIVE_INDEX,
+        features.contains(Features::SHADER_PRIMITIVE_INDEX),
+    );
+    capabilities.set(
+        Capabilities::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+        features.contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING),
+    );
+    capabilities.set(
+        Capabilities::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
+        features.contains(Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING),
+    );
+    // TODO: This needs a proper wgpu feature
+    capabilities.set(
+        Capabilities::SAMPLER_NON_UNIFORM_INDEXING,
+        features.contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING),
+    );
+    capabilities.set(
+        Capabilities::STORAGE_TEXTURE_16BIT_NORM_FORMATS,
+        features.contains(Features::TEXTURE_FORMAT_16BIT_NORM),
+    );
+    capabilities.set(
+        Capabilities::MULTIVIEW,
+        features.contains(Features::MULTIVIEW),
+    );
+    capabilities.set(
+        Capabilities::EARLY_DEPTH_TEST,
+        features.contains(Features::SHADER_EARLY_DEPTH_TEST),
+    );
+    capabilities.set(
+        Capabilities::SHADER_INT64,
+        features.contains(Features::SHADER_INT64),
+    );
+    capabilities.set(
+        Capabilities::MULTISAMPLED_SHADING,
+        downlevel.contains(DownlevelFlags::MULTISAMPLED_SHADING),
+    );
+    capabilities.set(
+        Capabilities::DUAL_SOURCE_BLENDING,
+        features.contains(Features::DUAL_SOURCE_BLENDING),
+    );
+    capabilities.set(
+        Capabilities::CUBE_ARRAY_TEXTURES,
+        downlevel.contains(DownlevelFlags::CUBE_ARRAY_TEXTURES),
+    );
+    capabilities.set(
+        Capabilities::SUBGROUP,
+        features.intersects(Features::SUBGROUP | Features::SUBGROUP_VERTEX),
+    );
+    capabilities.set(
+        Capabilities::SUBGROUP_BARRIER,
+        features.intersects(Features::SUBGROUP_BARRIER),
+    );
+
+    let mut subgroup_stages = naga::valid::ShaderStages::empty();
+    subgroup_stages.set(
+        naga::valid::ShaderStages::COMPUTE | naga::valid::ShaderStages::FRAGMENT,
+        features.contains(Features::SUBGROUP),
+    );
+    subgroup_stages.set(
+        naga::valid::ShaderStages::VERTEX,
+        features.contains(Features::SUBGROUP_VERTEX),
+    );
+
+    (capabilities, subgroup_stages)
 }

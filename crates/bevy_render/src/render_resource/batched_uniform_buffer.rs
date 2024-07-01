@@ -3,11 +3,11 @@ use crate::{
     render_resource::DynamicUniformBuffer,
     renderer::{RenderDevice, RenderQueue},
 };
-use bevy_utils::nonmax::NonMaxU32;
 use encase::{
     private::{ArrayMetadata, BufferMut, Metadata, RuntimeSizedArray, WriteInto, Writer},
     ShaderType,
 };
+use nonmax::NonMaxU32;
 use std::{marker::PhantomData, num::NonZeroU64};
 use wgpu::{BindingResource, Limits};
 
@@ -81,7 +81,7 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
 
     pub fn push(&mut self, component: T) -> GpuArrayBufferIndex<T> {
         let result = GpuArrayBufferIndex {
-            index: NonMaxU32::new(self.temp.0.len() as u32).unwrap(),
+            index: self.temp.0.len() as u32,
             dynamic_offset: NonMaxU32::new(self.current_offset),
             element_type: PhantomData,
         };

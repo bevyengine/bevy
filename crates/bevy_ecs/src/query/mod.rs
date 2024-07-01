@@ -739,7 +739,6 @@ mod tests {
         }
     }
 
-    #[allow(deprecated)]
     #[test]
     fn mut_to_immut_query_methods_have_immut_item() {
         #[derive(Component)]
@@ -771,7 +770,6 @@ mod tests {
         q.iter().for_each(|_: &Foo| ());
 
         let _: Option<&Foo> = q.get(e).ok();
-        let _: Option<&Foo> = q.get_component(e).ok();
         let _: Option<[&Foo; 1]> = q.get_many([e]).ok();
         let _: Option<&Foo> = q.get_single().ok();
         let _: [&Foo; 1] = q.many([e]);

@@ -17,7 +17,6 @@ fn main() {
                 rotate_to_player_system,
             ),
         )
-        .add_systems(Update, bevy::window::close_on_esc)
         .run();
 }
 

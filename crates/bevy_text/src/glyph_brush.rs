@@ -12,7 +12,7 @@ use glyph_brush_layout::{
 
 use crate::{
     error::TextError, BreakLineOn, Font, FontAtlasSet, FontAtlasSets, GlyphAtlasInfo, JustifyText,
-    TextSettings, YAxisOrientation,
+    PlacedGlyph, TextSettings, YAxisOrientation,
 };
 
 pub struct GlyphBrush {
@@ -64,6 +64,7 @@ impl GlyphBrush {
         textures: &mut Assets<Image>,
         text_settings: &TextSettings,
         y_axis_orientation: YAxisOrientation,
+        h_anchor: f32,
     ) -> Result<Vec<PositionedGlyph>, TextError> {
         if glyphs.is_empty() {
             return Ok(Vec::new());
@@ -94,8 +95,10 @@ impl GlyphBrush {
                 mut glyph,
                 font_id: _,
             } = sg;
-            let glyph_id = glyph.id;
-            let glyph_position = glyph.position;
+            let placed_glyph = PlacedGlyph {
+                glyph_id: glyph.id,
+                subpixel_offset: glyph.position.into(),
+            };
             let adjust = GlyphPlacementAdjuster::new(&mut glyph);
             let section_data = sections_data[sg.section_index];
             if let Some(outlined_glyph) = section_data.1.font.outline_glyph(glyph) {
@@ -106,7 +109,7 @@ impl GlyphBrush {
                     .or_insert_with(FontAtlasSet::default);
 
                 let atlas_info = font_atlas_set
-                    .get_glyph_atlas_info(section_data.2, glyph_id, glyph_position)
+                    .get_glyph_atlas_info(section_data.2, &placed_glyph)
                     .map(Ok)
                     .unwrap_or_else(|| {
                         font_atlas_set.add_glyph_to_atlas(texture_atlases, textures, outlined_glyph)
@@ -115,14 +118,16 @@ impl GlyphBrush {
                 if !text_settings.allow_dynamic_font_size
                     && font_atlas_set.len() > text_settings.soft_max_font_atlases.get()
                 {
-                    warn_once!("warning[B0005]: Number of font atlases has exceeded the maximum of {}. Performance and memory usage may suffer.", text_settings.soft_max_font_atlases.get());
+                    warn_once!(
+                        "warning[B0005]: Number of font atlases has exceeded the maximum of {}. Performance and memory usage may suffer. See: https://bevyengine.org/learn/errors/#b0005",
+                        text_settings.soft_max_font_atlases.get());
                 }
 
                 let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
                 let glyph_rect = texture_atlas.textures[atlas_info.glyph_index];
-                let size = Vec2::new(glyph_rect.width(), glyph_rect.height());
+                let size = glyph_rect.size().as_vec2();
 
-                let x = bounds.min.x + size.x / 2.0 - text_bounds.min.x;
+                let x = bounds.min.x + size.x / 2.0 + h_anchor;
 
                 let y = match y_axis_orientation {
                     YAxisOrientation::BottomToTop => {

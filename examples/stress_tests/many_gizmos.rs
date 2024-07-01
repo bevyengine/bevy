@@ -71,8 +71,8 @@ fn system(config: Res<Config>, time: Res<Time>, mut draw: Gizmos) {
             let angle = i as f32 / (config.line_count / SYSTEM_COUNT) as f32 * TAU;
 
             let vector = Vec2::from(angle.sin_cos()).extend(time.elapsed_seconds().sin());
-            let start_color = Color::rgb(vector.x, vector.z, 0.5);
-            let end_color = Color::rgb(-vector.z, -vector.y, 0.5);
+            let start_color = LinearRgba::rgb(vector.x, vector.z, 0.5);
+            let end_color = LinearRgba::rgb(-vector.z, -vector.y, 0.5);
 
             draw.line_gradient(vector, -vector, start_color, end_color);
         }
@@ -87,13 +87,14 @@ fn setup(mut commands: Commands) {
         ..default()
     });
 
-    commands.spawn(TextBundle::from_section(
-        "",
-        TextStyle {
-            font_size: 30.,
+    commands.spawn(
+        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
-        },
-    ));
+        }),
+    );
 }
 
 fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<DiagnosticsStore>) {

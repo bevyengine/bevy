@@ -232,7 +232,6 @@ fn detect_morphs(
     meshes: Res<Assets<Mesh>>,
     scene_handle: Res<SceneHandle>,
     mut setup: Local<bool>,
-    asset_server: Res<AssetServer>,
 ) {
     let no_morphing = morphs.iter().len() == 0;
     if no_morphing {
@@ -255,7 +254,6 @@ fn detect_morphs(
     }
     detected.truncate(AVAILABLE_KEYS.len());
     let style = TextStyle {
-        font: asset_server.load("assets/fonts/FiraMono-Medium.ttf"),
         font_size: 13.0,
         ..default()
     };

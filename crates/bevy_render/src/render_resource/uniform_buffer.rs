@@ -31,6 +31,7 @@ use super::IntoBinding;
 /// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
 /// * [`DynamicUniformBuffer`]
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
+/// * [`RawBufferVec`](crate::render_resource::RawBufferVec)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
 ///
@@ -168,6 +169,7 @@ impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a UniformBuffer<T> {
 /// * [`UniformBuffer`]
 /// * [`DynamicUniformBuffer`]
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
+/// * [`RawBufferVec`](crate::render_resource::RawBufferVec)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
 ///
@@ -277,7 +279,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         device: &RenderDevice,
         queue: &'a RenderQueue,
     ) -> Option<DynamicUniformBufferWriter<'a, T>> {
-        let alignment = if cfg!(ios_simulator) {
+        let alignment = if cfg!(feature = "ios_simulator") {
             // On iOS simulator on silicon macs, metal validation check that the host OS alignment
             // is respected, but the device reports the correct value for iOS, which is smaller.
             // Use the larger value.
@@ -293,7 +295,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
             .checked_mul(max_count as u64)
             .unwrap();
 
-        if capacity < size || self.changed {
+        if capacity < size || (self.changed && size > 0) {
             let buffer = device.create_buffer(&BufferDescriptor {
                 label: self.label.as_deref(),
                 usage: self.buffer_usage,
@@ -334,7 +336,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         let capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
         let size = self.scratch.as_ref().len() as u64;
 
-        if capacity < size || self.changed {
+        if capacity < size || (self.changed && size > 0) {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
                 usage: self.buffer_usage,
@@ -385,6 +387,11 @@ impl<'a> BufferMut for QueueWriteBufferViewWrapper<'a> {
     #[inline]
     fn write<const N: usize>(&mut self, offset: usize, val: &[u8; N]) {
         self.buffer_view.write(offset, val);
+    }
+
+    #[inline]
+    fn write_slice(&mut self, offset: usize, val: &[u8]) {
+        self.buffer_view.write_slice(offset, val);
     }
 }
 

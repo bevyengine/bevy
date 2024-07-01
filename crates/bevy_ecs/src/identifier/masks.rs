@@ -67,7 +67,7 @@ impl IdentifierMask {
         let overflowed = lo >> 31;
 
         // SAFETY:
-        // - Adding the overflow flag will offet overflows to start at 1 instead of 0
+        // - Adding the overflow flag will offset overflows to start at 1 instead of 0
         // - The sum of `0x7FFF_FFFF` + `u32::MAX` + 1 (overflow) == `0x7FFF_FFFF`
         // - If the operation doesn't overflow at 31 bits, no offsetting takes place
         unsafe { NonZeroU32::new_unchecked(lo.wrapping_add(overflowed) & HIGH_MASK) }

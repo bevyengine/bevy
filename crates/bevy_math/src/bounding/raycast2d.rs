@@ -1,8 +1,12 @@
 use super::{Aabb2d, BoundingCircle, IntersectsVolume};
-use crate::{primitives::Direction2d, Ray2d, Vec2};
+use crate::{Dir2, Ray2d, Vec2};
+
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
 
 /// A raycast intersection test for 2D bounding volumes
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct RayCast2d {
     /// The ray for the test
     pub ray: Ray2d,
@@ -13,8 +17,8 @@ pub struct RayCast2d {
 }
 
 impl RayCast2d {
-    /// Construct a [`RayCast2d`] from an origin, [`Direction2d`], and max distance.
-    pub fn new(origin: Vec2, direction: Direction2d, max: f32) -> Self {
+    /// Construct a [`RayCast2d`] from an origin, [`Dir2`], and max distance.
+    pub fn new(origin: Vec2, direction: Dir2, max: f32) -> Self {
         Self::from_ray(Ray2d { origin, direction }, max)
     }
 
@@ -100,6 +104,7 @@ impl IntersectsVolume<BoundingCircle> for RayCast2d {
 
 /// An intersection test that casts an [`Aabb2d`] along a ray.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct AabbCast2d {
     /// The ray along which to cast the bounding volume
     pub ray: RayCast2d,
@@ -108,8 +113,8 @@ pub struct AabbCast2d {
 }
 
 impl AabbCast2d {
-    /// Construct an [`AabbCast2d`] from an [`Aabb2d`], origin, [`Direction2d`], and max distance.
-    pub fn new(aabb: Aabb2d, origin: Vec2, direction: Direction2d, max: f32) -> Self {
+    /// Construct an [`AabbCast2d`] from an [`Aabb2d`], origin, [`Dir2`], and max distance.
+    pub fn new(aabb: Aabb2d, origin: Vec2, direction: Dir2, max: f32) -> Self {
         Self::from_ray(aabb, Ray2d { origin, direction }, max)
     }
 
@@ -137,6 +142,7 @@ impl IntersectsVolume<Aabb2d> for AabbCast2d {
 
 /// An intersection test that casts a [`BoundingCircle`] along a ray.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct BoundingCircleCast {
     /// The ray along which to cast the bounding volume
     pub ray: RayCast2d,
@@ -145,8 +151,8 @@ pub struct BoundingCircleCast {
 }
 
 impl BoundingCircleCast {
-    /// Construct a [`BoundingCircleCast`] from a [`BoundingCircle`], origin, [`Direction2d`], and max distance.
-    pub fn new(circle: BoundingCircle, origin: Vec2, direction: Direction2d, max: f32) -> Self {
+    /// Construct a [`BoundingCircleCast`] from a [`BoundingCircle`], origin, [`Dir2`], and max distance.
+    pub fn new(circle: BoundingCircle, origin: Vec2, direction: Dir2, max: f32) -> Self {
         Self::from_ray(circle, Ray2d { origin, direction }, max)
     }
 
@@ -183,37 +189,37 @@ mod tests {
         for (test, volume, expected_distance) in &[
             (
                 // Hit the center of a centered bounding circle
-                RayCast2d::new(Vec2::Y * -5., Direction2d::Y, 90.),
+                RayCast2d::new(Vec2::Y * -5., Dir2::Y, 90.),
                 BoundingCircle::new(Vec2::ZERO, 1.),
                 4.,
             ),
             (
                 // Hit the center of a centered bounding circle, but from the other side
-                RayCast2d::new(Vec2::Y * 5., -Direction2d::Y, 90.),
+                RayCast2d::new(Vec2::Y * 5., -Dir2::Y, 90.),
                 BoundingCircle::new(Vec2::ZERO, 1.),
                 4.,
             ),
             (
                 // Hit the center of an offset circle
-                RayCast2d::new(Vec2::ZERO, Direction2d::Y, 90.),
+                RayCast2d::new(Vec2::ZERO, Dir2::Y, 90.),
                 BoundingCircle::new(Vec2::Y * 3., 2.),
                 1.,
             ),
             (
                 // Just barely hit the circle before the max distance
-                RayCast2d::new(Vec2::X, Direction2d::Y, 1.),
+                RayCast2d::new(Vec2::X, Dir2::Y, 1.),
                 BoundingCircle::new(Vec2::ONE, 0.01),
                 0.99,
             ),
             (
                 // Hit a circle off-center
-                RayCast2d::new(Vec2::X, Direction2d::Y, 90.),
+                RayCast2d::new(Vec2::X, Dir2::Y, 90.),
                 BoundingCircle::new(Vec2::Y * 5., 2.),
                 3.268,
             ),
             (
                 // Barely hit a circle on the side
-                RayCast2d::new(Vec2::X * 0.99999, Direction2d::Y, 90.),
+                RayCast2d::new(Vec2::X * 0.99999, Dir2::Y, 90.),
                 BoundingCircle::new(Vec2::Y * 5., 1.),
                 4.996,
             ),
@@ -241,17 +247,17 @@ mod tests {
         for (test, volume) in &[
             (
                 // The ray doesn't go in the right direction
-                RayCast2d::new(Vec2::ZERO, Direction2d::X, 90.),
+                RayCast2d::new(Vec2::ZERO, Dir2::X, 90.),
                 BoundingCircle::new(Vec2::Y * 2., 1.),
             ),
             (
                 // Ray's alignment isn't enough to hit the circle
-                RayCast2d::new(Vec2::ZERO, Direction2d::from_xy(1., 1.).unwrap(), 90.),
+                RayCast2d::new(Vec2::ZERO, Dir2::from_xy(1., 1.).unwrap(), 90.),
                 BoundingCircle::new(Vec2::Y * 2., 1.),
             ),
             (
                 // The ray's maximum distance isn't high enough
-                RayCast2d::new(Vec2::ZERO, Direction2d::Y, 0.5),
+                RayCast2d::new(Vec2::ZERO, Dir2::Y, 0.5),
                 BoundingCircle::new(Vec2::Y * 2., 1.),
             ),
         ] {
@@ -268,12 +274,7 @@ mod tests {
     fn test_ray_intersection_circle_inside() {
         let volume = BoundingCircle::new(Vec2::splat(0.5), 1.);
         for origin in &[Vec2::X, Vec2::Y, Vec2::ONE, Vec2::ZERO] {
-            for direction in &[
-                Direction2d::X,
-                Direction2d::Y,
-                -Direction2d::X,
-                -Direction2d::Y,
-            ] {
+            for direction in &[Dir2::X, Dir2::Y, -Dir2::X, -Dir2::Y] {
                 for max in &[0., 1., 900.] {
                     let test = RayCast2d::new(*origin, *direction, *max);
 
@@ -295,37 +296,37 @@ mod tests {
         for (test, volume, expected_distance) in &[
             (
                 // Hit the center of a centered aabb
-                RayCast2d::new(Vec2::Y * -5., Direction2d::Y, 90.),
+                RayCast2d::new(Vec2::Y * -5., Dir2::Y, 90.),
                 Aabb2d::new(Vec2::ZERO, Vec2::ONE),
                 4.,
             ),
             (
                 // Hit the center of a centered aabb, but from the other side
-                RayCast2d::new(Vec2::Y * 5., -Direction2d::Y, 90.),
+                RayCast2d::new(Vec2::Y * 5., -Dir2::Y, 90.),
                 Aabb2d::new(Vec2::ZERO, Vec2::ONE),
                 4.,
             ),
             (
                 // Hit the center of an offset aabb
-                RayCast2d::new(Vec2::ZERO, Direction2d::Y, 90.),
+                RayCast2d::new(Vec2::ZERO, Dir2::Y, 90.),
                 Aabb2d::new(Vec2::Y * 3., Vec2::splat(2.)),
                 1.,
             ),
             (
                 // Just barely hit the aabb before the max distance
-                RayCast2d::new(Vec2::X, Direction2d::Y, 1.),
+                RayCast2d::new(Vec2::X, Dir2::Y, 1.),
                 Aabb2d::new(Vec2::ONE, Vec2::splat(0.01)),
                 0.99,
             ),
             (
                 // Hit an aabb off-center
-                RayCast2d::new(Vec2::X, Direction2d::Y, 90.),
+                RayCast2d::new(Vec2::X, Dir2::Y, 90.),
                 Aabb2d::new(Vec2::Y * 5., Vec2::splat(2.)),
                 3.,
             ),
             (
                 // Barely hit an aabb on corner
-                RayCast2d::new(Vec2::X * -0.001, Direction2d::from_xy(1., 1.).unwrap(), 90.),
+                RayCast2d::new(Vec2::X * -0.001, Dir2::from_xy(1., 1.).unwrap(), 90.),
                 Aabb2d::new(Vec2::Y * 2., Vec2::ONE),
                 1.414,
             ),
@@ -353,17 +354,17 @@ mod tests {
         for (test, volume) in &[
             (
                 // The ray doesn't go in the right direction
-                RayCast2d::new(Vec2::ZERO, Direction2d::X, 90.),
+                RayCast2d::new(Vec2::ZERO, Dir2::X, 90.),
                 Aabb2d::new(Vec2::Y * 2., Vec2::ONE),
             ),
             (
                 // Ray's alignment isn't enough to hit the aabb
-                RayCast2d::new(Vec2::ZERO, Direction2d::from_xy(1., 0.99).unwrap(), 90.),
+                RayCast2d::new(Vec2::ZERO, Dir2::from_xy(1., 0.99).unwrap(), 90.),
                 Aabb2d::new(Vec2::Y * 2., Vec2::ONE),
             ),
             (
                 // The ray's maximum distance isn't high enough
-                RayCast2d::new(Vec2::ZERO, Direction2d::Y, 0.5),
+                RayCast2d::new(Vec2::ZERO, Dir2::Y, 0.5),
                 Aabb2d::new(Vec2::Y * 2., Vec2::ONE),
             ),
         ] {
@@ -380,12 +381,7 @@ mod tests {
     fn test_ray_intersection_aabb_inside() {
         let volume = Aabb2d::new(Vec2::splat(0.5), Vec2::ONE);
         for origin in &[Vec2::X, Vec2::Y, Vec2::ONE, Vec2::ZERO] {
-            for direction in &[
-                Direction2d::X,
-                Direction2d::Y,
-                -Direction2d::X,
-                -Direction2d::Y,
-            ] {
+            for direction in &[Dir2::X, Dir2::Y, -Dir2::X, -Dir2::Y] {
                 for max in &[0., 1., 900.] {
                     let test = RayCast2d::new(*origin, *direction, *max);
 
@@ -407,12 +403,7 @@ mod tests {
         for (test, volume, expected_distance) in &[
             (
                 // Hit the center of the aabb, that a ray would've also hit
-                AabbCast2d::new(
-                    Aabb2d::new(Vec2::ZERO, Vec2::ONE),
-                    Vec2::ZERO,
-                    Direction2d::Y,
-                    90.,
-                ),
+                AabbCast2d::new(Aabb2d::new(Vec2::ZERO, Vec2::ONE), Vec2::ZERO, Dir2::Y, 90.),
                 Aabb2d::new(Vec2::Y * 5., Vec2::ONE),
                 3.,
             ),
@@ -421,7 +412,7 @@ mod tests {
                 AabbCast2d::new(
                     Aabb2d::new(Vec2::ZERO, Vec2::ONE),
                     Vec2::Y * 10.,
-                    -Direction2d::Y,
+                    -Dir2::Y,
                     90.,
                 ),
                 Aabb2d::new(Vec2::Y * 5., Vec2::ONE),
@@ -432,7 +423,7 @@ mod tests {
                 AabbCast2d::new(
                     Aabb2d::new(Vec2::ZERO, Vec2::ONE),
                     Vec2::X * 1.5,
-                    Direction2d::Y,
+                    Dir2::Y,
                     90.,
                 ),
                 Aabb2d::new(Vec2::Y * 5., Vec2::ONE),
@@ -443,7 +434,7 @@ mod tests {
                 AabbCast2d::new(
                     Aabb2d::new(Vec2::X * -2., Vec2::ONE),
                     Vec2::X * 3.,
-                    Direction2d::Y,
+                    Dir2::Y,
                     90.,
                 ),
                 Aabb2d::new(Vec2::Y * 5., Vec2::ONE),
@@ -477,7 +468,7 @@ mod tests {
                 BoundingCircleCast::new(
                     BoundingCircle::new(Vec2::ZERO, 1.),
                     Vec2::ZERO,
-                    Direction2d::Y,
+                    Dir2::Y,
                     90.,
                 ),
                 BoundingCircle::new(Vec2::Y * 5., 1.),
@@ -488,7 +479,7 @@ mod tests {
                 BoundingCircleCast::new(
                     BoundingCircle::new(Vec2::ZERO, 1.),
                     Vec2::Y * 10.,
-                    -Direction2d::Y,
+                    -Dir2::Y,
                     90.,
                 ),
                 BoundingCircle::new(Vec2::Y * 5., 1.),
@@ -499,7 +490,7 @@ mod tests {
                 BoundingCircleCast::new(
                     BoundingCircle::new(Vec2::ZERO, 1.),
                     Vec2::X * 1.5,
-                    Direction2d::Y,
+                    Dir2::Y,
                     90.,
                 ),
                 BoundingCircle::new(Vec2::Y * 5., 1.),
@@ -510,7 +501,7 @@ mod tests {
                 BoundingCircleCast::new(
                     BoundingCircle::new(Vec2::X * -1.5, 1.),
                     Vec2::X * 3.,
-                    Direction2d::Y,
+                    Dir2::Y,
                     90.,
                 ),
                 BoundingCircle::new(Vec2::Y * 5., 1.),

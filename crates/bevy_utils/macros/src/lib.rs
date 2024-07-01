@@ -1,5 +1,6 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
@@ -66,10 +67,10 @@ impl Parse for AllTuples {
 ///
 /// all_tuples!(impl_wrapped_in_foo, 0, 15, T);
 /// // impl_wrapped_in_foo!();
-/// // impl_wrapped_in_foo!(P0);
-/// // impl_wrapped_in_foo!(P0, P1);
+/// // impl_wrapped_in_foo!(T0);
+/// // impl_wrapped_in_foo!(T0, T1);
 /// // ..
-/// // impl_wrapped_in_foo!(P0 .. P14);
+/// // impl_wrapped_in_foo!(T0 .. T14);
 /// ```
 /// Multiple parameters.
 /// ```

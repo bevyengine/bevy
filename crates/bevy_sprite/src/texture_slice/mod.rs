@@ -10,8 +10,9 @@ pub(crate) use computed_slices::{
     compute_slices_on_asset_event, compute_slices_on_sprite_change, ComputedTextureSlices,
 };
 
-#[derive(Debug, Clone)]
-pub(crate) struct TextureSlice {
+/// Single texture slice, representing a texture rect to draw in a given area
+#[derive(Debug, Clone, PartialEq)]
+pub struct TextureSlice {
     /// texture area to draw
     pub texture_rect: Rect,
     /// slice draw size
@@ -26,9 +27,9 @@ impl TextureSlice {
     /// # Arguments
     ///
     /// * `stretch_value` - The slice will repeat when the ratio between the *drawing dimensions* of texture and the
-    /// *original texture size* (rect) are above `stretch_value`.
-    /// - `tile_x` - should the slice be tiled horizontally
-    /// - `tile_y` - should the slice be tiled vertically
+    ///     *original texture size* (rect) are above `stretch_value`.
+    /// * `tile_x` - should the slice be tiled horizontally
+    /// * `tile_y` - should the slice be tiled vertically
     #[must_use]
     pub fn tiled(self, stretch_value: f32, (tile_x, tile_y): (bool, bool)) -> Vec<Self> {
         if !tile_x && !tile_y {
@@ -39,16 +40,19 @@ impl TextureSlice {
         // Each tile expected size
         let expected_size = Vec2::new(
             if tile_x {
-                rect_size.x * stretch_value
+                // No slice should be less than 1 pixel wide
+                (rect_size.x * stretch_value).max(1.0)
             } else {
                 self.draw_size.x
             },
             if tile_y {
-                rect_size.y * stretch_value
+                // No slice should be less than 1 pixel high
+                (rect_size.y * stretch_value).max(1.0)
             } else {
                 self.draw_size.y
             },
-        );
+        )
+        .min(self.draw_size);
         let mut slices = Vec::new();
         let base_offset = Vec2::new(
             -self.draw_size.x / 2.0,
@@ -80,6 +84,9 @@ impl TextureSlice {
             }
             offset.y -= size_y / 2.0;
             remaining_columns -= size_y;
+        }
+        if slices.len() > 1_000 {
+            bevy_utils::tracing::warn!("One of your tiled textures has generated {} slices. You might want to use higher stretch values to avoid a great performance cost", slices.len());
         }
         slices
     }

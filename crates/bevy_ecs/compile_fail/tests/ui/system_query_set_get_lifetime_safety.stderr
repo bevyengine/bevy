@@ -1,0 +1,27 @@
+error[E0499]: cannot borrow `queries` as mutable more than once at a time
+  --> tests/ui/system_query_set_get_lifetime_safety.rs:10:14
+   |
+7  |     let mut q2 = queries.p0();
+   |                  ------- first mutable borrow occurs here
+...
+10 |     let q1 = queries.p1();
+   |              ^^^^^^^ second mutable borrow occurs here
+...
+15 |     b.0 = a.0
+   |     - first borrow later used here
+
+error[E0499]: cannot borrow `queries` as mutable more than once at a time
+  --> tests/ui/system_query_set_get_lifetime_safety.rs:22:18
+   |
+19 |     let q1 = queries.p1();
+   |              ------- first mutable borrow occurs here
+...
+22 |     let mut q2 = queries.p0();
+   |                  ^^^^^^^ second mutable borrow occurs here
+...
+27 |     b.0 = a.0
+   |           --- first borrow later used here
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0499`.

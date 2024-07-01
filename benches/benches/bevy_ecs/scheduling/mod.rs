@@ -19,4 +19,5 @@ criterion_group!(
     contrived,
     schedule,
     build_schedule,
+    empty_schedule_run,
 );

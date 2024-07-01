@@ -87,6 +87,19 @@ impl TextPipeline {
 
         let size = compute_text_bounds(&section_glyphs, |index| scaled_fonts[index]).size();
 
+        let h_limit = if bounds.x.is_finite() {
+            bounds.x
+        } else {
+            size.x
+        };
+
+        let h_anchor = match text_alignment {
+            JustifyText::Left => 0.0,
+            JustifyText::Center => h_limit * 0.5,
+            JustifyText::Right => h_limit * 1.0,
+        }
+        .floor();
+
         let glyphs = self.brush.process_glyphs(
             section_glyphs,
             &sections,
@@ -96,6 +109,7 @@ impl TextPipeline {
             textures,
             text_settings,
             y_axis_orientation,
+            h_anchor,
         )?;
 
         Ok(TextLayoutInfo {
@@ -129,32 +143,25 @@ impl TextMeasureInfo {
         scale_factor: f32,
     ) -> Result<TextMeasureInfo, TextError> {
         let sections = &text.sections;
-        for section in sections {
-            if !fonts.contains(&section.style.font) {
-                return Err(TextError::NoSuchFont);
-            }
-        }
-        let (auto_fonts, sections) = sections
-            .iter()
-            .enumerate()
-            .map(|(i, section)| {
-                // SAFETY: we exited early earlier in this function if
-                // one of the fonts was missing.
-                let font = unsafe { fonts.get(&section.style.font).unwrap_unchecked() };
-                (
-                    font.font.clone(),
-                    TextMeasureSection {
+        let mut auto_fonts = Vec::with_capacity(sections.len());
+        let mut out_sections = Vec::with_capacity(sections.len());
+        for (i, section) in sections.iter().enumerate() {
+            match fonts.get(&section.style.font) {
+                Some(font) => {
+                    auto_fonts.push(font.font.clone());
+                    out_sections.push(TextMeasureSection {
                         font_id: FontId(i),
                         scale: scale_value(section.style.font_size, scale_factor),
                         text: section.value.clone().into_boxed_str(),
-                    },
-                )
-            })
-            .unzip();
+                    });
+                }
+                None => return Err(TextError::NoSuchFont),
+            }
+        }
 
         Ok(Self::new(
             auto_fonts,
-            sections,
+            out_sections,
             text.justify,
             text.linebreak_behavior.into(),
         ))

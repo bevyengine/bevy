@@ -1,6 +1,6 @@
 //! This example illustrates how to react to component change.
 
-use bevy::{ecs::world::Ref, prelude::*};
+use bevy::prelude::*;
 use rand::Rng;
 
 fn main() {

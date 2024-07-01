@@ -9,10 +9,10 @@
 use bevy::core_pipeline::Skybox;
 use bevy::prelude::*;
 
-use std::fmt::{Display, Formatter, Result as FmtResult};
-
-// Rotation speed in radians per frame.
-const ROTATION_SPEED: f32 = 0.005;
+use std::{
+    f32::consts::PI,
+    fmt::{Display, Formatter, Result as FmtResult},
+};
 
 static STOP_ROTATION_HELP_TEXT: &str = "Press Enter to stop rotation";
 static START_ROTATION_HELP_TEXT: &str = "Press Enter to start rotation";
@@ -92,13 +92,13 @@ fn setup(
     spawn_camera(&mut commands);
     spawn_sphere(&mut commands, &mut meshes, &mut materials);
     spawn_reflection_probe(&mut commands, &cubemaps);
-    spawn_text(&mut commands, &asset_server, &app_status);
+    spawn_text(&mut commands, &app_status);
 }
 
 // Spawns the cubes, light, and camera.
 fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/cubes/Cubes.glb#Scene0"),
+        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cubes/Cubes.glb")),
         ..SceneBundle::default()
     });
 }
@@ -122,19 +122,13 @@ fn spawn_sphere(
     materials: &mut Assets<StandardMaterial>,
 ) {
     // Create a sphere mesh.
-    let sphere_mesh = meshes.add(
-        Mesh::try_from(shape::Icosphere {
-            radius: 1.0,
-            subdivisions: 7,
-        })
-        .unwrap(),
-    );
+    let sphere_mesh = meshes.add(Sphere::new(1.0).mesh().ico(7).unwrap());
 
     // Create a sphere.
     commands.spawn(PbrBundle {
         mesh: sphere_mesh.clone(),
         material: materials.add(StandardMaterial {
-            base_color: Color::hex("#ffd891").unwrap(),
+            base_color: Srgba::hex("#ffd891").unwrap().into(),
             metallic: 1.0,
             perceptual_roughness: 0.0,
             ..StandardMaterial::default()
@@ -156,23 +150,23 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
         environment_map: EnvironmentMapLight {
             diffuse_map: cubemaps.diffuse.clone(),
             specular_map: cubemaps.specular_reflection_probe.clone(),
-            intensity: 150.0,
+            intensity: 5000.0,
         },
     });
 }
 
 // Spawns the help text.
-fn spawn_text(commands: &mut Commands, asset_server: &AssetServer, app_status: &AppStatus) {
+fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
     // Create the text.
     commands.spawn(
         TextBundle {
-            text: app_status.create_text(asset_server),
-            ..TextBundle::default()
+            text: app_status.create_text(),
+            ..default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(10.0),
-            left: Val::Px(10.0),
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
@@ -192,7 +186,7 @@ fn add_environment_map_to_camera(
             .insert(create_camera_environment_map_light(&cubemaps))
             .insert(Skybox {
                 image: cubemaps.skybox.clone(),
-                brightness: 150.0,
+                brightness: 5000.0,
             });
     }
 }
@@ -247,13 +241,9 @@ fn toggle_rotation(keyboard: Res<ButtonInput<KeyCode>>, mut app_status: ResMut<A
 }
 
 // A system that updates the help text.
-fn update_text(
-    mut text_query: Query<&mut Text>,
-    app_status: Res<AppStatus>,
-    asset_server: Res<AssetServer>,
-) {
+fn update_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
     for mut text in text_query.iter_mut() {
-        *text = app_status.create_text(&asset_server);
+        *text = app_status.create_text();
     }
 }
 
@@ -284,7 +274,7 @@ impl Display for ReflectionMode {
 impl AppStatus {
     // Constructs the help text at the bottom of the screen based on the
     // application status.
-    fn create_text(&self, asset_server: &AssetServer) -> Text {
+    fn create_text(&self) -> Text {
         let rotation_help_text = if self.rotating {
             STOP_ROTATION_HELP_TEXT
         } else {
@@ -296,11 +286,7 @@ impl AppStatus {
                 "{}\n{}\n{}",
                 self.reflection_mode, rotation_help_text, REFLECTION_MODE_HELP_TEXT
             ),
-            TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 24.0,
-                color: Color::ANTIQUE_WHITE,
-            },
+            TextStyle::default(),
         )
     }
 }
@@ -311,12 +297,13 @@ fn create_camera_environment_map_light(cubemaps: &Cubemaps) -> EnvironmentMapLig
     EnvironmentMapLight {
         diffuse_map: cubemaps.diffuse.clone(),
         specular_map: cubemaps.specular_environment_map.clone(),
-        intensity: 150.0,
+        intensity: 5000.0,
     }
 }
 
 // Rotates the camera a bit every frame.
 fn rotate_camera(
+    time: Res<Time>,
     mut camera_query: Query<&mut Transform, With<Camera3d>>,
     app_status: Res<AppStatus>,
 ) {
@@ -325,7 +312,7 @@ fn rotate_camera(
     }
 
     for mut transform in camera_query.iter_mut() {
-        transform.translation = Vec2::from_angle(ROTATION_SPEED)
+        transform.translation = Vec2::from_angle(time.delta_seconds() * PI / 5.0)
             .rotate(transform.translation.xz())
             .extend(transform.translation.y)
             .xzy();
@@ -336,17 +323,15 @@ fn rotate_camera(
 // Loads the cubemaps from the assets directory.
 impl FromWorld for Cubemaps {
     fn from_world(world: &mut World) -> Self {
-        let asset_server = world.resource::<AssetServer>();
-
         // Just use the specular map for the skybox since it's not too blurry.
         // In reality you wouldn't do this--you'd use a real skybox texture--but
         // reusing the textures like this saves space in the Bevy repository.
-        let specular_map = asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2");
+        let specular_map = world.load_asset("environment_maps/pisa_specular_rgb9e5_zstd.ktx2");
 
         Cubemaps {
-            diffuse: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
-            specular_reflection_probe: asset_server
-                .load("environment_maps/cubes_reflection_probe_specular_rgb9e5_zstd.ktx2"),
+            diffuse: world.load_asset("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+            specular_reflection_probe: world
+                .load_asset("environment_maps/cubes_reflection_probe_specular_rgb9e5_zstd.ktx2"),
             specular_environment_map: specular_map.clone(),
             skybox: specular_map,
         }

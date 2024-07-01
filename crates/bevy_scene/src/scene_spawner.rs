@@ -1,14 +1,15 @@
 use crate::{DynamicScene, Scene};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     entity::Entity,
     event::{Event, Events, ManualEventReader},
     reflect::AppTypeRegistry,
-    system::{Command, Resource},
-    world::{Mut, World},
+    system::Resource,
+    world::{Command, Mut, World},
 };
-use bevy_hierarchy::{Parent, PushChild};
-use bevy_utils::{tracing::error, EntityHashMap, HashMap, HashSet};
+use bevy_hierarchy::{BuildWorldChildren, DespawnRecursiveExt, Parent, PushChild};
+use bevy_utils::{tracing::error, HashMap, HashSet};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -25,7 +26,7 @@ pub struct SceneInstanceReady {
 #[derive(Debug)]
 pub struct InstanceInfo {
     /// Mapping of entities from the scene world to the instance world.
-    pub entity_map: EntityHashMap<Entity, Entity>,
+    pub entity_map: EntityHashMap<Entity>,
 }
 
 /// Unique id identifying a scene instance.
@@ -59,9 +60,8 @@ impl InstanceId {
 /// - [`despawn_instance`](Self::despawn_instance)
 #[derive(Default, Resource)]
 pub struct SceneSpawner {
-    spawned_scenes: HashMap<AssetId<Scene>, Vec<InstanceId>>,
-    spawned_dynamic_scenes: HashMap<AssetId<DynamicScene>, Vec<InstanceId>>,
-    spawned_instances: HashMap<InstanceId, InstanceInfo>,
+    pub(crate) spawned_dynamic_scenes: HashMap<AssetId<DynamicScene>, HashSet<InstanceId>>,
+    pub(crate) spawned_instances: HashMap<InstanceId, InstanceInfo>,
     scene_asset_event_reader: ManualEventReader<AssetEvent<DynamicScene>>,
     dynamic_scenes_to_spawn: Vec<(Handle<DynamicScene>, InstanceId)>,
     scenes_to_spawn: Vec<(Handle<Scene>, InstanceId)>,
@@ -92,8 +92,7 @@ pub enum SceneSpawnError {
         and registering the type using `app.register_type::<T>()`"
     )]
     UnregisteredType {
-        /// The [type name] for the unregistered type.
-        /// [type name]: std::any::type_name
+        /// The [type name](std::any::type_name) for the unregistered type.
         std_type_name: String,
     },
     /// Scene contains an unregistered type which has a `TypePath`.
@@ -188,7 +187,10 @@ impl SceneSpawner {
     pub fn despawn_instance_sync(&mut self, world: &mut World, instance_id: &InstanceId) {
         if let Some(instance) = self.spawned_instances.remove(instance_id) {
             for &entity in instance.entity_map.values() {
-                let _ = world.despawn(entity);
+                if let Some(mut entity_mut) = world.get_entity_mut(entity) {
+                    entity_mut.remove_parent();
+                    entity_mut.despawn_recursive();
+                };
             }
         }
     }
@@ -206,14 +208,14 @@ impl SceneSpawner {
         self.spawned_instances
             .insert(instance_id, InstanceInfo { entity_map });
         let spawned = self.spawned_dynamic_scenes.entry(id).or_default();
-        spawned.push(instance_id);
+        spawned.insert(instance_id);
         Ok(instance_id)
     }
 
     fn spawn_dynamic_internal(
         world: &mut World,
         id: AssetId<DynamicScene>,
-        entity_map: &mut EntityHashMap<Entity, Entity>,
+        entity_map: &mut EntityHashMap<Entity>,
     ) -> Result<(), SceneSpawnError> {
         world.resource_scope(|world, scenes: Mut<Assets<DynamicScene>>| {
             let scene = scenes
@@ -247,8 +249,6 @@ impl SceneSpawner {
                 scene.write_to_world_with(world, &world.resource::<AppTypeRegistry>().clone())?;
 
             self.spawned_instances.insert(instance_id, instance_info);
-            let spawned = self.spawned_scenes.entry(id).or_default();
-            spawned.push(instance_id);
             Ok(instance_id)
         })
     }
@@ -306,8 +306,8 @@ impl SceneSpawner {
                     let spawned = self
                         .spawned_dynamic_scenes
                         .entry(handle.id())
-                        .or_insert_with(Vec::new);
-                    spawned.push(instance_id);
+                        .or_insert_with(HashSet::new);
+                    spawned.insert(instance_id);
                 }
                 Err(SceneSpawnError::NonExistentScene { .. }) => {
                     self.dynamic_scenes_to_spawn.push((handle, instance_id));
@@ -439,17 +439,14 @@ pub fn scene_spawner_system(world: &mut World) {
 mod tests {
     use bevy_app::App;
     use bevy_asset::{AssetPlugin, AssetServer};
-    use bevy_ecs::component::Component;
-    use bevy_ecs::entity::Entity;
     use bevy_ecs::event::EventReader;
     use bevy_ecs::prelude::ReflectComponent;
     use bevy_ecs::query::With;
-    use bevy_ecs::reflect::AppTypeRegistry;
     use bevy_ecs::system::{Commands, Res, ResMut, RunSystemOnce};
-    use bevy_ecs::world::World;
+    use bevy_ecs::{component::Component, system::Query};
     use bevy_reflect::Reflect;
 
-    use crate::{DynamicScene, DynamicSceneBuilder, SceneInstanceReady, ScenePlugin, SceneSpawner};
+    use crate::{DynamicSceneBuilder, ScenePlugin};
 
     use super::*;
 
@@ -481,7 +478,7 @@ mod tests {
 
         let scene_id = world.resource_mut::<Assets<DynamicScene>>().add(scene);
         let instance_id = scene_spawner
-            .spawn_dynamic_sync(&mut world, scene_id)
+            .spawn_dynamic_sync(&mut world, &scene_id)
             .unwrap();
 
         // verify we spawned exactly one new entity with our expected component
@@ -514,18 +511,18 @@ mod tests {
         app.add_plugins((AssetPlugin::default(), ScenePlugin));
 
         app.register_type::<ComponentA>();
-        app.world.spawn(ComponentA);
-        app.world.spawn(ComponentA);
+        app.world_mut().spawn(ComponentA);
+        app.world_mut().spawn(ComponentA);
 
         // Build scene.
         let scene =
-            app.world
+            app.world_mut()
                 .run_system_once(|world: &World, asset_server: Res<'_, AssetServer>| {
                     asset_server.add(DynamicScene::from_world(world))
                 });
 
         // Spawn scene.
-        let scene_entity = app.world.run_system_once(
+        let scene_entity = app.world_mut().run_system_once(
             move |mut commands: Commands<'_, '_>, mut scene_spawner: ResMut<'_, SceneSpawner>| {
                 let scene_entity = commands.spawn_empty().id();
                 scene_spawner.spawn_dynamic_as_child(scene.clone(), scene_entity);
@@ -535,7 +532,7 @@ mod tests {
 
         // Check for event arrival.
         app.update();
-        app.world.run_system_once(
+        app.world_mut().run_system_once(
             move |mut ev_scene: EventReader<'_, '_, SceneInstanceReady>| {
                 let mut events = ev_scene.read();
 
@@ -549,5 +546,48 @@ mod tests {
                 assert!(events.next().is_none(), "found more than one event");
             },
         );
+    }
+
+    #[test]
+    fn despawn_scene() {
+        let mut app = App::new();
+        app.add_plugins((AssetPlugin::default(), ScenePlugin));
+        app.register_type::<ComponentA>();
+
+        let asset_server = app.world().resource::<AssetServer>();
+
+        // Build scene.
+        let scene = asset_server.add(DynamicScene::default());
+        let count = 10;
+
+        // Checks the number of scene instances stored in `SceneSpawner`.
+        let check = |world: &mut World, expected_count: usize| {
+            let scene_spawner = world.resource::<SceneSpawner>();
+            assert_eq!(
+                scene_spawner.spawned_dynamic_scenes[&scene.id()].len(),
+                expected_count
+            );
+            assert_eq!(scene_spawner.spawned_instances.len(), expected_count);
+        };
+
+        // Spawn scene.
+        for _ in 0..count {
+            app.world_mut().spawn((ComponentA, scene.clone()));
+        }
+
+        app.update();
+        check(app.world_mut(), count);
+
+        // Despawn scene.
+        app.world_mut().run_system_once(
+            |mut commands: Commands, query: Query<Entity, With<ComponentA>>| {
+                for entity in query.iter() {
+                    commands.entity(entity).despawn_recursive();
+                }
+            },
+        );
+
+        app.update();
+        check(app.world_mut(), 0);
     }
 }

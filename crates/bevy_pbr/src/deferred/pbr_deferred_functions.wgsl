@@ -7,9 +7,15 @@
     rgb9e5,
     mesh_view_bindings::view,
     utils::{octahedral_encode, octahedral_decode},
-    prepass_io::{VertexOutput, FragmentOutput},
+    prepass_io::FragmentOutput,
     view_transformations::{position_ndc_to_world, frag_coord_to_ndc},
 }
+
+#ifdef MESHLET_MESH_MATERIAL_PASS
+#import bevy_pbr::meshlet_visibility_buffer_resolve::VertexOutput
+#else
+#import bevy_pbr::prepass_io::VertexOutput
+#endif
 
 #ifdef MOTION_VECTOR_PREPASS
     #import bevy_pbr::pbr_prepass_functions::calculate_motion_vector
@@ -89,7 +95,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     let N = octahedral_decode(octahedral_normal);
 
     let world_position = vec4(position_ndc_to_world(frag_coord_to_ndc(frag_coord)), 1.0);
-    let is_orthographic = view.projection[3].w == 1.0;
+    let is_orthographic = view.clip_from_view[3].w == 1.0;
     let V = pbr_functions::calculate_view(world_position, is_orthographic);
 
     pbr.frag_coord = frag_coord;
@@ -116,7 +122,11 @@ fn deferred_output(in: VertexOutput, pbr_input: PbrInput) -> FragmentOutput {
 #endif
     // motion vectors if required
 #ifdef MOTION_VECTOR_PREPASS
+#ifdef MESHLET_MESH_MATERIAL_PASS
+    out.motion_vector = in.motion_vector;
+#else
     out.motion_vector = calculate_motion_vector(in.world_position, in.previous_world_position);
+#endif
 #endif
 
     return out;

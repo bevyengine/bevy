@@ -17,7 +17,7 @@ pub struct RunSubGraph {
 }
 
 /// The context with all graph information required to run a [`Node`](super::Node).
-/// This context is created for each node by the `RenderGraphRunner`.
+/// This context is created for each node by the [`RenderGraphRunner`](crate::renderer::graph_runner::RenderGraphRunner).
 ///
 /// The slot input can be read from here and the outputs must be written back to the context for
 /// passing them onto the next node.
@@ -30,10 +30,10 @@ pub struct RenderGraphContext<'a> {
     inputs: &'a [SlotValue],
     outputs: &'a mut [Option<SlotValue>],
     run_sub_graphs: Vec<RunSubGraph>,
-    /// The view_entity associated with the render graph being executed
-    /// This is optional because you aren't required to have a view_entity for a node.
+    /// The `view_entity` associated with the render graph being executed
+    /// This is optional because you aren't required to have a `view_entity` for a node.
     /// For example, compute shader nodes don't have one.
-    /// It should always be set when the RenderGraph is running on a View.
+    /// It should always be set when the [`RenderGraph`] is running on a View.
     view_entity: Option<Entity>,
 }
 

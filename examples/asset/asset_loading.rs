@@ -16,15 +16,27 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // By default AssetServer will load assets from inside the "assets" folder.
-    // For example, the next line will load "ROOT/assets/models/cube/cube.gltf#Mesh0/Primitive0",
+    // For example, the next line will load GltfAssetLabel::Primitive{mesh:0,primitive:0}.from_asset("ROOT/assets/models/cube/cube.gltf"),
     // where "ROOT" is the directory of the Application.
     //
     // This can be overridden by setting the "CARGO_MANIFEST_DIR" environment variable (see
     // https://doc.rust-lang.org/cargo/reference/environment-variables.html)
     // to another directory. When the Application is run through Cargo, "CARGO_MANIFEST_DIR" is
     // automatically set to your crate (workspace) root directory.
-    let cube_handle = asset_server.load("models/cube/cube.gltf#Mesh0/Primitive0");
-    let sphere_handle = asset_server.load("models/sphere/sphere.gltf#Mesh0/Primitive0");
+    let cube_handle = asset_server.load(
+        GltfAssetLabel::Primitive {
+            mesh: 0,
+            primitive: 0,
+        }
+        .from_asset("models/cube/cube.gltf"),
+    );
+    let sphere_handle = asset_server.load(
+        GltfAssetLabel::Primitive {
+            mesh: 0,
+            primitive: 0,
+        }
+        .from_asset("models/sphere/sphere.gltf"),
+    );
 
     // All assets end up in their Assets<T> collection once they are done loading:
     if let Some(sphere) = meshes.get(&sphere_handle) {
@@ -49,11 +61,17 @@ fn setup(
     // It will _not_ be loaded a second time.
     // The LoadedFolder asset will ultimately also hold handles to the assets, but waiting for it to load
     // and finding the right handle is more work!
-    let torus_handle = asset_server.load("models/torus/torus.gltf#Mesh0/Primitive0");
+    let torus_handle = asset_server.load(
+        GltfAssetLabel::Primitive {
+            mesh: 0,
+            primitive: 0,
+        }
+        .from_asset("models/torus/torus.gltf"),
+    );
 
     // You can also add assets directly to their Assets<T> storage:
     let material_handle = materials.add(StandardMaterial {
-        base_color: Color::rgb(0.8, 0.7, 0.6),
+        base_color: Color::srgb(0.8, 0.7, 0.6),
         ..default()
     });
 
@@ -80,10 +98,6 @@ fn setup(
     });
     // light
     commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 150_000.0,
-            ..default()
-        },
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
         ..default()
     });

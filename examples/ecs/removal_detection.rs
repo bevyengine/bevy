@@ -55,7 +55,7 @@ fn react_on_removal(mut removed: RemovedComponents<MyComponent>, mut query: Quer
     // `Component` `T` (in this case `MyComponent`) removed at some point earlier during the frame.
     for entity in removed.read() {
         if let Ok(mut sprite) = query.get_mut(entity) {
-            sprite.color.set_r(0.0);
+            sprite.color = Color::srgb(0.5, 1., 1.);
         }
     }
 }

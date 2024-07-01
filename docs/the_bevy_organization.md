@@ -19,7 +19,7 @@ Maintainers have merge rights in Bevy repos. They assess the scope of pull reque
 Maintainers abide by the following rules when merging pull requests:
 
 1. Trivial PRs can be merged without approvals.
-2. Relatively uncontroversial PRs can be merged following approval from at least two other community members with appropriate expertise.
+2. Relatively uncontroversial PRs can be merged following approval from at least two community members (including Maintainers) with appropriate expertise.
 3. Controversial PRs cannot be merged unless they have the approval of a Project Lead or two Subject Matter Experts (in the "area" of the PR).
 4. If two Maintainers have approved a controversial PR they can "start the clock" on a PR by adding it to [this queue](https://github.com/orgs/bevyengine/projects/6). If 45 days elapse without SME or Project Lead action (approval, feedback or an explicit request to defer), the PR can be merged by maintainers.
 

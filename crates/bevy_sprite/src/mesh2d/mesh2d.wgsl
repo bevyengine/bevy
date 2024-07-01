@@ -35,9 +35,9 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 #endif
 
 #ifdef VERTEX_POSITIONS
-    var model = mesh_functions::get_model_matrix(vertex.instance_index);
+    var world_from_local = mesh_functions::get_world_from_local(vertex.instance_index);
     out.world_position = mesh_functions::mesh2d_position_local_to_world(
-        model,
+        world_from_local,
         vec4<f32>(vertex.position, 1.0)
     );
     out.position = mesh_functions::mesh2d_position_world_to_clip(out.world_position);
@@ -49,7 +49,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 
 #ifdef VERTEX_TANGENTS
     out.world_tangent = mesh_functions::mesh2d_tangent_local_to_world(
-        model,
+        world_from_local,
         vertex.tangent
     );
 #endif

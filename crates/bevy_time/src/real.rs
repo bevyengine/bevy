@@ -1,3 +1,4 @@
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use bevy_utils::{Duration, Instant};
 
@@ -28,7 +29,8 @@ use crate::time::Time;
 /// [`Instant`]s for [`startup()`](Time::startup),
 /// [`first_update()`](Time::first_update) and
 /// [`last_update()`](Time::last_update) are recorded and accessible.
-#[derive(Debug, Copy, Clone, Reflect)]
+#[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct Real {
     startup: Instant,
     first_update: Option<Instant>,

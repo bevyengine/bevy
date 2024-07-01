@@ -46,6 +46,7 @@ impl ReflectAsset {
     }
 
     /// Equivalent of [`Assets::get_mut`]
+    #[allow(unsafe_code)]
     pub fn get_mut<'w>(
         &self,
         world: &'w mut World,
@@ -82,6 +83,7 @@ impl ReflectAsset {
     /// violating Rust's aliasing rules. To avoid this:
     /// * Only call this method if you know that the [`UnsafeWorldCell`] may be used to access the corresponding `Assets<T>`
     /// * Don't call this method more than once in the same scope.
+    #[allow(unsafe_code)]
     pub unsafe fn get_unchecked_mut<'w>(
         &self,
         world: UnsafeWorldCell<'w>,
@@ -135,6 +137,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
             get_unchecked_mut: |world, handle| {
                 // SAFETY: `get_unchecked_mut` must be called with `UnsafeWorldCell` having access to `Assets<A>`,
                 // and must ensure to only have at most one reference to it live at all times.
+                #[allow(unsafe_code)]
                 let assets = unsafe { world.get_resource_mut::<Assets<A>>().unwrap().into_inner() };
                 let asset = assets.get_mut(&handle.typed_debug_checked());
                 asset.map(|asset| asset as &mut dyn Reflect)
@@ -149,7 +152,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
                 let mut assets = world.resource_mut::<Assets<A>>();
                 let value: A = FromReflect::from_reflect(value)
                     .expect("could not call `FromReflect::from_reflect` in `ReflectAsset::set`");
-                assets.insert(handle.typed_debug_checked(), value);
+                assets.insert(&handle.typed_debug_checked(), value);
             },
             len: |world| {
                 let assets = world.resource::<Assets<A>>();
@@ -161,7 +164,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
             },
             remove: |world, handle| {
                 let mut assets = world.resource_mut::<Assets<A>>();
-                let value = assets.remove(handle.typed_debug_checked());
+                let value = assets.remove(&handle.typed_debug_checked());
                 value.map(|value| Box::new(value) as Box<dyn Reflect>)
             },
         }
@@ -254,7 +257,7 @@ mod tests {
             .register_asset_reflect::<AssetType>();
 
         let reflect_asset = {
-            let type_registry = app.world.resource::<AppTypeRegistry>();
+            let type_registry = app.world().resource::<AppTypeRegistry>();
             let type_registry = type_registry.read();
 
             type_registry
@@ -267,9 +270,9 @@ mod tests {
             field: "test".into(),
         };
 
-        let handle = reflect_asset.add(&mut app.world, &value);
+        let handle = reflect_asset.add(app.world_mut(), &value);
         let ReflectMut::Struct(strukt) = reflect_asset
-            .get_mut(&mut app.world, handle)
+            .get_mut(app.world_mut(), handle)
             .unwrap()
             .reflect_mut()
         else {
@@ -280,19 +283,19 @@ mod tests {
             .unwrap()
             .apply(&String::from("edited"));
 
-        assert_eq!(reflect_asset.len(&app.world), 1);
-        let ids: Vec<_> = reflect_asset.ids(&app.world).collect();
+        assert_eq!(reflect_asset.len(app.world()), 1);
+        let ids: Vec<_> = reflect_asset.ids(app.world()).collect();
         assert_eq!(ids.len(), 1);
 
         let fetched_handle = UntypedHandle::Weak(ids[0]);
         let asset = reflect_asset
-            .get(&app.world, fetched_handle.clone_weak())
+            .get(app.world(), fetched_handle.clone_weak())
             .unwrap();
         assert_eq!(asset.downcast_ref::<AssetType>().unwrap().field, "edited");
 
         reflect_asset
-            .remove(&mut app.world, fetched_handle)
+            .remove(app.world_mut(), fetched_handle)
             .unwrap();
-        assert_eq!(reflect_asset.len(&app.world), 0);
+        assert_eq!(reflect_asset.len(app.world()), 0);
     }
 }

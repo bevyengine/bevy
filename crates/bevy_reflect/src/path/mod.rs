@@ -27,11 +27,11 @@ pub enum ReflectPathError<'a> {
     InvalidDowncast,
 
     /// An error caused by an invalid path string that couldn't be parsed.
-    #[error("Encounted an error at offset {offset} while parsing `{path}`: {error}")]
+    #[error("Encountered an error at offset {offset} while parsing `{path}`: {error}")]
     ParseError {
         /// Position in `path`.
         offset: usize,
-        /// The path that the error occured in.
+        /// The path that the error occurred in.
         path: &'a str,
         /// The underlying error.
         error: ParseError<'a>,
@@ -230,6 +230,10 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// [`List`]: crate::List
 /// [`Array`]: crate::Array
 /// [`Enum`]: crate::Enum
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not provide a reflection path",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+)]
 pub trait GetPath: Reflect {
     /// Returns a reference to the value specified by `path`.
     ///
@@ -491,7 +495,6 @@ mod tests {
     use super::*;
     use crate as bevy_reflect;
     use crate::*;
-    use error::{AccessErrorKind, TypeKind};
 
     #[derive(Reflect)]
     struct A {
@@ -562,8 +565,8 @@ mod tests {
 
     fn invalid_access(
         offset: usize,
-        actual: TypeKind,
-        expected: TypeKind,
+        actual: ReflectKind,
+        expected: ReflectKind,
         access: &'static str,
     ) -> StaticError {
         ReflectPathError::InvalidAccess(AccessError {
@@ -733,7 +736,7 @@ mod tests {
         assert_eq!(
             a.reflect_path("x.notreal").err().unwrap(),
             ReflectPathError::InvalidAccess(AccessError {
-                kind: AccessErrorKind::MissingField(TypeKind::Struct),
+                kind: AccessErrorKind::MissingField(ReflectKind::Struct),
                 access: access_field("notreal"),
                 offset: Some(2),
             })
@@ -754,11 +757,11 @@ mod tests {
         );
         assert_eq!(
             a.reflect_path("x[0]").err().unwrap(),
-            invalid_access(2, TypeKind::Struct, TypeKind::List, "x[0]")
+            invalid_access(2, ReflectKind::Struct, ReflectKind::List, "x[0]")
         );
         assert_eq!(
             a.reflect_path("y.x").err().unwrap(),
-            invalid_access(2, TypeKind::List, TypeKind::Struct, "y.x")
+            invalid_access(2, ReflectKind::List, ReflectKind::Struct, "y.x")
         );
     }
 

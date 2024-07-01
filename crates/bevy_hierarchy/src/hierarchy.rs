@@ -1,8 +1,8 @@
 use crate::components::{Children, Parent};
 use bevy_ecs::{
     entity::Entity,
-    system::{Command, EntityCommands},
-    world::{EntityWorldMut, World},
+    system::EntityCommands,
+    world::{Command, EntityWorldMut, World},
 };
 use bevy_utils::tracing::debug;
 
@@ -91,6 +91,7 @@ pub trait DespawnRecursiveExt {
 
 impl DespawnRecursiveExt for EntityCommands<'_> {
     /// Despawns the provided entity and its children.
+    /// This will emit warnings for any entity that does not exist.
     fn despawn_recursive(mut self) {
         let entity = self.id();
         self.commands().add(DespawnRecursive { entity });
@@ -105,6 +106,7 @@ impl DespawnRecursiveExt for EntityCommands<'_> {
 
 impl<'w> DespawnRecursiveExt for EntityWorldMut<'w> {
     /// Despawns the provided entity and its children.
+    /// This will emit warnings for any entity that does not exist.
     fn despawn_recursive(self) {
         let entity = self.id();
 
@@ -139,8 +141,8 @@ impl<'w> DespawnRecursiveExt for EntityWorldMut<'w> {
 mod tests {
     use bevy_ecs::{
         component::Component,
-        system::{CommandQueue, Commands},
-        world::World,
+        system::Commands,
+        world::{CommandQueue, World},
     };
 
     use super::DespawnRecursiveExt;

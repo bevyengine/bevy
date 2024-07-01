@@ -1,0 +1,10 @@
+[package]
+name = "gen_tests"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+palette = "0.7.4"
