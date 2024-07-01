@@ -915,7 +915,7 @@ mod tests {
         world.observe(
             |trigger: Trigger<EventPropagating>, query: Query<&A>, mut res: ResMut<R>| {
                 if query.get(trigger.entity()).is_ok() {
-                    res.0 += 1
+                    res.0 += 1;
                 }
             },
         );
