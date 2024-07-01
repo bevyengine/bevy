@@ -42,7 +42,7 @@ impl AssetLoader for GzAssetLoader {
     type Error = GzAssetLoaderError;
     async fn load<'a>(
         &'a self,
-        reader: &'a mut dyn Reader<'_>,
+        reader: &'a mut dyn Reader,
         _settings: &'a (),
         load_context: &'a mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {

@@ -510,7 +510,7 @@ mod tests {
 
         async fn load<'a>(
             &'a self,
-            reader: &'a mut dyn Reader<'_>,
+            reader: &'a mut dyn Reader,
             _settings: &'a Self::Settings,
             load_context: &'a mut LoadContext<'_>,
         ) -> Result<Self::Asset, Self::Error> {
