@@ -1,6 +1,9 @@
-use crate::io::{
-    get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError, PathStream,
-    Reader, Writer,
+use crate::{
+    io::{
+        get_defaults_path, get_meta_path, AssetReader, AssetReaderError, AssetWriter,
+        AssetWriterError, PathStream, Reader, Writer,
+    },
+    meta::{DEFAULTS_EXTENSION, META_EXTENSION},
 };
 use async_fs::{read_dir, File};
 use futures_lite::StreamExt;
@@ -45,6 +48,28 @@ impl AssetReader for FileAssetReader {
         }
     }
 
+    async fn read_defaults<'a>(
+        &'a self,
+        path: &'a Path,
+        extension: &'a str,
+    ) -> Result<Box<Reader<'a>>, AssetReaderError> {
+        let default_meta_path = get_defaults_path(path, extension);
+        let full_path = self.root_path.join(default_meta_path);
+        match File::open(&full_path).await {
+            Ok(file) => {
+                let reader: Box<Reader> = Box::new(file);
+                Ok(reader)
+            }
+            Err(e) => {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    Err(AssetReaderError::NotFound(full_path))
+                } else {
+                    Err(e.into())
+                }
+            }
+        }
+    }
+
     async fn read_directory<'a>(
         &'a self,
         path: &'a Path,
@@ -58,7 +83,9 @@ impl AssetReader for FileAssetReader {
                         let path = dir_entry.path();
                         // filter out meta files as they are not considered assets
                         if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-                            if ext.eq_ignore_ascii_case("meta") {
+                            if ext.eq_ignore_ascii_case(META_EXTENSION)
+                                || ext.eq_ignore_ascii_case(DEFAULTS_EXTENSION)
+                            {
                                 return None;
                             }
                         }

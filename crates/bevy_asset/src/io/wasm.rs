@@ -1,5 +1,6 @@
 use crate::io::{
-    get_meta_path, AssetReader, AssetReaderError, EmptyPathStream, PathStream, Reader, VecReader,
+    get_defaults_path, get_meta_path, AssetReader, AssetReaderError, EmptyPathStream, PathStream,
+    Reader, VecReader,
 };
 use bevy_utils::tracing::error;
 use js_sys::{Uint8Array, JSON};
@@ -94,6 +95,15 @@ impl AssetReader for HttpWasmAssetReader {
 
     async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
         let meta_path = get_meta_path(&self.root_path.join(path));
+        self.fetch_bytes(meta_path).await
+    }
+
+    async fn read_defaults<'a>(
+        &'a self,
+        path: &'a Path,
+        extension: &'a str,
+    ) -> Result<Box<Reader<'a>>, AssetReaderError> {
+        let meta_path = get_defaults_path(&self.root_path.join(path), extension);
         self.fetch_bytes(meta_path).await
     }
 

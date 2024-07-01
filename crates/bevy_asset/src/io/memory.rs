@@ -324,6 +324,8 @@ impl AssetReader for MemoryAssetReader {
 
 #[cfg(test)]
 pub mod test {
+    use crate::meta::META_EXTENSION;
+
     use super::Dir;
     use std::path::Path;
 
@@ -346,7 +348,7 @@ pub mod test {
 
         let b_path = Path::new("x/y/b.txt");
         let b_data = "b".as_bytes().to_vec();
-        let b_meta = "meta".as_bytes().to_vec();
+        let b_meta = META_EXTENSION.as_bytes().to_vec();
         dir.insert_asset(b_path, b_data.clone());
         dir.insert_meta(b_path, b_meta.clone());
 

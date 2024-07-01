@@ -91,6 +91,32 @@ impl AssetReader for ProcessorGatedReader {
         Ok(reader)
     }
 
+    async fn read_defaults<'a>(
+        &'a self,
+        path: &'a Path,
+        extension: &'a str,
+    ) -> Result<Box<Reader<'a>>, AssetReaderError> {
+        let asset_path = AssetPath::from(path.to_path_buf()).with_source(self.source.clone());
+        trace!("Waiting for processing to finish before reading meta defaults for {asset_path}",);
+        let process_result = self
+            .processor_data
+            .wait_until_processed(asset_path.clone())
+            .await;
+        match process_result {
+            ProcessStatus::Processed => {}
+            ProcessStatus::Failed | ProcessStatus::NonExistent => {
+                return Err(AssetReaderError::NotFound(path.to_owned()));
+            }
+        }
+        trace!(
+            "Processing finished with {process_result:?}, reading meta defaults for {asset_path}",
+        );
+        let lock = self.get_transaction_lock(&asset_path).await?;
+        let defaults_reader = self.reader.read_defaults(path, extension).await?;
+        let reader: Box<Reader<'a>> = Box::new(TransactionLockedReader::new(defaults_reader, lock));
+        Ok(reader)
+    }
+
     async fn read_directory<'a>(
         &'a self,
         path: &'a Path,
