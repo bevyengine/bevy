@@ -222,9 +222,7 @@ pub fn ui_focus_system(
         // reverse the iterator to traverse the tree from closest nodes to furthest
         .rev()
         .filter_map(|entity| {
-            let Ok(node) = node_query.get_mut(*entity) else {
-                return None;
-            };
+            let node = node_query.get_mut(*entity).ok()?;
 
             let view_visibility = node.view_visibility?;
             // Nodes that are not rendered should not be interactable

@@ -493,9 +493,9 @@ impl<A: Asset> TryFrom<UntypedHandle> for Handle<A> {
         match value {
             UntypedHandle::Strong(handle) => Ok(Handle::Strong(handle)),
             UntypedHandle::Weak(id) => {
-                let Ok(id) = id.try_into() else {
-                    return Err(UntypedAssetConversionError::TypeIdMismatch { expected, found });
-                };
+                let id = id
+                    .try_into()
+                    .map_err(|_| UntypedAssetConversionError::TypeIdMismatch { expected, found })?;
                 Ok(Handle::Weak(id))
             }
         }
