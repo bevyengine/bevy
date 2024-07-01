@@ -557,7 +557,7 @@ impl App {
         self
     }
 
-    /// Registers the type `T` in the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource,
+    /// Registers the type `T` in the [`AppTypeRegistry`] resource,
     /// adding reflect data as specified in the [`Reflect`](bevy_reflect::Reflect) derive:
     /// ```ignore (No serde "derive" feature)
     /// #[derive(Component, Serialize, Deserialize, Reflect)]
@@ -571,7 +571,7 @@ impl App {
         self
     }
 
-    /// Associates type data `D` with type `T` in the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource.
+    /// Associates type data `D` with type `T` in the [`AppTypeRegistry`] resource.
     ///
     /// Most of the time [`register_type`](Self::register_type) can be used instead to register a
     /// type you derived [`Reflect`](bevy_reflect::Reflect) for. However, in cases where you want to
@@ -603,7 +603,7 @@ impl App {
         self
     }
 
-    /// Registers the given function in the [`FunctionRegistry`](bevy_reflect::func::FunctionRegistry) resource.
+    /// Registers the given function in the [`AppFunctionRegistry`] resource.
     ///
     /// Functions are mapped according to their [name](bevy_reflect::func::DynamicFunction::name).
     ///
