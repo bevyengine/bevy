@@ -76,7 +76,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
 
         window
             .resolution
-            .set_scale_factor(winit_window.scale_factor() as f32);
+            .set_scale_factor_and_apply_to_physical_size(winit_window.scale_factor() as f32);
 
         commands.entity(entity).insert(CachedWindow {
             window: window.clone(),
@@ -223,7 +223,10 @@ pub(crate) fn changed_windows(
         }
 
         if window.resolution != cache.window.resolution {
-            let mut physical_size = winit_window.inner_size();
+            let mut physical_size = PhysicalSize::new(
+                window.resolution.physical_width(),
+                window.resolution.physical_height(),
+            );
 
             let cached_physical_size = PhysicalSize::new(
                 cache.window.physical_width(),
