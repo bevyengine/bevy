@@ -5,6 +5,7 @@ use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_render::view::VisibleMeshEntities;
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::GpuMesh,
@@ -15,7 +16,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{ExtractedView, RenderLayers, ViewVisibility, VisibleEntities, WithMesh},
+    view::{ExtractedView, RenderLayers, ViewVisibility},
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
@@ -186,7 +187,7 @@ pub fn extract_lights(
     spot_lights: Extract<
         Query<(
             &SpotLight,
-            &VisibleEntities,
+            &VisibleMeshEntities,
             &GlobalTransform,
             &ViewVisibility,
             &Frustum,
@@ -1174,7 +1175,7 @@ pub fn queue_shadows<M: Material>(
     mut view_light_entities: Query<&LightEntity>,
     point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
     directional_light_entities: Query<&CascadesVisibleEntities, With<ExtractedDirectionalLight>>,
-    spot_light_entities: Query<&VisibleEntities, With<ExtractedPointLight>>,
+    spot_light_entities: Query<&VisibleMeshEntities, With<ExtractedPointLight>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -1218,7 +1219,7 @@ pub fn queue_shadows<M: Material>(
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
 
-            for entity in visible_entities.iter::<WithMesh>().copied() {
+            for entity in visible_entities.iter().copied() {
                 let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(entity)
                 else {
                     continue;
