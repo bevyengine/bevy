@@ -102,10 +102,9 @@ pub fn ui_layout_system(
         root_nodes: Vec<Entity>,
     }
 
+    let default_camera = default_ui_camera.get();
     let camera_with_default = |target_camera: Option<&TargetCamera>| {
-        target_camera
-            .map(TargetCamera::entity)
-            .or(default_ui_camera.get())
+        target_camera.map(TargetCamera::entity).or(default_camera)
     };
 
     let resized_windows: HashSet<Entity> = resize_events.read().map(|event| event.window).collect();
@@ -128,7 +127,7 @@ pub fn ui_layout_system(
 
     // Precalculate the layout info for each camera, so we have fast access to it for each node
     let mut camera_layout_info: HashMap<Entity, CameraLayoutInfo> = HashMap::new();
-    for (entity, target_camera) in &root_node_query {
+    root_node_query.iter().for_each(|(entity,target_camera)|{
         match camera_with_default(target_camera) {
             Some(camera_entity) => {
                 let Ok((_, camera)) = cameras.get(camera_entity) else {
@@ -136,7 +135,7 @@ pub fn ui_layout_system(
                         "TargetCamera (of root UI node {entity:?}) is pointing to a camera {:?} which doesn't exist",
                         camera_entity
                     );
-                    continue;
+                    return;
                 };
                 let layout_info = camera_layout_info
                     .entry(camera_entity)
@@ -153,10 +152,10 @@ pub fn ui_layout_system(
                         entity
                     );
                 }
-                continue;
             }
         }
-    }
+
+    });
 
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_components.removed_content_sizes.read() {
@@ -164,30 +163,32 @@ pub fn ui_layout_system(
     }
 
     // Sync Style and ContentSize to Taffy for all nodes
-    for (entity, style, content_size, target_camera) in style_query.iter_mut() {
-        if let Some(camera) =
-            camera_with_default(target_camera).and_then(|c| camera_layout_info.get(&c))
-        {
-            if camera.resized
-                || !scale_factor_events.is_empty()
-                || ui_scale.is_changed()
-                || style.is_changed()
-                || content_size
-                    .as_ref()
-                    .map(|c| c.measure.is_some())
-                    .unwrap_or(false)
+    style_query
+        .iter_mut()
+        .for_each(|(entity, style, content_size, target_camera)| {
+            if let Some(camera) =
+                camera_with_default(target_camera).and_then(|c| camera_layout_info.get(&c))
             {
-                let layout_context = LayoutContext::new(
-                    camera.scale_factor,
-                    [camera.size.x as f32, camera.size.y as f32].into(),
-                );
-                let measure = content_size.and_then(|mut c| c.measure.take());
-                ui_surface.upsert_node(&layout_context, entity, &style, measure);
+                if camera.resized
+                    || !scale_factor_events.is_empty()
+                    || ui_scale.is_changed()
+                    || style.is_changed()
+                    || content_size
+                        .as_ref()
+                        .map(|c| c.measure.is_some())
+                        .unwrap_or(false)
+                {
+                    let layout_context = LayoutContext::new(
+                        camera.scale_factor,
+                        [camera.size.x as f32, camera.size.y as f32].into(),
+                    );
+                    let measure = content_size.and_then(|mut c| c.measure.take());
+                    ui_surface.upsert_node(&layout_context, entity, &style, measure);
+                }
+            } else {
+                ui_surface.upsert_node(&LayoutContext::DEFAULT, entity, &Style::default(), None);
             }
-        } else {
-            ui_surface.upsert_node(&LayoutContext::DEFAULT, entity, &Style::default(), None);
-        }
-    }
+        });
     scale_factor_events.clear();
 
     // clean up removed cameras
@@ -208,11 +209,11 @@ pub fn ui_layout_system(
     for entity in removed_components.removed_children.read() {
         ui_surface.try_remove_children(entity);
     }
-    for (entity, children) in &children_query {
+    children_query.iter().for_each(|(entity, children)| {
         if children.is_changed() {
             ui_surface.update_children(entity, &children);
         }
-    }
+    });
 
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
     ui_surface.remove_entities(removed_components.removed_nodes.read());
