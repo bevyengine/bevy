@@ -420,6 +420,7 @@ fn pbr_input_from_standard_material(
         //
         // This code comes from the `KHR_materials_anisotropy` spec:
         // <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_anisotropy/README.md#individual-lights>
+#ifdef PBR_ANISOTROPY_TEXTURE_SUPPORTED
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARD_MATERIAL_ANISOTROPY
 
@@ -456,6 +457,7 @@ fn pbr_input_from_standard_material(
 
 #endif  // STANDARD_MATERIAL_ANISOTROPY
 #endif  // VERTEX_TANGENTS
+#endif  // PBR_ANISOTROPY_TEXTURE_SUPPORTED
 
 #endif  // LOAD_PREPASS_NORMALS
 
