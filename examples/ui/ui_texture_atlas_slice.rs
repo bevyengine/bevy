@@ -19,26 +19,31 @@ fn main() {
 
 fn button_system(
     mut interaction_query: Query<
-        (&Interaction, &mut TextureAtlas, &Children, &mut UiImage),
+        (
+            &Interaction,
+            &mut TextureAtlas,
+            &Children,
+            &mut BackgroundColor,
+        ),
         (Changed<Interaction>, With<Button>),
     >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (interaction, mut atlas, children, mut image) in &mut interaction_query {
+    for (interaction, mut atlas, children, mut color) in &mut interaction_query {
         let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
                 text.sections[0].value = "Press".to_string();
                 atlas.index = (atlas.index + 1) % 30;
-                image.color = GOLD.into();
+                *color = GOLD.into();
             }
             Interaction::Hovered => {
                 text.sections[0].value = "Hover".to_string();
-                image.color = ORANGE.into();
+                *color = ORANGE.into();
             }
             Interaction::None => {
                 text.sections[0].value = "Button".to_string();
-                image.color = Color::WHITE;
+                *color = Color::BLACK.into();
             }
         }
     }
