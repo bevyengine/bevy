@@ -1063,7 +1063,10 @@ pub enum ShouldUpdateEvents {
 }
 
 impl EventRegistry {
-    /// Registers an event type to be updated.
+    /// Registers an event type to be updated in a given [`World`]
+    ///
+    /// If no instance of the [`EventRegistry`] exists in the world, this will add one - otherwise it will use
+    /// the existing instance.
     pub fn register_event<T: Event>(world: &mut World) {
         // By initializing the resource here, we can be sure that it is present,
         // and receive the correct, up-to-date `ComponentId` even if it was previously removed.
@@ -1079,6 +1082,16 @@ impl EventRegistry {
                     .update();
             },
         });
+    }
+
+    /// Removes an event from the world and it's associated [`EventRegistry`].
+    pub fn deregister_events<T: Event>(world: &mut World) {
+        let component_id = world.init_resource::<Events<T>>();
+        let mut registry = world.get_resource_or_insert_with(Self::default);
+        registry
+            .event_updates
+            .retain(|e| e.component_id != component_id);
+        world.remove_resource::<Events<T>>();
     }
 
     /// Updates all of the registered events in the World.
@@ -1644,5 +1657,23 @@ mod tests {
         // Sending zero events
         assert_eq!(test_events.len(), 2); // Events are double-buffered, so we see 2 + 0 = 2
         assert_eq!(test_events.iter_current_update_events().count(), 0);
+    }
+
+    #[test]
+    fn test_event_registry_can_add_and_remove_events_to_world() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        EventRegistry::register_event::<TestEvent>(&mut world);
+
+        let has_events = world.get_resource::<Events<TestEvent>>().is_some();
+
+        assert!(has_events, "Should have the events resource");
+
+        EventRegistry::deregister_events::<TestEvent>(&mut world);
+
+        let has_events = world.get_resource::<Events<TestEvent>>().is_some();
+
+        assert!(!has_events, "Should not have the events resource");
     }
 }
