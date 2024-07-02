@@ -11,11 +11,16 @@ impl Prepare for DocTestCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {
         let no_fail_fast = flags
             .contains(Flag::KEEP_GOING)
-            .then_some("--no-fail-fast")
+            .then_some(" --no-fail-fast")
+            .unwrap_or_default();
+
+        let quiet = flags
+            .contains(Flag::QUIET)
+            .then_some(" --quiet")
             .unwrap_or_default();
 
         vec![PreparedCommand::new::<Self>(
-            cmd!(sh, "cargo test --workspace --doc {no_fail_fast}"),
+            cmd!(sh, "cargo test --workspace --doc{no_fail_fast}{quiet}"),
             "Please fix failing doc tests in output above.",
         )]
     }
