@@ -18,5 +18,6 @@ bevy_internal = { path = "../bevy_internal", version = "0.14.0-dev", default-fea
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
 all-features = true
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
