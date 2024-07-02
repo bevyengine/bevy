@@ -3258,6 +3258,17 @@ description = "Demonstrates how to enqueue custom draw commands in a render phas
 category = "Shaders"
 wasm = true
 
+[[example]]
+name = "fog_volumes"
+path = "examples/3d/fog_volumes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.fog_volumes]
+name = "Fog volumes"
+description = "Demonstrates fog volumes"
+category = "3D Rendering"
+wasm = false
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
