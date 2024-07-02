@@ -135,6 +135,22 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             }),
         );
 
+        builder.spawn(
+            TextBundle::from_section(
+                "This text is fully justified and is positioned in the same way.",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 35.0,
+                    color: GREEN_YELLOW.into(),
+                },
+            )
+            .with_text_justify(JustifyText::Justified)
+            .with_style(Style {
+                max_width: Val::Px(300.),
+                ..default()
+            }),
+        );
+
         builder.spawn((
             TextBundle::from_sections([
                 TextSection::new(
@@ -143,6 +159,14 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         font: font.clone(),
                         font_size: 25.0,
                         ..default()
+                    },
+                ),
+                TextSection::new(
+                    " this text has zero fontsize",
+                    TextStyle {
+                        font: font.clone(),
+                        font_size: 0.0,
+                        color: BLUE.into(),
                     },
                 ),
                 TextSection::new(
@@ -162,7 +186,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     " fps, ",
                     TextStyle {
                         font: font.clone(),
-                        font_size: 25.0,
+                        font_size: 12.0,
                         color: YELLOW.into(),
                     },
                 ),
@@ -175,7 +199,15 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     " ms/frame",
                     TextStyle {
                         font: font.clone(),
-                        font_size: 25.0,
+                        font_size: 50.0,
+                        color: BLUE.into(),
+                    },
+                ),
+                TextSection::new(
+                    " this text has negative fontsize",
+                    TextStyle {
+                        font: font.clone(),
+                        font_size: -50.0,
                         color: BLUE.into(),
                     },
                 ),
@@ -216,8 +248,8 @@ fn change_text_system(
             "This text changes in the bottom right - {fps:.1} fps, {frame_time:.3} ms/frame",
         );
 
-        text.sections[2].value = format!("{fps:.1}");
+        text.sections[3].value = format!("{fps:.1}");
 
-        text.sections[4].value = format!("{frame_time:.3}");
+        text.sections[5].value = format!("{frame_time:.3}");
     }
 }

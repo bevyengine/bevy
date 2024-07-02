@@ -10,7 +10,7 @@ use bevy_utils::default;
 use bevy_utils::tracing::warn;
 
 use crate::layout::convert;
-use crate::{LayoutContext, LayoutError, Measure, NodeMeasure, Style};
+use crate::{LayoutContext, LayoutError, Measure, MeasureArgs, NodeMeasure, Style};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RootNodePair {
@@ -196,7 +196,12 @@ without UI components as a child of an entity with UI components, results may be
     }
 
     /// Compute the layout for each window entity's corresponding root node in the layout.
-    pub fn compute_camera_layout(&mut self, camera: Entity, render_target_resolution: UVec2) {
+    pub fn compute_camera_layout(
+        &mut self,
+        camera: Entity,
+        render_target_resolution: UVec2,
+        #[cfg(feature = "bevy_text")] font_system: &mut bevy_text::cosmic_text::FontSystem,
+    ) {
         let Some(camera_root_nodes) = self.camera_roots.get(&camera) else {
             return;
         };
@@ -219,10 +224,14 @@ without UI components as a child of an entity with UI components, results may be
                         context
                             .map(|ctx| {
                                 let size = ctx.measure(
-                                    known_dimensions.width,
-                                    known_dimensions.height,
-                                    available_space.width,
-                                    available_space.height,
+                                    MeasureArgs {
+                                        width: known_dimensions.width,
+                                        height: known_dimensions.height,
+                                        available_width: available_space.width,
+                                        available_height: available_space.height,
+                                        #[cfg(feature = "bevy_text")]
+                                        font_system,
+                                    },
                                     style,
                                 );
                                 taffy::Size {
