@@ -14,6 +14,7 @@ use bevy_app::prelude::*;
 pub mod ci_testing;
 
 pub mod fps_overlay;
+pub mod frame_time_graph;
 
 #[cfg(feature = "bevy_ui_debug")]
 pub mod ui_debug_overlay;
