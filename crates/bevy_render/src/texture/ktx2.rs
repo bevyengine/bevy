@@ -20,6 +20,7 @@ use wgpu::{
 
 use super::{CompressedImageFormats, DataFormat, Image, TextureError, TranscodeFormat};
 
+#[cfg(feature = "ktx2")]
 pub fn ktx2_buffer_to_image(
     buffer: &[u8],
     supported_compressed_formats: CompressedImageFormats,
@@ -387,6 +388,7 @@ pub fn get_transcoded_formats(
     }
 }
 
+#[cfg(feature = "ktx2")]
 pub fn ktx2_get_texture_format<Data: AsRef<[u8]>>(
     ktx2: &ktx2::Reader<Data>,
     is_srgb: bool,
@@ -473,6 +475,7 @@ fn sample_information_to_data_type(
     )
 }
 
+#[cfg(feature = "ktx2")]
 pub fn ktx2_dfd_to_texture_format(
     data_format_descriptor: &BasicDataFormatDescriptor,
     sample_information: &[SampleInformation],
@@ -1194,6 +1197,7 @@ pub fn ktx2_dfd_to_texture_format(
     })
 }
 
+#[cfg(feature = "ktx2")]
 pub fn ktx2_format_to_texture_format(
     ktx2_format: ktx2::Format,
     is_srgb: bool,
