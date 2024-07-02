@@ -505,11 +505,11 @@ pub enum RenderMeshInstanceGpuQueue {
     #[default]
     None,
     /// The version of [`RenderMeshInstanceGpuQueue`] that omits the
-    /// [`MeshCullingDataGpuBuilder`], so that we don't waste space when GPU
+    /// [`MeshCullingData`], so that we don't waste space when GPU
     /// culling is disabled.
     CpuCulling(Vec<(Entity, RenderMeshInstanceGpuBuilder)>),
     /// The version of [`RenderMeshInstanceGpuQueue`] that contains the
-    /// [`MeshCullingDataGpuBuilder`], used when any view has GPU culling
+    /// [`MeshCullingData`], used when any view has GPU culling
     /// enabled.
     GpuCulling(Vec<(Entity, RenderMeshInstanceGpuBuilder, MeshCullingData)>),
 }

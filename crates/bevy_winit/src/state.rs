@@ -54,7 +54,7 @@ struct WinitAppRunnerState<T: Event> {
     window_event_received: bool,
     /// Is `true` if a new [`DeviceEvent`] event has been received since the last update.
     device_event_received: bool,
-    /// Is `true` if a new [`T`] event has been received since the last update.
+    /// Is `true` if a new `T` event has been received since the last update.
     user_event_received: bool,
     /// Is `true` if the app has requested a redraw since the last update.
     redraw_requested: bool,
@@ -739,7 +739,7 @@ impl<T: Event> WinitAppRunnerState<T> {
     }
 }
 
-/// The default [`App::runner`] for the [`WinitPlugin`] plugin.
+/// The default [`App::runner`] for the [`WinitPlugin`](crate::WinitPlugin) plugin.
 ///
 /// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the
 /// `EventLoop`.

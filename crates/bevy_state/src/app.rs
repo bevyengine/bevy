@@ -12,7 +12,7 @@ use crate::state::{
 };
 use crate::state_scoped::clear_state_scoped_entities;
 
-/// State installation methods for [`App`](bevy_app::App) and [`SubApp`](bevy_app::SubApp).
+/// State installation methods for [`App`] and [`SubApp`].
 pub trait AppExtStates {
     /// Initializes a [`State`] with standard starting values.
     ///
@@ -20,7 +20,7 @@ pub trait AppExtStates {
     ///
     /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`](crate::state::OnEnter),
     /// [`OnTransition`](crate::state::OnTransition) and [`OnExit`](crate::state::OnExit) schedules.
-    /// These schedules are triggered before [`Update`](bevy_app::main_schedule::Update) and at startup.
+    /// These schedules are triggered before [`Update`](bevy_app::Update) and at startup.
     ///
     /// If you would like to control how other systems run based on the current state, you can
     /// emulate this behavior using the [`in_state`](crate::condition::in_state) [`Condition`](bevy_ecs::prelude::Condition).
@@ -34,7 +34,7 @@ pub trait AppExtStates {
     ///
     /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`](crate::state::OnEnter),
     /// [`OnTransition`](crate::state::OnTransition) and [`OnExit`](crate::state::OnExit) schedules.
-    /// These schedules are triggered before [`Update`](bevy_app::main_schedule::Update) and at startup.
+    /// These schedules are triggered before [`Update`](bevy_app::Update) and at startup.
     ///
     /// If you would like to control how other systems run based on the current state, you can
     /// emulate this behavior using the [`in_state`](crate::condition::in_state) [`Condition`](bevy_ecs::prelude::Condition).

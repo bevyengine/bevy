@@ -20,7 +20,7 @@ pub(crate) fn item_struct(
     user_where_clauses_with_world: Option<&WhereClause>,
 ) -> proc_macro2::TokenStream {
     let item_attrs = quote!(
-            #[doc = "Automatically generated [`WorldQuery`] item type for [`"]
+            #[doc = "Automatically generated [`WorldQuery`](#path::query::WorldQuery) item type for [`"]
             #[doc = stringify!(#struct_name)]
             #[doc = "`], returned when iterating over query results."]
             #[automatically_derived]

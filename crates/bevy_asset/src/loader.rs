@@ -287,7 +287,7 @@ impl<A: Asset> AssetContainer for A {
     }
 }
 
-/// An error that occurs when attempting to call [`LoadContext::load_direct`]
+/// An error that occurs when attempting to call [`DirectNestedLoader::load`](crate::DirectNestedLoader::load)
 #[derive(Error, Debug)]
 #[error("Failed to load dependency {dependency:?} {error}")]
 pub struct LoadDirectError {

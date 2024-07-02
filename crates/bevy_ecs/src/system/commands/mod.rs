@@ -750,12 +750,16 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Sends a "global" [`Trigger`] without any targets. This will run any [`Observer`] of the `event` that
     /// isn't scoped to specific targets.
+    ///
+    /// [`Trigger`]: crate::observer::Trigger
     pub fn trigger(&mut self, event: impl Event) {
         self.add(TriggerEvent { event, targets: () });
     }
 
     /// Sends a [`Trigger`] for the given targets. This will run any [`Observer`] of the `event` that
     /// watches those targets.
+    ///
+    /// [`Trigger`]: crate::observer::Trigger
     pub fn trigger_targets(&mut self, event: impl Event, targets: impl TriggerTargets) {
         self.add(TriggerEvent { event, targets });
     }
@@ -1144,7 +1148,7 @@ impl EntityCommands<'_> {
         self.commands.reborrow()
     }
 
-    /// Creates an [`Observer`](crate::observer::Observer) listening for a trigger of type `T` that targets this entity.
+    /// Creates an [`Observer`] listening for a trigger of type `T` that targets this entity.
     pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
