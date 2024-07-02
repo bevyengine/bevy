@@ -584,6 +584,10 @@ impl BuildChildren for EntityWorldMut<'_> {
     }
 
     fn push_children(&mut self, children: &[Entity]) -> &mut Self {
+        if children.is_empty() {
+            return self;
+        }
+
         let parent = self.id();
         if children.contains(&parent) {
             panic!("Cannot push entity as a child of itself.");
