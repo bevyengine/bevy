@@ -19,5 +19,10 @@ regex = "1.10.5"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--cfg",
+  "docsrs",
+  "--generate-link-to-definition",
+]
 all-features = true
