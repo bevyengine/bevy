@@ -235,6 +235,7 @@ Example | Description
 --- | ---
 [Audio](../examples/audio/audio.rs) | Shows how to load and play an audio file
 [Audio Control](../examples/audio/audio_control.rs) | Shows how to load and play an audio file, and control how it's played
+[Audio Input](../examples/audio/audio_input.rs) | Shows how to access audio input.
 [Decodable](../examples/audio/decodable.rs) | Shows how to create and register a custom audio source by implementing the `Decodable` type.
 [Pitch](../examples/audio/pitch.rs) | Shows how to directly play a simple pitch
 [Soundtrack](../examples/audio/soundtrack.rs) | Shows how to play different soundtracks based on game state
