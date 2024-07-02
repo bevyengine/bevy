@@ -277,10 +277,10 @@ fn remap_for_wave_reduction(a: u32) -> vec2u {
 
 fn reduce_load_mip_0(tex: vec2u) -> f32 {
     // TODO: Cleanup
-    let a = bitcast<f32>(u32(mip_0[tex.x * constants.view_width + tex.y] >> 32u));
-    let b = bitcast<f32>(u32(mip_0[(tex.x + 1u) * constants.view_width + tex.y] >> 32u));
-    let c = bitcast<f32>(u32(mip_0[tex.x * constants.view_width + (tex.y + 1u)] >> 32u));
-    let d = bitcast<f32>(u32(mip_0[(tex.x + 1u) * constants.view_width + (tex.y + 1u)] >> 32u));
+    let a = bitcast<f32>(u32(mip_0[tex.y * constants.view_width + tex.x] >> 32u));
+    let b = bitcast<f32>(u32(mip_0[(tex.y + 1u) * constants.view_width + tex.x] >> 32u));
+    let c = bitcast<f32>(u32(mip_0[tex.y * constants.view_width + (tex.x + 1u)] >> 32u));
+    let d = bitcast<f32>(u32(mip_0[(tex.y + 1u) * constants.view_width + (tex.x + 1u)] >> 32u));
     return reduce_4(vec4(a, b, c, d));
 }
 
