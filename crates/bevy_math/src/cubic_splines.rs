@@ -384,6 +384,11 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicBSpline<P> {
             .map(|(&a, &b, &c, &d)| CubicSegment::coefficients([a, b, c, d], self.char_matrix()))
             .collect();
 
+        // Note that the parametrization is consistent with the one for `to_curve` but with
+        // the extra curve segments all tacked on at the end. This might be slightly counter-intuitive,
+        // since it means the first segment doesn't go "between" the first two control points, but
+        // between the second and third instead.
+
         CubicCurve { segments }
     }
 }
