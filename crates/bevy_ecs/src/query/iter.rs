@@ -1077,11 +1077,17 @@ where
                 continue;
             }
 
-            let archetype = self
-                .archetypes
-                .get(location.archetype_id)
-                .debug_checked_unwrap();
-            let table = self.tables.get(location.table_id).debug_checked_unwrap();
+            let (archetype, table);
+            // SAFETY:
+            // `tables` and `archetypes` belong to the same world that the [`QueryIter`]
+            // was initialized for.
+            unsafe {
+                archetype = self
+                    .archetypes
+                    .get(location.archetype_id)
+                    .debug_checked_unwrap();
+                table = self.tables.get(location.table_id).debug_checked_unwrap();
+            }
 
             // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
             // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
@@ -1180,7 +1186,7 @@ where
         let entities: Vec<_> = self.entity_iter.collect();
 
         if entities.iter().all(move |e| used.insert(*e.borrow())) {
-            return Ok(QueryManyUniqueIter {
+            return Ok(QueryManyUniqueIter(QueryManyIter {
                 entity_iter: entities.into_iter(),
                 entities: self.entities,
                 tables: self.tables,
@@ -1188,7 +1194,7 @@ where
                 fetch: self.fetch,
                 filter: self.filter,
                 query_state: self.query_state,
-            });
+            }));
         }
 
         Err(QueryManyIter {
@@ -1247,108 +1253,43 @@ where
 /// In contrast with `QueryManyIter`, this allows for mutable iteration without a `fetch_next` method.
 ///
 /// This struct is created by the [`QueryManyIter::entities_all_unique`] method.
-pub struct QueryManyUniqueIter<'w, 's, D: QueryData, F: QueryFilter, I: Iterator>
-where
-    I::Item: Borrow<Entity>,
-{
-    entity_iter: I,
-    entities: &'w Entities,
-    tables: &'w Tables,
-    archetypes: &'w Archetypes,
-    fetch: D::Fetch<'w>,
-    filter: F::Fetch<'w>,
-    query_state: &'s QueryState<D, F>,
-}
+pub struct QueryManyUniqueIter<
+    'w,
+    's,
+    D: QueryData,
+    F: QueryFilter,
+    I: Iterator<Item: Borrow<Entity>>,
+>(QueryManyIter<'w, 's, D, F, I>);
 
-impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> QueryManyUniqueIter<'w, 's, D, F, I>
-where
-    I::Item: Borrow<Entity>,
-{
-    // Entities are guaranteed to be unique, so no lifetime shrinking needed for mutable iteration.
-    #[inline(always)]
-    fn fetch_next(&mut self) -> Option<D::Item<'w>> {
-        for entity in self.entity_iter.by_ref() {
-            let entity = *entity.borrow();
-            let Some(location) = self.entities.get(entity) else {
-                continue;
-            };
-
-            if !self
-                .query_state
-                .matched_archetypes
-                .contains(location.archetype_id.index())
-            {
-                continue;
-            }
-            let (archetype, table);
-            // SAFETY:
-            // `tables` and `archetypes` belong to the same world that the [`QueryIter`]
-            // was initialized for.
-            unsafe {
-                archetype = self
-                    .archetypes
-                    .get(location.archetype_id)
-                    .debug_checked_unwrap();
-                table = self.tables.get(location.table_id).debug_checked_unwrap();
-            }
-            // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
-            // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-            unsafe {
-                D::set_archetype(
-                    &mut self.fetch,
-                    &self.query_state.fetch_state,
-                    archetype,
-                    table,
-                );
-            }
-            // SAFETY: `table` is from the world that `fetch/filter` were created for,
-            // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-            unsafe {
-                F::set_archetype(
-                    &mut self.filter,
-                    &self.query_state.filter_state,
-                    archetype,
-                    table,
-                );
-            }
-
-            // SAFETY: set_archetype was called prior.
-            // `location.archetype_row` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
-            if unsafe { F::filter_fetch(&mut self.filter, entity, location.table_row) } {
-                // SAFETY:
-                // - set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
-                // - fetch is only called once for each entity.
-                return Some(unsafe { D::fetch(&mut self.fetch, entity, location.table_row) });
-            }
-        }
-        None
-    }
-}
-
-impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> Iterator
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> Iterator
     for QueryManyUniqueIter<'w, 's, D, F, I>
-where
-    I::Item: Borrow<Entity>,
 {
     type Item = D::Item<'w>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        self.fetch_next()
+        // SAFETY: Entities are guaranteed to be unique, thus do not alias.
+        unsafe { self.0.fetch_next_aliased_unchecked() }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let (_, max_size) = self.entity_iter.size_hint();
+        let (_, max_size) = self.0.entity_iter.size_hint();
         (0, max_size)
     }
 }
 
 // This is correct as [`QueryManyIter`] always returns `None` once exhausted.
-impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> FusedIterator
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> FusedIterator
     for QueryManyUniqueIter<'w, 's, D, F, I>
-where
-    I::Item: Borrow<Entity>,
 {
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> Debug
+    for QueryManyUniqueIter<'w, 's, D, F, I>
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("QueryManyUniqueIter").finish()
+    }
 }
 
 /// An iterator over `K`-sized combinations of query items without repetition.
