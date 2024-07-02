@@ -96,8 +96,8 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
 /// Tangents are explicitly defined at each control point.
 ///
 /// ### Continuity
-/// The curve is at minimum C0 continuous, meaning it has no holes or jumps. It is also C1, meaning the
-/// tangent vector has no sudden jumps.
+/// The curve is at minimum C1 continuous, meaning that it has no holes or jumps and the tangent vector also
+/// has no sudden jumps.
 ///
 /// ### Usage
 ///
@@ -302,17 +302,18 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
 }
 
 /// A spline interpolated continuously across the nearest four control points. The curve does not
-/// pass through any of the control points.
+/// necessarily pass through any of the control points.
 ///
 /// ### Interpolation
-/// The curve does not pass through control points.
+/// The curve does not necessarily pass through its control points.
 ///
 /// ### Tangency
-/// Tangents are automatically computed based on the position of control points.
+/// Tangents are automatically computed based on the positions of control points.
 ///
 /// ### Continuity
-/// The curve is C2 continuous, meaning it has no holes or jumps, and the tangent vector changes smoothly along
-/// the entire curve length. The acceleration continuity of this spline makes it useful for camera paths.
+/// The curve is C2 continuous, meaning it has no holes or jumps, the tangent vector changes smoothly along
+/// the entire curve, and the acceleration also varies continuously. The acceleration continuity of this
+/// spline makes it useful for camera paths.
 ///
 /// ### Usage
 ///
@@ -452,7 +453,7 @@ pub enum CubicNurbsError {
 /// When there is no knot multiplicity, the curve is C2 continuous, meaning it has no holes or jumps and the
 /// tangent vector changes smoothly along the entire curve length. Like the [`CubicBSpline`], the acceleration
 /// continuity makes it useful for camera paths. Knot multiplicity of 2 in intermediate knots reduces the
-/// continuity to C2, and knot multiplicity of 3 reduces the continuity to C0. The curve is always at least
+/// continuity to C1, and knot multiplicity of 3 reduces the continuity to C0. The curve is always at least
 /// C0, meaning it has no jumps or holes.
 ///
 /// ### Usage
@@ -737,7 +738,8 @@ pub trait CubicGenerator<P: VectorSpace> {
 ///
 /// This makes sense only when the control data can be interpreted cyclically.
 pub trait CyclicCubicGenerator<P: VectorSpace> {
-    /// Build a cyclic [`CubicCurve`] by computing the interpolation coefficients for each curve segment.
+    /// Build a cyclic [`CubicCurve`] by computing the interpolation coefficients for each curve segment,
+    /// treating the control data as cyclic so that the result is a closed curve.
     fn to_curve_cyclic(&self) -> CubicCurve<P>;
 }
 
@@ -748,7 +750,7 @@ pub trait CyclicCubicGenerator<P: VectorSpace> {
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
 pub struct CubicSegment<P: VectorSpace> {
-    /// Coefficients of the segment
+    /// Polynomial coefficients for the segment.
     pub coeff: [P; 4],
 }
 
