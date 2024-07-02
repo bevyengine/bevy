@@ -3,6 +3,7 @@ use bevy_ecs::reflect::{ReflectComponent, ReflectMapEntities};
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityMapper, MapEntities},
+    traversal::Traversal,
     world::{FromWorld, World},
 };
 use std::ops::Deref;
@@ -67,5 +68,11 @@ impl Deref for Parent {
     #[inline(always)]
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl Traversal for Parent {
+    fn next(&self) -> Option<Entity> {
+        Some(self.0)
     }
 }

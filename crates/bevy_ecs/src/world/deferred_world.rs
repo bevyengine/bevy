@@ -6,10 +6,11 @@ use crate::{
     component::ComponentId,
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
-    observer::{Observers, TriggerTargets},
+    observer::{Observers, Propagation, TriggerTargets},
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
     system::{Commands, Query, Resource},
+    traversal::Traversal,
 };
 
 use super::{
@@ -350,7 +351,14 @@ impl<'w> DeferredWorld<'w> {
         entity: Entity,
         components: impl Iterator<Item = ComponentId>,
     ) {
-        Observers::invoke(self.reborrow(), event, entity, components, &mut ());
+        Observers::invoke::<_>(
+            self.reborrow(),
+            event,
+            entity,
+            components,
+            &mut (),
+            &mut Propagation::Halt,
+        );
     }
 
     /// Triggers all event observers for [`ComponentId`] in target.
@@ -358,14 +366,34 @@ impl<'w> DeferredWorld<'w> {
     /// # Safety
     /// Caller must ensure `E` is accessible as the type represented by `event`
     #[inline]
-    pub(crate) unsafe fn trigger_observers_with_data<E>(
+    pub(crate) unsafe fn trigger_observers_with_data<E, C>(
         &mut self,
         event: ComponentId,
-        entity: Entity,
-        components: impl Iterator<Item = ComponentId>,
+        mut entity: Entity,
+        components: &[ComponentId],
         data: &mut E,
-    ) {
-        Observers::invoke(self.reborrow(), event, entity, components, data);
+        mut propagation: Propagation,
+    ) where
+        C: Traversal,
+    {
+        loop {
+            Observers::invoke::<_>(
+                self.reborrow(),
+                event,
+                entity,
+                components.iter().cloned(),
+                data,
+                &mut propagation,
+            );
+            if propagation == Propagation::Halt {
+                break;
+            }
+            if let Some(next) = self.get::<C>(entity).and_then(|t| t.next()) {
+                entity = next;
+            } else {
+                break;
+            }
+        }
     }
 
     /// Sends a "global" [`Trigger`] without any targets.
