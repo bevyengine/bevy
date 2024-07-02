@@ -584,6 +584,10 @@ impl BuildChildren for EntityWorldMut<'_> {
     }
 
     fn push_children(&mut self, children: &[Entity]) -> &mut Self {
+        if children.is_empty() {
+            return self;
+        }
+
         let parent = self.id();
         if children.contains(&parent) {
             panic!("Cannot push entity as a child of itself.");
@@ -1213,5 +1217,15 @@ mod tests {
         let mut query = world.query::<&Children>();
         let children = query.get(&world, parent).unwrap();
         assert_eq!(**children, [child]);
+    }
+
+    #[test]
+    fn push_children_does_not_insert_empty_children() {
+        let mut world = World::new();
+        let parent = world.spawn_empty().push_children(&[]).id();
+
+        let mut query = world.query::<&Children>();
+        let children = query.get(&world, parent);
+        assert!(children.is_err());
     }
 }
