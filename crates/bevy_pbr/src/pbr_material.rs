@@ -1066,6 +1066,12 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         let mut emissive = self.emissive.to_vec4();
         emissive[3] = self.emissive_exposure_weight;
 
+        // Doing this up front saves having to do this repeatedly in the fragment shader.
+        let anisotropy_rotation = vec2(
+            self.anisotropy_rotation.cos(),
+            self.anisotropy_rotation.sin(),
+        );
+
         StandardMaterialUniform {
             base_color: LinearRgba::from(self.base_color).to_vec4(),
             emissive,
@@ -1075,10 +1081,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             clearcoat: self.clearcoat,
             clearcoat_perceptual_roughness: self.clearcoat_perceptual_roughness,
             anisotropy_strength: self.anisotropy_strength,
-            anisotropy_rotation: vec2(
-                self.anisotropy_rotation.cos(),
-                self.anisotropy_rotation.sin(),
-            ),
+            anisotropy_rotation,
             diffuse_transmission: self.diffuse_transmission,
             specular_transmission: self.specular_transmission,
             thickness: self.thickness,
