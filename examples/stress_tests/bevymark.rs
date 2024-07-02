@@ -13,7 +13,7 @@ use bevy::{
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+    sprite::{AlphaMode2d, MaterialMesh2dBundle, Mesh2dHandle},
     utils::Duration,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -577,6 +577,7 @@ fn init_materials(
     materials.push(assets.add(ColorMaterial {
         color: Color::WHITE,
         texture: textures.first().cloned(),
+        alpha_mode: AlphaMode2d::Blend,
     }));
 
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
@@ -588,6 +589,7 @@ fn init_materials(
             assets.add(ColorMaterial {
                 color: Color::srgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
                 texture: textures.choose(&mut texture_rng).cloned(),
+                alpha_mode: AlphaMode2d::Blend,
             })
         })
         .take(capacity - materials.len()),
