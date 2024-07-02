@@ -182,6 +182,19 @@ pub struct StandardMaterial {
     #[doc(alias = "specular_intensity")]
     pub reflectance: f32,
 
+    /// A color with which to modulate the [`StandardMaterial::reflectance`] for
+    /// non-metals.
+    ///
+    /// The specular highlights and reflection are tinted with this color. Note
+    /// that it has no effect for non-metals.
+    ///
+    /// This feature is currently unsupported in the deferred rendering path, in
+    /// order to reduce the size of the geometry buffers.
+    ///
+    /// Defaults to [`Color::WHITE`].
+    #[doc(alias = "specular_color")]
+    pub specular_tint: Color,
+
     /// The amount of light transmitted _diffusely_ through the material (i.e. “translucency”)
     ///
     /// Implemented as a second, flipped [Lambertian diffuse](https://en.wikipedia.org/wiki/Lambertian_reflectance) lobe,
@@ -399,6 +412,54 @@ pub struct StandardMaterial {
     #[sampler(8)]
     #[dependency]
     pub occlusion_texture: Option<Handle<Image>>,
+
+    /// The UV channel to use for the [`StandardMaterial::specular_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    #[cfg(feature = "pbr_specular_textures")]
+    pub specular_channel: UvChannel,
+
+    /// A map that specifies reflectance for non-metallic materials.
+    ///
+    /// Alpha values from [0.0, 1.0] in this texture are linearly mapped to
+    /// reflectance values of [0.0, 0.5] and multiplied by the constant
+    /// [`StandardMaterial::reflectance`] value. This follows the
+    /// [`KHR_materials_specular`] specification. The map will have no effect if
+    /// the material is fully metallic.
+    ///
+    /// When using this map, you may wish to set the
+    /// [`StandardMaterial::reflectance`] value to 2.0 so that this map can
+    /// express the full [0.0, 1.0] range of values.
+    ///
+    /// Note that, because the reflectance is stored in the alpha channel, and
+    /// the [`StandardMaterial::specular_tint_texture`] has no alpha value, it
+    /// may be desirable to pack the values together and supply the same
+    /// texture to both fields.
+    #[texture(27)]
+    #[sampler(28)]
+    #[cfg(feature = "pbr_specular_textures")]
+    pub specular_texture: Option<Handle<Image>>,
+
+    /// The UV channel to use for the
+    /// [`StandardMaterial::specular_tint_texture`].
+    ///
+    /// Defaults to [`UvChannel::Uv0`].
+    #[cfg(feature = "pbr_specular_textures")]
+    pub specular_tint_channel: UvChannel,
+
+    /// A map that specifies color adjustment to be applied to the specular
+    /// reflection for non-metallic materials.
+    ///
+    /// The RGB values of this texture modulate the
+    /// [`StandardMaterial::specular_tint`] value. See the documentation for
+    /// that field for more information.
+    ///
+    /// Like the fixed specular tint value, this texture map isn't supported in
+    /// the deferred renderer.
+    #[cfg(feature = "pbr_specular_textures")]
+    #[texture(29)]
+    #[sampler(30)]
+    pub specular_tint_texture: Option<Handle<Image>>,
 
     /// An extra thin translucent layer on top of the main PBR layer. This is
     /// typically used for painted surfaces.
@@ -798,6 +859,15 @@ impl Default for StandardMaterial {
             occlusion_texture: None,
             normal_map_channel: UvChannel::Uv0,
             normal_map_texture: None,
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_channel: UvChannel::Uv0,
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_texture: None,
+            specular_tint: Color::WHITE,
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_tint_channel: UvChannel::Uv0,
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_tint_texture: None,
             clearcoat: 0.0,
             clearcoat_perceptual_roughness: 0.5,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
@@ -882,6 +952,8 @@ bitflags::bitflags! {
         const CLEARCOAT_ROUGHNESS_TEXTURE = 1 << 15;
         const CLEARCOAT_NORMAL_TEXTURE   = 1 << 16;
         const ANISOTROPY_TEXTURE         = 1 << 17;
+        const SPECULAR_TEXTURE           = 1 << 18;
+        const SPECULAR_TINT_TEXTURE      = 1 << 19;
         const ALPHA_MODE_RESERVED_BITS   = Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS; // ← Bitmask reserving bits for the `AlphaMode`
         const ALPHA_MODE_OPAQUE          = 0 << Self::ALPHA_MODE_SHIFT_BITS;                          // ← Values are just sequential values bitshifted into
         const ALPHA_MODE_MASK            = 1 << Self::ALPHA_MODE_SHIFT_BITS;                          //   the bitmask, and can range from 0 to 7.
@@ -913,14 +985,14 @@ pub struct StandardMaterialUniform {
     pub attenuation_color: Vec4,
     /// The transform applied to the UVs corresponding to `ATTRIBUTE_UV_0` on the mesh before sampling. Default is identity.
     pub uv_transform: Mat3,
+    /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
+    /// defaults to 0.5 which is mapped to 4% reflectance in the shader
+    pub reflectance: Vec3,
     /// Linear perceptual roughness, clamped to [0.089, 1.0] in the shader
     /// Defaults to minimum of 0.089
     pub roughness: f32,
     /// From [0.0, 1.0], dielectric to pure metallic
     pub metallic: f32,
-    /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
-    /// defaults to 0.5 which is mapped to 4% reflectance in the shader
-    pub reflectance: f32,
     /// Amount of diffuse light transmitted through the material
     pub diffuse_transmission: f32,
     /// Amount of specular light transmitted through the material
@@ -1003,6 +1075,16 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             flags |= StandardMaterialFlags::ANISOTROPY_TEXTURE;
         }
 
+        #[cfg(feature = "pbr_specular_textures")]
+        {
+            if self.specular_texture.is_some() {
+                flags |= StandardMaterialFlags::SPECULAR_TEXTURE;
+            }
+            if self.specular_tint_texture.is_some() {
+                flags |= StandardMaterialFlags::SPECULAR_TINT_TEXTURE;
+            }
+        }
+
         #[cfg(feature = "pbr_multi_layer_material_textures")]
         {
             if self.clearcoat_texture.is_some() {
@@ -1070,7 +1152,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             emissive,
             roughness: self.perceptual_roughness,
             metallic: self.metallic,
-            reflectance: self.reflectance,
+            reflectance: LinearRgba::from(self.specular_tint).to_vec3() * self.reflectance,
             clearcoat: self.clearcoat,
             clearcoat_perceptual_roughness: self.clearcoat_perceptual_roughness,
             anisotropy_strength: self.anisotropy_strength,
@@ -1120,6 +1202,8 @@ bitflags! {
         const CLEARCOAT_UV             = 0x040000;
         const CLEARCOAT_ROUGHNESS_UV   = 0x080000;
         const CLEARCOAT_NORMAL_UV      = 0x100000;
+        const SPECULAR_UV              = 0x200000;
+        const SPECULAR_TINT_UV         = 0x400000;
         const DEPTH_BIAS               = 0xffffffff_00000000;
     }
 }
@@ -1211,6 +1295,18 @@ impl From<&StandardMaterial> for StandardMaterialKey {
             StandardMaterialKey::ANISOTROPY_UV,
             material.anisotropy_channel != UvChannel::Uv0,
         );
+
+        #[cfg(feature = "pbr_specular_textures")]
+        {
+            key.set(
+                StandardMaterialKey::SPECULAR_UV,
+                material.specular_channel != UvChannel::Uv0,
+            );
+            key.set(
+                StandardMaterialKey::SPECULAR_TINT_UV,
+                material.specular_tint_channel != UvChannel::Uv0,
+            );
+        }
 
         #[cfg(feature = "pbr_multi_layer_material_textures")]
         {
@@ -1381,7 +1477,15 @@ impl Material for StandardMaterial {
                 ),
                 (
                     StandardMaterialKey::ANISOTROPY_UV,
-                    "STANDARD_MATERIAL_ANISOTROPY_UV",
+                    "STANDARD_MATERIAL_ANISOTROPY_UV_B",
+                ),
+                (
+                    StandardMaterialKey::SPECULAR_UV,
+                    "STANDARD_MATERIAL_SPECULAR_UV_B",
+                ),
+                (
+                    StandardMaterialKey::SPECULAR_TINT_UV,
+                    "STANDARD_MATERIAL_SPECULAR_TINT_UV_B",
                 ),
             ] {
                 if key.bind_group_data.intersects(flags) {

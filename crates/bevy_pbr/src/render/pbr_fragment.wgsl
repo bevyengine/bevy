@@ -171,11 +171,53 @@ fn pbr_input_from_standard_material(
 
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
-        pbr_input.material.reflectance = pbr_bindings::material.reflectance;
         pbr_input.material.ior = pbr_bindings::material.ior;
         pbr_input.material.attenuation_color = pbr_bindings::material.attenuation_color;
         pbr_input.material.attenuation_distance = pbr_bindings::material.attenuation_distance;
         pbr_input.material.alpha_cutoff = pbr_bindings::material.alpha_cutoff;
+
+        // reflectance
+        pbr_input.material.reflectance = pbr_bindings::material.reflectance;
+
+#ifdef PBR_SPECULAR_TEXTURES_SUPPORTED
+#ifdef VERTEX_UVS
+
+        // Specular texture
+        if ((pbr_bindings::material.flags &
+                pbr_types::STANDARD_MATERIAL_FLAGS_SPECULAR_TEXTURE_BIT) != 0u) {
+            let specular = pbr_functions::sample_texture(
+                pbr_bindings::specular_texture,
+                pbr_bindings::specular_sampler,
+#ifdef STANDARD_MATERIAL_SPECULAR_UV_B
+                uv_b,
+#else   // STANDARD_MATERIAL_SPECULAR_UV_B
+                uv,
+#endif  // STANDARD_MATERIAL_SPECULAR_UV_B
+                bias,
+            ).a;
+            // This 0.5 factor is from the `KHR_materials_specular` specification:
+            // <https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular#materials-with-reflectance-parameter>
+            pbr_input.material.reflectance *= specular * 0.5;
+        }
+
+        // Specular tint texture
+        if ((pbr_bindings::material.flags &
+                pbr_types::STANDARD_MATERIAL_FLAGS_SPECULAR_TINT_TEXTURE_BIT) != 0u) {
+            let specular_tint = pbr_functions::sample_texture(
+                pbr_bindings::specular_tint_texture,
+                pbr_bindings::specular_tint_sampler,
+#ifdef STANDARD_MATERIAL_SPECULAR_TINT_UV_B
+                uv_b,
+#else   // STANDARD_MATERIAL_SPECULAR_TINT_UV_B
+                uv,
+#endif  // STANDARD_MATERIAL_SPECULAR_TINT_UV_B
+                bias,
+            ).rgb;
+            pbr_input.material.reflectance *= specular_tint;
+        }
+
+#endif  // VERTEX_UVS
+#endif  // PBR_SPECULAR_TEXTURES_SUPPORTED
 
         // emissive
         var emissive: vec4<f32> = pbr_bindings::material.emissive;

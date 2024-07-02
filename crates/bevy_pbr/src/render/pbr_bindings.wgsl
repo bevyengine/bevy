@@ -33,3 +33,9 @@
 @group(2) @binding(25) var clearcoat_normal_texture: texture_2d<f32>;
 @group(2) @binding(26) var clearcoat_normal_sampler: sampler;
 #endif
+#ifdef PBR_SPECULAR_TEXTURES_SUPPORTED
+@group(2) @binding(27) var specular_texture: texture_2d<f32>;
+@group(2) @binding(28) var specular_sampler: sampler;
+@group(2) @binding(29) var specular_tint_texture: texture_2d<f32>;
+@group(2) @binding(30) var specular_tint_sampler: sampler;
+#endif  // PBR_SPECULAR_TEXTURES_SUPPORTED

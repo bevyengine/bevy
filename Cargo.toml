@@ -318,6 +318,9 @@ pbr_multi_layer_material_textures = [
   "bevy_internal/pbr_multi_layer_material_textures",
 ]
 
+# Enable support for specular textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
+pbr_specular_textures = ["bevy_internal/pbr_specular_textures"]
+
 # Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
 webgl2 = ["bevy_internal/webgl"]
 
@@ -3256,6 +3259,18 @@ doc-scrape-examples = true
 name = "Custom phase item"
 description = "Demonstrates how to enqueue custom draw commands in a render phase"
 category = "Shaders"
+wasm = true
+
+[[example]]
+name = "specular_tint"
+path = "examples/3d/specular_tint.rs"
+doc-scrape-examples = true
+required-features = ["pbr_specular_textures"]
+
+[package.metadata.example.specular_tint]
+name = "Specular tint"
+description = "Demonstrates specular tints and maps"
+category = "3D Rendering"
 wasm = true
 
 [profile.wasm-release]

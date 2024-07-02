@@ -12,6 +12,7 @@ keywords = ["bevy"]
 dds = ["bevy_render/dds"]
 pbr_transmission_textures = ["bevy_pbr/pbr_transmission_textures"]
 pbr_multi_layer_material_textures = []
+pbr_specular_textures = []
 
 [dependencies]
 # bevy
