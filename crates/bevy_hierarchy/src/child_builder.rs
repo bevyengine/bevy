@@ -1214,4 +1214,14 @@ mod tests {
         let children = query.get(&world, parent).unwrap();
         assert_eq!(**children, [child]);
     }
+
+    #[test]
+    fn push_children_does_not_insert_empty_children() {
+        let mut world = World::new();
+        let parent = world.spawn_empty().push_children(&[]).id();
+
+        let mut query = world.query::<&Children>();
+        let children = query.get(&world, parent);
+        assert!(children.is_err());
+    }
 }
