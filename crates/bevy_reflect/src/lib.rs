@@ -538,6 +538,7 @@ pub use bevy_reflect_derive::*;
 pub use erased_serde;
 
 extern crate alloc;
+extern crate core;
 
 /// Exports used by the reflection macros.
 ///

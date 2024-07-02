@@ -40,6 +40,7 @@ pub use error::*;
 pub use function::*;
 pub use info::*;
 pub use into_function::*;
+pub use registry::*;
 pub use return_type::*;
 
 pub use args::{Arg, ArgError, ArgList};
@@ -50,6 +51,7 @@ mod function;
 mod info;
 mod into_function;
 pub(crate) mod macros;
+mod registry;
 mod return_type;
 
 #[cfg(test)]
@@ -163,8 +165,8 @@ mod tests {
 
         let func = foo.into_function();
         assert_eq!(
-            func.info().name(),
-            Some("bevy_reflect::func::tests::should_default_with_function_type_name::foo")
+            func.name(),
+            "bevy_reflect::func::tests::should_default_with_function_type_name::foo"
         );
     }
 
@@ -174,8 +176,8 @@ mod tests {
 
         let func = bar.into_function();
         assert_eq!(
-            func.info().name(),
-            Some("bevy_reflect::func::tests::should_default_with_closure_type_name::{{closure}}")
+            func.name(),
+            "bevy_reflect::func::tests::should_default_with_closure_type_name::{{closure}}"
         );
     }
 
@@ -184,7 +186,7 @@ mod tests {
         fn foo() {}
 
         let func = foo.into_function().with_name("my_function");
-        assert_eq!(func.info().name(), Some("my_function"));
+        assert_eq!(func.name(), "my_function");
     }
 
     #[test]
