@@ -1,6 +1,7 @@
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
+use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use bevy_utils::default;
 use serde::{Deserialize, Serialize};
@@ -106,10 +107,21 @@ impl Text {
     }
 }
 
-#[derive(Debug, Default, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect)]
 pub struct TextSection {
     pub value: String,
     pub style: TextStyle,
+    pub offset: Vec2,
+}
+
+impl Default for TextSection {
+    fn default() -> Self {
+        Self {
+            value: Default::default(),
+            style: Default::default(),
+            offset: Vec2::new(0., 0.),
+        }
+    }
 }
 
 impl TextSection {
@@ -118,14 +130,18 @@ impl TextSection {
         Self {
             value: value.into(),
             style,
+
+            ..Default::default()
         }
     }
 
     /// Create an empty [`TextSection`] from a style. Useful when the value will be set dynamically.
     pub const fn from_style(style: TextStyle) -> Self {
         Self {
-            value: String::new(),
             style,
+
+            value: String::new(),
+            offset: Vec2::new(0., 0.),
         }
     }
 }
