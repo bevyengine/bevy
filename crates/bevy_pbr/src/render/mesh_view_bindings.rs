@@ -19,13 +19,20 @@ use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
-    renderer::RenderDevice,
+    renderer::{RenderAdapter, RenderDevice},
     texture::{BevyDefault, FallbackImage, FallbackImageMsaa, FallbackImageZero, GpuImage},
     view::{
         Msaa, RenderVisibilityRanges, ViewUniform, ViewUniforms,
         VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
     },
 };
+
+#[cfg(any(
+    not(feature = "webgl"),
+    not(target_arch = "wasm32"),
+    feature = "webgpu"
+))]
+use bevy_render::DownlevelFlags;
 
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 use bevy_render::render_resource::binding_types::texture_cube;
@@ -184,7 +191,28 @@ fn layout_entries(
     visibility_ranges_buffer_binding_type: BufferBindingType,
     layout_key: MeshPipelineViewLayoutKey,
     render_device: &RenderDevice,
+    #[cfg(any(
+        not(feature = "webgl"),
+        not(target_arch = "wasm32"),
+        feature = "webgpu"
+    ))]
+    render_adapter: &RenderAdapter,
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    _render_adapter: &RenderAdapter,
 ) -> Vec<BindGroupLayoutEntry> {
+    #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+    let supports_cube_array_textures = false;
+
+    #[cfg(any(
+        not(feature = "webgl"),
+        not(target_arch = "wasm32"),
+        feature = "webgpu"
+    ))]
+    let supports_cube_array_textures = render_adapter
+        .get_downlevel_capabilities()
+        .flags
+        .contains(DownlevelFlags::CUBE_ARRAY_TEXTURES);
+
     let mut entries = DynamicBindGroupLayoutEntries::new_with_indices(
         ShaderStages::FRAGMENT,
         (
@@ -198,20 +226,11 @@ fn layout_entries(
             // Point Shadow Texture Cube Array
             (
                 2,
-                #[cfg(all(
-                    not(feature = "ios_simulator"),
-                    any(
-                        not(feature = "webgl"),
-                        not(target_arch = "wasm32"),
-                        feature = "webgpu"
-                    )
-                ))]
-                texture_cube_array(TextureSampleType::Depth),
-                #[cfg(any(
-                    feature = "ios_simulator",
-                    all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu"))
-                ))]
-                texture_cube(TextureSampleType::Depth),
+                if supports_cube_array_textures {
+                    texture_cube_array(TextureSampleType::Depth)
+                } else {
+                    texture_cube(TextureSampleType::Depth)
+                },
             ),
             // Point Shadow Texture Array Sampler
             (3, sampler(SamplerBindingType::Comparison)),
@@ -360,6 +379,7 @@ impl FromWorld for MeshPipelineViewLayouts {
         // [`MeshPipelineViewLayoutKey`] flags.
 
         let render_device = world.resource::<RenderDevice>();
+        let render_adapter = world.resource::<RenderAdapter>();
 
         let clustered_forward_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
@@ -373,6 +393,7 @@ impl FromWorld for MeshPipelineViewLayouts {
                 visibility_ranges_buffer_binding_type,
                 key,
                 render_device,
+                render_adapter,
             );
             #[cfg(debug_assertions)]
             let texture_count: usize = entries
@@ -409,6 +430,7 @@ impl MeshPipelineViewLayouts {
 /// [`MeshPipelineViewLayoutKey`] flags.
 pub fn generate_view_layouts(
     render_device: &RenderDevice,
+    render_adapter: &RenderAdapter,
     clustered_forward_buffer_binding_type: BufferBindingType,
     visibility_ranges_buffer_binding_type: BufferBindingType,
 ) -> [MeshPipelineViewLayout; MeshPipelineViewLayoutKey::COUNT] {
@@ -419,6 +441,7 @@ pub fn generate_view_layouts(
             visibility_ranges_buffer_binding_type,
             key,
             render_device,
+            render_adapter,
         );
 
         #[cfg(debug_assertions)]
