@@ -1157,6 +1157,9 @@ impl Mesh {
     }
 }
 
+/// A disjunction of four iterators. This is necessary to have a well-formed type for the output
+/// of [`Mesh::triangles`], which produces iterators of four different types depending on the
+/// branch taken.
 enum FourIterators<A, B, C, D> {
     First(A),
     Second(B),
