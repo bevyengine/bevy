@@ -16,7 +16,7 @@ keywords = ["bevy", "3D", "graphics", "algorithm", "tangent"]
 rust-version = "1.76.0"
 
 [dependencies]
-glam = "0.27"
+glam = "0.28"
 
 [[example]]
 name = "generate"
