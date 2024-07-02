@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeEntity, Archetypes},
     component::Tick,
-    entity::{Entities, Entity},
+    entity::{Entities, Entity, EntityHashSet},
     query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, StorageId},
     storage::{Table, TableRow, Tables},
     world::unsafe_world_cell::UnsafeWorldCell,
@@ -13,6 +13,7 @@ use std::{
     iter::FusedIterator,
     mem::MaybeUninit,
     ops::Range,
+    vec::IntoIter,
 };
 
 use super::{QueryData, QueryFilter, ReadOnlyQueryData};
@@ -1137,11 +1138,17 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
                 continue;
             }
 
-            let archetype = self
-                .archetypes
-                .get(location.archetype_id)
-                .debug_checked_unwrap();
-            let table = self.tables.get(location.table_id).debug_checked_unwrap();
+            let (archetype, table);
+            // SAFETY:
+            // `tables` and `archetypes` belong to the same world that the [`QueryIter`]
+            // was initialized for.
+            unsafe {
+                archetype = self
+                    .archetypes
+                    .get(location.archetype_id)
+                    .debug_checked_unwrap();
+                table = self.tables.get(location.table_id).debug_checked_unwrap();
+            }
 
             // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
             // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
@@ -1184,6 +1191,142 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
         // of any previously returned unique references first, thus preventing aliasing.
         unsafe { self.fetch_next_aliased_unchecked().map(D::shrink) }
     }
+
+    /// Checks for uniqueness in the `Entity` iterator `I`, returning a new `Iterator` on success.
+    /// Returns `self` on failure.
+    /// The new iterator allows for mutable iteration without `fetch_next`.
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use std::ops::{Deref, DerefMut};
+    /// #
+    /// # #[derive(Component, Clone, Copy)]
+    /// # struct PartValue(usize);
+    /// #
+    /// # impl Deref for PartValue {
+    /// #     type Target = usize;
+    /// #
+    /// #     fn deref(&self) -> &Self::Target {
+    /// #         &self.0
+    /// #     }
+    /// # }
+    /// #
+    /// # impl DerefMut for PartValue {
+    /// #     fn deref_mut(&mut self) -> &mut Self::Target {
+    /// #         &mut self.0
+    /// #     }
+    /// # }
+    /// #
+    /// # let mut world = World::new();
+    /// #
+    /// // Mutable `Iterator` trait iteration.
+    /// fn system(mut query: Query<&mut PartValue>) {
+    /// #   let entity_list: Vec<Entity> = Vec::new();
+    /// #
+    ///     let mut unique_iter = query.iter_many_mut(entity_list)
+    ///         .entities_all_unique()
+    ///         .expect("the entity_list only contains unique entities");
+    ///     
+    ///     for mut part_value in unique_iter {
+    ///         **part_value += 1;
+    ///     }
+    /// }
+    /// #
+    /// # let mut schedule = Schedule::default();
+    /// # schedule.add_systems((system));
+    /// # schedule.run(&mut world);
+    /// ```
+    #[inline(always)]
+    pub fn entities_all_unique(
+        self,
+    ) -> Result<
+        QueryManyUniqueIter<'w, 's, D, F, IntoIter<I::Item>>,
+        QueryManyIter<'w, 's, D, F, IntoIter<I::Item>>,
+    > {
+        let mut used = EntityHashSet::default();
+        let entities: Vec<_> = self.entity_iter.collect();
+
+        if entities.iter().all(move |e| used.insert(*e.borrow())) {
+            return Ok(QueryManyUniqueIter(QueryManyIter {
+                entity_iter: entities.into_iter(),
+                entities: self.entities,
+                tables: self.tables,
+                archetypes: self.archetypes,
+                fetch: self.fetch,
+                filter: self.filter,
+                query_state: self.query_state,
+            }));
+        }
+
+        Err(QueryManyIter {
+            entity_iter: entities.into_iter(),
+            entities: self.entities,
+            tables: self.tables,
+            archetypes: self.archetypes,
+            fetch: self.fetch,
+            filter: self.filter,
+            query_state: self.query_state,
+        })
+    }
+
+    /// Deduplicates the `Entity` iterator `I`, returning a new Iterator over unique entities.
+    /// The new iterator allows for mutable iteration without `fetch_next`.
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use std::ops::{Deref, DerefMut};
+    /// #
+    /// # #[derive(Component, Clone, Copy)]
+    /// # struct PartValue(usize);
+    /// #
+    /// # impl Deref for PartValue {
+    /// #     type Target = usize;
+    /// #
+    /// #     fn deref(&self) -> &Self::Target {
+    /// #         &self.0
+    /// #     }
+    /// # }
+    /// #
+    /// # impl DerefMut for PartValue {
+    /// #     fn deref_mut(&mut self) -> &mut Self::Target {
+    /// #         &mut self.0
+    /// #     }
+    /// # }
+    /// #
+    /// # let mut world = World::new();
+    /// #
+    /// // Mutable `Iterator` trait iteration.
+    /// fn system(mut query: Query<&mut PartValue>) {
+    /// #   let entity_list: Vec<Entity> = Vec::new();
+    /// #
+    ///     let mut unique_iter = query.iter_many_mut(entity_list)
+    ///         .dedup_entities();
+    ///     
+    ///     for mut part_value in unique_iter {
+    ///         **part_value += 1;
+    ///     }
+    /// }
+    /// #
+    /// # let mut schedule = Schedule::default();
+    /// # schedule.add_systems((system));
+    /// # schedule.run(&mut world);
+    /// ```
+    #[inline(always)]
+    pub fn dedup_entities(
+        self,
+    ) -> QueryManyUniqueIter<'w, 's, D, F, impl Iterator<Item: Borrow<Entity>>> {
+        let mut used = EntityHashSet::default();
+
+        QueryManyUniqueIter(QueryManyIter {
+            entity_iter: self.entity_iter.filter(move |e| used.insert(*e.borrow())),
+            entities: self.entities,
+            tables: self.tables,
+            archetypes: self.archetypes,
+            fetch: self.fetch,
+            filter: self.filter,
+            query_state: self.query_state,
+        })
+    }
 }
 
 impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> Iterator
@@ -1214,6 +1357,53 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> De
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryManyIter").finish()
+    }
+}
+
+/// An [`Iterator`] over the query items generated from an iterator of unique [`Entity`]s.
+///
+/// Items are returned in the order of the provided iterator.
+/// Entities that don't match the query are skipped.
+///
+/// In contrast with `QueryManyIter`, this allows for mutable iteration without a `fetch_next` method.
+///
+/// This struct is created by the [`QueryManyIter::entities_all_unique`] and [`QueryManyIter::dedup_entities`] methods.
+pub struct QueryManyUniqueIter<
+    'w,
+    's,
+    D: QueryData,
+    F: QueryFilter,
+    I: Iterator<Item: Borrow<Entity>>,
+>(QueryManyIter<'w, 's, D, F, I>);
+
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> Iterator
+    for QueryManyUniqueIter<'w, 's, D, F, I>
+{
+    type Item = D::Item<'w>;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        // SAFETY: Entities are guaranteed to be unique, thus do not alias.
+        unsafe { self.0.fetch_next_aliased_unchecked() }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (_, max_size) = self.0.entity_iter.size_hint();
+        (0, max_size)
+    }
+}
+
+// This is correct as [`QueryManyIter`] always returns `None` once exhausted.
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> FusedIterator
+    for QueryManyUniqueIter<'w, 's, D, F, I>
+{
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> Debug
+    for QueryManyUniqueIter<'w, 's, D, F, I>
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("QueryManyUniqueIter").finish()
     }
 }
 
