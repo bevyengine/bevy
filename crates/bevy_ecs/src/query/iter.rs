@@ -1131,9 +1131,9 @@ where
         unsafe { self.fetch_next_aliased_unchecked().map(D::shrink) }
     }
 
-    /// Checks for uniqueness in the `Entity` iterator `I`, returning a new Iterator on success.
-    /// Return `self` on failure.
-    /// This new iterator allows for mutable iteration without `fetch_next`.
+    /// Checks for uniqueness in the `Entity` iterator `I`, returning a new `Iterator` on success.
+    /// Returns `self` on failure.
+    /// The new iterator allows for mutable iteration without `fetch_next`.
     /// # Example
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -1207,6 +1207,65 @@ where
             query_state: self.query_state,
         })
     }
+
+    /// Deduplicates the `Entity` iterator `I`, returning a new Iterator over unique entities.
+    /// The new iterator allows for mutable iteration without `fetch_next`.
+    /// # Example
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use std::ops::{Deref, DerefMut};
+    /// #
+    /// # #[derive(Component, Clone, Copy)]
+    /// # struct PartValue(usize);
+    /// #
+    /// # impl Deref for PartValue {
+    /// #     type Target = usize;
+    /// #
+    /// #     fn deref(&self) -> &Self::Target {
+    /// #         &self.0
+    /// #     }
+    /// # }
+    /// #
+    /// # impl DerefMut for PartValue {
+    /// #     fn deref_mut(&mut self) -> &mut Self::Target {
+    /// #         &mut self.0
+    /// #     }
+    /// # }
+    /// #
+    /// # let mut world = World::new();
+    /// #
+    /// // Mutable `Iterator` trait iteration.
+    /// fn system(mut query: Query<&mut PartValue>) {
+    /// #   let entity_list: Vec<Entity> = Vec::new();
+    /// #
+    ///     let mut unique_iter = query.iter_many_mut(entity_list)
+    ///         .dedup_entities();
+    ///     
+    ///     for mut part_value in unique_iter {
+    ///         **part_value += 1;
+    ///     }
+    /// }
+    /// #
+    /// # let mut schedule = Schedule::default();
+    /// # schedule.add_systems((system));
+    /// # schedule.run(&mut world);
+    /// ```
+    #[inline(always)]
+    pub fn dedup_entities(
+        self,
+    ) -> QueryManyUniqueIter<'w, 's, D, F, impl Iterator<Item: Borrow<Entity>>> {
+        let mut used = EntityHashSet::default();
+
+        QueryManyUniqueIter(QueryManyIter {
+            entity_iter: self.entity_iter.filter(move |e| used.insert(*e.borrow())),
+            entities: self.entities,
+            tables: self.tables,
+            archetypes: self.archetypes,
+            fetch: self.fetch,
+            filter: self.filter,
+            query_state: self.query_state,
+        })
+    }
 }
 
 impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator> Iterator
@@ -1252,7 +1311,7 @@ where
 ///
 /// In contrast with `QueryManyIter`, this allows for mutable iteration without a `fetch_next` method.
 ///
-/// This struct is created by the [`QueryManyIter::entities_all_unique`] method.
+/// This struct is created by the [`QueryManyIter::entities_all_unique`] and [`QueryManyIter::dedup_entities`] methods.
 pub struct QueryManyUniqueIter<
     'w,
     's,
