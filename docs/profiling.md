@@ -42,13 +42,13 @@ There are binaries available for Windows, and installation / build instructions 
 
 It has a command line capture tool that can record the execution of graphical applications, saving it as a profile file. Tracy has a GUI to inspect these profile files. The GUI app also supports live capture, showing you in real time the trace of your app. The version of tracy must be matched to the version of tracing-tracy used in bevy. A compatibility table can be found on [crates.io](https://crates.io/crates/tracing-tracy) and the version used can be found [here](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_log/Cargo.toml).
 
-On Mac OS, Tracy can be installed through Homebrew by running `brew install tracy`, and the GUI client can be launched by running `tracy`. 
+On macOS, Tracy can be installed through Homebrew by running `brew install tracy`, and the GUI client can be launched by running `tracy`. 
 
 In one terminal, run:
 `./capture-release -o my_capture.tracy`
 This will sit and wait for a tracy-instrumented application to start, and when it does, it will automatically connect and start capturing. 
 
-Note that on Windows, the capture tool is called `capture.exe`. On Mac OS, it is `tracy-capture` — e.g. `tracy-capture -o my_capture.tracy`. 
+Note that on Windows, the capture tool is called `capture.exe`. On macOS, it is `tracy-capture` — e.g. `tracy-capture -o my_capture.tracy`. 
 
 Then run your application, enabling the `trace_tracy` feature:
 `cargo run --release --features bevy/trace_tracy`
