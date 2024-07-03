@@ -11,6 +11,10 @@ pub struct CI {
     /// continue running commands even if one fails
     #[argh(switch)]
     keep_going: bool,
+
+    /// passes quiet to cargo commands
+    #[argh(switch)]
+    quiet: bool,
 }
 
 impl CI {
@@ -61,6 +65,10 @@ impl CI {
 
         if self.keep_going {
             flags |= Flag::KEEP_GOING;
+        }
+
+        if self.quiet {
+            flags |= Flag::QUIET;
         }
 
         match &self.command {
