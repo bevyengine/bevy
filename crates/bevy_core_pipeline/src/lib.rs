@@ -14,12 +14,14 @@ pub mod contrast_adaptive_sharpening;
 pub mod core_2d;
 pub mod core_3d;
 pub mod deferred;
+pub mod dof;
 pub mod fullscreen_vertex_shader;
 pub mod fxaa;
 pub mod motion_blur;
 pub mod msaa_writeback;
 pub mod prepass;
 mod skybox;
+pub mod smaa;
 mod taa;
 pub mod tonemapping;
 pub mod upscaling;
@@ -53,11 +55,13 @@ use crate::{
     core_2d::Core2dPlugin,
     core_3d::Core3dPlugin,
     deferred::copy_lighting_id::CopyDeferredLightingIdPlugin,
+    dof::DepthOfFieldPlugin,
     fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
     fxaa::FxaaPlugin,
     motion_blur::MotionBlurPlugin,
     msaa_writeback::MsaaWritebackPlugin,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    smaa::SmaaPlugin,
     tonemapping::TonemappingPlugin,
     upscaling::UpscalingPlugin,
 };
@@ -93,6 +97,8 @@ impl Plugin for CorePipelinePlugin {
                 FxaaPlugin,
                 CASPlugin,
                 MotionBlurPlugin,
+                DepthOfFieldPlugin,
+                SmaaPlugin,
             ));
     }
 }

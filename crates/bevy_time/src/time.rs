@@ -1,4 +1,7 @@
-use bevy_ecs::{reflect::ReflectResource, system::Resource};
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::reflect::ReflectResource;
+use bevy_ecs::system::Resource;
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::Duration;
 
@@ -183,8 +186,8 @@ use bevy_utils::Duration;
 ///     }
 /// }
 /// ```
-#[derive(Resource, Debug, Copy, Clone, Reflect)]
-#[reflect(Resource, Default)]
+#[derive(Resource, Debug, Copy, Clone)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Resource, Default))]
 pub struct Time<T: Default = ()> {
     context: T,
     wrap_period: Duration,

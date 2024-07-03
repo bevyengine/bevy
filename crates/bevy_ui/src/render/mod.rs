@@ -2,11 +2,12 @@ mod pipeline;
 mod render_pass;
 mod ui_material_pipeline;
 
-use bevy_color::{Alpha, LinearRgba};
+use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
+use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::{
     render_phase::{PhaseItem, PhaseItemExtraIndex},
     texture::GpuImage,
@@ -27,14 +28,14 @@ use crate::{
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
-use bevy_ecs::entity::EntityHashMap;
+use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode},
-    render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, SortedRenderPhase},
+    render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
@@ -85,6 +86,7 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<ExtractedUiNodes>()
         .allow_ambiguous_resource::<ExtractedUiNodes>()
         .init_resource::<DrawFunctions<TransparentUi>>()
+        .init_resource::<ViewSortedRenderPhases<TransparentUi>>()
         .add_render_command::<TransparentUi, DrawUi>()
         .configure_sets(
             ExtractSchedule,
@@ -99,8 +101,7 @@ pub fn build_ui_render(app: &mut App) {
         .add_systems(
             ExtractSchedule,
             (
-                extract_default_ui_camera_view::<Camera2d>,
-                extract_default_ui_camera_view::<Camera3d>,
+                extract_default_ui_camera_view,
                 extract_uinode_background_colors.in_set(RenderUiSystem::ExtractBackgrounds),
                 extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
                 extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
@@ -126,7 +127,7 @@ pub fn build_ui_render(app: &mut App) {
     if let Some(graph_2d) = graph.get_sub_graph_mut(Core2d) {
         graph_2d.add_sub_graph(SubGraphUi, ui_graph_2d);
         graph_2d.add_node(NodeUi::UiPass, RunGraphOnViewNode::new(SubGraphUi));
-        graph_2d.add_node_edge(Node2d::MainPass, NodeUi::UiPass);
+        graph_2d.add_node_edge(Node2d::EndMainPass, NodeUi::UiPass);
         graph_2d.add_node_edge(Node2d::EndMainPassPostProcessing, NodeUi::UiPass);
         graph_2d.add_node_edge(NodeUi::UiPass, Node2d::Upscaling);
     }
@@ -198,8 +199,11 @@ pub fn extract_uinode_background_colors(
             Option<&TargetCamera>,
             &BackgroundColor,
             Option<&BorderRadius>,
+            &Style,
+            Option<&Parent>,
         )>,
     >,
+    node_query: Extract<Query<&Node>>,
 ) {
     for (
         entity,
@@ -210,6 +214,8 @@ pub fn extract_uinode_background_colors(
         camera,
         background_color,
         border_radius,
+        style,
+        parent,
     ) in &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
@@ -230,6 +236,23 @@ pub fn extract_uinode_background_colors(
             // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
             // so we have to divide by `UiScale` to get the size of the UI viewport.
             / ui_scale.0;
+
+        // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
+        // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
+        let parent_width = parent
+            .and_then(|parent| node_query.get(parent.get()).ok())
+            .map(|parent_node| parent_node.size().x)
+            .unwrap_or(ui_logical_viewport_size.x);
+        let left =
+            resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size);
+        let right =
+            resolve_border_thickness(style.border.right, parent_width, ui_logical_viewport_size);
+        let top =
+            resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size);
+        let bottom =
+            resolve_border_thickness(style.border.bottom, parent_width, ui_logical_viewport_size);
+
+        let border = [left, top, right, bottom];
 
         let border_radius = if let Some(border_radius) = border_radius {
             resolve_border_radius(
@@ -258,7 +281,7 @@ pub fn extract_uinode_background_colors(
                 flip_x: false,
                 flip_y: false,
                 camera_entity,
-                border: [0.; 4],
+                border,
                 border_radius,
                 node_type: NodeType::Rect,
             },
@@ -266,6 +289,7 @@ pub fn extract_uinode_background_colors(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn extract_uinode_images(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
@@ -284,11 +308,25 @@ pub fn extract_uinode_images(
             Option<&TextureAtlas>,
             Option<&ComputedTextureSlices>,
             Option<&BorderRadius>,
+            Option<&Parent>,
+            &Style,
         )>,
     >,
+    node_query: Extract<Query<&Node>>,
 ) {
-    for (uinode, transform, view_visibility, clip, camera, image, atlas, slices, border_radius) in
-        &uinode_query
+    for (
+        uinode,
+        transform,
+        view_visibility,
+        clip,
+        camera,
+        image,
+        atlas,
+        slices,
+        border_radius,
+        parent,
+        style,
+    ) in &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
@@ -341,6 +379,23 @@ pub fn extract_uinode_images(
             // so we have to divide by `UiScale` to get the size of the UI viewport.
             / ui_scale.0;
 
+        // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
+        // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
+        let parent_width = parent
+            .and_then(|parent| node_query.get(parent.get()).ok())
+            .map(|parent_node| parent_node.size().x)
+            .unwrap_or(ui_logical_viewport_size.x);
+        let left =
+            resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size);
+        let right =
+            resolve_border_thickness(style.border.right, parent_width, ui_logical_viewport_size);
+        let top =
+            resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size);
+        let bottom =
+            resolve_border_thickness(style.border.bottom, parent_width, ui_logical_viewport_size);
+
+        let border = [left, top, right, bottom];
+
         let border_radius = if let Some(border_radius) = border_radius {
             resolve_border_radius(
                 border_radius,
@@ -365,7 +420,7 @@ pub fn extract_uinode_images(
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
                 camera_entity,
-                border: [0.; 4],
+                border,
                 border_radius,
                 node_type: NodeType::Rect,
             },
@@ -512,6 +567,11 @@ pub fn extract_uinode_borders(
 
         let border = [left, top, right, bottom];
 
+        // don't extract border if no border
+        if left == 0.0 && top == 0.0 && right == 0.0 && bottom == 0.0 {
+            continue;
+        }
+
         let border_radius = resolve_border_radius(
             border_radius,
             node.size(),
@@ -579,7 +639,7 @@ pub fn extract_uinode_outlines(
 
         // Calculate the outline rects.
         let inner_rect = Rect::from_center_size(Vec2::ZERO, node.size() + 2. * node.outline_offset);
-        let outer_rect = inner_rect.inset(node.outline_width());
+        let outer_rect = inner_rect.inflate(node.outline_width());
         let outline_edges = [
             // Left edge
             Rect::new(
@@ -611,7 +671,7 @@ pub fn extract_uinode_outlines(
             ),
         ];
 
-        let transform = global_transform.compute_matrix();
+        let world_from_local = global_transform.compute_matrix();
         for edge in outline_edges {
             if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
                 extracted_uinodes.uinodes.insert(
@@ -619,7 +679,8 @@ pub fn extract_uinode_outlines(
                     ExtractedUiNode {
                         stack_index: node.stack_index,
                         // This translates the uinode's transform to the center of the current border rectangle
-                        transform: transform * Mat4::from_translation(edge.center().extend(0.)),
+                        transform: world_from_local
+                            * Mat4::from_translation(edge.center().extend(0.)),
                         color: outline.color.into(),
                         rect: Rect {
                             max: edge.size(),
@@ -655,11 +716,16 @@ const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 #[derive(Component)]
 pub struct DefaultCameraView(pub Entity);
 
-pub fn extract_default_ui_camera_view<T: Component>(
+/// Extracts all UI elements associated with a camera into the render world.
+pub fn extract_default_ui_camera_view(
     mut commands: Commands,
+    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     ui_scale: Extract<Res<UiScale>>,
-    query: Extract<Query<(Entity, &Camera), With<T>>>,
+    query: Extract<Query<(Entity, &Camera), Or<(With<Camera2d>, With<Camera3d>)>>>,
+    mut live_entities: Local<EntityHashSet>,
 ) {
+    live_entities.clear();
+
     let scale = ui_scale.0.recip();
     for (entity, camera) in &query {
         // ignore inactive cameras
@@ -690,13 +756,13 @@ pub fn extract_default_ui_camera_view<T: Component>(
             );
             let default_camera_view = commands
                 .spawn(ExtractedView {
-                    projection: projection_matrix,
-                    transform: GlobalTransform::from_xyz(
+                    clip_from_view: projection_matrix,
+                    world_from_view: GlobalTransform::from_xyz(
                         0.0,
                         0.0,
                         UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
                     ),
-                    view_projection: None,
+                    clip_from_world: None,
                     hdr: camera.hdr,
                     viewport: UVec4::new(
                         physical_origin.x,
@@ -707,12 +773,16 @@ pub fn extract_default_ui_camera_view<T: Component>(
                     color_grading: Default::default(),
                 })
                 .id();
-            commands.get_or_spawn(entity).insert((
-                DefaultCameraView(default_camera_view),
-                SortedRenderPhase::<TransparentUi>::default(),
-            ));
+            commands
+                .get_or_spawn(entity)
+                .insert(DefaultCameraView(default_camera_view));
+            transparent_render_phases.insert_or_clear(entity);
+
+            live_entities.insert(entity);
         }
     }
+
+    transparent_render_phases.retain(|entity, _| live_entities.contains(entity));
 }
 
 #[cfg(feature = "bevy_text")]
@@ -879,14 +949,18 @@ pub fn queue_uinodes(
     extracted_uinodes: Res<ExtractedUiNodes>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
-    mut views: Query<(&ExtractedView, &mut SortedRenderPhase<TransparentUi>)>,
+    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
+    mut views: Query<(Entity, &ExtractedView)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
-        let Ok((view, mut transparent_phase)) = views.get_mut(extracted_uinode.camera_entity)
-        else {
+        let Ok((view_entity, view)) = views.get_mut(extracted_uinode.camera_entity) else {
+            continue;
+        };
+
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
             continue;
         };
 
@@ -926,7 +1000,7 @@ pub fn prepare_uinodes(
     ui_pipeline: Res<UiPipeline>,
     mut image_bind_groups: ResMut<UiImageBindGroups>,
     gpu_images: Res<RenderAssets<GpuImage>>,
-    mut phases: Query<&mut SortedRenderPhase<TransparentUi>>,
+    mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     events: Res<SpriteAssetEvents>,
     mut previous_len: Local<usize>,
 ) {
@@ -958,7 +1032,7 @@ pub fn prepare_uinodes(
         let mut vertices_index = 0;
         let mut indices_index = 0;
 
-        for mut ui_phase in &mut phases {
+        for ui_phase in phases.values_mut() {
             let mut batch_item_index = 0;
             let mut batch_image_handle = AssetId::invalid();
 

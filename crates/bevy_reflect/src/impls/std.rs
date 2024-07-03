@@ -1,14 +1,15 @@
+use crate::func::macros::impl_function_traits;
 use crate::std_traits::ReflectDefault;
-use crate::{self as bevy_reflect, ReflectFromPtr, ReflectFromReflect, ReflectOwned, TypeRegistry};
-use crate::{
-    impl_type_path, map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicMap,
-    FromReflect, FromType, GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter,
-    Reflect, ReflectDeserialize, ReflectKind, ReflectMut, ReflectRef, ReflectSerialize, TypeInfo,
-    TypePath, TypeRegistration, Typed, ValueInfo,
-};
-
 use crate::utility::{
     reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell,
+};
+use crate::{
+    self as bevy_reflect, impl_type_path, map_apply, map_partial_eq, map_try_apply, ApplyError,
+    Array, ArrayInfo, ArrayIter, DynamicMap, DynamicTypePath, FromReflect, FromType,
+    GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter, Reflect,
+    ReflectDeserialize, ReflectFromPtr, ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, ReflectSerialize, TypeInfo, TypePath, TypeRegistration, TypeRegistry, Typed,
+    ValueInfo,
 };
 use bevy_reflect_derive::{impl_reflect, impl_reflect_value};
 use std::fmt;
@@ -314,6 +315,10 @@ macro_rules! impl_reflect_for_veclike {
                 crate::list_apply(self, value);
             }
 
+            fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+                crate::list_try_apply(self, value)
+            }
+
             fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
                 *self = value.take()?;
                 Ok(())
@@ -393,6 +398,8 @@ impl_reflect_for_veclike!(
     Vec::pop,
     [T]
 );
+impl_function_traits!(Vec<T>; <T: FromReflect + TypePath + GetTypeRegistration>);
+
 impl_reflect_for_veclike!(
     ::alloc::collections::VecDeque<T>,
     VecDeque::insert,
@@ -401,6 +408,7 @@ impl_reflect_for_veclike!(
     VecDeque::pop_back,
     VecDeque::<T>
 );
+impl_function_traits!(VecDeque<T>; <T: FromReflect + TypePath + GetTypeRegistration>);
 
 macro_rules! impl_reflect_for_hashmap {
     ($ty:path) => {
@@ -540,6 +548,10 @@ macro_rules! impl_reflect_for_hashmap {
                 map_apply(self, value);
             }
 
+            fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+                map_try_apply(self, value)
+            }
+
             fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
                 *self = value.take()?;
                 Ok(())
@@ -626,10 +638,24 @@ macro_rules! impl_reflect_for_hashmap {
 impl_reflect_for_hashmap!(::std::collections::HashMap<K, V, S>);
 impl_type_path!(::std::collections::hash_map::RandomState);
 impl_type_path!(::std::collections::HashMap<K, V, S>);
+impl_function_traits!(::std::collections::HashMap<K, V, S>;
+    <
+        K: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+        V: FromReflect + TypePath + GetTypeRegistration,
+        S: TypePath + BuildHasher + Default + Send + Sync
+    >
+);
 
 impl_reflect_for_hashmap!(bevy_utils::hashbrown::HashMap<K, V, S>);
 impl_type_path!(::bevy_utils::hashbrown::hash_map::DefaultHashBuilder);
 impl_type_path!(::bevy_utils::hashbrown::HashMap<K, V, S>);
+impl_function_traits!(::bevy_utils::hashbrown::HashMap<K, V, S>;
+    <
+        K: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+        V: FromReflect + TypePath + GetTypeRegistration,
+        S: TypePath + BuildHasher + Default + Send + Sync
+    >
+);
 
 impl<K, V> Map for ::std::collections::BTreeMap<K, V>
 where
@@ -765,6 +791,10 @@ where
         map_apply(self, value);
     }
 
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        map_try_apply(self, value)
+    }
+
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
@@ -839,6 +869,12 @@ where
 }
 
 impl_type_path!(::std::collections::BTreeMap<K, V>);
+impl_function_traits!(::std::collections::BTreeMap<K, V>;
+    <
+        K: FromReflect + TypePath + GetTypeRegistration + Eq + Ord,
+        V: FromReflect + TypePath + GetTypeRegistration
+    >
+);
 
 impl<T: Reflect + TypePath + GetTypeRegistration, const N: usize> Array for [T; N] {
     #[inline]
@@ -907,6 +943,11 @@ impl<T: Reflect + TypePath + GetTypeRegistration, const N: usize> Reflect for [T
     #[inline]
     fn apply(&mut self, value: &dyn Reflect) {
         crate::array_apply(self, value);
+    }
+
+    #[inline]
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        crate::array_try_apply(self, value)
     }
 
     #[inline]
@@ -994,6 +1035,8 @@ impl<T: Reflect + TypePath + GetTypeRegistration, const N: usize> GetTypeRegistr
     }
 }
 
+impl_function_traits!([T; N]; <T: Reflect + TypePath + GetTypeRegistration> [const N: usize]);
+
 impl_reflect! {
     #[type_path = "core::option"]
     enum Option<T> {
@@ -1063,13 +1106,18 @@ impl Reflect for Cow<'static, str> {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        let value = value.as_any();
-        if let Some(value) = value.downcast_ref::<Self>() {
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        let any = value.as_any();
+        if let Some(value) = any.downcast_ref::<Self>() {
             self.clone_from(value);
         } else {
-            panic!("Value is not a {}.", Self::type_path());
+            return Err(ApplyError::MismatchedTypes {
+                from_type: value.reflect_type_path().into(),
+                // If we invoke the reflect_type_path on self directly the borrow checker complains that the lifetime of self must outlive 'static
+                to_type: Self::type_path().into(),
+            });
         }
+        Ok(())
     }
 
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
@@ -1145,6 +1193,8 @@ impl FromReflect for Cow<'static, str> {
         )
     }
 }
+
+impl_function_traits!(Cow<'static, str>);
 
 impl<T: TypePath> TypePath for [T]
 where
@@ -1253,6 +1303,10 @@ impl<T: FromReflect + Clone + TypePath + GetTypeRegistration> Reflect for Cow<'s
         crate::list_apply(self, value);
     }
 
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        crate::list_try_apply(self, value)
+    }
+
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
@@ -1320,6 +1374,8 @@ impl<T: FromReflect + Clone + TypePath + GetTypeRegistration> FromReflect for Co
     }
 }
 
+impl_function_traits!(Cow<'static, [T]>; <T: FromReflect + Clone + TypePath + GetTypeRegistration>);
+
 impl Reflect for &'static str {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
@@ -1349,13 +1405,17 @@ impl Reflect for &'static str {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        let value = value.as_any();
-        if let Some(&value) = value.downcast_ref::<Self>() {
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        let any = value.as_any();
+        if let Some(&value) = any.downcast_ref::<Self>() {
             *self = value;
         } else {
-            panic!("Value is not a {}.", Self::type_path());
+            return Err(ApplyError::MismatchedTypes {
+                from_type: value.reflect_type_path().into(),
+                to_type: Self::type_path().into(),
+            });
         }
+        Ok(())
     }
 
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
@@ -1422,6 +1482,8 @@ impl FromReflect for &'static str {
     }
 }
 
+impl_function_traits!(&'static str);
+
 impl Reflect for &'static Path {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
@@ -1451,12 +1513,16 @@ impl Reflect for &'static Path {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        let value = value.as_any();
-        if let Some(&value) = value.downcast_ref::<Self>() {
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        let any = value.as_any();
+        if let Some(&value) = any.downcast_ref::<Self>() {
             *self = value;
+            Ok(())
         } else {
-            panic!("Value is not a {}.", Self::type_path());
+            Err(ApplyError::MismatchedTypes {
+                from_type: value.reflect_type_path().into(),
+                to_type: <Self as DynamicTypePath>::reflect_type_path(self).into(),
+            })
         }
     }
 
@@ -1523,6 +1589,8 @@ impl FromReflect for &'static Path {
     }
 }
 
+impl_function_traits!(&'static Path);
+
 impl Reflect for Cow<'static, Path> {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
@@ -1552,12 +1620,16 @@ impl Reflect for Cow<'static, Path> {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        let value = value.as_any();
-        if let Some(value) = value.downcast_ref::<Self>() {
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        let any = value.as_any();
+        if let Some(value) = any.downcast_ref::<Self>() {
             self.clone_from(value);
+            Ok(())
         } else {
-            panic!("Value is not a {}.", Self::type_path());
+            Err(ApplyError::MismatchedTypes {
+                from_type: value.reflect_type_path().into(),
+                to_type: <Self as DynamicTypePath>::reflect_type_path(self).into(),
+            })
         }
     }
 
@@ -1633,6 +1705,8 @@ impl GetTypeRegistration for Cow<'static, Path> {
         registration
     }
 }
+
+impl_function_traits!(Cow<'static, Path>);
 
 #[cfg(test)]
 mod tests {
@@ -1789,14 +1863,14 @@ mod tests {
 
         // === None on None === //
         let patch = None::<Foo>;
-        let mut value = None;
+        let mut value = None::<Foo>;
         Reflect::apply(&mut value, &patch);
 
         assert_eq!(patch, value, "None apply onto None");
 
         // === Some on None === //
         let patch = Some(Foo(123));
-        let mut value = None;
+        let mut value = None::<Foo>;
         Reflect::apply(&mut value, &patch);
 
         assert_eq!(patch, value, "Some apply onto None");

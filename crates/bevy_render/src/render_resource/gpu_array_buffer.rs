@@ -91,9 +91,7 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
     pub fn binding(&self) -> Option<BindingResource> {
         match self {
             GpuArrayBuffer::Uniform(buffer) => buffer.binding(),
-            GpuArrayBuffer::Storage(buffer) => {
-                buffer.buffer().map(|buffer| buffer.as_entire_binding())
-            }
+            GpuArrayBuffer::Storage(buffer) => buffer.binding(),
         }
     }
 

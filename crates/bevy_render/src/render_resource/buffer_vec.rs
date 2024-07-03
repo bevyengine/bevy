@@ -9,7 +9,7 @@ use encase::{
     internal::{WriteInto, Writer},
     ShaderType,
 };
-use wgpu::{BufferAddress, BufferUsages};
+use wgpu::{BindingResource, BufferAddress, BufferUsages};
 
 use super::GpuArrayBufferable;
 
@@ -43,10 +43,11 @@ pub struct RawBufferVec<T: NoUninit> {
     item_size: usize,
     buffer_usage: BufferUsages,
     label: Option<String>,
-    label_changed: bool,
+    changed: bool,
 }
 
 impl<T: NoUninit> RawBufferVec<T> {
+    /// Creates a new [`RawBufferVec`] with the given [`BufferUsages`].
     pub const fn new(buffer_usage: BufferUsages) -> Self {
         Self {
             values: Vec::new(),
@@ -55,30 +56,43 @@ impl<T: NoUninit> RawBufferVec<T> {
             item_size: std::mem::size_of::<T>(),
             buffer_usage,
             label: None,
-            label_changed: false,
+            changed: false,
         }
     }
 
+    /// Returns a handle to the buffer, if the data has been uploaded.
     #[inline]
     pub fn buffer(&self) -> Option<&Buffer> {
         self.buffer.as_ref()
     }
 
+    /// Returns the binding for the buffer if the data has been uploaded.
+    #[inline]
+    pub fn binding(&self) -> Option<BindingResource> {
+        Some(BindingResource::Buffer(
+            self.buffer()?.as_entire_buffer_binding(),
+        ))
+    }
+
+    /// Returns the amount of space that the GPU will use before reallocating.
     #[inline]
     pub fn capacity(&self) -> usize {
         self.capacity
     }
 
+    /// Returns the number of items that have been pushed to this buffer.
     #[inline]
     pub fn len(&self) -> usize {
         self.values.len()
     }
 
+    /// Returns true if the buffer is empty.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.values.is_empty()
     }
 
+    /// Adds a new value and returns its index.
     pub fn push(&mut self, value: T) -> usize {
         let index = self.values.len();
         self.values.push(value);
@@ -89,16 +103,21 @@ impl<T: NoUninit> RawBufferVec<T> {
         self.values.append(&mut other.values);
     }
 
+    /// Changes the debugging label of the buffer.
+    ///
+    /// The next time the buffer is updated (via [`reserve`]), Bevy will inform
+    /// the driver of the new label.
     pub fn set_label(&mut self, label: Option<&str>) {
         let label = label.map(str::to_string);
 
         if label != self.label {
-            self.label_changed = true;
+            self.changed = true;
         }
 
         self.label = label;
     }
 
+    /// Returns the label
     pub fn get_label(&self) -> Option<&str> {
         self.label.as_deref()
     }
@@ -115,16 +134,16 @@ impl<T: NoUninit> RawBufferVec<T> {
     /// the `RawBufferVec` was created, the buffer on the [`RenderDevice`]
     /// is marked as [`BufferUsages::COPY_DST`](BufferUsages).
     pub fn reserve(&mut self, capacity: usize, device: &RenderDevice) {
-        if capacity > self.capacity || self.label_changed {
+        let size = self.item_size * capacity;
+        if capacity > self.capacity || (self.changed && size > 0) {
             self.capacity = capacity;
-            let size = self.item_size * capacity;
             self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
                 label: self.label.as_deref(),
                 size: size as BufferAddress,
                 usage: BufferUsages::COPY_DST | self.buffer_usage,
                 mapped_at_creation: false,
             }));
-            self.label_changed = false;
+            self.changed = false;
         }
     }
 
@@ -145,10 +164,12 @@ impl<T: NoUninit> RawBufferVec<T> {
         }
     }
 
+    /// Reduces the length of the buffer.
     pub fn truncate(&mut self, len: usize) {
         self.values.truncate(len);
     }
 
+    /// Removes all elements from the buffer.
     pub fn clear(&mut self) {
         self.values.clear();
     }
@@ -215,6 +236,14 @@ where
     #[inline]
     pub fn buffer(&self) -> Option<&Buffer> {
         self.buffer.as_ref()
+    }
+
+    /// Returns the binding for the buffer if the data has been uploaded.
+    #[inline]
+    pub fn binding(&self) -> Option<BindingResource> {
+        Some(BindingResource::Buffer(
+            self.buffer()?.as_entire_buffer_binding(),
+        ))
     }
 
     /// Returns the amount of space that the GPU will use before reallocating.
@@ -370,6 +399,14 @@ where
     #[inline]
     pub fn buffer(&self) -> Option<&Buffer> {
         self.buffer.as_ref()
+    }
+
+    /// Returns the binding for the buffer if the data has been uploaded.
+    #[inline]
+    pub fn binding(&self) -> Option<BindingResource> {
+        Some(BindingResource::Buffer(
+            self.buffer()?.as_entire_buffer_binding(),
+        ))
     }
 
     /// Reserves space for one more element in the buffer and returns its index.

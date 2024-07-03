@@ -1,9 +1,9 @@
 #[cfg(feature = "file_watcher")]
 mod file_watcher;
 
-#[cfg(feature = "multi-threaded")]
+#[cfg(feature = "multi_threaded")]
 mod file_asset;
-#[cfg(not(feature = "multi-threaded"))]
+#[cfg(not(feature = "multi_threaded"))]
 mod sync_file_asset;
 
 use bevy_utils::tracing::error;
@@ -22,11 +22,7 @@ pub(crate) fn get_base_path() -> PathBuf {
         PathBuf::from(manifest_dir)
     } else {
         env::current_exe()
-            .map(|path| {
-                path.parent()
-                    .map(|exe_parent_path| exe_parent_path.to_owned())
-                    .unwrap()
-            })
+            .map(|path| path.parent().map(ToOwned::to_owned).unwrap())
             .unwrap()
     }
 }

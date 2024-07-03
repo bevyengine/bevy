@@ -23,13 +23,13 @@ bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 
 # other
-rodio = { version = "0.17", default-features = false }
+rodio = { version = "0.19", default-features = false }
 
 [target.'cfg(target_os = "android")'.dependencies]
 cpal = { version = "0.15", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-rodio = { version = "0.17", default-features = false, features = [
+rodio = { version = "0.19", default-features = false, features = [
   "wasm-bindgen",
 ] }
 

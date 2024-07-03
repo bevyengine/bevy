@@ -1,4 +1,4 @@
-use crate::{PrimaryWindow, Window, WindowCloseRequested};
+use crate::{ClosingWindow, PrimaryWindow, Window, WindowCloseRequested};
 
 use bevy_app::AppExit;
 use bevy_ecs::prelude::*;
@@ -39,8 +39,17 @@ pub fn exit_on_primary_closed(
 /// Ensure that you read the caveats documented on that field if doing so.
 ///
 /// [`WindowPlugin`]: crate::WindowPlugin
-pub fn close_when_requested(mut commands: Commands, mut closed: EventReader<WindowCloseRequested>) {
+pub fn close_when_requested(
+    mut commands: Commands,
+    mut closed: EventReader<WindowCloseRequested>,
+    closing: Query<Entity, With<ClosingWindow>>,
+) {
+    // This was inserted by us on the last frame so now we can despawn the window
+    for window in closing.iter() {
+        commands.entity(window).despawn();
+    }
+    // Mark the window as closing so we can despawn it on the next frame
     for event in closed.read() {
-        commands.entity(event.window).despawn();
+        commands.entity(event.window).insert(ClosingWindow);
     }
 }
