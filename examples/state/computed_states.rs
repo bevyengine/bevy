@@ -224,20 +224,19 @@ fn menu(
     tutorial_state: Res<State<TutorialState>>,
     mut next_tutorial: ResMut<NextState<TutorialState>>,
     mut interaction_query: Query<
-        (&Interaction, &mut UiImage, &MenuButton),
+        (&Interaction, &mut BackgroundColor, &MenuButton),
         (Changed<Interaction>, With<Button>),
     >,
 ) {
-    for (interaction, mut image, menu_button) in &mut interaction_query {
-        let color = &mut image.color;
+    for (interaction, mut color, menu_button) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
                 *color = if menu_button == &MenuButton::Tutorial
                     && tutorial_state.get() == &TutorialState::Active
                 {
-                    PRESSED_ACTIVE_BUTTON
+                    PRESSED_ACTIVE_BUTTON.into()
                 } else {
-                    PRESSED_BUTTON
+                    PRESSED_BUTTON.into()
                 };
 
                 match menu_button {
@@ -255,18 +254,18 @@ fn menu(
                 if menu_button == &MenuButton::Tutorial
                     && tutorial_state.get() == &TutorialState::Active
                 {
-                    *color = HOVERED_ACTIVE_BUTTON;
+                    *color = HOVERED_ACTIVE_BUTTON.into();
                 } else {
-                    *color = HOVERED_BUTTON;
+                    *color = HOVERED_BUTTON.into();
                 }
             }
             Interaction::None => {
                 if menu_button == &MenuButton::Tutorial
                     && tutorial_state.get() == &TutorialState::Active
                 {
-                    *color = ACTIVE_BUTTON;
+                    *color = ACTIVE_BUTTON.into();
                 } else {
-                    *color = NORMAL_BUTTON;
+                    *color = NORMAL_BUTTON.into();
                 }
             }
         }
