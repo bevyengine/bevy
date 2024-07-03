@@ -45,7 +45,7 @@ fn cull_clusters(
     let instance_uniform = meshlet_instance_uniforms[instance_id];
     let meshlet_id = meshlet_cluster_meshlet_ids[cluster_id];
     let world_from_local = affine3_to_square(instance_uniform.world_from_local);
-    let world_scale = max(length(world_from_local[0]), max(length(world_from_local[1]), length(world_from_local[2])));
+    let world_scale = 0.5 * max(length(world_from_local[0]), max(length(world_from_local[1]), length(world_from_local[2])));
     let bounding_spheres = meshlet_bounding_spheres[meshlet_id];
     var culling_bounding_sphere_center = world_from_local * vec4(bounding_spheres.self_culling.center, 1.0);
     var culling_bounding_sphere_radius = world_scale * bounding_spheres.self_culling.radius;
@@ -78,9 +78,9 @@ fn cull_clusters(
     // Project the culling bounding sphere to view-space for occlusion culling
 #ifdef MESHLET_FIRST_CULLING_PASS
     let previous_world_from_local = affine3_to_square(instance_uniform.previous_world_from_local);
-    let previous_world_from_local_scale = max(length(previous_world_from_local[0]), max(length(previous_world_from_local[1]), length(previous_world_from_local[2])));
+    let previous_world_scale = 0.5 * max(length(previous_world_from_local[0]), max(length(previous_world_from_local[1]), length(previous_world_from_local[2])));
     culling_bounding_sphere_center = previous_world_from_local * vec4(bounding_spheres.self_culling.center, 1.0);
-    culling_bounding_sphere_radius = previous_world_from_local_scale * bounding_spheres.self_culling.radius;
+    culling_bounding_sphere_radius = previous_world_scale * bounding_spheres.self_culling.radius;
 #endif
     let culling_bounding_sphere_center_view_space = (view.view_from_world * vec4(culling_bounding_sphere_center.xyz, 1.0)).xyz;
 
