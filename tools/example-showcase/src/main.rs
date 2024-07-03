@@ -44,7 +44,9 @@ enum Action {
         wgpu_backend: Option<String>,
 
         #[arg(long, default_value = "250")]
-        /// Which frame to stop at. Default to 250, use 0 to not stop example automatically
+        /// Which frame to automatically stop the example at.
+        ///
+        /// This defaults to frame 250. Set it to 0 to not stop the example automatically.
         stop_frame: u32,
 
         #[arg(long)]
@@ -176,7 +178,9 @@ fn main() {
             let mut extra_parameters = vec![];
 
             match (stop_frame, screenshot_frame) {
+                // When the example does not automatically stop nor take a screenshot.
                 (0, 0) => (),
+                // When the example does not automatically stop.
                 (0, _) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(
@@ -186,6 +190,7 @@ fn main() {
                     extra_parameters.push("--features");
                     extra_parameters.push("bevy_ci_testing");
                 }
+                // When the example does not take a screenshot.
                 (_, 0) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(format!("(events: [({stop_frame}, AppExit)])").as_bytes())
@@ -193,6 +198,7 @@ fn main() {
                     extra_parameters.push("--features");
                     extra_parameters.push("bevy_ci_testing");
                 }
+                // When the example both automatically stops and takes a screenshot.
                 (_, _) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(
