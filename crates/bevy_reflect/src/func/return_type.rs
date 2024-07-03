@@ -68,7 +68,9 @@ impl<'a> Return<'a> {
 /// [derive macro]: derive@crate::Reflect
 pub trait IntoReturn {
     /// Converts [`Self`] into a [`Return`] value.
-    fn into_return<'a>(self) -> Return<'a>;
+    fn into_return<'a>(self) -> Return<'a>
+    where
+        Self: 'a;
 }
 
 impl IntoReturn for () {
@@ -111,7 +113,7 @@ macro_rules! impl_into_return {
                 $($U $(: $U1 $(+ $U2)*)?),*
         )?
         {
-            fn into_return<'into_return>(self) -> $crate::func::Return<'into_return> {
+            fn into_return<'into_return>(self) -> $crate::func::Return<'into_return> where Self: 'into_return {
                 $crate::func::Return::Owned(Box::new(self))
             }
         }
@@ -125,7 +127,7 @@ macro_rules! impl_into_return {
                 $($U $(: $U1 $(+ $U2)*)?),*
         )?
         {
-            fn into_return<'into_return>(self) -> $crate::func::Return<'into_return> {
+            fn into_return<'into_return>(self) -> $crate::func::Return<'into_return> where Self: 'into_return {
                 $crate::func::Return::Ref(self)
             }
         }
@@ -139,7 +141,7 @@ macro_rules! impl_into_return {
                 $($U $(: $U1 $(+ $U2)*)?),*
         )?
         {
-            fn into_return<'into_return>(self) -> $crate::func::Return<'into_return> {
+            fn into_return<'into_return>(self) -> $crate::func::Return<'into_return> where Self: 'into_return {
                 $crate::func::Return::Mut(self)
             }
         }
