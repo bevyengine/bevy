@@ -25,6 +25,9 @@ pub struct SocketManagerPlugin;
 
 impl Plugin for SocketManagerPlugin {
     fn build(&self, app: &mut App) {
+        
+        
+        
         if app.is_plugin_added::<TaskPoolPlugin>() {
             PLUGIN_INIT.set_init();
         } else {

@@ -1,6 +1,7 @@
 use std::collections::vec_deque::{IntoIter, Iter};
 use std::collections::VecDeque;
 use std::future::Future;
+use std::hint::black_box;
 use std::iter::{Enumerate, Iterator};
 use std::mem;
 use std::net::SocketAddr;
@@ -11,9 +12,11 @@ use futures::task::SpawnExt;
 use quinn::{ConnectError, ConnectionError, OpenUni, ReadError, SendDatagramError, VarInt, WriteError};
 use quinn_proto::ConnectionStats;
 use static_init::dynamic;
+use bevy_reflect::{impl_type_path, TypePath};
 use bevy_tasks::{ComputeTaskPool, IoTaskPool, Task};
 use bevy_tasks::futures_lite::future::yield_now;
-use crate::easy_sockets::{Buffer, UpdateResult};
+use crate::easy_sockets::{Buffer};
+use crate::easy_sockets::socket_manager::{Key, Sockets};
 
 pub mod bevy_quinn;
 
@@ -29,8 +32,11 @@ where T: Into<Bytes> {
 }
 
 pub enum DataSendError {
+    /// Datagrams are not supported by the peer
     UnsupportedByPeer,
+    /// Datagrams are locally disabled
     Disabled,
+    /// The connection was lost
     ConnectionLost(ConnectionError)
 }
 
@@ -45,35 +51,148 @@ pub struct Connection {
     incoming_error: Option<ConnectError>,
 }
 
+#[derive(TypePath)]
 pub struct RecvStream {
     inner: quinn::RecvStream,
     queue: VecDeque<VecDeque<u8>>,
-    error: Option<ReadError>
+    total_bytes: usize,
+    error: Option<ReceiveError>
+}
+
+#[derive(Clone, Debug)]
+pub enum ReceiveError {
+    /// The connection was reset
+    Reset(VarInt),
+    /// The connection was lost
+    ConnectionLost(ConnectionError),
+    /// The stream has been closed or was never connected
+    ClosedStream,
+    /// Attempted to connect with a 0 rtt connection,
+    /// the peer rejected it.
+    ZeroRttRejected
+}
+
+impl ReceiveError {
+    fn from(error: ReadError) -> Self {
+        match error {
+            ReadError::Reset(i) => {Self::Reset(i)}
+            ReadError::ConnectionLost(c) => {Self::ConnectionLost(c)}
+            ReadError::ClosedStream => {Self::ClosedStream}
+            ReadError::IllegalOrderedRead => {unreachable!()}
+            ReadError::ZeroRttRejected => {Self::ZeroRttRejected}
+        }
+    }
+}
+
+impl Drop for RecvStream {
+    fn drop(&mut self) {
+        let _ = self.inner.stop(VarInt::from(0_u32));
+    }
 }
 
 impl RecvStream {
-    pub fn receive_error(&mut self) {
-        todo!()
+    /// Get the last error that occurred on this stream, if any.
+    pub fn get_error(&mut self) -> Option<ReceiveError> {
+        self.error.take()
     }
 
     pub fn read(&mut self, buf: &mut [u8]) -> usize {
+        let mut i = 0;
+        while let Some(mut queue) = self.queue.pop_front() {
+            while let Some(byte) = queue.pop_front() {
+                if i >= self.queue.len() {
+                    self.queue.push_front(queue);
+                    self.total_bytes -= i;
+                    return i
+                }
+                buf[i] = byte;
+                i += 1;
+            }
+        }
+        self.total_bytes -= i;
+        return i
+    }
+    
+    /// Shuts down the stream gracefully, awaiting the reset of the stream by the peer
+    /// or until the connection is lost. Returns all remaining received data as well as it's result.
+    pub fn finish(mut self) -> Task<(VecDeque<VecDeque<u8>>, Result<Option<VarInt>, ResetError>)> {
+        IoTaskPool::get().spawn(async move {
+            let res = self.inner.received_reset().await;
 
-
-        todo!()
+            (self.queue, res)
+        })
     }
 }
 
+impl Buffer for RecvStream {
+    fn read_from_io(&mut self, target: usize) -> impl Future<Output=Result<usize, ()>> + Send {
+        async move {
+            let mut buf = Vec::with_capacity(target);
+            match self.inner.read(&mut buf).await {
+                Ok(op) => {
+                    if let Some(n) = op {
+                        if n == 0 {
+                            return Err(())
+                        }
+                        if n < target {
+                            return Ok(n)
+                        } else {
+                            return Err(())
+                        }
+                    }
+                    self.error = Some(ReceiveError::ClosedStream);
+                    Err(())
+                }
+                Err(e) => {
+                    self.error = Some(ReceiveError::from(e));
+                    Err(())
+                }
+            }
+        }
+    }
+
+    fn write_to_io(&mut self, target: usize) -> impl Future<Output=Result<usize, ()>> + Send {
+        async {Err(())}
+    }
+
+    fn additional_updates(&mut self) -> impl Future<Output=()> + Send {
+        async {}
+    }
+}
+
+#[derive(TypePath)]
 pub struct SendStream {
     inner: quinn::SendStream,
     queue: VecDeque<Bytes>,
-    error: Option<WriteError>
+    error: Option<SendError>
 }
 
+#[derive(TypePath)]
 pub enum SendError {
     Stopped(VarInt),
     ConnectionLost(ConnectionError),
     ZeroRttRejected
 }
+
+impl SendError {
+    fn from(writeerror: WriteError) -> Self {
+        match writeerror {
+            WriteError::Stopped(i) => {
+                Self::Stopped(i)
+            }
+            WriteError::ConnectionLost(c) => {
+                Self::ConnectionLost(c)
+            }
+            WriteError::ClosedStream => {
+                unreachable!()
+            }
+            WriteError::ZeroRttRejected => {
+                Self::ZeroRttRejected
+            }
+        }
+    }
+}
+
 
 impl Drop for SendStream {
     fn drop(&mut self) {
@@ -87,25 +206,7 @@ impl SendStream {
     /// Gets the most recent error, if any. All subsequent calls
     /// will result in None unless backend writes have been attempted since then.
     fn handle_error(&mut self) -> Option<SendError> {
-        if let Some(error) = self.error.take() {
-            match error {
-                WriteError::Stopped(i) => {
-                    return Some(SendError::Stopped(i))
-                }
-                WriteError::ConnectionLost(e) => {
-                    return Some(SendError::ConnectionLost(e))
-                }
-                WriteError::ClosedStream => {
-                    //this isn't possible
-                    unreachable!()
-                }
-                WriteError::ZeroRttRejected => {
-                    return Some(SendError::ZeroRttRejected)
-                }
-            }
-        }
-
-        None
+        self.error.take()
     }
     fn write(&mut self, bytes: impl ToBytes) {
         self.queue.push_back(bytes.to_bytes())
@@ -136,6 +237,37 @@ impl SendStream {
         //been closed which is only possible by dropping
         //in our implementation
         self.inner.priority().unwrap()
+    }
+}
+
+impl Buffer for SendStream {
+    fn read_from_io(&mut self, target: usize) -> impl Future<Output=Result<usize, ()>> + Send {
+        async {Err(())}
+    }
+
+    fn write_to_io(&mut self, target: usize) -> impl Future<Output=Result<usize, ()>> + Send {
+        async move {
+            match self.inner.write(&self.queue[0][..]).await {
+                Ok(n) => {
+                    if n == 0 {
+                        return Err(())
+                    }
+                    if n < target {
+                        return Ok(n)
+                    } else {
+                        return Err(())
+                    }
+                }
+                Err(error) => {
+                    self.error = Some(SendError::from(error));
+                    Err(())
+                }
+            }
+        }
+    }
+
+    fn additional_updates(&mut self) -> impl Future<Output=()> + Send {
+        async {}
     }
 }
 
@@ -176,15 +308,24 @@ impl Connection {
         todo!()
     }
 
-    pub fn open_uni(&self) {
-        //this should be completed quickly
-        let res =
+    pub fn open_uni(&self, sends: &mut Sockets<SendStream>) -> Result<Key<SendStream>, ConnectionError>{
+        //this should complete quickly
+        let res = 
             IoTaskPool::get().scope(
-                |s| s.spawn(self.inner.open_uni())
-            ).pop().unwrap();
-
-
-        todo!()
+                |s| s.spawn(self.inner.open_uni())).pop().unwrap();
+        
+        match res {
+            Ok(stream) => {
+                Ok(sends.register(SendStream {
+                    inner: stream,
+                    queue: Default::default(),
+                    error: None,
+                }))
+            }
+            Err(e) => {
+                Err(e)
+            }
+        }
     }
 
     pub fn open_bi(&self) {
