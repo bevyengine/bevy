@@ -1125,7 +1125,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
     /// It is always safe for shared access.
     #[inline(always)]
     unsafe fn fetch_next_aliased_unchecked(
-        entity_iter: &mut impl Iterator<Item: Borrow<Entity>>,
+        entity_iter: impl Iterator<Item: Borrow<Entity>>,
         entities: &'w Entities,
         tables: &'w Tables,
         archetypes: &'w Archetypes,
@@ -1183,12 +1183,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
         unsafe {
             Self::fetch_next_aliased_unchecked(
                 &mut self.entity_iter,
-                &self.entities,
-                &self.tables,
-                &self.archetypes,
+                self.entities,
+                self.tables,
+                self.archetypes,
                 &mut self.fetch,
                 &mut self.filter,
-                &self.query_state,
+                self.query_state,
             )
             .map(D::shrink)
         }
@@ -1208,13 +1208,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: DoubleEndedIterator<Item: Borrow<E
         // of any previously returned unique references first, thus preventing aliasing.
         unsafe {
             Self::fetch_next_aliased_unchecked(
-                self.entity_iter.by_ref().rev().by_ref(),
-                &self.entities,
-                &self.tables,
-                &self.archetypes,
+                self.entity_iter.by_ref().rev(),
+                self.entities,
+                self.tables,
+                self.archetypes,
                 &mut self.fetch,
                 &mut self.filter,
-                &self.query_state,
+                self.query_state,
             )
             .map(D::shrink)
         }
@@ -1234,12 +1234,12 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item: Borrow<Enti
         unsafe {
             Self::fetch_next_aliased_unchecked(
                 &mut self.entity_iter,
-                &self.entities,
-                &self.tables,
-                &self.archetypes,
+                self.entities,
+                self.tables,
+                self.archetypes,
                 &mut self.fetch,
                 &mut self.filter,
-                &self.query_state,
+                self.query_state,
             )
         }
     }
@@ -1266,12 +1266,12 @@ impl<
         unsafe {
             Self::fetch_next_aliased_unchecked(
                 self.entity_iter.by_ref().rev().by_ref(),
-                &self.entities,
-                &self.tables,
-                &self.archetypes,
+                self.entities,
+                self.tables,
+                self.archetypes,
                 &mut self.fetch,
                 &mut self.filter,
-                &self.query_state,
+                self.query_state,
             )
         }
     }
